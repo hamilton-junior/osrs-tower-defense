@@ -1,0 +1,5 @@
+{
+  "name": "OSRS Tower Defense",
+  "description": "An Old School RuneScape themed tower defense game with sophisticated waves, unique towers, persistent upgrades via the Grand Exchange, and Slayer tasks.",
+  "requestFramePermissions": []
+}
