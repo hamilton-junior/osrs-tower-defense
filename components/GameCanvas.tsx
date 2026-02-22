@@ -26,6 +26,8 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     specialAttackCharge?: number;
     achievements?: any[];
     pets?: any[];
+    inventory?: any[];
+    quests?: any[];
   }>({
     money: 150,
     lives: 20,
@@ -40,7 +42,9 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     activePrayers: [],
     specialAttackCharge: 0,
     achievements: [],
-    pets: []
+    pets: [],
+    inventory: [],
+    quests: []
   });
 
   // Persistence
@@ -49,18 +53,22 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     archerRange: 1.0,
     magicDamage: 1.0,
     cannonSpeed: 1.0,
-    slayerReward: 1.0
+    slayerReward: 1.0,
+    prayerEfficiency: 1.0
   });
 
   const UPGRADE_LIMITS = {
     archerRange: 2.0, // Max +100%
     magicDamage: 2.5, // Max +150%
     cannonSpeed: 2.0, // Max +100%
-    slayerReward: 2.5  // Max +150%
+    slayerReward: 2.5,  // Max +150%
+    prayerEfficiency: 2.0 // Max +100%
   };
 
   const [showGrandExchange, setShowGrandExchange] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showQuests, setShowQuests] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -111,7 +119,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
       resizeObserver.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, [isMounted]); 
   
   // To handle updates from GE to Engine:
   useEffect(() => {
@@ -194,6 +202,20 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     }
   };
 
+  const handleClaimQuest = (questId: string) => {
+    engineRef.current?.claimQuestReward(questId);
+  };
+
+  const handleEquipItem = (itemId: string) => {
+    if (engineRef.current && selectedPlacedTower) {
+      engineRef.current.equipItem(selectedPlacedTower.id, itemId);
+      // Update selected tower state
+      const updatedTower = engineRef.current.towers.find(t => t.id === selectedPlacedTower.id);
+      if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
+      setShowInventory(false);
+    }
+  };
+
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!engineRef.current) return;
@@ -221,7 +243,15 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
   if (!isMounted) return <div className="w-full h-full bg-[#1e1e1e]" />;
 
   return (
-    <div className="relative w-full h-full flex flex-col">
+    <div className="relative w-full h-full flex flex-col overflow-hidden bg-[#000]">
+      {/* Canvas - Moved to top and absolute to stay behind UI */}
+      <canvas 
+        ref={canvasRef}
+        className="absolute inset-0 block cursor-crosshair touch-none w-full h-full z-0"
+        onClick={handleCanvasClick}
+        onContextMenu={handleContextMenu}
+      />
+
       {/* Game HUD */}
       <div className="absolute top-0 left-0 w-full p-2 flex justify-between items-start pointer-events-none z-10">
         <div className="flex gap-4 bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded text-[#ffff00] shadow-lg pointer-events-auto">
@@ -344,18 +374,39 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
       </div>
 
       {/* Slayer Task UI */}
-      {gameState.slayerTask && (
-        <div className="absolute top-20 right-4 bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded text-[#ffff00] shadow-lg pointer-events-auto z-10">
-          <h3 className="text-xs font-bold text-[#ff981f] border-b border-[#5d5d5d] mb-1">Slayer Task</h3>
-          <p className="text-sm">
-            Kill {gameState.slayerTask.count} <span className="capitalize">{gameState.slayerTask.type.replace('_', ' ')}s</span>
-          </p>
-          <p className="text-xs text-[#c0c0c0]">Reward: {gameState.slayerTask.reward} gp</p>
-          {(gameState.consecutiveTasks ?? 0) > 0 && (
-            <p className="text-[10px] text-[#00ff00]">Streak: {gameState.consecutiveTasks} (+{(gameState.consecutiveTasks ?? 0) * 10}%)</p>
-          )}
-        </div>
-      )}
+      <div className="absolute top-20 right-4 flex flex-col gap-2 z-10 pointer-events-auto">
+        {gameState.slayerTask && (
+          <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded text-[#ffff00] shadow-lg">
+            <h3 className="text-xs font-bold text-[#ff981f] border-b border-[#5d5d5d] mb-1">Slayer Task</h3>
+            <p className="text-sm">
+              Kill {gameState.slayerTask.count} <span className="capitalize">{gameState.slayerTask.type.replace('_', ' ')}s</span>
+            </p>
+            <p className="text-xs text-[#c0c0c0]">Reward: {gameState.slayerTask.reward} gp</p>
+            {(gameState.consecutiveTasks ?? 0) > 0 && (
+              <p className="text-[10px] text-[#00ff00]">Streak: {gameState.consecutiveTasks} (+{(gameState.consecutiveTasks ?? 0) * 10}%)</p>
+            )}
+          </div>
+        )}
+
+        {/* Pets UI */}
+        {gameState.pets && gameState.pets.length > 0 && (
+          <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded text-[#ffff00] shadow-lg">
+            <h3 className="text-xs font-bold text-[#00ffff] border-b border-[#5d5d5d] mb-1">Pets</h3>
+            <div className="flex flex-wrap gap-1 max-w-[120px]">
+              {gameState.pets.map(pet => (
+                <div key={pet.id} className="group relative">
+                  <div className="w-6 h-6 bg-[#2d2d2d] border border-[#5d5d5d] rounded flex items-center justify-center text-[10px] cursor-help hover:border-[#00ffff]">
+                    🐾
+                  </div>
+                  <div className="absolute right-full mr-2 top-0 bg-black/90 text-[10px] text-white p-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none w-24 text-center z-20">
+                    {pet.name}: {pet.bonus}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Path Selection & GE - Only show when not playing */}
       {!gameState.isPlaying && (
@@ -387,6 +438,18 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
             className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#ffff00] px-3 py-1 border-2 border-[#2d2d2d] text-xs font-bold shadow-md"
           >
             Achievements
+          </button>
+          <button 
+            onClick={() => setShowQuests(true)}
+            className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#ff981f] px-3 py-1 border-2 border-[#2d2d2d] text-xs font-bold shadow-md"
+          >
+            Quests
+          </button>
+          <button 
+            onClick={() => setShowInventory(true)}
+            className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#c0c0c0] px-3 py-1 border-2 border-[#2d2d2d] text-xs font-bold shadow-md"
+          >
+            Inventory ({gameState.inventory?.length || 0})
           </button>
         </div>
       )}
@@ -420,6 +483,93 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
         </div>
       )}
 
+      {/* Quests Modal */}
+      {showQuests && (
+        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center pointer-events-auto">
+          <div className="bg-[#3d3d3d] border-4 border-[#5d5d5d] p-6 rounded-lg w-[450px] shadow-2xl relative">
+            <div className="flex justify-between items-center mb-4 border-b-2 border-[#5d5d5d] pb-2">
+              <h2 className="text-[#ff981f] font-bold text-2xl tracking-tight">Quest Journal</h2>
+              <button 
+                onClick={() => setShowQuests(false)} 
+                className="text-[#ff0000] font-bold hover:scale-110 transition-transform cursor-pointer"
+              >
+                [X]
+              </button>
+            </div>
+            
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {gameState.quests?.map((quest) => (
+                <div key={quest.id} className={`p-3 border rounded ${quest.completed ? 'bg-[#00ff00]/10 border-[#00ff00]' : 'bg-[#2d2d2d] border-[#4d4d4d]'}`}>
+                  <div className="flex justify-between items-center">
+                    <span className={`font-bold ${quest.completed ? 'text-[#00ff00]' : 'text-[#ffff00]'}`}>{quest.name}</span>
+                    {quest.completed && !quest.claimed && (
+                      <button 
+                        onClick={() => handleClaimQuest(quest.id)}
+                        className="text-[10px] bg-[#00ff00] text-black px-2 py-1 rounded font-bold hover:bg-[#32CD32]"
+                      >
+                        CLAIM REWARD
+                      </button>
+                    )}
+                    {quest.claimed && <span className="text-[10px] text-[#808080] font-bold italic">CLAIMED</span>}
+                  </div>
+                  <p className="text-xs text-[#c0c0c0] mt-1">{quest.description}</p>
+                  <div className="mt-2 h-2 w-full bg-[#1e1e1e] rounded-full overflow-hidden border border-[#5d5d5d]">
+                    <div 
+                      className="h-full bg-[#ff981f]" 
+                      style={{ width: `${(quest.objective.current / quest.objective.target) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-right text-[#808080] mt-1">{quest.objective.current} / {quest.objective.target}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inventory Modal */}
+      {showInventory && (
+        <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center pointer-events-auto">
+          <div className="bg-[#3d3d3d] border-4 border-[#5d5d5d] p-6 rounded-lg w-[400px] shadow-2xl relative">
+            <div className="flex justify-between items-center mb-4 border-b-2 border-[#5d5d5d] pb-2">
+              <h2 className="text-[#c0c0c0] font-bold text-2xl tracking-tight">Inventory</h2>
+              <button 
+                onClick={() => setShowInventory(false)} 
+                className="text-[#ff0000] font-bold hover:scale-110 transition-transform cursor-pointer"
+              >
+                [X]
+              </button>
+            </div>
+            
+            {gameState.inventory?.length === 0 ? (
+              <p className="text-center text-[#808080] py-8 italic">Your inventory is empty.</p>
+            ) : (
+              <div className="grid grid-cols-4 gap-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {gameState.inventory?.map((item) => (
+                  <div 
+                    key={item.id} 
+                    className="aspect-square bg-[#2d2d2d] border-2 border-[#5d5d5d] rounded p-1 flex flex-col items-center justify-center group relative cursor-pointer hover:border-[#ffff00]"
+                    onClick={() => handleEquipItem(item.id)}
+                  >
+                    <div className="text-2xl">
+                      {item.type === 'weapon' ? '⚔️' : item.type === 'shield' ? '🛡️' : '💍'}
+                    </div>
+                    <div className="absolute inset-0 bg-black/90 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col items-center justify-center text-center z-10">
+                      <span className="text-[10px] font-bold text-[#ffff00]">{item.name}</span>
+                      <span className="text-[8px] text-white mt-1">{item.description}</span>
+                      {selectedPlacedTower && <span className="text-[8px] text-[#00ff00] mt-1 font-bold">CLICK TO EQUIP</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!selectedPlacedTower && gameState.inventory && gameState.inventory.length > 0 && (
+              <p className="text-[10px] text-center text-[#808080] mt-4 italic">Select a tower on the field to equip items.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Grand Exchange Modal */}
       {showGrandExchange && (
         <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center pointer-events-auto">
@@ -445,6 +595,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
                 { id: 'magicDamage', name: 'Ancient Magicks', desc: 'Magic Damage +10%', cost: 15, inc: 0.1 },
                 { id: 'cannonSpeed', name: 'Dwarf Engineering', desc: 'Cannon Speed +10%', cost: 20, inc: 0.1 },
                 { id: 'slayerReward', name: 'Slayer Helmet', desc: 'Slayer Reward +15%', cost: 25, inc: 0.15 },
+                { id: 'prayerEfficiency', name: 'Holy Grail', desc: 'Prayer Drain -10%', cost: 30, inc: 0.1 },
               ].map((item) => {
                 const isMaxed = upgrades[item.id as keyof GlobalUpgrades] >= UPGRADE_LIMITS[item.id as keyof GlobalUpgrades];
                 return (
@@ -481,22 +632,45 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
         </div>
       )}
 
-      {/* Canvas */}
-      <canvas 
-        ref={canvasRef}
-        className="block bg-[#2d2d2d] cursor-crosshair touch-none w-full h-full"
-        onClick={handleCanvasClick}
-        onContextMenu={handleContextMenu}
-      />
-
       {/* Upgrade Menu */}
       {selectedPlacedTower && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#3d3d3d] p-4 border-2 border-[#5d5d5d] rounded shadow-2xl z-20 flex flex-col gap-2 min-w-[200px]">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#3d3d3d] p-4 border-2 border-[#5d5d5d] rounded shadow-2xl z-20 flex flex-col gap-2 min-w-[250px]">
           <h3 className="text-[#ffff00] font-bold text-center border-b border-[#5d5d5d] pb-1">{selectedPlacedTower.name}</h3>
-          <div className="text-xs text-[#c0c0c0] space-y-1">
-            <p>Level: {selectedPlacedTower.level} / {selectedPlacedTower.maxLevel}</p>
-            <p>Damage: {selectedPlacedTower.damage}</p>
-            <p>Range: {selectedPlacedTower.range}</p>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-xs text-[#c0c0c0] space-y-1">
+              <p className="font-bold text-[#ff981f]">Stats</p>
+              <p>Level: {selectedPlacedTower.level} / {selectedPlacedTower.maxLevel}</p>
+              <p>Damage: {selectedPlacedTower.damage}</p>
+              <p>Range: {selectedPlacedTower.range}</p>
+            </div>
+            
+            <div className="text-xs text-[#c0c0c0] space-y-1">
+              <p className="font-bold text-[#00ffff]">Skills</p>
+              {Object.entries(selectedPlacedTower.skills || {}).map(([name, skill]: [string, any]) => (
+                <div key={name} className="flex justify-between">
+                  <span className="capitalize">{name}:</span>
+                  <span className="font-bold text-white">Lvl {skill.level}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-2 border-t border-[#5d5d5d] pt-2">
+            <p className="text-[10px] font-bold text-[#c0c0c0] mb-1">Equipment</p>
+            <div className="flex gap-2 justify-center">
+              {['weapon', 'shield', 'accessory'].map(slot => {
+                const item = selectedPlacedTower.equipment?.[slot];
+                return (
+                  <div key={slot} className="w-10 h-10 bg-[#2d2d2d] border border-[#5d5d5d] rounded flex items-center justify-center text-lg relative group">
+                    {item ? (slot === 'weapon' ? '⚔️' : slot === 'shield' ? '🛡️' : '💍') : ''}
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/90 text-[8px] text-white p-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none w-20 text-center z-30">
+                      {item ? item.name : `Empty ${slot}`}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           
           <div className="flex gap-2 mt-2">

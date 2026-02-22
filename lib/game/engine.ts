@@ -54,6 +54,32 @@ export interface Enemy {
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar';
 
+export interface TowerSkill {
+  level: number;
+  xp: number;
+}
+
+export interface TowerSkills {
+  attack: TowerSkill;
+  strength: TowerSkill;
+  defense: TowerSkill;
+  ranged: TowerSkill;
+  magic: TowerSkill;
+}
+
+export interface Item {
+  id: string;
+  name: string;
+  description: string;
+  bonus: {
+    damage?: number;
+    range?: number;
+    cooldown?: number;
+    defense?: number;
+  };
+  type: 'weapon' | 'shield' | 'accessory';
+}
+
 export interface Tower {
   id: string;
   x: number;
@@ -72,6 +98,12 @@ export interface Tower {
   special?: 'slow' | 'aoe' | 'rapid' | 'stun';
   visualRadius: number;
   disabledTimer: number;
+  skills: TowerSkills;
+  equipment: {
+    weapon: Item | null;
+    shield: Item | null;
+    accessory: Item | null;
+  };
 }
 
 export interface Projectile {
@@ -83,6 +115,7 @@ export interface Projectile {
   damage: number;
   color: string;
   special?: 'slow' | 'aoe' | 'stun';
+  sourceTowerId?: string;
 }
 
 export interface SlayerTask {
@@ -90,6 +123,25 @@ export interface SlayerTask {
   count: number;
   total: number;
   reward: number;
+}
+
+export interface Quest {
+  id: string;
+  name: string;
+  description: string;
+  objective: {
+    type: 'kill' | 'wave' | 'money' | 'essence';
+    target: number;
+    current: number;
+    enemyType?: EnemyType;
+  };
+  reward: {
+    money?: number;
+    essence?: number;
+    item?: Item;
+  };
+  completed: boolean;
+  claimed: boolean;
 }
 
 export class GameEngine {
@@ -126,7 +178,11 @@ export class GameEngine {
     { id: 'first_wave', name: 'Novice Defender', description: 'Complete Wave 1', completed: false },
     { id: 'rich', name: 'Merchant', description: 'Accumulate 1000 GP', completed: false },
     { id: 'slayer_master', name: 'Slayer Master', description: 'Complete 5 Slayer Tasks', completed: false },
-    { id: 'boss_slayer', name: 'Boss Slayer', description: 'Defeat TzTok-Jad', completed: false }
+    { id: 'boss_slayer', name: 'Boss Slayer', description: 'Defeat TzTok-Jad', completed: false },
+    { id: 'vorkath_slayer', name: 'Dragon Slayer II', description: 'Defeat Vorkath', completed: false },
+    { id: 'zulrah_slayer', name: 'Snake Pit', description: 'Defeat Zulrah', completed: false },
+    { id: 'essence_hoarder', name: 'Essence Hoarder', description: 'Accumulate 50 Rune Essence', completed: false },
+    { id: 'tower_master', name: 'Tower Master', description: 'Have 10 towers on the field', completed: false }
   ];
 
   // Entities
@@ -135,8 +191,44 @@ export class GameEngine {
   projectiles: Projectile[] = [];
   particles: { x: number, y: number, life: number, color: string }[] = [];
   
+  // Items & Quests
+  inventory: Item[] = [];
+  quests: Quest[] = [
+    {
+      id: 'cooks_assistant',
+      name: "Cook's Assistant",
+      description: 'Kill 20 Goblins for the cook.',
+      objective: { type: 'kill', target: 20, current: 0, enemyType: 'goblin' },
+      reward: { money: 100, essence: 5 },
+      completed: false,
+      claimed: false
+    },
+    {
+      id: 'dragon_slayer',
+      name: 'Dragon Slayer',
+      description: 'Defeat 5 Green Dragons.',
+      objective: { type: 'kill', target: 5, current: 0, enemyType: 'green_dragon' },
+      reward: { money: 500, essence: 20 },
+      completed: false,
+      claimed: false
+    },
+    {
+      id: 'wave_master',
+      name: 'Wave Master',
+      description: 'Reach Wave 10.',
+      objective: { type: 'wave', target: 10, current: 0 },
+      reward: { money: 300, essence: 10 },
+      completed: false,
+      claimed: false
+    }
+  ];
+  
   // Screen Shake
   shakeAmount: number = 0;
+  
+  // Boss Mechanics
+  jadAttackTimer: number = 0;
+  jadAttackType: 'mage' | 'range' | null = null;
   
   // Map
   path: Point[] = [];
@@ -319,8 +411,12 @@ export class GameEngine {
   }
 
   initPath() {
-    const w = this.canvas.width || 800;
-    const h = this.canvas.height || 600;
+    let w = this.canvas.width;
+    let h = this.canvas.height;
+    
+    // Fallback if canvas is not yet sized
+    if (w <= 0) w = 800;
+    if (h <= 0) h = 600;
     
     // Save old path length to check if we need to reset enemies
     const oldPathLength = this.path.length;
@@ -471,6 +567,9 @@ export class GameEngine {
       if (ach.id === 'first_wave' && this.wave > 1) ach.completed = true;
       if (ach.id === 'rich' && this.money >= 1000) ach.completed = true;
       if (ach.id === 'slayer_master' && this.consecutiveTasks >= 5) ach.completed = true;
+      if (ach.id === 'essence_hoarder' && this.runeEssence >= 50) ach.completed = true;
+      if (ach.id === 'tower_master' && this.towers.length >= 10) ach.completed = true;
+      
       if (ach.completed) {
         changed = true;
         this.playSound('level_up');
@@ -687,7 +786,20 @@ export class GameEngine {
           name,
           upgradeCost,
           special,
-          visualRadius: 18
+          visualRadius: 18,
+          disabledTimer: 0,
+          skills: {
+            attack: { level: 1, xp: 0 },
+            strength: { level: 1, xp: 0 },
+            defense: { level: 1, xp: 0 },
+            ranged: { level: 1, xp: 0 },
+            magic: { level: 1, xp: 0 }
+          },
+          equipment: {
+            weapon: null,
+            shield: null,
+            accessory: null
+          }
         });
         this.onStateChange({ money: this.money });
       } else {
@@ -951,6 +1063,11 @@ export class GameEngine {
       this.onStateChange({ specialAttackCharge: this.specialAttackCharge });
     }
 
+    // Update Quests for waves
+    if (this.wave > 1) {
+      this.updateQuests('wave', this.wave);
+    }
+
     this.checkAchievements();
 
     // Boss Map Attacks
@@ -1062,6 +1179,63 @@ export class GameEngine {
         enemy.x += moveX;
         enemy.y += moveY;
       }
+
+      // Boss special attacks
+      if (enemy.type === 'vorkath' && Math.random() < 0.005) {
+        // Disable a random tower
+        const target = this.towers[Math.floor(Math.random() * this.towers.length)];
+        if (target) {
+          target.disabledTimer = 300; // 5 seconds
+          this.particles.push({ x: target.x, y: target.y, life: 1, color: '#00ff00' });
+        }
+      }
+
+      if (enemy.type === 'zulrah' && Math.random() < 0.003) {
+        // Spawn snakelings
+        for (let i = 0; i < 3; i++) {
+          const stats = this.getEnemyStats('rat', 1.5); // Use rat stats for snakelings
+          this.enemies.push({
+            id: Math.random().toString(36).substr(2, 9),
+            x: enemy.x + (Math.random() - 0.5) * 20,
+            y: enemy.y + (Math.random() - 0.5) * 20,
+            hp: stats.hp,
+            maxHp: stats.maxHp,
+            speed: stats.speed * 1.5,
+            baseSpeed: stats.speed * 1.5,
+            pathIndex: enemy.pathIndex,
+            type: 'rat',
+            color: '#2E8B57',
+            reward: 1,
+            slowTimer: 0,
+            stunTimer: 0,
+            tauntTimer: 0
+          });
+        }
+      }
+
+      if (enemy.type === 'jad') {
+        this.jadAttackTimer += dt * 1000;
+        if (this.jadAttackTimer > 4000) { // Every 4 seconds
+          this.jadAttackTimer = 0;
+          this.jadAttackType = Math.random() > 0.5 ? 'mage' : 'range';
+          
+          // Visual warning
+          this.particles.push({ x: enemy.x, y: enemy.y - 40, life: 1.5, color: this.jadAttackType === 'mage' ? '#0000ff' : '#00ff00' });
+          
+          // Delayed check for prayer
+          setTimeout(() => {
+            if (this.enemies.find(e => e.id === enemy.id)) {
+              // If Jad attacks and you don't have ANY prayer active, you lose a life
+              if (this.activePrayers.size === 0) {
+                this.lives--;
+                this.shakeAmount = 10;
+                this.onStateChange({ lives: this.lives });
+              }
+              this.jadAttackType = null;
+            }
+          }, 1500);
+        }
+      }
     }
 
     // Update Towers
@@ -1139,7 +1313,8 @@ export class GameEngine {
               speed: 400,
               damage: effectiveDamage,
               color: tower.color,
-              special: tower.special === 'aoe' ? 'aoe' : (tower.special === 'slow' ? 'slow' : (tower.special === 'stun' ? 'stun' : undefined))
+              special: tower.special === 'aoe' ? 'aoe' : (tower.special === 'slow' ? 'slow' : (tower.special === 'stun' ? 'stun' : undefined)),
+              sourceTowerId: tower.id
             });
             tower.lastFired = now;
           } else {
@@ -1174,7 +1349,7 @@ export class GameEngine {
             const edx = e.x - p.x;
             const edy = e.y - p.y;
             if (Math.sqrt(edx * edx + edy * edy) <= aoeRadius) {
-              this.damageEnemy(e, p.damage);
+              this.damageEnemy(e, p.damage, p.sourceTowerId);
               if (p.color === '#B0E0E6') { // Ice Barrage check
                  this.applySlow(e);
               }
@@ -1182,7 +1357,7 @@ export class GameEngine {
           });
         } else {
           // Single Target
-          this.damageEnemy(target, p.damage);
+          this.damageEnemy(target, p.damage, p.sourceTowerId);
           if (p.special === 'slow') {
             this.applySlow(target);
           } else if (p.special === 'stun') {
@@ -1202,9 +1377,17 @@ export class GameEngine {
     }
   }
 
-  damageEnemy(enemy: Enemy, damage: number) {
+  damageEnemy(enemy: Enemy, damage: number, sourceTowerId?: string) {
     enemy.hp -= damage;
     this.playSound('hit');
+    
+    // Award XP to tower
+    if (sourceTowerId) {
+      const tower = this.towers.find(t => t.id === sourceTowerId);
+      if (tower) {
+        this.awardTowerXP(tower, damage);
+      }
+    }
     
     // Add hit particle
     this.particles.push({
@@ -1219,16 +1402,53 @@ export class GameEngine {
       if (index > -1) {
         this.playSound('kill');
         this.enemies.splice(index, 1);
-        this.money += enemy.reward;
+        
+        // Update Quests
+        this.updateQuests('kill', 1, enemy.type);
+
+        // GP Bonus from Pets
+        let gpReward = enemy.reward;
+        if (this.pets.some(p => p.name === 'Snakeling')) gpReward = Math.floor(gpReward * 1.1);
+        this.money += gpReward;
+
+        // Achievement checks for bosses
+        if (enemy.type === 'jad') {
+          const ach = this.achievements.find(a => a.id === 'boss_slayer');
+          if (ach) ach.completed = true;
+        } else if (enemy.type === 'vorkath') {
+          const ach = this.achievements.find(a => a.id === 'vorkath_slayer');
+          if (ach) ach.completed = true;
+        } else if (enemy.type === 'zulrah') {
+          const ach = this.achievements.find(a => a.id === 'zulrah_slayer');
+          if (ach) ach.completed = true;
+        }
+
         this.onStateChange({ remainingEnemies: this.enemiesToSpawn.length + this.enemies.length });
         
+        // Item Drop (2% chance)
+        if (Math.random() < 0.02) {
+          const items: Item[] = [
+            { id: 'iron_longsword', name: 'Iron Longsword', description: 'Dmg +5', bonus: { damage: 5 }, type: 'weapon' },
+            { id: 'oak_shortbow', name: 'Oak Shortbow', description: 'Range +20', bonus: { range: 20 }, type: 'weapon' },
+            { id: 'steel_shield', name: 'Steel Shield', description: 'Def +5', bonus: { defense: 5 }, type: 'shield' },
+            { id: 'amulet_of_power', name: 'Amulet of Power', description: 'Dmg +10, Range +10', bonus: { damage: 10, range: 10 }, type: 'accessory' }
+          ];
+          const drop = items[Math.floor(Math.random() * items.length)];
+          this.inventory.push({ ...drop, id: Math.random().toString() });
+          this.onStateChange({ inventory: this.inventory });
+        }
+
         // Pet Drop (1% chance from normal, 20% from bosses)
         const isBoss = enemy.type === 'vorkath' || enemy.type === 'zulrah' || enemy.type === 'jad';
-        const dropChance = isBoss ? 0.2 : 0.01;
+        let dropChance = isBoss ? 0.2 : 0.01;
+        
+        // Luck Bonus from Pets
+        if (this.pets.some(p => p.name === 'Pet Rock')) dropChance *= 1.5;
+
         if (Math.random() < dropChance) {
           const petNames = { vorkath: 'Vorki', zulrah: 'Snakeling', jad: 'TzRek-Jad' };
           const petName = isBoss ? petNames[enemy.type as keyof typeof petNames] : 'Pet Rock';
-          const newPet = { id: Math.random().toString(), name: petName, type: enemy.type, bonus: 'Luck +5%' };
+          const newPet = { id: Math.random().toString(), name: petName, type: enemy.type, bonus: isBoss ? 'GP +10%' : 'Luck +50%' };
           if (!this.pets.find(p => p.name === petName)) {
             this.pets.push(newPet);
             this.playSound('level_up');
@@ -1237,7 +1457,9 @@ export class GameEngine {
         }
         
         // Rune Essence Drop (10% chance)
-        if (Math.random() < 0.1) {
+        let essenceChance = 0.1;
+        if (this.pets.some(p => p.name === 'Vorki')) essenceChance = 0.15;
+        if (Math.random() < essenceChance) {
           this.runeEssence++;
           this.onStateChange({ runeEssence: this.runeEssence });
         }
@@ -1258,6 +1480,78 @@ export class GameEngine {
     }
   }
 
+  awardTowerXP(tower: Tower, amount: number) {
+    const xpGain = amount / 2;
+    let skillKey: keyof TowerSkills = 'attack';
+    
+    if (tower.type === 'archer') skillKey = 'ranged';
+    else if (tower.type === 'wizard') skillKey = 'magic';
+    else if (tower.type === 'cannon') skillKey = 'strength';
+    else if (tower.type === 'tzhaar') skillKey = 'attack';
+
+    const skill = tower.skills[skillKey];
+    skill.xp += xpGain;
+    
+    const nextLevelXP = Math.pow(skill.level, 2) * 100;
+    if (skill.xp >= nextLevelXP) {
+      skill.level++;
+      skill.xp -= nextLevelXP;
+      this.playSound('level_up');
+      this.particles.push({ x: tower.x, y: tower.y - 20, life: 1, color: '#ffff00' });
+      
+      // Improve stats based on level up
+      if (skillKey === 'ranged' || skillKey === 'magic' || skillKey === 'attack') {
+        tower.damage += 2;
+      }
+      if (skillKey === 'strength') {
+        tower.damage += 5;
+      }
+    }
+  }
+
+  updateQuests(type: Quest['objective']['type'], amount: number, enemyType?: EnemyType) {
+    let changed = false;
+    this.quests.forEach(quest => {
+      if (quest.completed) return;
+      
+      if (quest.objective.type === type) {
+        if (type === 'kill') {
+          if (quest.objective.enemyType === enemyType) {
+            quest.objective.current += amount;
+          }
+        } else {
+          quest.objective.current = amount;
+        }
+
+        if (quest.objective.current >= quest.objective.target) {
+          quest.objective.current = quest.objective.target;
+          quest.completed = true;
+          this.playSound('level_up');
+          changed = true;
+        }
+      }
+    });
+    if (changed) this.onStateChange({ quests: this.quests });
+  }
+
+  claimQuestReward(questId: string) {
+    const quest = this.quests.find(q => q.id === questId);
+    if (quest && quest.completed && !quest.claimed) {
+      quest.claimed = true;
+      if (quest.reward.money) this.money += quest.reward.money;
+      if (quest.reward.essence) this.runeEssence += quest.reward.essence;
+      if (quest.reward.item) this.inventory.push(quest.reward.item);
+      
+      this.playSound('upgrade');
+      this.onStateChange({ 
+        money: this.money, 
+        runeEssence: this.runeEssence, 
+        inventory: this.inventory,
+        quests: this.quests 
+      });
+    }
+  }
+
   applySlow(enemy: Enemy) {
     enemy.speed = enemy.baseSpeed * 0.5;
     enemy.slowTimer = 2.0; // 2 seconds slow
@@ -1265,6 +1559,36 @@ export class GameEngine {
 
   applyStun(enemy: Enemy) {
     enemy.stunTimer = 1.0; // 1 second stun
+  }
+
+  equipItem(towerId: string, itemId: string) {
+    const tower = this.towers.find(t => t.id === towerId);
+    const itemIndex = this.inventory.findIndex(i => i.id === itemId);
+    if (!tower || itemIndex === -1) return;
+
+    const item = this.inventory[itemIndex];
+    
+    // Unequip current item in slot if any
+    const currentItem = tower.equipment[item.type];
+    if (currentItem) {
+      this.inventory.push(currentItem);
+      // Remove bonuses
+      if (currentItem.bonus.damage) tower.damage -= currentItem.bonus.damage;
+      if (currentItem.bonus.range) tower.range -= currentItem.bonus.range;
+      if (currentItem.bonus.cooldown) tower.cooldown += currentItem.bonus.cooldown;
+    }
+
+    // Equip new item
+    tower.equipment[item.type] = item;
+    this.inventory.splice(itemIndex, 1);
+
+    // Apply bonuses
+    if (item.bonus.damage) tower.damage += item.bonus.damage;
+    if (item.bonus.range) tower.range += item.bonus.range;
+    if (item.bonus.cooldown) tower.cooldown -= item.bonus.cooldown;
+
+    this.playSound('upgrade');
+    this.onStateChange({ inventory: this.inventory });
   }
 
   resetGame() {
@@ -1293,7 +1617,7 @@ export class GameEngine {
       }
 
       // Clear
-      this.ctx.fillStyle = '#1e1e1e'; // Dark background
+      this.ctx.fillStyle = '#1a1a1a'; // Very dark background
       this.ctx.fillRect(0, 0, w, h);
 
       // Set common styles
@@ -1302,8 +1626,8 @@ export class GameEngine {
 
       // Draw Path Border (Outer)
       this.ctx.beginPath();
-      this.ctx.strokeStyle = '#2d2d2d';
-      this.ctx.lineWidth = 44;
+      this.ctx.strokeStyle = '#3d2b1f'; // Dark brown border
+      this.ctx.lineWidth = 46;
       if (this.path.length > 0) {
         this.ctx.moveTo(this.path[0].x, this.path[0].y);
         for (let i = 1; i < this.path.length; i++) {
@@ -1314,7 +1638,7 @@ export class GameEngine {
 
       // Draw Path (Middle)
       this.ctx.beginPath();
-      this.ctx.strokeStyle = '#4a4a4a'; // Brighter gray
+      this.ctx.strokeStyle = '#5d4037'; // Medium brown
       this.ctx.lineWidth = 40;
       if (this.path.length > 0) {
         this.ctx.moveTo(this.path[0].x, this.path[0].y);
@@ -1324,10 +1648,10 @@ export class GameEngine {
       }
       this.ctx.stroke();
 
-      // Draw Inner Path (Center)
+      // Draw Path (Center)
       this.ctx.beginPath();
-      this.ctx.strokeStyle = '#3d3d3d'; // Path color
-      this.ctx.lineWidth = 34;
+      this.ctx.strokeStyle = '#795548'; // Light brown dirt
+      this.ctx.lineWidth = 32;
       if (this.path.length > 0) {
         this.ctx.moveTo(this.path[0].x, this.path[0].y);
         for (let i = 1; i < this.path.length; i++) {
@@ -1335,6 +1659,28 @@ export class GameEngine {
         }
       }
       this.ctx.stroke();
+
+      // Draw Pets
+      if (this.pets.length > 0) {
+        const time = performance.now() / 1000;
+        const startPoint = this.path[0];
+        if (startPoint) {
+          this.pets.forEach((pet, index) => {
+            const offsetX = Math.cos(time + index) * 30;
+            const offsetY = Math.sin(time + index) * 30;
+            const x = startPoint.x + 60 + offsetX;
+            const y = startPoint.y + offsetY;
+            
+            this.ctx.font = '16px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('🐾', x, y);
+            
+            this.ctx.fillStyle = '#00ffff';
+            this.ctx.font = '10px Arial';
+            this.ctx.fillText(pet.name, x, y + 15);
+          });
+        }
+      }
 
       // Draw Towers
       this.towers.forEach(tower => {
@@ -1359,6 +1705,20 @@ export class GameEngine {
           this.ctx.stroke();
         }
 
+        // Disabled indicator (Boss attack)
+        if (tower.disabledTimer > 0) {
+          this.ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+          this.ctx.beginPath();
+          this.ctx.arc(tower.x, tower.y, (tower.visualRadius || 18) + 2, 0, Math.PI * 2);
+          this.ctx.fill();
+          
+          this.ctx.strokeStyle = '#00ff00';
+          this.ctx.lineWidth = 2;
+          this.ctx.setLineDash([5, 5]);
+          this.ctx.stroke();
+          this.ctx.setLineDash([]);
+        }
+
         // Level indicator
         this.ctx.fillStyle = '#fff';
         this.ctx.font = 'bold 10px Arial';
@@ -1371,13 +1731,15 @@ export class GameEngine {
         if (isNaN(enemy.x) || isNaN(enemy.y)) return;
 
         const img = this.imageCache.get(enemy.type);
+        const isBoss = enemy.type === 'vorkath' || enemy.type === 'zulrah' || enemy.type === 'jad';
+        const size = isBoss ? 60 : 30;
+
         if (img && img.complete && img.naturalWidth > 0 && !this.brokenImages.has(enemy.type)) {
-          const size = 30; // Standard enemy size
           this.ctx.drawImage(img, enemy.x - size/2, enemy.y - size/2, size, size);
         } else {
           this.ctx.fillStyle = enemy.color;
           this.ctx.beginPath();
-          this.ctx.arc(enemy.x, enemy.y, 10, 0, Math.PI * 2);
+          this.ctx.arc(enemy.x, enemy.y, isBoss ? 20 : 10, 0, Math.PI * 2);
           this.ctx.fill();
         }
 
@@ -1396,6 +1758,27 @@ export class GameEngine {
           this.ctx.arc(enemy.x, enemy.y, 14, 0, Math.PI * 2);
           this.ctx.stroke();
         }
+
+        // Health bar
+        const barWidth = isBoss ? 60 : 30;
+        const barHeight = isBoss ? 6 : 4;
+        const barY = isBoss ? enemy.y - 40 : enemy.y - 20;
+
+        this.ctx.fillStyle = '#ff0000';
+        this.ctx.fillRect(enemy.x - barWidth/2, barY, barWidth, barHeight);
+        this.ctx.fillStyle = '#00ff00';
+        this.ctx.fillRect(enemy.x - barWidth/2, barY, barWidth * (enemy.hp / enemy.maxHp), barHeight);
+
+        if (isBoss) {
+          this.ctx.strokeStyle = '#fff';
+          this.ctx.lineWidth = 1;
+          this.ctx.strokeRect(enemy.x - barWidth/2, barY, barWidth, barHeight);
+          
+          this.ctx.fillStyle = '#fff';
+          this.ctx.font = 'bold 12px Arial';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(enemy.type.toUpperCase(), enemy.x, barY - 5);
+        }
         if (enemy.tauntTimer > 0) {
           this.ctx.strokeStyle = '#ff0000';
           this.ctx.lineWidth = 1;
@@ -1403,13 +1786,6 @@ export class GameEngine {
           this.ctx.arc(enemy.x, enemy.y, 16, 0, Math.PI * 2);
           this.ctx.stroke();
         }
-
-        // HP Bar
-        const hpPct = Math.max(0, enemy.hp / enemy.maxHp);
-        this.ctx.fillStyle = 'red';
-        this.ctx.fillRect(enemy.x - 10, enemy.y - 15, 20, 4);
-        this.ctx.fillStyle = 'green';
-        this.ctx.fillRect(enemy.x - 10, enemy.y - 15, 20 * hpPct, 4);
       });
 
       // Draw Projectiles
