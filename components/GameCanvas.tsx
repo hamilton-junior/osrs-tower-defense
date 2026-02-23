@@ -3,32 +3,65 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { GameEngine, GlobalUpgrades } from '@/lib/game/engine';
 
-interface GameCanvasProps {
-  apiKey: string;
-  onExamine: (text: string) => void;
+interface TowerSkill {
+  level: number;
+  xp: number;
+  nextLevelXp: number;
 }
 
-export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
+interface TowerData {
+  id: string;
+  name: string;
+  type: string;
+  level: number;
+  maxLevel: number;
+  damage: number;
+  range: number;
+  cooldown: number;
+  upgradeCost: number;
+  skills: Record<string, TowerSkill>;
+  equipment?: Record<string, any>;
+}
+
+interface EnemyData {
+  id: string;
+  type: string;
+  hp: number;
+  maxHp: number;
+  speed: number;
+  reward: number;
+}
+
+interface SlayerTask {
+  type: string;
+  count: number;
+  total: number;
+  reward: number;
+}
+
+interface GameState {
+  money: number;
+  lives: number;
+  wave: number;
+  isPlaying: boolean;
+  runeEssence?: number;
+  slayerTask?: SlayerTask | null;
+  consecutiveTasks?: number;
+  remainingEnemies?: number;
+  prayerPoints?: number;
+  maxPrayerPoints?: number;
+  activePrayers?: string[];
+  specialAttackCharge?: number;
+  achievements?: any[];
+  pets?: any[];
+  inventory?: any[];
+  quests?: any[];
+}
+
+export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const [gameState, setGameState] = useState<{
-    money: number;
-    lives: number;
-    wave: number;
-    isPlaying: boolean;
-    runeEssence?: number;
-    slayerTask?: any;
-    consecutiveTasks?: number;
-    remainingEnemies?: number;
-    prayerPoints?: number;
-    maxPrayerPoints?: number;
-    activePrayers?: string[];
-    specialAttackCharge?: number;
-    achievements?: any[];
-    pets?: any[];
-    inventory?: any[];
-    quests?: any[];
-  }>({
+  const [gameState, setGameState] = useState<GameState>({
     money: 150,
     lives: 20,
     wave: 1,
@@ -47,6 +80,10 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     quests: []
   });
 
+  const [autoSpawn, setAutoSpawn] = useState(false);
+  const [autoSpawnDelay, setAutoSpawnDelay] = useState(3);
+  const [autoSpawnTimer, setAutoSpawnTimer] = useState(0);
+
   // Persistence
   const [runeEssence, setRuneEssence] = useState(0);
   const [upgrades, setUpgrades] = useState<GlobalUpgrades>({
@@ -57,7 +94,10 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     prayerEfficiency: 1.0,
     startingMoney: 0,
     rewardMultiplier: 1.0,
-    waveSpeed: 1.0
+    waveSpeed: 1.0,
+    towerCostReduction: 1.0,
+    xpGainMultiplier: 1.0,
+    prayerRegen: 0
   });
 
   const UPGRADE_LIMITS = {
@@ -67,8 +107,11 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     slayerReward: 2.5,  // Max +150%
     prayerEfficiency: 2.0, // Max +100%
     startingMoney: 500,
-    rewardMultiplier: 2.0,
-    waveSpeed: 2.0
+    rewardMultiplier: 2.5,
+    waveSpeed: 2.0,
+    towerCostReduction: 0.5, // Max 50% discount
+    xpGainMultiplier: 3.0,
+    prayerRegen: 1.0 // 1 point per second
   };
 
   const [showGrandExchange, setShowGrandExchange] = useState(false);
@@ -102,8 +145,8 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     console.log('Initializing GameEngine...');
     // Initialize game engine
     const canvas = canvasRef.current;
-    const engine = new GameEngine(canvas, (state) => {
-      setGameState(prev => ({ ...prev, ...state }));
+    const engine = new GameEngine(canvas, (state: Partial<GameState>) => {
+      setGameState((prev: GameState) => ({ ...prev, ...state }));
       if (state.runeEssence !== undefined) {
         setRuneEssence(state.runeEssence);
       }
@@ -135,8 +178,15 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     if (engineRef.current) {
       engineRef.current.upgrades = upgrades;
       engineRef.current.runeEssence = runeEssence;
+      engineRef.current.autoSpawnEnabled = autoSpawn;
+      engineRef.current.autoSpawnDelay = autoSpawnDelay;
     }
-  }, [upgrades, runeEssence]);
+  }, [upgrades, runeEssence, autoSpawn, autoSpawnDelay]);
+
+  // Handle engine state updates locally
+  useEffect(() => {
+    if (gameState.autoSpawnTimer !== undefined) setAutoSpawnTimer(gameState.autoSpawnTimer);
+  }, [gameState.autoSpawnTimer]);
 
 
   const handleStartWave = () => {
@@ -147,7 +197,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     engineRef.current?.setPath(index);
   };
 
-  const handleTogglePrayer = (type: any) => {
+  const handleTogglePrayer = (type: string) => {
     engineRef.current?.togglePrayer(type);
   };
 
@@ -155,16 +205,22 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     engineRef.current?.useSpecialAttack();
   };
 
-  const handleBuyPotion = (type: any) => {
+  const handleBuyPotion = (type: 'overload' | 'super_restore' | 'prayer_potion') => {
     engineRef.current?.buyPotion(type);
   };
 
   const buyUpgrade = (type: keyof GlobalUpgrades, cost: number, increment: number) => {
-    if (runeEssence >= cost && upgrades[type] < UPGRADE_LIMITS[type]) {
-      setRuneEssence(prev => prev - cost);
-      setUpgrades(prev => ({
+    const currentVal = upgrades[type];
+    const limit = UPGRADE_LIMITS[type];
+    
+    // Check if within limits (handles both positive and negative increments)
+    const canUpgrade = increment > 0 ? currentVal < limit : currentVal > limit;
+    
+    if (runeEssence >= cost && canUpgrade) {
+      setRuneEssence((prev: number) => prev - cost);
+      setUpgrades((prev: GlobalUpgrades) => ({
         ...prev,
-        [type]: Math.min(prev[type] + increment, UPGRADE_LIMITS[type])
+        [type]: increment > 0 ? Math.min(prev[type] + increment, limit) : Math.max(prev[type] + increment, limit)
       }));
     }
   };
@@ -200,7 +256,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     if (engineRef.current && selectedPlacedTower) {
       engineRef.current.upgradeTower(selectedPlacedTower.id);
       // Force update state to reflect changes
-      setSelectedPlacedTower({ ...selectedPlacedTower, ...engineRef.current.towers.find(t => t.id === selectedPlacedTower.id) });
+      setSelectedPlacedTower({ ...selectedPlacedTower, ...engineRef.current.towers.find((t: any) => t.id === selectedPlacedTower.id) });
     }
   };
 
@@ -219,7 +275,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     if (engineRef.current && selectedPlacedTower) {
       engineRef.current.equipItem(selectedPlacedTower.id, itemId);
       // Update selected tower state
-      const updatedTower = engineRef.current.towers.find(t => t.id === selectedPlacedTower.id);
+      const updatedTower = engineRef.current.towers.find((t: any) => t.id === selectedPlacedTower.id);
       if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
       setShowInventory(false);
     }
@@ -228,7 +284,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
   const handleUnequipItem = (slot: 'weapon' | 'shield' | 'accessory') => {
     if (engineRef.current && selectedPlacedTower) {
       engineRef.current.unequipItem(selectedPlacedTower.id, slot);
-      const updatedTower = engineRef.current.towers.find(t => t.id === selectedPlacedTower.id);
+      const updatedTower = engineRef.current.towers.find((t: any) => t.id === selectedPlacedTower.id);
       if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
     }
   };
@@ -239,13 +295,15 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     if (!rect) return;
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     const entity = engineRef.current.getEntityAt(x, y);
     if (entity) {
       setHoveredEntity(entity);
       setTooltipPos({ x: e.clientX, y: e.clientY });
+      engineRef.current.hoveredEntityId = entity.data.id;
     } else {
       setHoveredEntity(null);
+      engineRef.current.hoveredEntityId = null;
     }
   };
 
@@ -259,7 +317,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const entity = engineRef.current.getEntityAt(x, y);
+    const entity = engineRef.current.getEntityAt(x, y) as any;
     if (entity) {
       setRightClickedEntity(entity);
     } else {
@@ -309,34 +367,64 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
           </div>
         </div>
 
-        <div className="flex gap-2 pointer-events-auto">
-          <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2 items-end pointer-events-auto">
+          <div className="flex gap-2">
+            <div className="flex flex-col gap-1">
+              <button 
+                onClick={handleSpecialAttack}
+                disabled={!gameState.isPlaying || (gameState.specialAttackCharge || 0) < 50}
+                className={`
+                  px-4 py-2 border-2 border-[#2d2d2d] font-bold shadow-lg transition-all text-xs
+                  ${(gameState.specialAttackCharge || 0) >= 50 
+                    ? 'bg-[#ff4500] hover:bg-[#ff6347] text-white animate-pulse' 
+                    : 'bg-[#5d5d5d] text-[#808080] cursor-not-allowed'}
+                `}
+              >
+                SPECIAL ({(gameState.specialAttackCharge || 0).toFixed(0)}%)
+              </button>
+              <div className="h-2 w-full bg-[#2d2d2d] border border-[#5d5d5d] rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-[#ff4500] transition-all duration-300" 
+                  style={{ width: `${Math.min(100, (gameState.specialAttackCharge || 0))}%` }}
+                />
+              </div>
+            </div>
+
             <button 
-              onClick={handleSpecialAttack}
-              disabled={!gameState.isPlaying || (gameState.specialAttackCharge || 0) < 50}
-              className={`
-                px-4 py-2 border-2 border-[#2d2d2d] font-bold shadow-lg transition-all
-                ${(gameState.specialAttackCharge || 0) >= 50 
-                  ? 'bg-[#ff4500] hover:bg-[#ff6347] text-white animate-pulse' 
-                  : 'bg-[#5d5d5d] text-[#808080] cursor-not-allowed'}
-              `}
+              onClick={handleStartWave}
+              className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#ffff00] px-4 py-2 border-2 border-[#2d2d2d] font-bold shadow-lg active:translate-y-1 transition-transform h-fit"
             >
-              SPECIAL ({(gameState.specialAttackCharge || 0).toFixed(0)}%)
+              Start Wave
             </button>
-            <div className="h-2 w-full bg-[#2d2d2d] border border-[#5d5d5d] rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-[#ff4500] transition-all duration-300" 
-                style={{ width: `${Math.min(100, (gameState.specialAttackCharge || 0))}%` }}
+          </div>
+
+          <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded shadow-lg flex flex-col gap-2 min-w-[150px]">
+            <div className="flex items-center justify-between gap-4">
+              <label className="text-[10px] font-bold text-[#c0c0c0] cursor-pointer flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  checked={autoSpawn} 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoSpawn(e.target.checked)}
+                  className="accent-[#ffff00]"
+                />
+                AUTO-SPAWN
+              </label>
+              {(autoSpawnTimer || 0) > 0 && !gameState.isPlaying && (
+                <span className="text-xs font-bold text-[#00ff00]">:{autoSpawnTimer.toFixed(1)}s</span>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-[#c0c0c0]">DELAY:</span>
+              <input 
+                type="number" 
+                min="1" 
+                max="30" 
+                value={autoSpawnDelay} 
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoSpawnDelay(parseInt(e.target.value) || 3)}
+                className="w-12 bg-[#1e1e1e] border border-[#5d5d5d] text-[#00ff00] text-xs px-1 rounded"
               />
             </div>
           </div>
-
-          <button 
-            onClick={handleStartWave}
-            className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#ffff00] px-4 py-2 border-2 border-[#2d2d2d] font-bold shadow-lg pointer-events-auto active:translate-y-1 transition-transform h-fit"
-          >
-            Start Wave
-          </button>
         </div>
       </div>
 
@@ -385,7 +473,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
         ].map(pot => (
           <button
             key={pot.id}
-            onClick={() => handleBuyPotion(pot.id)}
+            onClick={() => handleBuyPotion(pot.id as any)}
             disabled={gameState.money < pot.cost}
             className={`
               w-12 h-12 border-2 rounded flex flex-col items-center justify-center transition-all group relative
@@ -625,8 +713,11 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
                 { id: 'slayerReward', name: 'Slayer Helmet', desc: 'Slayer Reward +15%', cost: 25, inc: 0.15 },
                 { id: 'prayerEfficiency', name: 'Holy Grail', desc: 'Prayer Drain -10%', cost: 30, inc: 0.1 },
                 { id: 'startingMoney', name: 'Merchant Guild', desc: 'Starting GP +50', cost: 40, inc: 50 },
-                { id: 'rewardMultiplier', name: 'Wealth Ring', desc: 'Enemy GP/Essence +10%', cost: 50, inc: 0.1 },
-                { id: 'waveSpeed', name: 'Agility Training', desc: 'Wave Spawn Speed +10%', cost: 60, inc: 0.1 },
+                { id: 'rewardMultiplier', name: 'Wealth Ring', desc: 'Enemy Rewards +15%', cost: 50, inc: 0.15 },
+                { id: 'towerCostReduction', name: 'Guild Discount', desc: 'Tower Price -5%', cost: 60, inc: -0.05 },
+                { id: 'xpGainMultiplier', name: 'Combat Training', desc: 'Tower XP +20%', cost: 70, inc: 0.2 },
+                { id: 'prayerRegen', name: 'Prayer Renewal', desc: 'Prayer Regen +0.1/s', cost: 80, inc: 0.1 },
+                { id: 'waveSpeed', name: 'Agility Training', desc: 'Wave Spawn Speed +10%', cost: 90, inc: 0.1 },
               ].map((item) => {
                 const isMaxed = upgrades[item.id as keyof GlobalUpgrades] >= UPGRADE_LIMITS[item.id as keyof GlobalUpgrades];
                 return (
@@ -842,7 +933,8 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
           { id: 'cannon', name: 'Cannon', cost: 150, color: '#ff0000' },
           { id: 'tzhaar', name: 'TzHaar', cost: 200, color: '#8B0000' },
           { id: 'slayer', name: 'Slayer', cost: 125, color: '#4B0082' },
-          { id: 'support', name: 'Support', cost: 100, color: '#FFFFFF' }
+          { id: 'support', name: 'Support', cost: 100, color: '#FFFFFF' },
+          { id: 'toxic', name: 'Toxic', cost: 175, color: '#008080' }
         ].map(tower => (
           <button
             key={tower.id}

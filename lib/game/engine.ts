@@ -13,6 +13,9 @@ export interface GlobalUpgrades {
   startingMoney: number;
   rewardMultiplier: number;
   waveSpeed: number;
+  towerCostReduction: number;
+  xpGainMultiplier: number;
+  prayerRegen: number;
 }
 
 export type PrayerType = 'thick_skin' | 'burst_of_strength' | 'clarity_of_thought' | 'sharp_eye' | 'mystic_will' | 'piety' | 'rigour' | 'augury';
@@ -55,7 +58,7 @@ export interface Enemy {
   tauntTimer: number; // Duration of taunt effect
 }
 
-export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'support';
+export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'support' | 'toxic';
 
 export interface TowerSkill {
   level: number;
@@ -194,6 +197,13 @@ export class GameEngine {
   projectiles: Projectile[] = [];
   particles: { x: number, y: number, life: number, color: string }[] = [];
   
+  // Game State Extras
+  autoSpawnEnabled: boolean = false;
+  autoSpawnDelay: number = 3; // Seconds
+  autoSpawnTimer: number = 0;
+  hoveredEntityId: string | null = null;
+  selectedEntityId: string | null = null;
+
   // Items & Quests
   inventory: Item[] = [];
   quests: Quest[] = [
@@ -262,7 +272,10 @@ export class GameEngine {
     prayerEfficiency: 1.0,
     startingMoney: 0,
     rewardMultiplier: 1.0,
-    waveSpeed: 1.0
+    waveSpeed: 1.0,
+    towerCostReduction: 1.0,
+    xpGainMultiplier: 1.0,
+    prayerRegen: 0
   };
 
   constructor(canvas: HTMLCanvasElement, onStateChange: (state: any) => void, initialEssence: number = 0, upgrades?: Partial<GlobalUpgrades>) {
@@ -302,20 +315,21 @@ export class GameEngine {
 
   preloadSounds() {
     const soundUrls = {
-      shoot_archer: 'https://oldschool.runescape.wiki/images/Shortbow_attack.ogg',
-      shoot_wizard: 'https://oldschool.runescape.wiki/images/Wind_Strike_cast.ogg',
-      shoot_cannon: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_fire.ogg',
+      shoot_archer: 'https://oldschool.runescape.wiki/images/Longbow_attack.wav',
+      shoot_wizard: 'https://oldschool.runescape.wiki/images/Wind_Strike.ogg',
+      shoot_cannon: 'https://oldschool.runescape.wiki/images/Fire_Strike.ogg',
       shoot_tzhaar: 'https://oldschool.runescape.wiki/images/TzHaar-Ket_attack.ogg',
       shoot_slayer: 'https://oldschool.runescape.wiki/images/Slayer_staff_cast.ogg',
       shoot_support: 'https://oldschool.runescape.wiki/images/Heal_Other_cast.ogg',
+      shoot_toxic: 'https://oldschool.runescape.wiki/images/transcoded/Dart_attack.wav/Dart_attack.wav.mp3',
       hit: 'https://oldschool.runescape.wiki/images/Melee_hit_sound.ogg',
-      kill: 'https://oldschool.runescape.wiki/images/Death_sound.ogg',
+      kill: 'https://oldschool.runescape.wiki/images/Zombie_death.ogg',
       wave: 'https://oldschool.runescape.wiki/images/Teleport_sound.ogg',
       upgrade: 'https://oldschool.runescape.wiki/images/Level_up_sound.ogg',
       sell: 'https://oldschool.runescape.wiki/images/Coins_drop_sound.ogg',
       boss_attack: 'https://oldschool.runescape.wiki/images/Vorkath_attack_sound.ogg',
-      prayer_on: 'https://oldschool.runescape.wiki/images/Prayer_on.ogg',
-      prayer_off: 'https://oldschool.runescape.wiki/images/Prayer_off.ogg',
+      prayer_on: 'https://oldschool.runescape.wiki/images/transcoded/Protect_from_Melee.ogg/Protect_from_Melee.ogg.mp3',
+      prayer_off: 'https://oldschool.runescape.wiki/images/Rapid_Heal.ogg',
       potion: 'https://oldschool.runescape.wiki/images/Drink_potion.ogg',
       special_attack: 'https://oldschool.runescape.wiki/images/Special_attack_sound.ogg',
       death_dragon: 'https://oldschool.runescape.wiki/images/Dragon_death.ogg',
@@ -389,7 +403,11 @@ export class GameEngine {
       support_1: 'https://oldschool.runescape.wiki/images/Ancient_mace.png',
       support_2: 'https://oldschool.runescape.wiki/images/War_banner.png',
       support_3: 'https://oldschool.runescape.wiki/images/Altar_of_Gielinor.png',
-      support_4: 'https://oldschool.runescape.wiki/images/Saradomin_statue.png'
+      support_4: 'https://oldschool.runescape.wiki/images/Saradomin_statue.png',
+      toxic_1: 'https://oldschool.runescape.wiki/images/Toxic_blowpipe.png',
+      toxic_2: 'https://oldschool.runescape.wiki/images/Serpentine_helmet.png',
+      toxic_3: 'https://oldschool.runescape.wiki/images/Trident_of_the_swamp.png',
+      toxic_4: 'https://oldschool.runescape.wiki/images/Magma_helmet.png'
     };
 
     Object.entries(imageUrls).forEach(([key, url]) => {
@@ -749,6 +767,17 @@ export class GameEngine {
       }
     }
 
+    // Ensure slayer task enemies spawn if task is active (on any wave)
+    if (this.slayerTask && this.slayerTask.count > 0) {
+      const taskType = this.slayerTask.type;
+      
+      // If the task type isn't already in the wave configuration (from fixed wave or random procedural), add it
+      if (!waveConfigs.some(config => config.type === taskType)) {
+        const taskSpawnCount = Math.min(this.slayerTask.count, Math.max(3, Math.floor(waveNum / 2)));
+        waveConfigs.push({ type: taskType, count: taskSpawnCount });
+      }
+    }
+
     const multiplier = 1 + (waveNum * 0.1); // 10% stronger per wave
 
     if (this.path.length === 0) return enemies;
@@ -812,9 +841,9 @@ export class GameEngine {
       case 'cannon':
         name = 'Dwarf Cannon';
         cost = 150;
-        range = 180;
-        damage = 30;
-        cooldown = 2000 / this.upgrades.cannonSpeed;
+        range = 250;
+        damage = 100;
+        cooldown = 4000 / this.upgrades.cannonSpeed; // Slow but strong
         color = '#ff0000';
         upgradeCost = 300;
         special = 'aoe';
@@ -846,13 +875,24 @@ export class GameEngine {
         color = '#FFFFFF';
         upgradeCost = 200;
         break;
+      case 'toxic':
+        name = 'Blowpipe';
+        cost = 175;
+        range = 140;
+        damage = 5;
+        cooldown = 200; // Very fast
+        color = '#008080';
+        upgradeCost = 350;
+        special = 'slow'; // Poison is represented as slow + DoT
+        break;
     }
 
-    if (this.money >= cost) {
+    const effectiveCost = Math.floor(cost * (this.upgrades.towerCostReduction || 1));
+    if (this.money >= effectiveCost) {
       if (this.isValidPlacement(x, y)) {
         console.log(`Placed tower ${type} successfully`);
         this.playSound('upgrade');
-        this.money -= cost;
+        this.money -= effectiveCost;
         this.towers.push({
           id: Math.random().toString(36).substr(2, 9),
           x,
@@ -898,10 +938,11 @@ export class GameEngine {
     if (!tower) return;
     
     if (tower.level >= tower.maxLevel) return;
-    if (this.money < tower.upgradeCost) return;
+    const effectiveUpgradeCost = Math.floor(tower.upgradeCost * (this.upgrades.towerCostReduction || 1));
+    if (this.money < effectiveUpgradeCost) return;
 
     this.playSound('upgrade');
-    this.money -= tower.upgradeCost;
+    this.money -= effectiveUpgradeCost;
     tower.level++;
     tower.visualRadius += 2;
 
@@ -955,27 +996,27 @@ export class GameEngine {
     } else if (tower.type === 'cannon') {
       if (tower.level === 2) {
         tower.name = 'Gold Cannon';
-        tower.damage = 100;
-        tower.range = 240;
+        tower.damage = 300;
+        tower.range = 280;
         tower.upgradeCost = 600;
         tower.color = '#FFD700';
-        tower.special = 'stun'; // Chance to stun
-        tower.cooldown = 1800 / this.upgrades.cannonSpeed;
+        tower.special = 'aoe';
+        tower.cooldown = 3500 / this.upgrades.cannonSpeed;
       } else if (tower.level === 3) {
         tower.name = 'Granite Cannon';
-        tower.damage = 250;
-        tower.range = 280;
+        tower.damage = 800;
+        tower.range = 320;
         tower.color = '#696969';
-        tower.special = 'stun'; // Higher chance/duration?
-        tower.cooldown = 1600 / this.upgrades.cannonSpeed;
+        tower.special = 'aoe';
+        tower.cooldown = 3000 / this.upgrades.cannonSpeed;
         tower.upgradeCost = 1000;
       } else if (tower.level === 4) {
         tower.name = 'Heavy Ballista';
-        tower.damage = 800;
-        tower.range = 350;
-        tower.cooldown = 3000 / this.upgrades.cannonSpeed;
+        tower.damage = 2500;
+        tower.range = 450;
+        tower.cooldown = 5000 / this.upgrades.cannonSpeed;
         tower.color = '#4B3621';
-        tower.special = 'stun';
+        tower.special = 'aoe';
       }
     } else if (tower.type === 'tzhaar') {
       if (tower.level === 2) {
@@ -1032,6 +1073,25 @@ export class GameEngine {
         tower.name = 'Saradomin Shrine';
         tower.range = 200;
         tower.color = '#0000FF';
+      }
+    } else if (tower.type === 'toxic') {
+      if (tower.level === 2) {
+        tower.name = 'Serpentine Helm';
+        tower.damage = 12;
+        tower.range = 160;
+        tower.upgradeCost = 600;
+        tower.color = '#2E8B57';
+      } else if (tower.level === 3) {
+        tower.name = 'Trident of Swamp';
+        tower.damage = 30;
+        tower.range = 180;
+        tower.color = '#00FF7F';
+        tower.upgradeCost = 1000;
+      } else if (tower.level === 4) {
+        tower.name = 'Venom Master';
+        tower.damage = 100;
+        tower.range = 220;
+        tower.color = '#7CFC00';
       }
     }
 
@@ -1161,17 +1221,36 @@ export class GameEngine {
       if (p.timer <= 0) this.activePotions.splice(i, 1);
     });
 
+    // Auto-spawn countdown logic
+    if (!this.waveActive && this.autoSpawnEnabled && this.autoSpawnTimer > 0) {
+      this.autoSpawnTimer -= dt;
+      if (this.autoSpawnTimer <= 0) {
+        this.startWave();
+      } else {
+        this.onStateChange({ autoSpawnTimer: this.autoSpawnTimer });
+      }
+    }
+
     // Update Prayer
-    if (this.activePrayers.size > 0 && this.waveActive) {
-      this.prayerDrainTimer += dt;
-      if (this.prayerDrainTimer >= 1 / (this.upgrades.prayerEfficiency || 1)) {
-        this.prayerPoints = Math.max(0, this.prayerPoints - this.activePrayers.size * 0.1);
-        this.prayerDrainTimer = 0;
-        if (this.prayerPoints <= 0) {
-          this.activePrayers.clear();
-          this.playSound('prayer_off');
-          this.onStateChange({ activePrayers: [] });
+    if (this.waveActive) {
+      // Regenerate prayer
+      if (this.upgrades.prayerRegen > 0) {
+        this.prayerPoints = Math.min(this.maxPrayerPoints, this.prayerPoints + this.upgrades.prayerRegen * dt);
+      }
+
+      if (this.activePrayers.size > 0) {
+        this.prayerDrainTimer += dt;
+        if (this.prayerDrainTimer >= 1 / (this.upgrades.prayerEfficiency || 1)) {
+          this.prayerPoints = Math.max(0, this.prayerPoints - this.activePrayers.size * 0.1);
+          this.prayerDrainTimer = 0;
+          if (this.prayerPoints <= 0) {
+            this.activePrayers.clear();
+            this.playSound('prayer_off');
+            this.onStateChange({ activePrayers: [] });
+          }
+          this.onStateChange({ prayerPoints: this.prayerPoints });
         }
+      } else if (this.upgrades.prayerRegen > 0) {
         this.onStateChange({ prayerPoints: this.prayerPoints });
       }
     }
@@ -1223,7 +1302,8 @@ export class GameEngine {
       // Wave complete
       this.waveActive = false;
       this.wave++;
-      this.onStateChange({ wave: this.wave, isPlaying: false });
+      this.autoSpawnTimer = this.autoSpawnDelay; // Reset timer for next wave countdown
+      this.onStateChange({ wave: this.wave, isPlaying: false, autoSpawnTimer: this.autoSpawnTimer });
     }
 
     // Update Enemies
@@ -1638,7 +1718,7 @@ export class GameEngine {
   }
 
   awardTowerXP(tower: Tower, amount: number) {
-    const xpGain = amount / 2;
+    const xpGain = (amount / 2) * (this.upgrades.xpGainMultiplier || 1);
     let skillKey: keyof TowerSkills = 'attack';
     
     if (tower.type === 'archer') skillKey = 'ranged';
@@ -1904,6 +1984,23 @@ export class GameEngine {
           this.ctx.strokeStyle = tower.level === 4 ? '#ff0000' : '#ffff00';
           this.ctx.lineWidth = 2;
           this.ctx.stroke();
+        }
+
+        // Draw Range if hovered or selected
+        if (tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId) {
+          const rangeMultiplier = (this.activePotions.some(p => p.type === 'overload') ? 1.1 : 1.0) * 
+                                  (this.activePrayers.has('rigour') ? 1.2 : 1.0);
+          // Add support aura check if we wanted to be perfectly accurate, but this covers most buffs
+          
+          this.ctx.beginPath();
+          this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+          this.ctx.lineWidth = 2;
+          this.ctx.setLineDash([5, 5]);
+          this.ctx.arc(tower.x, tower.y, tower.range * rangeMultiplier, 0, Math.PI * 2);
+          this.ctx.stroke();
+          this.ctx.setLineDash([]);
+          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+          this.ctx.fill();
         }
 
         // Disabled indicator (Boss attack)
