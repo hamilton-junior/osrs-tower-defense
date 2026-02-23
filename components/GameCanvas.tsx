@@ -85,6 +85,7 @@ export default function GameCanvas() {
   const [autoSpawn, setAutoSpawn] = useState(false);
   const [autoSpawnDelay, setAutoSpawnDelay] = useState(3);
   const [autoSpawnTimer, setAutoSpawnTimer] = useState(0);
+  const [gameSpeed, setGameSpeed] = useState(1);
 
   // Persistence
   const [runeEssence, setRuneEssence] = useState(0);
@@ -182,8 +183,9 @@ export default function GameCanvas() {
       engineRef.current.runeEssence = runeEssence;
       engineRef.current.autoSpawnEnabled = autoSpawn;
       engineRef.current.autoSpawnDelay = autoSpawnDelay;
+      engineRef.current.gameSpeed = gameSpeed;
     }
-  }, [upgrades, runeEssence, autoSpawn, autoSpawnDelay]);
+  }, [upgrades, runeEssence, autoSpawn, autoSpawnDelay, gameSpeed]);
 
   // Handle engine state updates locally
   useEffect(() => {
@@ -407,6 +409,22 @@ export default function GameCanvas() {
             </button>
           </div>
 
+          <div className="flex gap-2 items-center bg-[#3d3d3d]/90 p-1 border-2 border-[#5d5d5d] rounded shadow-lg">
+            <span className="text-[10px] font-bold text-[#c0c0c0] px-1">SPEED:</span>
+            {[1, 2, 3].map(speed => (
+              <button
+                key={speed}
+                onClick={() => setGameSpeed(speed)}
+                className={`
+                  px-3 py-1 text-xs font-bold rounded transition-all
+                  ${gameSpeed === speed ? 'bg-[#ffff00] text-black shadow-[0_0_5px_rgba(255,255,0,0.5)]' : 'bg-[#2d2d2d] text-[#c0c0c0] hover:bg-[#4d4d4d]'}
+                `}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+
           <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded shadow-lg flex flex-col gap-2 min-w-[150px]">
             <div className="flex items-center justify-between gap-4">
               <label className="text-[10px] font-bold text-[#c0c0c0] cursor-pointer flex items-center gap-2">
@@ -516,15 +534,21 @@ export default function GameCanvas() {
         {/* Pets UI */}
         {gameState.pets && gameState.pets.length > 0 && (
           <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded text-[#ffff00] shadow-lg">
-            <h3 className="text-xs font-bold text-[#00ffff] border-b border-[#5d5d5d] mb-1">Pets</h3>
-            <div className="flex flex-wrap gap-1 max-w-[120px]">
-              {gameState.pets.map(pet => (
+            <h3 className="text-xs font-bold text-[#00ffff] border-b border-[#5d5d5d] mb-1">Pets ({gameState.pets.length})</h3>
+            <div className="flex flex-wrap gap-1 max-w-[150px]">
+              {gameState.pets.map((pet: any) => (
                 <div key={pet.id} className="group relative">
-                  <div className="w-6 h-6 bg-[#2d2d2d] border border-[#5d5d5d] rounded flex items-center justify-center text-[10px] cursor-help hover:border-[#00ffff]">
-                    🐾
+                  <div className="w-8 h-8 bg-[#2d2d2d] border border-[#5d5d5d] rounded flex items-center justify-center cursor-help hover:border-[#00ffff] overflow-hidden">
+                    <img
+                      src={`https://oldschool.runescape.wiki/images/${pet.type.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('_')}.png`}
+                      alt={pet.name}
+                      className="w-full h-full object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Beaver.png'; }}
+                    />
                   </div>
-                  <div className="absolute right-full mr-2 top-0 bg-black/90 text-[10px] text-white p-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none w-24 text-center z-20">
-                    {pet.name}: {pet.bonus}
+                  <div className="absolute right-full mr-2 top-0 bg-black/90 text-[10px] text-white p-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none w-36 text-center z-20 border border-[#00ffff]">
+                    <div className="text-[#ffff00] font-bold">{pet.name}</div>
+                    <div className="text-[#c0c0c0] mt-1">{pet.bonus}</div>
                   </div>
                 </div>
               ))}
@@ -655,7 +679,7 @@ export default function GameCanvas() {
       {/* Inventory Modal */}
       {showInventory && (
         <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center pointer-events-auto">
-          <div className="bg-[#3d3d3d] border-4 border-[#5d5d5d] p-6 rounded-lg w-[400px] shadow-2xl relative">
+          <div className="bg-[#3d3d3d] border-4 border-[#5d5d5d] p-6 rounded-lg w-[480px] shadow-2xl relative">
             <div className="flex justify-between items-center mb-4 border-b-2 border-[#5d5d5d] pb-2">
               <h2 className="text-[#c0c0c0] font-bold text-2xl tracking-tight">Inventory</h2>
               <button 
@@ -666,37 +690,57 @@ export default function GameCanvas() {
               </button>
             </div>
             
-            {gameState.inventory?.length === 0 ? (
-              <p className="text-center text-[#808080] py-8 italic">Your inventory is empty.</p>
+            {(!gameState.inventory || gameState.inventory.length === 0) ? (
+              <div className="text-center py-8">
+                <p className="text-[#808080] italic">Your inventory is empty.</p>
+                <p className="text-[#5d5d5d] text-xs mt-2">Complete quests or defeat enemies to find items!</p>
+              </div>
             ) : (
               <div className="grid grid-cols-4 gap-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {gameState.inventory?.map((item) => (
-                  <div 
-                    key={item.id} 
-                    className="aspect-square bg-[#2d2d2d] border-2 border-[#5d5d5d] rounded p-1 flex flex-col items-center justify-center group relative cursor-pointer hover:border-[#ffff00]"
-                    onClick={() => handleEquipItem(item.id)}
-                  >
-                    <div className="w-10 h-10 flex items-center justify-center">
-                      <img 
-                        src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} 
-                        alt={item.name}
-                        className="max-w-full max-h-full object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Inventory_icon.png';
-                        }}
-                      />
+                {gameState.inventory.map((item: any) => {
+                  const typeColor = item.type === 'weapon' ? '#ff9900' : item.type === 'shield' ? '#4488ff' : '#cc44ff';
+                  const typeLabel = item.type === 'weapon' ? 'WPN' : item.type === 'shield' ? 'SHD' : 'ACC';
+                  return (
+                    <div 
+                      key={item.id} 
+                      className="aspect-square bg-[#2d2d2d] border-2 border-[#5d5d5d] rounded p-1 flex flex-col items-center justify-center group relative cursor-pointer hover:border-[#ffff00] transition-colors"
+                      onClick={() => handleEquipItem(item.id)}
+                    >
+                      {/* Item type badge */}
+                      <div className="absolute top-0 right-0 text-[7px] font-bold px-1 rounded-bl" style={{ backgroundColor: typeColor, color: '#000' }}>
+                        {typeLabel}
+                      </div>
+                      <div className="w-10 h-10 flex items-center justify-center">
+                        <img 
+                          src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} 
+                          alt={item.name}
+                          className="max-w-full max-h-full object-contain"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            const parent = (e.target as HTMLImageElement).parentElement;
+                            if (parent) parent.innerHTML = '<span style="font-size:20px">⚔️</span>';
+                          }}
+                        />
+                      </div>
+                      <div className="text-[7px] text-[#c0c0c0] text-center mt-0.5 truncate w-full text-center">{item.name}</div>
+                      {/* Hover tooltip */}
+                      <div className="absolute inset-0 bg-black/95 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col items-center justify-center text-center z-10 rounded">
+                        <span className="text-[11px] font-bold" style={{ color: typeColor }}>{item.name}</span>
+                        <div className="w-full h-px bg-[#5d5d5d] my-1" />
+                        <span className="text-[9px] text-[#c0c0c0]">{item.description}</span>
+                        {item.bonus?.damage && <span className="text-[9px] text-[#ff6600] mt-0.5">⚔ +{item.bonus.damage} DMG</span>}
+                        {item.bonus?.range && <span className="text-[9px] text-[#44ff44] mt-0.5">🏹 +{item.bonus.range} RNG</span>}
+                        {item.bonus?.defense && <span className="text-[9px] text-[#4488ff] mt-0.5">🛡 +{item.bonus.defense} DEF</span>}
+                        {item.bonus?.cooldown && <span className="text-[9px] text-[#ffff00] mt-0.5">⚡ {item.bonus.cooldown}ms CD</span>}
+                        {selectedPlacedTower && <span className="text-[9px] text-[#00ff00] mt-1 font-bold animate-pulse">CLICK TO EQUIP</span>}
+                      </div>
                     </div>
-                    <div className="absolute inset-0 bg-black/90 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col items-center justify-center text-center z-10">
-                      <span className="text-[10px] font-bold text-[#ffff00]">{item.name}</span>
-                      <span className="text-[8px] text-white mt-1">{item.description}</span>
-                      {selectedPlacedTower && <span className="text-[8px] text-[#00ff00] mt-1 font-bold">CLICK TO EQUIP</span>}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {!selectedPlacedTower && gameState.inventory && gameState.inventory.length > 0 && (
-              <p className="text-[10px] text-center text-[#808080] mt-4 italic">Select a tower on the field to equip items.</p>
+              <p className="text-[10px] text-center text-[#808080] mt-4 italic">Select a tower on the field first to equip items.</p>
             )}
           </div>
         </div>
@@ -806,27 +850,22 @@ export default function GameCanvas() {
             </div>
           </div>
 
-          <div className="mt-2 border-t border-[#5d5d5d] pt-2">
-            <p className="text-[10px] font-bold text-[#c0c0c0] mb-1">Equipment</p>
-            <div className="space-y-1">
-              {['weapon', 'shield', 'accessory'].map(slot => {
-                const item = selectedPlacedTower.equipment?.[slot];
-                return (
-                  <div key={slot} className="flex justify-between items-center bg-[#2d2d2d] p-1 rounded border border-[#5d5d5d] text-[10px]">
-                    <span className="capitalize text-[#c0c0c0]">{slot}: <span className="text-white">{item ? item.name : 'Empty'}</span></span>
-                    {item && (
-                      <button 
-                        onClick={() => handleUnequipItem(slot as any)}
-                        className="text-[#ff0000] hover:text-[#ffffff] font-bold px-1"
-                      >
-                        [X]
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+          {selectedPlacedTower.type === 'archer' && (
+            <div className="mt-2 border-t border-[#5d5d5d] pt-2">
+              <p className="text-[10px] font-bold text-[#00ff00] mb-1">Combat Style</p>
+              <div className="flex gap-1">
+                {['rapid', 'long_range'].map(style => (
+                  <button
+                    key={style}
+                    onClick={() => engineRef.current?.setArcherStyle(selectedPlacedTower.id, style as any)}
+                    className={`text-[9px] flex-1 py-1 border rounded capitalize ${selectedPlacedTower.attackStyle === style ? 'bg-[#00ff00] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
+                  >
+                    {style.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {selectedPlacedTower.type === 'wizard' && (
             <div className="mt-2 border-t border-[#5d5d5d] pt-2">
@@ -972,13 +1011,12 @@ export default function GameCanvas() {
       {/* Tower Selection Bar */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded flex gap-2 shadow-xl z-10">
         {[
-          { id: 'archer', name: 'Ranger', cost: 50, color: '#00ff00' },
-          { id: 'wizard', name: 'Mage', cost: 75, color: '#0000ff' },
-          { id: 'cannon', name: 'Cannon', cost: 150, color: '#ff0000' },
-          { id: 'tzhaar', name: 'TzHaar', cost: 200, color: '#8B0000' },
-          { id: 'slayer', name: 'Slayer', cost: 125, color: '#4B0082' },
-          { id: 'support', name: 'Support', cost: 100, color: '#FFFFFF' },
-          { id: 'toxic', name: 'Toxic', cost: 175, color: '#008080' }
+          { id: 'archer', name: 'Ranger', cost: 50, color: '#00ff00', icon: '🏹' },
+          { id: 'wizard', name: 'Mage', cost: 75, color: '#0000ff', icon: '🪄' },
+          { id: 'cannon', name: 'Cannon', cost: 250, color: '#ff0000', icon: '💣' },
+          { id: 'tzhaar', name: 'TzHaar', cost: 200, color: '#8B0000', icon: '🌋' },
+          { id: 'slayer', name: 'Slayer', cost: 125, color: '#4B0082', icon: '⚔️' },
+          { id: 'toxic', name: 'Toxic', cost: 300, color: '#008080', icon: '🐍' }
         ].map(tower => (
           <button
             key={tower.id}
@@ -993,7 +1031,9 @@ export default function GameCanvas() {
             `}
             disabled={gameState.money < tower.cost}
           >
-            <div className="w-8 h-8 rounded-full mb-1" style={{ backgroundColor: tower.color }}></div>
+            <div className="w-8 h-8 rounded-full mb-1 flex items-center justify-center text-lg" style={{ backgroundColor: tower.color }}>
+              {tower.icon}
+            </div>
             <span className="text-xs font-bold text-[#ffff00]">{tower.name}</span>
             <span className="text-[10px] text-[#c0c0c0]">{tower.cost} gp</span>
           </button>
