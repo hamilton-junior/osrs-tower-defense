@@ -54,7 +54,10 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     magicDamage: 1.0,
     cannonSpeed: 1.0,
     slayerReward: 1.0,
-    prayerEfficiency: 1.0
+    prayerEfficiency: 1.0,
+    startingMoney: 0,
+    rewardMultiplier: 1.0,
+    waveSpeed: 1.0
   });
 
   const UPGRADE_LIMITS = {
@@ -62,7 +65,10 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     magicDamage: 2.5, // Max +150%
     cannonSpeed: 2.0, // Max +100%
     slayerReward: 2.5,  // Max +150%
-    prayerEfficiency: 2.0 // Max +100%
+    prayerEfficiency: 2.0, // Max +100%
+    startingMoney: 500,
+    rewardMultiplier: 2.0,
+    waveSpeed: 2.0
   };
 
   const [showGrandExchange, setShowGrandExchange] = useState(false);
@@ -70,6 +76,9 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
   const [showQuests, setShowQuests] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [hoveredEntity, setHoveredEntity] = useState<any | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [rightClickedEntity, setRightClickedEntity] = useState<any | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -216,6 +225,30 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
     }
   };
 
+  const handleUnequipItem = (slot: 'weapon' | 'shield' | 'accessory') => {
+    if (engineRef.current && selectedPlacedTower) {
+      engineRef.current.unequipItem(selectedPlacedTower.id, slot);
+      const updatedTower = engineRef.current.towers.find(t => t.id === selectedPlacedTower.id);
+      if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!engineRef.current) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const entity = engineRef.current.getEntityAt(x, y);
+    if (entity) {
+      setHoveredEntity(entity);
+      setTooltipPos({ x: e.clientX, y: e.clientY });
+    } else {
+      setHoveredEntity(null);
+    }
+  };
+
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!engineRef.current) return;
@@ -228,15 +261,9 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
 
     const entity = engineRef.current.getEntityAt(x, y);
     if (entity) {
-      let name = '';
-      if (entity.type === 'enemy') {
-        name = entity.data.type; // goblin, cow, etc.
-      } else {
-        name = entity.data.name; // Use proper name
-      }
-      // Capitalize
-      name = name.charAt(0).toUpperCase() + name.slice(1);
-      onExamine(name);
+      setRightClickedEntity(entity);
+    } else {
+      setRightClickedEntity(null);
     }
   };
 
@@ -249,6 +276,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
         ref={canvasRef}
         className="absolute inset-0 block cursor-crosshair touch-none w-full h-full z-0"
         onClick={handleCanvasClick}
+        onMouseMove={handleMouseMove}
         onContextMenu={handleContextMenu}
       />
 
@@ -596,6 +624,9 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
                 { id: 'cannonSpeed', name: 'Dwarf Engineering', desc: 'Cannon Speed +10%', cost: 20, inc: 0.1 },
                 { id: 'slayerReward', name: 'Slayer Helmet', desc: 'Slayer Reward +15%', cost: 25, inc: 0.15 },
                 { id: 'prayerEfficiency', name: 'Holy Grail', desc: 'Prayer Drain -10%', cost: 30, inc: 0.1 },
+                { id: 'startingMoney', name: 'Merchant Guild', desc: 'Starting GP +50', cost: 40, inc: 50 },
+                { id: 'rewardMultiplier', name: 'Wealth Ring', desc: 'Enemy GP/Essence +10%', cost: 50, inc: 0.1 },
+                { id: 'waveSpeed', name: 'Agility Training', desc: 'Wave Spawn Speed +10%', cost: 60, inc: 0.1 },
               ].map((item) => {
                 const isMaxed = upgrades[item.id as keyof GlobalUpgrades] >= UPGRADE_LIMITS[item.id as keyof GlobalUpgrades];
                 return (
@@ -634,8 +665,16 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
 
       {/* Upgrade Menu */}
       {selectedPlacedTower && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#3d3d3d] p-4 border-2 border-[#5d5d5d] rounded shadow-2xl z-20 flex flex-col gap-2 min-w-[250px]">
-          <h3 className="text-[#ffff00] font-bold text-center border-b border-[#5d5d5d] pb-1">{selectedPlacedTower.name}</h3>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#3d3d3d] p-4 border-4 border-[#5d5d5d] rounded shadow-2xl z-20 flex flex-col gap-2 min-w-[300px]">
+          <div className="flex justify-between items-center border-b border-[#5d5d5d] pb-1">
+            <h3 className="text-[#ffff00] font-bold">{selectedPlacedTower.name}</h3>
+            <button 
+              onClick={() => setSelectedPlacedTower(null)}
+              className="bg-[#ff0000] text-white rounded w-5 h-5 flex items-center justify-center text-xs font-bold border border-white"
+            >
+              X
+            </button>
+          </div>
           
           <div className="grid grid-cols-2 gap-4">
             <div className="text-xs text-[#c0c0c0] space-y-1">
@@ -643,6 +682,7 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
               <p>Level: {selectedPlacedTower.level} / {selectedPlacedTower.maxLevel}</p>
               <p>Damage: {selectedPlacedTower.damage}</p>
               <p>Range: {selectedPlacedTower.range}</p>
+              <p>Speed: {(selectedPlacedTower.cooldown / 1000).toFixed(1)}s</p>
             </div>
             
             <div className="text-xs text-[#c0c0c0] space-y-1">
@@ -658,19 +698,30 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
 
           <div className="mt-2 border-t border-[#5d5d5d] pt-2">
             <p className="text-[10px] font-bold text-[#c0c0c0] mb-1">Equipment</p>
-            <div className="flex gap-2 justify-center">
+            <div className="space-y-1">
               {['weapon', 'shield', 'accessory'].map(slot => {
                 const item = selectedPlacedTower.equipment?.[slot];
                 return (
-                  <div key={slot} className="w-10 h-10 bg-[#2d2d2d] border border-[#5d5d5d] rounded flex items-center justify-center text-lg relative group">
-                    {item ? (slot === 'weapon' ? '⚔️' : slot === 'shield' ? '🛡️' : '💍') : ''}
-                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-black/90 text-[8px] text-white p-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none w-20 text-center z-30">
-                      {item ? item.name : `Empty ${slot}`}
-                    </div>
+                  <div key={slot} className="flex justify-between items-center bg-[#2d2d2d] p-1 rounded border border-[#5d5d5d] text-[10px]">
+                    <span className="capitalize text-[#c0c0c0]">{slot}: <span className="text-white">{item ? item.name : 'Empty'}</span></span>
+                    {item && (
+                      <button 
+                        onClick={() => handleUnequipItem(slot as any)}
+                        className="text-[#ff0000] hover:underline font-bold"
+                      >
+                        Unequip
+                      </button>
+                    )}
                   </div>
                 );
               })}
             </div>
+            <button 
+              onClick={() => setShowInventory(true)}
+              className="w-full mt-2 bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#ffff00] text-[10px] font-bold py-1 rounded border border-[#2d2d2d]"
+            >
+              Open Inventory to Equip
+            </button>
           </div>
           
           <div className="flex gap-2 mt-2">
@@ -678,26 +729,108 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
               <button 
                 onClick={handleUpgrade}
                 disabled={gameState.money < selectedPlacedTower.upgradeCost}
-                className={`flex-1 px-2 py-1 border border-[#2d2d2d] text-xs font-bold ${gameState.money >= selectedPlacedTower.upgradeCost ? 'bg-[#00ff00] text-black hover:bg-[#32CD32]' : 'bg-[#5d5d5d] text-[#808080] cursor-not-allowed'}`}
+                className={`flex-1 px-2 py-2 border-2 border-[#2d2d2d] text-xs font-bold ${gameState.money >= selectedPlacedTower.upgradeCost ? 'bg-[#00ff00] text-black hover:bg-[#32CD32]' : 'bg-[#5d5d5d] text-[#808080] cursor-not-allowed'}`}
               >
                 Upgrade ({selectedPlacedTower.upgradeCost} gp)
               </button>
             ) : (
-              <div className="flex-1 text-center text-xs text-[#00ff00] font-bold py-1">Max Level</div>
+              <div className="flex-1 text-center text-xs text-[#00ff00] font-bold py-2 border-2 border-[#00ff00]/20 bg-[#00ff00]/5">Max Level</div>
             )}
             <button 
               onClick={handleSell}
-              className="px-2 py-1 bg-[#ff0000] hover:bg-[#cc0000] border border-[#2d2d2d] text-xs font-bold text-white"
+              className="px-2 py-2 bg-[#ff0000] hover:bg-[#cc0000] border-2 border-[#2d2d2d] text-xs font-bold text-white"
             >
               Sell
             </button>
           </div>
-          <button 
-            onClick={() => setSelectedPlacedTower(null)}
-            className="absolute -top-2 -right-2 bg-[#ff0000] text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold border border-white"
-          >
-            X
-          </button>
+        </div>
+      )}
+
+      {/* Tooltip */}
+      {hoveredEntity && (
+        <div 
+          className="fixed pointer-events-none bg-[#1e1e1e]/95 border-2 border-[#5d5d5d] p-2 rounded text-[#ffff00] text-xs z-50 shadow-2xl min-w-[120px]"
+          style={{ left: tooltipPos.x + 15, top: tooltipPos.y + 15 }}
+        >
+          <p className="font-bold text-sm capitalize border-b border-[#5d5d5d] mb-1 pb-1">
+            {hoveredEntity.type === 'enemy' ? hoveredEntity.data.type.replace('_', ' ') : hoveredEntity.data.name}
+          </p>
+          {hoveredEntity.type === 'enemy' ? (
+            <div className="space-y-0.5">
+              <p>HP: <span className="text-white">{Math.ceil(hoveredEntity.data.hp)} / {hoveredEntity.data.maxHp}</span></p>
+              <p>Speed: <span className="text-white">{hoveredEntity.data.speed}</span></p>
+              <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click for info</p>
+            </div>
+          ) : (
+            <div className="space-y-0.5">
+              <p>Level: <span className="text-white">{hoveredEntity.data.level}</span></p>
+              <p>Damage: <span className="text-white">{hoveredEntity.data.damage}</span></p>
+              <p>Range: <span className="text-white">{hoveredEntity.data.range}</span></p>
+              <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click for status</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Right Click Status Modal */}
+      {rightClickedEntity && (
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 pointer-events-auto">
+          <div className="bg-[#3d3d3d] border-4 border-[#5d5d5d] p-6 rounded-lg shadow-2xl max-w-sm w-full text-[#ffff00] relative">
+            <div className="flex justify-between items-center mb-4 border-b-2 border-[#5d5d5d] pb-2">
+              <h3 className="text-2xl font-bold capitalize">
+                {rightClickedEntity.type === 'enemy' ? rightClickedEntity.data.type.replace('_', ' ') : rightClickedEntity.data.name}
+              </h3>
+              <button onClick={() => setRightClickedEntity(null)} className="text-[#ff0000] font-bold text-xl hover:scale-110 transition-transform cursor-pointer">X</button>
+            </div>
+            
+            <div className="space-y-4">
+              {rightClickedEntity.type === 'enemy' ? (
+                <>
+                  <div className="bg-[#1e1e1e] p-3 rounded border-2 border-[#5d5d5d]">
+                    <p className="text-[#ff981f] font-bold mb-2 border-b border-[#3d3d3d]">Combat Stats</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <p>Health:</p><p className="text-white text-right">{Math.ceil(rightClickedEntity.data.hp)} / {rightClickedEntity.data.maxHp}</p>
+                      <p>Speed:</p><p className="text-white text-right">{rightClickedEntity.data.speed}</p>
+                      <p>Reward:</p><p className="text-[#ffff00] text-right">{rightClickedEntity.data.reward} GP</p>
+                    </div>
+                  </div>
+                  <div className="bg-[#2d2d2d] p-3 rounded italic text-sm text-[#c0c0c0] border border-[#4d4d4d]">
+                    &quot;A dangerous creature of Gielinor. It seems to be heading towards the exit!&quot;
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-[#1e1e1e] p-3 rounded border-2 border-[#5d5d5d]">
+                    <p className="text-[#ff981f] font-bold mb-2 border-b border-[#3d3d3d]">Tower Stats</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <p>Level:</p><p className="text-white text-right">{rightClickedEntity.data.level}</p>
+                      <p>Damage:</p><p className="text-white text-right">{rightClickedEntity.data.damage}</p>
+                      <p>Range:</p><p className="text-white text-right">{rightClickedEntity.data.range}</p>
+                      <p>Cooldown:</p><p className="text-white text-right">{(rightClickedEntity.data.cooldown / 1000).toFixed(1)}s</p>
+                    </div>
+                  </div>
+                  <div className="bg-[#1e1e1e] p-3 rounded border-2 border-[#5d5d5d]">
+                    <p className="text-[#00ffff] font-bold mb-2 border-b border-[#3d3d3d]">Skills</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {Object.entries(rightClickedEntity.data.skills).map(([skill, data]: [string, any]) => (
+                        <div key={skill} className="flex justify-between">
+                          <span className="capitalize">{skill}:</span>
+                          <span className="text-white font-bold">Lvl {data.level}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => setRightClickedEntity(null)}
+              className="w-full mt-6 bg-[#5d5d5d] hover:bg-[#6d6d6d] py-3 rounded font-bold border-2 border-[#2d2d2d] text-[#ffff00] transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
 
@@ -707,7 +840,9 @@ export default function GameCanvas({ apiKey, onExamine }: GameCanvasProps) {
           { id: 'archer', name: 'Ranger', cost: 50, color: '#00ff00' },
           { id: 'wizard', name: 'Mage', cost: 75, color: '#0000ff' },
           { id: 'cannon', name: 'Cannon', cost: 150, color: '#ff0000' },
-          { id: 'tzhaar', name: 'TzHaar', cost: 200, color: '#8B0000' }
+          { id: 'tzhaar', name: 'TzHaar', cost: 200, color: '#8B0000' },
+          { id: 'slayer', name: 'Slayer', cost: 125, color: '#4B0082' },
+          { id: 'support', name: 'Support', cost: 100, color: '#FFFFFF' }
         ].map(tower => (
           <button
             key={tower.id}

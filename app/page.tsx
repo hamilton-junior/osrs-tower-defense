@@ -60,6 +60,8 @@ export default function Page() {
             parts: [
               {
                 text: `You are the Wise Old Man from Old School RuneScape. You are helpful, slightly eccentric, and very knowledgeable about Gielinor. 
+                You are currently watching the player defend a path from monsters. 
+                Provide useful advice about tower defense, OSRS lore, or game mechanics.
                 Keep your response short (under 2 sentences). 
                 The player asks: "${userMessage}"`
               }
@@ -114,8 +116,8 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1e1e1e] text-[#ffff00] font-mono flex flex-col items-center justify-center overflow-hidden">
-      <header className="w-full bg-[#3d3d3d] border-b-4 border-[#5d5d5d] p-4 flex justify-between items-center shadow-lg">
+    <div className="h-screen w-screen bg-[#1e1e1e] text-[#ffff00] font-mono flex flex-col overflow-hidden">
+      <header className="w-full bg-[#3d3d3d] border-b-4 border-[#5d5d5d] p-4 flex justify-between items-center shadow-lg z-20">
         <h1 className="text-2xl font-bold text-[#ffff00] drop-shadow-md" style={{ textShadow: '2px 2px 0 #000' }}>
           OSRS Tower Defense
         </h1>
@@ -130,16 +132,16 @@ export default function Page() {
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto p-4 flex flex-col md:flex-row gap-4 h-[calc(100vh-80px)]">
-        <div className="flex-1 bg-[#000] border-4 border-[#3d3d3d] relative rounded-lg overflow-hidden shadow-2xl">
+      <main className="flex-1 w-full flex flex-col md:flex-row h-[calc(100vh-80px)] overflow-hidden">
+        <div className="flex-1 bg-[#000] relative overflow-hidden">
            <GameCanvas apiKey={apiKey} onExamine={handleExamine} />
         </div>
         
         {/* Sidebar for game info/chat */}
-        <div className="w-full md:w-96 bg-[#3d3d3d] border-4 border-[#2d2d2d] p-4 flex flex-col gap-4 rounded-lg shadow-xl h-full">
-          <div className="bg-[#1e1e1e] p-3 border-2 border-[#5d5d5d] rounded flex-1 overflow-y-auto flex flex-col">
-            <h2 className="text-[#ff981f] font-bold mb-2 border-b border-[#5d5d5d] pb-1 sticky top-0 bg-[#1e1e1e]">Wise Old Man&apos;s Chat</h2>
-            <div className="text-sm space-y-2 flex-1">
+        <div className="w-full md:w-96 bg-[#3d3d3d] border-l-4 border-[#2d2d2d] p-4 flex flex-col gap-4 shadow-xl h-full overflow-hidden">
+          <div className="bg-[#1e1e1e] p-3 border-2 border-[#5d5d5d] rounded flex-1 overflow-hidden flex flex-col">
+            <h2 className="text-[#ff981f] font-bold mb-2 border-b border-[#5d5d5d] pb-1 bg-[#1e1e1e]">Wise Old Man&apos;s Chat</h2>
+            <div className="text-sm space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
               {chatHistory.map((msg, idx) => (
                 <p key={idx}>
                   <span style={{ color: msg.color }} className="font-bold">{msg.sender}:</span> <span className="text-[#c0c0c0]">{msg.text}</span>
