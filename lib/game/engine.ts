@@ -4,6 +4,8 @@ export interface Point {
   y: number;
 }
 
+export const TICK = 0.6; // OSRS Game Tick
+
 export interface GlobalUpgrades {
   archerRange: number; // multiplier, e.g. 1.0
   magicDamage: number;
@@ -41,6 +43,8 @@ export interface Achievement {
 
 export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra';
 
+export type Element = 'air' | 'water' | 'earth' | 'fire' | 'none';
+
 export interface Enemy {
   id: string;
   x: number;
@@ -56,9 +60,13 @@ export interface Enemy {
   slowTimer: number; // Duration of slow effect
   stunTimer: number; // Duration of stun effect
   tauntTimer: number; // Duration of taunt effect
+  deathSound?: string;
+  weakness?: Element;
 }
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'support' | 'toxic';
+export type MageMode = 'elemental' | 'ancients' | 'utility';
+export type SupportSpell = 'charge' | 'curse' | 'bind';
 
 export interface TowerSkill {
   level: number;
@@ -110,6 +118,13 @@ export interface Tower {
     shield: Item | null;
     accessory: Item | null;
   };
+  showRange?: boolean;
+  fireSound?: string;
+  minDamage?: number;
+  maxDamage?: number;
+  mageMode?: MageMode;
+  element?: Element;
+  supportSpell?: SupportSpell;
 }
 
 export interface Projectile {
@@ -233,6 +248,24 @@ export class GameEngine {
       reward: { money: 300, essence: 10 },
       completed: false,
       claimed: false
+    },
+    {
+      id: 'demon_slayer',
+      name: 'Demon Slayer',
+      description: 'Kill 50 Lesser Demons.',
+      objective: { type: 'kill', target: 50, current: 0, enemyType: 'lesser_demon' },
+      reward: { money: 400, essence: 15 },
+      completed: false,
+      claimed: false
+    },
+    {
+      id: 'dragon_master',
+      name: 'Dragon Master',
+      description: 'Kill 10 Blue Dragons.',
+      objective: { type: 'kill', target: 10, current: 0, enemyType: 'blue_dragon' },
+      reward: { money: 1000, essence: 50 },
+      completed: false,
+      claimed: false
     }
   ];
   
@@ -251,6 +284,9 @@ export class GameEngine {
   enemiesToSpawn: Enemy[] = [];
   spawnTimer: number = 0;
   spawnInterval: number = 1000; // ms
+
+  // Progression
+  achievementPoints: number = 0;
 
   // Slayer
   slayerTask: SlayerTask | null = null;
@@ -334,7 +370,18 @@ export class GameEngine {
       special_attack: 'https://oldschool.runescape.wiki/images/Special_attack_sound.ogg',
       death_dragon: 'https://oldschool.runescape.wiki/images/Dragon_death.ogg',
       death_demon: 'https://oldschool.runescape.wiki/images/Demon_death.ogg',
-      death_boss: 'https://oldschool.runescape.wiki/images/Boss_death.ogg'
+      death_boss: 'https://oldschool.runescape.wiki/images/Boss_death.ogg',
+      death_goblin: 'https://oldschool.runescape.wiki/images/transcoded/Goblin_death.ogg/Goblin_death.ogg.mp3',
+      death_imp: 'https://oldschool.runescape.wiki/images/transcoded/Imp_death.ogg/Imp_death.ogg.mp3',
+      death_abyssal_demon: 'https://oldschool.runescape.wiki/images/transcoded/Abyssal_demon_death.ogg/Abyssal_demon_death.ogg.mp3',
+      spell_air: 'https://oldschool.runescape.wiki/images/transcoded/Air_Strike.ogg/Air_Strike.ogg.mp3',
+      spell_water: 'https://oldschool.runescape.wiki/images/transcoded/Water_Strike.ogg/Water_Strike.ogg.mp3',
+      spell_earth: 'https://oldschool.runescape.wiki/images/transcoded/Earth_Strike.ogg/Earth_Strike.ogg.mp3',
+      spell_fire: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Strike.ogg/Fire_Strike.ogg.mp3',
+      spell_ice: 'https://oldschool.runescape.wiki/images/transcoded/Ice_Barrage.ogg/Ice_Barrage.ogg.mp3',
+      spell_curse: 'https://oldschool.runescape.wiki/images/transcoded/Curse.ogg/Curse.ogg.mp3',
+      spell_bind: 'https://oldschool.runescape.wiki/images/transcoded/Bind.ogg/Bind.ogg.mp3',
+      cannon_fire: 'https://oldschool.runescape.wiki/images/transcoded/Dwarf_multicannon_fire.ogg/Dwarf_multicannon_fire.ogg.mp3'
     };
 
     Object.entries(soundUrls).forEach(([key, url]) => {
@@ -481,19 +528,19 @@ export class GameEngine {
     if (this.currentPathIndex === 0) {
       // Winding Path (Default)
       this.path = [
-        { x: -50, y: h * 0.2 },
+        { x: -25, y: h * 0.2 },
         { x: w * 0.2, y: h * 0.2 },
         { x: w * 0.2, y: h * 0.8 },
         { x: w * 0.5, y: h * 0.8 },
         { x: w * 0.5, y: h * 0.4 },
         { x: w * 0.8, y: h * 0.4 },
         { x: w * 0.8, y: h * 0.6 },
-        { x: w + 50, y: h * 0.6 }
+        { x: w + 25, y: h * 0.6 }
       ];
     } else {
       // Spiral Path
       this.path = [
-        { x: -50, y: h * 0.1 },
+        { x: -25, y: h * 0.1 },
         { x: w * 0.9, y: h * 0.1 },
         { x: w * 0.9, y: h * 0.9 },
         { x: w * 0.1, y: h * 0.9 },
@@ -502,7 +549,7 @@ export class GameEngine {
         { x: w * 0.7, y: h * 0.7 },
         { x: w * 0.3, y: h * 0.7 },
         { x: w * 0.3, y: h * 0.5 },
-        { x: w * 0.5, y: h * 0.5 }
+        { x: w + 25, y: h * 0.5 }
       ];
     }
 
@@ -630,44 +677,44 @@ export class GameEngine {
       
       if (ach.completed) {
         changed = true;
+        this.achievementPoints += 10;
         this.playSound('level_up');
         this.particles.push({ x: 400, y: 300, life: 2, color: '#ffff00' });
       }
     });
-    if (changed) this.onStateChange({ achievements: this.achievements });
+    if (changed) this.onStateChange({ achievements: this.achievements, achievementPoints: this.achievementPoints });
   }
 
   getEnemyStats(type: EnemyType, waveMultiplier: number) {
-    const baseStats: Record<EnemyType, { hp: number, speed: number, reward: number, color: string }> = {
-      goblin: { hp: 10, speed: 100, reward: 5, color: '#00ff00' },
-      rat: { hp: 5, speed: 120, reward: 3, color: '#808080' },
-      cow: { hp: 30, speed: 60, reward: 10, color: '#8B4513' },
-      imp: { hp: 15, speed: 150, reward: 8, color: '#ff0000' },
-      spider: { hp: 40, speed: 90, reward: 12, color: '#ffff00' },
-      scorpion: { hp: 60, speed: 70, reward: 15, color: '#DAA520' },
-      hill_giant: { hp: 150, speed: 50, reward: 25, color: '#A0522D' },
-      lesser_demon: { hp: 100, speed: 110, reward: 30, color: '#800000' },
-      green_dragon: { hp: 300, speed: 80, reward: 50, color: '#006400' },
-      jad: { hp: 1000, speed: 40, reward: 500, color: '#FF4500' },
-      // New Enemies
-      blue_dragon: { hp: 400, speed: 75, reward: 60, color: '#0000CD' },
-      black_demon: { hp: 200, speed: 100, reward: 40, color: '#000000' },
-      abyssal_demon: { hp: 250, speed: 130, reward: 45, color: '#4B0082' },
-      barrow_wight: { hp: 600, speed: 40, reward: 80, color: '#F5F5DC' },
-      chaos_druid: { hp: 80, speed: 140, reward: 20, color: '#32CD32' },
-      skeletal_mage: { hp: 120, speed: 90, reward: 25, color: '#E6E6FA' },
-      vorkath: { hp: 2000, speed: 30, reward: 1000, color: '#4682B4' },
-      zulrah: { hp: 1500, speed: 50, reward: 800, color: '#2E8B57' },
-      skeleton: { hp: 50, speed: 90, reward: 10, color: '#f0f0f0' },
-      zombie: { hp: 70, speed: 70, reward: 12, color: '#4a5d23' },
-      ghost: { hp: 40, speed: 110, reward: 15, color: '#a0d6d6' },
-      hellhound: { hp: 180, speed: 120, reward: 35, color: '#ff4500' },
-      fire_giant: { hp: 220, speed: 60, reward: 40, color: '#ff8c00' },
-      bloodveld: { hp: 250, speed: 80, reward: 45, color: '#ff00ff' },
-      gargoyle: { hp: 350, speed: 50, reward: 55, color: '#808080' },
-      nechryael: { hp: 300, speed: 90, reward: 60, color: '#4b0082' },
-      dark_beast: { hp: 500, speed: 100, reward: 100, color: '#1a1a1a' },
-      hydra: { hp: 800, speed: 70, reward: 200, color: '#006400' }
+    const baseStats: Record<EnemyType, { hp: number, speed: number, reward: number, color: string, deathSound?: string, weakness?: Element }> = {
+      goblin: { hp: 12, speed: 100, reward: 5, color: '#00ff00', deathSound: 'death_goblin' },
+      rat: { hp: 8, speed: 120, reward: 3, color: '#808080' },
+      cow: { hp: 25, speed: 80, reward: 10, color: '#8B4513' },
+      imp: { hp: 15, speed: 160, reward: 8, color: '#ff0000', deathSound: 'death_imp' },
+      spider: { hp: 35, speed: 130, reward: 12, color: '#ffff00' },
+      scorpion: { hp: 60, speed: 90, reward: 15, color: '#DAA520' },
+      hill_giant: { hp: 120, speed: 70, reward: 25, color: '#A0522D' },
+      lesser_demon: { hp: 200, speed: 100, reward: 35, color: '#800000', deathSound: 'death_demon' },
+      green_dragon: { hp: 450, speed: 80, reward: 60, color: '#006400', deathSound: 'death_dragon' },
+      blue_dragon: { hp: 600, speed: 75, reward: 80, color: '#0000CD', deathSound: 'death_dragon' },
+      black_demon: { hp: 500, speed: 110, reward: 70, color: '#000000', deathSound: 'death_demon' },
+      abyssal_demon: { hp: 400, speed: 180, reward: 75, color: '#4B0082', deathSound: 'death_abyssal_demon' },
+      barrow_wight: { hp: 1000, speed: 50, reward: 120, color: '#F5F5DC', deathSound: 'death_boss' },
+      chaos_druid: { hp: 150, speed: 120, reward: 40, color: '#32CD32' },
+      skeletal_mage: { hp: 220, speed: 100, reward: 50, color: '#E6E6FA' },
+      skeleton: { hp: 90, speed: 95, reward: 20, color: '#f0f0f0' },
+      zombie: { hp: 140, speed: 75, reward: 25, color: '#4a5d23' },
+      ghost: { hp: 70, speed: 110, reward: 30, color: '#a0d6d6' },
+      hellhound: { hp: 280, speed: 150, reward: 50, color: '#ff4500', deathSound: 'death_demon' },
+      fire_giant: { hp: 350, speed: 75, reward: 60, color: '#ff8c00', weakness: 'water' },
+      bloodveld: { hp: 400, speed: 90, reward: 65, color: '#ff00ff' },
+      gargoyle: { hp: 600, speed: 65, reward: 80, color: '#808080', weakness: 'fire' },
+      nechryael: { hp: 550, speed: 95, reward: 90, color: '#4b0082' },
+      dark_beast: { hp: 900, speed: 130, reward: 150, color: '#1a1a1a', deathSound: 'death_demon' },
+      hydra: { hp: 1500, speed: 80, reward: 400, color: '#006400', deathSound: 'death_boss' },
+      jad: { hp: 4000, speed: 50, reward: 1000, color: '#FF4500', deathSound: 'death_boss' },
+      vorkath: { hp: 6000, speed: 40, reward: 2000, color: '#4682B4', deathSound: 'death_boss' },
+      zulrah: { hp: 5000, speed: 60, reward: 1500, color: '#2E8B57', deathSound: 'death_boss' }
     };
 
     const stats = baseStats[type];
@@ -799,7 +846,9 @@ export class GameEngine {
           reward: stats.reward,
           slowTimer: 0,
           stunTimer: 0,
-          tauntTimer: 0
+          tauntTimer: 0,
+          weakness: stats.weakness,
+          deathSound: stats.deathSound
         });
       }
     }
@@ -818,32 +867,40 @@ export class GameEngine {
     let upgradeCost = 0;
     let special: Tower['special'] = undefined;
 
+    let mageMode: MageMode = 'elemental';
+    let element: Element = 'air';
+    let minDamage = 0;
+    let maxDamage = 0;
+
     switch (type) {
       case 'archer':
         name = 'Shortbow';
         cost = 50;
         range = 150 * this.upgrades.archerRange;
-        damage = 8;
-        cooldown = 600;
+        damage = 10;
+        cooldown = 3 * TICK * 1000; // 3 ticks
         color = '#00ff00';
         upgradeCost = 100;
         break;
       case 'wizard':
-        name = 'Wind Strike';
+        name = 'Mage Tower';
         cost = 75;
-        range = 120;
+        range = 140;
         damage = 15 * this.upgrades.magicDamage;
-        cooldown = 1200;
+        cooldown = 5 * TICK * 1000; // 5 ticks
         color = '#0000ff';
         upgradeCost = 150;
-        special = 'slow';
+        mageMode = 'elemental';
+        element = 'air';
         break;
       case 'cannon':
-        name = 'Dwarf Cannon';
-        cost = 150;
+        name = 'Dwarf Multicannon';
+        cost = 250;
         range = 250;
-        damage = 100;
-        cooldown = 4000 / this.upgrades.cannonSpeed; // Slow but strong
+        minDamage = 6;
+        maxDamage = 12;
+        damage = 0; // Uses min/max
+        cooldown = 2 * TICK * 1000; // 2 ticks (fast)
         color = '#ff0000';
         upgradeCost = 300;
         special = 'aoe';
@@ -851,9 +908,9 @@ export class GameEngine {
       case 'tzhaar':
         name = 'TzHaar-Ket';
         cost = 200;
-        range = 60; // Melee
+        range = 60;
         damage = 50;
-        cooldown = 1500;
+        cooldown = 4 * TICK * 1000; // 4 ticks
         color = '#8B0000';
         upgradeCost = 400;
         break;
@@ -862,28 +919,28 @@ export class GameEngine {
         cost = 125;
         range = 160;
         damage = 25;
-        cooldown = 1000;
+        cooldown = 4 * TICK * 1000;
         color = '#4B0082';
         upgradeCost = 250;
         break;
       case 'support':
-        name = 'Support Banner';
+        name = 'Support Tower';
         cost = 100;
-        range = 100; // Aura range
+        range = 120;
         damage = 0;
-        cooldown = 2000;
+        cooldown = 5 * TICK * 1000;
         color = '#FFFFFF';
         upgradeCost = 200;
         break;
       case 'toxic':
-        name = 'Blowpipe';
-        cost = 175;
+        name = 'Toxic Blowpipe';
+        cost = 300;
         range = 140;
         damage = 5;
-        cooldown = 200; // Very fast
+        cooldown = 2 * TICK * 1000; // 2 ticks (very fast)
         color = '#008080';
-        upgradeCost = 350;
-        special = 'slow'; // Poison is represented as slow + DoT
+        upgradeCost = 500;
+        special = 'slow';
         break;
     }
 
@@ -911,6 +968,10 @@ export class GameEngine {
           special,
           visualRadius: 18,
           disabledTimer: 0,
+          minDamage,
+          maxDamage,
+          mageMode,
+          element,
           skills: {
             attack: { level: 1, xp: 0 },
             strength: { level: 1, xp: 0 },
@@ -971,54 +1032,38 @@ export class GameEngine {
         tower.special = 'rapid';
       }
     } else if (tower.type === 'wizard') {
-      if (tower.level === 2) {
-        tower.name = 'Water Bolt';
-        tower.damage = 30 * this.upgrades.magicDamage;
-        tower.cooldown = 1100;
-        tower.upgradeCost = 400;
-        tower.color = '#1E90FF';
-      } else if (tower.level === 3) {
-        tower.name = 'Ice Barrage';
-        tower.damage = 60 * this.upgrades.magicDamage;
-        tower.cooldown = 1500;
-        tower.range = 150;
-        tower.special = 'aoe'; // Becomes AoE slow
-        tower.color = '#B0E0E6';
-        tower.upgradeCost = 750;
-      } else if (tower.level === 4) {
-        tower.name = "Tumeken's Shadow";
-        tower.damage = 150 * this.upgrades.magicDamage;
-        tower.cooldown = 1200;
-        tower.range = 200;
-        tower.color = '#FFD700';
+      const spellTiers = ['Strike', 'Bolt', 'Blast', 'Wave', 'Surge'];
+      const ancientTiers = ['Rush', 'Burst', 'Blitz', 'Barrage'];
+      
+      if (tower.mageMode === 'elemental') {
+        const tier = Math.min(tower.level - 1, 4);
+        tower.name = `${tower.element!.charAt(0).toUpperCase()}${tower.element!.slice(1)} ${spellTiers[tier]}`;
+        tower.damage = (20 + (tower.level * 15)) * this.upgrades.magicDamage;
+        tower.cooldown = 5 * TICK * 1000;
+        tower.upgradeCost = 200 + (tower.level * 150);
+        tower.fireSound = `spell_${tower.element}`;
+      } else if (tower.mageMode === 'ancients') {
+        const tier = Math.min(tower.level - 1, 3);
+        tower.name = `Ice ${ancientTiers[tier]}`;
+        tower.damage = (30 + (tower.level * 20)) * this.upgrades.magicDamage;
+        tower.cooldown = 6 * TICK * 1000; // Slower but AoE
         tower.special = 'aoe';
+        tower.upgradeCost = 300 + (tower.level * 250);
+        tower.fireSound = 'spell_ice';
+      } else {
+        // Support
+        tower.name = 'Mage Support';
+        tower.damage = 0;
+        tower.upgradeCost = 250 + (tower.level * 200);
       }
     } else if (tower.type === 'cannon') {
-      if (tower.level === 2) {
-        tower.name = 'Gold Cannon';
-        tower.damage = 300;
-        tower.range = 280;
-        tower.upgradeCost = 600;
-        tower.color = '#FFD700';
-        tower.special = 'aoe';
-        tower.cooldown = 3500 / this.upgrades.cannonSpeed;
-      } else if (tower.level === 3) {
-        tower.name = 'Granite Cannon';
-        tower.damage = 800;
-        tower.range = 320;
-        tower.color = '#696969';
-        tower.special = 'aoe';
-        tower.cooldown = 3000 / this.upgrades.cannonSpeed;
-        tower.upgradeCost = 1000;
-      } else if (tower.level === 4) {
-        tower.name = 'Heavy Ballista';
-        tower.damage = 2500;
-        tower.range = 450;
-        tower.cooldown = 5000 / this.upgrades.cannonSpeed;
-        tower.color = '#4B3621';
-        tower.special = 'aoe';
-      }
-    } else if (tower.type === 'tzhaar') {
+      tower.minDamage = (tower.minDamage || 0) + 2;
+      tower.maxDamage = (tower.maxDamage || 0) + 4;
+      tower.cooldown = Math.max(1000, tower.cooldown - 200);
+      tower.upgradeCost += 200;
+      tower.name = tower.level === 4 ? 'Heavy Ballista' : 'Dwarf Multicannon';
+    } 
+else if (tower.type === 'tzhaar') {
       if (tower.level === 2) {
         tower.name = 'TzHaar-Xil';
         tower.damage = 100;
@@ -1096,6 +1141,58 @@ export class GameEngine {
     }
 
     this.onStateChange({ money: this.money });
+  }
+
+  setMageMode(towerId: string, mode: MageMode) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (tower && tower.type === 'wizard') {
+      tower.mageMode = mode;
+      // Reset special effects
+      tower.special = mode === 'ancients' ? 'aoe' : undefined;
+      if (mode === 'ancients') tower.element = 'none';
+      if (mode === 'utility') tower.element = 'none';
+      this.upgradeTowerStats(tower); // Re-apply stats
+      this.onStateChange({ towers: this.towers });
+    }
+  }
+
+  setMageElement(towerId: string, element: Element) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (tower && tower.type === 'wizard' && tower.mageMode === 'elemental') {
+      tower.element = element;
+      this.upgradeTowerStats(tower);
+      this.onStateChange({ towers: this.towers });
+    }
+  }
+
+  upgradeTowerStats(tower: Tower) {
+    // Moved upgrade logic here to share between upgrade and mode switch
+    const spellTiers = ['Strike', 'Bolt', 'Blast', 'Wave', 'Surge'];
+    const ancientTiers = ['Rush', 'Burst', 'Blitz', 'Barrage'];
+    
+    if (tower.type === 'wizard') {
+      if (tower.mageMode === 'elemental') {
+        const tier = Math.min(tower.level - 1, 4);
+        tower.name = `${tower.element!.charAt(0).toUpperCase()}${tower.element!.slice(1)} ${spellTiers[tier]}`;
+        tower.damage = (20 + (tower.level * 15)) * this.upgrades.magicDamage;
+        tower.cooldown = 5 * TICK * 1000;
+        tower.fireSound = `spell_${tower.element}`;
+        tower.color = tower.element === 'fire' ? '#ff4500' : (tower.element === 'water' ? '#1e90ff' : (tower.element === 'earth' ? '#8b4513' : '#ffffff'));
+      } else if (tower.mageMode === 'ancients') {
+        const tier = Math.min(tower.level - 1, 3);
+        tower.name = `Ice ${ancientTiers[tier]}`;
+        tower.damage = (30 + (tower.level * 20)) * this.upgrades.magicDamage;
+        tower.cooldown = 6 * TICK * 1000;
+        tower.special = 'aoe';
+        tower.fireSound = 'spell_ice';
+        tower.color = '#B0E0E6';
+      } else {
+        tower.name = 'Mage Support';
+        tower.damage = 0;
+        tower.color = '#FF00FF';
+        tower.fireSound = 'spell_curse';
+      }
+    }
   }
 
   sellTower(towerId: string) {
@@ -1492,7 +1589,7 @@ export class GameEngine {
         for (const enemy of this.enemies) {
           const dx = enemy.x - tower.x;
           const dy = enemy.y - tower.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+          const dist = Math.sqrt(dx * dx + dy + dy);
           
           if (dist <= effectiveRange && dist < closestDist) {
             closestDist = dist;
@@ -1503,7 +1600,7 @@ export class GameEngine {
       }
 
       // Fire
-      if (tower.targetId && now - tower.lastFired >= effectiveCooldown && effectiveDamage > 0) {
+      if (tower.targetId && now - tower.lastFired >= effectiveCooldown) {
         const target = this.enemies.find(e => e.id === tower.targetId);
         if (target) {
           // Check range again
@@ -1512,31 +1609,77 @@ export class GameEngine {
           const dist = Math.sqrt(dx * dx + dy * dy);
           
           if (dist <= effectiveRange) {
-            this.playSound(`shoot_${tower.type}`);
+            let finalDamage = effectiveDamage;
             
-            // Tzhaar Taunt Logic
-            if (tower.type === 'tzhaar') {
-              // Taunt all enemies in range
-              this.enemies.forEach(e => {
-                const edx = e.x - tower.x;
-                const edy = e.y - tower.y;
-                if (Math.sqrt(edx * edx + edy * edy) <= effectiveRange) {
-                  e.tauntTimer = 2.0; // 2 second taunt
-                }
-              });
+            // Multicannon Random Damage
+            if (tower.type === 'cannon') {
+              finalDamage = (tower.minDamage || 0) + Math.random() * ((tower.maxDamage || 0) - (tower.minDamage || 0));
+              this.playSound('cannon_fire');
+            } else if (tower.type === 'wizard') {
+              // Elemental Weakness
+              if (tower.mageMode === 'elemental' && target.weakness === tower.element) {
+                finalDamage *= 1.5; // 50% bonus
+                this.particles.push({ x: target.x, y: target.y - 20, life: 1, color: '#00ffff' });
+              }
+              if (tower.mageMode === 'elemental') this.playSound(`spell_${tower.element}`);
+              else if (tower.mageMode === 'ancients') this.playSound('spell_ice');
+              else this.playSound('spell_curse');
+            } else if (tower.fireSound) {
+              this.playSound(tower.fireSound);
+            } else {
+              this.playSound(`shoot_${tower.type}`);
             }
 
-            this.projectiles.push({
-              id: Math.random().toString(36).substr(2, 9),
-              x: tower.x,
-              y: tower.y,
-              targetId: tower.targetId,
-              speed: 400,
-              damage: effectiveDamage,
-              color: tower.color,
-              special: tower.special === 'aoe' ? 'aoe' : (tower.special === 'slow' ? 'slow' : (tower.special === 'stun' ? 'stun' : undefined)),
-              sourceTowerId: tower.id
-            });
+            // Wizard Support mode special spells
+            if (tower.type === 'wizard' && tower.mageMode === 'utility') {
+               const rand = Math.random();
+               if (rand < 0.33) {
+                 // CHARGE: Buff nearby towers (micro-boost to damage/range)
+                 this.towers.forEach(t => {
+                   if (t.id !== tower.id && Math.sqrt(Math.pow(t.x-tower.x,2)+Math.pow(t.y-tower.y,2)) < tower.range) {
+                     this.particles.push({x: t.x, y: t.y, life: 1, color: '#ffff00'});
+                     t.lastFired -= 500; // Instant CDR boost
+                   }
+                 });
+                 this.playSound('special_attack');
+               } else if (rand < 0.66) {
+                 // CURSE: Weaken enemy
+                 // Represented as bonus damage for all hits for a while
+                 this.particles.push({x: target.x, y: target.y, life: 2, color: '#ff00ff'});
+                 this.damageEnemy(target, 10 + (tower.level * 10)); // Bonus pure damage
+                 this.playSound('spell_curse');
+               } else {
+                 // BIND: Snare the enemy
+                 const bindDuration = 0.5 + (tower.level * 0.5);
+                 target.stunTimer = bindDuration;
+                 this.particles.push({x: target.x, y: target.y, life: bindDuration, color: '#ffffff'});
+                 this.playSound('spell_bind');
+               }
+               
+               // Level 4 Special: AoE Support
+               if (tower.level === 4) {
+                 this.enemies.forEach(e => {
+                   if (e.id !== target.id && Math.sqrt(Math.pow(e.x-target.x,2)+Math.pow(e.y-target.y,2)) < 60) {
+                     if (rand >= 0.66) e.stunTimer = 1.0;
+                     else if (rand >= 0.33) this.damageEnemy(e, 20);
+                   }
+                 });
+               }
+            }
+
+            if (finalDamage > 0) {
+              this.projectiles.push({
+                id: Math.random().toString(36).substr(2, 9),
+                x: tower.x,
+                y: tower.y,
+                targetId: tower.targetId,
+                speed: 400,
+                damage: finalDamage,
+                color: tower.color,
+                special: tower.special === 'aoe' ? 'aoe' : (tower.special === 'slow' ? 'slow' : (tower.special === 'stun' ? 'stun' : undefined)),
+                sourceTowerId: tower.id
+              });
+            }
             tower.lastFired = now;
           } else {
             tower.targetId = null;
@@ -1712,7 +1855,12 @@ export class GameEngine {
           }
         }
 
-        this.onStateChange({ money: this.money });
+        if (enemy.hp <= 0) {
+          const deathSound = enemy.deathSound || 'kill';
+          this.playSound(deathSound);
+          this.money += Math.floor(enemy.reward * (this.upgrades.rewardMultiplier || 1));
+          this.onStateChange({ money: this.money });
+        }
       }
     }
   }
@@ -1986,20 +2134,20 @@ export class GameEngine {
           this.ctx.stroke();
         }
 
-        // Draw Range if hovered or selected
-        if (tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId) {
+        // Draw Range if hovered, selected, or toggled
+        if (tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId || tower.showRange) {
           const rangeMultiplier = (this.activePotions.some(p => p.type === 'overload') ? 1.1 : 1.0) * 
                                   (this.activePrayers.has('rigour') ? 1.2 : 1.0);
           // Add support aura check if we wanted to be perfectly accurate, but this covers most buffs
           
           this.ctx.beginPath();
-          this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+          this.ctx.strokeStyle = tower.showRange ? 'rgba(255, 255, 0, 0.4)' : 'rgba(255, 255, 255, 0.3)';
           this.ctx.lineWidth = 2;
           this.ctx.setLineDash([5, 5]);
           this.ctx.arc(tower.x, tower.y, tower.range * rangeMultiplier, 0, Math.PI * 2);
           this.ctx.stroke();
           this.ctx.setLineDash([]);
-          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+          this.ctx.fillStyle = tower.showRange ? 'rgba(255, 255, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)';
           this.ctx.fill();
         }
 

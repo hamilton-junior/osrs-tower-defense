@@ -56,6 +56,8 @@ interface GameState {
   pets?: any[];
   inventory?: any[];
   quests?: any[];
+  autoSpawnTimer?: number;
+  achievementPoints?: number;
 }
 
 export default function GameCanvas() {
@@ -198,7 +200,7 @@ export default function GameCanvas() {
   };
 
   const handleTogglePrayer = (type: string) => {
-    engineRef.current?.togglePrayer(type);
+    engineRef.current?.togglePrayer(type as any);
   };
 
   const handleSpecialAttack = () => {
@@ -318,10 +320,12 @@ export default function GameCanvas() {
     const y = e.clientY - rect.top;
 
     const entity = engineRef.current.getEntityAt(x, y) as any;
-    if (entity) {
-      setRightClickedEntity(entity);
-    } else {
-      setRightClickedEntity(null);
+    if (entity && entity.type === 'tower') {
+      const tower = engineRef.current.towers.find((t: any) => t.id === entity.data.id);
+      if (tower) {
+        tower.showRange = !tower.showRange;
+        setGameState(prev => ({ ...prev })); // Force re-render
+      }
     }
   };
 
@@ -364,6 +368,11 @@ export default function GameCanvas() {
           <div className="flex flex-col items-center px-2">
             <span className="text-xs text-[#c0c0c0]">Essence</span>
             <span className="font-bold text-xl text-[#00ffff]">{gameState.runeEssence || 0}</span>
+          </div>
+          <div className="w-px bg-[#5d5d5d]"></div>
+          <div className="flex flex-col items-center px-2">
+            <span className="text-xs text-[#c0c0c0]">Points</span>
+            <span className="font-bold text-xl text-[#ffff00]">{gameState.achievementPoints || 0}</span>
           </div>
         </div>
 
@@ -489,8 +498,8 @@ export default function GameCanvas() {
         ))}
       </div>
 
-      {/* Slayer Task UI */}
-      <div className="absolute top-20 right-4 flex flex-col gap-2 z-10 pointer-events-auto">
+      {/* Slayer Task UI - Moved down to avoid HUD overlap */}
+      <div className="absolute top-[160px] right-4 flex flex-col gap-2 z-10 pointer-events-auto">
         {gameState.slayerTask && (
           <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded text-[#ffff00] shadow-lg">
             <h3 className="text-xs font-bold text-[#ff981f] border-b border-[#5d5d5d] mb-1">Slayer Task</h3>
@@ -667,8 +676,15 @@ export default function GameCanvas() {
                     className="aspect-square bg-[#2d2d2d] border-2 border-[#5d5d5d] rounded p-1 flex flex-col items-center justify-center group relative cursor-pointer hover:border-[#ffff00]"
                     onClick={() => handleEquipItem(item.id)}
                   >
-                    <div className="text-2xl">
-                      {item.type === 'weapon' ? '⚔️' : item.type === 'shield' ? '🛡️' : '💍'}
+                    <div className="w-10 h-10 flex items-center justify-center">
+                      <img 
+                        src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} 
+                        alt={item.name}
+                        className="max-w-full max-h-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Inventory_icon.png';
+                        }}
+                      />
                     </div>
                     <div className="absolute inset-0 bg-black/90 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col items-center justify-center text-center z-10">
                       <span className="text-[10px] font-bold text-[#ffff00]">{item.name}</span>
@@ -726,7 +742,10 @@ export default function GameCanvas() {
                       <div className="text-[#ffff00] font-bold text-base group-hover:text-[#ffffff] transition-colors">{item.name}</div>
                       <div className="text-[#c0c0c0] text-xs italic">{item.desc}</div>
                       <div className="text-[#00ff00] text-[10px] mt-1 font-mono">
-                        Current: +{Math.round((upgrades[item.id as keyof GlobalUpgrades] - 1) * 100)}%
+                        {item.id === 'startingMoney' 
+                          ? `Current: ${upgrades[item.id as keyof GlobalUpgrades]}`
+                          : `Current: ${upgrades[item.id as keyof GlobalUpgrades] > 1.0 ? '+' : ''}${Math.round((upgrades[item.id as keyof GlobalUpgrades] - 1) * 100)}%`
+                        }
                         {isMaxed && <span className="ml-2 text-[#ff0000] font-bold">[MAX]</span>}
                       </div>
                     </div>
@@ -798,29 +817,54 @@ export default function GameCanvas() {
                     {item && (
                       <button 
                         onClick={() => handleUnequipItem(slot as any)}
-                        className="text-[#ff0000] hover:underline font-bold"
+                        className="text-[#ff0000] hover:text-[#ffffff] font-bold px-1"
                       >
-                        Unequip
+                        [X]
                       </button>
                     )}
                   </div>
                 );
               })}
             </div>
-            <button 
-              onClick={() => setShowInventory(true)}
-              className="w-full mt-2 bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#ffff00] text-[10px] font-bold py-1 rounded border border-[#2d2d2d]"
-            >
-              Open Inventory to Equip
-            </button>
           </div>
-          
+
+          {selectedPlacedTower.type === 'wizard' && (
+            <div className="mt-2 border-t border-[#5d5d5d] pt-2">
+              <p className="text-[10px] font-bold text-[#ffff00] mb-1">Mage Specialization</p>
+              <div className="flex gap-1 mb-2">
+                {['elemental', 'ancients', 'utility'].map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => engineRef.current?.setMageMode(selectedPlacedTower.id, mode as any)}
+                    className={`text-[9px] px-2 py-1 border rounded capitalize ${selectedPlacedTower.mageMode === mode ? 'bg-[#ffff00] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+              
+              {selectedPlacedTower.mageMode === 'elemental' && (
+                <div className="grid grid-cols-4 gap-1">
+                  {['air', 'water', 'earth', 'fire'].map(elem => (
+                    <button
+                      key={elem}
+                      onClick={() => engineRef.current?.setMageElement(selectedPlacedTower.id, elem as any)}
+                      className={`text-[9px] p-1 border rounded capitalize ${selectedPlacedTower.element === elem ? 'bg-[#00ffff] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
+                    >
+                      {elem}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-2 mt-2">
             {selectedPlacedTower.level < selectedPlacedTower.maxLevel ? (
               <button 
                 onClick={handleUpgrade}
                 disabled={gameState.money < selectedPlacedTower.upgradeCost}
-                className={`flex-1 px-2 py-2 border-2 border-[#2d2d2d] text-xs font-bold ${gameState.money >= selectedPlacedTower.upgradeCost ? 'bg-[#00ff00] text-black hover:bg-[#32CD32]' : 'bg-[#5d5d5d] text-[#808080] cursor-not-allowed'}`}
+                className={`flex-1 px-4 py-2 border-2 border-[#2d2d2d] text-xs font-bold ${gameState.money >= selectedPlacedTower.upgradeCost ? 'bg-[#00ff00] text-black hover:bg-[#32CD32]' : 'bg-[#5d5d5d] text-[#808080] cursor-not-allowed'}`}
               >
                 Upgrade ({selectedPlacedTower.upgradeCost} gp)
               </button>
@@ -829,7 +873,7 @@ export default function GameCanvas() {
             )}
             <button 
               onClick={handleSell}
-              className="px-2 py-2 bg-[#ff0000] hover:bg-[#cc0000] border-2 border-[#2d2d2d] text-xs font-bold text-white"
+              className="px-4 py-2 bg-[#ff0000] hover:bg-[#cc0000] border-2 border-[#2d2d2d] text-xs font-bold text-white shadow-md active:translate-y-0.5"
             >
               Sell
             </button>
@@ -857,7 +901,7 @@ export default function GameCanvas() {
               <p>Level: <span className="text-white">{hoveredEntity.data.level}</span></p>
               <p>Damage: <span className="text-white">{hoveredEntity.data.damage}</span></p>
               <p>Range: <span className="text-white">{hoveredEntity.data.range}</span></p>
-              <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click for status</p>
+              <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click for toggle range</p>
             </div>
           )}
         </div>
