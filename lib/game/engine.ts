@@ -93,7 +93,7 @@ export interface Item {
     damage?: number;
     range?: number;
     cooldown?: number;
-    defense?: number;
+    xpBonus?: number; // % XP bonus (replaces defense)
   };
   type: 'weapon' | 'shield' | 'accessory';
 }
@@ -114,6 +114,9 @@ export interface Tower {
   name: string;
   upgradeCost: number;
   special?: 'slow' | 'aoe' | 'rapid' | 'stun';
+  specCharge: number; // 0-100 special attack charge
+  specMax: number;    // damage threshold to fill spec bar
+  lastSpecFired?: number;
   visualRadius: number;
   disabledTimer: number;
   skills: TowerSkills;
@@ -187,11 +190,12 @@ export class GameEngine {
   autoSpawnTimer: number = 0;
   hoveredEntityId: string | null = null;
   selectedEntityId: string | null = null;
-  money: number = 150; // Increased starting money
+  money: number = 150;
   lives: number = 20;
   wave: number = 1;
   waveActive: boolean = false;
   runeEssence: number = 0;
+  devMode: boolean = false; // Dev mode: no HP loss
   
   // Prayer System
   prayerPoints: number = 10;
@@ -208,8 +212,8 @@ export class GameEngine {
 
   // Pets & Achievements
   pets: Pet[] = [
-    { id: 'pet_beaver', name: 'Beaver', type: 'beaver', bonus: 'WC Master (+5% Wood XP)' },
-    { id: 'pet_snakeling', name: 'Snakeling', type: 'snakeling', bonus: 'Venom Master (+10% GP)' }
+    { id: 'pet_beaver', name: 'Beaver', type: 'beaver', bonus: 'Lucky Paw: +25% item drop chance' },
+    { id: 'pet_tangleroot', name: 'Tangleroot', type: 'tangleroot', bonus: 'Nature\'s Gift: +10% Rune Essence drops' }
   ];
   achievements: Achievement[] = [
     { id: 'first_wave', name: 'Novice Defender', description: 'Complete Wave 1', completed: false },
@@ -239,7 +243,7 @@ export class GameEngine {
       reward: { 
         money: 100, 
         essence: 5,
-        item: { id: 'amulet_of_power', name: 'Amulet of Power', description: 'Attack +5, Defense +5', type: 'accessory', bonus: { damage: 5, defense: 5 } }
+        item: { id: 'amulet_of_power', name: 'Amulet of Power', description: '+5 DMG, +10% XP gain', type: 'accessory', bonus: { damage: 5, xpBonus: 10 } }
       },
       completed: false,
       claimed: false
@@ -252,7 +256,7 @@ export class GameEngine {
       reward: { 
         money: 500, 
         essence: 20,
-        item: { id: 'anti_dragon_shield', name: 'Anti-dragon Shield', description: 'Defense +10', type: 'shield', bonus: { defense: 10 } }
+        item: { id: 'anti_dragon_shield', name: 'Anti-dragon Shield', description: 'Range +20, +15% XP gain', type: 'shield', bonus: { range: 20, xpBonus: 15 } }
       },
       completed: false,
       claimed: false
@@ -799,14 +803,21 @@ export class GameEngine {
     };
 
     const stats = baseStats[type];
-    const waveScaling = 1 + (waveMultiplier * 0.1); // Wave multiplier is usually waveNum / 10 or similar
-    // User wants wave to increment level and then stats from level
-    const effectiveHp = Math.floor(stats.hp * waveScaling);
+    // Exponential scaling: each wave multiplies base HP significantly
+    // waveMultiplier is the wave number. Wave 1 = ×1.0, Wave 5 = 1+(4*0.35)=×2.4, Wave 20 = ×7.65
+    const hpScale = 1 + (waveMultiplier - 1) * 0.35;
+    const speedScale = 1 + (waveMultiplier - 1) * 0.015; // Speed grows slowly (max ~30% at wave 20)
+    const rewardScale = 1 + (waveMultiplier - 1) * 0.2; // Rewards also scale
+    const effectiveHp = Math.floor(stats.hp * hpScale);
+    const effectiveSpeed = Math.floor(stats.speed * speedScale);
+    const effectiveReward = Math.floor(stats.reward * rewardScale);
 
     return {
       ...stats,
       hp: effectiveHp,
-      maxHp: effectiveHp
+      maxHp: effectiveHp,
+      speed: effectiveSpeed,
+      reward: effectiveReward
     };
   }
 
@@ -910,7 +921,7 @@ export class GameEngine {
       }
     }
 
-    const multiplier = 1 + (waveNum * 0.1); // 10% stronger per wave
+    const multiplier = waveNum; // Pass wave number directly for exponential scaling
 
     if (this.path.length === 0) return enemies;
 
@@ -959,64 +970,70 @@ export class GameEngine {
 
     switch (type) {
       case 'archer':
+        // Shortbow: max hit ~17 with moderate ammo. Rapid style.
         name = 'Shortbow';
         cost = 50;
-        range = 150 * this.upgrades.archerRange;
-        damage = 10;
+        range = 7 * 25 * this.upgrades.archerRange;
+        damage = 13; // ~shortbow with addy arrows max hit
         cooldown = 3 * TICK * 1000; // 3 ticks
-        color = '#00ff00';
+        color = '#9acd32';
         upgradeCost = 100;
         break;
       case 'wizard':
-        name = 'Mage Tower';
+        // Air Strike: max hit ~8
+        name = 'Air Strike';
         cost = 75;
-        range = 140;
-        damage = 15 * this.upgrades.magicDamage;
+        range = 7 * 25;
+        damage = 8 * this.upgrades.magicDamage;
         cooldown = 5 * TICK * 1000; // 5 ticks
-        color = '#0000ff';
+        color = '#a0cfff';
         upgradeCost = 150;
         mageMode = 'elemental';
         element = 'air';
         break;
       case 'cannon':
+        // Dwarf Multicannon: max hit 30, hits up to 4 targets at once
         name = 'Dwarf Multicannon';
         cost = 250;
-        range = 250;
-        minDamage = 6;
-        maxDamage = 12;
-        damage = 0; // Uses min/max
-        cooldown = 2 * TICK * 1000; // 2 ticks (fast)
-        color = '#ff0000';
+        range = 9 * 25; // 9 tiles
+        minDamage = 0;  // Can splash
+        maxDamage = 30; // OSRS max 30
+        damage = 0;     // Uses min/max
+        cooldown = 2 * TICK * 1000;
+        color = '#cd5c5c';
         upgradeCost = 300;
         special = 'aoe';
         break;
       case 'tzhaar':
+        // TzHaar-Ket melee: uses obsidian weapons; Toktz-xil-ak max ~35
         name = 'TzHaar-Ket';
         cost = 200;
-        range = 60;
-        damage = 50;
-        cooldown = 4 * TICK * 1000; // 4 ticks
+        range = 2 * 25; // 2 tiles melee
+        damage = 35;
+        cooldown = 4 * TICK * 1000;
         color = '#8B0000';
         upgradeCost = 400;
         break;
       case 'slayer':
-        name = 'Slayer Tower';
+        // Slayer Helmet + Broad Bolts: max ~40
+        name = 'Slayer Crossbow';
         cost = 125;
-        range = 160;
-        damage = 25;
+        range = 7 * 25;
+        damage = 40;
         cooldown = 4 * TICK * 1000;
         color = '#4B0082';
         upgradeCost = 250;
         break;
       case 'toxic':
+        // Toxic Blowpipe: max hit 20 with efficient darts, very fast, poisons
         name = 'Toxic Blowpipe';
         cost = 300;
-        range = 140;
-        damage = 5;
-        cooldown = 2 * TICK * 1000; // 2 ticks (very fast)
-        color = '#008080';
+        range = 5 * 25;
+        damage = 20;
+        cooldown = 2 * TICK * 1000;
+        color = '#2a6b5a';
         upgradeCost = 500;
-        special = 'slow';
+        special = 'slow'; // Poison = slow
         break;
     }
 
@@ -1048,6 +1065,8 @@ export class GameEngine {
           maxDamage,
           mageMode,
           element,
+          specCharge: 0,
+          specMax: 100,
           skills: {
             attack: { level: 1, xp: 0 },
             strength: { level: 1, xp: 0 },
@@ -1083,29 +1102,33 @@ export class GameEngine {
     tower.level++;
     tower.visualRadius += 2;
 
-    // Upgrade logic
+    // Upgrade logic — OSRS-accurate weapon progression
     if (tower.type === 'archer') {
       if (tower.level === 2) {
+        // Magic Shortbow: max hit ~26 (MSB(i) special fires 2x)
         tower.name = 'Magic Shortbow';
-        tower.damage = 15;
-        tower.cooldown = 500;
-        tower.range = 170 * this.upgrades.archerRange;
+        tower.damage = 26;
+        tower.cooldown = 3 * TICK * 1000;
+        tower.range = 8 * 25 * this.upgrades.archerRange;
         tower.upgradeCost = 250;
         tower.color = '#32CD32';
+        tower.specMax = 80; // Cheaper to fill spec bar
       } else if (tower.level === 3) {
+        // Crystal Bow: max hit ~38, no ammo needed
         tower.name = 'Crystal Bow';
-        tower.damage = 35;
-        tower.cooldown = 400;
-        tower.range = 250 * this.upgrades.archerRange;
+        tower.damage = 38;
+        tower.cooldown = 5 * TICK * 1000; // Slower, stronger
+        tower.range = 9 * 25 * this.upgrades.archerRange;
         tower.color = '#E0FFFF';
         tower.upgradeCost = 500;
       } else if (tower.level === 4) {
+        // Bow of Faerdhinen: max hit ~53, hits fast
         tower.name = 'Bow of Faerdhinen';
-        tower.damage = 80;
-        tower.cooldown = 300;
-        tower.range = 300 * this.upgrades.archerRange;
-        tower.color = '#FF0000'; // Saeldor/Fbow red
-        tower.special = 'rapid';
+        tower.damage = 53;
+        tower.cooldown = 3 * TICK * 1000;
+        tower.range = 10 * 25 * this.upgrades.archerRange;
+        tower.color = '#a020f0';
+        tower.specMax = 120; // Spec bar fills faster with more damage
       }
     } else if (tower.type === 'wizard') {
       const spellTiers = ['Strike', 'Bolt', 'Blast', 'Wave', 'Surge'];
@@ -1113,94 +1136,139 @@ export class GameEngine {
       
       if (tower.mageMode === 'elemental') {
         const tier = Math.min(tower.level - 1, 4);
-        tower.name = `${tower.element!.charAt(0).toUpperCase()}${tower.element!.slice(1)} ${spellTiers[tier]}`;
-        tower.damage = (20 + (tower.level * 15)) * this.upgrades.magicDamage;
+        const elem = tower.element || 'air';
+        tower.name = `${elem.charAt(0).toUpperCase()}${elem.slice(1)} ${spellTiers[tier]}`;
+        // OSRS spell max hits per tier: ~8, 12, 18, 24, 30 (roughly)
+        const spellMaxHits = [8, 12, 18, 24, 30];
+        tower.damage = spellMaxHits[tier] * this.upgrades.magicDamage;
         tower.cooldown = 5 * TICK * 1000;
         tower.upgradeCost = 200 + (tower.level * 150);
-        tower.fireSound = `spell_${tower.element}`;
+        tower.fireSound = `spell_${elem}`;
       } else if (tower.mageMode === 'ancients') {
         const tier = Math.min(tower.level - 1, 3);
         tower.name = `Ice ${ancientTiers[tier]}`;
-        tower.damage = (30 + (tower.level * 20)) * this.upgrades.magicDamage;
+        // Ice Rush/Burst/Blitz/Barrage: 16/20/23/29 max hit
+        const ancientHits = [16, 20, 23, 29];
+        tower.damage = ancientHits[tier] * this.upgrades.magicDamage;
         tower.fireSound = 'spell_ice';
         tower.upgradeCost = 300 + (tower.level * 250);
-        // Level 1 & 2: slow only. Level 3: single 5s freeze. Level 4: AoE 10s freeze
         if (tower.level <= 2) {
           tower.cooldown = 5 * TICK * 1000;
           tower.special = 'slow';
         } else if (tower.level === 3) {
           tower.cooldown = 6 * TICK * 1000;
-          tower.special = 'stun'; // single-target 5s freeze (handled in projectile hit)
-        } else { // level 4
+          tower.special = 'stun';
+        } else {
           tower.cooldown = 8 * TICK * 1000;
-          tower.special = 'aoe'; // AoE handled: sets stunTimer = 10s
+          tower.special = 'aoe';
         }
       } else {
-        // Support
-        tower.name = 'Mage Support';
-        tower.damage = 0;
+        // Utility mode: Ancient Sceptre bonuses
+        const ancSceptreTiers = ['Lunar Staff', 'Ahrim\'s Staff', 'Ancient Sceptre', 'Tumeken\'s Shadow'];
+        tower.name = ancSceptreTiers[Math.min(tower.level - 1, 3)];
+        tower.damage = 0; // Utility: support, no attack (or minimal)
         tower.upgradeCost = 250 + (tower.level * 200);
       }
     } else if (tower.type === 'cannon') {
-      tower.minDamage = (tower.minDamage || 0) + 2;
-      tower.maxDamage = (tower.maxDamage || 0) + 4;
-      tower.cooldown = Math.max(1000, tower.cooldown - 200);
-      tower.upgradeCost += 200;
-      tower.name = tower.level === 4 ? 'Heavy Ballista' : 'Dwarf Multicannon';
+      // Cannon levels: Multicannon → Granite → Ballista (projectile)
+      if (tower.level === 2) {
+        tower.name = 'Granite Multicannon';
+        tower.minDamage = 0;
+        tower.maxDamage = 40;
+        tower.upgradeCost = 500;
+        tower.cooldown = 2 * TICK * 1000;
+      } else if (tower.level === 3) {
+        tower.name = 'Heavy Ballista';
+        tower.minDamage = 15;
+        tower.maxDamage = 60; // Ballista with javelins max ~84
+        tower.upgradeCost = 900;
+        tower.cooldown = 5 * TICK * 1000; // Slow but powerful
+        tower.special = undefined; // Single target, but with stun
+      } else if (tower.level === 4) {
+        tower.name = 'Dragon Hunter Ballista';
+        tower.minDamage = 20;
+        tower.maxDamage = 84; // Max ballista hit
+        tower.upgradeCost = 1500;
+        tower.cooldown = 5 * TICK * 1000;
+        tower.special = 'aoe'; // Back to AoE at level 4
+        tower.color = '#8B0000';
+      } else {
+        tower.upgradeCost += 200;
+      }
     } else if (tower.type === 'tzhaar') {
       if (tower.level === 2) {
-        tower.name = 'TzHaar-Xil';
-        tower.damage = 100;
-        tower.range = 70;
+        // Toktz-xil-ak: fast obsidian slash, max ~37
+        tower.name = 'Toktz-xil-ak';
+        tower.damage = 37;
+        tower.range = 2 * 25;
         tower.upgradeCost = 800;
         tower.color = '#A52A2A';
+        tower.cooldown = 3 * TICK * 1000; // Faster
       } else if (tower.level === 3) {
-        tower.name = 'TzHaar-Mej';
-        tower.damage = 250;
-        tower.range = 100;
+        // TzHaar-Ket-Om: flail, max ~75, chance to stun
+        tower.name = 'TzHaar-Ket-Om';
+        tower.damage = 75;
+        tower.range = 3 * 25;
         tower.color = '#FF4500';
-        tower.special = 'stun'; // Melee stun
+        tower.special = 'stun';
         tower.upgradeCost = 1200;
       } else if (tower.level === 4) {
-        tower.name = 'Infernal Ket';
-        tower.damage = 500;
-        tower.range = 120;
+        // Inquisitor's Mace: max ~100 with crush bonuses
+        tower.name = 'Inquisitor\'s Mace';
+        tower.damage = 100;
+        tower.range = 3 * 25;
         tower.color = '#FF0000';
+        tower.specMax = 50; // Spec fills very fast: AOE smash
       }
     } else if (tower.type === 'slayer') {
       if (tower.level === 2) {
-        tower.name = 'Broad Bolts';
-        tower.damage = 45;
+        // Slayer Crossbow + Broad Bolts: max ~57
+        tower.name = 'Karils Crossbow';
+        tower.damage = 57;
         tower.upgradeCost = 500;
         tower.color = '#9370DB';
+        tower.cooldown = 3 * TICK * 1000;
       } else if (tower.level === 3) {
-        tower.name = 'Leaf-Bladed Axe';
-        tower.damage = 100;
-        tower.color = '#228B22';
+        // Twisted Bow: max scaling, ~89 base without monster mag bonus
+        tower.name = 'Twisted Bow';
+        tower.damage = 89;
+        tower.range = 10 * 25;
+        tower.color = '#1a472a';
         tower.upgradeCost = 1000;
+        tower.cooldown = 5 * TICK * 1000;
       } else if (tower.level === 4) {
-        tower.name = 'Slayer Master';
-        tower.damage = 300;
-        tower.color = '#000000';
+        // Zaryte Crossbow: max ~100, best slayer crossbow
+        tower.name = 'Zaryte Crossbow';
+        tower.damage = 100;
+        tower.range = 10 * 25;
+        tower.color = '#0a0a0a';
+        tower.specMax = 75; // Spec: armour piercing bolt
       }
     } else if (tower.type === 'toxic') {
       if (tower.level === 2) {
-        tower.name = 'Serpentine Helm';
-        tower.damage = 12;
-        tower.range = 160;
+        // Zulrah's scales: Mutagen blowpipe upgrade
+        tower.name = 'Serp. Helm Blowpipe';
+        tower.damage = 28;
+        tower.range = 6 * 25;
         tower.upgradeCost = 600;
         tower.color = '#2E8B57';
+        tower.cooldown = 2 * TICK * 1000;
       } else if (tower.level === 3) {
-        tower.name = 'Trident of Swamp';
-        tower.damage = 30;
-        tower.range = 180;
+        // Trident of the Swamp: max hit 28 (scales)
+        tower.name = 'Trident of the Swamp';
+        tower.damage = 50;
+        tower.range = 7 * 25;
         tower.color = '#00FF7F';
         tower.upgradeCost = 1000;
+        tower.cooldown = 4 * TICK * 1000;
       } else if (tower.level === 4) {
-        tower.name = 'Venom Master';
-        tower.damage = 100;
-        tower.range = 220;
-        tower.color = '#7CFC00';
+        // Zulrah herself as a tower concept
+        tower.name = 'Zulrah Alter';
+        tower.damage = 80;
+        tower.range = 8 * 25;
+        tower.color = '#00cf9f';
+        tower.special = 'slow'; // Area venom
+        tower.specMax = 50; // Venom spec
       }
     }
 
@@ -1212,6 +1280,8 @@ export class GameEngine {
     const tower = this.towers.find(t => t.id === towerId);
     if (tower && tower.type === 'archer') {
       tower.attackStyle = style;
+      // Rapid = base stats (fast, normal range)
+      // Long Range = +3 tiles range, but cooldown +1 tick (tradeoff) - fully reversible
       this.upgradeTowerStats(tower);
       this.onStateChange({ towers: this.towers });
     }
@@ -1243,42 +1313,33 @@ export class GameEngine {
     const ancientTiers = ['Rush', 'Burst', 'Blitz', 'Barrage'];
     
     if (tower.type === 'archer') {
-      // Shortbow: 7 tiles (base), Long range +2 tiles, speed -1 tick
-      // Rapid is 3 ticks, Long Range is 4 ticks. Faerdhinen at L4 is 2/3 ticks.
-      let baseTiles = 7 + (tower.level - 1); // 7, 8, 9, 10
-      if (tower.level === 4) baseTiles = 10; // Crystal/Faerdhinen base range
-      
+      // Base stats per level (rapid style)
+      const baseTiles = [7, 8, 9, 10][Math.min(tower.level - 1, 3)];
+      const baseCooldownTicks = [3, 3, 5, 3][Math.min(tower.level - 1, 3)];
+      // Long Range: +3 tiles, +1 tick, same damage
       if (tower.attackStyle === 'long_range') {
-        tower.range = (baseTiles + 2) * tile * this.upgrades.archerRange;
-        tower.cooldown = (tower.level === 4 ? 3 : 4) * TICK * 1000;
+        tower.range = (baseTiles + 3) * tile * this.upgrades.archerRange;
+        tower.cooldown = (baseCooldownTicks + 1) * TICK * 1000;
       } else {
+        // Rapid is default
         tower.range = baseTiles * tile * this.upgrades.archerRange;
-        tower.cooldown = (tower.level === 4 ? 2 : 3) * TICK * 1000;
+        tower.cooldown = baseCooldownTicks * TICK * 1000;
       }
     } else if (tower.type === 'wizard') {
+      // Wizard: upgradeTower sets all values, so only fix range here
       if (tower.mageMode === 'elemental') {
-        const tier = Math.min(tower.level - 1, 4);
-        tower.name = `${tower.element!.charAt(0).toUpperCase()}${tower.element!.slice(1)} ${spellTiers[tier]}`;
-        tower.range = 7 * tile * this.upgrades.magicDamage; // Standard spells: 7 tiles
-        tower.damage = (20 + (tower.level * 15)) * this.upgrades.magicDamage;
-        tower.cooldown = 5 * TICK * 1000;
+        tower.range = 7 * tile;
       } else if (tower.mageMode === 'ancients') {
-        const tier = Math.min(tower.level - 1, 3);
-        tower.name = `Ice ${ancientTiers[tier]}`;
-        tower.range = 8 * tile * this.upgrades.magicDamage; // Ice Barrage: 8 tiles
-        tower.damage = (30 + (tower.level * 20)) * this.upgrades.magicDamage;
-        tower.cooldown = 6 * TICK * 1000;
+        tower.range = 8 * tile;
       } else {
-        tower.name = 'Mage Support';
-        tower.range = 6 * tile; // Utility shorter range
-        tower.damage = 0;
+        tower.range = 6 * tile;
       }
     } else if (tower.type === 'cannon') {
-        tower.range = 14 * tile; // Cannon: 14 tiles
+        tower.range = 9 * tile;
     } else if (tower.type === 'tzhaar') {
-        tower.range = (2 + tower.level) * tile; // Melee/Short range 3,4,5,6 tiles
+        tower.range = (2 + tower.level) * tile;
     } else if (tower.type === 'slayer') {
-        tower.range = (tower.level === 3 ? 1 : 7) * tile; // Melee Axe vs Ranged Bolts
+        tower.range = 7 * tile;
     }
   }
 
@@ -1547,14 +1608,14 @@ export class GameEngine {
       const target = this.path[enemy.pathIndex + 1];
       
       if (!target) {
-        // Reached end
-        this.lives--;
-        this.shakeAmount = 10;
-        this.enemies.splice(i, 1);
-        this.onStateChange({ lives: this.lives });
-        if (this.lives <= 0) {
-          this.resetGame();
+        // Enemy has walked off the end of the path
+        if (!this.devMode) {
+          this.lives--;
+          this.shakeAmount = 10;
+          this.onStateChange({ lives: this.lives });
+          if (this.lives <= 0) this.resetGame();
         }
+        this.enemies.splice(i, 1);
         continue;
       }
 
@@ -1707,54 +1768,52 @@ export class GameEngine {
           const dist = Math.sqrt(dx * dx + dy * dy);
           
           if (dist <= effectiveRange) {
-            let finalDamage = effectiveDamage;
-            
-            // Multicannon Random Damage
+            // ---- OSRS-accurate damage variance: min = max*0.9, max = max hit ----
+            let baseMax = Math.max(tower.damage, tower.maxDamage || 0);
             if (tower.type === 'cannon') {
-              finalDamage = (tower.minDamage || 0) + Math.random() * ((tower.maxDamage || 0) - (tower.minDamage || 0));
-              this.playSound('cannon_fire');
-            } else if (tower.type === 'wizard') {
-              // Elemental Weakness
-              if (tower.mageMode === 'elemental' && target.weakness === tower.element) {
-                finalDamage *= 1.5; // 50% bonus
-                this.particles.push({ x: target.x, y: target.y - 20, life: 1, color: '#00ffff' });
-              }
+              baseMax = (tower.minDamage || 0) + Math.random() * ((tower.maxDamage || 0) - (tower.minDamage || 0));
+            }
+            const minHit = Math.max(0, baseMax * 0.9);
+            let finalDamage = minHit + Math.random() * (baseMax - minHit);
+            finalDamage *= damageMultiplier * slayerBonus;
+            finalDamage = Math.floor(finalDamage);
+            
+            // Elemental weakness bonus
+            if (tower.type === 'wizard' && tower.mageMode === 'elemental' && target.weakness === tower.element) {
+              finalDamage = Math.floor(finalDamage * 1.5);
+              this.particles.push({ x: target.x, y: target.y - 20, life: 1, color: '#00ffff' });
+            }
+
+            // Sound
+            if (tower.type === 'cannon') this.playSound('cannon_fire');
+            else if (tower.type === 'wizard') {
               if (tower.mageMode === 'elemental') this.playSound(`spell_${tower.element}`);
               else if (tower.mageMode === 'ancients') this.playSound('spell_ice');
               else this.playSound('spell_curse');
-            } else if (tower.fireSound) {
-              this.playSound(tower.fireSound);
-            } else {
-              this.playSound(`shoot_${tower.type}`);
-            }
+            } else if (tower.fireSound) this.playSound(tower.fireSound);
+            else this.playSound(`shoot_${tower.type}`);
 
-            // Wizard Support mode special spells
+            // Wizard Utility Support spells
             if (tower.type === 'wizard' && tower.mageMode === 'utility') {
                const rand = Math.random();
                if (rand < 0.33) {
-                 // CHARGE: Buff nearby towers (micro-boost to damage/range)
                  this.towers.forEach(t => {
                    if (t.id !== tower.id && Math.sqrt(Math.pow(t.x-tower.x,2)+Math.pow(t.y-tower.y,2)) < tower.range) {
                      this.particles.push({x: t.x, y: t.y, life: 1, color: '#ffff00'});
-                     t.lastFired -= 500; // Instant CDR boost
+                     t.lastFired -= 500;
                    }
                  });
                  this.playSound('special_attack');
                } else if (rand < 0.66) {
-                 // CURSE: Weaken enemy
-                 // Represented as bonus damage for all hits for a while
                  this.particles.push({x: target.x, y: target.y, life: 2, color: '#ff00ff'});
-                 this.damageEnemy(target, 10 + (tower.level * 10)); // Bonus pure damage
+                 this.damageEnemy(target, 10 + (tower.level * 10));
                  this.playSound('spell_curse');
                } else {
-                 // BIND: Snare the enemy
                  const bindDuration = 0.5 + (tower.level * 0.5);
                  target.stunTimer = bindDuration;
                  this.particles.push({x: target.x, y: target.y, life: bindDuration, color: '#ffffff'});
                  this.playSound('spell_bind');
                }
-               
-               // Level 4 Special: AoE Support
                if (tower.level === 4) {
                  this.enemies.forEach(e => {
                    if (e.id !== target.id && Math.sqrt(Math.pow(e.x-target.x,2)+Math.pow(e.y-target.y,2)) < 60) {
@@ -1763,6 +1822,41 @@ export class GameEngine {
                    }
                  });
                }
+            }
+
+            // ---- CANNON: fires at up to 4 nearby enemies ----
+            if (tower.type === 'cannon' && (tower.level <= 2 || tower.level === 4)) {
+              const maxTargets = tower.level === 4 ? 6 : 3;
+              let fired = 0;
+              for (const enemy of this.enemies) {
+                if (enemy.id === tower.targetId) continue;
+                const edx = enemy.x - tower.x;
+                const edy = enemy.y - tower.y;
+                if (Math.sqrt(edx * edx + edy * edy) <= effectiveRange && fired < maxTargets) {
+                  const cannonDmg = Math.floor((tower.minDamage || 0) + Math.random() * ((tower.maxDamage || 0) - (tower.minDamage || 0)));
+                  this.projectiles.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    x: tower.x, y: tower.y,
+                    targetId: enemy.id,
+                    speed: 500,
+                    damage: cannonDmg,
+                    color: '#ff6600',
+                    sourceTowerId: tower.id
+                  });
+                  fired++;
+                }
+              }
+            }
+
+            // ---- PER-TOWER SPEC BAR: charges on damage, auto-fires ----
+            if (!tower.specCharge) tower.specCharge = 0;
+            if (!tower.specMax) tower.specMax = 100;
+            tower.specCharge = Math.min(tower.specMax, tower.specCharge + finalDamage * 0.5);
+            
+            // Auto-fire spec when bar is full
+            if (tower.specCharge >= tower.specMax) {
+              tower.specCharge = 0;
+              this.fireSpecialAttack(tower, target, finalDamage);
             }
 
             if (finalDamage > 0) {
@@ -1774,7 +1868,6 @@ export class GameEngine {
                 speed: 400,
                 damage: finalDamage,
                 color: tower.color,
-                // Ancients level 4 AoE freeze uses 'aoe', level 3 single freeze = 'stun', level 1-2 slow = 'slow'
                 special: tower.special as any,
                 sourceTowerId: tower.id
               });
@@ -1903,10 +1996,12 @@ export class GameEngine {
         // Item Drop (2% chance)
         if (Math.random() < 0.02) {
           const items: Item[] = [
-            { id: 'iron_longsword', name: 'Iron Longsword', description: 'Dmg +5', bonus: { damage: 5 }, type: 'weapon' },
-            { id: 'oak_shortbow', name: 'Oak Shortbow', description: 'Range +20', bonus: { range: 20 }, type: 'weapon' },
-            { id: 'steel_shield', name: 'Steel Shield', description: 'Def +5', bonus: { defense: 5 }, type: 'shield' },
-            { id: 'amulet_of_power', name: 'Amulet of Power', description: 'Dmg +10, Range +10', bonus: { damage: 10, range: 10 }, type: 'accessory' }
+            { id: 'iron_longsword', name: 'Iron Longsword', description: '+8 DMG', bonus: { damage: 8 }, type: 'weapon' },
+            { id: 'oak_shortbow', name: 'Oak Shortbow', description: '+25 Range', bonus: { range: 25 }, type: 'weapon' },
+            { id: 'rune_kiteshield', name: 'Rune Kiteshield', description: '+20 Range, +10% XP', bonus: { range: 20, xpBonus: 10 }, type: 'shield' },
+            { id: 'amulet_of_power', name: 'Amulet of Power', description: '+10 DMG, +10% XP', bonus: { damage: 10, xpBonus: 10 }, type: 'accessory' },
+            { id: 'ring_of_wealth', name: 'Ring of Wealth', description: '+15% XP gain', bonus: { xpBonus: 15 }, type: 'accessory' },
+            { id: 'berserker_ring', name: 'Berserker Ring', description: '+12 DMG', bonus: { damage: 12 }, type: 'accessory' }
           ];
           const drop = items[Math.floor(Math.random() * items.length)];
           this.inventory.push({ ...drop, id: Math.random().toString() });
@@ -2039,10 +2134,167 @@ export class GameEngine {
     }
   }
 
+  // OSRS-accurate special attacks per tower type & name
+  fireSpecialAttack(tower: Tower, primaryTarget: any, baseDamage: number) {
+    this.playSound('special_attack');
+    this.particles.push({ x: tower.x, y: tower.y, life: 1.5, color: '#ffffff' });
+
+    switch (tower.type) {
+      case 'archer': {
+        if (tower.name === 'Magic Shortbow') {
+          // MSB spec: fire 2 arrows rapidly, both at primary target (reduced accuracy penalty in OSRS)
+          const dmg1 = Math.floor(baseDamage * 0.85);
+          const dmg2 = Math.floor(baseDamage * 0.85);
+          this.projectiles.push({ id: Math.random().toString(36).substr(2,9), x: tower.x, y: tower.y, targetId: primaryTarget.id, speed: 600, damage: dmg1, color: '#00ff00', sourceTowerId: tower.id });
+          setTimeout(() => {
+            this.projectiles.push({ id: Math.random().toString(36).substr(2,9), x: tower.x, y: tower.y, targetId: primaryTarget.id, speed: 600, damage: dmg2, color: '#00ff00', sourceTowerId: tower.id });
+          }, 100);
+        } else if (tower.name === 'Bow of Faerdhinen') {
+          // Faerdhinen has no dedicated spec; fires 3 rapid shots (Elf bow lore)
+          for (let i = 0; i < 3; i++) {
+            setTimeout(() => {
+              const target = this.enemies.find(e => e.id === primaryTarget.id);
+              if (target) this.projectiles.push({ id: Math.random().toString(36).substr(2,9), x: tower.x, y: tower.y, targetId: target.id, speed: 550, damage: Math.floor(baseDamage), color: '#a020f0', sourceTowerId: tower.id });
+            }, i * 120);
+          }
+        } else {
+          // Crystal Bow spec: guaranteed no-miss hit for 1.5x damage
+          this.damageEnemy(primaryTarget, Math.floor(baseDamage * 1.5), tower.id);
+        }
+        break;
+      }
+      case 'tzhaar': {
+        if (tower.name === "Inquisitor's Mace") {
+          // Inquisitor spec: massive AoE crush (Smite/Smash effect)
+          const radius = 55;
+          this.enemies.forEach(e => {
+            const dx = e.x - primaryTarget.x; const dy = e.y - primaryTarget.y;
+            if (Math.sqrt(dx*dx+dy*dy) <= radius) {
+              this.damageEnemy(e, Math.floor(baseDamage * 1.25), tower.id);
+              this.particles.push({ x: e.x, y: e.y, life: 0.8, color: '#ff4500' });
+            }
+          });
+        } else if (tower.name === 'TzHaar-Ket-Om') {
+          // Flail spec: stun + damage
+          this.damageEnemy(primaryTarget, Math.floor(baseDamage * 1.2), tower.id);
+          primaryTarget.stunTimer = 3.0;
+        } else {
+          this.damageEnemy(primaryTarget, Math.floor(baseDamage * 1.5), tower.id);
+        }
+        break;
+      }
+      case 'slayer': {
+        if (tower.name === 'Zaryte Crossbow') {
+          // ZCB spec: armour-piercing bolt; hits through any resistance, 1.5x
+          this.damageEnemy(primaryTarget, Math.floor(baseDamage * 1.5), tower.id);
+          // Apply to nearby target too
+          const nearby = this.enemies.find(e => e.id !== primaryTarget.id && Math.sqrt(Math.pow(e.x-primaryTarget.x,2)+Math.pow(e.y-primaryTarget.y,2)) < 40);
+          if (nearby) this.damageEnemy(nearby, Math.floor(baseDamage * 0.75), tower.id);
+        } else if (tower.name === 'Twisted Bow') {
+          // No OSRS spec; simulate: fires 2 arrows
+          this.damageEnemy(primaryTarget, Math.floor(baseDamage), tower.id);
+          this.damageEnemy(primaryTarget, Math.floor(baseDamage * 0.5), tower.id);
+        } else {
+          this.damageEnemy(primaryTarget, Math.floor(baseDamage * 1.2), tower.id);
+        }
+        break;
+      }
+      case 'toxic': {
+        if (tower.name === 'Zulrah Alter') {
+          // Zulrah spec: AoE poison nova
+          const radius = 70;
+          this.enemies.forEach(e => {
+            const dx = e.x - tower.x; const dy = e.y - tower.y;
+            if (Math.sqrt(dx*dx+dy*dy) <= radius) {
+              this.applySlow(e); // Poison = slow
+              this.damageEnemy(e, Math.floor(baseDamage * 0.8), tower.id);
+              this.particles.push({ x: e.x, y: e.y, life: 1, color: '#00cf9f' });
+            }
+          });
+        } else {
+          // Blowpipe spec: heal 50% of damage dealt
+          const dmg = Math.floor(baseDamage * 1.5);
+          this.damageEnemy(primaryTarget, dmg, tower.id);
+          this.money += Math.floor(dmg * 0.5); // Heal represented as GP bonus
+          this.onStateChange({ money: this.money });
+        }
+        break;
+      }
+      case 'wizard': {
+        // Ancient Sceptre passive: +10% effect; Utility spec = mass slow
+        const radius = 100;
+        this.enemies.forEach(e => {
+          const dx = e.x - tower.x; const dy = e.y - tower.y;
+          if (Math.sqrt(dx*dx+dy*dy) <= radius) {
+            this.applySlow(e);
+            this.particles.push({ x: e.x, y: e.y, life: 1, color: '#ff00ff' });
+          }
+        });
+        break;
+      }
+      case 'cannon': {
+        // Cannon spec: rapid 360° burst hitting ALL enemies in range
+        this.enemies.forEach(e => {
+          const dx = e.x - tower.x; const dy = e.y - tower.y;
+          if (Math.sqrt(dx*dx+dy*dy) <= tower.range) {
+            const dmg = Math.floor((tower.minDamage || 0) + Math.random() * ((tower.maxDamage || 0) - (tower.minDamage || 0)));
+            this.damageEnemy(e, dmg, tower.id);
+            this.particles.push({ x: e.x, y: e.y, life: 0.5, color: '#ff6600' });
+          }
+        });
+        break;
+      }
+    }
+  }
+
+  buyAchievementUpgrade(upgradeId: string): boolean {
+    const upgrades: { id: string, cost: number, apply: () => void }[] = [
+      {
+        id: 'extra_lives',
+        cost: 50,
+        apply: () => { this.lives = Math.min(100, this.lives + 5); this.onStateChange({ lives: this.lives }); }
+      },
+      {
+        id: 'money_bonus',
+        cost: 30,
+        apply: () => { this.money += 500; this.onStateChange({ money: this.money }); }
+      },
+      {
+        id: 'essence_bonus',
+        cost: 20,
+        apply: () => { this.runeEssence += 20; this.onStateChange({ runeEssence: this.runeEssence }); }
+      },
+      {
+        id: 'prayer_bonus',
+        cost: 25,
+        apply: () => { this.maxPrayerPoints *= 1.5; this.prayerPoints = this.maxPrayerPoints; this.onStateChange({ prayerPoints: this.prayerPoints, maxPrayerPoints: this.maxPrayerPoints }); }
+      },
+      {
+        id: 'reset_spec',
+        cost: 10,
+        apply: () => { this.towers.forEach(t => { t.specCharge = t.specMax || 100; }); }
+      }
+    ];
+    const upgrade = upgrades.find(u => u.id === upgradeId);
+    if (!upgrade || this.achievementPoints < upgrade.cost) return false;
+    this.achievementPoints -= upgrade.cost;
+    upgrade.apply();
+    this.onStateChange({ achievementPoints: this.achievementPoints });
+    return true;
+  }
+
+
+  toggleDevMode() {
+    this.devMode = !this.devMode;
+    this.onStateChange({ devMode: this.devMode });
+  }
+
   applySlow(enemy: Enemy) {
     enemy.speed = enemy.baseSpeed * 0.5;
-    enemy.slowTimer = 2.0; // 2 seconds slow
+    enemy.slowTimer = 2.0;
   }
+
+
 
   applyStun(enemy: Enemy) {
     enemy.stunTimer = 1.0; // 1 second stun
