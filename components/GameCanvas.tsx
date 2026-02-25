@@ -21,6 +21,9 @@ interface TowerData {
   upgradeCost: number;
   skills: Record<string, TowerSkill>;
   equipment?: Record<string, any>;
+  attackStyle?: string;
+  mageMode?: string;
+  element?: string;
 }
 
 interface EnemyData {
@@ -48,16 +51,19 @@ interface GameState {
   slayerTask?: SlayerTask | null;
   consecutiveTasks?: number;
   remainingEnemies?: number;
-  prayerPoints?: number;
-  maxPrayerPoints?: number;
-  activePrayers?: string[];
+  messages?: string[];
   specialAttackCharge?: number;
   achievements?: any[];
   pets?: any[];
   inventory?: any[];
   quests?: any[];
-  autoSpawnTimer?: number;
   achievementPoints?: number;
+  playerSkills?: Record<string, any>;
+  autoSpawnTimer?: number;
+  selectedTower?: string | null;
+  selectedPlacedTower?: TowerData | null;
+  prayerPoints: number;
+  maxPrayerPoints: number;
 }
 
 export default function GameCanvas() {
@@ -72,16 +78,26 @@ export default function GameCanvas() {
     slayerTask: null,
     consecutiveTasks: 0,
     remainingEnemies: 0,
-    prayerPoints: 10,
-    maxPrayerPoints: 10,
-    activePrayers: [],
     specialAttackCharge: 0,
     achievements: [],
     pets: [],
     inventory: [],
-    quests: []
+    quests: [],
+    messages: [],
+    selectedTower: null,
+    selectedPlacedTower: null,
+    prayerPoints: 10,
+    maxPrayerPoints: 99,
+    playerSkills: {
+      mining: { level: 1, xp: 0 },
+      woodcutting: { level: 1, xp: 0 },
+      herblore: { level: 1, xp: 0 },
+      crafting: { level: 1, xp: 0 },
+      prayer: { level: 1, xp: 0 }
+    }
   });
 
+  const [activeTab, setActiveTab] = useState<'inventory' | 'quests' | 'achievements' | 'ge' | 'combat'>('inventory');
   const [autoSpawn, setAutoSpawn] = useState(false);
   const [autoSpawnDelay, setAutoSpawnDelay] = useState(3);
   const [autoSpawnTimer, setAutoSpawnTimer] = useState(0);
@@ -104,17 +120,17 @@ export default function GameCanvas() {
   });
 
   const UPGRADE_LIMITS = {
-    archerRange: 2.0, // Max +100%
-    magicDamage: 2.5, // Max +150%
-    cannonSpeed: 2.0, // Max +100%
-    slayerReward: 2.5,  // Max +150%
-    prayerEfficiency: 2.0, // Max +100%
+    archerRange: 2.0,
+    magicDamage: 2.5,
+    cannonSpeed: 2.0,
+    slayerReward: 2.5,
+    prayerEfficiency: 2.0,
     startingMoney: 500,
     rewardMultiplier: 2.5,
     waveSpeed: 2.0,
-    towerCostReduction: 0.5, // Max 50% discount
+    towerCostReduction: 0.5,
     xpGainMultiplier: 3.0,
-    prayerRegen: 1.0 // 1 point per second
+    prayerRegen: 1.0
   };
 
   const [showGrandExchange, setShowGrandExchange] = useState(false);
@@ -130,23 +146,18 @@ export default function GameCanvas() {
     setIsMounted(true);
     const savedEssence = localStorage.getItem('osrs_td_essence');
     if (savedEssence) setRuneEssence(parseInt(savedEssence));
-    
     const savedUpgrades = localStorage.getItem('osrs_td_upgrades');
     if (savedUpgrades) setUpgrades(JSON.parse(savedUpgrades));
   }, []);
 
   useEffect(() => {
     if (!isMounted) return;
-    // Save to local storage
     localStorage.setItem('osrs_td_essence', runeEssence.toString());
     localStorage.setItem('osrs_td_upgrades', JSON.stringify(upgrades));
   }, [runeEssence, upgrades, isMounted]);
 
   useEffect(() => {
     if (!canvasRef.current || !isMounted) return;
-
-    console.log('Initializing GameEngine...');
-    // Initialize game engine
     const canvas = canvasRef.current;
     const engine = new GameEngine(canvas, (state: Partial<GameState>) => {
       setGameState((prev: GameState) => ({ ...prev, ...state }));
@@ -155,28 +166,22 @@ export default function GameCanvas() {
       }
     }, runeEssence, upgrades);
     engineRef.current = engine;
-
-    // Start loop
     engine.start();
 
-    // Use ResizeObserver for more reliable sizing
     const resizeObserver = new ResizeObserver(() => {
       engine.resize();
     });
-    
     if (canvas.parentElement) {
       resizeObserver.observe(canvas.parentElement);
     }
 
     return () => {
-      console.log('Stopping GameEngine...');
       engine.stop();
       resizeObserver.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMounted]); 
-  
-  // To handle updates from GE to Engine:
+  }, [isMounted]);
+
   useEffect(() => {
     if (engineRef.current) {
       engineRef.current.upgrades = upgrades;
@@ -184,42 +189,31 @@ export default function GameCanvas() {
       engineRef.current.autoSpawnEnabled = autoSpawn;
       engineRef.current.autoSpawnDelay = autoSpawnDelay;
       engineRef.current.gameSpeed = gameSpeed;
+      engineRef.current.setSelectedTowerType(gameState.selectedTower || null);
     }
-  }, [upgrades, runeEssence, autoSpawn, autoSpawnDelay, gameSpeed]);
+  }, [upgrades, runeEssence, autoSpawn, autoSpawnDelay, gameSpeed, gameState.selectedTower]);
 
-  // Handle engine state updates locally
   useEffect(() => {
     if (gameState.autoSpawnTimer !== undefined) setAutoSpawnTimer(gameState.autoSpawnTimer);
   }, [gameState.autoSpawnTimer]);
 
-
-  const handleStartWave = () => {
-    engineRef.current?.startWave();
+  const setSelectedTower = (type: string | null) => {
+    setGameState(prev => ({ ...prev, selectedTower: type }));
   };
 
-  const handlePathChange = (index: number) => {
-    engineRef.current?.setPath(index);
+  const setSelectedPlacedTower = (data: any | null) => {
+    setGameState(prev => ({ ...prev, selectedPlacedTower: data }));
   };
 
-  const handleTogglePrayer = (type: string) => {
-    engineRef.current?.togglePrayer(type as any);
-  };
-
-  const handleSpecialAttack = () => {
-    engineRef.current?.useSpecialAttack();
-  };
-
-  const handleBuyPotion = (type: 'overload' | 'super_restore' | 'prayer_potion') => {
-    engineRef.current?.buyPotion(type);
-  };
+  const handleStartWave = () => engineRef.current?.startWave();
+  const handlePathChange = (index: number) => engineRef.current?.setPath(index);
+  const handleSpecialAttack = () => engineRef.current?.useSpecialAttack();
+  const handleBuyPotion = (type: 'overload' | 'super_restore' | 'prayer_potion') => engineRef.current?.buyPotion(type);
 
   const buyUpgrade = (type: keyof GlobalUpgrades, cost: number, increment: number) => {
     const currentVal = upgrades[type];
     const limit = UPGRADE_LIMITS[type];
-    
-    // Check if within limits (handles both positive and negative increments)
     const canUpgrade = increment > 0 ? currentVal < limit : currentVal > limit;
-    
     if (runeEssence >= cost && canUpgrade) {
       setRuneEssence((prev: number) => prev - cost);
       setUpgrades((prev: GlobalUpgrades) => ({
@@ -229,24 +223,21 @@ export default function GameCanvas() {
     }
   };
 
-  // Tower selection
-  const [selectedTower, setSelectedTower] = useState<string | null>(null);
-  const [selectedPlacedTower, setSelectedPlacedTower] = useState<any | null>(null);
-
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (!engineRef.current) return;
-    
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    if (selectedTower) {
-      engineRef.current.placeTower(selectedTower, x, y);
-      setSelectedTower(null); // Deselect after placement
+    // Try to collect loot first (clicking bones)
+    const collectedLoot = engineRef.current.collectLootAt(x, y);
+    if (collectedLoot) return;
+    
+    if (gameState.selectedTower) {
+      engineRef.current.placeTower(gameState.selectedTower, x, y);
+      setSelectedTower(null);
     } else {
-      // Check if clicked on existing tower
       const entity = engineRef.current.getEntityAt(x, y);
       if (entity && entity.type === 'tower') {
         setSelectedPlacedTower(entity.data);
@@ -257,38 +248,35 @@ export default function GameCanvas() {
   };
 
   const handleUpgrade = () => {
-    if (engineRef.current && selectedPlacedTower) {
-      engineRef.current.upgradeTower(selectedPlacedTower.id);
-      // Force update state to reflect changes
-      setSelectedPlacedTower({ ...selectedPlacedTower, ...engineRef.current.towers.find((t: any) => t.id === selectedPlacedTower.id) });
+    if (engineRef.current && gameState.selectedPlacedTower) {
+      engineRef.current.upgradeTower(gameState.selectedPlacedTower.id);
+      const updatedTower = engineRef.current.towers.find((t: any) => t.id === gameState.selectedPlacedTower!.id);
+      if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
     }
   };
 
   const handleSell = () => {
-    if (engineRef.current && selectedPlacedTower) {
-      engineRef.current.sellTower(selectedPlacedTower.id);
+    if (engineRef.current && gameState.selectedPlacedTower) {
+      engineRef.current.sellTower(gameState.selectedPlacedTower.id);
       setSelectedPlacedTower(null);
     }
   };
 
-  const handleClaimQuest = (questId: string) => {
-    engineRef.current?.claimQuestReward(questId);
-  };
+  const handleClaimQuest = (questId: string) => engineRef.current?.claimQuestReward(questId);
 
   const handleEquipItem = (itemId: string) => {
-    if (engineRef.current && selectedPlacedTower) {
-      engineRef.current.equipItem(selectedPlacedTower.id, itemId);
-      // Update selected tower state
-      const updatedTower = engineRef.current.towers.find((t: any) => t.id === selectedPlacedTower.id);
+    if (engineRef.current && gameState.selectedPlacedTower) {
+      engineRef.current.equipItem(gameState.selectedPlacedTower.id, itemId);
+      const updatedTower = engineRef.current.towers.find((t: any) => t.id === gameState.selectedPlacedTower!.id);
       if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
       setShowInventory(false);
     }
   };
 
   const handleUnequipItem = (slot: 'weapon' | 'shield' | 'accessory') => {
-    if (engineRef.current && selectedPlacedTower) {
-      engineRef.current.unequipItem(selectedPlacedTower.id, slot);
-      const updatedTower = engineRef.current.towers.find((t: any) => t.id === selectedPlacedTower.id);
+    if (engineRef.current && gameState.selectedPlacedTower) {
+      engineRef.current.unequipItem(gameState.selectedPlacedTower.id, slot);
+      const updatedTower = engineRef.current.towers.find((t: any) => t.id === gameState.selectedPlacedTower!.id);
       if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
     }
   };
@@ -299,6 +287,8 @@ export default function GameCanvas() {
     if (!rect) return;
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    engineRef.current.updateMousePos(x, y);
 
     const entity = engineRef.current.getEntityAt(x, y);
     if (entity) {
@@ -313,29 +303,41 @@ export default function GameCanvas() {
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (gameState.selectedTower) {
+      setSelectedTower(null);
+      return;
+    }
     if (!engineRef.current) return;
-
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
     const entity = engineRef.current.getEntityAt(x, y) as any;
     if (entity && entity.type === 'tower') {
       const tower = engineRef.current.towers.find((t: any) => t.id === entity.data.id);
       if (tower) {
         tower.showRange = !tower.showRange;
-        setGameState(prev => ({ ...prev })); // Force re-render
+        setGameState(prev => ({ ...prev }));
       }
     }
   };
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedTower(null);
+        setSelectedPlacedTower(null);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   if (!isMounted) return <div className="w-full h-full bg-[#1e1e1e]" />;
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-hidden bg-[#000]">
-      {/* Canvas - Moved to top and absolute to stay behind UI */}
+    <div className="relative w-full h-full flex flex-col overflow-hidden bg-[#000] font-sans">
+      {/* Canvas */}
       <canvas 
         ref={canvasRef}
         className="absolute inset-0 block cursor-crosshair touch-none w-full h-full z-0"
@@ -344,264 +346,211 @@ export default function GameCanvas() {
         onContextMenu={handleContextMenu}
       />
 
-      {/* Game HUD */}
-      <div className="absolute top-0 left-0 w-full p-2 flex justify-between items-start pointer-events-none z-10">
-        <div className="flex gap-4 bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded text-[#ffff00] shadow-lg pointer-events-auto">
-          <div className="flex flex-col items-center px-2">
-            <span className="text-xs text-[#c0c0c0]">HP</span>
-            <span className="font-bold text-xl text-[#ff0000]">{gameState.lives}</span>
+      {/* OSRS Top Bar */}
+      <div className="absolute top-0 left-0 w-full h-8 bg-[#2d2d2d] border-b-2 border-[#5d5d5d] flex items-center px-4 z-10 shadow-lg font-mono">
+        <span className="text-[#ffff00] text-sm font-bold tracking-widest uppercase" style={{ textShadow: '1px 1px 0 #000' }}>
+          {gameState.isPlaying ? `Wave ${gameState.wave} In Progress` : `Preparing for Wave ${gameState.wave}`}
+        </span>
+      </div>
+
+      {/* Main Status Column (Right Side) */}
+      {/* OSRS UI Container (Right) */}
+      <div className="absolute bottom-4 right-4 flex flex-col items-center pointer-events-none group/ui">
+        {/* Top Mini-Panel (Always visible stats) */}
+        <div className="flex gap-2 mb-2 pointer-events-auto">
+          <div className="osrs-panel px-3 py-1 flex items-center gap-2">
+            <span className="text-[10px] text-[#ffff00] font-bold">GP:</span>
+            <span className="text-[11px] text-white font-bold">{gameState.money}</span>
           </div>
-          <div className="w-px bg-[#5d5d5d]"></div>
-          <div className="flex flex-col items-center px-2">
-            <span className="text-xs text-[#c0c0c0]">GP</span>
-            <span className="font-bold text-xl text-[#ffff00]">{gameState.money}</span>
+          <div className="osrs-panel px-3 py-1 flex items-center gap-2">
+            <span className="text-[10px] text-[#00ffff] font-bold">ESS:</span>
+            <span className="text-[11px] text-white font-bold">{runeEssence || 0}</span>
           </div>
-          <div className="w-px bg-[#5d5d5d]"></div>
-          <div className="flex flex-col items-center px-2">
-            <span className="text-xs text-[#c0c0c0]">Wave</span>
-            <span className="font-bold text-xl text-[#ffffff]">{gameState.wave}</span>
-          </div>
-          <div className="w-px bg-[#5d5d5d]"></div>
-          <div className="flex flex-col items-center px-2">
-            <span className="text-xs text-[#c0c0c0]">Enemies</span>
-            <span className="font-bold text-xl text-[#ff4500]">{gameState.remainingEnemies || 0}</span>
-          </div>
-          <div className="w-px bg-[#5d5d5d]"></div>
-          <div className="flex flex-col items-center px-2">
-            <span className="text-xs text-[#c0c0c0]">Essence</span>
-            <span className="font-bold text-xl text-[#00ffff]">{gameState.runeEssence || 0}</span>
-          </div>
-          <div className="w-px bg-[#5d5d5d]"></div>
-          <div className="flex flex-col items-center px-2">
-            <span className="text-xs text-[#c0c0c0]">Points</span>
-            <span className="font-bold text-xl text-[#ffff00]">{gameState.achievementPoints || 0}</span>
+          <div className="osrs-panel px-3 py-1 flex items-center gap-2">
+            <span className="text-[10px] text-[#00ff00] font-bold">WAVE:</span>
+            <span className="text-[11px] text-white font-bold">{gameState.wave}</span>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 items-end pointer-events-auto">
-          <div className="flex gap-2">
-            <div className="flex flex-col gap-1">
-              <button 
-                onClick={handleSpecialAttack}
-                disabled={!gameState.isPlaying || (gameState.specialAttackCharge || 0) < 50}
-                className={`
-                  px-4 py-2 border-2 border-[#2d2d2d] font-bold shadow-lg transition-all text-xs
-                  ${(gameState.specialAttackCharge || 0) >= 50 
-                    ? 'bg-[#ff4500] hover:bg-[#ff6347] text-white animate-pulse' 
-                    : 'bg-[#5d5d5d] text-[#808080] cursor-not-allowed'}
-                `}
-              >
-                SPECIAL ({(gameState.specialAttackCharge || 0).toFixed(0)}%)
-              </button>
-              <div className="h-2 w-full bg-[#2d2d2d] border border-[#5d5d5d] rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-[#ff4500] transition-all duration-300" 
-                  style={{ width: `${Math.min(100, (gameState.specialAttackCharge || 0))}%` }}
-                />
-              </div>
-            </div>
-
-            <button 
-              onClick={handleStartWave}
-              className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#ffff00] px-4 py-2 border-2 border-[#2d2d2d] font-bold shadow-lg active:translate-y-1 transition-transform h-fit"
-            >
-              Start Wave
-            </button>
+        <div className="flex items-end pointer-events-auto">
+          {/* HP Bar (Left) */}
+          <div className="w-6 h-64 bg-[#3e2e18] border-2 border-[#5d5d5d] rounded-l-lg relative overflow-hidden flex flex-col-reverse shadow-xl">
+             <div className="absolute top-1 left-0 right-0 text-center z-10">
+               <span className="text-[10px] text-white font-bold drop-shadow-md">{gameState.lives}</span>
+             </div>
+             <div className="absolute top-5 left-1/2 -translate-x-1/2 w-4 h-4 text-xs">❤️</div>
+             <div className="w-full bg-red-600 transition-all duration-500 border-t border-[#ff6666]" style={{ height: `${(gameState.lives / 20) * 100}%` }} />
           </div>
 
-          <div className="flex gap-2 items-center bg-[#3d3d3d]/90 p-1 border-2 border-[#5d5d5d] rounded shadow-lg">
-            <span className="text-[10px] font-bold text-[#c0c0c0] px-1">SPEED:</span>
-            {[1, 2, 3].map(speed => (
-              <button
-                key={speed}
-                onClick={() => setGameSpeed(speed)}
-                className={`
-                  px-3 py-1 text-xs font-bold rounded transition-all
-                  ${gameSpeed === speed ? 'bg-[#ffff00] text-black shadow-[0_0_5px_rgba(255,255,0,0.5)]' : 'bg-[#2d2d2d] text-[#c0c0c0] hover:bg-[#4d4d4d]'}
-                `}
-              >
-                {speed}x
-              </button>
-            ))}
-          </div>
-
-          <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded shadow-lg flex flex-col gap-2 min-w-[150px]">
-            <div className="flex items-center justify-between gap-4">
-              <label className="text-[10px] font-bold text-[#c0c0c0] cursor-pointer flex items-center gap-2">
-                <input 
-                  type="checkbox" 
-                  checked={autoSpawn} 
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoSpawn(e.target.checked)}
-                  className="accent-[#ffff00]"
-                />
-                AUTO-SPAWN
-              </label>
-              {(autoSpawnTimer || 0) > 0 && !gameState.isPlaying && (
-                <span className="text-xs font-bold text-[#00ff00]">:{autoSpawnTimer.toFixed(1)}s</span>
-              )}
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] text-[#c0c0c0]">DELAY:</span>
-              <input 
-                type="number" 
-                min="1" 
-                max="30" 
-                value={autoSpawnDelay} 
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAutoSpawnDelay(parseInt(e.target.value) || 3)}
-                className="w-12 bg-[#1e1e1e] border border-[#5d5d5d] text-[#00ff00] text-xs px-1 rounded"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Prayer Side Bar */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-10 pointer-events-auto">
-        <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded flex flex-col items-center">
-          <span className="text-[10px] text-[#00ffff] font-bold">PRAYER</span>
-          <span className="text-sm text-white font-bold">{(gameState.prayerPoints || 0).toFixed(1)}</span>
-          <div className="w-1 h-20 bg-[#2d2d2d] border border-[#5d5d5d] rounded-full mt-1 relative overflow-hidden">
-            <div 
-              className="absolute bottom-0 left-0 w-full bg-[#00ffff] transition-all duration-300"
-              style={{ height: `${((gameState.prayerPoints || 0) / (gameState.maxPrayerPoints || 10)) * 100}%` }}
-            />
-          </div>
-        </div>
-        
-        {[
-          { id: 'piety', name: 'Piety', color: '#ffff00', desc: 'Dmg +20%' },
-          { id: 'rigour', name: 'Rigour', color: '#00ff00', desc: 'Range +20%' },
-          { id: 'augury', name: 'Augury', color: '#00ffff', desc: 'Dmg +15%' }
-        ].map(prayer => (
-          <button
-            key={prayer.id}
-            onClick={() => handleTogglePrayer(prayer.id)}
-            className={`
-              w-12 h-12 border-2 rounded flex flex-col items-center justify-center transition-all group relative
-              ${gameState.activePrayers?.includes(prayer.id) 
-                ? 'border-[#ffff00] bg-[#ffff00]/20 shadow-[0_0_10px_rgba(255,255,0,0.5)]' 
-                : 'border-[#5d5d5d] bg-[#3d3d3d]/90 hover:border-[#ffff00]'}
-            `}
-          >
-            <div className="text-[8px] font-bold text-white uppercase">{prayer.id[0]}</div>
-            <div className="absolute left-[-100px] top-0 bg-black/90 text-[10px] text-white p-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none w-24 text-center">
-              {prayer.name}: {prayer.desc}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Potions Bar */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-10 pointer-events-auto">
-        {[
-          { id: 'overload', name: 'Overload', cost: 100, color: '#800080' },
-          { id: 'super_restore', name: 'Restore', cost: 50, color: '#ff00ff' },
-          { id: 'prayer_potion', name: 'Prayer Pot', cost: 30, color: '#00ffff' }
-        ].map(pot => (
-          <button
-            key={pot.id}
-            onClick={() => handleBuyPotion(pot.id as any)}
-            disabled={gameState.money < pot.cost}
-            className={`
-              w-12 h-12 border-2 rounded flex flex-col items-center justify-center transition-all group relative
-              ${gameState.money >= pot.cost ? 'border-[#ffff00] bg-[#3d3d3d]/90 hover:bg-[#4d4d4d]' : 'border-[#5d5d5d] bg-[#2d2d2d] opacity-50 cursor-not-allowed'}
-            `}
-          >
-            <div className="w-4 h-6 rounded-b-sm border border-white/30" style={{ backgroundColor: pot.color }}></div>
-            <div className="text-[8px] font-bold text-[#ffff00] mt-1">{pot.cost}g</div>
-            <div className="absolute right-[-100px] top-0 bg-black/90 text-[10px] text-white p-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none w-24 text-center">
-              {pot.name}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Slayer Task UI - Moved down to avoid HUD overlap */}
-      <div className="absolute top-[160px] right-4 flex flex-col gap-2 z-10 pointer-events-auto">
-        {gameState.slayerTask && (
-          <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded text-[#ffff00] shadow-lg">
-            <h3 className="text-xs font-bold text-[#ff981f] border-b border-[#5d5d5d] mb-1">Slayer Task</h3>
-            <p className="text-sm">
-              Kill {gameState.slayerTask.count} <span className="capitalize">{gameState.slayerTask.type.replace('_', ' ')}s</span>
-            </p>
-            <p className="text-xs text-[#c0c0c0]">Reward: {gameState.slayerTask.reward} gp</p>
-            {(gameState.consecutiveTasks ?? 0) > 0 && (
-              <p className="text-[10px] text-[#00ff00]">Streak: {gameState.consecutiveTasks} (+{(gameState.consecutiveTasks ?? 0) * 10}%)</p>
-            )}
-          </div>
-        )}
-
-        {/* Pets UI */}
-        {gameState.pets && gameState.pets.length > 0 && (
-          <div className="bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded text-[#ffff00] shadow-lg">
-            <h3 className="text-xs font-bold text-[#00ffff] border-b border-[#5d5d5d] mb-1">Pets ({gameState.pets.length})</h3>
-            <div className="flex flex-wrap gap-1 max-w-[150px]">
-              {gameState.pets.map((pet: any) => (
-                <div key={pet.id} className="group relative">
-                  <div className="w-8 h-8 bg-[#2d2d2d] border border-[#5d5d5d] rounded flex items-center justify-center cursor-help hover:border-[#00ffff] overflow-hidden">
-                    <img
-                      src={`https://oldschool.runescape.wiki/images/${pet.type.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('_')}.png`}
-                      alt={pet.name}
-                      className="w-full h-full object-contain"
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Beaver.png'; }}
-                    />
+          {/* Main Sidebar Panel */}
+          <div className="osrs-panel w-56 h-80 flex flex-col overflow-hidden relative shadow-2xl z-20">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+              {activeTab === 'combat' && (
+                <div className="flex flex-col gap-3">
+                  <div className="text-center border-b border-[#5d5d5d]/50 pb-1">
+                    <span className="text-[10px] font-bold text-[#ff981f] uppercase tracking-widest">Controls</span>
                   </div>
-                  <div className="absolute right-full mr-2 top-0 bg-black/90 text-[10px] text-white p-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none w-36 text-center z-20 border border-[#00ffff]">
-                    <div className="text-[#ffff00] font-bold">{pet.name}</div>
-                    <div className="text-[#c0c0c0] mt-1">{pet.bonus}</div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[1, 2, 3].map(s => (
+                      <button key={s} onClick={() => setGameSpeed(s)} className={`osrs-button text-[9px] py-1.5 ${gameSpeed === s ? 'brightness-125 border-white' : ''}`}>{s}x</button>
+                    ))}
+                  </div>
+                  {!gameState.isPlaying && (
+                    <button onClick={handleStartWave} className="osrs-button py-2 text-[11px] uppercase pulse-yellow">Start Wave</button>
+                  )}
+                  {gameState.slayerTask && (
+                    <div className="bg-black/40 border border-[#5d5d5d] p-1.5 rounded">
+                      <div className="text-[8px] text-[#ff981f] font-bold uppercase mb-1">Current Task</div>
+                      <div className="text-[10px] text-[#ffff00] flex justify-between">
+                         <span className="capitalize">{gameState.slayerTask.type.replace('_',' ')}</span>
+                         <span className="font-mono">{gameState.slayerTask.count}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-1">
+                    <span className="text-[9px] font-bold text-[#ff981f] uppercase block mb-1 text-center">Spec Bar</span>
+                    <div className="h-6 bg-black border border-[#5d5d5d] relative rounded overflow-hidden group">
+                      <div className="h-full bg-gradient-to-r from-green-900 via-green-500 to-green-300" style={{ width: `${Math.min(100, gameState.specialAttackCharge || 0)}%` }} />
+                      <button onClick={handleSpecialAttack} disabled={!gameState.isPlaying || (gameState.specialAttackCharge || 0) < 50} className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white uppercase disabled:opacity-30">SPECIAL ATTACK</button>
+                    </div>
                   </div>
                 </div>
-              ))}
+              )}
+
+              {activeTab === 'achievements' && (
+                <div className="flex flex-col gap-2">
+                  <div className="text-center border-b border-[#5d5d5d]/50 pb-1">
+                    <span className="text-[10px] font-bold text-[#ff981f] uppercase">Stats</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-3 mt-1">
+                    {Object.entries(gameState.playerSkills || {}).map(([key, skill]: [string, any]) => (
+                      <div key={key} className="flex items-center gap-1.5 group relative">
+                        <img src={`https://oldschool.runescape.wiki/images/${key.charAt(0).toUpperCase() + key.slice(1)}_icon.png`} className="w-5 h-5 object-contain" alt="" />
+                        <div className="flex flex-col">
+                           <span className="text-[11px] text-[#ffff00] font-bold leading-tight">{skill.level}</span>
+                           <span className="text-[8px] text-[#c0c0c0] uppercase tracking-tighter leading-none">{key}</span>
+                        </div>
+                        {/* XP Tooltip */}
+                        <div className="absolute hidden group-hover:block left-full ml-2 bg-black border border-[#ffff00] p-1 z-50 whitespace-nowrap text-[9px] text-white">
+                           XP: {skill.xp} / {Math.pow(skill.level, 2) * 100}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'inventory' && (
+                <div className="flex flex-col gap-2">
+                  <div className="text-center border-b border-[#5d5d5d]/50 pb-1">
+                    <span className="text-[10px] font-bold text-[#ff981f] uppercase">Inventory</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {(gameState.inventory || []).map((item: any) => (
+                      <div key={item.id} className="aspect-square bg-black/40 border border-[#4d4d4d] p-0.5 group relative cursor-pointer hover:border-white" onClick={() => handleEquipItem(item.id)}>
+                        <img 
+                          src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}_detail.png`} 
+                          alt={item.name} 
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            if (img.src.includes('_detail')) img.src = `https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`;
+                            else img.style.opacity = '0';
+                          }}
+                        />
+                        <div className="absolute hidden group-hover:block bottom-full right-0 mb-2 w-40 p-2 bg-black/95 border border-[#ffff00] text-[10px] z-[100] shadow-2xl">
+                          <p className="text-[#ffff00] font-bold mb-1">{item.name}</p>
+                          {item.bonus.damage && <p className="text-red-400 font-bold leading-none">+{item.bonus.damage} Str</p>}
+                          {item.bonus.range && <p className="text-green-400 font-bold leading-none">+{item.bonus.range} Range</p>}
+                          <p className="text-[#c0c0c0] mt-1 text-[9px]">{item.description}</p>
+                          {item.name.includes('Scimitar') && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); engineRef.current?.upgradeItem(item.id); }}
+                              className="mt-2 w-full bg-[#5d5d5d] border border-[#2d2d2d] py-1 text-[#00ff00] font-bold hover:brightness-125"
+                            >
+                              CRAFT (500gp)
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'quests' && (
+                <div className="flex flex-col gap-2">
+                   {gameState.pets && gameState.pets.length > 0 && (
+                     <div className="mb-3">
+                        <div className="text-[9px] text-[#00ffff] font-bold uppercase border-b border-[#00ffff]/30 mb-1">Followers</div>
+                        <div className="flex flex-wrap gap-1">
+                          {gameState.pets.map((pet: any) => (
+                            <div key={pet.id} className="w-8 h-8 bg-black/40 border border-[#5d5d5d] p-0.5 rounded group relative cursor-help">
+                               <img src={`https://oldschool.runescape.wiki/images/${pet.type.split('_').map((w: any) => w.charAt(0).toUpperCase() + w.slice(1)).join('_')}.png`} className="w-full h-full object-contain" alt="" />
+                               <div className="absolute hidden group-hover:block right-full mr-2 top-0 w-44 p-2 bg-black/95 border border-[#ffff00] z-[100] shadow-2xl">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <img src={`https://oldschool.runescape.wiki/images/${pet.type.split('_').map((w: any) => w.charAt(0).toUpperCase() + w.slice(1)).join('_')}.png`} className="w-8 h-8 object-contain" alt="" />
+                                    <span className="text-[#ffff00] font-bold text-xs">{pet.name}</span>
+                                  </div>
+                                  <p className="text-white text-[10px] leading-tight">{pet.bonus}</p>
+                               </div>
+                            </div>
+                          ))}
+                        </div>
+                     </div>
+                   )}
+                   <div className="text-center border-b border-[#5d5d5d]/50 pb-1">
+                    <span className="text-[10px] font-bold text-[#ff981f] uppercase tracking-tighter">Quests</span>
+                  </div>
+                  <div className="flex flex-col gap-1 mt-1">
+                    {gameState.quests?.map(q => (
+                      <div key={q.id} className={`text-[10px] py-1 px-1.5 border border-transparent hover:bg-white/5 cursor-pointer leading-tight ${q.completed ? 'text-[#00ff00]' : 'text-[#ff0000]'}`} onClick={() => setShowQuests(true)}>{q.name}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'ge' && (
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                  <div className="osrs-panel p-2 flex flex-col items-center gap-2 w-full">
+                     <img src="https://oldschool.runescape.wiki/images/Exchange_icon.png" className="w-12 h-12 object-contain" alt="" />
+                     <button onClick={() => setShowGrandExchange(true)} className="osrs-button w-full py-2 text-[10px] uppercase">Open Exchange</button>
+                  </div>
+                  <p className="text-[9px] text-[#c0c0c0] text-center font-mono">Market access for upgrades and supplies.</p>
+                </div>
+              )}
+            </div>
+            
+            {/* The Tab Icons Panel (Fixed Bottom) */}
+            <div className="grid grid-cols-5 w-full bg-[#3e2e18] border-t-2 border-[#5d5d5d] p-0.5 h-10 flex-shrink-0">
+              <button onClick={() => setActiveTab('combat')} className={`p-1.5 flex items-center justify-center grayscale hover:grayscale-0 transition-all ${activeTab === 'combat' ? 'bg-[#5d5d5d] grayscale-0' : ''}`} title="Combat Control">
+                <img src="https://oldschool.runescape.wiki/images/Attack_icon.png" className="w-5 h-5 object-contain" alt="" />
+              </button>
+              <button onClick={() => setActiveTab('achievements')} className={`p-1.5 flex items-center justify-center grayscale hover:grayscale-0 transition-all ${activeTab === 'achievements' ? 'bg-[#5d5d5d] grayscale-0' : ''}`} title="Player Stats">
+                <img src="https://oldschool.runescape.wiki/images/Stats_icon.png" className="w-5 h-5 object-contain" alt="" />
+              </button>
+              <button onClick={() => setActiveTab('inventory')} className={`p-1.5 flex items-center justify-center grayscale hover:grayscale-0 transition-all ${activeTab === 'inventory' ? 'bg-[#5d5d5d] grayscale-0' : ''}`} title="Inventory">
+                <img src="https://oldschool.runescape.wiki/images/Inventory.png" className="w-5 h-5 object-contain" alt="" />
+              </button>
+              <button onClick={() => setActiveTab('quests')} className={`p-1.5 flex items-center justify-center grayscale hover:grayscale-0 transition-all ${activeTab === 'quests' ? 'bg-[#5d5d5d] grayscale-0' : ''}`} title="Quests & Followers">
+                <img src="https://oldschool.runescape.wiki/images/Quest_point_icon.png" className="w-5 h-5 object-contain" alt="" />
+              </button>
+              <button onClick={() => setActiveTab('ge')} className={`p-1.5 flex items-center justify-center grayscale hover:grayscale-0 transition-all ${activeTab === 'ge' ? 'bg-[#5d5d5d] grayscale-0' : ''}`} title="Grand Exchange">
+                <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-5 h-5 object-contain" alt="" />
+              </button>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Path Selection & GE - Only show when not playing */}
-      {!gameState.isPlaying && (
-        <div className="absolute top-16 left-4 flex gap-2 pointer-events-auto z-10">
-          {gameState.wave === 1 && (
-            <>
-              <button 
-                onClick={() => handlePathChange(0)}
-                className="bg-[#3d3d3d] hover:bg-[#4d4d4d] text-[#ffff00] px-3 py-1 border-2 border-[#5d5d5d] text-xs font-bold shadow-md"
-              >
-                Winding Path
-              </button>
-              <button 
-                onClick={() => handlePathChange(1)}
-                className="bg-[#3d3d3d] hover:bg-[#4d4d4d] text-[#ffff00] px-3 py-1 border-2 border-[#5d5d5d] text-xs font-bold shadow-md"
-              >
-                Spiral Path
-              </button>
-            </>
-          )}
-          <button 
-            onClick={() => setShowGrandExchange(true)}
-            className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#00ffff] px-3 py-1 border-2 border-[#2d2d2d] text-xs font-bold shadow-md ml-4"
-          >
-            Grand Exchange
-          </button>
-          <button 
-            onClick={() => setShowAchievements(true)}
-            className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#ffff00] px-3 py-1 border-2 border-[#2d2d2d] text-xs font-bold shadow-md"
-          >
-            Achievements
-          </button>
-          <button 
-            onClick={() => setShowQuests(true)}
-            className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#ff981f] px-3 py-1 border-2 border-[#2d2d2d] text-xs font-bold shadow-md"
-          >
-            Quests
-          </button>
-          <button 
-            onClick={() => setShowInventory(true)}
-            className="bg-[#5d5d5d] hover:bg-[#6d6d6d] text-[#c0c0c0] px-3 py-1 border-2 border-[#2d2d2d] text-xs font-bold shadow-md"
-          >
-            Inventory ({gameState.inventory?.length || 0})
-          </button>
+          {/* Prayer Bar (Right) */}
+          <div className="w-6 h-64 bg-[#3e2e18] border-2 border-[#5d5d5d] rounded-r-lg relative overflow-hidden flex flex-col-reverse shadow-xl">
+             <div className="absolute top-1 left-0 right-0 text-center z-10">
+               <span className="text-[10px] text-white font-bold drop-shadow-md">{(gameState as any).prayerPoints?.toFixed(0)}</span>
+             </div>
+             <div className="absolute top-5 left-1/2 -translate-x-1/2 w-4 h-4 text-xs">✨</div>
+             <div className="w-full bg-cyan-500 transition-all duration-500 border-t border-[#66ffff]" style={{ height: `${((gameState as any).prayerPoints / (gameState as any).maxPrayerPoints) * 100}%` }} />
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Achievements Modal */}
       {showAchievements && (
@@ -665,10 +614,32 @@ export default function GameCanvas() {
                   <div className="mt-2 h-2 w-full bg-[#1e1e1e] rounded-full overflow-hidden border border-[#5d5d5d]">
                     <div 
                       className="h-full bg-[#ff981f]" 
-                      style={{ width: `${(quest.objective.current / quest.objective.target) * 100}%` }}
+                      style={{ width: `${Math.min(100, (quest.objective.current / quest.objective.target) * 100)}%` }}
                     />
                   </div>
                   <p className="text-[10px] text-right text-[#808080] mt-1">{quest.objective.current} / {quest.objective.target}</p>
+                  {/* Reward preview */}
+                  <div className="mt-2 pt-2 border-t border-[#5d5d5d]/30 flex items-center gap-2">
+                    <span className="text-[9px] text-[#ff981f] font-bold">REWARD:</span>
+                    {quest.reward?.money && <span className="text-[9px] text-[#ffff00]">{quest.reward.money}gp</span>}
+                    {quest.reward?.essence && <span className="text-[9px] text-[#00ffff]">{quest.reward.essence} ess</span>}
+                    {quest.reward?.item && (
+                      <div className="flex items-center gap-1">
+                        <img 
+                          src={`https://oldschool.runescape.wiki/images/${quest.reward.item.name.replace(/ /g, '_')}_detail.png`}
+                          alt={quest.reward.item.name}
+                          className="w-5 h-5 object-contain"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            if (img.src.includes('_detail')) {
+                              img.src = `https://oldschool.runescape.wiki/images/${quest.reward.item!.name.replace(/ /g, '_')}.png`;
+                            } else { img.style.display = 'none'; }
+                          }}
+                        />
+                        <span className="text-[9px] text-[#ff8000]">{quest.reward.item.name}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -712,13 +683,18 @@ export default function GameCanvas() {
                       </div>
                       <div className="w-10 h-10 flex items-center justify-center">
                         <img 
-                          src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} 
+                          src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}_detail.png`} 
                           alt={item.name}
                           className="max-w-full max-h-full object-contain"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            const parent = (e.target as HTMLImageElement).parentElement;
-                            if (parent) parent.innerHTML = '<span style="font-size:20px">⚔️</span>';
+                            const img = e.target as HTMLImageElement;
+                            if (img.src.includes('_detail')) {
+                              img.src = `https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`;
+                            } else {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              const parent = (e.target as HTMLImageElement).parentElement;
+                              if (parent && !parent.querySelector('span')) parent.innerHTML = '<span style="font-size:20px">⚔️</span>';
+                            }
                           }}
                         />
                       </div>
@@ -732,14 +708,14 @@ export default function GameCanvas() {
                         {item.bonus?.range && <span className="text-[9px] text-[#44ff44] mt-0.5">🏹 +{item.bonus.range} RNG</span>}
                         {item.bonus?.defense && <span className="text-[9px] text-[#4488ff] mt-0.5">🛡 +{item.bonus.defense} DEF</span>}
                         {item.bonus?.cooldown && <span className="text-[9px] text-[#ffff00] mt-0.5">⚡ {item.bonus.cooldown}ms CD</span>}
-                        {selectedPlacedTower && <span className="text-[9px] text-[#00ff00] mt-1 font-bold animate-pulse">CLICK TO EQUIP</span>}
+                        {gameState.selectedPlacedTower && <span className="text-[9px] text-[#00ff00] mt-1 font-bold animate-pulse">CLICK TO EQUIP</span>}
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
-            {!selectedPlacedTower && gameState.inventory && gameState.inventory.length > 0 && (
+            {!gameState.selectedPlacedTower && gameState.inventory && gameState.inventory.length > 0 && (
               <p className="text-[10px] text-center text-[#808080] mt-4 italic">Select a tower on the field first to equip items.</p>
             )}
           </div>
@@ -818,10 +794,10 @@ export default function GameCanvas() {
       )}
 
       {/* Upgrade Menu */}
-      {selectedPlacedTower && (
+      {gameState.selectedPlacedTower && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#3d3d3d] p-4 border-4 border-[#5d5d5d] rounded shadow-2xl z-20 flex flex-col gap-2 min-w-[300px]">
           <div className="flex justify-between items-center border-b border-[#5d5d5d] pb-1">
-            <h3 className="text-[#ffff00] font-bold">{selectedPlacedTower.name}</h3>
+            <h3 className="text-[#ffff00] font-bold">{gameState.selectedPlacedTower.name}</h3>
             <button 
               onClick={() => setSelectedPlacedTower(null)}
               className="bg-[#ff0000] text-white rounded w-5 h-5 flex items-center justify-center text-xs font-bold border border-white"
@@ -833,15 +809,15 @@ export default function GameCanvas() {
           <div className="grid grid-cols-2 gap-4">
             <div className="text-xs text-[#c0c0c0] space-y-1">
               <p className="font-bold text-[#ff981f]">Stats</p>
-              <p>Level: {selectedPlacedTower.level} / {selectedPlacedTower.maxLevel}</p>
-              <p>Damage: {selectedPlacedTower.damage}</p>
-              <p>Range: {selectedPlacedTower.range}</p>
-              <p>Speed: {(selectedPlacedTower.cooldown / 1000).toFixed(1)}s</p>
+              <p>Level: {gameState.selectedPlacedTower.level} / {gameState.selectedPlacedTower.maxLevel}</p>
+              <p>Damage: {gameState.selectedPlacedTower.damage}</p>
+              <p>Range: {gameState.selectedPlacedTower.range}</p>
+              <p>Speed: {(gameState.selectedPlacedTower.cooldown / 1000).toFixed(1)}s</p>
             </div>
             
             <div className="text-xs text-[#c0c0c0] space-y-1">
               <p className="font-bold text-[#00ffff]">Skills</p>
-              {Object.entries(selectedPlacedTower.skills || {}).map(([name, skill]: [string, any]) => (
+              {Object.entries(gameState.selectedPlacedTower.skills || {}).map(([name, skill]: [string, any]) => (
                 <div key={name} className="flex justify-between">
                   <span className="capitalize">{name}:</span>
                   <span className="font-bold text-white">Lvl {skill.level}</span>
@@ -850,15 +826,15 @@ export default function GameCanvas() {
             </div>
           </div>
 
-          {selectedPlacedTower.type === 'archer' && (
+          {gameState.selectedPlacedTower.type === 'archer' && (
             <div className="mt-2 border-t border-[#5d5d5d] pt-2">
               <p className="text-[10px] font-bold text-[#00ff00] mb-1">Combat Style</p>
               <div className="flex gap-1">
                 {['rapid', 'long_range'].map(style => (
                   <button
                     key={style}
-                    onClick={() => engineRef.current?.setArcherStyle(selectedPlacedTower.id, style as any)}
-                    className={`text-[9px] flex-1 py-1 border rounded capitalize ${selectedPlacedTower.attackStyle === style ? 'bg-[#00ff00] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
+                    onClick={() => engineRef.current?.setArcherStyle(gameState.selectedPlacedTower!.id, style as any)}
+                    className={`text-[9px] flex-1 py-1 border rounded capitalize ${gameState.selectedPlacedTower?.attackStyle === style ? 'bg-[#00ff00] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
                   >
                     {style.replace('_', ' ')}
                   </button>
@@ -867,28 +843,28 @@ export default function GameCanvas() {
             </div>
           )}
 
-          {selectedPlacedTower.type === 'wizard' && (
+          {gameState.selectedPlacedTower.type === 'wizard' && (
             <div className="mt-2 border-t border-[#5d5d5d] pt-2">
               <p className="text-[10px] font-bold text-[#ffff00] mb-1">Mage Specialization</p>
               <div className="flex gap-1 mb-2">
                 {['elemental', 'ancients', 'utility'].map(mode => (
                   <button
                     key={mode}
-                    onClick={() => engineRef.current?.setMageMode(selectedPlacedTower.id, mode as any)}
-                    className={`text-[9px] px-2 py-1 border rounded capitalize ${selectedPlacedTower.mageMode === mode ? 'bg-[#ffff00] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
+                    onClick={() => engineRef.current?.setMageMode(gameState.selectedPlacedTower!.id, mode as any)}
+                    className={`text-[9px] px-2 py-1 border rounded capitalize ${gameState.selectedPlacedTower?.mageMode === mode ? 'bg-[#ffff00] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
                   >
                     {mode}
                   </button>
                 ))}
               </div>
               
-              {selectedPlacedTower.mageMode === 'elemental' && (
+              {gameState.selectedPlacedTower.mageMode === 'elemental' && (
                 <div className="grid grid-cols-4 gap-1">
                   {['air', 'water', 'earth', 'fire'].map(elem => (
                     <button
                       key={elem}
-                      onClick={() => engineRef.current?.setMageElement(selectedPlacedTower.id, elem as any)}
-                      className={`text-[9px] p-1 border rounded capitalize ${selectedPlacedTower.element === elem ? 'bg-[#00ffff] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
+                      onClick={() => engineRef.current?.setMageElement(gameState.selectedPlacedTower!.id, elem as any)}
+                      className={`text-[9px] p-1 border rounded capitalize ${gameState.selectedPlacedTower?.element === elem ? 'bg-[#00ffff] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
                     >
                       {elem}
                     </button>
@@ -899,13 +875,13 @@ export default function GameCanvas() {
           )}
 
           <div className="flex gap-2 mt-2">
-            {selectedPlacedTower.level < selectedPlacedTower.maxLevel ? (
+            {gameState.selectedPlacedTower.level < gameState.selectedPlacedTower.maxLevel ? (
               <button 
                 onClick={handleUpgrade}
-                disabled={gameState.money < selectedPlacedTower.upgradeCost}
-                className={`flex-1 px-4 py-2 border-2 border-[#2d2d2d] text-xs font-bold ${gameState.money >= selectedPlacedTower.upgradeCost ? 'bg-[#00ff00] text-black hover:bg-[#32CD32]' : 'bg-[#5d5d5d] text-[#808080] cursor-not-allowed'}`}
+                disabled={gameState.money < gameState.selectedPlacedTower.upgradeCost}
+                className={`flex-1 px-4 py-2 border-2 border-[#2d2d2d] text-xs font-bold ${gameState.money >= gameState.selectedPlacedTower.upgradeCost ? 'bg-[#00ff00] text-black hover:bg-[#32CD32]' : 'bg-[#5d5d5d] text-[#808080] cursor-not-allowed'}`}
               >
-                Upgrade ({selectedPlacedTower.upgradeCost} gp)
+                Upgrade ({gameState.selectedPlacedTower.upgradeCost} gp)
               </button>
             ) : (
               <div className="flex-1 text-center text-xs text-[#00ff00] font-bold py-2 border-2 border-[#00ff00]/20 bg-[#00ff00]/5">Max Level</div>
@@ -934,6 +910,11 @@ export default function GameCanvas() {
               <p>HP: <span className="text-white">{Math.ceil(hoveredEntity.data.hp)} / {hoveredEntity.data.maxHp}</span></p>
               <p>Speed: <span className="text-white">{hoveredEntity.data.speed}</span></p>
               <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click for info</p>
+            </div>
+          ) : hoveredEntity.type === 'pet' ? (
+            <div className="space-y-0.5">
+              <p className="text-[#00ffff] italic font-bold">Follower</p>
+              <p className="text-white text-[10px]">{hoveredEntity.data.bonus}</p>
             </div>
           ) : (
             <div className="space-y-0.5">
@@ -1008,36 +989,70 @@ export default function GameCanvas() {
         </div>
       )}
 
-      {/* Tower Selection Bar */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#3d3d3d]/90 p-2 border-2 border-[#5d5d5d] rounded flex gap-2 shadow-xl z-10">
-        {[
-          { id: 'archer', name: 'Ranger', cost: 50, color: '#00ff00', icon: '🏹' },
-          { id: 'wizard', name: 'Mage', cost: 75, color: '#0000ff', icon: '🪄' },
-          { id: 'cannon', name: 'Cannon', cost: 250, color: '#ff0000', icon: '💣' },
-          { id: 'tzhaar', name: 'TzHaar', cost: 200, color: '#8B0000', icon: '🌋' },
-          { id: 'slayer', name: 'Slayer', cost: 125, color: '#4B0082', icon: '⚔️' },
-          { id: 'toxic', name: 'Toxic', cost: 300, color: '#008080', icon: '🐍' }
-        ].map(tower => (
-          <button
-            key={tower.id}
-            onClick={() => {
-              setSelectedTower(tower.id);
-              setSelectedPlacedTower(null);
-            }}
-            className={`
-              flex flex-col items-center p-2 border-2 rounded w-20 transition-all
-              ${selectedTower === tower.id ? 'border-[#ffff00] bg-[#4d4d4d]' : 'border-[#2d2d2d] hover:bg-[#4d4d4d]'}
-              ${gameState.money < tower.cost ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-            `}
-            disabled={gameState.money < tower.cost}
-          >
-            <div className="w-8 h-8 rounded-full mb-1 flex items-center justify-center text-lg" style={{ backgroundColor: tower.color }}>
-              {tower.icon}
+
+      {/* Chat Box (Bottom Left) */}
+      <div className="absolute bottom-4 left-4 w-[480px] h-36 bg-[rgba(0,0,0,0.6)] border-2 border-[#5d5d5d] rounded-sm pointer-events-auto z-10 flex flex-col overflow-hidden shadow-2xl">
+        <div className="bg-[#3d3d3d]/80 px-2 py-0.5 border-b border-[#5d5d5d] flex justify-between font-mono">
+          <span className="text-[10px] font-bold text-[#c0c0c0]">ALL GAME MESSAGES</span>
+          <span className="text-[10px] text-[#ffff00]">Report</span>
+        </div>
+        <div className="flex-1 p-2 overflow-y-auto custom-scrollbar flex flex-col-reverse font-mono text-left">
+          {[...(gameState.messages || [])].reverse().map((msg, i) => (
+            <div key={i} className="text-[11px] text-[#ffffff] leading-tight mb-1">
+              <span className="text-[#ff981f] font-bold">System:</span> {msg}
             </div>
-            <span className="text-xs font-bold text-[#ffff00]">{tower.name}</span>
-            <span className="text-[10px] text-[#c0c0c0]">{tower.cost} gp</span>
-          </button>
-        ))}
+          ))}
+        </div>
+      </div>
+
+      {/* Tower Selection Grid (Bottom Center) - Always Visible */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 z-10 pointer-events-none">
+        {gameState.selectedTower && (
+          <div className="text-center mb-1 text-[11px] text-[#ffff00] font-bold bg-black/80 py-0.5 px-4 border border-[#ffff00]/50 rounded-sm tracking-widest uppercase animate-pulse font-mono">
+            Click on map to place — [ESC to cancel]
+          </div>
+        )}
+        <div className="flex bg-[#3e2e18]/90 border-2 border-[#5d5d5d] p-1 gap-1 pointer-events-auto rounded shadow-2xl">
+          {[
+            { id: 'archer', name: 'Archer', cost: 50, icon: '🏹', wikiImg: 'Shortbow' },
+            { id: 'wizard', name: 'Wizard', cost: 100, icon: '🪄', wikiImg: 'Staff' },
+            { id: 'cannon', name: 'Cannon', cost: 250, icon: '💣', wikiImg: 'Dwarf_multicannon' },
+            { id: 'tzhaar', name: 'TzHaar', cost: 500, icon: '🌋', wikiImg: 'TzHaar-Ket' },
+            { id: 'slayer', name: 'Slayer', cost: 750, icon: '⚔️', wikiImg: 'Slayer_helmet' },
+            { id: 'toxic', name: 'Toxic', cost: 1000, icon: '🐍', wikiImg: 'Toxic_blowpipe' },
+          ].map((tower) => {
+            const isSelected = gameState.selectedTower === tower.id;
+            const canAfford = gameState.money >= tower.cost;
+            return (
+              <button
+                key={tower.id}
+                onClick={() => {
+                  setSelectedTower(isSelected ? null : tower.id);
+                  setSelectedPlacedTower(null);
+                }}
+                disabled={!canAfford}
+                className={`
+                  flex flex-col items-center w-[68px] py-1.5 px-1 border-2 transition-all relative group
+                  ${isSelected ? 'border-[#ffff00] bg-[#4a3f35] shadow-[0_0_8px_rgba(255,255,0,0.6)]' : 'border-[#2d2d2d] bg-[#1a1a1a] hover:bg-[#2d2d2d] hover:border-[#5d5d5d]'}
+                  ${!canAfford ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                `}
+              >
+                <div className="w-9 h-9 flex items-center justify-center relative mb-0.5">
+                  <img
+                    src={`https://oldschool.runescape.wiki/images/${tower.wikiImg}.png`}
+                    alt={tower.name}
+                    className="max-pw-full max-h-full object-contain drop-shadow-md"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling!.classList.remove('hidden'); }}
+                  />
+                  <span className="hidden text-2xl">{tower.icon}</span>
+                </div>
+                <span className="text-[9px] font-bold text-[#ffff00] uppercase tracking-tight">{tower.name}</span>
+                <span className={`text-[9px] font-bold ${canAfford ? 'text-[#00ff00]' : 'text-[#ff0000]'}`}>{tower.cost}gp</span>
+                {isSelected && <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#ffff00] rounded-full animate-ping" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
