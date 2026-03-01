@@ -24,6 +24,7 @@ interface TowerData {
   attackStyle?: string;
   mageMode?: string;
   element?: string;
+  targetingPriority?: string;
 }
 
 interface EnemyData {
@@ -925,6 +926,26 @@ export default function GameCanvas() {
               )}
             </div>
           )}
+
+          {/* Targeting Priority */}
+          <div className="mt-2 border-t border-[#5d5d5d] pt-2">
+            <p className="text-[10px] font-bold text-[#ff981f] mb-1 uppercase tracking-wider">Targeting Priority</p>
+            <div className="grid grid-cols-3 gap-1">
+              {['first', 'last', 'strongest', 'weakest', 'closest'].map(priority => (
+                <button
+                  key={priority}
+                  onClick={() => {
+                    engineRef.current?.setTargetingPriority(gameState.selectedPlacedTower!.id, priority as any);
+                    const updatedTower = engineRef.current?.towers.find((t: any) => t.id === gameState.selectedPlacedTower!.id);
+                    if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
+                  }}
+                  className={`text-[9px] py-1 border rounded capitalize ${gameState.selectedPlacedTower?.targetingPriority === priority ? 'bg-[#ffff00] text-black border-white' : 'bg-[#1e1e1e] text-[#c0c0c0] border-[#5d5d5d]'}`}
+                >
+                  {priority}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="flex gap-2 mt-2">
             {gameState.selectedPlacedTower.level < gameState.selectedPlacedTower.maxLevel ? (

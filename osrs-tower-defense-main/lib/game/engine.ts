@@ -121,6 +121,8 @@ export interface Item {
   type: 'weapon' | 'shield' | 'accessory';
 }
 
+export type TargetingPriority = 'first' | 'last' | 'strongest' | 'weakest' | 'closest';
+
 export interface Tower {
   id: string;
   x: number;
@@ -134,6 +136,7 @@ export interface Tower {
   lastFired: number;
   color: string;
   targetId: string | null;
+  targetingPriority: TargetingPriority;
   name: string;
   upgradeCost: number;
   special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'burn' | 'amp';
@@ -1259,6 +1262,7 @@ export class GameEngine {
           lastFired: 0,
           color,
           targetId: null,
+          targetingPriority: 'first',
           name,
           upgradeCost,
           special,
@@ -1287,6 +1291,14 @@ export class GameEngine {
       }
     } else {
       console.warn('Not enough money for tower');
+    }
+  }
+
+  setTargetingPriority(towerId: string, priority: TargetingPriority) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (tower) {
+      tower.targetingPriority = priority;
+      this.onStateChange({ towers: this.towers });
     }
   }
 
@@ -2121,19 +2133,59 @@ export class GameEngine {
 
       // Targeting
       if (!tower.targetId || !this.enemies.find(e => e.id === tower.targetId)) {
-        let closestDist = Infinity;
-        let closestId = null;
-        for (const enemy of this.enemies) {
-          // Rule: Do not target enemies offscreen
+        const inRangeEnemies = this.enemies.filter(enemy => {
           const isOffscreen = enemy.x < 0 || enemy.x > this.canvas.width || enemy.y < 0 || enemy.y > this.canvas.height;
-          if (isOffscreen) continue;
+          if (isOffscreen) return false;
+          const d = Math.sqrt(Math.pow(enemy.x - tower.x, 2) + Math.pow(enemy.y - tower.y, 2));
+          return d <= effectiveRange;
+        });
 
-          const d = Math.sqrt(Math.pow(enemy.x-tower.x,2)+Math.pow(enemy.y-tower.y,2));
-          if (d <= effectiveRange && d < closestDist) {
-            closestDist = d; closestId = enemy.id;
+        if (inRangeEnemies.length > 0) {
+          let selectedEnemy: Enemy | null = null;
+          const priority = tower.targetingPriority || 'first';
+
+          switch (priority) {
+            case 'first':
+              selectedEnemy = inRangeEnemies.reduce((prev, curr) => {
+                if (curr.pathIndex > prev.pathIndex) return curr;
+                if (curr.pathIndex < prev.pathIndex) return prev;
+                const nextPoint = this.path[curr.pathIndex + 1];
+                if (!nextPoint) return prev;
+                const dPrev = Math.sqrt(Math.pow(nextPoint.x - prev.x, 2) + Math.pow(nextPoint.y - prev.y, 2));
+                const dCurr = Math.sqrt(Math.pow(nextPoint.x - curr.x, 2) + Math.pow(nextPoint.y - curr.y, 2));
+                return dCurr < dPrev ? curr : prev;
+              });
+              break;
+            case 'last':
+              selectedEnemy = inRangeEnemies.reduce((prev, curr) => {
+                if (curr.pathIndex < prev.pathIndex) return curr;
+                if (curr.pathIndex > prev.pathIndex) return prev;
+                const nextPoint = this.path[curr.pathIndex + 1];
+                if (!nextPoint) return prev;
+                const dPrev = Math.sqrt(Math.pow(nextPoint.x - prev.x, 2) + Math.pow(nextPoint.y - prev.y, 2));
+                const dCurr = Math.sqrt(Math.pow(nextPoint.x - curr.x, 2) + Math.pow(nextPoint.y - curr.y, 2));
+                return dCurr > dPrev ? curr : prev;
+              });
+              break;
+            case 'strongest':
+              selectedEnemy = inRangeEnemies.reduce((prev, curr) => curr.hp > prev.hp ? curr : prev);
+              break;
+            case 'weakest':
+              selectedEnemy = inRangeEnemies.reduce((prev, curr) => curr.hp < prev.hp ? curr : prev);
+              break;
+            case 'closest':
+            default:
+              selectedEnemy = inRangeEnemies.reduce((prev, curr) => {
+                const dPrev = Math.sqrt(Math.pow(prev.x - tower.x, 2) + Math.pow(prev.y - tower.y, 2));
+                const dCurr = Math.sqrt(Math.pow(curr.x - tower.x, 2) + Math.pow(curr.y - tower.y, 2));
+                return dCurr < dPrev ? curr : prev;
+              });
+              break;
           }
+          tower.targetId = selectedEnemy?.id || null;
+        } else {
+          tower.targetId = null;
         }
-        tower.targetId = closestId;
       }
 
       const target = this.enemies.find(e => e.id === tower.targetId);
