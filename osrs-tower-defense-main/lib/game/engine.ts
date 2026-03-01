@@ -2919,7 +2919,7 @@ export class GameEngine {
       }
 
       // Draw Towers
-      const now = performance.now();
+      const now = this.gameTime;
       this.towers.forEach(tower => {
         if (isNaN(tower.x) || isNaN(tower.y)) return;
         
