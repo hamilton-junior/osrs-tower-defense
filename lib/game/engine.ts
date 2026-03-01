@@ -20,7 +20,7 @@ export interface GlobalUpgrades {
   prayerRegen: number;
 }
 
-export type PrayerType = 'thick_skin' | 'burst_of_strength' | 'clarity_of_thought' | 'sharp_eye' | 'mystic_will' | 'piety' | 'rigour' | 'augury';
+export type PrayerType = 'thick_skin' | 'burst_of_strength' | 'clarity_of_thought' | 'sharp_eye' | 'mystic_will' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury';
 
 export interface ActivePotion {
   type: 'overload' | 'super_restore' | 'prayer_potion';
@@ -68,6 +68,10 @@ export interface Enemy {
   jadAttackType?: 'mage' | 'range';
   jadAttackActive?: boolean;
   jadAttackResolveTimer?: number;
+  burnTimer: number;
+  burnDamage: number;
+  groundTimer: number; // For earth/root effects
+  resistance: number; // 0-1, boss resistance to debuffs
 }
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
@@ -132,7 +136,7 @@ export interface Tower {
   targetId: string | null;
   name: string;
   upgradeCost: number;
-  special?: 'slow' | 'aoe' | 'rapid' | 'stun';
+  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'burn' | 'amp';
   specCharge: number; // 0-100 special attack charge
   specMax: number;    // damage threshold to fill spec bar
   lastSpecFired?: number;
@@ -162,7 +166,9 @@ export interface Projectile {
   speed: number;
   damage: number;
   color: string;
-  special?: 'slow' | 'aoe' | 'stun';
+  type: 'arrow' | 'spell' | 'cannonball' | 'dart' | 'bolt' | 'magic_projectile' | 'ancient_ice' | 'ancient_blood' | 'ancient_shadow' | 'ancient_smoke' | 'chinchompa' | 'godsword';
+  element?: Element; 
+  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'burn' | 'amp';
   sourceTowerId?: string;
 }
 
@@ -199,7 +205,10 @@ export class GameEngine {
   
   animationId: number = 0;
   lastTime: number = 0;
-  
+  // Dynamic coordinates
+  prevWidth: number = 0;
+  prevHeight: number = 0;
+
   // Game Loop
   gameSpeed: number = 1;
   gameTime: number = 0;
@@ -234,6 +243,19 @@ export class GameEngine {
   activePotions: ActivePotion[] = [];
 
   // Pets & Achievements
+  followingPetId: string | null = 'pet_beaver';
+  petQuoteTimer: number = 0;
+  activeQuote: { text: string, timer: number } | null = null;
+
+  petQuotes: Record<string, string[]> = {
+    beaver: ["Woodcutting is an honest living.", "Dam, I'm good!", "Got any logs?", "I'm pining for some trees."],
+    tangleroot: ["The earth speaks to me.", "I'm rooting for you!", "Nature finds a way.", "Grow with the flow."],
+    vorki: ["Is it cold in here?", "For Zeah!", "The frost is coming.", "I'm just a little dragon."],
+    snakeling: ["Sssssss...", "Venomous and proud.", "Zulrah's legacy lives on.", "I like the swamp."],
+    rock_golem: ["I'm solid as a rock.", "Don't take me for granite!", "Mining is a blast.", "Feeling rocky today."],
+    heron: ["Any fish today?", "Just fishing for compliments.", "The water is fine.", "A catch of a lifetime!"]
+  };
+
   pets: Pet[] = [
     { id: 'pet_beaver', name: 'Beaver', type: 'beaver', bonus: 'Lucky Paw: +25% item drop chance' },
     { id: 'pet_tangleroot', name: 'Tangleroot', type: 'tangleroot', bonus: 'Nature\'s Gift: +10% Rune Essence drops' }
@@ -266,6 +288,28 @@ export class GameEngine {
   };
   theme: 'grass' | 'sand' | 'dark' = 'grass';
   messages: string[] = ["Welcome to OSRS Tower Defense!"];
+  settings: {
+    volume: number;
+    showRangeAlways: boolean;
+    particles: boolean;
+  } = {
+    volume: 0.3,
+    showRangeAlways: false,
+    particles: true
+  };
+  allPrayers: { id: PrayerType, name: string, level: number, drain: number, description: string }[] = [
+    { id: 'thick_skin', name: 'Thick Skin', level: 1, drain: 1, description: '+5% Defence' },
+    { id: 'burst_of_strength', name: 'Burst of Strength', level: 4, drain: 1.5, description: '+5% Strength' },
+    { id: 'clarity_of_thought', name: 'Clarity of Thought', level: 7, drain: 1.5, description: '+5% Attack' },
+    { id: 'sharp_eye', name: 'Sharp Eye', level: 8, drain: 1.5, description: '+5% Ranged' },
+    { id: 'mystic_will', name: 'Mystic Will', level: 9, drain: 1.5, description: '+5% Magic' },
+    { id: 'hawk_eye', name: 'Hawk Eye', level: 26, drain: 3, description: '+10% Ranged' },
+    { id: 'ultimate_strength', name: 'Ultimate Strength', level: 31, drain: 4, description: '+15% Strength' },
+    { id: 'eagle_eye', name: 'Eagle Eye', level: 44, drain: 5, description: '+15% Ranged' },
+    { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Str, +20% Att, +25% Def' },
+    { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '+23% Ranged, +23% Ranged Str, +25% Def' },
+    { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '+25% Magic, +25% Magic Def' },
+  ];
 
   // Items & Quests
   inventory: Item[] = [];
@@ -395,9 +439,11 @@ export class GameEngine {
     // Apply starting money upgrade
     this.money = 150 + this.upgrades.startingMoney;
     
-    // Set default size immediately
-    this.canvas.width = 800;
-    this.canvas.height = 600;
+    // Use current canvas size or fallback
+    this.prevWidth = this.canvas.width || 800;
+    this.prevHeight = this.canvas.height || 600;
+    this.canvas.width = this.prevWidth;
+    this.canvas.height = this.prevHeight;
 
     // Init Audio & Images
     if (typeof window !== 'undefined') {
@@ -419,23 +465,23 @@ export class GameEngine {
 
   preloadSounds() {
     const soundUrls = {
-      shoot_archer: 'https://oldschool.runescape.wiki/images/Longbow_attack.wav',
-      shoot_wizard: 'https://oldschool.runescape.wiki/images/Wind_Strike.ogg',
-      shoot_cannon: 'https://oldschool.runescape.wiki/images/Fire_Strike.ogg',
-      shoot_tzhaar: 'https://oldschool.runescape.wiki/images/TzHaar-Ket_attack.ogg',
-      shoot_slayer: 'https://oldschool.runescape.wiki/images/Slayer_staff_cast.ogg',
-      shoot_support: 'https://oldschool.runescape.wiki/images/Heal_Other_cast.ogg',
+      shoot_archer: 'https://oldschool.runescape.wiki/images/transcoded/Longbow_attack.wav/Longbow_attack.wav.mp3',
+      shoot_wizard: 'https://oldschool.runescape.wiki/images/transcoded/Wind_Strike.ogg/Wind_Strike.ogg.mp3',
+      shoot_cannon: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Strike.ogg/Fire_Strike.ogg.mp3',
+      shoot_tzhaar: 'https://oldschool.runescape.wiki/images/transcoded/TzHaar-Ket_attack.ogg/TzHaar-Ket_attack.ogg.mp3',
+      shoot_slayer: 'https://oldschool.runescape.wiki/images/transcoded/Slayer_staff_cast.ogg/Slayer_staff_cast.ogg.mp3',
+      shoot_support: 'https://oldschool.runescape.wiki/images/transcoded/Heal_Other_cast.ogg/Heal_Other_cast.ogg.mp3',
       shoot_toxic: 'https://oldschool.runescape.wiki/images/transcoded/Dart_attack.wav/Dart_attack.wav.mp3',
-      hit: 'https://oldschool.runescape.wiki/images/Melee_hit_sound.ogg',
-      kill: 'https://oldschool.runescape.wiki/images/Zombie_death.ogg',
-      wave: 'https://oldschool.runescape.wiki/images/Teleport_sound.ogg',
-      upgrade: 'https://oldschool.runescape.wiki/images/Level_up_sound.ogg',
-      sell: 'https://oldschool.runescape.wiki/images/Coins_drop_sound.ogg',
-      boss_attack: 'https://oldschool.runescape.wiki/images/Vorkath_attack_sound.ogg',
+      hit: 'https://oldschool.runescape.wiki/images/transcoded/Melee_hit_sound.ogg/Melee_hit_sound.ogg.mp3',
+      kill: 'https://oldschool.runescape.wiki/images/transcoded/Zombie_death.ogg/Zombie_death.ogg.mp3',
+      wave: 'https://oldschool.runescape.wiki/images/transcoded/Teleport_sound.ogg/Teleport_sound.ogg.mp3',
+      upgrade: 'https://oldschool.runescape.wiki/images/transcoded/Level-up_sound.wav/Level-up_sound.wav.mp3',
+      sell: 'https://oldschool.runescape.wiki/images/transcoded/Coins_drop_sound.ogg/Coins_drop_sound.ogg.mp3',
+      boss_attack: 'https://oldschool.runescape.wiki/images/transcoded/Vorkath_attack_sound.ogg/Vorkath_attack_sound.ogg.mp3',
       prayer_on: 'https://oldschool.runescape.wiki/images/transcoded/Protect_from_Melee.ogg/Protect_from_Melee.ogg.mp3',
-      prayer_off: 'https://oldschool.runescape.wiki/images/Rapid_Heal.ogg',
-      potion: 'https://oldschool.runescape.wiki/images/Drink_potion.ogg',
-      special_attack: 'https://oldschool.runescape.wiki/images/Special_attack_sound.ogg',
+      prayer_off: 'https://oldschool.runescape.wiki/images/transcoded/Rapid_Heal.ogg/Rapid_Heal.ogg.mp3',
+      potion: 'https://oldschool.runescape.wiki/images/transcoded/Drink_potion.ogg/Drink_potion.ogg.mp3',
+      special_attack: 'https://oldschool.runescape.wiki/images/transcoded/Special_attack_sound.ogg/Special_attack_sound.ogg.mp3',
       death_demon: 'https://oldschool.runescape.wiki/images/transcoded/Demon_death.ogg/Demon_death.ogg.mp3',
       death_dragon: 'https://oldschool.runescape.wiki/images/transcoded/Dragon_death.ogg/Dragon_death.ogg.mp3',
       death_boss: 'https://oldschool.runescape.wiki/images/transcoded/Boss_death.ogg/Boss_death.ogg.mp3',
@@ -450,25 +496,36 @@ export class GameEngine {
       spell_air: 'https://oldschool.runescape.wiki/images/transcoded/Air_Strike.ogg/Air_Strike.ogg.mp3',
       spell_water: 'https://oldschool.runescape.wiki/images/transcoded/Water_Strike.ogg/Water_Strike.ogg.mp3',
       spell_earth: 'https://oldschool.runescape.wiki/images/transcoded/Earth_Strike.ogg/Earth_Strike.ogg.mp3',
-      spell_fire: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Strike.ogg/Fire_Strike.ogg.mp3',
+      spell_fire: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Blast.ogg/Fire_Blast.ogg.mp3',
       spell_ice: 'https://oldschool.runescape.wiki/images/transcoded/Ice_Barrage.ogg/Ice_Barrage.ogg.mp3',
       spell_curse: 'https://oldschool.runescape.wiki/images/transcoded/Curse.ogg/Curse.ogg.mp3',
-      spell_bind: 'https://oldschool.runescape.wiki/images/transcoded/Bind.ogg/Bind_bind.ogg.mp3',
+      spell_bind: 'https://oldschool.runescape.wiki/images/transcoded/Bind_Strike.ogg/Bind_Strike.ogg.mp3',
+      spell_charge: 'https://oldschool.runescape.wiki/images/transcoded/Charge.ogg/Charge.ogg.mp3',
       cannon_fire: 'https://oldschool.runescape.wiki/images/transcoded/Dwarf_multicannon_fire.ogg/Dwarf_multicannon_fire.ogg.mp3'
     };
 
     Object.entries(soundUrls).forEach(([key, url]) => {
-      const audio = new Audio(url);
+      const audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      audio.src = url;
       audio.preload = 'auto';
-      audio.volume = 0.3;
+      audio.volume = this.settings.volume;
       this.soundCache.set(key, audio);
     });
+  }
+
+  updateSettings(settings: Partial<GameEngine['settings']>) {
+    this.settings = { ...this.settings, ...settings };
+    this.soundCache.forEach(audio => {
+      audio.volume = this.settings.volume;
+    });
+    this.onStateChange({ settings: this.settings });
   }
 
   preloadImages() {
     const imageUrls: Record<string, string> = {
       // Misc
-      portal: 'https://oldschool.runescape.wiki/images/Teleport_portal.png',
+      portal: 'https://oldschool.runescape.wiki/images/Purple_Portal_Shield.png',
       tree: 'https://oldschool.runescape.wiki/images/Tree.png',
       ore_adamant: 'https://oldschool.runescape.wiki/images/Adamantite_ore_detail.png',
       ranarr: 'https://oldschool.runescape.wiki/images/Ranarr_weed_detail.png',
@@ -479,12 +536,12 @@ export class GameEngine {
       skill_herblore: 'https://oldschool.runescape.wiki/images/Herblore_icon.png',
       skill_crafting: 'https://oldschool.runescape.wiki/images/Crafting_icon.png',
       skill_prayer: 'https://oldschool.runescape.wiki/images/Prayer_icon.png',
-      slayer_crossbow: 'https://oldschool.runescape.wiki/images/Slayer_crossbow.png',
+      slayer_crossbow: 'https://oldschool.runescape.wiki/images/Slayer_icon.png',
 
       // Enemies
       goblin: 'https://oldschool.runescape.wiki/images/Goblin.png',
       rat: 'https://oldschool.runescape.wiki/images/Giant_rat.png',
-      cow: 'https://oldschool.runescape.wiki/images/Cow_%281%29.png',
+      cow: 'https://oldschool.runescape.wiki/images/Cow.png',
       imp: 'https://oldschool.runescape.wiki/images/Imp.png',
       spider: 'https://oldschool.runescape.wiki/images/Giant_spider.png',
       scorpion: 'https://oldschool.runescape.wiki/images/Scorpion.png',
@@ -510,7 +567,7 @@ export class GameEngine {
       jad: 'https://oldschool.runescape.wiki/images/TzTok-Jad.png',
       vorkath: 'https://oldschool.runescape.wiki/images/Vorkath.png',
       zulrah: 'https://oldschool.runescape.wiki/images/Zulrah_%28serpentine%29.png',
-
+      
       // Pets
       beaver: 'https://oldschool.runescape.wiki/images/Beaver.png',
       rock_golem: 'https://oldschool.runescape.wiki/images/Rock_golem.png',
@@ -522,6 +579,8 @@ export class GameEngine {
       snakeling: 'https://oldschool.runescape.wiki/images/Pet_snakeling_%28serpentine%29.png',
       prince_black_dragon: 'https://oldschool.runescape.wiki/images/Prince_black_dragon.png',
       kalphite_princess: 'https://oldschool.runescape.wiki/images/Kalphite_princess_%28flying%29.png',
+      tzrek_jad: 'https://oldschool.runescape.wiki/images/TzRek-Jad.png',
+      ikkle_hydra: 'https://oldschool.runescape.wiki/images/Ikkle_hydra.png',
 
       // Towers
       archer_1: 'https://oldschool.runescape.wiki/images/Shortbow.png',
@@ -541,24 +600,24 @@ export class GameEngine {
       wizard_ancients: 'https://oldschool.runescape.wiki/images/Ancient_staff.png',
       wizard_utility: 'https://oldschool.runescape.wiki/images/Ahrim%27s_staff.png',
       
-      cannon_1: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon.png',
-      cannon_2: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon.png', // Golden fallback
-      cannon_3: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_%28Shattered_Relics_League%29.png',
+      cannon_1: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_built.png',
+      cannon_2: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_built.png', // Fallback
+      cannon_3: 'https://oldschool.runescape.wiki/images/Granite_multicannon.png',
       cannon_4: 'https://oldschool.runescape.wiki/images/Heavy_ballista.png',
       
-      slayer_1: 'https://oldschool.runescape.wiki/images/Slayer_crossbow.png',
-      slayer_2: 'https://oldschool.runescape.wiki/images/Karil%27s_crossbow.png',
-      slayer_3: 'https://oldschool.runescape.wiki/images/Twisted_bow.png',
-      slayer_4: 'https://oldschool.runescape.wiki/images/Zaryte_crossbow.png',
+      slayer_1: 'https://oldschool.runescape.wiki/images/Darklight.png',
+      slayer_2: 'https://oldschool.runescape.wiki/images/Arclight.png',
+      slayer_3: 'https://oldschool.runescape.wiki/images/Leaf-bladed_sword.png',
+      slayer_4: 'https://oldschool.runescape.wiki/images/Emberlight.png',
       
-      support_1: 'https://oldschool.runescape.wiki/images/Ancient_mace.png',
-      support_2: 'https://oldschool.runescape.wiki/images/War_banner.png',
-      support_3: 'https://oldschool.runescape.wiki/images/Altar_of_Gielinor.png',
-      support_4: 'https://oldschool.runescape.wiki/images/Saradomin_statue.png',
-      toxic_1: 'https://oldschool.runescape.wiki/images/Toxic_blowpipe.png',
-      toxic_2: 'https://oldschool.runescape.wiki/images/Serpentine_helmet.png',
-      toxic_3: 'https://oldschool.runescape.wiki/images/Trident_of_the_swamp.png',
-      toxic_4: 'https://oldschool.runescape.wiki/images/Magma_helmet.png',
+      tzhaar_1: 'https://oldschool.runescape.wiki/images/TzHaar-Hur.png',
+      tzhaar_2: 'https://oldschool.runescape.wiki/images/TzHaar-Mej.png',
+      tzhaar_3: 'https://oldschool.runescape.wiki/images/TzHaar-Xil_(sword).png',
+      tzhaar_4: 'https://oldschool.runescape.wiki/images/TzHaar-Ket_(level_149).png',
+      toxic_1: 'https://oldschool.runescape.wiki/images/Tanzanite_fang.png',
+      toxic_2: 'https://oldschool.runescape.wiki/images/Toxic_blowpipe.png',
+      toxic_3: 'https://oldschool.runescape.wiki/images/Magic_fang.png',
+      toxic_4: 'https://oldschool.runescape.wiki/images/Trident_of_the_swamp.png',
 
       // Loot
       bones_loot: 'https://oldschool.runescape.wiki/images/Bones.png',
@@ -579,9 +638,19 @@ export class GameEngine {
         this.brokenImages.add(key);
       };
       img.src = url;
+      img.crossOrigin = 'anonymous';
       img.referrerPolicy = 'no-referrer';
       this.imageCache.set(key, img);
     });
+
+    // Additional Fallbacks
+    const portal = new Image();
+    portal.src = 'https://oldschool.runescape.wiki/images/Transportation_logo.png';
+    this.imageCache.set('portal', portal);
+    
+    const bones = new Image();
+    bones.src = 'https://oldschool.runescape.wiki/images/Bones.png';
+    this.imageCache.set('bones_loot', bones);
   }
 
   addMessage(text: string) {
@@ -614,14 +683,47 @@ export class GameEngine {
     const parent = this.canvas.parentElement;
     if (parent) {
       const rect = parent.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        this.canvas.width = rect.width;
-        this.canvas.height = rect.height;
-        this.initPath(); // Re-calculate path based on new size
-        console.log(`Resized canvas to ${this.canvas.width}x${this.canvas.height}`);
+        const newWidth = rect.width;
+        const newHeight = rect.height;
+        
+          if (this.prevWidth > 0 && this.prevHeight > 0 && (this.canvas.width !== newWidth || this.canvas.height !== newHeight)) {
+             const scaleX = newWidth / this.prevWidth;
+             const scaleY = newHeight / this.prevHeight;
+             
+             // Regenerate path according to new canvas size to avoid precision loss & click offset
+             this.initPath(false, newWidth, newHeight); 
+             
+             // Scale Towers
+           this.towers.forEach(t => { 
+             t.x *= scaleX; 
+             t.y *= scaleY; 
+             t.range *= scaleX; // assuming range scales with width generally
+           });
+           
+           // Scale Enemies
+           this.enemies.forEach(e => {
+             e.x *= scaleX;
+             e.y *= scaleY;
+             e.speed *= scaleX;
+             e.baseSpeed *= scaleX;
+           });
+           
+           // Projectiles
+           this.projectiles.forEach(p => { p.x *= scaleX; p.y *= scaleY; });
+           
+           // Loots
+           this.loots.forEach(l => { l.x *= scaleX; l.y *= scaleY; });
+           
+           // Particles
+           this.particles.forEach(p => { p.x *= scaleX; p.y *= scaleY; });
+        }
+        
+        this.canvas.width = newWidth;
+        this.canvas.height = newHeight;
+        this.prevWidth = newWidth;
+        this.prevHeight = newHeight;
       }
     }
-  }
 
   updateMousePos(x: number, y: number) {
     this.mousePos = { x, y };
@@ -643,13 +745,10 @@ export class GameEngine {
     this.onStateChange({ isPlaying: false });
   }
 
-  initPath() {
-    let w = this.canvas.width;
-    let h = this.canvas.height;
-    
-    // Fallback if canvas is not yet sized
-    if (w <= 0) w = 800;
-    if (h <= 0) h = 600;
+  initPath(clearEnemies: boolean = true, forceWidth?: number, forceHeight?: number) {
+    // Fill the current canvas dimensions
+    let w = forceWidth || this.canvas.width || 800; // Let resize() mutate parent dimensions before calling
+    let h = forceHeight || this.canvas.height || 600;
     
     // Save old path length to check if we need to reset enemies
     const oldPathLength = this.path.length;
@@ -713,9 +812,9 @@ export class GameEngine {
       }
     });
 
-    // If path changed significantly, we might need to clear enemies to avoid crashes
-    if (oldPathLength > 0 && this.path.length !== oldPathLength && this.waveActive) {
-      console.warn('Path changed during wave, clearing enemies to prevent crash');
+    // If path changed significantly and we're explicitly asked to clear layout-breaking bugs
+    if (clearEnemies && oldPathLength > 0 && this.path.length !== oldPathLength && this.waveActive) {
+      console.warn('Path length changed during wave, clearing enemies to prevent crash');
       this.enemies = [];
     }
   }
@@ -912,12 +1011,18 @@ export class GameEngine {
     const effectiveSpeed = Math.floor(stats.speed * speedScale);
     const effectiveReward = Math.floor(stats.reward * rewardScale);
 
+    const isBoss = type === 'vorkath' || type === 'zulrah' || type === 'jad' || type === 'hydra';
+
     return {
       ...stats,
       hp: effectiveHp,
       maxHp: effectiveHp,
       speed: effectiveSpeed,
-      reward: effectiveReward
+      reward: effectiveReward,
+      burnTimer: 0,
+      burnDamage: 0,
+      groundTimer: 0,
+      resistance: isBoss ? 0.5 : 0
     };
   }
 
@@ -1032,19 +1137,13 @@ export class GameEngine {
           id: Math.random().toString(36).substr(2, 9),
           x: this.path[0].x,
           y: this.path[0].y,
-          hp: stats.hp,
-          maxHp: stats.maxHp,
-          speed: stats.speed,
+          ...stats,
           baseSpeed: stats.speed,
           pathIndex: 0,
           type: config.type,
-          color: stats.color,
-          reward: stats.reward,
           slowTimer: 0,
           stunTimer: 0,
-          tauntTimer: 0,
-          weakness: stats.weakness,
-          deathSound: stats.deathSound
+          tauntTimer: 0
         });
       }
     }
@@ -1289,13 +1388,11 @@ export class GameEngine {
       } else if (tower.level === 4) {
         tower.name = 'Dragon Hunter Ballista';
         tower.minDamage = 20;
-        tower.maxDamage = 84; // Max ballista hit
+        tower.maxDamage = 84;
         tower.upgradeCost = 1500;
         tower.cooldown = 5 * TICK * 1000;
-        tower.special = 'aoe'; // Back to AoE at level 4
+        tower.special = 'aoe';
         tower.color = '#8B0000';
-      } else {
-        tower.upgradeCost += 200;
       }
     } else if (tower.type === 'tzhaar') {
       if (tower.level === 2) {
@@ -1356,21 +1453,16 @@ export class GameEngine {
         tower.color = '#2E8B57';
         tower.cooldown = 2 * TICK * 1000;
       } else if (tower.level === 3) {
-        // Trident of the Swamp: max hit 28 (scales)
         tower.name = 'Trident of the Swamp';
-        tower.damage = 50;
-        tower.range = 7 * 25;
-        tower.color = '#00FF7F';
-        tower.upgradeCost = 1000;
-        tower.cooldown = 4 * TICK * 1000;
-      } else if (tower.level === 4) {
-        // Zulrah herself as a tower concept
-        tower.name = 'Zulrah Alter';
-        tower.damage = 80;
+        tower.damage = 35;
         tower.range = 8 * 25;
-        tower.color = '#00cf9f';
-        tower.special = 'slow'; // Area venom
-        tower.specMax = 50; // Venom spec
+        tower.upgradeCost = 1000;
+        tower.special = 'slow';
+      } else if (tower.level === 4) {
+        tower.name = 'Magma Blowpipe';
+        tower.damage = 45;
+        tower.range = 9 * 25;
+        tower.special = 'burn';
       }
     }
 
@@ -1475,12 +1567,10 @@ export class GameEngine {
   sellTower(towerId: string) {
     const index = this.towers.findIndex(t => t.id === towerId);
     if (index > -1) {
-      // Refund 50% of value (approximate logic for now just base cost)
-      // Ideally track total investment
       this.playSound('sell');
       this.money += 25; 
       this.towers.splice(index, 1);
-      this.onStateChange({ money: this.money });
+      this.onStateChange({ money: this.money, selectedPlacedTower: null });
     }
   }
 
@@ -1577,34 +1667,29 @@ export class GameEngine {
     return null;
   }
 
-  // Call this on canvas click to pick up loot at position
   collectLootAt(x: number, y: number): boolean {
-    const loot = this.loots.find(l => {
-      const dx = l.x - x;
-      const dy = l.y - y;
-      return Math.sqrt(dx * dx + dy * dy) < (l.size + 10);
-    });
-    
-    if (loot) {
-      if (loot.type === 'essence') {
-        this.runeEssence += 5;
-        this.damageNumbers.push({ x: loot.x, y: loot.y, text: '+5 Essence', life: 1.5, color: '#00ffff', velocityY: -40, velocityX: 0 });
-        this.playSound('upgrade');
-      } else if (loot.type === 'money') {
-        this.money += loot.data || 20;
-        this.damageNumbers.push({ x: loot.x, y: loot.y, text: `+${loot.data || 20} GP`, life: 1.5, color: '#ffff00', velocityY: -40, velocityX: 0 });
-        this.playSound('sell');
-      } else if (loot.type === 'item' && loot.data) {
-        this.inventory.push({ ...loot.data, id: Math.random().toString() });
-        this.damageNumbers.push({ x: loot.x, y: loot.y, text: loot.data.name, life: 2.0, color: '#ff8000', velocityY: -50, velocityX: 0 });
-        this.playSound('upgrade');
-        this.onStateChange({ inventory: this.inventory });
-      }
-      this.loots = this.loots.filter(l => l.id !== loot.id);
-      this.onStateChange({ runeEssence: this.runeEssence, money: this.money });
-      return true;
+    const lootIndex = this.loots.findIndex(l => Math.sqrt(Math.pow(l.x-x,2)+Math.pow(l.y-y,2)) < 30);
+    if (lootIndex === -1) return false;
+
+    const loot = this.loots[lootIndex];
+    if (loot.type === 'essence') {
+      this.runeEssence += 5;
+      this.damageNumbers.push({ x: loot.x, y: loot.y, text: '+5 Essence', life: 1.5, color: '#00ffff', velocityY: -40, velocityX: 0 });
+      this.playSound('upgrade');
+    } else if (loot.type === 'money') {
+      const amt = loot.data || 20;
+      this.money += amt;
+      this.damageNumbers.push({ x: loot.x, y: loot.y, text: `+${amt} GP`, life: 1.5, color: '#ffff00', velocityY: -40, velocityX: 0 });
+      this.playSound('sell');
+    } else if (loot.type === 'item' && loot.data) {
+      this.inventory.push({ ...loot.data, id: Math.random().toString() });
+      this.damageNumbers.push({ x: loot.x, y: loot.y, text: loot.data.name, life: 2.0, color: '#ff8000', velocityY: -50, velocityX: 0 });
+      this.playSound('upgrade');
+      this.addMessage(`Looted: ${loot.data.name}`);
     }
-    return false;
+    this.loots.splice(lootIndex, 1);
+    this.onStateChange({ runeEssence: this.runeEssence, money: this.money, inventory: this.inventory });
+    return true;
   }
 
   interactWithNode(node: GatheringNode) {
@@ -1762,7 +1847,47 @@ export class GameEngine {
       this.updateQuests('wave', this.wave);
     }
 
+    // Prayer Drain
+    if (this.activePrayers.size > 0 && this.prayerPoints > 0) {
+      let totalDrain = 0;
+      this.activePrayers.forEach(id => {
+        const pray = this.allPrayers.find(p => p.id === id);
+        if (pray) totalDrain += pray.drain;
+      });
+      
+      const drainRate = (totalDrain / 10) * (this.upgrades.prayerEfficiency || 1); 
+      this.prayerPoints = Math.max(0, this.prayerPoints - dt * drainRate);
+      
+      if (this.prayerPoints <= 0) {
+        this.activePrayers.clear();
+        this.playSound('prayer_off');
+        this.onStateChange({ activePrayers: [] });
+      }
+      this.onStateChange({ prayerPoints: this.prayerPoints });
+    }
+
     this.checkAchievements();
+
+    // Process Pet Quotes
+    this.petQuoteTimer -= dt;
+    if (this.petQuoteTimer <= 0) {
+       if (this.followingPetId) {
+          const pet = this.pets.find(p => p.id === this.followingPetId);
+          if (pet) {
+             const quotes = this.petQuotes[pet.type] || ["Hello!"];
+             this.activeQuote = {
+                text: quotes[Math.floor(Math.random() * quotes.length)],
+                timer: 3.0 // Show for 3 seconds
+             };
+          }
+       }
+       this.petQuoteTimer = 15 + Math.random() * 20; // Next quote in 15-35s
+    }
+
+    if (this.activeQuote) {
+       this.activeQuote.timer -= dt;
+       if (this.activeQuote.timer <= 0) this.activeQuote = null;
+    }
     this.enemies.forEach(enemy => {
       if (enemy.type === 'vorkath' || enemy.type === 'zulrah') {
         if (Math.random() < 0.005) { // Rare attack
@@ -1839,7 +1964,14 @@ export class GameEngine {
       }
 
       if (this.path.length <= enemy.pathIndex + 1) {
-        // Safety check: if path changed or index is invalid
+        // Enemy reached end of path
+        if (!this.devMode) {
+          this.lives--;
+          this.shakeAmount = 10;
+          this.onStateChange({ lives: this.lives });
+          if (this.lives <= 0) this.resetGame();
+          else this.playSound('hit');
+        }
         this.enemies.splice(i, 1);
         continue;
       }
@@ -1876,6 +2008,24 @@ export class GameEngine {
         enemy.y += moveY;
       }
 
+      // Process Burn
+      if (enemy.burnTimer > 0) {
+        enemy.burnTimer -= dt;
+        if (Math.random() < dt * 2) {
+          this.damageEnemy(enemy, enemy.burnDamage, undefined, true);
+        }
+      }
+
+      // Process Ground/Entangle
+      if (enemy.groundTimer > 0) {
+          enemy.groundTimer -= dt;
+          enemy.speed = 0;
+      } else if (enemy.stunTimer > 0) {
+          // Handled above via continue
+      } else if (enemy.slowTimer > 0) {
+          // Handled via speed adjustment
+      }
+
       // Boss special attacks
       if (enemy.type === 'vorkath' && Math.random() < 0.005) {
         // Disable a random tower
@@ -1904,7 +2054,11 @@ export class GameEngine {
             reward: 1,
             slowTimer: 0,
             stunTimer: 0,
-            tauntTimer: 0
+            tauntTimer: 0,
+            burnTimer: 0,
+            burnDamage: 0,
+            groundTimer: 0,
+            resistance: 0
           });
         }
       }
@@ -1937,253 +2091,179 @@ export class GameEngine {
       }
     }
 
-    // Support Aura
     this.towers.forEach(tower => {
       if (tower.disabledTimer > 0) {
         tower.disabledTimer -= dt;
         return;
       }
-      
+
       let damageMultiplier = 1.0;
       let rangeMultiplier = 1.0;
       let speedMultiplier = 1.0;
 
-      // Support Aura from nearby Wizard (Utility mode)
-      this.towers.forEach(other => {
-        if (other.type === 'wizard' && other.mageMode === 'utility' && other.id !== tower.id) {
-          const dx = other.x - tower.x;
-          const dy = other.y - tower.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist <= other.range) {
-            damageMultiplier *= 1.1 + (other.level * 0.05); // 15% - 30% bonus
-            rangeMultiplier *= 1.05 + (other.level * 0.02); // 7% - 13% bonus
-          }
-        }
-      });
-
-      // Apply Overload / Prayer Buffs
-      if (this.activePotions.some(p => p.type === 'overload')) {
-        damageMultiplier *= 1.2;
-        rangeMultiplier *= 1.1;
+      // Apply Prayer Bonuses
+      if (tower.type === 'archer') {
+        if (this.activePrayers.has('rigour')) { damageMultiplier = 1.23; rangeMultiplier = 1.0; }
+        else if (this.activePrayers.has('eagle_eye')) damageMultiplier = 1.15;
+        else if (this.activePrayers.has('hawk_eye')) damageMultiplier = 1.10;
+        else if (this.activePrayers.has('sharp_eye')) damageMultiplier = 1.05;
+      } else if (tower.type === 'wizard') {
+        if (this.activePrayers.has('augury')) damageMultiplier = 1.25;
+        else if (this.activePrayers.has('mystic_will')) damageMultiplier = 1.05;
+      } else if (tower.type === 'tzhaar') {
+        if (this.activePrayers.has('piety')) damageMultiplier = 1.23;
+        else if (this.activePrayers.has('ultimate_strength')) damageMultiplier = 1.15;
+        else if (this.activePrayers.has('burst_of_strength')) damageMultiplier = 1.05;
       }
 
-      if (this.activePrayers.has('piety')) damageMultiplier *= 1.2;
-      if (this.activePrayers.has('rigour')) rangeMultiplier *= 1.2;
-      if (this.activePrayers.has('augury')) damageMultiplier *= 1.15;
-
-      let slayerBonus = 1.0;
-      if (tower.type === 'slayer' && this.slayerTask) {
-        const target = this.enemies.find(e => e.id === tower.targetId);
-        if (target && target.type === this.slayerTask.type) {
-          slayerBonus = 1.5 + (tower.level * 0.5); // 2x - 3.5x damage
-        }
-      }
-
-      const effectiveRange = tower.range * rangeMultiplier;
-      const effectiveDamage = tower.damage * damageMultiplier * slayerBonus;
+      const effectiveRange = tower.range * rangeMultiplier * (tower.type === 'archer' ? this.upgrades.archerRange : 1);
       const effectiveCooldown = tower.cooldown / speedMultiplier;
 
-      // Find target
+      // Targeting
       if (!tower.targetId || !this.enemies.find(e => e.id === tower.targetId)) {
-        // Simple targeting: closest
         let closestDist = Infinity;
         let closestId = null;
-        
         for (const enemy of this.enemies) {
-          const dx = enemy.x - tower.x;
-          const dy = enemy.y - tower.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          if (dist <= effectiveRange && dist < closestDist) {
-            closestDist = dist;
-            closestId = enemy.id;
+          // Rule: Do not target enemies offscreen
+          const isOffscreen = enemy.x < 0 || enemy.x > this.canvas.width || enemy.y < 0 || enemy.y > this.canvas.height;
+          if (isOffscreen) continue;
+
+          const d = Math.sqrt(Math.pow(enemy.x-tower.x,2)+Math.pow(enemy.y-tower.y,2));
+          if (d <= effectiveRange && d < closestDist) {
+            closestDist = d; closestId = enemy.id;
           }
         }
         tower.targetId = closestId;
       }
 
-      // Fire
-      if (tower.targetId && this.gameTime - tower.lastFired >= effectiveCooldown) {
-        const target = this.enemies.find(e => e.id === tower.targetId);
-        if (target) {
-          // Check range again
-          const dx = target.x - tower.x;
-          const dy = target.y - tower.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          if (dist <= effectiveRange) {
-            // ---- OSRS-accurate damage variance: min = max*0.9, max = max hit ----
-            let baseMax = Math.max(tower.damage, tower.maxDamage || 0);
-            if (tower.type === 'cannon') {
-              baseMax = (tower.minDamage || 0) + Math.random() * ((tower.maxDamage || 0) - (tower.minDamage || 0));
-            }
-            const minHit = Math.max(0, baseMax * 0.9);
-            let finalDamage = minHit + Math.random() * (baseMax - minHit);
-            finalDamage *= damageMultiplier * slayerBonus;
-            finalDamage = Math.floor(finalDamage);
-            
-            // Elemental weakness bonus
-            if (tower.type === 'wizard' && tower.mageMode === 'elemental' && target.weakness === tower.element) {
-              finalDamage = Math.floor(finalDamage * 1.5);
-              this.particles.push({ x: target.x, y: target.y - 20, life: 1, color: '#00ffff' });
-            }
-
-            // Sound
-            if (tower.type === 'cannon') this.playSound('cannon_fire');
-            else if (tower.type === 'wizard') {
-              if (tower.mageMode === 'elemental') this.playSound(`spell_${tower.element}`);
-              else if (tower.mageMode === 'ancients') this.playSound('spell_ice');
-              else this.playSound('spell_curse');
-            } else if (tower.fireSound) this.playSound(tower.fireSound);
-            else this.playSound(`shoot_${tower.type}`);
-
-            // Wizard Utility Support spells
-            if (tower.type === 'wizard' && tower.mageMode === 'utility') {
-               const rand = Math.random();
-               if (rand < 0.33) {
-                 this.towers.forEach(t => {
-                   if (t.id !== tower.id && Math.sqrt(Math.pow(t.x-tower.x,2)+Math.pow(t.y-tower.y,2)) < tower.range) {
-                     this.particles.push({x: t.x, y: t.y, life: 1, color: '#ffff00'});
-                     t.lastFired -= 500;
-                   }
-                 });
-                 this.playSound('special_attack');
-               } else if (rand < 0.66) {
-                 this.particles.push({x: target.x, y: target.y, life: 2, color: '#ff00ff'});
-                 this.damageEnemy(target, 10 + (tower.level * 10));
-                 this.playSound('spell_curse');
-               } else {
-                 const bindDuration = 0.5 + (tower.level * 0.5);
-                 target.stunTimer = bindDuration;
-                 this.particles.push({x: target.x, y: target.y, life: bindDuration, color: '#ffffff'});
-                 this.playSound('spell_bind');
-               }
-               if (tower.level === 4) {
-                 this.enemies.forEach(e => {
-                   if (e.id !== target.id && Math.sqrt(Math.pow(e.x-target.x,2)+Math.pow(e.y-target.y,2)) < 60) {
-                     if (rand >= 0.66) e.stunTimer = 1.0;
-                     else if (rand >= 0.33) this.damageEnemy(e, 20);
-                   }
-                 });
-               }
-            }
-
-            // ---- CANNON: fires at up to 4 nearby enemies ----
-            if (tower.type === 'cannon' && (tower.level <= 2 || tower.level === 4)) {
-              const maxTargets = tower.level === 4 ? 6 : 3;
-              let fired = 0;
-              for (const enemy of this.enemies) {
-                if (enemy.id === tower.targetId) continue;
-                const edx = enemy.x - tower.x;
-                const edy = enemy.y - tower.y;
-                if (Math.sqrt(edx * edx + edy * edy) <= effectiveRange && fired < maxTargets) {
-                  const cannonDmg = Math.floor((tower.minDamage || 0) + Math.random() * ((tower.maxDamage || 0) - (tower.minDamage || 0)));
-                  this.projectiles.push({
-                    id: Math.random().toString(36).substr(2, 9),
-                    x: tower.x, y: tower.y,
-                    targetId: enemy.id,
-                    speed: 500,
-                    damage: cannonDmg,
-                    color: '#ff6600',
-                    sourceTowerId: tower.id
-                  });
-                  fired++;
-                }
-              }
-            }
-
-            // ---- PER-TOWER SPEC BAR: charges on damage, auto-fires ----
-            if (!tower.specCharge) tower.specCharge = 0;
-            if (!tower.specMax) tower.specMax = 100;
-            tower.specCharge = Math.min(tower.specMax, tower.specCharge + finalDamage * 0.5);
-            
-            // Auto-fire spec when bar is full
-            if (tower.specCharge >= tower.specMax) {
-              tower.specCharge = 0;
-              this.fireSpecialAttack(tower, target, finalDamage);
-            }
-
-            if (finalDamage > 0) {
-              this.projectiles.push({
-                id: Math.random().toString(36).substr(2, 9),
-                x: tower.x,
-                y: tower.y,
-                targetId: tower.targetId,
-                speed: 400,
-                damage: finalDamage,
-                color: tower.color,
-                special: tower.special as any,
-                sourceTowerId: tower.id
-              });
-            }
-            tower.lastFired = this.gameTime;
-          } else {
-            tower.targetId = null;
+      const target = this.enemies.find(e => e.id === tower.targetId);
+      if (target && Math.sqrt(Math.pow(target.x-tower.x,2)+Math.pow(target.y-tower.y,2)) <= effectiveRange) {
+        if (this.gameTime - tower.lastFired >= effectiveCooldown) {
+          let baseDmg = tower.damage;
+          if (tower.type === 'cannon') {
+             baseDmg = (tower.minDamage || 0) + Math.random() * ((tower.maxDamage || 0) - (tower.minDamage || 0));
           }
-        } else {
-          tower.targetId = null;
+          let finalDamage = Math.floor(baseDmg * damageMultiplier);
+          
+          if (tower.type === 'wizard' && tower.mageMode === 'elemental' && target.weakness === tower.element) {
+            finalDamage = Math.floor(finalDamage * 1.5);
+          }
+
+          tower.lastFired = this.gameTime;
+
+          if (tower.type === 'wizard' && tower.mageMode === 'utility') {
+             const rand = Math.random();
+             const spell = tower.supportSpell || (rand < 0.33 ? 'charge' : rand < 0.66 ? 'curse' : 'bind');
+             if (spell === 'charge') {
+                this.playSound('spell_charge');
+                this.towers.forEach(t => {
+                  if (t.id !== tower.id && Math.sqrt(Math.pow(t.x-tower.x,2)+Math.pow(t.y-tower.y,2)) < effectiveRange) {
+                     t.lastFired -= 1000;
+                  }
+                });
+             } else if (spell === 'curse') {
+                this.playSound('spell_curse');
+                this.damageEnemy(target, 15 + (tower.level * 10));
+             } else if (spell === 'bind') {
+                this.playSound('spell_bind');
+                target.stunTimer = (1.5 + tower.level) * (1 - (target.resistance || 0));
+             }
+          }
+
+          // Projectile logic
+          let pType: Projectile['type'] = 'arrow';
+          if (tower.type === 'wizard') {
+             if (tower.mageMode === 'ancients') {
+                const tiers: Projectile['type'][] = ['ancient_ice', 'ancient_smoke', 'ancient_shadow', 'ancient_blood'];
+                pType = tiers[Math.min(tower.level-1, 3)];
+             } else pType = 'spell';
+          } else if (tower.type === 'cannon') pType = 'cannonball';
+          else if (tower.type === 'toxic') pType = 'dart';
+          else if (tower.type === 'slayer') pType = 'bolt';
+
+          let pSpecial = tower.special;
+          if (tower.type === 'wizard' && tower.mageMode === 'elemental') {
+             if (tower.element === 'air') pSpecial = 'pushback';
+             else if (tower.element === 'fire') pSpecial = 'burn';
+             else if (tower.element === 'water') pSpecial = 'amp';
+             else if (tower.element === 'earth') pSpecial = 'slow';
+          }
+
+          this.projectiles.push({
+            id: Math.random().toString(),
+            x: tower.x, y: tower.y,
+            targetId: target.id,
+            speed: 400 * (tower.type === 'cannon' ? 1.5 : 1),
+            damage: finalDamage,
+            color: tower.color,
+            type: pType,
+            element: tower.element,
+            sourceTowerId: tower.id,
+            special: pSpecial && pSpecial !== 'rapid' ? pSpecial : undefined
+          });
+
+          // Spec charge and auto-fire
+          if (!tower.specCharge) tower.specCharge = 0;
+          tower.specCharge = Math.min(tower.specMax || 100, tower.specCharge + finalDamage * 0.5);
+          if (tower.specCharge >= (tower.specMax || 100)) {
+             tower.specCharge = 0;
+             this.fireSpecialAttack(tower, target, finalDamage);
+          }
+
+          // Sound
+          if (tower.type === 'cannon') this.playSound('cannon_fire');
+          else if (tower.type === 'wizard') {
+            if (tower.mageMode === 'utility') {
+               // Sounds handled in utility logic block above
+            } else if (tower.mageMode === 'ancients') {
+               this.playSound('spell_ice');
+            } else {
+               this.playSound(`spell_${tower.element}`);
+            }
+          } else {
+             this.playSound(tower.fireSound || `shoot_${tower.type}`);
+          }
         }
+      } else {
+        tower.targetId = null;
       }
     });
 
-    // Update Projectiles
+    // Handle Projectiles
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const p = this.projectiles[i];
-      const target = this.enemies.find(e => e.id === p.targetId);
-      
-      if (!target) {
-        this.projectiles.splice(i, 1);
-        continue;
-      }
-
-      const dx = target.x - p.x;
-      const dy = target.y - p.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      if (dist < 10) {
-        // Hit
-        if (p.special === 'aoe') {
-          // AoE Damage
-          const aoeRadius = 80;
-          const sourceTower = p.sourceTowerId ? this.towers.find(t => t.id === p.sourceTowerId) : null;
-          this.enemies.forEach(e => {
-            const edx = e.x - p.x;
-            const edy = e.y - p.y;
-            if (Math.sqrt(edx * edx + edy * edy) <= aoeRadius) {
-              this.damageEnemy(e, p.damage, p.sourceTowerId);
-              // Ancients level 4: AoE 10s freeze
-              if (sourceTower && sourceTower.mageMode === 'ancients' && sourceTower.level >= 4) {
-                e.stunTimer = 10.0;
-              } else if (sourceTower && sourceTower.mageMode === 'ancients') {
-                this.applySlow(e);
-              }
-            }
-          });
-        } else {
-          // Single Target
-          this.damageEnemy(target, p.damage, p.sourceTowerId);
-          if (p.special === 'slow') {
-            this.applySlow(target);
-          } else if (p.special === 'stun') {
-            // Ancients Level 3: 5s single freeze
-            target.stunTimer = 5.0;
+       const p = this.projectiles[i];
+       const target = this.enemies.find(e => e.id === p.targetId);
+       if (!target) { this.projectiles.splice(i, 1); continue; }
+       
+       const dx = target.x - p.x; const dy = target.y - p.y;
+       const dist = Math.sqrt(dx*dx+dy*dy);
+       if (dist < 10) {
+          if (p.special === 'aoe') {
+             const radius = 80;
+             this.enemies.forEach(e => {
+                if (Math.sqrt(Math.pow(e.x-p.x,2)+Math.pow(e.y-p.y,2)) <= radius) {
+                   this.damageEnemy(e, p.damage, p.sourceTowerId);
+                }
+             });
+          } else {
+             this.damageEnemy(target, p.damage, p.sourceTowerId);
+             if (p.special === 'slow') this.applySlow(target);
+             else if (p.special === 'stun') target.stunTimer = 5.0 * (1 - (target.resistance || 0));
+             else if (p.special === 'pushback') target.pathIndex = Math.max(0, target.pathIndex - 1);
+             else if (p.special === 'burn') { target.burnTimer = 5; target.burnDamage = Math.max(2, p.damage * 0.1); }
           }
-        }
-        
-        this.projectiles.splice(i, 1);
-      } else {
-        const moveX = (dx / dist) * p.speed * dt;
-        const moveY = (dy / dist) * p.speed * dt;
-        p.x += moveX;
-        p.y += moveY;
-      }
+          this.projectiles.splice(i, 1);
+       } else {
+          p.x += (dx / dist) * p.speed * dt;
+          p.y += (dy / dist) * p.speed * dt;
+       }
     }
   }
 
-  damageEnemy(enemy: Enemy, damage: number, sourceTowerId?: string) {
+  damageEnemy(enemy: Enemy, damage: number, sourceTowerId?: string, isDot = false) {
     const actualDamage = Math.max(0, Math.floor(damage));
     enemy.hp -= actualDamage;
-    this.playSound('hit');
+    if (!isDot) this.playSound('hit');
 
     // Create damage number
     this.damageNumbers.push({
@@ -2242,9 +2322,12 @@ export class GameEngine {
         if (this.pets.some(p => p.name === 'Snakeling')) gpReward = Math.floor(gpReward * 1.1);
         this.money += Math.floor(gpReward);
 
-        // Essence Bonus: Very rare
-        if (Math.random() < 0.02 * (this.upgrades.rewardMultiplier || 1)) {
-          this.runeEssence += 1;
+        // Essence Bonus: Capped at 2.5% of current wave number
+        const maxEssence = Math.max(1, Math.round(this.wave * 0.025));
+        if (Math.random() < 0.05 * (this.upgrades.rewardMultiplier || 1)) {
+          const dropAmount = Math.max(1, Math.floor(Math.random() * maxEssence) + 1);
+          this.runeEssence += dropAmount;
+          this.addMessage(`You found ${dropAmount} Rune Essence!`);
         }
 
         // Achievements
@@ -2404,16 +2487,16 @@ export class GameEngine {
       case 'archer': {
         if (tower.name === 'Magic Shortbow') {
           const dmg = Math.floor(baseDamage * 0.85);
-          this.projectiles.push({ id: Math.random().toString(36).substr(2,9), x: tower.x, y: tower.y, targetId: primaryTarget.id, speed: 600, damage: dmg, color: '#00ff00', sourceTowerId: tower.id });
+          this.projectiles.push({ id: Math.random().toString(36).substr(2,9), x: tower.x, y: tower.y, targetId: primaryTarget.id, speed: 600, damage: dmg, color: '#00ff00', type: 'arrow', sourceTowerId: tower.id });
           setTimeout(() => {
             const t = this.enemies.find(e => e.id === primaryTarget.id);
-            if (t) this.projectiles.push({ id: Math.random().toString(36).substr(2,9), x: tower.x, y: tower.y, targetId: t.id, speed: 600, damage: dmg, color: '#00ff00', sourceTowerId: tower.id });
+            if (t) this.projectiles.push({ id: Math.random().toString(36).substr(2,9), x: tower.x, y: tower.y, targetId: t.id, speed: 600, damage: dmg, color: '#00ff00', type: 'arrow', sourceTowerId: tower.id });
           }, 100);
         } else if (tower.name === 'Bow of Faerdhinen') {
           for (let i = 0; i < 3; i++) {
             setTimeout(() => {
               const target = this.enemies.find(e => e.id === primaryTarget.id);
-              if (target) this.projectiles.push({ id: Math.random().toString(36).substr(2,9), x: tower.x, y: tower.y, targetId: target.id, speed: 550, damage: Math.floor(baseDamage), color: '#a020f0', sourceTowerId: tower.id });
+              if (target) this.projectiles.push({ id: Math.random().toString(36).substr(2,9), x: tower.x, y: tower.y, targetId: target.id, speed: 550, damage: Math.floor(baseDamage), color: '#a020f0', type: 'arrow', sourceTowerId: tower.id });
             }, i * 120);
           }
         } else {
@@ -2433,7 +2516,7 @@ export class GameEngine {
           });
         } else if (tower.name === 'TzHaar-Ket-Om') {
           this.damageEnemy(primaryTarget, Math.floor(baseDamage * 1.2), tower.id);
-          primaryTarget.stunTimer = 3.0;
+          primaryTarget.stunTimer = 3.0 * (1 - (primaryTarget.resistance || 0));
         } else {
           this.damageEnemy(primaryTarget, Math.floor(baseDamage * 1.5), tower.id);
         }
@@ -2449,25 +2532,6 @@ export class GameEngine {
           this.damageEnemy(primaryTarget, Math.floor(baseDamage * 0.5), tower.id);
         } else {
           this.damageEnemy(primaryTarget, Math.floor(baseDamage * 1.2), tower.id);
-        }
-        break;
-      }
-      case 'toxic': {
-        if (tower.name === 'Zulrah Alter') {
-          const radius = 70;
-          this.enemies.forEach(e => {
-            const dx = e.x - tower.x; const dy = e.y - tower.y;
-            if (Math.sqrt(dx*dx+dy*dy) <= radius) {
-              this.applySlow(e);
-              this.damageEnemy(e, Math.floor(baseDamage * 0.8), tower.id);
-              this.particles.push({ x: e.x, y: e.y, life: 1, color: '#00cf9f' });
-            }
-          });
-        } else {
-          const dmg = Math.floor(baseDamage * 1.5);
-          this.damageEnemy(primaryTarget, dmg, tower.id);
-          this.money += Math.floor(dmg * 0.5);
-          this.onStateChange({ money: this.money });
         }
         break;
       }
@@ -2518,12 +2582,13 @@ export class GameEngine {
   }
 
   applySlow(enemy: Enemy) {
+    const duration = 2.0 * (1 - (enemy.resistance || 0));
     enemy.speed = enemy.baseSpeed * 0.5;
-    enemy.slowTimer = 2.0;
+    enemy.slowTimer = Math.max(0.5, duration);
   }
 
   applyStun(enemy: Enemy) {
-    enemy.stunTimer = 1.0;
+    enemy.stunTimer = 1.0 * (1 - (enemy.resistance || 0));
   }
 
   equipItem(towerId: string, itemId: string) {
@@ -2744,7 +2809,7 @@ export class GameEngine {
 
       // Draw Range Preview
       let towerRange = 100;
-      if (this.selectedTowerType === 'archer') towerRange = 7 * 25;
+      if (this.selectedTowerType === 'archer') towerRange = 7 * 25 * this.upgrades.archerRange;
       if (this.selectedTowerType === 'wizard') towerRange = 7 * 25;
       if (this.selectedTowerType === 'cannon') towerRange = 9 * 25;
       if (this.selectedTowerType === 'tzhaar') towerRange = 2 * 25;
@@ -2773,8 +2838,8 @@ export class GameEngine {
           
           // Use a pseudo-random wander based on index and time
           // This allows pets to roam freely
-          const wanderX = (Math.sin(time * speed + index * 100) * 0.4 + 0.5) * 800;
-          const wanderY = (Math.cos(time * speed * 0.8 + index * 200) * 0.4 + 0.5) * 600;
+          const wanderX = (Math.sin(time * speed + index * 100) * 0.4 + 0.5) * this.canvas.width;
+          const wanderY = (Math.cos(time * speed * 0.8 + index * 200) * 0.4 + 0.5) * this.canvas.height;
           
           let x = wanderX;
           let y = wanderY;
@@ -2806,10 +2871,13 @@ export class GameEngine {
       this.towers.forEach(tower => {
         if (isNaN(tower.x) || isNaN(tower.y)) return;
         
-        // Animation: Bobbing (capped to avoid wild displacement at high game speed)
-        const bob = Math.sin(now / 500 + tower.x) * Math.min(3, 3 / Math.max(1, this.gameSpeed));
-        // Animation: Recoil
+        // Animation: Bobbing (Uses real-time but clamped)
+        const bob = Math.sin(now / 500 + tower.x) * 3;
+        // Animation: Recoil (Independent of game speed visually, but triggered by timer)
         const recoilTime = now - tower.lastFired;
+        // We want recoil to visually last 200ms regardless of speed, 
+        // but it triggers based on lastFired which is gameTime... wait.
+        // lastFired is performance.now() at line ~2213
         const recoil = recoilTime < 200 ? (1 - recoilTime / 200) * 5 : 0;
         
         let imgKey = `${tower.type}_${tower.level}`;
@@ -2927,9 +2995,12 @@ export class GameEngine {
         this.ctx.translate(enemy.x, enemy.y);
         
         // OSRS Rule #2: DO NOT rotate NPC images. They are sideways/front-facing in Wiki.
-        // Rotation removed.
-
+        // Rule Extension: Most face right. Mirror if moving left.
+        const targetPoint = this.path[enemy.pathIndex + 1] || enemy;
+        const movingLeft = targetPoint.x < enemy.x;
+        
         if (img && img.complete && img.naturalWidth > 0 && !this.brokenImages.has(enemy.type)) {
+          if (movingLeft) this.ctx.scale(-1, 1);
           this.ctx.drawImage(img, -size/2, -size/2, size, size);
         } else {
           this.ctx.fillStyle = enemy.color;
@@ -2998,10 +3069,61 @@ export class GameEngine {
       // Draw Projectiles
       this.projectiles.forEach(p => {
         if (isNaN(p.x) || isNaN(p.y)) return;
-        this.ctx.fillStyle = p.color;
-        this.ctx.beginPath();
-        this.ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-        this.ctx.fill();
+        
+        const target = this.enemies.find(e => e.id === p.targetId);
+        let angle = 0;
+        if (target) {
+          angle = Math.atan2(target.y - p.y, target.x - p.x);
+        }
+
+        this.ctx.save();
+        this.ctx.translate(p.x, p.y);
+        this.ctx.rotate(angle);
+        
+        if (p.type === 'cannonball') {
+           this.ctx.rotate(-angle); // Cannonballs don't rotate
+           this.ctx.fillStyle = '#333';
+           this.ctx.beginPath();
+           this.ctx.arc(0, 0, 4, 0, Math.PI * 2);
+           this.ctx.fill();
+           this.ctx.strokeStyle = '#000';
+           this.ctx.stroke();
+        } else if (p.type === 'spell') {
+           this.ctx.rotate(-angle); // Spells are spheres usually
+           const colors: Record<string, string> = { air: '#ffffff', water: '#0000ff', earth: '#8b4513', fire: '#ff0000' };
+           this.ctx.fillStyle = colors[p.element || 'air'];
+           this.ctx.shadowBlur = 10;
+           this.ctx.shadowColor = this.ctx.fillStyle as string;
+           this.ctx.beginPath();
+           this.ctx.arc(0, 0, 5, 0, Math.PI * 2);
+           this.ctx.fill();
+         } else if (p.type.startsWith('ancient_')) {
+            this.ctx.rotate(-angle);
+            const ancColors: Record<string, string> = { ice: '#00ffff', smoke: '#555', shadow: '#440044', blood: '#ff0000' };
+            const type = p.type.replace('ancient_', '');
+            this.ctx.fillStyle = ancColors[type] || '#fff';
+            this.ctx.shadowBlur = 15;
+            this.ctx.shadowColor = this.ctx.fillStyle as string;
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, 6, 0, Math.PI * 2);
+            this.ctx.fill();
+         } else if (p.type === 'dart') {
+           this.ctx.fillStyle = '#00ff00';
+           this.ctx.fillRect(-6, -1.5, 12, 3);
+        } else if (p.type === 'arrow' || p.type === 'bolt') {
+           this.ctx.fillStyle = p.color;
+           this.ctx.fillRect(-8, -1, 16, 2);
+           // Fletching/Head
+           this.ctx.fillStyle = '#fff';
+           this.ctx.fillRect(-8, -2, 3, 4);
+        } else {
+           this.ctx.fillStyle = p.color;
+           this.ctx.beginPath();
+           this.ctx.arc(0, 0, 3, 0, Math.PI * 2);
+           this.ctx.fill();
+        }
+        
+        this.ctx.restore();
       });
 
       // Draw Particles
@@ -3056,6 +3178,8 @@ export class GameEngine {
       this.ctx.restore();
     } catch (e) {
       console.error('Draw loop error:', e);
+    } finally {
+      this.ctx.restore();
     }
   }
 }

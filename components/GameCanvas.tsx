@@ -141,6 +141,14 @@ export default function GameCanvas() {
   const [hoveredEntity, setHoveredEntity] = useState<any | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [rightClickedEntity, setRightClickedEntity] = useState<any | null>(null);
+  const [activeTooltip, setActiveTooltip] = useState<{
+    x: number;
+    y: number;
+    title: string;
+    content: string;
+    color?: string;
+    bonus?: string;
+  } | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -210,6 +218,15 @@ export default function GameCanvas() {
   const handleSpecialAttack = () => engineRef.current?.useSpecialAttack();
   const handleBuyPotion = (type: 'overload' | 'super_restore' | 'prayer_potion') => engineRef.current?.buyPotion(type);
 
+  const getLogicCoords = (clientX: number, clientY: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
+    // Direct 1:1 pixel mapping to fix click offset
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    return { x, y };
+  };
+
   const buyUpgrade = (type: keyof GlobalUpgrades, cost: number, increment: number) => {
     const currentVal = upgrades[type];
     const limit = UPGRADE_LIMITS[type];
@@ -225,10 +242,7 @@ export default function GameCanvas() {
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (!engineRef.current) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = getLogicCoords(e.clientX, e.clientY);
     
     // Try to collect loot first (clicking bones)
     const collectedLoot = engineRef.current.collectLootAt(x, y);
@@ -283,10 +297,7 @@ export default function GameCanvas() {
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!engineRef.current) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = getLogicCoords(e.clientX, e.clientY);
 
     engineRef.current.updateMousePos(x, y);
 
@@ -308,11 +319,8 @@ export default function GameCanvas() {
       return;
     }
     if (!engineRef.current) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const entity = engineRef.current.getEntityAt(x, y) as any;
+    const { x, y } = getLogicCoords(e.clientX, e.clientY);
+    const entity = engineRef.current.getEntityAt(x, y);
     if (entity && entity.type === 'tower') {
       const tower = engineRef.current.towers.find((t: any) => t.id === entity.data.id);
       if (tower) {
@@ -353,24 +361,27 @@ export default function GameCanvas() {
         </span>
       </div>
 
-      {/* Main Status Column (Right Side) */}
-      {/* OSRS UI Container (Right) */}
-      <div className="absolute bottom-4 right-4 flex flex-col items-center pointer-events-none group/ui">
-        {/* Top Mini-Panel (Always visible stats) */}
-        <div className="flex gap-2 mb-2 pointer-events-auto">
-          <div className="osrs-panel px-3 py-1 flex items-center gap-2">
-            <span className="text-[10px] text-[#ffff00] font-bold">GP:</span>
-            <span className="text-[11px] text-white font-bold">{gameState.money}</span>
+      {/* Top Overlay: Currency & Waves */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-4 pointer-events-none z-10">
+        <div className="osrs-panel px-4 py-2 flex items-center gap-6 pointer-events-auto shadow-2xl">
+          <div className="flex items-center gap-2 group cursor-help" onMouseEnter={(e) => setActiveTooltip({ x: e.clientX, y: e.clientY, title: 'GP (Coins)', content: 'Main currency used to buy and upgrade towers.' })} onMouseLeave={() => setActiveTooltip(null)}>
+            <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-6 h-6 object-contain" alt="GP" />
+            <span className="text-[#ffff00] font-bold text-base drop-shadow-sm">{gameState.money.toLocaleString()}</span>
           </div>
-          <div className="osrs-panel px-3 py-1 flex items-center gap-2">
-            <span className="text-[10px] text-[#00ffff] font-bold">ESS:</span>
-            <span className="text-[11px] text-white font-bold">{runeEssence || 0}</span>
+          <div className="flex items-center gap-2 group cursor-help" onMouseEnter={(e) => setActiveTooltip({ x: e.clientX, y: e.clientY, title: 'Rune Essence', content: 'Rare magical essence used for global permanent upgrades.' })} onMouseLeave={() => setActiveTooltip(null)}>
+            <img src="https://oldschool.runescape.wiki/images/Rune_essence_detail.png" className="w-6 h-6 object-contain" alt="Essence" />
+            <span className="text-[#00ffff] font-bold text-base drop-shadow-sm">{(gameState.runeEssence || 0).toLocaleString()}</span>
           </div>
-          <div className="osrs-panel px-3 py-1 flex items-center gap-2">
-            <span className="text-[10px] text-[#00ff00] font-bold">WAVE:</span>
-            <span className="text-[11px] text-white font-bold">{gameState.wave}</span>
+          <div className="border-l border-[#5d5d5d] pl-4 flex flex-col items-center">
+            <span className="text-[10px] text-[#ff981f] font-bold uppercase tracking-widest leading-none mb-1">Wave</span>
+            <span className="text-white font-bold text-lg leading-none">{gameState.wave}</span>
           </div>
         </div>
+      </div>
+
+      {/* Main Status Column (Right Side) */}
+      <div className="absolute bottom-4 right-4 flex flex-col items-center pointer-events-none group/ui">
+        {/* Removed redundant currency display from sidebar area */}
 
         <div className="flex items-end pointer-events-auto">
           {/* HP Bar (Left) */}
@@ -383,8 +394,8 @@ export default function GameCanvas() {
           </div>
 
           {/* Main Sidebar Panel */}
-          <div className="osrs-panel w-56 h-80 flex flex-col overflow-hidden relative shadow-2xl z-20">
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+          <div className="flex flex-col w-[190px] h-64 osrs-panel bg-[#3e2e18] border-2 border-[#5d5d5d] relative shadow-2xl rounded-lg overflow-hidden flex-shrink-0">
+            <div className="flex-1 p-2 overflow-y-auto custom-scrollbar relative">
               {activeTab === 'combat' && (
                 <div className="flex flex-col gap-3">
                   <div className="text-center border-b border-[#5d5d5d]/50 pb-1">
@@ -395,9 +406,17 @@ export default function GameCanvas() {
                       <button key={s} onClick={() => setGameSpeed(s)} className={`osrs-button text-[9px] py-1.5 ${gameSpeed === s ? 'brightness-125 border-white' : ''}`}>{s}x</button>
                     ))}
                   </div>
-                  {!gameState.isPlaying && (
-                    <button onClick={handleStartWave} className="osrs-button py-2 text-[11px] uppercase pulse-yellow">Start Wave</button>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    <button onClick={handleStartWave} disabled={gameState.isPlaying} className={`osrs-button py-2 text-[10px] uppercase ${!gameState.isPlaying ? 'pulse-yellow' : 'opacity-50'}`}>
+                      {gameState.isPlaying ? 'Wave In Progress' : 'Start Next Wave'}
+                    </button>
+                    <button 
+                      onClick={() => setAutoSpawn(!autoSpawn)} 
+                      className={`osrs-button py-1.5 text-[9px] uppercase transition-all ${autoSpawn ? 'text-[#00ff00] border-[#00ff00]' : 'text-[#c0c0c0]'}`}
+                    >
+                      {autoSpawn ? 'Auto-Start: ON' : 'Auto-Start: OFF'}
+                    </button>
+                  </div>
                   {gameState.slayerTask && (
                     <div className="bg-black/40 border border-[#5d5d5d] p-1.5 rounded">
                       <div className="text-[8px] text-[#ff981f] font-bold uppercase mb-1">Current Task</div>
@@ -424,15 +443,21 @@ export default function GameCanvas() {
                   </div>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-3 mt-1">
                     {Object.entries(gameState.playerSkills || {}).map(([key, skill]: [string, any]) => (
-                      <div key={key} className="flex items-center gap-1.5 group relative">
+                      <div 
+                        key={key} 
+                        className="flex items-center gap-1.5 group relative cursor-help"
+                        onMouseEnter={(e) => setActiveTooltip({
+                          x: e.clientX, y: e.clientY,
+                          title: key.toUpperCase(), 
+                          content: `Level: ${skill.level} (XP: ${skill.xp} / ${Math.pow(skill.level, 2) * 100})`,
+                          color: '#ff981f'
+                        })}
+                        onMouseLeave={() => setActiveTooltip(null)}
+                      >
                         <img src={`https://oldschool.runescape.wiki/images/${key.charAt(0).toUpperCase() + key.slice(1)}_icon.png`} className="w-5 h-5 object-contain" alt="" />
                         <div className="flex flex-col">
                            <span className="text-[11px] text-[#ffff00] font-bold leading-tight">{skill.level}</span>
                            <span className="text-[8px] text-[#c0c0c0] uppercase tracking-tighter leading-none">{key}</span>
-                        </div>
-                        {/* XP Tooltip */}
-                        <div className="absolute hidden group-hover:block left-full ml-2 bg-black border border-[#ffff00] p-1 z-50 whitespace-nowrap text-[9px] text-white">
-                           XP: {skill.xp} / {Math.pow(skill.level, 2) * 100}
                         </div>
                       </div>
                     ))}
@@ -447,7 +472,18 @@ export default function GameCanvas() {
                   </div>
                   <div className="grid grid-cols-4 gap-1">
                     {(gameState.inventory || []).map((item: any) => (
-                      <div key={item.id} className="aspect-square bg-black/40 border border-[#4d4d4d] p-0.5 group relative cursor-pointer hover:border-white" onClick={() => handleEquipItem(item.id)}>
+                      <div 
+                        key={item.id} 
+                        className="aspect-square bg-black/40 border border-[#4d4d4d] p-0.5 group relative cursor-pointer hover:border-white" 
+                        onClick={() => handleEquipItem(item.id)}
+                        onMouseEnter={(e) => setActiveTooltip({
+                          x: e.clientX, y: e.clientY,
+                          title: item.name, content: item.description,
+                          bonus: `${item.bonus.damage ? `+${item.bonus.damage} Str ` : ''}${item.bonus.range ? `+${item.bonus.range} Range` : ''}`,
+                          color: '#ffff00'
+                        })}
+                        onMouseLeave={() => setActiveTooltip(null)}
+                      >
                         <img 
                           src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}_detail.png`} 
                           alt={item.name} 
@@ -458,20 +494,6 @@ export default function GameCanvas() {
                             else img.style.opacity = '0';
                           }}
                         />
-                        <div className="absolute hidden group-hover:block bottom-full right-0 mb-2 w-40 p-2 bg-black/95 border border-[#ffff00] text-[10px] z-[100] shadow-2xl">
-                          <p className="text-[#ffff00] font-bold mb-1">{item.name}</p>
-                          {item.bonus.damage && <p className="text-red-400 font-bold leading-none">+{item.bonus.damage} Str</p>}
-                          {item.bonus.range && <p className="text-green-400 font-bold leading-none">+{item.bonus.range} Range</p>}
-                          <p className="text-[#c0c0c0] mt-1 text-[9px]">{item.description}</p>
-                          {item.name.includes('Scimitar') && (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); engineRef.current?.upgradeItem(item.id); }}
-                              className="mt-2 w-full bg-[#5d5d5d] border border-[#2d2d2d] py-1 text-[#00ff00] font-bold hover:brightness-125"
-                            >
-                              CRAFT (500gp)
-                            </button>
-                          )}
-                        </div>
                       </div>
                     ))}
                   </div>
@@ -510,6 +532,33 @@ export default function GameCanvas() {
                 </div>
               )}
 
+               {activeTab === ('prayer' as any) && (
+                <div className="flex flex-col gap-2">
+                  <div className="text-center border-b border-[#5d5d5d]/50 pb-1">
+                    <span className="text-[10px] font-bold text-[#ff981f] uppercase">Prayers</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 mt-1">
+                    {((engineRef.current as any)?.allPrayers || []).map((p: any) => {
+                      const isActive = (engineRef.current as any)?.activePrayers.has(p.id);
+                      return (
+                        <div 
+                          key={p.id} 
+                          className={`aspect-square border cursor-pointer relative group/prayer ${isActive ? 'bg-[#00ff00]/20 border-[#ffff00]' : 'bg-black/40 border-[#5d5d5d]'}`}
+                          onClick={() => engineRef.current?.togglePrayer(p.id)}
+                          onMouseEnter={(e) => setActiveTooltip({
+                            x: e.clientX, y: e.clientY,
+                            title: p.name, content: p.description,
+                            bonus: `Drain: ${p.drain}/s`, color: '#ffff00'
+                          })}
+                          onMouseLeave={() => setActiveTooltip(null)}
+                        >
+                          <img src={`https://oldschool.runescape.wiki/images/${p.name.replace(/ /g, '_')}_icon.png`} className="w-full h-full object-contain p-1" alt="" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {activeTab === 'ge' && (
                 <div className="flex flex-col items-center justify-center h-full gap-4">
                   <div className="osrs-panel p-2 flex flex-col items-center gap-2 w-full">
@@ -522,7 +571,7 @@ export default function GameCanvas() {
             </div>
             
             {/* The Tab Icons Panel (Fixed Bottom) */}
-            <div className="grid grid-cols-5 w-full bg-[#3e2e18] border-t-2 border-[#5d5d5d] p-0.5 h-10 flex-shrink-0">
+            <div className="grid grid-cols-6 w-full bg-[#3e2e18] border-t-2 border-[#5d5d5d] p-0.5 h-10 flex-shrink-0">
               <button onClick={() => setActiveTab('combat')} className={`p-1.5 flex items-center justify-center grayscale hover:grayscale-0 transition-all ${activeTab === 'combat' ? 'bg-[#5d5d5d] grayscale-0' : ''}`} title="Combat Control">
                 <img src="https://oldschool.runescape.wiki/images/Attack_icon.png" className="w-5 h-5 object-contain" alt="" />
               </button>
@@ -538,10 +587,13 @@ export default function GameCanvas() {
               <button onClick={() => setActiveTab('ge')} className={`p-1.5 flex items-center justify-center grayscale hover:grayscale-0 transition-all ${activeTab === 'ge' ? 'bg-[#5d5d5d] grayscale-0' : ''}`} title="Grand Exchange">
                 <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-5 h-5 object-contain" alt="" />
               </button>
+              <button onClick={() => setActiveTab('prayer' as any)} className={`p-1.5 flex items-center justify-center grayscale hover:grayscale-0 transition-all ${activeTab === ('prayer' as any) ? 'bg-[#5d5d5d] grayscale-0' : ''}`} title="Prayers">
+                <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" className="w-5 h-5 object-contain" alt="" />
+              </button>
             </div>
           </div>
 
-          {/* Prayer Bar (Right) */}
+            {/* Prayer Bar (Right) */}
           <div className="w-6 h-64 bg-[#3e2e18] border-2 border-[#5d5d5d] rounded-r-lg relative overflow-hidden flex flex-col-reverse shadow-xl">
              <div className="absolute top-1 left-0 right-0 text-center z-10">
                <span className="text-[10px] text-white font-bold drop-shadow-md">{(gameState as any).prayerPoints?.toFixed(0)}</span>
@@ -700,7 +752,7 @@ export default function GameCanvas() {
                       </div>
                       <div className="text-[7px] text-[#c0c0c0] text-center mt-0.5 truncate w-full text-center">{item.name}</div>
                       {/* Hover tooltip */}
-                      <div className="absolute inset-0 bg-black/95 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col items-center justify-center text-center z-10 rounded">
+                      <div className="absolute inset-0 bg-black/95 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col items-center justify-center text-center text-white text-[9px] z-10 rounded">
                         <span className="text-[11px] font-bold" style={{ color: typeColor }}>{item.name}</span>
                         <div className="w-full h-px bg-[#5d5d5d] my-1" />
                         <span className="text-[9px] text-[#c0c0c0]">{item.description}</span>
@@ -921,6 +973,22 @@ export default function GameCanvas() {
               <p>Level: <span className="text-white">{hoveredEntity.data.level}</span></p>
               <p>Damage: <span className="text-white">{hoveredEntity.data.damage}</span></p>
               <p>Range: <span className="text-white">{hoveredEntity.data.range}</span></p>
+              {hoveredEntity.data.level < 4 && (
+                <p className="text-[#00ff00] mt-1">Next: <span className="text-white">{
+                  (() => {
+                    const upgradeNames: any = {
+                      archer: ['Magic Shortbow', 'Crystal Bow', 'Faerdhinen'],
+                      wizard: ['Bolt Spells', 'Blast Spells', 'Ancient Magicks'],
+                      cannon: ['Granite Cannon', 'Heavy Ballista', 'Dragon Slayer'],
+                      tzhaar: ['Toktz-xil-ak', 'TzHaar-Ket-Om', 'Inquisitor Mace'],
+                      slayer: ['Karils Cross', 'Twisted Bow', 'Zaryte Cross'],
+                      toxic:  ['Serp Blowpipe', 'Trident', 'Magma Blowpipe']
+                    };
+                    const names = upgradeNames[hoveredEntity.data.type];
+                    return names ? names[hoveredEntity.data.level - 1] : 'Elite Gear';
+                  })()
+                }</span></p>
+              )}
               <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click for toggle range</p>
             </div>
           )}
@@ -964,6 +1032,32 @@ export default function GameCanvas() {
                       <p>Cooldown:</p><p className="text-white text-right">{(rightClickedEntity.data.cooldown / 1000).toFixed(1)}s</p>
                     </div>
                   </div>
+                  
+                  {rightClickedEntity.data.level < 4 && (
+                    <div className="bg-[#1e1e1e] p-3 rounded border-2 border-[#5d5d5d]">
+                      <p className="text-[#ffff00] font-bold mb-2 border-b border-[#3d3d3d]">Future Upgrades</p>
+                      <div className="space-y-2 text-[10px]">
+                        {[2, 3, 4].filter(l => l > rightClickedEntity.data.level).map(lvl => {
+                          const upgrades: any = {
+                             archer: [null, 'Magic Shortbow', 'Crystal Bow', 'Bow of Faerdhinen'],
+                             wizard: [null, 'Bolt Spells', 'Blast Spells', 'Ancient Magicks'],
+                             cannon: [null, 'Granite Cannon', 'Heavy Ballista', 'Dragon Slayer Ballista'],
+                             tzhaar: [null, 'Toktz-xil-ak', 'TzHaar-Ket-Om', "Inquisitor's Mace"],
+                             slayer: [null, 'Karils Crossbow', 'Twisted Bow', 'Zaryte Crossbow'],
+                             toxic:  [null, 'Serp Blowpipe', 'Trident of Swamp', 'Magma Blowpipe']
+                          };
+                          const names = upgrades[rightClickedEntity.data.type as keyof typeof upgrades];
+                          return (
+                            <div key={lvl} className="flex justify-between border-b border-[#3d3d3d]/50 pb-1">
+                              <span className="text-[#c0c0c0]">LVL {lvl}:</span>
+                              <span className="text-white font-bold">{names ? names[lvl-1] : 'Elite Gear'}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-[#1e1e1e] p-3 rounded border-2 border-[#5d5d5d]">
                     <p className="text-[#00ffff] font-bold mb-2 border-b border-[#3d3d3d]">Skills</p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
@@ -1014,12 +1108,12 @@ export default function GameCanvas() {
         )}
         <div className="flex bg-[#3e2e18]/90 border-2 border-[#5d5d5d] p-1 gap-1 pointer-events-auto rounded shadow-2xl">
           {[
-            { id: 'archer', name: 'Archer', cost: 50, icon: '🏹', wikiImg: 'Shortbow' },
-            { id: 'wizard', name: 'Wizard', cost: 100, icon: '🪄', wikiImg: 'Staff' },
-            { id: 'cannon', name: 'Cannon', cost: 250, icon: '💣', wikiImg: 'Dwarf_multicannon' },
-            { id: 'tzhaar', name: 'TzHaar', cost: 500, icon: '🌋', wikiImg: 'TzHaar-Ket' },
-            { id: 'slayer', name: 'Slayer', cost: 750, icon: '⚔️', wikiImg: 'Slayer_helmet' },
-            { id: 'toxic', name: 'Toxic', cost: 1000, icon: '🐍', wikiImg: 'Toxic_blowpipe' },
+            { id: 'archer', name: 'Archer', cost: 50, icon: '🏹', wikiImg: 'Shortbow', color: '#00ff00', desc: 'Fast Ranged attacks.', upgrades: 'Magic Shortbow → Crystal Bow → Bow of Faerdhinen' },
+            { id: 'wizard', name: 'Wizard', cost: 100, icon: '🪄', wikiImg: 'Staff', color: '#00ffff', desc: 'Magic damage. Access to Elemental spells and Ancient Magicks.', upgrades: 'Bolt → Blast → Wave → Surge / Ancient Spells' },
+            { id: 'cannon', name: 'Cannon', cost: 250, icon: '💣', wikiImg: 'Dwarf_multicannon', color: '#00ff00', desc: 'AoE Ranged damage.', upgrades: 'Granite Cannon → Heavy Ballista → Dragon Hunter Ballista' },
+            { id: 'tzhaar', name: 'TzHaar', cost: 500, icon: '🛡️', wikiImg: 'TzHaar-Ket', color: '#ff0000', desc: 'Heavy Melee strength.', upgrades: 'Toktz-xil-ak → TzHaar-Ket-Om → Inquisitor\'s Mace' },
+            { id: 'slayer', name: 'Slayer', cost: 750, icon: '⚔️', wikiImg: 'Slayer_helmet', color: '#00ff00', desc: 'Ranged specialist. Bonus vs Tasks.', upgrades: 'Karils Crossbow → Twisted Bow → Zaryte Crossbow' },
+            { id: 'toxic', name: 'Toxic', cost: 1000, icon: '🐍', wikiImg: 'Toxic_blowpipe', color: '#00ff00', desc: 'Venomous Ranged damage.', upgrades: 'Blowpipe → Serp Blowpipe → Trident → Magma Blowpipe' },
           ].map((tower) => {
             const isSelected = gameState.selectedTower === tower.id;
             const canAfford = gameState.money >= tower.cost;
@@ -1030,6 +1124,14 @@ export default function GameCanvas() {
                   setSelectedTower(isSelected ? null : tower.id);
                   setSelectedPlacedTower(null);
                 }}
+                onMouseEnter={(e) => setActiveTooltip({
+                  x: e.clientX, y: e.clientY,
+                  title: tower.name.toUpperCase(),
+                  content: tower.desc,
+                  bonus: `Path: ${tower.upgrades}`,
+                  color: tower.color
+                })}
+                onMouseLeave={() => setActiveTooltip(null)}
                 disabled={!canAfford}
                 className={`
                   flex flex-col items-center w-[68px] py-1.5 px-1 border-2 transition-all relative group
@@ -1046,7 +1148,7 @@ export default function GameCanvas() {
                   />
                   <span className="hidden text-2xl">{tower.icon}</span>
                 </div>
-                <span className="text-[9px] font-bold text-[#ffff00] uppercase tracking-tight">{tower.name}</span>
+                <span className="text-[9px] font-bold uppercase tracking-tight" style={{ color: tower.color }}>{tower.name}</span>
                 <span className={`text-[9px] font-bold ${canAfford ? 'text-[#00ff00]' : 'text-[#ff0000]'}`}>{tower.cost}gp</span>
                 {isSelected && <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#ffff00] rounded-full animate-ping" />}
               </button>
@@ -1054,6 +1156,20 @@ export default function GameCanvas() {
           })}
         </div>
       </div>
+      {/* Global Tooltip Renderer */}
+      {activeTooltip && (
+        <div 
+          className="fixed z-[1000] pointer-events-none p-2 bg-black/95 border border-[#ffff00] shadow-2xl w-48 font-sans"
+          style={{ 
+            left: Math.min(window.innerWidth - 200, activeTooltip.x + 10), 
+            top: activeTooltip.y - 100 // Try above mouse
+          }}
+        >
+          <p className="text-[#ffff00] font-bold text-xs" style={{ color: activeTooltip.color }}>{activeTooltip.title}</p>
+          <p className="text-white text-[10px] mt-1 leading-tight">{activeTooltip.content}</p>
+          {activeTooltip.bonus && <p className="text-[#00ffff] text-[8px] mt-1">{activeTooltip.bonus}</p>}
+        </div>
+      )}
     </div>
   );
 }
