@@ -466,6 +466,7 @@ export class GameEngine {
     window.addEventListener('resize', () => this.resize());
     
     this.initPath();
+    this.initNodes();
     this.assignSlayerTask();
   }
 
@@ -1304,6 +1305,7 @@ export class GameEngine {
             accessory: null
           }
         });
+        this.awardPlayerXP('crafting', 20, snappedX, snappedY);
         this.onStateChange({ money: this.money });
       } else {
         console.warn('Invalid tower placement');
@@ -1637,7 +1639,9 @@ export class GameEngine {
     const index = this.towers.findIndex(t => t.id === towerId);
     if (index > -1) {
       this.playSound('sell');
-      this.money += 25; 
+      // Sell value increases with Crafting level
+      const craftingBonus = 1 + (this.playerSkills.crafting.level - 1) * 0.02;
+      this.money += Math.floor(25 * craftingBonus); 
       this.towers.splice(index, 1);
       this.onStateChange({ money: this.money, selectedPlacedTower: null });
     }
@@ -1761,36 +1765,92 @@ export class GameEngine {
     return true;
   }
 
+  initNodes() {
+    this.nodes = [];
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    // Add trees, rocks, herbs at fixed but valid positions
+    const nodeConfigs = [
+      { type: 'tree', name: 'Oak Tree', x: w * 0.1, y: h * 0.4, level: 1, xp: 15 },
+      { type: 'tree', name: 'Willow Tree', x: w * 0.4, y: h * 0.1, level: 30, xp: 67 },
+      { type: 'ore', name: 'Iron Rock', x: w * 0.7, y: h * 0.2, level: 15, xp: 35 },
+      { type: 'ore', name: 'Coal Rock', x: w * 0.3, y: h * 0.6, level: 30, xp: 50 },
+      { type: 'herb', name: 'Ranarr Weed', x: w * 0.6, y: h * 0.9, level: 25, xp: 40 },
+      { type: 'herb', name: 'Snapdragon', x: w * 0.9, y: h * 0.3, level: 59, xp: 98 },
+    ];
+
+    nodeConfigs.forEach(config => {
+      // Only add if not on path
+      if (this.isValidPlacement(config.x, config.y)) {
+        this.nodes.push({
+          id: `node_${Math.random().toString(36).substr(2, 9)}`,
+          x: config.x,
+          y: config.y,
+          type: config.type as any,
+          name: config.name,
+          level: config.level,
+          xp: config.xp,
+          respawnTimer: 0,
+          maxRespawn: 15000 + Math.random() * 10000
+        });
+      }
+    });
+  }
+
   interactWithNode(node: GatheringNode) {
+    if (node.respawnTimer > 0) return;
+
     let skillKey: keyof PlayerSkills = 'mining';
     if (node.type === 'tree') skillKey = 'woodcutting';
     if (node.type === 'herb') skillKey = 'herblore';
 
-    if (this.playerSkills[skillKey].level < node.level) {
+    const skill = this.playerSkills[skillKey];
+
+    if (skill.level < node.level) {
       this.addMessage(`You need level ${node.level} ${skillKey} to gather this.`);
       return;
     }
 
-    this.playSound('hit');
-    node.respawnTimer = 10 + Math.random() * 20;
-    
-    // Gain XP
-    this.playerSkills[skillKey].xp += node.xp;
-    if (this.playerSkills[skillKey].xp >= this.playerSkills[skillKey].level * 100) {
-      this.playerSkills[skillKey].level++;
-      this.addMessage(`Level Up! You are now level ${this.playerSkills[skillKey].level} ${skillKey}.`);
-      this.playSound('upgrade');
+    // Success chance based on skill level
+    const chance = 0.4 + (skill.level * 0.02);
+    if (Math.random() < chance) {
+      this.playSound('click');
+      node.respawnTimer = node.maxRespawn;
+      
+      // Award XP
+      const xpGain = node.xp;
+      this.awardPlayerXP(skillKey, xpGain, node.x, node.y);
+      
+      this.floatingTexts.push({
+        x: node.x,
+        y: node.y - 20,
+        text: `+${xpGain} XP`,
+        life: 1.5,
+        color: '#00ff00',
+        icon: `${skillKey}_icon`
+      });
+
+      // Award resources
+      if (node.type === 'tree') {
+        this.money += 10 + skill.level;
+        this.addMessage(`You cut some logs from the ${node.name}.`);
+      } else if (node.type === 'ore') {
+        this.runeEssence += 2 + Math.floor(skill.level / 5);
+        this.addMessage(`You mined some ore from the ${node.name}.`);
+      } else {
+        this.money += 20 + skill.level * 2;
+        this.addMessage(`You picked a ${node.name}.`);
+      }
+    } else {
+      this.addMessage(`You fail to gather anything from the ${node.name}.`);
     }
 
-    // Drop something based on node
-    if (node.type === 'tree') {
-      this.inventory.push({ id: Math.random().toString(), name: 'Logs', description: 'Used for crafting.', bonus: {}, type: 'accessory' });
-    } else if (node.type === 'ore') {
-      this.inventory.push({ id: Math.random().toString(), name: 'Adamantite ore', description: 'Can be used for smithing.', bonus: {}, type: 'accessory' });
-    } else {
-      this.inventory.push({ id: Math.random().toString(), name: 'Ranarr weed', description: 'Used for potions.', bonus: {}, type: 'accessory' });
-    }
-    this.onStateChange({ playerSkills: this.playerSkills, inventory: this.inventory });
+    this.onStateChange({ 
+      money: this.money, 
+      runeEssence: this.runeEssence, 
+      nodes: this.nodes 
+    });
   }
 
   upgradeItem(itemId: string) {
@@ -1932,7 +1992,7 @@ export class GameEngine {
         if (pray) totalDrain += pray.drain;
       });
       
-      const drainRate = (totalDrain / 10) * (this.upgrades.prayerEfficiency || 1); 
+      const drainRate = (totalDrain / 10) * (this.upgrades.prayerEfficiency || 1) * (1 - (this.playerSkills.prayer.level - 1) * 0.01); 
       this.prayerPoints = Math.max(0, this.prayerPoints - dt * drainRate);
       
       if (this.prayerPoints <= 0) {
@@ -2000,9 +2060,36 @@ export class GameEngine {
     } else if (this.waveActive && this.enemiesToSpawn.length === 0 && this.enemies.length === 0) {
       // Wave complete
       this.waveActive = false;
+      
+      // Award player based on performance
+      const performanceBonus = Math.floor((this.lives * 10) + (this.money * 0.05));
+      const baseReward = 50 + (this.wave * 20);
+      const totalMoneyReward = Math.floor((baseReward + performanceBonus) * (this.upgrades.rewardMultiplier || 1));
+      
+      // Rune Essence based on upgrade level
+      const essenceReward = Math.floor((5 + (this.wave * 2)) * (1 + (this.upgrades.slayerReward || 0) * 0.1));
+      
+      this.money += totalMoneyReward;
+      this.runeEssence += essenceReward;
+      
+      this.addMessage(`Wave ${this.wave} complete! Reward: ${totalMoneyReward} GP, ${essenceReward} Essence.`);
+      this.floatingTexts.push({
+        x: this.canvas.width / 2,
+        y: this.canvas.height / 2,
+        text: `WAVE COMPLETE! +${totalMoneyReward} GP`,
+        life: 3,
+        color: '#ffff00'
+      });
+
       this.wave++;
       this.autoSpawnTimer = this.autoSpawnDelay; // Reset timer for next wave countdown
-      this.onStateChange({ wave: this.wave, isPlaying: false, autoSpawnTimer: this.autoSpawnTimer });
+      this.onStateChange({ 
+        wave: this.wave, 
+        isPlaying: false, 
+        autoSpawnTimer: this.autoSpawnTimer,
+        money: this.money,
+        runeEssence: this.runeEssence
+      });
     }
 
     // Update Enemies
@@ -2568,6 +2655,27 @@ export class GameEngine {
     }
   }
 
+  awardPlayerXP(skillKey: keyof PlayerSkills, amount: number, x?: number, y?: number) {
+    const skill = this.playerSkills[skillKey];
+    skill.xp += amount;
+    const nextLevelXP = Math.pow(skill.level, 2) * 100;
+    if (skill.xp >= nextLevelXP) {
+      skill.level++;
+      skill.xp -= nextLevelXP;
+      this.playSound('upgrade');
+      this.addMessage(`Congratulations, you just advanced your ${skillKey.charAt(0).toUpperCase() + skillKey.slice(1)} level to ${skill.level}!`);
+      this.floatingTexts.push({
+        x: x ?? this.canvas.width / 2,
+        y: y ?? this.canvas.height / 2,
+        text: 'LEVEL UP!',
+        life: 2,
+        color: '#ffff00',
+        icon: `${skillKey}_icon`
+      });
+    }
+    this.onStateChange({ playerSkills: this.playerSkills });
+  }
+
   awardTowerXP(tower: Tower, amount: number) {
     const xpGain = (amount / 2) * (this.upgrades.xpGainMultiplier || 1);
     let skillKey: keyof TowerSkills = 'strength';
@@ -2578,6 +2686,16 @@ export class GameEngine {
 
     const skill = tower.skills[skillKey];
     skill.xp += xpGain;
+    
+    // Floating text for XP gain
+    this.floatingTexts.push({
+      x: tower.x,
+      y: tower.y - 20,
+      text: `+${Math.floor(xpGain)} XP`,
+      life: 1.5,
+      color: '#00ff00',
+      icon: `${skillKey}_icon`
+    });
     
     const nextLevelXP = Math.pow(skill.level, 2) * 100;
     if (skill.xp >= nextLevelXP) {
@@ -3197,6 +3315,8 @@ export class GameEngine {
           this.ctx.beginPath();
           this.ctx.arc(enemy.x, enemy.y, 12, 0, Math.PI * 2);
           this.ctx.stroke();
+          this.ctx.font = '10px Arial';
+          this.ctx.fillText('❄️', enemy.x - 15, enemy.y + 10);
         }
         if (enemy.stunTimer > 0) {
           // Frozen: icy blue ring + fill tint
@@ -3215,6 +3335,27 @@ export class GameEngine {
           this.ctx.textAlign = 'center';
           this.ctx.fillStyle = '#ffffff';
           this.ctx.fillText('❄', enemy.x, enemy.y - (isBoss ? 28 : 20));
+        }
+
+        if (enemy.burnTimer > 0) {
+          // Fire particles or glow
+          const pulse = 0.5 + 0.5 * Math.sin((this.gameTime / 1000) * 10);
+          this.ctx.fillStyle = `rgba(255, 100, 0, ${0.3 * pulse})`;
+          this.ctx.beginPath();
+          this.ctx.arc(enemy.x, enemy.y, (isBoss ? 25 : 15), 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.font = '12px Arial';
+          this.ctx.fillText('🔥', enemy.x + 10, enemy.y - 10);
+        }
+
+        if (enemy.poisonTimer > 0 || (enemy.venomTimer && enemy.venomTimer > 0)) {
+          // Poison green tint
+          this.ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+          this.ctx.beginPath();
+          this.ctx.arc(enemy.x, enemy.y, (isBoss ? 20 : 10), 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.font = '12px Arial';
+          this.ctx.fillText('🧪', enemy.x - 10, enemy.y - 10);
         }
 
         // Health bar

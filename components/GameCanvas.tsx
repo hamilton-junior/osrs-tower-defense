@@ -516,41 +516,39 @@ export default function GameCanvas() {
                   <div className="text-center border-b border-[var(--osrs-border-light)] pb-1">
                     <span className="text-xs font-bold text-osrs-orange uppercase">Inventory</span>
                   </div>
-                  <button 
-                    onClick={() => {
-                      engineRef.current?.playSound('interface_open');
-                      setShowInventory(true);
-                    }}
-                    className="osrs-button w-full py-1 text-[10px] uppercase mb-2"
-                  >
-                    Full View
-                  </button>
-                  <div className="grid grid-cols-4 gap-1">
-                    {(gameState.inventory || []).map((item: any) => (
-                      <div 
-                        key={item.id} 
-                        className="aspect-square bg-black/40 border border-[var(--osrs-border-light)] p-0.5 group relative cursor-pointer hover:border-white" 
-                        onClick={() => handleEquipItem(item.id)}
-                        onMouseEnter={(e) => setActiveTooltip({
-                          x: e.clientX, y: e.clientY,
-                          title: item.name, content: item.description,
-                          bonus: `${item.bonus.damage ? `+${item.bonus.damage} Str ` : ''}${item.bonus.range ? `+${item.bonus.range} Range` : ''}`,
-                          color: '#ffff00'
-                        })}
-                        onMouseLeave={() => setActiveTooltip(null)}
-                      >
-                        <img 
-                          src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}_detail.png`} 
-                          alt={item.name} 
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            const img = e.target as HTMLImageElement;
-                            if (img.src.includes('_detail')) img.src = `https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`;
-                            else img.style.opacity = '0';
-                          }}
-                        />
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-4 gap-1 mt-1">
+                    {Array.from({ length: 28 }).map((_, i) => {
+                      const item = (gameState.inventory || [])[i];
+                      return (
+                        <div 
+                          key={i} 
+                          className="aspect-square bg-black/40 border border-[var(--osrs-border-light)] p-0.5 group relative cursor-pointer hover:border-white flex items-center justify-center" 
+                          onClick={() => item && handleEquipItem(item.id)}
+                          onMouseEnter={(e) => item && setActiveTooltip({
+                            x: e.clientX, y: e.clientY,
+                            title: item.name, content: item.description,
+                            bonus: item.bonus ? Object.entries(item.bonus).map(([k, v]) => `+${v} ${k}`).join(', ') : '',
+                            color: '#ffff00'
+                          })}
+                          onMouseLeave={() => setActiveTooltip(null)}
+                        >
+                          {item ? (
+                            <img 
+                              src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}_detail.png`} 
+                              alt={item.name} 
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                if (img.src.includes('_detail')) img.src = `https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`;
+                                else img.style.opacity = '0';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full opacity-10" />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -562,15 +560,21 @@ export default function GameCanvas() {
                         <div className="text-[9px] text-osrs-cyan font-bold uppercase border-b border-osrs-cyan/30 mb-1">Followers</div>
                         <div className="flex flex-wrap gap-1">
                           {gameState.pets.map((pet: any) => (
-                            <div key={pet.id} className="w-8 h-8 bg-black/40 border border-[var(--osrs-border-light)] p-0.5 rounded group relative cursor-help">
+                            <div 
+                              key={pet.id} 
+                              className="w-8 h-8 bg-black/40 border border-[var(--osrs-border-light)] p-0.5 rounded group relative cursor-help flex items-center justify-center"
+                              onMouseEnter={(e) => setActiveTooltip({
+                                x: e.clientX, y: e.clientY,
+                                title: pet.name, content: pet.bonus,
+                                color: '#00ffff'
+                              })}
+                              onMouseLeave={() => setActiveTooltip(null)}
+                              onClick={() => {
+                                engineRef.current?.playSound('click');
+                                // Logic to set following pet if needed
+                              }}
+                            >
                                <img src={`https://oldschool.runescape.wiki/images/${pet.type.split('_').map((w: any) => w.charAt(0).toUpperCase() + w.slice(1)).join('_')}.png`} className="w-full h-full object-contain" alt="" />
-                               <div className="absolute hidden group-hover:block right-full mr-2 top-0 w-44 p-2 bg-black/95 border border-osrs-yellow z-[100] shadow-2xl">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <img src={`https://oldschool.runescape.wiki/images/${pet.type.split('_').map((w: any) => w.charAt(0).toUpperCase() + w.slice(1)).join('_')}.png`} className="w-8 h-8 object-contain" alt="" />
-                                    <span className="text-osrs-yellow font-bold text-xs">{pet.name}</span>
-                                  </div>
-                                  <p className="text-white text-[10px] leading-tight">{pet.bonus}</p>
-                               </div>
                             </div>
                           ))}
                         </div>
