@@ -76,6 +76,7 @@ export interface Enemy {
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
 export type MageMode = 'elemental' | 'ancients' | 'utility';
+export type AncientType = 'ice' | 'blood' | 'shadow' | 'smoke';
 export type SupportSpell = 'charge' | 'curse' | 'bind';
 
 export interface TowerSkill {
@@ -156,6 +157,7 @@ export interface Tower {
   minDamage?: number;
   maxDamage?: number;
   mageMode?: MageMode;
+  ancientType?: AncientType;
   element?: Element;
   supportSpell?: SupportSpell;
   attackStyle?: 'accurate' | 'rapid' | 'long_range';
@@ -280,6 +282,7 @@ export class GameEngine {
   projectiles: Projectile[] = [];
   particles: { x: number, y: number, life: number, color: string }[] = [];
   damageNumbers: { x: number, y: number, text: string, life: number, color: string, velocityY: number, velocityX: number }[] = [];
+  floatingTexts: { x: number, y: number, text: string, life: number, color: string, icon?: string }[] = [];
   loots: { id: string, x: number, y: number, type: 'essence' | 'money' | 'item', data?: any, life: number, size: number }[] = [];
   nodes: GatheringNode[] = [];
   playerSkills: PlayerSkills = {
@@ -470,11 +473,18 @@ export class GameEngine {
     const soundUrls = {
       shoot_archer: 'https://oldschool.runescape.wiki/images/transcoded/Longbow_attack.wav/Longbow_attack.wav.mp3',
       shoot_wizard: 'https://oldschool.runescape.wiki/images/transcoded/Wind_Strike.ogg/Wind_Strike.ogg.mp3',
-      shoot_cannon: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Strike.ogg/Fire_Strike.ogg.mp3',
+      shoot_wizard_water: 'https://oldschool.runescape.wiki/images/transcoded/Water_Strike.ogg/Water_Strike.ogg.mp3',
+      shoot_wizard_earth: 'https://oldschool.runescape.wiki/images/transcoded/Earth_Strike.ogg/Earth_Strike.ogg.mp3',
+      shoot_wizard_fire: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Strike.ogg/Fire_Strike.ogg.mp3',
+      shoot_wizard_ice: 'https://oldschool.runescape.wiki/images/transcoded/Ice_Rush.ogg/Ice_Rush.ogg.mp3',
+      shoot_wizard_blood: 'https://oldschool.runescape.wiki/images/transcoded/Blood_Rush.ogg/Blood_Rush.ogg.mp3',
+      shoot_wizard_shadow: 'https://oldschool.runescape.wiki/images/transcoded/Shadow_Rush.ogg/Shadow_Rush.ogg.mp3',
+      shoot_wizard_smoke: 'https://oldschool.runescape.wiki/images/transcoded/Smoke_Rush.ogg/Smoke_Rush.ogg.mp3',
+      shoot_cannon: 'https://oldschool.runescape.wiki/images/transcoded/Cannon_firing.ogg/Cannon_firing.ogg.mp3',
       shoot_tzhaar: 'https://oldschool.runescape.wiki/images/transcoded/TzHaar-Ket_attack.ogg/TzHaar-Ket_attack.ogg.mp3',
       shoot_slayer: 'https://oldschool.runescape.wiki/images/transcoded/Slayer_staff_cast.ogg/Slayer_staff_cast.ogg.mp3',
       shoot_support: 'https://oldschool.runescape.wiki/images/transcoded/Heal_Other_cast.ogg/Heal_Other_cast.ogg.mp3',
-      shoot_toxic: 'https://oldschool.runescape.wiki/images/transcoded/Dart_attack.wav/Dart_attack.wav.mp3',
+      shoot_toxic: 'https://oldschool.runescape.wiki/images/transcoded/Blowpipe_attack.ogg/Blowpipe_attack.ogg.mp3',
       hit: 'https://oldschool.runescape.wiki/images/transcoded/Melee_hit_sound.ogg/Melee_hit_sound.ogg.mp3',
       kill: 'https://oldschool.runescape.wiki/images/transcoded/Zombie_death.ogg/Zombie_death.ogg.mp3',
       wave: 'https://oldschool.runescape.wiki/images/transcoded/Teleport_sound.ogg/Teleport_sound.ogg.mp3',
@@ -538,6 +548,11 @@ export class GameEngine {
       ranarr: 'https://oldschool.runescape.wiki/images/Ranarr_weed_detail.png',
       
       // Icons
+      magic_icon: 'https://oldschool.runescape.wiki/images/Magic_icon.png',
+      ranged_icon: 'https://oldschool.runescape.wiki/images/Ranged_icon.png',
+      strength_icon: 'https://oldschool.runescape.wiki/images/Strength_icon.png',
+      attack_icon: 'https://oldschool.runescape.wiki/images/Attack_icon.png',
+      bones_loot: 'https://oldschool.runescape.wiki/images/Bones_detail.png',
       skill_mining: 'https://oldschool.runescape.wiki/images/Mining_icon.png',
       skill_woodcutting: 'https://oldschool.runescape.wiki/images/Woodcutting_icon.png',
       skill_herblore: 'https://oldschool.runescape.wiki/images/Herblore_icon.png',
@@ -627,8 +642,8 @@ export class GameEngine {
       toxic_4: 'https://oldschool.runescape.wiki/images/Trident_of_the_swamp.png',
 
       // Loot
-      bones_loot: 'https://oldschool.runescape.wiki/images/Bones.png',
-
+      // bones_loot is already defined in Icons section
+      
       // Items
       amulet_of_power: 'https://oldschool.runescape.wiki/images/Amulet_of_power_detail.png',
       anti_dragon_shield: 'https://oldschool.runescape.wiki/images/Anti-dragon_shield_detail.png',
@@ -1319,6 +1334,16 @@ export class GameEngine {
     tower.level++;
     tower.visualRadius += 2;
 
+    // Add floating text for level up
+    this.floatingTexts.push({
+      x: tower.x,
+      y: tower.y - 20,
+      text: `Level Up!`,
+      life: 2.0,
+      color: '#ffff00',
+      icon: tower.type === 'wizard' ? 'Magic' : tower.type === 'archer' ? 'Ranged' : 'Strength'
+    });
+
     // Upgrade logic — OSRS-accurate weapon progression
     if (tower.type === 'archer') {
       if (tower.level === 2) {
@@ -1501,13 +1526,29 @@ export class GameEngine {
     const tower = this.towers.find(t => t.id === towerId);
     if (tower && tower.type === 'wizard') {
       tower.mageMode = mode;
-      if (mode === 'ancients') tower.element = 'none';
-      if (mode === 'utility') tower.element = 'none';
+      if (mode === 'ancients') {
+        tower.element = 'none';
+        if (!tower.ancientType) tower.ancientType = 'ice';
+      }
+      if (mode === 'utility') {
+        tower.element = 'none';
+        tower.ancientType = undefined;
+      }
       if (mode === 'elemental') {
         const elem = tower.element && tower.element !== 'none' ? tower.element : 'air';
         tower.element = elem;
+        tower.ancientType = undefined;
       }
-      this.upgradeTowerStats(tower); // Re-apply stats (sets correct special for ancients level)
+      this.upgradeTowerStats(tower);
+      this.onStateChange({ towers: this.towers });
+    }
+  }
+
+  setAncientType(towerId: string, type: AncientType) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (tower && tower.type === 'wizard' && tower.mageMode === 'ancients') {
+      tower.ancientType = type;
+      this.upgradeTowerStats(tower);
       this.onStateChange({ towers: this.towers });
     }
   }
@@ -1547,21 +1588,33 @@ export class GameEngine {
         tower.name = `${elem.charAt(0).toUpperCase()}${elem.slice(1)} ${spellTiers[tier]}`;
         const spellMaxHits = [8, 12, 18, 24, 30];
         tower.damage = spellMaxHits[tier] * this.upgrades.magicDamage;
-        tower.fireSound = `spell_${elem}`;
+        tower.fireSound = elem === 'air' ? 'shoot_wizard' : `shoot_wizard_${elem}`;
         tower.special = undefined;
       } else if (tower.mageMode === 'ancients') {
         tower.range = 8 * tile;
         const ancientTier = Math.min(tower.level - 1, 3);
-        tower.name = `Ice ${ancientTiers[ancientTier]}`;
+        const aType = tower.ancientType || 'ice';
+        const typeNames = { ice: 'Ice', blood: 'Blood', shadow: 'Shadow', smoke: 'Smoke' };
+        tower.name = `${typeNames[aType]} ${ancientTiers[ancientTier]}`;
+        
         const ancientHits = [16, 20, 23, 29];
         tower.damage = ancientHits[ancientTier] * this.upgrades.magicDamage;
-        tower.fireSound = 'spell_ice';
-        if (tower.level <= 2) {
+        tower.fireSound = `shoot_wizard_${aType}`;
+        
+        if (aType === 'ice') {
+          if (tower.level <= 2) {
+            tower.special = 'slow';
+          } else if (tower.level === 3) {
+            tower.special = 'stun';
+          } else {
+            tower.special = 'aoe';
+          }
+        } else if (aType === 'blood') {
+          tower.special = 'blood'; // Marker for % damage
+        } else if (aType === 'shadow') {
           tower.special = 'slow';
-        } else if (tower.level === 3) {
-          tower.special = 'stun';
-        } else {
-          tower.special = 'aoe';
+        } else if (aType === 'smoke') {
+          tower.special = 'burn';
         }
       } else {
         // utility
@@ -1828,6 +1881,14 @@ export class GameEngine {
       dn.x += dn.velocityX * dt;
       dn.velocityY += 60 * dt; // Gravity
       if (dn.life <= 0) this.damageNumbers.splice(i, 1);
+    }
+
+    // Update Floating Texts
+    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+      const ftObj = this.floatingTexts[i];
+      ftObj.life -= dt;
+      ftObj.y -= 30 * dt; // Float up faster
+      if (ftObj.life <= 0) this.floatingTexts.splice(i, 1);
     }
 
     // Update Loots
@@ -2207,6 +2268,31 @@ export class GameEngine {
 
           tower.lastFired = this.gameTime;
 
+          if (tower.type === 'cannon') {
+            // Multicannon fires at multiple targets in range
+            const targets = this.enemies
+              .filter(e => Math.sqrt(Math.pow(e.x - tower.x, 2) + Math.pow(e.y - tower.y, 2)) <= effectiveRange)
+              .sort((a, b) => b.pathIndex - a.pathIndex)
+              .slice(0, tower.level >= 3 ? 4 : 2); // Level 3+ hits 4 targets
+
+            targets.forEach(t => {
+              this.projectiles.push({
+                id: Math.random().toString(36).substr(2, 9),
+                x: tower.x,
+                y: tower.y,
+                targetId: t.id,
+                damage: finalDamage,
+                speed: 600,
+                type: 'cannonball',
+                color: '#808080',
+                sourceTowerId: tower.id,
+                special: tower.level >= 4 ? 'aoe' : undefined
+              });
+            });
+            this.playSound('cannon_fire');
+            return; // Skip standard projectile creation
+          }
+
           if (tower.type === 'wizard' && tower.mageMode === 'utility') {
              const rand = Math.random();
              const spell = tower.supportSpell || (rand < 0.33 ? 'charge' : rand < 0.66 ? 'curse' : 'bind');
@@ -2228,11 +2314,20 @@ export class GameEngine {
 
           // Projectile logic
           let pType: Projectile['type'] = 'arrow';
+          let pColor = tower.color;
+          
           if (tower.type === 'wizard') {
              if (tower.mageMode === 'ancients') {
-                const tiers: Projectile['type'][] = ['ancient_ice', 'ancient_smoke', 'ancient_shadow', 'ancient_blood'];
-                pType = tiers[Math.min(tower.level-1, 3)];
-             } else pType = 'spell';
+                const aType = tower.ancientType || 'ice';
+                pType = `ancient_${aType}` as Projectile['type'];
+                pColor = aType === 'ice' ? '#00ffff' : (aType === 'blood' ? '#ff0000' : (aType === 'shadow' ? '#4b0082' : '#808080'));
+             } else {
+                pType = 'spell';
+                if (tower.mageMode === 'elemental') {
+                   const elem = tower.element || 'air';
+                   pColor = elem === 'fire' ? '#ff4500' : (elem === 'water' ? '#0000ff' : (elem === 'earth' ? '#8b4513' : '#ffffff'));
+                }
+             }
           } else if (tower.type === 'cannon') pType = 'cannonball';
           else if (tower.type === 'toxic') pType = 'dart';
           else if (tower.type === 'slayer') pType = 'bolt';
@@ -2251,7 +2346,7 @@ export class GameEngine {
             targetId: target.id,
             speed: 400 * (tower.type === 'cannon' ? 1.5 : 1),
             damage: finalDamage,
-            color: tower.color,
+            color: pColor,
             type: pType,
             element: tower.element,
             sourceTowerId: tower.id,
@@ -2267,14 +2362,15 @@ export class GameEngine {
           }
 
           // Sound
-          if (tower.type === 'cannon') this.playSound('cannon_fire');
+          if (tower.type === 'cannon') this.playSound('shoot_cannon');
           else if (tower.type === 'wizard') {
             if (tower.mageMode === 'utility') {
                // Sounds handled in utility logic block above
             } else if (tower.mageMode === 'ancients') {
-               this.playSound('spell_ice');
+               this.playSound(`shoot_wizard_${tower.ancientType || 'ice'}`);
             } else {
-               this.playSound(`spell_${tower.element}`);
+               const elem = tower.element || 'air';
+               this.playSound(elem === 'air' ? 'shoot_wizard' : `shoot_wizard_${elem}`);
             }
           } else {
              this.playSound(tower.fireSound || `shoot_${tower.type}`);
@@ -2307,6 +2403,10 @@ export class GameEngine {
              else if (p.special === 'stun') target.stunTimer = 5.0 * (1 - (target.resistance || 0));
              else if (p.special === 'pushback') target.pathIndex = Math.max(0, target.pathIndex - 1);
              else if (p.special === 'burn') { target.burnTimer = 5; target.burnDamage = Math.max(2, p.damage * 0.1); }
+             else if (p.special === 'blood') {
+                const percentDamage = target.maxHp * 0.03; // 3% of max HP
+                this.damageEnemy(target, percentDamage, p.sourceTowerId, true);
+             }
           }
           this.projectiles.splice(i, 1);
        } else {
@@ -2691,13 +2791,30 @@ export class GameEngine {
 
   resetGame() {
     this.lives = 20;
-    this.money = 150;
+    this.money = 150 + this.upgrades.startingMoney;
     this.wave = 1;
     this.enemies = [];
     this.towers = [];
     this.projectiles = [];
+    this.particles = [];
+    this.damageNumbers = [];
+    this.floatingTexts = [];
+    this.loots = [];
     this.waveActive = false;
-    this.onStateChange({ lives: 20, money: 150, wave: 1, isPlaying: false });
+    this.prayerPoints = this.maxPrayerPoints;
+    this.activePrayers.clear();
+    this.activePotions = [];
+    this.slayerTask = null;
+    this.assignSlayerTask();
+    this.onStateChange({ 
+      lives: 20, 
+      money: this.money, 
+      wave: 1, 
+      isPlaying: false,
+      enemies: [],
+      towers: [],
+      projectiles: []
+    });
   }
 
   drawPath() {
@@ -2939,15 +3056,22 @@ export class GameEngine {
         let imgKey = `${tower.type}_${tower.level}`;
         if (tower.type === 'wizard') {
           if (tower.mageMode === 'elemental') {
-            imgKey = `wizard_elemental_${tower.element}`;
+            imgKey = `wizard_elemental_${tower.element || 'air'}`;
           } else if (tower.mageMode === 'ancients') {
             imgKey = `wizard_ancients`;
-          } else {
+          } else if (tower.mageMode === 'utility') {
             imgKey = `wizard_utility`;
+          } else {
+            imgKey = `wizard_${tower.level}`;
           }
         }
         
-        const img = this.imageCache.get(imgKey);
+        // Fallback to level-based key if specific one fails
+        let img = this.imageCache.get(imgKey);
+        if (!img || !img.complete || img.naturalWidth === 0 || this.brokenImages.has(imgKey)) {
+          imgKey = `${tower.type}_${tower.level}`;
+          img = this.imageCache.get(imgKey);
+        }
         
         this.ctx.save();
         this.ctx.translate(tower.x, tower.y + bob + recoil);
@@ -3196,10 +3320,32 @@ export class GameEngine {
       this.damageNumbers.forEach(dn => {
         this.ctx.fillStyle = dn.color;
         this.ctx.globalAlpha = dn.life;
-        this.ctx.font = `bold ${Math.floor(12 + dn.life * 4)}px Arial`;
+        this.ctx.font = `bold ${Math.floor(12 + dn.life * 4)}px 'RuneScape', Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.fillText(dn.text, dn.x, dn.y);
         this.ctx.globalAlpha = 1.0;
+      });
+
+      // Draw Floating Texts (Level ups, etc)
+      this.floatingTexts.forEach(ft => {
+        this.ctx.save();
+        this.ctx.globalAlpha = Math.min(1, ft.life * 2);
+        this.ctx.fillStyle = ft.color;
+        this.ctx.font = `bold 16px 'RuneScape', Arial`;
+        this.ctx.textAlign = 'center';
+        this.ctx.shadowColor = '#000';
+        this.ctx.shadowBlur = 4;
+        this.ctx.shadowOffsetX = 1;
+        this.ctx.shadowOffsetY = 1;
+        this.ctx.fillText(ft.text, ft.x, ft.y);
+        
+        if (ft.icon) {
+          const iconImg = this.imageCache.get(`${ft.icon.toLowerCase()}_icon`);
+          if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
+            this.ctx.drawImage(iconImg, ft.x - 10, ft.y - 35, 20, 20);
+          }
+        }
+        this.ctx.restore();
       });
 
       // Draw Loots — all loots show as bones icon (OSRS style), click to collect

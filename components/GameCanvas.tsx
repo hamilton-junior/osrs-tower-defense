@@ -23,6 +23,7 @@ interface TowerData {
   equipment?: Record<string, any>;
   attackStyle?: string;
   mageMode?: string;
+  ancientType?: string;
   element?: string;
   targetingPriority?: string;
 }
@@ -1000,6 +1001,20 @@ export default function GameCanvas() {
                     ))}
                   </div>
                 )}
+
+                {gameState.selectedPlacedTower.mageMode === 'ancients' && (
+                  <div className="grid grid-cols-4 gap-1">
+                    {['ice', 'blood', 'shadow', 'smoke'].map(type => (
+                      <button
+                        key={type}
+                        onClick={() => engineRef.current?.setAncientType(gameState.selectedPlacedTower!.id, type as any)}
+                        className={`osrs-button text-[9px] p-1 capitalize ${gameState.selectedPlacedTower?.ancientType === type ? 'brightness-125 border-white' : ''}`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1182,21 +1197,6 @@ export default function GameCanvas() {
       )}
 
 
-      {/* Chat Box (Bottom Left) */}
-      <div className="absolute bottom-4 left-4 w-[480px] h-36 bg-[rgba(0,0,0,0.6)] border-2 border-[var(--osrs-border-dark)] rounded-sm pointer-events-auto z-10 flex flex-col overflow-hidden shadow-2xl font-osrs">
-        <div className="bg-[var(--osrs-brown)] px-2 py-0.5 border-b border-[var(--osrs-border-light)] flex justify-between font-mono">
-          <span className="text-[10px] font-bold text-[#c0c0c0]">ALL GAME MESSAGES</span>
-          <span className="text-[10px] text-osrs-yellow">Report</span>
-        </div>
-        <div className="flex-1 p-2 overflow-y-auto custom-scrollbar flex flex-col-reverse font-mono text-left">
-          {[...(gameState.messages || [])].reverse().map((msg, i) => (
-            <div key={i} className="text-[11px] text-[#ffffff] leading-tight mb-1">
-              <span className="text-osrs-orange font-bold">System:</span> {msg}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Tower Selection Grid (Bottom Center) - Always Visible */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 z-10 pointer-events-none">
         {gameState.selectedTower && (
@@ -1210,7 +1210,7 @@ export default function GameCanvas() {
             { id: 'wizard', name: 'Wizard', cost: 100, icon: '🪄', wikiImg: 'Staff', color: '#00ffff', desc: 'Magic damage. Access to Elemental spells and Ancient Magicks.', upgrades: 'Bolt → Blast → Wave → Surge / Ancient Spells' },
             { id: 'cannon', name: 'Cannon', cost: 250, icon: '💣', wikiImg: 'Dwarf_multicannon', color: '#00ff00', desc: 'AoE Ranged damage.', upgrades: 'Granite Cannon → Heavy Ballista → Dragon Hunter Ballista' },
             { id: 'tzhaar', name: 'TzHaar', cost: 500, icon: '🛡️', wikiImg: 'TzHaar-Ket', color: '#ff0000', desc: 'Heavy Melee strength.', upgrades: 'Toktz-xil-ak → TzHaar-Ket-Om → Inquisitor\'s Mace' },
-            { id: 'slayer', name: 'Slayer', cost: 750, icon: '⚔️', wikiImg: 'Slayer_helmet', color: '#00ff00', desc: 'Ranged specialist. Bonus vs Tasks.', upgrades: 'Karils Crossbow → Twisted Bow → Zaryte Crossbow' },
+            { id: 'slayer', name: 'Slayer', cost: 750, icon: '⚔️', wikiImg: 'Slayer_icon', color: '#00ff00', desc: 'Ranged specialist. Bonus vs Tasks.', upgrades: 'Karils Crossbow → Twisted Bow → Zaryte Crossbow' },
             { id: 'toxic', name: 'Toxic', cost: 1000, icon: '🐍', wikiImg: 'Toxic_blowpipe', color: '#00ff00', desc: 'Venomous Ranged damage.', upgrades: 'Blowpipe → Serp Blowpipe → Trident → Magma Blowpipe' },
           ].map((tower) => {
             const isSelected = gameState.selectedTower === tower.id;
@@ -1257,15 +1257,16 @@ export default function GameCanvas() {
       {/* Global Tooltip Renderer */}
       {activeTooltip && (
         <div 
-          className="fixed z-[1000] pointer-events-none p-2 bg-black/95 border border-osrs-yellow shadow-2xl w-48 font-osrs"
+          className="fixed z-[9999] pointer-events-none p-2 bg-black/95 border-2 border-osrs-border-dark shadow-2xl w-48 osrs-panel"
           style={{ 
             left: Math.min(window.innerWidth - 200, activeTooltip.x + 10), 
-            top: activeTooltip.y - 100 // Try above mouse
+            top: Math.max(10, activeTooltip.y - 100)
           }}
         >
-          <p className="text-osrs-yellow font-bold text-xs" style={{ color: activeTooltip.color }}>{activeTooltip.title}</p>
-          <p className="text-white text-[10px] mt-1 leading-tight">{activeTooltip.content}</p>
-          {activeTooltip.bonus && <p className="text-osrs-cyan text-[8px] mt-1">{activeTooltip.bonus}</p>}
+          <p className="text-osrs-yellow font-bold text-xs" style={{ color: activeTooltip.color || '#ffff00' }}>{activeTooltip.title}</p>
+          <div className="w-full h-px bg-osrs-border-light/30 my-1" />
+          <p className="text-white text-[10px] leading-tight">{activeTooltip.content}</p>
+          {activeTooltip.bonus && <p className="text-osrs-cyan text-[8px] mt-1 font-bold">{activeTooltip.bonus}</p>}
         </div>
       )}
     </div>

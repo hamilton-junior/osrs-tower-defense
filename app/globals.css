@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'RuneScape';
+  src: url('https://db.onlinewebfonts.com/t/083332009268886d382607137831039a.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
 :root {
   --osrs-brown: #3e3529;
   --osrs-brown-light: #5d5245;
@@ -16,13 +23,13 @@
 body {
   background-color: #000;
   color: #fff;
-  font-family: var(--font-osrs), monospace;
+  font-family: 'RuneScape', var(--font-osrs), monospace;
   overflow: hidden;
   image-rendering: pixelated;
 }
 
 .osrs-font {
-  font-family: var(--font-osrs), monospace;
+  font-family: 'RuneScape', var(--font-osrs), monospace;
 }
 
 /* OSRS Panel - Main Interface Style */
