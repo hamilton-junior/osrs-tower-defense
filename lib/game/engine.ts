@@ -8,6 +8,7 @@ export const TICK = 0.6; // OSRS Game Tick
 
 export interface GlobalUpgrades {
   archerRange: number; // multiplier, e.g. 1.0
+  archerDamage: number;
   magicDamage: number;
   cannonSpeed: number;
   slayerReward: number;
@@ -20,10 +21,10 @@ export interface GlobalUpgrades {
   prayerRegen: number;
 }
 
-export type PrayerType = 'thick_skin' | 'burst_of_strength' | 'clarity_of_thought' | 'sharp_eye' | 'mystic_will' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury';
+export type PrayerType = 'thick_skin' | 'burst_of_strength' | 'clarity_of_thought' | 'sharp_eye' | 'mystic_will' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury' | 'protect_from_melee' | 'protect_from_missiles' | 'protect_from_magic';
 
 export interface ActivePotion {
-  type: 'overload' | 'super_restore' | 'prayer_potion';
+  type: 'overload' | 'super_restore' | 'prayer_potion' | 'ranging' | 'magic' | 'super_combat';
   timer: number;
 }
 
@@ -72,6 +73,9 @@ export interface Enemy {
   burnDamage: number;
   groundTimer: number; // For earth/root effects
   resistance: number; // 0-1, boss resistance to debuffs
+  poisonTimer?: number;
+  venomTimer?: number;
+  venomDamage?: number;
 }
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
@@ -96,6 +100,7 @@ export interface PlayerSkills {
   herblore: TowerSkill;
   crafting: TowerSkill;
   prayer: TowerSkill;
+  farming: TowerSkill;
 }
 
 export interface GatheringNode {
@@ -105,6 +110,7 @@ export interface GatheringNode {
   x: number;
   y: number;
   respawnTimer: number;
+  maxRespawn: number;
   level: number;
   xp: number;
 }
@@ -119,7 +125,27 @@ export interface Item {
     cooldown?: number;
     xpBonus?: number; // % XP bonus (replaces defense)
   };
-  type: 'weapon' | 'shield' | 'accessory';
+  type: 'weapon' | 'shield' | 'accessory' | 'seed' | 'herb' | 'potion' | 'material';
+  seedType?: 'herb' | 'flower' | 'allotment';
+  growthTime?: number; // Seconds per stage
+  harvestItem?: string; // Item ID to harvest
+  potionEffect?: ActivePotion['type'];
+  potionDuration?: number;
+  sellPrice?: number;
+}
+
+export type Region = 'misthalin' | 'karamja' | 'wilderness' | 'morytania';
+
+export interface FarmingPatch {
+  id: string;
+  x: number;
+  y: number;
+  type: 'herb' | 'flower' | 'allotment';
+  seed: string | null; // Item ID
+  stage: number; // 0 = empty, 1 = planted, 2 = growing, 3 = ready
+  timer: number; // Time until next stage
+  yield: number; // Number of herbs to harvest
+  maxStage: number;
 }
 
 export type TargetingPriority = 'first' | 'last' | 'strongest' | 'weakest' | 'closest';
@@ -140,7 +166,7 @@ export interface Tower {
   targetingPriority: TargetingPriority;
   name: string;
   upgradeCost: number;
-  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'burn' | 'amp';
+  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood';
   specCharge: number; // 0-100 special attack charge
   specMax: number;    // damage threshold to fill spec bar
   lastSpecFired?: number;
@@ -173,7 +199,7 @@ export interface Projectile {
   color: string;
   type: 'arrow' | 'spell' | 'cannonball' | 'dart' | 'bolt' | 'magic_projectile' | 'ancient_ice' | 'ancient_blood' | 'ancient_shadow' | 'ancient_smoke' | 'chinchompa' | 'godsword';
   element?: Element; 
-  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'burn' | 'amp';
+  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood';
   sourceTowerId?: string;
 }
 
@@ -283,14 +309,17 @@ export class GameEngine {
   particles: { x: number, y: number, life: number, color: string }[] = [];
   damageNumbers: { x: number, y: number, text: string, life: number, color: string, velocityY: number, velocityX: number }[] = [];
   floatingTexts: { x: number, y: number, text: string, life: number, color: string, icon?: string }[] = [];
-  loots: { id: string, x: number, y: number, type: 'essence' | 'money' | 'item', data?: any, life: number, size: number }[] = [];
+  loots: { id: string, x: number, y: number, type: 'essence' | 'money' | 'item' | 'bones', data?: any, life: number, size: number }[] = [];
   nodes: GatheringNode[] = [];
+  farmingPatches: FarmingPatch[] = [];
+  currentRegion: Region = 'misthalin';
   playerSkills: PlayerSkills = {
     mining: { level: 1, xp: 0 },
     woodcutting: { level: 1, xp: 0 },
     herblore: { level: 1, xp: 0 },
     crafting: { level: 1, xp: 0 },
-    prayer: { level: 1, xp: 0 }
+    prayer: { level: 1, xp: 0 },
+    farming: { level: 1, xp: 0 }
   };
   theme: 'grass' | 'sand' | 'dark' = 'grass';
   messages: string[] = ["Welcome to OSRS Tower Defense!"];
@@ -311,6 +340,9 @@ export class GameEngine {
     { id: 'mystic_will', name: 'Mystic Will', level: 9, drain: 1.5, description: '+5% Magic' },
     { id: 'hawk_eye', name: 'Hawk Eye', level: 26, drain: 3, description: '+10% Ranged' },
     { id: 'ultimate_strength', name: 'Ultimate Strength', level: 31, drain: 4, description: '+15% Strength' },
+    { id: 'protect_from_magic', name: 'Protect from Magic', level: 37, drain: 4, description: 'Protection from Magic attacks' },
+    { id: 'protect_from_missiles', name: 'Protect from Missiles', level: 40, drain: 4, description: 'Protection from Ranged attacks' },
+    { id: 'protect_from_melee', name: 'Protect from Melee', level: 43, drain: 4, description: 'Protection from Melee attacks' },
     { id: 'eagle_eye', name: 'Eagle Eye', level: 44, drain: 5, description: '+15% Ranged' },
     { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Str, +20% Att, +25% Def' },
     { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '+23% Ranged, +23% Ranged Str, +25% Def' },
@@ -420,6 +452,7 @@ export class GameEngine {
   // Persistent Upgrades
   upgrades: GlobalUpgrades = {
     archerRange: 1.0,
+    archerDamage: 1.0,
     magicDamage: 1.0,
     cannonSpeed: 1.0,
     slayerReward: 1.0,
@@ -442,12 +475,14 @@ export class GameEngine {
       this.upgrades = { ...this.upgrades, ...upgrades };
     }
 
+    this.initFarming(); // Initialize farming patches
+
     // Apply starting money upgrade
     this.money = 150 + this.upgrades.startingMoney;
     
-    // Use current canvas size or fallback
-    this.prevWidth = this.canvas.width || 800;
-    this.prevHeight = this.canvas.height || 600;
+    // Use fixed canvas size
+    this.prevWidth = 1200;
+    this.prevHeight = 800;
     this.canvas.width = this.prevWidth;
     this.canvas.height = this.prevHeight;
 
@@ -462,10 +497,10 @@ export class GameEngine {
       }
     }
 
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
-    
     this.initPath();
+    // this.resize(); // Disabled to prevent scaling issues
+    // window.addEventListener('resize', () => this.resize()); // Disabled
+    
     this.initNodes();
     this.assignSlayerTask();
   }
@@ -481,11 +516,11 @@ export class GameEngine {
       shoot_wizard_blood: 'https://oldschool.runescape.wiki/images/transcoded/Blood_Rush.ogg/Blood_Rush.ogg.mp3',
       shoot_wizard_shadow: 'https://oldschool.runescape.wiki/images/transcoded/Shadow_Rush.ogg/Shadow_Rush.ogg.mp3',
       shoot_wizard_smoke: 'https://oldschool.runescape.wiki/images/transcoded/Smoke_Rush.ogg/Smoke_Rush.ogg.mp3',
-      shoot_cannon: 'https://oldschool.runescape.wiki/images/transcoded/Cannon_firing.ogg/Cannon_firing.ogg.mp3',
+      shoot_cannon: 'https://oldschool.runescape.wiki/images/transcoded/Darkness_impact.wav/Darkness_impact.wav.mp3',
       shoot_tzhaar: 'https://oldschool.runescape.wiki/images/transcoded/TzHaar-Ket_attack.ogg/TzHaar-Ket_attack.ogg.mp3',
       shoot_slayer: 'https://oldschool.runescape.wiki/images/transcoded/Slayer_staff_cast.ogg/Slayer_staff_cast.ogg.mp3',
       shoot_support: 'https://oldschool.runescape.wiki/images/transcoded/Heal_Other_cast.ogg/Heal_Other_cast.ogg.mp3',
-      shoot_toxic: 'https://oldschool.runescape.wiki/images/transcoded/Blowpipe_attack.ogg/Blowpipe_attack.ogg.mp3',
+      shoot_toxic: 'https://oldschool.runescape.wiki/images/transcoded/Dart_attack.wav/Dart_attack.wav.ogg',
       hit: 'https://oldschool.runescape.wiki/images/transcoded/Melee_hit_sound.ogg/Melee_hit_sound.ogg.mp3',
       kill: 'https://oldschool.runescape.wiki/images/transcoded/Zombie_death.ogg/Zombie_death.ogg.mp3',
       wave: 'https://oldschool.runescape.wiki/images/transcoded/Teleport_sound.ogg/Teleport_sound.ogg.mp3',
@@ -545,15 +580,15 @@ export class GameEngine {
       // Misc
       portal: 'https://oldschool.runescape.wiki/images/Purple_Portal_Shield.png',
       tree: 'https://oldschool.runescape.wiki/images/Tree.png',
-      ore_adamant: 'https://oldschool.runescape.wiki/images/Adamantite_ore_detail.png',
-      ranarr: 'https://oldschool.runescape.wiki/images/Ranarr_weed_detail.png',
+      ore_adamant: 'https://oldschool.runescape.wiki/images/Adamantite_ore.png',
+      ranarr: 'https://oldschool.runescape.wiki/images/Ranarr_weed.png',
       
       // Icons
       magic_icon: 'https://oldschool.runescape.wiki/images/Magic_icon.png',
       ranged_icon: 'https://oldschool.runescape.wiki/images/Ranged_icon.png',
       strength_icon: 'https://oldschool.runescape.wiki/images/Strength_icon.png',
       attack_icon: 'https://oldschool.runescape.wiki/images/Attack_icon.png',
-      bones_loot: 'https://oldschool.runescape.wiki/images/Bones_detail.png',
+      bones_loot: 'https://oldschool.runescape.wiki/images/Bones.png',
       skill_mining: 'https://oldschool.runescape.wiki/images/Mining_icon.png',
       skill_woodcutting: 'https://oldschool.runescape.wiki/images/Woodcutting_icon.png',
       skill_herblore: 'https://oldschool.runescape.wiki/images/Herblore_icon.png',
@@ -564,11 +599,11 @@ export class GameEngine {
       // Enemies
       goblin: 'https://oldschool.runescape.wiki/images/Goblin.png',
       rat: 'https://oldschool.runescape.wiki/images/Giant_rat.png',
-      cow: 'https://oldschool.runescape.wiki/images/Cow.png',
+      cow: 'https://oldschool.runescape.wiki/images/Cow_(1).png',
       imp: 'https://oldschool.runescape.wiki/images/Imp.png',
-      spider: 'https://oldschool.runescape.wiki/images/Giant_spider.png',
+      spider: 'https://oldschool.runescape.wiki/images/Spider.png',
       scorpion: 'https://oldschool.runescape.wiki/images/Scorpion.png',
-      hill_giant: 'https://oldschool.runescape.wiki/images/Hill_giant.png',
+      hill_giant: 'https://oldschool.runescape.wiki/images/Hill_Giant.png',
       lesser_demon: 'https://oldschool.runescape.wiki/images/Lesser_demon.png',
       green_dragon: 'https://oldschool.runescape.wiki/images/Green_dragon.png',
       blue_dragon: 'https://oldschool.runescape.wiki/images/Blue_dragon.png',
@@ -576,9 +611,9 @@ export class GameEngine {
       abyssal_demon: 'https://oldschool.runescape.wiki/images/Abyssal_demon.png',
       barrow_wight: 'https://oldschool.runescape.wiki/images/Dharok_the_Wretched.png',
       chaos_druid: 'https://oldschool.runescape.wiki/images/Chaos_druid.png',
-      skeletal_mage: 'https://oldschool.runescape.wiki/images/Skeletal_mage.png',
-      skeleton: 'https://oldschool.runescape.wiki/images/Skeleton.png',
-      zombie: 'https://oldschool.runescape.wiki/images/Zombie.png',
+      skeletal_mage: 'https://oldschool.runescape.wiki/images/Skeleton_Mage_(lv_16).png',
+      skeleton: 'https://oldschool.runescape.wiki/images/Skeleton_(level_22%2C_3).png',
+      zombie: 'https://oldschool.runescape.wiki/images/Zombie_(Level_13%2C_14).png',  
       ghost: 'https://oldschool.runescape.wiki/images/Ghost.png',
       hellhound: 'https://oldschool.runescape.wiki/images/Hellhound.png',
       fire_giant: 'https://oldschool.runescape.wiki/images/Fire_giant.png',
@@ -596,14 +631,14 @@ export class GameEngine {
       rock_golem: 'https://oldschool.runescape.wiki/images/Rock_golem.png',
       tangleroot: 'https://oldschool.runescape.wiki/images/Tangleroot.png',
       heron: 'https://oldschool.runescape.wiki/images/Heron.png',
-      rift_guardian: 'https://oldschool.runescape.wiki/images/Rift_guardian.png',
+      rift_guardian: 'https://oldschool.runescape.wiki/images/Rift_guardian_(follower%2C_fire).png',
       baby_mole: 'https://oldschool.runescape.wiki/images/Baby_mole.png',
       vorki: 'https://oldschool.runescape.wiki/images/Vorki.png',
-      snakeling: 'https://oldschool.runescape.wiki/images/Pet_snakeling_%28serpentine%29.png',
+      snakeling: 'https://oldschool.runescape.wiki/images/Snakeling_%28tanzanite%29.png',
       prince_black_dragon: 'https://oldschool.runescape.wiki/images/Prince_black_dragon.png',
-      kalphite_princess: 'https://oldschool.runescape.wiki/images/Kalphite_princess_%28flying%29.png',
+      kalphite_princess: 'https://oldschool.runescape.wiki/images/Kalphite_Princess_2nd_form.png',
       tzrek_jad: 'https://oldschool.runescape.wiki/images/TzRek-Jad.png',
-      ikkle_hydra: 'https://oldschool.runescape.wiki/images/Ikkle_hydra.png',
+      ikkle_hydra: 'https://oldschool.runescape.wiki/images/Ikkle_Hydra_(serpentine).png',
 
       // Towers
       archer_1: 'https://oldschool.runescape.wiki/images/Shortbow.png',
@@ -623,10 +658,10 @@ export class GameEngine {
       wizard_ancients: 'https://oldschool.runescape.wiki/images/Ancient_staff.png',
       wizard_utility: 'https://oldschool.runescape.wiki/images/Ahrim%27s_staff.png',
       
-      cannon_1: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_built.png',
-      cannon_2: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_built.png', // Fallback
-      cannon_3: 'https://oldschool.runescape.wiki/images/Granite_multicannon.png',
-      cannon_4: 'https://oldschool.runescape.wiki/images/Heavy_ballista.png',
+      cannon_1: 'https://oldschool.runescape.wiki/images/Broken_multicannon.png',
+      cannon_2: 'https://oldschool.runescape.wiki/images/Cannon_barrels_%28scenery%29.png',
+      cannon_3: 'https://oldschool.runescape.wiki/images/Broken_multicannon_%28Shattered_Relics_League%29.png',
+      cannon_4: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_%28Shattered_Relics_League%29.png',
       
       slayer_1: 'https://oldschool.runescape.wiki/images/Darklight.png',
       slayer_2: 'https://oldschool.runescape.wiki/images/Arclight.png',
@@ -646,11 +681,11 @@ export class GameEngine {
       // bones_loot is already defined in Icons section
       
       // Items
-      amulet_of_power: 'https://oldschool.runescape.wiki/images/Amulet_of_power_detail.png',
-      anti_dragon_shield: 'https://oldschool.runescape.wiki/images/Anti-dragon_shield_detail.png',
-      combat_bracelet: 'https://oldschool.runescape.wiki/images/Combat_bracelet_detail.png',
-      silverlight: 'https://oldschool.runescape.wiki/images/Silverlight_detail.png',
-      dragon_scimitar: 'https://oldschool.runescape.wiki/images/Dragon_scimitar_detail.png',
+      amulet_of_power: 'https://oldschool.runescape.wiki/images/Amulet_of_power.png',
+      anti_dragon_shield: 'https://oldschool.runescape.wiki/images/Anti-dragon_shield.png',
+      combat_bracelet: 'https://oldschool.runescape.wiki/images/Combat_bracelet.png',
+      silverlight: 'https://oldschool.runescape.wiki/images/Silverlight.png',
+      dragon_scimitar: 'https://oldschool.runescape.wiki/images/Dragon_scimitar.png',
     };
 
     Object.entries(imageUrls).forEach(([key, url]) => {
@@ -958,20 +993,6 @@ export class GameEngine {
     }
   }
 
-  buyPotion(type: 'overload' | 'super_restore' | 'prayer_potion') {
-    const costs = { overload: 100, super_restore: 50, prayer_potion: 30 };
-    if (this.money >= costs[type]) {
-      this.money -= costs[type];
-      if (type === 'overload') {
-        this.activePotions.push({ type: 'overload', timer: 30 }); // 30 seconds
-      } else if (type === 'super_restore' || type === 'prayer_potion') {
-        this.prayerPoints = Math.min(this.maxPrayerPoints, this.prayerPoints + (type === 'super_restore' ? 10 : 5));
-      }
-      this.playSound('potion');
-      this.onStateChange({ money: this.money, prayerPoints: this.prayerPoints });
-    }
-  }
-
   checkAchievements() {
     let changed = false;
     this.achievements.forEach(ach => {
@@ -1045,6 +1066,9 @@ export class GameEngine {
       burnTimer: 0,
       burnDamage: 0,
       groundTimer: 0,
+      poisonTimer: 0,
+      venomTimer: 0,
+      venomDamage: 0,
       resistance: isBoss ? 0.5 : 0
     };
   }
@@ -1195,7 +1219,7 @@ export class GameEngine {
         // Shortbow: max hit ~17 with moderate ammo. Rapid style.
         name = 'Shortbow';
         cost = 50;
-        range = 7 * 25 * this.upgrades.archerRange;
+        range = 7 * 25;
         damage = 13; // ~shortbow with addy arrows max hit
         cooldown = 3 * TICK * 1000; // 3 ticks
         color = '#9acd32';
@@ -1206,7 +1230,7 @@ export class GameEngine {
         name = 'Air Strike';
         cost = 75;
         range = 7 * 25;
-        damage = 8 * this.upgrades.magicDamage;
+        damage = 8;
         cooldown = 5 * TICK * 1000; // 5 ticks
         color = '#a0cfff';
         upgradeCost = 150;
@@ -1524,6 +1548,17 @@ export class GameEngine {
     }
   }
 
+  unequipItem(towerId: string, slot: 'weapon' | 'shield' | 'accessory') {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (tower && tower.equipment[slot]) {
+      const item = tower.equipment[slot];
+      tower.equipment[slot] = null;
+      this.inventory.push(item!);
+      this.playSound('inventory_move');
+      this.onStateChange({ towers: this.towers, inventory: this.inventory });
+    }
+  }
+
   setMageMode(towerId: string, mode: MageMode) {
     const tower = this.towers.find(t => t.id === towerId);
     if (tower && tower.type === 'wizard') {
@@ -1569,18 +1604,25 @@ export class GameEngine {
     const spellTiers = ['Strike', 'Bolt', 'Blast', 'Wave', 'Surge'];
     const ancientTiers = ['Rush', 'Burst', 'Blitz', 'Barrage'];
     
+    // Level Bonus: 10% damage per level
+    const levelMultiplier = 1 + (tower.level * 0.1);
+    
     if (tower.type === 'archer') {
       // Base stats per level (rapid style)
       const baseTiles = [7, 8, 9, 10][Math.min(tower.level - 1, 3)];
       const baseCooldownTicks = [3, 3, 5, 3][Math.min(tower.level - 1, 3)];
-      // Long Range: +3 tiles, +1 tick, same damage
+      
+      const baseDamage = 10 * levelMultiplier;
+
       if (tower.attackStyle === 'long_range') {
-        tower.range = (baseTiles + 3) * tile * this.upgrades.archerRange;
+        tower.range = (baseTiles + 3) * tile;
         tower.cooldown = (baseCooldownTicks + 1) * TICK * 1000;
+        tower.damage = baseDamage;
       } else {
         // Rapid is default
-        tower.range = baseTiles * tile * this.upgrades.archerRange;
+        tower.range = baseTiles * tile;
         tower.cooldown = baseCooldownTicks * TICK * 1000;
+        tower.damage = baseDamage;
       }
     } else if (tower.type === 'wizard') {
       const tier = Math.min(tower.level - 1, 4);
@@ -1589,18 +1631,18 @@ export class GameEngine {
         const elem = tower.element && tower.element !== 'none' ? tower.element : 'air';
         tower.name = `${elem.charAt(0).toUpperCase()}${elem.slice(1)} ${spellTiers[tier]}`;
         const spellMaxHits = [8, 12, 18, 24, 30];
-        tower.damage = spellMaxHits[tier] * this.upgrades.magicDamage;
+        tower.damage = spellMaxHits[tier] * levelMultiplier;
         tower.fireSound = elem === 'air' ? 'shoot_wizard' : `shoot_wizard_${elem}`;
         tower.special = undefined;
       } else if (tower.mageMode === 'ancients') {
         tower.range = 8 * tile;
         const ancientTier = Math.min(tower.level - 1, 3);
         const aType = tower.ancientType || 'ice';
-        const typeNames = { ice: 'Ice', blood: 'Blood', shadow: 'Shadow', smoke: 'Smoke' };
+        const typeNames: Record<string, string> = { ice: 'Ice', blood: 'Blood', shadow: 'Shadow', smoke: 'Smoke' };
         tower.name = `${typeNames[aType]} ${ancientTiers[ancientTier]}`;
         
         const ancientHits = [16, 20, 23, 29];
-        tower.damage = ancientHits[ancientTier] * this.upgrades.magicDamage;
+        tower.damage = ancientHits[ancientTier] * levelMultiplier;
         tower.fireSound = `shoot_wizard_${aType}`;
         
         if (aType === 'ice') {
@@ -1612,7 +1654,7 @@ export class GameEngine {
             tower.special = 'aoe';
           }
         } else if (aType === 'blood') {
-          tower.special = 'blood'; // Marker for % damage
+          tower.special = 'blood'; 
         } else if (aType === 'shadow') {
           tower.special = 'slow';
         } else if (aType === 'smoke') {
@@ -1623,15 +1665,21 @@ export class GameEngine {
         tower.range = 6 * tile;
         const utilTiers = ['Lunar Staff', "Ahrim's Staff", 'Ancient Sceptre', "Tumeken's Shadow"];
         tower.name = utilTiers[Math.min(tower.level - 1, 3)];
-        tower.damage = 0;
+        tower.damage = 5 * levelMultiplier; // Utility does small damage now
         tower.special = undefined;
       }
     } else if (tower.type === 'cannon') {
         tower.range = 9 * tile;
+        tower.damage = 30 * levelMultiplier;
     } else if (tower.type === 'tzhaar') {
         tower.range = (2 + tower.level) * tile;
+        tower.damage = 25 * levelMultiplier;
     } else if (tower.type === 'slayer') {
         tower.range = 7 * tile;
+        tower.damage = 15 * levelMultiplier;
+    } else if (tower.type === 'toxic') {
+        tower.range = 5 * tile;
+        tower.damage = 8 * levelMultiplier;
     }
   }
 
@@ -1754,6 +1802,10 @@ export class GameEngine {
       this.money += amt;
       this.damageNumbers.push({ x: loot.x, y: loot.y, text: `+${amt} GP`, life: 1.5, color: '#ffff00', velocityY: -40, velocityX: 0 });
       this.playSound('sell');
+    } else if (loot.type === 'bones') {
+      this.awardPlayerXP('prayer', 15, loot.x, loot.y);
+      this.playSound('bury_bones');
+      this.damageNumbers.push({ x: loot.x, y: loot.y, text: '+15 Prayer XP', life: 1.5, color: '#ffffff', velocityY: -40, velocityX: 0 });
     } else if (loot.type === 'item' && loot.data) {
       this.inventory.push({ ...loot.data, id: Math.random().toString() });
       this.damageNumbers.push({ x: loot.x, y: loot.y, text: loot.data.name, life: 2.0, color: '#ff8000', velocityY: -50, velocityX: 0 });
@@ -1795,61 +1847,6 @@ export class GameEngine {
           maxRespawn: 15000 + Math.random() * 10000
         });
       }
-    });
-  }
-
-  interactWithNode(node: GatheringNode) {
-    if (node.respawnTimer > 0) return;
-
-    let skillKey: keyof PlayerSkills = 'mining';
-    if (node.type === 'tree') skillKey = 'woodcutting';
-    if (node.type === 'herb') skillKey = 'herblore';
-
-    const skill = this.playerSkills[skillKey];
-
-    if (skill.level < node.level) {
-      this.addMessage(`You need level ${node.level} ${skillKey} to gather this.`);
-      return;
-    }
-
-    // Success chance based on skill level
-    const chance = 0.4 + (skill.level * 0.02);
-    if (Math.random() < chance) {
-      this.playSound('click');
-      node.respawnTimer = node.maxRespawn;
-      
-      // Award XP
-      const xpGain = node.xp;
-      this.awardPlayerXP(skillKey, xpGain, node.x, node.y);
-      
-      this.floatingTexts.push({
-        x: node.x,
-        y: node.y - 20,
-        text: `+${xpGain} XP`,
-        life: 1.5,
-        color: '#00ff00',
-        icon: `${skillKey}_icon`
-      });
-
-      // Award resources
-      if (node.type === 'tree') {
-        this.money += 10 + skill.level;
-        this.addMessage(`You cut some logs from the ${node.name}.`);
-      } else if (node.type === 'ore') {
-        this.runeEssence += 2 + Math.floor(skill.level / 5);
-        this.addMessage(`You mined some ore from the ${node.name}.`);
-      } else {
-        this.money += 20 + skill.level * 2;
-        this.addMessage(`You picked a ${node.name}.`);
-      }
-    } else {
-      this.addMessage(`You fail to gather anything from the ${node.name}.`);
-    }
-
-    this.onStateChange({ 
-      money: this.money, 
-      runeEssence: this.runeEssence, 
-      nodes: this.nodes 
     });
   }
 
@@ -1918,7 +1915,229 @@ export class GameEngine {
     this.animationId = requestAnimationFrame(() => this.loop());
   }
 
+  calculateTowerStats(tower: Tower) {
+    let damageMultiplier = 1.0;
+    let rangeMultiplier = 1.0;
+    let speedMultiplier = 1.0;
+
+    // Apply Global Upgrades
+    if (tower.type === 'archer') {
+      rangeMultiplier *= this.upgrades.archerRange;
+      damageMultiplier *= (this.upgrades.archerDamage || 1.0);
+    } else if (tower.type === 'wizard') {
+      damageMultiplier *= this.upgrades.magicDamage;
+    } else if (tower.type === 'cannon') {
+      speedMultiplier *= this.upgrades.cannonSpeed;
+    }
+
+    // Apply Prayer Bonuses
+    if (tower.type === 'archer') {
+      if (this.activePrayers.has('rigour')) { damageMultiplier *= 1.23; rangeMultiplier *= 1.0; }
+      else if (this.activePrayers.has('eagle_eye')) damageMultiplier *= 1.15;
+      else if (this.activePrayers.has('hawk_eye')) damageMultiplier *= 1.10;
+      else if (this.activePrayers.has('sharp_eye')) damageMultiplier *= 1.05;
+    } else if (tower.type === 'wizard') {
+      if (this.activePrayers.has('augury')) damageMultiplier *= 1.25;
+      else if (this.activePrayers.has('mystic_will')) damageMultiplier *= 1.05;
+    } else if (tower.type === 'tzhaar') {
+      if (this.activePrayers.has('piety')) damageMultiplier *= 1.23;
+      else if (this.activePrayers.has('ultimate_strength')) damageMultiplier *= 1.15;
+      else if (this.activePrayers.has('burst_of_strength')) damageMultiplier *= 1.05;
+    }
+
+    // Apply Potion Bonuses
+    if (this.activePotions.some(p => p.type === 'overload')) {
+      damageMultiplier *= 1.15;
+      rangeMultiplier *= 1.1;
+      speedMultiplier *= 1.1;
+    }
+    if (tower.type === 'archer' && this.activePotions.some(p => p.type === 'ranging')) {
+      damageMultiplier *= 1.15;
+      rangeMultiplier *= 1.1;
+    }
+    if (tower.type === 'wizard' && this.activePotions.some(p => p.type === 'magic')) {
+      damageMultiplier *= 1.2;
+    }
+    if (tower.type === 'tzhaar' && this.activePotions.some(p => p.type === 'super_combat')) {
+      damageMultiplier *= 1.15;
+    }
+
+    // Apply Support Tower (Utility Mage) Buffs
+    this.towers.forEach(t => {
+      if (t.id !== tower.id && t.type === 'wizard' && t.mageMode === 'utility') {
+        const dist = Math.sqrt(Math.pow(t.x - tower.x, 2) + Math.pow(t.y - tower.y, 2));
+        if (dist <= t.range) {
+          // Buffs based on Utility Mage level
+          if (t.level >= 1) rangeMultiplier *= 1.1;
+          if (t.level >= 2) speedMultiplier *= 1.1;
+          if (t.level >= 3) rangeMultiplier *= 1.1; // Stacked
+          if (t.level >= 4) damageMultiplier *= 1.1;
+        }
+      }
+    });
+
+    // Equipment Bonuses
+    if (tower.equipment.weapon) {
+      if (tower.equipment.weapon.bonus.damage) damageMultiplier *= (1 + tower.equipment.weapon.bonus.damage / 100);
+      if (tower.equipment.weapon.bonus.range) rangeMultiplier *= (1 + tower.equipment.weapon.bonus.range / 100);
+      if (tower.equipment.weapon.bonus.cooldown) speedMultiplier *= (1 + tower.equipment.weapon.bonus.cooldown / 100);
+    }
+    if (tower.equipment.shield) {
+      if (tower.equipment.shield.bonus.damage) damageMultiplier *= (1 + tower.equipment.shield.bonus.damage / 100);
+      if (tower.equipment.shield.bonus.range) rangeMultiplier *= (1 + tower.equipment.shield.bonus.range / 100);
+      if (tower.equipment.shield.bonus.cooldown) speedMultiplier *= (1 + tower.equipment.shield.bonus.cooldown / 100);
+    }
+    if (tower.equipment.accessory) {
+      if (tower.equipment.accessory.bonus.damage) damageMultiplier *= (1 + tower.equipment.accessory.bonus.damage / 100);
+      if (tower.equipment.accessory.bonus.range) rangeMultiplier *= (1 + tower.equipment.accessory.bonus.range / 100);
+      if (tower.equipment.accessory.bonus.cooldown) speedMultiplier *= (1 + tower.equipment.accessory.bonus.cooldown / 100);
+    }
+
+    return {
+      damageMultiplier,
+      range: tower.range * rangeMultiplier,
+      cooldown: tower.cooldown / speedMultiplier
+    };
+  }
+
+  initFarming() {
+    this.farmingPatches = [];
+    if (this.currentRegion === 'misthalin') {
+      this.farmingPatches.push({
+        id: 'patch_1',
+        x: 100,
+        y: 150,
+        type: 'allotment',
+        seed: null,
+        stage: 0,
+        timer: 0,
+        yield: 0,
+        maxStage: 4
+      });
+      this.farmingPatches.push({
+        id: 'patch_2',
+        x: 150,
+        y: 150,
+        type: 'herb',
+        seed: null,
+        stage: 0,
+        timer: 0,
+        yield: 0,
+        maxStage: 4
+      });
+    }
+  }
+
+  updateFarming(dt: number) {
+    this.farmingPatches.forEach(patch => {
+      if (patch.stage > 0 && patch.stage < patch.maxStage) {
+        patch.timer -= dt;
+        if (patch.timer <= 0) {
+          patch.stage++;
+          patch.timer = 10; // Default 10s per stage for now
+          if (patch.stage === patch.maxStage) {
+             this.addMessage(`A farming patch is ready to harvest!`);
+             this.playSound('level_up'); // Reuse sound for now
+          }
+        }
+      }
+    });
+  }
+
+  plantSeed(patchId: string, seedItem: Item) {
+    const patch = this.farmingPatches.find(p => p.id === patchId);
+    if (!patch || patch.stage !== 0) return;
+    if (patch.type !== seedItem.seedType) {
+      this.addMessage(`You can't plant ${seedItem.name} in this patch.`);
+      return;
+    }
+    
+    patch.seed = seedItem.id;
+    patch.stage = 1;
+    patch.timer = seedItem.growthTime || 10;
+    patch.yield = 3 + Math.floor(this.playerSkills.farming.level / 10);
+    
+    const idx = this.inventory.findIndex(i => i.id === seedItem.id);
+    if (idx > -1) {
+      this.inventory.splice(idx, 1);
+      this.onStateChange({ inventory: this.inventory });
+    }
+    
+    this.addMessage(`You plant the ${seedItem.name}.`);
+    this.playSound('inventory_move');
+  }
+
+  harvestPatch(patchId: string) {
+    const patch = this.farmingPatches.find(p => p.id === patchId);
+    if (!patch || patch.stage !== patch.maxStage) return;
+    
+    const xp = 50 * patch.yield;
+    this.awardPlayerXP('farming', xp, patch.x, patch.y);
+    
+    // Add harvested items
+    // For now, generate a generic herb item if harvestItem is missing
+    const itemId = patch.seed ? patch.seed.replace('_seed', '') : 'grimy_herb';
+    
+    for(let i=0; i<patch.yield; i++) {
+      this.inventory.push({
+        id: itemId,
+        name: itemId.replace('_', ' '),
+        description: 'A harvested crop.',
+        type: 'herb',
+        bonus: {},
+        sellPrice: 100
+      });
+    }
+    
+    patch.seed = null;
+    patch.stage = 0;
+    patch.timer = 0;
+    patch.yield = 0;
+    
+    this.addMessage(`You harvest the patch.`);
+    this.playSound('inventory_move');
+    this.onStateChange({ inventory: this.inventory });
+  }
+
+  makePotion(herbItem: Item, secondaryItem: Item) {
+     // Simplified: Herb + Vial = Potion
+     // Or just Herb -> Clean Herb -> Potion (with secondary)
+     // Let's assume we just click a "Make Potion" button in UI which calls this
+     
+     // For now, let's just implement a simple "Clean Herb" action
+     if (herbItem.type === 'herb' && herbItem.name.includes('grimy')) {
+        const idx = this.inventory.findIndex(i => i.id === herbItem.id);
+        if (idx > -1) {
+           this.inventory[idx].name = herbItem.name.replace('grimy', 'clean');
+           this.inventory[idx].description = 'A clean herb, ready for potion making.';
+           this.awardPlayerXP('herblore', 10);
+           this.playSound('inventory_move');
+           this.onStateChange({ inventory: this.inventory });
+        }
+     }
+  }
+
+  sellItem(itemIndex: number) {
+    const item = this.inventory[itemIndex];
+    if (!item) return;
+    
+    // Sell price logic: Base price + (Wave * 5)
+    // Cap at 5000 GP to prevent exploitation
+    const basePrice = item.sellPrice || 50;
+    const waveBonus = this.wave * 5;
+    const price = Math.min(5000, basePrice + waveBonus);
+
+    this.money += price;
+    this.inventory.splice(itemIndex, 1);
+    this.playSound('sell');
+    this.addMessage(`Sold ${item.name} for ${price} GP`);
+    this.onStateChange({ money: this.money, inventory: this.inventory });
+  }
+
   update(dt: number, now: number) {
+    // Update Farming
+    this.updateFarming(dt / 1000); // dt is in ms, convert to seconds for farming timer
+
     // Update Shake
     if (this.shakeAmount > 0) {
       this.shakeAmount -= dt * 20;
@@ -2063,11 +2282,13 @@ export class GameEngine {
       
       // Award player based on performance
       const performanceBonus = Math.floor((this.lives * 10) + (this.money * 0.05));
-      const baseReward = 50 + (this.wave * 20);
+      // New Formula: Base + (Enemies * 2) + (Wave * 10)
+      const baseReward = 50 + (this.enemiesToSpawn.length * 2) + (this.wave * 10);
       const totalMoneyReward = Math.floor((baseReward + performanceBonus) * (this.upgrades.rewardMultiplier || 1));
       
-      // Rune Essence based on upgrade level
-      const essenceReward = Math.floor((5 + (this.wave * 2)) * (1 + (this.upgrades.slayerReward || 0) * 0.1));
+      // Rune Essence based on upgrade level and wave
+      // Base 5 + Wave * 1.5
+      const essenceReward = Math.floor((5 + (this.wave * 1.5)) * (1 + (this.upgrades.slayerReward || 0) * 0.1));
       
       this.money += totalMoneyReward;
       this.runeEssence += essenceReward;
@@ -2184,7 +2405,26 @@ export class GameEngine {
       if (enemy.groundTimer > 0) {
           enemy.groundTimer -= dt;
           enemy.speed = 0;
-      } else if (enemy.stunTimer > 0) {
+      }
+
+      // Process Poison
+      if (enemy.poisonTimer && enemy.poisonTimer > 0) {
+        enemy.poisonTimer -= dt;
+        if (Math.random() < dt * 0.5) {
+          this.damageEnemy(enemy, 6, undefined, true);
+        }
+      }
+
+      // Process Venom
+      if (enemy.venomTimer && enemy.venomTimer > 0) {
+        enemy.venomTimer -= dt;
+        if (Math.random() < dt * 0.5) {
+          this.damageEnemy(enemy, enemy.venomDamage || 6, undefined, true);
+          enemy.venomDamage = Math.min(20, (enemy.venomDamage || 6) + 2);
+        }
+      }
+
+      if (enemy.stunTimer > 0) {
           // Handled above via continue
       } else if (enemy.slowTimer > 0) {
           // Handled via speed adjustment
@@ -2261,27 +2501,11 @@ export class GameEngine {
         return;
       }
 
-      let damageMultiplier = 1.0;
-      let rangeMultiplier = 1.0;
-      let speedMultiplier = 1.0;
-
-      // Apply Prayer Bonuses
-      if (tower.type === 'archer') {
-        if (this.activePrayers.has('rigour')) { damageMultiplier = 1.23; rangeMultiplier = 1.0; }
-        else if (this.activePrayers.has('eagle_eye')) damageMultiplier = 1.15;
-        else if (this.activePrayers.has('hawk_eye')) damageMultiplier = 1.10;
-        else if (this.activePrayers.has('sharp_eye')) damageMultiplier = 1.05;
-      } else if (tower.type === 'wizard') {
-        if (this.activePrayers.has('augury')) damageMultiplier = 1.25;
-        else if (this.activePrayers.has('mystic_will')) damageMultiplier = 1.05;
-      } else if (tower.type === 'tzhaar') {
-        if (this.activePrayers.has('piety')) damageMultiplier = 1.23;
-        else if (this.activePrayers.has('ultimate_strength')) damageMultiplier = 1.15;
-        else if (this.activePrayers.has('burst_of_strength')) damageMultiplier = 1.05;
-      }
-
-      const effectiveRange = tower.range * rangeMultiplier * (tower.type === 'archer' ? this.upgrades.archerRange : 1);
-      const effectiveCooldown = tower.cooldown / speedMultiplier;
+      // Calculate Effective Stats
+      const stats = this.calculateTowerStats(tower);
+      const effectiveRange = stats.range;
+      const effectiveCooldown = stats.cooldown;
+      const damageMultiplier = stats.damageMultiplier;
 
       // Targeting
       if (!tower.targetId || !this.enemies.find(e => e.id === tower.targetId)) {
@@ -2381,22 +2605,22 @@ export class GameEngine {
           }
 
           if (tower.type === 'wizard' && tower.mageMode === 'utility') {
-             const rand = Math.random();
-             const spell = tower.supportSpell || (rand < 0.33 ? 'charge' : rand < 0.66 ? 'curse' : 'bind');
-             if (spell === 'charge') {
-                this.playSound('spell_charge');
-                this.towers.forEach(t => {
-                  if (t.id !== tower.id && Math.sqrt(Math.pow(t.x-tower.x,2)+Math.pow(t.y-tower.y,2)) < effectiveRange) {
-                     t.lastFired -= 1000;
-                  }
-                });
-             } else if (spell === 'curse') {
-                this.playSound('spell_curse');
-                this.damageEnemy(target, 15 + (tower.level * 10));
-             } else if (spell === 'bind') {
-                this.playSound('spell_bind');
-                target.stunTimer = (1.5 + tower.level) * (1 - (target.resistance || 0));
+             // Utility Mage is now a passive support tower, but can still fire periodic debuffs
+             if (this.gameTime - tower.lastFired >= effectiveCooldown) {
+                const rand = Math.random();
+                const spell = tower.supportSpell || (rand < 0.5 ? 'curse' : 'bind');
+                if (spell === 'curse') {
+                   this.playSound('spell_curse');
+                   this.damageEnemy(target, 15 + (tower.level * 10));
+                   this.particles.push({ x: target.x, y: target.y, life: 0.5, color: '#ff0000' });
+                } else if (spell === 'bind') {
+                   this.playSound('spell_bind');
+                   target.stunTimer = (1.5 + tower.level) * (1 - (target.resistance || 0));
+                   this.particles.push({ x: target.x, y: target.y, life: 0.5, color: '#0000ff' });
+                }
+                tower.lastFired = this.gameTime;
              }
+             return; // Utility Mage doesn't fire standard projectiles
           }
 
           // Projectile logic
@@ -2415,8 +2639,7 @@ export class GameEngine {
                    pColor = elem === 'fire' ? '#ff4500' : (elem === 'water' ? '#0000ff' : (elem === 'earth' ? '#8b4513' : '#ffffff'));
                 }
              }
-          } else if (tower.type === 'cannon') pType = 'cannonball';
-          else if (tower.type === 'toxic') pType = 'dart';
+          } else if (tower.type === 'toxic') pType = 'dart';
           else if (tower.type === 'slayer') pType = 'bolt';
 
           let pSpecial = tower.special;
@@ -2431,7 +2654,7 @@ export class GameEngine {
             id: Math.random().toString(),
             x: tower.x, y: tower.y,
             targetId: target.id,
-            speed: 400 * (tower.type === 'cannon' ? 1.5 : 1),
+            speed: 400,
             damage: finalDamage,
             color: pColor,
             type: pType,
@@ -2449,8 +2672,7 @@ export class GameEngine {
           }
 
           // Sound
-          if (tower.type === 'cannon') this.playSound('shoot_cannon');
-          else if (tower.type === 'wizard') {
+          if (tower.type === 'wizard') {
             if (tower.mageMode === 'utility') {
                // Sounds handled in utility logic block above
             } else if (tower.mageMode === 'ancients') {
@@ -2677,7 +2899,8 @@ export class GameEngine {
   }
 
   awardTowerXP(tower: Tower, amount: number) {
-    const xpGain = (amount / 2) * (this.upgrades.xpGainMultiplier || 1);
+    // Increased XP gain: 2x base + multiplier
+    const xpGain = (amount * 2) * (this.upgrades.xpGainMultiplier || 1);
     let skillKey: keyof TowerSkills = 'strength';
     
     if (tower.type === 'archer') skillKey = 'ranged';
@@ -2697,16 +2920,23 @@ export class GameEngine {
       icon: `${skillKey}_icon`
     });
     
-    const nextLevelXP = Math.pow(skill.level, 2) * 100;
+    // Lower threshold: Level^1.8 * 80
+    const nextLevelXP = Math.floor(Math.pow(skill.level, 1.8) * 80);
     if (skill.xp >= nextLevelXP) {
       skill.level++;
       skill.xp -= nextLevelXP;
       this.playSound('level_up');
-      this.addMessage(`Your ${tower.name} has reached level ${skill.level} in ${skillKey.toUpperCase()}!`);
+      
+      // Bonus stats based on level
+      const dmgBonus = Math.floor(skill.level * 1.5);
+      const rangeBonus = Math.floor(skill.level * 5);
+      
+      this.addMessage(`Your ${tower.name} reached level ${skill.level}! (+${dmgBonus} DMG)`);
       
       this.particles.push({ x: tower.x, y: tower.y - 20, life: 1, color: '#ffff00' });
       
-      tower.damage += (skillKey === 'strength' ? 4 : 2);
+      // Apply stats immediately
+      this.upgradeTowerStats(tower);
     }
   }
 
@@ -2834,6 +3064,35 @@ export class GameEngine {
     }
   }
 
+  buyPotion(type: ActivePotion['type'] | 'super_restore' | 'prayer_potion', cost: number) {
+    if (this.money >= cost) {
+      this.money -= cost;
+      this.playSound('potion_drink');
+      
+      if (type === 'super_restore' || type === 'prayer_potion') {
+        const restoreAmount = type === 'super_restore' ? 20 : 10;
+        this.prayerPoints = Math.min(this.maxPrayerPoints, this.prayerPoints + restoreAmount);
+        this.addMessage(`You drank a ${type.replace('_', ' ')}!`);
+      } else {
+        const existing = this.activePotions.find(p => p.type === type);
+        if (existing) {
+          existing.timer += 60; // Add 60 seconds
+        } else {
+          this.activePotions.push({ type: type as ActivePotion['type'], timer: 60 });
+        }
+        this.addMessage(`You drank a ${type.replace('_', ' ')} potion!`);
+      }
+      
+      this.onStateChange({ 
+        money: this.money, 
+        activePotions: this.activePotions,
+        prayerPoints: this.prayerPoints 
+      });
+      return true;
+    }
+    return false;
+  }
+
   buyAchievementUpgrade(upgradeId: string): boolean {
     const upgrades: { id: string, cost: number, apply: () => void }[] = [
       { id: 'extra_lives', cost: 50, apply: () => { this.lives = Math.min(100, this.lives + 5); this.onStateChange({ lives: this.lives }); } },
@@ -2855,6 +3114,82 @@ export class GameEngine {
     this.onStateChange({ devMode: this.devMode });
   }
 
+  resetProgress() {
+    this.money = 150 + this.upgrades.startingMoney;
+    this.runeEssence = 0;
+    this.wave = 1;
+    this.enemies = [];
+    this.towers = [];
+    this.projectiles = [];
+    this.activePotions = [];
+    this.inventory = [];
+    this.playerSkills = {
+      mining: { level: 1, xp: 0 },
+      woodcutting: { level: 1, xp: 0 },
+      herblore: { level: 1, xp: 0 },
+      crafting: { level: 1, xp: 0 },
+      prayer: { level: 1, xp: 0 },
+      farming: { level: 1, xp: 0 }
+    };
+    this.upgrades = {
+      archerRange: 1.0,
+      archerDamage: 1.0,
+      magicDamage: 1.0,
+      cannonSpeed: 1.0,
+      slayerReward: 1.0,
+      prayerEfficiency: 1.0,
+      startingMoney: 0,
+      rewardMultiplier: 1.0,
+      waveSpeed: 1.0,
+      towerCostReduction: 1.0,
+      xpGainMultiplier: 1.0,
+      prayerRegen: 0
+    };
+    this.onStateChange({ 
+      money: this.money, 
+      runeEssence: this.runeEssence, 
+      wave: this.wave, 
+      inventory: this.inventory,
+      playerSkills: this.playerSkills,
+      upgrades: this.upgrades
+    });
+    this.addMessage("Progress reset.");
+  }
+
+  setWave(wave: number) {
+    this.wave = Math.max(1, wave);
+    this.waveActive = false;
+    this.enemies = [];
+    this.enemiesToSpawn = [];
+    this.onStateChange({ wave: this.wave, isPlaying: false, enemies: [] });
+    this.addMessage(`Wave set to ${this.wave}.`);
+  }
+
+  interactWithNode(nodeId: string) {
+    const node = this.nodes.find(n => n.id === nodeId);
+    if (!node || node.respawnTimer > 0) return;
+
+    if (node.type === 'tree') {
+      this.awardPlayerXP('woodcutting', 10, node.x, node.y);
+      this.inventory.push({ id: Math.random().toString(), name: 'Logs', type: 'material', description: 'Useful for fletching.', sellPrice: 5, bonus: {} });
+      this.addMessage("You chop some logs.");
+      this.playSound('woodcut');
+    } else if (node.type === 'ore') {
+      this.awardPlayerXP('mining', 10, node.x, node.y);
+      this.inventory.push({ id: Math.random().toString(), name: 'Iron Ore', type: 'material', description: 'Useful for smithing.', sellPrice: 10, bonus: {} });
+      this.addMessage("You mine some ore.");
+      this.playSound('mine');
+    } else if (node.type === 'herb') {
+      this.awardPlayerXP('farming', 10, node.x, node.y);
+      this.inventory.push({ id: Math.random().toString(), name: 'Grimy Guam', type: 'herb', description: 'A dirty herb.', sellPrice: 15, bonus: {} });
+      this.addMessage("You pick a herb.");
+      this.playSound('pick_up');
+    }
+
+    node.respawnTimer = node.maxRespawn;
+    this.onStateChange({ inventory: this.inventory });
+  }
+
   applySlow(enemy: Enemy) {
     const duration = 2.0 * (1 - (enemy.resistance || 0));
     enemy.speed = enemy.baseSpeed * 0.5;
@@ -2871,40 +3206,21 @@ export class GameEngine {
     if (!tower || itemIndex === -1) return;
 
     const item = this.inventory[itemIndex];
+    if (item.type !== 'weapon' && item.type !== 'shield' && item.type !== 'accessory') {
+      this.addMessage("You can't equip this item.");
+      return;
+    }
+
     const currentItem = tower.equipment[item.type];
     if (currentItem) {
       this.inventory.push(currentItem);
-      if (currentItem.bonus.damage) tower.damage -= currentItem.bonus.damage;
-      if (currentItem.bonus.range) tower.range -= currentItem.bonus.range;
-      if (currentItem.bonus.cooldown) tower.cooldown += currentItem.bonus.cooldown;
     }
 
     tower.equipment[item.type] = item;
     this.inventory.splice(itemIndex, 1);
 
-    if (item.bonus.damage) tower.damage += item.bonus.damage;
-    if (item.bonus.range) tower.range += item.bonus.range;
-    if (item.bonus.cooldown) tower.cooldown -= item.bonus.cooldown;
-
     this.playSound('upgrade');
     this.onStateChange({ inventory: this.inventory });
-  }
-
-  unequipItem(towerId: string, slot: 'weapon' | 'shield' | 'accessory') {
-    const tower = this.towers.find(t => t.id === towerId);
-    if (!tower) return;
-
-    const item = tower.equipment[slot];
-    if (item) {
-      this.inventory.push(item);
-      if (item.bonus.damage) tower.damage -= item.bonus.damage;
-      if (item.bonus.range) tower.range -= item.bonus.range;
-      if (item.bonus.cooldown) tower.cooldown += item.bonus.cooldown;
-      
-      tower.equipment[slot] = null;
-      this.playSound('sell');
-      this.onStateChange({ inventory: this.inventory });
-    }
   }
 
   resetGame() {
@@ -2971,6 +3287,19 @@ export class GameEngine {
     this.ctx.stroke();
   }
 
+  drawAmbientEffects() {
+    if (this.currentRegion === 'morytania') {
+       this.ctx.fillStyle = 'rgba(0, 20, 20, 0.2)';
+       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    } else if (this.currentRegion === 'wilderness') {
+       this.ctx.fillStyle = 'rgba(50, 0, 0, 0.1)';
+       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    } else if (this.currentRegion === 'karamja') {
+       this.ctx.fillStyle = 'rgba(255, 255, 0, 0.05)';
+       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+  }
+
   draw() {
     if (!this.ctx || !this.canvas) return;
     const w = this.canvas.width;
@@ -3032,6 +3361,8 @@ export class GameEngine {
         }
       }
 
+      this.drawAmbientEffects();
+
       // Draw Grid
       this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
       this.ctx.lineWidth = 1;
@@ -3048,6 +3379,36 @@ export class GameEngine {
         this.ctx.lineTo(w, y);
         this.ctx.stroke();
       }
+
+      // Draw Farming Patches
+      this.farmingPatches.forEach(patch => {
+        // Draw patch background (brown rect)
+        this.ctx.fillStyle = '#5d4037';
+        this.ctx.fillRect(patch.x - 20, patch.y - 20, 40, 40);
+        this.ctx.strokeStyle = '#3e2723';
+        this.ctx.strokeRect(patch.x - 20, patch.y - 20, 40, 40);
+        
+        if (patch.stage > 0) {
+          // Draw plant based on stage
+          if (patch.type === 'allotment') {
+             this.ctx.fillStyle = '#8bc34a'; // Green
+          } else if (patch.type === 'herb') {
+             this.ctx.fillStyle = '#4caf50'; // Darker green
+          } else {
+             this.ctx.fillStyle = '#ffeb3b'; // Flower
+          }
+          
+          const size = 10 + (patch.stage * 5);
+          this.ctx.fillRect(patch.x - size/2, patch.y - size/2, size, size);
+          
+          if (patch.stage === patch.maxStage) {
+             // Ready indicator
+             this.ctx.fillStyle = '#ff0000';
+             this.ctx.font = 'bold 20px Arial';
+             this.ctx.fillText('!', patch.x - 5, patch.y - 25);
+          }
+        }
+      });
 
       // Set common styles
       this.ctx.lineCap = 'round';
@@ -3101,11 +3462,11 @@ export class GameEngine {
       // Draw Range Preview
       let towerRange = 100;
       if (this.selectedTowerType === 'archer') towerRange = 7 * 25 * this.upgrades.archerRange;
-      if (this.selectedTowerType === 'wizard') towerRange = 7 * 25;
-      if (this.selectedTowerType === 'cannon') towerRange = 9 * 25;
-      if (this.selectedTowerType === 'tzhaar') towerRange = 2 * 25;
-      if (this.selectedTowerType === 'slayer') towerRange = 7 * 25;
-      if (this.selectedTowerType === 'toxic') towerRange = 5 * 25;
+      else if (this.selectedTowerType === 'wizard') towerRange = 7 * 25;
+      else if (this.selectedTowerType === 'cannon') towerRange = 9 * 25;
+      else if (this.selectedTowerType === 'tzhaar') towerRange = 2 * 25;
+      else if (this.selectedTowerType === 'slayer') towerRange = 7 * 25;
+      else if (this.selectedTowerType === 'toxic') towerRange = 5 * 25;
 
       this.ctx.beginPath();
       this.ctx.arc(snappedX, snappedY, towerRange, 0, Math.PI * 2);
@@ -3223,15 +3584,13 @@ export class GameEngine {
 
         // Draw Range if hovered, selected, or toggled
         if (tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId || tower.showRange) {
-          const rangeMultiplier = (this.activePotions.some(p => p.type === 'overload') ? 1.1 : 1.0) * 
-                                  (this.activePrayers.has('rigour') ? 1.2 : 1.0);
-          // Add support aura check if we wanted to be perfectly accurate, but this covers most buffs
+          const stats = this.calculateTowerStats(tower);
           
           this.ctx.beginPath();
           this.ctx.strokeStyle = tower.showRange ? 'rgba(255, 255, 0, 0.4)' : 'rgba(255, 255, 255, 0.3)';
           this.ctx.lineWidth = 2;
           this.ctx.setLineDash([5, 5]);
-          this.ctx.arc(tower.x, tower.y, tower.range * rangeMultiplier, 0, Math.PI * 2);
+          this.ctx.arc(tower.x, tower.y, stats.range, 0, Math.PI * 2);
           this.ctx.stroke();
           this.ctx.setLineDash([]);
           this.ctx.fillStyle = tower.showRange ? 'rgba(255, 255, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)';
@@ -3348,7 +3707,7 @@ export class GameEngine {
           this.ctx.fillText('🔥', enemy.x + 10, enemy.y - 10);
         }
 
-        if (enemy.poisonTimer > 0 || (enemy.venomTimer && enemy.venomTimer > 0)) {
+        if ((enemy.poisonTimer || 0) > 0 || (enemy.venomTimer && enemy.venomTimer > 0)) {
           // Poison green tint
           this.ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
           this.ctx.beginPath();

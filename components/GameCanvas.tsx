@@ -66,6 +66,8 @@ interface GameState {
   selectedPlacedTower?: TowerData | null;
   prayerPoints: number;
   maxPrayerPoints: number;
+  prayerDrainRate?: number;
+  activePotions?: any[];
 }
 
 export default function GameCanvas() {
@@ -90,6 +92,8 @@ export default function GameCanvas() {
     selectedPlacedTower: null,
     prayerPoints: 10,
     maxPrayerPoints: 99,
+    prayerDrainRate: 0,
+    activePotions: [],
     playerSkills: {
       mining: { level: 1, xp: 0 },
       woodcutting: { level: 1, xp: 0 },
@@ -99,7 +103,7 @@ export default function GameCanvas() {
     }
   });
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'quests' | 'achievements' | 'ge' | 'combat'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'quests' | 'achievements' | 'ge' | 'combat' | 'prayer' | 'herblore' | 'settings'>('inventory');
   const [autoSpawn, setAutoSpawn] = useState(false);
   const [autoSpawnDelay, setAutoSpawnDelay] = useState(3);
   const [autoSpawnTimer, setAutoSpawnTimer] = useState(0);
@@ -109,6 +113,7 @@ export default function GameCanvas() {
   const [runeEssence, setRuneEssence] = useState(0);
   const [upgrades, setUpgrades] = useState<GlobalUpgrades>({
     archerRange: 1.0,
+    archerDamage: 1.0,
     magicDamage: 1.0,
     cannonSpeed: 1.0,
     slayerReward: 1.0,
@@ -123,6 +128,7 @@ export default function GameCanvas() {
 
   const UPGRADE_LIMITS = {
     archerRange: 2.0,
+    archerDamage: 2.5,
     magicDamage: 2.5,
     cannonSpeed: 2.0,
     slayerReward: 2.5,
@@ -136,8 +142,10 @@ export default function GameCanvas() {
   };
 
   const [showGrandExchange, setShowGrandExchange] = useState(false);
+  const [geTab, setGeTab] = useState<'upgrades' | 'potions' | 'sell'>('upgrades');
   const [showAchievements, setShowAchievements] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [hoveredEntity, setHoveredEntity] = useState<any | null>(null);
@@ -229,17 +237,16 @@ export default function GameCanvas() {
     // Special attack sound is already handled in engine.useSpecialAttack()
     engineRef.current?.useSpecialAttack();
   };
-  const handleBuyPotion = (type: 'overload' | 'super_restore' | 'prayer_potion') => {
-    // Potion sound is already handled in engine.buyPotion()
-    engineRef.current?.buyPotion(type);
-  };
 
   const getLogicCoords = (clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
-    // Direct 1:1 pixel mapping to fix click offset
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    
+    const scaleX = (canvasRef.current?.width || 1200) / rect.width;
+    const scaleY = (canvasRef.current?.height || 800) / rect.height;
+
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
     return { x, y };
   };
 
@@ -266,6 +273,36 @@ export default function GameCanvas() {
     // Try to collect loot first (clicking bones)
     const collectedLoot = engineRef.current.collectLootAt(x, y);
     if (collectedLoot) return;
+
+    // Check Farming Patches
+    const patch = engineRef.current.farmingPatches.find((p: any) => 
+      x >= p.x - 20 && x <= p.x + 20 && y >= p.y - 20 && y <= p.y + 20
+    );
+    
+    if (patch) {
+      if (patch.stage === patch.maxStage) {
+        engineRef.current.harvestPatch(patch.id);
+      } else if (patch.stage === 0) {
+        const seed = engineRef.current.inventory.find((i: any) => i.type === 'seed');
+        if (seed) {
+          engineRef.current.plantSeed(patch.id, seed);
+        } else {
+          engineRef.current.addMessage("You need seeds to plant here.");
+        }
+      } else {
+        engineRef.current.addMessage("This patch is growing.");
+      }
+      return;
+    }
+
+    // Check Gathering Nodes
+    const node = engineRef.current.nodes.find((n: any) => 
+      x >= n.x - 16 && x <= n.x + 16 && y >= n.y - 16 && y <= n.y + 16
+    );
+    if (node) {
+      engineRef.current.interactWithNode(node.id);
+      return;
+    }
     
     if (gameState.selectedTower) {
       engineRef.current.placeTower(gameState.selectedTower, x, y);
@@ -373,7 +410,7 @@ export default function GameCanvas() {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-hidden bg-[#000] font-osrs select-none">
+    <div className="relative w-full h-full flex flex-col overflow-hidden bg-[#000] font-osrs select-none text-base">
       {/* Canvas */}
       <canvas 
         ref={canvasRef}
@@ -391,7 +428,7 @@ export default function GameCanvas() {
       </div>
 
       {/* Top Overlay: Currency & Waves */}
-      <div className="absolute top-10 left-1/2 -translate-x-1/2 flex gap-4 pointer-events-none z-10">
+      <div className={`absolute top-10 left-1/2 -translate-x-1/2 flex gap-4 pointer-events-none z-10 transition-all duration-300 ${isSidebarCollapsed ? '-translate-y-20 opacity-0' : ''}`}>
         <div className="osrs-panel px-6 py-2 flex items-center gap-8 pointer-events-auto shadow-2xl">
           <div className="flex items-center gap-2 group cursor-help" onMouseEnter={(e) => setActiveTooltip({ x: e.clientX, y: e.clientY, title: 'GP (Coins)', content: 'Main currency used to buy and upgrade towers.', color: '#ffff00' })} onMouseLeave={() => setActiveTooltip(null)}>
             <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-8 h-8 object-contain drop-shadow-md" alt="GP" />
@@ -409,12 +446,22 @@ export default function GameCanvas() {
       </div>
 
       {/* Main Status Column (Right Side) */}
-      <div className="absolute bottom-4 right-4 flex flex-col items-center pointer-events-none group/ui z-20">
-        <div className="flex items-end pointer-events-auto shadow-2xl">
-          {/* HP Bar (Left) */}
-          <div className="w-8 h-[300px] bg-[var(--osrs-brown)] border-2 border-[var(--osrs-border-dark)] relative overflow-hidden flex flex-col-reverse mr-1">
+      <div className="absolute bottom-4 right-4 flex flex-col items-end pointer-events-none group/ui z-20">
+        <div className="flex items-end pointer-events-auto shadow-2xl relative">
+          
+          {/* Collapse Toggle */}
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="absolute -left-5 bottom-0 w-5 h-12 bg-[var(--osrs-brown)] border-l-2 border-t-2 border-b-2 border-[var(--osrs-border-dark)] flex items-center justify-center text-osrs-yellow font-bold z-50 rounded-l hover:bg-[#5d5245] transition-colors"
+          >
+            {isSidebarCollapsed ? '<' : '>'}
+          </button>
+
+          <div className={`flex items-end transition-all duration-300 ${isSidebarCollapsed ? 'translate-x-[260px] opacity-0' : ''}`}>
+            {/* HP Bar (Left) */}
+            <div className="w-8 h-[300px] bg-[var(--osrs-brown)] border-2 border-[var(--osrs-border-dark)] relative overflow-hidden flex flex-col-reverse mr-1">
              <div className="absolute top-1 left-0 right-0 text-center z-10">
-               <span className="text-xs text-white font-bold drop-shadow-md">{gameState.lives}</span>
+               <span className="text-[10px] text-white font-bold drop-shadow-md">{gameState.lives}</span>
              </div>
              <div className="absolute top-6 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center">
                 <img src="https://oldschool.runescape.wiki/images/Hitpoints_icon.png" alt="HP" className="w-full h-full object-contain" />
@@ -423,7 +470,17 @@ export default function GameCanvas() {
           </div>
 
           {/* Main Sidebar Panel */}
-          <div className="flex flex-col w-[220px] h-[300px] osrs-panel relative overflow-hidden flex-shrink-0">
+          <div className="flex flex-col w-[240px] h-[340px] osrs-panel relative overflow-hidden flex-shrink-0 transition-all duration-300">
+            {/* Special Attack Bar - Always Visible */}
+            <div className="px-2 pt-2 pb-1 border-b border-[var(--osrs-border-light)] bg-black/20">
+                <div className="h-5 bg-black border border-[var(--osrs-border-light)] relative rounded overflow-hidden group cursor-pointer" onClick={handleSpecialAttack}>
+                  <div className="h-full bg-gradient-to-r from-[#104e10] via-[#1e8e1e] to-[#2ecc2e]" style={{ width: `${Math.min(100, gameState.specialAttackCharge || 0)}%` }} />
+                  <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white uppercase drop-shadow-md">
+                    Special Attack: {Math.floor(gameState.specialAttackCharge || 0)}%
+                  </div>
+                </div>
+            </div>
+
             <div className="flex-1 p-2 overflow-y-auto custom-scrollbar relative">
               {activeTab === 'combat' && (
                 <div className="flex flex-col gap-3">
@@ -461,15 +518,54 @@ export default function GameCanvas() {
                       </div>
                     </div>
                   )}
-                  <div className="mt-1">
-                    <span className="text-[10px] font-bold text-osrs-orange uppercase block mb-1 text-center">Special Attack</span>
-                    <div className="h-6 bg-black border border-[var(--osrs-border-light)] relative rounded overflow-hidden group cursor-pointer" onClick={handleSpecialAttack}>
-                      <div className="h-full bg-gradient-to-r from-[#104e10] via-[#1e8e1e] to-[#2ecc2e]" style={{ width: `${Math.min(100, gameState.specialAttackCharge || 0)}%` }} />
-                      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white uppercase drop-shadow-md">
-                        {gameState.specialAttackCharge}%
+                </div>
+              )}
+
+              {activeTab === 'settings' && (
+                <div className="flex flex-col gap-3">
+                  <div className="text-center border-b border-[var(--osrs-border-light)] pb-1">
+                    <span className="text-xs font-bold text-osrs-orange uppercase">Settings</span>
+                  </div>
+                  
+                  <button 
+                    onClick={() => engineRef.current?.toggleDevMode()}
+                    className={`osrs-button w-full py-2 text-[10px] uppercase font-bold ${engineRef.current?.devMode ? 'text-osrs-green' : 'text-osrs-red'}`}
+                  >
+                    Dev Mode: {engineRef.current?.devMode ? 'ON' : 'OFF'}
+                  </button>
+
+                  {engineRef.current?.devMode && (
+                    <div className="flex flex-col gap-2 p-2 bg-red-900/20 border border-red-900/50 rounded">
+                      <p className="text-[9px] text-osrs-red font-bold uppercase text-center">Developer Tools</p>
+                      <button 
+                        onClick={() => engineRef.current?.resetProgress()}
+                        className="osrs-button w-full py-1 text-[10px] uppercase"
+                      >
+                        Reset Progress
+                      </button>
+                      <div className="flex gap-1">
+                        <input 
+                          type="number" 
+                          placeholder="Wave" 
+                          className="w-1/2 bg-black border border-[var(--osrs-border-light)] text-white text-xs px-1"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              engineRef.current?.setWave(parseInt((e.target as HTMLInputElement).value));
+                            }
+                          }}
+                        />
+                        <button 
+                          className="osrs-button w-1/2 py-1 text-[10px] uppercase"
+                          onClick={(e) => {
+                             const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                             engineRef.current?.setWave(parseInt(input.value));
+                          }}
+                        >
+                          Set Wave
+                        </button>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -594,37 +690,95 @@ export default function GameCanvas() {
                 </div>
               )}
 
-               {activeTab === ('prayer' as any) && (
+               {activeTab === 'prayer' && (
                 <div className="flex flex-col gap-2">
                   <div className="text-center border-b border-[var(--osrs-border-light)] pb-1">
                     <span className="text-xs font-bold text-osrs-orange uppercase">Prayers</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-1 mt-1">
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-[10px] text-osrs-cyan font-bold">Points: {Math.ceil(gameState.prayerPoints || 0)} / {gameState.maxPrayerPoints}</span>
+                    <span className="text-[9px] text-[#c0c0c0] italic">Drain: {gameState.prayerDrainRate?.toFixed(1) || 0}/s</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 mt-1">
                     {((engineRef.current as any)?.allPrayers || []).map((p: any) => {
                       const isActive = (engineRef.current as any)?.activePrayers.has(p.id);
+                      const canUse = (gameState.playerSkills?.prayer?.level || 1) >= p.level;
                       return (
                         <div 
                           key={p.id} 
-                          className={`aspect-square border cursor-pointer relative group/prayer ${isActive ? 'bg-osrs-green/20 border-osrs-yellow' : 'bg-black/40 border-[var(--osrs-border-light)]'}`}
-                          onClick={() => engineRef.current?.togglePrayer(p.id)}
+                          className={`aspect-square border cursor-pointer relative group/prayer flex items-center justify-center ${isActive ? 'bg-osrs-green/30 border-osrs-yellow shadow-[0_0_5px_rgba(255,255,0,0.5)]' : 'bg-black/40 border-[var(--osrs-border-light)]'} ${!canUse ? 'opacity-30 grayscale' : 'hover:border-white'}`}
+                          onClick={() => canUse && engineRef.current?.togglePrayer(p.id)}
                           onMouseEnter={(e) => setActiveTooltip({
                             x: e.clientX, y: e.clientY,
                             title: p.name, content: p.description,
-                            bonus: `Drain: ${p.drain}/s`, color: '#ffff00'
+                            bonus: canUse ? `Drain: ${p.drain}/s` : `Requires Level ${p.level} Prayer`, 
+                            color: canUse ? '#ffff00' : '#ff0000'
                           })}
                           onMouseLeave={() => setActiveTooltip(null)}
                         >
-                          <img src={`https://oldschool.runescape.wiki/images/${p.name.replace(/ /g, '_')}_icon.png`} className="w-full h-full object-contain p-1" alt="" />
+                          <img 
+                            src={`https://oldschool.runescape.wiki/images/${p.name.replace(/ /g, '_')}_icon.png`} 
+                            className="w-full h-full object-contain p-1" 
+                            alt="" 
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Prayer_icon.png';
+                            }}
+                          />
+                          {!canUse && <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-osrs-red">Lvl {p.level}</div>}
                         </div>
                       );
                     })}
                   </div>
                 </div>
               )}
+              {activeTab === 'herblore' && (
+                <div className="flex flex-col h-full overflow-y-auto p-2 gap-2">
+                  <div className="flex justify-between items-center mb-2 bg-black/20 p-2 rounded border border-[var(--osrs-border-light)]">
+                    <div className="flex items-center gap-2">
+                       <img src="https://oldschool.runescape.wiki/images/Herblore_icon.png" className="w-6 h-6 object-contain" alt="" />
+                       <span className="text-osrs-green font-bold text-lg">Level: {gameState.playerSkills?.herblore?.level || 1}</span>
+                    </div>
+                    <p className="text-xs text-[#c0c0c0] italic">Mix potions for combat buffs.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { name: 'Attack Potion', ingredients: 'Guam + Eye of Newt', level: 1, xp: 25, icon: 'Attack_potion(3)' },
+                      { name: 'Strength Potion', ingredients: 'Tarromin + Limpwurt', level: 12, xp: 50, icon: 'Strength_potion(3)' },
+                      { name: 'Defense Potion', ingredients: 'Ranarr + White Berries', level: 30, xp: 75, icon: 'Defence_potion(3)' },
+                      { name: 'Prayer Potion', ingredients: 'Ranarr + Snape Grass', level: 38, xp: 87.5, icon: 'Prayer_potion(3)' },
+                      { name: 'Super Attack', ingredients: 'Irit + Eye of Newt', level: 45, xp: 100, icon: 'Super_attack(3)' },
+                      { name: 'Super Strength', ingredients: 'Kwuarm + Limpwurt', level: 55, xp: 125, icon: 'Super_strength(3)' },
+                      { name: 'Super Defence', ingredients: 'Cadantine + White Berries', level: 66, xp: 150, icon: 'Super_defence(3)' },
+                      { name: 'Ranging Potion', ingredients: 'Dwarf Weed + Wine of Zamorak', level: 72, xp: 162.5, icon: 'Ranging_potion(3)' },
+                      { name: 'Magic Potion', ingredients: 'Lantadyme + Potato Cactus', level: 76, xp: 172.5, icon: 'Magic_potion(3)' },
+                      { name: 'Saradomin Brew', ingredients: 'Toadflax + Crushed Nest', level: 81, xp: 180, icon: 'Saradomin_brew(3)' },
+                    ].map((potion) => (
+                      <div key={potion.name} className="bg-[#3e2e18] p-2 border border-[var(--osrs-border-light)] flex justify-between items-center group hover:border-osrs-yellow transition-colors">
+                        <div className="flex items-center gap-3">
+                          <img src={`https://oldschool.runescape.wiki/images/${potion.icon}.png`} className="w-8 h-8 object-contain" alt="" />
+                          <div>
+                            <p className="text-osrs-orange font-bold text-xs group-hover:text-white">{potion.name}</p>
+                            <p className="text-[10px] text-[#c0c0c0]">{potion.ingredients}</p>
+                            <p className="text-[9px] text-osrs-green">Lvl {potion.level} • {potion.xp} XP</p>
+                          </div>
+                        </div>
+                        <button 
+                          className={`osrs-button px-3 py-1.5 text-[10px] font-bold uppercase ${(gameState.playerSkills?.herblore?.level || 1) >= potion.level ? 'text-osrs-yellow hover:text-white' : 'opacity-50 cursor-not-allowed'}`}
+                          disabled={(gameState.playerSkills?.herblore?.level || 1) < potion.level}
+                          onClick={() => engineRef.current?.addMessage("You don't have the ingredients.")}
+                        >
+                          Mix
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {activeTab === 'ge' && (
                 <div className="flex flex-col items-center justify-center h-full gap-4">
                   <div className="osrs-panel p-2 flex flex-col items-center gap-2 w-full">
-                     <img src="https://oldschool.runescape.wiki/images/Exchange_icon.png" className="w-12 h-12 object-contain" alt="" />
+                     <img src="https://oldschool.runescape.wiki/images/Grand_Exchange_logo.png" className="w-12 h-12 object-contain" alt="" />
                      <button onClick={() => {
                        engineRef.current?.playSound('interface_open');
                        setShowGrandExchange(true);
@@ -633,10 +787,57 @@ export default function GameCanvas() {
                   <p className="text-[10px] text-[#c0c0c0] text-center font-mono">Market access for upgrades and supplies.</p>
                 </div>
               )}
+              {activeTab === 'settings' && (
+                <div className="flex flex-col gap-3">
+                  <div className="text-center border-b border-[var(--osrs-border-light)] pb-1">
+                    <span className="text-xs font-bold text-osrs-orange uppercase">Settings</span>
+                  </div>
+                  
+                  <button 
+                    onClick={() => engineRef.current?.toggleDevMode()}
+                    className={`osrs-button w-full py-2 text-[10px] uppercase font-bold ${engineRef.current?.devMode ? 'text-osrs-green' : 'text-osrs-red'}`}
+                  >
+                    Dev Mode: {engineRef.current?.devMode ? 'ON' : 'OFF'}
+                  </button>
+
+                  {engineRef.current?.devMode && (
+                    <div className="flex flex-col gap-2 p-2 bg-red-900/20 border border-red-900/50 rounded">
+                      <p className="text-[9px] text-osrs-red font-bold uppercase text-center">Developer Tools</p>
+                      <button 
+                        onClick={() => engineRef.current?.resetProgress()}
+                        className="osrs-button w-full py-1 text-[10px] uppercase"
+                      >
+                        Reset Progress
+                      </button>
+                      <div className="flex gap-1">
+                        <input 
+                          type="number" 
+                          placeholder="Wave" 
+                          className="w-1/2 bg-black border border-[var(--osrs-border-light)] text-white text-xs px-1"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              engineRef.current?.setWave(parseInt((e.target as HTMLInputElement).value));
+                            }
+                          }}
+                        />
+                        <button 
+                          className="osrs-button w-1/2 py-1 text-[10px] uppercase"
+                          onClick={(e) => {
+                             const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                             engineRef.current?.setWave(parseInt(input.value));
+                          }}
+                        >
+                          Set Wave
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             {/* The Tab Icons Panel (Fixed Bottom) */}
-            <div className="grid grid-cols-6 w-full bg-[var(--osrs-brown)] border-t-2 border-[var(--osrs-border-dark)] p-0.5 h-10 flex-shrink-0 gap-[1px]">
+            <div className="grid grid-cols-8 w-full bg-[var(--osrs-brown)] border-t-2 border-[var(--osrs-border-dark)] p-0.5 h-10 flex-shrink-0 gap-[1px]">
               <button onClick={() => handleTabChange('combat')} className={`osrs-tab flex items-center justify-center ${activeTab === 'combat' ? 'active' : ''}`} title="Combat Control">
                 <img src="https://oldschool.runescape.wiki/images/Attack_icon.png" className="w-6 h-6 object-contain" alt="" />
               </button>
@@ -652,23 +853,19 @@ export default function GameCanvas() {
               <button onClick={() => handleTabChange('ge')} className={`osrs-tab flex items-center justify-center ${activeTab === 'ge' ? 'active' : ''}`} title="Grand Exchange">
                 <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-6 h-6 object-contain" alt="" />
               </button>
-              <button onClick={() => handleTabChange('prayer' as any)} className={`osrs-tab flex items-center justify-center ${activeTab === ('prayer' as any) ? 'active' : ''}`} title="Prayers">
+              <button onClick={() => handleTabChange('prayer')} className={`osrs-tab flex items-center justify-center ${activeTab === 'prayer' ? 'active' : ''}`} title="Prayers">
                 <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" className="w-6 h-6 object-contain" alt="" />
+              </button>
+              <button onClick={() => handleTabChange('herblore')} className={`osrs-tab flex items-center justify-center ${activeTab === 'herblore' ? 'active' : ''}`} title="Herblore">
+                <img src="https://oldschool.runescape.wiki/images/Herblore_icon.png" className="w-6 h-6 object-contain" alt="" />
+              </button>
+              <button onClick={() => handleTabChange('settings')} className={`osrs-tab flex items-center justify-center ${activeTab === 'settings' ? 'active' : ''}`} title="Settings">
+                <img src="https://oldschool.runescape.wiki/images/Settings.png" className="w-6 h-6 object-contain" alt="" />
               </button>
             </div>
           </div>
-
-            {/* Prayer Bar (Right) */}
-          <div className="w-8 h-[300px] bg-[var(--osrs-brown)] border-2 border-[var(--osrs-border-dark)] relative overflow-hidden flex flex-col-reverse ml-1">
-             <div className="absolute top-1 left-0 right-0 text-center z-10">
-               <span className="text-xs text-white font-bold drop-shadow-md">{(gameState as any).prayerPoints?.toFixed(0)}</span>
-             </div>
-             <div className="absolute top-6 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center">
-                <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" alt="Prayer" className="w-full h-full object-contain" />
-             </div>
-             <div className="w-full bg-[var(--osrs-cyan)] transition-all duration-500 border-t border-[#ccffff]" style={{ height: `${((gameState as any).prayerPoints / (gameState as any).maxPrayerPoints) * 100}%` }} />
-          </div>
         </div>
+      </div>
       </div>
 
       {/* Achievements Modal */}
@@ -865,58 +1062,165 @@ export default function GameCanvas() {
             </div>
             
             <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[url('https://oldschool.runescape.wiki/images/Back_pattern.png')]">
-              <div className="flex justify-between items-center mb-4 bg-black/20 p-2 rounded border border-[var(--osrs-border-light)]">
-                <div className="flex items-center gap-2">
-                   <img src="https://oldschool.runescape.wiki/images/Rune_essence_detail.png" className="w-6 h-6 object-contain" alt="" />
-                   <span className="text-osrs-cyan font-bold text-lg">Essence: {gameState.runeEssence}</span>
-                </div>
-                <p className="text-xs text-[#c0c0c0] italic">Purchase permanent upgrades for your account.</p>
+              <div className="flex gap-2 mb-4 border-b border-[var(--osrs-border-light)] pb-2">
+                <button 
+                  onClick={() => setGeTab('upgrades')}
+                  className={`px-4 py-1 text-xs font-bold uppercase transition-all ${geTab === 'upgrades' ? 'text-osrs-yellow border-b-2 border-osrs-yellow' : 'text-[#808080] hover:text-white'}`}
+                >
+                  Upgrades
+                </button>
+                <button 
+                  onClick={() => setGeTab('potions')}
+                  className={`px-4 py-1 text-xs font-bold uppercase transition-all ${geTab === 'potions' ? 'text-osrs-yellow border-b-2 border-osrs-yellow' : 'text-[#808080] hover:text-white'}`}
+                >
+                  Potions
+                </button>
+                <button 
+                  onClick={() => setGeTab('sell')}
+                  className={`px-4 py-1 text-xs font-bold uppercase transition-all ${geTab === 'sell' ? 'text-osrs-yellow border-b-2 border-osrs-yellow' : 'text-[#808080] hover:text-white'}`}
+                >
+                  Sell
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { id: 'archerDamage', name: 'Ranged Strength', desc: 'Archer Damage +10%', cost: 10, inc: 0.1 },
-                  { id: 'wizardDamage', name: 'Mystic Might', desc: 'Wizard Damage +10%', cost: 15, inc: 0.1 },
-                  { id: 'cannonSpeed', name: 'Dwarf Engineering', desc: 'Cannon Speed +10%', cost: 20, inc: 0.1 },
-                  { id: 'slayerReward', name: 'Slayer Helmet', desc: 'Slayer Reward +15%', cost: 25, inc: 0.15 },
-                  { id: 'prayerEfficiency', name: 'Holy Grail', desc: 'Prayer Drain -10%', cost: 30, inc: 0.1 },
-                  { id: 'startingMoney', name: 'Merchant Guild', desc: 'Starting GP +50', cost: 40, inc: 50 },
-                  { id: 'rewardMultiplier', name: 'Wealth Ring', desc: 'Enemy Rewards +15%', cost: 50, inc: 0.15 },
-                  { id: 'towerCostReduction', name: 'Guild Discount', desc: 'Tower Price -5%', cost: 60, inc: -0.05 },
-                  { id: 'xpGainMultiplier', name: 'Combat Training', desc: 'Tower XP +20%', cost: 70, inc: 0.2 },
-                  { id: 'prayerRegen', name: 'Prayer Renewal', desc: 'Prayer Regen +0.1/s', cost: 80, inc: 0.1 },
-                  { id: 'waveSpeed', name: 'Agility Training', desc: 'Wave Spawn Speed +10%', cost: 90, inc: 0.1 },
-                ].map((item) => {
-                  const isMaxed = upgrades[item.id as keyof GlobalUpgrades] >= UPGRADE_LIMITS[item.id as keyof GlobalUpgrades];
-                  return (
-                    <div key={item.id} className="flex justify-between items-center bg-[#3e2e18] p-2 border border-[var(--osrs-border-light)] hover:border-osrs-yellow transition-colors group shadow-sm">
-                      <div>
-                        <div className="text-osrs-yellow font-bold text-sm group-hover:text-white transition-colors">{item.name}</div>
-                        <div className="text-[#c0c0c0] text-[10px] italic">{item.desc}</div>
-                        <div className="text-osrs-green text-[10px] mt-1 font-mono">
-                          {item.id === 'startingMoney' 
-                            ? `Current: ${upgrades[item.id as keyof GlobalUpgrades]}`
-                            : `Current: ${upgrades[item.id as keyof GlobalUpgrades] > 1.0 ? '+' : ''}${Math.round((upgrades[item.id as keyof GlobalUpgrades] - 1) * 100)}%`
-                          }
-                          {isMaxed && <span className="ml-2 text-osrs-red font-bold">[MAX]</span>}
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => buyUpgrade(item.id as keyof GlobalUpgrades, item.cost, item.inc)}
-                        disabled={runeEssence < item.cost || isMaxed}
-                        className={`
-                          osrs-button px-3 py-1.5 text-[10px] font-bold uppercase
-                          ${runeEssence >= item.cost && !isMaxed
-                            ? 'text-osrs-yellow hover:text-white' 
-                            : 'opacity-50 cursor-not-allowed'}
-                        `}
-                      >
-                        {isMaxed ? 'Maxed' : `${item.cost} Ess`}
-                      </button>
+              {geTab === 'upgrades' ? (
+                <>
+                  <div className="flex justify-between items-center mb-4 bg-black/20 p-2 rounded border border-[var(--osrs-border-light)]">
+                    <div className="flex items-center gap-2">
+                       <img src="https://oldschool.runescape.wiki/images/Rune_essence_detail.png" className="w-6 h-6 object-contain" alt="" />
+                       <span className="text-osrs-cyan font-bold text-lg">Essence: {gameState.runeEssence}</span>
                     </div>
-                  );
-                })}
-              </div>
+                    <p className="text-xs text-[#c0c0c0] italic">Purchase permanent upgrades for your account.</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { id: 'archerDamage', name: 'Ranged Strength', desc: 'Archer Damage +10%', cost: 10, inc: 0.1 },
+                      { id: 'wizardDamage', name: 'Mystic Might', desc: 'Wizard Damage +10%', cost: 15, inc: 0.1 },
+                      { id: 'cannonSpeed', name: 'Dwarf Engineering', desc: 'Cannon Speed +10%', cost: 20, inc: 0.1 },
+                      { id: 'slayerReward', name: 'Slayer Helmet', desc: 'Slayer Reward +15%', cost: 25, inc: 0.15 },
+                      { id: 'prayerEfficiency', name: 'Holy Grail', desc: 'Prayer Drain -10%', cost: 30, inc: 0.1 },
+                      { id: 'startingMoney', name: 'Merchant Guild', desc: 'Starting GP +50', cost: 40, inc: 50 },
+                      { id: 'rewardMultiplier', name: 'Wealth Ring', desc: 'Enemy Rewards +15%', cost: 50, inc: 0.15 },
+                      { id: 'towerCostReduction', name: 'Guild Discount', desc: 'Tower Price -5%', cost: 60, inc: -0.05 },
+                      { id: 'xpGainMultiplier', name: 'Combat Training', desc: 'Tower XP +20%', cost: 70, inc: 0.2 },
+                      { id: 'prayerRegen', name: 'Prayer Renewal', desc: 'Prayer Regen +0.1/s', cost: 80, inc: 0.1 },
+                      { id: 'waveSpeed', name: 'Agility Training', desc: 'Wave Spawn Speed +10%', cost: 90, inc: 0.1 },
+                    ].map((item) => {
+                      const isMaxed = upgrades[item.id as keyof GlobalUpgrades] >= UPGRADE_LIMITS[item.id as keyof GlobalUpgrades];
+                      return (
+                        <div key={item.id} className="flex justify-between items-center bg-[#3e2e18] p-2 border border-[var(--osrs-border-light)] hover:border-osrs-yellow transition-colors group shadow-sm">
+                          <div>
+                            <div className="text-osrs-yellow font-bold text-sm group-hover:text-white transition-colors">{item.name}</div>
+                            <div className="text-[#c0c0c0] text-[10px] italic">{item.desc}</div>
+                            <div className="text-osrs-green text-[10px] mt-1 font-mono">
+                              {item.id === 'startingMoney' 
+                                ? `Current: ${upgrades[item.id as keyof GlobalUpgrades]}`
+                                : `Current: ${upgrades[item.id as keyof GlobalUpgrades] > 1.0 ? '+' : ''}${Math.round((upgrades[item.id as keyof GlobalUpgrades] - 1) * 100)}%`
+                              }
+                              {isMaxed && <span className="ml-2 text-osrs-red font-bold">[MAX]</span>}
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => buyUpgrade(item.id as keyof GlobalUpgrades, item.cost, item.inc)}
+                            disabled={runeEssence < item.cost || isMaxed}
+                            className={`
+                              osrs-button px-3 py-1.5 text-[10px] font-bold uppercase
+                              ${runeEssence >= item.cost && !isMaxed
+                                ? 'text-osrs-yellow hover:text-white' 
+                                : 'opacity-50 cursor-not-allowed'}
+                            `}
+                          >
+                            {isMaxed ? 'Maxed' : `${item.cost} Ess`}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : geTab === 'potions' ? (
+                <>
+                  <div className="flex justify-between items-center mb-4 bg-black/20 p-2 rounded border border-[var(--osrs-border-light)]">
+                    <div className="flex items-center gap-2">
+                       <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-6 h-6 object-contain" alt="" />
+                       <span className="text-osrs-yellow font-bold text-lg">GP: {gameState.money}</span>
+                    </div>
+                    <p className="text-xs text-[#c0c0c0] italic">Temporary combat boosts for your towers.</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { id: 'ranging', name: 'Ranging Potion', desc: 'Archer Damage & Range +15%', cost: 100, wiki: 'Ranging_potion(4)' },
+                      { id: 'magic', name: 'Magic Potion', desc: 'Wizard Damage +20%', cost: 150, wiki: 'Magic_potion(4)' },
+                      { id: 'super_combat', name: 'Super Combat Potion', desc: 'TzHaar Damage +15%', cost: 200, wiki: 'Super_combat_potion(4)' },
+                      { id: 'prayer_potion', name: 'Prayer Potion', desc: 'Restore 10 Prayer Points', cost: 50, wiki: 'Prayer_potion(4)' },
+                      { id: 'super_restore', name: 'Super Restore', desc: 'Restore 20 Prayer Points', cost: 100, wiki: 'Super_restore(4)' },
+                      { id: 'overload', name: 'Overload Potion', desc: 'All Towers +15% Stats', cost: 500, wiki: 'Overload_(4)' },
+                    ].map((item) => {
+                      return (
+                        <div key={item.id} className="flex justify-between items-center bg-[#3e2e18] p-2 border border-[var(--osrs-border-light)] hover:border-osrs-yellow transition-colors group shadow-sm">
+                          <div className="flex items-center gap-2">
+                            <img src={`https://oldschool.runescape.wiki/images/${item.wiki}.png`} className="w-8 h-8 object-contain" alt="" />
+                            <div>
+                              <div className="text-osrs-yellow font-bold text-sm group-hover:text-white transition-colors">{item.name}</div>
+                              <div className="text-[#c0c0c0] text-[10px] italic">{item.desc}</div>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => engineRef.current?.buyPotion(item.id as any, item.cost)}
+                            disabled={gameState.money < item.cost}
+                            className={`
+                              osrs-button px-3 py-1.5 text-[10px] font-bold uppercase
+                              ${gameState.money >= item.cost
+                                ? 'text-osrs-yellow hover:text-white' 
+                                : 'opacity-50 cursor-not-allowed'}
+                            `}
+                          >
+                            {item.cost} GP
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between items-center mb-4 bg-black/20 p-2 rounded border border-[var(--osrs-border-light)]">
+                    <div className="flex items-center gap-2">
+                       <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-6 h-6 object-contain" alt="" />
+                       <span className="text-osrs-yellow font-bold text-lg">GP: {gameState.money}</span>
+                    </div>
+                    <p className="text-xs text-[#c0c0c0] italic">Sell items from your inventory for GP.</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 gap-2">
+                    {gameState.inventory && gameState.inventory.map((item: any, index: number) => (
+                      <div key={index} className="bg-[#3e2e18] p-2 border border-[var(--osrs-border-light)] flex flex-col items-center gap-2 group hover:border-osrs-yellow transition-colors cursor-pointer relative" onClick={() => engineRef.current?.sellItem(index)}>
+                        <div className="w-8 h-8 flex items-center justify-center">
+                          <img 
+                            src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}_detail.png`} 
+                            className="max-w-full max-h-full object-contain" 
+                            onError={(e) => { 
+                              const img = e.target as HTMLImageElement;
+                              if (img.src.includes('_detail')) {
+                                img.src = `https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`;
+                              } else {
+                                img.style.display = 'none';
+                              }
+                            }} 
+                            alt={item.name}
+                          />
+                        </div>
+                        <p className="text-[9px] text-center truncate w-full text-white group-hover:text-osrs-yellow">{item.name}</p>
+                        <span className="text-osrs-yellow text-[10px] font-bold">{item.sellPrice || 10} GP</span>
+                      </div>
+                    ))}
+                    {(!gameState.inventory || gameState.inventory.length === 0) && (
+                      <p className="col-span-4 text-center text-[#808080] italic py-4">Your inventory is empty.</p>
+                    )}
+                  </div>
+                </>
+              )}
               
               <div className="mt-6 text-center text-[10px] text-[#808080] italic">
                 * Upgrades are permanent and persist across games.
@@ -957,6 +1261,44 @@ export default function GameCanvas() {
                     <span className="font-bold text-white">Lvl {skill.level}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Equipment Section */}
+            <div className="mt-2 border-t border-[var(--osrs-border-light)] pt-2">
+              <p className="text-[10px] font-bold text-osrs-yellow mb-1 uppercase tracking-wider">Equipment</p>
+              <div className="grid grid-cols-3 gap-1">
+                {['weapon', 'shield', 'accessory'].map(slot => {
+                  const item = gameState.selectedPlacedTower?.equipment?.[slot as keyof typeof gameState.selectedPlacedTower.equipment];
+                  return (
+                    <div 
+                      key={slot} 
+                      className="aspect-square bg-black/40 border border-[var(--osrs-border-light)] rounded flex flex-col items-center justify-center relative group/eq"
+                    >
+                      <span className="text-[7px] text-[#808080] absolute top-0.5 uppercase">{slot.slice(0, 3)}</span>
+                      {item ? (
+                        <img 
+                          src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} 
+                          className="w-8 h-8 object-contain p-1" 
+                          alt={item.name} 
+                        />
+                      ) : (
+                        <span className="text-lg opacity-20">{slot === 'weapon' ? '⚔️' : slot === 'shield' ? '🛡️' : '💍'}</span>
+                      )}
+                      {item && (
+                        <div className="absolute inset-0 bg-black/95 opacity-0 group-hover/eq:opacity-100 transition-opacity p-1 flex flex-col items-center justify-center text-[8px] z-10 rounded">
+                          <span className="text-osrs-yellow font-bold truncate w-full">{item.name}</span>
+                          <button 
+                            onClick={() => engineRef.current?.unequipItem(gameState.selectedPlacedTower!.id, slot as any)}
+                            className="text-osrs-red mt-1 hover:text-white"
+                          >
+                            Unequip
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1077,8 +1419,13 @@ export default function GameCanvas() {
           {hoveredEntity.type === 'enemy' ? (
             <div className="space-y-0.5">
               <p>HP: <span className="text-white">{Math.ceil(hoveredEntity.data.hp)} / {hoveredEntity.data.maxHp}</span></p>
-              <p>Speed: <span className="text-white">{hoveredEntity.data.speed}</span></p>
-              <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click for info</p>
+              <p>Speed: <span className="text-white">{hoveredEntity.data.speed.toFixed(1)}</span></p>
+              {hoveredEntity.data.resistance > 0 && <p>Resist: <span className="text-osrs-cyan">{Math.round(hoveredEntity.data.resistance * 100)}%</span></p>}
+              {hoveredEntity.data.weakness && <p>Weakness: <span className="text-osrs-yellow capitalize">{hoveredEntity.data.weakness}</span></p>}
+              {hoveredEntity.data.stunTimer > 0 && <p className="text-osrs-red font-bold">STUNNED ({hoveredEntity.data.stunTimer.toFixed(1)}s)</p>}
+              {hoveredEntity.data.slowTimer > 0 && <p className="text-osrs-yellow font-bold">SLOWED ({hoveredEntity.data.slowTimer.toFixed(1)}s)</p>}
+              {hoveredEntity.data.burnTimer > 0 && <p className="text-osrs-orange font-bold">BURNING ({hoveredEntity.data.burnTimer.toFixed(1)}s)</p>}
+              <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click for detailed info</p>
             </div>
           ) : hoveredEntity.type === 'pet' ? (
             <div className="space-y-0.5">
@@ -1090,6 +1437,9 @@ export default function GameCanvas() {
               <p>Level: <span className="text-white">{hoveredEntity.data.level}</span></p>
               <p>Damage: <span className="text-white">{hoveredEntity.data.damage}</span></p>
               <p>Range: <span className="text-white">{hoveredEntity.data.range}</span></p>
+              <p>Speed: <span className="text-white">{(hoveredEntity.data.cooldown / 1000).toFixed(1)}s</span></p>
+              {hoveredEntity.data.special && <p className="text-osrs-cyan font-bold uppercase text-[10px]">Special: {hoveredEntity.data.special}</p>}
+              {hoveredEntity.data.mageMode === 'utility' && <p className="text-osrs-green font-bold text-[10px]">SUPPORT AURA ACTIVE</p>}
               {hoveredEntity.data.level < 4 && (
                 <p className="text-osrs-green mt-1">Next: <span className="text-white">{
                   (() => {
@@ -1098,15 +1448,15 @@ export default function GameCanvas() {
                       wizard: ['Bolt Spells', 'Blast Spells', 'Ancient Magicks'],
                       cannon: ['Granite Cannon', 'Heavy Ballista', 'Dragon Slayer'],
                       tzhaar: ['Toktz-xil-ak', 'TzHaar-Ket-Om', 'Inquisitor Mace'],
-                      slayer: ['Karils Cross', 'Twisted Bow', 'Zaryte Cross'],
+                      slayer: ['Karils Crossbow', 'Twisted Bow', 'Zaryte Crossbow'],
                       toxic:  ['Serp Blowpipe', 'Trident', 'Magma Blowpipe']
                     };
-                    const names = upgradeNames[hoveredEntity.data.type];
+                    const names = upgradeNames[hoveredEntity.data.type as keyof typeof upgradeNames];
                     return names ? names[hoveredEntity.data.level - 1] : 'Elite Gear';
                   })()
                 }</span></p>
               )}
-              <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click for toggle range</p>
+              <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click to toggle range</p>
             </div>
           )}
         </div>
@@ -1213,7 +1563,7 @@ export default function GameCanvas() {
             { id: 'archer', name: 'Archer', cost: 50, icon: '🏹', wikiImg: 'Shortbow', color: '#00ff00', desc: 'Fast Ranged attacks.', upgrades: 'Magic Shortbow → Crystal Bow → Bow of Faerdhinen' },
             { id: 'wizard', name: 'Wizard', cost: 100, icon: '🪄', wikiImg: 'Staff', color: '#00ffff', desc: 'Magic damage. Access to Elemental spells and Ancient Magicks.', upgrades: 'Bolt → Blast → Wave → Surge / Ancient Spells' },
             { id: 'cannon', name: 'Cannon', cost: 250, icon: '💣', wikiImg: 'Dwarf_multicannon', color: '#00ff00', desc: 'AoE Ranged damage.', upgrades: 'Granite Cannon → Heavy Ballista → Dragon Hunter Ballista' },
-            { id: 'tzhaar', name: 'TzHaar', cost: 500, icon: '🛡️', wikiImg: 'TzHaar-Ket', color: '#ff0000', desc: 'Heavy Melee strength.', upgrades: 'Toktz-xil-ak → TzHaar-Ket-Om → Inquisitor\'s Mace' },
+            { id: 'tzhaar', name: 'TzHaar', cost: 500, icon: '🛡️', wikiImg: 'Toktz-xil-ak', color: '#ff0000', desc: 'Heavy Melee strength.', upgrades: 'Toktz-xil-ak → TzHaar-Ket-Om → Inquisitor\'s Mace' },
             { id: 'slayer', name: 'Slayer', cost: 750, icon: '⚔️', wikiImg: 'Slayer_icon', color: '#00ff00', desc: 'Ranged specialist. Bonus vs Tasks.', upgrades: 'Karils Crossbow → Twisted Bow → Zaryte Crossbow' },
             { id: 'toxic', name: 'Toxic', cost: 1000, icon: '🐍', wikiImg: 'Toxic_blowpipe', color: '#00ff00', desc: 'Venomous Ranged damage.', upgrades: 'Blowpipe → Serp Blowpipe → Trident → Magma Blowpipe' },
           ].map((tower) => {
@@ -1258,7 +1608,29 @@ export default function GameCanvas() {
           })}
         </div>
       </div>
-      {/* Global Tooltip Renderer */}
+      {/* Active Potions Display */}
+      {gameState.activePotions && gameState.activePotions.length > 0 && (
+        <div className="absolute top-20 left-4 flex flex-col gap-1 z-10">
+          {gameState.activePotions.map((p: any) => (
+            <div key={p.type} className="flex items-center gap-2 bg-black/60 border border-osrs-yellow/30 p-1 rounded-sm min-w-[100px] group relative cursor-help">
+              <img 
+                src={`https://oldschool.runescape.wiki/images/${p.type.charAt(0).toUpperCase() + p.type.slice(1).replace('_', ' ')}_potion(4).png`} 
+                className="w-5 h-5 object-contain" 
+                alt="" 
+                onError={(e) => { (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Vial_detail.png'; }}
+              />
+              <div className="flex flex-col">
+                <span className="text-[9px] text-osrs-yellow font-bold uppercase leading-none">{p.type.replace('_', ' ')}</span>
+                <span className="text-[8px] text-white font-mono leading-none">{Math.floor(p.timer)}s</span>
+              </div>
+              <div className="absolute left-full ml-2 bg-black/90 border border-osrs-border-light p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 w-32">
+                <p className="text-[9px] text-osrs-yellow font-bold uppercase mb-1">{p.type.replace('_', ' ')}</p>
+                <p className="text-[8px] text-white leading-tight">Active combat boost. Duration stacks with multiple doses.</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {activeTooltip && (
         <div 
           className="fixed z-[9999] pointer-events-none p-2 bg-black/95 border-2 border-osrs-border-dark shadow-2xl w-48 osrs-panel"
