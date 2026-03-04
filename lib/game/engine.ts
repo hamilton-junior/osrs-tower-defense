@@ -1,4 +1,6 @@
 
+import { ASSETS } from './assets';
+
 export interface Point {
   x: number;
   y: number;
@@ -506,56 +508,21 @@ export class GameEngine {
   }
 
   preloadSounds() {
-    const soundUrls = {
-      shoot_archer: 'https://oldschool.runescape.wiki/images/transcoded/Longbow_attack.wav/Longbow_attack.wav.mp3',
-      shoot_wizard: 'https://oldschool.runescape.wiki/images/transcoded/Wind_Strike.ogg/Wind_Strike.ogg.mp3',
-      shoot_wizard_water: 'https://oldschool.runescape.wiki/images/transcoded/Water_Strike.ogg/Water_Strike.ogg.mp3',
-      shoot_wizard_earth: 'https://oldschool.runescape.wiki/images/transcoded/Earth_Strike.ogg/Earth_Strike.ogg.mp3',
-      shoot_wizard_fire: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Strike.ogg/Fire_Strike.ogg.mp3',
-      shoot_wizard_ice: 'https://oldschool.runescape.wiki/images/transcoded/Ice_Rush.ogg/Ice_Rush.ogg.mp3',
-      shoot_wizard_blood: 'https://oldschool.runescape.wiki/images/transcoded/Blood_Rush.ogg/Blood_Rush.ogg.mp3',
-      shoot_wizard_shadow: 'https://oldschool.runescape.wiki/images/transcoded/Shadow_Rush.ogg/Shadow_Rush.ogg.mp3',
-      shoot_wizard_smoke: 'https://oldschool.runescape.wiki/images/transcoded/Smoke_Rush.ogg/Smoke_Rush.ogg.mp3',
-      shoot_cannon: 'https://oldschool.runescape.wiki/images/transcoded/Darkness_impact.wav/Darkness_impact.wav.mp3',
-      shoot_tzhaar: 'https://oldschool.runescape.wiki/images/transcoded/TzHaar-Ket_attack.ogg/TzHaar-Ket_attack.ogg.mp3',
-      shoot_slayer: 'https://oldschool.runescape.wiki/images/transcoded/Slayer_staff_cast.ogg/Slayer_staff_cast.ogg.mp3',
-      shoot_support: 'https://oldschool.runescape.wiki/images/transcoded/Heal_Other_cast.ogg/Heal_Other_cast.ogg.mp3',
-      shoot_toxic: 'https://oldschool.runescape.wiki/images/transcoded/Dart_attack.wav/Dart_attack.wav.ogg',
-      hit: 'https://oldschool.runescape.wiki/images/transcoded/Melee_hit_sound.ogg/Melee_hit_sound.ogg.mp3',
-      kill: 'https://oldschool.runescape.wiki/images/transcoded/Zombie_death.ogg/Zombie_death.ogg.mp3',
-      wave: 'https://oldschool.runescape.wiki/images/transcoded/Teleport_sound.ogg/Teleport_sound.ogg.mp3',
-      upgrade: 'https://oldschool.runescape.wiki/images/transcoded/Level-up_sound.wav/Level-up_sound.wav.mp3',
-      sell: 'https://oldschool.runescape.wiki/images/transcoded/Coins_drop_sound.ogg/Coins_drop_sound.ogg.mp3',
-      boss_attack: 'https://oldschool.runescape.wiki/images/transcoded/Vorkath_attack_sound.ogg/Vorkath_attack_sound.ogg.mp3',
-      prayer_on: 'https://oldschool.runescape.wiki/images/transcoded/Protect_from_Melee.ogg/Protect_from_Melee.ogg.mp3',
-      prayer_off: 'https://oldschool.runescape.wiki/images/transcoded/Rapid_Heal.ogg/Rapid_Heal.ogg.mp3',
-      potion: 'https://oldschool.runescape.wiki/images/transcoded/Drink_potion.ogg/Drink_potion.ogg.mp3',
-      special_attack: 'https://oldschool.runescape.wiki/images/transcoded/Special_attack_sound.ogg/Special_attack_sound.ogg.mp3',
-      click: 'https://oldschool.runescape.wiki/images/transcoded/Button_click.ogg/Button_click.ogg.mp3',
-      interface_open: 'https://oldschool.runescape.wiki/images/transcoded/Interface_open.ogg/Interface_open.ogg.mp3',
-      interface_close: 'https://oldschool.runescape.wiki/images/transcoded/Interface_close.ogg/Interface_close.ogg.mp3',
-      pick_up: 'https://oldschool.runescape.wiki/images/transcoded/Pick_up_item.ogg/Pick_up_item.ogg.mp3',
-      death_demon: 'https://oldschool.runescape.wiki/images/transcoded/Demon_death.ogg/Demon_death.ogg.mp3',
-      death_dragon: 'https://oldschool.runescape.wiki/images/transcoded/Dragon_death.ogg/Dragon_death.ogg.mp3',
-      death_boss: 'https://oldschool.runescape.wiki/images/transcoded/Boss_death.ogg/Boss_death.ogg.mp3',
-      death_goblin: 'https://oldschool.runescape.wiki/images/transcoded/Goblin_death.ogg/Goblin_death.ogg.mp3',
-      death_imp: 'https://oldschool.runescape.wiki/images/transcoded/Imp_death.ogg/Imp_death.ogg.mp3',
-      death_abyssal_demon: 'https://oldschool.runescape.wiki/images/transcoded/Abyssal_demon_death.ogg/Abyssal_demon_death.ogg.mp3',
-      death_ghost: 'https://oldschool.runescape.wiki/images/transcoded/Ghost_death.ogg/Ghost_death.ogg.mp3',
-      death_human: 'https://oldschool.runescape.wiki/images/transcoded/Man_death.ogg/Man_death.ogg.mp3',
-      death_cow: 'https://oldschool.runescape.wiki/images/transcoded/Cow_death.ogg/Cow_death.ogg.mp3',
-      death_spider: 'https://oldschool.runescape.wiki/images/transcoded/Giant_spider_death.ogg/Giant_spider_death.ogg.mp3',
-      death_zombie: 'https://oldschool.runescape.wiki/images/transcoded/Zombie_death.ogg/Zombie_death.ogg.mp3',
-      spell_air: 'https://oldschool.runescape.wiki/images/transcoded/Air_Strike.ogg/Air_Strike.ogg.mp3',
-      spell_water: 'https://oldschool.runescape.wiki/images/transcoded/Water_Strike.ogg/Water_Strike.ogg.mp3',
-      spell_earth: 'https://oldschool.runescape.wiki/images/transcoded/Earth_Strike.ogg/Earth_Strike.ogg.mp3',
-      spell_fire: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Blast.ogg/Fire_Blast.ogg.mp3',
-      spell_ice: 'https://oldschool.runescape.wiki/images/transcoded/Ice_Barrage.ogg/Ice_Barrage.ogg.mp3',
-      spell_curse: 'https://oldschool.runescape.wiki/images/transcoded/Curse.ogg/Curse.ogg.mp3',
-      spell_bind: 'https://oldschool.runescape.wiki/images/transcoded/Bind_Strike.ogg/Bind_Strike.ogg.mp3',
-      spell_charge: 'https://oldschool.runescape.wiki/images/transcoded/Charge.ogg/Charge.ogg.mp3',
-      cannon_fire: 'https://oldschool.runescape.wiki/images/transcoded/Dwarf_multicannon_fire.ogg/Dwarf_multicannon_fire.ogg.mp3'
+    const soundUrls: Record<string, string> = {
+      ...ASSETS.sounds.death,
+      ...ASSETS.sounds.misc
     };
+
+    // Flatten shoot sounds
+    Object.entries(ASSETS.sounds.shoot).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        soundUrls[key] = value;
+      } else {
+        Object.entries(value as Record<string, string>).forEach(([tier, url]) => {
+          soundUrls[`${key}_${tier}`] = url;
+        });
+      }
+    });
 
     Object.entries(soundUrls).forEach(([key, url]) => {
       const audio = new Audio();
@@ -576,116 +543,14 @@ export class GameEngine {
   }
 
   preloadImages() {
-    const imageUrls: Record<string, string> = {
-      // Misc
-      portal: 'https://oldschool.runescape.wiki/images/Purple_Portal_Shield.png',
-      tree: 'https://oldschool.runescape.wiki/images/Tree.png',
-      ore_adamant: 'https://oldschool.runescape.wiki/images/Adamantite_ore.png',
-      ranarr: 'https://oldschool.runescape.wiki/images/Ranarr_weed.png',
-      
-      // Icons
-      magic_icon: 'https://oldschool.runescape.wiki/images/Magic_icon.png',
-      ranged_icon: 'https://oldschool.runescape.wiki/images/Ranged_icon.png',
-      strength_icon: 'https://oldschool.runescape.wiki/images/Strength_icon.png',
-      attack_icon: 'https://oldschool.runescape.wiki/images/Attack_icon.png',
-      bones_loot: 'https://oldschool.runescape.wiki/images/Bones.png',
-      skill_mining: 'https://oldschool.runescape.wiki/images/Mining_icon.png',
-      skill_woodcutting: 'https://oldschool.runescape.wiki/images/Woodcutting_icon.png',
-      skill_herblore: 'https://oldschool.runescape.wiki/images/Herblore_icon.png',
-      skill_crafting: 'https://oldschool.runescape.wiki/images/Crafting_icon.png',
-      skill_prayer: 'https://oldschool.runescape.wiki/images/Prayer_icon.png',
-      slayer_crossbow: 'https://oldschool.runescape.wiki/images/Slayer_icon.png',
-
-      // Enemies
-      goblin: 'https://oldschool.runescape.wiki/images/Goblin.png',
-      rat: 'https://oldschool.runescape.wiki/images/Giant_rat.png',
-      cow: 'https://oldschool.runescape.wiki/images/Cow_(1).png',
-      imp: 'https://oldschool.runescape.wiki/images/Imp.png',
-      spider: 'https://oldschool.runescape.wiki/images/Spider.png',
-      scorpion: 'https://oldschool.runescape.wiki/images/Scorpion.png',
-      hill_giant: 'https://oldschool.runescape.wiki/images/Hill_Giant.png',
-      lesser_demon: 'https://oldschool.runescape.wiki/images/Lesser_demon.png',
-      green_dragon: 'https://oldschool.runescape.wiki/images/Green_dragon.png',
-      blue_dragon: 'https://oldschool.runescape.wiki/images/Blue_dragon.png',
-      black_demon: 'https://oldschool.runescape.wiki/images/Black_demon.png',
-      abyssal_demon: 'https://oldschool.runescape.wiki/images/Abyssal_demon.png',
-      barrow_wight: 'https://oldschool.runescape.wiki/images/Dharok_the_Wretched.png',
-      chaos_druid: 'https://oldschool.runescape.wiki/images/Chaos_druid.png',
-      skeletal_mage: 'https://oldschool.runescape.wiki/images/Skeleton_Mage_(lv_16).png',
-      skeleton: 'https://oldschool.runescape.wiki/images/Skeleton_(level_22%2C_3).png',
-      zombie: 'https://oldschool.runescape.wiki/images/Zombie_(Level_13%2C_14).png',  
-      ghost: 'https://oldschool.runescape.wiki/images/Ghost.png',
-      hellhound: 'https://oldschool.runescape.wiki/images/Hellhound.png',
-      fire_giant: 'https://oldschool.runescape.wiki/images/Fire_giant.png',
-      bloodveld: 'https://oldschool.runescape.wiki/images/Bloodveld.png',
-      gargoyle: 'https://oldschool.runescape.wiki/images/Gargoyle.png',
-      nechryael: 'https://oldschool.runescape.wiki/images/Nechryael.png',
-      dark_beast: 'https://oldschool.runescape.wiki/images/Dark_beast.png',
-      hydra: 'https://oldschool.runescape.wiki/images/Hydra.png',
-      jad: 'https://oldschool.runescape.wiki/images/TzTok-Jad.png',
-      vorkath: 'https://oldschool.runescape.wiki/images/Vorkath.png',
-      zulrah: 'https://oldschool.runescape.wiki/images/Zulrah_%28serpentine%29.png',
-      
-      // Pets
-      beaver: 'https://oldschool.runescape.wiki/images/Beaver.png',
-      rock_golem: 'https://oldschool.runescape.wiki/images/Rock_golem.png',
-      tangleroot: 'https://oldschool.runescape.wiki/images/Tangleroot.png',
-      heron: 'https://oldschool.runescape.wiki/images/Heron.png',
-      rift_guardian: 'https://oldschool.runescape.wiki/images/Rift_guardian_(follower%2C_fire).png',
-      baby_mole: 'https://oldschool.runescape.wiki/images/Baby_mole.png',
-      vorki: 'https://oldschool.runescape.wiki/images/Vorki.png',
-      snakeling: 'https://oldschool.runescape.wiki/images/Snakeling_%28tanzanite%29.png',
-      prince_black_dragon: 'https://oldschool.runescape.wiki/images/Prince_black_dragon.png',
-      kalphite_princess: 'https://oldschool.runescape.wiki/images/Kalphite_Princess_2nd_form.png',
-      tzrek_jad: 'https://oldschool.runescape.wiki/images/TzRek-Jad.png',
-      ikkle_hydra: 'https://oldschool.runescape.wiki/images/Ikkle_Hydra_(serpentine).png',
-
-      // Towers
-      archer_1: 'https://oldschool.runescape.wiki/images/Shortbow.png',
-      archer_2: 'https://oldschool.runescape.wiki/images/Magic_shortbow.png',
-      archer_3: 'https://oldschool.runescape.wiki/images/Crystal_bow.png',
-      archer_4: 'https://oldschool.runescape.wiki/images/Bow_of_faerdhinen.png',
-      
-      wizard_1: 'https://oldschool.runescape.wiki/images/Staff_of_air.png',
-      wizard_2: 'https://oldschool.runescape.wiki/images/Staff_of_water.png',
-      wizard_3: 'https://oldschool.runescape.wiki/images/Ancient_staff.png',
-      wizard_4: 'https://oldschool.runescape.wiki/images/Tumeken%27s_shadow.png',
-      
-      wizard_elemental_air: 'https://oldschool.runescape.wiki/images/Staff_of_air.png',
-      wizard_elemental_water: 'https://oldschool.runescape.wiki/images/Staff_of_water.png',
-      wizard_elemental_earth: 'https://oldschool.runescape.wiki/images/Staff_of_earth.png',
-      wizard_elemental_fire: 'https://oldschool.runescape.wiki/images/Staff_of_fire.png',
-      wizard_ancients: 'https://oldschool.runescape.wiki/images/Ancient_staff.png',
-      wizard_utility: 'https://oldschool.runescape.wiki/images/Ahrim%27s_staff.png',
-      
-      cannon_1: 'https://oldschool.runescape.wiki/images/Broken_multicannon.png',
-      cannon_2: 'https://oldschool.runescape.wiki/images/Cannon_barrels_%28scenery%29.png',
-      cannon_3: 'https://oldschool.runescape.wiki/images/Broken_multicannon_%28Shattered_Relics_League%29.png',
-      cannon_4: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_%28Shattered_Relics_League%29.png',
-      
-      slayer_1: 'https://oldschool.runescape.wiki/images/Darklight.png',
-      slayer_2: 'https://oldschool.runescape.wiki/images/Arclight.png',
-      slayer_3: 'https://oldschool.runescape.wiki/images/Leaf-bladed_sword.png',
-      slayer_4: 'https://oldschool.runescape.wiki/images/Emberlight.png',
-      
-      tzhaar_1: 'https://oldschool.runescape.wiki/images/TzHaar-Hur.png',
-      tzhaar_2: 'https://oldschool.runescape.wiki/images/TzHaar-Mej.png',
-      tzhaar_3: 'https://oldschool.runescape.wiki/images/TzHaar-Xil_(sword).png',
-      tzhaar_4: 'https://oldschool.runescape.wiki/images/TzHaar-Ket_(level_149).png',
-      toxic_1: 'https://oldschool.runescape.wiki/images/Tanzanite_fang.png',
-      toxic_2: 'https://oldschool.runescape.wiki/images/Toxic_blowpipe.png',
-      toxic_3: 'https://oldschool.runescape.wiki/images/Magic_fang.png',
-      toxic_4: 'https://oldschool.runescape.wiki/images/Trident_of_the_swamp.png',
-
-      // Loot
-      // bones_loot is already defined in Icons section
-      
-      // Items
-      amulet_of_power: 'https://oldschool.runescape.wiki/images/Amulet_of_power.png',
-      anti_dragon_shield: 'https://oldschool.runescape.wiki/images/Anti-dragon_shield.png',
-      combat_bracelet: 'https://oldschool.runescape.wiki/images/Combat_bracelet.png',
-      silverlight: 'https://oldschool.runescape.wiki/images/Silverlight.png',
-      dragon_scimitar: 'https://oldschool.runescape.wiki/images/Dragon_scimitar.png',
+    const imageUrls = {
+      ...ASSETS.enemies,
+      ...ASSETS.pets,
+      ...Object.fromEntries(Object.entries(ASSETS.towers).flatMap(([type, variants]) => 
+        Object.entries(variants).map(([variant, url]) => [`${type}_${variant}`, url])
+      )),
+      ...ASSETS.items,
+      ...ASSETS.misc
     };
 
     Object.entries(imageUrls).forEach(([key, url]) => {
@@ -1329,6 +1194,7 @@ export class GameEngine {
             accessory: null
           }
         });
+        this.upgradeTowerStats(this.towers[this.towers.length - 1]);
         this.awardPlayerXP('crafting', 20, snappedX, snappedY);
         this.onStateChange({ money: this.money });
       } else {
@@ -1411,14 +1277,14 @@ export class GameEngine {
         tower.damage = spellMaxHits[tier] * this.upgrades.magicDamage;
         tower.cooldown = 5 * TICK * 1000;
         tower.upgradeCost = 200 + (tower.level * 150);
-        tower.fireSound = `spell_${elem}`;
+        tower.fireSound = `wizard_${elem}`;
       } else if (tower.mageMode === 'ancients') {
         const tier = Math.min(tower.level - 1, 3);
         tower.name = `Ice ${ancientTiers[tier]}`;
         // Ice Rush/Burst/Blitz/Barrage: 16/20/23/29 max hit
         const ancientHits = [16, 20, 23, 29];
         tower.damage = ancientHits[tier] * this.upgrades.magicDamage;
-        tower.fireSound = 'spell_ice';
+        tower.fireSound = 'wizard_ice';
         tower.upgradeCost = 300 + (tower.level * 250);
         if (tower.level <= 2) {
           tower.cooldown = 5 * TICK * 1000;
@@ -1608,6 +1474,7 @@ export class GameEngine {
     const levelMultiplier = 1 + (tower.level * 0.1);
     
     if (tower.type === 'archer') {
+      tower.fireSound = 'archer_1';
       // Base stats per level (rapid style)
       const baseTiles = [7, 8, 9, 10][Math.min(tower.level - 1, 3)];
       const baseCooldownTicks = [3, 3, 5, 3][Math.min(tower.level - 1, 3)];
@@ -1632,7 +1499,7 @@ export class GameEngine {
         tower.name = `${elem.charAt(0).toUpperCase()}${elem.slice(1)} ${spellTiers[tier]}`;
         const spellMaxHits = [8, 12, 18, 24, 30];
         tower.damage = spellMaxHits[tier] * levelMultiplier;
-        tower.fireSound = elem === 'air' ? 'shoot_wizard' : `shoot_wizard_${elem}`;
+        tower.fireSound = `wizard_${elem}_${tier}`;
         tower.special = undefined;
       } else if (tower.mageMode === 'ancients') {
         tower.range = 8 * tile;
@@ -1643,7 +1510,7 @@ export class GameEngine {
         
         const ancientHits = [16, 20, 23, 29];
         tower.damage = ancientHits[ancientTier] * levelMultiplier;
-        tower.fireSound = `shoot_wizard_${aType}`;
+        tower.fireSound = `ancient_${aType}_${ancientTier}`;
         
         if (aType === 'ice') {
           if (tower.level <= 2) {
@@ -1669,15 +1536,19 @@ export class GameEngine {
         tower.special = undefined;
       }
     } else if (tower.type === 'cannon') {
+        tower.fireSound = 'cannon_1';
         tower.range = 9 * tile;
         tower.damage = 30 * levelMultiplier;
     } else if (tower.type === 'tzhaar') {
+        tower.fireSound = 'tzhaar_1';
         tower.range = (2 + tower.level) * tile;
         tower.damage = 25 * levelMultiplier;
     } else if (tower.type === 'slayer') {
+        tower.fireSound = 'slayer_1';
         tower.range = 7 * tile;
         tower.damage = 15 * levelMultiplier;
     } else if (tower.type === 'toxic') {
+        tower.fireSound = 'toxic_1';
         tower.range = 5 * tile;
         tower.damage = 8 * levelMultiplier;
     }
@@ -2676,13 +2547,13 @@ export class GameEngine {
             if (tower.mageMode === 'utility') {
                // Sounds handled in utility logic block above
             } else if (tower.mageMode === 'ancients') {
-               this.playSound(`shoot_wizard_${tower.ancientType || 'ice'}`);
+               this.playSound(`wizard_${tower.ancientType || 'ice'}`);
             } else {
                const elem = tower.element || 'air';
-               this.playSound(elem === 'air' ? 'shoot_wizard' : `shoot_wizard_${elem}`);
+               this.playSound(elem === 'air' ? 'wizard' : `wizard_${elem}`);
             }
           } else {
-             this.playSound(tower.fireSound || `shoot_${tower.type}`);
+             this.playSound(tower.fireSound || tower.type);
           }
         }
       } else {

@@ -630,13 +630,21 @@ export default function GameCanvas() {
                         >
                           {item ? (
                             <img 
-                              src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}_detail.png`} 
+                              src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} 
                               alt={item.name} 
                               className="w-full h-full object-contain"
                               onError={(e) => {
                                 const img = e.target as HTMLImageElement;
-                                if (img.src.includes('_detail')) img.src = `https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`;
-                                else img.style.opacity = '0';
+                                const name = item.name.replace(/ /g, '_');
+                                if (img.src.endsWith(`${name}.png`)) {
+                                  img.src = `https://oldschool.runescape.wiki/images/${name}_detail.png`;
+                                } else if (img.src.endsWith(`${name}_detail.png`)) {
+                                  img.src = `https://oldschool.runescape.wiki/images/${name.toLowerCase()}.png`;
+                                } else if (img.src.endsWith(`${name.toLowerCase()}.png`)) {
+                                  img.src = `https://oldschool.runescape.wiki/images/${name.toLowerCase()}_detail.png`;
+                                } else {
+                                  img.style.opacity = '0';
+                                }
                               }}
                             />
                           ) : (
