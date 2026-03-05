@@ -23,13 +23,14 @@
 body {
   background-color: #000;
   color: #fff;
-  font-family: 'RuneScape', var(--font-osrs), monospace;
+  font-family: system-ui, -apple-system, sans-serif;
   overflow: hidden;
   image-rendering: pixelated;
 }
 
 .osrs-font {
   font-family: 'RuneScape', var(--font-osrs), monospace;
+  letter-spacing: 0.5px;
 }
 
 /* OSRS Panel - Main Interface Style */
@@ -76,7 +77,7 @@ body {
   z-index: 2;
   width: 24px;
   height: 24px;
-  object-contain: contain;
+  object-fit: contain;
 }
 
 .osrs-orb-text {
@@ -156,6 +157,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-family: 'RuneScape', var(--font-osrs), monospace;
 }
 
 /* OSRS Button - Standard Button Style */

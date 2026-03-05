@@ -246,6 +246,7 @@ export class GameEngine {
   gameSpeed: number = 1;
   gameTime: number = 0;
   maxDt: number = 0.1; // Safeguard for background tab sluggishness
+  isPaused: boolean = false;
   autoSpawnEnabled: boolean = false;
   autoSpawnDelay: number = 3; // Seconds
   autoSpawnTimer: number = 0;
@@ -1771,19 +1772,31 @@ export class GameEngine {
 
   loop() {
     const now = performance.now();
-    let dt = (now - this.lastTime) / 1000;
+    const rawDt = Math.min((now - this.lastTime) / 1000, this.maxDt);
     this.lastTime = now;
 
-    // Apply Game Speed
-    dt *= this.gameSpeed;
+    // Apply Game Speed (only for game logic, not real-world timers)
+    const dt = this.isPaused ? 0 : Math.min(rawDt * this.gameSpeed, this.maxDt * this.gameSpeed);
     this.gameTime += dt * 1000;
 
-    // Safeguard for tab changing/lag
-    dt = Math.min(dt, this.maxDt * this.gameSpeed);
-
-    this.update(dt, this.gameTime);
+    this.update(dt, this.gameTime, rawDt);
     this.draw();
     this.animationId = requestAnimationFrame(() => this.loop());
+  }
+
+  pause() {
+    this.isPaused = true;
+    this.onStateChange({ isPaused: true });
+  }
+
+  resume() {
+    this.isPaused = false;
+    this.onStateChange({ isPaused: false });
+  }
+
+  setGold(amount: number) {
+    this.money = Math.max(0, amount);
+    this.onStateChange({ money: this.money });
   }
 
   calculateTowerStats(tower: Tower) {
@@ -2005,7 +2018,7 @@ export class GameEngine {
     this.onStateChange({ money: this.money, inventory: this.inventory });
   }
 
-  update(dt: number, now: number) {
+  update(dt: number, now: number, rawDt: number = dt) {
     // Update Farming
     this.updateFarming(dt / 1000); // dt is in ms, convert to seconds for farming timer
 
@@ -2041,9 +2054,9 @@ export class GameEngine {
       if (ftObj.life <= 0) this.floatingTexts.splice(i, 1);
     }
 
-    // Update Loots
+    // Update Loots — use rawDt so loot expiry is NOT sped up by game speed
     for (let i = this.loots.length - 1; i >= 0; i--) {
-      this.loots[i].life -= dt;
+      this.loots[i].life -= rawDt;
       if (this.loots[i].life <= 0) this.loots.splice(i, 1);
     }
 
@@ -2639,7 +2652,15 @@ export class GameEngine {
         // Update Quests
         this.updateQuests('kill', 1, enemy.type);
 
-        // Monster Loot: Lowered rates (uncommon GP, rare ess)
+        // Monster Loot: Bones always drop; GP/Essence occasionally
+        this.loots.push({
+          id: Math.random().toString(),
+          x: enemy.x + (Math.random() - 0.5) * 15,
+          y: enemy.y + (Math.random() - 0.5) * 15,
+          type: 'bones',
+          life: 30, // 30 real seconds (rawDt based)
+          size: 18
+        });
         if (Math.random() < 0.2) {
           const lootType = Math.random() > 0.95 ? 'essence' : 'money';
           this.loots.push({
@@ -2648,7 +2669,7 @@ export class GameEngine {
             y: enemy.y,
             type: lootType,
             data: lootType === 'money' ? Math.floor(enemy.reward * 0.4) : undefined,
-            life: 10,
+            life: 30,
             size: 20
           });
         }
@@ -3095,6 +3116,7 @@ export class GameEngine {
   }
 
   resetGame() {
+    // Full game reset — preserves runeEssence and upgrades only
     this.lives = 20;
     this.money = 150 + this.upgrades.startingMoney;
     this.wave = 1;
@@ -3106,19 +3128,58 @@ export class GameEngine {
     this.floatingTexts = [];
     this.loots = [];
     this.waveActive = false;
+    this.enemiesToSpawn = [];
+    this.spawnTimer = 0;
+    this.specialAttackCharge = 0;
     this.prayerPoints = this.maxPrayerPoints;
     this.activePrayers.clear();
     this.activePotions = [];
     this.slayerTask = null;
+    this.consecutiveTasks = 0;
+    this.lastTaskType = null;
+    this.isPaused = false;
+    this.inventory = [];
+    this.quests = this.quests.map(q => ({ 
+      ...q, 
+      completed: false, 
+      claimed: false, 
+      objective: { ...q.objective, current: 0 } 
+    }));
+    this.achievements = this.achievements.map(a => ({ ...a, completed: false }));
+    this.achievementPoints = 0;
+    this.pets = [
+      { id: 'pet_beaver', name: 'Beaver', type: 'beaver', bonus: 'Lucky Paw: +25% item drop chance' },
+      { id: 'pet_tangleroot', name: 'Tangleroot', type: 'tangleroot', bonus: "Nature's Gift: +10% Rune Essence drops" }
+    ];
+    this.playerSkills = {
+      mining: { level: 1, xp: 0 },
+      woodcutting: { level: 1, xp: 0 },
+      herblore: { level: 1, xp: 0 },
+      crafting: { level: 1, xp: 0 },
+      prayer: { level: 1, xp: 0 },
+      farming: { level: 1, xp: 0 }
+    };
     this.assignSlayerTask();
+    this.initFarming();
+    this.initPath();
+    this.addMessage('You have been defeated. Your adventure begins anew.');
     this.onStateChange({ 
       lives: 20, 
       money: this.money, 
       wave: 1, 
       isPlaying: false,
-      enemies: [],
-      towers: [],
-      projectiles: []
+      isPaused: false,
+      specialAttackCharge: 0,
+      prayerPoints: this.prayerPoints,
+      maxPrayerPoints: this.maxPrayerPoints,
+      inventory: [],
+      quests: this.quests,
+      achievements: this.achievements,
+      achievementPoints: 0,
+      pets: this.pets,
+      playerSkills: this.playerSkills,
+      activePotions: [],
+      slayerTask: this.slayerTask
     });
   }
 

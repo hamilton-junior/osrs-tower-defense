@@ -68,6 +68,7 @@ interface GameState {
   maxPrayerPoints: number;
   prayerDrainRate?: number;
   activePotions?: any[];
+  isPaused?: boolean;
 }
 
 export default function GameCanvas() {
@@ -103,11 +104,12 @@ export default function GameCanvas() {
     }
   });
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'quests' | 'achievements' | 'ge' | 'combat' | 'prayer' | 'herblore' | 'settings'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'quests' | 'achievements' | 'ge' | 'combat' | 'prayer' | 'herblore' | 'settings' | 'pets'>('inventory');
   const [autoSpawn, setAutoSpawn] = useState(false);
   const [autoSpawnDelay, setAutoSpawnDelay] = useState(3);
   const [autoSpawnTimer, setAutoSpawnTimer] = useState(0);
   const [gameSpeed, setGameSpeed] = useState(1);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Persistence
   const [runeEssence, setRuneEssence] = useState(0);
@@ -410,7 +412,7 @@ export default function GameCanvas() {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-hidden bg-[#000] font-osrs select-none text-base">
+    <div className="relative w-full h-full flex flex-col overflow-hidden bg-[#000] select-none text-base">
       {/* Canvas */}
       <canvas 
         ref={canvasRef}
@@ -446,18 +448,11 @@ export default function GameCanvas() {
       </div>
 
       {/* Main Status Column (Right Side) */}
-      <div className="absolute bottom-4 right-4 flex flex-col items-end pointer-events-none group/ui z-20">
+      <div className="absolute bottom-4 right-4 flex flex-col items-end pointer-events-none z-20">
         <div className="flex items-end pointer-events-auto shadow-2xl relative">
-          
-          {/* Collapse Toggle */}
-          <button 
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="absolute -left-5 bottom-0 w-5 h-12 bg-[var(--osrs-brown)] border-l-2 border-t-2 border-b-2 border-[var(--osrs-border-dark)] flex items-center justify-center text-osrs-yellow font-bold z-50 rounded-l hover:bg-[#5d5245] transition-colors"
-          >
-            {isSidebarCollapsed ? '<' : '>'}
-          </button>
+          {/* Sidebar + collapse button, slide together */}
+          <div className={`flex items-end transition-all duration-300 ${isSidebarCollapsed ? 'translate-x-[300px] opacity-0 pointer-events-none' : ''}`}>
 
-          <div className={`flex items-end transition-all duration-300 ${isSidebarCollapsed ? 'translate-x-[260px] opacity-0' : ''}`}>
             {/* HP Bar (Left) */}
             <div className="w-8 h-[300px] bg-[var(--osrs-brown)] border-2 border-[var(--osrs-border-dark)] relative overflow-hidden flex flex-col-reverse mr-1">
              <div className="absolute top-1 left-0 right-0 text-center z-10">
@@ -469,6 +464,16 @@ export default function GameCanvas() {
              <div className="w-full bg-[#ff0000] transition-all duration-500 border-t border-[#ff6666]" style={{ height: `${(gameState.lives / 20) * 100}%` }} />
           </div>
 
+          {/* Prayer Bar */}
+          <div className="w-8 h-[300px] bg-[var(--osrs-brown)] border-2 border-[var(--osrs-border-dark)] relative overflow-hidden flex flex-col-reverse mr-1">
+            <div className="absolute top-1 left-0 right-0 text-center z-10">
+              <span className="text-[10px] text-white font-bold drop-shadow-md">{Math.ceil(gameState.prayerPoints || 0)}</span>
+            </div>
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center">
+               <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" alt="Prayer" className="w-full h-full object-contain" />
+            </div>
+            <div className="w-full bg-[#00bfff] transition-all duration-500 border-t border-[#66dfff]" style={{ height: `${((gameState.prayerPoints || 0) / (gameState.maxPrayerPoints || 99)) * 100}%` }} />
+          </div>
           {/* Main Sidebar Panel */}
           <div className="flex flex-col w-[240px] h-[340px] osrs-panel relative overflow-hidden flex-shrink-0 transition-all duration-300">
             {/* Special Attack Bar - Always Visible */}
@@ -496,8 +501,23 @@ export default function GameCanvas() {
                     ))}
                   </div>
                   <div className="flex flex-col gap-2">
-                    <button onClick={handleStartWave} disabled={gameState.isPlaying} className={`osrs-button py-2 text-xs uppercase ${!gameState.isPlaying ? 'pulse-yellow' : 'opacity-50'}`}>
+                    <button onClick={handleStartWave} disabled={gameState.isPlaying || isPaused} className={`osrs-button py-2 text-xs uppercase ${!gameState.isPlaying && !isPaused ? 'pulse-yellow' : 'opacity-50'}`}>
                       {gameState.isPlaying ? 'Wave In Progress' : 'Start Next Wave'}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        engineRef.current?.playSound('click');
+                        if (isPaused) {
+                          engineRef.current?.resume();
+                          setIsPaused(false);
+                        } else {
+                          engineRef.current?.pause();
+                          setIsPaused(true);
+                        }
+                      }} 
+                      className={`osrs-button py-2 text-xs uppercase font-bold ${isPaused ? 'text-osrs-yellow border-osrs-yellow' : 'text-[#c0c0c0]'}`}
+                    >
+                      {isPaused ? '▶ Resume' : '⏸ Pause'}
                     </button>
                     <button 
                       onClick={() => {
@@ -564,6 +584,30 @@ export default function GameCanvas() {
                           Set Wave
                         </button>
                       </div>
+                      <div className="flex gap-1">
+                        <input 
+                          type="number" 
+                          placeholder="Gold amount" 
+                          id="set-gold-input"
+                          className="w-1/2 bg-black border border-[var(--osrs-border-light)] text-white text-xs px-1"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const val = parseInt((e.target as HTMLInputElement).value);
+                              if (!isNaN(val)) engineRef.current?.setGold(val);
+                            }
+                          }}
+                        />
+                        <button 
+                          className="osrs-button w-1/2 py-1 text-[10px] uppercase"
+                          onClick={() => {
+                             const input = document.getElementById('set-gold-input') as HTMLInputElement;
+                             const val = parseInt(input?.value);
+                             if (!isNaN(val)) engineRef.current?.setGold(val);
+                          }}
+                        >
+                          Set Gold
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -579,7 +623,7 @@ export default function GameCanvas() {
                       engineRef.current?.playSound('interface_open');
                       setShowAchievements(true);
                     }}
-                    className="osrs-button w-full py-1 text-[10px] uppercase mb-2"
+                    className="osrs-button w-full py-1 text-xs uppercase mb-2"
                   >
                     View Diary
                   </button>
@@ -598,8 +642,8 @@ export default function GameCanvas() {
                       >
                         <img src={`https://oldschool.runescape.wiki/images/${key.charAt(0).toUpperCase() + key.slice(1)}_icon.png`} className="w-6 h-6 object-contain" alt="" />
                         <div className="flex flex-col">
-                           <span className="text-xs text-osrs-yellow font-bold leading-tight">{skill.level}</span>
-                           <span className="text-[9px] text-[#c0c0c0] uppercase tracking-tighter leading-none">{key}</span>
+                           <span className="text-sm text-osrs-yellow font-bold leading-tight">{skill.level}</span>
+                           <span className="text-[11px] text-[#c0c0c0] uppercase tracking-tighter leading-none">{key}</span>
                         </div>
                       </div>
                     ))}
@@ -618,7 +662,7 @@ export default function GameCanvas() {
                       return (
                         <div 
                           key={i} 
-                          className="aspect-square bg-black/40 border border-[var(--osrs-border-light)] p-0.5 group relative cursor-pointer hover:border-white flex items-center justify-center" 
+                          className="aspect-square p-0.5 group relative cursor-pointer hover:bg-white/10 flex items-center justify-center rounded-sm transition-colors" 
                           onClick={() => item && handleEquipItem(item.id)}
                           onMouseEnter={(e) => item && setActiveTooltip({
                             x: e.clientX, y: e.clientY,
@@ -659,34 +703,9 @@ export default function GameCanvas() {
 
               {activeTab === 'quests' && (
                 <div className="flex flex-col gap-2">
-                   {gameState.pets && gameState.pets.length > 0 && (
-                     <div className="mb-3">
-                        <div className="text-[9px] text-osrs-cyan font-bold uppercase border-b border-osrs-cyan/30 mb-1">Followers</div>
-                        <div className="flex flex-wrap gap-1">
-                          {gameState.pets.map((pet: any) => (
-                            <div 
-                              key={pet.id} 
-                              className="w-8 h-8 bg-black/40 border border-[var(--osrs-border-light)] p-0.5 rounded group relative cursor-help flex items-center justify-center"
-                              onMouseEnter={(e) => setActiveTooltip({
-                                x: e.clientX, y: e.clientY,
-                                title: pet.name, content: pet.bonus,
-                                color: '#00ffff'
-                              })}
-                              onMouseLeave={() => setActiveTooltip(null)}
-                              onClick={() => {
-                                engineRef.current?.playSound('click');
-                                // Logic to set following pet if needed
-                              }}
-                            >
-                               <img src={`https://oldschool.runescape.wiki/images/${pet.type.split('_').map((w: any) => w.charAt(0).toUpperCase() + w.slice(1)).join('_')}.png`} className="w-full h-full object-contain" alt="" />
-                            </div>
-                          ))}
-                        </div>
-                     </div>
-                   )}
                    <div className="text-center border-b border-[var(--osrs-border-light)] pb-1">
-                    <span className="text-xs font-bold text-osrs-orange uppercase tracking-tighter">Quests</span>
-                  </div>
+                  <span className="text-xs font-bold text-osrs-orange uppercase tracking-tighter">Quests</span>
+                </div>
                   <div className="flex flex-col gap-1 mt-1">
                     {gameState.quests?.map(q => (
                       <div key={q.id} className={`text-[10px] py-1 px-1.5 border border-transparent hover:bg-white/5 cursor-pointer leading-tight ${q.completed ? 'text-osrs-green' : 'text-osrs-red'}`} onClick={() => {
@@ -785,7 +804,7 @@ export default function GameCanvas() {
               )}
               {activeTab === 'ge' && (
                 <div className="flex flex-col items-center justify-center h-full gap-4">
-                  <div className="osrs-panel p-2 flex flex-col items-center gap-2 w-full">
+                 <div className="osrs-panel p-2 flex flex-col items-center gap-2 w-full">
                      <img src="https://oldschool.runescape.wiki/images/Grand_Exchange_logo.png" className="w-12 h-12 object-contain" alt="" />
                      <button onClick={() => {
                        engineRef.current?.playSound('interface_open');
@@ -795,49 +814,30 @@ export default function GameCanvas() {
                   <p className="text-[10px] text-[#c0c0c0] text-center font-mono">Market access for upgrades and supplies.</p>
                 </div>
               )}
-              {activeTab === 'settings' && (
-                <div className="flex flex-col gap-3">
+              {activeTab === 'pets' && (
+                <div className="flex flex-col gap-2">
                   <div className="text-center border-b border-[var(--osrs-border-light)] pb-1">
-                    <span className="text-xs font-bold text-osrs-orange uppercase">Settings</span>
+                    <span className="text-xs font-bold text-osrs-orange uppercase">Followers</span>
                   </div>
-                  
-                  <button 
-                    onClick={() => engineRef.current?.toggleDevMode()}
-                    className={`osrs-button w-full py-2 text-[10px] uppercase font-bold ${engineRef.current?.devMode ? 'text-osrs-green' : 'text-osrs-red'}`}
-                  >
-                    Dev Mode: {engineRef.current?.devMode ? 'ON' : 'OFF'}
-                  </button>
-
-                  {engineRef.current?.devMode && (
-                    <div className="flex flex-col gap-2 p-2 bg-red-900/20 border border-red-900/50 rounded">
-                      <p className="text-[9px] text-osrs-red font-bold uppercase text-center">Developer Tools</p>
-                      <button 
-                        onClick={() => engineRef.current?.resetProgress()}
-                        className="osrs-button w-full py-1 text-[10px] uppercase"
-                      >
-                        Reset Progress
-                      </button>
-                      <div className="flex gap-1">
-                        <input 
-                          type="number" 
-                          placeholder="Wave" 
-                          className="w-1/2 bg-black border border-[var(--osrs-border-light)] text-white text-xs px-1"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              engineRef.current?.setWave(parseInt((e.target as HTMLInputElement).value));
-                            }
-                          }}
-                        />
-                        <button 
-                          className="osrs-button w-1/2 py-1 text-[10px] uppercase"
-                          onClick={(e) => {
-                             const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                             engineRef.current?.setWave(parseInt(input.value));
-                          }}
+                  {(!gameState.pets || gameState.pets.length === 0) ? (
+                    <p className="text-[10px] text-[#808080] italic text-center py-4">No followers yet.<br/>Defeat bosses for a chance to get pets!</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {gameState.pets.map((pet: any) => (
+                        <div
+                          key={pet.id}
+                          className="w-12 h-12 bg-black/30 border border-[var(--osrs-border-light)] p-0.5 rounded group relative cursor-help flex items-center justify-center hover:border-osrs-cyan transition-colors"
+                          onMouseEnter={(e) => setActiveTooltip({
+                            x: e.clientX, y: e.clientY,
+                            title: pet.name, content: pet.bonus,
+                            color: '#00ffff'
+                          })}
+                          onMouseLeave={() => setActiveTooltip(null)}
                         >
-                          Set Wave
-                        </button>
-                      </div>
+                          <img src={`https://oldschool.runescape.wiki/images/${pet.type.split('_').map((w: any) => w.charAt(0).toUpperCase() + w.slice(1)).join('_')}.png`} className="w-full h-full object-contain" alt={pet.name} />
+                          <div className="absolute -bottom-4 left-0 right-0 text-[8px] text-center text-osrs-cyan truncate">{pet.name}</div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -845,34 +845,52 @@ export default function GameCanvas() {
             </div>
             
             {/* The Tab Icons Panel (Fixed Bottom) */}
-            <div className="grid grid-cols-8 w-full bg-[var(--osrs-brown)] border-t-2 border-[var(--osrs-border-dark)] p-0.5 h-10 flex-shrink-0 gap-[1px]">
+            <div className="grid grid-cols-9 w-full bg-[var(--osrs-brown)] border-t-2 border-[var(--osrs-border-dark)] p-0.5 h-10 flex-shrink-0 gap-[1px]">
               <button onClick={() => handleTabChange('combat')} className={`osrs-tab flex items-center justify-center ${activeTab === 'combat' ? 'active' : ''}`} title="Combat Control">
-                <img src="https://oldschool.runescape.wiki/images/Attack_icon.png" className="w-6 h-6 object-contain" alt="" />
+                <img src="https://oldschool.runescape.wiki/images/Attack_icon.png" className="w-5 h-5 object-contain" alt="" />
               </button>
               <button onClick={() => handleTabChange('achievements')} className={`osrs-tab flex items-center justify-center ${activeTab === 'achievements' ? 'active' : ''}`} title="Player Stats">
-                <img src="https://oldschool.runescape.wiki/images/Stats_icon.png" className="w-6 h-6 object-contain" alt="" />
+                <img src="https://oldschool.runescape.wiki/images/Stats_icon.png" className="w-5 h-5 object-contain" alt="" />
               </button>
               <button onClick={() => handleTabChange('inventory')} className={`osrs-tab flex items-center justify-center ${activeTab === 'inventory' ? 'active' : ''}`} title="Inventory">
-                <img src="https://oldschool.runescape.wiki/images/Inventory.png" className="w-6 h-6 object-contain" alt="" />
+                <img src="https://oldschool.runescape.wiki/images/Inventory.png" className="w-5 h-5 object-contain" alt="" />
               </button>
-              <button onClick={() => handleTabChange('quests')} className={`osrs-tab flex items-center justify-center ${activeTab === 'quests' ? 'active' : ''}`} title="Quests & Followers">
-                <img src="https://oldschool.runescape.wiki/images/Quest_point_icon.png" className="w-6 h-6 object-contain" alt="" />
+              <button onClick={() => handleTabChange('quests')} className={`osrs-tab flex items-center justify-center ${activeTab === 'quests' ? 'active' : ''}`} title="Quests">
+                <img src="https://oldschool.runescape.wiki/images/Quest_point_icon.png" className="w-5 h-5 object-contain" alt="" />
+              </button>
+              <button onClick={() => handleTabChange('pets')} className={`osrs-tab flex items-center justify-center ${activeTab === 'pets' ? 'active' : ''}`} title="Followers">
+                <img src="https://oldschool.runescape.wiki/images/Summoning_icon.png" className="w-5 h-5 object-contain" alt=""
+                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Prayer_icon.png'; }}
+                />
               </button>
               <button onClick={() => handleTabChange('ge')} className={`osrs-tab flex items-center justify-center ${activeTab === 'ge' ? 'active' : ''}`} title="Grand Exchange">
-                <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-6 h-6 object-contain" alt="" />
+                <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-5 h-5 object-contain" alt="" />
               </button>
               <button onClick={() => handleTabChange('prayer')} className={`osrs-tab flex items-center justify-center ${activeTab === 'prayer' ? 'active' : ''}`} title="Prayers">
-                <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" className="w-6 h-6 object-contain" alt="" />
+                <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" className="w-5 h-5 object-contain" alt="" />
               </button>
               <button onClick={() => handleTabChange('herblore')} className={`osrs-tab flex items-center justify-center ${activeTab === 'herblore' ? 'active' : ''}`} title="Herblore">
-                <img src="https://oldschool.runescape.wiki/images/Herblore_icon.png" className="w-6 h-6 object-contain" alt="" />
+                <img src="https://oldschool.runescape.wiki/images/Herblore_icon.png" className="w-5 h-5 object-contain" alt="" />
               </button>
               <button onClick={() => handleTabChange('settings')} className={`osrs-tab flex items-center justify-center ${activeTab === 'settings' ? 'active' : ''}`} title="Settings">
-                <img src="https://oldschool.runescape.wiki/images/Settings.png" className="w-6 h-6 object-contain" alt="" />
+                <img src="https://oldschool.runescape.wiki/images/Settings.png" className="w-5 h-5 object-contain" alt="" />
               </button>
             </div>
           </div>
+
+          {/* Collapse Toggle - shown when sidebar is collapsed, always visible */}
         </div>
+      </div>
+
+      {/* Collapse Button - Always visible, outside the sliding area */}
+      <div className="absolute bottom-[4px] right-[4px] translate-y-0 z-30 pointer-events-auto">
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="w-5 h-12 bg-[var(--osrs-brown)] border-l-2 border-t-2 border-b-2 border-[var(--osrs-border-dark)] flex items-center justify-center text-osrs-yellow font-bold z-50 rounded-l hover:bg-[#5d5245] transition-colors"
+          style={{ position: 'absolute', right: isSidebarCollapsed ? 0 : 'calc(100% + 4px)' }}
+        >
+          {isSidebarCollapsed ? '<' : '>'}
+        </button>
       </div>
       </div>
 
@@ -1104,10 +1122,10 @@ export default function GameCanvas() {
                   <div className="grid grid-cols-2 gap-3">
                     {[
                       { id: 'archerDamage', name: 'Ranged Strength', desc: 'Archer Damage +10%', cost: 10, inc: 0.1 },
-                      { id: 'wizardDamage', name: 'Mystic Might', desc: 'Wizard Damage +10%', cost: 15, inc: 0.1 },
+                      { id: 'magicDamage', name: 'Mystic Might', desc: 'Wizard Damage +10%', cost: 15, inc: 0.1 },
                       { id: 'cannonSpeed', name: 'Dwarf Engineering', desc: 'Cannon Speed +10%', cost: 20, inc: 0.1 },
                       { id: 'slayerReward', name: 'Slayer Helmet', desc: 'Slayer Reward +15%', cost: 25, inc: 0.15 },
-                      { id: 'prayerEfficiency', name: 'Holy Grail', desc: 'Prayer Drain -10%', cost: 30, inc: 0.1 },
+                      { id: 'prayerEfficiency', name: 'Holy Grail', desc: 'Prayer Drain -10%', cost: 30, inc: -0.1 },
                       { id: 'startingMoney', name: 'Merchant Guild', desc: 'Starting GP +50', cost: 40, inc: 50 },
                       { id: 'rewardMultiplier', name: 'Wealth Ring', desc: 'Enemy Rewards +15%', cost: 50, inc: 0.15 },
                       { id: 'towerCostReduction', name: 'Guild Discount', desc: 'Tower Price -5%', cost: 60, inc: -0.05 },
@@ -1121,12 +1139,14 @@ export default function GameCanvas() {
                           <div>
                             <div className="text-osrs-yellow font-bold text-sm group-hover:text-white transition-colors">{item.name}</div>
                             <div className="text-[#c0c0c0] text-[10px] italic">{item.desc}</div>
-                            <div className="text-osrs-green text-[10px] mt-1 font-mono">
+                            <div className="text-osrs-green text-xs mt-1 font-mono">
                               {item.id === 'startingMoney' 
-                                ? `Current: ${upgrades[item.id as keyof GlobalUpgrades]}`
-                                : `Current: ${upgrades[item.id as keyof GlobalUpgrades] > 1.0 ? '+' : ''}${Math.round((upgrades[item.id as keyof GlobalUpgrades] - 1) * 100)}%`
+                                ? `Current: +${upgrades[item.id as keyof GlobalUpgrades]} GP`
+                                : item.id === 'towerCostReduction' || item.id === 'prayerEfficiency'
+                                  ? `Current: ${Math.round((1 - (upgrades[item.id as keyof GlobalUpgrades] as number)) * 100)}% off`
+                                  : `Current: ${((upgrades[item.id as keyof GlobalUpgrades] as number) >= 1.0 ? '+' : '')}${Math.round(((upgrades[item.id as keyof GlobalUpgrades] as number) - 1) * 100)}%`
                               }
-                              {isMaxed && <span className="ml-2 text-osrs-red font-bold">[MAX]</span>}
+                              {isMaxed && <span className="ml-2 text-osrs-red font-bold text-xs">[MAX]</span>}
                             </div>
                           </div>
                           <button 
@@ -1649,7 +1669,7 @@ export default function GameCanvas() {
         >
           <p className="text-osrs-yellow font-bold text-xs" style={{ color: activeTooltip.color || '#ffff00' }}>{activeTooltip.title}</p>
           <div className="w-full h-px bg-osrs-border-light/30 my-1" />
-          <p className="text-white text-[10px] leading-tight">{activeTooltip.content}</p>
+          <p className="text-white text-xs leading-tight">{activeTooltip.content}</p>
           {activeTooltip.bonus && <p className="text-osrs-cyan text-[8px] mt-1 font-bold">{activeTooltip.bonus}</p>}
         </div>
       )}
