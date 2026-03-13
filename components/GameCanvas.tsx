@@ -770,10 +770,8 @@ export default function GameCanvas() {
 
                   <div className="grid grid-cols-1 gap-2">
                     {[
-                      { name: 'Attack Potion', ingredients: 'Guam + Eye of Newt', level: 1, xp: 25, icon: 'Attack_potion(3)' },
                       { name: 'Strength Potion', ingredients: 'Tarromin + Limpwurt', level: 12, xp: 50, icon: 'Strength_potion(3)' },
                       { name: 'Prayer Potion', ingredients: 'Ranarr + Snape Grass', level: 38, xp: 87.5, icon: 'Prayer_potion(3)' },
-                      { name: 'Super Attack', ingredients: 'Irit + Eye of Newt', level: 45, xp: 100, icon: 'Super_attack(3)' },
                       { name: 'Super Strength', ingredients: 'Kwuarm + Limpwurt', level: 55, xp: 125, icon: 'Super_strength(3)' },
                       { name: 'Ranging Potion', ingredients: 'Dwarf Weed + Wine of Zamorak', level: 72, xp: 162.5, icon: 'Ranging_potion(3)' },
                       { name: 'Magic Potion', ingredients: 'Lantadyme + Potato Cactus', level: 76, xp: 172.5, icon: 'Magic_potion(3)' },

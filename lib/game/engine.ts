@@ -23,7 +23,7 @@ export interface GlobalUpgrades {
   prayerRegen: number;
 }
 
-export type PrayerType = 'burst_of_strength' | 'clarity_of_thought' | 'sharp_eye' | 'mystic_will' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury' | 'protect_from_melee' | 'protect_from_missiles' | 'protect_from_magic';
+export type PrayerType = 'burst_of_strength' | 'sharp_eye' | 'mystic_will' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury' | 'protect_from_melee' | 'protect_from_missiles' | 'protect_from_magic';
 
 export interface ActivePotion {
   type: 'overload' | 'super_restore' | 'prayer_potion' | 'ranging' | 'magic' | 'super_combat';
@@ -337,7 +337,6 @@ export class GameEngine {
   };
   allPrayers: { id: PrayerType, name: string, level: number, drain: number, description: string }[] = [
     { id: 'burst_of_strength', name: 'Burst of Strength', level: 4, drain: 1.5, description: '+5% Strength' },
-    { id: 'clarity_of_thought', name: 'Clarity of Thought', level: 7, drain: 1.5, description: '+5% Attack' },
     { id: 'sharp_eye', name: 'Sharp Eye', level: 8, drain: 1.5, description: '+5% Ranged' },
     { id: 'mystic_will', name: 'Mystic Will', level: 9, drain: 1.5, description: '+5% Magic' },
     { id: 'hawk_eye', name: 'Hawk Eye', level: 26, drain: 3, description: '+10% Ranged' },
@@ -346,7 +345,7 @@ export class GameEngine {
     { id: 'protect_from_missiles', name: 'Protect from Missiles', level: 40, drain: 4, description: 'Protection from Ranged attacks' },
     { id: 'protect_from_melee', name: 'Protect from Melee', level: 43, drain: 4, description: 'Protection from Melee attacks' },
     { id: 'eagle_eye', name: 'Eagle Eye', level: 44, drain: 5, description: '+15% Ranged' },
-    { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Str, +20% Att' },
+    { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Strength' },
     { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '+23% Ranged, +23% Ranged Str' },
     { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '+25% Magic' },
   ];
@@ -2735,8 +2734,8 @@ export class GameEngine {
             vorkath: { name: 'Vorki', type: 'vorki', bonus: 'Dragon Slayer: +15% DMG vs Dragons' },
             zulrah: { name: 'Snakeling', type: 'snakeling', bonus: 'Serpent Scale: +10% GP drops' },
             jad: { name: "TzRek-Jad", type: 'rift_guardian', bonus: 'Jad\'s Might: +20% fire damage' },
-            green_dragon: { name: 'Prince Black Dragon', type: 'prince_black_dragon', bonus: 'Dragon Blood: +8% ATK vs Dragons' },
-            blue_dragon: { name: 'Prince Black Dragon', type: 'prince_black_dragon', bonus: 'Dragon Blood: +8% ATK vs Dragons' },
+            green_dragon: { name: 'Prince Black Dragon', type: 'prince_black_dragon', bonus: 'Dragon Blood: +8% DMG vs Dragons' },
+            blue_dragon: { name: 'Prince Black Dragon', type: 'prince_black_dragon', bonus: 'Dragon Blood: +8% DMG vs Dragons' },
             hydra: { name: 'Ikkle Hydra', type: 'heron', bonus: 'Hydra\'s Eye: +10% range' }
           };
           const petEntry = petTable[enemy.type];
