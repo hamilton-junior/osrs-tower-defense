@@ -2,6 +2,11 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { GameEngine, GlobalUpgrades } from '@/lib/game/engine';
+import { TOWERS as TOWER_DATA } from '@/lib/game/data/towers';
+import { ENEMIES as ENEMY_DATA } from '@/lib/game/data/enemies';
+import { PRAYERS as PRAYER_DATA } from '@/lib/game/data/prayers';
+import { ITEMS as ITEM_DATA } from '@/lib/game/data/items';
+import { SHOP_ITEMS } from '@/lib/game/data/shop';
 
 interface TowerSkill {
   level: number;
@@ -464,16 +469,7 @@ export default function GameCanvas() {
              <div className="w-full bg-[#ff0000] transition-all duration-500 border-t border-[#ff6666]" style={{ height: `${(gameState.lives / 20) * 100}%` }} />
           </div>
 
-          {/* Prayer Bar */}
-          <div className="w-8 h-[300px] bg-[var(--osrs-brown)] border-2 border-[var(--osrs-border-dark)] relative overflow-hidden flex flex-col-reverse mr-1">
-            <div className="absolute top-1 left-0 right-0 text-center z-10">
-              <span className="text-[10px] text-white font-bold drop-shadow-md">{Math.ceil(gameState.prayerPoints || 0)}</span>
-            </div>
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center">
-               <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" alt="Prayer" className="w-full h-full object-contain" />
-            </div>
-            <div className="w-full bg-[#00bfff] transition-all duration-500 border-t border-[#66dfff]" style={{ height: `${((gameState.prayerPoints || 0) / (gameState.maxPrayerPoints || 99)) * 100}%` }} />
-          </div>
+
           {/* Main Sidebar Panel */}
           <div className="flex flex-col w-[240px] h-[340px] osrs-panel relative overflow-hidden flex-shrink-0 transition-all duration-300">
             {/* Special Attack Bar - Always Visible */}
@@ -871,18 +867,35 @@ export default function GameCanvas() {
             </div>
           </div>
 
+          {/* Prayer Bar */}
+          <div className="w-8 h-[300px] bg-[var(--osrs-brown)] border-2 border-[var(--osrs-border-dark)] relative overflow-hidden flex flex-col-reverse ml-1">
+            <div className="absolute top-1 left-0 right-0 text-center z-10">
+              <span className="text-[10px] text-white font-bold drop-shadow-md">{Math.ceil(gameState.prayerPoints || 0)}</span>
+            </div>
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center">
+               <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" alt="Prayer" className="w-full h-full object-contain" />
+            </div>
+            <div className="w-full bg-[#00bfff] transition-all duration-500 border-t border-[#66dfff]" style={{ height: `${((gameState.prayerPoints || 0) / (gameState.maxPrayerPoints || 99)) * 100}%` }} />
+          </div>
+
           {/* Collapse Toggle - shown when sidebar is collapsed, always visible */}
         </div>
       </div>
 
-      {/* Collapse Button - Always visible, outside the sliding area */}
-      <div className="absolute bottom-[4px] right-[4px] translate-y-0 z-30 pointer-events-auto">
+      {/* Sidebar Collapse Toggle - Integrated near Special Attack bar */}
+      <div 
+        className="absolute right-0 z-30 pointer-events-auto transition-all duration-300" 
+        style={{ 
+          bottom: isSidebarCollapsed ? '160px' : '313px',
+          right: isSidebarCollapsed ? '0px' : '316px' 
+        }}
+      >
         <button
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="w-5 h-12 bg-[var(--osrs-brown)] border-l-2 border-t-2 border-b-2 border-[var(--osrs-border-dark)] flex items-center justify-center text-osrs-yellow font-bold z-50 rounded-l hover:bg-[#5d5245] transition-colors"
-          style={{ position: 'absolute', right: isSidebarCollapsed ? 0 : 'calc(100% + 4px)' }}
+          className="w-4 h-8 bg-[var(--osrs-brown)] border-2 border-[var(--osrs-border-dark)] flex items-center justify-center text-osrs-yellow text-[10px] z-50 rounded-l hover:bg-[#5d5245] transition-colors shadow-lg active:brightness-90"
+          title={isSidebarCollapsed ? "Show Interface" : "Hide Interface"}
         >
-          {isSidebarCollapsed ? '<' : '>'}
+          {isSidebarCollapsed ? '◀' : '▶'}
         </button>
       </div>
       </div>
@@ -1460,20 +1473,9 @@ export default function GameCanvas() {
               <p>Speed: <span className="text-white">{(hoveredEntity.data.cooldown / 1000).toFixed(1)}s</span></p>
               {hoveredEntity.data.special && <p className="text-osrs-cyan font-bold uppercase text-[10px]">Special: {hoveredEntity.data.special}</p>}
               {hoveredEntity.data.mageMode === 'utility' && <p className="text-osrs-green font-bold text-[10px]">SUPPORT AURA ACTIVE</p>}
-              {hoveredEntity.data.level < 4 && (
+              {hoveredEntity.data.level < (TOWER_DATA[hoveredEntity.data.type]?.tiers.length || 4) && (
                 <p className="text-osrs-green mt-1">Next: <span className="text-white">{
-                  (() => {
-                    const upgradeNames: any = {
-                      archer: ['Magic Shortbow', 'Crystal Bow', 'Faerdhinen'],
-                      wizard: ['Bolt Spells', 'Blast Spells', 'Ancient Magicks'],
-                      cannon: ['Granite Cannon', 'Heavy Ballista', 'Dragon Slayer'],
-                      tzhaar: ['Toktz-xil-ak', 'TzHaar-Ket-Om', 'Inquisitor Mace'],
-                      slayer: ['Karils Crossbow', 'Twisted Bow', 'Zaryte Crossbow'],
-                      toxic:  ['Serp Blowpipe', 'Trident', 'Magma Blowpipe']
-                    };
-                    const names = upgradeNames[hoveredEntity.data.type as keyof typeof upgradeNames];
-                    return names ? names[hoveredEntity.data.level - 1] : 'Elite Gear';
-                  })()
+                  TOWER_DATA[hoveredEntity.data.type]?.tiers[hoveredEntity.data.level]?.name || 'Elite Gear'
                 }</span></p>
               )}
               <p className="text-[10px] text-[#c0c0c0] italic mt-1">Right-click to toggle range</p>
@@ -1520,27 +1522,16 @@ export default function GameCanvas() {
                     </div>
                   </div>
                   
-                  {rightClickedEntity.data.level < 4 && (
+                  {rightClickedEntity.data.level < (TOWER_DATA[rightClickedEntity.data.type]?.tiers.length || 4) && (
                     <div className="bg-black/20 p-3 rounded border border-[var(--osrs-border-light)]">
                       <p className="text-osrs-yellow font-bold mb-2 border-b border-white/10">Future Upgrades</p>
                       <div className="space-y-2 text-[10px] font-osrs">
-                        {[2, 3, 4].filter(l => l > rightClickedEntity.data.level).map(lvl => {
-                          const upgrades: any = {
-                             archer: [null, 'Magic Shortbow', 'Crystal Bow', 'Bow of Faerdhinen'],
-                             wizard: [null, 'Bolt Spells', 'Blast Spells', 'Ancient Magicks'],
-                             cannon: [null, 'Granite Cannon', 'Heavy Ballista', 'Dragon Slayer Ballista'],
-                             tzhaar: [null, 'Toktz-xil-ak', 'TzHaar-Ket-Om', "Inquisitor's Mace"],
-                             slayer: [null, 'Karils Crossbow', 'Twisted Bow', 'Zaryte Crossbow'],
-                             toxic:  [null, 'Serp Blowpipe', 'Trident of Swamp', 'Magma Blowpipe']
-                          };
-                          const names = upgrades[rightClickedEntity.data.type as keyof typeof upgrades];
-                          return (
-                            <div key={lvl} className="flex justify-between border-b border-white/5 pb-1">
-                              <span className="text-[#c0c0c0]">LVL {lvl}:</span>
-                              <span className="text-white font-bold">{names ? names[lvl-1] : 'Elite Gear'}</span>
-                            </div>
-                          );
-                        })}
+                        {TOWER_DATA[rightClickedEntity.data.type]?.tiers.slice(rightClickedEntity.data.level).map((tier: any) => (
+                          <div key={tier.level} className="flex justify-between border-b border-white/5 pb-1">
+                            <span className="text-[#c0c0c0]">LVL {tier.level}:</span>
+                            <span className="text-white font-bold">{tier.name}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -1579,29 +1570,23 @@ export default function GameCanvas() {
           </div>
         )}
         <div className="flex bg-[#3e2e18]/90 border-2 border-[var(--osrs-border-dark)] p-1 gap-1 pointer-events-auto rounded shadow-2xl">
-          {[
-            { id: 'archer', name: 'Archer', cost: 50, icon: '🏹', wikiImg: 'Shortbow', color: '#00ff00', desc: 'Fast Ranged attacks.', upgrades: 'Magic Shortbow → Crystal Bow → Bow of Faerdhinen' },
-            { id: 'wizard', name: 'Wizard', cost: 100, icon: '🪄', wikiImg: 'Staff', color: '#00ffff', desc: 'Magic damage. Access to Elemental spells and Ancient Magicks.', upgrades: 'Bolt → Blast → Wave → Surge / Ancient Spells' },
-            { id: 'cannon', name: 'Cannon', cost: 250, icon: '💣', wikiImg: 'Dwarf_multicannon', color: '#00ff00', desc: 'AoE Ranged damage.', upgrades: 'Granite Cannon → Heavy Ballista → Dragon Hunter Ballista' },
-            { id: 'tzhaar', name: 'TzHaar', cost: 500, icon: '🛡️', wikiImg: 'Toktz-xil-ak', color: '#ff0000', desc: 'Heavy Melee strength.', upgrades: 'Toktz-xil-ak → TzHaar-Ket-Om → Inquisitor\'s Mace' },
-            { id: 'slayer', name: 'Slayer', cost: 750, icon: '⚔️', wikiImg: 'Slayer_icon', color: '#00ff00', desc: 'Ranged specialist. Bonus vs Tasks.', upgrades: 'Karils Crossbow → Twisted Bow → Zaryte Crossbow' },
-            { id: 'toxic', name: 'Toxic', cost: 1000, icon: '🐍', wikiImg: 'Toxic_blowpipe', color: '#00ff00', desc: 'Venomous Ranged damage.', upgrades: 'Blowpipe → Serp Blowpipe → Trident → Magma Blowpipe' },
-          ].map((tower) => {
-            const isSelected = gameState.selectedTower === tower.id;
-            const canAfford = gameState.money >= tower.cost;
+          {Object.values(TOWER_DATA).map((tower: any) => {
+            const isSelected = gameState.selectedTower === tower.type;
+            const firstTier = tower.tiers[0];
+            const canAfford = gameState.money >= firstTier.upgradeCost;
             return (
               <button
-                key={tower.id}
+                key={tower.type}
                 onClick={() => {
-                  setSelectedTower(isSelected ? null : tower.id);
+                  setSelectedTower(isSelected ? null : tower.type);
                   setSelectedPlacedTower(null);
                 }}
                 onMouseEnter={(e) => setActiveTooltip({
                   x: e.clientX, y: e.clientY,
-                  title: tower.name.toUpperCase(),
-                  content: tower.desc,
-                  bonus: `Path: ${tower.upgrades}`,
-                  color: tower.color
+                  title: tower.baseName.toUpperCase(),
+                  content: tower.tiers[0].name,
+                  bonus: `Path: ${tower.tiers.map((t: any) => t.name).join(' → ')}`,
+                  color: firstTier.color
                 })}
                 onMouseLeave={() => setActiveTooltip(null)}
                 disabled={!canAfford}
@@ -1613,15 +1598,21 @@ export default function GameCanvas() {
               >
                 <div className="w-9 h-9 flex items-center justify-center relative mb-0.5">
                   <img
-                    src={`https://oldschool.runescape.wiki/images/${tower.wikiImg}.png`}
-                    alt={tower.name}
-                    className="max-pw-full max-h-full object-contain drop-shadow-md"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling!.classList.remove('hidden'); }}
+                    src={`https://oldschool.runescape.wiki/images/${tower.tiers[0].name.replace(/ /g, '_')}.png`}
+                    alt={tower.baseName}
+                    className="max-w-full max-h-full object-contain drop-shadow-md"
+                    onError={(e) => { 
+                      const img = e.target as HTMLImageElement;
+                      if (!img.src.includes('_detail')) {
+                        img.src = `https://oldschool.runescape.wiki/images/${tower.tiers[0].name.replace(/ /g, '_')}_detail.png`;
+                      } else {
+                        img.style.display='none'; 
+                      }
+                    }}
                   />
-                  <span className="hidden text-2xl">{tower.icon}</span>
                 </div>
-                <span className="text-[9px] font-bold uppercase tracking-tight" style={{ color: tower.color }}>{tower.name}</span>
-                <span className={`text-[9px] font-bold ${canAfford ? 'text-osrs-green' : 'text-osrs-red'}`}>{tower.cost}gp</span>
+                <span className="text-[9px] font-bold uppercase tracking-tight" style={{ color: firstTier.color }}>{tower.baseName}</span>
+                <span className={`text-[9px] font-bold ${canAfford ? 'text-osrs-green' : 'text-osrs-red'}`}>{firstTier.upgradeCost}gp</span>
                 {isSelected && <div className="absolute -top-1 -right-1 w-2 h-2 bg-osrs-yellow rounded-full animate-ping" />}
               </button>
             );

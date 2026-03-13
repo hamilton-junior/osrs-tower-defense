@@ -1,235 +1,42 @@
 
-import { ASSETS } from './assets';
 
-export interface Point {
-  x: number;
-  y: number;
-}
+import { ASSETS } from './assets';
+import * as Types from './types';
+import { PRAYERS } from './data/prayers';
+import { ACHIEVEMENTS } from './data/achievements';
+import { QUESTS } from './data/quests';
+import { ENEMIES } from './data/enemies';
+import { TOWERS } from './data/towers';
+import { ITEMS } from './data/items';
+
+// Re-export types for backward compatibility if needed, or just import from Types
+export type Point = Types.Point;
+export type GlobalUpgrades = Types.GlobalUpgrades;
+export type PrayerType = Types.PrayerType;
+export type ActivePotion = Types.ActivePotion;
+export type Pet = Types.Pet;
+export type Achievement = Types.Achievement;
+export type EnemyType = Types.EnemyType;
+export type Element = Types.Element;
+export type Enemy = Types.Enemy;
+export type TowerType = Types.TowerType;
+export type MageMode = Types.MageMode;
+export type AncientType = Types.AncientType;
+export type SupportSpell = Types.SupportSpell;
+export type TowerSkill = Types.TowerSkill;
+export type TowerSkills = Types.TowerSkills;
+export type PlayerSkills = Types.PlayerSkills;
+export type GatheringNode = Types.GatheringNode;
+export type Item = Types.Item;
+export type Region = Types.Region;
+export type TargetingPriority = Types.TargetingPriority;
+export type Tower = Types.Tower;
+export type Projectile = Types.Projectile;
+export type SlayerTask = Types.SlayerTask;
+export type Quest = Types.Quest;
+export type FarmingPatch = Types.FarmingPatch;
 
 export const TICK = 0.6; // OSRS Game Tick
-
-export interface GlobalUpgrades {
-  archerRange: number; // multiplier, e.g. 1.0
-  archerDamage: number;
-  magicDamage: number;
-  cannonSpeed: number;
-  slayerReward: number;
-  prayerEfficiency: number;
-  startingMoney: number;
-  rewardMultiplier: number;
-  waveSpeed: number;
-  towerCostReduction: number;
-  xpGainMultiplier: number;
-  prayerRegen: number;
-}
-
-export type PrayerType = 'burst_of_strength' | 'sharp_eye' | 'mystic_will' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury' | 'protect_from_melee' | 'protect_from_missiles' | 'protect_from_magic';
-
-export interface ActivePotion {
-  type: 'overload' | 'super_restore' | 'prayer_potion' | 'ranging' | 'magic' | 'super_combat';
-  timer: number;
-}
-
-export interface Pet {
-  id: string;
-  name: string;
-  type: string;
-  bonus: string;
-  x?: number;
-  y?: number;
-}
-
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  completed: boolean;
-}
-
-export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra';
-
-export type Element = 'air' | 'water' | 'earth' | 'fire' | 'none';
-
-export interface Enemy {
-  id: string;
-  x: number;
-  y: number;
-  hp: number;
-  maxHp: number;
-  speed: number;
-  baseSpeed: number; // For slow effects
-  pathIndex: number;
-  type: EnemyType;
-  color: string;
-  reward: number;
-  slowTimer: number; // Duration of slow effect
-  stunTimer: number; // Duration of stun effect
-  tauntTimer: number; // Duration of taunt effect
-  deathSound?: string;
-  weakness?: Element;
-  jadTimer?: number;
-  jadAttackType?: 'mage' | 'range';
-  jadAttackActive?: boolean;
-  jadAttackResolveTimer?: number;
-  burnTimer: number;
-  burnDamage: number;
-  groundTimer: number; // For earth/root effects
-  resistance: number; // 0-1, boss resistance to debuffs
-  poisonTimer?: number;
-  venomTimer?: number;
-  venomDamage?: number;
-}
-
-export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
-export type MageMode = 'elemental' | 'ancients' | 'utility';
-export type AncientType = 'ice' | 'blood' | 'shadow' | 'smoke';
-export type SupportSpell = 'charge' | 'curse' | 'bind';
-
-export interface TowerSkill {
-  level: number;
-  xp: number;
-}
-
-export interface TowerSkills {
-  strength: TowerSkill;
-  ranged: TowerSkill;
-  magic: TowerSkill;
-}
-
-export interface PlayerSkills {
-  mining: TowerSkill;
-  woodcutting: TowerSkill;
-  herblore: TowerSkill;
-  crafting: TowerSkill;
-  prayer: TowerSkill;
-  farming: TowerSkill;
-}
-
-export interface GatheringNode {
-  id: string;
-  type: 'tree' | 'ore' | 'herb';
-  name: string;
-  x: number;
-  y: number;
-  respawnTimer: number;
-  maxRespawn: number;
-  level: number;
-  xp: number;
-}
-
-export interface Item {
-  id: string;
-  name: string;
-  description: string;
-  bonus: {
-    damage?: number;
-    range?: number;
-    cooldown?: number;
-    xpBonus?: number; // % XP bonus
-  };
-  type: 'weapon' | 'shield' | 'accessory' | 'seed' | 'herb' | 'potion' | 'material';
-  seedType?: 'herb' | 'flower' | 'allotment';
-  growthTime?: number; // Seconds per stage
-  harvestItem?: string; // Item ID to harvest
-  potionEffect?: ActivePotion['type'];
-  potionDuration?: number;
-  sellPrice?: number;
-}
-
-export type Region = 'misthalin' | 'karamja' | 'wilderness' | 'morytania';
-
-export interface FarmingPatch {
-  id: string;
-  x: number;
-  y: number;
-  type: 'herb' | 'flower' | 'allotment';
-  seed: string | null; // Item ID
-  stage: number; // 0 = empty, 1 = planted, 2 = growing, 3 = ready
-  timer: number; // Time until next stage
-  yield: number; // Number of herbs to harvest
-  maxStage: number;
-}
-
-export type TargetingPriority = 'first' | 'last' | 'strongest' | 'weakest' | 'closest';
-
-export interface Tower {
-  id: string;
-  x: number;
-  y: number;
-  type: TowerType;
-  level: number;
-  maxLevel: number;
-  range: number;
-  damage: number;
-  cooldown: number;
-  lastFired: number;
-  color: string;
-  targetId: string | null;
-  targetingPriority: TargetingPriority;
-  name: string;
-  upgradeCost: number;
-  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood';
-  specCharge: number; // 0-100 special attack charge
-  specMax: number;    // damage threshold to fill spec bar
-  lastSpecFired?: number;
-  visualRadius: number;
-  disabledTimer: number;
-  skills: TowerSkills;
-  equipment: {
-    weapon: Item | null;
-    shield: Item | null;
-    accessory: Item | null;
-  };
-  showRange?: boolean;
-  fireSound?: string;
-  minDamage?: number;
-  maxDamage?: number;
-  mageMode?: MageMode;
-  ancientType?: AncientType;
-  element?: Element;
-  supportSpell?: SupportSpell;
-  attackStyle?: 'accurate' | 'rapid' | 'long_range';
-}
-
-export interface Projectile {
-  id: string;
-  x: number;
-  y: number;
-  targetId: string;
-  speed: number;
-  damage: number;
-  color: string;
-  type: 'arrow' | 'spell' | 'cannonball' | 'dart' | 'bolt' | 'magic_projectile' | 'ancient_ice' | 'ancient_blood' | 'ancient_shadow' | 'ancient_smoke' | 'chinchompa' | 'godsword';
-  element?: Element; 
-  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood';
-  sourceTowerId?: string;
-}
-
-export interface SlayerTask {
-  type: EnemyType;
-  count: number;
-  total: number;
-  reward: number;
-}
-
-export interface Quest {
-  id: string;
-  name: string;
-  description: string;
-  objective: {
-    type: 'kill' | 'wave' | 'money' | 'essence';
-    target: number;
-    current: number;
-    enemyType?: EnemyType;
-  };
-  reward: {
-    money?: number;
-    essence?: number;
-    item?: Item;
-  };
-  completed: boolean;
-  claimed: boolean;
-}
 
 export class GameEngine {
   canvas: HTMLCanvasElement;
@@ -238,17 +45,15 @@ export class GameEngine {
   
   animationId: number = 0;
   lastTime: number = 0;
-  // Dynamic coordinates
   prevWidth: number = 0;
   prevHeight: number = 0;
 
-  // Game Loop
   gameSpeed: number = 1;
   gameTime: number = 0;
-  maxDt: number = 0.1; // Safeguard for background tab sluggishness
+  maxDt: number = 0.1;
   isPaused: boolean = false;
   autoSpawnEnabled: boolean = false;
-  autoSpawnDelay: number = 3; // Seconds
+  autoSpawnDelay: number = 3; 
   autoSpawnTimer: number = 0;
   hoveredEntityId: string | null = null;
   selectedEntityId: string | null = null;
@@ -257,26 +62,21 @@ export class GameEngine {
   wave: number = 1;
   waveActive: boolean = false;
   runeEssence: number = 0;
-  devMode: boolean = false; // Dev mode: no HP loss
+  devMode: boolean = false; 
   
-  // Prayer System
   prayerPoints: number = 10;
   maxPrayerPoints: number = 10;
   activePrayers: Set<PrayerType> = new Set();
   prayerDrainTimer: number = 0;
 
-  // Mouse Tracking
   mousePos: Point = { x: 0, y: 0 };
   selectedTowerType: string | null = null;
 
-  // Special Attack
   specialAttackCharge: number = 0;
   maxSpecialAttack: number = 100;
 
-  // Potions
   activePotions: ActivePotion[] = [];
 
-  // Pets & Achievements
   followingPetId: string | null = 'pet_beaver';
   petQuoteTimer: number = 0;
   activeQuote: { text: string, timer: number } | null = null;
@@ -294,18 +94,11 @@ export class GameEngine {
     { id: 'pet_beaver', name: 'Beaver', type: 'beaver', bonus: 'Lucky Paw: +25% item drop chance' },
     { id: 'pet_tangleroot', name: 'Tangleroot', type: 'tangleroot', bonus: 'Nature\'s Gift: +10% Rune Essence drops' }
   ];
-  achievements: Achievement[] = [
-    { id: 'first_wave', name: 'Novice Defender', description: 'Complete Wave 1', completed: false },
-    { id: 'rich', name: 'Merchant', description: 'Accumulate 1000 GP', completed: false },
-    { id: 'slayer_master', name: 'Slayer Master', description: 'Complete 5 Slayer Tasks', completed: false },
-    { id: 'boss_slayer', name: 'Boss Slayer', description: 'Defeat TzTok-Jad', completed: false },
-    { id: 'vorkath_slayer', name: 'Dragon Slayer II', description: 'Defeat Vorkath', completed: false },
-    { id: 'zulrah_slayer', name: 'Snake Pit', description: 'Defeat Zulrah', completed: false },
-    { id: 'essence_hoarder', name: 'Essence Hoarder', description: 'Accumulate 50 Rune Essence', completed: false },
-    { id: 'tower_master', name: 'Tower Master', description: 'Have 10 towers on the field', completed: false }
-  ];
+  
+  achievements: Achievement[] = JSON.parse(JSON.stringify(ACHIEVEMENTS));
+  quests: Quest[] = JSON.parse(JSON.stringify(QUESTS));
+  allPrayers = PRAYERS;
 
-  // Entities
   enemies: Enemy[] = [];
   towers: Tower[] = [];
   projectiles: Projectile[] = [];
@@ -335,122 +128,28 @@ export class GameEngine {
     showRangeAlways: false,
     particles: true
   };
-  allPrayers: { id: PrayerType, name: string, level: number, drain: number, description: string }[] = [
-    { id: 'burst_of_strength', name: 'Burst of Strength', level: 4, drain: 1.5, description: '+5% Strength' },
-    { id: 'sharp_eye', name: 'Sharp Eye', level: 8, drain: 1.5, description: '+5% Ranged' },
-    { id: 'mystic_will', name: 'Mystic Will', level: 9, drain: 1.5, description: '+5% Magic' },
-    { id: 'hawk_eye', name: 'Hawk Eye', level: 26, drain: 3, description: '+10% Ranged' },
-    { id: 'ultimate_strength', name: 'Ultimate Strength', level: 31, drain: 4, description: '+15% Strength' },
-    { id: 'protect_from_magic', name: 'Protect from Magic', level: 37, drain: 4, description: 'Protection from Magic attacks' },
-    { id: 'protect_from_missiles', name: 'Protect from Missiles', level: 40, drain: 4, description: 'Protection from Ranged attacks' },
-    { id: 'protect_from_melee', name: 'Protect from Melee', level: 43, drain: 4, description: 'Protection from Melee attacks' },
-    { id: 'eagle_eye', name: 'Eagle Eye', level: 44, drain: 5, description: '+15% Ranged' },
-    { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Strength' },
-    { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '+23% Ranged, +23% Ranged Str' },
-    { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '+25% Magic' },
-  ];
 
-  // Items & Quests
   inventory: Item[] = [];
-  quests: Quest[] = [
-    {
-      id: 'cooks_assistant',
-      name: "Cook's Assistant",
-      description: 'Kill 20 Goblins for the cook.',
-      objective: { type: 'kill', target: 20, current: 0, enemyType: 'goblin' },
-      reward: { 
-        money: 100, 
-        essence: 5,
-        item: { id: 'amulet_of_power', name: 'Amulet of Power', description: '+5 DMG, +10% XP gain', type: 'accessory', bonus: { damage: 5, xpBonus: 10 } }
-      },
-      completed: false,
-      claimed: false
-    },
-    {
-      id: 'dragon_slayer',
-      name: 'Dragon Slayer',
-      description: 'Defeat 5 Green Dragons.',
-      objective: { type: 'kill', target: 5, current: 0, enemyType: 'green_dragon' },
-      reward: { 
-        money: 500, 
-        essence: 20,
-        item: { id: 'anti_dragon_shield', name: 'Anti-dragon Shield', description: 'Range +20, +15% XP gain', type: 'shield', bonus: { range: 20, xpBonus: 15 } }
-      },
-      completed: false,
-      claimed: false
-    },
-    {
-      id: 'wave_master',
-      name: 'Wave Master',
-      description: 'Reach Wave 10.',
-      objective: { type: 'wave', target: 10, current: 0 },
-      reward: { 
-        money: 300, 
-        essence: 10,
-        item: { id: 'combat_bracelet', name: 'Combat Bracelet', description: 'Damage +8', type: 'accessory', bonus: { damage: 8 } }
-      },
-      completed: false,
-      claimed: false
-    },
-    {
-      id: 'demon_slayer',
-      name: 'Demon Slayer',
-      description: 'Kill 50 Lesser Demons.',
-      objective: { type: 'kill', target: 50, current: 0, enemyType: 'lesser_demon' },
-      reward: { 
-        money: 400, 
-        essence: 15,
-        item: { id: 'silverlight', name: 'Silverlight', description: 'Damage +15 against demons', type: 'weapon', bonus: { damage: 15 } }
-      },
-      completed: false,
-      claimed: false
-    },
-    {
-      id: 'dragon_master',
-      name: 'Dragon Master',
-      description: 'Kill 10 Blue Dragons.',
-      objective: { type: 'kill', target: 10, current: 0, enemyType: 'blue_dragon' },
-      reward: { 
-        money: 1000, 
-        essence: 50,
-        item: { id: 'dragon_scimitar', name: 'Dragon Scimitar', description: 'Massive damage +25', type: 'weapon', bonus: { damage: 25 } }
-      },
-      completed: false,
-      claimed: false
-    }
-  ];
   
-  // Screen Shake
   shakeAmount: number = 0;
-  
-  // Boss Mechanics
   jadAttackTimer: number = 0;
   jadAttackType: 'mage' | 'range' | null = null;
-  
-  // Map
   path: Point[] = [];
-  currentPathIndex: number = 0; // 0 for default, 1 for alternate
-  
-  // Wave Management
+  currentPathIndex: number = 0; 
   enemiesToSpawn: Enemy[] = [];
   spawnTimer: number = 0;
-  spawnInterval: number = 1000; // ms
+  spawnInterval: number = 1000; 
 
-  // Progression
   achievementPoints: number = 0;
-
-  // Slayer
   slayerTask: SlayerTask | null = null;
   lastTaskType: EnemyType | null = null;
   consecutiveTasks: number = 0;
 
-  // Audio
   audioCtx: AudioContext | null = null;
   soundCache: Map<string, HTMLAudioElement> = new Map();
   imageCache: Map<string, HTMLImageElement> = new Map();
   brokenImages: Set<string> = new Set();
 
-  // Persistent Upgrades
   upgrades: GlobalUpgrades = {
     archerRange: 1.0,
     archerDamage: 1.0,
@@ -877,55 +576,35 @@ export class GameEngine {
     if (changed) this.onStateChange({ achievements: this.achievements, achievementPoints: this.achievementPoints });
   }
 
-  getEnemyStats(type: EnemyType, waveMultiplier: number) {
-    const baseStats: Record<EnemyType, { hp: number, level: number, speed: number, reward: number, color: string, deathSound?: string, weakness?: Element }> = {
-      goblin: { hp: 5, level: 2, speed: 100, reward: 5, color: '#00ff00', deathSound: 'death_goblin' },
-      rat: { hp: 2, level: 1, speed: 120, reward: 3, color: '#808080' },
-      cow: { hp: 8, level: 2, speed: 80, reward: 10, color: '#8B4513', deathSound: 'death_cow' },
-      imp: { hp: 4, level: 2, speed: 160, reward: 8, color: '#ff0000', deathSound: 'death_imp' },
-      spider: { hp: 5, level: 2, speed: 130, reward: 12, color: '#ffff00', deathSound: 'death_spider' },
-      scorpion: { hp: 17, level: 14, speed: 90, reward: 15, color: '#DAA520', deathSound: 'death_human' },
-      hill_giant: { hp: 35, level: 28, speed: 70, reward: 25, color: '#A0522D', deathSound: 'death_human' },
-      lesser_demon: { hp: 79, level: 82, speed: 100, reward: 35, color: '#800000', deathSound: 'death_demon' },
-      green_dragon: { hp: 75, level: 79, speed: 80, reward: 60, color: '#006400', deathSound: 'death_dragon' },
-      blue_dragon: { hp: 105, level: 111, speed: 75, reward: 80, color: '#0000CD', deathSound: 'death_dragon' },
-      black_demon: { hp: 157, level: 172, speed: 110, reward: 70, color: '#000000', deathSound: 'death_demon' },
-      abyssal_demon: { hp: 150, level: 124, speed: 180, reward: 75, color: '#4B0082', deathSound: 'death_abyssal_demon' },
-      barrow_wight: { hp: 100, level: 100, speed: 50, reward: 120, color: '#F5F5DC', deathSound: 'death_zombie' },
-      chaos_druid: { hp: 20, level: 13, speed: 120, reward: 40, color: '#32CD32', deathSound: 'death_human' },
-      skeletal_mage: { hp: 40, level: 40, speed: 100, reward: 50, color: '#E6E6FA', deathSound: 'death_zombie' },
-      skeleton: { hp: 18, level: 13, speed: 95, reward: 20, color: '#f0f0f0', deathSound: 'death_zombie' },
-      zombie: { hp: 30, level: 24, speed: 75, reward: 25, color: '#4a5d23', deathSound: 'death_zombie' },
-      ghost: { hp: 25, level: 19, speed: 110, reward: 30, color: '#a0d6d6', deathSound: 'death_ghost' },
-      hellhound: { hp: 116, level: 122, speed: 150, reward: 50, color: '#ff4500', deathSound: 'death_demon' },
-      fire_giant: { hp: 111, level: 86, speed: 75, reward: 60, color: '#ff8c00', weakness: 'water', deathSound: 'death_human' },
-      bloodveld: { hp: 120, level: 76, speed: 90, reward: 65, color: '#ff00ff', deathSound: 'death_human' },
-      gargoyle: { hp: 105, level: 111, speed: 80, reward: 70, color: '#708090', weakness: 'fire', deathSound: 'death_human' },
-      nechryael: { hp: 105, level: 115, speed: 100, reward: 85, color: '#483D8B', deathSound: 'death_demon' },
-      dark_beast: { hp: 220, level: 182, speed: 120, reward: 100, color: '#2F4F4F', deathSound: 'death_demon' },
-      hydra: { hp: 300, level: 194, speed: 90, reward: 150, color: '#00FA9A', deathSound: 'death_boss' },
-      jad: { hp: 250, level: 702, speed: 60, reward: 500, color: '#FF0000', deathSound: 'death_boss' },
-      vorkath: { hp: 750, level: 732, speed: 50, reward: 1000, color: '#00FFFF', deathSound: 'death_dragon' },
-      zulrah: { hp: 500, level: 725, speed: 70, reward: 800, color: '#2E8B57', deathSound: 'death_boss' }
-    };
+  getEnemyStats(type: EnemyType, waveMultiplier: number): Omit<Enemy, 'id' | 'x' | 'y' | 'pathIndex' | 'slowTimer' | 'stunTimer' | 'tauntTimer'> {
+    const enemyDef = ENEMIES[type];
+    if (!enemyDef) {
+       console.error(`Enemy type ${type} not found in registry`);
+       return {
+         ...ENEMIES['goblin'],
+         hp: 1,
+         maxHp: 1,
+         baseSpeed: 100,
+         burnTimer: 0,
+         burnDamage: 0,
+         groundTimer: 0,
+         resistance: 0
+       };
+    }
 
-    const stats = baseStats[type];
-    // Exponential scaling: each wave multiplies base HP significantly
-    // waveMultiplier is the wave number. Wave 1 = ×1.0, Wave 5 = 1+(4*0.35)=×2.4, Wave 20 = ×7.65
     const hpScale = 1 + (waveMultiplier - 1) * 0.35;
-    const speedScale = 1 + (waveMultiplier - 1) * 0.015; // Speed grows slowly (max ~30% at wave 20)
-    const rewardScale = 1 + (waveMultiplier - 1) * 0.2; // Rewards also scale
-    const effectiveHp = Math.floor(stats.hp * hpScale);
-    const effectiveSpeed = Math.floor(stats.speed * speedScale);
-    const effectiveReward = Math.floor(stats.reward * rewardScale);
-
-    const isBoss = type === 'vorkath' || type === 'zulrah' || type === 'jad' || type === 'hydra';
+    const speedScale = 1 + (waveMultiplier - 1) * 0.015;
+    const rewardScale = 1 + (waveMultiplier - 1) * 0.2;
+    const effectiveHp = Math.floor(enemyDef.hp * hpScale);
+    const effectiveSpeed = Math.floor(enemyDef.speed * speedScale);
+    const effectiveReward = Math.floor(enemyDef.reward * rewardScale);
 
     return {
-      ...stats,
+      ...enemyDef,
       hp: effectiveHp,
       maxHp: effectiveHp,
       speed: effectiveSpeed,
+      baseSpeed: effectiveSpeed,
       reward: effectiveReward,
       burnTimer: 0,
       burnDamage: 0,
@@ -933,128 +612,59 @@ export class GameEngine {
       poisonTimer: 0,
       venomTimer: 0,
       venomDamage: 0,
-      resistance: isBoss ? 0.5 : 0
+      resistance: enemyDef.isBoss ? (enemyDef.resistance || 0.5) : 0
     };
   }
 
   generateWave(waveNum: number): Enemy[] {
-    console.log(`Generating wave ${waveNum} enemies`);
     const enemies: Enemy[] = [];
-    
-    // Wave composition logic
     const waveConfigs: { type: EnemyType, count: number }[] = [];
     
-    if (waveNum === 1) {
-      waveConfigs.push({ type: 'goblin', count: 5 });
-      waveConfigs.push({ type: 'rat', count: 5 });
-    } else if (waveNum === 2) {
-      waveConfigs.push({ type: 'goblin', count: 8 });
-      waveConfigs.push({ type: 'cow', count: 2 });
-    } else if (waveNum === 3) {
-      waveConfigs.push({ type: 'imp', count: 5 });
-      waveConfigs.push({ type: 'spider', count: 3 });
-    } else if (waveNum === 4) {
-      waveConfigs.push({ type: 'scorpion', count: 5 });
-      waveConfigs.push({ type: 'spider', count: 5 });
-    } else if (waveNum === 5) {
-      waveConfigs.push({ type: 'hill_giant', count: 3 });
-      waveConfigs.push({ type: 'goblin', count: 10 });
-    } else if (waveNum === 6) {
-      waveConfigs.push({ type: 'black_demon', count: 3 });
-      waveConfigs.push({ type: 'imp', count: 10 });
-    } else if (waveNum === 7) {
-      waveConfigs.push({ type: 'blue_dragon', count: 2 });
-      waveConfigs.push({ type: 'hill_giant', count: 5 });
-    } else if (waveNum === 8) {
-      waveConfigs.push({ type: 'abyssal_demon', count: 5 });
-      waveConfigs.push({ type: 'lesser_demon', count: 5 });
-    } else if (waveNum === 10) {
-      waveConfigs.push({ type: 'jad', count: 1 });
-      waveConfigs.push({ type: 'lesser_demon', count: 5 });
-    } else if (waveNum === 20) {
-      waveConfigs.push({ type: 'vorkath', count: 1 });
-      waveConfigs.push({ type: 'blue_dragon', count: 5 });
-    } else if (waveNum === 30) {
-      waveConfigs.push({ type: 'zulrah', count: 1 });
-      waveConfigs.push({ type: 'green_dragon', count: 10 });
-    } else if (waveNum === 11) {
-      waveConfigs.push({ type: 'barrow_wight', count: 5 });
-      waveConfigs.push({ type: 'skeletal_mage', count: 5 });
-    } else if (waveNum === 12) {
-      waveConfigs.push({ type: 'chaos_druid', count: 15 });
-      waveConfigs.push({ type: 'black_demon', count: 5 });
+    // Explicit landmark waves
+    const landmarks: Record<number, { type: EnemyType, count: number }[]> = {
+      1: [{ type: 'goblin', count: 5 }, { type: 'rat', count: 5 }],
+      10: [{ type: 'jad', count: 1 }, { type: 'lesser_demon', count: 5 }],
+      20: [{ type: 'vorkath', count: 1 }, { type: 'blue_dragon', count: 5 }],
+      30: [{ type: 'zulrah', count: 1 }, { type: 'green_dragon', count: 10 }]
+    };
+
+    if (landmarks[waveNum]) {
+      waveConfigs.push(...landmarks[waveNum]);
     } else {
-      // Procedural for other waves
-      const difficulty = waveNum * 15;
-      let remainingDifficulty = difficulty;
+      // Dynamic procedural wave generator
+      const budget = waveNum * 20;
+      let remainingBudget = budget;
       
-      while (remainingDifficulty > 0) {
-        if (remainingDifficulty >= 200 && Math.random() > 0.95) {
-          waveConfigs.push({ type: 'hydra', count: 1 });
-          remainingDifficulty -= 200;
-        } else if (remainingDifficulty >= 150 && Math.random() > 0.9) {
-          waveConfigs.push({ type: 'dark_beast', count: 1 });
-          remainingDifficulty -= 150;
-        } else if (remainingDifficulty >= 100 && Math.random() > 0.85) {
-          waveConfigs.push({ type: 'nechryael', count: 1 });
-          remainingDifficulty -= 100;
-        } else if (remainingDifficulty >= 80 && Math.random() > 0.8) {
-          waveConfigs.push({ type: 'gargoyle', count: 1 });
-          remainingDifficulty -= 80;
-        } else if (remainingDifficulty >= 60 && Math.random() > 0.75) {
-          waveConfigs.push({ type: 'bloodveld', count: 1 });
-          remainingDifficulty -= 60;
-        } else if (remainingDifficulty >= 50 && Math.random() > 0.7) {
-          waveConfigs.push({ type: 'fire_giant', count: 1 });
-          remainingDifficulty -= 50;
-        } else if (remainingDifficulty >= 40 && Math.random() > 0.65) {
-          waveConfigs.push({ type: 'hellhound', count: 1 });
-          remainingDifficulty -= 40;
-        } else if (remainingDifficulty >= 30 && Math.random() > 0.6) {
-          waveConfigs.push({ type: 'ghost', count: 1 });
-          remainingDifficulty -= 30;
-        } else if (remainingDifficulty >= 20 && Math.random() > 0.5) {
-          waveConfigs.push({ type: 'zombie', count: 1 });
-          remainingDifficulty -= 20;
-        } else if (remainingDifficulty >= 10) {
-          waveConfigs.push({ type: 'skeleton', count: 1 });
-          remainingDifficulty -= 10;
-        } else {
-          waveConfigs.push({ type: 'rat', count: 1 });
-          remainingDifficulty -= 5;
+      // Filter enemies that can spawn at this wave level
+      const spawnableEnemies = Object.values(ENEMIES).filter(e => !e.isBoss);
+      
+      while (remainingBudget > 5) {
+        const affordable = spawnableEnemies.filter(e => e.reward <= remainingBudget);
+        if (affordable.length === 0) {
+           waveConfigs.push({ type: 'rat', count: 1 });
+           remainingBudget -= 5;
+           continue;
         }
+        const choice = affordable[Math.floor(Math.random() * affordable.length)];
+        waveConfigs.push({ type: choice.type, count: 1 });
+        remainingBudget -= choice.reward;
       }
     }
-
-    // Ensure slayer task enemies spawn if task is active (on any wave)
-    if (this.slayerTask && this.slayerTask.count > 0) {
-      const taskType = this.slayerTask.type;
-      
-      // If the task type isn't already in the wave configuration (from fixed wave or random procedural), add it
-      if (!waveConfigs.some(config => config.type === taskType)) {
-        const taskSpawnCount = Math.min(this.slayerTask.count, Math.max(3, Math.floor(waveNum / 2)));
-        waveConfigs.push({ type: taskType, count: taskSpawnCount });
-      }
-    }
-
-    const multiplier = waveNum; // Pass wave number directly for exponential scaling
 
     if (this.path.length === 0) return enemies;
 
     for (const config of waveConfigs) {
       for (let i = 0; i < config.count; i++) {
-        const stats = this.getEnemyStats(config.type, multiplier);
+        const baseStats = this.getEnemyStats(config.type, waveNum);
         enemies.push({
           id: Math.random().toString(36).substr(2, 9),
           x: this.path[0].x,
           y: this.path[0].y,
-          ...stats,
-          baseSpeed: stats.speed,
           pathIndex: 0,
-          type: config.type,
           slowTimer: 0,
           stunTimer: 0,
-          tauntTimer: 0
+          tauntTimer: 0,
+          ...baseStats
         });
       }
     }
@@ -1063,98 +673,20 @@ export class GameEngine {
   }
 
   placeTower(type: string, x: number, y: number) {
-    console.log(`Attempting to place tower ${type} at ${x}, ${y}`);
-    let cost = 0;
-    let range = 100;
-    let damage = 10;
-    let cooldown = 1000;
-    let color = '#fff';
-    let name = '';
-    let upgradeCost = 0;
-    let special: Tower['special'] = undefined;
-
-    let mageMode: MageMode = 'elemental';
-    let element: Element = 'air';
-    let minDamage = 0;
-    let maxDamage = 0;
-
-    switch (type) {
-      case 'archer':
-        // Shortbow: max hit ~17 with moderate ammo. Rapid style.
-        name = 'Shortbow';
-        cost = 50;
-        range = 7 * 25;
-        damage = 13; // ~shortbow with addy arrows max hit
-        cooldown = 3 * TICK * 1000; // 3 ticks
-        color = '#9acd32';
-        upgradeCost = 100;
-        break;
-      case 'wizard':
-        // Air Strike: max hit ~8
-        name = 'Air Strike';
-        cost = 75;
-        range = 7 * 25;
-        damage = 8;
-        cooldown = 5 * TICK * 1000; // 5 ticks
-        color = '#a0cfff';
-        upgradeCost = 150;
-        mageMode = 'elemental';
-        element = 'air';
-        break;
-      case 'cannon':
-        // Dwarf Multicannon: max hit 30, hits up to 4 targets at once
-        name = 'Dwarf Multicannon';
-        cost = 250;
-        range = 9 * 25; // 9 tiles
-        minDamage = 0;  // Can splash
-        maxDamage = 30; // OSRS max 30
-        damage = 0;     // Uses min/max
-        cooldown = 2 * TICK * 1000;
-        color = '#cd5c5c';
-        upgradeCost = 300;
-        special = 'aoe';
-        break;
-      case 'tzhaar':
-        // TzHaar-Ket melee: uses obsidian weapons; Toktz-xil-ak max ~35
-        name = 'TzHaar-Ket';
-        cost = 200;
-        range = 2 * 25; // 2 tiles melee
-        damage = 35;
-        cooldown = 4 * TICK * 1000;
-        color = '#8B0000';
-        upgradeCost = 400;
-        break;
-      case 'slayer':
-        // Slayer Helmet + Broad Bolts: max ~40
-        name = 'Slayer Crossbow';
-        cost = 125;
-        range = 7 * 25;
-        damage = 40;
-        cooldown = 4 * TICK * 1000;
-        color = '#4B0082';
-        upgradeCost = 250;
-        break;
-      case 'toxic':
-        // Toxic Blowpipe: max hit 20 with efficient darts, very fast, poisons
-        name = 'Toxic Blowpipe';
-        cost = 300;
-        range = 5 * 25;
-        damage = 20;
-        cooldown = 2 * TICK * 1000;
-        color = '#2a6b5a';
-        upgradeCost = 500;
-        special = 'slow'; // Poison = slow
-        break;
+    const towerDef = TOWERS[type];
+    if (!towerDef) {
+       console.error(`Tower type ${type} not found in registry`);
+       return;
     }
 
-    const effectiveCost = Math.floor(cost * (this.upgrades.towerCostReduction || 1));
+    const firstTier = towerDef.tiers[0];
+    const effectiveCost = Math.floor(firstTier.upgradeCost * (this.upgrades.towerCostReduction || 1));
     const gridSize = 32;
     const snappedX = Math.round(x / gridSize) * gridSize;
     const snappedY = Math.round(y / gridSize) * gridSize;
 
     if (this.money >= effectiveCost) {
       if (this.isValidPlacement(snappedX, snappedY)) {
-        console.log(`Placed tower ${type} successfully at ${snappedX}, ${snappedY}`);
         this.playSound('upgrade');
         this.money -= effectiveCost;
         this.towers.push({
@@ -1163,23 +695,23 @@ export class GameEngine {
           y: snappedY,
           type: type as any,
           level: 1,
-          maxLevel: 4,
-          range,
-          damage,
-          cooldown,
+          maxLevel: towerDef.tiers.length,
+          range: firstTier.range,
+          damage: firstTier.damage,
+          cooldown: firstTier.cooldown,
           lastFired: 0,
-          color,
+          color: firstTier.color,
           targetId: null,
           targetingPriority: 'first',
-          name,
-          upgradeCost,
-          special,
+          name: firstTier.name,
+          upgradeCost: firstTier.upgradeCost,
+          special: firstTier.special,
           visualRadius: 18,
           disabledTimer: 0,
-          minDamage,
-          maxDamage,
-          mageMode,
-          element,
+          minDamage: firstTier.minDamage || 0,
+          maxDamage: firstTier.maxDamage || 0,
+          mageMode: type === 'wizard' ? 'elemental' : undefined,
+          element: type === 'wizard' ? 'air' : undefined,
           specCharge: 0,
           specMax: 100,
           skills: {
@@ -1196,11 +728,7 @@ export class GameEngine {
         this.upgradeTowerStats(this.towers[this.towers.length - 1]);
         this.awardPlayerXP('crafting', 20, snappedX, snappedY);
         this.onStateChange({ money: this.money });
-      } else {
-        console.warn('Invalid tower placement');
       }
-    } else {
-      console.warn('Not enough money for tower');
     }
   }
 
@@ -2325,26 +1853,19 @@ export class GameEngine {
       if (enemy.type === 'zulrah' && Math.random() < 0.003) {
         // Spawn snakelings
         for (let i = 0; i < 3; i++) {
-          const stats = this.getEnemyStats('rat', 1.5); // Use rat stats for snakelings
+          const stats = this.getEnemyStats('rat', 1.5);
           this.enemies.push({
             id: Math.random().toString(36).substr(2, 9),
             x: enemy.x + (Math.random() - 0.5) * 20,
             y: enemy.y + (Math.random() - 0.5) * 20,
-            hp: stats.hp,
-            maxHp: stats.maxHp,
-            speed: stats.speed * 1.5,
-            baseSpeed: stats.speed * 1.5,
             pathIndex: enemy.pathIndex,
-            type: 'rat',
-            color: '#2E8B57',
-            reward: 1,
             slowTimer: 0,
             stunTimer: 0,
             tauntTimer: 0,
-            burnTimer: 0,
-            burnDamage: 0,
-            groundTimer: 0,
-            resistance: 0
+            ...stats,
+            name: stats.name,
+            color: '#2E8B57', // Zulrah-style green
+            reward: 1
           });
         }
       }
