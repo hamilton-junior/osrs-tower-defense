@@ -23,7 +23,7 @@ export interface GlobalUpgrades {
   prayerRegen: number;
 }
 
-export type PrayerType = 'thick_skin' | 'burst_of_strength' | 'clarity_of_thought' | 'sharp_eye' | 'mystic_will' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury' | 'protect_from_melee' | 'protect_from_missiles' | 'protect_from_magic';
+export type PrayerType = 'burst_of_strength' | 'clarity_of_thought' | 'sharp_eye' | 'mystic_will' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury' | 'protect_from_melee' | 'protect_from_missiles' | 'protect_from_magic';
 
 export interface ActivePotion {
   type: 'overload' | 'super_restore' | 'prayer_potion' | 'ranging' | 'magic' | 'super_combat';
@@ -125,7 +125,7 @@ export interface Item {
     damage?: number;
     range?: number;
     cooldown?: number;
-    xpBonus?: number; // % XP bonus (replaces defense)
+    xpBonus?: number; // % XP bonus
   };
   type: 'weapon' | 'shield' | 'accessory' | 'seed' | 'herb' | 'potion' | 'material';
   seedType?: 'herb' | 'flower' | 'allotment';
@@ -336,7 +336,6 @@ export class GameEngine {
     particles: true
   };
   allPrayers: { id: PrayerType, name: string, level: number, drain: number, description: string }[] = [
-    { id: 'thick_skin', name: 'Thick Skin', level: 1, drain: 1, description: '+5% Defence' },
     { id: 'burst_of_strength', name: 'Burst of Strength', level: 4, drain: 1.5, description: '+5% Strength' },
     { id: 'clarity_of_thought', name: 'Clarity of Thought', level: 7, drain: 1.5, description: '+5% Attack' },
     { id: 'sharp_eye', name: 'Sharp Eye', level: 8, drain: 1.5, description: '+5% Ranged' },
@@ -347,9 +346,9 @@ export class GameEngine {
     { id: 'protect_from_missiles', name: 'Protect from Missiles', level: 40, drain: 4, description: 'Protection from Ranged attacks' },
     { id: 'protect_from_melee', name: 'Protect from Melee', level: 43, drain: 4, description: 'Protection from Melee attacks' },
     { id: 'eagle_eye', name: 'Eagle Eye', level: 44, drain: 5, description: '+15% Ranged' },
-    { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Str, +20% Att, +25% Def' },
-    { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '+23% Ranged, +23% Ranged Str, +25% Def' },
-    { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '+25% Magic, +25% Magic Def' },
+    { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Str, +20% Att' },
+    { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '+23% Ranged, +23% Ranged Str' },
+    { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '+25% Magic' },
   ];
 
   // Items & Quests

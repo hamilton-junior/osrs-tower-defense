@@ -772,11 +772,9 @@ export default function GameCanvas() {
                     {[
                       { name: 'Attack Potion', ingredients: 'Guam + Eye of Newt', level: 1, xp: 25, icon: 'Attack_potion(3)' },
                       { name: 'Strength Potion', ingredients: 'Tarromin + Limpwurt', level: 12, xp: 50, icon: 'Strength_potion(3)' },
-                      { name: 'Defense Potion', ingredients: 'Ranarr + White Berries', level: 30, xp: 75, icon: 'Defence_potion(3)' },
                       { name: 'Prayer Potion', ingredients: 'Ranarr + Snape Grass', level: 38, xp: 87.5, icon: 'Prayer_potion(3)' },
                       { name: 'Super Attack', ingredients: 'Irit + Eye of Newt', level: 45, xp: 100, icon: 'Super_attack(3)' },
                       { name: 'Super Strength', ingredients: 'Kwuarm + Limpwurt', level: 55, xp: 125, icon: 'Super_strength(3)' },
-                      { name: 'Super Defence', ingredients: 'Cadantine + White Berries', level: 66, xp: 150, icon: 'Super_defence(3)' },
                       { name: 'Ranging Potion', ingredients: 'Dwarf Weed + Wine of Zamorak', level: 72, xp: 162.5, icon: 'Ranging_potion(3)' },
                       { name: 'Magic Potion', ingredients: 'Lantadyme + Potato Cactus', level: 76, xp: 172.5, icon: 'Magic_potion(3)' },
                       { name: 'Saradomin Brew', ingredients: 'Toadflax + Crushed Nest', level: 81, xp: 180, icon: 'Saradomin_brew(3)' },
@@ -845,23 +843,18 @@ export default function GameCanvas() {
             </div>
             
             {/* The Tab Icons Panel (Fixed Bottom) */}
-            <div className="grid grid-cols-9 w-full bg-[var(--osrs-brown)] border-t-2 border-[var(--osrs-border-dark)] p-0.5 h-10 flex-shrink-0 gap-[1px]">
+            <div className="grid grid-cols-8 w-full bg-[var(--osrs-brown)] border-t-2 border-[var(--osrs-border-dark)] p-0.5 h-10 flex-shrink-0 gap-[1px]">
               <button onClick={() => handleTabChange('combat')} className={`osrs-tab flex items-center justify-center ${activeTab === 'combat' ? 'active' : ''}`} title="Combat Control">
                 <img src="https://oldschool.runescape.wiki/images/Attack_icon.png" className="w-5 h-5 object-contain" alt="" />
               </button>
               <button onClick={() => handleTabChange('achievements')} className={`osrs-tab flex items-center justify-center ${activeTab === 'achievements' ? 'active' : ''}`} title="Player Stats">
                 <img src="https://oldschool.runescape.wiki/images/Stats_icon.png" className="w-5 h-5 object-contain" alt="" />
               </button>
-              <button onClick={() => handleTabChange('inventory')} className={`osrs-tab flex items-center justify-center ${activeTab === 'inventory' ? 'active' : ''}`} title="Inventory">
-                <img src="https://oldschool.runescape.wiki/images/Inventory.png" className="w-5 h-5 object-contain" alt="" />
-              </button>
               <button onClick={() => handleTabChange('quests')} className={`osrs-tab flex items-center justify-center ${activeTab === 'quests' ? 'active' : ''}`} title="Quests">
                 <img src="https://oldschool.runescape.wiki/images/Quest_point_icon.png" className="w-5 h-5 object-contain" alt="" />
               </button>
-              <button onClick={() => handleTabChange('pets')} className={`osrs-tab flex items-center justify-center ${activeTab === 'pets' ? 'active' : ''}`} title="Followers">
-                <img src="https://oldschool.runescape.wiki/images/Summoning_icon.png" className="w-5 h-5 object-contain" alt=""
-                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Prayer_icon.png'; }}
-                />
+              <button onClick={() => handleTabChange('inventory')} className={`osrs-tab flex items-center justify-center ${activeTab === 'inventory' ? 'active' : ''}`} title="Inventory">
+                <img src="https://oldschool.runescape.wiki/images/Inventory.png" className="w-5 h-5 object-contain" alt="" />
               </button>
               <button onClick={() => handleTabChange('ge')} className={`osrs-tab flex items-center justify-center ${activeTab === 'ge' ? 'active' : ''}`} title="Grand Exchange">
                 <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-5 h-5 object-contain" alt="" />
@@ -869,8 +862,10 @@ export default function GameCanvas() {
               <button onClick={() => handleTabChange('prayer')} className={`osrs-tab flex items-center justify-center ${activeTab === 'prayer' ? 'active' : ''}`} title="Prayers">
                 <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" className="w-5 h-5 object-contain" alt="" />
               </button>
-              <button onClick={() => handleTabChange('herblore')} className={`osrs-tab flex items-center justify-center ${activeTab === 'herblore' ? 'active' : ''}`} title="Herblore">
-                <img src="https://oldschool.runescape.wiki/images/Herblore_icon.png" className="w-5 h-5 object-contain" alt="" />
+              <button onClick={() => handleTabChange('pets')} className={`osrs-tab flex items-center justify-center ${activeTab === 'pets' ? 'active' : ''}`} title="Followers">
+                <img src="https://oldschool.runescape.wiki/images/Summoning_icon.png" className="w-5 h-5 object-contain" alt=""
+                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Prayer_icon.png'; }}
+                />
               </button>
               <button onClick={() => handleTabChange('settings')} className={`osrs-tab flex items-center justify-center ${activeTab === 'settings' ? 'active' : ''}`} title="Settings">
                 <img src="https://oldschool.runescape.wiki/images/Settings.png" className="w-5 h-5 object-contain" alt="" />
@@ -1058,7 +1053,6 @@ export default function GameCanvas() {
                           <span className="text-[9px] text-[#c0c0c0] italic">{item.description}</span>
                           {item.bonus?.damage && <span className="text-[9px] text-osrs-orange mt-0.5">⚔ +{item.bonus.damage} DMG</span>}
                           {item.bonus?.range && <span className="text-[9px] text-osrs-green mt-0.5">🏹 +{item.bonus.range} RNG</span>}
-                          {item.bonus?.defense && <span className="text-[9px] text-osrs-cyan mt-0.5">🛡 +{item.bonus.defense} DEF</span>}
                           {item.bonus?.cooldown && <span className="text-[9px] text-osrs-yellow mt-0.5">⚡ {item.bonus.cooldown}ms CD</span>}
                           {gameState.selectedPlacedTower && <span className="text-[9px] text-osrs-green mt-1 font-bold animate-pulse">CLICK TO EQUIP</span>}
                         </div>
