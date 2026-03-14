@@ -72,5 +72,41 @@ export const SMITHING_RECIPES: Recipe[] = [
     level: 15,
     xp: 12.5,
     skill: 'crafting'
+  },
+  {
+    id: 'steel_bar',
+    name: 'Steel Bar',
+    ingredients: [{ itemId: 'iron_ore', amount: 1 }, { itemId: 'coal', amount: 1 }],
+    resultItemId: 'steel_bar',
+    level: 30,
+    xp: 25,
+    skill: 'crafting'
+  },
+  {
+    id: 'mithril_bar',
+    name: 'Mithril Bar',
+    ingredients: [{ itemId: 'mithril_ore', amount: 1 }, { itemId: 'coal', amount: 2 }],
+    resultItemId: 'mithril_bar',
+    level: 50,
+    xp: 50,
+    skill: 'crafting'
+  },
+  {
+    id: 'adamantite_bar',
+    name: 'Adamantite Bar',
+    ingredients: [{ itemId: 'adamantite_ore', amount: 1 }, { itemId: 'coal', amount: 4 }],
+    resultItemId: 'adamantite_bar',
+    level: 70,
+    xp: 100,
+    skill: 'crafting'
+  },
+  {
+    id: 'rune_bar',
+    name: 'Rune Bar',
+    ingredients: [{ itemId: 'rune_ore', amount: 1 }, { itemId: 'coal', amount: 6 }],
+    resultItemId: 'rune_bar',
+    level: 90,
+    xp: 200,
+    skill: 'crafting'
   }
 ];

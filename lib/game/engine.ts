@@ -7,7 +7,10 @@ import { ACHIEVEMENTS } from './data/achievements';
 import { QUESTS } from './data/quests';
 import { ENEMIES } from './data/enemies';
 import { TOWERS } from './data/towers';
-import { ITEMS } from './data/items';
+import { ITEMS, ITEM_PROGRESSIONS } from './data/items';
+import { LANDMARK_WAVES } from './data/waves';
+import { NODE_CONFIGS } from './data/nodes';
+import { TICK, ARCHER_STATS, SPELL_MAX_HITS, WIZARD_SPELL_TIERS, ANCIENT_HITS, ANCIENT_TIERS, UTILITY_TIERS } from './data/tower-stats';
 
 // Re-export types for backward compatibility if needed, or just import from Types
 export type Point = Types.Point;
@@ -36,7 +39,7 @@ export type SlayerTask = Types.SlayerTask;
 export type Quest = Types.Quest;
 export type FarmingPatch = Types.FarmingPatch;
 
-export const TICK = 0.6; // OSRS Game Tick
+// OSRS Game Tick is imported from data/tower-stats.ts
 
 export class GameEngine {
   canvas: HTMLCanvasElement;
@@ -441,31 +444,12 @@ export class GameEngine {
   }
 
   assignSlayerTask() {
-    const monsterUnlocks: { type: EnemyType, wave: number }[] = [
-      { type: 'goblin', wave: 1 },
-      { type: 'rat', wave: 1 },
-      { type: 'skeleton', wave: 1 },
-      { type: 'cow', wave: 2 },
-      { type: 'zombie', wave: 2 },
-      { type: 'ghost', wave: 1 },
-      { type: 'imp', wave: 3 },
-      { type: 'spider', wave: 2 },
-      { type: 'hellhound', wave: 4 },
-      { type: 'scorpion', wave: 3 },
-      { type: 'fire_giant', wave: 5 },
-      { type: 'bloodveld', wave: 6 },
-      { type: 'hill_giant', wave: 4 },
-      { type: 'black_demon', wave: 8 },
-      { type: 'gargoyle', wave: 9 },
-      { type: 'blue_dragon', wave: 10 },
-      { type: 'nechryael', wave: 11 },
-      { type: 'abyssal_demon', wave: 12 },
-      { type: 'lesser_demon', wave: 5 },
-      { type: 'dark_beast', wave: 15 },
-      { type: 'green_dragon', wave: 7 }
-    ];
-
-    const available = monsterUnlocks.filter(m => m.wave <= this.wave && m.type !== this.lastTaskType);
+    const available = Object.values(ENEMIES).filter(e => 
+      e.waveUnlock !== undefined && 
+      e.waveUnlock <= this.wave && 
+      e.type !== this.lastTaskType &&
+      !e.isBoss
+    );
     if (available.length === 0) return;
 
     const taskMonster = available[Math.floor(Math.random() * available.length)];
@@ -620,16 +604,9 @@ export class GameEngine {
     const enemies: Enemy[] = [];
     const waveConfigs: { type: EnemyType, count: number }[] = [];
     
-    // Explicit landmark waves
-    const landmarks: Record<number, { type: EnemyType, count: number }[]> = {
-      1: [{ type: 'goblin', count: 5 }, { type: 'rat', count: 5 }],
-      10: [{ type: 'jad', count: 1 }, { type: 'lesser_demon', count: 5 }],
-      20: [{ type: 'vorkath', count: 1 }, { type: 'blue_dragon', count: 5 }],
-      30: [{ type: 'zulrah', count: 1 }, { type: 'green_dragon', count: 10 }]
-    };
-
-    if (landmarks[waveNum]) {
-      waveConfigs.push(...landmarks[waveNum]);
+    // Landmark waves
+    if (LANDMARK_WAVES[waveNum]) {
+      waveConfigs.push(...LANDMARK_WAVES[waveNum]);
     } else {
       // Dynamic procedural wave generator
       const budget = waveNum * 20;
@@ -764,167 +741,22 @@ export class GameEngine {
     });
 
     // Upgrade logic — OSRS-accurate weapon progression
-    if (tower.type === 'archer') {
-      if (tower.level === 2) {
-        // Magic Shortbow: max hit ~26 (MSB(i) special fires 2x)
-        tower.name = 'Magic Shortbow';
-        tower.damage = 26;
-        tower.cooldown = 3 * TICK * 1000;
-        tower.range = 8 * 25 * this.upgrades.archerRange;
-        tower.upgradeCost = 250;
-        tower.color = '#32CD32';
-        tower.specMax = 80; // Cheaper to fill spec bar
-      } else if (tower.level === 3) {
-        // Crystal Bow: max hit ~38, no ammo needed
-        tower.name = 'Crystal Bow';
-        tower.damage = 38;
-        tower.cooldown = 5 * TICK * 1000; // Slower, stronger
-        tower.range = 9 * 25 * this.upgrades.archerRange;
-        tower.color = '#E0FFFF';
-        tower.upgradeCost = 500;
-      } else if (tower.level === 4) {
-        // Bow of Faerdhinen: max hit ~53, hits fast
-        tower.name = 'Bow of Faerdhinen';
-        tower.damage = 53;
-        tower.cooldown = 3 * TICK * 1000;
-        tower.range = 10 * 25 * this.upgrades.archerRange;
-        tower.color = '#a020f0';
-        tower.specMax = 120; // Spec bar fills faster with more damage
-      }
-    } else if (tower.type === 'wizard') {
-      const spellTiers = ['Strike', 'Bolt', 'Blast', 'Wave', 'Surge'];
-      const ancientTiers = ['Rush', 'Burst', 'Blitz', 'Barrage'];
-      
-      if (tower.mageMode === 'elemental') {
-        const tier = Math.min(tower.level - 1, 4);
-        const elem = tower.element || 'air';
-        tower.name = `${elem.charAt(0).toUpperCase()}${elem.slice(1)} ${spellTiers[tier]}`;
-        // OSRS spell max hits per tier: ~8, 12, 18, 24, 30 (roughly)
-        const spellMaxHits = [8, 12, 18, 24, 30];
-        tower.damage = spellMaxHits[tier] * this.upgrades.magicDamage;
-        tower.cooldown = 5 * TICK * 1000;
-        tower.upgradeCost = 200 + (tower.level * 150);
-        tower.fireSound = `wizard_${elem}`;
-      } else if (tower.mageMode === 'ancients') {
-        const tier = Math.min(tower.level - 1, 3);
-        tower.name = `Ice ${ancientTiers[tier]}`;
-        // Ice Rush/Burst/Blitz/Barrage: 16/20/23/29 max hit
-        const ancientHits = [16, 20, 23, 29];
-        tower.damage = ancientHits[tier] * this.upgrades.magicDamage;
-        tower.fireSound = 'wizard_ice';
-        tower.upgradeCost = 300 + (tower.level * 250);
-        if (tower.level <= 2) {
-          tower.cooldown = 5 * TICK * 1000;
-          tower.special = 'slow';
-        } else if (tower.level === 3) {
-          tower.cooldown = 6 * TICK * 1000;
-          tower.special = 'stun';
-        } else {
-          tower.cooldown = 8 * TICK * 1000;
-          tower.special = 'aoe';
-        }
-      } else {
-        // Utility mode: Ancient Sceptre bonuses
-        const ancSceptreTiers = ['Lunar Staff', 'Ahrim\'s Staff', 'Ancient Sceptre', 'Tumeken\'s Shadow'];
-        tower.name = ancSceptreTiers[Math.min(tower.level - 1, 3)];
-        tower.damage = 0; // Utility: support, no attack (or minimal)
-        tower.upgradeCost = 250 + (tower.level * 200);
-      }
-    } else if (tower.type === 'cannon') {
-      // Cannon levels: Multicannon → Granite → Ballista (projectile)
-      if (tower.level === 2) {
-        tower.name = 'Granite Multicannon';
-        tower.minDamage = 0;
-        tower.maxDamage = 40;
-        tower.upgradeCost = 500;
-        tower.cooldown = 2 * TICK * 1000;
-      } else if (tower.level === 3) {
-        tower.name = 'Heavy Ballista';
-        tower.minDamage = 15;
-        tower.maxDamage = 60; // Ballista with javelins max ~84
-        tower.upgradeCost = 900;
-        tower.cooldown = 5 * TICK * 1000; // Slow but powerful
-        tower.special = undefined; // Single target, but with stun
-      } else if (tower.level === 4) {
-        tower.name = 'Dragon Hunter Ballista';
-        tower.minDamage = 20;
-        tower.maxDamage = 84;
-        tower.upgradeCost = 1500;
-        tower.cooldown = 5 * TICK * 1000;
-        tower.special = 'aoe';
-        tower.color = '#8B0000';
-      }
-    } else if (tower.type === 'tzhaar') {
-      if (tower.level === 2) {
-        // Toktz-xil-ak: fast obsidian slash, max ~37
-        tower.name = 'Toktz-xil-ak';
-        tower.damage = 37;
-        tower.range = 2 * 25;
-        tower.upgradeCost = 800;
-        tower.color = '#A52A2A';
-        tower.cooldown = 3 * TICK * 1000; // Faster
-      } else if (tower.level === 3) {
-        // TzHaar-Ket-Om: flail, max ~75, chance to stun
-        tower.name = 'TzHaar-Ket-Om';
-        tower.damage = 75;
-        tower.range = 3 * 25;
-        tower.color = '#FF4500';
-        tower.special = 'stun';
-        tower.upgradeCost = 1200;
-      } else if (tower.level === 4) {
-        // Inquisitor's Mace: max ~100 with crush bonuses
-        tower.name = 'Inquisitor\'s Mace';
-        tower.damage = 100;
-        tower.range = 3 * 25;
-        tower.color = '#FF0000';
-        tower.specMax = 50; // Spec fills very fast: AOE smash
-      }
-    } else if (tower.type === 'slayer') {
-      if (tower.level === 2) {
-        // Slayer Crossbow + Broad Bolts: max ~57
-        tower.name = 'Karils Crossbow';
-        tower.damage = 57;
-        tower.upgradeCost = 500;
-        tower.color = '#9370DB';
-        tower.cooldown = 3 * TICK * 1000;
-      } else if (tower.level === 3) {
-        // Twisted Bow: max scaling, ~89 base without monster mag bonus
-        tower.name = 'Twisted Bow';
-        tower.damage = 89;
-        tower.range = 10 * 25;
-        tower.color = '#1a472a';
-        tower.upgradeCost = 1000;
-        tower.cooldown = 5 * TICK * 1000;
-      } else if (tower.level === 4) {
-        // Zaryte Crossbow: max ~100, best slayer crossbow
-        tower.name = 'Zaryte Crossbow';
-        tower.damage = 100;
-        tower.range = 10 * 25;
-        tower.color = '#0a0a0a';
-        tower.specMax = 75; // Spec: armour piercing bolt
-      }
-    } else if (tower.type === 'toxic') {
-      if (tower.level === 2) {
-        // Zulrah's scales: Mutagen blowpipe upgrade
-        tower.name = 'Serp. Helm Blowpipe';
-        tower.damage = 28;
-        tower.range = 6 * 25;
-        tower.upgradeCost = 600;
-        tower.color = '#2E8B57';
-        tower.cooldown = 2 * TICK * 1000;
-      } else if (tower.level === 3) {
-        tower.name = 'Trident of the Swamp';
-        tower.damage = 35;
-        tower.range = 8 * 25;
-        tower.upgradeCost = 1000;
-        tower.special = 'slow';
-      } else if (tower.level === 4) {
-        tower.name = 'Magma Blowpipe';
-        tower.damage = 45;
-        tower.range = 9 * 25;
-        tower.special = 'burn';
-      }
+    // Add floating text for level up
+    this.floatingTexts.push({
+      x: tower.x,
+      y: tower.y - 20,
+      text: `Level Up!`,
+      life: 2.0,
+      color: '#ffff00',
+      icon: tower.type === 'wizard' ? 'Magic' : tower.type === 'archer' ? 'Ranged' : 'Strength'
+    });
+
+    // Update upgrade cost from data for next level
+    const towerDef = TOWERS[tower.type];
+    if (towerDef && towerDef.tiers[tower.level - 1]) {
+      tower.upgradeCost = towerDef.tiers[tower.level - 1].upgradeCost;
     }
+
 
     this.upgradeTowerStats(tower); // Final pass for style/mode stats
     this.onStateChange({ money: this.money });
@@ -994,38 +826,38 @@ export class GameEngine {
 
   upgradeTowerStats(tower: Tower) {
     const tile = 25;
-    const spellTiers = ['Strike', 'Bolt', 'Blast', 'Wave', 'Surge'];
-    const ancientTiers = ['Rush', 'Burst', 'Blitz', 'Barrage'];
     
     // Level Bonus: 10% damage per level
     const levelMultiplier = 1 + (tower.level * 0.1);
-    
+    const tier = Math.min(tower.level - 1, 4);
+
     if (tower.type === 'archer') {
       tower.fireSound = 'archer_1';
-      // Base stats per level (rapid style)
-      const baseTiles = [7, 8, 9, 10][Math.min(tower.level - 1, 3)];
-      const baseCooldownTicks = [3, 3, 5, 3][Math.min(tower.level - 1, 3)];
+      const stats = ARCHER_STATS[Math.min(tower.level - 1, 3)];
+      const baseTiles = stats.tiles;
+      const baseCooldownTicks = stats.cooldownTicks;
       
       const baseDamage = 10 * levelMultiplier;
+
+      if (tower.level === 2) tower.specMax = 80;
+      else if (tower.level === 4) tower.specMax = 120;
+      else tower.specMax = 100;
 
       if (tower.attackStyle === 'long_range') {
         tower.range = (baseTiles + 3) * tile;
         tower.cooldown = (baseCooldownTicks + 1) * TICK * 1000;
         tower.damage = baseDamage;
       } else {
-        // Rapid is default
         tower.range = baseTiles * tile;
         tower.cooldown = baseCooldownTicks * TICK * 1000;
         tower.damage = baseDamage;
       }
     } else if (tower.type === 'wizard') {
-      const tier = Math.min(tower.level - 1, 4);
       if (tower.mageMode === 'elemental') {
         tower.range = 7 * tile;
         const elem = tower.element && tower.element !== 'none' ? tower.element : 'air';
-        tower.name = `${elem.charAt(0).toUpperCase()}${elem.slice(1)} ${spellTiers[tier]}`;
-        const spellMaxHits = [8, 12, 18, 24, 30];
-        tower.damage = spellMaxHits[tier] * levelMultiplier;
+        tower.name = `${elem.charAt(0).toUpperCase()}${elem.slice(1)} ${WIZARD_SPELL_TIERS[tier]}`;
+        tower.damage = SPELL_MAX_HITS[tier] * levelMultiplier;
         tower.fireSound = `wizard_${elem}_${tier}`;
         tower.special = undefined;
       } else if (tower.mageMode === 'ancients') {
@@ -1033,10 +865,9 @@ export class GameEngine {
         const ancientTier = Math.min(tower.level - 1, 3);
         const aType = tower.ancientType || 'ice';
         const typeNames: Record<string, string> = { ice: 'Ice', blood: 'Blood', shadow: 'Shadow', smoke: 'Smoke' };
-        tower.name = `${typeNames[aType]} ${ancientTiers[ancientTier]}`;
+        tower.name = `${typeNames[aType]} ${ANCIENT_TIERS[ancientTier]}`;
         
-        const ancientHits = [16, 20, 23, 29];
-        tower.damage = ancientHits[ancientTier] * levelMultiplier;
+        tower.damage = ANCIENT_HITS[ancientTier] * levelMultiplier;
         tower.fireSound = `ancient_${aType}_${ancientTier}`;
         
         if (aType === 'ice') {
@@ -1057,8 +888,7 @@ export class GameEngine {
       } else {
         // utility
         tower.range = 6 * tile;
-        const utilTiers = ['Lunar Staff', "Ahrim's Staff", 'Ancient Sceptre', "Tumeken's Shadow"];
-        tower.name = utilTiers[Math.min(tower.level - 1, 3)];
+        tower.name = UTILITY_TIERS[Math.min(tower.level - 1, 3)];
         tower.damage = 5 * levelMultiplier; // Utility does small damage now
         tower.special = undefined;
       }
@@ -1220,24 +1050,17 @@ export class GameEngine {
     const w = this.canvas.width;
     const h = this.canvas.height;
 
-    // Add trees, rocks, herbs at fixed but valid positions
-    const nodeConfigs = [
-      { type: 'tree', name: 'Oak Tree', x: w * 0.1, y: h * 0.4, level: 1, xp: 15 },
-      { type: 'tree', name: 'Willow Tree', x: w * 0.4, y: h * 0.1, level: 30, xp: 67 },
-      { type: 'ore', name: 'Iron Rock', x: w * 0.7, y: h * 0.2, level: 15, xp: 35 },
-      { type: 'ore', name: 'Coal Rock', x: w * 0.3, y: h * 0.6, level: 30, xp: 50 },
-      { type: 'herb', name: 'Ranarr Weed', x: w * 0.6, y: h * 0.9, level: 25, xp: 40 },
-      { type: 'herb', name: 'Snapdragon', x: w * 0.9, y: h * 0.3, level: 59, xp: 98 },
-    ];
-
-    nodeConfigs.forEach(config => {
+    NODE_CONFIGS.forEach(config => {
+      const x = config.x * w;
+      const y = config.y * h;
+      
       // Only add if not on path
-      if (this.isValidPlacement(config.x, config.y)) {
+      if (this.isValidPlacement(x, y)) {
         this.nodes.push({
           id: `node_${Math.random().toString(36).substr(2, 9)}`,
-          x: config.x,
-          y: config.y,
-          type: config.type as any,
+          x,
+          y,
+          type: config.type,
           name: config.name,
           level: config.level,
           xp: config.xp,
@@ -1253,17 +1076,7 @@ export class GameEngine {
     if (itemIndex === -1) return;
     const item = this.inventory[itemIndex];
     
-    // Simple crafting logic: upgrade scimitars
-    const progressions: Record<string, string> = {
-      'Bronze Scimitar': 'Iron Scimitar',
-      'Iron Scimitar': 'Steel Scimitar',
-      'Steel Scimitar': 'Mithril Scimitar',
-      'Mithril Scimitar': 'Adamant Scimitar',
-      'Adamant Scimitar': 'Rune Scimitar',
-      'Rune Scimitar': 'Dragon Scimitar'
-    };
-
-    const nextName = progressions[item.name];
+    const nextName = ITEM_PROGRESSIONS[item.name];
     if (nextName) {
       if (this.money < 500) {
         this.addMessage("You need 500 GP to upgrade this item.");

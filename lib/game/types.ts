@@ -57,6 +57,7 @@ export interface EnemyDef {
   deathSound?: string;
   weakness?: Element;
   isBoss?: boolean;
+  waveUnlock?: number;
 }
 
 export interface Enemy extends EnemyDef {

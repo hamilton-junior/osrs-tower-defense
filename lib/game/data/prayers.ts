@@ -11,7 +11,7 @@ export const PRAYERS: PrayerDef[] = [
   { id: 'protect_from_missiles', name: 'Protect from Missiles', level: 40, drain: 4, description: 'Protection from Ranged attacks' },
   { id: 'protect_from_melee', name: 'Protect from Melee', level: 43, drain: 4, description: 'Protection from Melee attacks' },
   { id: 'eagle_eye', name: 'Eagle Eye', level: 44, drain: 5, description: '+15% Ranged' },
-  { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Strength' },
-  { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '+23% Ranged, +23% Ranged Str' },
-  { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '+25% Magic' },
+  { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Melee Damage' },
+  { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '+23% Ranged Damage' },
+  { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '+25% Magic Damage' },
 ];

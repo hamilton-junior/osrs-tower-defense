@@ -25,8 +25,8 @@ const TICK = 0.6;
 
 export const TOWERS: Record<string, TowerDef> = {
   archer: {
-    type: 'archer',
-    baseName: 'Archer',
+    type: 'ranged',
+    baseName: 'Ranged',
     fireSound: 'archer',
     tiers: [
       { level: 1, name: 'Shortbow', damage: 13, cooldown: 3 * TICK * 1000, range: 7 * 25, color: '#9acd32', upgradeCost: 100 },
@@ -36,8 +36,8 @@ export const TOWERS: Record<string, TowerDef> = {
     ]
   },
   wizard: {
-    type: 'wizard',
-    baseName: 'Wizard',
+    type: 'magic',
+    baseName: 'Magic',
     fireSound: 'wizard',
     tiers: [
       { level: 1, name: 'Air Strike', damage: 8, cooldown: 5 * TICK * 1000, range: 7 * 25, color: '#a0cfff', upgradeCost: 150 },
@@ -47,7 +47,7 @@ export const TOWERS: Record<string, TowerDef> = {
     ]
   },
   cannon: {
-    type: 'cannon',
+    type: 'ranged',
     baseName: 'Cannon',
     fireSound: 'cannon_1',
     tiers: [
