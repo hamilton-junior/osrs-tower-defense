@@ -60,7 +60,7 @@ export class GameEngine {
   autoSpawnTimer: number = 0;
   hoveredEntityId: string | null = null;
   selectedEntityId: string | null = null;
-  money: number = 150;
+  money: number = 60;
   lives: number = 20;
   wave: number = 1;
   waveActive: boolean = false;
@@ -2339,7 +2339,7 @@ export class GameEngine {
   }
 
   resetProgress() {
-    this.money = 150 + this.upgrades.startingMoney;
+    this.money = 60 + this.upgrades.startingMoney;
     this.runeEssence = 0;
     this.wave = 1;
     this.enemies = [];
@@ -2400,7 +2400,7 @@ export class GameEngine {
       this.playSound('woodcut');
     } else if (node.type === 'ore') {
       this.awardPlayerXP('mining', 10, node.x, node.y);
-      this.inventory.push({ id: Math.random().toString(), name: 'Iron Ore', type: 'material', description: 'Useful for smithing.', sellPrice: 10, bonus: {} });
+      this.inventory.push({ id: Math.random().toString(), name: 'Copper Ore', description: 'Used in smithing.', bonus: {}, type: 'material', sellPrice: 10 });
       this.addMessage("You mine some ore.");
       this.playSound('mine');
     } else if (node.type === 'herb') {

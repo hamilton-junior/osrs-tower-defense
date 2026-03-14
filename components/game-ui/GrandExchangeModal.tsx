@@ -1,0 +1,74 @@
+
+import React from 'react';
+import { GE_CONSUMABLES } from '@/lib/game/data/shop';
+
+interface GrandExchangeModalProps {
+  money: number;
+  inventory: any[];
+  onClose: () => void;
+  onBuy: (id: string, cost: number) => void;
+  onSell: (index: number) => void;
+}
+
+export const GrandExchangeModal: React.FC<GrandExchangeModalProps> = ({ 
+  money, inventory, onClose, onBuy, onSell 
+}) => {
+  const [tab, setTab] = React.useState<'buy' | 'sell'>('buy');
+
+  return (
+    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 p-6 pointer-events-auto">
+      <div className="osrs-window w-full max-w-2xl max-h-[85vh] flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.9)] scale-in-center">
+        <div className="osrs-window-title px-4 py-2 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">🏪</span>
+            <h2 className="text-osrs-yellow text-xl font-bold tracking-widest">Grand Exchange</h2>
+          </div>
+          <button onClick={onClose} className="text-osrs-red font-bold text-2xl hover:text-white transition-colors">X</button>
+        </div>
+
+        <div className="flex border-b border-[var(--osrs-border-dark)] bg-[var(--osrs-brown-dark)]">
+          <button onClick={() => setTab('buy')} className={`flex-1 py-3 text-xs font-bold uppercase transition-all ${tab === 'buy' ? 'bg-[var(--osrs-brown)] text-osrs-yellow border-t-2 border-osrs-yellow' : 'text-[#808080] hover:text-white'}`}>Buy Upgrades</button>
+          <button onClick={() => setTab('sell')} className={`flex-1 py-3 text-xs font-bold uppercase transition-all ${tab === 'sell' ? 'bg-[var(--osrs-brown)] text-osrs-yellow border-t-2 border-osrs-yellow' : 'text-[#808080] hover:text-white'}`}>Sell Items</button>
+        </div>
+
+        <div className="p-6 overflow-y-auto custom-scrollbar bg-[url('https://oldschool.runescape.wiki/images/Back_pattern.png')] flex-1 min-h-[400px]">
+          {tab === 'buy' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {GE_CONSUMABLES.map((item: any) => (
+                <div key={item.id} className="bg-[#3e2e18] p-4 border-2 border-[var(--osrs-border-dark)] hover:border-[var(--osrs-border-light)] transition-all flex justify-between items-center group relative overflow-hidden">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-black/40 rounded border border-white/5 flex items-center justify-center relative group-hover:scale-110 transition-transform">
+                      <img src={`https://oldschool.runescape.wiki/images/${item.icon || 'Vial_detail'}.png`} className="max-w-[80%] max-h-[80%] object-contain" alt="" />
+                    </div>
+                    <div>
+                      <p className="text-osrs-yellow font-bold text-sm uppercase group-hover:text-white">{item.name}</p>
+                      <p className="text-[10px] text-[#c0c0c0] leading-tight mt-0.5">{item.description}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => onBuy(item.id, item.cost)}
+                    disabled={money < item.cost}
+                    className={`osrs-button px-3 py-2 text-[10px] font-bold uppercase ${money >= item.cost ? 'text-osrs-yellow' : 'opacity-50'}`}
+                  >
+                    {item.cost} GP
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+              {inventory.map((item, index) => (
+                <div key={index} className="bg-[#3e2e18] p-2 border border-[var(--osrs-border-dark)] flex flex-col items-center gap-2 group hover:border-osrs-yellow cursor-pointer" onClick={() => onSell(index)}>
+                  <img src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}_detail.png`} className="w-10 h-10 object-contain" alt="" onError={e => e.currentTarget.src = `https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} />
+                  <p className="text-[9px] text-center truncate w-full text-white">{item.name}</p>
+                  <span className="text-osrs-yellow text-[10px] font-bold">{item.sellPrice || 10} GP</span>
+                </div>
+              ))}
+              {inventory.length === 0 && <p className="col-span-full text-center text-[#808080] italic py-12">Your inventory is empty.</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

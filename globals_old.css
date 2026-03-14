@@ -1,0 +1,250 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'RuneScape';
+  src: url('https://db.onlinewebfonts.com/t/083332009268886d382607137831039a.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+:root {
+  --osrs-brown: #3e3529;
+  --osrs-brown-light: #5d5245;
+  --osrs-brown-dark: #2b231a;
+  --osrs-yellow: #ffff00;
+  --osrs-orange: #ff981f;
+  --osrs-red: #800000;
+  --osrs-green: #00ff00;
+  --osrs-cyan: #00ffff;
+  --osrs-border-light: #6d6150;
+  --osrs-border-dark: #1b1712;
+}
+
+body {
+  background-color: #000;
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  image-rendering: pixelated;
+}
+
+.osrs-font {
+  font-family: 'RuneScape', var(--font-osrs), monospace;
+  letter-spacing: 0.5px;
+}
+
+/* OSRS Panel - Main Interface Style */
+.osrs-panel {
+  background-color: var(--osrs-brown);
+  border: 2px solid var(--osrs-border-dark);
+  border-top-color: var(--osrs-border-light);
+  border-left-color: var(--osrs-border-light);
+  box-shadow: 
+    inset 1px 1px 0 var(--osrs-border-light),
+    inset -1px -1px 0 var(--osrs-border-dark),
+    2px 2px 4px rgba(0,0,0,0.5);
+  position: relative;
+  background-image: url('https://oldschool.runescape.wiki/images/Back_pattern.png');
+  background-repeat: repeat;
+}
+
+/* OSRS Orb - Status Indicators */
+.osrs-orb {
+  width: 44px;
+  height: 44px;
+  background: url('https://oldschool.runescape.wiki/images/Orb_background.png') no-repeat center;
+  background-size: contain;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.8));
+}
+
+.osrs-orb-fill {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  background-color: rgba(255, 0, 0, 0.8);
+  transition: height 0.3s ease;
+  z-index: 1;
+  border-radius: 0 0 50% 50%;
+}
+
+.osrs-orb-icon {
+  position: relative;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.osrs-orb-text {
+  position: absolute;
+  right: -24px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--osrs-yellow);
+  font-weight: bold;
+  font-size: 14px;
+  text-shadow: 1px 1px 0 #000;
+  z-index: 3;
+}
+
+/* OSRS Chatbox */
+.osrs-chatbox {
+  background-color: #4a3f35;
+  border: 2px solid #1b1712;
+  box-shadow: inset 2px 2px 0 #6d6150, inset -2px -2px 0 #2b231a;
+  background-image: url('https://oldschool.runescape.wiki/images/Back_pattern.png');
+  position: relative;
+}
+
+.osrs-chat-tabs {
+  display: flex;
+  background-color: #3e3529;
+  border-top: 1px solid #1b1712;
+  height: 22px;
+}
+
+.osrs-chat-tab {
+  flex: 1;
+  border-right: 1px solid #1b1712;
+  color: var(--osrs-yellow);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.osrs-chat-tab.active {
+  background-color: #5d5245;
+  color: #fff;
+}
+
+/* OSRS Inventory Grid */
+.osrs-inventory-grid {
+  background-image: url('https://oldschool.runescape.wiki/images/Inventory_background.png');
+  background-repeat: repeat;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 4px;
+}
+
+/* OSRS Window - Modal Style */
+.osrs-window {
+  background-color: var(--osrs-brown);
+  border: 3px solid var(--osrs-border-dark);
+  border-top-color: var(--osrs-border-light);
+  border-left-color: var(--osrs-border-light);
+  box-shadow: 0 0 20px rgba(0,0,0,0.8);
+  position: relative;
+}
+
+.osrs-window-title {
+  background: linear-gradient(to bottom, #5d5245, #3e3529);
+  border-bottom: 2px solid var(--osrs-border-dark);
+  padding: 4px 8px;
+  color: var(--osrs-orange);
+  text-shadow: 1px 1px 0 #000;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'RuneScape', var(--font-osrs), monospace;
+}
+
+/* OSRS Button - Standard Button Style */
+.osrs-button {
+  background: linear-gradient(to bottom, #5d5245, #3e3529);
+  border: 2px solid var(--osrs-border-dark);
+  border-top-color: var(--osrs-border-light);
+  border-left-color: var(--osrs-border-light);
+  color: #d0d0d0;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.1s;
+  text-align: center;
+}
+
+.osrs-button:hover:not(:disabled) {
+  background: linear-gradient(to bottom, #6d6150, #4a3f35);
+  color: #fff;
+}
+
+.osrs-button:active:not(:disabled) {
+  background: #3e3529;
+  border: 2px solid var(--osrs-border-light);
+  border-top-color: var(--osrs-border-dark);
+  border-left-color: var(--osrs-border-dark);
+  transform: translate(1px, 1px);
+}
+
+.osrs-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(100%);
+}
+
+/* OSRS Tab - Tab Style */
+.osrs-tab {
+  background-color: var(--osrs-brown);
+  border: 1px solid var(--osrs-border-dark);
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+
+.osrs-tab:hover {
+  filter: brightness(1.2);
+}
+
+.osrs-tab.active {
+  background-color: #4a3f35; /* Slightly lighter active state */
+  border-bottom: none; /* Connect to panel */
+}
+
+/* Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #1b1712;
+  border-left: 1px solid #3e3529;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #5d5245;
+  border: 1px solid #1b1712;
+  border-top-color: #6d6150;
+  border-left-color: #6d6150;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6d6150;
+}
+
+/* Text Utilities */
+.text-osrs-yellow { color: var(--osrs-yellow); text-shadow: 1px 1px 0 #000; }
+.text-osrs-orange { color: var(--osrs-orange); text-shadow: 1px 1px 0 #000; }
+.text-osrs-red { color: var(--osrs-red); text-shadow: 1px 1px 0 #000; }
+.text-osrs-green { color: var(--osrs-green); text-shadow: 1px 1px 0 #000; }
+.text-osrs-cyan { color: var(--osrs-cyan); text-shadow: 1px 1px 0 #000; }
+
+/* Animations */
+@keyframes pulse-yellow {
+  0%, 100% { color: #ffff00; text-shadow: 0 0 5px #ffff00; }
+  50% { color: #ffffff; text-shadow: 0 0 10px #ffff00; }
+}
+
+.pulse-yellow {
+  animation: pulse-yellow 2s infinite;
+}

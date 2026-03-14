@@ -1,0 +1,65 @@
+
+import React from 'react';
+
+interface InventoryTabProps {
+  inventory: any[];
+  handleEquipItem: (itemId: string) => void;
+  setActiveTooltip: (tooltip: any | null) => void;
+}
+
+export const InventoryTab: React.FC<InventoryTabProps> = ({ 
+  inventory, 
+  handleEquipItem, 
+  setActiveTooltip 
+}) => {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-center border-b border-[var(--osrs-border-light)] pb-1">
+        <span className="text-xs font-bold text-osrs-orange uppercase">Inventory</span>
+      </div>
+      <div className="grid grid-cols-4 gap-1 mt-1">
+        {Array.from({ length: 28 }).map((_, i) => {
+          const item = (inventory || [])[i];
+          return (
+            <div 
+              key={i} 
+              className="aspect-square p-0.5 group relative cursor-pointer hover:bg-white/10 flex items-center justify-center rounded-sm transition-colors" 
+              onClick={() => item && handleEquipItem(item.id)}
+              onMouseEnter={(e) => item && setActiveTooltip({
+                x: e.clientX, y: e.clientY,
+                title: item.name, content: item.description,
+                bonus: item.bonus ? Object.entries(item.bonus).map(([k, v]) => `+${v} ${k}`).join(', ') : '',
+                color: '#ffff00'
+              })}
+              onMouseLeave={() => setActiveTooltip(null)}
+            >
+              {item ? (
+                <img 
+                  src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} 
+                  alt={item.name} 
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    const name = item.name.replace(/ /g, '_');
+                    // Fallback cycle: Original -> Sentence_case -> lower_case -> _detail
+                    if (img.src.includes(`${name}.png`)) {
+                       // Try Sentence case
+                       const sentenceCase = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+                       img.src = `https://oldschool.runescape.wiki/images/${sentenceCase}.png`;
+                    } else if (img.src.includes('.png') && !img.src.includes('_detail.png')) {
+                       img.src = `https://oldschool.runescape.wiki/images/${name}_detail.png`;
+                    } else {
+                       img.style.opacity = '0';
+                    }
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full opacity-10" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
