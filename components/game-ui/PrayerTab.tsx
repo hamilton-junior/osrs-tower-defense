@@ -50,12 +50,11 @@ export const PrayerTab: React.FC<PrayerTabProps> = ({
               onMouseLeave={() => setActiveTooltip(null)}
             >
               <img 
-                src={`${ASSETS.misc.wiki_base}${p.name.replace(/ /g, '_')}_icon.png`} 
+                src={ASSETS.prayers[p.id as keyof typeof ASSETS.prayers]} 
                 className="w-full h-full object-contain p-1" 
                 alt="" 
                 onError={(e) => {
-                  if (!(e.target as HTMLImageElement).src.includes('Prayer_icon.png')) (e.target as HTMLImageElement).src = ASSETS.misc.prayer_icon;
-                  else (e.target as HTMLImageElement).style.opacity = '0';
+                  (e.target as HTMLImageElement).style.opacity = '0';
                 }}
               />
               {!canUse && <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-osrs-red">Lvl {p.level}</div>}

@@ -90,7 +90,17 @@ export const TowerSelectionGrid: React.FC<TowerSelectionGridProps> = ({
             >
               {/* Current tier icon */}
               <div className="w-9 h-9 flex items-center justify-center relative mb-0.5">
-                {wikiImg(firstTier.name)}
+                <img 
+                  src={(ASSETS.towers as any)[tower.type][firstTier.level]} 
+                  className="max-w-full max-h-full object-contain drop-shadow-md"
+                  alt={firstTier.name}
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (img.dataset.errored) { img.style.display = 'none'; return; }
+                    img.dataset.errored = '1';
+                    img.src = img.src.replace('.png', '_detail.png');
+                  }}
+                />
               </div>
 
               {/* Name */}

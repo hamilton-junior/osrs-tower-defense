@@ -1,4 +1,16 @@
 
+export type HitsplatType = 'melee' | 'ranged' | 'magic' | 'poison';
+
+export interface Hitsplat {
+  x: number;
+  y: number;
+  damage: number;
+  type: HitsplatType;
+  life: number;
+  velocityY: number;
+  velocityX: number;
+}
+
 export interface Point {
   x: number;
   y: number;

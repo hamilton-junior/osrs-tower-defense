@@ -43,6 +43,20 @@ export const ASSETS = {
     tzrek_jad: 'https://oldschool.runescape.wiki/images/TzRek-Jad.png',
     ikkle_hydra: 'https://oldschool.runescape.wiki/images/Ikkle_Hydra_%28serpentine%29.png',
   },
+  prayers: {
+    burst_of_strength: 'https://oldschool.runescape.wiki/images/Burst_of_Strength.png',
+    sharp_eye: 'https://oldschool.runescape.wiki/images/Sharp_Eye.png',
+    mystic_will: 'https://oldschool.runescape.wiki/images/Mystic_Will.png',
+    hawk_eye: 'https://oldschool.runescape.wiki/images/Hawk_Eye.png',
+    ultimate_strength: 'https://oldschool.runescape.wiki/images/Ultimate_Strength.png',
+    protect_from_magic: 'https://oldschool.runescape.wiki/images/Protect_from_Magic.png',
+    protect_from_missiles: 'https://oldschool.runescape.wiki/images/Protect_from_Missiles.png',
+    protect_from_melee: 'https://oldschool.runescape.wiki/images/Protect_from_Melee.png',
+    eagle_eye: 'https://oldschool.runescape.wiki/images/Eagle_Eye.png',
+    piety: 'https://oldschool.runescape.wiki/images/Piety.png',
+    rigour: 'https://oldschool.runescape.wiki/images/Rigour.png',
+    augury: 'https://oldschool.runescape.wiki/images/Augury.png',
+  },
   towers: {
     archer: {
       1: 'https://oldschool.runescape.wiki/images/Shortbow.png',
@@ -130,6 +144,7 @@ export const ASSETS = {
     hit_splat: 'https://oldschool.runescape.wiki/images/Hit_splat.png',
     magic_hit_splat: 'https://oldschool.runescape.wiki/images/Magic_hit_splat.png',
     poison_hit_splat: 'https://oldschool.runescape.wiki/images/Poison_hit_splat.png',
+    ranged_hit_splat: 'https://oldschool.runescape.wiki/images/Ranged_hit_splat.png',
     background_pattern: 'https://oldschool.runescape.wiki/images/Back_pattern.png',
     orb_background: 'https://oldschool.runescape.wiki/images/Orb_background.png',
     inventory_background: 'https://oldschool.runescape.wiki/images/Inventory_background.png',

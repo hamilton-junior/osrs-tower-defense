@@ -5,7 +5,7 @@ import {
   EnemyType, Element, Enemy, TowerType, MageMode, AncientType, 
   SupportSpell, TowerSkill, TowerSkills, PlayerSkills, GatheringNode, 
   Item, Region, TargetingPriority, Tower, Projectile, SlayerTask, 
-  Quest, FarmingPatch 
+  Quest, FarmingPatch, Hitsplat, HitsplatType 
 } from './types';
 import { PRAYERS } from './data/prayers';
 import { ACHIEVEMENTS } from './data/achievements';
@@ -90,6 +90,7 @@ export class GameEngine {
   projectiles: Projectile[] = [];
   particles: { x: number, y: number, life: number, color: string }[] = [];
   damageNumbers: { x: number, y: number, text: string, life: number, color: string, velocityY: number, velocityX: number }[] = [];
+  hitsplats: Hitsplat[] = [];
   deathAnimations: { x: number, y: number, type: string, life: number }[] = [];
   floatingTexts: { x: number, y: number, text: string, life: number, color: string, icon?: string }[] = [];
   loots: { id: string, x: number, y: number, type: 'essence' | 'money' | 'item' | 'bones', data?: any, life: number, size: number }[] = [];
@@ -1418,6 +1419,16 @@ export class GameEngine {
       if (dn.life <= 0) this.damageNumbers.splice(i, 1);
     }
 
+    // Update Hitsplats
+    for (let i = this.hitsplats.length - 1; i >= 0; i--) {
+      const hs = this.hitsplats[i];
+      hs.life -= dt;
+      hs.y += hs.velocityY * dt;
+      hs.x += hs.velocityX * dt;
+      hs.velocityY += 60 * dt; // Gravity
+      if (hs.life <= 0) this.hitsplats.splice(i, 1);
+    }
+
     // Update Death Animations
     for (let i = this.deathAnimations.length - 1; i >= 0; i--) {
       this.deathAnimations[i].life -= dt;
@@ -2027,13 +2038,27 @@ export class GameEngine {
       this.shakeAmount = Math.min(25, this.shakeAmount + actualDamage / 40);
     }
 
-    // Create damage number
+    // Create hitsplat
+    const tower = sourceTowerId ? this.towers.find(t => t.id === sourceTowerId) : null;
+    const type: HitsplatType = isDot ? 'poison' : (tower?.type === 'wizard' ? 'magic' : (tower?.type === 'archer' ? 'ranged' : 'melee'));
+    
+    this.hitsplats.push({
+      x: enemy.x + (Math.random() - 0.5) * 20,
+      y: enemy.y - 20,
+      damage: actualDamage,
+      type: type,
+      life: 1.0,
+      velocityY: -100,
+      velocityX: (Math.random() - 0.5) * 50
+    });
+    
+    // Create damage number (for text only)
     this.damageNumbers.push({
       x: enemy.x + (Math.random() - 0.5) * 20,
       y: enemy.y - 20,
       text: actualDamage > 0 ? actualDamage.toString() : '0',
       life: 1.0,
-      color: actualDamage > 100 ? '#ff4500' : (actualDamage > 50 ? '#ff0000' : (actualDamage > 0 ? '#ffff00' : '#808080')),
+      color: '#ffffff', // Text color will be white, hitsplat image will provide the color
       velocityY: -100,
       velocityX: (Math.random() - 0.5) * 50
     });
@@ -3319,19 +3344,24 @@ export class GameEngine {
         this.ctx.globalAlpha = 1.0;
       });
 
-      // Draw Damage Numbers
-      this.damageNumbers.forEach(dn => {
-        const splatType = dn.color === '#ff0000' ? 'magic_hit_splat' : 'hit_splat';
+      // Draw Hitsplats
+      this.hitsplats.forEach(hs => {
+        const splatType = hs.type === 'melee' ? 'hit_splat' : `${hs.type}_hit_splat`;
         const splatImg = this.imageCache.get(splatType);
         
         if (this.isImageValid(splatImg, splatType)) {
           try {
-            this.ctx.drawImage(splatImg!, dn.x - 15, dn.y - 15, 30, 30);
+            this.ctx.globalAlpha = hs.life;
+            this.ctx.drawImage(splatImg!, hs.x - 15, hs.y - 15, 30, 30);
+            this.ctx.globalAlpha = 1.0;
           } catch (e) {
             this.brokenImages.add(splatType);
           }
         }
-        
+      });
+
+      // Draw Damage Numbers
+      this.damageNumbers.forEach(dn => {
         this.ctx.fillStyle = dn.color;
         this.ctx.globalAlpha = dn.life;
         this.ctx.font = `bold ${Math.floor(12 + dn.life * 4)}px 'RuneScape', Arial`;
