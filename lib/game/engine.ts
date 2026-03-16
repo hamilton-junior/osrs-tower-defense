@@ -681,7 +681,7 @@ export class GameEngine {
           targetId: null,
           targetingPriority: 'first',
           name: firstTier.name,
-          upgradeCost: firstTier.upgradeCost,
+          upgradeCost: towerDef.tiers[1] ? towerDef.tiers[1].upgradeCost : 0,
           special: firstTier.special,
           visualRadius: 18,
           disabledTimer: 0,
@@ -753,8 +753,10 @@ export class GameEngine {
 
     // Update upgrade cost from data for next level
     const towerDef = TOWERS[tower.type];
-    if (towerDef && towerDef.tiers[tower.level - 1]) {
-      tower.upgradeCost = towerDef.tiers[tower.level - 1].upgradeCost;
+    if (towerDef && towerDef.tiers[tower.level]) {
+      tower.upgradeCost = towerDef.tiers[tower.level].upgradeCost;
+    } else {
+      tower.upgradeCost = 0;
     }
 
 
@@ -818,26 +820,28 @@ export class GameEngine {
   setMageElement(towerId: string, element: Element) {
     const tower = this.towers.find(t => t.id === towerId);
     if (tower && tower.type === 'wizard' && tower.mageMode === 'elemental') {
-      tower.element = element;
+        tower.element = element;
       this.upgradeTowerStats(tower); // This now updates the name too
       this.onStateChange({ towers: this.towers });
     }
   }
 
   upgradeTowerStats(tower: Tower) {
-    const tile = 25;
+    const towerDef = TOWERS[tower.type];
+    if (!towerDef) return;
+    const tierData = towerDef.tiers[Math.min(tower.level - 1, towerDef.tiers.length - 1)];
     
-    // Level Bonus: 10% damage per level
-    const levelMultiplier = 1 + (tower.level * 0.1);
-    const tier = Math.min(tower.level - 1, 4);
+    // Level Bonus: 5% damage per skill level (calculated in calculateTowerStats)
+    const tier = Math.min(tower.level - 1, towerDef.tiers.length - 1);
+
+    const tile = 25;
 
     if (tower.type === 'archer') {
-      tower.fireSound = 'archer_1';
-      const stats = ARCHER_STATS[Math.min(tower.level - 1, 3)];
+      const stats = ARCHER_STATS[Math.min(tier, 3)];
       const baseTiles = stats.tiles;
       const baseCooldownTicks = stats.cooldownTicks;
       
-      const baseDamage = 10 * levelMultiplier;
+      const baseDamage = tierData.damage;
 
       if (tower.level === 2) tower.specMax = 80;
       else if (tower.level === 4) tower.specMax = 120;
@@ -854,20 +858,20 @@ export class GameEngine {
       }
     } else if (tower.type === 'wizard') {
       if (tower.mageMode === 'elemental') {
-        tower.range = 7 * tile;
+        tower.range = tierData.range;
         const elem = tower.element && tower.element !== 'none' ? tower.element : 'air';
         tower.name = `${elem.charAt(0).toUpperCase()}${elem.slice(1)} ${WIZARD_SPELL_TIERS[tier]}`;
-        tower.damage = SPELL_MAX_HITS[tier] * levelMultiplier;
+        tower.damage = tierData.damage;
         tower.fireSound = `wizard_${elem}_${tier}`;
         tower.special = undefined;
       } else if (tower.mageMode === 'ancients') {
-        tower.range = 8 * tile;
+        tower.range = tierData.range;
         const ancientTier = Math.min(tower.level - 1, 3);
         const aType = tower.ancientType || 'ice';
         const typeNames: Record<string, string> = { ice: 'Ice', blood: 'Blood', shadow: 'Shadow', smoke: 'Smoke' };
         tower.name = `${typeNames[aType]} ${ANCIENT_TIERS[ancientTier]}`;
         
-        tower.damage = ANCIENT_HITS[ancientTier] * levelMultiplier;
+        tower.damage = tierData.damage;
         tower.fireSound = `ancient_${aType}_${ancientTier}`;
         
         if (aType === 'ice') {
@@ -887,27 +891,29 @@ export class GameEngine {
         }
       } else {
         // utility
-        tower.range = 6 * tile;
+        tower.range = tierData.range;
         tower.name = UTILITY_TIERS[Math.min(tower.level - 1, 3)];
-        tower.damage = 5 * levelMultiplier; // Utility does small damage now
+        tower.damage = tierData.damage;
         tower.special = undefined;
       }
     } else if (tower.type === 'cannon') {
         tower.fireSound = 'cannon_1';
-        tower.range = 9 * tile;
-        tower.damage = 30 * levelMultiplier;
+        tower.range = tierData.range;
+        tower.damage = tierData.damage;
+        tower.minDamage = tierData.minDamage || 0;
+        tower.maxDamage = tierData.maxDamage || 0;
     } else if (tower.type === 'tzhaar') {
         tower.fireSound = 'tzhaar_1';
-        tower.range = (2 + tower.level) * tile;
-        tower.damage = 25 * levelMultiplier;
+        tower.range = tierData.range;
+        tower.damage = tierData.damage;
     } else if (tower.type === 'slayer') {
         tower.fireSound = 'slayer_1';
-        tower.range = 7 * tile;
-        tower.damage = 15 * levelMultiplier;
+        tower.range = tierData.range;
+        tower.damage = tierData.damage;
     } else if (tower.type === 'toxic') {
         tower.fireSound = 'toxic_1';
-        tower.range = 5 * tile;
-        tower.damage = 8 * levelMultiplier;
+        tower.range = tierData.range;
+        tower.damage = tierData.damage;
     }
   }
 
@@ -917,7 +923,9 @@ export class GameEngine {
       this.playSound('sell');
       // Sell value increases with Crafting level
       const craftingBonus = 1 + (this.playerSkills.crafting.level - 1) * 0.02;
-      this.money += Math.floor(25 * craftingBonus); 
+      const towerDef = TOWERS[this.towers[index].type];
+      const cost = towerDef.tiers.slice(0, this.towers[index].level).reduce((sum, t) => sum + t.upgradeCost, 0);
+      this.money += Math.floor(cost * 0.75 * craftingBonus); 
       this.towers.splice(index, 1);
       this.onStateChange({ money: this.money, selectedPlacedTower: null });
     }
@@ -1016,11 +1024,15 @@ export class GameEngine {
     return null;
   }
 
-  collectLootAt(x: number, y: number): boolean {
-    const lootIndex = this.loots.findIndex(l => Math.sqrt(Math.pow(l.x-x,2)+Math.pow(l.y-y,2)) < 30);
+  collectLootAt(x: number, y: number, hoverPickup: boolean = false): boolean {
+    const radius = hoverPickup ? 20 : 30;
+    const lootIndex = this.loots.findIndex(l => Math.sqrt(Math.pow(l.x-x,2)+Math.pow(l.y-y,2)) < radius);
     if (lootIndex === -1) return false;
 
     const loot = this.loots[lootIndex];
+    // In hover mode, only pick up bones
+    if (hoverPickup && loot.type !== 'bones') return false;
+
     if (loot.type === 'essence') {
       this.runeEssence += 5;
       this.damageNumbers.push({ x: loot.x, y: loot.y, text: '+5 Essence', life: 1.5, color: '#00ffff', velocityY: -40, velocityX: 0 });
@@ -1225,30 +1237,6 @@ export class GameEngine {
 
   initFarming() {
     this.farmingPatches = [];
-    if (this.currentRegion === 'misthalin') {
-      this.farmingPatches.push({
-        id: 'patch_1',
-        x: 100,
-        y: 150,
-        type: 'allotment',
-        seed: null,
-        stage: 0,
-        timer: 0,
-        yield: 0,
-        maxStage: 4
-      });
-      this.farmingPatches.push({
-        id: 'patch_2',
-        x: 150,
-        y: 150,
-        type: 'herb',
-        seed: null,
-        stage: 0,
-        timer: 0,
-        yield: 0,
-        maxStage: 4
-      });
-    }
   }
 
   updateFarming(dt: number) {
@@ -1400,11 +1388,13 @@ export class GameEngine {
     }
 
     // Update Potions
-    for (let i = this.activePotions.length - 1; i >= 0; i--) {
-      const p = this.activePotions[i];
-      p.timer -= dt;
-      if (p.timer <= 0) {
-        this.activePotions.splice(i, 1);
+    if (this.waveActive) {
+      for (let i = this.activePotions.length - 1; i >= 0; i--) {
+        const p = this.activePotions[i];
+        p.timer -= dt;
+        if (p.timer <= 0) {
+          this.activePotions.splice(i, 1);
+        }
       }
     }
 
@@ -1427,7 +1417,7 @@ export class GameEngine {
     }
 
     // Prayer Drain
-    if (this.activePrayers.size > 0 && this.prayerPoints > 0) {
+    if (this.waveActive && this.activePrayers.size > 0 && this.prayerPoints > 0) {
       let totalDrain = 0;
       this.activePrayers.forEach(id => {
         const pray = this.allPrayers.find(p => p.id === id);
@@ -1504,9 +1494,9 @@ export class GameEngine {
       this.waveActive = false;
       
       // Award player based on performance
-      const performanceBonus = Math.floor((this.lives * 10) + (this.money * 0.05));
-      // New Formula: Base + (Enemies * 2) + (Wave * 10)
-      const baseReward = 50 + (this.enemiesToSpawn.length * 2) + (this.wave * 10);
+      const performanceBonus = Math.floor((this.lives * 0.1) + (this.money * 0.005));
+      // Nerfed Formula (≈2/3 of old): 1 + Wave
+      const baseReward = 1 + this.wave;
       const totalMoneyReward = Math.floor((baseReward + performanceBonus) * (this.upgrades.rewardMultiplier || 1));
       
       // Rune Essence based on upgrade level and wave
@@ -2173,20 +2163,21 @@ export class GameEngine {
         if (type === 'kill') {
           if (quest.objective.enemyType === enemyType) {
             quest.objective.current += amount;
+            changed = true;
           }
         } else {
           quest.objective.current = amount;
+          changed = true;
         }
 
         if (quest.objective.current >= quest.objective.target) {
           quest.objective.current = quest.objective.target;
           quest.completed = true;
           this.playSound('level_up');
-          changed = true;
         }
       }
     });
-    if (changed) this.onStateChange({ quests: this.quests });
+    if (changed) this.onStateChange({ quests: [...this.quests] });
   }
 
   claimQuestReward(questId: string) {
@@ -2450,7 +2441,7 @@ export class GameEngine {
   resetGame() {
     // Full game reset — preserves runeEssence and upgrades only
     this.lives = 20;
-    this.money = 150 + this.upgrades.startingMoney;
+    this.money = 60 + this.upgrades.startingMoney;
     this.wave = 1;
     this.enemies = [];
     this.towers = [];
@@ -3095,19 +3086,34 @@ export class GameEngine {
         this.ctx.save();
         this.ctx.globalAlpha = Math.min(1, ft.life * 2);
         this.ctx.fillStyle = ft.color;
-        this.ctx.font = `bold 16px 'RuneScape', Arial`;
-        this.ctx.textAlign = 'center';
         this.ctx.shadowColor = '#000';
         this.ctx.shadowBlur = 4;
         this.ctx.shadowOffsetX = 1;
         this.ctx.shadowOffsetY = 1;
-        this.ctx.fillText(ft.text, ft.x, ft.y);
-        
-        if (ft.icon) {
-          const iconImg = this.imageCache.get(`${ft.icon.toLowerCase()}_icon`);
-          if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
-            this.ctx.drawImage(iconImg, ft.x - 10, ft.y - 35, 20, 20);
-          }
+
+        if (ft.text.includes('XP')) {
+            this.ctx.font = `bold 11px 'RuneScape', Arial`;
+            this.ctx.textAlign = 'left';
+            const textWidth = this.ctx.measureText(ft.text).width;
+            
+            if (ft.icon) {
+              const iconImg = this.imageCache.get(ft.icon.toLowerCase());
+              if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
+                this.ctx.drawImage(iconImg, ft.x - textWidth/2 - 12, ft.y - 10, 10, 10);
+              }
+            }
+            this.ctx.fillText(ft.text, ft.x - textWidth/2 + 2, ft.y);
+        } else {
+            this.ctx.font = `bold 16px 'RuneScape', Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(ft.text, ft.x, ft.y);
+            
+            if (ft.icon) {
+              const iconImg = this.imageCache.get(ft.icon.toLowerCase());
+              if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
+                this.ctx.drawImage(iconImg, ft.x - 10, ft.y - 35, 20, 20);
+              }
+            }
         }
         this.ctx.restore();
       });

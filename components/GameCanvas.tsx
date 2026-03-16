@@ -18,6 +18,7 @@ import { TowerTooltip } from './game-ui/TowerTooltip';
 import { RightClickModal } from './game-ui/RightClickModal';
 import { SelectedTowerModal } from './game-ui/SelectedTowerModal';
 import { GrandExchangeModal } from './game-ui/GrandExchangeModal';
+import { EssenceShopModal } from './game-ui/EssenceShopModal';
 import { QuestLogModal } from './game-ui/QuestLogModal';
 import { AchievementsModal } from './game-ui/AchievementsModal';
 import { TowerControls } from './game-ui/TowerControls';
@@ -163,6 +164,7 @@ export default function GameCanvas() {
   });
 
   const [showGrandExchange, setShowGrandExchange] = useState(false);
+  const [showEssenceShop, setShowEssenceShop] = useState(false);
   const [geTab, setGeTab] = useState<'upgrades' | 'potions' | 'sell'>('upgrades');
   const [showAchievements, setShowAchievements] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
@@ -187,6 +189,16 @@ export default function GameCanvas() {
     if (savedEssence) setRuneEssence(parseInt(savedEssence));
     const savedUpgrades = localStorage.getItem('osrs_td_upgrades');
     if (savedUpgrades) setUpgrades(JSON.parse(savedUpgrades));
+    // Load player status
+    const savedSkills = localStorage.getItem('osrs_td_player_skills');
+    const savedWave = localStorage.getItem('osrs_td_wave');
+    if (savedSkills || savedWave) {
+      setGameState(prev => ({
+        ...prev,
+        ...(savedSkills ? { playerSkills: JSON.parse(savedSkills) } : {}),
+        ...(savedWave ? { wave: parseInt(savedWave) } : {}),
+      }));
+    }
   }, []);
 
   // Foundational state update callbacks
@@ -282,6 +294,10 @@ export default function GameCanvas() {
     if (!engineRef.current) return;
     const { x, y } = getLogicCoords(e.clientX, e.clientY);
     engineRef.current.updateMousePos(x, y);
+    // Dev mode: hover-pickup bones
+    if (devMode) {
+      engineRef.current.collectLootAt(x, y, true);
+    }
     const entity = engineRef.current.getEntityAt(x, y);
     if (entity) {
       setHoveredEntity(entity);
@@ -291,7 +307,7 @@ export default function GameCanvas() {
       setHoveredEntity(null);
       engineRef.current.hoveredEntityId = null;
     }
-  }, []);
+  }, [devMode]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -360,7 +376,12 @@ export default function GameCanvas() {
     if (!isMounted) return;
     localStorage.setItem('osrs_td_essence', runeEssence.toString());
     localStorage.setItem('osrs_td_upgrades', JSON.stringify(upgrades));
-  }, [runeEssence, upgrades, isMounted]);
+    // Save player skills and wave
+    if (gameState.playerSkills && Object.keys(gameState.playerSkills).length > 0) {
+      localStorage.setItem('osrs_td_player_skills', JSON.stringify(gameState.playerSkills));
+    }
+    localStorage.setItem('osrs_td_wave', gameState.wave.toString());
+  }, [runeEssence, upgrades, gameState.playerSkills, gameState.wave, isMounted]);
 
   useEffect(() => {
     if (!canvasRef.current || !isMounted) return;
@@ -453,11 +474,17 @@ export default function GameCanvas() {
           setShowAchievements={setShowAchievements}
           setGameSpeed={setGameSpeed}
           handleStartWave={handleStartWave}
-          handlePauseResume={() => setIsPaused(!isPaused)}
+          handlePauseResume={() => {
+            const nextPaused = !isPaused;
+            setIsPaused(nextPaused);
+            if (nextPaused) engineRef.current?.pause();
+            else engineRef.current?.resume();
+          }}
           setAutoSpawn={setAutoSpawn}
           togglePrayer={(id) => engineRef.current?.togglePrayer(id as any)}
           setShowQuestLog={setShowQuests}
           setShowGE={setShowGrandExchange}
+          setShowEssenceShop={setShowEssenceShop}
           setIsSidebarCollapsed={setIsSidebarCollapsed}
           playSound={(s) => engineRef.current?.playSound(s)}
           addMessage={(m) => engineRef.current?.addMessage(m)}
@@ -478,6 +505,7 @@ export default function GameCanvas() {
         setSelectedPlacedTower={setSelectedPlacedTower}
         money={gameState.money}
         setActiveTooltip={setActiveTooltip}
+        towerCostReduction={upgrades.towerCostReduction}
       />
 
       {/* Active Buffs */}
@@ -498,6 +526,19 @@ export default function GameCanvas() {
           inventory={gameState.inventory || []}
           onBuy={(id, cost) => engineRef.current?.buyPotion(id as any, cost)}
           onSell={(index) => engineRef.current?.sellItem(index)}
+        />
+      )}
+
+      {showEssenceShop && (
+        <EssenceShopModal
+          onClose={() => setShowEssenceShop(false)}
+          runeEssence={runeEssence}
+          upgrades={upgrades}
+          buyUpgrade={buyUpgrade}
+          questsCompleted={(gameState.quests || []).filter((q: any) => q.completed).length}
+          slayerTasksCompleted={gameState.consecutiveTasks || 0}
+          maxWave={gameState.wave}
+          achievementPoints={gameState.achievementPoints || 0}
         />
       )}
 

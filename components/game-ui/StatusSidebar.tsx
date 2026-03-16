@@ -46,6 +46,7 @@ interface StatusSidebarProps {
   togglePrayer: (id: string) => void;
   setShowQuestLog: (show: boolean) => void;
   setShowGE: (show: boolean) => void;
+  setShowEssenceShop: (show: boolean) => void;
   setIsSidebarCollapsed: (collapsed: boolean) => void;
   playSound: (sound: string) => void;
   addMessage: (msg: string) => void;
@@ -82,7 +83,17 @@ const TabButton: React.FC<TabButtonProps> = React.memo(({ id, icon, label, activ
     })}
     onMouseLeave={() => setActiveTooltip(null)}
   >
-    <img src={`https://oldschool.runescape.wiki/images/${icon}.png`} className="w-5 h-5 object-contain" alt={label} />
+    <img 
+      src={`https://oldschool.runescape.wiki/images/${icon}.png`} 
+      className="w-5 h-5 object-contain" 
+      alt={label} 
+      onError={(e) => {
+        const img = e.currentTarget;
+        if (img.dataset.errored) return;
+        img.dataset.errored = '1';
+        img.style.opacity = '0.4';
+      }}
+    />
   </div>
 ));
 
@@ -208,15 +219,21 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
           )}
 
           {activeTab === 'ge' && (
-            <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="flex flex-col items-center justify-center h-full gap-3">
               <div className="osrs-panel p-2 flex flex-col items-center gap-2 w-full shadow-inner bg-black/20">
-                 <img src="https://oldschool.runescape.wiki/images/Grand_Exchange_logo.png" className="w-12 h-12 object-contain drop-shadow-md" alt="" />
+                 <img src="https://oldschool.runescape.wiki/images/Grand_Exchange_logo.png" className="w-10 h-10 object-contain drop-shadow-md" alt="" />
                  <button onClick={() => {
                    props.playSound('interface_open');
                    props.setShowGE(true);
-                 }} className="osrs-button w-full py-2 text-xs uppercase animate-pulse">Open Exchange</button>
+                 }} className="osrs-button w-full py-2 text-xs uppercase">Open Exchange</button>
               </div>
-              <p className="text-[10px] text-[#c0c0c0] text-center font-mono tracking-[0.2em] uppercase opacity-70">Marketplace Access</p>
+              <div className="osrs-panel p-2 flex flex-col items-center gap-2 w-full shadow-inner bg-black/20">
+                 <img src="https://oldschool.runescape.wiki/images/Pure_essence_detail.png" className="w-10 h-10 object-contain drop-shadow-md" alt="" />
+                 <button onClick={() => {
+                   props.playSound('interface_open');
+                   props.setShowEssenceShop(true);
+                 }} className="osrs-button w-full py-2 text-xs uppercase text-[#00ffff]">Essence Shop</button>
+              </div>
             </div>
           )}
         </div>
@@ -224,13 +241,13 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
         {/* Tab Navigation */}
         <div className="grid grid-cols-8 gap-0 border-t border-[var(--osrs-border-dark)] bg-[var(--osrs-brown-dark)]">
           <TabButton id="combat" icon="Combat_icon" label="Combat" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="achievements" icon="Stats_icon" label="Achievements" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="quests" icon="Quest_icon" label="Quests" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="inventory" icon="Inventory_icon" label="Inventory" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="achievements" icon="Skills_icon" label="Achievements" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="quests" icon="Quest_list_icon" label="Quests" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="inventory" icon="Backpack" label="Inventory" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="ge" icon="Coins_detail" label="Exchange" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="prayer" icon="Prayer_icon" label="Prayer" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="pets" icon="Follower_icon" label="Pets" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="settings" icon="Settings_icon" label="Settings" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="pets" icon="Ranged_icon" label="Pets" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="settings" icon="Audio_options_icon" label="Settings" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
         </div>
       </div>
 

@@ -51,7 +51,13 @@ export const PetTab: React.FC<PetTabProps> = ({
                   alt={pet.name}
                   className="max-w-full max-h-full object-contain"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://oldschool.runescape.wiki/images/${pet.type.replace(/ /g, '_')}_icon.png`;
+                    const target = e.currentTarget;
+                    const fallbackSrc = `https://oldschool.runescape.wiki/images/${pet.type.replace(/ /g, '_')}_icon.png`;
+                    if (!target.src.includes(pet.type.replace(/ /g, '_'))) {
+                      target.src = fallbackSrc;
+                    } else if (target.src.includes(pet.type.replace(/ /g, '_'))) {
+                      target.style.display = 'none';
+                    }
                   }}
                 />
               </div>

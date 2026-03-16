@@ -8,6 +8,32 @@ interface TowerSelectionGridProps {
   setSelectedTower: (tower: string | null) => void;
   setSelectedPlacedTower: (tower: any | null) => void;
   setActiveTooltip: (tooltip: any | null) => void;
+  towerCostReduction: number;
+}
+
+const DAMAGE_TYPE_ICONS: Record<string, string> = {
+  archer: 'Ranged_icon',
+  wizard: 'Magic_icon',
+  cannon: 'Ranged_icon',
+  tzhaar: 'Attack_icon',
+  slayer: 'Ranged_icon',
+  toxic: 'Magic_icon',
+};
+
+function wikiImg(name: string, onErr?: (e: React.SyntheticEvent<HTMLImageElement>) => void, cls?: string) {
+  return (
+    <img
+      src={`https://oldschool.runescape.wiki/images/${name.replace(/ /g, '_')}.png`}
+      className={cls || 'max-w-full max-h-full object-contain drop-shadow-md'}
+      alt={name}
+      onError={(e) => {
+        const img = e.currentTarget;
+        if (img.dataset.errored) { img.style.display = 'none'; return; }
+        img.dataset.errored = '1';
+        img.src = `https://oldschool.runescape.wiki/images/${name.replace(/ /g, '_')}_detail.png`;
+      }}
+    />
+  );
 }
 
 export const TowerSelectionGrid: React.FC<TowerSelectionGridProps> = ({
@@ -15,7 +41,8 @@ export const TowerSelectionGrid: React.FC<TowerSelectionGridProps> = ({
   selectedTower,
   setSelectedTower,
   setSelectedPlacedTower,
-  setActiveTooltip
+  setActiveTooltip,
+  towerCostReduction
 }) => {
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 z-10 pointer-events-none">
@@ -28,7 +55,13 @@ export const TowerSelectionGrid: React.FC<TowerSelectionGridProps> = ({
         {Object.values(TOWER_DATA).map((tower: any) => {
           const isSelected = selectedTower === tower.type;
           const firstTier = tower.tiers[0];
-          const canAfford = money >= firstTier.upgradeCost;
+          const effectiveCost = Math.floor(firstTier.upgradeCost * towerCostReduction);
+          const canAfford = money >= effectiveCost;
+          const dmgIcon = DAMAGE_TYPE_ICONS[tower.type] || 'Attack_icon';
+          const dmgLabel = firstTier.maxDamage && firstTier.maxDamage > 0
+            ? `${firstTier.minDamage || 0}-${firstTier.maxDamage}`
+            : `${firstTier.damage}`;
+
           return (
             <button
               key={tower.type}
@@ -37,40 +70,48 @@ export const TowerSelectionGrid: React.FC<TowerSelectionGridProps> = ({
                 setSelectedPlacedTower(null);
               }}
               onMouseEnter={(e) => {
-                const damageInfo = firstTier.maxDamage ? `Hit: ${firstTier.minDamage || 0}-${firstTier.maxDamage}` : `Damage: ${firstTier.damage}`;
                 setActiveTooltip({
                   x: e.clientX, y: e.clientY,
                   title: tower.baseName.toUpperCase(),
-                  content: `${firstTier.name} (${damageInfo})`,
-                  bonus: `Path: ${tower.tiers.map((t: any) => t.name).join(' → ')}`,
-                  color: firstTier.color
+                  content: `${firstTier.name} — Dmg: ${dmgLabel}`,
+                  color: firstTier.color,
+                  tierIcons: tower.tiers.map((t: any) => t.name)
                 });
               }}
               onMouseLeave={() => setActiveTooltip(null)}
               disabled={!canAfford}
               className={`
-                flex flex-col items-center w-[68px] py-1.5 px-1 border-2 transition-all relative group
+                flex flex-col items-center w-[72px] py-1 px-1 border-2 transition-all relative group
                 ${isSelected ? 'border-osrs-yellow bg-[#4a3f35] shadow-[0_0_8px_rgba(255,255,0,0.6)]' : 'border-[#2d2d2d] bg-[#1a1a1a] hover:bg-[#2d2d2d] hover:border-[#5d5d5d]'}
-                ${!canAfford ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                ${canAfford ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}
               `}
             >
+              {/* Current tier icon */}
               <div className="w-9 h-9 flex items-center justify-center relative mb-0.5">
+                {wikiImg(firstTier.name)}
+              </div>
+
+              {/* Name */}
+              <span className="text-[9px] font-bold uppercase tracking-tight truncate w-full text-center" style={{ color: firstTier.color }}>
+                {tower.baseName}
+              </span>
+
+              {/* Damage + skill type icon */}
+              <div className="flex items-center gap-0.5 justify-center">
+                <span className="text-[9px] text-white">Dmg: {dmgLabel}</span>
                 <img
-                  src={`https://oldschool.runescape.wiki/images/${tower.tiers[0].name.replace(/ /g, '_')}.png`}
-                  alt={tower.baseName}
-                  className="max-w-full max-h-full object-contain drop-shadow-md"
-                  onError={(e) => { 
-                    const img = e.target as HTMLImageElement;
-                    if (!img.src.includes('_detail')) {
-                      img.src = `https://oldschool.runescape.wiki/images/${tower.tiers[0].name.replace(/ /g, '_')}_detail.png`;
-                    } else {
-                      img.style.display='none'; 
-                    }
-                  }}
+                  src={`https://oldschool.runescape.wiki/images/${dmgIcon}.png`}
+                  className="w-2.5 h-2.5 object-contain"
+                  alt=""
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 />
               </div>
-              <span className="text-[9px] font-bold uppercase tracking-tight" style={{ color: firstTier.color }}>{tower.baseName}</span>
-              <span className={`text-[9px] font-bold ${canAfford ? 'text-osrs-green' : 'text-osrs-red'}`}>{firstTier.upgradeCost}gp</span>
+
+              {/* Cost */}
+              <span className={`text-[9px] font-bold mt-0.5 ${canAfford ? 'text-osrs-green' : 'text-osrs-red'}`}>
+                {effectiveCost}gp
+              </span>
+
               {isSelected && <div className="absolute -top-1 -right-1 w-2 h-2 bg-osrs-yellow rounded-full animate-ping" />}
             </button>
           );

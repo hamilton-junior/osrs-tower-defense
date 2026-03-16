@@ -29,7 +29,7 @@ export const TOWERS: Record<string, TowerDef> = {
     baseName: 'Ranged',
     fireSound: 'archer',
     tiers: [
-      { level: 1, name: 'Shortbow', damage: 3, cooldown: 3 * TICK * 1000, range: 6 * 25, color: '#9acd32', upgradeCost: 25 },
+      { level: 1, name: 'Shortbow', damage: 3, cooldown: 3 * TICK * 1000, range: 7 * 25, color: '#9acd32', upgradeCost: 25 },
       { level: 2, name: 'Magic Shortbow', damage: 8, cooldown: 3 * TICK * 1000, range: 7 * 25, color: '#32CD32', upgradeCost: 65 },
       { level: 3, name: 'Crystal Bow', damage: 15, cooldown: 5 * TICK * 1000, range: 9 * 25, color: '#E0FFFF', upgradeCost: 150 },
       { level: 4, name: 'Bow of Faerdhinen', damage: 25, cooldown: 3 * TICK * 1000, range: 10 * 25, color: '#a020f0', upgradeCost: 0 }

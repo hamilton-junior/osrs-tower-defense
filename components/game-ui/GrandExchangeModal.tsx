@@ -33,27 +33,47 @@ export const GrandExchangeModal: React.FC<GrandExchangeModalProps> = ({
 
         <div className="p-6 overflow-y-auto custom-scrollbar bg-[url('https://oldschool.runescape.wiki/images/Back_pattern.png')] flex-1 min-h-[400px]">
           {tab === 'buy' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {GE_CONSUMABLES.map((item: any) => (
-                <div key={item.id} className="bg-[#3e2e18] p-4 border-2 border-[var(--osrs-border-dark)] hover:border-[var(--osrs-border-light)] transition-all flex justify-between items-center group relative overflow-hidden">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-black/40 rounded border border-white/5 flex items-center justify-center relative group-hover:scale-110 transition-transform">
-                      <img src={`https://oldschool.runescape.wiki/images/${item.icon || 'Vial_detail'}.png`} className="max-w-[80%] max-h-[80%] object-contain" alt="" />
+            <div className="flex flex-col gap-6">
+              {['potion', 'ore', 'herb', 'bones', 'logs'].map(category => {
+                const items = GE_CONSUMABLES.filter((item: any) => item.type === category);
+                if (items.length === 0) return null;
+                const categoryNames: Record<string, string> = {
+                  potion: 'Potions', ore: 'Ores', herb: 'Herbs', bones: 'Bones', logs: 'Logs'
+                };
+                const categoryIcons: Record<string, string> = {
+                  potion: 'Herblore', ore: 'Mining', herb: 'Farming', bones: 'Prayer', logs: 'Woodcutting'
+                };
+                return (
+                  <div key={category}>
+                    <div className="flex items-center gap-2 mb-3 border-b border-[#5d5d5d] pb-1">
+                      <img src={`https://oldschool.runescape.wiki/images/${categoryIcons[category]}_icon.png`} className="w-5 h-5 object-contain" alt="" />
+                      <h3 className="text-osrs-yellow font-bold uppercase tracking-widest">{categoryNames[category]}</h3>
                     </div>
-                    <div>
-                      <p className="text-osrs-yellow font-bold text-sm uppercase group-hover:text-white">{item.name}</p>
-                      <p className="text-[10px] text-[#c0c0c0] leading-tight mt-0.5">{item.description}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {items.map((item: any) => (
+                        <div key={item.id} className="bg-[#3e2e18] p-4 border-2 border-[var(--osrs-border-dark)] hover:border-[var(--osrs-border-light)] transition-all flex justify-between items-center group relative overflow-hidden">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-black/40 rounded border border-white/5 flex items-center justify-center relative group-hover:scale-110 transition-transform">
+                              <img src={`https://oldschool.runescape.wiki/images/${item.wiki}.png`} className="max-w-[80%] max-h-[80%] object-contain" alt="" onError={e => e.currentTarget.src = `https://oldschool.runescape.wiki/images/${item.wiki}_detail.png`}/>
+                            </div>
+                            <div>
+                              <p className="text-osrs-yellow font-bold text-sm uppercase group-hover:text-white">{item.name}</p>
+                              <p className="text-[10px] text-[#c0c0c0] leading-tight mt-0.5">{item.desc}</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => onBuy(item.id, item.cost)}
+                            disabled={money < item.cost}
+                            className={`osrs-button px-3 py-2 text-[10px] font-bold uppercase ${money >= item.cost ? 'text-osrs-yellow' : 'opacity-50'}`}
+                          >
+                            {item.cost} GP
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <button 
-                    onClick={() => onBuy(item.id, item.cost)}
-                    disabled={money < item.cost}
-                    className={`osrs-button px-3 py-2 text-[10px] font-bold uppercase ${money >= item.cost ? 'text-osrs-yellow' : 'opacity-50'}`}
-                  >
-                    {item.cost} GP
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">

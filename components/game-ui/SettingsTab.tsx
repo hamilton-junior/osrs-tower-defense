@@ -41,6 +41,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       {devMode && (
         <div className="flex flex-col gap-2 p-2 bg-red-900/20 border border-red-900/50 rounded">
           <p className="text-[9px] text-osrs-red font-bold uppercase text-center">Developer Tools</p>
+          <p className="text-[9px] text-osrs-green text-center">🦴 Hover to pickup bones</p>
           <button 
             onClick={() => {
               if (confirm('Verify: Reset ALL progress?')) resetGame();
