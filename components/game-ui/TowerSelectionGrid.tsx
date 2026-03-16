@@ -55,7 +55,7 @@ export const TowerSelectionGrid: React.FC<TowerSelectionGridProps> = ({
         {Object.values(TOWER_DATA).map((tower: any) => {
           const isSelected = selectedTower === tower.type;
           const firstTier = tower.tiers[0];
-          const effectiveCost = Math.floor(firstTier.upgradeCost * towerCostReduction);
+          const effectiveCost = Math.floor(firstTier.upgradeCost * (towerCostReduction || 1));
           const canAfford = money >= effectiveCost;
           const dmgIcon = DAMAGE_TYPE_ICONS[tower.type] || 'Attack_icon';
           const dmgLabel = firstTier.maxDamage && firstTier.maxDamage > 0

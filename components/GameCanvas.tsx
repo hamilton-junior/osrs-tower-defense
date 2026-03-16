@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { GameEngine, GlobalUpgrades } from '@/lib/game/engine';
+import { GameEngine } from '@/lib/game/engine';
+import type { GlobalUpgrades } from '@/lib/game/types';
 import { TOWERS as TOWER_DATA } from '@/lib/game/data/towers';
 import { ENEMIES as ENEMY_DATA } from '@/lib/game/data/enemies';
 import { PRAYERS as PRAYER_DATA } from '@/lib/game/data/prayers';
@@ -22,6 +23,7 @@ import { EssenceShopModal } from './game-ui/EssenceShopModal';
 import { QuestLogModal } from './game-ui/QuestLogModal';
 import { AchievementsModal } from './game-ui/AchievementsModal';
 import { TowerControls } from './game-ui/TowerControls';
+import { GameOverModal } from './game-ui/GameOverModal';
 
 interface TowerSkill {
   level: number;
@@ -89,6 +91,7 @@ interface GameState {
   prayerDrainRate?: number;
   activePotions?: any[];
   isPaused?: boolean;
+  gameOver?: boolean;
 }
 
 const UPGRADE_LIMITS = {
@@ -130,6 +133,7 @@ export default function GameCanvas() {
     maxPrayerPoints: 99,
     prayerDrainRate: 0,
     activePotions: [],
+    gameOver: false,
     playerSkills: {
       mining: { level: 1, xp: 0 },
       woodcutting: { level: 1, xp: 0 },
@@ -185,10 +189,29 @@ export default function GameCanvas() {
 
   useEffect(() => {
     setIsMounted(true);
+    
+    // Resize observer for high-res canvas
+    if (canvasRef.current) {
+      const observer = new ResizeObserver(() => {
+        engineRef.current?.resize();
+      });
+      observer.observe(canvasRef.current);
+      return () => observer.disconnect();
+    }
+  }, []);
+
+  useEffect(() => {
     const savedEssence = localStorage.getItem('osrs_td_essence');
     if (savedEssence) setRuneEssence(parseInt(savedEssence));
     const savedUpgrades = localStorage.getItem('osrs_td_upgrades');
-    if (savedUpgrades) setUpgrades(JSON.parse(savedUpgrades));
+    if (savedUpgrades) {
+      try {
+        const parsed = JSON.parse(savedUpgrades);
+        setUpgrades(prev => ({ ...prev, ...parsed }));
+      } catch (e) {
+        console.error('Failed to parse saved upgrades', e);
+      }
+    }
     // Load player status
     const savedSkills = localStorage.getItem('osrs_td_player_skills');
     const savedWave = localStorage.getItem('osrs_td_wave');
@@ -215,8 +238,9 @@ export default function GameCanvas() {
   const getLogicCoords = (clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
-    const scaleX = (canvasRef.current?.width || 1200) / rect.width;
-    const scaleY = (canvasRef.current?.height || 800) / rect.height;
+    // Map screen coordinates to the 1200x800 logic space
+    const scaleX = 1200 / rect.width;
+    const scaleY = 800 / rect.height;
     return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
   };
 
@@ -227,10 +251,16 @@ export default function GameCanvas() {
     if (runeEssence >= cost && canUpgrade) {
       engineRef.current?.playSound('sell');
       setRuneEssence((prev: number) => prev - cost);
-      setUpgrades((prev: GlobalUpgrades) => ({
-        ...prev,
-        [type]: increment > 0 ? Math.min(prev[type] + increment, limit) : Math.max(prev[type] + increment, limit)
-      }));
+      setUpgrades((prev: GlobalUpgrades) => {
+        const currentVal = prev[type] ?? (type === 'towerCostReduction' ? 1.0 : 0);
+        const newVal = increment > 0 
+          ? Math.min(currentVal + increment, limit) 
+          : Math.max(currentVal + increment, limit);
+        return {
+          ...prev,
+          [type]: newVal
+        };
+      });
     } else {
       engineRef.current?.playSound('click');
     }
@@ -364,6 +394,10 @@ export default function GameCanvas() {
     engineRef.current?.setGold(gold);
   }, []);
 
+  const handleRestart = useCallback(() => {
+    engineRef.current?.restartGame();
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { setSelectedTower(null); setSelectedPlacedTower(null); }
@@ -438,9 +472,7 @@ export default function GameCanvas() {
       {/* Canvas */}
       <canvas 
         ref={canvasRef}
-        className="absolute inset-0 block cursor-crosshair touch-none w-full h-full z-0 image-pixelated"
-        width={1200}
-        height={800}
+        className="absolute inset-0 block cursor-crosshair touch-none w-full h-full z-0"
         onClick={handleCanvasClick}
         onMouseMove={handleMouseMove}
         onContextMenu={handleContextMenu}
@@ -584,6 +616,7 @@ export default function GameCanvas() {
           onSetMageElement={(towerId, elem) => engineRef.current?.setMageElement(towerId, elem as any)}
           onSetAncientType={(towerId, type) => engineRef.current?.setAncientType(towerId, type as any)}
           money={gameState.money}
+          towerCostReduction={upgrades.towerCostReduction}
         />
       )}
 
@@ -593,6 +626,15 @@ export default function GameCanvas() {
       {activeTooltip && (
         <TowerTooltip 
           activeTooltip={activeTooltip}
+        />
+      )}
+
+      {gameState.gameOver && (
+        <GameOverModal 
+          wave={gameState.wave}
+          money={gameState.money}
+          essence={runeEssence}
+          onRestart={handleRestart}
         />
       )}
     </div>

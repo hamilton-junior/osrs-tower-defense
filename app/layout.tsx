@@ -1,5 +1,6 @@
 import type {Metadata} from 'next';
 import { Inter, JetBrains_Mono, VT323 } from 'next/font/google';
+import ClientWrapper from '@/components/ClientWrapper';
 import './globals.css'; // Global styles
 
 const inter = Inter({
@@ -26,7 +27,11 @@ export const metadata: Metadata = {
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} ${vt323.variable}`}>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <ClientWrapper>
+          {children}
+        </ClientWrapper>
+      </body>
     </html>
   );
 }

@@ -45,7 +45,7 @@ export const EssenceShopModal: React.FC<EssenceShopModalProps> = (props) => {
         <div className="p-6 overflow-y-auto custom-scrollbar bg-[url('https://oldschool.runescape.wiki/images/Back_pattern.png')] flex-1 min-h-[400px]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {UPGRADE_DATA.map((item) => {
-              const currentVal = props.upgrades[item.id];
+              const currentVal = props.upgrades[item.id] ?? (item.id === 'towerCostReduction' ? 1.0 : 0);
               const isMaxed = item.inc > 0 ? currentVal >= item.max : currentVal <= item.max;
               const isUnlocked = item.isUnlocked(props);
               

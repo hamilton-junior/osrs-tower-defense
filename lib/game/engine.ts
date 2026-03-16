@@ -1,7 +1,12 @@
 
-
 import { ASSETS } from './assets';
-import * as Types from './types';
+import { 
+  Point, GlobalUpgrades, PrayerType, ActivePotion, Pet, Achievement, 
+  EnemyType, Element, Enemy, TowerType, MageMode, AncientType, 
+  SupportSpell, TowerSkill, TowerSkills, PlayerSkills, GatheringNode, 
+  Item, Region, TargetingPriority, Tower, Projectile, SlayerTask, 
+  Quest, FarmingPatch 
+} from './types';
 import { PRAYERS } from './data/prayers';
 import { ACHIEVEMENTS } from './data/achievements';
 import { QUESTS } from './data/quests';
@@ -11,33 +16,6 @@ import { ITEMS, ITEM_PROGRESSIONS } from './data/items';
 import { LANDMARK_WAVES } from './data/waves';
 import { NODE_CONFIGS } from './data/nodes';
 import { TICK, ARCHER_STATS, SPELL_MAX_HITS, WIZARD_SPELL_TIERS, ANCIENT_HITS, ANCIENT_TIERS, UTILITY_TIERS } from './data/tower-stats';
-
-// Re-export types for backward compatibility if needed, or just import from Types
-export type Point = Types.Point;
-export type GlobalUpgrades = Types.GlobalUpgrades;
-export type PrayerType = Types.PrayerType;
-export type ActivePotion = Types.ActivePotion;
-export type Pet = Types.Pet;
-export type Achievement = Types.Achievement;
-export type EnemyType = Types.EnemyType;
-export type Element = Types.Element;
-export type Enemy = Types.Enemy;
-export type TowerType = Types.TowerType;
-export type MageMode = Types.MageMode;
-export type AncientType = Types.AncientType;
-export type SupportSpell = Types.SupportSpell;
-export type TowerSkill = Types.TowerSkill;
-export type TowerSkills = Types.TowerSkills;
-export type PlayerSkills = Types.PlayerSkills;
-export type GatheringNode = Types.GatheringNode;
-export type Item = Types.Item;
-export type Region = Types.Region;
-export type TargetingPriority = Types.TargetingPriority;
-export type Tower = Types.Tower;
-export type Projectile = Types.Projectile;
-export type SlayerTask = Types.SlayerTask;
-export type Quest = Types.Quest;
-export type FarmingPatch = Types.FarmingPatch;
 
 // OSRS Game Tick is imported from data/tower-stats.ts
 
@@ -55,6 +33,10 @@ export class GameEngine {
   gameTime: number = 0;
   maxDt: number = 0.1;
   isPaused: boolean = false;
+  
+  readonly LOGIC_WIDTH = 1200;
+  readonly LOGIC_HEIGHT = 800;
+
   autoSpawnEnabled: boolean = false;
   autoSpawnDelay: number = 3; 
   autoSpawnTimer: number = 0;
@@ -66,6 +48,7 @@ export class GameEngine {
   waveActive: boolean = false;
   runeEssence: number = 0;
   devMode: boolean = false; 
+  gameOver: boolean = false;
   
   prayerPoints: number = 10;
   maxPrayerPoints: number = 10;
@@ -187,9 +170,9 @@ export class GameEngine {
     // Apply starting money upgrade
     this.money = 150 + this.upgrades.startingMoney;
     
-    // Use fixed canvas size
-    this.prevWidth = 1200;
-    this.prevHeight = 800;
+    // Use logic dimensions
+    this.prevWidth = this.LOGIC_WIDTH;
+    this.prevHeight = this.LOGIC_HEIGHT;
     this.canvas.width = this.prevWidth;
     this.canvas.height = this.prevHeight;
 
@@ -208,8 +191,6 @@ export class GameEngine {
 
     console.log('GameEngine initPath start');
     this.initPath();
-    // this.resize(); // Disabled to prevent scaling issues
-    // window.addEventListener('resize', () => this.resize()); // Disabled
     
     console.log('GameEngine initNodes start');
     this.initNodes();
@@ -287,6 +268,13 @@ export class GameEngine {
     this.imageCache.set('bones_loot', bones);
   }
 
+  isImageValid(img: HTMLImageElement | undefined, key?: string): boolean {
+    if (!img) return false;
+    if (key && this.brokenImages.has(key)) return false;
+    // An image is broken if it's complete but has no naturalWidth
+    return img.complete && img.naturalWidth > 0;
+  }
+
   addMessage(text: string) {
     this.messages.push(text);
     if (this.messages.length > 50) this.messages.shift();
@@ -314,8 +302,27 @@ export class GameEngine {
   }
 
   resize() {
-    // Disabled to prevent scaling issues. The canvas uses a fixed internal resolution of 1200x800,
-    // and CSS handles the visual scaling.
+    if (!this.canvas) return;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Set actual resolution (this resets context state)
+    const newWidth = Math.floor(rect.width * dpr);
+    const newHeight = Math.floor(rect.height * dpr);
+    
+    if (this.canvas.width !== newWidth || this.canvas.height !== newHeight) {
+      this.canvas.width = newWidth;
+      this.canvas.height = newHeight;
+      // Context state is reset when width/height changes
+      if (this.ctx) {
+        this.ctx.imageSmoothingEnabled = false;
+      }
+    }
+    
+    this.prevWidth = rect.width;
+    this.prevHeight = rect.height;
   }
 
   updateMousePos(x: number, y: number) {
@@ -339,9 +346,9 @@ export class GameEngine {
   }
 
   initPath(clearEnemies: boolean = true, forceWidth?: number, forceHeight?: number) {
-    // Fill the current canvas dimensions
-    let w = forceWidth || this.canvas.width || 800; // Let resize() mutate parent dimensions before calling
-    let h = forceHeight || this.canvas.height || 600;
+    // Use logic dimensions for path generation
+    let w = forceWidth || this.LOGIC_WIDTH;
+    let h = forceHeight || this.LOGIC_HEIGHT;
     
     // Save old path length to check if we need to reset enemies
     const oldPathLength = this.path.length;
@@ -584,7 +591,7 @@ export class GameEngine {
       let remainingBudget = budget;
       
       // Filter enemies that can spawn at this wave level
-      const spawnableEnemies = Object.values(ENEMIES).filter(e => !e.isBoss);
+      const spawnableEnemies = Object.values(ENEMIES).filter(e => !e.isBoss && (e.waveUnlock || 1) <= waveNum);
       
       while (remainingBudget > 5) {
         const affordable = spawnableEnemies.filter(e => e.reward <= remainingBudget);
@@ -961,7 +968,7 @@ export class GameEngine {
 
     // Check enemies
     for (const enemy of this.enemies) {
-      if (enemy.x < 0 || enemy.x > this.canvas.width || enemy.y < 0 || enemy.y > this.canvas.height) continue;
+      if (enemy.x < 0 || enemy.x > this.LOGIC_WIDTH || enemy.y < 0 || enemy.y > this.LOGIC_HEIGHT) continue;
       if (enemy.pathIndex === 0) continue; 
 
       const dx = x - enemy.x;
@@ -1020,8 +1027,8 @@ export class GameEngine {
 
   initNodes() {
     this.nodes = [];
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    const w = this.LOGIC_WIDTH;
+    const h = this.LOGIC_HEIGHT;
 
     NODE_CONFIGS.forEach(config => {
       const x = config.x * w;
@@ -1477,8 +1484,8 @@ export class GameEngine {
       
       this.addMessage(`Wave ${this.wave} complete! Reward: ${totalMoneyReward} GP, ${essenceReward} Essence.`);
       this.floatingTexts.push({
-        x: this.canvas.width / 2,
-        y: this.canvas.height / 2,
+        x: this.LOGIC_WIDTH / 2,
+        y: this.LOGIC_HEIGHT / 2,
         text: `WAVE COMPLETE! +${totalMoneyReward} GP`,
         life: 3,
         color: '#ffff00'
@@ -1536,7 +1543,12 @@ export class GameEngine {
           this.lives--;
           this.shakeAmount = 10;
           this.onStateChange({ lives: this.lives });
-          if (this.lives <= 0) this.resetGame();
+          if (this.lives <= 0) {
+            this.gameOver = true;
+            this.isPaused = true;
+            this.onStateChange({ gameOver: true, isPlaying: false });
+            this.playSound('death');
+          }
           else this.playSound('hit');
         }
         this.enemies.splice(i, 1);
@@ -1556,7 +1568,12 @@ export class GameEngine {
           this.lives--;
           this.shakeAmount = 10;
           this.onStateChange({ lives: this.lives });
-          if (this.lives <= 0) this.resetGame();
+          if (this.lives <= 0) {
+            this.gameOver = true;
+            this.isPaused = true;
+            this.onStateChange({ gameOver: true, isPlaying: false });
+            this.playSound('death');
+          }
         }
         this.enemies.splice(i, 1);
         continue;
@@ -1685,7 +1702,7 @@ export class GameEngine {
       // Targeting
       if (!tower.targetId || !this.enemies.find(e => e.id === tower.targetId)) {
         const inRangeEnemies = this.enemies.filter(enemy => {
-          const isOffscreen = enemy.x < 0 || enemy.x > this.canvas.width || enemy.y < 0 || enemy.y > this.canvas.height;
+          const isOffscreen = enemy.x < 0 || enemy.x > this.LOGIC_WIDTH || enemy.y < 0 || enemy.y > this.LOGIC_HEIGHT;
           if (isOffscreen) return false;
           const d = Math.sqrt(Math.pow(enemy.x - tower.x, 2) + Math.pow(enemy.y - tower.y, 2));
           return d <= effectiveRange;
@@ -2077,8 +2094,8 @@ export class GameEngine {
       this.playSound('upgrade');
       this.addMessage(`Congratulations, you just advanced your ${skillKey.charAt(0).toUpperCase() + skillKey.slice(1)} level to ${skill.level}!`);
       this.floatingTexts.push({
-        x: x ?? this.canvas.width / 2,
-        y: y ?? this.canvas.height / 2,
+        x: x ?? this.LOGIC_WIDTH / 2,
+        y: y ?? this.LOGIC_HEIGHT / 2,
         text: 'LEVEL UP!',
         life: 2,
         color: '#ffff00',
@@ -2415,6 +2432,21 @@ export class GameEngine {
     this.onStateChange({ inventory: this.inventory });
   }
 
+  restartGame() {
+    this.gameOver = false;
+    this.isPaused = false;
+    this.resetGame();
+    this.onStateChange({ 
+      gameOver: false, 
+      lives: this.lives, 
+      money: this.money, 
+      wave: this.wave,
+      isPlaying: false,
+      towers: [],
+      enemies: []
+    });
+  }
+
   resetGame() {
     // Full game reset — preserves runeEssence and upgrades only
     this.lives = 20;
@@ -2522,24 +2554,30 @@ export class GameEngine {
   drawAmbientEffects() {
     if (this.currentRegion === 'morytania') {
        this.ctx.fillStyle = 'rgba(0, 20, 20, 0.2)';
-       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+       this.ctx.fillRect(0, 0, this.LOGIC_WIDTH, this.LOGIC_HEIGHT);
     } else if (this.currentRegion === 'wilderness') {
        this.ctx.fillStyle = 'rgba(50, 0, 0, 0.1)';
-       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+       this.ctx.fillRect(0, 0, this.LOGIC_WIDTH, this.LOGIC_HEIGHT);
     } else if (this.currentRegion === 'karamja') {
        this.ctx.fillStyle = 'rgba(255, 255, 0, 0.05)';
-       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+       this.ctx.fillRect(0, 0, this.LOGIC_WIDTH, this.LOGIC_HEIGHT);
     }
   }
 
   draw() {
-    if (!this.ctx || !this.canvas) return;
-    const w = this.canvas.width;
-    const h = this.canvas.height;
-    if (w === 0 || h === 0) return;
+    if (!this.ctx || !this.canvas || this.canvas.width === 0 || this.canvas.height === 0) return;
+    
+    const w = this.LOGIC_WIDTH;
+    const h = this.LOGIC_HEIGHT;
     
     try {
       this.ctx.save();
+      
+      // Scale everything to fit the logic dimensions into the actual canvas resolution
+      const scaleX = this.canvas.width / w;
+      const scaleY = this.canvas.height / h;
+      this.ctx.scale(scaleX, scaleY);
+      this.ctx.imageSmoothingEnabled = false;
       
       // Apply Shake
       if (this.shakeAmount > 0) {
@@ -2649,8 +2687,12 @@ export class GameEngine {
       // Draw Spawn Portal
       if (this.path.length > 0) {
         const portalImg = this.imageCache.get('portal');
-        if (portalImg && portalImg.complete && portalImg.naturalWidth > 0) {
-          this.ctx.drawImage(portalImg, this.path[0].x - 30, this.path[0].y - 30, 60, 60);
+        if (this.isImageValid(portalImg, 'portal')) {
+          try {
+            this.ctx.drawImage(portalImg!, this.path[0].x - 30, this.path[0].y - 30, 60, 60);
+          } catch (e) {
+            this.brokenImages.add('portal');
+          }
           // Swirl effect
           this.ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
           this.ctx.lineWidth = 2;
@@ -2681,8 +2723,12 @@ export class GameEngine {
       this.ctx.globalAlpha = 0.5;
       const imgKey = `${this.selectedTowerType}_1`;
       const img = this.imageCache.get(imgKey);
-      if (img && img.complete && img.naturalWidth > 0) {
-        this.ctx.drawImage(img, snappedX - 18, snappedY - 18, 36, 36);
+      if (this.isImageValid(img, imgKey)) {
+        try {
+          this.ctx.drawImage(img!, snappedX - 18, snappedY - 18, 36, 36);
+        } catch (e) {
+          this.brokenImages.add(imgKey);
+        }
       } else {
         this.ctx.fillStyle = '#ffffff';
         this.ctx.beginPath();
@@ -2722,8 +2768,8 @@ export class GameEngine {
           
           // Use a pseudo-random wander based on index and time
           // This allows pets to roam freely
-          const wanderX = (Math.sin(time * speed + index * 100) * 0.4 + 0.5) * this.canvas.width;
-          const wanderY = (Math.cos(time * speed * 0.8 + index * 200) * 0.4 + 0.5) * this.canvas.height;
+          const wanderX = (Math.sin(time * speed + index * 100) * 0.4 + 0.5) * this.LOGIC_WIDTH;
+          const wanderY = (Math.cos(time * speed * 0.8 + index * 200) * 0.4 + 0.5) * this.LOGIC_HEIGHT;
           
           let x = wanderX;
           let y = wanderY;
@@ -2735,8 +2781,12 @@ export class GameEngine {
           const imgKey = pet.type; 
           const img = this.imageCache.get(imgKey);
           
-          if (img && img.complete && img.naturalWidth > 0 && !this.brokenImages.has(imgKey)) {
-            this.ctx.drawImage(img, x - 15, y - 15, 30, 30);
+          if (this.isImageValid(img, imgKey)) {
+            try {
+              this.ctx.drawImage(img!, x - 15, y - 15, 30, 30);
+            } catch (e) {
+              this.brokenImages.add(imgKey);
+            }
           } else {
             this.ctx.font = '20px Arial';
             this.ctx.textAlign = 'center';
@@ -2807,9 +2857,13 @@ export class GameEngine {
           }
         }
 
-        if (img && img.complete && img.naturalWidth > 0 && !this.brokenImages.has(imgKey)) {
+        if (this.isImageValid(img, imgKey)) {
           const size = (tower.visualRadius || 18) * 2;
-          this.ctx.drawImage(img, -size/2, -size/2, size, size);
+          try {
+            this.ctx.drawImage(img!, -size/2, -size/2, size, size);
+          } catch (e) {
+            this.brokenImages.add(imgKey);
+          }
         } else {
           this.ctx.fillStyle = tower.color;
           this.ctx.beginPath();
@@ -2894,8 +2948,12 @@ export class GameEngine {
         if (n.type === 'herb') imgKey = 'ranarr';
         
         const img = this.imageCache.get(imgKey);
-        if (img && img.complete) {
-          this.ctx.drawImage(img, n.x - 16, n.y - 16, 32, 32);
+        if (this.isImageValid(img, imgKey)) {
+          try {
+            this.ctx.drawImage(img!, n.x - 16, n.y - 16, 32, 32);
+          } catch (e) {
+            this.brokenImages.add(imgKey);
+          }
         } else {
           this.ctx.fillStyle = n.type === 'tree' ? '#8B4513' : n.type === 'ore' ? '#555' : '#0f0';
           this.ctx.fillRect(n.x - 10, n.y - 10, 20, 20);
@@ -2924,9 +2982,13 @@ export class GameEngine {
         const targetPoint = this.path[enemy.pathIndex + 1] || enemy;
         const movingLeft = targetPoint.x < enemy.x;
         
-        if (img && img.complete && img.naturalWidth > 0 && !this.brokenImages.has(enemy.type)) {
+        if (this.isImageValid(img, enemy.type)) {
           if (movingLeft) this.ctx.scale(-1, 1);
-          this.ctx.drawImage(img, -size/2, -size/2, size, size);
+          try {
+            this.ctx.drawImage(img!, -size/2, -size/2, size, size);
+          } catch (e) {
+            this.brokenImages.add(enemy.type);
+          }
         } else {
           this.ctx.fillStyle = enemy.color;
           this.ctx.beginPath();
@@ -3089,8 +3151,12 @@ export class GameEngine {
         const splatType = dn.color === '#ff0000' ? 'magic_hit_splat' : 'hit_splat';
         const splatImg = this.imageCache.get(splatType);
         
-        if (splatImg) {
-          this.ctx.drawImage(splatImg, dn.x - 15, dn.y - 15, 30, 30);
+        if (this.isImageValid(splatImg, splatType)) {
+          try {
+            this.ctx.drawImage(splatImg!, dn.x - 15, dn.y - 15, 30, 30);
+          } catch (e) {
+            this.brokenImages.add(splatType);
+          }
         }
         
         this.ctx.fillStyle = dn.color;
@@ -3104,9 +3170,13 @@ export class GameEngine {
       // Draw Death Animations
       this.deathAnimations.forEach(da => {
         const img = this.imageCache.get(da.type);
-        if (img) {
+        if (this.isImageValid(img, da.type)) {
           this.ctx.globalAlpha = Math.min(1, da.life * 2);
-          this.ctx.drawImage(img, da.x - 15, da.y - 15, 30, 30);
+          try {
+            this.ctx.drawImage(img!, da.x - 15, da.y - 15, 30, 30);
+          } catch (e) {
+            this.brokenImages.add(da.type);
+          }
           this.ctx.globalAlpha = 1.0;
         }
       });
@@ -3127,9 +3197,14 @@ export class GameEngine {
             const textWidth = this.ctx.measureText(ft.text).width;
             
             if (ft.icon) {
-              const iconImg = this.imageCache.get(ft.icon.toLowerCase());
-              if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
-                this.ctx.drawImage(iconImg, ft.x - textWidth/2 - 12, ft.y - 10, 10, 10);
+              const iconKey = ft.icon.toLowerCase();
+              const iconImg = this.imageCache.get(iconKey);
+              if (this.isImageValid(iconImg, iconKey)) {
+                try {
+                  this.ctx.drawImage(iconImg!, ft.x - textWidth/2 - 12, ft.y - 10, 10, 10);
+                } catch (e) {
+                  this.brokenImages.add(iconKey);
+                }
               }
             }
             this.ctx.fillText(ft.text, ft.x - textWidth/2 + 2, ft.y);
@@ -3139,9 +3214,14 @@ export class GameEngine {
             this.ctx.fillText(ft.text, ft.x, ft.y);
             
             if (ft.icon) {
-              const iconImg = this.imageCache.get(ft.icon.toLowerCase());
-              if (iconImg && iconImg.complete && iconImg.naturalWidth > 0) {
-                this.ctx.drawImage(iconImg, ft.x - 10, ft.y - 35, 20, 20);
+              const iconKey = ft.icon.toLowerCase();
+              const iconImg = this.imageCache.get(iconKey);
+              if (this.isImageValid(iconImg, iconKey)) {
+                try {
+                  this.ctx.drawImage(iconImg!, ft.x - 10, ft.y - 35, 20, 20);
+                } catch (e) {
+                  this.brokenImages.add(iconKey);
+                }
               }
             }
         }
@@ -3157,8 +3237,12 @@ export class GameEngine {
         this.ctx.scale(pulse, pulse);
         
         // Draw bones icon
-        if (bonesImg && bonesImg.complete && bonesImg.naturalWidth > 0) {
-          this.ctx.drawImage(bonesImg, -12, -12, 24, 24);
+        if (this.isImageValid(bonesImg, 'bones_loot')) {
+          try {
+            this.ctx.drawImage(bonesImg!, -12, -12, 24, 24);
+          } catch (e) {
+            this.brokenImages.add('bones_loot');
+          }
         } else {
           this.ctx.font = '20px Arial';
           this.ctx.textAlign = 'center';

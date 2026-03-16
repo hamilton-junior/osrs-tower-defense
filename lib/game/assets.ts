@@ -163,6 +163,7 @@ export const ASSETS = {
       interface_close: 'https://oldschool.runescape.wiki/images/transcoded/Interface_close.ogg/Interface_close.ogg.mp3',
       pick_up: 'https://oldschool.runescape.wiki/images/transcoded/Pick_up_item.ogg/Pick_up_item.ogg.mp3',
       cannon_fire: 'https://oldschool.runescape.wiki/images/transcoded/Dwarf_multicannon_fire.ogg/Dwarf_multicannon_fire.ogg.mp3',
+      death: 'https://oldschool.runescape.wiki/images/transcoded/Man_death.ogg/Man_death.ogg.mp3',
     }
   }
 };

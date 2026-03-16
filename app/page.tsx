@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
-import GameCanvas from '../components/GameCanvas';
+import dynamic from 'next/dynamic';
+
+const GameCanvas = dynamic(() => import('../components/GameCanvas'), { ssr: false });
 
 export default function Page() {
   const [showSettings, setShowSettings] = useState(false);

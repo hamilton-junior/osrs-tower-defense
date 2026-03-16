@@ -14,11 +14,13 @@ interface SelectedTowerModalProps {
   onSetMageElement: (towerId: string, elem: string) => void;
   onSetAncientType: (towerId: string, type: string) => void;
   onSetTargetingPriority: (towerId: string, priority: string) => void;
+  towerCostReduction: number;
 }
 
 export const SelectedTowerModal: React.FC<SelectedTowerModalProps> = ({ 
   tower, money, onClose, onUpgrade, onSell, onUnequip, 
-  onSetArcherStyle, onSetMageMode, onSetMageElement, onSetAncientType, onSetTargetingPriority 
+  onSetArcherStyle, onSetMageMode, onSetMageElement, onSetAncientType, onSetTargetingPriority,
+  towerCostReduction
 }) => {
   if (!tower) return null;
 
@@ -160,10 +162,10 @@ export const SelectedTowerModal: React.FC<SelectedTowerModalProps> = ({
           {tower.level < tower.maxLevel ? (
             <button 
               onClick={onUpgrade}
-              disabled={money < tower.upgradeCost}
-              className={`flex-1 osrs-button py-2 text-xs font-bold ${money >= tower.upgradeCost ? 'text-osrs-green' : 'opacity-50 cursor-not-allowed'}`}
+              disabled={money < Math.floor(tower.upgradeCost * (towerCostReduction || 1))}
+              className={`flex-1 osrs-button py-2 text-xs font-bold ${money >= Math.floor(tower.upgradeCost * (towerCostReduction || 1)) ? 'text-osrs-green' : 'opacity-50 cursor-not-allowed'}`}
             >
-              Upgrade ({tower.upgradeCost} gp)
+              Upgrade ({Math.floor(tower.upgradeCost * (towerCostReduction || 1))} gp)
             </button>
           ) : (
             <div className="flex-1 text-center text-xs text-osrs-green font-bold py-2 border border-osrs-green/30 bg-osrs-green/10 rounded">Max Level</div>
