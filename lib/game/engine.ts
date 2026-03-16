@@ -91,7 +91,7 @@ export class GameEngine {
   particles: { x: number, y: number, life: number, color: string }[] = [];
   damageNumbers: { x: number, y: number, text: string, life: number, color: string, velocityY: number, velocityX: number }[] = [];
   hitsplats: Hitsplat[] = [];
-  deathAnimations: { x: number, y: number, type: string, life: number }[] = [];
+  deathAnimations: { x: number, y: number, type: string, life: number, loot?: { id: string, x: number, y: number, type: 'essence' | 'money' | 'item' | 'bones', data?: any, life: number, size: number }[] }[] = [];
   floatingTexts: { x: number, y: number, text: string, life: number, color: string, icon?: string }[] = [];
   loots: { id: string, x: number, y: number, type: 'essence' | 'money' | 'item' | 'bones', data?: any, life: number, size: number }[] = [];
   nodes: GatheringNode[] = [];
@@ -1431,8 +1431,13 @@ export class GameEngine {
 
     // Update Death Animations
     for (let i = this.deathAnimations.length - 1; i >= 0; i--) {
-      this.deathAnimations[i].life -= dt;
-      if (this.deathAnimations[i].life <= 0) {
+      const da = this.deathAnimations[i];
+      da.life -= dt;
+      if (da.life <= 0) {
+        // Drop loot if any
+        if (da.loot) {
+          da.loot.forEach(loot => this.loots.push(loot));
+        }
         this.deathAnimations.splice(i, 1);
       }
     }
@@ -2040,7 +2045,10 @@ export class GameEngine {
 
     // Create hitsplat
     const tower = sourceTowerId ? this.towers.find(t => t.id === sourceTowerId) : null;
-    const type: HitsplatType = isDot ? 'poison' : (tower?.type === 'wizard' ? 'magic' : (tower?.type === 'archer' ? 'ranged' : 'melee'));
+    let type: HitsplatType = isDot ? 'poison' : (tower?.type === 'wizard' ? 'magic' : (tower?.type === 'archer' ? 'ranged' : 'melee'));
+    if (actualDamage === 0) {
+      type = 'miss';
+    }
     
     this.hitsplats.push({
       x: enemy.x + (Math.random() - 0.5) * 20,
@@ -2108,24 +2116,26 @@ export class GameEngine {
           x: enemy.x,
           y: enemy.y,
           type: 'bones_loot',
-          life: 1.0
+          life: 1.0,
+          loot: [
+            {
+              id: Math.random().toString(),
+              x: enemy.x + (Math.random() - 0.5) * 15,
+              y: enemy.y + (Math.random() - 0.5) * 15,
+              type: 'bones',
+              life: 30,
+              size: 18
+            }
+          ]
         });
         
         // Update Quests
         this.updateQuests('kill', 1, enemy.type);
-
+        
         // Monster Loot: Bones always drop; GP/Essence occasionally
-        this.loots.push({
-          id: Math.random().toString(),
-          x: enemy.x + (Math.random() - 0.5) * 15,
-          y: enemy.y + (Math.random() - 0.5) * 15,
-          type: 'bones',
-          life: 30, // 30 real seconds (rawDt based)
-          size: 18
-        });
         if (Math.random() < 0.2) {
           const lootType = Math.random() > 0.95 ? 'essence' : 'money';
-          this.loots.push({
+          this.deathAnimations[this.deathAnimations.length - 1].loot!.push({
             id: Math.random().toString(),
             x: enemy.x,
             y: enemy.y,

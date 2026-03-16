@@ -145,6 +145,7 @@ export const ASSETS = {
     magic_hit_splat: 'https://oldschool.runescape.wiki/images/Magic_hit_splat.png',
     poison_hit_splat: 'https://oldschool.runescape.wiki/images/Poison_hit_splat.png',
     ranged_hit_splat: 'https://oldschool.runescape.wiki/images/Ranged_hit_splat.png',
+    miss_hit_splat: 'https://oldschool.runescape.wiki/images/Blue_hit_splat.png',
     background_pattern: 'https://oldschool.runescape.wiki/images/Back_pattern.png',
     orb_background: 'https://oldschool.runescape.wiki/images/Orb_background.png',
     inventory_background: 'https://oldschool.runescape.wiki/images/Inventory_background.png',

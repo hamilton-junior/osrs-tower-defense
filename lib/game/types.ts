@@ -1,5 +1,5 @@
 
-export type HitsplatType = 'melee' | 'ranged' | 'magic' | 'poison';
+export type HitsplatType = 'melee' | 'ranged' | 'magic' | 'poison' | 'miss';
 
 export interface Hitsplat {
   x: number;
