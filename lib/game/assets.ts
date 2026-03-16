@@ -95,7 +95,7 @@ export const ASSETS = {
     dragon_scimitar: 'https://oldschool.runescape.wiki/images/Dragon_scimitar.png',
     logs: 'https://oldschool.runescape.wiki/images/Logs.png',
     iron_ore: 'https://oldschool.runescape.wiki/images/Iron_ore.png',
-    grimy_guam: 'https://oldschool.runescape.wiki/images/Grimy_guam.png',
+    grimy_guam: 'https://oldschool.runescape.wiki/images/Grimy_guam_leaf.png',
   },
   misc: {
     portal: 'https://oldschool.runescape.wiki/images/Purple_Portal_Shield.png',

@@ -69,33 +69,36 @@ interface TabButtonProps {
   setActiveTooltip: (tooltip: any | null) => void;
 }
 
-const TabButton: React.FC<TabButtonProps> = React.memo(({ id, icon, label, activeTab, setActiveTab, playSound, setActiveTooltip }) => (
-  <div 
-    className={`osrs-tab p-1 flex items-center justify-center transition-all cursor-pointer ${activeTab === id ? 'active brightness-125 border-t-osrs-yellow' : 'opacity-70 hover:opacity-100'}`}
-    onClick={() => {
-      playSound('click');
-      setActiveTab(id);
-    }}
-    onMouseEnter={(e) => setActiveTooltip({
-      x: e.clientX, y: e.clientY - 40,
-      title: label, content: `Click to switch to ${label} tab.`,
-      color: '#ff981f'
-    })}
-    onMouseLeave={() => setActiveTooltip(null)}
-  >
-    <img 
-      src={`https://oldschool.runescape.wiki/images/${icon}.png`} 
-      className="w-5 h-5 object-contain" 
-      alt={label} 
-      onError={(e) => {
-        const img = e.currentTarget;
-        if (img.dataset.errored) return;
-        img.dataset.errored = '1';
-        img.style.opacity = '0.4';
+const TabButton: React.FC<TabButtonProps> = React.memo(({ id, icon, label, activeTab, setActiveTab, playSound, setActiveTooltip }) => {
+  const src = icon.startsWith('http') ? icon : `https://oldschool.runescape.wiki/images/${icon}.png`;
+  return (
+    <div 
+      className={`osrs-tab p-1 flex items-center justify-center transition-all cursor-pointer ${activeTab === id ? 'active brightness-125 border-t-osrs-yellow' : 'opacity-70 hover:opacity-100'}`}
+      onClick={() => {
+        playSound('click');
+        setActiveTab(id);
       }}
-    />
-  </div>
-));
+      onMouseEnter={(e) => setActiveTooltip({
+        x: e.clientX, y: e.clientY - 40,
+        title: label, content: `Click to switch to ${label} tab.`,
+        color: '#ff981f'
+      })}
+      onMouseLeave={() => setActiveTooltip(null)}
+    >
+      <img 
+        src={src} 
+        className="w-5 h-5 object-contain" 
+        alt={label} 
+        onError={(e) => {
+          const img = e.currentTarget;
+          if (img.dataset.errored) return;
+          img.dataset.errored = '1';
+          img.style.opacity = '0.4';
+        }}
+      />
+    </div>
+  );
+});
 
 export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
   const {
@@ -242,11 +245,11 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
         <div className="grid grid-cols-8 gap-0 border-t border-[var(--osrs-border-dark)] bg-[var(--osrs-brown-dark)]">
           <TabButton id="combat" icon="Combat_icon" label="Combat" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="achievements" icon="Skills_icon" label="Achievements" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="quests" icon="Quest_list_icon" label="Quests" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="inventory" icon="Backpack" label="Inventory" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="quests" icon="https://oldschool.runescape.wiki/images/Quest_point_icon.png?dc356" label="Quests" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="inventory" icon="https://oldschool.runescape.wiki/images/Inventory.png?d4795" label="Inventory" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="ge" icon="Coins_detail" label="Exchange" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="prayer" icon="Prayer_icon" label="Prayer" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="pets" icon="Ranged_icon" label="Pets" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="pets" icon="https://oldschool.runescape.wiki/images/Follower_Details.png?15a47" label="Pets" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="settings" icon="Audio_options_icon" label="Settings" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
         </div>
       </div>
