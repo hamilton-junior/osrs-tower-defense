@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 import { GE_CONSUMABLES } from '@/lib/game/data/shop';
 
 interface GrandExchangeModalProps {
@@ -31,7 +32,10 @@ export const GrandExchangeModal: React.FC<GrandExchangeModalProps> = ({
           <button onClick={() => setTab('sell')} className={`flex-1 py-3 text-xs font-bold uppercase transition-all ${tab === 'sell' ? 'bg-[var(--osrs-brown)] text-osrs-yellow border-t-2 border-osrs-yellow' : 'text-[#808080] hover:text-white'}`}>Sell Items</button>
         </div>
 
-        <div className="p-6 overflow-y-auto custom-scrollbar bg-[url('https://oldschool.runescape.wiki/images/Back_pattern.png')] flex-1 min-h-[400px]">
+        <div 
+          className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-[400px]"
+          style={{ backgroundImage: `url(${ASSETS.misc.background_pattern})`, backgroundRepeat: 'repeat' }}
+        >
           {tab === 'buy' ? (
             <div className="flex flex-col gap-6">
               {['potion', 'ore', 'herb', 'bones', 'logs'].map(category => {
@@ -46,7 +50,7 @@ export const GrandExchangeModal: React.FC<GrandExchangeModalProps> = ({
                 return (
                   <div key={category}>
                     <div className="flex items-center gap-2 mb-3 border-b border-[#5d5d5d] pb-1">
-                      <img src={`https://oldschool.runescape.wiki/images/${categoryIcons[category]}_icon.png`} className="w-5 h-5 object-contain" alt="" />
+                      <img src={`${ASSETS.misc.wiki_base}${categoryIcons[category]}_icon.png`} className="w-5 h-5 object-contain" alt="" />
                       <h3 className="text-osrs-yellow font-bold uppercase tracking-widest">{categoryNames[category]}</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -54,7 +58,7 @@ export const GrandExchangeModal: React.FC<GrandExchangeModalProps> = ({
                         <div key={item.id} className="bg-[#3e2e18] p-4 border-2 border-[var(--osrs-border-dark)] hover:border-[var(--osrs-border-light)] transition-all flex justify-between items-center group relative overflow-hidden">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-black/40 rounded border border-white/5 flex items-center justify-center relative group-hover:scale-110 transition-transform">
-                              <img src={`https://oldschool.runescape.wiki/images/${item.wiki}.png`} className="max-w-[80%] max-h-[80%] object-contain" alt="" onError={e => { if (!e.currentTarget.src.includes('_detail.png')) e.currentTarget.src = `https://oldschool.runescape.wiki/images/${item.wiki}_detail.png`; else e.currentTarget.style.opacity = '0'; }}/>
+                              <img src={`${ASSETS.misc.wiki_base}${item.wiki}.png`} className="max-w-[80%] max-h-[80%] object-contain" alt="" onError={e => { if (!e.currentTarget.src.includes('_detail.png')) e.currentTarget.src = `${ASSETS.misc.wiki_base}${item.wiki}_detail.png`; else e.currentTarget.style.opacity = '0'; }}/>
                             </div>
                             <div>
                               <p className="text-osrs-yellow font-bold text-sm uppercase group-hover:text-white">{item.name}</p>
@@ -79,7 +83,7 @@ export const GrandExchangeModal: React.FC<GrandExchangeModalProps> = ({
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
               {inventory.map((item, index) => (
                 <div key={index} className="bg-[#3e2e18] p-2 border border-[var(--osrs-border-dark)] flex flex-col items-center gap-2 group hover:border-osrs-yellow cursor-pointer" onClick={() => onSell(index)}>
-                  <img src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}_detail.png`} className="w-10 h-10 object-contain" alt="" onError={e => { if (e.currentTarget.src.includes('_detail.png')) e.currentTarget.src = `https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`; else e.currentTarget.style.opacity = '0'; }} />
+                  <img src={`${ASSETS.misc.wiki_base}${item.name.replace(/ /g, '_')}_detail.png`} className="w-10 h-10 object-contain" alt="" onError={e => { if (e.currentTarget.src.includes('_detail.png')) e.currentTarget.src = `${ASSETS.misc.wiki_base}${item.name.replace(/ /g, '_')}.png`; else e.currentTarget.style.opacity = '0'; }} />
                   <p className="text-[9px] text-center truncate w-full text-white">{item.name}</p>
                   <span className="text-osrs-yellow text-[10px] font-bold">{item.sellPrice || 10} GP</span>
                 </div>

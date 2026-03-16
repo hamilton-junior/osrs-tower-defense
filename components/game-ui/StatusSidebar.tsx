@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 import { InventoryTab } from './InventoryTab';
 import { SkillsTab } from './SkillsTab';
 import { CombatTab } from './CombatTab';
@@ -70,7 +71,7 @@ interface TabButtonProps {
 }
 
 const TabButton: React.FC<TabButtonProps> = React.memo(({ id, icon, label, activeTab, setActiveTab, playSound, setActiveTooltip }) => {
-  const src = icon.startsWith('http') ? icon : `https://oldschool.runescape.wiki/images/${icon}.png`;
+  const src = icon.startsWith('http') ? icon : `${ASSETS.misc.wiki_base}${icon}.png`;
   return (
     <div 
       className={`osrs-tab p-1 flex items-center justify-center transition-all cursor-pointer ${activeTab === id ? 'active brightness-125 border-t-osrs-yellow' : 'opacity-70 hover:opacity-100'}`}
@@ -122,7 +123,7 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
           <span className="text-[10px] text-white font-bold drop-shadow-md">{Math.ceil(playerHP)}</span>
         </div>
         <div className="absolute top-6 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center">
-          <img src="https://oldschool.runescape.wiki/images/Hitpoints_icon.png" alt="HP" className="w-full h-full object-contain" />
+          <img src={ASSETS.misc.hp_icon} alt="HP" className="w-full h-full object-contain" />
         </div>
         <div 
           className="w-full bg-[#ff0000] transition-all duration-500 border-t border-[#ff6666]" 
@@ -224,14 +225,14 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
           {activeTab === 'ge' && (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <div className="osrs-panel p-2 flex flex-col items-center gap-2 w-full shadow-inner bg-black/20">
-                 <img src="https://oldschool.runescape.wiki/images/Grand_Exchange_logo.png" className="w-10 h-10 object-contain drop-shadow-md" alt="" />
+                 <img src={ASSETS.misc.ge_logo} className="w-10 h-10 object-contain drop-shadow-md" alt="" />
                  <button onClick={() => {
                    props.playSound('interface_open');
                    props.setShowGE(true);
                  }} className="osrs-button w-full py-2 text-xs uppercase">Open Exchange</button>
               </div>
               <div className="osrs-panel p-2 flex flex-col items-center gap-2 w-full shadow-inner bg-black/20">
-                 <img src="https://oldschool.runescape.wiki/images/Pure_essence_detail.png" className="w-10 h-10 object-contain drop-shadow-md" alt="" />
+                 <img src={ASSETS.misc.essence_icon} className="w-10 h-10 object-contain drop-shadow-md" alt="" />
                  <button onClick={() => {
                    props.playSound('interface_open');
                    props.setShowEssenceShop(true);
@@ -249,7 +250,7 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
           <TabButton id="inventory" icon="Inventory" label="Inventory" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="ge" icon="Coins_detail" label="Exchange" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="prayer" icon="Prayer_icon" label="Prayer" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="pets" icon="https://oldschool.runescape.wiki/images/Follower_Details.png" label="Pets" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="pets" icon={ASSETS.misc.pets_tab_icon} label="Pets" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="settings" icon="Settings" label="Settings" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
         </div>
       </div>
@@ -268,7 +269,7 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
           <span className="text-[10px] text-white font-bold drop-shadow-md">{Math.ceil(props.prayerPoints)}</span>
         </div>
         <div className="absolute top-6 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center">
-          <img src="https://oldschool.runescape.wiki/images/Prayer_icon.png" alt="Prayer" className="w-full h-full object-contain" />
+          <img src={ASSETS.misc.prayer_icon} alt="Prayer" className="w-full h-full object-contain" />
         </div>
         <div 
           className="w-full bg-[#3ab0ff] transition-all duration-500 border-t border-[#66ccff]" 

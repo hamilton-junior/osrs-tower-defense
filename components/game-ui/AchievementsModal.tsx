@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 interface AchievementsModalProps {
   achievements: any[];
@@ -14,7 +15,10 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ achievemen
           <h2 className="text-osrs-yellow font-bold text-lg tracking-widest uppercase">Achievement Diary</h2>
           <button onClick={onClose} className="text-osrs-red font-bold text-xl hover:text-white transition-colors">X</button>
         </div>
-        <div className="p-6 bg-[url('https://oldschool.runescape.wiki/images/Back_pattern.png')] min-h-[400px]">
+        <div 
+          className="p-6 min-h-[400px]"
+          style={{ backgroundImage: `url(${ASSETS.misc.background_pattern})`, backgroundRepeat: 'repeat' }}
+        >
           <div className="grid grid-cols-1 gap-3">
             {achievements.map((a) => (
               <div key={a.id} className={`p-3 border-2 transition-all flex justify-between items-center ${a.completed ? 'bg-osrs-green/10 border-osrs-green/50' : 'bg-black/20 border-[var(--osrs-border-dark)]'}`}>

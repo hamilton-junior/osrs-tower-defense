@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 interface TopOverlayProps {
   money: number;
@@ -30,7 +31,7 @@ export const TopOverlay: React.FC<TopOverlayProps> = ({
           })} 
           onMouseLeave={() => setActiveTooltip(null)}
         >
-          <img src="https://oldschool.runescape.wiki/images/Coins_detail.png" className="w-8 h-8 object-contain drop-shadow-md" alt="GP" />
+          <img src={ASSETS.misc.coins_icon} className="w-8 h-8 object-contain drop-shadow-md" alt="GP" />
           <span className="text-osrs-yellow font-bold text-xl drop-shadow-md">{money.toLocaleString()}</span>
         </div>
         <div 
@@ -44,7 +45,7 @@ export const TopOverlay: React.FC<TopOverlayProps> = ({
           })} 
           onMouseLeave={() => setActiveTooltip(null)}
         >
-          <img src="https://oldschool.runescape.wiki/images/Rune_essence_detail.png" className="w-8 h-8 object-contain drop-shadow-md" alt="Essence" />
+          <img src={ASSETS.misc.rune_essence_icon} className="w-8 h-8 object-contain drop-shadow-md" alt="Essence" />
           <span className="text-osrs-cyan font-bold text-xl drop-shadow-md">{(runeEssence || 0).toLocaleString()}</span>
         </div>
         <div className="border-l-2 border-[var(--osrs-border-dark)] pl-4 flex flex-col items-center">

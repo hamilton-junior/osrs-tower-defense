@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 interface SkillsTabProps {
   playerSkills: Record<string, any>;
@@ -41,7 +42,7 @@ export const SkillsTab: React.FC<SkillsTabProps> = ({
             })}
             onMouseLeave={() => setActiveTooltip(null)}
           >
-            <img src={`https://oldschool.runescape.wiki/images/${key.charAt(0).toUpperCase() + key.slice(1)}_icon.png`} className="w-6 h-6 object-contain" alt="" />
+            <img src={`${ASSETS.misc.wiki_base}${key.charAt(0).toUpperCase() + key.slice(1)}_icon.png`} className="w-6 h-6 object-contain" alt="" />
             <div className="flex flex-col">
                <span className="text-sm text-osrs-yellow font-bold leading-tight">{skill.level}</span>
                <span className="text-[11px] text-[#c0c0c0] uppercase tracking-tighter leading-none">{key}</span>

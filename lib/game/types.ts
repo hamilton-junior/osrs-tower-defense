@@ -191,6 +191,8 @@ export interface Tower {
   element?: Element;
   supportSpell?: SupportSpell;
   attackStyle?: 'accurate' | 'rapid' | 'long_range';
+  recoil?: number;
+  recoilAngle?: number;
 }
 
 export interface Projectile {

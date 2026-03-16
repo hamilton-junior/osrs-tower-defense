@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 import { TOWERS as TOWER_DATA } from '@/lib/game/data/towers';
 
 interface TowerSelectionGridProps {
@@ -23,14 +24,14 @@ const DAMAGE_TYPE_ICONS: Record<string, string> = {
 function wikiImg(name: string, onErr?: (e: React.SyntheticEvent<HTMLImageElement>) => void, cls?: string) {
   return (
     <img
-      src={`https://oldschool.runescape.wiki/images/${name.replace(/ /g, '_')}.png`}
+      src={`${ASSETS.misc.wiki_base}${name.replace(/ /g, '_')}.png`}
       className={cls || 'max-w-full max-h-full object-contain drop-shadow-md'}
       alt={name}
       onError={(e) => {
         const img = e.currentTarget;
         if (img.dataset.errored) { img.style.display = 'none'; return; }
         img.dataset.errored = '1';
-        img.src = `https://oldschool.runescape.wiki/images/${name.replace(/ /g, '_')}_detail.png`;
+        img.src = `${ASSETS.misc.wiki_base}${name.replace(/ /g, '_')}_detail.png`;
       }}
     />
   );
@@ -101,7 +102,7 @@ export const TowerSelectionGrid: React.FC<TowerSelectionGridProps> = ({
               <div className="flex items-center gap-0.5 justify-center">
                 <span className="text-[9px] text-white">Dmg: {dmgLabel}</span>
                 <img
-                  src={`https://oldschool.runescape.wiki/images/${dmgIcon}.png`}
+                  src={`${ASSETS.misc.wiki_base}${dmgIcon}.png`}
                   className="w-2.5 h-2.5 object-contain"
                   alt=""
                   onError={(e) => { e.currentTarget.style.display = 'none'; }}

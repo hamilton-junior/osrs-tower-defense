@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 interface Pet {
     id: string;
@@ -47,12 +48,12 @@ export const PetTab: React.FC<PetTabProps> = ({
             >
               <div className="w-10 h-10 bg-black/40 border border-[var(--osrs-border-dark)] rounded flex items-center justify-center p-1">
                 <img 
-                  src={`https://oldschool.runescape.wiki/images/${pet.name.replace(/ /g, '_')}_icon.png`}
+                  src={(ASSETS.pets as any)[pet.type] || (ASSETS.pets as any)[pet.name.toLowerCase().replace(/ /g, '_')] || `${ASSETS.misc.wiki_base}${pet.name.replace(/ /g, '_')}_icon.png`}
                   alt={pet.name}
                   className="max-w-full max-h-full object-contain"
                   onError={(e) => {
                     const target = e.currentTarget;
-                    const fallbackSrc = `https://oldschool.runescape.wiki/images/${pet.type.replace(/ /g, '_')}_icon.png`;
+                    const fallbackSrc = `${ASSETS.misc.wiki_base}${pet.type.replace(/ /g, '_')}_icon.png`;
                     if (!target.src.includes(pet.type.replace(/ /g, '_'))) {
                       target.src = fallbackSrc;
                     } else if (target.src.includes(pet.type.replace(/ /g, '_'))) {

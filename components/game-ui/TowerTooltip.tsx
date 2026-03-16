@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 interface TowerTooltipProps {
   activeTooltip: any;
@@ -8,14 +9,14 @@ interface TowerTooltipProps {
 function TierIcon({ name }: { name: string }) {
   return (
     <img
-      src={`https://oldschool.runescape.wiki/images/${name.replace(/ /g, '_')}.png`}
+      src={`${ASSETS.misc.wiki_base}${name.replace(/ /g, '_')}.png`}
       className="w-4 h-4 object-contain"
       alt={name}
       title={name}
       onError={(e) => {
         const img = e.currentTarget;
         if (!img.src.includes('_detail')) {
-          img.src = `https://oldschool.runescape.wiki/images/${name.replace(/ /g, '_')}_detail.png`;
+          img.src = `${ASSETS.misc.wiki_base}${name.replace(/ /g, '_')}_detail.png`;
         } else {
           img.style.display = 'none';
         }

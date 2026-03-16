@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 import { TOWERS as TOWER_DATA } from '@/lib/game/data/towers';
 
 interface SelectedTowerModalProps {
@@ -31,7 +32,10 @@ export const SelectedTowerModal: React.FC<SelectedTowerModalProps> = ({
         <button onClick={onClose} className="text-osrs-red font-bold hover:text-white">X</button>
       </div>
       
-      <div className="p-3 bg-[url('https://oldschool.runescape.wiki/images/Back_pattern.png')]">
+      <div 
+        className="p-3"
+        style={{ backgroundImage: `url(${ASSETS.misc.background_pattern})`, backgroundRepeat: 'repeat' }}
+      >
         <div className="grid grid-cols-2 gap-4">
           <div className="text-xs text-[#c0c0c0] space-y-1">
             <p className="font-bold text-osrs-orange">Stats</p>
@@ -65,7 +69,7 @@ export const SelectedTowerModal: React.FC<SelectedTowerModalProps> = ({
                 <div key={slot} className="aspect-square bg-black/40 border border-[var(--osrs-border-light)] rounded flex flex-col items-center justify-center relative group/eq">
                   <span className="text-[7px] text-[#808080] absolute top-0.5 uppercase">{slot.slice(0, 3)}</span>
                   {item ? (
-                    <img src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} className="w-8 h-8 object-contain p-1" alt="" />
+                    <img src={`${ASSETS.misc.wiki_base}${item.name.replace(/ /g, '_')}.png`} className="w-8 h-8 object-contain p-1" alt="" />
                   ) : (
                     <span className="text-lg opacity-20">{slot === 'weapon' ? '⚔️' : slot === 'shield' ? '🛡️' : '💍'}</span>
                   )}

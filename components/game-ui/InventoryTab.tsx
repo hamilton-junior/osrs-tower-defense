@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 interface InventoryTabProps {
   inventory: any[];
@@ -35,7 +36,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
             >
               {item ? (
                 <img 
-                  src={`https://oldschool.runescape.wiki/images/${item.name.replace(/ /g, '_')}.png`} 
+                  src={`${ASSETS.misc.wiki_base}${item.name.replace(/ /g, '_')}.png`} 
                   alt={item.name} 
                   className="w-full h-full object-contain"
                   onError={(e) => {
@@ -49,10 +50,10 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
                     if (!img.dataset.errored) {
                        img.dataset.errored = '1';
                        const sentenceCase = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-                       img.src = `https://oldschool.runescape.wiki/images/${sentenceCase}.png`;
+                       img.src = `${ASSETS.misc.wiki_base}${sentenceCase}.png`;
                     } else if (img.dataset.errored === '1') {
                        img.dataset.errored = '2';
-                       img.src = `https://oldschool.runescape.wiki/images/${name}_detail.png`;
+                       img.src = `${ASSETS.misc.wiki_base}${name}_detail.png`;
                     }
                   }}
                 />

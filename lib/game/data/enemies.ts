@@ -53,7 +53,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   spider: {
     type: 'spider',
     name: 'Giant Spider',
-    hp: 50,
+    hp: 35,
     speed: 90,
     color: '#333333',
     reward: 5,
@@ -62,7 +62,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   skeleton: {
     type: 'skeleton',
     name: 'Skeleton',
-    hp: 30,
+    hp: 20,
     speed: 55,
     color: '#eeeeee',
     reward: 3,
@@ -71,7 +71,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   zombie: {
     type: 'zombie',
     name: 'Zombie',
-    hp: 30,
+    hp: 25,
     speed: 40,
     color: '#6b8e23',
     reward: 4,
@@ -126,7 +126,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   hill_giant: {
     type: 'hill_giant',
     name: 'Hill Giant',
-    hp: 60,
+    hp: 45,
     speed: 30,
     color: '#d2b48c',
     reward: 10,

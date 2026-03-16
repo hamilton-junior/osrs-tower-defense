@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 interface QuestLogModalProps {
   quests: any[];
@@ -14,7 +15,10 @@ export const QuestLogModal: React.FC<QuestLogModalProps> = ({ quests, onClose })
           <h2 className="text-osrs-yellow font-bold text-lg tracking-widest uppercase">Quest Log</h2>
           <button onClick={onClose} className="text-osrs-red font-bold text-xl hover:text-white transition-colors">X</button>
         </div>
-        <div className="p-6 bg-[url('https://oldschool.runescape.wiki/images/Back_pattern.png')] min-h-[400px]">
+        <div 
+          className="p-6 min-h-[400px]"
+          style={{ backgroundImage: `url(${ASSETS.misc.background_pattern})`, backgroundRepeat: 'repeat' }}
+        >
           <div className="space-y-4">
             {quests.map((q) => (
               <div key={q.id} className="border-b border-[var(--osrs-border-dark)] pb-3">

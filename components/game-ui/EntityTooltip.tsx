@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 import { TOWERS as TOWER_DATA } from '@/lib/game/data/towers';
 
 interface EntityTooltipProps {
@@ -66,7 +67,7 @@ export const EntityTooltip: React.FC<EntityTooltipProps> = ({ hoveredEntity, too
               <span className="text-white">Dmg: {hoveredEntity.data.damage}</span>
             )}
             <img
-              src={`https://oldschool.runescape.wiki/images/${dmgIcon}.png`}
+              src={`${ASSETS.misc.wiki_base}${dmgIcon}.png`}
               className="w-3 h-3 object-contain"
               alt=""
             />

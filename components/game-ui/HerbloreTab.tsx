@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 interface HerbloreTabProps {
   herbloreLevel: number;
@@ -14,7 +15,7 @@ export const HerbloreTab: React.FC<HerbloreTabProps> = ({
     <div className="flex flex-col h-full overflow-y-auto p-2 gap-2">
       <div className="flex justify-between items-center mb-2 bg-black/20 p-2 rounded border border-[var(--osrs-border-light)]">
         <div className="flex items-center gap-2">
-           <img src="https://oldschool.runescape.wiki/images/Herblore_icon.png" className="w-6 h-6 object-contain" alt="" />
+           <img src={ASSETS.misc.herblore_icon} className="w-6 h-6 object-contain" alt="" />
            <span className="text-osrs-green font-bold text-lg">Level: {herbloreLevel || 1}</span>
         </div>
         <p className="text-xs text-[#c0c0c0] italic">Mix potions for combat buffs.</p>
@@ -31,7 +32,7 @@ export const HerbloreTab: React.FC<HerbloreTabProps> = ({
         ].map((potion) => (
           <div key={potion.name} className="bg-[#3e2e18] p-2 border border-[var(--osrs-border-light)] flex justify-between items-center group hover:border-osrs-yellow transition-colors">
             <div className="flex items-center gap-3">
-              <img src={`https://oldschool.runescape.wiki/images/${potion.icon}.png`} className="w-8 h-8 object-contain" alt="" />
+              <img src={`${ASSETS.misc.wiki_base}${potion.icon}.png`} className="w-8 h-8 object-contain" alt="" />
               <div>
                 <p className="text-osrs-orange font-bold text-xs group-hover:text-white">{potion.name}</p>
                 <p className="text-[10px] text-[#c0c0c0]">{potion.ingredients}</p>

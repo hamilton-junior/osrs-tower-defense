@@ -1,4 +1,5 @@
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 import { GlobalUpgrades } from '@/lib/game/types';
 
 interface EssenceShopModalProps {
@@ -37,12 +38,15 @@ export const EssenceShopModal: React.FC<EssenceShopModalProps> = (props) => {
         <div className="p-4 bg-[var(--osrs-brown-dark)] border-b border-[var(--osrs-border-dark)] flex justify-between items-center">
             <span className="text-[#c0c0c0] text-xs uppercase tracking-widest font-bold">Available Rune Essence:</span>
             <div className="flex items-center gap-2">
-                <img src="https://oldschool.runescape.wiki/images/Pure_essence_detail.png" className="w-5 h-5 object-contain" alt="" />
+                <img src={ASSETS.misc.essence_icon} className="w-5 h-5 object-contain" alt="" />
                 <span className="text-[#00ffff] font-bold text-lg">{props.runeEssence}</span>
             </div>
         </div>
 
-        <div className="p-6 overflow-y-auto custom-scrollbar bg-[url('https://oldschool.runescape.wiki/images/Back_pattern.png')] flex-1 min-h-[400px]">
+        <div 
+          className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-[400px]"
+          style={{ backgroundImage: `url(${ASSETS.misc.background_pattern})`, backgroundRepeat: 'repeat' }}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {UPGRADE_DATA.map((item) => {
               const currentVal = props.upgrades[item.id] ?? (item.id === 'towerCostReduction' ? 1.0 : 0);
@@ -53,7 +57,7 @@ export const EssenceShopModal: React.FC<EssenceShopModalProps> = (props) => {
                 <div key={item.id} className={`bg-[#3e2e18] p-4 border-2 ${isUnlocked ? 'border-[var(--osrs-border-dark)] hover:border-[#00ffff]' : 'border-red-900 opacity-60'} transition-all flex justify-between items-center relative overflow-hidden group`}>
                   <div className="flex items-center gap-3 z-10">
                     <div className="w-10 h-10 bg-black/40 rounded flex items-center justify-center relative">
-                      <img src={`https://oldschool.runescape.wiki/images/${item.icon}.png`} className="max-w-[80%] max-h-[80%] object-contain" alt="" onError={e => { if (!e.currentTarget.src.includes('Vial_detail.png')) e.currentTarget.src = `https://oldschool.runescape.wiki/images/Vial_detail.png`; else e.currentTarget.style.opacity = '0'; }} />
+                      <img src={`${ASSETS.misc.wiki_base}${item.icon}.png`} className="max-w-[80%] max-h-[80%] object-contain" alt="" onError={e => { if (!e.currentTarget.src.includes('Vial_detail.png')) e.currentTarget.src = ASSETS.items.vial; else e.currentTarget.style.opacity = '0'; }} />
                     </div>
                     <div>
                       <p className="text-[#00ffff] font-bold text-xs uppercase text-shadow-sm">{item.name}</p>

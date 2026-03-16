@@ -238,9 +238,9 @@ export default function GameCanvas() {
   const getLogicCoords = (clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
-    // Map screen coordinates to the 1200x800 logic space
-    const scaleX = 1200 / rect.width;
-    const scaleY = 800 / rect.height;
+    // Map screen coordinates to the 1920x1080 logic space
+    const scaleX = 1920 / rect.width;
+    const scaleY = 1080 / rect.height;
     return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
   };
 
@@ -567,7 +567,13 @@ export default function GameCanvas() {
           onClose={() => setShowGrandExchange(false)}
           money={gameState.money}
           inventory={gameState.inventory || []}
-          onBuy={(id, cost) => engineRef.current?.buyPotion(id as any, cost)}
+          onBuy={(id, cost) => {
+            const item = GE_CONSUMABLES.find(i => i.id === id);
+            if (item) {
+              if (item.type === 'potion') engineRef.current?.buyPotion(id as any, cost);
+              else engineRef.current?.buyItem(item);
+            }
+          }}
           onSell={(index) => engineRef.current?.sellItem(index)}
         />
       )}

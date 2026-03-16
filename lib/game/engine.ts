@@ -34,8 +34,8 @@ export class GameEngine {
   maxDt: number = 0.1;
   isPaused: boolean = false;
   
-  readonly LOGIC_WIDTH = 1200;
-  readonly LOGIC_HEIGHT = 800;
+  readonly LOGIC_WIDTH = 1920;
+  readonly LOGIC_HEIGHT = 1080;
 
   autoSpawnEnabled: boolean = false;
   autoSpawnDelay: number = 3; 
@@ -168,13 +168,16 @@ export class GameEngine {
     console.log('GameEngine initFarming end');
 
     // Apply starting money upgrade
-    this.money = 150 + this.upgrades.startingMoney;
+    this.money = 200 + this.upgrades.startingMoney;
     
     // Use logic dimensions
     this.prevWidth = this.LOGIC_WIDTH;
     this.prevHeight = this.LOGIC_HEIGHT;
     this.canvas.width = this.prevWidth;
     this.canvas.height = this.prevHeight;
+
+    // Initial state sync
+    this.onStateChange(this.getState());
 
     // Init Audio & Images
     if (typeof window !== 'undefined') {
@@ -256,16 +259,7 @@ export class GameEngine {
       this.imageCache.set(key, img);
     });
 
-    // Additional Fallbacks
-    const portal = new Image();
-    portal.referrerPolicy = 'no-referrer';
-    portal.src = 'https://oldschool.runescape.wiki/images/Transportation_logo.png';
-    this.imageCache.set('portal', portal);
-    
-    const bones = new Image();
-    bones.referrerPolicy = 'no-referrer';
-    bones.src = 'https://oldschool.runescape.wiki/images/Bones.png';
-    this.imageCache.set('bones_loot', bones);
+    // Additional Fallbacks if any (none needed now as all are in ASSETS)
   }
 
   isImageValid(img: HTMLImageElement | undefined, key?: string): boolean {
@@ -554,9 +548,17 @@ export class GameEngine {
        };
     }
 
-    const hpScale = 1 + (waveMultiplier - 1) * 0.35;
-    const speedScale = 1 + (waveMultiplier - 1) * 0.015;
-    const rewardScale = 1 + (waveMultiplier - 1) * 0.2;
+    let hpScale;
+    if (waveMultiplier <= 10) {
+      // Gentler scaling for waves 1-10
+      hpScale = 1 + (waveMultiplier - 1) * 0.15;
+    } else {
+      // Standard scaling after wave 10
+      hpScale = 2.35 + (waveMultiplier - 10) * 0.4;
+    }
+
+    const speedScale = 1 + (waveMultiplier - 1) * 0.01;
+    const rewardScale = 1 + (waveMultiplier - 1) * 0.15;
     const effectiveHp = Math.floor(enemyDef.hp * hpScale);
     const effectiveSpeed = Math.floor(enemyDef.speed * speedScale);
     const effectiveReward = Math.floor(enemyDef.reward * rewardScale);
@@ -587,21 +589,41 @@ export class GameEngine {
       waveConfigs.push(...LANDMARK_WAVES[waveNum]);
     } else {
       // Dynamic procedural wave generator
-      const budget = waveNum * 20;
+      // Budget starts lower and grows more predictably
+      const budget = 15 + (waveNum * 12); 
       let remainingBudget = budget;
       
       // Filter enemies that can spawn at this wave level
       const spawnableEnemies = Object.values(ENEMIES).filter(e => !e.isBoss && (e.waveUnlock || 1) <= waveNum);
       
-      while (remainingBudget > 5) {
+      while (remainingBudget > 0) {
         const affordable = spawnableEnemies.filter(e => e.reward <= remainingBudget);
-        if (affordable.length === 0) {
-           waveConfigs.push({ type: 'rat', count: 1 });
-           remainingBudget -= 5;
-           continue;
+        if (affordable.length === 0) break;
+        
+        // Prefer enemies closer to the current wave unlock level
+        const weights = affordable.map(e => {
+            const diff = waveNum - (e.waveUnlock || 1);
+            return Math.max(1, 8 - diff); // Higher weight for newer enemies
+        });
+        
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
+        let random = Math.random() * totalWeight;
+        let choice = affordable[0];
+        
+        for (let i = 0; i < affordable.length; i++) {
+            random -= weights[i];
+            if (random <= 0) {
+                choice = affordable[i];
+                break;
+            }
         }
-        const choice = affordable[Math.floor(Math.random() * affordable.length)];
-        waveConfigs.push({ type: choice.type, count: 1 });
+
+        const existing = waveConfigs.find(c => c.type === choice.type);
+        if (existing) {
+            existing.count++;
+        } else {
+            waveConfigs.push({ type: choice.type as any, count: 1 });
+        }
         remainingBudget -= choice.reward;
       }
     }
@@ -1204,7 +1226,13 @@ export class GameEngine {
   }
 
   initFarming() {
-    this.farmingPatches = [];
+    this.farmingPatches = [
+      { id: 'patch_1', x: 100, y: 100, type: 'allotment', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
+      { id: 'patch_2', x: 150, y: 100, type: 'allotment', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
+      { id: 'patch_3', x: 250, y: 150, type: 'herb', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
+      { id: 'patch_4', x: 700, y: 500, type: 'flower', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
+      { id: 'patch_5', x: 750, y: 500, type: 'herb', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
+    ];
   }
 
   updateFarming(dt: number) {
@@ -1213,11 +1241,22 @@ export class GameEngine {
         patch.timer -= dt;
         if (patch.timer <= 0) {
           patch.stage++;
-          patch.timer = 10; // Default 10s per stage for now
+          
+          // If not at max stage, reset timer for next stage
+          if (patch.stage < patch.maxStage) {
+            const seedItem = Object.values(ITEMS).find(i => i.id === patch.seed);
+            if (seedItem && seedItem.growthTime) {
+              patch.timer = seedItem.growthTime / patch.maxStage;
+            } else {
+              patch.timer = 10;
+            }
+          }
+
           if (patch.stage === patch.maxStage) {
              this.addMessage(`A farming patch is ready to harvest!`);
-             this.playSound('level_up'); // Reuse sound for now
+             this.playSound('level_up');
           }
+          this.onStateChange({ farmingPatches: [...this.farmingPatches] });
         }
       }
     });
@@ -1226,6 +1265,7 @@ export class GameEngine {
   plantSeed(patchId: string, seedItem: Item) {
     const patch = this.farmingPatches.find(p => p.id === patchId);
     if (!patch || patch.stage !== 0) return;
+    
     if (patch.type !== seedItem.seedType) {
       this.addMessage(`You can't plant ${seedItem.name} in this patch.`);
       return;
@@ -1233,7 +1273,7 @@ export class GameEngine {
     
     patch.seed = seedItem.id;
     patch.stage = 1;
-    patch.timer = seedItem.growthTime || 10;
+    patch.timer = (seedItem.growthTime || 30) / patch.maxStage;
     patch.yield = 3 + Math.floor(this.playerSkills.farming.level / 10);
     
     const idx = this.inventory.findIndex(i => i.id === seedItem.id);
@@ -1244,38 +1284,49 @@ export class GameEngine {
     
     this.addMessage(`You plant the ${seedItem.name}.`);
     this.playSound('inventory_move');
+    this.onStateChange({ farmingPatches: [...this.farmingPatches] });
   }
 
   harvestPatch(patchId: string) {
     const patch = this.farmingPatches.find(p => p.id === patchId);
     if (!patch || patch.stage !== patch.maxStage) return;
     
-    const xp = 50 * patch.yield;
+    const seedItem = Object.values(ITEMS).find(i => i.id === patch.seed);
+    const xp = (seedItem?.bonus.xpBonus || 50) * (patch.yield / 3);
     this.awardPlayerXP('farming', xp, patch.x, patch.y);
     
     // Add harvested items
-    // For now, generate a generic herb item if harvestItem is missing
-    const itemId = patch.seed ? patch.seed.replace('_seed', '') : 'grimy_herb';
+    const yieldItemId = seedItem?.harvestItem || 'grimy_guam';
+    const yieldItem = ITEMS[yieldItemId];
     
     for(let i=0; i<patch.yield; i++) {
-      this.inventory.push({
-        id: itemId,
-        name: itemId.replace('_', ' '),
-        description: 'A harvested crop.',
-        type: 'herb',
-        bonus: {},
-        sellPrice: 100
-      });
+      if (yieldItem) {
+        this.inventory.push({ ...yieldItem, id: `${yieldItem.id}_${Math.random().toString(36).substr(2, 9)}` });
+      } else {
+        // Fallback
+        this.inventory.push({
+          id: yieldItemId,
+          name: yieldItemId.replace('_', ' '),
+          description: 'A harvested crop.',
+          type: 'herb',
+          bonus: {},
+          sellPrice: 100
+        });
+      }
     }
+    
+    this.addMessage(`You harvested ${patch.yield} crops!`);
+    this.playSound('pick_up');
     
     patch.seed = null;
     patch.stage = 0;
     patch.timer = 0;
     patch.yield = 0;
     
-    this.addMessage(`You harvest the patch.`);
-    this.playSound('inventory_move');
-    this.onStateChange({ inventory: this.inventory });
+    this.onStateChange({ 
+      inventory: [...this.inventory],
+      farmingPatches: [...this.farmingPatches]
+    });
   }
 
   makePotion(herbItem: Item, secondaryItem: Item) {
@@ -1311,6 +1362,32 @@ export class GameEngine {
     this.playSound('sell');
     this.addMessage(`Sold ${item.name} for ${price} GP`);
     this.onStateChange({ money: this.money, inventory: this.inventory });
+  }
+
+  getState() {
+    return {
+      money: this.money,
+      lives: this.lives,
+      wave: this.wave,
+      waveActive: this.waveActive,
+      runeEssence: this.runeEssence,
+      prayerPoints: this.prayerPoints,
+      maxPrayerPoints: this.maxPrayerPoints,
+      activePrayers: Array.from(this.activePrayers),
+      specialAttackCharge: this.specialAttackCharge,
+      activePotions: this.activePotions,
+      inventory: this.inventory,
+      playerSkills: this.playerSkills,
+      currentRegion: this.currentRegion,
+      messages: this.messages,
+      settings: this.settings,
+      slayerTask: this.slayerTask,
+      achievementPoints: this.achievementPoints,
+      autoSpawnEnabled: this.autoSpawnEnabled,
+      autoSpawnTimer: this.autoSpawnTimer,
+      followingPetId: this.followingPetId,
+      activeQuote: this.activeQuote
+    };
   }
 
   update(dt: number, now: number, rawDt: number = dt) {
@@ -1679,7 +1756,7 @@ export class GameEngine {
             // Actually OSRS Jad requires specific prayer, but simple mode: need any combat prayer
             if (this.activePrayers.size === 0) {
               this.lives--;
-              this.shakeAmount = 10;
+              this.shakeAmount = 25;
               this.onStateChange({ lives: this.lives });
             }
           }
@@ -1688,6 +1765,12 @@ export class GameEngine {
     }
 
     this.towers.forEach(tower => {
+      // Update recoil
+      if (tower.recoil && tower.recoil > 0) {
+        tower.recoil *= 0.85; // Decay
+        if (tower.recoil < 0.1) tower.recoil = 0;
+      }
+
       if (tower.disabledTimer > 0) {
         tower.disabledTimer -= dt;
         return;
@@ -1770,6 +1853,11 @@ export class GameEngine {
           }
 
           tower.lastFired = this.gameTime;
+
+          // Add recoil
+          const angle = Math.atan2(target.y - tower.y, target.x - tower.x);
+          tower.recoil = 12;
+          tower.recoilAngle = angle + Math.PI;
 
           if (tower.type === 'cannon') {
             // Multicannon fires at multiple targets in range
@@ -1913,6 +2001,18 @@ export class GameEngine {
        } else {
           p.x += (dx / dist) * p.speed * dt;
           p.y += (dy / dist) * p.speed * dt;
+
+          // Add magic sparks
+          if (p.type === 'spell' || p.type.startsWith('ancient_')) {
+            if (Math.random() < 0.3) {
+              this.particles.push({
+                x: p.x + (Math.random() - 0.5) * 10,
+                y: p.y + (Math.random() - 0.5) * 10,
+                life: 0.3,
+                color: p.color
+              });
+            }
+          }
        }
     }
   }
@@ -1922,15 +2022,20 @@ export class GameEngine {
     enemy.hp -= actualDamage;
     if (!isDot) this.playSound('hit');
 
+    // Screen shake for powerful hits
+    if (actualDamage > 100) {
+      this.shakeAmount = Math.min(25, this.shakeAmount + actualDamage / 40);
+    }
+
     // Create damage number
     this.damageNumbers.push({
-      x: enemy.x + (Math.random() - 0.5) * 15,
-      y: enemy.y - 15,
+      x: enemy.x + (Math.random() - 0.5) * 20,
+      y: enemy.y - 20,
       text: actualDamage > 0 ? actualDamage.toString() : '0',
-      life: 0.8,
-      color: actualDamage > 50 ? '#ff0000' : (actualDamage > 0 ? '#ffff00' : '#808080'),
-      velocityY: -80,
-      velocityX: (Math.random() - 0.5) * 40
+      life: 1.0,
+      color: actualDamage > 100 ? '#ff4500' : (actualDamage > 50 ? '#ff0000' : (actualDamage > 0 ? '#ffff00' : '#808080')),
+      velocityY: -100,
+      velocityX: (Math.random() - 0.5) * 50
     });
     
     // Award XP to tower
@@ -1941,13 +2046,16 @@ export class GameEngine {
       }
     }
     
-    // Add hit particle
-    this.particles.push({
-      x: enemy.x + (Math.random() - 0.5) * 10,
-      y: enemy.y + (Math.random() - 0.5) * 10,
-      life: 0.3,
-      color: '#ff0000'
-    });
+    // Add hit particles
+    const particleCount = isDot ? 2 : (actualDamage > 100 ? 12 : (actualDamage > 50 ? 6 : 3));
+    for (let i = 0; i < particleCount; i++) {
+      this.particles.push({
+        x: enemy.x + (Math.random() - 0.5) * 20,
+        y: enemy.y + (Math.random() - 0.5) * 20,
+        life: 0.5,
+        color: isDot ? '#ff6600' : (actualDamage > 100 ? '#ff0000' : (actualDamage > 50 ? '#ff4444' : '#ffffff'))
+      });
+    }
 
     if (enemy.hp <= 0) {
       const index = this.enemies.indexOf(enemy);
@@ -1955,6 +2063,20 @@ export class GameEngine {
         const deathSound = enemy.deathSound || 'kill';
         this.playSound(deathSound);
         
+        // Death particles - more dramatic
+        const isBoss = enemy.type === 'vorkath' || enemy.type === 'zulrah' || enemy.type === 'jad';
+        const deathParticleCount = isBoss ? 50 : 20;
+        for (let i = 0; i < deathParticleCount; i++) {
+          this.particles.push({
+            x: enemy.x,
+            y: enemy.y,
+            life: isBoss ? 1.2 : 0.8,
+            color: enemy.color
+          });
+        }
+
+        if (isBoss) this.shakeAmount = 15;
+
         this.enemies.splice(index, 1);
         
         this.deathAnimations.push({
@@ -2042,7 +2164,6 @@ export class GameEngine {
         }
 
         // Pet Drop
-        const isBoss = enemy.type === 'vorkath' || enemy.type === 'zulrah' || enemy.type === 'jad';
         let dropChance = isBoss ? 0.5 : 0.01;
         if (this.pets.some(p => p.name === 'Baby Mole')) dropChance *= 1.5;
 
@@ -2297,6 +2418,25 @@ export class GameEngine {
         activePotions: this.activePotions,
         prayerPoints: this.prayerPoints 
       });
+      return true;
+    }
+    return false;
+  }
+
+  buyItem(item: any) {
+    if (this.money >= item.cost) {
+      this.money -= item.cost;
+      this.inventory.push({
+        id: Math.random().toString(),
+        name: item.name,
+        description: item.desc,
+        type: item.type,
+        sellPrice: Math.floor(item.cost * 0.5),
+        bonus: {}
+      });
+      this.playSound('inventory_move');
+      this.addMessage(`You bought ${item.name}!`);
+      this.onStateChange({ money: this.money, inventory: this.inventory });
       return true;
     }
     return false;
@@ -2653,23 +2793,40 @@ export class GameEngine {
       // Draw Farming Patches
       this.farmingPatches.forEach(patch => {
         // Draw patch background (brown rect)
-        this.ctx.fillStyle = '#5d4037';
-        this.ctx.fillRect(patch.x - 20, patch.y - 20, 40, 40);
-        this.ctx.strokeStyle = '#3e2723';
-        this.ctx.strokeRect(patch.x - 20, patch.y - 20, 40, 40);
+        const patchImgKey = patch.stage === 0 ? 'patch_empty' : (patch.stage === patch.maxStage ? 'patch_ready' : 'patch_growing');
+        const patchImg = this.imageCache.get(patchImgKey);
+        
+        if (this.isImageValid(patchImg, patchImgKey)) {
+          this.ctx.drawImage(patchImg!, patch.x - 20, patch.y - 20, 40, 40);
+        } else {
+          this.ctx.fillStyle = '#5d4037';
+          this.ctx.fillRect(patch.x - 20, patch.y - 20, 40, 40);
+          this.ctx.strokeStyle = '#3e2723';
+          this.ctx.strokeRect(patch.x - 20, patch.y - 20, 40, 40);
+        }
         
         if (patch.stage > 0) {
           // Draw plant based on stage
-          if (patch.type === 'allotment') {
-             this.ctx.fillStyle = '#8bc34a'; // Green
-          } else if (patch.type === 'herb') {
-             this.ctx.fillStyle = '#4caf50'; // Darker green
-          } else {
-             this.ctx.fillStyle = '#ffeb3b'; // Flower
+          const seedItem = Object.values(ITEMS).find(i => i.id === patch.seed);
+          if (seedItem) {
+            const cropKey = seedItem.harvestItem?.replace('clean_', '').replace('grimy_', '') || 'guam';
+            const cropImg = this.imageCache.get(cropKey);
+            
+            if (this.isImageValid(cropImg, cropKey)) {
+              const size = 10 + (patch.stage * 5);
+              this.ctx.drawImage(cropImg!, patch.x - size/2, patch.y - size/2, size, size);
+            } else {
+              if (patch.type === 'allotment') {
+                this.ctx.fillStyle = '#8bc34a'; // Green
+              } else if (patch.type === 'herb') {
+                this.ctx.fillStyle = '#4caf50'; // Darker green
+              } else {
+                this.ctx.fillStyle = '#ffeb3b'; // Flower
+              }
+              const size = 10 + (patch.stage * 5);
+              this.ctx.fillRect(patch.x - size/2, patch.y - size/2, size, size);
+            }
           }
-          
-          const size = 10 + (patch.stage * 5);
-          this.ctx.fillRect(patch.x - size/2, patch.y - size/2, size, size);
           
           if (patch.stage === patch.maxStage) {
              // Ready indicator
@@ -2807,21 +2964,37 @@ export class GameEngine {
         
         // Animation: Bobbing (Uses real-time but clamped)
         const bob = Math.sin(now / 500 + tower.x) * 3;
-        // Animation: Recoil (Independent of game speed visually, but triggered by timer)
-        const recoilTime = now - tower.lastFired;
-        // Increase recoil effect: 200ms duration, 10px offset
-        const recoil = recoilTime < 200 ? (1 - recoilTime / 200) * 10 : 0;
+        
+        // Directional Recoil
+        let recoilX = 0;
+        let recoilY = 0;
+        if (tower.recoil && tower.recoil > 0) {
+          recoilX = Math.cos(tower.recoilAngle || 0) * tower.recoil;
+          recoilY = Math.sin(tower.recoilAngle || 0) * tower.recoil;
+        }
         
         // Targeting Feedback
-        if (tower.targetId && (tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId)) {
+        if (tower.targetId) {
           const target = this.enemies.find(e => e.id === tower.targetId);
           if (target) {
+            const isSelected = tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId;
             this.ctx.beginPath();
             this.ctx.moveTo(tower.x, tower.y);
             this.ctx.lineTo(target.x, target.y);
-            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            this.ctx.lineWidth = 2;
+            this.ctx.strokeStyle = isSelected ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.15)';
+            this.ctx.lineWidth = isSelected ? 2 : 1;
+            if (!isSelected) this.ctx.setLineDash([2, 4]);
             this.ctx.stroke();
+            this.ctx.setLineDash([]);
+            
+            // Draw a small reticle on the target if selected
+            if (isSelected) {
+              this.ctx.strokeStyle = '#ff0000';
+              this.ctx.lineWidth = 1;
+              this.ctx.beginPath();
+              this.ctx.arc(target.x, target.y, 15 + Math.sin(now / 100) * 5, 0, Math.PI * 2);
+              this.ctx.stroke();
+            }
           }
         }
         
@@ -2846,7 +3019,7 @@ export class GameEngine {
         }
         
         this.ctx.save();
-        this.ctx.translate(tower.x, tower.y + bob + recoil);
+        this.ctx.translate(tower.x + recoilX, tower.y + bob + recoilY);
         
         // Rotate towards target if exists
         if (tower.targetId) {

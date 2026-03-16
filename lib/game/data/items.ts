@@ -49,6 +49,12 @@ export const ITEMS: Record<string, Item> = {
   bones: { id: 'bones', name: 'Bones', description: 'Basic prayer fodder.', bonus: {}, type: 'material', sellPrice: 5 },
   big_bones: { id: 'big_bones', name: 'Big Bones', description: 'Better prayer XP.', bonus: {}, type: 'material', sellPrice: 20 },
   dragon_bones: { id: 'dragon_bones', name: 'Dragon Bones', description: 'High-tier prayer XP.', bonus: {}, type: 'material', sellPrice: 100 },
+
+  // Seeds
+  guam_seed: { id: 'guam_seed', name: 'Guam Seed', description: 'Can be planted in a herb patch.', bonus: { xpBonus: 0 }, type: 'seed', seedType: 'herb', growthTime: 30, harvestItem: 'clean_guam', sellPrice: 20 },
+  ranarr_seed: { id: 'ranarr_seed', name: 'Ranarr Seed', description: 'Can be planted in a herb patch.', bonus: { xpBonus: 0 }, type: 'seed', seedType: 'herb', growthTime: 60, harvestItem: 'clean_ranarr', sellPrice: 100 },
+  potato_seed: { id: 'potato_seed', name: 'Potato Seed', description: 'Can be planted in an allotment patch.', bonus: { xpBonus: 0 }, type: 'seed', seedType: 'allotment', growthTime: 20, harvestItem: 'potato', sellPrice: 5 },
+  potato: { id: 'potato', name: 'Potato', description: 'A basic vegetable.', bonus: {}, type: 'material', sellPrice: 10 },
 };
 
 export const ITEM_PROGRESSIONS: Record<string, string> = {

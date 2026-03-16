@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 interface PrayerTabProps {
   prayerPoints: number;
@@ -49,11 +50,11 @@ export const PrayerTab: React.FC<PrayerTabProps> = ({
               onMouseLeave={() => setActiveTooltip(null)}
             >
               <img 
-                src={`https://oldschool.runescape.wiki/images/${p.name.replace(/ /g, '_')}_icon.png`} 
+                src={`${ASSETS.misc.wiki_base}${p.name.replace(/ /g, '_')}_icon.png`} 
                 className="w-full h-full object-contain p-1" 
                 alt="" 
                 onError={(e) => {
-                  if (!(e.target as HTMLImageElement).src.includes('Prayer_icon.png')) (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Prayer_icon.png';
+                  if (!(e.target as HTMLImageElement).src.includes('Prayer_icon.png')) (e.target as HTMLImageElement).src = ASSETS.misc.prayer_icon;
                   else (e.target as HTMLImageElement).style.opacity = '0';
                 }}
               />
