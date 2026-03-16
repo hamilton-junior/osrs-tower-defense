@@ -98,8 +98,8 @@ export class GameEngine {
     { id: 'pet_tangleroot', name: 'Tangleroot', type: 'tangleroot', bonus: 'Nature\'s Gift: +10% Rune Essence drops' }
   ];
   
-  achievements: Achievement[] = JSON.parse(JSON.stringify(ACHIEVEMENTS));
-  quests: Quest[] = JSON.parse(JSON.stringify(QUESTS));
+  achievements: Achievement[] = structuredClone(ACHIEVEMENTS);
+  quests: Quest[] = structuredClone(QUESTS);
   allPrayers = PRAYERS;
 
   enemies: Enemy[] = [];
@@ -107,6 +107,7 @@ export class GameEngine {
   projectiles: Projectile[] = [];
   particles: { x: number, y: number, life: number, color: string }[] = [];
   damageNumbers: { x: number, y: number, text: string, life: number, color: string, velocityY: number, velocityX: number }[] = [];
+  deathAnimations: { x: number, y: number, type: string, life: number }[] = [];
   floatingTexts: { x: number, y: number, text: string, life: number, color: string, icon?: string }[] = [];
   loots: { id: string, x: number, y: number, type: 'essence' | 'money' | 'item' | 'bones', data?: any, life: number, size: number }[] = [];
   nodes: GatheringNode[] = [];
@@ -169,6 +170,7 @@ export class GameEngine {
   };
 
   constructor(canvas: HTMLCanvasElement, onStateChange: (state: any) => void, initialEssence: number = 0, upgrades?: Partial<GlobalUpgrades>) {
+    console.log('GameEngine constructor start');
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.onStateChange = onStateChange;
@@ -178,7 +180,9 @@ export class GameEngine {
       this.upgrades = { ...this.upgrades, ...upgrades };
     }
 
+    console.log('GameEngine initFarming start');
     this.initFarming(); // Initialize farming patches
+    console.log('GameEngine initFarming end');
 
     // Apply starting money upgrade
     this.money = 150 + this.upgrades.startingMoney;
@@ -192,20 +196,26 @@ export class GameEngine {
     // Init Audio & Images
     if (typeof window !== 'undefined') {
       try {
+        console.log('GameEngine AudioContext init start');
         this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         this.preloadSounds();
         this.preloadImages();
+        console.log('GameEngine AudioContext init end');
       } catch (e) {
         console.warn('AudioContext failed to initialize:', e);
       }
     }
 
+    console.log('GameEngine initPath start');
     this.initPath();
     // this.resize(); // Disabled to prevent scaling issues
     // window.addEventListener('resize', () => this.resize()); // Disabled
     
+    console.log('GameEngine initNodes start');
     this.initNodes();
+    console.log('GameEngine assignSlayerTask start');
     this.assignSlayerTask();
+    console.log('GameEngine constructor end');
   }
 
   preloadSounds() {
@@ -227,7 +237,6 @@ export class GameEngine {
 
     Object.entries(soundUrls).forEach(([key, url]) => {
       const audio = new Audio();
-      audio.crossOrigin = 'anonymous';
       audio.src = url;
       audio.preload = 'auto';
       audio.volume = this.settings.volume;
@@ -256,23 +265,24 @@ export class GameEngine {
 
     Object.entries(imageUrls).forEach(([key, url]) => {
       const img = new Image();
+      img.referrerPolicy = 'no-referrer';
       img.onload = () => console.log(`Loaded image: ${key}`);
       img.onerror = () => {
         console.warn(`Failed to load image: ${key} (${url})`);
         this.brokenImages.add(key);
       };
       img.src = url;
-      img.crossOrigin = 'anonymous';
-      img.referrerPolicy = 'no-referrer';
       this.imageCache.set(key, img);
     });
 
     // Additional Fallbacks
     const portal = new Image();
+    portal.referrerPolicy = 'no-referrer';
     portal.src = 'https://oldschool.runescape.wiki/images/Transportation_logo.png';
     this.imageCache.set('portal', portal);
     
     const bones = new Image();
+    bones.referrerPolicy = 'no-referrer';
     bones.src = 'https://oldschool.runescape.wiki/images/Bones.png';
     this.imageCache.set('bones_loot', bones);
   }
@@ -304,50 +314,9 @@ export class GameEngine {
   }
 
   resize() {
-    const parent = this.canvas.parentElement;
-    if (parent) {
-      const rect = parent.getBoundingClientRect();
-        const newWidth = rect.width;
-        const newHeight = rect.height;
-        
-          if (this.prevWidth > 0 && this.prevHeight > 0 && (this.canvas.width !== newWidth || this.canvas.height !== newHeight)) {
-             const scaleX = newWidth / this.prevWidth;
-             const scaleY = newHeight / this.prevHeight;
-             
-             // Regenerate path according to new canvas size to avoid precision loss & click offset
-             this.initPath(false, newWidth, newHeight); 
-             
-             // Scale Towers
-           this.towers.forEach(t => { 
-             t.x *= scaleX; 
-             t.y *= scaleY; 
-             t.range *= scaleX; // assuming range scales with width generally
-           });
-           
-           // Scale Enemies
-           this.enemies.forEach(e => {
-             e.x *= scaleX;
-             e.y *= scaleY;
-             e.speed *= scaleX;
-             e.baseSpeed *= scaleX;
-           });
-           
-           // Projectiles
-           this.projectiles.forEach(p => { p.x *= scaleX; p.y *= scaleY; });
-           
-           // Loots
-           this.loots.forEach(l => { l.x *= scaleX; l.y *= scaleY; });
-           
-           // Particles
-           this.particles.forEach(p => { p.x *= scaleX; p.y *= scaleY; });
-        }
-        
-        this.canvas.width = newWidth;
-        this.canvas.height = newHeight;
-        this.prevWidth = newWidth;
-        this.prevHeight = newHeight;
-      }
-    }
+    // Disabled to prevent scaling issues. The canvas uses a fixed internal resolution of 1200x800,
+    // and CSS handles the visual scaling.
+  }
 
   updateMousePos(x: number, y: number) {
     this.mousePos = { x, y };
@@ -512,6 +481,7 @@ export class GameEngine {
   togglePrayer(type: PrayerType) {
     if (this.activePrayers.has(type)) {
       this.activePrayers.delete(type);
+      this.playSound('prayer_off');
     } else if (this.prayerPoints > 0) {
       this.activePrayers.add(type);
       this.playSound('prayer_on');
@@ -523,6 +493,7 @@ export class GameEngine {
     if (this.specialAttackCharge >= 50) {
       this.specialAttackCharge -= 50;
       this.playSound('special_attack');
+      this.shakeAmount = 20; // Add screen shake
       
       // Effect: Massive AOE damage around all towers
       this.towers.forEach(tower => {
@@ -741,16 +712,6 @@ export class GameEngine {
     });
 
     // Upgrade logic — OSRS-accurate weapon progression
-    // Add floating text for level up
-    this.floatingTexts.push({
-      x: tower.x,
-      y: tower.y - 20,
-      text: `Level Up!`,
-      life: 2.0,
-      color: '#ffff00',
-      icon: tower.type === 'wizard' ? 'Magic' : tower.type === 'archer' ? 'Ranged' : 'Strength'
-    });
-
     // Update upgrade cost from data for next level
     const towerDef = TOWERS[tower.type];
     if (towerDef && towerDef.tiers[tower.level]) {
@@ -1373,6 +1334,14 @@ export class GameEngine {
       if (dn.life <= 0) this.damageNumbers.splice(i, 1);
     }
 
+    // Update Death Animations
+    for (let i = this.deathAnimations.length - 1; i >= 0; i--) {
+      this.deathAnimations[i].life -= dt;
+      if (this.deathAnimations[i].life <= 0) {
+        this.deathAnimations.splice(i, 1);
+      }
+    }
+
     // Update Floating Texts
     for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
       const ftObj = this.floatingTexts[i];
@@ -1971,6 +1940,13 @@ export class GameEngine {
         
         this.enemies.splice(index, 1);
         
+        this.deathAnimations.push({
+          x: enemy.x,
+          y: enemy.y,
+          type: 'bones_loot',
+          life: 1.0
+        });
+        
         // Update Quests
         this.updateQuests('kill', 1, enemy.type);
 
@@ -2174,6 +2150,7 @@ export class GameEngine {
           quest.objective.current = quest.objective.target;
           quest.completed = true;
           this.playSound('level_up');
+          this.addMessage("Task Complete!");
         }
       }
     });
@@ -2782,10 +2759,21 @@ export class GameEngine {
         const bob = Math.sin(now / 500 + tower.x) * 3;
         // Animation: Recoil (Independent of game speed visually, but triggered by timer)
         const recoilTime = now - tower.lastFired;
-        // We want recoil to visually last 200ms regardless of speed, 
-        // but it triggers based on lastFired which is gameTime... wait.
-        // lastFired is performance.now() at line ~2213
-        const recoil = recoilTime < 200 ? (1 - recoilTime / 200) * 5 : 0;
+        // Increase recoil effect: 200ms duration, 10px offset
+        const recoil = recoilTime < 200 ? (1 - recoilTime / 200) * 10 : 0;
+        
+        // Targeting Feedback
+        if (tower.targetId && (tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId)) {
+          const target = this.enemies.find(e => e.id === tower.targetId);
+          if (target) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(tower.x, tower.y);
+            this.ctx.lineTo(target.x, target.y);
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+          }
+        }
         
         let imgKey = `${tower.type}_${tower.level}`;
         if (tower.type === 'wizard') {
@@ -2803,7 +2791,7 @@ export class GameEngine {
         // Fallback to level-based key if specific one fails
         let img = this.imageCache.get(imgKey);
         if (!img || !img.complete || img.naturalWidth === 0 || this.brokenImages.has(imgKey)) {
-          imgKey = `${tower.type}_${tower.level}`;
+          imgKey = `${tower.type}_1`;
           img = this.imageCache.get(imgKey);
         }
         
@@ -2832,6 +2820,8 @@ export class GameEngine {
         
         // Border for high level
         if (tower.level >= 3) {
+          this.ctx.beginPath();
+          this.ctx.arc(tower.x, tower.y, (tower.visualRadius || 18) + 2, 0, Math.PI * 2);
           this.ctx.strokeStyle = tower.level === 4 ? '#ff0000' : '#ffff00';
           this.ctx.lineWidth = 2;
           this.ctx.stroke();
@@ -2841,6 +2831,7 @@ export class GameEngine {
         if (tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId || tower.showRange) {
           const stats = this.calculateTowerStats(tower);
           
+          // Draw circle
           this.ctx.beginPath();
           this.ctx.strokeStyle = tower.showRange ? 'rgba(255, 255, 0, 0.4)' : 'rgba(255, 255, 255, 0.3)';
           this.ctx.lineWidth = 2;
@@ -2850,6 +2841,28 @@ export class GameEngine {
           this.ctx.setLineDash([]);
           this.ctx.fillStyle = tower.showRange ? 'rgba(255, 255, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)';
           this.ctx.fill();
+
+          // OSRS-style grid overlay
+          this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+          this.ctx.lineWidth = 1;
+          const gridSize = 25;
+          const startX = Math.floor((tower.x - stats.range) / gridSize) * gridSize;
+          const startY = Math.floor((tower.y - stats.range) / gridSize) * gridSize;
+          const endX = Math.ceil((tower.x + stats.range) / gridSize) * gridSize;
+          const endY = Math.ceil((tower.y + stats.range) / gridSize) * gridSize;
+
+          for (let x = startX; x <= endX; x += gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, startY);
+            this.ctx.lineTo(x, endY);
+            this.ctx.stroke();
+          }
+          for (let y = startY; y <= endY; y += gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(startX, y);
+            this.ctx.lineTo(endX, y);
+            this.ctx.stroke();
+          }
         }
 
         // Disabled indicator (Boss attack)
@@ -3073,12 +3086,29 @@ export class GameEngine {
 
       // Draw Damage Numbers
       this.damageNumbers.forEach(dn => {
+        const splatType = dn.color === '#ff0000' ? 'magic_hit_splat' : 'hit_splat';
+        const splatImg = this.imageCache.get(splatType);
+        
+        if (splatImg) {
+          this.ctx.drawImage(splatImg, dn.x - 15, dn.y - 15, 30, 30);
+        }
+        
         this.ctx.fillStyle = dn.color;
         this.ctx.globalAlpha = dn.life;
         this.ctx.font = `bold ${Math.floor(12 + dn.life * 4)}px 'RuneScape', Arial`;
         this.ctx.textAlign = 'center';
-        this.ctx.fillText(dn.text, dn.x, dn.y);
+        this.ctx.fillText(dn.text, dn.x, dn.y + 5);
         this.ctx.globalAlpha = 1.0;
+      });
+
+      // Draw Death Animations
+      this.deathAnimations.forEach(da => {
+        const img = this.imageCache.get(da.type);
+        if (img) {
+          this.ctx.globalAlpha = Math.min(1, da.life * 2);
+          this.ctx.drawImage(img, da.x - 15, da.y - 15, 30, 30);
+          this.ctx.globalAlpha = 1.0;
+        }
       });
 
       // Draw Floating Texts (Level ups, etc)
@@ -3147,7 +3177,6 @@ export class GameEngine {
         this.ctx.restore();
       });
 
-      this.ctx.restore();
     } catch (e) {
       console.error('Draw loop error:', e);
     } finally {

@@ -386,24 +386,33 @@ export default function GameCanvas() {
   useEffect(() => {
     if (!canvasRef.current || !isMounted) return;
     const canvas = canvasRef.current;
-    const engine = new GameEngine(canvas, (state: Partial<GameState>) => {
-      setGameState((prev: GameState) => ({ ...prev, ...state }));
-      if (state.runeEssence !== undefined) {
-        setRuneEssence(state.runeEssence);
-      }
-    }, runeEssence, upgrades);
-    engineRef.current = engine;
-    engine.start();
+    try {
+      const engine = new GameEngine(canvas, (state: Partial<GameState>) => {
+        try {
+          const safeState = structuredClone(state);
+          setGameState((prev: GameState) => ({ ...prev, ...safeState }));
+          if (safeState.runeEssence !== undefined) {
+            setRuneEssence(safeState.runeEssence);
+          }
+        } catch (e) {
+          console.error('Error in onStateChange:', e);
+        }
+      }, runeEssence, upgrades);
+      engineRef.current = engine;
+      engine.start();
+    } catch (e) {
+      console.error('GameEngine initialization failed:', e);
+    }
 
     const resizeObserver = new ResizeObserver(() => {
-      engine.resize();
+      engineRef.current?.resize();
     });
     if (canvas.parentElement) {
       resizeObserver.observe(canvas.parentElement);
     }
 
     return () => {
-      engine.stop();
+      engineRef.current?.stop();
       resizeObserver.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -430,6 +439,8 @@ export default function GameCanvas() {
       <canvas 
         ref={canvasRef}
         className="absolute inset-0 block cursor-crosshair touch-none w-full h-full z-0 image-pixelated"
+        width={1200}
+        height={800}
         onClick={handleCanvasClick}
         onMouseMove={handleMouseMove}
         onContextMenu={handleContextMenu}

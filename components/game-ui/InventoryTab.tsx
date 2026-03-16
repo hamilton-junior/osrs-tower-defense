@@ -40,16 +40,19 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
                   className="w-full h-full object-contain"
                   onError={(e) => {
                     const img = e.target as HTMLImageElement;
+                    if (img.dataset.errored === '2') {
+                      img.style.opacity = '0';
+                      return;
+                    }
+                    
                     const name = item.name.replace(/ /g, '_');
-                    // Fallback cycle: Original -> Sentence_case -> lower_case -> _detail
-                    if (img.src.includes(`${name}.png`)) {
-                       // Try Sentence case
+                    if (!img.dataset.errored) {
+                       img.dataset.errored = '1';
                        const sentenceCase = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
                        img.src = `https://oldschool.runescape.wiki/images/${sentenceCase}.png`;
-                    } else if (img.src.includes('.png') && !img.src.includes('_detail.png')) {
+                    } else if (img.dataset.errored === '1') {
+                       img.dataset.errored = '2';
                        img.src = `https://oldschool.runescape.wiki/images/${name}_detail.png`;
-                    } else {
-                       img.style.opacity = '0';
                     }
                   }}
                 />

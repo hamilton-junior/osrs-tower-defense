@@ -28,6 +28,10 @@ body {
   image-rendering: pixelated;
 }
 
+.font-osrs {
+  font-family: 'RuneScape', var(--font-osrs), monospace;
+}
+
 .osrs-font {
   font-family: 'RuneScape', var(--font-osrs), monospace;
   letter-spacing: 0.5px;

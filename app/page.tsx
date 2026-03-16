@@ -1,11 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import dynamic from 'next/dynamic';
 import { Settings } from 'lucide-react';
-
-// Dynamically import the game component to avoid SSR issues with canvas
-const GameCanvas = dynamic(() => import('@/components/GameCanvas'), { ssr: false });
+import GameCanvas from '../components/GameCanvas';
 
 export default function Page() {
   const [showSettings, setShowSettings] = useState(false);
@@ -27,8 +24,7 @@ export default function Page() {
           </button>
         </div>
       </header>
-
-      <main className="flex-1 w-full relative overflow-hidden bg-[#000]">
+      <main className="flex-1 w-full relative bg-[#000] h-full">
         <GameCanvas />
       </main>
 

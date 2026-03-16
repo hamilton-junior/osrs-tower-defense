@@ -2,7 +2,7 @@ export const ASSETS = {
   enemies: {
     goblin: 'https://oldschool.runescape.wiki/images/Goblin.png',
     rat: 'https://oldschool.runescape.wiki/images/Giant_rat.png',
-    cow: 'https://oldschool.runescape.wiki/images/Cow_(1).png',
+    cow: 'https://oldschool.runescape.wiki/images/Cow_%281%29.png',
     imp: 'https://oldschool.runescape.wiki/images/Imp.png',
     spider: 'https://oldschool.runescape.wiki/images/Spider.png',
     scorpion: 'https://oldschool.runescape.wiki/images/Scorpion.png',
@@ -14,9 +14,9 @@ export const ASSETS = {
     abyssal_demon: 'https://oldschool.runescape.wiki/images/Abyssal_demon.png',
     barrow_wight: 'https://oldschool.runescape.wiki/images/Dharok_the_Wretched.png',
     chaos_druid: 'https://oldschool.runescape.wiki/images/Chaos_druid.png',
-    skeletal_mage: 'https://oldschool.runescape.wiki/images/Skeleton_Mage_(lv_16).png',
-    skeleton: 'https://oldschool.runescape.wiki/images/Skeleton_(level_22%2C_3).png',
-    zombie: 'https://oldschool.runescape.wiki/images/Zombie_(Level_13%2C_14).png',
+    skeletal_mage: 'https://oldschool.runescape.wiki/images/Skeleton_Mage_%28lv_16%29.png',
+    skeleton: 'https://oldschool.runescape.wiki/images/Skeleton_%28level_22%2C_3%29.png',
+    zombie: 'https://oldschool.runescape.wiki/images/Zombie_%28Level_13%2C_14%29.png',
     ghost: 'https://oldschool.runescape.wiki/images/Ghost.png',
     hellhound: 'https://oldschool.runescape.wiki/images/Hellhound.png',
     fire_giant: 'https://oldschool.runescape.wiki/images/Fire_giant.png',
@@ -34,14 +34,14 @@ export const ASSETS = {
     rock_golem: 'https://oldschool.runescape.wiki/images/Rock_golem.png',
     tangleroot: 'https://oldschool.runescape.wiki/images/Tangleroot.png',
     heron: 'https://oldschool.runescape.wiki/images/Heron.png',
-    rift_guardian: 'https://oldschool.runescape.wiki/images/Rift_guardian_(follower%2C_fire).png',
+    rift_guardian: 'https://oldschool.runescape.wiki/images/Rift_guardian_%28follower%2C_fire%29.png',
     baby_mole: 'https://oldschool.runescape.wiki/images/Baby_mole.png',
     vorki: 'https://oldschool.runescape.wiki/images/Vorki.png',
     snakeling: 'https://oldschool.runescape.wiki/images/Snakeling_%28tanzanite%29.png',
     prince_black_dragon: 'https://oldschool.runescape.wiki/images/Prince_black_dragon.png',
     kalphite_princess: 'https://oldschool.runescape.wiki/images/Kalphite_Princess_2nd_form.png',
     tzrek_jad: 'https://oldschool.runescape.wiki/images/TzRek-Jad.png',
-    ikkle_hydra: 'https://oldschool.runescape.wiki/images/Ikkle_Hydra_(serpentine).png',
+    ikkle_hydra: 'https://oldschool.runescape.wiki/images/Ikkle_Hydra_%28serpentine%29.png',
   },
   towers: {
     archer: {
@@ -77,8 +77,8 @@ export const ASSETS = {
     tzhaar: {
       1: 'https://oldschool.runescape.wiki/images/TzHaar-Hur.png',
       2: 'https://oldschool.runescape.wiki/images/TzHaar-Mej.png',
-      3: 'https://oldschool.runescape.wiki/images/TzHaar-Xil_(sword).png',
-      4: 'https://oldschool.runescape.wiki/images/TzHaar-Ket_(level_149).png',
+      3: 'https://oldschool.runescape.wiki/images/TzHaar-Xil_%28sword%29.png',
+      4: 'https://oldschool.runescape.wiki/images/TzHaar-Ket_%28level_149%29.png',
     },
     toxic: {
       1: 'https://oldschool.runescape.wiki/images/Tanzanite_fang.png',
@@ -113,6 +113,9 @@ export const ASSETS = {
     skill_crafting: 'https://oldschool.runescape.wiki/images/Crafting_icon.png',
     skill_prayer: 'https://oldschool.runescape.wiki/images/Prayer_icon.png',
     slayer_crossbow: 'https://oldschool.runescape.wiki/images/Slayer_icon.png',
+    hit_splat: 'https://oldschool.runescape.wiki/images/Hit_splat.png',
+    magic_hit_splat: 'https://oldschool.runescape.wiki/images/Magic_hit_splat.png',
+    poison_hit_splat: 'https://oldschool.runescape.wiki/images/Poison_hit_splat.png',
   },
   sounds: {
     shoot: {

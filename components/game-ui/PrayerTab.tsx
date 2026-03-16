@@ -53,7 +53,8 @@ export const PrayerTab: React.FC<PrayerTabProps> = ({
                 className="w-full h-full object-contain p-1" 
                 alt="" 
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Prayer_icon.png';
+                  if (!(e.target as HTMLImageElement).src.includes('Prayer_icon.png')) (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Prayer_icon.png';
+                  else (e.target as HTMLImageElement).style.opacity = '0';
                 }}
               />
               {!canUse && <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-osrs-red">Lvl {p.level}</div>}

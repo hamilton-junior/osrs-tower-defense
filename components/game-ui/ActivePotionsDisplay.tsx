@@ -16,7 +16,7 @@ export const ActivePotionsDisplay: React.FC<ActivePotionsDisplayProps> = ({ acti
             src={`https://oldschool.runescape.wiki/images/${p.type.charAt(0).toUpperCase() + p.type.slice(1).replace('_', ' ')}_potion(4).png`} 
             className="w-5 h-5 object-contain" 
             alt="" 
-            onError={(e) => { (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Vial_detail.png'; }}
+            onError={(e) => { if (!(e.target as HTMLImageElement).src.includes('Vial_detail.png')) (e.target as HTMLImageElement).src = 'https://oldschool.runescape.wiki/images/Vial_detail.png'; else (e.target as HTMLImageElement).style.opacity = '0'; }}
           />
           <div className="flex flex-col">
             <span className="text-[9px] text-osrs-yellow font-bold uppercase leading-none">{p.type.replace('_', ' ')}</span>

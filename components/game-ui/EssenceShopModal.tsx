@@ -53,7 +53,7 @@ export const EssenceShopModal: React.FC<EssenceShopModalProps> = (props) => {
                 <div key={item.id} className={`bg-[#3e2e18] p-4 border-2 ${isUnlocked ? 'border-[var(--osrs-border-dark)] hover:border-[#00ffff]' : 'border-red-900 opacity-60'} transition-all flex justify-between items-center relative overflow-hidden group`}>
                   <div className="flex items-center gap-3 z-10">
                     <div className="w-10 h-10 bg-black/40 rounded flex items-center justify-center relative">
-                      <img src={`https://oldschool.runescape.wiki/images/${item.icon}.png`} className="max-w-[80%] max-h-[80%] object-contain" alt="" onError={e => e.currentTarget.src = `https://oldschool.runescape.wiki/images/Vial_detail.png`} />
+                      <img src={`https://oldschool.runescape.wiki/images/${item.icon}.png`} className="max-w-[80%] max-h-[80%] object-contain" alt="" onError={e => { if (!e.currentTarget.src.includes('Vial_detail.png')) e.currentTarget.src = `https://oldschool.runescape.wiki/images/Vial_detail.png`; else e.currentTarget.style.opacity = '0'; }} />
                     </div>
                     <div>
                       <p className="text-[#00ffff] font-bold text-xs uppercase text-shadow-sm">{item.name}</p>

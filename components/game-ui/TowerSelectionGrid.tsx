@@ -73,7 +73,8 @@ export const TowerSelectionGrid: React.FC<TowerSelectionGridProps> = ({
                 setActiveTooltip({
                   x: e.clientX, y: e.clientY,
                   title: tower.baseName.toUpperCase(),
-                  content: `${firstTier.name} — Dmg: ${dmgLabel}`,
+                  content: `Tier 1: ${firstTier.name}`,
+                  stats: `Attack Speed: ${firstTier.cooldown / 600} ticks — Range: ${firstTier.range / 25} tiles`,
                   color: firstTier.color,
                   tierIcons: tower.tiers.map((t: any) => t.name)
                 });
