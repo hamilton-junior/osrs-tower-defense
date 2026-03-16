@@ -245,12 +245,12 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
         <div className="grid grid-cols-8 gap-0 border-t border-[var(--osrs-border-dark)] bg-[var(--osrs-brown-dark)]">
           <TabButton id="combat" icon="Combat_icon" label="Combat" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="achievements" icon="Skills_icon" label="Achievements" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="quests" icon="https://oldschool.runescape.wiki/images/Quest_point_icon.png?dc356" label="Quests" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="inventory" icon="https://oldschool.runescape.wiki/images/Inventory.png?d4795" label="Inventory" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="quests" icon="Quest_point_icon" label="Quests" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="inventory" icon="Inventory" label="Inventory" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="ge" icon="Coins_detail" label="Exchange" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="prayer" icon="Prayer_icon" label="Prayer" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="pets" icon="https://oldschool.runescape.wiki/images/Follower_Details.png?15a47" label="Pets" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
-          <TabButton id="settings" icon="Audio_options_icon" label="Settings" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="pets" icon="https://oldschool.runescape.wiki/images/Follower_Details.png" label="Pets" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="settings" icon="Settings" label="Settings" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
         </div>
       </div>
 
