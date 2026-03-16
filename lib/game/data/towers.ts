@@ -31,7 +31,7 @@ export const TOWERS: Record<string, TowerDef> = {
     tiers: [
       { level: 1, name: 'Shortbow', damage: 3, cooldown: 3 * TICK * 1000, range: 7 * 25, color: '#9acd32', upgradeCost: 25 },
       { level: 2, name: 'Magic Shortbow', damage: 8, cooldown: 3 * TICK * 1000, range: 7 * 25, color: '#32CD32', upgradeCost: 65 },
-      { level: 3, name: 'Crystal Bow', damage: 15, cooldown: 5 * TICK * 1000, range: 9 * 25, color: '#E0FFFF', upgradeCost: 150 },
+      { level: 3, name: 'Dark Bow', damage: 15, cooldown: 5 * TICK * 1000, range: 9 * 25, color: '#E0FFFF', upgradeCost: 150 },
       { level: 4, name: 'Bow of Faerdhinen', damage: 25, cooldown: 3 * TICK * 1000, range: 10 * 25, color: '#a020f0', upgradeCost: 500 }
     ]
   },
@@ -53,8 +53,8 @@ export const TOWERS: Record<string, TowerDef> = {
     tiers: [
       { level: 1, name: 'Dwarf Multicannon', damage: 0, minDamage: 0, maxDamage: 8, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#cd5c5c', upgradeCost: 100, special: 'aoe' },
       { level: 2, name: 'Upgraded Dwarf Multicannon', damage: 0, minDamage: 5, maxDamage: 12, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#808080', upgradeCost: 200, special: 'aoe' },
-      { level: 3, name: 'Ornamented Multicannon', damage: 35, cooldown: 6 * TICK * 1000, range: 11 * 25, color: '#d2b48c', upgradeCost: 400 },
-      { level: 4, name: 'Upgraded Ornamented Multicannon', damage: 65, cooldown: 6 * TICK * 1000, range: 12 * 25, color: '#ff4500', upgradeCost: 800 }
+      { level: 3, name: 'Ornamented Multicannon', damage: 35, minDamage: 25, maxDamage: 45, cooldown: 6 * TICK * 1000, range: 11 * 25, color: '#d2b48c', upgradeCost: 400 },
+      { level: 4, name: 'Upgraded Ornamented Multicannon', damage: 65, minDamage: 50, maxDamage: 80, cooldown: 6 * TICK * 1000, range: 12 * 25, color: '#ff4500', upgradeCost: 800 }
     ]
   },
   tzhaar: {

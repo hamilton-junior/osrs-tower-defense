@@ -278,6 +278,7 @@ export class GameEngine {
 
   playSound(type: string) {
     const cached = this.soundCache.get(type);
+    console.log('Playing sound:', type, cached);
     if (cached) {
       const now = performance.now();
       if (type === 'hit' || type.startsWith('shoot')) {
@@ -289,7 +290,7 @@ export class GameEngine {
       try {
         const sound = cached.cloneNode() as HTMLAudioElement;
         sound.volume = 0.15;
-        sound.play().catch(() => {});
+        sound.play().catch((e) => console.error('Sound play failed:', e));
       } catch (e) {
         console.warn('Sound play error:', e);
       }
@@ -597,6 +598,25 @@ export class GameEngine {
       // Filter enemies that can spawn at this wave level
       const spawnableEnemies = Object.values(ENEMIES).filter(e => !e.isBoss && (e.waveUnlock || 1) <= waveNum);
       
+      // Inject slayer task targets
+      if (this.slayerTask && this.slayerTask.count > 0) {
+          const targetType = this.slayerTask.type;
+          const targetEnemy = ENEMIES[targetType];
+          // Check if target is unlocked
+          if (targetEnemy && (targetEnemy.waveUnlock || 1) <= waveNum) {
+              // Add a random amount of slayer task targets, e.g., 1-3, but not more than remaining count
+              const countToAdd = Math.min(this.slayerTask.count, Math.floor(Math.random() * 3) + 1);
+              
+              const existing = waveConfigs.find(c => c.type === targetType);
+              if (existing) {
+                  existing.count += countToAdd;
+              } else {
+                  waveConfigs.push({ type: targetType as any, count: countToAdd });
+              }
+              remainingBudget -= targetEnemy.reward * countToAdd;
+          }
+      }
+      
       while (remainingBudget > 0) {
         const affordable = spawnableEnemies.filter(e => e.reward <= remainingBudget);
         if (affordable.length === 0) break;
@@ -642,6 +662,8 @@ export class GameEngine {
           slowTimer: 0,
           stunTimer: 0,
           tauntTimer: 0,
+          shakeX: 0,
+          shakeY: 0,
           ...baseStats
         });
       }
@@ -876,7 +898,7 @@ export class GameEngine {
         } else if (aType === 'blood') {
           tower.special = 'blood'; 
         } else if (aType === 'shadow') {
-          tower.special = 'slow';
+          tower.special = 'aoe_slow';
         } else if (aType === 'smoke') {
           tower.special = 'burn';
         }
@@ -1021,8 +1043,8 @@ export class GameEngine {
     if (lootIndex === -1) return false;
 
     const loot = this.loots[lootIndex];
-    // In hover mode, only pick up bones
-    if (hoverPickup && loot.type !== 'bones') return false;
+    // In hover mode, only pick up bones, unless in dev mode
+    if (hoverPickup && loot.type !== 'bones' && !this.devMode) return false;
 
     if (loot.type === 'essence') {
       this.runeEssence += 5;
@@ -1145,6 +1167,7 @@ export class GameEngine {
     let damageMultiplier = 1.0;
     let rangeMultiplier = 1.0;
     let speedMultiplier = 1.0;
+    let flatDamageBonus = 0;
 
     // Apply Global Upgrades
     if (tower.type === 'archer') {
@@ -1204,23 +1227,24 @@ export class GameEngine {
 
     // Equipment Bonuses
     if (tower.equipment.weapon) {
-      if (tower.equipment.weapon.bonus.damage) damageMultiplier *= (1 + tower.equipment.weapon.bonus.damage / 100);
+      if (tower.equipment.weapon.bonus.damage) flatDamageBonus += tower.equipment.weapon.bonus.damage;
       if (tower.equipment.weapon.bonus.range) rangeMultiplier *= (1 + tower.equipment.weapon.bonus.range / 100);
       if (tower.equipment.weapon.bonus.cooldown) speedMultiplier *= (1 + tower.equipment.weapon.bonus.cooldown / 100);
     }
     if (tower.equipment.shield) {
-      if (tower.equipment.shield.bonus.damage) damageMultiplier *= (1 + tower.equipment.shield.bonus.damage / 100);
+      if (tower.equipment.shield.bonus.damage) flatDamageBonus += tower.equipment.shield.bonus.damage;
       if (tower.equipment.shield.bonus.range) rangeMultiplier *= (1 + tower.equipment.shield.bonus.range / 100);
       if (tower.equipment.shield.bonus.cooldown) speedMultiplier *= (1 + tower.equipment.shield.bonus.cooldown / 100);
     }
     if (tower.equipment.accessory) {
-      if (tower.equipment.accessory.bonus.damage) damageMultiplier *= (1 + tower.equipment.accessory.bonus.damage / 100);
+      if (tower.equipment.accessory.bonus.damage) flatDamageBonus += tower.equipment.accessory.bonus.damage;
       if (tower.equipment.accessory.bonus.range) rangeMultiplier *= (1 + tower.equipment.accessory.bonus.range / 100);
       if (tower.equipment.accessory.bonus.cooldown) speedMultiplier *= (1 + tower.equipment.accessory.bonus.cooldown / 100);
     }
 
     return {
       damageMultiplier,
+      flatDamageBonus,
       range: tower.range * rangeMultiplier,
       cooldown: tower.cooldown / speedMultiplier
     };
@@ -1392,6 +1416,13 @@ export class GameEngine {
   }
 
   update(dt: number, now: number, rawDt: number = dt) {
+    // Update Nodes
+    this.nodes.forEach(node => {
+      if (node.respawnTimer > 0) {
+        node.respawnTimer -= dt * 1000;
+      }
+    });
+
     // Update Farming
     this.updateFarming(dt / 1000); // dt is in ms, convert to seconds for farming timer
 
@@ -1576,6 +1607,21 @@ export class GameEngine {
       this.runeEssence += essenceReward;
       
       this.addMessage(`Wave ${this.wave} complete! Reward: ${totalMoneyReward} GP, ${essenceReward} Essence.`);
+      
+      // Node Respawn Logic
+      let respawned = false;
+      this.nodes.forEach(node => {
+        if (node.respawnTimer > 0 && Math.random() < 0.3) { // Medium chance
+           node.respawnTimer = 0;
+           respawned = true;
+        }
+      });
+      
+      if (!respawned && this.wave % 3 === 0) {
+          const respawnable = this.nodes.find(n => n.respawnTimer > 0);
+          if (respawnable) respawnable.respawnTimer = 0;
+      }
+
       this.floatingTexts.push({
         x: this.LOGIC_WIDTH / 2,
         y: this.LOGIC_HEIGHT / 2,
@@ -1611,6 +1657,12 @@ export class GameEngine {
         }
       }
 
+      // Decay shake
+      if (enemy.shakeX) enemy.shakeX *= 0.8;
+      if (enemy.shakeY) enemy.shakeY *= 0.8;
+      if (enemy.shakeX && Math.abs(enemy.shakeX) < 0.1) enemy.shakeX = 0;
+      if (enemy.shakeY && Math.abs(enemy.shakeY) < 0.1) enemy.shakeY = 0;
+      
       // Apply slow decay
       if (enemy.slowTimer > 0) {
         enemy.slowTimer -= dt;
@@ -1691,6 +1743,10 @@ export class GameEngine {
         if (Math.random() < dt * 2) {
           this.damageEnemy(enemy, enemy.burnDamage, undefined, true);
         }
+      }
+
+      if (enemy.magicResistDrainTimer && enemy.magicResistDrainTimer > 0) {
+        enemy.magicResistDrainTimer -= dt;
       }
 
       // Process Ground/Entangle
@@ -1797,6 +1853,7 @@ export class GameEngine {
       const effectiveRange = stats.range;
       const effectiveCooldown = stats.cooldown;
       const damageMultiplier = stats.damageMultiplier;
+      const flatDamageBonus = stats.flatDamageBonus;
 
       // Targeting
       if (!tower.targetId || !this.enemies.find(e => e.id === tower.targetId)) {
@@ -1862,7 +1919,7 @@ export class GameEngine {
           if (tower.type === 'cannon') {
              baseDmg = (tower.minDamage || 0) + Math.random() * ((tower.maxDamage || 0) - (tower.minDamage || 0));
           }
-          let finalDamage = Math.floor(baseDmg * damageMultiplier);
+          let finalDamage = Math.floor((baseDmg + flatDamageBonus) * damageMultiplier);
           
           if (tower.type === 'wizard' && tower.mageMode === 'elemental' && target.weakness === tower.element) {
             finalDamage = Math.floor(finalDamage * 1.5);
@@ -1943,7 +2000,7 @@ export class GameEngine {
              if (tower.element === 'air') pSpecial = 'pushback';
              else if (tower.element === 'fire') pSpecial = 'burn';
              else if (tower.element === 'water') pSpecial = 'amp';
-             else if (tower.element === 'earth') pSpecial = 'slow';
+             else if (tower.element === 'earth') pSpecial = 'stun';
           }
 
           this.projectiles.push({
@@ -1995,11 +2052,12 @@ export class GameEngine {
        const dx = target.x - p.x; const dy = target.y - p.y;
        const dist = Math.sqrt(dx*dx+dy*dy);
        if (dist < 10) {
-          if (p.special === 'aoe') {
+          if (p.special === 'aoe' || p.special === 'aoe_slow') {
              const radius = 80;
              this.enemies.forEach(e => {
                 if (Math.sqrt(Math.pow(e.x-p.x,2)+Math.pow(e.y-p.y,2)) <= radius) {
                    this.damageEnemy(e, p.damage, p.sourceTowerId);
+                   if (p.special === 'aoe_slow') this.applySlow(e);
                 }
              });
           } else {
@@ -2034,18 +2092,24 @@ export class GameEngine {
   }
 
   damageEnemy(enemy: Enemy, damage: number, sourceTowerId?: string, isDot = false) {
-    const actualDamage = Math.max(0, Math.floor(damage));
+    let damageMultiplier = 1.0;
+    const tower = sourceTowerId ? this.towers.find(t => t.id === sourceTowerId) : null;
+    let type: HitsplatType = isDot ? 'poison' : (tower?.type === 'wizard' ? 'magic' : (tower?.type === 'archer' ? 'ranged' : 'melee'));
+    
+    if (enemy.magicResistDrainTimer && enemy.magicResistDrainTimer > 0 && type === 'magic') {
+        damageMultiplier = 1.15;
+    }
+    const actualDamage = Math.max(0, Math.floor(damage * damageMultiplier));
     enemy.hp -= actualDamage;
     if (!isDot) this.playSound('hit');
 
-    // Screen shake for powerful hits
+    // Enemy shake for powerful hits
     if (actualDamage > 100) {
-      this.shakeAmount = Math.min(25, this.shakeAmount + actualDamage / 40);
+      enemy.shakeX = (Math.random() - 0.5) * 10;
+      enemy.shakeY = (Math.random() - 0.5) * 10;
     }
-
+    
     // Create hitsplat
-    const tower = sourceTowerId ? this.towers.find(t => t.id === sourceTowerId) : null;
-    let type: HitsplatType = isDot ? 'poison' : (tower?.type === 'wizard' ? 'magic' : (tower?.type === 'archer' ? 'ranged' : 'melee'));
     if (actualDamage === 0) {
       type = 'miss';
     }
@@ -3183,7 +3247,7 @@ export class GameEngine {
         const size = isBoss ? 60 : 30;
 
         this.ctx.save();
-        this.ctx.translate(enemy.x, enemy.y);
+        this.ctx.translate(enemy.x + (enemy.shakeX || 0), enemy.y + (enemy.shakeY || 0));
         
         // OSRS Rule #2: DO NOT rotate NPC images. They are sideways/front-facing in Wiki.
         // Rule Extension: Most face right. Mirror if moving left.
@@ -3462,14 +3526,33 @@ export class GameEngine {
           this.ctx.fillText('🦴', 0, 8);
         }
         
+        // Draw specific loot icon
+        let iconKey = '';
+        if (loot.type === 'money') iconKey = 'coins_icon';
+        else if (loot.type === 'essence') iconKey = 'rune_essence_icon';
+        else if (loot.type === 'item' && loot.data) iconKey = loot.data.id;
+
+        if (iconKey) {
+          const iconImg = this.imageCache.get(iconKey);
+          if (this.isImageValid(iconImg, iconKey)) {
+            try {
+              this.ctx.drawImage(iconImg!, -12, -12, 24, 24);
+            } catch (e) {
+              this.brokenImages.add(iconKey);
+            }
+          }
+        }
+        
         // Tinted glow based on loot type
-        const glowColor = loot.type === 'essence' ? '#00ffff' : loot.type === 'item' ? '#ff8000' : '#ffff00';
-        this.ctx.globalAlpha = 0.25 + 0.15 * Math.sin(now / 150);
-        this.ctx.fillStyle = glowColor;
-        this.ctx.beginPath();
-        this.ctx.arc(0, 0, 14, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.globalAlpha = 1.0;
+        if (loot.type !== 'bones') {
+          const glowColor = loot.type === 'essence' ? '#00ffff' : loot.type === 'item' ? '#ff8000' : '#ffff00';
+          this.ctx.globalAlpha = 0.25 + 0.15 * Math.sin(now / 150);
+          this.ctx.fillStyle = glowColor;
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, 14, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.globalAlpha = 1.0;
+        }
         
         this.ctx.restore();
       });

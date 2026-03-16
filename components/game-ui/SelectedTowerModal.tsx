@@ -168,6 +168,7 @@ export const SelectedTowerModal: React.FC<SelectedTowerModalProps> = ({
               onClick={onUpgrade}
               disabled={money < Math.floor(tower.upgradeCost * (towerCostReduction || 1))}
               className={`flex-1 osrs-button py-2 text-xs font-bold ${money >= Math.floor(tower.upgradeCost * (towerCostReduction || 1)) ? 'text-osrs-green' : 'opacity-50 cursor-not-allowed'}`}
+              title={tower.level < tower.maxLevel ? `Next Level: Damage: ${TOWER_DATA[tower.type].tiers[tower.level].damage}, Range: ${TOWER_DATA[tower.type].tiers[tower.level].range}, Speed: ${(TOWER_DATA[tower.type].tiers[tower.level].cooldown / 1000).toFixed(1)}s, Cost: ${Math.floor(TOWER_DATA[tower.type].tiers[tower.level].upgradeCost * (towerCostReduction || 1))} gp` : 'Max Level'}
             >
               Upgrade ({Math.floor(tower.upgradeCost * (towerCostReduction || 1))} gp)
             </button>

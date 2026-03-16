@@ -92,6 +92,9 @@ export interface Enemy extends EnemyDef {
   jadAttackType?: 'mage' | 'range';
   jadAttackActive?: boolean;
   jadAttackResolveTimer?: number;
+  magicResistDrainTimer?: number;
+  shakeX?: number;
+  shakeY?: number;
 }
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
@@ -182,7 +185,7 @@ export interface Tower {
   targetingPriority: TargetingPriority;
   name: string;
   upgradeCost: number;
-  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood';
+  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood' | 'aoe_slow';
   specCharge: number;
   specMax: number;
   lastSpecFired?: number;
@@ -217,7 +220,7 @@ export interface Projectile {
   color: string;
   type: 'arrow' | 'spell' | 'cannonball' | 'dart' | 'bolt' | 'magic_projectile' | 'ancient_ice' | 'ancient_blood' | 'ancient_shadow' | 'ancient_smoke' | 'chinchompa' | 'godsword';
   element?: Element; 
-  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood';
+  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood' | 'aoe_slow';
   sourceTowerId?: string;
 }
 
