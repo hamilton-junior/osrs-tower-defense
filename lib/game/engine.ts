@@ -103,7 +103,9 @@ export class GameEngine {
     herblore: { level: 1, xp: 0 },
     crafting: { level: 1, xp: 0 },
     prayer: { level: 1, xp: 0 },
-    farming: { level: 1, xp: 0 }
+    farming: { level: 1, xp: 0 },
+    magic: { level: 1, xp: 0 },
+    construction: { level: 1, xp: 0 }
   };
   theme: 'grass' | 'sand' | 'dark' = 'grass';
   messages: string[] = ["Welcome to OSRS Tower Defense!"];
@@ -118,6 +120,7 @@ export class GameEngine {
   };
 
   inventory: Item[] = [];
+  pohUpgrades: string[] = [];
   
   shakeAmount: number = 0;
   jadAttackTimer: number = 0;
@@ -129,9 +132,13 @@ export class GameEngine {
   spawnInterval: number = 1000; 
 
   achievementPoints: number = 0;
+  slayerPoints: number = 0;
   slayerTask: SlayerTask | null = null;
   lastTaskType: EnemyType | null = null;
   consecutiveTasks: number = 0;
+  unlockedTowers: string[] = ['archer', 'wizard', 'tzhaar', 'toxic'];
+  blockedEnemies: string[] = [];
+  extendedTasks: string[] = [];
 
   audioCtx: AudioContext | null = null;
   soundCache: Map<string, HTMLAudioElement> = new Map();
@@ -420,20 +427,19 @@ export class GameEngine {
       e.waveUnlock !== undefined && 
       e.waveUnlock <= this.wave && 
       e.type !== this.lastTaskType &&
-      !e.isBoss
+      !e.isBoss &&
+      !this.blockedEnemies.includes(e.type)
     );
     if (available.length === 0) return;
 
     const taskMonster = available[Math.floor(Math.random() * available.length)];
     const type = taskMonster.type;
-    const count = 5 + Math.floor(Math.random() * 10) + Math.floor(this.wave / 2);
+    let count = 5 + Math.floor(Math.random() * 10) + Math.floor(this.wave / 2);
 
-    // Consecutive bonus logic
-    if (this.lastTaskType === type) {
-      this.consecutiveTasks++;
-    } else {
-      this.consecutiveTasks = 0;
+    if (this.extendedTasks.includes(type)) {
+      count *= 2;
     }
+
     this.lastTaskType = type;
 
     const bonusMultiplier = 1 + (this.consecutiveTasks * 0.1);
@@ -445,8 +451,7 @@ export class GameEngine {
       reward: Math.floor((50 + (count * 2)) * this.upgrades.slayerReward * bonusMultiplier)
     };
     this.onStateChange({ 
-      slayerTask: this.slayerTask,
-      consecutiveTasks: this.consecutiveTasks 
+      slayerTask: this.slayerTask
     });
     this.playSound('task_assign');
   }
@@ -595,8 +600,8 @@ export class GameEngine {
       const budget = 15 + (waveNum * 12); 
       let remainingBudget = budget;
       
-      // Filter enemies that can spawn at this wave level
-      const spawnableEnemies = Object.values(ENEMIES).filter(e => !e.isBoss && (e.waveUnlock || 1) <= waveNum);
+      // Filter enemies that can spawn at this wave level and are not blocked
+      const spawnableEnemies = Object.values(ENEMIES).filter(e => !e.isBoss && (e.waveUnlock || 1) <= waveNum && !this.blockedEnemies.includes(e.type));
       
       // Inject slayer task targets
       if (this.slayerTask && this.slayerTask.count > 0) {
@@ -1060,7 +1065,7 @@ export class GameEngine {
       this.playSound('bury_bones');
       this.damageNumbers.push({ x: loot.x, y: loot.y, text: '+15 Prayer XP', life: 1.5, color: '#ffffff', velocityY: -40, velocityX: 0 });
     } else if (loot.type === 'item' && loot.data) {
-      this.inventory.push({ ...loot.data, id: Math.random().toString() });
+      this.inventory.push({ ...loot.data, id: `${loot.data.id}_${Math.random().toString(36).substr(2, 9)}` });
       this.damageNumbers.push({ x: loot.x, y: loot.y, text: loot.data.name, life: 2.0, color: '#ff8000', velocityY: -50, velocityX: 0 });
       this.playSound('pick_up');
       this.addMessage(`Looted: ${loot.data.name}`);
@@ -1262,10 +1267,22 @@ export class GameEngine {
 
   updateFarming(dt: number) {
     this.farmingPatches.forEach(patch => {
-      if (patch.stage > 0 && patch.stage < patch.maxStage) {
+      if (patch.stage > 0 && patch.stage < patch.maxStage && !patch.diseased) {
         patch.timer -= dt;
         if (patch.timer <= 0) {
           patch.stage++;
+          
+          // Disease chance on stage up
+          let diseaseChance = 0.15; // 15% base chance
+          if (patch.compost === 'compost') diseaseChance = 0.08;
+          if (patch.compost === 'supercompost') diseaseChance = 0.03;
+          if (patch.compost === 'ultracompost') diseaseChance = 0.01;
+
+          if (patch.stage < patch.maxStage && Math.random() < diseaseChance) {
+            patch.diseased = true;
+            this.addMessage(`A farming patch has become diseased!`);
+            this.playSound('error');
+          }
           
           // If not at max stage, reset timer for next stage
           if (patch.stage < patch.maxStage) {
@@ -1296,10 +1313,18 @@ export class GameEngine {
       return;
     }
     
-    patch.seed = seedItem.id;
+    const baseSeedItem = Object.values(ITEMS).find(i => seedItem.id.startsWith(i.id));
+    if (!baseSeedItem) return;
+
+    patch.seed = baseSeedItem.id;
     patch.stage = 1;
-    patch.timer = (seedItem.growthTime || 30) / patch.maxStage;
-    patch.yield = 3 + Math.floor(this.playerSkills.farming.level / 10);
+    patch.timer = (baseSeedItem.growthTime || 30) / patch.maxStage;
+    
+    let baseYield = 3 + Math.floor(this.playerSkills.farming.level / 10);
+    if (patch.compost === 'compost') baseYield += 1;
+    if (patch.compost === 'supercompost') baseYield += 3;
+    if (patch.compost === 'ultracompost') baseYield += 5;
+    patch.yield = baseYield;
     
     const idx = this.inventory.findIndex(i => i.id === seedItem.id);
     if (idx > -1) {
@@ -1310,6 +1335,35 @@ export class GameEngine {
     this.addMessage(`You plant the ${seedItem.name}.`);
     this.playSound('inventory_move');
     this.onStateChange({ farmingPatches: [...this.farmingPatches] });
+  }
+
+  applyCompost(patchId: string, compostItem: Item) {
+    const patch = this.farmingPatches.find(p => p.id === patchId);
+    if (!patch || patch.stage !== 0 || patch.compost) return;
+
+    const idx = this.inventory.findIndex(i => i.id === compostItem.id);
+    if (idx > -1) {
+      this.inventory.splice(idx, 1);
+      const baseCompostId = compostItem.id.split('_')[0]; // compost, supercompost, ultracompost
+      patch.compost = baseCompostId as 'compost' | 'supercompost' | 'ultracompost';
+      this.addMessage(`You treat the patch with ${compostItem.name}.`);
+      this.playSound('inventory_move');
+      this.onStateChange({ inventory: this.inventory, farmingPatches: [...this.farmingPatches] });
+    }
+  }
+
+  curePatch(patchId: string) {
+    const patch = this.farmingPatches.find(p => p.id === patchId);
+    if (!patch || !patch.diseased) return;
+
+    const idx = this.inventory.findIndex(i => i.id.startsWith('plant_cure'));
+    if (idx > -1) {
+      this.inventory.splice(idx, 1);
+      patch.diseased = false;
+      this.addMessage('You cured the diseased patch.');
+      this.playSound('inventory_move');
+      this.onStateChange({ inventory: this.inventory, farmingPatches: [...this.farmingPatches] });
+    }
   }
 
   harvestPatch(patchId: string) {
@@ -1340,6 +1394,15 @@ export class GameEngine {
       }
     }
     
+    // Tangleroot Pet Drop Chance
+    if (Math.random() < 0.02) { // 2% chance per harvest
+      if (!this.pets.find(p => p.name === 'Tangleroot')) {
+        this.pets.push({ id: Math.random().toString(), name: 'Tangleroot', type: 'tangleroot', bonus: "Nature's Gift: +10% Rune Essence drops" });
+        this.playSound('level_up');
+        this.addMessage("You have a funny feeling you're being followed...");
+      }
+    }
+
     this.addMessage(`You harvested ${patch.yield} crops!`);
     this.playSound('pick_up');
     
@@ -1347,6 +1410,8 @@ export class GameEngine {
     patch.stage = 0;
     patch.timer = 0;
     patch.yield = 0;
+    patch.diseased = false;
+    patch.compost = undefined;
     
     this.onStateChange({ 
       inventory: [...this.inventory],
@@ -1354,22 +1419,244 @@ export class GameEngine {
     });
   }
 
-  makePotion(herbItem: Item, secondaryItem: Item) {
-     // Simplified: Herb + Vial = Potion
-     // Or just Herb -> Clean Herb -> Potion (with secondary)
-     // Let's assume we just click a "Make Potion" button in UI which calls this
-     
-     // For now, let's just implement a simple "Clean Herb" action
-     if (herbItem.type === 'herb' && herbItem.name.includes('grimy')) {
-        const idx = this.inventory.findIndex(i => i.id === herbItem.id);
-        if (idx > -1) {
-           this.inventory[idx].name = herbItem.name.replace('grimy', 'clean');
-           this.inventory[idx].description = 'A clean herb, ready for potion making.';
-           this.awardPlayerXP('herblore', 10);
-           this.playSound('inventory_move');
-           this.onStateChange({ inventory: this.inventory });
+  makePotion(herbId: string, secondaryId: string) {
+    const herbIdx = this.inventory.findIndex(i => i.id.startsWith(herbId));
+    const secIdx = this.inventory.findIndex(i => i.id.startsWith(secondaryId));
+    const vialIdx = this.inventory.findIndex(i => i.id.startsWith('vial_of_water'));
+
+    if (herbIdx === -1 || secIdx === -1 || vialIdx === -1) {
+      this.addMessage("You don't have the required ingredients.");
+      return;
+    }
+
+    const RECIPES = [
+      { id: 'attack_potion', name: 'Attack potion(3)', herb: 'clean_guam', secondary: 'eye_of_newt', level: 1, xp: 25 },
+      { id: 'strength_potion', name: 'Strength potion(3)', herb: 'clean_torstol', secondary: 'limpwurt_root', level: 12, xp: 50 },
+      { id: 'prayer_potion', name: 'Prayer potion(3)', herb: 'clean_ranarr', secondary: 'snape_grass', level: 38, xp: 87.5 },
+      { id: 'super_restore', name: 'Super restore(3)', herb: 'clean_snapdragon', secondary: 'red_spiders_eggs', level: 63, xp: 142.5 },
+      { id: 'saradomin_brew', name: 'Saradomin brew(3)', herb: 'clean_toadflax', secondary: 'birds_nest', level: 81, xp: 180 },
+      { id: 'super_combat_potion', name: 'Super combat potion(3)', herb: 'clean_torstol', secondary: 'clean_torstol', level: 90, xp: 150 },
+    ];
+
+    const recipe = RECIPES.find(r => r.herb === herbId && r.secondary === secondaryId);
+    if (!recipe) {
+      this.addMessage("Nothing interesting happens.");
+      return;
+    }
+
+    if (this.playerSkills.herblore.level < recipe.level) {
+      this.addMessage(`You need a Herblore level of ${recipe.level} to make this potion.`);
+      return;
+    }
+
+    // Remove ingredients (reverse order to not mess up indices)
+    const indicesToRemove = [herbIdx, secIdx, vialIdx].sort((a, b) => b - a);
+    indicesToRemove.forEach(idx => {
+      this.inventory.splice(idx, 1);
+    });
+
+    const potionItem = ITEMS[recipe.id];
+    if (potionItem) {
+      this.inventory.push({ ...potionItem, id: `${potionItem.id}_${Math.random().toString(36).substr(2, 9)}` });
+      this.awardPlayerXP('herblore', recipe.xp);
+      this.addMessage(`You mix the ${recipe.herb.replace('clean_', '')} into your vial of water, then add the ${recipe.secondary.replace(/_/g, ' ')}.`);
+      this.playSound('inventory_move');
+      this.onStateChange({ inventory: [...this.inventory] });
+    }
+  }
+
+  castSpell(spellId: string, targetItemIndex?: number) {
+    const SPELLS = [
+      { id: 'bones_to_peaches', level: 60, runes: { nature_rune: 2, earth_rune: 4, water_rune: 4 }, xp: 35.5 },
+      { id: 'high_alchemy', level: 55, runes: { nature_rune: 1, fire_rune: 5 }, xp: 65 },
+      { id: 'superheat_item', level: 43, runes: { nature_rune: 1, fire_rune: 4 }, xp: 53 },
+      { id: 'ice_barrage', level: 94, runes: { blood_rune: 2, death_rune: 4, water_rune: 6 }, xp: 52 },
+      { id: 'blood_barrage', level: 92, runes: { blood_rune: 4, death_rune: 4, soul_rune: 1 }, xp: 51 },
+    ];
+
+    const spell = SPELLS.find(s => s.id === spellId);
+    if (!spell) return;
+
+    if (this.playerSkills.magic && this.playerSkills.magic.level < spell.level) {
+      this.addMessage(`You need a Magic level of ${spell.level} to cast this spell.`);
+      return;
+    }
+
+    // Check runes
+    for (const [runeId, amount] of Object.entries(spell.runes)) {
+      const count = this.inventory.filter(i => i.id.startsWith(runeId)).length;
+      if (count < (amount as number)) {
+        this.addMessage(`You don't have enough ${runeId.replace('_', ' ')}s.`);
+        return;
+      }
+    }
+
+    // Execute spell
+    if (spellId === 'bones_to_peaches') {
+      let bonesConverted = 0;
+      for (let i = 0; i < this.inventory.length; i++) {
+        if (this.inventory[i].id.includes('bones')) {
+          this.inventory[i] = { ...ITEMS.potato, id: `peach_${Math.random()}`, name: 'Peach', description: 'Heals 5 HP.', sellPrice: 10 };
+          bonesConverted++;
         }
-     }
+      }
+      if (bonesConverted === 0) {
+        this.addMessage("You don't have any bones to convert.");
+        return;
+      }
+      this.lives = Math.min(20, this.lives + bonesConverted * 5);
+      this.addMessage(`Converted ${bonesConverted} bones to peaches and healed ${bonesConverted * 5} HP!`);
+    } else if (spellId === 'high_alchemy') {
+      if (targetItemIndex === undefined || !this.inventory[targetItemIndex]) return;
+      const item = this.inventory[targetItemIndex];
+      if (item.id.includes('rune')) {
+        this.addMessage("You can't alch runes.");
+        return;
+      }
+      const value = Math.floor((item.sellPrice || 10) * 1.5);
+      this.money += value;
+      this.inventory.splice(targetItemIndex, 1);
+      this.addMessage(`You alched ${item.name} for ${value} coins.`);
+    } else if (spellId === 'superheat_item') {
+      if (targetItemIndex === undefined || !this.inventory[targetItemIndex]) return;
+      const item = this.inventory[targetItemIndex];
+      if (!item.id.includes('ore')) {
+        this.addMessage("You can only superheat ore.");
+        return;
+      }
+      this.inventory[targetItemIndex] = { ...item, id: item.id.replace('ore', 'bar'), name: item.name.replace('ore', 'bar'), sellPrice: (item.sellPrice || 10) * 2 };
+      this.addMessage(`You superheated the ${item.name}.`);
+    } else if (spellId === 'ice_barrage') {
+      if (this.enemies.length === 0) {
+        this.addMessage("No enemies to freeze.");
+        return;
+      }
+      this.enemies.forEach(e => {
+        e.stunTimer = 5;
+        this.particles.push({ x: e.x, y: e.y, life: 2, color: '#00ffff' });
+      });
+      this.addMessage("You cast Ice Barrage and freeze the enemies!");
+    } else if (spellId === 'blood_barrage') {
+      if (this.enemies.length === 0) {
+        this.addMessage("No enemies to drain.");
+        return;
+      }
+      let totalDamage = 0;
+      this.enemies.forEach(e => {
+        const dmg = 20;
+        this.damageEnemy(e, dmg, 'magic');
+        totalDamage += dmg;
+        this.particles.push({ x: e.x, y: e.y, life: 1, color: '#ff0000' });
+      });
+      const heal = Math.floor(totalDamage / 4);
+      this.lives = Math.min(20, this.lives + heal);
+      this.addMessage(`You cast Blood Barrage, dealing damage and healing ${heal} HP!`);
+    }
+
+    // Consume runes
+    for (const [runeId, amount] of Object.entries(spell.runes)) {
+      let removed = 0;
+      for (let i = this.inventory.length - 1; i >= 0; i--) {
+        if (this.inventory[i].id.startsWith(runeId)) {
+          this.inventory.splice(i, 1);
+          removed++;
+          if (removed === amount) break;
+        }
+      }
+    }
+
+    this.awardPlayerXP('magic', spell.xp);
+    this.playSound('magic_hit');
+    this.onStateChange({ inventory: [...this.inventory], money: this.money, lives: this.lives });
+  }
+
+  unlockTower(towerId: string, cost: number) {
+    if (this.slayerPoints >= cost && !this.unlockedTowers.includes(towerId)) {
+      this.slayerPoints -= cost;
+      this.unlockedTowers.push(towerId);
+      this.addMessage(`You unlocked the ${towerId} tower!`);
+      this.onStateChange({ slayerPoints: this.slayerPoints, unlockedTowers: [...this.unlockedTowers] });
+    }
+  }
+
+  blockEnemy(enemyType: string, cost: number) {
+    if (this.slayerPoints >= cost && !this.blockedEnemies.includes(enemyType)) {
+      this.slayerPoints -= cost;
+      this.blockedEnemies.push(enemyType);
+      this.addMessage(`You blocked ${enemyType} from spawning.`);
+      this.onStateChange({ slayerPoints: this.slayerPoints, blockedEnemies: [...this.blockedEnemies] });
+    }
+  }
+
+  extendTask(enemyType: string, cost: number) {
+    if (this.slayerPoints >= cost && !this.extendedTasks.includes(enemyType)) {
+      this.slayerPoints -= cost;
+      this.extendedTasks.push(enemyType);
+      this.addMessage(`You extended tasks for ${enemyType}.`);
+      this.onStateChange({ slayerPoints: this.slayerPoints, extendedTasks: [...this.extendedTasks] });
+    }
+  }
+
+  skipTask(cost: number) {
+    if (this.slayerPoints >= cost && this.slayerTask) {
+      this.slayerPoints -= cost;
+      this.slayerTask = null;
+      this.consecutiveTasks = 0;
+      this.addMessage(`You skipped your Slayer task. Your streak has been reset.`);
+      this.assignSlayerTask();
+      this.onStateChange({ slayerPoints: this.slayerPoints, slayerTask: this.slayerTask, consecutiveTasks: 0 });
+    }
+  }
+
+  buildUpgrade(upgradeId: string) {
+    if (this.pohUpgrades.includes(upgradeId)) return;
+
+    // We need to import POH_UPGRADES or define them here.
+    // For simplicity, we can pass the materials and xp from the UI, or look it up.
+    // I'll look it up by hardcoding the requirements here for safety.
+    const upgrades: Record<string, { levelReq: number, xpReward: number, materials: {id: string, amount: number}[] }> = {
+      'wooden_bed': { levelReq: 1, xpReward: 50, materials: [{ id: 'plank', amount: 3 }, { id: 'steel_nails', amount: 3 }] },
+      'oak_table': { levelReq: 22, xpReward: 150, materials: [{ id: 'oak_plank', amount: 4 }, { id: 'steel_nails', amount: 4 }] },
+      'teak_shelves': { levelReq: 45, xpReward: 400, materials: [{ id: 'teak_plank', amount: 3 }, { id: 'steel_nails', amount: 6 }] },
+      'mahogany_portal': { levelReq: 65, xpReward: 1000, materials: [{ id: 'mahogany_plank', amount: 5 }, { id: 'law_rune', amount: 10 }] }
+    };
+
+    const upgrade = upgrades[upgradeId];
+    if (!upgrade) return;
+
+    if (this.playerSkills.construction.level < upgrade.levelReq) {
+      this.addMessage(`You need level ${upgrade.levelReq} Construction to build this.`);
+      return;
+    }
+
+    // Check materials
+    for (const req of upgrade.materials) {
+      const count = this.inventory.filter(i => i.id.startsWith(req.id)).length;
+      if (count < req.amount) {
+        this.addMessage(`You don't have enough materials.`);
+        return;
+      }
+    }
+
+    // Consume materials
+    for (const req of upgrade.materials) {
+      let removed = 0;
+      for (let i = this.inventory.length - 1; i >= 0; i--) {
+        if (this.inventory[i].id.startsWith(req.id)) {
+          this.inventory.splice(i, 1);
+          removed++;
+          if (removed === req.amount) break;
+        }
+      }
+    }
+
+    this.pohUpgrades.push(upgradeId);
+    this.awardPlayerXP('construction', upgrade.xpReward);
+    this.playSound('click'); // Or a building sound
+    this.addMessage(`You built a new POH upgrade!`);
+    
+    // Apply buffs immediately if needed, or they will be applied in getters
+    this.onStateChange({ inventory: [...this.inventory], pohUpgrades: [...this.pohUpgrades] });
   }
 
   sellItem(itemIndex: number) {
@@ -1411,7 +1698,8 @@ export class GameEngine {
       autoSpawnEnabled: this.autoSpawnEnabled,
       autoSpawnTimer: this.autoSpawnTimer,
       followingPetId: this.followingPetId,
-      activeQuote: this.activeQuote
+      activeQuote: this.activeQuote,
+      farmingPatches: this.farmingPatches
     };
   }
 
@@ -2213,6 +2501,7 @@ export class GameEngine {
         // GP Reward: Base drop always happens but reduced
         let gpReward = enemy.reward * 0.5 * (this.upgrades.rewardMultiplier || 1);
         if (this.pets.some(p => p.name === 'Snakeling')) gpReward = Math.floor(gpReward * 1.1);
+        if (this.pohUpgrades.includes('oak_table')) gpReward = Math.floor(gpReward * 1.1);
         this.money += Math.floor(gpReward);
 
         // Essence Bonus: Capped at 2.5% of current wave number
@@ -2236,7 +2525,9 @@ export class GameEngine {
         }
 
         // Item Drop: Rare
-        if (Math.random() < 0.02) {
+        let itemDropChance = 0.02;
+        if (this.pohUpgrades.includes('teak_shelves')) itemDropChance *= 1.1;
+        if (Math.random() < itemDropChance) {
           const tiers = [
             { id: 'bronze_scimitar', name: 'Bronze Scimitar', bonus: { damage: 5 }, type: 'weapon' as const },
             { id: 'iron_scimitar', name: 'Iron Scimitar', bonus: { damage: 10 }, type: 'weapon' as const },
@@ -2257,6 +2548,112 @@ export class GameEngine {
             y: enemy.y + (Math.random()-0.5)*20,
             type: 'item',
             data: drop,
+            life: 15,
+            size: 25
+          });
+        }
+
+        // Rune Drop
+        let runeDropChance = 0.1;
+        if (this.pohUpgrades.includes('teak_shelves')) runeDropChance *= 1.1;
+        if (Math.random() < runeDropChance) {
+          const runes = [
+            { id: 'air_rune', name: 'Air rune', bonus: {}, type: 'material' as const, sellPrice: 5 },
+            { id: 'water_rune', name: 'Water rune', bonus: {}, type: 'material' as const, sellPrice: 5 },
+            { id: 'earth_rune', name: 'Earth rune', bonus: {}, type: 'material' as const, sellPrice: 5 },
+            { id: 'fire_rune', name: 'Fire rune', bonus: {}, type: 'material' as const, sellPrice: 5 },
+            { id: 'nature_rune', name: 'Nature rune', bonus: {}, type: 'material' as const, sellPrice: 200 },
+            { id: 'law_rune', name: 'Law rune', bonus: {}, type: 'material' as const, sellPrice: 200 },
+            { id: 'blood_rune', name: 'Blood rune', bonus: {}, type: 'material' as const, sellPrice: 400 },
+            { id: 'death_rune', name: 'Death rune', bonus: {}, type: 'material' as const, sellPrice: 300 },
+            { id: 'soul_rune', name: 'Soul rune', bonus: {}, type: 'material' as const, sellPrice: 300 }
+          ];
+          const runeDrop = runes[Math.floor(Math.random() * runes.length)];
+          
+          this.loots.push({
+            id: Math.random().toString(),
+            x: enemy.x + (Math.random()-0.5)*20,
+            y: enemy.y + (Math.random()-0.5)*20,
+            type: 'item',
+            data: runeDrop,
+            life: 15,
+            size: 25
+          });
+        }
+
+        // Seed Drop
+        let seedDropChance = 0.05;
+        if (this.pohUpgrades.includes('teak_shelves')) seedDropChance *= 1.1;
+        if (Math.random() < seedDropChance) {
+          const seeds = [
+            { id: 'potato_seed', name: 'Potato Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 20, harvestItem: 'potato', sellPrice: 5 },
+            { id: 'onion_seed', name: 'Onion Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 25, harvestItem: 'onion', sellPrice: 8 },
+            { id: 'cabbage_seed', name: 'Cabbage Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 30, harvestItem: 'cabbage', sellPrice: 12 },
+            { id: 'sweetcorn_seed', name: 'Sweetcorn Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 40, harvestItem: 'sweetcorn', sellPrice: 20 },
+            { id: 'watermelon_seed', name: 'Watermelon Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 50, harvestItem: 'watermelon', sellPrice: 40 },
+            { id: 'snape_grass_seed', name: 'Snape Grass Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 60, harvestItem: 'snape_grass', sellPrice: 80 },
+            { id: 'guam_seed', name: 'Guam Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 30, harvestItem: 'clean_guam', sellPrice: 20 },
+            { id: 'harralander_seed', name: 'Harralander Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 40, harvestItem: 'clean_harralander', sellPrice: 40 },
+            { id: 'toadflax_seed', name: 'Toadflax Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 50, harvestItem: 'clean_toadflax', sellPrice: 80 },
+            { id: 'ranarr_seed', name: 'Ranarr Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 60, harvestItem: 'clean_ranarr', sellPrice: 100 },
+            { id: 'snapdragon_seed', name: 'Snapdragon Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 70, harvestItem: 'clean_snapdragon', sellPrice: 150 },
+            { id: 'torstol_seed', name: 'Torstol Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 80, harvestItem: 'clean_torstol', sellPrice: 250 }
+          ];
+          const seedDrop = seeds[Math.floor(Math.random() * seeds.length)];
+          
+          this.loots.push({
+            id: Math.random().toString(),
+            x: enemy.x + (Math.random()-0.5)*20,
+            y: enemy.y + (Math.random()-0.5)*20,
+            type: 'item',
+            data: seedDrop,
+            life: 15,
+            size: 25
+          });
+        }
+
+        // Farming Supplies Drop
+        let farmingSupplyDropChance = 0.03;
+        if (this.pohUpgrades.includes('teak_shelves')) farmingSupplyDropChance *= 1.1;
+        if (Math.random() < farmingSupplyDropChance) {
+          const supplies = [
+            { id: 'compost', name: 'Compost', bonus: {}, type: 'material' as const, sellPrice: 20 },
+            { id: 'supercompost', name: 'Supercompost', bonus: {}, type: 'material' as const, sellPrice: 100 },
+            { id: 'ultracompost', name: 'Ultracompost', bonus: {}, type: 'material' as const, sellPrice: 500 },
+            { id: 'plant_cure', name: 'Plant Cure', bonus: {}, type: 'material' as const, sellPrice: 50 }
+          ];
+          const supplyDrop = supplies[Math.floor(Math.random() * supplies.length)];
+          
+          this.loots.push({
+            id: Math.random().toString(),
+            x: enemy.x + (Math.random()-0.5)*20,
+            y: enemy.y + (Math.random()-0.5)*20,
+            type: 'item',
+            data: supplyDrop,
+            life: 15,
+            size: 25
+          });
+        }
+
+        // Construction Supplies Drop
+        let constructionSupplyDropChance = 0.05;
+        if (this.pohUpgrades.includes('teak_shelves')) constructionSupplyDropChance *= 1.1;
+        if (Math.random() < constructionSupplyDropChance) {
+          const constructionSupplies = [
+            { id: 'plank', name: 'Plank', bonus: {}, type: 'material' as const, sellPrice: 100 },
+            { id: 'oak_plank', name: 'Oak plank', bonus: {}, type: 'material' as const, sellPrice: 250 },
+            { id: 'teak_plank', name: 'Teak plank', bonus: {}, type: 'material' as const, sellPrice: 500 },
+            { id: 'mahogany_plank', name: 'Mahogany plank', bonus: {}, type: 'material' as const, sellPrice: 1500 },
+            { id: 'steel_nails', name: 'Steel nails', bonus: {}, type: 'material' as const, sellPrice: 10 }
+          ];
+          const supplyDrop = constructionSupplies[Math.floor(Math.random() * constructionSupplies.length)];
+          
+          this.loots.push({
+            id: Math.random().toString(),
+            x: enemy.x + (Math.random()-0.5)*20,
+            y: enemy.y + (Math.random()-0.5)*20,
+            type: 'item',
+            data: supplyDrop,
             life: 15,
             size: 25
           });
@@ -2287,8 +2684,15 @@ export class GameEngine {
           this.slayerTask.count--;
           if (this.slayerTask.count === 0) {
             this.money += this.slayerTask.reward;
-            this.playSound('task_assign');
-            this.assignSlayerTask();
+            this.consecutiveTasks++;
+            this.slayerPoints += 10 + Math.floor(this.consecutiveTasks * 2);
+            this.addMessage(`Slayer task complete! Reward: ${this.slayerTask.reward} GP and ${10 + Math.floor(this.consecutiveTasks * 2)} Slayer Points.`);
+            this.playSound('quest_complete');
+            this.slayerTask = null;
+            
+            // Check achievements
+            const ach = this.achievements.find(a => a.id === 'slayer_master');
+            if (ach && this.consecutiveTasks >= 5) ach.completed = true;
           }
         }
 
@@ -2298,6 +2702,8 @@ export class GameEngine {
           pets: this.pets, 
           achievements: this.achievements,
           slayerTask: this.slayerTask,
+          slayerPoints: this.slayerPoints,
+          consecutiveTasks: this.consecutiveTasks,
           remainingEnemies: this.enemiesToSpawn.length + this.enemies.length
         });
       }
@@ -2525,13 +2931,15 @@ export class GameEngine {
   buyItem(item: any) {
     if (this.money >= item.cost) {
       this.money -= item.cost;
+      const baseItem = ITEMS[item.id];
       this.inventory.push({
-        id: Math.random().toString(),
+        id: `${item.id}_${Math.random().toString(36).substr(2, 9)}`,
         name: item.name,
         description: item.desc,
         type: item.type,
         sellPrice: Math.floor(item.cost * 0.5),
-        bonus: {}
+        bonus: {},
+        seedType: baseItem?.seedType
       });
       this.playSound('inventory_move');
       this.addMessage(`You bought ${item.name}!`);
@@ -2577,7 +2985,9 @@ export class GameEngine {
       herblore: { level: 1, xp: 0 },
       crafting: { level: 1, xp: 0 },
       prayer: { level: 1, xp: 0 },
-      farming: { level: 1, xp: 0 }
+      farming: { level: 1, xp: 0 },
+      magic: { level: 1, xp: 0 },
+      construction: { level: 1, xp: 0 }
     };
     this.upgrades = {
       archerRange: 1.0,
@@ -2648,12 +3058,55 @@ export class GameEngine {
     enemy.stunTimer = 1.0 * (1 - (enemy.resistance || 0));
   }
 
-  equipItem(towerId: string, itemId: string) {
-    const tower = this.towers.find(t => t.id === towerId);
+  useItem(itemId: string, towerId?: string) {
     const itemIndex = this.inventory.findIndex(i => i.id === itemId);
-    if (!tower || itemIndex === -1) return;
+    if (itemIndex === -1) return;
 
     const item = this.inventory[itemIndex];
+
+    if (item.type === 'potion') {
+      // Handle potion drinking
+      const potionType = item.id.replace('_(3)', '').replace('_(2)', '').replace('_(1)', '').split('_').slice(0, -1).join('_') || item.id;
+      // Extract base potion name, e.g., 'attack_potion' from 'attack_potion_12345'
+      const baseType = item.name.toLowerCase().replace(' (3)', '').replace('(3)', '').replace(' ', '_');
+      
+      this.playSound('potion_drink');
+      
+      if (baseType === 'prayer_potion' || baseType === 'super_restore') {
+        const restoreAmount = baseType === 'super_restore' ? 20 : 10;
+        this.prayerPoints = Math.min(this.maxPrayerPoints, this.prayerPoints + restoreAmount);
+        this.addMessage(`You drank a ${item.name}!`);
+      } else if (baseType === 'saradomin_brew') {
+        this.lives = Math.min(100, this.lives + 5);
+        this.addMessage(`You drank a ${item.name} and restored 5 HP!`);
+      } else {
+        const existing = this.activePotions.find(p => p.type === baseType);
+        if (existing) {
+          existing.timer += 60;
+        } else {
+          this.activePotions.push({ type: baseType as ActivePotion['type'], timer: 60 });
+        }
+        this.addMessage(`You drank a ${item.name}!`);
+      }
+      
+      this.inventory.splice(itemIndex, 1);
+      this.onStateChange({ 
+        inventory: this.inventory,
+        activePotions: this.activePotions,
+        prayerPoints: this.prayerPoints,
+        lives: this.lives
+      });
+      return;
+    }
+
+    if (!towerId) {
+      this.addMessage("Select a tower first to equip this item.");
+      return;
+    }
+
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower) return;
+
     if (item.type !== 'weapon' && item.type !== 'shield' && item.type !== 'accessory') {
       this.addMessage("You can't equip this item.");
       return;
@@ -2728,7 +3181,9 @@ export class GameEngine {
       herblore: { level: 1, xp: 0 },
       crafting: { level: 1, xp: 0 },
       prayer: { level: 1, xp: 0 },
-      farming: { level: 1, xp: 0 }
+      farming: { level: 1, xp: 0 },
+      magic: { level: 1, xp: 0 },
+      construction: { level: 1, xp: 0 }
     };
     this.assignSlayerTask();
     this.initFarming();
@@ -2888,53 +3343,6 @@ export class GameEngine {
         this.ctx.lineTo(w, y);
         this.ctx.stroke();
       }
-
-      // Draw Farming Patches
-      this.farmingPatches.forEach(patch => {
-        // Draw patch background (brown rect)
-        const patchImgKey = patch.stage === 0 ? 'patch_empty' : (patch.stage === patch.maxStage ? 'patch_ready' : 'patch_growing');
-        const patchImg = this.imageCache.get(patchImgKey);
-        
-        if (this.isImageValid(patchImg, patchImgKey)) {
-          this.ctx.drawImage(patchImg!, patch.x - 20, patch.y - 20, 40, 40);
-        } else {
-          this.ctx.fillStyle = '#5d4037';
-          this.ctx.fillRect(patch.x - 20, patch.y - 20, 40, 40);
-          this.ctx.strokeStyle = '#3e2723';
-          this.ctx.strokeRect(patch.x - 20, patch.y - 20, 40, 40);
-        }
-        
-        if (patch.stage > 0) {
-          // Draw plant based on stage
-          const seedItem = Object.values(ITEMS).find(i => i.id === patch.seed);
-          if (seedItem) {
-            const cropKey = seedItem.harvestItem?.replace('clean_', '').replace('grimy_', '') || 'guam';
-            const cropImg = this.imageCache.get(cropKey);
-            
-            if (this.isImageValid(cropImg, cropKey)) {
-              const size = 10 + (patch.stage * 5);
-              this.ctx.drawImage(cropImg!, patch.x - size/2, patch.y - size/2, size, size);
-            } else {
-              if (patch.type === 'allotment') {
-                this.ctx.fillStyle = '#8bc34a'; // Green
-              } else if (patch.type === 'herb') {
-                this.ctx.fillStyle = '#4caf50'; // Darker green
-              } else {
-                this.ctx.fillStyle = '#ffeb3b'; // Flower
-              }
-              const size = 10 + (patch.stage * 5);
-              this.ctx.fillRect(patch.x - size/2, patch.y - size/2, size, size);
-            }
-          }
-          
-          if (patch.stage === patch.maxStage) {
-             // Ready indicator
-             this.ctx.fillStyle = '#ff0000';
-             this.ctx.font = 'bold 20px Arial';
-             this.ctx.fillText('!', patch.x - 5, patch.y - 25);
-          }
-        }
-      });
 
       // Set common styles
       this.ctx.lineCap = 'round';

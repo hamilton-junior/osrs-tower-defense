@@ -157,6 +157,7 @@ export const ASSETS = {
     coins_icon: 'https://oldschool.runescape.wiki/images/Coins_detail.png',
     rune_essence_icon: 'https://oldschool.runescape.wiki/images/Rune_essence_detail.png',
     herblore_icon: 'https://oldschool.runescape.wiki/images/Herblore_icon.png',
+    farming_icon: 'https://oldschool.runescape.wiki/images/Farming_icon.png',
     wiki_base: 'https://oldschool.runescape.wiki/images/',
   },
   sounds: {

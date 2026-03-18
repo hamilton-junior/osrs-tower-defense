@@ -5,7 +5,7 @@ export interface ShopItem {
   desc: string;
   cost: number;
   wiki: string;
-  type: 'potion' | 'essence' | 'scroll' | 'ore' | 'herb' | 'logs' | 'bones' | 'other';
+  type: 'potion' | 'essence' | 'scroll' | 'ore' | 'herb' | 'logs' | 'bones' | 'seed' | 'other';
 }
 
 export const GE_CONSUMABLES: ShopItem[] = [
@@ -25,11 +25,31 @@ export const GE_CONSUMABLES: ShopItem[] = [
   { id: 'adamantite_ore', name: 'Adamantite Ore', desc: 'Used in smithing.', cost: 100, wiki: 'Adamantite_ore', type: 'ore' },
   { id: 'rune_ore', name: 'Rune Ore', desc: 'Used in smithing.', cost: 250, wiki: 'Rune_ore', type: 'ore' },
  
- //Herbs
+  //Herbs & Ingredients
   { id: 'grimy_guam', name: 'Grimy Guam', desc: 'Needs cleaning.', cost: 10, wiki: 'Grimy_guam', type: 'herb' },
   { id: 'clean_guam', name: 'Clean Guam', desc: 'Ready for potions.', cost: 15, wiki: 'Clean_guam', type: 'herb' },
   { id: 'grimy_ranarr', name: 'Grimy Ranarr', desc: 'Valuable herb.', cost: 50, wiki: 'Grimy_ranarr', type: 'herb' },
   { id: 'clean_ranarr', name: 'Clean Ranarr', desc: 'Used in prayer potions.', cost: 70, wiki: 'Clean_ranarr', type: 'herb' },
+  { id: 'vial_of_water', name: 'Vial of water', desc: 'Used to make potions.', cost: 5, wiki: 'Vial_of_water', type: 'herb' },
+  { id: 'eye_of_newt', name: 'Eye of newt', desc: 'Used to make attack potions.', cost: 10, wiki: 'Eye_of_newt', type: 'herb' },
+  { id: 'limpwurt_root', name: 'Limpwurt root', desc: 'Used to make strength potions.', cost: 50, wiki: 'Limpwurt_root', type: 'herb' },
+  { id: 'red_spiders_eggs', name: "Red spider's eggs", desc: 'Used to make restore potions.', cost: 30, wiki: 'Red_spiders_eggs', type: 'herb' },
+  { id: 'birds_nest', name: 'Bird nest', desc: 'Used to make saradomin brews.', cost: 100, wiki: 'Bird_nest', type: 'herb' },
+  { id: 'snape_grass', name: 'Snape Grass', desc: 'Used in prayer potions.', cost: 100, wiki: 'Snape_grass', type: 'herb' },
+  
+  //Seeds
+  { id: 'guam_seed', name: 'Guam Seed', desc: 'Can be planted in a herb patch.', cost: 20, wiki: 'Guam_seed', type: 'seed' },
+  { id: 'harralander_seed', name: 'Harralander Seed', desc: 'Can be planted in a herb patch.', cost: 40, wiki: 'Harralander_seed', type: 'seed' },
+  { id: 'toadflax_seed', name: 'Toadflax Seed', desc: 'Can be planted in a herb patch.', cost: 80, wiki: 'Toadflax_seed', type: 'seed' },
+  { id: 'ranarr_seed', name: 'Ranarr Seed', desc: 'Can be planted in a herb patch.', cost: 100, wiki: 'Ranarr_seed', type: 'seed' },
+  { id: 'snapdragon_seed', name: 'Snapdragon Seed', desc: 'Can be planted in a herb patch.', cost: 150, wiki: 'Snapdragon_seed', type: 'seed' },
+  { id: 'torstol_seed', name: 'Torstol Seed', desc: 'Can be planted in a herb patch.', cost: 250, wiki: 'Torstol_seed', type: 'seed' },
+  { id: 'potato_seed', name: 'Potato Seed', desc: 'Can be planted in an allotment patch.', cost: 5, wiki: 'Potato_seed', type: 'seed' },
+  { id: 'onion_seed', name: 'Onion Seed', desc: 'Can be planted in an allotment patch.', cost: 8, wiki: 'Onion_seed', type: 'seed' },
+  { id: 'cabbage_seed', name: 'Cabbage Seed', desc: 'Can be planted in an allotment patch.', cost: 12, wiki: 'Cabbage_seed', type: 'seed' },
+  { id: 'sweetcorn_seed', name: 'Sweetcorn Seed', desc: 'Can be planted in an allotment patch.', cost: 20, wiki: 'Sweetcorn_seed', type: 'seed' },
+  { id: 'watermelon_seed', name: 'Watermelon Seed', desc: 'Can be planted in an allotment patch.', cost: 40, wiki: 'Watermelon_seed', type: 'seed' },
+  { id: 'snape_grass_seed', name: 'Snape Grass Seed', desc: 'Can be planted in an allotment patch.', cost: 80, wiki: 'Snape_grass_seed', type: 'seed' },
 
   //Bones
   { id: 'bones', name: 'Bones', desc: 'Basic prayer fodder.', cost: 5, wiki: 'Bones', type: 'bones' },

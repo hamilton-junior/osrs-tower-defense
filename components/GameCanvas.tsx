@@ -8,10 +8,15 @@ import { ENEMIES as ENEMY_DATA } from '@/lib/game/data/enemies';
 import { PRAYERS as PRAYER_DATA } from '@/lib/game/data/prayers';
 import { ITEMS as ITEM_DATA } from '@/lib/game/data/items';
 import { GE_CONSUMABLES } from '@/lib/game/data/shop';
+import { ASSETS } from '@/lib/game/assets';
 
 // UI Components
 import { TopOverlay } from './game-ui/TopOverlay';
 import { StatusSidebar } from './game-ui/StatusSidebar';
+import { FarmingTab } from './game-ui/FarmingTab';
+import { HerbloreTab } from './game-ui/HerbloreTab';
+import { MagicTab } from './game-ui/MagicTab';
+import { ConstructionTab } from './game-ui/ConstructionTab';
 import { TowerSelectionGrid } from './game-ui/TowerSelectionGrid';
 import { ActivePotionsDisplay } from './game-ui/ActivePotionsDisplay';
 import { EntityTooltip } from './game-ui/EntityTooltip';
@@ -92,6 +97,8 @@ interface GameState {
   activePotions?: any[];
   isPaused?: boolean;
   gameOver?: boolean;
+  farmingPatches?: any[];
+  pohUpgrades?: string[];
 }
 
 const UPGRADE_LIMITS = {
@@ -172,6 +179,11 @@ export default function GameCanvas() {
   const [geTab, setGeTab] = useState<'upgrades' | 'potions' | 'sell'>('upgrades');
   const [showAchievements, setShowAchievements] = useState(false);
   const [showQuests, setShowQuests] = useState(false);
+  const [showLadderMenu, setShowLadderMenu] = useState(false);
+  const [showFarmingUI, setShowFarmingUI] = useState(false);
+  const [showHerbloreUI, setShowHerbloreUI] = useState(false);
+  const [showMagicUI, setShowMagicUI] = useState(false);
+  const [showConstructionUI, setShowConstructionUI] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [hoveredEntity, setHoveredEntity] = useState<any | null>(null);
@@ -271,17 +283,6 @@ export default function GameCanvas() {
     const { x, y } = getLogicCoords(e.clientX, e.clientY);
     if (engineRef.current.collectLootAt(x, y)) return;
 
-    const patch = engineRef.current.farmingPatches.find((p: any) => x >= p.x - 20 && x <= p.x + 20 && y >= p.y - 20 && y <= p.y + 20);
-    if (patch) {
-      if (patch.stage === patch.maxStage) engineRef.current.harvestPatch(patch.id);
-      else if (patch.stage === 0) {
-        const seed = engineRef.current.inventory.find((i: any) => i.type === 'seed');
-        if (seed) engineRef.current.plantSeed(patch.id, seed);
-        else engineRef.current.addMessage("You need seeds to plant here.");
-      } else engineRef.current.addMessage("This patch is growing.");
-      return;
-    }
-
     const node = engineRef.current.nodes.find((n: any) => x >= n.x - 16 && x <= n.x + 16 && y >= n.y - 16 && y <= n.y + 16);
     if (node) { engineRef.current.interactWithNode(node.id); return; }
     
@@ -376,13 +377,13 @@ export default function GameCanvas() {
   }, []);
 
   const handleEquipItem = useCallback((itemId: string) => {
-    if (engineRef.current && gameState.selectedPlacedTower) {
+    if (engineRef.current) {
       engineRef.current.playSound('click');
-      engineRef.current.equipItem(gameState.selectedPlacedTower.id, itemId);
-      const updatedTower = engineRef.current.towers.find((t: any) => t.id === gameState.selectedPlacedTower!.id);
-      if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
-    } else {
-      engineRef.current?.playSound('click');
+      engineRef.current.useItem(itemId, gameState.selectedPlacedTower?.id);
+      if (gameState.selectedPlacedTower) {
+        const updatedTower = engineRef.current.towers.find((t: any) => t.id === gameState.selectedPlacedTower!.id);
+        if (updatedTower) setSelectedPlacedTower({ ...updatedTower });
+      }
     }
   }, [gameState.selectedPlacedTower, setSelectedPlacedTower]);
 
@@ -554,7 +555,170 @@ export default function GameCanvas() {
       {/* Active Buffs */}
       <ActivePotionsDisplay activePotions={gameState.activePotions || []} />
 
+      {/* Ladder Menu Button */}
+      <div className="absolute left-4 bottom-4 z-30 flex flex-col gap-2 pointer-events-auto">
+        {showLadderMenu && (
+          <div className="osrs-panel p-2 flex flex-col gap-2 mb-2 animate-in slide-in-from-bottom-2">
+            <button 
+              className="osrs-button py-2 px-4 text-xs uppercase flex items-center gap-2"
+              onClick={() => {
+                setShowFarmingUI(true);
+                setShowLadderMenu(false);
+                engineRef.current?.playSound('interface_open');
+              }}
+            >
+              <img src={ASSETS.misc.farming_icon} className="w-5 h-5" alt="Farming" />
+              Farming
+            </button>
+            <button 
+              className="osrs-button py-2 px-4 text-xs uppercase flex items-center gap-2"
+              onClick={() => {
+                setShowHerbloreUI(true);
+                setShowLadderMenu(false);
+                engineRef.current?.playSound('interface_open');
+              }}
+            >
+              <img src={ASSETS.misc.herblore_icon} className="w-5 h-5" alt="Herblore" />
+              Herblore
+            </button>
+            <button 
+              className="osrs-button py-2 px-4 text-xs uppercase flex items-center gap-2"
+              onClick={() => {
+                setShowMagicUI(true);
+                setShowLadderMenu(false);
+                engineRef.current?.playSound('interface_open');
+              }}
+            >
+              <img src={ASSETS.misc.magic_icon} className="w-5 h-5" alt="Magic" />
+              Magic
+            </button>
+            <button 
+              className="osrs-button py-2 px-4 text-xs uppercase flex items-center gap-2"
+              onClick={() => {
+                setShowConstructionUI(true);
+                setShowLadderMenu(false);
+                engineRef.current?.playSound('interface_open');
+              }}
+            >
+              <img src="https://oldschool.runescape.wiki/images/Construction_icon.png" className="w-5 h-5" alt="Construction" />
+              Construction
+            </button>
+          </div>
+        )}
+        <button 
+          className="w-12 h-12 bg-[var(--osrs-brown-dark)] border-2 border-[var(--osrs-border-light)] rounded-full flex items-center justify-center hover:bg-[var(--osrs-brown)] transition-colors shadow-lg"
+          onClick={() => {
+            setShowLadderMenu(!showLadderMenu);
+            engineRef.current?.playSound('click');
+          }}
+        >
+          <img src="https://oldschool.runescape.wiki/images/Ladder.png" className="w-8 h-8 object-contain" alt="Menu" onError={(e) => { e.currentTarget.src = ASSETS.misc.portal; }} />
+        </button>
+      </div>
+
       {/* Modals */}
+      {showFarmingUI && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 pointer-events-auto">
+          <div className="osrs-panel w-[400px] max-h-[80vh] flex flex-col relative">
+            <button 
+              className="absolute top-2 right-2 w-6 h-6 bg-red-900 border border-red-500 text-white flex items-center justify-center hover:bg-red-800"
+              onClick={() => {
+                setShowFarmingUI(false);
+                engineRef.current?.playSound('interface_close');
+              }}
+            >
+              X
+            </button>
+            <div className="p-4 h-full overflow-hidden">
+              <FarmingTab 
+                farmingPatches={gameState.farmingPatches || []} 
+                inventory={gameState.inventory || []} 
+                plantSeed={(patchId, seed) => engineRef.current?.plantSeed(patchId, seed)} 
+                harvestPatch={(patchId) => engineRef.current?.harvestPatch(patchId)} 
+                applyCompost={(patchId, compost) => engineRef.current?.applyCompost(patchId, compost)}
+                curePatch={(patchId) => engineRef.current?.curePatch(patchId)}
+                addMessage={(msg) => engineRef.current?.addMessage(msg)} 
+                setActiveTooltip={setActiveTooltip} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHerbloreUI && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 pointer-events-auto">
+          <div className="osrs-panel w-[400px] max-h-[80vh] flex flex-col relative">
+            <button 
+              className="absolute top-2 right-2 w-6 h-6 bg-red-900 border border-red-500 text-white flex items-center justify-center hover:bg-red-800"
+              onClick={() => {
+                setShowHerbloreUI(false);
+                engineRef.current?.playSound('interface_close');
+              }}
+            >
+              X
+            </button>
+            <div className="p-4 h-full overflow-hidden">
+              <HerbloreTab 
+                inventory={gameState.inventory || []}
+                herbloreLevel={gameState.playerSkills?.herblore?.level || 1}
+                makePotion={(herbId, secondaryId) => engineRef.current?.makePotion(herbId, secondaryId)}
+                addMessage={(msg) => engineRef.current?.addMessage(msg)}
+                setActiveTooltip={setActiveTooltip}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMagicUI && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 pointer-events-auto">
+          <div className="osrs-panel w-[400px] max-h-[80vh] flex flex-col relative">
+            <button 
+              className="absolute top-2 right-2 w-6 h-6 bg-red-900 border border-red-500 text-white flex items-center justify-center hover:bg-red-800"
+              onClick={() => {
+                setShowMagicUI(false);
+                engineRef.current?.playSound('interface_close');
+              }}
+            >
+              X
+            </button>
+            <div className="p-4 h-full overflow-hidden">
+              <MagicTab 
+                inventory={gameState.inventory || []}
+                magicLevel={gameState.playerSkills?.magic?.level || 1}
+                castSpell={(spellId, targetIndex) => engineRef.current?.castSpell(spellId, targetIndex)}
+                addMessage={(msg) => engineRef.current?.addMessage(msg)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConstructionUI && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 pointer-events-auto">
+          <div className="osrs-panel w-[400px] max-h-[80vh] flex flex-col relative">
+            <button 
+              className="absolute top-2 right-2 w-6 h-6 bg-red-900 border border-red-500 text-white flex items-center justify-center hover:bg-red-800"
+              onClick={() => {
+                setShowConstructionUI(false);
+                engineRef.current?.playSound('interface_close');
+              }}
+            >
+              X
+            </button>
+            <div className="p-4 h-full overflow-hidden">
+              <ConstructionTab 
+                inventory={gameState.inventory || []} 
+                constructionLevel={gameState.playerSkills?.construction?.level || 1} 
+                pohUpgrades={gameState.pohUpgrades || []}
+                buildUpgrade={(upgradeId) => engineRef.current?.buildUpgrade(upgradeId)} 
+                addMessage={(msg) => engineRef.current?.addMessage(msg)} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {showQuests && (
         <QuestLogModal 
           onClose={() => setShowQuests(false)}

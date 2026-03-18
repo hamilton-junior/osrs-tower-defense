@@ -120,6 +120,8 @@ export interface PlayerSkills {
   crafting: TowerSkill;
   prayer: TowerSkill;
   farming: TowerSkill;
+  magic: TowerSkill;
+  construction: TowerSkill;
 }
 
 export interface GatheringNode {
@@ -165,6 +167,8 @@ export interface FarmingPatch {
   timer: number;
   yield: number;
   maxStage: number;
+  diseased?: boolean;
+  compost?: 'compost' | 'supercompost' | 'ultracompost';
 }
 
 export type TargetingPriority = 'first' | 'last' | 'strongest' | 'weakest' | 'closest';

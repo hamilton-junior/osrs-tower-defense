@@ -38,14 +38,14 @@ export const GrandExchangeModal: React.FC<GrandExchangeModalProps> = ({
         >
           {tab === 'buy' ? (
             <div className="flex flex-col gap-6">
-              {['potion', 'ore', 'herb', 'bones', 'logs'].map(category => {
+              {['potion', 'ore', 'herb', 'seed', 'bones', 'logs'].map(category => {
                 const items = GE_CONSUMABLES.filter((item: any) => item.type === category);
                 if (items.length === 0) return null;
                 const categoryNames: Record<string, string> = {
-                  potion: 'Potions', ore: 'Ores', herb: 'Herbs', bones: 'Bones', logs: 'Logs'
+                  potion: 'Potions', ore: 'Ores', herb: 'Herbs & Ingredients', seed: 'Seeds', bones: 'Bones', logs: 'Logs'
                 };
                 const categoryIcons: Record<string, string> = {
-                  potion: 'Herblore', ore: 'Mining', herb: 'Farming', bones: 'Prayer', logs: 'Woodcutting'
+                  potion: 'Herblore', ore: 'Mining', herb: 'Herblore', seed: 'Farming', bones: 'Prayer', logs: 'Woodcutting'
                 };
                 return (
                   <div key={category}>
