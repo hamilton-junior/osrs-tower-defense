@@ -7,6 +7,7 @@ import { CombatTab } from './CombatTab';
 import { PrayerTab } from './PrayerTab';
 import { PetTab } from './PetTab';
 import { QuestTab } from './QuestTab';
+import { SlayerTab } from './SlayerTab';
 import { SettingsTab } from './SettingsTab';
 import { SpecialAttackBar } from './SpecialAttackBar';
 
@@ -35,10 +36,19 @@ interface StatusSidebarProps {
   questPoints: number;
   quests: any[];
   currentRegion: string;
+  slayerPoints: number;
+  consecutiveTasks: number;
+  unlockedTowers: string[];
+  blockedEnemies: string[];
+  extendedTasks: string[];
+  biggerAndBadder: boolean;
+  slayerHelmet: boolean;
+  slayerMaster: string;
 
   // Handlers
   handleSpecialAttack: () => void;
   handleEquipItem: (itemId: string) => void;
+  buryBone: (itemIndex: number) => void;
   setShowAchievements: (show: boolean) => void;
   setGameSpeed: (speed: number) => void;
   handleStartWave: () => void;
@@ -58,6 +68,12 @@ interface StatusSidebarProps {
   devMode: boolean;
   handleSetWave: (wave: number) => void;
   handleSetGold: (gold: number) => void;
+  setSlayerMaster: (masterId: string) => void;
+  unlockTower: (towerId: string, cost: number) => void;
+  unlockSlayerReward: (rewardId: string, cost: number) => void;
+  blockEnemy: (enemyType: string, cost: number) => void;
+  extendTask: (enemyType: string, cost: number) => void;
+  skipTask: (cost: number) => void;
 }
 
 interface TabButtonProps {
@@ -108,7 +124,7 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
   } = props;
 
   return (
-    <div className={`flex items-end pointer-events-auto transition-transform duration-500 shadow-2xl relative ${isSidebarCollapsed ? 'translate-y-[368px]' : ''}`}>
+    <div className={`flex items-end pointer-events-auto transition-transform duration-500 shadow-2xl relative ${isSidebarCollapsed ? 'translate-y-[428px]' : ''}`}>
       {/* HP Bar (Left) - OLD STYLE */}
       <div 
         className="w-8 h-[300px] bg-[var(--osrs-brown)] border-2 border-[var(--osrs-border-dark)] relative overflow-hidden flex flex-col-reverse mr-1 cursor-help mb-0"
@@ -132,7 +148,7 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
       </div>
 
       {/* Main Sidebar Panel */}
-      <div className="flex flex-col w-[240px] h-[360px] osrs-panel relative overflow-visible flex-shrink-0">
+      <div className="flex flex-col w-[280px] h-[420px] osrs-panel relative overflow-visible flex-shrink-0">
         {/* Sidebar Toggle Button (At TOP) */}
         <button 
           onClick={() => {
@@ -142,7 +158,7 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
           className="w-full h-8 bg-[var(--osrs-brown)] border-2 border-b-0 border-[var(--osrs-border-dark)] flex items-center justify-center text-osrs-yellow hover:text-white transition-colors osrs-panel absolute -top-8 left-0 z-30"
           style={{ borderRadius: '8px 8px 0 0', boxShadow: '0 -4px 10px rgba(0,0,0,0.5)' }}
         >
-          <span className="text-[10px] font-bold mr-2 tracking-widest">{isSidebarCollapsed ? 'SHOW UI' : 'HIDE UI'}</span>
+          <span className="text-[12px] font-bold mr-2 tracking-widest">{isSidebarCollapsed ? 'SHOW UI' : 'HIDE UI'}</span>
           {isSidebarCollapsed ? '▲' : '▼'}
         </button>
 
@@ -152,11 +168,32 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
         />
 
         {/* Tab Content Area */}
-        <div className="flex-1 p-3 bg-black/10 overflow-hidden text-[13px]">
+        <div className="flex-1 p-4 bg-black/10 overflow-y-auto text-[14px] custom-scrollbar">
+          {activeTab === 'slayer' && (
+            <SlayerTab
+              slayerPoints={props.slayerPoints}
+              slayerTask={props.slayerTask}
+              consecutiveTasks={props.consecutiveTasks}
+              unlockedTowers={props.unlockedTowers}
+              blockedEnemies={props.blockedEnemies}
+              extendedTasks={props.extendedTasks}
+              biggerAndBadder={props.biggerAndBadder}
+              slayerHelmet={props.slayerHelmet}
+              slayerMaster={props.slayerMaster}
+              setSlayerMaster={props.setSlayerMaster}
+              unlockTower={props.unlockTower}
+              unlockSlayerReward={props.unlockSlayerReward}
+              blockEnemy={props.blockEnemy}
+              extendTask={props.extendTask}
+              skipTask={props.skipTask}
+              addMessage={props.addMessage}
+            />
+          )}
           {activeTab === 'inventory' && (
             <InventoryTab 
               inventory={props.inventory} 
               handleEquipItem={props.handleEquipItem} 
+              buryBone={props.buryBone}
               setActiveTooltip={props.setActiveTooltip} 
             />
           )}
@@ -243,10 +280,11 @@ export const StatusSidebar: React.FC<StatusSidebarProps> = (props) => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="grid grid-cols-8 gap-0 border-t border-[var(--osrs-border-dark)] bg-[var(--osrs-brown-dark)]">
+        <div className="grid grid-cols-9 gap-0 border-t border-[var(--osrs-border-dark)] bg-[var(--osrs-brown-dark)]">
           <TabButton id="combat" icon="Combat_icon" label="Combat" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="achievements" icon="Skills_icon" label="Achievements" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="quests" icon="Quest_point_icon" label="Quests" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
+          <TabButton id="slayer" icon="Slayer_icon" label="Slayer" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="inventory" icon="Inventory" label="Inventory" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="ge" icon="Coins_detail" label="Exchange" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />
           <TabButton id="prayer" icon="Prayer_icon" label="Prayer" activeTab={activeTab} setActiveTab={setActiveTab} playSound={playSound} setActiveTooltip={setActiveTooltip} />

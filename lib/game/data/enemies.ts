@@ -283,5 +283,42 @@ export const ENEMIES: Record<string, EnemyDef> = {
     reward: 100,
     deathSound: 'dragon',
     waveUnlock: 15
+  },
+  superior_bloodveld: {
+    type: 'superior_bloodveld',
+    name: 'Insatiable Bloodveld',
+    hp: 450,
+    speed: 50,
+    color: '#ff1493',
+    reward: 100,
+    waveUnlock: 10
+  },
+  superior_abyssal_demon: {
+    type: 'superior_abyssal_demon',
+    name: 'Greater Abyssal Demon',
+    hp: 400,
+    speed: 75,
+    color: '#8a2be2',
+    reward: 150,
+    deathSound: 'abyssal_demon',
+    waveUnlock: 12
+  },
+  superior_gargoyle: {
+    type: 'superior_gargoyle',
+    name: 'Rock Beast',
+    hp: 500,
+    speed: 40,
+    color: '#696969',
+    reward: 120,
+    waveUnlock: 9
+  },
+  superior_nechryael: {
+    type: 'superior_nechryael',
+    name: 'Nechryarch',
+    hp: 450,
+    speed: 50,
+    color: '#483d8b',
+    reward: 130,
+    waveUnlock: 11
   }
 };

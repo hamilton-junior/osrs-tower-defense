@@ -95,6 +95,7 @@ interface GameState {
   maxPrayerPoints: number;
   prayerDrainRate?: number;
   activePotions?: any[];
+  itemPriceMultipliers?: Record<string, number>;
   isPaused?: boolean;
   gameOver?: boolean;
   farmingPatches?: any[];
@@ -150,7 +151,7 @@ export default function GameCanvas() {
     }
   });
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'quests' | 'achievements' | 'ge' | 'combat' | 'prayer' | 'herblore' | 'settings' | 'pets'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'quests' | 'achievements' | 'ge' | 'combat' | 'prayer' | 'herblore' | 'settings' | 'pets' | 'slayer'>('inventory');
   const [autoSpawn, setAutoSpawn] = useState(false);
   const [autoSpawnDelay, setAutoSpawnDelay] = useState(3);
   const [autoSpawnTimer, setAutoSpawnTimer] = useState(0);
@@ -173,6 +174,7 @@ export default function GameCanvas() {
     xpGainMultiplier: 1.0,
     prayerRegen: 0
   });
+  const [upgradeCounts, setUpgradeCounts] = useState<Record<string, number>>({});
 
   const [showGrandExchange, setShowGrandExchange] = useState(false);
   const [showEssenceShop, setShowEssenceShop] = useState(false);
@@ -257,12 +259,16 @@ export default function GameCanvas() {
   };
 
   const buyUpgrade = useCallback((type: keyof GlobalUpgrades, cost: number, increment: number) => {
+    const count = upgradeCounts[type] || 0;
+    const currentCost = cost * Math.pow(2, count);
     const currentVal = upgrades[type];
     const limit = UPGRADE_LIMITS[type];
     const canUpgrade = increment > 0 ? currentVal < limit : currentVal > limit;
-    if (runeEssence >= cost && canUpgrade) {
+    
+    if (runeEssence >= currentCost && canUpgrade) {
       engineRef.current?.playSound('sell');
-      setRuneEssence((prev: number) => prev - cost);
+      setRuneEssence((prev: number) => prev - currentCost);
+      setUpgradeCounts(prev => ({ ...prev, [type]: count + 1 }));
       setUpgrades((prev: GlobalUpgrades) => {
         const currentVal = prev[type] ?? (type === 'towerCostReduction' ? 1.0 : 0);
         const newVal = increment > 0 
@@ -276,7 +282,7 @@ export default function GameCanvas() {
     } else {
       engineRef.current?.playSound('click');
     }
-  }, [runeEssence, upgrades]);
+  }, [runeEssence, upgrades, upgradeCounts]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (!engineRef.current) return;
@@ -513,6 +519,14 @@ export default function GameCanvas() {
           questPoints={gameState.achievementPoints || 0}
           quests={gameState.quests || []}
           currentRegion="Misthalin"
+          slayerPoints={engineRef.current?.slayerPoints || 0}
+          consecutiveTasks={engineRef.current?.consecutiveTasks || 0}
+          unlockedTowers={engineRef.current?.unlockedTowers || []}
+          blockedEnemies={engineRef.current?.blockedEnemies || []}
+          extendedTasks={engineRef.current?.extendedTasks || []}
+          biggerAndBadder={engineRef.current?.biggerAndBadder || false}
+          slayerHelmet={engineRef.current?.slayerHelmet || false}
+          slayerMaster={engineRef.current?.slayerMaster || 'turael'}
           handleSpecialAttack={handleSpecialAttack}
           handleEquipItem={handleEquipItem}
           setShowAchievements={setShowAchievements}
@@ -539,6 +553,13 @@ export default function GameCanvas() {
           devMode={devMode}
           handleSetWave={handleSetWave}
           handleSetGold={handleSetGold}
+          buryBone={(index) => engineRef.current?.buryBone(index)}
+          setSlayerMaster={(id) => engineRef.current?.setSlayerMaster(id)}
+          unlockTower={(id, cost) => engineRef.current?.unlockTower(id, cost)}
+          unlockSlayerReward={(id, cost) => engineRef.current?.unlockSlayerReward(id, cost)}
+          blockEnemy={(type, cost) => engineRef.current?.blockEnemy(type, cost)}
+          extendTask={(type, cost) => engineRef.current?.extendTask(type, cost)}
+          skipTask={(cost) => engineRef.current?.skipTask(cost)}
         />
       </div>
 
@@ -731,6 +752,7 @@ export default function GameCanvas() {
           onClose={() => setShowGrandExchange(false)}
           money={gameState.money}
           inventory={gameState.inventory || []}
+          itemPriceMultipliers={gameState.itemPriceMultipliers || {}}
           onBuy={(id, cost) => {
             const item = GE_CONSUMABLES.find(i => i.id === id);
             if (item) {

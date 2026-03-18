@@ -29,11 +29,11 @@ export const SkillsTab: React.FC<SkillsTabProps> = ({
       >
         View Diary
       </button>
-      <div className="grid grid-cols-2 gap-x-2 gap-y-3 mt-1">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-4 mt-2">
         {Object.entries(playerSkills || {}).map(([key, skill]: [string, any]) => (
           <div 
             key={key} 
-            className="flex items-center gap-2 group relative cursor-help p-1 hover:bg-white/5 rounded"
+            className="flex items-center gap-3 group relative cursor-help p-2 hover:bg-white/5 rounded border border-transparent hover:border-white/10 transition-all"
             onMouseEnter={(e) => setActiveTooltip({
               x: e.clientX, y: e.clientY,
               title: key.toUpperCase(), 
@@ -42,10 +42,10 @@ export const SkillsTab: React.FC<SkillsTabProps> = ({
             })}
             onMouseLeave={() => setActiveTooltip(null)}
           >
-            <img src={`${ASSETS.misc.wiki_base}${key.charAt(0).toUpperCase() + key.slice(1)}_icon.png`} className="w-6 h-6 object-contain" alt="" />
+            <img src={`${ASSETS.misc.wiki_base}${key.charAt(0).toUpperCase() + key.slice(1)}_icon.png`} className="w-8 h-8 object-contain" alt="" />
             <div className="flex flex-col">
-               <span className="text-sm text-osrs-yellow font-bold leading-tight">{skill.level}</span>
-               <span className="text-[11px] text-[#c0c0c0] uppercase tracking-tighter leading-none">{key}</span>
+               <span className="text-lg text-osrs-yellow font-bold leading-tight">{skill.level}</span>
+               <span className="text-[12px] text-[#c0c0c0] uppercase tracking-tighter leading-none">{key}</span>
             </div>
           </div>
         ))}

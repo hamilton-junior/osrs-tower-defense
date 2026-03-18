@@ -9,9 +9,9 @@ export const ActivePotionsDisplay: React.FC<ActivePotionsDisplayProps> = ({ acti
   if (!activePotions || activePotions.length === 0) return null;
 
   return (
-    <div className="absolute top-20 left-4 flex flex-col gap-1 z-10">
+    <div className="absolute bottom-4 right-[300px] flex flex-col-reverse gap-1 z-10 pointer-events-none">
       {activePotions.map((p: any) => (
-        <div key={p.type} className="flex items-center gap-2 bg-black/60 border border-osrs-yellow/30 p-1 rounded-sm min-w-[100px] group relative cursor-help">
+        <div key={p.type} className="flex items-center gap-2 bg-black/60 border border-osrs-yellow/30 p-1 rounded-sm min-w-[100px] group relative">
           <img 
             src={`https://oldschool.runescape.wiki/images/${p.type.charAt(0).toUpperCase() + p.type.slice(1).replace('_', ' ')}_potion(4).png`} 
             className="w-5 h-5 object-contain" 

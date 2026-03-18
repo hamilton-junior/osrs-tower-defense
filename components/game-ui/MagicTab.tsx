@@ -16,7 +16,7 @@ const SPELLS = [
     description: 'Converts bones in inventory to peaches (heals 5 HP).', 
     level: 60, 
     runes: { nature_rune: 2, earth_rune: 4, water_rune: 4 },
-    icon: 'Bones_to_peaches.png'
+    icon: 'Bones_to_Peaches.png'
   },
   { 
     id: 'high_alchemy', 

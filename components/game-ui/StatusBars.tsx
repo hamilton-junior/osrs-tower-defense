@@ -38,7 +38,7 @@ export const StatusBars: React.FC<StatusBarsProps> = ({
         </div>
         <div className="h-4 bg-black border border-[var(--osrs-border-light)] relative rounded overflow-hidden">
           <div 
-            className="h-full bg-gradient-to-r from-[#008080] to-[#00ffff] transition-all duration-300" 
+            className={`h-full bg-gradient-to-r from-[#008080] to-[#00ffff] transition-all duration-300 ${currentPrayer > 0 ? 'animate-pulse' : ''}`} 
             style={{ width: `${Math.max(0, (currentPrayer / maxPrayer) * 100)}%` }} 
           />
         </div>

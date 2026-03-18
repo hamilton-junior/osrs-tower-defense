@@ -50,9 +50,9 @@ export const ITEMS: Record<string, Item> = {
   clean_torstol: { id: 'clean_torstol', name: 'Clean Torstol', description: 'Used for super combat potions.', bonus: {}, type: 'herb', sellPrice: 200 },
   
   // Bones
-  bones: { id: 'bones', name: 'Bones', description: 'Basic prayer fodder.', bonus: {}, type: 'material', sellPrice: 5 },
-  big_bones: { id: 'big_bones', name: 'Big Bones', description: 'Better prayer XP.', bonus: {}, type: 'material', sellPrice: 20 },
-  dragon_bones: { id: 'dragon_bones', name: 'Dragon Bones', description: 'High-tier prayer XP.', bonus: {}, type: 'material', sellPrice: 100 },
+  bones: { id: 'bones', name: 'Bones', description: 'Basic prayer fodder.', bonus: { xpBonus: 15 }, type: 'bone', sellPrice: 5 },
+  big_bones: { id: 'big_bones', name: 'Big Bones', description: 'Better prayer XP.', bonus: { xpBonus: 30 }, type: 'bone', sellPrice: 20 },
+  dragon_bones: { id: 'dragon_bones', name: 'Dragon Bones', description: 'High-tier prayer XP.', bonus: { xpBonus: 100 }, type: 'bone', sellPrice: 100 },
 
   // Farming Supplies
   compost: { id: 'compost', name: 'Compost', description: 'Reduces disease chance and increases yield.', bonus: {}, type: 'material', sellPrice: 20 },

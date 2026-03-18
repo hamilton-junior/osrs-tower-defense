@@ -27,16 +27,16 @@ export const PetTab: React.FC<PetTabProps> = ({
       </div>
       
       {pets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 opacity-40">
-           <p className="text-[11px] text-[#c0c0c0] text-center">No pets following you yet...</p>
-           <p className="text-[9px] text-[#808080] text-center mt-1">Complete rare feats or defeat bosses to earn followers.</p>
+        <div className="flex flex-col items-center justify-center py-12 opacity-40">
+           <p className="text-sm text-[#c0c0c0] text-center">No pets following you yet...</p>
+           <p className="text-xs text-[#808080] text-center mt-2">Complete rare feats or defeat bosses to earn followers.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-2">
+        <div className="grid grid-cols-1 gap-3">
           {pets.map((pet) => (
             <div 
               key={pet.id}
-              className="osrs-panel p-2 flex items-center gap-3 hover:brightness-110 cursor-pointer transition-all border border-transparent hover:border-osrs-yellow/30"
+              className="osrs-panel p-3 flex items-center gap-4 hover:brightness-110 cursor-pointer transition-all border border-transparent hover:border-osrs-yellow/30"
               onMouseEnter={(e) => setActiveTooltip({
                 x: e.clientX, y: e.clientY,
                 title: pet.name,
@@ -46,7 +46,7 @@ export const PetTab: React.FC<PetTabProps> = ({
               onMouseLeave={() => setActiveTooltip(null)}
               onClick={() => playSound('click')}
             >
-              <div className="w-10 h-10 bg-black/40 border border-[var(--osrs-border-dark)] rounded flex items-center justify-center p-1">
+              <div className="w-14 h-14 bg-black/40 border border-[var(--osrs-border-dark)] rounded flex items-center justify-center p-2">
                 <img 
                   src={(ASSETS.pets as any)[pet.type] || (ASSETS.pets as any)[pet.name.toLowerCase().replace(/ /g, '_')] || `${ASSETS.misc.wiki_base}${pet.name.replace(/ /g, '_')}_icon.png`}
                   alt={pet.name}
@@ -63,8 +63,8 @@ export const PetTab: React.FC<PetTabProps> = ({
                 />
               </div>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-[11px] font-bold text-white truncate">{pet.name}</span>
-                <span className="text-[9px] text-osrs-yellow italic truncate">{pet.bonus}</span>
+                <span className="text-sm font-bold text-white truncate">{pet.name}</span>
+                <span className="text-xs text-osrs-yellow italic truncate">{pet.bonus}</span>
               </div>
             </div>
           ))}

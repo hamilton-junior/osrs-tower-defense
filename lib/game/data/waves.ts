@@ -17,5 +17,9 @@ export const LANDMARK_WAVES: Record<number, WaveConfig[]> = {
   9: [{ type: 'black_demon', count: 6 }, { type: 'gargoyle', count: 8 }],
   10: [{ type: 'jad', count: 1 }, { type: 'lesser_demon', count: 5 }],
   20: [{ type: 'vorkath', count: 1 }, { type: 'blue_dragon', count: 5 }],
-  30: [{ type: 'zulrah', count: 1 }, { type: 'green_dragon', count: 10 }]
+  30: [{ type: 'zulrah', count: 1 }, { type: 'green_dragon', count: 10 }],
+  40: [{ type: 'zulrah', count: 1 }, { type: 'nechryael', count: 10 }],
+  50: [{ type: 'vorkath', count: 1 }, { type: 'abyssal_demon', count: 10 }],
+  60: [{ type: 'jad', count: 1 }, { type: 'dark_beast', count: 10 }],
+  100: [{ type: 'hydra', count: 1 }, { type: 'dark_beast', count: 20 }]
 };

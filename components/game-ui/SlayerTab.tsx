@@ -10,7 +10,12 @@ interface SlayerTabProps {
   unlockedTowers: string[];
   blockedEnemies: string[];
   extendedTasks: string[];
+  biggerAndBadder: boolean;
+  slayerHelmet: boolean;
+  slayerMaster: string;
+  setSlayerMaster: (masterId: string) => void;
   unlockTower: (towerId: string, cost: number) => void;
+  unlockSlayerReward: (rewardId: string, cost: number) => void;
   blockEnemy: (enemyType: string, cost: number) => void;
   extendTask: (enemyType: string, cost: number) => void;
   skipTask: (cost: number) => void;
@@ -24,15 +29,31 @@ export const SlayerTab: React.FC<SlayerTabProps> = ({
   unlockedTowers,
   blockedEnemies,
   extendedTasks,
+  biggerAndBadder,
+  slayerHelmet,
+  slayerMaster,
+  setSlayerMaster,
   unlockTower,
+  unlockSlayerReward,
   blockEnemy,
   extendTask,
   skipTask,
   addMessage
 }) => {
+  const MASTERS = [
+    { id: 'turael', name: 'Turael', level: 1 },
+    { id: 'mazchna', name: 'Mazchna', level: 20 },
+    { id: 'duradel', name: 'Duradel', level: 50 }
+  ];
+
   const UNLOCKS = [
     { id: 'cannon', name: 'Dwarf Multicannon', cost: 100, desc: 'Unlocks the Cannon tower.' },
     { id: 'slayer', name: 'Slayer Tower', cost: 250, desc: 'Unlocks the Slayer melee tower.' }
+  ];
+
+  const REWARDS = [
+    { id: 'bigger_and_badder', name: 'Bigger and Badder', cost: 150, desc: 'Superior monsters can spawn during tasks.' },
+    { id: 'slayer_helmet', name: 'Slayer Helmet', cost: 400, desc: '+15% damage to task targets.' }
   ];
 
   const BLOCK_COST = 50;
@@ -44,6 +65,22 @@ export const SlayerTab: React.FC<SlayerTabProps> = ({
       <div className="flex items-center gap-2 mb-4 border-b border-osrs-border-dark pb-2">
         <img src={ASSETS.misc.slayer_crossbow} className="w-6 h-6" alt="Slayer" />
         <h2 className="text-xl">Slayer Master</h2>
+      </div>
+
+      <div className="mb-4">
+        <h3 className="text-sm text-osrs-orange mb-2 uppercase">Select Master</h3>
+        <div className="flex gap-2">
+          {MASTERS.map(m => (
+            <button
+              key={m.id}
+              onClick={() => setSlayerMaster(m.id)}
+              className={`flex-1 py-1 text-xs rounded border transition-all ${slayerMaster === m.id ? 'bg-osrs-brown border-osrs-yellow text-white' : 'bg-black/40 border-osrs-border-dark text-gray-400 hover:border-osrs-yellow/50'}`}
+              title={`Requires Level ${m.level} Magic`}
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex justify-between items-center mb-4 bg-black/50 p-2 rounded border border-osrs-border-dark">
@@ -102,6 +139,32 @@ export const SlayerTab: React.FC<SlayerTabProps> = ({
                     disabled={slayerPoints < unlock.cost}
                   >
                     {unlock.cost} pts
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <h3 className="text-lg mb-2 text-osrs-orange">Rewards</h3>
+        <div className="space-y-2 mb-4">
+          {REWARDS.map(reward => {
+            const isUnlocked = reward.id === 'bigger_and_badder' ? biggerAndBadder : slayerHelmet;
+            return (
+              <div key={reward.id} className="bg-black/40 p-2 rounded border border-osrs-border-dark flex justify-between items-center">
+                <div>
+                  <div className="text-white">{reward.name}</div>
+                  <div className="text-xs text-gray-400">{reward.desc}</div>
+                </div>
+                {isUnlocked ? (
+                  <span className="text-green-500 text-sm">Unlocked</span>
+                ) : (
+                  <button
+                    className={`px-3 py-1 text-sm rounded border ${slayerPoints >= reward.cost ? 'bg-osrs-brown-dark border-osrs-border-light hover:bg-osrs-brown text-white' : 'bg-gray-800 border-gray-600 text-gray-500 cursor-not-allowed'}`}
+                    onClick={() => slayerPoints >= reward.cost && unlockSlayerReward(reward.id, reward.cost)}
+                    disabled={slayerPoints < reward.cost}
+                  >
+                    {reward.cost} pts
                   </button>
                 )}
               </div>

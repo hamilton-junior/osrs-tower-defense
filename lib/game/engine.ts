@@ -19,6 +19,12 @@ import { TICK, ARCHER_STATS, SPELL_MAX_HITS, WIZARD_SPELL_TIERS, ANCIENT_HITS, A
 
 // OSRS Game Tick is imported from data/tower-stats.ts
 
+const SLAYER_MASTERS = [
+  { id: 'turael', name: 'Turael', levelReq: 1, taskPool: ['goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost'], bonusMultiplier: 1.0, pointsPerTask: 2 },
+  { id: 'mazchna', name: 'Mazchna', levelReq: 20, taskPool: ['scorpion', 'hill_giant', 'lesser_demon', 'hellhound', 'fire_giant', 'bloodveld'], bonusMultiplier: 1.2, pointsPerTask: 5 },
+  { id: 'duradel', name: 'Duradel', levelReq: 50, taskPool: ['abyssal_demon', 'dark_beast', 'hydra', 'gargoyle', 'nechryael', 'black_demon', 'blue_dragon', 'green_dragon'], bonusMultiplier: 1.5, pointsPerTask: 15 }
+];
+
 export class GameEngine {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -134,11 +140,26 @@ export class GameEngine {
   achievementPoints: number = 0;
   slayerPoints: number = 0;
   slayerTask: SlayerTask | null = null;
+  slayerMaster: string = 'turael';
   lastTaskType: EnemyType | null = null;
   consecutiveTasks: number = 0;
   unlockedTowers: string[] = ['archer', 'wizard', 'tzhaar', 'toxic'];
   blockedEnemies: string[] = [];
   extendedTasks: string[] = [];
+  biggerAndBadder: boolean = false;
+  slayerHelmet: boolean = false;
+  
+  // Boss mechanics state
+  acidPools: { x: number, y: number, radius: number, duration: number }[] = [];
+  zombifiedSpawn: { x: number, y: number, hp: number, id: string, targetTowerId: string } | null = null;
+  zulrahPhase: 'serpentine' | 'magma' | 'tanzanite' = 'serpentine';
+  jadStyle: 'magic' | 'ranged' = 'magic';
+  bossTimer: number = 0;
+
+  // Economy state
+  itemPriceMultipliers: Record<string, number> = {};
+  itemsSoldThisWave: Record<string, number> = {};
+  lastEconomyUpdateWave: number = 0;
 
   audioCtx: AudioContext | null = null;
   soundCache: Map<string, HTMLAudioElement> = new Map();
@@ -423,12 +444,14 @@ export class GameEngine {
   }
 
   assignSlayerTask() {
+    const master = SLAYER_MASTERS.find(m => m.id === this.slayerMaster) || SLAYER_MASTERS[0];
     const available = Object.values(ENEMIES).filter(e => 
       e.waveUnlock !== undefined && 
       e.waveUnlock <= this.wave && 
       e.type !== this.lastTaskType &&
       !e.isBoss &&
-      !this.blockedEnemies.includes(e.type)
+      !this.blockedEnemies.includes(e.type) &&
+      master.taskPool.includes(e.type)
     );
     if (available.length === 0) return;
 
@@ -448,12 +471,23 @@ export class GameEngine {
       type,
       count,
       total: count,
-      reward: Math.floor((50 + (count * 2)) * this.upgrades.slayerReward * bonusMultiplier)
+      reward: Math.floor((master.pointsPerTask + (count * 0.1)) * this.upgrades.slayerReward * bonusMultiplier * master.bonusMultiplier)
     };
     this.onStateChange({ 
       slayerTask: this.slayerTask
     });
     this.playSound('task_assign');
+  }
+
+  setSlayerMaster(masterId: string) {
+    const master = SLAYER_MASTERS.find(m => m.id === masterId);
+    if (master && this.playerSkills.magic.level >= master.levelReq) { // Using magic level as a proxy for combat level req
+      this.slayerMaster = masterId;
+      this.addMessage(`You are now using ${master.name} as your Slayer Master.`);
+      this.onStateChange({ slayerMaster: this.slayerMaster });
+    } else if (master) {
+      this.addMessage(`You need level ${master.levelReq} Magic to use ${master.name}.`);
+    }
   }
 
   start() {
@@ -468,6 +502,10 @@ export class GameEngine {
   startWave() {
     if (this.waveActive) return;
     
+    if (!this.slayerTask) {
+      this.assignSlayerTask();
+    }
+
     console.log(`Starting Wave ${this.wave}`);
     this.playSound('wave');
     this.waveActive = true;
@@ -658,7 +696,18 @@ export class GameEngine {
 
     for (const config of waveConfigs) {
       for (let i = 0; i < config.count; i++) {
-        const baseStats = this.getEnemyStats(config.type, waveNum);
+        let actualType = config.type;
+        
+        // Superior monster chance (1/100) if Bigger and Badder is unlocked
+        if (this.biggerAndBadder && !ENEMIES[actualType].isBoss) {
+            const superiorType = `superior_${actualType}`;
+            if (ENEMIES[superiorType] && Math.random() < 0.01) {
+                actualType = superiorType as any;
+                this.addMessage(`A superior monster has appeared: ${ENEMIES[actualType].name}!`);
+            }
+        }
+        
+        const baseStats = this.getEnemyStats(actualType, waveNum);
         enemies.push({
           id: Math.random().toString(36).substr(2, 9),
           x: this.path[0].x,
@@ -798,7 +847,7 @@ export class GameEngine {
     if (tower && tower.equipment[slot]) {
       const item = tower.equipment[slot];
       tower.equipment[slot] = null;
-      this.inventory.push(item!);
+      this.addItemToInventory(item!);
       this.playSound('inventory_move');
       this.onStateChange({ towers: this.towers, inventory: this.inventory });
     }
@@ -1065,7 +1114,7 @@ export class GameEngine {
       this.playSound('bury_bones');
       this.damageNumbers.push({ x: loot.x, y: loot.y, text: '+15 Prayer XP', life: 1.5, color: '#ffffff', velocityY: -40, velocityX: 0 });
     } else if (loot.type === 'item' && loot.data) {
-      this.inventory.push({ ...loot.data, id: `${loot.data.id}_${Math.random().toString(36).substr(2, 9)}` });
+      this.addItemToInventory(loot.data);
       this.damageNumbers.push({ x: loot.x, y: loot.y, text: loot.data.name, life: 2.0, color: '#ff8000', velocityY: -50, velocityX: 0 });
       this.playSound('pick_up');
       this.addMessage(`Looted: ${loot.data.name}`);
@@ -1080,11 +1129,26 @@ export class GameEngine {
     const w = this.LOGIC_WIDTH;
     const h = this.LOGIC_HEIGHT;
 
-    NODE_CONFIGS.forEach(config => {
-      const x = config.x * w;
-      const y = config.y * h;
+    // Filter nodes based on player skill levels
+    const availableNodes = NODE_CONFIGS.filter(config => {
+      if (config.type === 'tree') return this.playerSkills.woodcutting.level >= config.level;
+      if (config.type === 'ore') return this.playerSkills.mining.level >= config.level;
+      if (config.type === 'herb') return this.playerSkills.herblore.level >= config.level;
+      return false;
+    });
+
+    if (availableNodes.length === 0) {
+      // Fallback to basic nodes if none are available (shouldn't happen with level 1 nodes)
+      availableNodes.push(...NODE_CONFIGS.filter(c => c.level === 1));
+    }
+
+    const nodeCount = 8;
+    for (let i = 0; i < nodeCount; i++) {
+      const config = availableNodes[Math.floor(Math.random() * availableNodes.length)];
       
-      // Only add if not on path
+      const x = (0.1 + Math.random() * 0.8) * w;
+      const y = (0.1 + Math.random() * 0.8) * h;
+      
       if (this.isValidPlacement(x, y)) {
         this.nodes.push({
           id: `node_${Math.random().toString(36).substr(2, 9)}`,
@@ -1098,7 +1162,7 @@ export class GameEngine {
           maxRespawn: 15000 + Math.random() * 10000
         });
       }
-    });
+    }
   }
 
   upgradeItem(itemId: string) {
@@ -1380,10 +1444,10 @@ export class GameEngine {
     
     for(let i=0; i<patch.yield; i++) {
       if (yieldItem) {
-        this.inventory.push({ ...yieldItem, id: `${yieldItem.id}_${Math.random().toString(36).substr(2, 9)}` });
+        this.addItemToInventory(yieldItem);
       } else {
         // Fallback
-        this.inventory.push({
+        this.addItemToInventory({
           id: yieldItemId,
           name: yieldItemId.replace('_', ' '),
           description: 'A harvested crop.',
@@ -1457,7 +1521,7 @@ export class GameEngine {
 
     const potionItem = ITEMS[recipe.id];
     if (potionItem) {
-      this.inventory.push({ ...potionItem, id: `${potionItem.id}_${Math.random().toString(36).substr(2, 9)}` });
+      this.addItemToInventory(potionItem);
       this.awardPlayerXP('herblore', recipe.xp);
       this.addMessage(`You mix the ${recipe.herb.replace('clean_', '')} into your vial of water, then add the ${recipe.secondary.replace(/_/g, ' ')}.`);
       this.playSound('inventory_move');
@@ -1579,6 +1643,22 @@ export class GameEngine {
     }
   }
 
+  unlockSlayerReward(rewardId: string, cost: number) {
+    if (this.slayerPoints >= cost) {
+      if (rewardId === 'bigger_and_badder' && !this.biggerAndBadder) {
+        this.slayerPoints -= cost;
+        this.biggerAndBadder = true;
+        this.addMessage("You unlocked 'Bigger and Badder'! Superior monsters can now spawn.");
+        this.onStateChange({ slayerPoints: this.slayerPoints, biggerAndBadder: true });
+      } else if (rewardId === 'slayer_helmet' && !this.slayerHelmet) {
+        this.slayerPoints -= cost;
+        this.slayerHelmet = true;
+        this.addMessage("You unlocked the Slayer Helmet! All towers deal 15% more damage to your Slayer task targets.");
+        this.onStateChange({ slayerPoints: this.slayerPoints, slayerHelmet: true });
+      }
+    }
+  }
+
   blockEnemy(enemyType: string, cost: number) {
     if (this.slayerPoints >= cost && !this.blockedEnemies.includes(enemyType)) {
       this.slayerPoints -= cost;
@@ -1663,17 +1743,61 @@ export class GameEngine {
     const item = this.inventory[itemIndex];
     if (!item) return;
     
-    // Sell price logic: Base price + (Wave * 5)
-    // Cap at 5000 GP to prevent exploitation
+    // Live Economy logic: Base price * Multiplier
     const basePrice = item.sellPrice || 50;
-    const waveBonus = this.wave * 5;
-    const price = Math.min(5000, basePrice + waveBonus);
+    const multiplier = this.itemPriceMultipliers[item.id] || 1.0;
+    const price = Math.floor(basePrice * multiplier);
 
     this.money += price;
     this.inventory.splice(itemIndex, 1);
+    
+    // Track sales for economy
+    this.itemsSoldThisWave[item.id] = (this.itemsSoldThisWave[item.id] || 0) + 1;
+
     this.playSound('sell');
-    this.addMessage(`Sold ${item.name} for ${price} GP`);
+    this.addMessage(`Sold ${item.name} for ${price} GP (Multiplier: ${multiplier.toFixed(2)}x)`);
     this.onStateChange({ money: this.money, inventory: this.inventory });
+  }
+
+  updateEconomy() {
+    // Fluctuating economy logic
+    // Called every 5 waves
+    this.addMessage("The Grand Exchange economy is shifting...");
+    
+    // Base items to fluctuate
+    const itemsToFluctuate = [
+      'logs', 'oak_logs', 'willow_logs', 'yew_logs', 'magic_logs',
+      'bronze_ore', 'iron_ore', 'coal', 'mithril_ore', 'adamantite_ore', 'rune_ore',
+      'grimy_guam', 'clean_guam', 'grimy_ranarr', 'clean_ranarr',
+      'guam_seed', 'ranarr_seed', 'potato_seed'
+    ];
+
+    itemsToFluctuate.forEach(itemId => {
+      let currentMult = this.itemPriceMultipliers[itemId] || 1.0;
+      const soldCount = this.itemsSoldThisWave[itemId] || 0;
+
+      // If many items were sold, price drops
+      if (soldCount > 5) {
+        currentMult -= 0.15;
+      } else if (soldCount > 0) {
+        currentMult -= 0.05;
+      } else {
+        // If no items were sold, price might spike
+        currentMult += 0.1;
+      }
+
+      // Random fluctuation
+      currentMult += (Math.random() - 0.5) * 0.1;
+
+      // Clamp multiplier between 0.5 and 2.0
+      this.itemPriceMultipliers[itemId] = Math.max(0.5, Math.min(2.0, currentMult));
+    });
+
+    // Reset sales tracker
+    this.itemsSoldThisWave = {};
+    this.lastEconomyUpdateWave = this.wave;
+    
+    this.onStateChange({ itemPriceMultipliers: this.itemPriceMultipliers });
   }
 
   getState() {
@@ -1704,6 +1828,9 @@ export class GameEngine {
   }
 
   update(dt: number, now: number, rawDt: number = dt) {
+    if (this.isPaused || this.gameOver) return;
+    this.handleBossMechanics(dt);
+
     // Update Nodes
     this.nodes.forEach(node => {
       if (node.respawnTimer > 0) {
@@ -1776,15 +1903,16 @@ export class GameEngine {
     }
 
     // Update Potions
-    if (this.waveActive) {
-      for (let i = this.activePotions.length - 1; i >= 0; i--) {
-        const p = this.activePotions[i];
-        p.timer -= dt;
-        if (p.timer <= 0) {
-          this.activePotions.splice(i, 1);
-        }
+    let potionsChanged = false;
+    for (let i = this.activePotions.length - 1; i >= 0; i--) {
+      const p = this.activePotions[i];
+      p.timer -= dt;
+      if (p.timer <= 0) {
+        this.activePotions.splice(i, 1);
+        potionsChanged = true;
       }
     }
+    if (potionsChanged) this.onStateChange({ activePotions: [...this.activePotions] });
 
     if (!this.waveActive && this.autoSpawnEnabled && this.autoSpawnTimer > 0) {
       this.autoSpawnTimer -= dt;
@@ -1881,6 +2009,11 @@ export class GameEngine {
       // Wave complete
       this.waveActive = false;
       
+      // Economy update every 5 waves
+      if (this.wave % 5 === 0) {
+        this.updateEconomy();
+      }
+      
       // Award player based on performance
       const performanceBonus = Math.floor((this.lives * 0.1) + (this.money * 0.005));
       // Nerfed Formula (≈2/3 of old): 1 + Wave
@@ -1897,18 +2030,8 @@ export class GameEngine {
       this.addMessage(`Wave ${this.wave} complete! Reward: ${totalMoneyReward} GP, ${essenceReward} Essence.`);
       
       // Node Respawn Logic
-      let respawned = false;
-      this.nodes.forEach(node => {
-        if (node.respawnTimer > 0 && Math.random() < 0.3) { // Medium chance
-           node.respawnTimer = 0;
-           respawned = true;
-        }
-      });
-      
-      if (!respawned && this.wave % 3 === 0) {
-          const respawnable = this.nodes.find(n => n.respawnTimer > 0);
-          if (respawnable) respawnable.respawnTimer = 0;
-      }
+      const respawnable = this.nodes.find(n => n.respawnTimer > 0);
+      if (respawnable) respawnable.respawnTimer = 0;
 
       this.floatingTexts.push({
         x: this.LOGIC_WIDTH / 2,
@@ -2269,6 +2392,7 @@ export class GameEngine {
           let pColor = tower.color;
           
           if (tower.type === 'wizard') {
+             this.awardPlayerXP('magic', finalDamage * 0.1, tower.x, tower.y);
              if (tower.mageMode === 'ancients') {
                 const aType = tower.ancientType || 'ice';
                 pType = `ancient_${aType}` as Projectile['type'];
@@ -2381,6 +2505,12 @@ export class GameEngine {
 
   damageEnemy(enemy: Enemy, damage: number, sourceTowerId?: string, isDot = false) {
     let damageMultiplier = 1.0;
+    
+    // Slayer Helmet Buff (15% damage vs task)
+    if (this.slayerHelmet && this.slayerTask && enemy.type === this.slayerTask.type) {
+        damageMultiplier *= 1.15;
+    }
+    
     const tower = sourceTowerId ? this.towers.find(t => t.id === sourceTowerId) : null;
     let type: HitsplatType = isDot ? 'poison' : (tower?.type === 'wizard' ? 'magic' : (tower?.type === 'archer' ? 'ranged' : 'melee'));
     
@@ -2471,10 +2601,10 @@ export class GameEngine {
           life: 1.0,
           loot: [
             {
-              id: Math.random().toString(),
               x: enemy.x + (Math.random() - 0.5) * 15,
               y: enemy.y + (Math.random() - 0.5) * 15,
               type: 'bones',
+              id: this.getBoneType(enemy.type) || 'bones',
               life: 30,
               size: 18
             }
@@ -2710,6 +2840,109 @@ export class GameEngine {
     }
   }
 
+  handleBossMechanics(dt: number) {
+    const boss = this.enemies.find(e => e.isBoss);
+    if (!boss) {
+      this.acidPools = [];
+      this.zombifiedSpawn = null;
+      return;
+    }
+
+    this.bossTimer += dt;
+
+    // Vorkath Mechanics
+    if (boss.type === 'vorkath') {
+      // Acid Phase every 15 seconds
+      if (Math.floor(this.bossTimer) % 15 === 0 && Math.floor(this.bossTimer) !== Math.floor(this.bossTimer - dt)) {
+        this.addMessage("Vorkath is using his Acid Phase!");
+        for (let i = 0; i < 5; i++) {
+          const randomPathIndex = Math.floor(Math.random() * this.path.length);
+          this.acidPools.push({
+            x: this.path[randomPathIndex].x,
+            y: this.path[randomPathIndex].y,
+            radius: 40,
+            duration: 5
+          });
+        }
+      }
+
+      // Zombified Spawn every 25 seconds
+      if (Math.floor(this.bossTimer) % 25 === 0 && Math.floor(this.bossTimer) !== Math.floor(this.bossTimer - dt)) {
+        if (this.towers.length > 0) {
+          const strongestTower = [...this.towers].sort((a, b) => b.damage - a.damage)[0];
+          this.addMessage("Vorkath summoned a Zombified Spawn! Kill it before it reaches your tower!");
+          strongestTower.disabledTimer = 10;
+          this.zombifiedSpawn = {
+            x: boss.x,
+            y: boss.y,
+            hp: 30,
+            id: Math.random().toString(36).substr(2, 9),
+            targetTowerId: strongestTower.id
+          };
+        }
+      }
+    }
+
+    // Zulrah Mechanics
+    if (boss.type === 'zulrah') {
+      // Phase shift every 10 seconds
+      if (Math.floor(this.bossTimer) % 10 === 0 && Math.floor(this.bossTimer) !== Math.floor(this.bossTimer - dt)) {
+        const phases: ('serpentine' | 'magma' | 'tanzanite')[] = ['serpentine', 'magma', 'tanzanite'];
+        this.zulrahPhase = phases[Math.floor(Math.random() * phases.length)];
+        this.addMessage(`Zulrah shifted to ${this.zulrahPhase} phase!`);
+        
+        if (this.zulrahPhase === 'serpentine') {
+          boss.color = '#32cd32';
+          boss.resistance = 0.4;
+        } else if (this.zulrahPhase === 'magma') {
+          boss.color = '#ff4500';
+          boss.resistance = 0.7; // Melee phase, high defense
+        } else if (this.zulrahPhase === 'tanzanite') {
+          boss.color = '#00ffff';
+          boss.resistance = 0.2; // Ranged phase, low defense
+        }
+      }
+    }
+
+    // Jad Mechanics
+    if (boss.type === 'jad') {
+      // Style switch every 5 seconds
+      if (Math.floor(this.bossTimer) % 5 === 0 && Math.floor(this.bossTimer) !== Math.floor(this.bossTimer - dt)) {
+        this.jadStyle = Math.random() < 0.5 ? 'magic' : 'ranged';
+        this.addMessage(`Jad is using ${this.jadStyle}!`);
+        boss.color = this.jadStyle === 'magic' ? '#0000ff' : '#00ff00';
+      }
+    }
+
+    // Update Acid Pools
+    for (let i = this.acidPools.length - 1; i >= 0; i--) {
+      this.acidPools[i].duration -= dt;
+      if (this.acidPools[i].duration <= 0) {
+        this.acidPools.splice(i, 1);
+      }
+    }
+
+    // Update Zombified Spawn
+    if (this.zombifiedSpawn) {
+      const targetTower = this.towers.find(t => t.id === this.zombifiedSpawn!.targetTowerId);
+      if (targetTower) {
+        const dx = targetTower.x - this.zombifiedSpawn.x;
+        const dy = targetTower.y - this.zombifiedSpawn.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 5) {
+          this.addMessage("The Zombified Spawn reached your tower! It's frozen for longer!");
+          targetTower.disabledTimer = 15;
+          this.zombifiedSpawn = null;
+        } else {
+          this.zombifiedSpawn.x += (dx / dist) * 100 * dt;
+          this.zombifiedSpawn.y += (dy / dist) * 100 * dt;
+        }
+      } else {
+        this.zombifiedSpawn = null;
+      }
+    }
+  }
+
   awardPlayerXP(skillKey: keyof PlayerSkills, amount: number, x?: number, y?: number) {
     const skill = this.playerSkills[skillKey];
     skill.xp += amount;
@@ -2719,6 +2952,7 @@ export class GameEngine {
       skill.xp -= nextLevelXP;
       this.playSound('upgrade');
       this.addMessage(`Congratulations, you just advanced your ${skillKey.charAt(0).toUpperCase() + skillKey.slice(1)} level to ${skill.level}!`);
+      this.initNodes(); // Refresh nodes
       this.floatingTexts.push({
         x: x ?? this.LOGIC_WIDTH / 2,
         y: y ?? this.LOGIC_HEIGHT / 2,
@@ -2806,7 +3040,7 @@ export class GameEngine {
       quest.claimed = true;
       if (quest.reward.money) this.money += quest.reward.money;
       if (quest.reward.essence) this.runeEssence += quest.reward.essence;
-      if (quest.reward.item) this.inventory.push(quest.reward.item);
+      if (quest.reward.item) this.addItemToInventory(quest.reward.item);
       
       this.playSound('upgrade');
       this.onStateChange({ 
@@ -2932,8 +3166,8 @@ export class GameEngine {
     if (this.money >= item.cost) {
       this.money -= item.cost;
       const baseItem = ITEMS[item.id];
-      this.inventory.push({
-        id: `${item.id}_${Math.random().toString(36).substr(2, 9)}`,
+      this.addItemToInventory({
+        id: item.id,
         name: item.name,
         description: item.desc,
         type: item.type,
@@ -3027,20 +3261,30 @@ export class GameEngine {
     const node = this.nodes.find(n => n.id === nodeId);
     if (!node || node.respawnTimer > 0) return;
 
+    // Check level requirement
+    const skillKey = node.type === 'tree' ? 'woodcutting' : (node.type === 'ore' ? 'mining' : 'farming');
+    if (this.playerSkills[skillKey].level < node.level) {
+      this.addMessage(`You need a ${skillKey} level of ${node.level} to interact with this.`);
+      return;
+    }
+
     if (node.type === 'tree') {
-      this.awardPlayerXP('woodcutting', 10, node.x, node.y);
-      this.inventory.push({ id: Math.random().toString(), name: 'Logs', type: 'material', description: 'Useful for fletching.', sellPrice: 5, bonus: {} });
-      this.addMessage("You chop some logs.");
+      this.awardPlayerXP('woodcutting', node.xp, node.x, node.y);
+      const logName = node.name === 'Tree' ? 'Logs' : node.name.replace(' Tree', ' Logs');
+      this.addItemToInventory({ id: Math.random().toString(), name: logName, type: 'material', description: `Logs from a ${node.name}.`, sellPrice: 5 + node.level, bonus: {} });
+      this.addMessage(`You chop some ${logName}.`);
       this.playSound('woodcut');
     } else if (node.type === 'ore') {
-      this.awardPlayerXP('mining', 10, node.x, node.y);
-      this.inventory.push({ id: Math.random().toString(), name: 'Copper Ore', description: 'Used in smithing.', bonus: {}, type: 'material', sellPrice: 10 });
-      this.addMessage("You mine some ore.");
+      this.awardPlayerXP('mining', node.xp, node.x, node.y);
+      const oreName = node.name.replace(' Rock', ' Ore');
+      this.addItemToInventory({ id: Math.random().toString(), name: oreName, description: `Ore from a ${node.name}.`, bonus: {}, type: 'material', sellPrice: 10 + node.level });
+      this.addMessage(`You mine some ${oreName}.`);
       this.playSound('mine');
     } else if (node.type === 'herb') {
-      this.awardPlayerXP('farming', 10, node.x, node.y);
-      this.inventory.push({ id: Math.random().toString(), name: 'Grimy Guam', type: 'herb', description: 'A dirty herb.', sellPrice: 15, bonus: {} });
-      this.addMessage("You pick a herb.");
+      this.awardPlayerXP('farming', node.xp, node.x, node.y);
+      const herbName = node.name.includes('Leaf') || node.name.includes('Weed') ? `Grimy ${node.name}` : `Grimy ${node.name}`;
+      this.addItemToInventory({ id: Math.random().toString(), name: herbName, type: 'herb', description: `A dirty ${node.name}.`, sellPrice: 15 + node.level, bonus: {} });
+      this.addMessage(`You pick a ${herbName}.`);
       this.playSound('pick_up');
     }
 
@@ -3063,6 +3307,11 @@ export class GameEngine {
     if (itemIndex === -1) return;
 
     const item = this.inventory[itemIndex];
+
+    if (item.type === 'bone') {
+      this.buryBone(itemIndex);
+      return;
+    }
 
     if (item.type === 'potion') {
       // Handle potion drinking
@@ -3114,7 +3363,7 @@ export class GameEngine {
 
     const currentItem = tower.equipment[item.type];
     if (currentItem) {
-      this.inventory.push(currentItem);
+      this.addItemToInventory(currentItem);
     }
 
     tower.equipment[item.type] = item;
@@ -3124,6 +3373,51 @@ export class GameEngine {
     this.onStateChange({ inventory: this.inventory });
   }
 
+  addItemToInventory(item: Item, quantity: number = 1) {
+    const isStackable = item.stackable || item.type === 'material' || item.type === 'seed' || item.type === 'herb' || item.id.includes('rune');
+    
+    if (isStackable) {
+      const existing = this.inventory.find(i => i.id === item.id);
+      if (existing) {
+        existing.quantity = (existing.quantity || 1) + quantity;
+        this.onStateChange({ inventory: [...this.inventory] });
+        return;
+      }
+    }
+
+    const newItem = { ...item, quantity, stackable: isStackable };
+    if (!isStackable) {
+      newItem.id = `${item.id}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+    
+    this.inventory.push(newItem);
+    this.onStateChange({ inventory: [...this.inventory] });
+  }
+
+  getBoneType(enemyType: string): string | null {
+    if (['goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost'].includes(enemyType)) return 'bones';
+    if (['hellhound', 'scorpion', 'fire_giant', 'hill_giant', 'black_demon', 'gargoyle', 'lesser_demon', 'dark_beast', 'barrow_wight', 'chaos_druid', 'skeletal_mage'].includes(enemyType)) return 'big_bones';
+    if (['blue_dragon', 'green_dragon', 'jad', 'vorkath', 'zulrah', 'hydra'].includes(enemyType)) return 'dragon_bones';
+    return null;
+  }
+
+  buryBone(itemIndex: number) {
+    const item = this.inventory[itemIndex];
+    if (!item || item.type !== 'bone') return;
+
+    const xp = item.bonus.xpBonus || 15;
+    this.awardPlayerXP('prayer', xp);
+    this.playSound('bury_bones');
+    this.addMessage(`You bury the ${item.name} and gain ${xp} Prayer XP.`);
+
+    if (item.quantity && item.quantity > 1) {
+      item.quantity--;
+    } else {
+      this.inventory.splice(itemIndex, 1);
+    }
+
+    this.onStateChange({ inventory: [...this.inventory] });
+  }
   restartGame() {
     this.gameOver = false;
     this.isPaused = false;

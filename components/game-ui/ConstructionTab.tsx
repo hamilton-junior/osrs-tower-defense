@@ -86,13 +86,13 @@ export const ConstructionTab: React.FC<ConstructionTabProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full text-[var(--osrs-text)] font-osrs">
+    <div className="flex flex-col text-[var(--osrs-text)] font-osrs">
       <div className="text-center mb-4">
         <h2 className="text-xl text-[var(--osrs-orange)]">Player-Owned House</h2>
         <p className="text-sm">Construction Level: {constructionLevel}</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2 space-y-2">
+      <div className="pr-2 space-y-2">
         {POH_UPGRADES.map(upgrade => {
           const isBuilt = pohUpgrades.includes(upgrade.id);
           const canBuild = constructionLevel >= upgrade.levelReq && hasMaterials(upgrade.materials);

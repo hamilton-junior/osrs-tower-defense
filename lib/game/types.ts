@@ -146,13 +146,15 @@ export interface Item {
     cooldown?: number;
     xpBonus?: number;
   };
-  type: 'weapon' | 'shield' | 'accessory' | 'seed' | 'herb' | 'potion' | 'material';
+  type: 'weapon' | 'shield' | 'accessory' | 'seed' | 'herb' | 'potion' | 'material' | 'bone';
   seedType?: 'herb' | 'flower' | 'allotment';
   growthTime?: number;
   harvestItem?: string;
   potionEffect?: ActivePotion['type'];
   potionDuration?: number;
   sellPrice?: number;
+  quantity?: number;
+  stackable?: boolean;
 }
 
 export type Region = 'misthalin' | 'karamja' | 'wilderness' | 'morytania';

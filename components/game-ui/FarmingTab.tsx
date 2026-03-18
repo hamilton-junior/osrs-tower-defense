@@ -24,7 +24,7 @@ export const FarmingTab: React.FC<FarmingTabProps> = ({
   setActiveTooltip
 }) => {
   return (
-    <div className="flex flex-col gap-2 h-full overflow-y-auto custom-scrollbar pr-1">
+    <div className="flex flex-col gap-2 pr-1">
       <div className="text-center border-b border-[var(--osrs-border-light)] pb-1 mb-1">
         <span className="text-xs font-bold text-osrs-orange uppercase">Farming Patches</span>
       </div>
