@@ -77,18 +77,22 @@ export default function GameRoot() {
         {ui.waveActive && <Stat label="Enemies" value={ui.remaining} color="#fff" />}
       </div>
 
-      {/* Start wave */}
-      {!ui.waveActive && !ui.gameOver && (
-        <button
-          className="osrs-button absolute top-3 right-3 px-4 py-2 z-10"
-          onClick={() => engineRef.current?.startWave()}
-        >
-          ▶ Start Wave {ui.wave}
-        </button>
-      )}
-
-      {/* Tower shop */}
-      <div className="osrs-window absolute bottom-3 left-1/2 -translate-x-1/2 p-2 z-10">
+      {/* Bottom control bar: start wave + tower shop */}
+      <div className="osrs-window absolute bottom-3 left-1/2 -translate-x-1/2 p-2 z-10 flex flex-col items-stretch gap-2">
+        {!ui.gameOver && (
+          ui.waveActive ? (
+            <div className="text-center text-sm text-osrs-orange py-1">
+              ⚔ Wave {ui.wave} in progress — {ui.remaining} enemies left
+            </div>
+          ) : (
+            <button
+              className="osrs-button px-4 py-2 text-base text-osrs-yellow animate-pulse"
+              onClick={() => engineRef.current?.startWave()}
+            >
+              ▶ Start Wave {ui.wave}
+            </button>
+          )
+        )}
         <div className="flex gap-2">
           {TOWER_ORDER.map((type) => {
             const cost = TOWERS[type].tiers[0].upgradeCost;
