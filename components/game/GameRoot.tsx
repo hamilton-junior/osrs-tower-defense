@@ -7,6 +7,8 @@ import type { TowerType } from '@/lib/game/types';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 
+const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
+
 const INITIAL: UIState = {
   money: 200, lives: 20, wave: 1, waveActive: false,
   remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null,
@@ -124,6 +126,21 @@ export default function GameRoot() {
             <Row k="Level" v={`${selectedTower.level}/${selectedTower.maxLevel}`} />
             <Row k="Damage" v={selectedTower.damage} />
             <Row k="Range" v={Math.round(selectedTower.range)} />
+          </div>
+          <div className="mt-2">
+            <div className="text-[10px] text-[#c0c0c0] mb-1 px-1">Target priority</div>
+            <div className="grid grid-cols-5 gap-1">
+              {(['first', 'last', 'strongest', 'weakest', 'closest'] as const).map((p) => (
+                <button
+                  key={p}
+                  title={p}
+                  onClick={() => engineRef.current?.setTargetingPriority(selectedTower.id, p)}
+                  className={`osrs-button text-[9px] px-0 py-1 ${selectedTower.targetingPriority === p ? 'ring-2 ring-[var(--osrs-orange)]' : ''}`}
+                >
+                  {PRIORITY_LABELS[p]}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex gap-2 mt-2">
             {selectedTower.level < selectedTower.maxLevel && (

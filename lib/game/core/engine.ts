@@ -1,4 +1,4 @@
-import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, GlobalUpgrades } from '../types';
+import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades } from '../types';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
@@ -264,6 +264,14 @@ export class GameEngine {
     tower.maxDamage = tier.maxDamage;
     tower.visualRadius += 2;
     tower.upgradeCost = def.tiers[tower.level]?.upgradeCost ?? 0;
+    this.emit();
+  }
+
+  setTargetingPriority(towerId: string, priority: TargetingPriority) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower) return;
+    tower.targetingPriority = priority;
+    tower.targetId = null; // re-acquire under the new priority next frame
     this.emit();
   }
 
