@@ -1,6 +1,16 @@
 import type {NextConfig} from 'next';
 
+// Static-export config so the game can be served as plain files (e.g. GitHub
+// Pages). Set NEXT_PUBLIC_BASE_PATH to the repo subpath when deploying to a
+// project page, e.g. "/osrs-tower-defense"; leave empty for a user/root site
+// or local dev.
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 const nextConfig: NextConfig = {
+  output: 'export',
+  basePath,
+  assetPrefix: basePath || undefined,
+  trailingSlash: true,
   reactStrictMode: true,
   eslint: {
     ignoreDuringBuilds: true,
@@ -8,24 +18,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Allow access to remote image placeholder.
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'oldschool.runescape.wiki',
-        port: '',
-        pathname: '/**',
-      },
-    ],
+    // No image optimization server in a static export.
+    unoptimized: true,
   },
-  output: 'standalone',
 };
 
 export default nextConfig;

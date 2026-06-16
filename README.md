@@ -1,20 +1,45 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# OSRS Tower Defense
 
-# Run and deploy your AI Studio app
+An Old School RuneScape–themed tower defense game that runs entirely in the
+browser. Place OSRS-flavoured towers along a winding path, survive escalating
+waves, and earn gold to upgrade your defenses.
 
-This contains everything you need to run your app locally.
+> **Status:** being rebuilt for a clean, public-ready core. The playable MVP
+> lives in [`lib/game/core/`](lib/game/core/) + [`components/game/`](components/game/);
+> the richer OSRS subsystems (Slayer, Prayer, Farming, Magic, Grand Exchange,
+> quests, pets, bosses) are being reintroduced incrementally. See
+> [`CLAUDE.md`](CLAUDE.md) for architecture.
 
-View your app in AI Studio: https://ai.studio/apps/d72773c6-fc31-436d-bdad-748435a3016c
+## Run locally
 
-## Run Locally
+```bash
+npm install --legacy-peer-deps   # pre-existing eslint peer-dep conflict
+npm run dev                      # http://localhost:3000
+```
 
-**Prerequisites:**  Node.js
+Other scripts:
 
+- `npm run build` — static export to `out/` (`output: 'export'`).
+- `npm run test` — Vitest unit suite (pure game-logic in `lib/game/systems/`).
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Deploy to GitHub Pages
+
+The game is a fully client-side static site, so it deploys to GitHub Pages with
+no server.
+
+1. In the repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. Push to `main`. The workflow in
+   [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) builds the
+   static export and publishes it.
+
+The workflow sets `NEXT_PUBLIC_BASE_PATH=/<repo-name>` automatically so assets
+resolve under the project subpath. To build a Pages bundle locally:
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/osrs-tower-defense npm run build   # serve ./out
+```
+
+## Tech
+
+Next.js (App Router) · React · TypeScript · HTML Canvas · Tailwind v4 +
+hand-rolled OSRS CSS. No backend.

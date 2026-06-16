@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 - `npm run dev` — start the Next.js dev server.
-- `npm run build` — production build (`output: 'standalone'`).
+- `npm run build` — **static export** to `out/` (`output: 'export'`, deployable to GitHub Pages). Set `NEXT_PUBLIC_BASE_PATH=/<repo>` for a project Pages subpath.
 - `npm run lint` — ESLint (`eslint-config-next`). Note: lint errors are **ignored during `next build`** (`next.config.ts` → `eslint.ignoreDuringBuilds: true`), but **TypeScript errors fail the build** (`typescript.ignoreBuildErrors: false`). Treat type errors as build-breaking.
 - `npm run start` — serve the production build.
 - `npm run test` — run the Vitest unit suite once (`vitest run`); `npm run test:watch` for watch mode. Tests live next to their module as `*.test.ts` under `lib/` and cover the pure game-logic in `lib/game/systems/`. Add tests there when you extract or change logic — they are the regression net for the otherwise-untested engine.
@@ -14,7 +14,20 @@ Note: dependency installs need `--legacy-peer-deps` (pre-existing eslint version
 
 The `README.md` and the `@google/genai` dependency / `GEMINI_API_KEY` are leftover AI Studio scaffolding — no Gemini code exists in the app. Ignore them unless you are deliberately adding AI features.
 
-## Architecture
+## ⚠️ Rebuild in progress (read first)
+
+The game is being rebuilt clean from a tested foundation. **The active game is the new core:**
+
+- **[`lib/game/core/engine.ts`](lib/game/core/engine.ts)** — lean `GameEngine` (state + loop + core tower-defense), emits a small typed `UIState` patch.
+- **[`lib/game/core/renderer.ts`](lib/game/core/renderer.ts)** — `GameRenderer` for the new engine.
+- **[`components/game/GameRoot.tsx`](components/game/GameRoot.tsx)** — the React bridge + OSRS UI that `app/page.tsx` renders.
+- **Shared/reused:** `lib/game/systems/` (pure, tested), `lib/game/data/`, `lib/game/assets.ts`, `lib/game/types.ts`, `app/globals.css`.
+
+**Being phased out (legacy, still in the tree but no longer rendered):** `lib/game/engine.ts` (the old ~2700-line god-class), `lib/game/renderer.ts` (old renderer), `components/GameCanvas.tsx`, `components/game-ui/*`. Don't add features there; port what you need into the new core. The OSRS subsystems (Slayer, Prayer, Farming, Magic, GE, quests, pets, bosses) will be reintroduced into the new engine incrementally, MVP-first.
+
+The sections below describe the **legacy** architecture, kept as a reference for the subsystem logic being ported.
+
+## Architecture (legacy reference)
 
 This is a single-page, client-rendered OSRS-themed tower defense game built on Next.js App Router (`app/`). The entire game runs in the browser; there is no backend and no server-side game logic.
 
