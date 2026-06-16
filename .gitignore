@@ -1,0 +1,20 @@
+# dependencies
+node_modules
+package-lock.json
+
+# next.js build output
+/.next/
+/out/
+/build
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+/coverage
+
+# env & local
+.env*.local
+.DS_Store
+*.pem

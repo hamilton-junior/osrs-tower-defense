@@ -4,8 +4,8 @@ import {
   Point, GlobalUpgrades, PrayerType, ActivePotion, Pet, Achievement, 
   EnemyType, Element, Enemy, TowerType, MageMode, AncientType, 
   SupportSpell, TowerSkill, TowerSkills, PlayerSkills, GatheringNode, 
-  Item, Region, TargetingPriority, Tower, Projectile, SlayerTask, 
-  Quest, FarmingPatch, Hitsplat, HitsplatType 
+  Item, Region, TargetingPriority, Tower, Projectile, SlayerTask,
+  Quest, FarmingPatch, Hitsplat, HitsplatType, GameSettings, EngineStatePatch
 } from './types';
 import { PRAYERS } from './data/prayers';
 import { ACHIEVEMENTS } from './data/achievements';
@@ -15,21 +15,34 @@ import { TOWERS } from './data/towers';
 import { ITEMS, ITEM_PROGRESSIONS } from './data/items';
 import { LANDMARK_WAVES } from './data/waves';
 import { NODE_CONFIGS } from './data/nodes';
+import { PET_DROP_TABLE, LootDrop } from './data/drops';
+import { HERBLORE_RECIPES } from './data/herblore';
+import { MAGIC_SPELLS } from './data/spells';
+import { POH_UPGRADES } from './data/construction';
 import { TICK, ARCHER_STATS, SPELL_MAX_HITS, WIZARD_SPELL_TIERS, ANCIENT_HITS, ANCIENT_TIERS, UTILITY_TIERS } from './data/tower-stats';
+import { distance, distanceSq, isValidPlacement as isValidPlacementGeom } from './systems/geometry';
+import { playerXpForLevel, towerXpForLevel, applyXpGain } from './systems/leveling';
+import { scaleEnemyStats } from './systems/enemy-scaling';
+import { nextPriceMultiplier } from './systems/economy';
+import { selectTarget } from './systems/targeting';
+import { buildWaveConfigs } from './systems/wave-generation';
+import { rollSlayerTask } from './systems/slayer';
+import { calculateTowerStats as calcTowerStats } from './systems/tower-combat';
+import { prayerDrainRate } from './systems/prayer';
+import { rollItemDrops } from './systems/loot';
+import { crossedInterval } from './systems/timing';
+import { FarmingSystem } from './systems/farming-system';
+import { SLAYER_MASTERS } from './data/slayer';
+import { GameRenderer } from './renderer';
 
 // OSRS Game Tick is imported from data/tower-stats.ts
-
-const SLAYER_MASTERS = [
-  { id: 'turael', name: 'Turael', levelReq: 1, taskPool: ['goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost'], bonusMultiplier: 1.0, pointsPerTask: 2 },
-  { id: 'mazchna', name: 'Mazchna', levelReq: 20, taskPool: ['scorpion', 'hill_giant', 'lesser_demon', 'hellhound', 'fire_giant', 'bloodveld'], bonusMultiplier: 1.2, pointsPerTask: 5 },
-  { id: 'duradel', name: 'Duradel', levelReq: 50, taskPool: ['abyssal_demon', 'dark_beast', 'hydra', 'gargoyle', 'nechryael', 'black_demon', 'blue_dragon', 'green_dragon'], bonusMultiplier: 1.5, pointsPerTask: 15 }
-];
 
 export class GameEngine {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
-  onStateChange: (state: any) => void;
-  
+  renderer: GameRenderer;
+  onStateChange: (state: EngineStatePatch) => void;
+
   animationId: number = 0;
   lastTime: number = 0;
   prevWidth: number = 0;
@@ -101,7 +114,7 @@ export class GameEngine {
   floatingTexts: { x: number, y: number, text: string, life: number, color: string, icon?: string }[] = [];
   loots: { id: string, x: number, y: number, type: 'essence' | 'money' | 'item' | 'bones', data?: any, life: number, size: number }[] = [];
   nodes: GatheringNode[] = [];
-  farmingPatches: FarmingPatch[] = [];
+  farming!: FarmingSystem;
   currentRegion: Region = 'misthalin';
   playerSkills: PlayerSkills = {
     mining: { level: 1, xp: 0 },
@@ -115,11 +128,7 @@ export class GameEngine {
   };
   theme: 'grass' | 'sand' | 'dark' = 'grass';
   messages: string[] = ["Welcome to OSRS Tower Defense!"];
-  settings: {
-    volume: number;
-    showRangeAlways: boolean;
-    particles: boolean;
-  } = {
+  settings: GameSettings = {
     volume: 0.3,
     showRangeAlways: false,
     particles: true
@@ -163,6 +172,7 @@ export class GameEngine {
 
   audioCtx: AudioContext | null = null;
   soundCache: Map<string, HTMLAudioElement> = new Map();
+  soundThrottle: Map<string, number> = new Map();
   imageCache: Map<string, HTMLImageElement> = new Map();
   brokenImages: Set<string> = new Set();
 
@@ -181,10 +191,11 @@ export class GameEngine {
     prayerRegen: 0
   };
 
-  constructor(canvas: HTMLCanvasElement, onStateChange: (state: any) => void, initialEssence: number = 0, upgrades?: Partial<GlobalUpgrades>) {
+  constructor(canvas: HTMLCanvasElement, onStateChange: (state: EngineStatePatch) => void, initialEssence: number = 0, upgrades?: Partial<GlobalUpgrades>) {
     console.log('GameEngine constructor start');
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
+    this.renderer = new GameRenderer(this);
     this.onStateChange = onStateChange;
     this.runeEssence = initialEssence;
     
@@ -193,7 +204,8 @@ export class GameEngine {
     }
 
     console.log('GameEngine initFarming start');
-    this.initFarming(); // Initialize farming patches
+    this.farming = new FarmingSystem(this);
+    this.farming.init(); // Initialize farming patches
     console.log('GameEngine initFarming end');
 
     // Apply starting money upgrade
@@ -310,9 +322,9 @@ export class GameEngine {
     if (cached) {
       const now = performance.now();
       if (type === 'hit' || type.startsWith('shoot')) {
-        const lastTime = (this as any)[`last_${type}_time`] || 0;
-        if (now - lastTime < 50) return; 
-        (this as any)[`last_${type}_time`] = now;
+        const lastTime = this.soundThrottle.get(type) || 0;
+        if (now - lastTime < 50) return;
+        this.soundThrottle.set(type, now);
       }
 
       try {
@@ -445,37 +457,20 @@ export class GameEngine {
 
   assignSlayerTask() {
     const master = SLAYER_MASTERS.find(m => m.id === this.slayerMaster) || SLAYER_MASTERS[0];
-    const available = Object.values(ENEMIES).filter(e => 
-      e.waveUnlock !== undefined && 
-      e.waveUnlock <= this.wave && 
-      e.type !== this.lastTaskType &&
-      !e.isBoss &&
-      !this.blockedEnemies.includes(e.type) &&
-      master.taskPool.includes(e.type)
-    );
-    if (available.length === 0) return;
-
-    const taskMonster = available[Math.floor(Math.random() * available.length)];
-    const type = taskMonster.type;
-    let count = 5 + Math.floor(Math.random() * 10) + Math.floor(this.wave / 2);
-
-    if (this.extendedTasks.includes(type)) {
-      count *= 2;
-    }
-
-    this.lastTaskType = type;
-
-    const bonusMultiplier = 1 + (this.consecutiveTasks * 0.1);
-    
-    this.slayerTask = {
-      type,
-      count,
-      total: count,
-      reward: Math.floor((master.pointsPerTask + (count * 0.1)) * this.upgrades.slayerReward * bonusMultiplier * master.bonusMultiplier)
-    };
-    this.onStateChange({ 
-      slayerTask: this.slayerTask
+    const task = rollSlayerTask(master, {
+      enemies: Object.values(ENEMIES),
+      wave: this.wave,
+      lastTaskType: this.lastTaskType,
+      blockedEnemies: this.blockedEnemies,
+      extendedTasks: this.extendedTasks,
+      consecutiveTasks: this.consecutiveTasks,
+      slayerRewardMultiplier: this.upgrades.slayerReward,
     });
+    if (!task) return;
+
+    this.lastTaskType = task.type;
+    this.slayerTask = task;
+    this.onStateChange({ slayerTask: this.slayerTask });
     this.playSound('task_assign');
   }
 
@@ -593,20 +588,11 @@ export class GameEngine {
        };
     }
 
-    let hpScale;
-    if (waveMultiplier <= 10) {
-      // Gentler scaling for waves 1-10
-      hpScale = 1 + (waveMultiplier - 1) * 0.15;
-    } else {
-      // Standard scaling after wave 10
-      hpScale = 2.35 + (waveMultiplier - 10) * 0.4;
-    }
-
-    const speedScale = 1 + (waveMultiplier - 1) * 0.01;
-    const rewardScale = 1 + (waveMultiplier - 1) * 0.15;
-    const effectiveHp = Math.floor(enemyDef.hp * hpScale);
-    const effectiveSpeed = Math.floor(enemyDef.speed * speedScale);
-    const effectiveReward = Math.floor(enemyDef.reward * rewardScale);
+    const { hp: effectiveHp, speed: effectiveSpeed, reward: effectiveReward } =
+      scaleEnemyStats(
+        { hp: enemyDef.hp, speed: enemyDef.speed, reward: enemyDef.reward },
+        waveMultiplier,
+      );
 
     return {
       ...enemyDef,
@@ -627,70 +613,12 @@ export class GameEngine {
 
   generateWave(waveNum: number): Enemy[] {
     const enemies: Enemy[] = [];
-    const waveConfigs: { type: EnemyType, count: number }[] = [];
-    
-    // Landmark waves
-    if (LANDMARK_WAVES[waveNum]) {
-      waveConfigs.push(...LANDMARK_WAVES[waveNum]);
-    } else {
-      // Dynamic procedural wave generator
-      // Budget starts lower and grows more predictably
-      const budget = 15 + (waveNum * 12); 
-      let remainingBudget = budget;
-      
-      // Filter enemies that can spawn at this wave level and are not blocked
-      const spawnableEnemies = Object.values(ENEMIES).filter(e => !e.isBoss && (e.waveUnlock || 1) <= waveNum && !this.blockedEnemies.includes(e.type));
-      
-      // Inject slayer task targets
-      if (this.slayerTask && this.slayerTask.count > 0) {
-          const targetType = this.slayerTask.type;
-          const targetEnemy = ENEMIES[targetType];
-          // Check if target is unlocked
-          if (targetEnemy && (targetEnemy.waveUnlock || 1) <= waveNum) {
-              // Add a random amount of slayer task targets, e.g., 1-3, but not more than remaining count
-              const countToAdd = Math.min(this.slayerTask.count, Math.floor(Math.random() * 3) + 1);
-              
-              const existing = waveConfigs.find(c => c.type === targetType);
-              if (existing) {
-                  existing.count += countToAdd;
-              } else {
-                  waveConfigs.push({ type: targetType as any, count: countToAdd });
-              }
-              remainingBudget -= targetEnemy.reward * countToAdd;
-          }
-      }
-      
-      while (remainingBudget > 0) {
-        const affordable = spawnableEnemies.filter(e => e.reward <= remainingBudget);
-        if (affordable.length === 0) break;
-        
-        // Prefer enemies closer to the current wave unlock level
-        const weights = affordable.map(e => {
-            const diff = waveNum - (e.waveUnlock || 1);
-            return Math.max(1, 8 - diff); // Higher weight for newer enemies
-        });
-        
-        const totalWeight = weights.reduce((a, b) => a + b, 0);
-        let random = Math.random() * totalWeight;
-        let choice = affordable[0];
-        
-        for (let i = 0; i < affordable.length; i++) {
-            random -= weights[i];
-            if (random <= 0) {
-                choice = affordable[i];
-                break;
-            }
-        }
-
-        const existing = waveConfigs.find(c => c.type === choice.type);
-        if (existing) {
-            existing.count++;
-        } else {
-            waveConfigs.push({ type: choice.type as any, count: 1 });
-        }
-        remainingBudget -= choice.reward;
-      }
-    }
+    const waveConfigs = buildWaveConfigs(waveNum, {
+      enemies: Object.values(ENEMIES),
+      blockedEnemies: this.blockedEnemies,
+      slayerTask: this.slayerTask,
+      landmark: LANDMARK_WAVES[waveNum],
+    });
 
     if (this.path.length === 0) return enemies;
 
@@ -999,60 +927,8 @@ export class GameEngine {
   }
 
   isValidPlacement(x: number, y: number): boolean {
-    // Check collision with path
-    const pathWidth = 25; // Adjusted from 40 for easier placement
-    
-    for (let i = 0; i < this.path.length - 1; i++) {
-      const p1 = this.path[i];
-      const p2 = this.path[i+1];
-      
-      // Distance from point to line segment
-      const A = x - p1.x;
-      const B = y - p1.y;
-      const C = p2.x - p1.x;
-      const D = p2.y - p1.y;
-
-      const dot = A * C + B * D;
-      const lenSq = C * C + D * D;
-      let param = -1;
-      if (lenSq !== 0) // in case of 0 length line
-          param = dot / lenSq;
-
-      let xx, yy;
-
-      if (param < 0) {
-        xx = p1.x;
-        yy = p1.y;
-      }
-      else if (param > 1) {
-        xx = p2.x;
-        yy = p2.y;
-      }
-      else {
-        xx = p1.x + param * C;
-        yy = p1.y + param * D;
-      }
-
-      const dx = x - xx;
-      const dy = y - yy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist < pathWidth + 15) { // 15 is tower radius
-        return false;
-      }
-    }
-    
-    // Check collision with other towers
-    for (const tower of this.towers) {
-      const dx = x - tower.x;
-      const dy = y - tower.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < 30) { // 15 + 15 radius
-        return false;
-      }
-    }
-
-    return true;
+    // pathClearance = pathWidth (25) + tower radius (15); towerClearance = 2 radii.
+    return isValidPlacementGeom(x, y, this.path, this.towers, 40, 30);
   }
 
   getEntityAt(x: number, y: number): { type: 'enemy' | 'tower', data: any } | null {
@@ -1093,7 +969,7 @@ export class GameEngine {
 
   collectLootAt(x: number, y: number, hoverPickup: boolean = false): boolean {
     const radius = hoverPickup ? 20 : 30;
-    const lootIndex = this.loots.findIndex(l => Math.sqrt(Math.pow(l.x-x,2)+Math.pow(l.y-y,2)) < radius);
+    const lootIndex = this.loots.findIndex(l => distance(l.x, l.y, x, y) < radius);
     if (lootIndex === -1) return false;
 
     const loot = this.loots[lootIndex];
@@ -1233,255 +1109,25 @@ export class GameEngine {
   }
 
   calculateTowerStats(tower: Tower) {
-    let damageMultiplier = 1.0;
-    let rangeMultiplier = 1.0;
-    let speedMultiplier = 1.0;
-    let flatDamageBonus = 0;
-
-    // Apply Global Upgrades
-    if (tower.type === 'archer') {
-      rangeMultiplier *= this.upgrades.archerRange;
-      damageMultiplier *= (this.upgrades.archerDamage || 1.0);
-    } else if (tower.type === 'wizard') {
-      damageMultiplier *= this.upgrades.magicDamage;
-    } else if (tower.type === 'cannon') {
-      speedMultiplier *= this.upgrades.cannonSpeed;
-    }
-
-    // Apply Prayer Bonuses
-    if (tower.type === 'archer') {
-      if (this.activePrayers.has('rigour')) { damageMultiplier *= 1.23; rangeMultiplier *= 1.0; }
-      else if (this.activePrayers.has('eagle_eye')) damageMultiplier *= 1.15;
-      else if (this.activePrayers.has('hawk_eye')) damageMultiplier *= 1.10;
-      else if (this.activePrayers.has('sharp_eye')) damageMultiplier *= 1.05;
-    } else if (tower.type === 'wizard') {
-      if (this.activePrayers.has('augury')) damageMultiplier *= 1.25;
-      else if (this.activePrayers.has('mystic_will')) damageMultiplier *= 1.05;
-    } else if (tower.type === 'tzhaar') {
-      if (this.activePrayers.has('piety')) damageMultiplier *= 1.23;
-      else if (this.activePrayers.has('ultimate_strength')) damageMultiplier *= 1.15;
-      else if (this.activePrayers.has('burst_of_strength')) damageMultiplier *= 1.05;
-    }
-
-    // Apply Potion Bonuses
-    if (this.activePotions.some(p => p.type === 'overload')) {
-      damageMultiplier *= 1.15;
-      rangeMultiplier *= 1.1;
-      speedMultiplier *= 1.1;
-    }
-    if (tower.type === 'archer' && this.activePotions.some(p => p.type === 'ranging')) {
-      damageMultiplier *= 1.15;
-      rangeMultiplier *= 1.1;
-    }
-    if (tower.type === 'wizard' && this.activePotions.some(p => p.type === 'magic')) {
-      damageMultiplier *= 1.2;
-    }
-    if (tower.type === 'tzhaar' && this.activePotions.some(p => p.type === 'super_combat')) {
-      damageMultiplier *= 1.15;
-    }
-
-    // Apply Support Tower (Utility Mage) Buffs
-    this.towers.forEach(t => {
-      if (t.id !== tower.id && t.type === 'wizard' && t.mageMode === 'utility') {
-        const dist = Math.sqrt(Math.pow(t.x - tower.x, 2) + Math.pow(t.y - tower.y, 2));
-        if (dist <= t.range) {
-          // Buffs based on Utility Mage level
-          if (t.level >= 1) rangeMultiplier *= 1.1;
-          if (t.level >= 2) speedMultiplier *= 1.1;
-          if (t.level >= 3) rangeMultiplier *= 1.1; // Stacked
-          if (t.level >= 4) damageMultiplier *= 1.1;
-        }
-      }
-    });
-
-    // Equipment Bonuses
-    if (tower.equipment.weapon) {
-      if (tower.equipment.weapon.bonus.damage) flatDamageBonus += tower.equipment.weapon.bonus.damage;
-      if (tower.equipment.weapon.bonus.range) rangeMultiplier *= (1 + tower.equipment.weapon.bonus.range / 100);
-      if (tower.equipment.weapon.bonus.cooldown) speedMultiplier *= (1 + tower.equipment.weapon.bonus.cooldown / 100);
-    }
-    if (tower.equipment.shield) {
-      if (tower.equipment.shield.bonus.damage) flatDamageBonus += tower.equipment.shield.bonus.damage;
-      if (tower.equipment.shield.bonus.range) rangeMultiplier *= (1 + tower.equipment.shield.bonus.range / 100);
-      if (tower.equipment.shield.bonus.cooldown) speedMultiplier *= (1 + tower.equipment.shield.bonus.cooldown / 100);
-    }
-    if (tower.equipment.accessory) {
-      if (tower.equipment.accessory.bonus.damage) flatDamageBonus += tower.equipment.accessory.bonus.damage;
-      if (tower.equipment.accessory.bonus.range) rangeMultiplier *= (1 + tower.equipment.accessory.bonus.range / 100);
-      if (tower.equipment.accessory.bonus.cooldown) speedMultiplier *= (1 + tower.equipment.accessory.bonus.cooldown / 100);
-    }
-
-    return {
-      damageMultiplier,
-      flatDamageBonus,
-      range: tower.range * rangeMultiplier,
-      cooldown: tower.cooldown / speedMultiplier
-    };
-  }
-
-  initFarming() {
-    this.farmingPatches = [
-      { id: 'patch_1', x: 100, y: 100, type: 'allotment', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
-      { id: 'patch_2', x: 150, y: 100, type: 'allotment', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
-      { id: 'patch_3', x: 250, y: 150, type: 'herb', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
-      { id: 'patch_4', x: 700, y: 500, type: 'flower', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
-      { id: 'patch_5', x: 750, y: 500, type: 'herb', seed: null, stage: 0, timer: 0, yield: 0, maxStage: 4 },
-    ];
-  }
-
-  updateFarming(dt: number) {
-    this.farmingPatches.forEach(patch => {
-      if (patch.stage > 0 && patch.stage < patch.maxStage && !patch.diseased) {
-        patch.timer -= dt;
-        if (patch.timer <= 0) {
-          patch.stage++;
-          
-          // Disease chance on stage up
-          let diseaseChance = 0.15; // 15% base chance
-          if (patch.compost === 'compost') diseaseChance = 0.08;
-          if (patch.compost === 'supercompost') diseaseChance = 0.03;
-          if (patch.compost === 'ultracompost') diseaseChance = 0.01;
-
-          if (patch.stage < patch.maxStage && Math.random() < diseaseChance) {
-            patch.diseased = true;
-            this.addMessage(`A farming patch has become diseased!`);
-            this.playSound('error');
-          }
-          
-          // If not at max stage, reset timer for next stage
-          if (patch.stage < patch.maxStage) {
-            const seedItem = Object.values(ITEMS).find(i => i.id === patch.seed);
-            if (seedItem && seedItem.growthTime) {
-              patch.timer = seedItem.growthTime / patch.maxStage;
-            } else {
-              patch.timer = 10;
-            }
-          }
-
-          if (patch.stage === patch.maxStage) {
-             this.addMessage(`A farming patch is ready to harvest!`);
-             this.playSound('level_up');
-          }
-          this.onStateChange({ farmingPatches: [...this.farmingPatches] });
-        }
-      }
+    return calcTowerStats(tower, {
+      upgrades: this.upgrades,
+      activePrayers: this.activePrayers,
+      activePotions: this.activePotions,
+      allTowers: this.towers,
     });
   }
 
-  plantSeed(patchId: string, seedItem: Item) {
-    const patch = this.farmingPatches.find(p => p.id === patchId);
-    if (!patch || patch.stage !== 0) return;
-    
-    if (patch.type !== seedItem.seedType) {
-      this.addMessage(`You can't plant ${seedItem.name} in this patch.`);
-      return;
-    }
-    
-    const baseSeedItem = Object.values(ITEMS).find(i => seedItem.id.startsWith(i.id));
-    if (!baseSeedItem) return;
+  // Farming logic lives in FarmingSystem; the engine exposes its patches and
+  // delegates the UI-called actions.
+  get farmingPatches(): FarmingPatch[] { return this.farming.patches; }
 
-    patch.seed = baseSeedItem.id;
-    patch.stage = 1;
-    patch.timer = (baseSeedItem.growthTime || 30) / patch.maxStage;
-    
-    let baseYield = 3 + Math.floor(this.playerSkills.farming.level / 10);
-    if (patch.compost === 'compost') baseYield += 1;
-    if (patch.compost === 'supercompost') baseYield += 3;
-    if (patch.compost === 'ultracompost') baseYield += 5;
-    patch.yield = baseYield;
-    
-    const idx = this.inventory.findIndex(i => i.id === seedItem.id);
-    if (idx > -1) {
-      this.inventory.splice(idx, 1);
-      this.onStateChange({ inventory: this.inventory });
-    }
-    
-    this.addMessage(`You plant the ${seedItem.name}.`);
-    this.playSound('inventory_move');
-    this.onStateChange({ farmingPatches: [...this.farmingPatches] });
-  }
+  plantSeed(patchId: string, seedItem: Item) { this.farming.plantSeed(patchId, seedItem); }
 
-  applyCompost(patchId: string, compostItem: Item) {
-    const patch = this.farmingPatches.find(p => p.id === patchId);
-    if (!patch || patch.stage !== 0 || patch.compost) return;
+  applyCompost(patchId: string, compostItem: Item) { this.farming.applyCompost(patchId, compostItem); }
 
-    const idx = this.inventory.findIndex(i => i.id === compostItem.id);
-    if (idx > -1) {
-      this.inventory.splice(idx, 1);
-      const baseCompostId = compostItem.id.split('_')[0]; // compost, supercompost, ultracompost
-      patch.compost = baseCompostId as 'compost' | 'supercompost' | 'ultracompost';
-      this.addMessage(`You treat the patch with ${compostItem.name}.`);
-      this.playSound('inventory_move');
-      this.onStateChange({ inventory: this.inventory, farmingPatches: [...this.farmingPatches] });
-    }
-  }
+  curePatch(patchId: string) { this.farming.curePatch(patchId); }
 
-  curePatch(patchId: string) {
-    const patch = this.farmingPatches.find(p => p.id === patchId);
-    if (!patch || !patch.diseased) return;
-
-    const idx = this.inventory.findIndex(i => i.id.startsWith('plant_cure'));
-    if (idx > -1) {
-      this.inventory.splice(idx, 1);
-      patch.diseased = false;
-      this.addMessage('You cured the diseased patch.');
-      this.playSound('inventory_move');
-      this.onStateChange({ inventory: this.inventory, farmingPatches: [...this.farmingPatches] });
-    }
-  }
-
-  harvestPatch(patchId: string) {
-    const patch = this.farmingPatches.find(p => p.id === patchId);
-    if (!patch || patch.stage !== patch.maxStage) return;
-    
-    const seedItem = Object.values(ITEMS).find(i => i.id === patch.seed);
-    const xp = (seedItem?.bonus.xpBonus || 50) * (patch.yield / 3);
-    this.awardPlayerXP('farming', xp, patch.x, patch.y);
-    
-    // Add harvested items
-    const yieldItemId = seedItem?.harvestItem || 'grimy_guam';
-    const yieldItem = ITEMS[yieldItemId];
-    
-    for(let i=0; i<patch.yield; i++) {
-      if (yieldItem) {
-        this.addItemToInventory(yieldItem);
-      } else {
-        // Fallback
-        this.addItemToInventory({
-          id: yieldItemId,
-          name: yieldItemId.replace('_', ' '),
-          description: 'A harvested crop.',
-          type: 'herb',
-          bonus: {},
-          sellPrice: 100
-        });
-      }
-    }
-    
-    // Tangleroot Pet Drop Chance
-    if (Math.random() < 0.02) { // 2% chance per harvest
-      if (!this.pets.find(p => p.name === 'Tangleroot')) {
-        this.pets.push({ id: Math.random().toString(), name: 'Tangleroot', type: 'tangleroot', bonus: "Nature's Gift: +10% Rune Essence drops" });
-        this.playSound('level_up');
-        this.addMessage("You have a funny feeling you're being followed...");
-      }
-    }
-
-    this.addMessage(`You harvested ${patch.yield} crops!`);
-    this.playSound('pick_up');
-    
-    patch.seed = null;
-    patch.stage = 0;
-    patch.timer = 0;
-    patch.yield = 0;
-    patch.diseased = false;
-    patch.compost = undefined;
-    
-    this.onStateChange({ 
-      inventory: [...this.inventory],
-      farmingPatches: [...this.farmingPatches]
-    });
-  }
+  harvestPatch(patchId: string) { this.farming.harvestPatch(patchId); }
 
   makePotion(herbId: string, secondaryId: string) {
     const herbIdx = this.inventory.findIndex(i => i.id.startsWith(herbId));
@@ -1493,16 +1139,7 @@ export class GameEngine {
       return;
     }
 
-    const RECIPES = [
-      { id: 'attack_potion', name: 'Attack potion(3)', herb: 'clean_guam', secondary: 'eye_of_newt', level: 1, xp: 25 },
-      { id: 'strength_potion', name: 'Strength potion(3)', herb: 'clean_torstol', secondary: 'limpwurt_root', level: 12, xp: 50 },
-      { id: 'prayer_potion', name: 'Prayer potion(3)', herb: 'clean_ranarr', secondary: 'snape_grass', level: 38, xp: 87.5 },
-      { id: 'super_restore', name: 'Super restore(3)', herb: 'clean_snapdragon', secondary: 'red_spiders_eggs', level: 63, xp: 142.5 },
-      { id: 'saradomin_brew', name: 'Saradomin brew(3)', herb: 'clean_toadflax', secondary: 'birds_nest', level: 81, xp: 180 },
-      { id: 'super_combat_potion', name: 'Super combat potion(3)', herb: 'clean_torstol', secondary: 'clean_torstol', level: 90, xp: 150 },
-    ];
-
-    const recipe = RECIPES.find(r => r.herb === herbId && r.secondary === secondaryId);
+    const recipe = HERBLORE_RECIPES.find(r => r.herb === herbId && r.secondary === secondaryId);
     if (!recipe) {
       this.addMessage("Nothing interesting happens.");
       return;
@@ -1530,15 +1167,7 @@ export class GameEngine {
   }
 
   castSpell(spellId: string, targetItemIndex?: number) {
-    const SPELLS = [
-      { id: 'bones_to_peaches', level: 60, runes: { nature_rune: 2, earth_rune: 4, water_rune: 4 }, xp: 35.5 },
-      { id: 'high_alchemy', level: 55, runes: { nature_rune: 1, fire_rune: 5 }, xp: 65 },
-      { id: 'superheat_item', level: 43, runes: { nature_rune: 1, fire_rune: 4 }, xp: 53 },
-      { id: 'ice_barrage', level: 94, runes: { blood_rune: 2, death_rune: 4, water_rune: 6 }, xp: 52 },
-      { id: 'blood_barrage', level: 92, runes: { blood_rune: 4, death_rune: 4, soul_rune: 1 }, xp: 51 },
-    ];
-
-    const spell = SPELLS.find(s => s.id === spellId);
+    const spell = MAGIC_SPELLS.find(s => s.id === spellId);
     if (!spell) return;
 
     if (this.playerSkills.magic && this.playerSkills.magic.level < spell.level) {
@@ -1691,17 +1320,7 @@ export class GameEngine {
   buildUpgrade(upgradeId: string) {
     if (this.pohUpgrades.includes(upgradeId)) return;
 
-    // We need to import POH_UPGRADES or define them here.
-    // For simplicity, we can pass the materials and xp from the UI, or look it up.
-    // I'll look it up by hardcoding the requirements here for safety.
-    const upgrades: Record<string, { levelReq: number, xpReward: number, materials: {id: string, amount: number}[] }> = {
-      'wooden_bed': { levelReq: 1, xpReward: 50, materials: [{ id: 'plank', amount: 3 }, { id: 'steel_nails', amount: 3 }] },
-      'oak_table': { levelReq: 22, xpReward: 150, materials: [{ id: 'oak_plank', amount: 4 }, { id: 'steel_nails', amount: 4 }] },
-      'teak_shelves': { levelReq: 45, xpReward: 400, materials: [{ id: 'teak_plank', amount: 3 }, { id: 'steel_nails', amount: 6 }] },
-      'mahogany_portal': { levelReq: 65, xpReward: 1000, materials: [{ id: 'mahogany_plank', amount: 5 }, { id: 'law_rune', amount: 10 }] }
-    };
-
-    const upgrade = upgrades[upgradeId];
+    const upgrade = POH_UPGRADES[upgradeId];
     if (!upgrade) return;
 
     if (this.playerSkills.construction.level < upgrade.levelReq) {
@@ -1773,24 +1392,9 @@ export class GameEngine {
     ];
 
     itemsToFluctuate.forEach(itemId => {
-      let currentMult = this.itemPriceMultipliers[itemId] || 1.0;
+      const current = this.itemPriceMultipliers[itemId] || 1.0;
       const soldCount = this.itemsSoldThisWave[itemId] || 0;
-
-      // If many items were sold, price drops
-      if (soldCount > 5) {
-        currentMult -= 0.15;
-      } else if (soldCount > 0) {
-        currentMult -= 0.05;
-      } else {
-        // If no items were sold, price might spike
-        currentMult += 0.1;
-      }
-
-      // Random fluctuation
-      currentMult += (Math.random() - 0.5) * 0.1;
-
-      // Clamp multiplier between 0.5 and 2.0
-      this.itemPriceMultipliers[itemId] = Math.max(0.5, Math.min(2.0, currentMult));
+      this.itemPriceMultipliers[itemId] = nextPriceMultiplier(current, soldCount);
     });
 
     // Reset sales tracker
@@ -1839,7 +1443,7 @@ export class GameEngine {
     });
 
     // Update Farming
-    this.updateFarming(dt / 1000); // dt is in ms, convert to seconds for farming timer
+    this.farming.update(dt); // dt is already in seconds (growthTime is in seconds)
 
     // Update Shake
     if (this.shakeAmount > 0) {
@@ -1934,13 +1538,12 @@ export class GameEngine {
 
     // Prayer Drain
     if (this.waveActive && this.activePrayers.size > 0 && this.prayerPoints > 0) {
-      let totalDrain = 0;
-      this.activePrayers.forEach(id => {
-        const pray = this.allPrayers.find(p => p.id === id);
-        if (pray) totalDrain += pray.drain;
-      });
-      
-      const drainRate = (totalDrain / 10) * (this.upgrades.prayerEfficiency || 1) * (1 - (this.playerSkills.prayer.level - 1) * 0.01); 
+      const drainRate = prayerDrainRate(
+        this.activePrayers,
+        this.allPrayers,
+        this.upgrades.prayerEfficiency,
+        this.playerSkills.prayer.level,
+      );
       this.prayerPoints = Math.max(0, this.prayerPoints - dt * drainRate);
       
       if (this.prayerPoints <= 0) {
@@ -2262,6 +1865,7 @@ export class GameEngine {
       // Calculate Effective Stats
       const stats = this.calculateTowerStats(tower);
       const effectiveRange = stats.range;
+      const rangeSq = effectiveRange * effectiveRange;
       const effectiveCooldown = stats.cooldown;
       const damageMultiplier = stats.damageMultiplier;
       const flatDamageBonus = stats.flatDamageBonus;
@@ -2271,52 +1875,17 @@ export class GameEngine {
         const inRangeEnemies = this.enemies.filter(enemy => {
           const isOffscreen = enemy.x < 0 || enemy.x > this.LOGIC_WIDTH || enemy.y < 0 || enemy.y > this.LOGIC_HEIGHT;
           if (isOffscreen) return false;
-          const d = Math.sqrt(Math.pow(enemy.x - tower.x, 2) + Math.pow(enemy.y - tower.y, 2));
-          return d <= effectiveRange;
+          return distanceSq(enemy.x, enemy.y, tower.x, tower.y) <= rangeSq;
         });
 
         if (inRangeEnemies.length > 0) {
-          let selectedEnemy: Enemy | null = null;
-          const priority = tower.targetingPriority || 'first';
-
-          switch (priority) {
-            case 'first':
-              selectedEnemy = inRangeEnemies.reduce((prev, curr) => {
-                if (curr.pathIndex > prev.pathIndex) return curr;
-                if (curr.pathIndex < prev.pathIndex) return prev;
-                const nextPoint = this.path[curr.pathIndex + 1];
-                if (!nextPoint) return prev;
-                const dPrev = Math.sqrt(Math.pow(nextPoint.x - prev.x, 2) + Math.pow(nextPoint.y - prev.y, 2));
-                const dCurr = Math.sqrt(Math.pow(nextPoint.x - curr.x, 2) + Math.pow(nextPoint.y - curr.y, 2));
-                return dCurr < dPrev ? curr : prev;
-              });
-              break;
-            case 'last':
-              selectedEnemy = inRangeEnemies.reduce((prev, curr) => {
-                if (curr.pathIndex < prev.pathIndex) return curr;
-                if (curr.pathIndex > prev.pathIndex) return prev;
-                const nextPoint = this.path[curr.pathIndex + 1];
-                if (!nextPoint) return prev;
-                const dPrev = Math.sqrt(Math.pow(nextPoint.x - prev.x, 2) + Math.pow(nextPoint.y - prev.y, 2));
-                const dCurr = Math.sqrt(Math.pow(nextPoint.x - curr.x, 2) + Math.pow(nextPoint.y - curr.y, 2));
-                return dCurr > dPrev ? curr : prev;
-              });
-              break;
-            case 'strongest':
-              selectedEnemy = inRangeEnemies.reduce((prev, curr) => curr.hp > prev.hp ? curr : prev);
-              break;
-            case 'weakest':
-              selectedEnemy = inRangeEnemies.reduce((prev, curr) => curr.hp < prev.hp ? curr : prev);
-              break;
-            case 'closest':
-            default:
-              selectedEnemy = inRangeEnemies.reduce((prev, curr) => {
-                const dPrev = Math.sqrt(Math.pow(prev.x - tower.x, 2) + Math.pow(prev.y - tower.y, 2));
-                const dCurr = Math.sqrt(Math.pow(curr.x - tower.x, 2) + Math.pow(curr.y - tower.y, 2));
-                return dCurr < dPrev ? curr : prev;
-              });
-              break;
-          }
+          const selectedEnemy = selectTarget(
+            inRangeEnemies,
+            tower.x,
+            tower.y,
+            this.path,
+            tower.targetingPriority || 'first',
+          );
           tower.targetId = selectedEnemy?.id || null;
         } else {
           tower.targetId = null;
@@ -2324,7 +1893,7 @@ export class GameEngine {
       }
 
       const target = this.enemies.find(e => e.id === tower.targetId);
-      if (target && Math.sqrt(Math.pow(target.x-tower.x,2)+Math.pow(target.y-tower.y,2)) <= effectiveRange) {
+      if (target && distanceSq(target.x, target.y, tower.x, tower.y) <= rangeSq) {
         if (this.gameTime - tower.lastFired >= effectiveCooldown) {
           let baseDmg = tower.damage;
           if (tower.type === 'cannon') {
@@ -2346,7 +1915,7 @@ export class GameEngine {
           if (tower.type === 'cannon') {
             // Multicannon fires at multiple targets in range
             const targets = this.enemies
-              .filter(e => Math.sqrt(Math.pow(e.x - tower.x, 2) + Math.pow(e.y - tower.y, 2)) <= effectiveRange)
+              .filter(e => distance(e.x, e.y, tower.x, tower.y) <= effectiveRange)
               .sort((a, b) => b.pathIndex - a.pathIndex)
               .slice(0, tower.level >= 3 ? 4 : 2); // Level 3+ hits 4 targets
 
@@ -2467,7 +2036,7 @@ export class GameEngine {
           if (p.special === 'aoe' || p.special === 'aoe_slow') {
              const radius = 80;
              this.enemies.forEach(e => {
-                if (Math.sqrt(Math.pow(e.x-p.x,2)+Math.pow(e.y-p.y,2)) <= radius) {
+                if (distance(e.x, e.y, p.x, p.y) <= radius) {
                    this.damageEnemy(e, p.damage, p.sourceTowerId);
                    if (p.special === 'aoe_slow') this.applySlow(e);
                 }
@@ -2501,6 +2070,19 @@ export class GameEngine {
           }
        }
     }
+  }
+
+  /** Spawn a collectable item loot at an enemy's position (with a small scatter). */
+  spawnItemLoot(enemy: Enemy, data: LootDrop) {
+    this.loots.push({
+      id: Math.random().toString(),
+      x: enemy.x + (Math.random() - 0.5) * 20,
+      y: enemy.y + (Math.random() - 0.5) * 20,
+      type: 'item',
+      data,
+      life: 15,
+      size: 25,
+    });
   }
 
   damageEnemy(enemy: Enemy, damage: number, sourceTowerId?: string, isDot = false) {
@@ -2654,155 +2236,19 @@ export class GameEngine {
           if (ach) ach.completed = true;
         }
 
-        // Item Drop: Rare
-        let itemDropChance = 0.02;
-        if (this.pohUpgrades.includes('teak_shelves')) itemDropChance *= 1.1;
-        if (Math.random() < itemDropChance) {
-          const tiers = [
-            { id: 'bronze_scimitar', name: 'Bronze Scimitar', bonus: { damage: 5 }, type: 'weapon' as const },
-            { id: 'iron_scimitar', name: 'Iron Scimitar', bonus: { damage: 10 }, type: 'weapon' as const },
-            { id: 'steel_scimitar', name: 'Steel Scimitar', bonus: { damage: 15 }, type: 'weapon' as const },
-            { id: 'mithril_scimitar', name: 'Mithril Scimitar', bonus: { damage: 25 }, type: 'weapon' as const },
-            { id: 'adamant_scimitar', name: 'Adamant Scimitar', bonus: { damage: 40 }, type: 'weapon' as const },
-            { id: 'rune_scimitar', name: 'Rune Scimitar', bonus: { damage: 60 }, type: 'weapon' as const },
-            { id: 'dragon_scimitar', name: 'Dragon Scimitar', bonus: { damage: 90 }, type: 'weapon' as const },
-            { id: 'abyssal_whip', name: 'Abyssal Whip', bonus: { damage: 150 }, type: 'weapon' as const },
-            { id: 'scythe_of_vitur', name: 'Scythe of Vitur', bonus: { damage: 250 }, type: 'weapon' as const }
-          ];
-          const maxTier = Math.min(tiers.length - 1, Math.floor(this.wave / 3));
-          const drop = tiers[Math.floor(Math.random() * (maxTier + 1))];
-          
-          this.loots.push({
-            id: Math.random().toString(),
-            x: enemy.x + (Math.random()-0.5)*20,
-            y: enemy.y + (Math.random()-0.5)*20,
-            type: 'item',
-            data: drop,
-            life: 15,
-            size: 25
-          });
-        }
-
-        // Rune Drop
-        let runeDropChance = 0.1;
-        if (this.pohUpgrades.includes('teak_shelves')) runeDropChance *= 1.1;
-        if (Math.random() < runeDropChance) {
-          const runes = [
-            { id: 'air_rune', name: 'Air rune', bonus: {}, type: 'material' as const, sellPrice: 5 },
-            { id: 'water_rune', name: 'Water rune', bonus: {}, type: 'material' as const, sellPrice: 5 },
-            { id: 'earth_rune', name: 'Earth rune', bonus: {}, type: 'material' as const, sellPrice: 5 },
-            { id: 'fire_rune', name: 'Fire rune', bonus: {}, type: 'material' as const, sellPrice: 5 },
-            { id: 'nature_rune', name: 'Nature rune', bonus: {}, type: 'material' as const, sellPrice: 200 },
-            { id: 'law_rune', name: 'Law rune', bonus: {}, type: 'material' as const, sellPrice: 200 },
-            { id: 'blood_rune', name: 'Blood rune', bonus: {}, type: 'material' as const, sellPrice: 400 },
-            { id: 'death_rune', name: 'Death rune', bonus: {}, type: 'material' as const, sellPrice: 300 },
-            { id: 'soul_rune', name: 'Soul rune', bonus: {}, type: 'material' as const, sellPrice: 300 }
-          ];
-          const runeDrop = runes[Math.floor(Math.random() * runes.length)];
-          
-          this.loots.push({
-            id: Math.random().toString(),
-            x: enemy.x + (Math.random()-0.5)*20,
-            y: enemy.y + (Math.random()-0.5)*20,
-            type: 'item',
-            data: runeDrop,
-            life: 15,
-            size: 25
-          });
-        }
-
-        // Seed Drop
-        let seedDropChance = 0.05;
-        if (this.pohUpgrades.includes('teak_shelves')) seedDropChance *= 1.1;
-        if (Math.random() < seedDropChance) {
-          const seeds = [
-            { id: 'potato_seed', name: 'Potato Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 20, harvestItem: 'potato', sellPrice: 5 },
-            { id: 'onion_seed', name: 'Onion Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 25, harvestItem: 'onion', sellPrice: 8 },
-            { id: 'cabbage_seed', name: 'Cabbage Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 30, harvestItem: 'cabbage', sellPrice: 12 },
-            { id: 'sweetcorn_seed', name: 'Sweetcorn Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 40, harvestItem: 'sweetcorn', sellPrice: 20 },
-            { id: 'watermelon_seed', name: 'Watermelon Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 50, harvestItem: 'watermelon', sellPrice: 40 },
-            { id: 'snape_grass_seed', name: 'Snape Grass Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'allotment', growthTime: 60, harvestItem: 'snape_grass', sellPrice: 80 },
-            { id: 'guam_seed', name: 'Guam Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 30, harvestItem: 'clean_guam', sellPrice: 20 },
-            { id: 'harralander_seed', name: 'Harralander Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 40, harvestItem: 'clean_harralander', sellPrice: 40 },
-            { id: 'toadflax_seed', name: 'Toadflax Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 50, harvestItem: 'clean_toadflax', sellPrice: 80 },
-            { id: 'ranarr_seed', name: 'Ranarr Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 60, harvestItem: 'clean_ranarr', sellPrice: 100 },
-            { id: 'snapdragon_seed', name: 'Snapdragon Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 70, harvestItem: 'clean_snapdragon', sellPrice: 150 },
-            { id: 'torstol_seed', name: 'Torstol Seed', bonus: { xpBonus: 0 }, type: 'seed' as const, seedType: 'herb', growthTime: 80, harvestItem: 'clean_torstol', sellPrice: 250 }
-          ];
-          const seedDrop = seeds[Math.floor(Math.random() * seeds.length)];
-          
-          this.loots.push({
-            id: Math.random().toString(),
-            x: enemy.x + (Math.random()-0.5)*20,
-            y: enemy.y + (Math.random()-0.5)*20,
-            type: 'item',
-            data: seedDrop,
-            life: 15,
-            size: 25
-          });
-        }
-
-        // Farming Supplies Drop
-        let farmingSupplyDropChance = 0.03;
-        if (this.pohUpgrades.includes('teak_shelves')) farmingSupplyDropChance *= 1.1;
-        if (Math.random() < farmingSupplyDropChance) {
-          const supplies = [
-            { id: 'compost', name: 'Compost', bonus: {}, type: 'material' as const, sellPrice: 20 },
-            { id: 'supercompost', name: 'Supercompost', bonus: {}, type: 'material' as const, sellPrice: 100 },
-            { id: 'ultracompost', name: 'Ultracompost', bonus: {}, type: 'material' as const, sellPrice: 500 },
-            { id: 'plant_cure', name: 'Plant Cure', bonus: {}, type: 'material' as const, sellPrice: 50 }
-          ];
-          const supplyDrop = supplies[Math.floor(Math.random() * supplies.length)];
-          
-          this.loots.push({
-            id: Math.random().toString(),
-            x: enemy.x + (Math.random()-0.5)*20,
-            y: enemy.y + (Math.random()-0.5)*20,
-            type: 'item',
-            data: supplyDrop,
-            life: 15,
-            size: 25
-          });
-        }
-
-        // Construction Supplies Drop
-        let constructionSupplyDropChance = 0.05;
-        if (this.pohUpgrades.includes('teak_shelves')) constructionSupplyDropChance *= 1.1;
-        if (Math.random() < constructionSupplyDropChance) {
-          const constructionSupplies = [
-            { id: 'plank', name: 'Plank', bonus: {}, type: 'material' as const, sellPrice: 100 },
-            { id: 'oak_plank', name: 'Oak plank', bonus: {}, type: 'material' as const, sellPrice: 250 },
-            { id: 'teak_plank', name: 'Teak plank', bonus: {}, type: 'material' as const, sellPrice: 500 },
-            { id: 'mahogany_plank', name: 'Mahogany plank', bonus: {}, type: 'material' as const, sellPrice: 1500 },
-            { id: 'steel_nails', name: 'Steel nails', bonus: {}, type: 'material' as const, sellPrice: 10 }
-          ];
-          const supplyDrop = constructionSupplies[Math.floor(Math.random() * constructionSupplies.length)];
-          
-          this.loots.push({
-            id: Math.random().toString(),
-            x: enemy.x + (Math.random()-0.5)*20,
-            y: enemy.y + (Math.random()-0.5)*20,
-            type: 'item',
-            data: supplyDrop,
-            life: 15,
-            size: 25
-          });
-        }
+        // Item / resource drops (weapon, runes, seeds, farming & construction supplies)
+        const itemDrops = rollItemDrops({
+          wave: this.wave,
+          hasTeakShelves: this.pohUpgrades.includes('teak_shelves'),
+        });
+        for (const drop of itemDrops) this.spawnItemLoot(enemy, drop);
 
         // Pet Drop
         let dropChance = isBoss ? 0.5 : 0.01;
         if (this.pets.some(p => p.name === 'Baby Mole')) dropChance *= 1.5;
 
         if (Math.random() < dropChance) {
-          const petTable: Partial<Record<string, { name: string, type: string, bonus: string }>> = {
-            vorkath: { name: 'Vorki', type: 'vorki', bonus: 'Dragon Slayer: +15% DMG vs Dragons' },
-            zulrah: { name: 'Snakeling', type: 'snakeling', bonus: 'Serpent Scale: +10% GP drops' },
-            jad: { name: "TzRek-Jad", type: 'rift_guardian', bonus: 'Jad\'s Might: +20% fire damage' },
-            green_dragon: { name: 'Prince Black Dragon', type: 'prince_black_dragon', bonus: 'Dragon Blood: +8% DMG vs Dragons' },
-            blue_dragon: { name: 'Prince Black Dragon', type: 'prince_black_dragon', bonus: 'Dragon Blood: +8% DMG vs Dragons' },
-            hydra: { name: 'Ikkle Hydra', type: 'heron', bonus: 'Hydra\'s Eye: +10% range' }
-          };
-          const petEntry = petTable[enemy.type];
+          const petEntry = PET_DROP_TABLE[enemy.type];
           if (petEntry && !this.pets.find(p => p.name === petEntry.name)) {
             this.pets.push({ id: Math.random().toString(), ...petEntry });
             this.playSound('level_up');
@@ -2853,7 +2299,7 @@ export class GameEngine {
     // Vorkath Mechanics
     if (boss.type === 'vorkath') {
       // Acid Phase every 15 seconds
-      if (Math.floor(this.bossTimer) % 15 === 0 && Math.floor(this.bossTimer) !== Math.floor(this.bossTimer - dt)) {
+      if (crossedInterval(this.bossTimer, dt, 15)) {
         this.addMessage("Vorkath is using his Acid Phase!");
         for (let i = 0; i < 5; i++) {
           const randomPathIndex = Math.floor(Math.random() * this.path.length);
@@ -2867,7 +2313,7 @@ export class GameEngine {
       }
 
       // Zombified Spawn every 25 seconds
-      if (Math.floor(this.bossTimer) % 25 === 0 && Math.floor(this.bossTimer) !== Math.floor(this.bossTimer - dt)) {
+      if (crossedInterval(this.bossTimer, dt, 25)) {
         if (this.towers.length > 0) {
           const strongestTower = [...this.towers].sort((a, b) => b.damage - a.damage)[0];
           this.addMessage("Vorkath summoned a Zombified Spawn! Kill it before it reaches your tower!");
@@ -2886,7 +2332,7 @@ export class GameEngine {
     // Zulrah Mechanics
     if (boss.type === 'zulrah') {
       // Phase shift every 10 seconds
-      if (Math.floor(this.bossTimer) % 10 === 0 && Math.floor(this.bossTimer) !== Math.floor(this.bossTimer - dt)) {
+      if (crossedInterval(this.bossTimer, dt, 10)) {
         const phases: ('serpentine' | 'magma' | 'tanzanite')[] = ['serpentine', 'magma', 'tanzanite'];
         this.zulrahPhase = phases[Math.floor(Math.random() * phases.length)];
         this.addMessage(`Zulrah shifted to ${this.zulrahPhase} phase!`);
@@ -2907,7 +2353,7 @@ export class GameEngine {
     // Jad Mechanics
     if (boss.type === 'jad') {
       // Style switch every 5 seconds
-      if (Math.floor(this.bossTimer) % 5 === 0 && Math.floor(this.bossTimer) !== Math.floor(this.bossTimer - dt)) {
+      if (crossedInterval(this.bossTimer, dt, 5)) {
         this.jadStyle = Math.random() < 0.5 ? 'magic' : 'ranged';
         this.addMessage(`Jad is using ${this.jadStyle}!`);
         boss.color = this.jadStyle === 'magic' ? '#0000ff' : '#00ff00';
@@ -2945,11 +2391,10 @@ export class GameEngine {
 
   awardPlayerXP(skillKey: keyof PlayerSkills, amount: number, x?: number, y?: number) {
     const skill = this.playerSkills[skillKey];
-    skill.xp += amount;
-    const nextLevelXP = Math.pow(skill.level, 2) * 100;
-    if (skill.xp >= nextLevelXP) {
-      skill.level++;
-      skill.xp -= nextLevelXP;
+    const result = applyXpGain(skill, amount, playerXpForLevel);
+    skill.level = result.level;
+    skill.xp = result.xp;
+    if (result.leveledUp) {
       this.playSound('upgrade');
       this.addMessage(`Congratulations, you just advanced your ${skillKey.charAt(0).toUpperCase() + skillKey.slice(1)} level to ${skill.level}!`);
       this.initNodes(); // Refresh nodes
@@ -2975,8 +2420,7 @@ export class GameEngine {
     else skillKey = 'strength';
 
     const skill = tower.skills[skillKey];
-    skill.xp += xpGain;
-    
+
     // Floating text for XP gain
     this.floatingTexts.push({
       x: tower.x,
@@ -2986,12 +2430,11 @@ export class GameEngine {
       color: '#00ff00',
       icon: `${skillKey}_icon`
     });
-    
-    // Lower threshold: Level^1.8 * 80
-    const nextLevelXP = Math.floor(Math.pow(skill.level, 1.8) * 80);
-    if (skill.xp >= nextLevelXP) {
-      skill.level++;
-      skill.xp -= nextLevelXP;
+
+    const result = applyXpGain(skill, xpGain, towerXpForLevel);
+    skill.level = result.level;
+    skill.xp = result.xp;
+    if (result.leveledUp) {
       this.playSound('level_up');
       
       // Bonus stats based on level
@@ -3098,7 +2541,7 @@ export class GameEngine {
       case 'slayer': {
         if (tower.name === 'Zaryte Crossbow') {
           this.damageEnemy(primaryTarget, Math.floor(baseDamage * 1.5), tower.id);
-          const nearby = this.enemies.find(e => e.id !== primaryTarget.id && Math.sqrt(Math.pow(e.x-primaryTarget.x,2)+Math.pow(e.y-primaryTarget.y,2)) < 40);
+          const nearby = this.enemies.find(e => e.id !== primaryTarget.id && distance(e.x, e.y, primaryTarget.x, primaryTarget.y) < 40);
           if (nearby) this.damageEnemy(nearby, Math.floor(baseDamage * 0.75), tower.id);
         } else if (tower.name === 'Twisted Bow') {
           this.damageEnemy(primaryTarget, Math.floor(baseDamage), tower.id);
@@ -3480,7 +2923,7 @@ export class GameEngine {
       construction: { level: 1, xp: 0 }
     };
     this.assignSlayerTask();
-    this.initFarming();
+    this.farming.init();
     this.initPath();
     this.addMessage('You have been defeated. Your adventure begins anew.');
     this.onStateChange({ 
@@ -3503,766 +2946,7 @@ export class GameEngine {
     });
   }
 
-  drawPath() {
-    if (!this.ctx) return;
-    this.ctx.beginPath();
-    if (this.theme === 'sand') this.ctx.strokeStyle = '#8d7b4f';
-    else if (this.theme === 'dark') this.ctx.strokeStyle = '#000000';
-    else this.ctx.strokeStyle = '#3d2b1f';
-    this.ctx.lineWidth = 46;
-    if (this.path.length > 0) {
-      this.ctx.moveTo(this.path[0].x, this.path[0].y);
-      for (let i = 1; i < this.path.length; i++) this.ctx.lineTo(this.path[i].x, this.path[i].y);
-    }
-    this.ctx.stroke();
-
-    this.ctx.beginPath();
-    if (this.theme === 'sand') this.ctx.strokeStyle = '#a69466';
-    else if (this.theme === 'dark') this.ctx.strokeStyle = '#222222';
-    else this.ctx.strokeStyle = '#5d4037';
-    this.ctx.lineWidth = 40;
-    if (this.path.length > 0) {
-      this.ctx.moveTo(this.path[0].x, this.path[0].y);
-      for (let i = 1; i < this.path.length; i++) this.ctx.lineTo(this.path[i].x, this.path[i].y);
-    }
-    this.ctx.stroke();
-
-    this.ctx.beginPath();
-    if (this.theme === 'sand') this.ctx.strokeStyle = '#b8a473';
-    else if (this.theme === 'dark') this.ctx.strokeStyle = '#331111';
-    else this.ctx.strokeStyle = '#795548';
-    this.ctx.lineWidth = 32;
-    if (this.path.length > 0) {
-      this.ctx.moveTo(this.path[0].x, this.path[0].y);
-      for (let i = 1; i < this.path.length; i++) this.ctx.lineTo(this.path[i].x, this.path[i].y);
-    }
-    this.ctx.stroke();
-  }
-
-  drawAmbientEffects() {
-    if (this.currentRegion === 'morytania') {
-       this.ctx.fillStyle = 'rgba(0, 20, 20, 0.2)';
-       this.ctx.fillRect(0, 0, this.LOGIC_WIDTH, this.LOGIC_HEIGHT);
-    } else if (this.currentRegion === 'wilderness') {
-       this.ctx.fillStyle = 'rgba(50, 0, 0, 0.1)';
-       this.ctx.fillRect(0, 0, this.LOGIC_WIDTH, this.LOGIC_HEIGHT);
-    } else if (this.currentRegion === 'karamja') {
-       this.ctx.fillStyle = 'rgba(255, 255, 0, 0.05)';
-       this.ctx.fillRect(0, 0, this.LOGIC_WIDTH, this.LOGIC_HEIGHT);
-    }
-  }
-
   draw() {
-    if (!this.ctx || !this.canvas || this.canvas.width === 0 || this.canvas.height === 0) return;
-    
-    const w = this.LOGIC_WIDTH;
-    const h = this.LOGIC_HEIGHT;
-    
-    try {
-      this.ctx.save();
-      
-      // Scale everything to fit the logic dimensions into the actual canvas resolution
-      const scaleX = this.canvas.width / w;
-      const scaleY = this.canvas.height / h;
-      this.ctx.scale(scaleX, scaleY);
-      this.ctx.imageSmoothingEnabled = false;
-      
-      // Apply Shake
-      if (this.shakeAmount > 0) {
-        this.ctx.translate((Math.random() - 0.5) * this.shakeAmount, (Math.random() - 0.5) * this.shakeAmount);
-      }
-
-      // Draw Background Theme
-      if (this.theme === 'grass') {
-        this.ctx.fillStyle = '#2d4c1e'; // Dark grass
-        this.ctx.fillRect(0, 0, w, h);
-        
-        // Grass tufts
-        this.ctx.fillStyle = '#3a5f27';
-        for (let i = 0; i < 100; i++) {
-          const tx = (i * 137.5) % w;
-          const ty = (i * 224.7) % h;
-          this.ctx.fillRect(tx, ty, 2, 2);
-          this.ctx.fillRect(tx + 2, ty + 2, 2, 4);
-        }
-      } else if (this.theme === 'sand') {
-        this.ctx.fillStyle = '#c2ae78'; // Sand
-        this.ctx.fillRect(0, 0, w, h);
-        
-        // Dunes/Sand ripples
-        this.ctx.strokeStyle = '#b3a069';
-        this.ctx.lineWidth = 1;
-        for (let i = 0; i < 30; i++) {
-          const ty = (i * 47.3) % h;
-          this.ctx.beginPath();
-          this.ctx.moveTo(0, ty);
-          for (let x = 0; x < w; x += 20) {
-            this.ctx.lineTo(x, ty + Math.sin(x * 0.05 + i) * 5);
-          }
-          this.ctx.stroke();
-        }
-      } else if (this.theme === 'dark') {
-        this.ctx.fillStyle = '#1a1a1a'; // Dark/Wilderness
-        this.ctx.fillRect(0, 0, w, h);
-        
-        // Cracks/Lava
-        this.ctx.strokeStyle = '#331111';
-        this.ctx.lineWidth = 2;
-        for (let i = 0; i < 20; i++) {
-          const tx = (i * 231.5) % w;
-          const ty = (i * 157.7) % h;
-          this.ctx.beginPath();
-          this.ctx.moveTo(tx, ty);
-          this.ctx.lineTo(tx + 40, ty + 30);
-          this.ctx.lineTo(tx + 10, ty + 60);
-          this.ctx.stroke();
-        }
-      }
-
-      this.drawAmbientEffects();
-
-      // Draw Grid
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-      this.ctx.lineWidth = 1;
-      const gridSize = 32;
-      for (let x = 0; x < w; x += gridSize) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(x, 0);
-        this.ctx.lineTo(x, h);
-        this.ctx.stroke();
-      }
-      for (let y = 0; y < h; y += gridSize) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, y);
-        this.ctx.lineTo(w, y);
-        this.ctx.stroke();
-      }
-
-      // Set common styles
-      this.ctx.lineCap = 'round';
-      this.ctx.lineJoin = 'round';
-
-      // Draw Spawn Portal
-      if (this.path.length > 0) {
-        const portalImg = this.imageCache.get('portal');
-        if (this.isImageValid(portalImg, 'portal')) {
-          try {
-            this.ctx.drawImage(portalImg!, this.path[0].x - 30, this.path[0].y - 30, 60, 60);
-          } catch (e) {
-            this.brokenImages.add('portal');
-          }
-          // Swirl effect
-          this.ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
-          this.ctx.lineWidth = 2;
-          this.ctx.beginPath();
-          this.ctx.arc(this.path[0].x, this.path[0].y, 25 + Math.sin(this.gameTime/200) * 5, 0, Math.PI * 2);
-          this.ctx.stroke();
-        }
-      }
-
-    // Draw Path
-    this.drawPath();
-    
-    // Draw Grid Indicator if a tower is selected
-    if (this.selectedTowerType && this.mousePos) {
-      const gridSize = 32;
-      const snappedX = Math.round(this.mousePos.x / gridSize) * gridSize;
-      const snappedY = Math.round(this.mousePos.y / gridSize) * gridSize;
-      const isValid = this.isValidPlacement(snappedX, snappedY);
-      
-      this.ctx.fillStyle = isValid ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)';
-      this.ctx.fillRect(snappedX - gridSize/2, snappedY - gridSize/2, gridSize, gridSize);
-      this.ctx.strokeStyle = isValid ? 'rgba(0, 255, 0, 0.5)' : 'rgba(255, 0, 0, 0.5)';
-      this.ctx.lineWidth = 1;
-      this.ctx.strokeRect(snappedX - gridSize/2, snappedY - gridSize/2, gridSize, gridSize);
-      
-      // Draw ghost tower
-      this.ctx.save();
-      this.ctx.globalAlpha = 0.5;
-      const imgKey = `${this.selectedTowerType}_1`;
-      const img = this.imageCache.get(imgKey);
-      if (this.isImageValid(img, imgKey)) {
-        try {
-          this.ctx.drawImage(img!, snappedX - 18, snappedY - 18, 36, 36);
-        } catch (e) {
-          this.brokenImages.add(imgKey);
-        }
-      } else {
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.beginPath();
-        this.ctx.arc(snappedX, snappedY, 18, 0, Math.PI * 2);
-        this.ctx.fill();
-      }
-      this.ctx.globalAlpha = 1.0;
-
-      // Draw Range Preview
-      let towerRange = 100;
-      if (this.selectedTowerType === 'archer') towerRange = 7 * 25 * this.upgrades.archerRange;
-      else if (this.selectedTowerType === 'wizard') towerRange = 7 * 25;
-      else if (this.selectedTowerType === 'cannon') towerRange = 9 * 25;
-      else if (this.selectedTowerType === 'tzhaar') towerRange = 2 * 25;
-      else if (this.selectedTowerType === 'slayer') towerRange = 7 * 25;
-      else if (this.selectedTowerType === 'toxic') towerRange = 5 * 25;
-
-      this.ctx.beginPath();
-      this.ctx.arc(snappedX, snappedY, towerRange, 0, Math.PI * 2);
-      this.ctx.strokeStyle = isValid ? 'rgba(0, 255, 0, 0.5)' : 'rgba(255, 0, 0, 0.5)';
-      this.ctx.lineWidth = 1;
-      this.ctx.setLineDash([5, 5]);
-      this.ctx.stroke();
-      this.ctx.setLineDash([]);
-      this.ctx.fillStyle = isValid ? 'rgba(0, 255, 0, 0.05)' : 'rgba(255, 0, 0, 0.05)';
-      this.ctx.fill();
-
-      this.ctx.restore();
-    }
-
-    // Draw Pets
-      if (this.pets.length > 0) {
-        const time = this.gameTime / 1000;
-        this.pets.forEach((pet, index) => {
-          // Movement logic: wander around the entire map
-          const speed = 0.3;
-          
-          // Use a pseudo-random wander based on index and time
-          // This allows pets to roam freely
-          const wanderX = (Math.sin(time * speed + index * 100) * 0.4 + 0.5) * this.LOGIC_WIDTH;
-          const wanderY = (Math.cos(time * speed * 0.8 + index * 200) * 0.4 + 0.5) * this.LOGIC_HEIGHT;
-          
-          let x = wanderX;
-          let y = wanderY;
-          
-          // Store position for tooltip detection
-          pet.x = x;
-          pet.y = y;
-
-          const imgKey = pet.type; 
-          const img = this.imageCache.get(imgKey);
-          
-          if (this.isImageValid(img, imgKey)) {
-            try {
-              this.ctx.drawImage(img!, x - 15, y - 15, 30, 30);
-            } catch (e) {
-              this.brokenImages.add(imgKey);
-            }
-          } else {
-            this.ctx.font = '20px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('🐾', x, y);
-          }
-          
-          this.ctx.fillStyle = '#00ffff';
-          this.ctx.font = 'bold 10px Arial';
-          this.ctx.textAlign = 'center';
-          this.ctx.fillText(pet.name, x, y + 20);
-        });
-      }
-
-      // Draw Towers
-      const now = this.gameTime;
-      this.towers.forEach(tower => {
-        if (isNaN(tower.x) || isNaN(tower.y)) return;
-        
-        // Animation: Bobbing (Uses real-time but clamped)
-        const bob = Math.sin(now / 500 + tower.x) * 3;
-        
-        // Directional Recoil
-        let recoilX = 0;
-        let recoilY = 0;
-        if (tower.recoil && tower.recoil > 0) {
-          recoilX = Math.cos(tower.recoilAngle || 0) * tower.recoil;
-          recoilY = Math.sin(tower.recoilAngle || 0) * tower.recoil;
-        }
-        
-        // Targeting Feedback
-        if (tower.targetId) {
-          const target = this.enemies.find(e => e.id === tower.targetId);
-          if (target) {
-            const isSelected = tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId;
-            this.ctx.beginPath();
-            this.ctx.moveTo(tower.x, tower.y);
-            this.ctx.lineTo(target.x, target.y);
-            this.ctx.strokeStyle = isSelected ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.15)';
-            this.ctx.lineWidth = isSelected ? 2 : 1;
-            if (!isSelected) this.ctx.setLineDash([2, 4]);
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
-            
-            // Draw a small reticle on the target if selected
-            if (isSelected) {
-              this.ctx.strokeStyle = '#ff0000';
-              this.ctx.lineWidth = 1;
-              this.ctx.beginPath();
-              this.ctx.arc(target.x, target.y, 15 + Math.sin(now / 100) * 5, 0, Math.PI * 2);
-              this.ctx.stroke();
-            }
-          }
-        }
-        
-        let imgKey = `${tower.type}_${tower.level}`;
-        if (tower.type === 'wizard') {
-          if (tower.mageMode === 'elemental') {
-            imgKey = `wizard_elemental_${tower.element || 'air'}`;
-          } else if (tower.mageMode === 'ancients') {
-            imgKey = `wizard_ancients`;
-          } else if (tower.mageMode === 'utility') {
-            imgKey = `wizard_utility`;
-          } else {
-            imgKey = `wizard_${tower.level}`;
-          }
-        }
-        
-        // Fallback to level-based key if specific one fails
-        let img = this.imageCache.get(imgKey);
-        if (!img || !img.complete || img.naturalWidth === 0 || this.brokenImages.has(imgKey)) {
-          imgKey = `${tower.type}_1`;
-          img = this.imageCache.get(imgKey);
-        }
-        
-        this.ctx.save();
-        this.ctx.translate(tower.x + recoilX, tower.y + bob + recoilY);
-        
-        // Rotate towards target if exists
-        if (tower.targetId) {
-          const target = this.enemies.find(e => e.id === tower.targetId);
-          if (target) {
-            const angle = Math.atan2(target.y - tower.y, target.x - tower.x);
-            this.ctx.rotate(angle + Math.PI / 2); // Images face up
-          }
-        }
-
-        if (this.isImageValid(img, imgKey)) {
-          const size = (tower.visualRadius || 18) * 2;
-          try {
-            this.ctx.drawImage(img!, -size/2, -size/2, size, size);
-          } catch (e) {
-            this.brokenImages.add(imgKey);
-          }
-        } else {
-          this.ctx.fillStyle = tower.color;
-          this.ctx.beginPath();
-          this.ctx.arc(0, 0, tower.visualRadius || 18, 0, Math.PI * 2);
-          this.ctx.fill();
-        }
-        this.ctx.restore();
-        
-        // Border for high level
-        if (tower.level >= 3) {
-          this.ctx.beginPath();
-          this.ctx.arc(tower.x, tower.y, (tower.visualRadius || 18) + 2, 0, Math.PI * 2);
-          this.ctx.strokeStyle = tower.level === 4 ? '#ff0000' : '#ffff00';
-          this.ctx.lineWidth = 2;
-          this.ctx.stroke();
-        }
-
-        // Draw Range if hovered, selected, or toggled
-        if (tower.id === this.hoveredEntityId || tower.id === this.selectedEntityId || tower.showRange) {
-          const stats = this.calculateTowerStats(tower);
-          
-          // Draw circle
-          this.ctx.beginPath();
-          this.ctx.strokeStyle = tower.showRange ? 'rgba(255, 255, 0, 0.4)' : 'rgba(255, 255, 255, 0.3)';
-          this.ctx.lineWidth = 2;
-          this.ctx.setLineDash([5, 5]);
-          this.ctx.arc(tower.x, tower.y, stats.range, 0, Math.PI * 2);
-          this.ctx.stroke();
-          this.ctx.setLineDash([]);
-          this.ctx.fillStyle = tower.showRange ? 'rgba(255, 255, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)';
-          this.ctx.fill();
-
-          // OSRS-style grid overlay
-          this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-          this.ctx.lineWidth = 1;
-          const gridSize = 25;
-          const startX = Math.floor((tower.x - stats.range) / gridSize) * gridSize;
-          const startY = Math.floor((tower.y - stats.range) / gridSize) * gridSize;
-          const endX = Math.ceil((tower.x + stats.range) / gridSize) * gridSize;
-          const endY = Math.ceil((tower.y + stats.range) / gridSize) * gridSize;
-
-          for (let x = startX; x <= endX; x += gridSize) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, startY);
-            this.ctx.lineTo(x, endY);
-            this.ctx.stroke();
-          }
-          for (let y = startY; y <= endY; y += gridSize) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(startX, y);
-            this.ctx.lineTo(endX, y);
-            this.ctx.stroke();
-          }
-        }
-
-        // Disabled indicator (Boss attack)
-        if (tower.disabledTimer > 0) {
-          this.ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
-          this.ctx.beginPath();
-          this.ctx.arc(tower.x, tower.y, (tower.visualRadius || 18) + 2, 0, Math.PI * 2);
-          this.ctx.fill();
-          
-          this.ctx.strokeStyle = '#00ff00';
-          this.ctx.lineWidth = 2;
-          this.ctx.setLineDash([5, 5]);
-          this.ctx.stroke();
-          this.ctx.setLineDash([]);
-        }
-
-        // Level indicator
-        this.ctx.fillStyle = '#fff';
-        this.ctx.font = 'bold 10px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(tower.level.toString(), tower.x, tower.y + 4);
-      });
-
-      // Draw Gathering Nodes
-      this.nodes.forEach(n => {
-        if (n.respawnTimer > 0) return;
-        let imgKey = 'tree';
-        if (n.type === 'ore') imgKey = 'ore_adamant';
-        if (n.type === 'herb') imgKey = 'ranarr';
-        
-        const img = this.imageCache.get(imgKey);
-        if (this.isImageValid(img, imgKey)) {
-          try {
-            this.ctx.drawImage(img!, n.x - 16, n.y - 16, 32, 32);
-          } catch (e) {
-            this.brokenImages.add(imgKey);
-          }
-        } else {
-          this.ctx.fillStyle = n.type === 'tree' ? '#8B4513' : n.type === 'ore' ? '#555' : '#0f0';
-          this.ctx.fillRect(n.x - 10, n.y - 10, 20, 20);
-        }
-        
-        // Name tag
-        this.ctx.fillStyle = '#ffff00';
-        this.ctx.font = '8px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(n.name, n.x, n.y - 18);
-      });
-
-      // Draw Enemies
-      this.enemies.forEach(enemy => {
-        if (isNaN(enemy.x) || isNaN(enemy.y)) return;
-
-        const img = this.imageCache.get(enemy.type);
-        const isBoss = enemy.type === 'vorkath' || enemy.type === 'zulrah' || enemy.type === 'jad';
-        const size = isBoss ? 60 : 30;
-
-        this.ctx.save();
-        this.ctx.translate(enemy.x + (enemy.shakeX || 0), enemy.y + (enemy.shakeY || 0));
-        
-        // OSRS Rule #2: DO NOT rotate NPC images. They are sideways/front-facing in Wiki.
-        // Rule Extension: Most face right. Mirror if moving left.
-        const targetPoint = this.path[enemy.pathIndex + 1] || enemy;
-        const movingLeft = targetPoint.x < enemy.x;
-        
-        if (this.isImageValid(img, enemy.type)) {
-          if (movingLeft) this.ctx.scale(-1, 1);
-          try {
-            this.ctx.drawImage(img!, -size/2, -size/2, size, size);
-          } catch (e) {
-            this.brokenImages.add(enemy.type);
-          }
-        } else {
-          this.ctx.fillStyle = enemy.color;
-          this.ctx.beginPath();
-          this.ctx.arc(0, 0, isBoss ? 20 : 10, 0, Math.PI * 2);
-          this.ctx.fill();
-        }
-        this.ctx.restore();
-
-        // Status effects
-        if (enemy.slowTimer > 0) {
-          this.ctx.strokeStyle = '#00ffff';
-          this.ctx.lineWidth = 2;
-          this.ctx.beginPath();
-          this.ctx.arc(enemy.x, enemy.y, 12, 0, Math.PI * 2);
-          this.ctx.stroke();
-          this.ctx.font = '10px Arial';
-          this.ctx.fillText('❄️', enemy.x - 15, enemy.y + 10);
-        }
-        if (enemy.stunTimer > 0) {
-          // Frozen: icy blue ring + fill tint
-          const pulseAlpha = 0.3 + 0.15 * Math.sin((this.gameTime / 1000) * 6);
-          this.ctx.fillStyle = `rgba(100, 200, 255, ${pulseAlpha})`;
-          this.ctx.beginPath();
-          this.ctx.arc(enemy.x, enemy.y, (isBoss ? 20 : 10) + 4, 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.strokeStyle = '#00c8ff';
-          this.ctx.lineWidth = 2.5;
-          this.ctx.beginPath();
-          this.ctx.arc(enemy.x, enemy.y, (isBoss ? 20 : 10) + 6, 0, Math.PI * 2);
-          this.ctx.stroke();
-          // Snowflake label
-          this.ctx.font = `${isBoss ? 14 : 10}px Arial`;
-          this.ctx.textAlign = 'center';
-          this.ctx.fillStyle = '#ffffff';
-          this.ctx.fillText('❄', enemy.x, enemy.y - (isBoss ? 28 : 20));
-        }
-
-        if (enemy.burnTimer > 0) {
-          // Fire particles or glow
-          const pulse = 0.5 + 0.5 * Math.sin((this.gameTime / 1000) * 10);
-          this.ctx.fillStyle = `rgba(255, 100, 0, ${0.3 * pulse})`;
-          this.ctx.beginPath();
-          this.ctx.arc(enemy.x, enemy.y, (isBoss ? 25 : 15), 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.font = '12px Arial';
-          this.ctx.fillText('🔥', enemy.x + 10, enemy.y - 10);
-        }
-
-        if ((enemy.poisonTimer || 0) > 0 || (enemy.venomTimer && enemy.venomTimer > 0)) {
-          // Poison green tint
-          this.ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
-          this.ctx.beginPath();
-          this.ctx.arc(enemy.x, enemy.y, (isBoss ? 20 : 10), 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.font = '12px Arial';
-          this.ctx.fillText('🧪', enemy.x - 10, enemy.y - 10);
-        }
-
-        // Health bar
-        const barWidth = isBoss ? 60 : 30;
-        const barHeight = isBoss ? 6 : 4;
-        const barY = isBoss ? enemy.y - 40 : enemy.y - 20;
-
-        this.ctx.fillStyle = '#ff0000';
-        this.ctx.fillRect(enemy.x - barWidth/2, barY, barWidth, barHeight);
-        this.ctx.fillStyle = '#00ff00';
-        this.ctx.fillRect(enemy.x - barWidth/2, barY, barWidth * (enemy.hp / enemy.maxHp), barHeight);
-
-        if (isBoss) {
-          this.ctx.strokeStyle = '#fff';
-          this.ctx.lineWidth = 1;
-          this.ctx.strokeRect(enemy.x - barWidth/2, barY, barWidth, barHeight);
-          
-          this.ctx.fillStyle = '#fff';
-          this.ctx.font = 'bold 12px Arial';
-          this.ctx.textAlign = 'center';
-          this.ctx.fillText(enemy.type.toUpperCase(), enemy.x, barY - 5);
-        }
-        if (enemy.tauntTimer > 0) {
-          this.ctx.strokeStyle = '#ff0000';
-          this.ctx.lineWidth = 1;
-          this.ctx.beginPath();
-          this.ctx.arc(enemy.x, enemy.y, 16, 0, Math.PI * 2);
-          this.ctx.stroke();
-        }
-      });
-
-      // Draw Projectiles
-      this.projectiles.forEach(p => {
-        if (isNaN(p.x) || isNaN(p.y)) return;
-        
-        const target = this.enemies.find(e => e.id === p.targetId);
-        let angle = 0;
-        if (target) {
-          angle = Math.atan2(target.y - p.y, target.x - p.x);
-        }
-
-        this.ctx.save();
-        this.ctx.translate(p.x, p.y);
-        this.ctx.rotate(angle);
-        
-        if (p.type === 'cannonball') {
-           this.ctx.rotate(-angle); // Cannonballs don't rotate
-           this.ctx.fillStyle = '#333';
-           this.ctx.beginPath();
-           this.ctx.arc(0, 0, 4, 0, Math.PI * 2);
-           this.ctx.fill();
-           this.ctx.strokeStyle = '#000';
-           this.ctx.stroke();
-        } else if (p.type === 'spell') {
-           this.ctx.rotate(-angle); // Spells are spheres usually
-           const colors: Record<string, string> = { air: '#ffffff', water: '#0000ff', earth: '#8b4513', fire: '#ff0000' };
-           this.ctx.fillStyle = colors[p.element || 'air'];
-           this.ctx.shadowBlur = 10;
-           this.ctx.shadowColor = this.ctx.fillStyle as string;
-           this.ctx.beginPath();
-           this.ctx.arc(0, 0, 5, 0, Math.PI * 2);
-           this.ctx.fill();
-         } else if (p.type.startsWith('ancient_')) {
-            this.ctx.rotate(-angle);
-            const ancColors: Record<string, string> = { ice: '#00ffff', smoke: '#555', shadow: '#440044', blood: '#ff0000' };
-            const type = p.type.replace('ancient_', '');
-            this.ctx.fillStyle = ancColors[type] || '#fff';
-            this.ctx.shadowBlur = 15;
-            this.ctx.shadowColor = this.ctx.fillStyle as string;
-            this.ctx.beginPath();
-            this.ctx.arc(0, 0, 6, 0, Math.PI * 2);
-            this.ctx.fill();
-         } else if (p.type === 'dart') {
-           this.ctx.fillStyle = '#00ff00';
-           this.ctx.fillRect(-6, -1.5, 12, 3);
-        } else if (p.type === 'arrow' || p.type === 'bolt') {
-           this.ctx.fillStyle = p.color;
-           this.ctx.fillRect(-8, -1, 16, 2);
-           // Fletching/Head
-           this.ctx.fillStyle = '#fff';
-           this.ctx.fillRect(-8, -2, 3, 4);
-        } else {
-           this.ctx.fillStyle = p.color;
-           this.ctx.beginPath();
-           this.ctx.arc(0, 0, 3, 0, Math.PI * 2);
-           this.ctx.fill();
-        }
-        
-        this.ctx.restore();
-      });
-
-      // Draw Particles
-      this.particles.forEach(p => {
-        this.ctx.fillStyle = p.color;
-        this.ctx.globalAlpha = p.life / 0.3;
-        this.ctx.beginPath();
-        this.ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.globalAlpha = 1.0;
-      });
-
-      // Draw Hitsplats
-      this.hitsplats.forEach(hs => {
-        const splatType = hs.type === 'melee' ? 'hit_splat' : `${hs.type}_hit_splat`;
-        const splatImg = this.imageCache.get(splatType);
-        
-        if (this.isImageValid(splatImg, splatType)) {
-          try {
-            this.ctx.globalAlpha = hs.life;
-            this.ctx.drawImage(splatImg!, hs.x - 15, hs.y - 15, 30, 30);
-            this.ctx.globalAlpha = 1.0;
-          } catch (e) {
-            this.brokenImages.add(splatType);
-          }
-        }
-      });
-
-      // Draw Damage Numbers
-      this.damageNumbers.forEach(dn => {
-        this.ctx.fillStyle = dn.color;
-        this.ctx.globalAlpha = dn.life;
-        this.ctx.font = `bold ${Math.floor(12 + dn.life * 4)}px 'RuneScape', Arial`;
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(dn.text, dn.x, dn.y + 5);
-        this.ctx.globalAlpha = 1.0;
-      });
-
-      // Draw Death Animations
-      this.deathAnimations.forEach(da => {
-        const img = this.imageCache.get(da.type);
-        if (this.isImageValid(img, da.type)) {
-          this.ctx.globalAlpha = Math.min(1, da.life * 2);
-          try {
-            this.ctx.drawImage(img!, da.x - 15, da.y - 15, 30, 30);
-          } catch (e) {
-            this.brokenImages.add(da.type);
-          }
-          this.ctx.globalAlpha = 1.0;
-        }
-      });
-
-      // Draw Floating Texts (Level ups, etc)
-      this.floatingTexts.forEach(ft => {
-        this.ctx.save();
-        this.ctx.globalAlpha = Math.min(1, ft.life * 2);
-        this.ctx.fillStyle = ft.color;
-        this.ctx.shadowColor = '#000';
-        this.ctx.shadowBlur = 4;
-        this.ctx.shadowOffsetX = 1;
-        this.ctx.shadowOffsetY = 1;
-
-        if (ft.text.includes('XP')) {
-            this.ctx.font = `bold 11px 'RuneScape', Arial`;
-            this.ctx.textAlign = 'left';
-            const textWidth = this.ctx.measureText(ft.text).width;
-            
-            if (ft.icon) {
-              const iconKey = ft.icon.toLowerCase();
-              const iconImg = this.imageCache.get(iconKey);
-              if (this.isImageValid(iconImg, iconKey)) {
-                try {
-                  this.ctx.drawImage(iconImg!, ft.x - textWidth/2 - 12, ft.y - 10, 10, 10);
-                } catch (e) {
-                  this.brokenImages.add(iconKey);
-                }
-              }
-            }
-            this.ctx.fillText(ft.text, ft.x - textWidth/2 + 2, ft.y);
-        } else {
-            this.ctx.font = `bold 16px 'RuneScape', Arial`;
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText(ft.text, ft.x, ft.y);
-            
-            if (ft.icon) {
-              const iconKey = ft.icon.toLowerCase();
-              const iconImg = this.imageCache.get(iconKey);
-              if (this.isImageValid(iconImg, iconKey)) {
-                try {
-                  this.ctx.drawImage(iconImg!, ft.x - 10, ft.y - 35, 20, 20);
-                } catch (e) {
-                  this.brokenImages.add(iconKey);
-                }
-              }
-            }
-        }
-        this.ctx.restore();
-      });
-
-      // Draw Loots — all loots show as bones icon (OSRS style), click to collect
-      const bonesImg = this.imageCache.get('bones_loot');
-      this.loots.forEach(loot => {
-        this.ctx.save();
-        this.ctx.translate(loot.x, loot.y);
-        const pulse = 1 + Math.sin(now / 300) * 0.15;
-        this.ctx.scale(pulse, pulse);
-        
-        // Draw bones icon
-        if (this.isImageValid(bonesImg, 'bones_loot')) {
-          try {
-            this.ctx.drawImage(bonesImg!, -12, -12, 24, 24);
-          } catch (e) {
-            this.brokenImages.add('bones_loot');
-          }
-        } else {
-          this.ctx.font = '20px Arial';
-          this.ctx.textAlign = 'center';
-          this.ctx.fillText('🦴', 0, 8);
-        }
-        
-        // Draw specific loot icon
-        let iconKey = '';
-        if (loot.type === 'money') iconKey = 'coins_icon';
-        else if (loot.type === 'essence') iconKey = 'rune_essence_icon';
-        else if (loot.type === 'item' && loot.data) iconKey = loot.data.id;
-
-        if (iconKey) {
-          const iconImg = this.imageCache.get(iconKey);
-          if (this.isImageValid(iconImg, iconKey)) {
-            try {
-              this.ctx.drawImage(iconImg!, -12, -12, 24, 24);
-            } catch (e) {
-              this.brokenImages.add(iconKey);
-            }
-          }
-        }
-        
-        // Tinted glow based on loot type
-        if (loot.type !== 'bones') {
-          const glowColor = loot.type === 'essence' ? '#00ffff' : loot.type === 'item' ? '#ff8000' : '#ffff00';
-          this.ctx.globalAlpha = 0.25 + 0.15 * Math.sin(now / 150);
-          this.ctx.fillStyle = glowColor;
-          this.ctx.beginPath();
-          this.ctx.arc(0, 0, 14, 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.globalAlpha = 1.0;
-        }
-        
-        this.ctx.restore();
-      });
-
-    } catch (e) {
-      console.error('Draw loop error:', e);
-    } finally {
-      this.ctx.restore();
-    }
+    this.renderer.draw();
   }
 }

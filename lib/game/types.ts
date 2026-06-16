@@ -274,3 +274,63 @@ export interface Recipe {
   skill: keyof PlayerSkills;
   icon?: string;
 }
+
+export interface GameSettings {
+  volume: number;
+  showRangeAlways: boolean;
+  particles: boolean;
+}
+
+/**
+ * The shape of every partial state object the engine pushes to the UI via its
+ * `onStateChange` callback. Every key the engine emits must be declared here —
+ * TypeScript's excess-property checks then flag any typo'd or stray key at the
+ * call site. Keep this in sync with `GameEngine.getState()` and the `setState`
+ * merge in `GameCanvas`.
+ */
+export interface EngineStatePatch {
+  money?: number;
+  lives?: number;
+  wave?: number;
+  waveActive?: boolean;
+  isPlaying?: boolean;
+  isPaused?: boolean;
+  gameOver?: boolean;
+  devMode?: boolean;
+  runeEssence?: number;
+  remainingEnemies?: number;
+  prayerPoints?: number;
+  maxPrayerPoints?: number;
+  activePrayers?: PrayerType[];
+  specialAttackCharge?: number;
+  activePotions?: ActivePotion[];
+  inventory?: Item[];
+  playerSkills?: PlayerSkills;
+  currentRegion?: Region;
+  messages?: string[];
+  settings?: GameSettings;
+  slayerTask?: SlayerTask | null;
+  slayerMaster?: string;
+  slayerPoints?: number;
+  consecutiveTasks?: number;
+  unlockedTowers?: string[];
+  blockedEnemies?: string[];
+  extendedTasks?: string[];
+  biggerAndBadder?: boolean;
+  slayerHelmet?: boolean;
+  achievements?: Achievement[];
+  achievementPoints?: number;
+  quests?: Quest[];
+  towers?: Tower[];
+  enemies?: Enemy[];
+  pets?: Pet[];
+  selectedPlacedTower?: Tower | null;
+  autoSpawnEnabled?: boolean;
+  autoSpawnTimer?: number;
+  followingPetId?: string | null;
+  activeQuote?: { text: string; timer: number } | null;
+  farmingPatches?: FarmingPatch[];
+  itemPriceMultipliers?: Record<string, number>;
+  upgrades?: GlobalUpgrades;
+  pohUpgrades?: string[];
+}

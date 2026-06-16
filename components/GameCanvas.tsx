@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { GameEngine } from '@/lib/game/engine';
-import type { GlobalUpgrades } from '@/lib/game/types';
+import type { GlobalUpgrades, Item, Achievement, Pet, Quest, ActivePotion, FarmingPatch } from '@/lib/game/types';
 import { TOWERS as TOWER_DATA } from '@/lib/game/data/towers';
 import { ENEMIES as ENEMY_DATA } from '@/lib/game/data/enemies';
 import { PRAYERS as PRAYER_DATA } from '@/lib/game/data/prayers';
@@ -33,7 +33,6 @@ import { GameOverModal } from './game-ui/GameOverModal';
 interface TowerSkill {
   level: number;
   xp: number;
-  nextLevelXp: number;
 }
 
 interface TowerData {
@@ -55,15 +54,6 @@ interface TowerData {
   targetingPriority?: string;
 }
 
-interface EnemyData {
-  id: string;
-  type: string;
-  hp: number;
-  maxHp: number;
-  speed: number;
-  reward: number;
-}
-
 interface SlayerTask {
   type: string;
   count: number;
@@ -82,11 +72,12 @@ interface GameState {
   remainingEnemies?: number;
   messages?: string[];
   specialAttackCharge?: number;
-  achievements?: any[];
-  pets?: any[];
-  inventory?: any[];
-  quests?: any[];
+  achievements?: Achievement[];
+  pets?: Pet[];
+  inventory?: Item[];
+  quests?: Quest[];
   achievementPoints?: number;
+  // Loose: the initial state seeds only a partial skill set.
   playerSkills?: Record<string, any>;
   autoSpawnTimer?: number;
   selectedTower?: string | null;
@@ -94,11 +85,11 @@ interface GameState {
   prayerPoints: number;
   maxPrayerPoints: number;
   prayerDrainRate?: number;
-  activePotions?: any[];
+  activePotions?: ActivePotion[];
   itemPriceMultipliers?: Record<string, number>;
   isPaused?: boolean;
   gameOver?: boolean;
-  farmingPatches?: any[];
+  farmingPatches?: FarmingPatch[];
   pohUpgrades?: string[];
 }
 
@@ -248,6 +239,13 @@ export default function GameCanvas() {
     if (data) engineRef.current?.playSound('click');
     setGameState(prev => ({ ...prev, selectedPlacedTower: data }));
   }, []);
+
+  // Re-snapshot the selected tower after an engine mutation so the open modal
+  // reflects the change (the modal renders from gameState.selectedPlacedTower).
+  const refreshSelectedTower = useCallback((towerId: string) => {
+    const updated = engineRef.current?.towers.find((t: any) => t.id === towerId);
+    if (updated) setSelectedPlacedTower({ ...updated });
+  }, [setSelectedPlacedTower]);
 
   const getLogicCoords = (clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -428,9 +426,11 @@ export default function GameCanvas() {
     if (!canvasRef.current || !isMounted) return;
     const canvas = canvasRef.current;
     try {
-      const engine = new GameEngine(canvas, (state: Partial<GameState>) => {
+      const engine = new GameEngine(canvas, (state) => {
         try {
-          const safeState = structuredClone(state);
+          // The engine emits an EngineStatePatch; the UI's GameState is a looser
+          // view of the same data, so reconcile the shapes at this one boundary.
+          const safeState = structuredClone(state) as unknown as Partial<GameState>;
           setGameState((prev: GameState) => ({ ...prev, ...safeState }));
           if (safeState.runeEssence !== undefined) {
             setRuneEssence(safeState.runeEssence);
@@ -802,11 +802,11 @@ export default function GameCanvas() {
             const updated = engineRef.current?.towers.find((t: any) => t.id === gameState.selectedPlacedTower!.id);
             if (updated) setSelectedPlacedTower({ ...updated });
           }}
-          onUnequip={(towerId, slot) => engineRef.current?.unequipItem(towerId, slot as any)}
-          onSetArcherStyle={(towerId, style) => engineRef.current?.setArcherStyle(towerId, style as any)}
-          onSetMageMode={(towerId, mode) => engineRef.current?.setMageMode(towerId, mode as any)}
-          onSetMageElement={(towerId, elem) => engineRef.current?.setMageElement(towerId, elem as any)}
-          onSetAncientType={(towerId, type) => engineRef.current?.setAncientType(towerId, type as any)}
+          onUnequip={(towerId, slot) => { engineRef.current?.unequipItem(towerId, slot as any); refreshSelectedTower(towerId); }}
+          onSetArcherStyle={(towerId, style) => { engineRef.current?.setArcherStyle(towerId, style as any); refreshSelectedTower(towerId); }}
+          onSetMageMode={(towerId, mode) => { engineRef.current?.setMageMode(towerId, mode as any); refreshSelectedTower(towerId); }}
+          onSetMageElement={(towerId, elem) => { engineRef.current?.setMageElement(towerId, elem as any); refreshSelectedTower(towerId); }}
+          onSetAncientType={(towerId, type) => { engineRef.current?.setAncientType(towerId, type as any); refreshSelectedTower(towerId); }}
           money={gameState.money}
           towerCostReduction={upgrades.towerCostReduction}
         />

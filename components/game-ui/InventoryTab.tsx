@@ -41,9 +41,9 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
               onMouseLeave={() => setActiveTooltip(null)}
             >
               {item ? (
-                <img 
-                  src={`${ASSETS.misc.wiki_base}${item.name.replace(/ /g, '_')}.png`} 
-                  alt={item.name} 
+                <img
+                  src={(ASSETS.items as Record<string, string>)[item.id] || `${ASSETS.misc.wiki_base}${item.name.replace(/ /g, '_')}.png`}
+                  alt={item.name}
                   className="w-full h-full object-contain"
                   onError={(e) => {
                     const img = e.target as HTMLImageElement;

@@ -1,0 +1,77 @@
+import { describe, it, expect } from 'vitest';
+import type { Tower, GlobalUpgrades, PrayerType, ActivePotion } from '../types';
+import { calculateTowerStats, TowerStatsContext } from './tower-combat';
+
+const baseUpgrades: GlobalUpgrades = {
+  archerRange: 1, archerDamage: 1, magicDamage: 1, cannonSpeed: 1, slayerReward: 1,
+  prayerEfficiency: 1, startingMoney: 0, rewardMultiplier: 1, waveSpeed: 1,
+  towerCostReduction: 1, xpGainMultiplier: 1, prayerRegen: 0,
+};
+
+function tower(over: Partial<Tower> = {}): Tower {
+  return {
+    id: 't1', x: 0, y: 0, type: 'archer', level: 1, maxLevel: 4, range: 100, damage: 10,
+    cooldown: 1000, lastFired: 0, color: '#fff', targetId: null, targetingPriority: 'first',
+    name: 'Bow', upgradeCost: 0, specCharge: 0, specMax: 100, visualRadius: 18, disabledTimer: 0,
+    skills: { strength: { level: 1, xp: 0 }, ranged: { level: 1, xp: 0 }, magic: { level: 1, xp: 0 } },
+    equipment: { weapon: null, shield: null, accessory: null },
+    ...over,
+  } as Tower;
+}
+
+function ctx(over: Partial<TowerStatsContext> = {}): TowerStatsContext {
+  return {
+    upgrades: baseUpgrades,
+    activePrayers: new Set<PrayerType>(),
+    activePotions: [] as ActivePotion[],
+    allTowers: [],
+    ...over,
+  };
+}
+
+describe('calculateTowerStats', () => {
+  it('returns base stats with no buffs', () => {
+    const s = calculateTowerStats(tower(), ctx());
+    expect(s).toEqual({ damageMultiplier: 1, flatDamageBonus: 0, range: 100, cooldown: 1000 });
+  });
+
+  it('applies archer global upgrades', () => {
+    const s = calculateTowerStats(tower(), ctx({ upgrades: { ...baseUpgrades, archerRange: 2, archerDamage: 1.5 } }));
+    expect(s.range).toBe(200);
+    expect(s.damageMultiplier).toBeCloseTo(1.5);
+  });
+
+  it('applies the best active prayer for the style', () => {
+    const s = calculateTowerStats(tower(), ctx({ activePrayers: new Set<PrayerType>(['rigour']) }));
+    expect(s.damageMultiplier).toBeCloseTo(1.23);
+  });
+
+  it('applies overload potion to damage, range and speed', () => {
+    const s = calculateTowerStats(tower(), ctx({ activePotions: [{ type: 'overload', timer: 60 }] }));
+    expect(s.damageMultiplier).toBeCloseTo(1.15);
+    expect(s.range).toBeCloseTo(110);
+    expect(s.cooldown).toBeCloseTo(1000 / 1.1);
+  });
+
+  it('adds equipment bonuses (flat damage, range %, cooldown %)', () => {
+    const weapon = { id: 'w', name: 'W', description: '', type: 'weapon' as const, bonus: { damage: 5, range: 10, cooldown: 20 } };
+    const s = calculateTowerStats(tower({ equipment: { weapon, shield: null, accessory: null } }), ctx());
+    expect(s.flatDamageBonus).toBe(5);
+    expect(s.range).toBeCloseTo(110);
+    expect(s.cooldown).toBeCloseTo(1000 / 1.2);
+  });
+
+  it('applies in-range utility-mage support buffs (and stacks range at lvl 3+)', () => {
+    const support = tower({ id: 'sup', type: 'wizard', mageMode: 'utility', level: 4, range: 1000, x: 0, y: 0 });
+    const s = calculateTowerStats(tower(), ctx({ allTowers: [tower(), support] }));
+    expect(s.range).toBeCloseTo(100 * 1.1 * 1.1); // lvl1 + lvl3 range buffs
+    expect(s.cooldown).toBeCloseTo(1000 / 1.1); // lvl2 speed buff
+    expect(s.damageMultiplier).toBeCloseTo(1.1); // lvl4 damage buff
+  });
+
+  it('ignores out-of-range support towers', () => {
+    const support = tower({ id: 'sup', type: 'wizard', mageMode: 'utility', level: 4, range: 50, x: 9999, y: 0 });
+    const s = calculateTowerStats(tower(), ctx({ allTowers: [tower(), support] }));
+    expect(s).toEqual({ damageMultiplier: 1, flatDamageBonus: 0, range: 100, cooldown: 1000 });
+  });
+});
