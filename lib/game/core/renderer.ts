@@ -21,6 +21,8 @@ export class GameRenderer {
     this.drawTowers(ctx);
     this.drawEnemies(ctx);
     this.drawProjectiles(ctx);
+    this.drawParticles(ctx);
+    this.drawHitsplats(ctx);
     ctx.restore();
   }
 
@@ -182,5 +184,34 @@ export class GameRenderer {
         ctx.fill();
       }
     }
+  }
+
+  private drawParticles(ctx: CanvasRenderingContext2D) {
+    for (const p of this.e.particles) {
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  private drawHitsplats(ctx: CanvasRenderingContext2D) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const h of this.e.hitsplats) {
+      ctx.globalAlpha = Math.min(1, h.life / 0.3); // fade out near the end
+      // OSRS-style splat: red for a hit, blue for a miss.
+      ctx.fillStyle = h.kind === 'miss' ? '#1f6fd0' : '#b00000';
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = "bold 14px 'RuneScape', Arial";
+      ctx.fillText(String(h.value), h.x, h.y + 1);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textBaseline = 'alphabetic';
   }
 }

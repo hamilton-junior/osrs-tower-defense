@@ -38,6 +38,28 @@ export interface UIState {
 
 const uid = () => Math.random().toString(36).slice(2, 11);
 
+/** Transient OSRS-style hit marker shown over an enemy when it takes damage. */
+export interface Hitsplat {
+  x: number;
+  y: number;
+  value: number;
+  kind: 'hit' | 'miss';
+  life: number;
+}
+
+/** Transient death/impact particle. */
+export interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+}
+
+const HITSPLAT_LIFE = 0.9;
+
 export class GameEngine {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
@@ -49,6 +71,8 @@ export class GameEngine {
   enemies: Enemy[] = [];
   towers: Tower[] = [];
   projectiles: Projectile[] = [];
+  hitsplats: Hitsplat[] = [];
+  particles: Particle[] = [];
 
   money = START_MONEY;
   lives = START_LIVES;
@@ -309,7 +333,26 @@ export class GameEngine {
     this.moveEnemies(dt);
     this.fireTowers(dt);
     this.moveProjectiles(dt);
+    this.updateEffects(dt);
     this.checkWaveEnd();
+  }
+
+  /** Advance purely-visual effects (no gameplay impact). */
+  private updateEffects(dt: number) {
+    for (let i = this.hitsplats.length - 1; i >= 0; i--) {
+      const h = this.hitsplats[i];
+      h.life -= dt;
+      h.y -= 28 * dt; // float up
+      if (h.life <= 0) this.hitsplats.splice(i, 1);
+    }
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life -= dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 220 * dt; // gravity
+      if (p.life <= 0) this.particles.splice(i, 1);
+    }
   }
 
   private spawn(dt: number) {
@@ -433,13 +476,39 @@ export class GameEngine {
   }
 
   private damage(enemy: Enemy, amount: number) {
-    enemy.hp -= amount;
+    const dealt = Math.max(0, Math.floor(amount));
+    enemy.hp -= dealt;
+    this.hitsplats.push({
+      x: enemy.x + (Math.random() - 0.5) * 16,
+      y: enemy.y - 18,
+      value: dealt,
+      kind: dealt > 0 ? 'hit' : 'miss',
+      life: HITSPLAT_LIFE,
+    });
     if (enemy.hp > 0) return;
     const i = this.enemies.indexOf(enemy);
     if (i < 0) return;
     this.enemies.splice(i, 1);
+    this.spawnDeathParticles(enemy);
     this.money += Math.floor(enemy.reward * 0.5);
     this.emit();
+  }
+
+  private spawnDeathParticles(enemy: Enemy) {
+    const count = enemy.isBoss ? 26 : 12;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 40 + Math.random() * 90;
+      this.particles.push({
+        x: enemy.x,
+        y: enemy.y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0.5 + Math.random() * 0.3,
+        maxLife: 0.8,
+        color: enemy.color,
+      });
+    }
   }
 
   private checkWaveEnd() {
@@ -460,6 +529,8 @@ export class GameEngine {
     this.enemies = [];
     this.towers = [];
     this.projectiles = [];
+    this.hitsplats = [];
+    this.particles = [];
     this.spawnQueue = [];
     this.money = START_MONEY;
     this.lives = START_LIVES;
