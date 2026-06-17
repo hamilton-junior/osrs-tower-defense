@@ -13,11 +13,14 @@ export interface EnemyDef {
   waveUnlock?: number;
 }
 
+// `hp` mirrors each monster's real OSRS hitpoints. `reward` is a "threat weight"
+// used only to size waves (see wave-generation); the gold the player earns is
+// derived from (wave-scaled) HP in systems/rewards, not from `reward`.
 export const ENEMIES: Record<string, EnemyDef> = {
   goblin: {
     type: 'goblin',
     name: 'Goblin',
-    hp: 6,
+    hp: 5,
     speed: 60,
     color: '#4a704a',
     reward: 2,
@@ -26,7 +29,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   rat: {
     type: 'rat',
     name: 'Giant Rat',
-    hp: 6,
+    hp: 8,
     speed: 80,
     color: '#8b8b8b',
     reward: 2,
@@ -53,7 +56,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   spider: {
     type: 'spider',
     name: 'Giant Spider',
-    hp: 35,
+    hp: 22,
     speed: 90,
     color: '#333333',
     reward: 5,
@@ -62,7 +65,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   skeleton: {
     type: 'skeleton',
     name: 'Skeleton',
-    hp: 20,
+    hp: 22,
     speed: 55,
     color: '#eeeeee',
     reward: 3,
@@ -71,7 +74,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   zombie: {
     type: 'zombie',
     name: 'Zombie',
-    hp: 25,
+    hp: 22,
     speed: 40,
     color: '#6b8e23',
     reward: 4,
@@ -80,7 +83,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   ghost: {
     type: 'ghost',
     name: 'Ghost',
-    hp: 25,
+    hp: 19,
     speed: 50,
     color: '#e0ffff',
     reward: 3,
@@ -107,7 +110,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   fire_giant: {
     type: 'fire_giant',
     name: 'Fire Giant',
-    hp: 120,
+    hp: 111,
     speed: 35,
     color: '#ff0000',
     reward: 20,
@@ -117,7 +120,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   bloodveld: {
     type: 'bloodveld',
     name: 'Bloodveld',
-    hp: 105,
+    hp: 120,
     speed: 45,
     color: '#ff69b4',
     reward: 18,
@@ -126,7 +129,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   hill_giant: {
     type: 'hill_giant',
     name: 'Hill Giant',
-    hp: 45,
+    hp: 35,
     speed: 30,
     color: '#d2b48c',
     reward: 10,
@@ -136,7 +139,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   black_demon: {
     type: 'black_demon',
     name: 'Black Demon',
-    hp: 150,
+    hp: 157,
     speed: 40,
     color: '#1a1a1a',
     reward: 35,
@@ -174,7 +177,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   abyssal_demon: {
     type: 'abyssal_demon',
     name: 'Abyssal Demon',
-    hp: 96,
+    hp: 150,
     speed: 65,
     color: '#4b0082',
     reward: 56,
@@ -184,7 +187,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   lesser_demon: {
     type: 'lesser_demon',
     name: 'Lesser Demon',
-    hp: 70,
+    hp: 79,
     speed: 50,
     color: '#8b0000',
     reward: 16,
@@ -204,7 +207,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   green_dragon: {
     type: 'green_dragon',
     name: 'Green Dragon',
-    hp: 100,
+    hp: 75,
     speed: 45,
     color: '#228b22',
     reward: 30,
@@ -257,7 +260,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   chaos_druid: {
     type: 'chaos_druid',
     name: 'Chaos Druid',
-    hp: 40,
+    hp: 30,
     speed: 55,
     color: '#2e8b57',
     reward: 9,
@@ -267,7 +270,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   skeletal_mage: {
     type: 'skeletal_mage',
     name: 'Skeletal Mage',
-    hp: 30,
+    hp: 29,
     speed: 50,
     color: '#add8e6',
     reward: 15,
@@ -277,7 +280,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   hydra: {
     type: 'hydra',
     name: 'Hydra',
-    hp: 1100,
+    hp: 300,
     speed: 30,
     color: '#006400',
     reward: 100,
@@ -287,7 +290,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   superior_bloodveld: {
     type: 'superior_bloodveld',
     name: 'Insatiable Bloodveld',
-    hp: 450,
+    hp: 312,
     speed: 50,
     color: '#ff1493',
     reward: 100,
@@ -305,8 +308,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   superior_gargoyle: {
     type: 'superior_gargoyle',
-    name: 'Rock Beast',
-    hp: 500,
+    name: 'Marble Gargoyle',
+    hp: 215,
     speed: 40,
     color: '#696969',
     reward: 120,
@@ -315,7 +318,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   superior_nechryael: {
     type: 'superior_nechryael',
     name: 'Nechryarch',
-    hp: 450,
+    hp: 312,
     speed: 50,
     color: '#483d8b',
     reward: 130,

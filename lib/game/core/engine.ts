@@ -8,6 +8,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats } from '../systems/tower-combat';
+import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 
@@ -683,7 +684,7 @@ export class GameEngine {
     this.enemies.splice(i, 1);
     this.spawnDeathParticles(enemy);
     this.sound.play('death', 40);
-    this.money += Math.floor(enemy.reward * 0.5);
+    this.money += goldForKill(enemy.maxHp);
     this.emit();
   }
 
@@ -708,7 +709,7 @@ export class GameEngine {
     if (!this.waveActive) return;
     if (this.spawnQueue.length > 0 || this.enemies.length > 0) return;
     this.waveActive = false;
-    this.money += 10 + this.wave * 5; // clear bonus
+    this.money += waveClearBonus(this.wave);
     this.wave += 1;
     this.emit();
   }
