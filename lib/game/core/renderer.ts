@@ -171,14 +171,37 @@ export class GameRenderer {
 
     ctx.save();
     ctx.translate(x, y);
-    // Outer purple glow.
-    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 32);
-    glow.addColorStop(0, `rgba(150,80,220,${0.4 + pulse * 0.2})`);
-    glow.addColorStop(1, 'rgba(120,60,180,0)');
-    ctx.fillStyle = glow;
+
+    // Wide, soft otherworldly halo that breathes with the pulse.
+    const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, 52);
+    halo.addColorStop(0, `rgba(150,80,220,${0.34 + pulse * 0.18})`);
+    halo.addColorStop(0.5, `rgba(120,60,190,${0.12 + pulse * 0.08})`);
+    halo.addColorStop(1, 'rgba(110,50,180,0)');
+    ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+    ctx.arc(0, 0, 52, 0, Math.PI * 2);
     ctx.fill();
+
+    // Mystic smoke: translucent wisps drifting out into the field, additively
+    // blended so they read as glowing ethereal mist rather than solid puffs.
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 7; i++) {
+      const phase = (i / 7) * Math.PI * 2;
+      const drift = (t * 0.32 + i * 0.41) % 1; // 0 → 1 lifetime
+      const wx = drift * 40; // flows rightward into the map
+      const wy = Math.sin(t * 1.1 + phase) * 16 * (0.4 + drift) + Math.cos(phase) * 6;
+      const r = 7 + drift * 18;
+      const a = (1 - drift) * 0.16 * (0.6 + pulse * 0.4);
+      const wisp = ctx.createRadialGradient(wx, wy, 0, wx, wy, r);
+      wisp.addColorStop(0, `rgba(178,120,232,${a})`);
+      wisp.addColorStop(1, 'rgba(150,90,210,0)');
+      ctx.fillStyle = wisp;
+      ctx.beginPath();
+      ctx.arc(wx, wy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+
     // Dark mouth that hides enemies still "inside".
     const mouth = ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
     mouth.addColorStop(0, '#070310');
@@ -188,12 +211,28 @@ export class GameRenderer {
     ctx.beginPath();
     ctx.arc(0, 0, 24, 0, Math.PI * 2);
     ctx.fill();
-    // Swirling rim.
-    ctx.strokeStyle = `rgba(186,132,234,${0.45 + pulse * 0.45})`;
+
+    // Two counter-rotating dashed rims for a swirling vortex feel.
+    ctx.strokeStyle = `rgba(186,132,234,${0.45 + pulse * 0.4})`;
     ctx.lineWidth = 3;
+    ctx.save();
+    ctx.rotate(t * 0.7);
+    ctx.setLineDash([7, 9]);
     ctx.beginPath();
     ctx.arc(0, 0, 21, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.rotate(-t * 1.1);
+    ctx.setLineDash([4, 7]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = `rgba(210,160,245,${0.3 + pulse * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(0, 0, 14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.setLineDash([]);
     ctx.restore();
   }
 
@@ -532,10 +571,11 @@ export class GameRenderer {
 
   private drawParticles(ctx: CanvasRenderingContext2D) {
     for (const p of this.e.particles) {
-      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      const t = Math.max(0, p.life / p.maxLife);
+      ctx.globalAlpha = t * t; // ease-out for a softer tail
       ctx.fillStyle = p.color;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, (p.size ?? 2.5) * (0.6 + t * 0.4), 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalAlpha = 1;

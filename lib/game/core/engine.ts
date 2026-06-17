@@ -88,6 +88,10 @@ export interface Particle {
   life: number;
   maxLife: number;
   color: string;
+  /** Downward acceleration (px/s²); defaults to 220 when omitted. */
+  gravity?: number;
+  /** Draw radius (px); defaults to 2.5 when omitted. */
+  size?: number;
 }
 
 const HITSPLAT_LIFE = 0.9;
@@ -564,7 +568,7 @@ export class GameEngine {
       p.life -= dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vy += 220 * dt; // gravity
+      p.vy += (p.gravity ?? 220) * dt;
       if (p.life <= 0) this.particles.splice(i, 1);
     }
     for (let i = this.deaths.length - 1; i >= 0; i--) {
@@ -768,17 +772,20 @@ export class GameEngine {
     const p0 = this.path[0];
     if (!p0) return;
     const y = Math.max(24, Math.min(this.height - 24, p0.y));
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 14; i++) {
       const angle = (Math.random() - 0.5) * Math.PI; // fan out rightward
-      const speed = 30 + Math.random() * 70;
+      const speed = 10 + Math.random() * 30; // gentle drift, not an explosion
+      const life = 0.8 + Math.random() * 0.7; // lingers, fades slowly
       this.particles.push({
-        x: 0,
-        y,
-        vx: Math.cos(angle) * speed + 20,
-        vy: Math.sin(angle) * speed,
-        life: 0.4 + Math.random() * 0.3,
-        maxLife: 0.7,
-        color: Math.random() < 0.5 ? '#b884e0' : '#7a3fb0',
+        x: Math.random() * 6,
+        y: y + (Math.random() - 0.5) * 18,
+        vx: Math.cos(angle) * speed + 8,
+        vy: Math.sin(angle) * speed * 0.6,
+        life,
+        maxLife: life, // start at full alpha → smooth fade-out
+        color: Math.random() < 0.5 ? '#c79cf0' : '#8a55c0',
+        gravity: 14, // barely falls; mostly floats
+        size: 2 + Math.random() * 2.5,
       });
     }
   }
