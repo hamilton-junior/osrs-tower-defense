@@ -12,7 +12,7 @@ const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<n
 
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
-  remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null, gameSpeed: 1,
+  remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null, gameSpeed: 1, muted: false,
 };
 
 const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
@@ -185,7 +185,7 @@ export default function GameRoot() {
         </p>
       </div>
 
-      {/* Speed control (bottom-left) */}
+      {/* Speed + sound control (bottom-left) */}
       <div className="rs-panel absolute bottom-4 left-4 p-2 z-10 flex items-center gap-1">
         <span className="text-[10px] text-[#b7a98c] mr-1 uppercase tracking-wide">Speed</span>
         {[1, 2, 5].map((s) => (
@@ -197,6 +197,13 @@ export default function GameRoot() {
             {s}×
           </button>
         ))}
+        <button
+          onClick={() => engineRef.current?.toggleMute()}
+          title={ui.muted ? 'Unmute' : 'Mute'}
+          className="rs-btn px-2 py-1 text-xs ml-1"
+        >
+          {ui.muted ? '🔇' : '🔊'}
+        </button>
       </div>
 
       {/* Game over */}

@@ -9,6 +9,7 @@ import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats } from '../systems/tower-combat';
 import { GameRenderer } from './renderer';
+import { SoundManager, GAME_SOUNDS } from './sound';
 
 export const LOGIC_WIDTH = 1920;
 export const LOGIC_HEIGHT = 1080;
@@ -36,6 +37,7 @@ export interface UIState {
   selectedTowerType: TowerType | null;
   selectedTowerId: string | null;
   gameSpeed: number;
+  muted: boolean;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -66,6 +68,7 @@ export class GameEngine {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
   private readonly renderer: GameRenderer;
+  private readonly sound = new SoundManager(GAME_SOUNDS);
   private readonly onState: (patch: Partial<UIState>) => void;
 
   // --- world state ---
@@ -146,11 +149,18 @@ export class GameEngine {
       selectedTowerType: this.selectedTowerType,
       selectedTowerId: this.selectedTowerId,
       gameSpeed: this.gameSpeed,
+      muted: this.sound.isMuted,
     });
   }
 
   setGameSpeed(speed: number) {
     this.gameSpeed = Math.max(1, Math.min(5, Math.floor(speed)));
+    this.emit();
+  }
+
+  toggleMute() {
+    this.sound.setMuted(!this.sound.isMuted);
+    this.sound.play('click');
     this.emit();
   }
 
@@ -202,6 +212,7 @@ export class GameEngine {
   selectTowerType(type: TowerType | null) {
     this.selectedTowerType = type;
     this.selectedTowerId = null;
+    if (type) this.sound.play('click');
     this.emit();
   }
 
@@ -257,6 +268,7 @@ export class GameEngine {
       skills: { strength: { level: 1, xp: 0 }, ranged: { level: 1, xp: 0 }, magic: { level: 1, xp: 0 } },
       equipment: { weapon: null, shield: null, accessory: null },
     });
+    this.sound.play('place');
     this.selectedTowerType = null;
     this.emit();
   }
@@ -280,6 +292,7 @@ export class GameEngine {
     tower.maxDamage = tier.maxDamage;
     tower.visualRadius += 2;
     tower.upgradeCost = def.tiers[tower.level]?.upgradeCost ?? 0;
+    this.sound.play('place');
     this.emit();
   }
 
@@ -300,6 +313,7 @@ export class GameEngine {
     this.money += Math.floor(spent * 0.75);
     this.towers.splice(i, 1);
     if (this.selectedTowerId === towerId) this.selectedTowerId = null;
+    this.sound.play('sell');
     this.emit();
   }
 
@@ -307,6 +321,7 @@ export class GameEngine {
     if (this.waveActive || this.gameOver) return;
     this.spawnQueue = this.generateWave(this.wave);
     this.waveActive = true;
+    this.sound.play('wave');
     this.emit();
   }
 
@@ -462,6 +477,7 @@ export class GameEngine {
         special: tower.special === 'rapid' ? undefined : tower.special,
         sourceTowerId: tower.id,
       });
+      this.sound.play(`fire_${tower.type}`, 70);
     }
   }
 
@@ -510,11 +526,13 @@ export class GameEngine {
       kind: dealt > 0 ? 'hit' : 'miss',
       life: HITSPLAT_LIFE,
     });
+    if (dealt > 0) this.sound.play('hit', 70);
     if (enemy.hp > 0) return;
     const i = this.enemies.indexOf(enemy);
     if (i < 0) return;
     this.enemies.splice(i, 1);
     this.spawnDeathParticles(enemy);
+    this.sound.play('death', 40);
     this.money += Math.floor(enemy.reward * 0.5);
     this.emit();
   }
@@ -548,6 +566,7 @@ export class GameEngine {
   private endGame() {
     this.gameOver = true;
     this.waveActive = false;
+    this.sound.play('game_over');
   }
 
   restart() {
