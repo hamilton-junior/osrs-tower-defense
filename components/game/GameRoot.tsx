@@ -72,16 +72,16 @@ export default function GameRoot() {
         onContextMenu={onContextMenu}
       />
 
-      {/* Top-left orb cluster (OSRS minimap-orb style) */}
-      <div className="absolute top-4 left-4 flex flex-col gap-3 z-10">
+      {/* Top-right data-orb cluster (OSRS minimap-orb style) */}
+      <div className="absolute top-4 right-4 flex flex-col gap-2 z-10 items-end">
         <Orb icon={ASSETS.misc.hp_icon} label="HP" value={ui.lives} color={ui.lives <= 5 ? '#ff5b5b' : '#7CFC58'} />
         <Orb icon={ASSETS.misc.coins_icon} label="GP" value={fmt(ui.money)} color="#ffd000" />
-        <Orb label="Wave" value={ui.wave} color="var(--osrs-orange)" />
+        <Orb icon={ASSETS.misc.attack_icon} label="Wave" value={ui.wave} color="var(--osrs-orange)" />
       </div>
 
-      {/* Selected tower panel (top-right) */}
+      {/* Selected tower panel (top-left) */}
       {selectedTower && (
-        <div className="rs-panel absolute top-4 right-4 p-3 z-10 w-52">
+        <div className="rs-panel absolute top-4 left-4 p-3 z-10 w-52">
           <div className="rs-panel-title">{selectedTower.name}</div>
           <div className="text-xs space-y-1 px-1">
             <Row k="Level" v={`${selectedTower.level}/${selectedTower.maxLevel}`} />
@@ -198,13 +198,11 @@ export default function GameRoot() {
 
 function Orb({ icon, label, value, color }: { icon?: string; label: string; value: React.ReactNode; color: string }) {
   return (
-    <div className="flex flex-col items-center" title={label}>
-      <div className="rs-orb" style={{ backgroundImage: `url(${ASSETS.misc.orb_background})` }}>
-        {icon && (
-          <img src={icon} alt="" className="rs-orb-badge" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-        )}
-        <span className="rs-orb-value" style={{ color }}>{value}</span>
+    <div className="rs-orb" title={label}>
+      <div className="rs-orb-disc" style={{ backgroundImage: `url(${ASSETS.misc.orb_background})` }}>
+        {icon && <img src={icon} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
       </div>
+      <span className="rs-orb-value" style={{ color }}>{value}</span>
       <span className="rs-orb-label">{label}</span>
     </div>
   );

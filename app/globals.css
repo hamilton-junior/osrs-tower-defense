@@ -276,43 +276,45 @@ body {
 }
 
 /* Orb: round HP-style stat indicator */
+/* OSRS "data orb": round icon disc on the left + value on a dark plate. */
 .rs-orb {
-  width: 50px;
-  height: 50px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding-right: 14px;
+  background: linear-gradient(180deg, rgba(28, 24, 17, 0.95), rgba(14, 11, 7, 0.96));
+  border: 1px solid #2a2218;
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 5px rgba(0, 0, 0, 0.6);
+}
+
+.rs-orb-disc {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: #14110c center / cover no-repeat;
-  border: 2px solid #2a2218;
-  box-shadow:
-    inset 0 2px 4px rgba(255, 255, 255, 0.18),
-    inset 0 -4px 8px rgba(0, 0, 0, 0.85),
-    0 2px 6px rgba(0, 0, 0, 0.6);
+  background: #15110b center / cover no-repeat;
+  border: 1px solid #5a4a2f;
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.18), inset 0 -3px 5px rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  flex-shrink: 0;
+}
+
+.rs-orb-disc img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .rs-orb-value {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: bold;
   color: #ffd000;
   text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
-}
-
-/* Small skill/stat disc on the orb's left edge (like the OSRS orb icons). */
-.rs-orb-badge {
-  position: absolute;
-  left: -9px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #6a5733, #211a10);
-  border: 1px solid #7a6233;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-  padding: 3px;
-  object-fit: contain;
+  min-width: 28px;
+  text-align: center;
 }
 
 .rs-orb-label {
@@ -320,8 +322,6 @@ body {
   color: #b7a98c;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  text-align: center;
-  margin-top: 3px;
   text-shadow: 1px 1px 0 #000;
 }
 
