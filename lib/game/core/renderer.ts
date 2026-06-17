@@ -182,18 +182,20 @@ export class GameRenderer {
     ctx.arc(0, 0, 52, 0, Math.PI * 2);
     ctx.fill();
 
-    // Mystic smoke: translucent wisps drifting out into the field, additively
-    // blended so they read as glowing ethereal mist rather than solid puffs.
+    // Mystic haze: translucent wisps that orbit and wobble around the mouth
+    // (additively blended) so the air around the portal seems to shimmer and
+    // distort, rather than puffing out into the field.
     ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 7; i++) {
-      const phase = (i / 7) * Math.PI * 2;
-      const drift = (t * 0.32 + i * 0.41) % 1; // 0 → 1 lifetime
-      const wx = drift * 40; // flows rightward into the map
-      const wy = Math.sin(t * 1.1 + phase) * 16 * (0.4 + drift) + Math.cos(phase) * 6;
-      const r = 7 + drift * 18;
-      const a = (1 - drift) * 0.16 * (0.6 + pulse * 0.4);
+    for (let i = 0; i < 8; i++) {
+      const phase = (i / 8) * Math.PI * 2;
+      const ang = t * 0.5 * (i % 2 ? 1 : -1) + phase; // slow swirl, alternating
+      const rad = 20 + Math.sin(t * 1.3 + phase) * 8; // wobble in/out → distortion
+      const wx = Math.cos(ang) * rad;
+      const wy = Math.sin(ang) * rad * 0.85;
+      const r = 10 + Math.sin(t * 0.9 + phase) * 4;
+      const a = (0.09 + 0.05 * Math.sin(t * 1.7 + phase)) * (0.7 + pulse * 0.3);
       const wisp = ctx.createRadialGradient(wx, wy, 0, wx, wy, r);
-      wisp.addColorStop(0, `rgba(178,120,232,${a})`);
+      wisp.addColorStop(0, `rgba(178,120,232,${Math.max(0, a)})`);
       wisp.addColorStop(1, 'rgba(150,90,210,0)');
       ctx.fillStyle = wisp;
       ctx.beginPath();
