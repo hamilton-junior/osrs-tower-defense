@@ -466,6 +466,19 @@ body {
   background: linear-gradient(180deg, #ff5a5a, #8a0000);
 }
 
+/* Inline keycap hint */
+kbd {
+  display: inline-block;
+  padding: 0 0.35em;
+  border: 1px solid #5a4a2f;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: rgba(20, 17, 12, 0.7);
+  color: #cdbe91;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
 /* Inset stat tile (used on the game-over summary) */
 .rs-panel-inset {
   background: linear-gradient(180deg, rgba(20, 17, 12, 0.85), rgba(34, 29, 21, 0.85));

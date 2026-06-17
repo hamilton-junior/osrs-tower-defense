@@ -364,6 +364,9 @@ export default function GameRoot() {
         <p className="text-center text-[0.7em] text-[#b7a98c] mt-[0.5em]">
           Click a tower, then click the map to place · right‑click to cancel
         </p>
+        <p className="text-center text-[0.64em] text-[#8a7d63] mt-[0.2em]">
+          <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> cancel · <kbd>M</kbd> mute
+        </p>
       </div>
 
       {/* Speed + sound control (bottom-left) */}

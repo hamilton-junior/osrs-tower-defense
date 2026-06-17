@@ -580,7 +580,10 @@ export class GameEngine {
     if (this.spawnTimer >= this.spawnInterval) {
       this.spawnTimer = 0;
       const enemy = this.spawnQueue.shift();
-      if (enemy) this.enemies.push(enemy);
+      if (enemy) {
+        this.enemies.push(enemy);
+        this.spawnPortalBurst();
+      }
       this.emit();
     }
   }
@@ -758,6 +761,26 @@ export class GameEngine {
     this.goldEarned += reward;
     this.kills += 1;
     this.emit();
+  }
+
+  /** Purple sparkle burst at the portal as an enemy emerges from it. */
+  private spawnPortalBurst() {
+    const p0 = this.path[0];
+    if (!p0) return;
+    const y = Math.max(24, Math.min(this.height - 24, p0.y));
+    for (let i = 0; i < 10; i++) {
+      const angle = (Math.random() - 0.5) * Math.PI; // fan out rightward
+      const speed = 30 + Math.random() * 70;
+      this.particles.push({
+        x: 0,
+        y,
+        vx: Math.cos(angle) * speed + 20,
+        vy: Math.sin(angle) * speed,
+        life: 0.4 + Math.random() * 0.3,
+        maxLife: 0.7,
+        color: Math.random() < 0.5 ? '#b884e0' : '#7a3fb0',
+      });
+    }
   }
 
   private spawnDeathParticles(enemy: Enemy) {
