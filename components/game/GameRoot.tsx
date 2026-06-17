@@ -100,6 +100,7 @@ export default function GameRoot() {
     : null;
   const moving = !!ui.movingTowerId;
   const moveCost = selectedTower ? engineRef.current?.moveTowerCost(selectedTower) ?? 0 : 0;
+  const sellValue = selectedTower ? engineRef.current?.sellValue(selectedTower) ?? 0 : 0;
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black select-none font-osrs">
@@ -195,37 +196,35 @@ export default function GameRoot() {
               <span className="text-[#b7a98c]">right‑click to cancel</span>
             </div>
           ) : (
-            <div className="flex gap-[0.4em] mt-[0.7em]">
+            <div className="mt-[0.7em] space-y-[0.4em] text-[0.95em]">
               {selectedTower.level < selectedTower.maxLevel && (
                 <button
-                  className="rs-btn flex-1 flex items-center justify-center gap-[0.25em] px-[0.4em] py-[0.4em] text-[0.82em]"
+                  className="rs-btn w-full flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
                   title={`Upgrade to next tier for ${selectedTower.upgradeCost} gp`}
                   disabled={ui.money < selectedTower.upgradeCost}
                   onClick={() => engineRef.current?.upgradeTower(selectedTower.id)}
                 >
                   <span className="text-[#5bd75b] font-bold">⬆</span>
-                  {selectedTower.upgradeCost}
-                  <Coin />
+                  Upgrade — {selectedTower.upgradeCost} gp
                 </button>
               )}
-              <button
-                className="rs-btn flex items-center justify-center gap-[0.25em] px-[0.5em] py-[0.4em] text-[0.82em]"
-                title={`Move this tower for ${moveCost} gp`}
-                disabled={ui.money < moveCost}
-                onClick={() => engineRef.current?.beginMoveTower(selectedTower.id)}
-              >
-                <span className="text-[#cdbe91]">✥</span>
-                {moveCost}
-                <Coin />
-              </button>
-              <button
-                className="rs-btn flex items-center justify-center gap-[0.25em] px-[0.5em] py-[0.4em] text-[0.82em]"
-                title="Sell this tower (75% refund)"
-                onClick={() => engineRef.current?.sellTower(selectedTower.id)}
-              >
-                <Coin />
-                Sell
-              </button>
+              <div className="flex gap-[0.4em]">
+                <button
+                  className="rs-btn flex-1 flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
+                  title={`Move this tower for ${moveCost} gp`}
+                  disabled={ui.money < moveCost}
+                  onClick={() => engineRef.current?.beginMoveTower(selectedTower.id)}
+                >
+                  <span className="text-[#cdbe91]">✥</span> Move ({moveCost} gp)
+                </button>
+                <button
+                  className="rs-btn flex-1 px-[0.4em] py-[0.45em]"
+                  title={`Sell this tower for ${sellValue} gp (75% refund)`}
+                  onClick={() => engineRef.current?.sellTower(selectedTower.id)}
+                >
+                  Sell ({sellValue} gp)
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -346,17 +345,6 @@ function Orb({ icon, title, value, valueColor, fill, fillColor }: {
         {icon && <img src={icon} alt="" className="rs-orb-icon" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
       </div>
     </div>
-  );
-}
-
-function Coin() {
-  return (
-    <img
-      src={ASSETS.misc.coins_icon}
-      alt="gp"
-      className="w-[1.1em] h-[1.1em] object-contain inline-block"
-      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-    />
   );
 }
 

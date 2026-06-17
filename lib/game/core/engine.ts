@@ -282,6 +282,11 @@ export class GameEngine {
     return Math.max(1, Math.floor(this.investedValue(tower) * 0.1));
   }
 
+  /** gp refunded when selling a tower (75% of invested value). */
+  sellValue(tower: Tower): number {
+    return Math.floor(this.investedValue(tower) * 0.75);
+  }
+
   get movingTower(): Tower | null {
     return this.movingTowerId ? this.towers.find(t => t.id === this.movingTowerId) ?? null : null;
   }
@@ -424,7 +429,7 @@ export class GameEngine {
     const i = this.towers.findIndex(t => t.id === towerId);
     if (i < 0) return;
     const tower = this.towers[i];
-    this.money += Math.floor(this.investedValue(tower) * 0.75);
+    this.money += this.sellValue(tower);
     this.towers.splice(i, 1);
     if (this.selectedTowerId === towerId) this.selectedTowerId = null;
     if (this.movingTowerId === towerId) this.movingTowerId = null;

@@ -247,43 +247,29 @@ export class GameRenderer {
       const isBoss = !!e.isBoss;
       const size = isBoss ? 60 : 30;
       const flash = e.flashTimer && e.flashTimer > 0 ? e.flashTimer / 0.15 : 0;
-      const pop = 1 + flash * 0.1; // subtle scale-pop on hit
+      // Impact = a slight shake while the hit registers.
+      const shx = flash > 0 ? (Math.random() - 0.5) * 6 * flash : 0;
+      const shy = flash > 0 ? (Math.random() - 0.5) * 6 * flash : 0;
       if (this.e.imageOk(e.type)) {
         const img = this.e.images.get(e.type)!;
         const movingLeft = (this.e.path[e.pathIndex + 1]?.x ?? e.x) < e.x;
         ctx.save();
-        ctx.translate(e.x, e.y);
-        ctx.scale((movingLeft ? -1 : 1) * pop, pop);
-        // Red outline on the sprite silhouette while it's taking a hit:
-        // redraw the sprite tinted red, offset in 4 directions behind it.
-        if (flash > 0) {
-          ctx.shadowColor = `rgba(220,20,20,${0.9 * flash})`;
-          ctx.shadowBlur = 6;
-          for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2]] as const) {
-            ctx.drawImage(img, -size / 2 + ox, -size / 2 + oy, size, size);
-          }
-          ctx.shadowBlur = 0;
-        }
+        ctx.translate(e.x + shx, e.y + shy);
+        if (movingLeft) ctx.scale(-1, 1);
         ctx.drawImage(img, -size / 2, -size / 2, size, size);
         if (flash > 0) {
-          // faint red wash over the body for the "hurt" tint
+          // Tint the sprite itself red (clipped to its silhouette).
           ctx.globalCompositeOperation = 'source-atop';
-          ctx.globalAlpha = flash * 0.3;
-          ctx.fillStyle = '#e01010';
+          ctx.globalAlpha = flash * 0.6;
+          ctx.fillStyle = '#e00000';
           ctx.fillRect(-size / 2, -size / 2, size, size);
         }
         ctx.restore();
       } else {
-        if (flash > 0) {
-          ctx.strokeStyle = `rgba(220,20,20,${0.9 * flash})`;
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(e.x, e.y, (isBoss ? 20 : 12) * pop + 2, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.fillStyle = e.color;
+        const r = isBoss ? 20 : 12;
+        ctx.fillStyle = flash > 0 ? '#e00000' : e.color;
         ctx.beginPath();
-        ctx.arc(e.x, e.y, (isBoss ? 20 : 12) * pop, 0, Math.PI * 2);
+        ctx.arc(e.x + shx, e.y + shy, r, 0, Math.PI * 2);
         ctx.fill();
       }
 
