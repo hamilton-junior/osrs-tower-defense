@@ -38,6 +38,7 @@ export interface UIState {
   gameOver: boolean;
   selectedTowerType: TowerType | null;
   selectedTowerId: string | null;
+  movingTowerId: string | null;
   gameSpeed: number;
   muted: boolean;
   volume: number;
@@ -91,6 +92,7 @@ export class GameEngine {
 
   selectedTowerType: TowerType | null = null;
   selectedTowerId: string | null = null;
+  movingTowerId: string | null = null;
   gameSpeed = 1;
   pointer: Point = { x: 0, y: 0 };
 
@@ -181,6 +183,7 @@ export class GameEngine {
       gameOver: this.gameOver,
       selectedTowerType: this.selectedTowerType,
       selectedTowerId: this.selectedTowerId,
+      movingTowerId: this.movingTowerId,
       gameSpeed: this.gameSpeed,
       muted: this.sound.isMuted,
       volume: this.sound.level,
@@ -255,6 +258,7 @@ export class GameEngine {
   selectTowerType(type: TowerType | null) {
     this.selectedTowerType = type;
     this.selectedTowerId = null;
+    this.movingTowerId = null;
     if (type) this.sound.play('click');
     this.emit();
   }
@@ -263,8 +267,74 @@ export class GameEngine {
     return TOWERS[type]?.tiers[0].upgradeCost ?? 0;
   }
 
-  /** Handle a click in logic space: place a tower or select/deselect one. */
+  /** Total gp invested in a tower (base + all upgrades to its current level). */
+  private investedValue(tower: Tower): number {
+    const def = TOWERS[tower.type];
+    if (!def) return 0;
+    return def.tiers.slice(0, tower.level).reduce((s, t) => s + t.upgradeCost, 0);
+  }
+
+  /** Cost to relocate a tower: 10% of its current invested value (min 1 gp). */
+  moveTowerCost(tower: Tower): number {
+    return Math.max(1, Math.floor(this.investedValue(tower) * 0.1));
+  }
+
+  get movingTower(): Tower | null {
+    return this.movingTowerId ? this.towers.find(t => t.id === this.movingTowerId) ?? null : null;
+  }
+
+  /** Enter "move" mode for a tower (the next valid click relocates it). */
+  beginMoveTower(towerId: string) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower) return;
+    if (this.money < this.moveTowerCost(tower)) return; // failsafe: can't afford
+    this.selectedTowerType = null;
+    this.selectedTowerId = towerId;
+    this.movingTowerId = towerId;
+    this.sound.play('click');
+    this.emit();
+  }
+
+  /** Cancel any pending placement or move without charging. */
+  cancelAction() {
+    this.selectedTowerType = null;
+    this.movingTowerId = null;
+    this.emit();
+  }
+
+  private tryMoveTower(x: number, y: number) {
+    const tower = this.movingTower;
+    if (!tower) {
+      this.movingTowerId = null;
+      this.emit();
+      return;
+    }
+    const cost = this.moveTowerCost(tower);
+    if (this.money < cost) { // failsafe: lost the gp since entering move mode
+      this.movingTowerId = null;
+      this.emit();
+      return;
+    }
+    const sx = Math.round(x / GRID) * GRID;
+    const sy = Math.round(y / GRID) * GRID;
+    if (sx === tower.x && sy === tower.y) return; // no-op, wait for a real spot
+    const others = this.towers.filter(t => t.id !== tower.id); // ignore self
+    if (!isValidPlacement(sx, sy, this.path, others)) return; // invalid spot, keep waiting
+    this.money -= cost;
+    tower.x = sx;
+    tower.y = sy;
+    tower.targetId = null; // re-acquire from the new position
+    this.movingTowerId = null;
+    this.sound.play('place');
+    this.emit();
+  }
+
+  /** Handle a click in logic space: move/place a tower or select/deselect one. */
   handleClick(x: number, y: number) {
+    if (this.movingTowerId) {
+      this.tryMoveTower(x, y);
+      return;
+    }
     if (this.selectedTowerType) {
       this.placeTower(this.selectedTowerType, x, y);
       return;
@@ -351,11 +421,10 @@ export class GameEngine {
     const i = this.towers.findIndex(t => t.id === towerId);
     if (i < 0) return;
     const tower = this.towers[i];
-    const def = TOWERS[tower.type];
-    const spent = def.tiers.slice(0, tower.level).reduce((s, t) => s + t.upgradeCost, 0);
-    this.money += Math.floor(spent * 0.75);
+    this.money += Math.floor(this.investedValue(tower) * 0.75);
     this.towers.splice(i, 1);
     if (this.selectedTowerId === towerId) this.selectedTowerId = null;
+    if (this.movingTowerId === towerId) this.movingTowerId = null;
     this.sound.play('sell');
     this.emit();
   }
@@ -634,6 +703,7 @@ export class GameEngine {
     this.gameOver = false;
     this.selectedTowerType = null;
     this.selectedTowerId = null;
+    this.movingTowerId = null;
     this.gameTime = 0;
     this.emit();
   }

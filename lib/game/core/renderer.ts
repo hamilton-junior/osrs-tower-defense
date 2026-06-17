@@ -95,21 +95,26 @@ export class GameRenderer {
   }
 
   private drawPlacementGhost(ctx: CanvasRenderingContext2D) {
-    const type = this.e.selectedTowerType;
+    // Either placing a new tower (selectedTowerType) or relocating one (movingTower).
+    const moving = this.e.movingTower;
+    const type = moving ? moving.type : this.e.selectedTowerType;
     if (!type) return;
     const sx = Math.round(this.e.pointer.x / GRID) * GRID;
     const sy = Math.round(this.e.pointer.y / GRID) * GRID;
-    const valid = this.e.money >= this.e.towerCost(type) && isValidPlacement(sx, sy, this.e.path, this.e.towers);
-    const half = squareRange(TOWERS[type].tiers[0].range, GRID);
+    const others = moving ? this.e.towers.filter(t => t.id !== moving.id) : this.e.towers;
+    const affordable = moving ? this.e.money >= this.e.moveTowerCost(moving) : this.e.money >= this.e.towerCost(type);
+    const valid = affordable && isValidPlacement(sx, sy, this.e.path, others);
+    const level = moving ? moving.level : 1;
+    const range = moving ? moving.range : TOWERS[type].tiers[0].range;
 
     this.drawSquareRange(
-      ctx, sx, sy, half,
+      ctx, sx, sy, squareRange(range, GRID),
       valid ? 'rgba(0,255,0,0.5)' : 'rgba(255,0,0,0.5)',
       valid ? 'rgba(0,255,0,0.06)' : 'rgba(255,0,0,0.06)',
     );
 
     ctx.globalAlpha = 0.6;
-    this.drawTowerSprite(ctx, type, 1, sx, sy, 18);
+    this.drawTowerSprite(ctx, type, level, sx, sy, moving ? moving.visualRadius : 18);
     ctx.globalAlpha = 1;
   }
 

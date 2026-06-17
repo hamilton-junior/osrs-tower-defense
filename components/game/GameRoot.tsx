@@ -10,9 +10,29 @@ const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slaye
 const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
 
+/** Attack type per tower, for the damage icon/label in the stats panel. */
+const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = {
+  archer: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
+  wizard: { icon: ASSETS.misc.magic_icon, label: 'Magic' },
+  cannon: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
+  tzhaar: { icon: ASSETS.misc.strength_icon, label: 'Melee' },
+  slayer: { icon: ASSETS.misc.strength_icon, label: 'Melee' },
+  toxic: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
+};
+
+const TICK_MS = 600; // OSRS game tick = 0.6s
+const TILE_PX = 32; // grid tile size in logic px (mirrors engine GRID)
+
+/** "3 ticks (1.8s)" from a cooldown in ms. */
+const attackSpeed = (cooldownMs: number) => {
+  const ticks = Math.max(1, Math.round(cooldownMs / TICK_MS));
+  return `${ticks} ${ticks === 1 ? 'tick' : 'ticks'} (${(cooldownMs / 1000).toFixed(1)}s)`;
+};
+
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
-  remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null, gameSpeed: 1, muted: false, volume: 0.18,
+  remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null,
+  movingTowerId: null, gameSpeed: 1, muted: false, volume: 0.18,
 };
 
 const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
@@ -59,12 +79,14 @@ export default function GameRoot() {
 
   const onContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    engineRef.current?.selectTowerType(null);
+    engineRef.current?.cancelAction();
   }, []);
 
   const selectedTower = ui.selectedTowerId
     ? engineRef.current?.towers.find((t) => t.id === ui.selectedTowerId) ?? null
     : null;
+  const moving = !!ui.movingTowerId;
+  const moveCost = selectedTower ? engineRef.current?.moveTowerCost(selectedTower) ?? 0 : 0;
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black select-none font-osrs">
@@ -105,42 +127,80 @@ export default function GameRoot() {
 
       {/* Selected tower panel (top-left) */}
       {selectedTower && (
-        <div className="rs-panel absolute top-4 left-4 p-3 z-10 w-52">
-          <div className="rs-panel-title">{selectedTower.name}</div>
-          <div className="text-xs space-y-1 px-1">
-            <Row k="Level" v={`${selectedTower.level}/${selectedTower.maxLevel}`} />
-            <Row k="Damage" v={selectedTower.damage} />
-            <Row k="Range" v={Math.round(selectedTower.range)} />
+        <div
+          className="rs-panel absolute top-4 left-4 p-3 z-10 w-[17em]"
+          style={{ fontSize: 'clamp(13px, 0.92vw, 19px)' }}
+        >
+          <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1.05em' }}>
+            {towerIcon(selectedTower.type) && (
+              <img src={towerIcon(selectedTower.type)} alt="" className="w-[1.4em] h-[1.4em] object-contain" />
+            )}
+            <span className="truncate">{selectedTower.name}</span>
           </div>
-          <div className="mt-3">
-            <div className="text-[10px] text-[#b7a98c] mb-1 px-1 uppercase tracking-wide">Target priority</div>
-            <div className="grid grid-cols-5 gap-1">
+
+          <div className="space-y-[0.4em] px-[0.2em] mt-[0.5em]">
+            <Stat
+              icon={TOWER_COMBAT[selectedTower.type].icon}
+              label={`Damage (${TOWER_COMBAT[selectedTower.type].label})`}
+              value={
+                selectedTower.type === 'cannon' && selectedTower.maxDamage != null
+                  ? `${selectedTower.minDamage ?? 0}–${selectedTower.maxDamage}`
+                  : selectedTower.damage
+              }
+            />
+            <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(selectedTower.cooldown)} />
+            <Stat label="Range" value={`${Math.round(selectedTower.range / TILE_PX)} tiles`} />
+            <Stat label="Level" value={`${selectedTower.level}/${selectedTower.maxLevel}`} />
+          </div>
+
+          <div className="mt-[0.7em]">
+            <div className="text-[0.72em] text-[#b7a98c] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>
+            <div className="grid grid-cols-5 gap-[0.3em]">
               {(['first', 'last', 'strongest', 'weakest', 'closest'] as const).map((p) => (
                 <button
                   key={p}
                   title={p}
                   onClick={() => engineRef.current?.setTargetingPriority(selectedTower.id, p)}
-                  className={`rs-btn text-[9px] px-0 py-1 ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
+                  className={`rs-btn px-0 py-[0.35em] text-[0.7em] ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
                 >
                   {PRIORITY_LABELS[p]}
                 </button>
               ))}
             </div>
           </div>
-          <div className="flex gap-2 mt-3">
-            {selectedTower.level < selectedTower.maxLevel && (
+
+          {moving ? (
+            <div className="mt-[0.7em] text-center text-[0.8em] text-osrs-orange leading-snug">
+              ▸ Click a tile to move here ({moveCost} gp)<br />
+              <span className="text-[#b7a98c]">right‑click to cancel</span>
+            </div>
+          ) : (
+            <div className="flex gap-[0.4em] mt-[0.7em]">
+              {selectedTower.level < selectedTower.maxLevel && (
+                <button
+                  className="rs-btn flex-1 px-[0.4em] py-[0.4em] text-[0.82em]"
+                  disabled={ui.money < selectedTower.upgradeCost}
+                  onClick={() => engineRef.current?.upgradeTower(selectedTower.id)}
+                >
+                  ⬆ {selectedTower.upgradeCost}
+                </button>
+              )}
               <button
-                className="rs-btn flex-1 px-2 py-1 text-xs"
-                disabled={ui.money < selectedTower.upgradeCost}
-                onClick={() => engineRef.current?.upgradeTower(selectedTower.id)}
+                className="rs-btn px-[0.5em] py-[0.4em] text-[0.82em]"
+                title={`Move this tower for ${moveCost} gp`}
+                disabled={ui.money < moveCost}
+                onClick={() => engineRef.current?.beginMoveTower(selectedTower.id)}
               >
-                Upgrade ({selectedTower.upgradeCost})
+                ✥ {moveCost}
               </button>
-            )}
-            <button className="rs-btn px-2 py-1 text-xs" onClick={() => engineRef.current?.sellTower(selectedTower.id)}>
-              Sell
-            </button>
-          </div>
+              <button
+                className="rs-btn px-[0.5em] py-[0.4em] text-[0.82em]"
+                onClick={() => engineRef.current?.sellTower(selectedTower.id)}
+              >
+                Sell
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -259,11 +319,16 @@ function Orb({ icon, title, value, valueColor, fill, fillColor }: {
   );
 }
 
-function Row({ k, v }: { k: string; v: React.ReactNode }) {
+function Stat({ icon, label, value }: { icon?: string; label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between">
-      <span className="text-[#b7a98c]">{k}</span>
-      <span className="text-osrs-yellow">{v}</span>
+    <div className="flex items-center justify-between gap-2">
+      <span className="flex items-center gap-[0.4em] text-[#cdbe91]">
+        {icon && (
+          <img src={icon} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        )}
+        {label}
+      </span>
+      <span className="text-osrs-yellow font-bold whitespace-nowrap">{value}</span>
     </div>
   );
 }
