@@ -1,6 +1,6 @@
 import type { GameEngine } from './engine';
 import { TOWERS } from '../data/towers';
-import { isValidPlacement, squareRange } from '../systems/geometry';
+import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 
 const GRID = 32;
 
@@ -28,15 +28,26 @@ export class GameRenderer {
   private drawBackground(ctx: CanvasRenderingContext2D) {
     const w = this.e.width;
     const h = this.e.height;
-    ctx.fillStyle = '#2d4c1e';
+
+    // Grass base with a soft vertical gradient.
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#34561f');
+    grad.addColorStop(1, '#27411a');
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = '#3a5f27';
-    for (let i = 0; i < 120; i++) {
+
+    // Texture: scattered grass tufts (two tones) for a less flat field.
+    for (let i = 0; i < 220; i++) {
       const x = (i * 137.5) % w;
       const y = (i * 224.7) % h;
+      ctx.fillStyle = i % 3 === 0 ? 'rgba(120,170,70,0.18)' : 'rgba(60,95,39,0.5)';
       ctx.fillRect(x, y, 2, 2);
       ctx.fillRect(x + 2, y + 2, 2, 4);
     }
+
+    this.drawDecorations(ctx, w, h);
+
+    // Faint tile grid.
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     for (let x = 0; x <= w; x += GRID) {
@@ -53,24 +64,88 @@ export class GameRenderer {
     }
   }
 
+  /** Shortest distance from a point to the path polyline. */
+  private distToPath(x: number, y: number): number {
+    const path = this.e.path;
+    let min = Infinity;
+    for (let i = 0; i < path.length - 1; i++) {
+      min = Math.min(min, pointToSegmentDistance(x, y, path[i], path[i + 1]));
+    }
+    return min;
+  }
+
+  /** Scatter deterministic off-path scenery (bushes, rocks, flowers). */
+  private drawDecorations(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    const flowers = ['#e7d34b', '#e06b6b', '#d7d7e6', '#c98ad6'];
+    const hash = (n: number) => {
+      const v = Math.sin(n) * 43758.5453;
+      return v - Math.floor(v); // fractional part in [0,1)
+    };
+    for (let i = 0; i < 70; i++) {
+      // Hashed pseudo-random placement, stable across frames.
+      const x = hash(i * 12.9898) * w;
+      const y = hash(i * 78.233) * h;
+      if (this.distToPath(x, y) < 48) continue; // keep the road clear
+      const kind = i % 5;
+      if (kind === 0 || kind === 1) {
+        // bush
+        ctx.fillStyle = '#2c5018';
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
+        ctx.arc(x + 6, y + 2, 5, 0, Math.PI * 2);
+        ctx.arc(x - 5, y + 2, 5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (kind === 2) {
+        // rock
+        ctx.fillStyle = '#6b6b6b';
+        ctx.beginPath();
+        ctx.ellipse(x, y, 6, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#888';
+        ctx.fillRect(x - 3, y - 3, 3, 2);
+      } else {
+        // flower cluster
+        ctx.fillStyle = flowers[i % flowers.length];
+        for (let f = 0; f < 3; f++) {
+          ctx.beginPath();
+          ctx.arc(x + (f - 1) * 4, y + (f % 2) * 3, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
   private drawPath(ctx: CanvasRenderingContext2D) {
     const path = this.e.path;
     if (path.length < 2) return;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    const layers: [number, string][] = [
-      [46, '#3d2b1f'],
-      [40, '#5d4037'],
-      [32, '#795548'],
-    ];
-    for (const [width, color] of layers) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
+    const trace = () => {
       ctx.beginPath();
       ctx.moveTo(path[0].x, path[0].y);
       for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
       ctx.stroke();
+    };
+    const layers: [number, string][] = [
+      [50, '#1c2f12'],   // faint grassy shadow rim
+      [46, '#3d2b1f'],   // dark dirt border
+      [40, '#6d4c33'],   // mid dirt
+      [32, '#8a6646'],   // walked path
+    ];
+    for (const [width, color] of layers) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      trace();
     }
+    // Lighter packed-dirt centre with a dashed track line.
+    ctx.strokeStyle = '#9c7a55';
+    ctx.lineWidth = 18;
+    trace();
+    ctx.setLineDash([10, 16]);
+    ctx.strokeStyle = 'rgba(60,40,24,0.5)';
+    ctx.lineWidth = 3;
+    trace();
+    ctx.setLineDash([]);
   }
 
   /** Draw an axis-aligned, tile-aligned square range marker centred on (cx, cy). */
@@ -171,18 +246,26 @@ export class GameRenderer {
     for (const e of this.e.enemies) {
       const isBoss = !!e.isBoss;
       const size = isBoss ? 60 : 30;
+      const flash = e.flashTimer && e.flashTimer > 0 ? e.flashTimer / 0.15 : 0;
+      const pop = 1 + flash * 0.22; // scale-pop on hit
       if (this.e.imageOk(e.type)) {
         const img = this.e.images.get(e.type)!;
         const movingLeft = (this.e.path[e.pathIndex + 1]?.x ?? e.x) < e.x;
         ctx.save();
         ctx.translate(e.x, e.y);
-        if (movingLeft) ctx.scale(-1, 1);
+        ctx.scale((movingLeft ? -1 : 1) * pop, pop);
         ctx.drawImage(img, -size / 2, -size / 2, size, size);
+        if (flash > 0) {
+          ctx.globalCompositeOperation = 'source-atop';
+          ctx.globalAlpha = flash * 0.5;
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(-size / 2, -size / 2, size, size);
+        }
         ctx.restore();
       } else {
         ctx.fillStyle = e.color;
         ctx.beginPath();
-        ctx.arc(e.x, e.y, isBoss ? 20 : 12, 0, Math.PI * 2);
+        ctx.arc(e.x, e.y, (isBoss ? 20 : 12) * pop, 0, Math.PI * 2);
         ctx.fill();
       }
 

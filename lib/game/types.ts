@@ -95,6 +95,8 @@ export interface Enemy extends EnemyDef {
   magicResistDrainTimer?: number;
   shakeX?: number;
   shakeY?: number;
+  /** Brief scale-pop timer set when the enemy takes a hit (visual only). */
+  flashTimer?: number;
 }
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';

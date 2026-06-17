@@ -521,6 +521,7 @@ export class GameEngine {
   private moveEnemies(dt: number) {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
+      if (e.flashTimer && e.flashTimer > 0) e.flashTimer -= dt;
       if (e.slowTimer > 0) {
         e.slowTimer -= dt;
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
@@ -623,6 +624,7 @@ export class GameEngine {
   }
 
   private hit(p: Projectile, target: Enemy) {
+    this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.special === 'aoe') {
       for (const e of this.enemies) {
         if (distanceSq(e.x, e.y, p.x, p.y) <= 80 * 80) this.damage(e, p.damage);
@@ -636,9 +638,26 @@ export class GameEngine {
     }
   }
 
+  /** A small spark burst where a projectile lands. */
+  private spawnImpactParticles(x: number, y: number, color: string) {
+    for (let i = 0; i < 6; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 30 + Math.random() * 70;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0.2 + Math.random() * 0.2,
+        maxLife: 0.4,
+        color,
+      });
+    }
+  }
+
   private damage(enemy: Enemy, amount: number) {
     const dealt = Math.max(0, Math.floor(amount));
     enemy.hp -= dealt;
+    enemy.flashTimer = 0.15; // visual hit-pop
     this.hitsplats.push({
       x: enemy.x + (Math.random() - 0.5) * 16,
       y: enemy.y - 18,

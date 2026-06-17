@@ -411,6 +411,23 @@ body {
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
 }
 
+/* Wave-start banner */
+.rs-wave-banner {
+  font-family: var(--font-osrs), 'VT323', monospace;
+  font-size: clamp(28px, 4vw, 64px);
+  color: var(--osrs-yellow, #ffcb05);
+  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 0 0 14px rgba(255, 180, 0, 0.5);
+  letter-spacing: 0.04em;
+  animation: rs-wave-pop 1.6s ease-out forwards;
+}
+@keyframes rs-wave-pop {
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
+  30% { transform: translate(-50%, 0) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(1); }
+}
+
 /* OSRS-flavoured volume slider */
 .rs-volume {
   -webkit-appearance: none;

@@ -41,6 +41,8 @@ export default function GameRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
   const [ui, setUi] = useState<UIState>(INITIAL);
+  const [banner, setBanner] = useState<string | null>(null);
+  const prevWaveActive = useRef(false);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -56,6 +58,17 @@ export default function GameRoot() {
       engineRef.current = null;
     };
   }, []);
+
+  // Flash a "Wave N" banner when a wave begins.
+  useEffect(() => {
+    if (ui.waveActive && !prevWaveActive.current) {
+      setBanner(`Wave ${ui.wave}`);
+      const t = setTimeout(() => setBanner(null), 1600);
+      prevWaveActive.current = ui.waveActive;
+      return () => clearTimeout(t);
+    }
+    prevWaveActive.current = ui.waveActive;
+  }, [ui.waveActive, ui.wave]);
 
   const toLogic = useCallback((clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -98,6 +111,13 @@ export default function GameRoot() {
         onClick={onClick}
         onContextMenu={onContextMenu}
       />
+
+      {/* Wave-start banner */}
+      {banner && (
+        <div className="rs-wave-banner absolute left-1/2 top-[12%] -translate-x-1/2 z-20 pointer-events-none">
+          {banner}
+        </div>
+      )}
 
       {/* Top-right data-orb cluster (OSRS minimap-orb style) */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10 items-end">
@@ -205,15 +225,18 @@ export default function GameRoot() {
       )}
 
       {/* Bottom-right interface panel: start wave + tower shop */}
-      <div className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[380px]">
+      <div
+        className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em]"
+        style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
+      >
         {!ui.gameOver && (
           ui.waveActive ? (
-            <div className="text-center text-sm text-osrs-orange py-2">
+            <div className="text-center text-[0.95em] text-osrs-orange py-[0.4em]">
               ⚔ Wave {ui.wave} — {ui.remaining} enemies left
             </div>
           ) : (
             <button
-              className="rs-btn rs-btn-primary w-full py-2 mb-3 text-base animate-pulse"
+              className="rs-btn rs-btn-primary w-full py-[0.5em] mb-[0.6em] text-[1.05em] animate-pulse"
               onClick={() => engineRef.current?.startWave()}
             >
               ▶ Start Wave {ui.wave}
@@ -245,7 +268,7 @@ export default function GameRoot() {
             );
           })}
         </div>
-        <p className="text-center text-[10px] text-[#b7a98c] mt-2">
+        <p className="text-center text-[0.7em] text-[#b7a98c] mt-[0.5em]">
           Click a tower, then click the map to place · right‑click to cancel
         </p>
       </div>
