@@ -173,6 +173,7 @@ export class GameEngine {
     this.canvas.height = this.height;
     this.buildPath();
     this.preloadImages();
+    this.slayer.assignTask(); // auto-assign the first Slayer task
     this.emit();
   }
 
@@ -274,11 +275,6 @@ export class GameEngine {
   /** Play a game sound (thin public wrapper for composed subsystems). */
   playSound(id: string, throttleMs?: number) {
     this.sound.play(id, throttleMs);
-  }
-
-  /** Assign a new Slayer task from the current master (UI button). */
-  requestSlayerTask() {
-    this.slayer.assignTask();
   }
 
   setGameSpeed(speed: number) {
@@ -533,6 +529,7 @@ export class GameEngine {
 
   startWave() {
     if (this.waveActive || this.gameOver) return;
+    this.slayer.assignTask(); // idempotent: ensure a task exists so it can seed the wave
     this.spawnQueue = this.generateWave(this.wave);
     this.waveTotal = this.spawnQueue.length;
     this.bossWave = this.spawnQueue.some(e => e.isBoss);
@@ -547,6 +544,9 @@ export class GameEngine {
       enemies: Object.values(ENEMIES),
       blockedEnemies: [],
       landmark: LANDMARK_WAVES[wave],
+      // Seed the active Slayer-task target so its enemies keep spawning —
+      // the fail-safe against a task whose monster has dropped out of waves.
+      slayerTask: this.slayer.task,
     });
     const out: Enemy[] = [];
     for (const cfg of configs) {
@@ -862,6 +862,7 @@ export class GameEngine {
     this.movingTowerId = null;
     this.gameTime = 0;
     this.slayer.reset();
+    this.slayer.assignTask(); // fresh task for the new run
     this.emit();
   }
 }

@@ -32,7 +32,11 @@ export class SlayerSystem {
     return this.currentMaster().name;
   }
 
-  /** Roll a new task from the current master (no-op if one is already active). */
+  /**
+   * Ensure a task is assigned: rolls a new one from the current master, or
+   * does nothing if one is already active (so it's safe to call on every wave
+   * start). Tasks are assigned automatically — there is no manual "get task".
+   */
   assignTask() {
     if (this.task) return;
     const master = this.currentMaster();
@@ -65,7 +69,8 @@ export class SlayerSystem {
       this.e.requestEmit();
       return;
     }
-    // Task complete: award points + gold, bump the streak, then clear it.
+    // Task complete: award points + gold, bump the streak, then clear it. The
+    // rewards still accrue (the system works); they're just not surfaced yet.
     const gold = slayerCompletionGold(task, this.e.wave, this.streak);
     this.points += task.reward;
     this.streak += 1;
@@ -73,9 +78,8 @@ export class SlayerSystem {
     this.e.goldEarned += gold;
     this.lastTaskType = task.type;
     this.task = null;
-    const name = ENEMIES[type]?.name ?? type;
     this.e.playSound('wave');
-    this.e.notify(`Task complete! +${task.reward} pts, +${gold} gp (${name})`);
+    this.e.notify('Slayer task complete!');
   }
 
   reset() {

@@ -314,36 +314,24 @@ export default function GameRoot() {
             </div>
           );
         })()}
-        {/* Slayer task interface */}
-        <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
-          <div className="flex items-center justify-between mb-[0.35em]">
-            <span className="text-[0.82em] text-osrs-orange uppercase tracking-wide">☠ Slayer · {ui.slayerMaster}</span>
-            <span className="text-[0.78em] text-[#cdbe91]" title="Slayer points">
-              {ui.slayerPoints} pts{ui.slayerStreak > 0 ? ` · 🔥${ui.slayerStreak}` : ''}
-            </span>
+        {/* Slayer task interface (tasks are auto-assigned) */}
+        {ui.slayerTask && (
+          <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
+            <div className="text-[0.82em] text-osrs-orange uppercase tracking-wide mb-[0.35em]">
+              ☠ Slayer · {ui.slayerMaster}
+            </div>
+            <div className="flex items-center justify-between text-[0.85em] mb-[0.25em]">
+              <span className="capitalize text-[#e7d9b0]">{ui.slayerTask.name}</span>
+              <span className="text-osrs-yellow font-bold">{ui.slayerTask.count}/{ui.slayerTask.total} left</span>
+            </div>
+            <div className="rs-progress">
+              <div
+                className="rs-progress-fill"
+                style={{ width: `${ui.slayerTask.total ? Math.round(((ui.slayerTask.total - ui.slayerTask.count) / ui.slayerTask.total) * 100) : 0}%` }}
+              />
+            </div>
           </div>
-          {ui.slayerTask ? (
-            <>
-              <div className="flex items-center justify-between text-[0.85em] mb-[0.25em]">
-                <span className="capitalize text-[#e7d9b0]">{ui.slayerTask.name}</span>
-                <span className="text-osrs-yellow font-bold">{ui.slayerTask.count}/{ui.slayerTask.total} left</span>
-              </div>
-              <div className="rs-progress">
-                <div
-                  className="rs-progress-fill"
-                  style={{ width: `${ui.slayerTask.total ? Math.round(((ui.slayerTask.total - ui.slayerTask.count) / ui.slayerTask.total) * 100) : 0}%` }}
-                />
-              </div>
-            </>
-          ) : (
-            <button
-              className="rs-btn w-full py-[0.4em] text-[0.85em]"
-              onClick={() => engineRef.current?.requestSlayerTask()}
-            >
-              ✦ Get Slayer Task
-            </button>
-          )}
-        </div>
+        )}
 
         {!ui.gameOver && (
           ui.waveActive ? (
