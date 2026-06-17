@@ -26,6 +26,8 @@ export class GameRenderer {
     this.drawParticles(ctx);
     this.drawHitsplats(ctx);
     this.drawVignette(ctx);
+    this.drawBossBar(ctx);
+    this.drawLowHealthWarning(ctx);
     ctx.restore();
   }
 
@@ -289,6 +291,57 @@ export class GameRenderer {
     const grad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.72);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
     grad.addColorStop(1, 'rgba(0,0,0,0.38)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  /** Large boss health bar across the top while a boss is on the field. */
+  private drawBossBar(ctx: CanvasRenderingContext2D) {
+    const boss = this.e.enemies.find(en => en.isBoss);
+    if (!boss) return;
+    const w = this.e.width;
+    const barW = Math.min(560, w * 0.5);
+    const barH = 16;
+    const x = (w - barW) / 2;
+    const y = 18;
+    const ratio = Math.max(0, boss.hp / boss.maxHp);
+
+    ctx.save();
+    // frame
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(x - 4, y - 4, barW + 8, barH + 8);
+    ctx.fillStyle = '#2a0606';
+    ctx.fillRect(x, y, barW, barH);
+    // fill
+    const grad = ctx.createLinearGradient(x, 0, x + barW, 0);
+    grad.addColorStop(0, '#e23a3a');
+    grad.addColorStop(1, '#8a0000');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, barW * ratio, barH);
+    ctx.strokeStyle = '#c8a44a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, barW, barH);
+    // label
+    ctx.fillStyle = '#ffcb05';
+    ctx.font = "bold 14px 'RuneScape', Arial";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${boss.name}   ${Math.ceil(boss.hp)} / ${boss.maxHp}`, w / 2, y + barH / 2 + 1);
+    ctx.textBaseline = 'alphabetic';
+    ctx.restore();
+  }
+
+  /** Pulsing red screen edge when the player is down to their last few lives. */
+  private drawLowHealthWarning(ctx: CanvasRenderingContext2D) {
+    if (this.e.gameOver || this.e.lives <= 0 || this.e.lives > 5) return;
+    const w = this.e.width;
+    const h = this.e.height;
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 1000 * 4);
+    // Stronger as lives approach zero, breathing via the pulse.
+    const intensity = (1 - (this.e.lives - 1) / 5) * (0.25 + pulse * 0.35);
+    const grad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.4, w / 2, h / 2, Math.max(w, h) * 0.7);
+    grad.addColorStop(0, 'rgba(200,0,0,0)');
+    grad.addColorStop(1, `rgba(200,0,0,${intensity})`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
   }

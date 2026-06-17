@@ -45,6 +45,7 @@ export default function GameRoot() {
   const [ui, setUi] = useState<UIState>(INITIAL);
   const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
   const prevWaveActive = useRef(false);
 
   useEffect(() => {
@@ -266,6 +267,29 @@ export default function GameRoot() {
         className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em]"
         style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
       >
+        {/* Hover tooltip: tier-1 stats before buying */}
+        {hoverShop && (() => {
+          const t0 = TOWERS[hoverShop].tiers[0];
+          const combat = TOWER_COMBAT[hoverShop];
+          const dmg = t0.maxDamage != null ? `${t0.minDamage ?? 0}–${t0.maxDamage}` : t0.damage;
+          const icon = towerIcon(hoverShop);
+          return (
+            <div
+              className="rs-panel absolute bottom-full right-0 mb-2 p-2 w-[15em] z-20 pointer-events-none"
+              style={{ fontSize: 'clamp(12px, 0.85vw, 16px)' }}
+            >
+              <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
+                {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
+                <span className="truncate">{t0.name}</span>
+              </div>
+              <div className="space-y-[0.3em] mt-[0.4em] px-[0.1em]">
+                <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
+                <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
+                <Stat label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
+              </div>
+            </div>
+          );
+        })()}
         {!ui.gameOver && (
           ui.waveActive ? (
             <div className="text-center text-[0.95em] text-osrs-orange py-[0.4em]">
@@ -290,8 +314,9 @@ export default function GameRoot() {
             return (
               <button
                 key={type}
-                title={`${TOWERS[type].baseName} — ${cost} gp`}
                 onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
+                onMouseEnter={() => setHoverShop(type)}
+                onMouseLeave={() => setHoverShop((h) => (h === type ? null : h))}
                 disabled={!afford}
                 className={`rs-slot ${active ? 'selected' : ''}`}
               >
