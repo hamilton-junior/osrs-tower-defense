@@ -21,17 +21,18 @@ export type PrayerStyle = 'ranged' | 'magic' | 'melee';
 
 /**
  * The prayers that actually buff a tower (the offensive ones `tower-combat`
- * reads), in UI order, tagged with the combat style they boost. Protection
- * prayers are intentionally excluded — towers don't take style-typed damage.
+ * reads), tagged with the combat style they boost. Ordered by level — which is
+ * the OSRS prayer-book order — so the bar reads like the in-game interface.
+ * Protection prayers are excluded — towers don't take style-typed damage.
  */
 export const TOWER_PRAYERS: { id: PrayerType; style: PrayerStyle }[] = [
-  { id: 'sharp_eye', style: 'ranged' },
-  { id: 'hawk_eye', style: 'ranged' },
-  { id: 'eagle_eye', style: 'ranged' },
-  { id: 'rigour', style: 'ranged' },
-  { id: 'mystic_will', style: 'magic' },
-  { id: 'augury', style: 'magic' },
-  { id: 'burst_of_strength', style: 'melee' },
-  { id: 'ultimate_strength', style: 'melee' },
-  { id: 'piety', style: 'melee' },
+  { id: 'burst_of_strength', style: 'melee' }, // lvl 4
+  { id: 'sharp_eye', style: 'ranged' }, // lvl 8
+  { id: 'mystic_will', style: 'magic' }, // lvl 9
+  { id: 'hawk_eye', style: 'ranged' }, // lvl 26
+  { id: 'ultimate_strength', style: 'melee' }, // lvl 31
+  { id: 'eagle_eye', style: 'ranged' }, // lvl 44
+  { id: 'piety', style: 'melee' }, // lvl 70
+  { id: 'rigour', style: 'ranged' }, // lvl 74
+  { id: 'augury', style: 'magic' }, // lvl 77
 ];

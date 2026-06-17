@@ -6,8 +6,8 @@ import { prayerDrainRate, isPrayerUnlocked, prayerMaxForWave } from './prayer';
 /** Scales the (deliberately small) pure drain rate up to a per-second cost
  *  that's meaningful against the wave-scaled pool over a wave. */
 const DRAIN_SCALE = 6;
-/** Prayer points restored per second while no prayer is active. */
-const IDLE_REGEN = 8;
+/** Prayer points restored per second while not draining (idle / between waves). */
+const IDLE_REGEN = 2;
 
 /**
  * Prayer subsystem for the new core: owns the prayer-point pool and the set of
@@ -63,7 +63,10 @@ export class PrayerSystem {
   }
 
   update(dt: number) {
-    if (this.active.size > 0) {
+    // Prayers only cost points while a wave is in progress — between waves you
+    // can leave them on for free (and the pool slowly regenerates).
+    const draining = this.active.size > 0 && this.e.waveActive;
+    if (draining) {
       const drain = prayerDrainRate(this.active, PRAYERS, 1, 1) * DRAIN_SCALE;
       this.points = Math.max(0, this.points - drain * dt);
       if (this.points <= 0) {

@@ -25,16 +25,11 @@ export interface BuildWaveOptions {
  * few of the current Slayer-task target.
  */
 export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveConfig[] {
-  if (opts.landmark) return [...opts.landmark];
-
   const rng = opts.rng ?? Math.random;
-  const configs: WaveConfig[] = [];
-
-  let remainingBudget = 15 + waveNum * 12;
-
-  const spawnable = opts.enemies.filter(
-    e => !e.isBoss && (e.waveUnlock || 1) <= waveNum && !opts.blockedEnemies.includes(e.type),
-  );
+  // Landmark waves keep their fixed makeup, but still get the Slayer seed
+  // appended below — otherwise a task assigned during the (all-landmark) early
+  // waves or at a ×10 wave never makes progress and softlocks.
+  const configs: WaveConfig[] = opts.landmark ? [...opts.landmark] : [];
 
   const addToConfig = (type: EnemyType, count: number) => {
     const existing = configs.find(c => c.type === type);
@@ -42,15 +37,26 @@ export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveC
     else configs.push({ type, count });
   };
 
-  // Seed the Slayer-task target so tasks make progress.
+  // Seed the Slayer-task target so tasks always make progress — the fail-safe
+  // against a task whose monster has dropped out of the procedural mix.
+  let seedThreat = 0;
   if (opts.slayerTask && opts.slayerTask.count > 0) {
     const target = opts.enemies.find(e => e.type === opts.slayerTask!.type);
     if (target && (target.waveUnlock || 1) <= waveNum) {
       const countToAdd = Math.min(opts.slayerTask.count, Math.floor(rng() * 3) + 1);
       addToConfig(target.type, countToAdd);
-      remainingBudget -= target.reward * countToAdd;
+      seedThreat = target.reward * countToAdd;
     }
   }
+
+  // Landmark waves: the fixed set plus the seed, nothing else.
+  if (opts.landmark) return configs;
+
+  let remainingBudget = 15 + waveNum * 12 - seedThreat;
+
+  const spawnable = opts.enemies.filter(
+    e => !e.isBoss && (e.waveUnlock || 1) <= waveNum && !opts.blockedEnemies.includes(e.type),
+  );
 
   // Spend the remaining budget on weighted-random spawnable enemies.
   while (remainingBudget > 0) {

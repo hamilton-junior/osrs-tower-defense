@@ -52,6 +52,20 @@ describe('buildWaveConfigs', () => {
     expect(imp!.count).toBeGreaterThanOrEqual(1);
   });
 
+  it('seeds the slayer-task target into LANDMARK waves too', () => {
+    // Landmark wave has no imps; the task target must still be appended so the
+    // task can progress (otherwise it softlocks on every landmark/×10 wave).
+    const out = buildWaveConfigs(10, {
+      enemies: registry,
+      blockedEnemies: [],
+      landmark: [{ type: 'goblin' as const, count: 8 }],
+      slayerTask: { type: 'imp', count: 20 },
+      rng: () => 0,
+    });
+    expect(out.find(c => c.type === 'goblin')?.count).toBe(8); // landmark preserved
+    expect(out.find(c => c.type === 'imp')?.count).toBeGreaterThanOrEqual(1); // seed added
+  });
+
   it('is deterministic for a fixed rng', () => {
     const opts = { enemies: registry, blockedEnemies: [], rng: () => 0.5 };
     expect(buildWaveConfigs(7, opts)).toEqual(buildWaveConfigs(7, opts));
