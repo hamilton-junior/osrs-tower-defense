@@ -399,9 +399,11 @@ body {
   transition: border-color 0.1s, background 0.1s;
 }
 
-.rs-slot:hover:not(:disabled) { border-color: var(--osrs-orange); background: rgba(80, 68, 46, 0.5); }
+.rs-slot:hover { border-color: var(--osrs-orange); background: rgba(80, 68, 46, 0.5); }
 .rs-slot.selected { border-color: var(--osrs-orange); box-shadow: 0 0 8px rgba(255, 152, 31, 0.6); }
-.rs-slot:disabled { opacity: 0.4; cursor: not-allowed; }
+/* Unaffordable: dimmed but still hoverable so stats can be previewed. */
+.rs-slot-unafford { opacity: 0.5; }
+.rs-slot-unafford img { filter: grayscale(0.6); }
 .rs-slot img { width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; }
 .rs-slot-cost {
   position: absolute;
@@ -431,6 +433,37 @@ body {
   font-size: clamp(20px, 2.4vw, 38px);
   color: #6ee06e;
   text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 0 0 12px rgba(70, 220, 70, 0.5);
+}
+.rs-wave-banner-boss {
+  color: #ff3b3b;
+  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 0 0 18px rgba(255, 40, 40, 0.7);
+  animation: rs-boss-pop 1.9s ease-out forwards;
+}
+@keyframes rs-boss-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  12% { opacity: 1; transform: translate(-50%, -50%) scale(1.18); }
+  20% { transform: translate(-52%, -50%) scale(1.1); }
+  26% { transform: translate(-48%, -50%) scale(1.1); }
+  32% { transform: translate(-50%, -50%) scale(1.05); }
+  80% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); }
+}
+
+/* Wave progress bar (in the shop panel during a wave) */
+.rs-progress {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #1a140c, #0d0a06);
+  border: 1px solid #4a3f2a;
+  overflow: hidden;
+}
+.rs-progress-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #6ee06e, #2f8a2f);
+  transition: width 0.2s ease-out;
+}
+.rs-progress-fill-boss {
+  background: linear-gradient(180deg, #ff5a5a, #8a0000);
 }
 
 /* Inset stat tile (used on the game-over summary) */

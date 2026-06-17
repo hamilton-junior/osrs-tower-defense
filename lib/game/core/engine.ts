@@ -36,6 +36,10 @@ export interface UIState {
   wave: number;
   waveActive: boolean;
   remaining: number;
+  /** Total enemies queued for the current wave (for the progress bar). */
+  waveTotal: number;
+  /** Whether the current wave contains a boss. */
+  bossWave: boolean;
   gameOver: boolean;
   selectedTowerType: TowerType | null;
   selectedTowerId: string | null;
@@ -109,6 +113,8 @@ export class GameEngine {
   wave = 1;
   waveActive = false;
   gameOver = false;
+  waveTotal = 0;
+  bossWave = false;
 
   selectedTowerType: TowerType | null = null;
   selectedTowerId: string | null = null;
@@ -206,6 +212,8 @@ export class GameEngine {
       wave: this.wave,
       waveActive: this.waveActive,
       remaining: this.spawnQueue.length + this.enemies.length,
+      waveTotal: this.waveTotal,
+      bossWave: this.bossWave,
       gameOver: this.gameOver,
       selectedTowerType: this.selectedTowerType,
       selectedTowerId: this.selectedTowerId,
@@ -472,6 +480,8 @@ export class GameEngine {
   startWave() {
     if (this.waveActive || this.gameOver) return;
     this.spawnQueue = this.generateWave(this.wave);
+    this.waveTotal = this.spawnQueue.length;
+    this.bossWave = this.spawnQueue.some(e => e.isBoss);
     this.waveActive = true;
     this.sound.play('wave');
     this.emit();
@@ -783,6 +793,8 @@ export class GameEngine {
     this.wave = 1;
     this.kills = 0;
     this.goldEarned = 0;
+    this.waveTotal = 0;
+    this.bossWave = false;
     this.waveActive = false;
     this.gameOver = false;
     this.selectedTowerType = null;

@@ -32,7 +32,7 @@ const attackSpeed = (cooldownMs: number) => {
 
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
-  remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null,
+  remaining: 0, waveTotal: 0, bossWave: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
   movingTowerId: null, gameSpeed: 1, muted: false, volume: 0.18,
   notice: null, noticeSeq: 0,
 };
@@ -43,7 +43,7 @@ export default function GameRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
   const [ui, setUi] = useState<UIState>(INITIAL);
-  const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' } | null>(null);
+  const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' | 'boss' } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
   const prevWaveActive = useRef(false);
@@ -67,13 +67,17 @@ export default function GameRoot() {
   useEffect(() => {
     const prev = prevWaveActive.current;
     if (ui.waveActive && !prev) {
-      setBanner({ text: `Wave ${ui.wave}`, tone: 'start' });
+      setBanner(
+        ui.bossWave
+          ? { text: `⚠ BOSS INCOMING ⚠`, tone: 'boss' }
+          : { text: `Wave ${ui.wave}`, tone: 'start' },
+      );
     } else if (!ui.waveActive && prev && !ui.gameOver) {
       const completed = ui.wave - 1;
       setBanner({ text: `Wave ${completed} Complete   +${waveClearBonus(completed)} gp`, tone: 'done' });
     }
     prevWaveActive.current = ui.waveActive;
-  }, [ui.waveActive, ui.wave, ui.gameOver]);
+  }, [ui.waveActive, ui.wave, ui.gameOver, ui.bossWave]);
 
   // Auto-dismiss whichever banner is showing.
   useEffect(() => {
@@ -136,7 +140,7 @@ export default function GameRoot() {
       {/* Wave start / complete banner */}
       {banner && (
         <div
-          className={`rs-wave-banner ${banner.tone === 'done' ? 'rs-wave-banner-done' : ''} absolute left-1/2 top-1/2 z-20 pointer-events-none whitespace-nowrap text-center`}
+          className={`rs-wave-banner ${banner.tone === 'done' ? 'rs-wave-banner-done' : ''} ${banner.tone === 'boss' ? 'rs-wave-banner-boss' : ''} absolute left-1/2 top-1/2 z-20 pointer-events-none whitespace-nowrap text-center`}
         >
           {banner.text}
         </div>
@@ -292,8 +296,17 @@ export default function GameRoot() {
         })()}
         {!ui.gameOver && (
           ui.waveActive ? (
-            <div className="text-center text-[0.95em] text-osrs-orange py-[0.4em]">
-              ⚔ Wave {ui.wave} — {ui.remaining} enemies left
+            <div className="mb-[0.6em]">
+              <div className="flex items-center justify-between text-[0.9em] text-osrs-orange mb-[0.25em]">
+                <span>⚔ Wave {ui.wave}{ui.bossWave ? ' — BOSS' : ''}</span>
+                <span className="text-[#cdbe91]">{ui.remaining} left</span>
+              </div>
+              <div className="rs-progress">
+                <div
+                  className={`rs-progress-fill ${ui.bossWave ? 'rs-progress-fill-boss' : ''}`}
+                  style={{ width: `${ui.waveTotal ? Math.round(((ui.waveTotal - ui.remaining) / ui.waveTotal) * 100) : 0}%` }}
+                />
+              </div>
             </div>
           ) : (
             <button
@@ -317,8 +330,7 @@ export default function GameRoot() {
                 onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
                 onMouseEnter={() => setHoverShop(type)}
                 onMouseLeave={() => setHoverShop((h) => (h === type ? null : h))}
-                disabled={!afford}
-                className={`rs-slot ${active ? 'selected' : ''}`}
+                className={`rs-slot ${active ? 'selected' : ''} ${afford ? '' : 'rs-slot-unafford'}`}
               >
                 {icon ? (
                   <img src={icon} alt={TOWERS[type].baseName} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
