@@ -11,6 +11,7 @@ import { calculateTowerStats } from '../systems/tower-combat';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
+import { SlayerSystem } from '../systems/slayer-system';
 
 /** Default logic dimensions, used until {@link GameEngine.resize} measures the
  *  real canvas. The play area adapts to the user's screen, sized to whole tiles. */
@@ -52,6 +53,14 @@ export interface UIState {
   notice: string | null;
   /** Bumped every time a notice fires so the UI can re-trigger on repeats. */
   noticeSeq: number;
+  /** Active Slayer task (null when none assigned), as a cloneable view. */
+  slayerTask: { type: EnemyType; name: string; count: number; total: number; reward: number } | null;
+  /** Accumulated Slayer points. */
+  slayerPoints: number;
+  /** Completed-task streak. */
+  slayerStreak: number;
+  /** Name of the Slayer master that would assign the next task. */
+  slayerMaster: string;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -135,6 +144,9 @@ export class GameEngine {
   goldEarned = 0;
   private notice: string | null = null;
   private noticeSeq = 0;
+
+  // --- composed subsystems ---
+  readonly slayer = new SlayerSystem(this);
 
   /** Current logic dimensions (canvas internal resolution); whole tiles. */
   width = LOGIC_WIDTH;
@@ -232,14 +244,41 @@ export class GameEngine {
       volume: this.sound.level,
       notice: this.notice,
       noticeSeq: this.noticeSeq,
+      slayerTask: this.slayer.task
+        ? {
+            type: this.slayer.task.type,
+            name: ENEMIES[this.slayer.task.type]?.name ?? this.slayer.task.type,
+            count: this.slayer.task.count,
+            total: this.slayer.task.total,
+            reward: this.slayer.task.reward,
+          }
+        : null,
+      slayerPoints: this.slayer.points,
+      slayerStreak: this.slayer.streak,
+      slayerMaster: this.slayer.masterName,
     });
   }
 
   /** Flash a transient message to the UI (e.g. an action that couldn't run). */
-  private notify(text: string) {
+  notify(text: string) {
     this.notice = text;
     this.noticeSeq++;
     this.emit();
+  }
+
+  /** Re-push the UI snapshot — used by composed subsystems after mutating state. */
+  requestEmit() {
+    this.emit();
+  }
+
+  /** Play a game sound (thin public wrapper for composed subsystems). */
+  playSound(id: string, throttleMs?: number) {
+    this.sound.play(id, throttleMs);
+  }
+
+  /** Assign a new Slayer task from the current master (UI button). */
+  requestSlayerTask() {
+    this.slayer.assignTask();
   }
 
   setGameSpeed(speed: number) {
@@ -761,6 +800,7 @@ export class GameEngine {
     this.money += reward;
     this.goldEarned += reward;
     this.kills += 1;
+    this.slayer.recordKill(enemy.type);
     this.emit();
   }
 
@@ -821,6 +861,7 @@ export class GameEngine {
     this.selectedTowerId = null;
     this.movingTowerId = null;
     this.gameTime = 0;
+    this.slayer.reset();
     this.emit();
   }
 }

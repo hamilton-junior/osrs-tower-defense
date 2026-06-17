@@ -56,3 +56,17 @@ export function rollSlayerTask(
 
   return { type, count, total: count, reward };
 }
+
+/**
+ * Gold bonus paid out when a Slayer task is completed. Scales with the task
+ * size and the current wave, and grows ~10% per consecutive task in the streak.
+ * Pure so the engine's reward bookkeeping stays testable.
+ */
+export function slayerCompletionGold(
+  task: { total: number },
+  wave: number,
+  consecutiveTasks: number,
+): number {
+  const base = task.total * (8 + wave * 2);
+  return Math.floor(base * (1 + consecutiveTasks * 0.1));
+}

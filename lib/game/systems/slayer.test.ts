@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { EnemyDef } from '../types';
 import type { SlayerMaster } from '../data/slayer';
-import { rollSlayerTask, RollSlayerTaskOptions } from './slayer';
+import { rollSlayerTask, slayerCompletionGold, RollSlayerTaskOptions } from './slayer';
 
 const def = (type: string, waveUnlock: number, isBoss = false): EnemyDef =>
   ({ type, name: type, hp: 10, speed: 50, color: '#fff', reward: 5, waveUnlock, isBoss }) as EnemyDef;
@@ -74,5 +74,17 @@ describe('rollSlayerTask', () => {
     const task = rollSlayerTask(master, baseOpts({ consecutiveTasks: 5, slayerRewardMultiplier: 2 }))!;
     // floor((2 + 6*0.1) * 2 * (1 + 0.5) * 1) = floor(2.6 * 2 * 1.5) = floor(7.8)
     expect(task.reward).toBe(7);
+  });
+});
+
+describe('slayerCompletionGold', () => {
+  it('scales gold with task size and wave', () => {
+    // 10 * (8 + 3*2) = 10 * 14 = 140, no streak
+    expect(slayerCompletionGold({ total: 10 }, 3, 0)).toBe(140);
+  });
+
+  it('grows ~10% per consecutive task in the streak', () => {
+    // floor(140 * (1 + 5*0.1)) = floor(140 * 1.5) = 210
+    expect(slayerCompletionGold({ total: 10 }, 3, 5)).toBe(210);
   });
 });
