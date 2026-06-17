@@ -413,6 +413,32 @@ body {
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
 }
 
+/* Quick-prayer toggle buttons */
+.rs-prayer {
+  width: 1.9em;
+  height: 1.9em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2a2118;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 3px;
+  opacity: 0.6;
+  transition: opacity 0.1s, box-shadow 0.1s, border-color 0.1s;
+}
+.rs-prayer img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.rs-prayer:hover { opacity: 0.9; }
+.rs-prayer-on {
+  opacity: 1;
+  border-color: #6db3f2;
+  box-shadow: 0 0 8px 2px rgba(109, 179, 242, 0.75), inset 0 0 6px rgba(109, 179, 242, 0.45);
+}
+
 /* Wave-start banner */
 .rs-wave-banner {
   font-family: var(--font-osrs), 'VT323', monospace;

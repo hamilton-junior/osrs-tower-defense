@@ -20,3 +20,13 @@ export function prayerDrainRate(
   }
   return (totalDrain / 10) * (prayerEfficiency || 1) * (1 - (prayerLevel - 1) * 0.01);
 }
+
+/**
+ * Whether a prayer is unlocked at the given wave, using the wave count as a
+ * Prayer-level proxy (the new core has no skills yet). Tier-1 prayers are
+ * available from the first waves; the strongest (Piety/Rigour/Augury) unlock
+ * around wave 18–20.
+ */
+export function isPrayerUnlocked(prayerLevel: number, wave: number): boolean {
+  return prayerLevel <= 4 + (wave - 1) * 4;
+}

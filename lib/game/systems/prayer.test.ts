@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { PrayerDef, PrayerType } from '../types';
-import { prayerDrainRate } from './prayer';
+import { prayerDrainRate, isPrayerUnlocked } from './prayer';
 
 const prayers: PrayerDef[] = [
   { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '' },
@@ -26,5 +26,18 @@ describe('prayerDrainRate', () => {
     const rate = prayerDrainRate(new Set<PrayerType>(['rigour']), prayers, 0.5, 11);
     // 0.8 * 0.5 * (1 - 10*0.01) = 0.8 * 0.5 * 0.9
     expect(rate).toBeCloseTo(0.36);
+  });
+});
+
+describe('isPrayerUnlocked', () => {
+  it('unlocks tier-1 prayers from the first wave', () => {
+    expect(isPrayerUnlocked(4, 1)).toBe(true); // Burst of Strength
+    expect(isPrayerUnlocked(8, 1)).toBe(false); // Sharp Eye not yet
+    expect(isPrayerUnlocked(8, 2)).toBe(true); // 4 + 1*4 = 8
+  });
+
+  it('gates the strongest prayers to later waves', () => {
+    expect(isPrayerUnlocked(74, 18)).toBe(false); // Rigour: 4 + 17*4 = 72 < 74
+    expect(isPrayerUnlocked(74, 19)).toBe(true); // 4 + 18*4 = 76 >= 74
   });
 });

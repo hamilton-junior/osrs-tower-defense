@@ -1,4 +1,4 @@
-import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades } from '../types';
+import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType } from '../types';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
@@ -12,6 +12,7 @@ import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
+import { PrayerSystem } from '../systems/prayer-system';
 
 /** Default logic dimensions, used until {@link GameEngine.resize} measures the
  *  real canvas. The play area adapts to the user's screen, sized to whole tiles. */
@@ -61,6 +62,12 @@ export interface UIState {
   slayerStreak: number;
   /** Name of the Slayer master that would assign the next task. */
   slayerMaster: string;
+  /** Current prayer points (rounded). */
+  prayerPoints: number;
+  /** Maximum prayer points. */
+  prayerMax: number;
+  /** Currently active prayers (cloneable list). */
+  activePrayers: PrayerType[];
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -147,6 +154,7 @@ export class GameEngine {
 
   // --- composed subsystems ---
   readonly slayer = new SlayerSystem(this);
+  readonly prayer = new PrayerSystem(this);
 
   /** Current logic dimensions (canvas internal resolution); whole tiles. */
   width = LOGIC_WIDTH;
@@ -257,6 +265,9 @@ export class GameEngine {
       slayerPoints: this.slayer.points,
       slayerStreak: this.slayer.streak,
       slayerMaster: this.slayer.masterName,
+      prayerPoints: Math.round(this.prayer.points),
+      prayerMax: this.prayer.max,
+      activePrayers: [...this.prayer.active],
     });
   }
 
@@ -275,6 +286,11 @@ export class GameEngine {
   /** Play a game sound (thin public wrapper for composed subsystems). */
   playSound(id: string, throttleMs?: number) {
     this.sound.play(id, throttleMs);
+  }
+
+  /** Toggle a prayer on/off (UI button). */
+  togglePrayer(id: PrayerType) {
+    this.prayer.toggle(id);
   }
 
   setGameSpeed(speed: number) {
@@ -585,6 +601,7 @@ export class GameEngine {
   // ------------------------------------------------------------------- update
   private update(dt: number) {
     this.gameTime += dt;
+    this.prayer.update(dt);
     this.spawn(dt);
     this.moveEnemies(dt);
     this.fireTowers(dt);
@@ -665,7 +682,7 @@ export class GameEngine {
       if (tower.recoil) tower.recoil = Math.max(0, tower.recoil - dt * 6); // ~0.16s pulse
       const stats = calculateTowerStats(tower, {
         upgrades: NO_UPGRADES,
-        activePrayers: new Set(),
+        activePrayers: this.prayer.active,
         activePotions: [],
         allTowers: this.towers,
       });
@@ -828,6 +845,7 @@ export class GameEngine {
     const bonus = waveClearBonus(this.wave);
     this.money += bonus;
     this.goldEarned += bonus;
+    this.prayer.refill(); // restore prayer points as a wave-clear reward
     this.wave += 1;
     this.emit();
   }
@@ -863,6 +881,7 @@ export class GameEngine {
     this.gameTime = 0;
     this.slayer.reset();
     this.slayer.assignTask(); // fresh task for the new run
+    this.prayer.reset();
     this.emit();
   }
 }

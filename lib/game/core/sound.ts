@@ -18,6 +18,8 @@ export const GAME_SOUNDS: Record<string, string> = {
   sell: ASSETS.sounds.misc.sell,
   click: ASSETS.sounds.misc.click,
   game_over: ASSETS.sounds.misc.death,
+  prayer_on: ASSETS.sounds.misc.prayer_on,
+  prayer_off: ASSETS.sounds.misc.prayer_off,
 };
 
 /**

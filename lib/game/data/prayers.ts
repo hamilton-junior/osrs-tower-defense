@@ -1,5 +1,5 @@
 
-import { PrayerDef } from '../types';
+import { PrayerDef, PrayerType } from '../types';
 
 export const PRAYERS: PrayerDef[] = [
   { id: 'burst_of_strength', name: 'Burst of Strength', level: 4, drain: 1.5, description: '+5% Strength' },
@@ -14,4 +14,24 @@ export const PRAYERS: PrayerDef[] = [
   { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '+23% Melee Damage' },
   { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '+23% Ranged Damage' },
   { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '+25% Magic Damage' },
+];
+
+/** Tower combat style a prayer boosts (matches the styles in tower-combat). */
+export type PrayerStyle = 'ranged' | 'magic' | 'melee';
+
+/**
+ * The prayers that actually buff a tower (the offensive ones `tower-combat`
+ * reads), in UI order, tagged with the combat style they boost. Protection
+ * prayers are intentionally excluded — towers don't take style-typed damage.
+ */
+export const TOWER_PRAYERS: { id: PrayerType; style: PrayerStyle }[] = [
+  { id: 'sharp_eye', style: 'ranged' },
+  { id: 'hawk_eye', style: 'ranged' },
+  { id: 'eagle_eye', style: 'ranged' },
+  { id: 'rigour', style: 'ranged' },
+  { id: 'mystic_will', style: 'magic' },
+  { id: 'augury', style: 'magic' },
+  { id: 'burst_of_strength', style: 'melee' },
+  { id: 'ultimate_strength', style: 'melee' },
+  { id: 'piety', style: 'melee' },
 ];
