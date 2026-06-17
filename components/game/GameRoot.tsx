@@ -3,11 +3,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GameEngine, LOGIC_WIDTH, LOGIC_HEIGHT, type UIState } from '@/lib/game/core/engine';
 import { TOWERS } from '@/lib/game/data/towers';
+import { ASSETS } from '@/lib/game/assets';
 import type { TowerType } from '@/lib/game/types';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
-
 const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
+const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
 
 const INITIAL: UIState = {
   money: 200, lives: 20, wave: 1, waveActive: false,
@@ -21,9 +22,7 @@ export default function GameRoot() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    const engine = new GameEngine(canvasRef.current, (patch) => {
-      setUi((prev) => ({ ...prev, ...patch }));
-    });
+    const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })));
     engineRef.current = engine;
     engine.start();
     return () => {
@@ -71,104 +70,121 @@ export default function GameRoot() {
         onContextMenu={onContextMenu}
       />
 
-      {/* Top HUD */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-        <Stat label="GP" value={ui.money} color="var(--osrs-yellow)" />
-        <Stat label="Wave" value={ui.wave} color="var(--osrs-orange)" />
-        <Stat label="Lives" value={ui.lives} color={ui.lives <= 5 ? 'var(--osrs-red)' : 'var(--osrs-green)'} />
-        {ui.waveActive && <Stat label="Enemies" value={ui.remaining} color="#fff" />}
-      </div>
-
-      {/* Bottom control bar: start wave + tower shop */}
-      <div className="osrs-window absolute bottom-3 left-1/2 -translate-x-1/2 p-2 z-10 flex flex-col items-stretch gap-2">
-        {!ui.gameOver && (
-          ui.waveActive ? (
-            <div className="text-center text-sm text-osrs-orange py-1">
-              ⚔ Wave {ui.wave} in progress — {ui.remaining} enemies left
-            </div>
-          ) : (
-            <button
-              className="osrs-button px-4 py-2 text-base text-osrs-yellow animate-pulse"
-              onClick={() => engineRef.current?.startWave()}
-            >
-              ▶ Start Wave {ui.wave}
-            </button>
-          )
-        )}
-        <div className="flex gap-2">
-          {TOWER_ORDER.map((type) => {
-            const cost = TOWERS[type].tiers[0].upgradeCost;
-            const active = ui.selectedTowerType === type;
-            const afford = ui.money >= cost;
-            return (
-              <button
-                key={type}
-                onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
-                disabled={!afford}
-                className={`osrs-button flex flex-col items-center px-3 py-1 min-w-[84px] ${active ? 'ring-2 ring-[var(--osrs-orange)]' : ''} ${!afford ? 'opacity-50' : ''}`}
-              >
-                <span className="capitalize text-sm">{TOWERS[type].baseName}</span>
-                <span className="text-xs" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost} gp</span>
-              </button>
-            );
-          })}
+      {/* Top-left orb cluster */}
+      <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
+        <div className="rs-orb">
+          <img
+            src={ASSETS.misc.hp_icon}
+            alt=""
+            className="rs-orb-icon"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+          <span className="rs-orb-value" style={{ color: ui.lives <= 5 ? '#ff5b5b' : '#7CFC58' }}>{ui.lives}</span>
         </div>
-        <p className="text-center text-[10px] text-[#c0c0c0] mt-1">
-          Click a tower, then click the map to place · right‑click to cancel
-        </p>
+        <div className="rs-pill">
+          <span className="rs-pill-label">GP</span>
+          <span className="rs-pill-value text-osrs-yellow">{ui.money.toLocaleString()}</span>
+        </div>
+        <div className="rs-pill">
+          <span className="rs-pill-label">Wave</span>
+          <span className="rs-pill-value text-osrs-orange">{ui.wave}</span>
+        </div>
       </div>
 
-      {/* Selected tower panel */}
+      {/* Selected tower panel (top-right) */}
       {selectedTower && (
-        <div className="osrs-window absolute top-16 right-3 p-2 z-10 w-48">
-          <div className="osrs-window-title mb-2"><span>{selectedTower.name}</span></div>
+        <div className="rs-panel absolute top-4 right-4 p-3 z-10 w-52">
+          <div className="rs-panel-title">{selectedTower.name}</div>
           <div className="text-xs space-y-1 px-1">
             <Row k="Level" v={`${selectedTower.level}/${selectedTower.maxLevel}`} />
             <Row k="Damage" v={selectedTower.damage} />
             <Row k="Range" v={Math.round(selectedTower.range)} />
           </div>
-          <div className="mt-2">
-            <div className="text-[10px] text-[#c0c0c0] mb-1 px-1">Target priority</div>
+          <div className="mt-3">
+            <div className="text-[10px] text-[#b7a98c] mb-1 px-1 uppercase tracking-wide">Target priority</div>
             <div className="grid grid-cols-5 gap-1">
               {(['first', 'last', 'strongest', 'weakest', 'closest'] as const).map((p) => (
                 <button
                   key={p}
                   title={p}
                   onClick={() => engineRef.current?.setTargetingPriority(selectedTower.id, p)}
-                  className={`osrs-button text-[9px] px-0 py-1 ${selectedTower.targetingPriority === p ? 'ring-2 ring-[var(--osrs-orange)]' : ''}`}
+                  className={`rs-btn text-[9px] px-0 py-1 ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
                 >
                   {PRIORITY_LABELS[p]}
                 </button>
               ))}
             </div>
           </div>
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-3">
             {selectedTower.level < selectedTower.maxLevel && (
               <button
-                className="osrs-button flex-1 px-2 py-1 text-xs"
+                className="rs-btn flex-1 px-2 py-1 text-xs"
                 disabled={ui.money < selectedTower.upgradeCost}
                 onClick={() => engineRef.current?.upgradeTower(selectedTower.id)}
               >
                 Upgrade ({selectedTower.upgradeCost})
               </button>
             )}
-            <button
-              className="osrs-button px-2 py-1 text-xs"
-              onClick={() => engineRef.current?.sellTower(selectedTower.id)}
-            >
+            <button className="rs-btn px-2 py-1 text-xs" onClick={() => engineRef.current?.sellTower(selectedTower.id)}>
               Sell
             </button>
           </div>
         </div>
       )}
 
+      {/* Bottom-right interface panel: start wave + tower shop */}
+      <div className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[380px]">
+        {!ui.gameOver && (
+          ui.waveActive ? (
+            <div className="text-center text-sm text-osrs-orange py-2">
+              ⚔ Wave {ui.wave} — {ui.remaining} enemies left
+            </div>
+          ) : (
+            <button
+              className="rs-btn rs-btn-primary w-full py-2 mb-3 text-base animate-pulse"
+              onClick={() => engineRef.current?.startWave()}
+            >
+              ▶ Start Wave {ui.wave}
+            </button>
+          )
+        )}
+        <div className="rs-panel-title">Towers</div>
+        <div className="grid grid-cols-6 gap-2">
+          {TOWER_ORDER.map((type) => {
+            const cost = TOWERS[type].tiers[0].upgradeCost;
+            const active = ui.selectedTowerType === type;
+            const afford = ui.money >= cost;
+            const icon = towerIcon(type);
+            return (
+              <button
+                key={type}
+                title={`${TOWERS[type].baseName} — ${cost} gp`}
+                onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
+                disabled={!afford}
+                className={`rs-slot ${active ? 'selected' : ''}`}
+              >
+                {icon ? (
+                  <img src={icon} alt={TOWERS[type].baseName} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : (
+                  <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>
+                )}
+                <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-center text-[10px] text-[#b7a98c] mt-2">
+          Click a tower, then click the map to place · right‑click to cancel
+        </p>
+      </div>
+
       {/* Game over */}
       {ui.gameOver && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20">
-          <div className="osrs-window p-1 text-center w-80">
-            <div className="osrs-window-title mb-3"><span>Game Over</span></div>
-            <p className="text-lg text-osrs-yellow mb-4">You reached wave {ui.wave}.</p>
-            <button className="osrs-button px-6 py-2 w-full" onClick={() => engineRef.current?.restart()}>
+          <div className="rs-panel p-6 text-center w-80">
+            <div className="rs-panel-title text-base">Game Over</div>
+            <p className="text-lg text-osrs-yellow my-4">You reached wave {ui.wave}.</p>
+            <button className="rs-btn rs-btn-primary px-6 py-2 w-full" onClick={() => engineRef.current?.restart()}>
               Play Again
             </button>
           </div>
@@ -178,19 +194,10 @@ export default function GameRoot() {
   );
 }
 
-function Stat({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="osrs-window px-3 py-1 flex items-center gap-2">
-      <span className="text-xs text-[#c0c0c0] uppercase">{label}</span>
-      <span className="text-lg" style={{ color }}>{value}</span>
-    </div>
-  );
-}
-
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
     <div className="flex justify-between">
-      <span className="text-[#c0c0c0]">{k}</span>
+      <span className="text-[#b7a98c]">{k}</span>
       <span className="text-osrs-yellow">{v}</span>
     </div>
   );
