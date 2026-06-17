@@ -46,6 +46,9 @@ export interface UIState {
 
 const uid = () => Math.random().toString(36).slice(2, 11);
 
+/** Approximate body radius (px) used for range/hit tests, matching the sprite size. */
+const enemyRadius = (e: { isBoss?: boolean }) => (e.isBoss ? 28 : 13);
+
 /** Transient OSRS-style hit marker shown over an enemy when it takes damage. */
 export interface Hitsplat {
   x: number;
@@ -558,11 +561,14 @@ export class GameEngine {
         allTowers: this.towers,
       });
       const half = squareRange(stats.range, GRID);
+      // Test the enemy's body, not just its centre, so a tower fires as soon as
+      // an enemy overlaps its range square (e.g. when the road clips the edge).
+      const inReach = (e: Enemy) => inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e));
 
       // (re)acquire a target
       let target = tower.targetId ? this.enemies.find(e => e.id === tower.targetId) : undefined;
-      if (!target || !inSquareRange(target.x, target.y, tower.x, tower.y, half)) {
-        const inRange = this.enemies.filter(e => inSquareRange(e.x, e.y, tower.x, tower.y, half));
+      if (!target || !inReach(target)) {
+        const inRange = this.enemies.filter(inReach);
         target = selectTarget(inRange, tower.x, tower.y, this.path, tower.targetingPriority) ?? undefined;
         tower.targetId = target?.id ?? null;
       }
