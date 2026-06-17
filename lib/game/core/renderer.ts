@@ -18,10 +18,12 @@ export class GameRenderer {
     this.drawPath(ctx);
     this.drawPlacementGhost(ctx);
     this.drawTowers(ctx);
+    this.drawDeaths(ctx);
     this.drawEnemies(ctx);
     this.drawProjectiles(ctx);
     this.drawParticles(ctx);
     this.drawHitsplats(ctx);
+    this.drawVignette(ctx);
     ctx.restore();
   }
 
@@ -191,6 +193,34 @@ export class GameRenderer {
     ctx.globalAlpha = 0.6;
     this.drawTowerSprite(ctx, type, level, sx, sy, moving ? moving.visualRadius : 18);
     ctx.globalAlpha = 1;
+  }
+
+  /** Fading, shrinking sprites of enemies that just died. */
+  private drawDeaths(ctx: CanvasRenderingContext2D) {
+    for (const d of this.e.deaths) {
+      const t = Math.max(0, d.life / d.maxLife); // 1 → 0
+      if (!this.e.imageOk(d.type)) continue;
+      const img = this.e.images.get(d.type)!;
+      const size = (d.isBoss ? 60 : 30) * (0.7 + t * 0.3); // shrink slightly
+      ctx.save();
+      ctx.globalAlpha = t * 0.85;
+      ctx.translate(d.x, d.y - (1 - t) * 12); // drift up a touch
+      if (d.movingLeft) ctx.scale(-1, 1);
+      ctx.drawImage(img, -size / 2, -size / 2, size, size);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Soft darkened edges to focus the eye on the battlefield. */
+  private drawVignette(ctx: CanvasRenderingContext2D) {
+    const w = this.e.width;
+    const h = this.e.height;
+    const grad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.72);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.38)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
   }
 
   private drawTowers(ctx: CanvasRenderingContext2D) {

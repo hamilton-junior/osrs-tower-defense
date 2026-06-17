@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GameEngine, type UIState } from '@/lib/game/core/engine';
 import { TOWERS } from '@/lib/game/data/towers';
 import { ASSETS } from '@/lib/game/assets';
+import { waveClearBonus } from '@/lib/game/systems/rewards';
 import type { TowerType } from '@/lib/game/types';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
@@ -41,7 +42,7 @@ export default function GameRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
   const [ui, setUi] = useState<UIState>(INITIAL);
-  const [banner, setBanner] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' } | null>(null);
   const prevWaveActive = useRef(false);
 
   useEffect(() => {
@@ -59,16 +60,24 @@ export default function GameRoot() {
     };
   }, []);
 
-  // Flash a "Wave N" banner when a wave begins.
+  // Flash a banner when a wave begins, and a "complete" banner when it ends.
   useEffect(() => {
-    if (ui.waveActive && !prevWaveActive.current) {
-      setBanner(`Wave ${ui.wave}`);
-      const t = setTimeout(() => setBanner(null), 1600);
-      prevWaveActive.current = ui.waveActive;
-      return () => clearTimeout(t);
+    const prev = prevWaveActive.current;
+    if (ui.waveActive && !prev) {
+      setBanner({ text: `Wave ${ui.wave}`, tone: 'start' });
+    } else if (!ui.waveActive && prev && !ui.gameOver) {
+      const completed = ui.wave - 1;
+      setBanner({ text: `Wave ${completed} Complete   +${waveClearBonus(completed)} gp`, tone: 'done' });
     }
     prevWaveActive.current = ui.waveActive;
-  }, [ui.waveActive, ui.wave]);
+  }, [ui.waveActive, ui.wave, ui.gameOver]);
+
+  // Auto-dismiss whichever banner is showing.
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 1900);
+    return () => clearTimeout(t);
+  }, [banner]);
 
   const toLogic = useCallback((clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -113,10 +122,12 @@ export default function GameRoot() {
         onContextMenu={onContextMenu}
       />
 
-      {/* Wave-start banner */}
+      {/* Wave start / complete banner */}
       {banner && (
-        <div className="rs-wave-banner absolute left-1/2 top-[12%] -translate-x-1/2 z-20 pointer-events-none">
-          {banner}
+        <div
+          className={`rs-wave-banner ${banner.tone === 'done' ? 'rs-wave-banner-done' : ''} absolute left-1/2 top-[12%] -translate-x-1/2 z-20 pointer-events-none whitespace-nowrap`}
+        >
+          {banner.text}
         </div>
       )}
 

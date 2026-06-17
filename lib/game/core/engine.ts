@@ -59,6 +59,17 @@ export interface Hitsplat {
   life: number;
 }
 
+/** A dying enemy's sprite, fading out where it fell. */
+export interface DeathFx {
+  x: number;
+  y: number;
+  type: string;
+  isBoss: boolean;
+  movingLeft: boolean;
+  life: number;
+  maxLife: number;
+}
+
 /** Transient death/impact particle. */
 export interface Particle {
   x: number;
@@ -86,6 +97,7 @@ export class GameEngine {
   projectiles: Projectile[] = [];
   hitsplats: Hitsplat[] = [];
   particles: Particle[] = [];
+  deaths: DeathFx[] = [];
 
   money = START_MONEY;
   lives = START_LIVES;
@@ -514,6 +526,11 @@ export class GameEngine {
       p.vy += 220 * dt; // gravity
       if (p.life <= 0) this.particles.splice(i, 1);
     }
+    for (let i = this.deaths.length - 1; i >= 0; i--) {
+      const d = this.deaths[i];
+      d.life -= dt;
+      if (d.life <= 0) this.deaths.splice(i, 1);
+    }
   }
 
   private spawn(dt: number) {
@@ -683,6 +700,15 @@ export class GameEngine {
     if (i < 0) return;
     this.enemies.splice(i, 1);
     this.spawnDeathParticles(enemy);
+    this.deaths.push({
+      x: enemy.x,
+      y: enemy.y,
+      type: enemy.type,
+      isBoss: !!enemy.isBoss,
+      movingLeft: (this.path[enemy.pathIndex + 1]?.x ?? enemy.x) < enemy.x,
+      life: 0.45,
+      maxLife: 0.45,
+    });
     this.sound.play('death', 40);
     this.money += goldForKill(enemy.maxHp);
     this.emit();
@@ -726,6 +752,7 @@ export class GameEngine {
     this.projectiles = [];
     this.hitsplats = [];
     this.particles = [];
+    this.deaths = [];
     this.spawnQueue = [];
     this.money = START_MONEY;
     this.lives = START_LIVES;
