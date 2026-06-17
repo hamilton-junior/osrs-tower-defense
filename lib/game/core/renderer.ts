@@ -182,28 +182,6 @@ export class GameRenderer {
     ctx.arc(0, 0, 52, 0, Math.PI * 2);
     ctx.fill();
 
-    // Mystic haze: translucent wisps that orbit and wobble around the mouth
-    // (additively blended) so the air around the portal seems to shimmer and
-    // distort, rather than puffing out into the field.
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 8; i++) {
-      const phase = (i / 8) * Math.PI * 2;
-      const ang = t * 0.5 * (i % 2 ? 1 : -1) + phase; // slow swirl, alternating
-      const rad = 20 + Math.sin(t * 1.3 + phase) * 8; // wobble in/out → distortion
-      const wx = Math.cos(ang) * rad;
-      const wy = Math.sin(ang) * rad * 0.85;
-      const r = 10 + Math.sin(t * 0.9 + phase) * 4;
-      const a = (0.09 + 0.05 * Math.sin(t * 1.7 + phase)) * (0.7 + pulse * 0.3);
-      const wisp = ctx.createRadialGradient(wx, wy, 0, wx, wy, r);
-      wisp.addColorStop(0, `rgba(178,120,232,${Math.max(0, a)})`);
-      wisp.addColorStop(1, 'rgba(150,90,210,0)');
-      ctx.fillStyle = wisp;
-      ctx.beginPath();
-      ctx.arc(wx, wy, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-
     // Dark mouth that hides enemies still "inside".
     const mouth = ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
     mouth.addColorStop(0, '#070310');
@@ -214,27 +192,6 @@ export class GameRenderer {
     ctx.arc(0, 0, 24, 0, Math.PI * 2);
     ctx.fill();
 
-    // Two counter-rotating dashed rims for a swirling vortex feel.
-    ctx.strokeStyle = `rgba(186,132,234,${0.45 + pulse * 0.4})`;
-    ctx.lineWidth = 3;
-    ctx.save();
-    ctx.rotate(t * 0.7);
-    ctx.setLineDash([7, 9]);
-    ctx.beginPath();
-    ctx.arc(0, 0, 21, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-    ctx.save();
-    ctx.rotate(-t * 1.1);
-    ctx.setLineDash([4, 7]);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = `rgba(210,160,245,${0.3 + pulse * 0.4})`;
-    ctx.beginPath();
-    ctx.arc(0, 0, 14, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.setLineDash([]);
     ctx.restore();
   }
 
