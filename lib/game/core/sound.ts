@@ -29,7 +29,7 @@ export class SoundManager {
   private readonly cache = new Map<string, HTMLAudioElement>();
   private readonly lastPlayed = new Map<string, number>();
   private muted = false;
-  private volume = 0.35;
+  private volume = 0.18;
 
   constructor(sources: Record<string, string>) {
     if (typeof Audio === 'undefined') return; // SSR / non-browser guard
@@ -44,6 +44,10 @@ export class SoundManager {
 
   get isMuted() {
     return this.muted;
+  }
+
+  get level() {
+    return this.volume;
   }
 
   setMuted(value: boolean) {

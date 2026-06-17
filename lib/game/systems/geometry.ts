@@ -51,6 +51,30 @@ export function pointToSegmentDistance(
 }
 
 /**
+ * Half-extent (in px) of a tower's *square* range, snapped to the tile grid so
+ * the square's edges line up with grid lines (towers sit on grid intersections).
+ * Towers attack in an axis-aligned square — like an OSRS tile range — rather
+ * than a circle.
+ */
+export function squareRange(range: number, grid: number): number {
+  return Math.max(grid, Math.round(range / grid) * grid);
+}
+
+/**
+ * Chebyshev (square) range test: is `(ex, ey)` within `half` px of `(tx, ty)`
+ * on *both* axes? Pairs with {@link squareRange}.
+ */
+export function inSquareRange(
+  ex: number,
+  ey: number,
+  tx: number,
+  ty: number,
+  half: number,
+): boolean {
+  return Math.abs(ex - tx) <= half && Math.abs(ey - ty) <= half;
+}
+
+/**
  * Whether `(x, y)` is far enough from every path segment and existing tower
  * to host a new tower. `towers` only needs `x`/`y`, so any placed entity works.
  */

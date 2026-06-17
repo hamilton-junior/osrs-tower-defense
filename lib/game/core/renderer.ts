@@ -1,7 +1,7 @@
 import type { GameEngine } from './engine';
 import { LOGIC_WIDTH, LOGIC_HEIGHT } from './engine';
 import { TOWERS } from '../data/towers';
-import { isValidPlacement } from '../systems/geometry';
+import { isValidPlacement, squareRange } from '../systems/geometry';
 
 const GRID = 32;
 
@@ -72,23 +72,40 @@ export class GameRenderer {
     }
   }
 
+  /** Draw an axis-aligned, tile-aligned square range marker centred on (cx, cy). */
+  private drawSquareRange(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    cy: number,
+    half: number,
+    stroke: string,
+    fill: string,
+  ) {
+    const x = cx - half;
+    const y = cy - half;
+    const size = half * 2;
+    ctx.fillStyle = fill;
+    ctx.fillRect(x, y, size, size);
+    ctx.strokeStyle = stroke;
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, size, size);
+    ctx.setLineDash([]);
+  }
+
   private drawPlacementGhost(ctx: CanvasRenderingContext2D) {
     const type = this.e.selectedTowerType;
     if (!type) return;
     const sx = Math.round(this.e.pointer.x / GRID) * GRID;
     const sy = Math.round(this.e.pointer.y / GRID) * GRID;
     const valid = this.e.money >= this.e.towerCost(type) && isValidPlacement(sx, sy, this.e.path, this.e.towers);
-    const range = TOWERS[type].tiers[0].range;
+    const half = squareRange(TOWERS[type].tiers[0].range, GRID);
 
-    ctx.beginPath();
-    ctx.arc(sx, sy, range, 0, Math.PI * 2);
-    ctx.strokeStyle = valid ? 'rgba(0,255,0,0.5)' : 'rgba(255,0,0,0.5)';
-    ctx.setLineDash([6, 6]);
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = valid ? 'rgba(0,255,0,0.06)' : 'rgba(255,0,0,0.06)';
-    ctx.fill();
+    this.drawSquareRange(
+      ctx, sx, sy, half,
+      valid ? 'rgba(0,255,0,0.5)' : 'rgba(255,0,0,0.5)',
+      valid ? 'rgba(0,255,0,0.06)' : 'rgba(255,0,0,0.06)',
+    );
 
     ctx.globalAlpha = 0.6;
     this.drawTowerSprite(ctx, type, 1, sx, sy, 18);
@@ -98,13 +115,7 @@ export class GameRenderer {
   private drawTowers(ctx: CanvasRenderingContext2D) {
     for (const tower of this.e.towers) {
       if (tower.id === this.e.selectedTowerId) {
-        ctx.beginPath();
-        ctx.arc(tower.x, tower.y, tower.range, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-        ctx.setLineDash([6, 6]);
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.setLineDash([]);
+        this.drawSquareRange(ctx, tower.x, tower.y, squareRange(tower.range, GRID), 'rgba(255,255,255,0.35)', 'rgba(255,255,255,0.05)');
       }
       this.drawTowerSprite(ctx, tower.type, tower.level, tower.x, tower.y, tower.visualRadius);
 

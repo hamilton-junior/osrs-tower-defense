@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { distance, distanceSq, pointToSegmentDistance, isValidPlacement } from './geometry';
+import { distance, distanceSq, pointToSegmentDistance, isValidPlacement, squareRange, inSquareRange } from './geometry';
 
 describe('distance', () => {
   it('computes Euclidean distance', () => {
@@ -31,6 +31,33 @@ describe('pointToSegmentDistance', () => {
   });
   it('treats a zero-length segment as a point', () => {
     expect(pointToSegmentDistance(3, 4, a, a)).toBe(5);
+  });
+});
+
+describe('squareRange', () => {
+  it('snaps a range to the nearest whole tile', () => {
+    expect(squareRange(100, 32)).toBe(96); // 100/32 ≈ 3.1 → 3 tiles
+    expect(squareRange(112, 32)).toBe(128); // 112/32 = 3.5 → rounds to 4 tiles
+  });
+  it('never returns less than one tile', () => {
+    expect(squareRange(5, 32)).toBe(32);
+  });
+});
+
+describe('inSquareRange', () => {
+  it('accepts points within the square on both axes', () => {
+    expect(inSquareRange(60, 60, 0, 0, 64)).toBe(true);
+  });
+  it('rejects points outside on either axis', () => {
+    expect(inSquareRange(70, 10, 0, 0, 64)).toBe(false);
+    expect(inSquareRange(10, 70, 0, 0, 64)).toBe(false);
+  });
+  it('includes points exactly on the edge', () => {
+    expect(inSquareRange(64, 64, 0, 0, 64)).toBe(true);
+  });
+  it('accepts a far diagonal corner a circle would reject', () => {
+    // (45,45) is ~63.6px away — outside a 50px radius but inside a 64px square.
+    expect(inSquareRange(45, 45, 0, 0, 64)).toBe(true);
   });
 });
 

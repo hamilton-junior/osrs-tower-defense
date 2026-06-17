@@ -3,7 +3,7 @@ import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
 import { ASSETS } from '../assets';
-import { distance, distanceSq, isValidPlacement } from '../systems/geometry';
+import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
@@ -38,6 +38,7 @@ export interface UIState {
   selectedTowerId: string | null;
   gameSpeed: number;
   muted: boolean;
+  volume: number;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -150,6 +151,7 @@ export class GameEngine {
       selectedTowerId: this.selectedTowerId,
       gameSpeed: this.gameSpeed,
       muted: this.sound.isMuted,
+      volume: this.sound.level,
     });
   }
 
@@ -161,6 +163,11 @@ export class GameEngine {
   toggleMute() {
     this.sound.setMuted(!this.sound.isMuted);
     this.sound.play('click');
+    this.emit();
+  }
+
+  setVolume(value: number) {
+    this.sound.setVolume(value);
     this.emit();
   }
 
@@ -443,12 +450,12 @@ export class GameEngine {
         activePotions: [],
         allTowers: this.towers,
       });
-      const rangeSq = stats.range * stats.range;
+      const half = squareRange(stats.range, GRID);
 
       // (re)acquire a target
       let target = tower.targetId ? this.enemies.find(e => e.id === tower.targetId) : undefined;
-      if (!target || distanceSq(target.x, target.y, tower.x, tower.y) > rangeSq) {
-        const inRange = this.enemies.filter(e => distanceSq(e.x, e.y, tower.x, tower.y) <= rangeSq);
+      if (!target || !inSquareRange(target.x, target.y, tower.x, tower.y, half)) {
+        const inRange = this.enemies.filter(e => inSquareRange(e.x, e.y, tower.x, tower.y, half));
         target = selectTarget(inRange, tower.x, tower.y, this.path, tower.targetingPriority) ?? undefined;
         tower.targetId = target?.id ?? null;
       }

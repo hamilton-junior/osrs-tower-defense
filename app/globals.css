@@ -410,3 +410,31 @@ body {
   font-size: 0.62rem;
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
 }
+
+/* OSRS-flavoured volume slider */
+.rs-volume {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #2b2113, #161009);
+  border: 1px solid #0c0905;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.rs-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #cba94f, #8a6d24);
+  border: 1px solid #0c0905;
+}
+.rs-volume::-moz-range-thumb {
+  width: 12px;
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #cba94f, #8a6d24);
+  border: 1px solid #0c0905;
+}

@@ -12,7 +12,7 @@ const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<n
 
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
-  remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null, gameSpeed: 1, muted: false,
+  remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null, gameSpeed: 1, muted: false, volume: 0.18,
 };
 
 const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
@@ -204,6 +204,17 @@ export default function GameRoot() {
         >
           {ui.muted ? '🔇' : '🔊'}
         </button>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={ui.muted ? 0 : ui.volume}
+          onChange={(e) => engineRef.current?.setVolume(Number(e.target.value))}
+          title={`Volume ${Math.round(ui.volume * 100)}%`}
+          className="rs-volume ml-1 w-20"
+          aria-label="Volume"
+        />
       </div>
 
       {/* Game over */}
