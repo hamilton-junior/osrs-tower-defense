@@ -277,12 +277,15 @@ body {
 
 /* Orb: round HP-style stat indicator */
 .rs-orb {
-  width: 54px;
-  height: 54px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #3a3326, #14110c);
-  border: 2px solid #5a4a2f;
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.85), 0 2px 6px rgba(0, 0, 0, 0.5);
+  background: #14110c center / cover no-repeat;
+  border: 2px solid #2a2218;
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.18),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.85),
+    0 2px 6px rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -290,18 +293,36 @@ body {
 }
 
 .rs-orb-value {
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: bold;
-  text-shadow: 1px 1px 0 #000, 0 0 4px rgba(0, 0, 0, 0.8);
+  color: #ffd000;
+  text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
 }
 
-.rs-orb-icon {
+/* Small skill/stat disc on the orb's left edge (like the OSRS orb icons). */
+.rs-orb-badge {
   position: absolute;
-  top: -4px;
-  left: -4px;
-  width: 18px;
-  height: 18px;
+  left: -9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #6a5733, #211a10);
+  border: 1px solid #7a6233;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  padding: 3px;
   object-fit: contain;
+}
+
+.rs-orb-label {
+  font-size: 0.5rem;
+  color: #b7a98c;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin-top: 3px;
+  text-shadow: 1px 1px 0 #000;
 }
 
 /* Pill: compact horizontal stat (gold / wave) */

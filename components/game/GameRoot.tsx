@@ -12,8 +12,10 @@ const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<n
 
 const INITIAL: UIState = {
   money: 200, lives: 20, wave: 1, waveActive: false,
-  remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null,
+  remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null, gameSpeed: 1,
 };
+
+const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
 
 export default function GameRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -70,25 +72,11 @@ export default function GameRoot() {
         onContextMenu={onContextMenu}
       />
 
-      {/* Top-left orb cluster */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
-        <div className="rs-orb">
-          <img
-            src={ASSETS.misc.hp_icon}
-            alt=""
-            className="rs-orb-icon"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <span className="rs-orb-value" style={{ color: ui.lives <= 5 ? '#ff5b5b' : '#7CFC58' }}>{ui.lives}</span>
-        </div>
-        <div className="rs-pill">
-          <span className="rs-pill-label">GP</span>
-          <span className="rs-pill-value text-osrs-yellow">{ui.money.toLocaleString()}</span>
-        </div>
-        <div className="rs-pill">
-          <span className="rs-pill-label">Wave</span>
-          <span className="rs-pill-value text-osrs-orange">{ui.wave}</span>
-        </div>
+      {/* Top-left orb cluster (OSRS minimap-orb style) */}
+      <div className="absolute top-4 left-4 flex flex-col gap-3 z-10">
+        <Orb icon={ASSETS.misc.hp_icon} label="HP" value={ui.lives} color={ui.lives <= 5 ? '#ff5b5b' : '#7CFC58'} />
+        <Orb icon={ASSETS.misc.coins_icon} label="GP" value={fmt(ui.money)} color="#ffd000" />
+        <Orb label="Wave" value={ui.wave} color="var(--osrs-orange)" />
       </div>
 
       {/* Selected tower panel (top-right) */}
@@ -178,6 +166,20 @@ export default function GameRoot() {
         </p>
       </div>
 
+      {/* Speed control (bottom-left) */}
+      <div className="rs-panel absolute bottom-4 left-4 p-2 z-10 flex items-center gap-1">
+        <span className="text-[10px] text-[#b7a98c] mr-1 uppercase tracking-wide">Speed</span>
+        {[1, 2, 5].map((s) => (
+          <button
+            key={s}
+            onClick={() => engineRef.current?.setGameSpeed(s)}
+            className={`rs-btn px-2 py-1 text-xs ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
+          >
+            {s}×
+          </button>
+        ))}
+      </div>
+
       {/* Game over */}
       {ui.gameOver && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20">
@@ -190,6 +192,20 @@ export default function GameRoot() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Orb({ icon, label, value, color }: { icon?: string; label: string; value: React.ReactNode; color: string }) {
+  return (
+    <div className="flex flex-col items-center" title={label}>
+      <div className="rs-orb" style={{ backgroundImage: `url(${ASSETS.misc.orb_background})` }}>
+        {icon && (
+          <img src={icon} alt="" className="rs-orb-badge" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        )}
+        <span className="rs-orb-value" style={{ color }}>{value}</span>
+      </div>
+      <span className="rs-orb-label">{label}</span>
     </div>
   );
 }

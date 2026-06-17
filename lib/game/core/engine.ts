@@ -34,6 +34,7 @@ export interface UIState {
   gameOver: boolean;
   selectedTowerType: TowerType | null;
   selectedTowerId: string | null;
+  gameSpeed: number;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -82,6 +83,7 @@ export class GameEngine {
 
   selectedTowerType: TowerType | null = null;
   selectedTowerId: string | null = null;
+  gameSpeed = 1;
   pointer: Point = { x: 0, y: 0 };
 
   // --- spawn/loop bookkeeping ---
@@ -90,6 +92,7 @@ export class GameEngine {
   private readonly spawnInterval = 0.7; // seconds between spawns
   private rafId = 0;
   private lastTime = 0;
+  private gameTime = 0; // accumulated simulated seconds (drives cooldowns)
 
   // --- assets ---
   readonly images = new Map<string, HTMLImageElement>();
@@ -114,7 +117,11 @@ export class GameEngine {
       const now = performance.now();
       const dt = Math.min((now - this.lastTime) / 1000, 0.1); // clamp big gaps
       this.lastTime = now;
-      if (!this.gameOver) this.update(dt);
+      // Sub-step for fast-forward: run the sim `gameSpeed` times at the real
+      // per-step dt, so speeding up never causes large-dt tunneling.
+      if (!this.gameOver) {
+        for (let s = 0; s < this.gameSpeed; s++) this.update(dt);
+      }
       this.renderer.draw();
       this.rafId = requestAnimationFrame(loop);
     };
@@ -135,7 +142,13 @@ export class GameEngine {
       gameOver: this.gameOver,
       selectedTowerType: this.selectedTowerType,
       selectedTowerId: this.selectedTowerId,
+      gameSpeed: this.gameSpeed,
     });
+  }
+
+  setGameSpeed(speed: number) {
+    this.gameSpeed = Math.max(1, Math.min(5, Math.floor(speed)));
+    this.emit();
   }
 
   // ------------------------------------------------------------------- assets
@@ -337,6 +350,7 @@ export class GameEngine {
 
   // ------------------------------------------------------------------- update
   private update(dt: number) {
+    this.gameTime += dt;
     this.spawn(dt);
     this.moveEnemies(dt);
     this.fireTowers(dt);
@@ -403,7 +417,7 @@ export class GameEngine {
   }
 
   private fireTowers(dt: number) {
-    const now = performance.now();
+    const now = this.gameTime * 1000; // ms of simulated time (cooldowns are in ms)
     for (const tower of this.towers) {
       const stats = calculateTowerStats(tower, {
         upgrades: NO_UPGRADES,
@@ -547,6 +561,7 @@ export class GameEngine {
     this.gameOver = false;
     this.selectedTowerType = null;
     this.selectedTowerId = null;
+    this.gameTime = 0;
     this.emit();
   }
 }
