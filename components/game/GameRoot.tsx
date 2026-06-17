@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { GameEngine, LOGIC_WIDTH, LOGIC_HEIGHT, type UIState } from '@/lib/game/core/engine';
+import { GameEngine, type UIState } from '@/lib/game/core/engine';
 import { TOWERS } from '@/lib/game/data/towers';
 import { ASSETS } from '@/lib/game/assets';
 import type { TowerType } from '@/lib/game/types';
@@ -26,8 +26,12 @@ export default function GameRoot() {
     if (!canvasRef.current) return;
     const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })));
     engineRef.current = engine;
+    engine.resize();
     engine.start();
+    const onResize = () => engine.resize();
+    window.addEventListener('resize', onResize);
     return () => {
+      window.removeEventListener('resize', onResize);
       engine.stop();
       engineRef.current = null;
     };
@@ -35,10 +39,11 @@ export default function GameRoot() {
 
   const toLogic = useCallback((clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return { x: 0, y: 0 };
+    const engine = engineRef.current;
+    if (!rect || rect.width === 0 || !engine) return { x: 0, y: 0 };
     return {
-      x: ((clientX - rect.left) / rect.width) * LOGIC_WIDTH,
-      y: ((clientY - rect.top) / rect.height) * LOGIC_HEIGHT,
+      x: ((clientX - rect.left) / rect.width) * engine.width,
+      y: ((clientY - rect.top) / rect.height) * engine.height,
     };
   }, []);
 

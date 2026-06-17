@@ -1,5 +1,4 @@
 import type { GameEngine } from './engine';
-import { LOGIC_WIDTH, LOGIC_HEIGHT } from './engine';
 import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange } from '../systems/geometry';
 
@@ -27,27 +26,29 @@ export class GameRenderer {
   }
 
   private drawBackground(ctx: CanvasRenderingContext2D) {
+    const w = this.e.width;
+    const h = this.e.height;
     ctx.fillStyle = '#2d4c1e';
-    ctx.fillRect(0, 0, LOGIC_WIDTH, LOGIC_HEIGHT);
+    ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = '#3a5f27';
     for (let i = 0; i < 120; i++) {
-      const x = (i * 137.5) % LOGIC_WIDTH;
-      const y = (i * 224.7) % LOGIC_HEIGHT;
+      const x = (i * 137.5) % w;
+      const y = (i * 224.7) % h;
       ctx.fillRect(x, y, 2, 2);
       ctx.fillRect(x + 2, y + 2, 2, 4);
     }
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
-    for (let x = 0; x < LOGIC_WIDTH; x += GRID) {
+    for (let x = 0; x <= w; x += GRID) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, LOGIC_HEIGHT);
+      ctx.lineTo(x, h);
       ctx.stroke();
     }
-    for (let y = 0; y < LOGIC_HEIGHT; y += GRID) {
+    for (let y = 0; y <= h; y += GRID) {
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(LOGIC_WIDTH, y);
+      ctx.lineTo(w, y);
       ctx.stroke();
     }
   }
@@ -244,27 +245,47 @@ export class GameRenderer {
   private drawHitsplats(ctx: CanvasRenderingContext2D) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const splatKey = (kind: string) => (kind === 'miss' ? 'miss_hit_splat' : 'hit_splat');
     for (const h of this.e.hitsplats) {
       ctx.globalAlpha = Math.min(1, h.life / 0.3); // fade out near the end
-      const key = splatKey(h.kind);
-      if (this.e.imageOk(key)) {
-        // Authentic OSRS hitsplat sprite from the wiki.
-        const img = this.e.images.get(key)!;
-        const s = 26;
-        ctx.drawImage(img, h.x - s / 2, h.y - s / 2, s, s);
-      } else {
-        // Fallback: drawn splat (red hit / blue miss).
-        ctx.fillStyle = h.kind === 'miss' ? '#1f6fd0' : '#b00000';
-        ctx.beginPath();
-        ctx.arc(h.x, h.y, 11, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.fillStyle = '#fff';
-      ctx.font = "bold 14px 'RuneScape', Arial";
-      ctx.fillText(String(h.value), h.x, h.y + 1);
+      this.drawSplat(ctx, h.x, h.y, h.value, h.kind);
     }
     ctx.globalAlpha = 1;
     ctx.textBaseline = 'alphabetic';
+  }
+
+  /**
+   * Draw an OSRS-style hitsplat: a red lozenge for a hit, blue for a miss
+   * (0 damage), with the value in white. Rendered on the canvas (rather than a
+   * remote sprite) so it always shows.
+   */
+  private drawSplat(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    value: number,
+    kind: 'hit' | 'miss',
+  ) {
+    const hw = 13; // half width
+    const hh = 9; // half height
+    const p = 5; // point inset
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.beginPath();
+    ctx.moveTo(-hw, 0);
+    ctx.lineTo(-hw + p, -hh);
+    ctx.lineTo(hw - p, -hh);
+    ctx.lineTo(hw, 0);
+    ctx.lineTo(hw - p, hh);
+    ctx.lineTo(-hw + p, hh);
+    ctx.closePath();
+    ctx.fillStyle = kind === 'miss' ? '#3056c8' : '#9e1414';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = "bold 13px 'RuneScape', Arial";
+    ctx.fillText(String(value), 0, 1);
+    ctx.restore();
   }
 }

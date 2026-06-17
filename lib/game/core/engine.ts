@@ -11,6 +11,8 @@ import { calculateTowerStats } from '../systems/tower-combat';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 
+/** Default logic dimensions, used until {@link GameEngine.resize} measures the
+ *  real canvas. The play area adapts to the user's screen, sized to whole tiles. */
 export const LOGIC_WIDTH = 1920;
 export const LOGIC_HEIGHT = 1080;
 const GRID = 32;
@@ -92,6 +94,10 @@ export class GameEngine {
   gameSpeed = 1;
   pointer: Point = { x: 0, y: 0 };
 
+  /** Current logic dimensions (canvas internal resolution); whole tiles. */
+  width = LOGIC_WIDTH;
+  height = LOGIC_HEIGHT;
+
   // --- spawn/loop bookkeeping ---
   private spawnQueue: Enemy[] = [];
   private spawnTimer = 0;
@@ -109,11 +115,37 @@ export class GameEngine {
     this.ctx = canvas.getContext('2d')!;
     this.onState = onState;
     this.renderer = new GameRenderer(this);
-    this.canvas.width = LOGIC_WIDTH;
-    this.canvas.height = LOGIC_HEIGHT;
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
     this.buildPath();
     this.preloadImages();
     this.emit();
+  }
+
+  /**
+   * Match the canvas resolution to its on-screen size, floored to whole tiles
+   * so the grid (and therefore tower square-ranges) line up with the path.
+   * Existing entities are re-anchored proportionally so nothing jumps off the
+   * road when the window is resized.
+   */
+  resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const w = Math.max(GRID * 12, Math.floor(rect.width / GRID) * GRID);
+    const h = Math.max(GRID * 8, Math.floor(rect.height / GRID) * GRID);
+    if (w === this.width && h === this.height && this.canvas.width === w) return;
+    const sx = w / this.width;
+    const sy = h / this.height;
+    this.width = w;
+    this.height = h;
+    this.canvas.width = w;
+    this.canvas.height = h;
+    if (sx !== 1 || sy !== 1) {
+      for (const t of this.towers) { t.x = Math.round((t.x * sx) / GRID) * GRID; t.y = Math.round((t.y * sy) / GRID) * GRID; }
+      for (const en of this.enemies) { en.x *= sx; en.y *= sy; }
+      for (const p of this.projectiles) { p.x *= sx; p.y *= sy; }
+    }
+    this.buildPath();
   }
 
   // ---------------------------------------------------------------- lifecycle
@@ -175,8 +207,6 @@ export class GameEngine {
   private preloadImages() {
     const urls: Record<string, string> = {
       ...ASSETS.enemies,
-      hit_splat: ASSETS.misc.hit_splat,
-      miss_hit_splat: ASSETS.misc.miss_hit_splat,
       ...Object.fromEntries(
         Object.entries(ASSETS.towers).flatMap(([type, variants]) =>
           Object.entries(variants as Record<string, string>).map(([v, url]) => [`${type}_${v}`, url]),
@@ -199,17 +229,21 @@ export class GameEngine {
 
   // --------------------------------------------------------------------- path
   private buildPath() {
-    const w = LOGIC_WIDTH;
-    const h = LOGIC_HEIGHT;
+    // Snap every vertex onto a grid line so the road runs along tile edges and
+    // tower square-ranges align with it (no half-tiles through the road).
+    const tx = Math.floor(this.width / GRID);
+    const ty = Math.floor(this.height / GRID);
+    const col = (f: number) => Math.round(tx * f) * GRID;
+    const row = (f: number) => Math.round(ty * f) * GRID;
     this.path = [
-      { x: -30, y: h * 0.2 },
-      { x: w * 0.2, y: h * 0.2 },
-      { x: w * 0.2, y: h * 0.8 },
-      { x: w * 0.5, y: h * 0.8 },
-      { x: w * 0.5, y: h * 0.4 },
-      { x: w * 0.8, y: h * 0.4 },
-      { x: w * 0.8, y: h * 0.6 },
-      { x: w + 30, y: h * 0.6 },
+      { x: -GRID, y: row(0.2) },
+      { x: col(0.2), y: row(0.2) },
+      { x: col(0.2), y: row(0.8) },
+      { x: col(0.5), y: row(0.8) },
+      { x: col(0.5), y: row(0.4) },
+      { x: col(0.8), y: row(0.4) },
+      { x: col(0.8), y: row(0.6) },
+      { x: this.width + GRID, y: row(0.6) },
     ];
   }
 
