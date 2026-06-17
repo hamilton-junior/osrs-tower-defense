@@ -16,6 +16,8 @@ export class GameRenderer {
     ctx.imageSmoothingEnabled = false;
     this.drawBackground(ctx);
     this.drawPath(ctx);
+    this.drawEndpoints(ctx);
+    this.drawHoverRange(ctx);
     this.drawPlacementGhost(ctx);
     this.drawTowers(ctx);
     this.drawDeaths(ctx);
@@ -148,6 +150,74 @@ export class GameRenderer {
     ctx.lineWidth = 3;
     trace();
     ctx.setLineDash([]);
+  }
+
+  /** Spawn portal at the path start and the base players defend at the end. */
+  private drawEndpoints(ctx: CanvasRenderingContext2D) {
+    const path = this.e.path;
+    if (path.length < 2) return;
+    const t = performance.now() / 1000;
+    const start = path[0];
+    const end = path[path.length - 1];
+
+    // Spawn: a dark cave/portal mouth with a faint pulsing purple rim.
+    const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+    ctx.save();
+    ctx.translate(start.x, start.y);
+    const portal = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
+    portal.addColorStop(0, '#1a0a26');
+    portal.addColorStop(0.7, '#2c1340');
+    portal.addColorStop(1, 'rgba(120,60,180,0)');
+    ctx.fillStyle = portal;
+    ctx.beginPath();
+    ctx.arc(0, 0, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(168,120,220,${0.35 + pulse * 0.4})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Base: a small crenellated fort with a waving banner — the goal to defend.
+    ctx.save();
+    ctx.translate(end.x, end.y);
+    ctx.fillStyle = '#6d6f78';
+    ctx.fillRect(-14, -10, 28, 22);
+    ctx.fillStyle = '#84868f';
+    for (let i = -14; i < 14; i += 8) ctx.fillRect(i, -16, 5, 6); // battlements
+    ctx.fillStyle = '#2a2c33';
+    ctx.fillRect(-4, 2, 8, 10); // gate
+    // banner pole + flag
+    ctx.strokeStyle = '#3a2a18';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -16);
+    ctx.lineTo(0, -30);
+    ctx.stroke();
+    const wave = Math.sin(t * 4) * 2;
+    ctx.fillStyle = '#c81e1e';
+    ctx.beginPath();
+    ctx.moveTo(0, -30);
+    ctx.lineTo(12, -27 + wave);
+    ctx.lineTo(0, -23);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Faint range preview when hovering an idle tower (before selecting it). */
+  private drawHoverRange(ctx: CanvasRenderingContext2D) {
+    if (this.e.selectedTowerType || this.e.movingTower) return;
+    const { x, y } = this.e.pointer;
+    const hovered = this.e.towers.find(
+      t => t.id !== this.e.selectedTowerId && Math.abs(t.x - x) <= 18 && Math.abs(t.y - y) <= 18,
+    );
+    if (!hovered) return;
+    this.drawSquareRange(
+      ctx, hovered.x, hovered.y, squareRange(hovered.range, GRID),
+      'rgba(255,255,255,0.2)', 'rgba(255,255,255,0.03)',
+    );
   }
 
   /** Draw an axis-aligned, tile-aligned square range marker centred on (cx, cy). */
@@ -303,13 +373,14 @@ export class GameRenderer {
         ctx.fill();
       }
 
-      // health bar
+      // health bar — colour shifts green → yellow → red as HP drops.
       const bw = isBoss ? 60 : 30;
       const by = e.y - (isBoss ? 40 : 22);
-      ctx.fillStyle = '#600';
+      const ratio = Math.max(0, e.hp / e.maxHp);
+      ctx.fillStyle = '#400';
       ctx.fillRect(e.x - bw / 2, by, bw, 4);
-      ctx.fillStyle = '#3c3';
-      ctx.fillRect(e.x - bw / 2, by, bw * Math.max(0, e.hp / e.maxHp), 4);
+      ctx.fillStyle = ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a';
+      ctx.fillRect(e.x - bw / 2, by, bw * ratio, 4);
     }
   }
 
