@@ -43,6 +43,10 @@ export interface UIState {
   gameSpeed: number;
   muted: boolean;
   volume: number;
+  /** Last transient notice (e.g. "Not enough gold"); null when none yet. */
+  notice: string | null;
+  /** Bumped every time a notice fires so the UI can re-trigger on repeats. */
+  noticeSeq: number;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -111,6 +115,12 @@ export class GameEngine {
   movingTowerId: string | null = null;
   gameSpeed = 1;
   pointer: Point = { x: 0, y: 0 };
+
+  // --- run stats (read directly by the UI, e.g. the game-over screen) ---
+  kills = 0;
+  goldEarned = 0;
+  private notice: string | null = null;
+  private noticeSeq = 0;
 
   /** Current logic dimensions (canvas internal resolution); whole tiles. */
   width = LOGIC_WIDTH;
@@ -203,7 +213,16 @@ export class GameEngine {
       gameSpeed: this.gameSpeed,
       muted: this.sound.isMuted,
       volume: this.sound.level,
+      notice: this.notice,
+      noticeSeq: this.noticeSeq,
     });
+  }
+
+  /** Flash a transient message to the UI (e.g. an action that couldn't run). */
+  private notify(text: string) {
+    this.notice = text;
+    this.noticeSeq++;
+    this.emit();
   }
 
   setGameSpeed(speed: number) {
@@ -308,7 +327,7 @@ export class GameEngine {
   beginMoveTower(towerId: string) {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower) return;
-    if (this.money < this.moveTowerCost(tower)) return; // failsafe: can't afford
+    if (this.money < this.moveTowerCost(tower)) { this.notify('Not enough gold'); return; } // failsafe: can't afford
     this.selectedTowerType = null;
     this.selectedTowerId = towerId;
     this.movingTowerId = towerId;
@@ -371,8 +390,8 @@ export class GameEngine {
     const cost = this.towerCost(type);
     const sx = Math.round(x / GRID) * GRID;
     const sy = Math.round(y / GRID) * GRID;
-    if (this.money < cost) return;
-    if (!isValidPlacement(sx, sy, this.path, this.towers)) return;
+    if (this.money < cost) { this.notify('Not enough gold'); return; }
+    if (!isValidPlacement(sx, sy, this.path, this.towers)) { this.notify("Can't build there"); return; }
 
     const tier = def.tiers[0];
     this.money -= cost;
@@ -411,7 +430,7 @@ export class GameEngine {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower || tower.level >= tower.maxLevel) return;
     const cost = tower.upgradeCost;
-    if (this.money < cost) return;
+    if (this.money < cost) { this.notify('Not enough gold'); return; }
     const def = TOWERS[tower.type];
     const tier = def.tiers[tower.level]; // next tier (0-indexed)
     this.money -= cost;
@@ -710,7 +729,10 @@ export class GameEngine {
       maxLife: 0.45,
     });
     this.sound.play('death', 40);
-    this.money += goldForKill(enemy.maxHp);
+    const reward = goldForKill(enemy.maxHp);
+    this.money += reward;
+    this.goldEarned += reward;
+    this.kills += 1;
     this.emit();
   }
 
@@ -735,7 +757,9 @@ export class GameEngine {
     if (!this.waveActive) return;
     if (this.spawnQueue.length > 0 || this.enemies.length > 0) return;
     this.waveActive = false;
-    this.money += waveClearBonus(this.wave);
+    const bonus = waveClearBonus(this.wave);
+    this.money += bonus;
+    this.goldEarned += bonus;
     this.wave += 1;
     this.emit();
   }
@@ -757,6 +781,8 @@ export class GameEngine {
     this.money = START_MONEY;
     this.lives = START_LIVES;
     this.wave = 1;
+    this.kills = 0;
+    this.goldEarned = 0;
     this.waveActive = false;
     this.gameOver = false;
     this.selectedTowerType = null;

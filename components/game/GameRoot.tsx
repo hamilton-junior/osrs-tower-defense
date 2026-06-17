@@ -34,6 +34,7 @@ const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null,
   movingTowerId: null, gameSpeed: 1, muted: false, volume: 0.18,
+  notice: null, noticeSeq: 0,
 };
 
 const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
@@ -43,6 +44,7 @@ export default function GameRoot() {
   const engineRef = useRef<GameEngine | null>(null);
   const [ui, setUi] = useState<UIState>(INITIAL);
   const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const prevWaveActive = useRef(false);
 
   useEffect(() => {
@@ -78,6 +80,14 @@ export default function GameRoot() {
     const t = setTimeout(() => setBanner(null), 1900);
     return () => clearTimeout(t);
   }, [banner]);
+
+  // Show a transient toast whenever the engine reports a blocked action.
+  useEffect(() => {
+    if (!ui.noticeSeq || !ui.notice) return;
+    setToast(ui.notice);
+    const t = setTimeout(() => setToast(null), 1400);
+    return () => clearTimeout(t);
+  }, [ui.noticeSeq, ui.notice]);
 
   const toLogic = useCallback((clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -125,9 +135,19 @@ export default function GameRoot() {
       {/* Wave start / complete banner */}
       {banner && (
         <div
-          className={`rs-wave-banner ${banner.tone === 'done' ? 'rs-wave-banner-done' : ''} absolute left-1/2 top-[12%] -translate-x-1/2 z-20 pointer-events-none whitespace-nowrap`}
+          className={`rs-wave-banner ${banner.tone === 'done' ? 'rs-wave-banner-done' : ''} absolute left-1/2 top-1/2 z-20 pointer-events-none whitespace-nowrap text-center`}
         >
           {banner.text}
+        </div>
+      )}
+
+      {/* Blocked-action toast (e.g. not enough gold) */}
+      {toast && (
+        <div
+          key={ui.noticeSeq}
+          className="rs-toast absolute left-1/2 bottom-[16%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap"
+        >
+          ⚠ {toast}
         </div>
       )}
 
@@ -324,12 +344,17 @@ export default function GameRoot() {
 
       {/* Game over */}
       {ui.gameOver && (
-        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20">
-          <div className="rs-panel p-6 text-center w-80">
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-30">
+          <div className="rs-panel p-6 text-center w-[22em]">
             <div className="rs-panel-title text-base">Game Over</div>
-            <p className="text-lg text-osrs-yellow my-4">You reached wave {ui.wave}.</p>
+            <p className="text-osrs-yellow mt-3 mb-1 text-[1.6em] font-bold leading-none">Wave {ui.wave}</p>
+            <p className="text-[0.85em] text-[#b7a98c] mb-4 uppercase tracking-wide">reached</p>
+            <div className="grid grid-cols-2 gap-2 mb-5 text-[0.95em]">
+              <GoStat icon={ASSETS.misc.attack_icon} label="Slain" value={fmt(engineRef.current?.kills ?? 0)} />
+              <GoStat icon={ASSETS.misc.coins_icon} label="Earned" value={`${fmt(engineRef.current?.goldEarned ?? 0)} gp`} />
+            </div>
             <button className="rs-btn rs-btn-primary px-6 py-2 w-full" onClick={() => engineRef.current?.restart()}>
-              Play Again
+              ▶ Play Again
             </button>
           </div>
         </div>
@@ -355,6 +380,18 @@ function Orb({ icon, title, value, valueColor, fill, fillColor }: {
         <div className="rs-orb-gloss" />
         {icon && <img src={icon} alt="" className="rs-orb-icon" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
       </div>
+    </div>
+  );
+}
+
+function GoStat({ icon, label, value }: { icon?: string; label: string; value: React.ReactNode }) {
+  return (
+    <div className="rs-panel-inset flex flex-col items-center gap-1 py-2">
+      {icon && (
+        <img src={icon} alt="" className="w-5 h-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+      )}
+      <span className="text-osrs-yellow font-bold leading-none">{value}</span>
+      <span className="text-[0.72em] text-[#b7a98c] uppercase tracking-wide">{label}</span>
     </div>
   );
 }
