@@ -11,7 +11,7 @@ const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest:
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
 
 const INITIAL: UIState = {
-  money: 200, lives: 20, wave: 1, waveActive: false,
+  money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, gameOver: false, selectedTowerType: null, selectedTowerId: null, gameSpeed: 1,
 };
 
@@ -74,9 +74,28 @@ export default function GameRoot() {
 
       {/* Top-right data-orb cluster (OSRS minimap-orb style) */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10 items-end">
-        <Orb icon={ASSETS.misc.hp_icon} label="HP" value={ui.lives} color={ui.lives <= 5 ? '#ff5b5b' : '#7CFC58'} />
-        <Orb icon={ASSETS.misc.coins_icon} label="GP" value={fmt(ui.money)} color="#ffd000" />
-        <Orb icon={ASSETS.misc.attack_icon} label="Wave" value={ui.wave} color="var(--osrs-orange)" />
+        <Orb
+          icon={ASSETS.misc.hp_icon}
+          title="Lives"
+          value={ui.lives}
+          valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
+          fill={ui.lives / ui.maxLives}
+          fillColor="linear-gradient(180deg, #e23a3a, #8a0000)"
+        />
+        <Orb
+          icon={ASSETS.misc.coins_icon}
+          title="Gold"
+          value={fmt(ui.money)}
+          fill={1}
+          fillColor="linear-gradient(180deg, #ecc63c, #957a10)"
+        />
+        <Orb
+          icon={ASSETS.misc.attack_icon}
+          title="Wave"
+          value={ui.wave}
+          fill={1}
+          fillColor="linear-gradient(180deg, #3ac0c0, #0a6b6b)"
+        />
       </div>
 
       {/* Selected tower panel (top-left) */}
@@ -196,14 +215,23 @@ export default function GameRoot() {
   );
 }
 
-function Orb({ icon, label, value, color }: { icon?: string; label: string; value: React.ReactNode; color: string }) {
+function Orb({ icon, title, value, valueColor, fill, fillColor }: {
+  icon?: string;
+  title: string;
+  value: React.ReactNode;
+  valueColor?: string;
+  fill: number;
+  fillColor: string;
+}) {
+  const pct = Math.max(0, Math.min(1, fill)) * 100;
   return (
-    <div className="rs-orb" title={label}>
-      <div className="rs-orb-disc" style={{ backgroundImage: `url(${ASSETS.misc.orb_background})` }}>
-        {icon && <img src={icon} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+    <div className="rs-orb" title={title}>
+      <span className="rs-orb-value" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
+      <div className="rs-orb-sphere">
+        <div className="rs-orb-fill" style={{ height: `${pct}%`, background: fillColor }} />
+        <div className="rs-orb-gloss" />
+        {icon && <img src={icon} alt="" className="rs-orb-icon" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
       </div>
-      <span className="rs-orb-value" style={{ color }}>{value}</span>
-      <span className="rs-orb-label">{label}</span>
     </div>
   );
 }

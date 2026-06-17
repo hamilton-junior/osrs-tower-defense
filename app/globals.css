@@ -276,53 +276,66 @@ body {
 }
 
 /* Orb: round HP-style stat indicator */
-/* OSRS "data orb": round icon disc on the left + value on a dark plate. */
+/* OSRS data orb: green value on the left + a colored, depleting sphere with a
+   centered stat icon on the right (matches the in-game minimap orbs). */
 .rs-orb {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 36px;
-  padding-right: 14px;
-  background: linear-gradient(180deg, rgba(28, 24, 17, 0.95), rgba(14, 11, 7, 0.96));
-  border: 1px solid #2a2218;
-  border-radius: 18px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 5px rgba(0, 0, 0, 0.6);
-}
-
-.rs-orb-disc {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #15110b center / cover no-repeat;
-  border: 1px solid #5a4a2f;
-  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.18), inset 0 -3px 5px rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.rs-orb-disc img {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
+  gap: 5px;
 }
 
 .rs-orb-value {
   font-size: 1.05rem;
   font-weight: bold;
-  color: #ffd000;
+  color: #4be23c;
   text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
-  min-width: 28px;
-  text-align: center;
+  min-width: 36px;
+  text-align: right;
 }
 
-.rs-orb-label {
-  font-size: 0.5rem;
-  color: #b7a98c;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-shadow: 1px 1px 0 #000;
+.rs-orb-sphere {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid #15130f;
+  background: radial-gradient(circle at 38% 30%, #4c4740, #16140f);
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.22),
+    inset 0 -5px 9px rgba(0, 0, 0, 0.75),
+    0 2px 4px rgba(0, 0, 0, 0.6);
+  flex-shrink: 0;
+}
+
+/* Fills from the bottom; height set inline as the stat percentage. */
+.rs-orb-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: height 0.25s ease-out;
+}
+
+.rs-orb-gloss {
+  position: absolute;
+  top: 4px;
+  left: 9px;
+  width: 15px;
+  height: 9px;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.45), transparent 70%);
+  border-radius: 50%;
+}
+
+.rs-orb-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.85));
 }
 
 /* Pill: compact horizontal stat (gold / wave) */

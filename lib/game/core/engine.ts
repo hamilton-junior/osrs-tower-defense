@@ -28,6 +28,7 @@ const NO_UPGRADES: GlobalUpgrades = {
 export interface UIState {
   money: number;
   lives: number;
+  maxLives: number;
   wave: number;
   waveActive: boolean;
   remaining: number;
@@ -77,6 +78,7 @@ export class GameEngine {
 
   money = START_MONEY;
   lives = START_LIVES;
+  readonly maxLives = START_LIVES;
   wave = 1;
   waveActive = false;
   gameOver = false;
@@ -136,6 +138,7 @@ export class GameEngine {
     this.onState({
       money: this.money,
       lives: this.lives,
+      maxLives: this.maxLives,
       wave: this.wave,
       waveActive: this.waveActive,
       remaining: this.spawnQueue.length + this.enemies.length,
