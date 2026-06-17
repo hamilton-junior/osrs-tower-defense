@@ -6,7 +6,7 @@ import { TOWERS } from '@/lib/game/data/towers';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
-import { isPrayerUnlocked } from '@/lib/game/systems/prayer';
+import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import type { TowerType, PrayerType } from '@/lib/game/types';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
@@ -38,7 +38,7 @@ const INITIAL: UIState = {
   movingTowerId: null, gameSpeed: 1, paused: false, muted: false, volume: 0.18,
   notice: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael',
-  prayerPoints: 100, prayerMax: 100, activePrayers: [],
+  prayerPoints: 10, prayerMax: 10, activePrayers: [],
 };
 
 const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>)[id];
@@ -441,36 +441,34 @@ export default function GameRoot() {
         />
       </div>
 
-      {/* Quick-prayers bar (bottom-center) — prayers unlock automatically by wave */}
-      {(() => {
-        const unlocked = TOWER_PRAYERS.filter((p) => {
-          const def = PRAYERS.find((d) => d.id === p.id);
-          return def && isPrayerUnlocked(def.level, ui.wave);
-        });
-        if (unlocked.length === 0) return null;
-        return (
-          <div className="rs-panel absolute bottom-4 left-1/2 -translate-x-1/2 z-10 p-2 flex items-center gap-[0.3em]">
-            <img src={ASSETS.misc.prayer_icon} alt="" className="w-[1.1em] h-[1.1em] mr-[0.2em] opacity-80" />
-            {unlocked.map((p) => {
-              const def = PRAYERS.find((d) => d.id === p.id)!;
-              const on = ui.activePrayers.includes(p.id);
-              const icon = prayerIcon(p.id);
-              return (
-                <button
-                  key={p.id}
-                  title={`${def.name} — ${def.description}`}
-                  onClick={() => engineRef.current?.togglePrayer(p.id)}
-                  className={`rs-prayer ${on ? 'rs-prayer-on' : ''}`}
-                >
-                  {icon && (
-                    <img src={icon} alt={def.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        );
-      })()}
+      {/* Quick-prayers bar (bottom-center): all tower prayers shown; locked ones
+          are previewed greyed-out with the wave they unlock (OSRS prayer-book style). */}
+      <div className="rs-panel absolute bottom-4 left-1/2 -translate-x-1/2 z-10 p-2 flex items-center gap-[0.3em]">
+        <img src={ASSETS.misc.prayer_icon} alt="" className="w-[1.1em] h-[1.1em] mr-[0.2em] opacity-80" />
+        {TOWER_PRAYERS.map((p) => {
+          const def = PRAYERS.find((d) => d.id === p.id)!;
+          const locked = !isPrayerUnlocked(def.level, ui.wave);
+          const on = ui.activePrayers.includes(p.id);
+          const icon = prayerIcon(p.id);
+          const title = locked
+            ? `🔒 Unlocks at Wave ${prayerUnlockWave(def.level)} — ${def.name}: ${def.description}`
+            : `${def.name} — ${def.description}`;
+          return (
+            <button
+              key={p.id}
+              title={title}
+              disabled={locked}
+              onClick={() => engineRef.current?.togglePrayer(p.id)}
+              className={`rs-prayer ${on ? 'rs-prayer-on' : ''} ${locked ? 'rs-prayer-locked' : ''}`}
+            >
+              {icon && (
+                <img src={icon} alt={def.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              )}
+              {locked && <span className="rs-prayer-lock">{prayerUnlockWave(def.level)}</span>}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Paused overlay */}
       {ui.paused && !ui.gameOver && (

@@ -415,6 +415,7 @@ body {
 
 /* Quick-prayer toggle buttons */
 .rs-prayer {
+  position: relative;
   width: 1.9em;
   height: 1.9em;
   display: flex;
@@ -437,6 +438,25 @@ body {
   opacity: 1;
   border-color: #6db3f2;
   box-shadow: 0 0 8px 2px rgba(109, 179, 242, 0.75), inset 0 0 6px rgba(109, 179, 242, 0.45);
+}
+/* Locked preview: greyed-out icon with the unlock-wave badge */
+.rs-prayer-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.rs-prayer-locked img { filter: grayscale(1) brightness(0.7); }
+.rs-prayer-locked:hover { opacity: 0.55; }
+.rs-prayer-lock {
+  position: absolute;
+  bottom: -2px;
+  right: -1px;
+  font-size: 0.6em;
+  line-height: 1;
+  padding: 0 2px;
+  color: var(--osrs-yellow);
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 2px;
+  text-shadow: 1px 1px 0 #000;
 }
 
 /* Wave-start banner */

@@ -22,11 +22,24 @@ export function prayerDrainRate(
 }
 
 /**
- * Whether a prayer is unlocked at the given wave, using the wave count as a
- * Prayer-level proxy (the new core has no skills yet). Tier-1 prayers are
- * available from the first waves; the strongest (Piety/Rigour/Augury) unlock
- * around wave 18–20.
+ * First wave at which a prayer (by its level requirement) becomes available,
+ * using the wave count as a Prayer-level proxy (the new core has no skills
+ * yet). Tier-1 prayers come online in the first waves; the strongest
+ * (Piety/Rigour/Augury) unlock around wave 18–20. Single source of truth for
+ * both the gate and the UI's "unlocks at wave N" preview.
  */
+export function prayerUnlockWave(prayerLevel: number): number {
+  return Math.max(1, Math.ceil((prayerLevel - 4) / 4) + 1);
+}
+
+/** Whether a prayer is unlocked at the given wave. */
 export function isPrayerUnlocked(prayerLevel: number, wave: number): boolean {
-  return prayerLevel <= 4 + (wave - 1) * 4;
+  return wave >= prayerUnlockWave(prayerLevel);
+}
+
+/** Prayer-point pool size at the given wave: starts at 10, +15 every 3 waves,
+ *  capped at 99 (OSRS max). The pool scales like a rising Prayer level so the
+ *  strong prayers become sustainable around the time they unlock. */
+export function prayerMaxForWave(wave: number): number {
+  return Math.min(99, 10 + Math.floor((wave - 1) / 3) * 15);
 }

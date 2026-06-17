@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { PrayerDef, PrayerType } from '../types';
-import { prayerDrainRate, isPrayerUnlocked } from './prayer';
+import { prayerDrainRate, isPrayerUnlocked, prayerUnlockWave, prayerMaxForWave } from './prayer';
 
 const prayers: PrayerDef[] = [
   { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '' },
@@ -39,5 +39,38 @@ describe('isPrayerUnlocked', () => {
   it('gates the strongest prayers to later waves', () => {
     expect(isPrayerUnlocked(74, 18)).toBe(false); // Rigour: 4 + 17*4 = 72 < 74
     expect(isPrayerUnlocked(74, 19)).toBe(true); // 4 + 18*4 = 76 >= 74
+  });
+});
+
+describe('prayerUnlockWave', () => {
+  it('returns the first wave a prayer is available', () => {
+    expect(prayerUnlockWave(4)).toBe(1); // Burst of Strength
+    expect(prayerUnlockWave(8)).toBe(2); // Sharp Eye
+    expect(prayerUnlockWave(44)).toBe(11); // Eagle Eye
+    expect(prayerUnlockWave(74)).toBe(19); // Rigour
+    expect(prayerUnlockWave(77)).toBe(20); // Augury
+  });
+
+  it('agrees with isPrayerUnlocked at the boundary', () => {
+    for (const level of [4, 8, 9, 26, 44, 70, 74, 77]) {
+      const w = prayerUnlockWave(level);
+      expect(isPrayerUnlocked(level, w)).toBe(true);
+      expect(isPrayerUnlocked(level, w - 1)).toBe(false);
+    }
+  });
+});
+
+describe('prayerMaxForWave', () => {
+  it('steps up by 15 every 3 waves from a base of 10', () => {
+    expect(prayerMaxForWave(1)).toBe(10);
+    expect(prayerMaxForWave(2)).toBe(10);
+    expect(prayerMaxForWave(4)).toBe(25);
+    expect(prayerMaxForWave(7)).toBe(40);
+    expect(prayerMaxForWave(10)).toBe(55);
+  });
+
+  it('caps at 99', () => {
+    expect(prayerMaxForWave(19)).toBe(99); // 10 + 6*15 = 100 -> capped
+    expect(prayerMaxForWave(50)).toBe(99);
   });
 });

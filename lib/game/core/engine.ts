@@ -845,8 +845,8 @@ export class GameEngine {
     const bonus = waveClearBonus(this.wave);
     this.money += bonus;
     this.goldEarned += bonus;
-    this.prayer.refill(); // restore prayer points as a wave-clear reward
     this.wave += 1;
+    this.prayer.refill(); // top up to the new wave's (possibly larger) pool
     this.emit();
   }
 
