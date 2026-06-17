@@ -45,6 +45,7 @@ export interface UIState {
   selectedTowerId: string | null;
   movingTowerId: string | null;
   gameSpeed: number;
+  paused: boolean;
   muted: boolean;
   volume: number;
   /** Last transient notice (e.g. "Not enough gold"); null when none yet. */
@@ -120,7 +121,10 @@ export class GameEngine {
   selectedTowerId: string | null = null;
   movingTowerId: string | null = null;
   gameSpeed = 1;
+  paused = false;
   pointer: Point = { x: 0, y: 0 };
+  /** Pulse (1 → 0) when the base takes a leak, for the renderer's hit flash. */
+  baseFlash = 0;
 
   // --- run stats (read directly by the UI, e.g. the game-over screen) ---
   kills = 0;
@@ -191,7 +195,7 @@ export class GameEngine {
       this.lastTime = now;
       // Sub-step for fast-forward: run the sim `gameSpeed` times at the real
       // per-step dt, so speeding up never causes large-dt tunneling.
-      if (!this.gameOver) {
+      if (!this.gameOver && !this.paused) {
         for (let s = 0; s < this.gameSpeed; s++) this.update(dt);
       }
       this.renderer.draw();
@@ -219,6 +223,7 @@ export class GameEngine {
       selectedTowerId: this.selectedTowerId,
       movingTowerId: this.movingTowerId,
       gameSpeed: this.gameSpeed,
+      paused: this.paused,
       muted: this.sound.isMuted,
       volume: this.sound.level,
       notice: this.notice,
@@ -235,6 +240,12 @@ export class GameEngine {
 
   setGameSpeed(speed: number) {
     this.gameSpeed = Math.max(1, Math.min(5, Math.floor(speed)));
+    this.emit();
+  }
+
+  togglePause() {
+    this.paused = !this.paused;
+    this.sound.play('click');
     this.emit();
   }
 
@@ -541,6 +552,7 @@ export class GameEngine {
 
   /** Advance purely-visual effects (no gameplay impact). */
   private updateEffects(dt: number) {
+    if (this.baseFlash > 0) this.baseFlash = Math.max(0, this.baseFlash - dt * 1.6);
     for (let i = this.hitsplats.length - 1; i >= 0; i--) {
       const h = this.hitsplats[i];
       h.life -= dt;
@@ -586,6 +598,8 @@ export class GameEngine {
         // reached the end → leak a life
         this.enemies.splice(i, 1);
         this.lives -= 1;
+        this.baseFlash = 1;
+        this.sound.play('hit', 90);
         if (this.lives <= 0) this.endGame();
         this.emit();
         continue;
@@ -795,6 +809,8 @@ export class GameEngine {
     this.goldEarned = 0;
     this.waveTotal = 0;
     this.bossWave = false;
+    this.baseFlash = 0;
+    this.paused = false;
     this.waveActive = false;
     this.gameOver = false;
     this.selectedTowerType = null;

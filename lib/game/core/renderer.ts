@@ -159,8 +159,14 @@ export class GameRenderer {
     const path = this.e.path;
     if (path.length < 2) return;
     const t = performance.now() / 1000;
-    const start = path[0];
-    const end = path[path.length - 1];
+    // The path runs off-screen at both ends, so anchor the markers to where the
+    // road meets the visible edge (clamped inside by a margin) instead.
+    const m = 20;
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+    const p0 = path[0];
+    const pN = path[path.length - 1];
+    const start = { x: clamp(p0.x, m, this.e.width - m), y: clamp(p0.y, m, this.e.height - m) };
+    const end = { x: clamp(pN.x, m, this.e.width - m), y: clamp(pN.y, m, this.e.height - m) };
 
     // Spawn: a dark cave/portal mouth with a faint pulsing purple rim.
     const pulse = 0.5 + 0.5 * Math.sin(t * 3);
@@ -182,14 +188,24 @@ export class GameRenderer {
     ctx.restore();
 
     // Base: a small crenellated fort with a waving banner — the goal to defend.
+    // Shakes and flashes red briefly when an enemy leaks through.
+    const bf = this.e.baseFlash;
     ctx.save();
-    ctx.translate(end.x, end.y);
+    const bsx = bf > 0 ? (Math.random() - 0.5) * 8 * bf : 0;
+    const bsy = bf > 0 ? (Math.random() - 0.5) * 8 * bf : 0;
+    ctx.translate(end.x + bsx, end.y + bsy);
     ctx.fillStyle = '#6d6f78';
     ctx.fillRect(-14, -10, 28, 22);
     ctx.fillStyle = '#84868f';
     for (let i = -14; i < 14; i += 8) ctx.fillRect(i, -16, 5, 6); // battlements
     ctx.fillStyle = '#2a2c33';
     ctx.fillRect(-4, 2, 8, 10); // gate
+    if (bf > 0) {
+      ctx.globalAlpha = bf * 0.6;
+      ctx.fillStyle = '#ff2a2a';
+      ctx.fillRect(-14, -16, 28, 28);
+      ctx.globalAlpha = 1;
+    }
     // banner pole + flag
     ctx.strokeStyle = '#3a2a18';
     ctx.lineWidth = 2;

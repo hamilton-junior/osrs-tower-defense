@@ -33,7 +33,7 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
-  movingTowerId: null, gameSpeed: 1, muted: false, volume: 0.18,
+  movingTowerId: null, gameSpeed: 1, paused: false, muted: false, volume: 0.18,
   notice: null, noticeSeq: 0,
 };
 
@@ -349,6 +349,14 @@ export default function GameRoot() {
 
       {/* Speed + sound control (bottom-left) */}
       <div className="rs-panel absolute bottom-4 left-4 p-2 z-10 flex items-center gap-1">
+        <button
+          onClick={() => engineRef.current?.togglePause()}
+          title={ui.paused ? 'Resume' : 'Pause'}
+          disabled={ui.gameOver}
+          className={`rs-btn px-2 py-1 text-xs mr-1 ${ui.paused ? 'rs-btn-primary' : ''}`}
+        >
+          {ui.paused ? '▶' : '⏸'}
+        </button>
         <span className="text-[10px] text-[#b7a98c] mr-1 uppercase tracking-wide">Speed</span>
         {[1, 2, 5].map((s) => (
           <button
@@ -378,6 +386,19 @@ export default function GameRoot() {
           aria-label="Volume"
         />
       </div>
+
+      {/* Paused overlay */}
+      {ui.paused && !ui.gameOver && (
+        <div
+          className="absolute inset-0 bg-black/45 flex flex-col items-center justify-center z-20 cursor-pointer"
+          onClick={() => engineRef.current?.togglePause()}
+        >
+          <div className="rs-wave-banner" style={{ animation: 'none', position: 'static', transform: 'none' }}>
+            ❚❚ PAUSED
+          </div>
+          <div className="text-[#cdbe91] text-sm mt-2">click anywhere or press ⏸ to resume</div>
+        </div>
+      )}
 
       {/* Game over */}
       {ui.gameOver && (
