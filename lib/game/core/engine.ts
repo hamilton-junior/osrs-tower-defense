@@ -175,6 +175,8 @@ export class GameEngine {
   private preloadImages() {
     const urls: Record<string, string> = {
       ...ASSETS.enemies,
+      hit_splat: ASSETS.misc.hit_splat,
+      miss_hit_splat: ASSETS.misc.miss_hit_splat,
       ...Object.fromEntries(
         Object.entries(ASSETS.towers).flatMap(([type, variants]) =>
           Object.entries(variants as Record<string, string>).map(([v, url]) => [`${type}_${v}`, url]),
@@ -444,6 +446,7 @@ export class GameEngine {
   private fireTowers(dt: number) {
     const now = this.gameTime * 1000; // ms of simulated time (cooldowns are in ms)
     for (const tower of this.towers) {
+      if (tower.recoil) tower.recoil = Math.max(0, tower.recoil - dt * 6); // ~0.16s pulse
       const stats = calculateTowerStats(tower, {
         upgrades: NO_UPGRADES,
         activePrayers: new Set(),
@@ -463,6 +466,8 @@ export class GameEngine {
 
       if (now - tower.lastFired < stats.cooldown) continue;
       tower.lastFired = now;
+      tower.recoilAngle = Math.atan2(target.y - tower.y, target.x - tower.x);
+      tower.recoil = 1; // pulse, decays above
 
       let damage = tower.damage;
       if (tower.type === 'cannon') {
@@ -483,6 +488,7 @@ export class GameEngine {
         type: tower.type === 'cannon' ? 'cannonball' : tower.type === 'wizard' ? 'spell' : 'arrow',
         special: tower.special === 'rapid' ? undefined : tower.special,
         sourceTowerId: tower.id,
+        trail: [],
       });
       this.sound.play(`fire_${tower.type}`, 70);
     }
@@ -495,6 +501,10 @@ export class GameEngine {
       if (!target) {
         this.projectiles.splice(i, 1);
         continue;
+      }
+      if (p.trail) {
+        p.trail.push({ x: p.x, y: p.y });
+        if (p.trail.length > 6) p.trail.shift();
       }
       const dx = target.x - p.x;
       const dy = target.y - p.y;

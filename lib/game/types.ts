@@ -228,6 +228,8 @@ export interface Projectile {
   element?: Element; 
   special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood' | 'aoe_slow';
   sourceTowerId?: string;
+  /** Recent positions (oldest→newest) for drawing a motion trail. */
+  trail?: { x: number; y: number }[];
 }
 
 export interface SlayerTask {

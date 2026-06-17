@@ -117,7 +117,19 @@ export class GameRenderer {
       if (tower.id === this.e.selectedTowerId) {
         this.drawSquareRange(ctx, tower.x, tower.y, squareRange(tower.range, GRID), 'rgba(255,255,255,0.35)', 'rgba(255,255,255,0.05)');
       }
-      this.drawTowerSprite(ctx, tower.type, tower.level, tower.x, tower.y, tower.visualRadius);
+
+      // Aim + recoil: nudge the sprite back along the firing direction and
+      // pulse its scale; flip horizontally to face the target.
+      const recoil = tower.recoil ?? 0;
+      const angle = tower.recoilAngle ?? 0;
+      const back = recoil * 4;
+      const pulse = 1 + recoil * 0.12;
+      const flip = Math.cos(angle) < 0 ? -1 : 1;
+      ctx.save();
+      ctx.translate(tower.x - Math.cos(angle) * back, tower.y - Math.sin(angle) * back);
+      ctx.scale(flip * pulse, pulse);
+      this.drawTowerSprite(ctx, tower.type, tower.level, 0, 0, tower.visualRadius);
+      ctx.restore();
 
       // level pip
       ctx.fillStyle = '#fff';
@@ -180,6 +192,22 @@ export class GameRenderer {
 
   private drawProjectiles(ctx: CanvasRenderingContext2D) {
     for (const p of this.e.projectiles) {
+      // Motion trail: a fading streak through the recent positions.
+      const trail = p.trail;
+      if (trail && trail.length > 1) {
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = p.color;
+        for (let i = 1; i < trail.length; i++) {
+          ctx.globalAlpha = (i / trail.length) * 0.5;
+          ctx.lineWidth = (i / trail.length) * (p.type === 'cannonball' ? 5 : 3);
+          ctx.beginPath();
+          ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
+          ctx.lineTo(trail[i].x, trail[i].y);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+
       ctx.fillStyle = p.color;
       if (p.type === 'arrow') {
         const target = this.e.enemies.find(en => en.id === p.targetId);
@@ -190,9 +218,14 @@ export class GameRenderer {
         ctx.fillRect(-8, -1, 16, 2);
         ctx.restore();
       } else {
+        // glow for magic/cannon shots
+        ctx.save();
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.type === 'cannonball' ? 4 : 5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
       }
     }
   }
@@ -211,13 +244,22 @@ export class GameRenderer {
   private drawHitsplats(ctx: CanvasRenderingContext2D) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const splatKey = (kind: string) => (kind === 'miss' ? 'miss_hit_splat' : 'hit_splat');
     for (const h of this.e.hitsplats) {
       ctx.globalAlpha = Math.min(1, h.life / 0.3); // fade out near the end
-      // OSRS-style splat: red for a hit, blue for a miss.
-      ctx.fillStyle = h.kind === 'miss' ? '#1f6fd0' : '#b00000';
-      ctx.beginPath();
-      ctx.arc(h.x, h.y, 11, 0, Math.PI * 2);
-      ctx.fill();
+      const key = splatKey(h.kind);
+      if (this.e.imageOk(key)) {
+        // Authentic OSRS hitsplat sprite from the wiki.
+        const img = this.e.images.get(key)!;
+        const s = 26;
+        ctx.drawImage(img, h.x - s / 2, h.y - s / 2, s, s);
+      } else {
+        // Fallback: drawn splat (red hit / blue miss).
+        ctx.fillStyle = h.kind === 'miss' ? '#1f6fd0' : '#b00000';
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, 11, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.fillStyle = '#fff';
       ctx.font = "bold 14px 'RuneScape', Arial";
       ctx.fillText(String(h.value), h.x, h.y + 1);
