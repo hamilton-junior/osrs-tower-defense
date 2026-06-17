@@ -16,18 +16,20 @@ export class GameRenderer {
     ctx.imageSmoothingEnabled = false;
     this.drawBackground(ctx);
     this.drawPath(ctx);
-    this.drawEndpoints(ctx);
+    this.drawDangerZone(ctx);
     this.drawHoverRange(ctx);
     this.drawPlacementGhost(ctx);
     this.drawTowers(ctx);
     this.drawDeaths(ctx);
     this.drawEnemies(ctx);
+    this.drawSpawnPortal(ctx); // after enemies → they appear to emerge from it
     this.drawProjectiles(ctx);
     this.drawParticles(ctx);
     this.drawHitsplats(ctx);
     this.drawVignette(ctx);
     this.drawBossBar(ctx);
     this.drawLowHealthWarning(ctx);
+    this.drawLeakFlash(ctx);
     ctx.restore();
   }
 
@@ -154,74 +156,91 @@ export class GameRenderer {
     ctx.setLineDash([]);
   }
 
-  /** Spawn portal at the path start and the base players defend at the end. */
-  private drawEndpoints(ctx: CanvasRenderingContext2D) {
+  /**
+   * Spawn portal at the road's entry edge. Drawn *after* enemies so its dark
+   * mouth masks them until they walk clear — they appear to emerge from it.
+   * Centred on the screen edge so only its inner half is visible.
+   */
+  private drawSpawnPortal(ctx: CanvasRenderingContext2D) {
     const path = this.e.path;
     if (path.length < 2) return;
     const t = performance.now() / 1000;
-    // The path runs off-screen at both ends, so anchor the markers to where the
-    // road meets the visible edge (clamped inside by a margin) instead.
-    const m = 20;
-    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-    const p0 = path[0];
-    const pN = path[path.length - 1];
-    const start = { x: clamp(p0.x, m, this.e.width - m), y: clamp(p0.y, m, this.e.height - m) };
-    const end = { x: clamp(pN.x, m, this.e.width - m), y: clamp(pN.y, m, this.e.height - m) };
-
-    // Spawn: a dark cave/portal mouth with a faint pulsing purple rim.
+    const y = Math.max(24, Math.min(this.e.height - 24, path[0].y));
+    const x = 0; // left edge → only the right half shows
     const pulse = 0.5 + 0.5 * Math.sin(t * 3);
-    ctx.save();
-    ctx.translate(start.x, start.y);
-    const portal = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
-    portal.addColorStop(0, '#1a0a26');
-    portal.addColorStop(0.7, '#2c1340');
-    portal.addColorStop(1, 'rgba(120,60,180,0)');
-    ctx.fillStyle = portal;
-    ctx.beginPath();
-    ctx.arc(0, 0, 22, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = `rgba(168,120,220,${0.35 + pulse * 0.4})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, 16, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
 
-    // Base: a small crenellated fort with a waving banner — the goal to defend.
-    // Shakes and flashes red briefly when an enemy leaks through.
-    const bf = this.e.baseFlash;
     ctx.save();
-    const bsx = bf > 0 ? (Math.random() - 0.5) * 8 * bf : 0;
-    const bsy = bf > 0 ? (Math.random() - 0.5) * 8 * bf : 0;
-    ctx.translate(end.x + bsx, end.y + bsy);
-    ctx.fillStyle = '#6d6f78';
-    ctx.fillRect(-14, -10, 28, 22);
-    ctx.fillStyle = '#84868f';
-    for (let i = -14; i < 14; i += 8) ctx.fillRect(i, -16, 5, 6); // battlements
-    ctx.fillStyle = '#2a2c33';
-    ctx.fillRect(-4, 2, 8, 10); // gate
-    if (bf > 0) {
-      ctx.globalAlpha = bf * 0.6;
-      ctx.fillStyle = '#ff2a2a';
-      ctx.fillRect(-14, -16, 28, 28);
-      ctx.globalAlpha = 1;
-    }
-    // banner pole + flag
-    ctx.strokeStyle = '#3a2a18';
-    ctx.lineWidth = 2;
+    ctx.translate(x, y);
+    // Outer purple glow.
+    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 32);
+    glow.addColorStop(0, `rgba(150,80,220,${0.4 + pulse * 0.2})`);
+    glow.addColorStop(1, 'rgba(120,60,180,0)');
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.moveTo(0, -16);
-    ctx.lineTo(0, -30);
-    ctx.stroke();
-    const wave = Math.sin(t * 4) * 2;
-    ctx.fillStyle = '#c81e1e';
-    ctx.beginPath();
-    ctx.moveTo(0, -30);
-    ctx.lineTo(12, -27 + wave);
-    ctx.lineTo(0, -23);
-    ctx.closePath();
+    ctx.arc(0, 0, 32, 0, Math.PI * 2);
     ctx.fill();
+    // Dark mouth that hides enemies still "inside".
+    const mouth = ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
+    mouth.addColorStop(0, '#070310');
+    mouth.addColorStop(0.65, '#1c0d2c');
+    mouth.addColorStop(1, '#341748');
+    ctx.fillStyle = mouth;
+    ctx.beginPath();
+    ctx.arc(0, 0, 24, 0, Math.PI * 2);
+    ctx.fill();
+    // Swirling rim.
+    ctx.strokeStyle = `rgba(186,132,234,${0.45 + pulse * 0.45})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 21, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.restore();
+  }
+
+  /**
+   * Danger zone at the road's exit edge: where enemies that get through deal
+   * damage. Always faintly glowing, and flares red on a leak (`baseFlash`).
+   */
+  private drawDangerZone(ctx: CanvasRenderingContext2D) {
+    const path = this.e.path;
+    if (path.length < 2) return;
+    const t = performance.now() / 1000;
+    const bf = this.e.baseFlash;
+    const y = Math.max(24, Math.min(this.e.height - 24, path[path.length - 1].y));
+    const x = this.e.width; // right edge
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2.5);
+    const intensity = Math.min(0.9, 0.16 + pulse * 0.12 + bf * 0.7);
+
+    ctx.save();
+    ctx.translate(x, y);
+    // Red danger glow bleeding in from the edge.
+    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 50);
+    glow.addColorStop(0, `rgba(220,30,30,${intensity})`);
+    glow.addColorStop(1, 'rgba(220,30,30,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 50, 0, Math.PI * 2);
+    ctx.fill();
+    // Hazard chevrons pointing off-screen.
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = `rgba(255,${Math.round(90 - bf * 60)},40,${0.45 + bf * 0.45})`;
+    for (const cx of [-46, -33, -20]) {
+      ctx.beginPath();
+      ctx.moveTo(cx, -11);
+      ctx.lineTo(cx + 11, 0);
+      ctx.lineTo(cx, 11);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Brief full-screen red wash when the base takes a leak. */
+  private drawLeakFlash(ctx: CanvasRenderingContext2D) {
+    const bf = this.e.baseFlash;
+    if (bf <= 0) return;
+    ctx.fillStyle = `rgba(180,0,0,${bf * 0.14})`;
+    ctx.fillRect(0, 0, this.e.width, this.e.height);
   }
 
   /** Faint range preview when hovering an idle tower (before selecting it). */
@@ -366,6 +385,24 @@ export class GameRenderer {
     for (const tower of this.e.towers) {
       if (tower.id === this.e.selectedTowerId) {
         this.drawSquareRange(ctx, tower.x, tower.y, squareRange(tower.range, GRID), 'rgba(255,255,255,0.35)', 'rgba(255,255,255,0.05)');
+        // Sight line to the current target, so the priority setting is legible.
+        const target = tower.targetId ? this.e.enemies.find(en => en.id === tower.targetId) : null;
+        if (target) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255,210,90,0.6)';
+          ctx.setLineDash([4, 5]);
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(tower.x, tower.y);
+          ctx.lineTo(target.x, target.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(255,210,90,0.85)';
+          ctx.beginPath();
+          ctx.arc(target.x, target.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
       }
 
       // Aim + recoil: nudge the sprite back along the firing direction and

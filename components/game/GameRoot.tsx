@@ -94,6 +94,25 @@ export default function GameRoot() {
     return () => clearTimeout(t);
   }, [ui.noticeSeq, ui.notice]);
 
+  // Keyboard shortcuts: space = pause, 1/2/5 = speed, Esc = cancel, M = mute.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const eng = engineRef.current;
+      if (!eng) return;
+      switch (e.key) {
+        case ' ': e.preventDefault(); eng.togglePause(); break;
+        case '1': eng.setGameSpeed(1); break;
+        case '2': eng.setGameSpeed(2); break;
+        case '3': case '5': eng.setGameSpeed(5); break;
+        case 'Escape': eng.cancelAction(); break;
+        case 'm': case 'M': eng.toggleMute(); break;
+        default: break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const toLogic = useCallback((clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     const engine = engineRef.current;
