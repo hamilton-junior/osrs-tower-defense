@@ -83,6 +83,13 @@ export class PrayerSystem {
     if (Math.round(this.points) !== this.lastShown) this.emitNow();
   }
 
+  /** Restore a fixed number of points, capped at the pool (e.g. a potion). */
+  restore(amount: number) {
+    if (amount <= 0 || this.points >= this.max) return;
+    this.points = Math.min(this.max, this.points + amount);
+    this.emitNow();
+  }
+
   /** Top up prayer points (e.g. as a wave-clear reward). */
   refill() {
     if (this.points === this.max) return;

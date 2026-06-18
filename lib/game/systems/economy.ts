@@ -20,3 +20,23 @@ export function nextPriceMultiplier(
 
   return Math.max(MIN_PRICE_MULTIPLIER, Math.min(MAX_PRICE_MULTIPLIER, next));
 }
+
+/**
+ * Price drift for an item the player *buys* (the Grand Exchange shop): demand
+ * pushes the price up, and when nobody buys it relaxes back toward its baseline
+ * (×1.0). The mirror of {@link nextPriceMultiplier}, which models selling.
+ */
+export function nextBuyPriceMultiplier(
+  current: number,
+  boughtCount: number,
+  rng: () => number = Math.random,
+): number {
+  let next = current;
+  if (boughtCount > 5) next += 0.15;
+  else if (boughtCount > 0) next += 0.05;
+  else next += (1 - current) * 0.2; // ease back toward baseline when idle
+
+  next += (rng() - 0.5) * 0.1; // small random fluctuation
+
+  return Math.max(MIN_PRICE_MULTIPLIER, Math.min(MAX_PRICE_MULTIPLIER, next));
+}

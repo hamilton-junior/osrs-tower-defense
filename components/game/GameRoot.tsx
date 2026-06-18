@@ -39,9 +39,12 @@ const INITIAL: UIState = {
   notice: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael',
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
+  geOffers: [],
 };
 
 const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>)[id];
+/** Wiki sprite URL for a GE offer (its `wiki` filename + .png). */
+const geIcon = (wiki: string) => `${ASSETS.misc.wiki_base}${wiki}.png`;
 
 const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
 
@@ -52,6 +55,7 @@ export default function GameRoot() {
   const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' | 'boss' } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
+  const [geOpen, setGeOpen] = useState(false);
   const prevWaveActive = useRef(false);
 
   useEffect(() => {
@@ -439,7 +443,60 @@ export default function GameRoot() {
           className="rs-volume ml-1 w-20"
           aria-label="Volume"
         />
+        <button
+          onClick={() => setGeOpen((o) => !o)}
+          title="Grand Exchange"
+          className={`rs-btn px-2 py-1 text-xs ml-1 flex items-center gap-1 ${geOpen ? 'rs-btn-primary' : ''}`}
+        >
+          <img src={ASSETS.misc.ge_logo} alt="" className="w-4 h-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          GE
+        </button>
       </div>
+
+      {/* Grand Exchange shop (toggled from the bottom-left controls) */}
+      {geOpen && (
+        <div
+          className="rs-panel absolute bottom-16 left-4 p-3 z-20 w-[21em]"
+          style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
+        >
+          <div className="rs-panel-title flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <img src={ASSETS.misc.ge_logo} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              Grand Exchange
+            </span>
+            <button onClick={() => setGeOpen(false)} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
+          </div>
+          <div className="space-y-[0.4em] mt-[0.6em]">
+            {ui.geOffers.map((o) => {
+              const afford = ui.money >= o.price;
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => engineRef.current?.buyGeOffer(o.id)}
+                  disabled={!afford}
+                  title={o.desc}
+                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${afford ? '' : 'rs-slot-unafford'}`}
+                >
+                  <img src={geIcon(o.wiki)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-[0.4em]">
+                      <span className="text-[#e7d9b0] truncate">{o.name}</span>
+                      {o.activeSecs > 0 && <span className="rs-ge-timer">{o.activeSecs}s</span>}
+                    </span>
+                    <span className="block text-[0.7em] text-[#b7a98c] truncate">{o.desc}</span>
+                  </span>
+                  <span className="font-bold whitespace-nowrap" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
+                    {fmt(o.price)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-center text-[0.66em] text-[#8a7d63] mt-[0.6em]">
+            Buffs last 45s · prices drift with demand each wave
+          </p>
+        </div>
+      )}
 
       {/* Quick-prayers bar (bottom-center): all tower prayers shown; locked ones
           are previewed greyed-out with the wave they unlock (OSRS prayer-book style). */}

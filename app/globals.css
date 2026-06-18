@@ -459,6 +459,28 @@ body {
   text-shadow: 1px 1px 0 #000;
 }
 
+/* Grand Exchange shop rows */
+.rs-ge-row {
+  border: 2px solid #2a2419;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 3px;
+  transition: background 0.1s, border-color 0.1s;
+}
+.rs-ge-row:not(:disabled):hover {
+  background: rgba(70, 56, 30, 0.45);
+  border-color: var(--osrs-orange, #ff981f);
+}
+.rs-ge-row img { image-rendering: pixelated; }
+.rs-ge-timer {
+  font-size: 0.62em;
+  line-height: 1;
+  padding: 0.1em 0.3em;
+  color: #8fe88f;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 2px;
+  text-shadow: 1px 1px 0 #000;
+}
+
 /* Wave-start banner */
 .rs-wave-banner {
   font-family: var(--font-osrs), 'VT323', monospace;

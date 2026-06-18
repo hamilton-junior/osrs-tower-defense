@@ -13,6 +13,7 @@ import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
 import { PrayerSystem } from '../systems/prayer-system';
+import { GeSystem, type GeListing } from '../systems/ge-system';
 
 /** Default logic dimensions, used until {@link GameEngine.resize} measures the
  *  real canvas. The play area adapts to the user's screen, sized to whole tiles. */
@@ -68,6 +69,8 @@ export interface UIState {
   prayerMax: number;
   /** Currently active prayers (cloneable list). */
   activePrayers: PrayerType[];
+  /** Grand Exchange stock with live prices + active-buff timers. */
+  geOffers: GeListing[];
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -155,6 +158,7 @@ export class GameEngine {
   // --- composed subsystems ---
   readonly slayer = new SlayerSystem(this);
   readonly prayer = new PrayerSystem(this);
+  readonly ge = new GeSystem(this);
 
   /** Current logic dimensions (canvas internal resolution); whole tiles. */
   width = LOGIC_WIDTH;
@@ -268,6 +272,7 @@ export class GameEngine {
       prayerPoints: Math.round(this.prayer.points),
       prayerMax: this.prayer.max,
       activePrayers: [...this.prayer.active],
+      geOffers: this.ge.listing(),
     });
   }
 
@@ -291,6 +296,11 @@ export class GameEngine {
   /** Toggle a prayer on/off (UI button). */
   togglePrayer(id: PrayerType) {
     this.prayer.toggle(id);
+  }
+
+  /** Buy a Grand Exchange consumable (UI button). */
+  buyGeOffer(id: string) {
+    this.ge.buy(id);
   }
 
   setGameSpeed(speed: number) {
@@ -602,6 +612,7 @@ export class GameEngine {
   private update(dt: number) {
     this.gameTime += dt;
     this.prayer.update(dt);
+    this.ge.update(dt);
     this.spawn(dt);
     this.moveEnemies(dt);
     this.fireTowers(dt);
@@ -683,7 +694,7 @@ export class GameEngine {
       const stats = calculateTowerStats(tower, {
         upgrades: NO_UPGRADES,
         activePrayers: this.prayer.active,
-        activePotions: [],
+        activePotions: this.ge.active,
         allTowers: this.towers,
       });
       const half = squareRange(stats.range, GRID);
@@ -847,6 +858,7 @@ export class GameEngine {
     this.goldEarned += bonus;
     this.wave += 1;
     this.prayer.refill(); // top up to the new wave's (possibly larger) pool
+    this.ge.onWaveCleared(); // drift shop prices toward this wave's demand
     this.emit();
   }
 
@@ -882,6 +894,7 @@ export class GameEngine {
     this.slayer.reset();
     this.slayer.assignTask(); // fresh task for the new run
     this.prayer.reset();
+    this.ge.reset();
     this.emit();
   }
 }
