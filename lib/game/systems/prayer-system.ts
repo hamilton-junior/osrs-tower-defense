@@ -6,8 +6,13 @@ import { prayerDrainRate, isPrayerUnlocked, prayerMaxForWave } from './prayer';
 /** Scales the (deliberately small) pure drain rate up to a per-second cost
  *  that's meaningful against the wave-scaled pool over a wave. */
 const DRAIN_SCALE = 6;
-/** Prayer points restored per second while not draining (idle / between waves). */
-const IDLE_REGEN = 2;
+/**
+ * Prayer points restored per second while not draining (idle / between waves).
+ * Disabled (0) for now — the user wants no passive regen — but the regen path
+ * below is left intact so a future meta-game reward (e.g. a "Prayer
+ * regeneration" upgrade) can switch it back on by bumping this value.
+ */
+const IDLE_REGEN = 0;
 
 /**
  * Prayer subsystem for the new core: owns the prayer-point pool and the set of

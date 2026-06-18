@@ -80,6 +80,9 @@ export class GeSystem {
 
   update(dt: number) {
     if (this.active.length === 0) return;
+    // Buff timers only run during a wave (like prayer drain) — between waves
+    // they pause, so you can pre-buy and stack before pulling the next wave.
+    if (!this.e.waveActive) return;
     let changed = false;
     for (let i = this.active.length - 1; i >= 0; i--) {
       const p = this.active[i];

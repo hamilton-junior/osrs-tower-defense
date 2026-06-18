@@ -26,6 +26,14 @@ const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = {
 const TICK_MS = 600; // OSRS game tick = 0.6s
 const TILE_PX = 32; // grid tile size in logic px (mirrors engine GRID)
 
+/** Which tower types each combat potion buffs (mirrors `calculateTowerStats`). */
+const POTION_TARGETS: Record<string, TowerType[] | 'all'> = {
+  overload: 'all',
+  ranging: ['archer'],
+  magic: ['wizard'],
+  super_combat: ['tzhaar'],
+};
+
 /** "3 ticks (1.8s)" from a cooldown in ms. */
 const attackSpeed = (cooldownMs: number) => {
   const ticks = Math.max(1, Math.round(cooldownMs / TICK_MS));
@@ -45,6 +53,19 @@ const INITIAL: UIState = {
 const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>)[id];
 /** Wiki sprite URL for a GE offer (its `wiki` filename + .png). */
 const geIcon = (wiki: string) => `${ASSETS.misc.wiki_base}${wiki}.png`;
+
+/** Render a stat value, showing `base → buffed` (buffed in green) when a buff
+ *  has changed it; a plain string otherwise (the parent styles it). */
+function buffedDisplay(base: string, buffed: string, changed: boolean): React.ReactNode {
+  if (!changed) return base;
+  return (
+    <span className="inline-flex items-center gap-[0.3em]">
+      <span className="text-[#9a8d70] text-[0.85em]">{base}</span>
+      <span className="text-[#cdbe91]">→</span>
+      <span className="text-[#5bd75b]">{buffed}</span>
+    </span>
+  );
+}
 
 const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
 
@@ -151,6 +172,40 @@ export default function GameRoot() {
   const selectedTower = ui.selectedTowerId
     ? engineRef.current?.towers.find((t) => t.id === ui.selectedTowerId) ?? null
     : null;
+  // Effective (buffed) stats for the selected tower, plus the combat potions
+  // currently boosting it — so the panel can show the bonus and its origin.
+  const eff = selectedTower ? engineRef.current?.effectiveStats(selectedTower.id) ?? null : null;
+  const towerBuffs = selectedTower
+    ? ui.geOffers.filter(
+        (o) =>
+          o.kind === 'buff' &&
+          o.activeSecs > 0 &&
+          (POTION_TARGETS[o.id] === 'all' || (POTION_TARGETS[o.id] as TowerType[] | undefined)?.includes(selectedTower.type)),
+      )
+    : [];
+  // Active buffs anywhere, for the always-on infobox cluster (RuneLite-style).
+  const activeInfoboxes = ui.geOffers.filter((o) => o.activeSecs > 0);
+
+  // Pre-render the selected tower's stat values, highlighting buffed ones.
+  let dmgNode: React.ReactNode = null;
+  let rangeNode: React.ReactNode = null;
+  let speedNode: React.ReactNode = null;
+  if (selectedTower) {
+    const buff = (n: number) => (eff ? Math.floor((n + eff.flatDamageBonus) * eff.damageMultiplier) : n);
+    if (selectedTower.type === 'cannon' && selectedTower.maxDamage != null) {
+      const lo = selectedTower.minDamage ?? 0;
+      const hi = selectedTower.maxDamage;
+      dmgNode = buffedDisplay(`${lo}–${hi}`, `${buff(lo)}–${buff(hi)}`, buff(lo) !== lo || buff(hi) !== hi);
+    } else {
+      const b = selectedTower.damage;
+      dmgNode = buffedDisplay(String(b), String(buff(b)), buff(b) !== b);
+    }
+    const baseTiles = Math.round(selectedTower.range / TILE_PX);
+    const effTiles = eff ? Math.round(eff.range / TILE_PX) : baseTiles;
+    rangeNode = buffedDisplay(`${baseTiles} tiles`, `${effTiles} tiles`, effTiles !== baseTiles);
+    const effCd = eff ? eff.cooldown : selectedTower.cooldown;
+    speedNode = buffedDisplay(attackSpeed(selectedTower.cooldown), attackSpeed(effCd), Math.round(effCd) !== Math.round(selectedTower.cooldown));
+  }
   const moving = !!ui.movingTowerId;
   const moveCost = selectedTower ? engineRef.current?.moveTowerCost(selectedTower) ?? 0 : 0;
   const sellValue = selectedTower ? engineRef.current?.sellValue(selectedTower) ?? 0 : 0;
@@ -182,6 +237,19 @@ export default function GameRoot() {
           className="rs-toast absolute left-1/2 bottom-[16%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap"
         >
           ⚠ {toast}
+        </div>
+      )}
+
+      {/* Always-on buff infoboxes (RuneLite-style): icon + remaining seconds.
+          Timers pause between waves, so this doubles as a "ready to pull" cue. */}
+      {activeInfoboxes.length > 0 && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex gap-[0.4em] pointer-events-none">
+          {activeInfoboxes.map((o) => (
+            <div key={o.id} className="rs-infobox" title={`${o.name} — ${o.desc} · ${o.activeSecs}s left`}>
+              <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <span className="rs-infobox-time">{o.activeSecs}</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -235,16 +303,28 @@ export default function GameRoot() {
             <Stat
               icon={TOWER_COMBAT[selectedTower.type].icon}
               label={`Damage (${TOWER_COMBAT[selectedTower.type].label})`}
-              value={
-                selectedTower.type === 'cannon' && selectedTower.maxDamage != null
-                  ? `${selectedTower.minDamage ?? 0}–${selectedTower.maxDamage}`
-                  : selectedTower.damage
-              }
+              value={dmgNode}
             />
-            <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(selectedTower.cooldown)} />
-            <Stat label="Range" value={`${Math.round(selectedTower.range / TILE_PX)} tiles`} />
+            <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={speedNode} />
+            <Stat label="Range" value={rangeNode} />
             <Stat label="Level" value={`${selectedTower.level}/${selectedTower.maxLevel}`} />
           </div>
+
+          {/* Active combat-potion boosts on this tower (origin of the green stats) */}
+          {towerBuffs.length > 0 && (
+            <div className="mt-[0.6em] px-[0.2em]">
+              <div className="text-[0.68em] text-[#5bd75b] uppercase tracking-wide mb-[0.3em]">⚗ Potion boosts</div>
+              <div className="flex flex-wrap gap-[0.3em]">
+                {towerBuffs.map((b) => (
+                  <span key={b.id} className="rs-buff-chip" title={`${b.name} — ${b.desc} · ${b.activeSecs}s left`}>
+                    <img src={geIcon(b.wiki)} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <span className="truncate">{b.name}</span>
+                    <span className="rs-buff-secs">{b.activeSecs}s</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-[0.7em]">
             <div className="text-[0.72em] text-[#b7a98c] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>

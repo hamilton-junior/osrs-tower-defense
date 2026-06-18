@@ -7,7 +7,7 @@ import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } fr
 import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
-import { calculateTowerStats } from '../systems/tower-combat';
+import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
@@ -301,6 +301,19 @@ export class GameEngine {
   /** Buy a Grand Exchange consumable (UI button). */
   buyGeOffer(id: string) {
     this.ge.buy(id);
+  }
+
+  /** A tower's effective combat stats right now (prayers + potions applied),
+   *  for the UI to show buffed values and their origin. */
+  effectiveStats(towerId: string): ComputedTowerStats | null {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower) return null;
+    return calculateTowerStats(tower, {
+      upgrades: NO_UPGRADES,
+      activePrayers: this.prayer.active,
+      activePotions: this.ge.active,
+      allTowers: this.towers,
+    });
   }
 
   setGameSpeed(speed: number) {
