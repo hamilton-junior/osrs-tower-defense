@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { GameEngine, type UIState } from '@/lib/game/core/engine';
+import { GameEngine, type UIState, type EnemyHoverInfo } from '@/lib/game/core/engine';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
@@ -102,7 +102,14 @@ export default function GameRoot() {
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
   const [animTick, setAnimTick] = useState(0);
+  const [hoverEnemy, setHoverEnemy] = useState<EnemyHoverInfo | null>(null);
   const prevWaveActive = useRef(false);
+
+  // Poll the enemy under the cursor so its HP/effects read live while hovering.
+  useEffect(() => {
+    const id = setInterval(() => setHoverEnemy(engineRef.current?.hoveredEnemySummary() ?? null), 80);
+    return () => clearInterval(id);
+  }, []);
 
   // Tick the picker animations on the OSRS cadence, only while it's open.
   useEffect(() => {
@@ -315,6 +322,49 @@ export default function GameRoot() {
         onClick={onClick}
         onContextMenu={onContextMenu}
       />
+
+      {/* Enemy hover info — anchored above the hovered enemy, updating live. */}
+      {hoverEnemy && (() => {
+        const ratio = Math.max(0, hoverEnemy.hp / hoverEnemy.maxHp);
+        const wk = hoverEnemy.weakness ? ELEMENTS[hoverEnemy.weakness as keyof typeof ELEMENTS] : null;
+        return (
+          <div
+            className="absolute z-20 pointer-events-none"
+            style={{
+              left: `${(hoverEnemy.x / engW) * 100}%`,
+              top: `${(hoverEnemy.y / engH) * 100}%`,
+              transform: 'translate(-50%, -135%)',
+            }}
+          >
+            <div className="rs-panel px-[0.7em] py-[0.5em] w-[12em]" style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}>
+              <div className="flex items-center justify-between gap-2 mb-[0.3em]">
+                <span className="text-osrs-orange font-bold truncate">{hoverEnemy.name}</span>
+                {hoverEnemy.isBoss && <span className="text-[0.6em] text-osrs-red uppercase tracking-wide">Boss</span>}
+              </div>
+              <div className="rs-progress mb-[0.35em]">
+                <div className="rs-progress-fill" style={{ width: `${Math.round(ratio * 100)}%`, background: ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a' }} />
+              </div>
+              <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.15em] text-[0.74em]">
+                <span className="text-[#d3c3a0]">HP</span>
+                <span className="text-right text-white">{hoverEnemy.hp}/{hoverEnemy.maxHp}</span>
+                <span className="text-[#d3c3a0]">Weakness</span>
+                <span className="text-right capitalize" style={{ color: wk?.color ?? '#9a9a9a' }}>{wk ? wk.label : 'None'}</span>
+                <span className="text-[#d3c3a0]">Move speed</span>
+                <span className="text-right text-white">{hoverEnemy.speed}{hoverEnemy.speed !== hoverEnemy.baseSpeed ? ` (${hoverEnemy.baseSpeed})` : ''}</span>
+                <span className="text-[#d3c3a0]">Gold</span>
+                <span className="text-right text-osrs-yellow">{hoverEnemy.reward}</span>
+              </div>
+              {hoverEnemy.effects.length > 0 && (
+                <div className="mt-[0.35em] pt-[0.3em] border-t border-[#3a2f1d] flex flex-wrap gap-[0.3em]">
+                  {hoverEnemy.effects.map((e) => (
+                    <span key={e} className="text-[0.64em] px-[0.4em] py-[0.05em] rounded bg-[#2b231a] text-osrs-cyan">{e}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Wizard spellbook picker: opens on the tapped tile when placing a wizard.
           Each option's icon cycles its staves (Elemental → 4 elemental staves,

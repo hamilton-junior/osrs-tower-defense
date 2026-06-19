@@ -104,6 +104,21 @@ export interface Hitsplat {
   vx?: number;
 }
 
+/** Live summary of the enemy under the pointer, for the hover info panel. */
+export interface EnemyHoverInfo {
+  name: string;
+  hp: number;
+  maxHp: number;
+  speed: number;
+  baseSpeed: number;
+  weakness: Element | null;
+  reward: number;
+  isBoss: boolean;
+  x: number;
+  y: number;
+  effects: string[];
+}
+
 /** A dying enemy's sprite, fading out where it fell. */
 export interface DeathFx {
   x: number;
@@ -415,6 +430,38 @@ export class GameEngine {
   // ------------------------------------------------------------- input/actions
   setPointer(x: number, y: number) {
     this.pointer = { x, y };
+  }
+
+  /** Summary of the enemy under the pointer (for the hover info panel), or null.
+   *  Polled by the UI so HP/effects read live as the enemy moves and takes hits. */
+  hoveredEnemySummary(): EnemyHoverInfo | null {
+    const { x, y } = this.pointer;
+    let best: Enemy | null = null;
+    let bestD = Infinity;
+    for (const e of this.enemies) {
+      const r = enemyRadius(e) + 6;
+      const d = distanceSq(e.x, e.y, x, y);
+      if (d <= r * r && d < bestD) { best = e; bestD = d; }
+    }
+    if (!best) return null;
+    const effects: string[] = [];
+    if (best.slowTimer > 0) effects.push('Slowed');
+    if (best.stunTimer > 0) effects.push('Frozen');
+    if (best.burnTimer > 0) effects.push(best.burnKind === 'poison' ? 'Poisoned' : 'Burning');
+    if (best.vulnTimer && best.vulnTimer > 0) effects.push('Vulnerable');
+    return {
+      name: best.name,
+      hp: Math.max(0, Math.ceil(best.hp)),
+      maxHp: best.maxHp,
+      speed: Math.round(best.speed),
+      baseSpeed: Math.round(best.baseSpeed),
+      weakness: best.weakness && best.weakness !== 'none' ? best.weakness : null,
+      reward: goldForKill(best.maxHp, this.wave),
+      isBoss: !!best.isBoss,
+      x: best.x,
+      y: best.y,
+      effects,
+    };
   }
 
   selectTowerType(type: TowerType | null) {
@@ -1131,7 +1178,7 @@ export class GameEngine {
       maxLife: 0.45,
     });
     this.sound.play('death', 40);
-    const reward = goldForKill(enemy.maxHp);
+    const reward = goldForKill(enemy.maxHp, this.wave);
     this.money += reward;
     this.goldEarned += reward;
     this.kills += 1;
