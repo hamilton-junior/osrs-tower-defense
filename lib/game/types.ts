@@ -239,6 +239,8 @@ export interface Projectile {
   aoe?: boolean;
   /** Restores a life when this projectile lands a kill (Blood barrage). */
   lifesteal?: boolean;
+  /** Wiki spell-file name (e.g. `Fire_Wave`) used to draw the real spell sprite. */
+  spellIcon?: string;
   sourceTowerId?: string;
   /** Recent positions (oldest→newest) for drawing a motion trail. */
   trail?: { x: number; y: number }[];

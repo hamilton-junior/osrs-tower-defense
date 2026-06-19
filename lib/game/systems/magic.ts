@@ -1,4 +1,4 @@
-import type { Element, AncientType } from '../types';
+import type { Element, AncientType, MageMode } from '../types';
 
 /**
  * On-hit status a magic projectile can inflict (resolved by the engine's hit).
@@ -77,12 +77,60 @@ export function sanctityRate(towerLevel: number): number {
 }
 
 /**
- * Ancients hit harder than the equivalent standard cast (per the OSRS wiki, the
- * Barrages max 30 vs Fire Wave's 20 = 1.5×). A wizard's base damage is the
- * Elemental/Fire value (see data/towers); an Ancients wizard scales it up by
- * this so the AoE barrage stays the stronger, less-specialised choice.
+ * Spell names per tower level (level 1→4). Used to build the on-canvas spell
+ * badge, the projectile sprite, and the panel icons. Elemental towers cast the
+ * standard Strike→Wave line; Ancients cast the Rush→Barrage line. The element
+ * (Air="Wind"/…) and ancient (Ice/Blood/…) supply the spell's prefix word, so
+ * the sprite key matches the wiki file name, e.g. `Fire_Wave`, `Ice_Barrage`.
  */
-export const ANCIENT_DAMAGE_SCALE = 1.5;
+export const ELEMENTAL_TIER_NAMES = ['Strike', 'Bolt', 'Blast', 'Wave'] as const;
+export const ANCIENT_TIER_NAMES = ['Rush', 'Burst', 'Blitz', 'Barrage'] as const;
+export const ELEMENT_SPELL_WORD: Record<Exclude<Element, 'none'>, string> = {
+  air: 'Wind', water: 'Water', earth: 'Earth', fire: 'Fire',
+};
+export const ANCIENT_SPELL_WORD: Record<AncientType, string> = {
+  ice: 'Ice', blood: 'Blood', shadow: 'Shadow', smoke: 'Smoke',
+};
+
+function tierIndex(level: number): number {
+  return Math.min(Math.max(level, 1), 4) - 1;
+}
+
+/** Wiki spell-file name for an Elemental cast, e.g. ("fire", 4) → "Fire_Wave". */
+export function elementalSpellName(element: Exclude<Element, 'none'>, level: number): string {
+  return `${ELEMENT_SPELL_WORD[element]}_${ELEMENTAL_TIER_NAMES[tierIndex(level)]}`;
+}
+
+/** Wiki spell-file name for an Ancients cast, e.g. ("ice", 4) → "Ice_Barrage". */
+export function ancientSpellName(ancient: AncientType, level: number): string {
+  return `${ANCIENT_SPELL_WORD[ancient]}_${ANCIENT_TIER_NAMES[tierIndex(level)]}`;
+}
+
+/** The spell-sprite key for a wizard's current cast (null for utility / non-wizard). */
+export function spellSpriteName(
+  tower: { type: string; mageMode?: MageMode; element?: Element; ancientType?: AncientType; level: number },
+): string | null {
+  if (tower.type !== 'wizard') return null;
+  const mode = tower.mageMode ?? 'elemental';
+  if (mode === 'elemental') return elementalSpellName((tower.element ?? 'air') as Exclude<Element, 'none'>, tower.level);
+  if (mode === 'ancients') return ancientSpellName(tower.ancientType ?? 'ice', tower.level);
+  return null; // utility casts no offensive spell
+}
+
+/**
+ * Ancients hit for the Ice-barrage values (Rush 16 → Burst 22 → Blitz 25 →
+ * Barrage 30, per the OSRS wiki), independent of the chosen ancient element —
+ * the element only changes the on-hit effect. They out-damage the Elemental
+ * line (Fire Wave 20) but, being AoE, their splash is reduced on non-primary
+ * targets by {@link BARRAGE_SPLASH_FALLOFF} so they stay a side-grade.
+ */
+export const ANCIENT_HITS = [16, 22, 25, 30];
+export function ancientHit(level: number): number {
+  return ANCIENT_HITS[tierIndex(level)];
+}
+
+/** Fraction of a barrage's damage dealt to caught-but-not-primary targets. */
+export const BARRAGE_SPLASH_FALLOFF = 0.5;
 
 /** Extra damage an elemental cast deals to an enemy weak to that element. */
 export const WEAKNESS_BONUS = 1.5;

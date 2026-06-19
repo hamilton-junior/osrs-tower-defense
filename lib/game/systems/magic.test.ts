@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, sanctityRate, SUPPORT_SPELLS, SUPPORT_ORDER } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, sanctityRate, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -33,6 +33,32 @@ describe('lifestealChance', () => {
   it('scales (1 + level)% with tower level', () => {
     expect(lifestealChance(1)).toBeCloseTo(0.02);
     expect(lifestealChance(4)).toBeCloseTo(0.05);
+  });
+});
+
+describe('ancient damage', () => {
+  it('uses the Ice-barrage line (Rush/Burst/Blitz/Barrage) per tower level', () => {
+    expect(ANCIENT_HITS).toEqual([16, 22, 25, 30]);
+    expect(ancientHit(1)).toBe(16);
+    expect(ancientHit(4)).toBe(30);
+  });
+  it('clamps out-of-range levels', () => {
+    expect(ancientHit(0)).toBe(16);
+    expect(ancientHit(9)).toBe(30);
+  });
+});
+
+describe('spell sprite names', () => {
+  it('builds wiki file names per element/level (air casts "Wind")', () => {
+    expect(elementalSpellName('air', 1)).toBe('Wind_Strike');
+    expect(elementalSpellName('fire', 4)).toBe('Fire_Wave');
+    expect(ancientSpellName('ice', 4)).toBe('Ice_Barrage');
+  });
+  it('resolves the cast for a wizard, or null for utility/non-wizard', () => {
+    expect(spellSpriteName({ type: 'wizard', mageMode: 'elemental', element: 'fire', level: 3 })).toBe('Fire_Blast');
+    expect(spellSpriteName({ type: 'wizard', mageMode: 'ancients', ancientType: 'blood', level: 2 })).toBe('Blood_Burst');
+    expect(spellSpriteName({ type: 'wizard', mageMode: 'utility', level: 4 })).toBeNull();
+    expect(spellSpriteName({ type: 'archer', level: 1 })).toBeNull();
   });
 });
 

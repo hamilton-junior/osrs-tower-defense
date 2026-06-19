@@ -1,4 +1,22 @@
+const WIKI = 'https://oldschool.runescape.wiki/images/';
+
+/**
+ * Spell-icon URLs keyed by wiki file name (e.g. `Fire_Wave`, `Ice_Barrage`),
+ * generated from the elemental (Wind/Water/Earth/Fire × Strike/Bolt/Blast/Wave)
+ * and ancient (Ice/Blood/Shadow/Smoke × Rush/Burst/Blitz/Barrage) lines. Used as
+ * both the tower's spell badge and its projectile sprite. Keys mirror
+ * `systems/magic`'s `*SpellName` helpers; a missing file degrades gracefully.
+ */
+const SPELL_ICONS: Record<string, string> = {};
+for (const w of ['Wind', 'Water', 'Earth', 'Fire']) {
+  for (const t of ['Strike', 'Bolt', 'Blast', 'Wave']) SPELL_ICONS[`${w}_${t}`] = `${WIKI}${w}_${t}.png`;
+}
+for (const w of ['Ice', 'Blood', 'Shadow', 'Smoke']) {
+  for (const t of ['Rush', 'Burst', 'Blitz', 'Barrage']) SPELL_ICONS[`${w}_${t}`] = `${WIKI}${w}_${t}.png`;
+}
+
 export const ASSETS = {
+  spells: SPELL_ICONS,
   enemies: {
     goblin: 'https://oldschool.runescape.wiki/images/Goblin.png',
     rat: 'https://oldschool.runescape.wiki/images/Giant_rat.png',

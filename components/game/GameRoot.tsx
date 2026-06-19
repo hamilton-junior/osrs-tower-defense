@@ -7,12 +7,14 @@ import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
-import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER } from '@/lib/game/systems/magic';
+import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
+/** Wiki spell-icon URL for a spell-file name (e.g. `Fire_Wave`), if it exists. */
+const spellIconUrl = (name: string): string | undefined => ASSETS.spells[name];
 
 /** Attack type per tower, for the damage icon/label in the stats panel. */
 const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = {
@@ -201,7 +203,10 @@ export default function GameRoot() {
       const hi = selectedTower.maxDamage;
       dmgNode = buffedDisplay(`${lo}–${hi}`, `${buff(lo)}–${buff(hi)}`, buff(lo) !== lo || buff(hi) !== hi);
     } else {
-      const b = selectedTower.damage;
+      // Ancients wizards hit for the Ice-barrage values, not the tier's base.
+      const b = selectedTower.type === 'wizard' && (selectedTower.mageMode ?? 'elemental') === 'ancients'
+        ? ancientHit(selectedTower.level)
+        : selectedTower.damage;
       dmgNode = buffedDisplay(String(b), String(buff(b)), buff(b) !== b);
     }
     const baseTiles = Math.round(selectedTower.range / TILE_PX);
@@ -213,6 +218,11 @@ export default function GameRoot() {
   const moving = !!ui.movingTowerId;
   const moveCost = selectedTower ? engineRef.current?.moveTowerCost(selectedTower) ?? 0 : 0;
   const sellValue = selectedTower ? engineRef.current?.sellValue(selectedTower) ?? 0 : 0;
+  // The wizard's current cast (e.g. "Fire Wave" / "Ice Barrage") drives the
+  // panel title icon/name; utility casts nothing offensive (null).
+  const wizSpell = selectedTower?.type === 'wizard' ? spellSpriteName(selectedTower) : null;
+  const wizSpellIcon = wizSpell ? spellIconUrl(wizSpell) : undefined;
+  const wizSpellLabel = wizSpell ? wizSpell.replace('_', ' ') : null;
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black select-none font-osrs">
@@ -305,7 +315,11 @@ export default function GameRoot() {
             {towerIcon(selectedTower.type) && (
               <img src={towerIcon(selectedTower.type)} alt="" className="w-[1.4em] h-[1.4em] object-contain" />
             )}
-            <span className="truncate">{selectedTower.name}</span>
+            {wizSpellIcon && (
+              <img src={wizSpellIcon} alt="" className="w-[1.4em] h-[1.4em] object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            )}
+            <span className="truncate">{wizSpellLabel ?? selectedTower.name}</span>
           </div>
 
           <div className="space-y-[0.4em] px-[0.2em] mt-[0.5em]">
@@ -362,33 +376,49 @@ export default function GameRoot() {
 
               {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (
                 <div className="grid grid-cols-4 gap-[0.3em]">
-                  {ELEMENT_ORDER.map((el) => (
-                    <button
-                      key={el}
-                      title={`${ELEMENTS[el].label} — ${ELEMENTS[el].desc}; +50% vs weakness`}
-                      onClick={() => engineRef.current?.setWizardElement(selectedTower.id, el)}
-                      className={`rs-btn px-0 py-[0.35em] text-[0.66em] ${(selectedTower.element ?? 'air') === el ? 'rs-btn-primary' : ''}`}
-                      style={{ color: ELEMENTS[el].color }}
-                    >
-                      {ELEMENTS[el].label}
-                    </button>
-                  ))}
+                  {ELEMENT_ORDER.map((el) => {
+                    const spell = elementalSpellName(el, selectedTower.level);
+                    const icon = spellIconUrl(spell);
+                    const active = (selectedTower.element ?? 'air') === el;
+                    return (
+                      <button
+                        key={el}
+                        title={`${spell.replace('_', ' ')} — ${ELEMENTS[el].desc}; +50% vs weakness`}
+                        onClick={() => engineRef.current?.setWizardElement(selectedTower.id, el)}
+                        className={`rs-btn flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
+                        style={{ borderBottom: `2px solid ${ELEMENTS[el].color}` }}
+                      >
+                        {icon
+                          ? <img src={icon} alt={ELEMENTS[el].label} className="w-[1.6em] h-[1.6em] object-contain"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          : <span className="text-[0.66em]" style={{ color: ELEMENTS[el].color }}>{ELEMENTS[el].label}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {selectedTower.mageMode === 'ancients' && (
                 <div className="grid grid-cols-4 gap-[0.3em]">
-                  {ANCIENT_ORDER.map((a) => (
-                    <button
-                      key={a}
-                      title={`${ANCIENTS[a].label} — ${ANCIENTS[a].desc}`}
-                      onClick={() => engineRef.current?.setAncientType(selectedTower.id, a)}
-                      className={`rs-btn px-0 py-[0.35em] text-[0.66em] ${(selectedTower.ancientType ?? 'ice') === a ? 'rs-btn-primary' : ''}`}
-                      style={{ color: ANCIENTS[a].color }}
-                    >
-                      {ANCIENTS[a].label}
-                    </button>
-                  ))}
+                  {ANCIENT_ORDER.map((a) => {
+                    const spell = ancientSpellName(a, selectedTower.level);
+                    const icon = spellIconUrl(spell);
+                    const active = (selectedTower.ancientType ?? 'ice') === a;
+                    return (
+                      <button
+                        key={a}
+                        title={`${spell.replace('_', ' ')} — ${ANCIENTS[a].desc}`}
+                        onClick={() => engineRef.current?.setAncientType(selectedTower.id, a)}
+                        className={`rs-btn flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
+                        style={{ borderBottom: `2px solid ${ANCIENTS[a].color}` }}
+                      >
+                        {icon
+                          ? <img src={icon} alt={ANCIENTS[a].label} className="w-[1.6em] h-[1.6em] object-contain"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          : <span className="text-[0.66em]" style={{ color: ANCIENTS[a].color }}>{ANCIENTS[a].label}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
@@ -417,6 +447,12 @@ export default function GameRoot() {
               {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (
                 <p className="text-[0.62em] text-[#8a7d63] mt-[0.35em] px-[0.2em] leading-snug">
                   {ELEMENTS[(selectedTower.element ?? 'air') as keyof typeof ELEMENTS].desc}
+                </p>
+              )}
+
+              {selectedTower.mageMode === 'ancients' && (
+                <p className="text-[0.62em] text-[#8a7d63] mt-[0.35em] px-[0.2em] leading-snug">
+                  {ANCIENTS[selectedTower.ancientType ?? 'ice'].desc}
                 </p>
               )}
             </div>

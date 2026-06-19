@@ -1,7 +1,7 @@
 import type { GameEngine } from './engine';
 import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
-import { ELEMENTS } from '../systems/magic';
+import { ELEMENTS, spellSpriteName } from '../systems/magic';
 
 const GRID = 32;
 
@@ -419,6 +419,22 @@ export class GameRenderer {
       this.drawTowerSprite(ctx, tower.type, tower.level, 0, 0, tower.visualRadius);
       ctx.restore();
 
+      // Spell badge: a wizard wears the icon of the spell it currently casts
+      // (e.g. Fire Wave / Ice Barrage) at its shoulder, so the choice reads at a
+      // glance on the board.
+      const spell = spellSpriteName(tower);
+      const badgeKey = spell ? `spell_${spell}` : null;
+      if (badgeKey && this.e.imageOk(badgeKey)) {
+        const bs = 14;
+        const bx = tower.x + tower.visualRadius - bs * 0.6;
+        const by = tower.y - tower.visualRadius - bs * 0.3;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.7)';
+        ctx.shadowBlur = 3;
+        ctx.drawImage(this.e.images.get(badgeKey)!, bx, by, bs, bs);
+        ctx.restore();
+      }
+
       // level pip
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 11px Arial';
@@ -536,6 +552,14 @@ export class GameRenderer {
         ctx.translate(p.x, p.y);
         ctx.rotate(angle);
         ctx.fillRect(-8, -1, 16, 2);
+        ctx.restore();
+      } else if (p.spellIcon && this.e.imageOk(`spell_${p.spellIcon}`)) {
+        // Real spell sprite (Fire Wave / Ice Barrage / …), with a coloured glow.
+        ctx.save();
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+        const s = 18;
+        ctx.drawImage(this.e.images.get(`spell_${p.spellIcon}`)!, p.x - s / 2, p.y - s / 2, s, s);
         ctx.restore();
       } else {
         // glow for magic/cannon shots

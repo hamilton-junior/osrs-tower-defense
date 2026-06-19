@@ -8,7 +8,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, sanctityRate, ANCIENT_DAMAGE_SCALE } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
@@ -358,6 +358,10 @@ export class GameEngine {
         Object.entries(ASSETS.towers).flatMap(([type, variants]) =>
           Object.entries(variants as Record<string, string>).map(([v, url]) => [`${type}_${v}`, url]),
         ),
+      ),
+      // Spell icons double as the tower badge and the projectile sprite.
+      ...Object.fromEntries(
+        Object.entries(ASSETS.spells).map(([name, url]) => [`spell_${name}`, url]),
       ),
     };
     for (const [key, url] of Object.entries(urls)) {
@@ -806,19 +810,24 @@ export class GameEngine {
       tower.recoilAngle = Math.atan2(target.y - tower.y, target.x - tower.x);
       tower.recoil = 1; // pulse, decays above
 
-      let damage = tower.damage;
+      // Base damage: Ancients hit for the Ice-barrage values (16/22/25/30),
+      // independent of element; everything else uses the tier's own damage.
+      let baseDamage = tower.type === 'wizard' && (tower.mageMode ?? 'elemental') === 'ancients'
+        ? ancientHit(tower.level)
+        : tower.damage;
       if (tower.type === 'cannon') {
         const lo = tower.minDamage ?? 0;
         const hi = tower.maxDamage ?? 0;
-        damage = lo + Math.random() * (hi - lo);
+        baseDamage = lo + Math.random() * (hi - lo);
       }
-      damage = Math.floor((damage + stats.flatDamageBonus) * stats.damageMultiplier);
+      let damage = Math.floor((baseDamage + stats.flatDamageBonus) * stats.damageMultiplier);
 
       // Base projectile flavour; the cannon splashes, toxic slows.
       let projColor = tower.color;
       let projSpecial: Projectile['special'] | undefined = tower.special === 'rapid' || tower.special === 'aoe' ? undefined : tower.special;
       let projAoe = tower.special === 'aoe';
       let projLifesteal = false;
+      const projSpell = spellSpriteName(tower) ?? undefined;
 
       // Wizard spellbooks: Elemental (single-target status + weakness bonus),
       // Ancients (AoE barrage with a signature status), Utility (support aura,
@@ -836,7 +845,6 @@ export class GameEngine {
           projSpecial = spec.effect;
           projAoe = true;
           projLifesteal = !!spec.lifesteal;
-          damage = Math.floor(damage * ANCIENT_DAMAGE_SCALE); // barrages hit harder
         }
       }
 
@@ -852,6 +860,7 @@ export class GameEngine {
         special: projSpecial,
         aoe: projAoe || undefined,
         lifesteal: projLifesteal || undefined,
+        spellIcon: projSpell,
         sourceTowerId: tower.id,
         trail: [],
       });
@@ -918,11 +927,16 @@ export class GameEngine {
     this.spawnImpactParticles(p.x, p.y, p.color);
     let targetKilled = false;
     if (p.aoe || p.special === 'aoe') {
+      // Magic barrages splash for reduced damage on non-primary targets so AoE
+      // stays a side-grade to single-target; the cannon keeps full splash.
+      const splash = p.type === 'cannonball' ? 1 : BARRAGE_SPLASH_FALLOFF;
       // Snapshot: damage() splices the live array as enemies die.
       for (const e of [...this.enemies]) {
         if (distanceSq(e.x, e.y, p.x, p.y) > 80 * 80) continue;
-        const killed = this.damage(e, p.damage);
-        if (e === target) targetKilled = killed;
+        const isPrimary = e === target;
+        const dmg = isPrimary ? p.damage : Math.floor(p.damage * splash);
+        const killed = this.damage(e, dmg);
+        if (isPrimary) targetKilled = killed;
         if (!killed) this.applyOnHit(e, p);
       }
     } else {
