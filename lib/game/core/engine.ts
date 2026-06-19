@@ -8,7 +8,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
@@ -85,13 +85,23 @@ const uid = () => Math.random().toString(36).slice(2, 11);
 /** Approximate body radius (px) used for range/hit tests, matching the sprite size. */
 const enemyRadius = (e: { isBoss?: boolean }) => (e.isBoss ? 28 : 13);
 
+/** Hitsplat colour, following the OSRS Template:Hitsplat palette: `hit` (red
+ *  damage), `miss` (blue 0/block), `poison` (green), `venom` (dark green),
+ *  `burn` (orange fire DoT), `heal` (purple). */
+export type HitsplatKind = 'hit' | 'miss' | 'poison' | 'venom' | 'burn' | 'heal';
+
 /** Transient OSRS-style hit marker shown over an enemy when it takes damage. */
 export interface Hitsplat {
   x: number;
   y: number;
   value: number;
-  kind: 'hit' | 'miss';
+  kind: HitsplatKind;
   life: number;
+  /** DoT/secondary splat: drawn smaller, below the enemy, drifting sideways so
+   *  the primary (direct) hit stays prominent above. */
+  minor?: boolean;
+  /** Horizontal drift (px/s) for minor splats. */
+  vx?: number;
 }
 
 /** A dying enemy's sprite, fading out where it fell. */
@@ -742,7 +752,12 @@ export class GameEngine {
     for (let i = this.hitsplats.length - 1; i >= 0; i--) {
       const h = this.hitsplats[i];
       h.life -= dt;
-      h.y -= 28 * dt; // float up
+      if (h.minor) {
+        h.x += (h.vx ?? 0) * dt; // drift sideways
+        h.y += 8 * dt;           // and slightly down, away from the main splat
+      } else {
+        h.y -= 28 * dt; // direct hits float up
+      }
       if (h.life <= 0) this.hitsplats.splice(i, 1);
     }
     for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -771,17 +786,26 @@ export class GameEngine {
     }
   }
 
-  /** Tick Fire/Smoke burn damage-over-time on every burning enemy. */
+  /**
+   * Tick Fire/Smoke burn damage-over-time. Damage accrues every frame but is
+   * only dealt/shown once per game tick (0.6s) as a single splat summing the
+   * period's damage — so DoT doesn't spam tiny numbers every frame.
+   */
   private damageOverTime(dt: number) {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
       if (!e.burnTimer || e.burnTimer <= 0) continue;
       e.burnTimer -= dt;
       e.burnAccum = (e.burnAccum ?? 0) + (e.burnDamage ?? 0) * dt;
-      if (e.burnAccum >= 1) {
-        const tick = Math.floor(e.burnAccum);
-        e.burnAccum -= tick;
-        this.damage(e, tick); // may splice; safe under the backward loop
+      e.burnTickTimer = (e.burnTickTimer ?? 0) + dt;
+      const expired = e.burnTimer <= 0;
+      if (e.burnTickTimer >= TICK_SECONDS || expired) {
+        e.burnTickTimer = 0;
+        const total = Math.floor(e.burnAccum ?? 0);
+        if (total > 0) {
+          e.burnAccum = (e.burnAccum ?? 0) - total;
+          this.damage(e, total, e.burnKind ?? 'burn', true); // minor splat, once/tick
+        }
       }
     }
   }
@@ -937,7 +961,7 @@ export class GameEngine {
       const spell = tower.supportSpell ?? 'curse';
 
       if (spell === 'sanctity') {
-        this.prayer.restore(sanctityRate(tower.level) * dt);
+        this.prayer.restore(sanctityRate(this.wave) * dt); // wave-scaled, stacks per tower
         continue;
       }
 
@@ -1023,6 +1047,8 @@ export class GameEngine {
       case 'burn':
         e.burnTimer = Math.max(e.burnTimer, p.aoe ? 4 : 3);
         e.burnDamage = Math.max(e.burnDamage, p.aoe ? 5 : Math.max(3, Math.floor(e.maxHp * 0.02)));
+        // Ancient Smoke is flat poison (green); elemental Fire reads as burn (orange).
+        e.burnKind = p.aoe ? 'poison' : 'burn';
         break;
       case 'amp':
         e.vulnTimer = Math.max(e.vulnTimer ?? 0, 3);
@@ -1071,21 +1097,25 @@ export class GameEngine {
     }
   }
 
-  /** Deal damage to an enemy; returns true if it died from this hit. */
-  private damage(enemy: Enemy, amount: number): boolean {
+  /** Deal damage to an enemy; returns true if it died from this hit. `kind`
+   *  colours the hitsplat; `minor` (DoT) draws it small/below, drifting aside. */
+  private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false): boolean {
     // Water "amp" makes the enemy take extra damage from every source.
     const vuln = enemy.vulnTimer && enemy.vulnTimer > 0 ? 1.25 : 1;
     const dealt = Math.max(0, Math.floor(amount * vuln));
     enemy.hp -= dealt;
-    enemy.flashTimer = 0.15; // visual hit-pop
+    if (!minor) enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
+    const below = enemy.isBoss ? 30 : 16;
     this.hitsplats.push({
-      x: enemy.x + (Math.random() - 0.5) * 16,
-      y: enemy.y - 18,
+      x: enemy.x + (Math.random() - 0.5) * (minor ? 10 : 16),
+      y: minor ? enemy.y + below : enemy.y - 18,
       value: dealt,
-      kind: dealt > 0 ? 'hit' : 'miss',
+      kind: dealt > 0 ? kind : 'miss',
       life: HITSPLAT_LIFE,
+      minor: minor || undefined,
+      vx: minor ? (Math.random() - 0.5) * 44 : 0,
     });
-    if (dealt > 0) this.sound.play('hit', 70);
+    if (dealt > 0 && !minor) this.sound.play('hit', 70);
     if (enemy.hp > 0) return false;
     const i = this.enemies.indexOf(enemy);
     if (i < 0) return false;

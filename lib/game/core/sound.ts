@@ -42,6 +42,10 @@ GAME_SOUNDS['cast_support'] = shoot.support[1];
 export class SoundManager {
   private readonly cache = new Map<string, HTMLAudioElement>();
   private readonly lastPlayed = new Map<string, number>();
+  /** Small per-key ring of reusable nodes (see `play`). */
+  private readonly pools = new Map<string, HTMLAudioElement[]>();
+  private readonly poolIdx = new Map<string, number>();
+  private static readonly POOL_SIZE = 4;
   private muted = false;
   private volume = 0.18;
 
@@ -85,9 +89,25 @@ export class SoundManager {
     const now = performance.now();
     if (now - (this.lastPlayed.get(key) ?? 0) < throttleMs) return;
     this.lastPlayed.set(key, now);
+    // Reuse a small bounded ring of nodes per key instead of cloneNode() on every
+    // shot. Unbounded clones (e.g. at 5× speed with many towers) exhaust the
+    // browser's media-element budget and silence ALL audio; a fixed pool can't.
+    let pool = this.pools.get(key);
+    if (!pool) {
+      pool = Array.from({ length: SoundManager.POOL_SIZE }, () => {
+        const a = base.cloneNode() as HTMLAudioElement;
+        a.volume = this.volume;
+        return a;
+      });
+      this.pools.set(key, pool);
+      this.poolIdx.set(key, 0);
+    }
+    const idx = (this.poolIdx.get(key) ?? 0) % pool.length;
+    this.poolIdx.set(key, idx + 1);
+    const node = pool[idx];
     try {
-      const node = base.cloneNode() as HTMLAudioElement;
       node.volume = this.volume;
+      node.currentTime = 0; // restart this voice
       void node.play().catch(() => {}); // ignore autoplay rejections
     } catch {
       /* ignore */

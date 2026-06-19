@@ -1,9 +1,19 @@
-import type { GameEngine } from './engine';
+import type { GameEngine, HitsplatKind } from './engine';
 import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
 
 const GRID = 32;
+
+/** OSRS Template:Hitsplat colours, keyed by hitsplat kind. */
+const HITSPLAT_COLORS: Record<HitsplatKind, string> = {
+  hit: '#9e1414',     // red damage
+  miss: '#3056c8',    // blue 0 / block
+  poison: '#1a8c1a',  // green poison
+  venom: '#0b5c0b',   // dark-green venom
+  burn: '#cc6a16',    // orange fire DoT
+  heal: '#7b2fb0',    // purple heal
+};
 
 /** All Canvas 2D drawing for a frame. Reads engine state through `this.e`. */
 export class GameRenderer {
@@ -617,29 +627,33 @@ export class GameRenderer {
   private drawHitsplats(ctx: CanvasRenderingContext2D) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const h of this.e.hitsplats) {
-      ctx.globalAlpha = Math.min(1, h.life / 0.3); // fade out near the end
-      this.drawSplat(ctx, h.x, h.y, h.value, h.kind);
+    // Direct hits last so they sit on top of any DoT splats drifting below.
+    const splats = [...this.e.hitsplats].sort((a, b) => Number(!!b.minor) - Number(!!a.minor));
+    for (const h of splats) {
+      ctx.globalAlpha = Math.min(1, h.life / 0.3) * (h.minor ? 0.92 : 1); // fade near the end
+      this.drawSplat(ctx, h.x, h.y, h.value, h.kind, !!h.minor);
     }
     ctx.globalAlpha = 1;
     ctx.textBaseline = 'alphabetic';
   }
 
   /**
-   * Draw an OSRS-style hitsplat: a red lozenge for a hit, blue for a miss
-   * (0 damage), with the value in white. Rendered on the canvas (rather than a
-   * remote sprite) so it always shows.
+   * Draw an OSRS-style hitsplat — a coloured lozenge with the value in white,
+   * coloured per the OSRS Template:Hitsplat palette (red damage, blue 0/block,
+   * green poison, orange burn, …). Rendered on the canvas so it always shows.
    */
   private drawSplat(
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
     value: number,
-    kind: 'hit' | 'miss',
+    kind: HitsplatKind,
+    minor = false,
   ) {
-    const hw = 13; // half width
-    const hh = 9; // half height
-    const p = 5; // point inset
+    const s = minor ? 0.7 : 1; // DoT splats are smaller so direct hits dominate
+    const hw = 14 * s; // half width
+    const hh = 10 * s; // half height
+    const p = 5 * s; // point inset
     ctx.save();
     ctx.translate(x, y);
     ctx.beginPath();
@@ -650,13 +664,15 @@ export class GameRenderer {
     ctx.lineTo(hw - p, hh);
     ctx.lineTo(-hw + p, hh);
     ctx.closePath();
-    ctx.fillStyle = kind === 'miss' ? '#3056c8' : '#9e1414';
+    ctx.fillStyle = HITSPLAT_COLORS[kind] ?? HITSPLAT_COLORS.hit;
     ctx.fill();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
     ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.font = "bold 13px 'RuneScape', Arial";
+    ctx.font = `bold ${Math.round(14 * s)}px 'RuneScape', Arial`;
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 2;
     ctx.fillText(String(value), 0, 1);
     ctx.restore();
   }

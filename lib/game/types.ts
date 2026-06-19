@@ -31,7 +31,7 @@ export interface GlobalUpgrades {
   prayerRegen: number;
 }
 
-export type PrayerType = 'burst_of_strength' | 'sharp_eye' | 'mystic_will' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury' | 'protect_from_melee' | 'protect_from_missiles' | 'protect_from_magic';
+export type PrayerType = 'burst_of_strength' | 'sharp_eye' | 'mystic_will' | 'mystic_lore' | 'mystic_might' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury' | 'protect_from_melee' | 'protect_from_missiles' | 'protect_from_magic';
 
 export interface ActivePotion {
   type: 'overload' | 'super_restore' | 'prayer_potion' | 'ranging' | 'magic' | 'super_combat';
@@ -86,6 +86,10 @@ export interface Enemy extends EnemyDef {
   burnDamage: number;
   /** Fractional burn damage carried between frames until it sums to ≥1. */
   burnAccum?: number;
+  /** Whether the active damage-over-time reads as fire `burn` or `poison`. */
+  burnKind?: 'burn' | 'poison';
+  /** Counts up to one game tick so DoT is dealt once per tick, not per frame. */
+  burnTickTimer?: number;
   /** Water "amp" debuff: while >0 the enemy takes extra damage from all sources. */
   vulnTimer?: number;
   groundTimer: number;

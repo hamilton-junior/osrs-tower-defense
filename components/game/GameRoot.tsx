@@ -270,12 +270,14 @@ export default function GameRoot() {
     if (spellbookHover === 'utility') {
       return SUPPORT_ORDER.map((id) => ({ icon: spellIconUrl(SUPPORT_SPELLS[id].spell), tier: SUPPORT_SPELLS[id].label }));
     }
+    // All four tiers show the SAME element at once, cycling together — easier to
+    // read than each tier on a different element.
     return [0, 1, 2, 3].map((t) => {
       if (spellbookHover === 'ancients') {
-        const el = ANCIENT_ORDER[(animTick + t) % ANCIENT_ORDER.length];
+        const el = ANCIENT_ORDER[animTick % ANCIENT_ORDER.length];
         return { icon: spellIconUrl(ancientSpellName(el, t + 1)), tier: ANCIENT_TIER_NAMES[t] };
       }
-      const el = ELEMENT_ORDER[(animTick + t) % ELEMENT_ORDER.length];
+      const el = ELEMENT_ORDER[animTick % ELEMENT_ORDER.length];
       return { icon: spellIconUrl(elementalSpellName(el, t + 1)), tier: ELEMENTAL_TIER_NAMES[t] };
     });
   })();

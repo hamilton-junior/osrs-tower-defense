@@ -68,8 +68,8 @@ describe('utility support spells', () => {
     expect(SUPPORT_ORDER).toEqual(['curse', 'enfeeble', 'sanctity']);
     for (const id of SUPPORT_ORDER) expect(SUPPORT_SPELLS[id]).toBeDefined();
   });
-  it('scales Sanctity prayer restore with tower level', () => {
-    expect(sanctityRate(1)).toBeCloseTo(2);
-    expect(sanctityRate(4)).toBeCloseTo(3.5);
+  it('scales Prayer-Restoration regen with the wave (~wave/10 per tick)', () => {
+    expect(sanctityRate(10)).toBeCloseTo(1 / 0.6); // wave 10 → 1/tick
+    expect(sanctityRate(30)).toBeCloseTo(3 / 0.6); // wave 30 → 3/tick
   });
 });

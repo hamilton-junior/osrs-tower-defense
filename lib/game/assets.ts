@@ -69,6 +69,8 @@ export const ASSETS = {
     burst_of_strength: 'https://oldschool.runescape.wiki/images/Burst_of_Strength.png',
     sharp_eye: 'https://oldschool.runescape.wiki/images/Sharp_Eye.png',
     mystic_will: 'https://oldschool.runescape.wiki/images/Mystic_Will.png',
+    mystic_lore: 'https://oldschool.runescape.wiki/images/Mystic_Lore.png',
+    mystic_might: 'https://oldschool.runescape.wiki/images/Mystic_Might.png',
     hawk_eye: 'https://oldschool.runescape.wiki/images/Hawk_Eye.png',
     ultimate_strength: 'https://oldschool.runescape.wiki/images/Ultimate_Strength.png',
     protect_from_magic: 'https://oldschool.runescape.wiki/images/Protect_from_Magic.png',
