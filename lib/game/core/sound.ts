@@ -41,6 +41,9 @@ GAME_SOUNDS['cast_support'] = shoot.support[1];
  */
 export class SoundManager {
   private readonly cache = new Map<string, HTMLAudioElement>();
+  /** Clip durations (s), captured on `loadedmetadata` so the value survives
+   *  even if the live element is mid-seek, and is ready before the first play. */
+  private readonly durations = new Map<string, number>();
   private readonly lastPlayed = new Map<string, number>();
   /** Small per-key ring of reusable nodes (see `play`). */
   private readonly pools = new Map<string, HTMLAudioElement[]>();
@@ -53,9 +56,15 @@ export class SoundManager {
     if (typeof Audio === 'undefined') return; // SSR / non-browser guard
     for (const [key, url] of Object.entries(sources)) {
       const audio = new Audio();
-      audio.src = url;
       audio.preload = 'auto';
       audio.volume = this.volume;
+      // Cache the duration the moment metadata decodes, so projectiles fired on
+      // the very first cast already get the exact clip length (no 0.6s guess).
+      audio.addEventListener('loadedmetadata', () => {
+        if (isFinite(audio.duration)) this.durations.set(key, audio.duration);
+      });
+      audio.src = url;
+      audio.load(); // force eager fetch/decode now, not lazily on first play
       this.cache.set(key, audio);
     }
   }
@@ -76,8 +85,12 @@ export class SoundManager {
     this.volume = Math.max(0, Math.min(1, value));
   }
 
-  /** Loaded duration (seconds) of a clip, or NaN if unknown/not yet decoded. */
+  /** Loaded duration (seconds) of a clip, or NaN if unknown/not yet decoded.
+   *  Prefers the value captured at `loadedmetadata`, falling back to the live
+   *  element (covers clips already decoded before the listener attached). */
   duration(key: string): number {
+    const cached = this.durations.get(key);
+    if (cached !== undefined) return cached;
     const audio = this.cache.get(key);
     return audio && isFinite(audio.duration) ? audio.duration : NaN;
   }
