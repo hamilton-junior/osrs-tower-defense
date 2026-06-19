@@ -94,7 +94,7 @@ const enemyRadius = (e: { isBoss?: boolean }) => (e.isBoss ? 28 : 13);
  * cast clip ends. `EASE_K` sets the steepness (higher = slower start, harder
  * finish); the normalisation keeps f(0)=0 and f(1)=1 exactly.
  */
-const EASE_K = 6;
+const EASE_K = 2;
 const EASE_NORM = Math.exp(EASE_K) - 1;
 function projectileEase(t: number): number {
   return (Math.exp(EASE_K * t) - 1) / EASE_NORM;
@@ -999,10 +999,13 @@ export class GameEngine {
         soundKey = mode === 'ancients'
           ? `cast_${tower.ancientType ?? 'ice'}_${tower.level}`
           : `cast_${tower.element ?? 'air'}_${tower.level}`;
+        // Use the clip's exact length (down to the millisecond) so the bolt
+        // lands precisely as the sound ends — no clamping that would desync it.
+        // Falls back to 0.6s only until the clip is decoded (first cast).
         const dur = this.sound.duration(soundKey);
-        flight = Number.isFinite(dur) ? Math.min(1.1, Math.max(0.35, dur)) : 0.6;
+        flight = Number.isFinite(dur) ? dur : 0.6;
       }
-      flight = Math.max(0.12, flight); // never instantaneous
+      flight = Math.max(0.05, flight); // tiny floor: never instantaneous / div-by-zero
 
       this.projectiles.push({
         id: uid(),
