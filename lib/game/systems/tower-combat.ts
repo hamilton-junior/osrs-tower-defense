@@ -19,6 +19,27 @@ export interface ComputedTowerStats {
   cooldown: number;
 }
 
+/** Per-stat additive bonus a single in-range Utility wizard grants (by level). */
+export function utilityAuraBonus(level: number): { range: number; speed: number; damage: number } {
+  return {
+    range: (level >= 1 ? 0.1 : 0) + (level >= 3 ? 0.1 : 0),
+    speed: level >= 2 ? 0.1 : 0,
+    damage: level >= 4 ? 0.1 : 0,
+  };
+}
+
+/**
+ * Combine several additive bonuses with diminishing returns: the strongest
+ * counts fully, each next one is worth `factor`× as much (0.5 → full, half,
+ * quarter…). Keeps stacking many buff/debuff towers useful but not runaway.
+ */
+export function diminishingSum(bonuses: number[], factor = 0.5): number {
+  return [...bonuses]
+    .filter(b => b > 0)
+    .sort((a, b) => b - a)
+    .reduce((sum, b, i) => sum + b * Math.pow(factor, i), 0);
+}
+
 /**
  * Compute a tower's effective combat stats for the current frame by layering
  * global upgrades, active prayers, active potions, nearby Utility-mage support
@@ -70,15 +91,22 @@ export function calculateTowerStats(
     }
   }
 
-  // Utility-mage support buffs from any in-range support tower
+  // Utility-mage support buffs from any in-range support tower, with diminishing
+  // returns so fielding many auras stacks usefully but not without limit.
+  const auraRange: number[] = [];
+  const auraSpeed: number[] = [];
+  const auraDamage: number[] = [];
   for (const t of allTowers) {
     if (t.id === tower.id || t.type !== 'wizard' || t.mageMode !== 'utility') continue;
     if (distance(t.x, t.y, tower.x, tower.y) > t.range) continue;
-    if (t.level >= 1) rangeMultiplier *= 1.1;
-    if (t.level >= 2) speedMultiplier *= 1.1;
-    if (t.level >= 3) rangeMultiplier *= 1.1; // stacks with the level-1 buff
-    if (t.level >= 4) damageMultiplier *= 1.1;
+    const b = utilityAuraBonus(t.level);
+    if (b.range) auraRange.push(b.range);
+    if (b.speed) auraSpeed.push(b.speed);
+    if (b.damage) auraDamage.push(b.damage);
   }
+  rangeMultiplier *= 1 + diminishingSum(auraRange);
+  speedMultiplier *= 1 + diminishingSum(auraSpeed);
+  damageMultiplier *= 1 + diminishingSum(auraDamage);
 
   // Equipment bonuses
   for (const slot of ['weapon', 'shield', 'accessory'] as const) {

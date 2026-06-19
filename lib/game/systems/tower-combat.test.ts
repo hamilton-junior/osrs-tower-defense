@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Tower, GlobalUpgrades, PrayerType, ActivePotion } from '../types';
-import { calculateTowerStats, TowerStatsContext } from './tower-combat';
+import { calculateTowerStats, TowerStatsContext, diminishingSum, utilityAuraBonus } from './tower-combat';
 
 const baseUpgrades: GlobalUpgrades = {
   archerRange: 1, archerDamage: 1, magicDamage: 1, cannonSpeed: 1, slayerReward: 1,
@@ -28,6 +28,24 @@ function ctx(over: Partial<TowerStatsContext> = {}): TowerStatsContext {
     ...over,
   };
 }
+
+describe('diminishingSum', () => {
+  it('counts the strongest bonus fully and halves each next one', () => {
+    expect(diminishingSum([0.1])).toBeCloseTo(0.1);
+    expect(diminishingSum([0.1, 0.1])).toBeCloseTo(0.15); // 0.1 + 0.05
+    expect(diminishingSum([0.2, 0.1])).toBeCloseTo(0.25); // sorted: 0.2 + 0.05
+  });
+  it('ignores non-positive bonuses', () => {
+    expect(diminishingSum([0, 0.1])).toBeCloseTo(0.1);
+  });
+});
+
+describe('utilityAuraBonus', () => {
+  it('grows the aura by tower level', () => {
+    expect(utilityAuraBonus(1)).toEqual({ range: 0.1, speed: 0, damage: 0 });
+    expect(utilityAuraBonus(4)).toEqual({ range: 0.2, speed: 0.1, damage: 0.1 });
+  });
+});
 
 describe('calculateTowerStats', () => {
   it('returns base stats with no buffs', () => {
@@ -91,7 +109,7 @@ describe('calculateTowerStats', () => {
   it('applies in-range utility-mage support buffs (and stacks range at lvl 3+)', () => {
     const support = tower({ id: 'sup', type: 'wizard', mageMode: 'utility', level: 4, range: 1000, x: 0, y: 0 });
     const s = calculateTowerStats(tower(), ctx({ allTowers: [tower(), support] }));
-    expect(s.range).toBeCloseTo(100 * 1.1 * 1.1); // lvl1 + lvl3 range buffs
+    expect(s.range).toBeCloseTo(100 * 1.2); // lvl1 + lvl3 range buffs (additive: +0.2)
     expect(s.cooldown).toBeCloseTo(1000 / 1.1); // lvl2 speed buff
     expect(s.damageMultiplier).toBeCloseTo(1.1); // lvl4 damage buff
   });

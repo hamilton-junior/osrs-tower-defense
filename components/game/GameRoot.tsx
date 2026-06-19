@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GameEngine, type UIState } from '@/lib/game/core/engine';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
+import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
@@ -208,20 +209,42 @@ export default function GameRoot() {
   // key off the tower's combat style and skip unboostable weapons (the cannon).
   const eff = selectedTower ? engineRef.current?.effectiveStats(selectedTower.id) ?? null : null;
   const towerStyle = selectedTower ? TOWER_STYLES[selectedTower.type] : null;
-  // One chip per active boost on this tower: icon + damage amount (no timer —
-  // the countdown already lives in the top-screen infoboxes).
+  // One chip per active boost on this tower: icon + amount. Potions/prayers key
+  // off the weapon's style (boostable only); the Utility aura buffs EVERY tower
+  // (incl. the cannon), so it's listed separately with its net (post-diminishing)
+  // bonus — which is why it must be computed outside the boostable guard.
   const towerBoosts: { key: string; icon: string; amount: string; title: string }[] = [];
-  if (selectedTower && towerStyle?.boostable) {
-    for (const o of ui.geOffers) {
-      if (o.kind === 'buff' && o.activeSecs > 0 && (!o.style || o.style === towerStyle.style)) {
-        towerBoosts.push({ key: `pot-${o.id}`, icon: geIcon(o.wiki), amount: pct(o.dmg ?? 0), title: `${o.name} — ${o.desc}` });
+  if (selectedTower) {
+    if (towerStyle?.boostable) {
+      for (const o of ui.geOffers) {
+        if (o.kind === 'buff' && o.activeSecs > 0 && (!o.style || o.style === towerStyle.style)) {
+          towerBoosts.push({ key: `pot-${o.id}`, icon: geIcon(o.wiki), amount: pct(o.dmg ?? 0), title: `${o.name} — ${o.desc}` });
+        }
+      }
+      for (const p of TOWER_PRAYERS) {
+        if (p.style === towerStyle.style && ui.activePrayers.includes(p.id)) {
+          const def = PRAYERS.find((d) => d.id === p.id)!;
+          towerBoosts.push({ key: `pray-${p.id}`, icon: prayerIcon(p.id), amount: pct(p.dmg), title: `${def.name} — ${def.description}` });
+        }
       }
     }
-    for (const p of TOWER_PRAYERS) {
-      if (p.style === towerStyle.style && ui.activePrayers.includes(p.id)) {
-        const def = PRAYERS.find((d) => d.id === p.id)!;
-        towerBoosts.push({ key: `pray-${p.id}`, icon: prayerIcon(p.id), amount: pct(p.dmg), title: `${def.name} — ${def.description}` });
-      }
+    // Net Utility-aura bonus (with diminishing returns) from in-range supporters.
+    const auraR: number[] = [], auraS: number[] = [], auraD: number[] = [];
+    for (const t of engineRef.current?.towers ?? []) {
+      if (t.id === selectedTower.id || t.type !== 'wizard' || t.mageMode !== 'utility') continue;
+      if (Math.hypot(t.x - selectedTower.x, t.y - selectedTower.y) > t.range) continue;
+      const b = utilityAuraBonus(t.level);
+      if (b.range) auraR.push(b.range);
+      if (b.speed) auraS.push(b.speed);
+      if (b.damage) auraD.push(b.damage);
+    }
+    const netD = diminishingSum(auraD), netR = diminishingSum(auraR), netS = diminishingSum(auraS);
+    const parts: string[] = [];
+    if (netD) parts.push(`+${pct(netD)} damage`);
+    if (netR) parts.push(`+${pct(netR)} range`);
+    if (netS) parts.push(`+${pct(netS)} attack speed`);
+    if (parts.length && WIZARD_UTILITY_STAFF) {
+      towerBoosts.push({ key: 'aura', icon: WIZARD_UTILITY_STAFF, amount: `+${pct(netD || netR || netS)}`, title: `Utility aura — ${parts.join(', ')}` });
     }
   }
   // Active buffs anywhere, for the always-on infobox cluster (RuneLite-style).
