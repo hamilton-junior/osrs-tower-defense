@@ -2,6 +2,7 @@ import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPr
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
+import { CAST_END, DEFAULT_CAST_FRAC } from '../data/cast-timing';
 import { ASSETS } from '../assets';
 import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
@@ -1002,11 +1003,16 @@ export class GameEngine {
         soundKey = mode === 'ancients'
           ? `cast_${tower.ancientType ?? 'ice'}_${tower.level}`
           : `cast_${tower.element ?? 'air'}_${tower.level}`;
-        // Use the clip's exact length (down to the millisecond) so the bolt
-        // lands precisely as the sound ends — no clamping that would desync it.
+        // Land the bolt exactly at the cast→hit boundary (so the clip's impact
+        // sfx plays on contact). CAST_END holds that boundary in absolute seconds,
+        // measured per clip offline (scripts/analyze-cast-clips.mjs); clips without
+        // a measurement fall back to a fixed fraction of the clip length.
         // Falls back to 0.6s only until the clip is decoded (first cast).
         const dur = this.sound.duration(soundKey);
-        flight = Number.isFinite(dur) ? dur-(dur/4.5) : 0.6;
+        const castEnd = CAST_END[soundKey];
+        flight = Number.isFinite(dur)
+          ? (castEnd != null ? Math.min(castEnd, dur) : dur * DEFAULT_CAST_FRAC)
+          : 0.6;
       }
       flight = Math.max(0.05, flight); // tiny floor: never instantaneous / div-by-zero
 
