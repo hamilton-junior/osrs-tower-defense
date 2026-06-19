@@ -62,16 +62,18 @@ export interface SupportSpec {
   color: string;
   label: string;
   desc: string;
+  /** Arceuus-spellbook wiki icon file name, used as the spell's sprite/badge. */
+  spell: string;
 }
 
 export const SUPPORT_ORDER: SupportSpellId[] = ['curse', 'enfeeble', 'sanctity'];
 export const SUPPORT_SPELLS: Record<SupportSpellId, SupportSpec> = {
-  curse: { color: '#c77dff', label: 'Vulnerability', desc: 'Enemies in range take +25% damage' },
-  enfeeble: { color: '#7fe6ff', label: 'Enfeeble', desc: 'Enemies in range are slowed' },
-  sanctity: { color: '#ffd24a', label: 'Sanctity', desc: 'Steadily restores Prayer points' },
+  curse: { color: '#c77dff', label: 'Vulnerability', desc: 'Enemies in range take +25% damage', spell: 'Death_Charge' },
+  enfeeble: { color: '#7fe6ff', label: 'Enfeeble', desc: 'Enemies in range are slowed', spell: 'Resurrect_Greater_Zombie' },
+  sanctity: { color: '#ffd24a', label: 'Prayer Restoration', desc: 'Steadily restores Prayer points', spell: 'Vile_Vigour' },
 };
 
-/** Prayer points/second a Sanctity wizard restores, given its level. */
+/** Prayer points/second a Prayer-Restoration wizard restores, given its level. */
 export function sanctityRate(towerLevel: number): number {
   return 1.5 + towerLevel * 0.5; // 2/s at L1 → 3.5/s at L4
 }
@@ -106,15 +108,17 @@ export function ancientSpellName(ancient: AncientType, level: number): string {
   return `${ANCIENT_SPELL_WORD[ancient]}_${ANCIENT_TIER_NAMES[tierIndex(level)]}`;
 }
 
-/** The spell-sprite key for a wizard's current cast (null for utility / non-wizard). */
+/** The spell-sprite key for a wizard's current cast/field (null for non-wizard).
+ *  Utility resolves to its support spell's Arceuus icon (it fires no projectile,
+ *  but the icon is still shown as the staff badge). */
 export function spellSpriteName(
-  tower: { type: string; mageMode?: MageMode; element?: Element; ancientType?: AncientType; level: number },
+  tower: { type: string; mageMode?: MageMode; element?: Element; ancientType?: AncientType; supportSpell?: SupportSpellId; level: number },
 ): string | null {
   if (tower.type !== 'wizard') return null;
   const mode = tower.mageMode ?? 'elemental';
   if (mode === 'elemental') return elementalSpellName((tower.element ?? 'air') as Exclude<Element, 'none'>, tower.level);
   if (mode === 'ancients') return ancientSpellName(tower.ancientType ?? 'ice', tower.level);
-  return null; // utility casts no offensive spell
+  return SUPPORT_SPELLS[tower.supportSpell ?? 'curse'].spell; // utility → Arceuus icon
 }
 
 /**

@@ -14,6 +14,10 @@ for (const w of ['Wind', 'Water', 'Earth', 'Fire']) {
 for (const w of ['Ice', 'Blood', 'Shadow', 'Smoke']) {
   for (const t of ['Rush', 'Burst', 'Blitz', 'Barrage']) SPELL_ICONS[`${w}_${t}`] = `${WIKI}${w}_${t}.png`;
 }
+// Utility (Arceuus spellbook) support-spell icons.
+SPELL_ICONS['Death_Charge'] = `${WIKI}Death_Charge.png`;
+SPELL_ICONS['Resurrect_Greater_Zombie'] = `${WIKI}Resurrect_Greater_Zombie.png`;
+SPELL_ICONS['Vile_Vigour'] = `${WIKI}Vile_Vigour.png`;
 
 export const ASSETS = {
   spells: SPELL_ICONS,
@@ -97,7 +101,8 @@ export const ASSETS = {
       ancient_blood: 'https://oldschool.runescape.wiki/images/Blood_ancient_sceptre.png',
       ancient_shadow: 'https://oldschool.runescape.wiki/images/Shadow_ancient_sceptre.png',
       ancient_smoke: 'https://oldschool.runescape.wiki/images/Smoke_ancient_sceptre.png',
-      utility: 'https://oldschool.runescape.wiki/images/Ahrim%27s_staff.png',
+      // Utility tower body: the Lunar staff (Lunar/Arceuus support magic).
+      utility: 'https://oldschool.runescape.wiki/images/Lunar_staff.png',
     },
     cannon: {
       1: 'https://oldschool.runescape.wiki/images/Broken_multicannon.png',

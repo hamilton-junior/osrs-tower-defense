@@ -496,31 +496,46 @@ export class GameEngine {
       return;
     }
     if (this.selectedTowerType) {
+      // The wizard opens an on-tile spellbook picker (Elemental/Ancients/Utility)
+      // before it's built; every other tower places immediately.
+      if (this.selectedTowerType === 'wizard') {
+        const sx = Math.round(x / GRID) * GRID;
+        const sy = Math.round(y / GRID) * GRID;
+        if (isValidPlacement(sx, sy, this.path, this.towers)) {
+          this.pendingPlacement = { x: sx, y: sy };
+          this.emit();
+        } else {
+          this.notify("Can't build there");
+        }
+        return;
+      }
       this.placeTower(this.selectedTowerType, x, y);
       return;
     }
     const hit = this.towers.find(t => distance(t.x, t.y, x, y) <= TOWER_RADIUS + 4);
-    if (hit) {
-      this.selectedTowerId = hit.id;
-      this.pendingPlacement = null;
-      this.emit();
-      return;
-    }
-    // Empty ground: open the on-map tower picker if the tile is buildable;
-    // clicking unbuildable ground (or elsewhere) just closes any open picker.
-    const sx = Math.round(x / GRID) * GRID;
-    const sy = Math.round(y / GRID) * GRID;
-    this.selectedTowerId = null;
-    this.pendingPlacement = isValidPlacement(sx, sy, this.path, this.towers) ? { x: sx, y: sy } : null;
+    this.selectedTowerId = hit ? hit.id : null;
+    this.pendingPlacement = null;
     this.emit();
   }
 
-  /** Build the chosen tower on the tile tapped open in the picker. */
+  /** Build the chosen tower on the tile tapped open in the picker.
+   *  (Kept for the disabled general 6-tower picker / possible future use.) */
   confirmPlacement(type: TowerType) {
     if (!this.pendingPlacement) return;
     const { x, y } = this.pendingPlacement;
     const before = this.towers.length;
     this.placeTower(type, x, y);
+    if (this.towers.length > before) this.pendingPlacement = null; // placed → close picker
+    this.emit();
+  }
+
+  /** Build a wizard with the chosen spellbook on the tile the picker opened on. */
+  confirmWizardSpellbook(mode: MageMode) {
+    if (!this.pendingPlacement) return;
+    this.pendingMageMode = mode;
+    const { x, y } = this.pendingPlacement;
+    const before = this.towers.length;
+    this.placeTower('wizard', x, y); // reads pendingMageMode; clears selectedTowerType
     if (this.towers.length > before) this.pendingPlacement = null; // placed → close picker
     this.emit();
   }

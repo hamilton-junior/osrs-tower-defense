@@ -16,9 +16,14 @@ const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<n
 const towerTierIcon = (type: TowerType, tier: number) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[tier];
 /** Wiki spell-icon URL for a spell-file name (e.g. `Fire_Wave`), if it exists. */
 const spellIconUrl = (name: string): string | undefined => ASSETS.spells[name];
-/** The wizard's 4 elemental staves, cycled in the placement picker. */
-const WIZARD_STAVES = ['elemental_air', 'elemental_water', 'elemental_earth', 'elemental_fire']
-  .map((k) => (ASSETS.towers.wizard as Record<string, string>)[k]);
+/** Staves cycled per spellbook in the wizard's on-tile picker. */
+const WIZ_TOWER = ASSETS.towers.wizard as Record<string, string>;
+const WIZARD_STAVES = ['elemental_air', 'elemental_water', 'elemental_earth', 'elemental_fire'].map((k) => WIZ_TOWER[k]);
+const WIZARD_SCEPTRES = ['ancient_ice', 'ancient_blood', 'ancient_shadow', 'ancient_smoke'].map((k) => WIZ_TOWER[k]);
+const WIZARD_UTILITY_STAFF = WIZ_TOWER['utility'];
+/** The old 6-tower on-map picker is kept in the source but disabled — the wizard
+ *  now gets a spellbook picker on its tile instead. Flip to re-enable it. */
+const SHOW_TOWER_PICKER = false;
 const hideBrokenImg = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).style.display = 'none'; };
 
 /** Attack type per tower, for the damage icon/label in the stats panel. */
@@ -80,12 +85,13 @@ export default function GameRoot() {
   const [geOpen, setGeOpen] = useState(false);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
+  const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
   const [animTick, setAnimTick] = useState(0);
   const prevWaveActive = useRef(false);
 
   // Tick the picker animations on the OSRS cadence, only while it's open.
   useEffect(() => {
-    if (!ui.pendingPlacement) { setPickerHover(null); return; }
+    if (!ui.pendingPlacement) { setPickerHover(null); setSpellbookHover(null); return; }
     const id = setInterval(() => setAnimTick((t) => t + 1), 600);
     return () => clearInterval(id);
   }, [ui.pendingPlacement]);
@@ -253,10 +259,75 @@ export default function GameRoot() {
         onContextMenu={onContextMenu}
       />
 
-      {/* On-map tower picker: opens where the player tapped buildable ground.
-          The wizard's icon cycles its 4 elemental staves each tick; hovering a
-          tower previews its spells/tiers cycling from lowest to highest. */}
-      {ui.pendingPlacement && (
+      {/* Wizard spellbook picker: opens on the tapped tile when placing a wizard.
+          Each option's icon cycles its staves (Elemental → 4 elemental staves,
+          Ancients → 4 sceptres, Utility → Lunar staff); hovering one previews its
+          spells cycling. Picking a spellbook builds the wizard there. */}
+      {ui.pendingPlacement && ui.selectedTowerType === 'wizard' && (
+        <div
+          className="absolute z-30"
+          style={{
+            left: `${(ui.pendingPlacement.x / engW) * 100}%`,
+            top: `${(ui.pendingPlacement.y / engH) * 100}%`,
+            transform: 'translate(-50%, -118%)',
+          }}
+        >
+          <div className="rs-panel p-2" style={{ fontSize: 'clamp(12px, 0.85vw, 17px)' }}>
+            <div className="text-center text-[0.6em] text-[#b7a98c] uppercase tracking-wide mb-[0.35em]">Choose spellbook</div>
+            <div className="flex gap-[0.3em]">
+              {([
+                { mode: 'elemental', label: 'Elemental', icon: WIZARD_STAVES[animTick % WIZARD_STAVES.length] },
+                { mode: 'ancients', label: 'Ancients', icon: WIZARD_SCEPTRES[animTick % WIZARD_SCEPTRES.length] },
+                { mode: 'utility', label: 'Utility', icon: WIZARD_UTILITY_STAFF },
+              ] as { mode: MageMode; label: string; icon?: string }[]).map(({ mode, label, icon }) => (
+                <button
+                  key={mode}
+                  title={label}
+                  onClick={() => engineRef.current?.confirmWizardSpellbook(mode)}
+                  onMouseEnter={() => setSpellbookHover(mode)}
+                  onMouseLeave={() => setSpellbookHover((h) => (h === mode ? null : h))}
+                  className="rs-slot flex flex-col items-center"
+                >
+                  {icon
+                    ? <img src={icon} alt={label} onError={hideBrokenImg} />
+                    : <span className="text-[10px]">{label}</span>}
+                  <span className="text-[0.56em] text-[#cdbb91] mt-[0.1em]">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {spellbookHover && (() => {
+              const i = animTick % 4;
+              let icon: string | undefined;
+              let label: string;
+              if (spellbookHover === 'elemental') {
+                const spell = elementalSpellName(ELEMENT_ORDER[i], i + 1); // element+tier cycle together
+                icon = spellIconUrl(spell);
+                label = spell.replace('_', ' ');
+              } else if (spellbookHover === 'ancients') {
+                const spell = ancientSpellName(ANCIENT_ORDER[i], i + 1);
+                icon = spellIconUrl(spell);
+                label = spell.replace('_', ' ');
+              } else {
+                const id = SUPPORT_ORDER[i % SUPPORT_ORDER.length];
+                icon = spellIconUrl(SUPPORT_SPELLS[id].spell);
+                label = SUPPORT_SPELLS[id].label;
+              }
+              return (
+                <div className="mt-[0.4em] flex items-center gap-[0.4em] px-[0.2em] border-t border-[#3a2f1d] pt-[0.4em]">
+                  {icon && <img src={icon} alt="" className="w-[1.6em] h-[1.6em] object-contain" onError={hideBrokenImg} />}
+                  <span className="text-[0.72em] text-osrs-yellow">{label}</span>
+                </div>
+              );
+            })()}
+
+            <div className="text-center text-[0.62em] text-[#8a7d63] mt-[0.3em]">right‑click to cancel</div>
+          </div>
+        </div>
+      )}
+
+      {/* Legacy general 6-tower picker — disabled (SHOW_TOWER_PICKER) but kept. */}
+      {SHOW_TOWER_PICKER && ui.pendingPlacement && (
         <div
           className="absolute z-30"
           style={{
@@ -505,17 +576,23 @@ export default function GameRoot() {
               {selectedTower.mageMode === 'utility' && (
                 <>
                   <div className="grid grid-cols-3 gap-[0.3em]">
-                    {SUPPORT_ORDER.map((s) => (
-                      <button
-                        key={s}
-                        title={`${SUPPORT_SPELLS[s].label} — ${SUPPORT_SPELLS[s].desc}`}
-                        onClick={() => engineRef.current?.setSupportSpell(selectedTower.id, s)}
-                        className={`rs-btn px-0 py-[0.35em] text-[0.66em] ${(selectedTower.supportSpell ?? 'curse') === s ? 'rs-btn-primary' : ''}`}
-                        style={{ color: SUPPORT_SPELLS[s].color }}
-                      >
-                        {SUPPORT_SPELLS[s].label}
-                      </button>
-                    ))}
+                    {SUPPORT_ORDER.map((s) => {
+                      const icon = spellIconUrl(SUPPORT_SPELLS[s].spell);
+                      const active = (selectedTower.supportSpell ?? 'curse') === s;
+                      return (
+                        <button
+                          key={s}
+                          title={`${SUPPORT_SPELLS[s].label} — ${SUPPORT_SPELLS[s].desc}`}
+                          onClick={() => engineRef.current?.setSupportSpell(selectedTower.id, s)}
+                          className={`rs-btn flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
+                          style={{ borderBottom: `2px solid ${SUPPORT_SPELLS[s].color}` }}
+                        >
+                          {icon
+                            ? <img src={icon} alt={SUPPORT_SPELLS[s].label} className="w-[1.6em] h-[1.6em] object-contain" onError={hideBrokenImg} />
+                            : <span className="text-[0.62em]" style={{ color: SUPPORT_SPELLS[s].color }}>{SUPPORT_SPELLS[s].label}</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                   <p className="text-[0.62em] text-[#8a7d63] mt-[0.35em] px-[0.2em] leading-snug">
                     {SUPPORT_SPELLS[selectedTower.supportSpell ?? 'curse'].desc}.
@@ -674,26 +751,10 @@ export default function GameRoot() {
             );
           })}
         </div>
-        {/* Wizard spellbook chosen before placing — it's locked once built. */}
-        {ui.selectedTowerType === 'wizard' && (
-          <div className="mt-[0.5em]">
-            <div className="text-[0.68em] text-[#b7a98c] uppercase tracking-wide mb-[0.3em]">Wizard spellbook (locks on place)</div>
-            <div className="grid grid-cols-3 gap-[0.3em]">
-              {(['elemental', 'ancients', 'utility'] as MageMode[]).map((m) => (
-                <button
-                  key={m}
-                  title={m === 'elemental' ? 'Single-target elemental specialist' : m === 'ancients' ? 'AoE barrages' : 'Support aura for nearby towers'}
-                  onClick={() => engineRef.current?.setPendingMageMode(m)}
-                  className={`rs-btn px-0 py-[0.4em] text-[0.7em] capitalize ${ui.pendingMageMode === m ? 'rs-btn-primary' : ''}`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <p className="text-center text-[0.7em] text-[#b7a98c] mt-[0.5em]">
-          Click empty ground to pick a tower there · right‑click to cancel
+          {ui.selectedTowerType === 'wizard'
+            ? 'Click a tile to choose its spellbook there · right‑click to cancel'
+            : 'Pick a tower, then click the map to place · right‑click to cancel'}
         </p>
         <p className="text-center text-[0.64em] text-[#8a7d63] mt-[0.2em]">
           <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> cancel · <kbd>M</kbd> mute
