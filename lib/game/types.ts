@@ -251,6 +251,10 @@ export interface Projectile {
   /** Launch point — the easing lerps from here toward the (live) target. */
   ox?: number;
   oy?: number;
+  /** Last known target position — the bolt keeps flying here (and still splashes)
+   *  even if the target dies mid-flight, so shots aren't silently wasted. */
+  destX?: number;
+  destY?: number;
   /** Total intended flight time (s); the bolt reaches its target at `age===flight`. */
   flight?: number;
   /** Seconds elapsed since launch, for the ease-in (slow→fast) flight curve. */

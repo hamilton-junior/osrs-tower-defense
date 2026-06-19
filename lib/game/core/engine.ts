@@ -90,10 +90,11 @@ const enemyRadius = (e: { isBoss?: boolean }) => (e.isBoss ? 28 : 13);
 /**
  * Exponential ease-in for projectile flight: maps progress `t` (0→1) to a
  * covered-distance fraction (0→1) that starts near-flat and ramps up steeply,
- * so the bolt launches slowly and accelerates into its target. `EASE_K` sets
- * the steepness; the normalisation keeps f(0)=0 and f(1)=1 exactly.
+ * so the bolt barely creeps off the tower then races in, landing right as the
+ * cast clip ends. `EASE_K` sets the steepness (higher = slower start, harder
+ * finish); the normalisation keeps f(0)=0 and f(1)=1 exactly.
  */
-const EASE_K = 3.4;
+const EASE_K = 6;
 const EASE_NORM = Math.exp(EASE_K) - 1;
 function projectileEase(t: number): number {
   return (Math.exp(EASE_K * t) - 1) / EASE_NORM;
@@ -910,6 +911,14 @@ export class GameEngine {
 
   private fireTowers(dt: number) {
     const now = this.gameTime * 1000; // ms of simulated time (cooldowns are in ms)
+    // Damage already heading toward each enemy from in-flight projectiles. A
+    // tower won't pick (or keep) a target that another shot will already kill,
+    // so kills aren't wasted on overkill — that shot is freed for a live enemy.
+    const incoming = new Map<string, number>();
+    for (const p of this.projectiles) {
+      if (p.targetId) incoming.set(p.targetId, (incoming.get(p.targetId) ?? 0) + p.damage);
+    }
+    const doomed = (e: Enemy) => (incoming.get(e.id) ?? 0) >= e.hp;
     for (const tower of this.towers) {
       if (tower.recoil) tower.recoil = Math.max(0, tower.recoil - dt * 6); // ~0.16s pulse
       // Utility wizards don't fire — they project a field (see updateUtilityTowers).
@@ -923,7 +932,8 @@ export class GameEngine {
       const half = squareRange(stats.range, GRID);
       // Test the enemy's body, not just its centre, so a tower fires as soon as
       // an enemy overlaps its range square (e.g. when the road clips the edge).
-      const inReach = (e: Enemy) => inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e));
+      // Already-doomed enemies are excluded so the tower looks past them.
+      const inReach = (e: Enemy) => !doomed(e) && inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e));
 
       // (re)acquire a target
       let target = tower.targetId ? this.enemies.find(e => e.id === tower.targetId) : undefined;
@@ -1014,6 +1024,9 @@ export class GameEngine {
         sourceTowerId: tower.id,
         trail: [],
       });
+      // Count this shot toward the target so other towers firing this same frame
+      // also treat it as (more) doomed and look elsewhere.
+      incoming.set(target.id, (incoming.get(target.id) ?? 0) + damage);
       this.sound.play(soundKey, 70);
     }
   }
@@ -1051,16 +1064,18 @@ export class GameEngine {
   private moveProjectiles(dt: number) {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
-      const target = this.enemies.find(e => e.id === p.targetId);
-      if (!target) {
-        this.projectiles.splice(i, 1);
-        continue;
-      }
+      // Home on the live target while it exists; once it dies, the destination
+      // stays frozen at its last position so the bolt still completes its flight
+      // (and any AoE) instead of vanishing — no wasted shot.
+      const target = this.enemies.find(e => e.id === p.targetId) ?? null;
+      if (target) { p.destX = target.x; p.destY = target.y; }
+      const destX = p.destX ?? p.x;
+      const destY = p.destY ?? p.y;
       if (p.trail) {
         p.trail.push({ x: p.x, y: p.y });
         if (p.trail.length > 6) p.trail.shift();
       }
-      // Ease-in flight: lerp from the launch point toward the (live) target with
+      // Ease-in flight: lerp from the launch point toward the destination with
       // an exponential curve, so the bolt creeps off slowly then accelerates,
       // arriving at age===flight — keeping the sound-synced total flight time.
       p.age = (p.age ?? 0) + dt;
@@ -1069,9 +1084,9 @@ export class GameEngine {
       const f = projectileEase(t);
       const ox = p.ox ?? p.x;
       const oy = p.oy ?? p.y;
-      p.x = ox + (target.x - ox) * f;
-      p.y = oy + (target.y - oy) * f;
-      const d = Math.hypot(target.x - p.x, target.y - p.y);
+      p.x = ox + (destX - ox) * f;
+      p.y = oy + (destY - oy) * f;
+      const d = Math.hypot(destX - p.x, destY - p.y);
       if (t >= 1 || d < 8) {
         this.hit(p, target);
         this.projectiles.splice(i, 1);
@@ -1079,29 +1094,37 @@ export class GameEngine {
     }
   }
 
-  private hit(p: Projectile, target: Enemy) {
+  private hit(p: Projectile, target: Enemy | null) {
     this.spawnImpactParticles(p.x, p.y, p.color);
-    let targetKilled = false;
+    let primaryKilled = false;
     if (p.aoe || p.special === 'aoe') {
       // Magic barrages splash for reduced damage on non-primary targets so AoE
       // stays a side-grade to single-target; the cannon keeps full splash.
       const splash = p.type === 'cannonball' ? 1 : BARRAGE_SPLASH_FALLOFF;
       // Snapshot: damage() splices the live array as enemies die.
-      for (const e of [...this.enemies]) {
-        if (distanceSq(e.x, e.y, p.x, p.y) > 80 * 80) continue;
-        const isPrimary = e === target;
+      const near = this.enemies.filter(e => distanceSq(e.x, e.y, p.x, p.y) <= 80 * 80);
+      // If the intended target died mid-flight, the closest enemy at impact takes
+      // the full-damage primary hit so the barrage still lands "normally".
+      const primary = target && near.includes(target)
+        ? target
+        : near.reduce<Enemy | null>((best, e) =>
+            !best || distanceSq(e.x, e.y, p.x, p.y) < distanceSq(best.x, best.y, p.x, p.y) ? e : best, null);
+      for (const e of near) {
+        const isPrimary = e === primary;
         const dmg = isPrimary ? p.damage : Math.floor(p.damage * splash);
         const killed = this.damage(e, dmg);
-        if (isPrimary) targetKilled = killed;
+        if (isPrimary) primaryKilled = killed;
         if (!killed) this.applyOnHit(e, p);
       }
-    } else {
-      targetKilled = this.damage(target, p.damage);
-      if (!targetKilled) this.applyOnHit(target, p);
+    } else if (target) {
+      // Single-target: only resolves if the target is still alive at impact;
+      // otherwise the bolt just fizzles where the target was (particles only).
+      primaryKilled = this.damage(target, p.damage);
+      if (!primaryKilled) this.applyOnHit(target, p);
     }
-    // Blood barrage: only the projectile's actual target can steal a life, and
-    // only by chance — so it's not a guaranteed heal on every splash kill.
-    if (p.lifesteal && targetKilled) this.tryLifesteal(p.sourceTowerId);
+    // Blood barrage: a chance to steal a life when the primary target is killed —
+    // not a guaranteed heal on every splash kill.
+    if (p.lifesteal && primaryKilled) this.tryLifesteal(p.sourceTowerId);
   }
 
   /**
