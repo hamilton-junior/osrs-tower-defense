@@ -44,6 +44,8 @@ export interface UIState {
   waveTotal: number;
   /** Whether the current wave contains a boss. */
   bossWave: boolean;
+  /** Whether a boss is currently alive on the field (its HP bar is showing). */
+  bossOnField: boolean;
   gameOver: boolean;
   selectedTowerType: TowerType | null;
   selectedTowerId: string | null;
@@ -283,6 +285,7 @@ export class GameEngine {
       remaining: this.spawnQueue.length + this.enemies.length,
       waveTotal: this.waveTotal,
       bossWave: this.bossWave,
+      bossOnField: this.enemies.some(e => e.isBoss),
       gameOver: this.gameOver,
       selectedTowerType: this.selectedTowerType,
       selectedTowerId: this.selectedTowerId,

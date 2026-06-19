@@ -63,7 +63,7 @@ const attackSpeed = (cooldownMs: number) => {
 
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
-  remaining: 0, waveTotal: 0, bossWave: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
+  remaining: 0, waveTotal: 0, bossWave: false, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.18,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael',
@@ -380,7 +380,7 @@ export default function GameRoot() {
           }}
         >
           <div className="rs-panel p-[0.7em]" style={{ fontSize: 'clamp(14px, 1vw, 20px)' }}>
-            <div className="text-center text-[0.66em] text-[#b7a98c] uppercase tracking-wide mb-[0.4em]">Choose spellbook</div>
+            <div className="text-center text-[0.66em] text-[#d3c3a0] uppercase tracking-wide mb-[0.4em]">Choose spellbook</div>
 
             {/* Preview ABOVE the options, fixed height so hovering never reflows
                 the popup (which would jitter the buttons under the cursor). */}
@@ -392,7 +392,7 @@ export default function GameRoot() {
                       <span className="text-[0.5em] text-[#cdbb91] mt-[0.15em] leading-none text-center">{it.tier}</span>
                     </div>
                   ))
-                : <span className="text-[0.62em] text-[#8a7d63] self-center">Hover a spellbook to preview its spells</span>}
+                : <span className="text-[0.62em] text-[#b3a585] self-center">Hover a spellbook to preview its spells</span>}
             </div>
 
             <div className="flex gap-[0.4em] justify-center">
@@ -417,7 +417,7 @@ export default function GameRoot() {
               ))}
             </div>
 
-            <div className="text-center text-[0.62em] text-[#8a7d63] mt-[0.3em]">right‑click to cancel</div>
+            <div className="text-center text-[0.62em] text-[#b3a585] mt-[0.3em]">right‑click to cancel</div>
           </div>
         </div>
       )}
@@ -477,7 +477,7 @@ export default function GameRoot() {
               );
             })()}
 
-            <div className="text-center text-[0.62em] text-[#8a7d63] mt-[0.3em]">right‑click to cancel</div>
+            <div className="text-center text-[0.62em] text-[#b3a585] mt-[0.3em]">right‑click to cancel</div>
           </div>
         </div>
       )}
@@ -509,7 +509,11 @@ export default function GameRoot() {
       {/* Always-on buff infoboxes (RuneLite-style): icon + remaining seconds.
           Timers pause between waves, so this doubles as a "ready to pull" cue. */}
       {activeInfoboxes.length > 0 && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex gap-[0.4em] pointer-events-none">
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex gap-[0.4em] pointer-events-none transition-[top] duration-300"
+          // Drop below the boss HP bar while a boss is alive, so the bar stays topmost.
+          style={{ top: ui.bossOnField ? '4.5rem' : '0.5rem' }}
+        >
           {activeInfoboxes.map((o) => (
             <div key={o.id} className="rs-infobox" title={`${o.name} — ${o.desc} · ${o.activeSecs}s left`}>
               <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -599,7 +603,7 @@ export default function GameRoot() {
           )}
 
           <div className="mt-[0.7em]">
-            <div className="text-[0.72em] text-[#b7a98c] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>
+            <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>
             <div className="grid grid-cols-5 gap-[0.3em]">
               {(['first', 'last', 'strongest', 'weakest', 'closest'] as const).map((p) => (
                 <button
@@ -619,7 +623,7 @@ export default function GameRoot() {
           {selectedTower.type === 'wizard' && (
             <div className="mt-[0.7em]">
               <div className="flex items-center justify-between mb-[0.3em] px-[0.2em]">
-                <span className="text-[0.72em] text-[#b7a98c] uppercase tracking-wide">Spellbook</span>
+                <span className="text-[0.72em] text-[#d3c3a0] uppercase tracking-wide">Spellbook</span>
                 <span className="flex items-center gap-[0.3em] text-[0.72em] text-osrs-yellow capitalize">
                   <img src={spellbookIcon(selectedTower.mageMode)} alt="" className="w-[1.2em] h-[1.2em]" onError={hideBrokenImg} />
                   {selectedTower.mageMode ?? 'elemental'}
@@ -695,7 +699,7 @@ export default function GameRoot() {
                       );
                     })}
                   </div>
-                  <p className="text-[0.62em] text-[#8a7d63] mt-[0.35em] px-[0.2em] leading-snug">
+                  <p className="text-[0.62em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
                     {SUPPORT_SPELLS[selectedTower.supportSpell ?? 'curse'].desc}.
                     Always-on aura boosts nearby towers' range, speed &amp; damage too.
                   </p>
@@ -703,13 +707,13 @@ export default function GameRoot() {
               )}
 
               {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (
-                <p className="text-[0.62em] text-[#8a7d63] mt-[0.35em] px-[0.2em] leading-snug">
+                <p className="text-[0.62em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
                   {ELEMENTS[(selectedTower.element ?? 'air') as keyof typeof ELEMENTS].desc}
                 </p>
               )}
 
               {selectedTower.mageMode === 'ancients' && (
-                <p className="text-[0.62em] text-[#8a7d63] mt-[0.35em] px-[0.2em] leading-snug">
+                <p className="text-[0.62em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
                   {ANCIENTS[selectedTower.ancientType ?? 'ice'].desc}
                 </p>
               )}
@@ -719,7 +723,7 @@ export default function GameRoot() {
           {moving ? (
             <div className="mt-[0.7em] text-center text-[0.8em] text-osrs-orange leading-snug">
               ▸ Click a tile to move here ({moveCost} gp)<br />
-              <span className="text-[#b7a98c]">right‑click to cancel</span>
+              <span className="text-[#d3c3a0]">right‑click to cancel</span>
             </div>
           ) : (
             <div className="mt-[0.7em] space-y-[0.4em] text-[0.95em]">
@@ -852,12 +856,12 @@ export default function GameRoot() {
             );
           })}
         </div>
-        <p className="text-center text-[0.7em] text-[#b7a98c] mt-[0.5em]">
+        <p className="text-center text-[0.7em] text-[#d3c3a0] mt-[0.5em]">
           {ui.selectedTowerType === 'wizard'
             ? 'Click a tile to choose its spellbook there · right‑click to cancel'
             : 'Pick a tower, then click the map to place · right‑click to cancel'}
         </p>
-        <p className="text-center text-[0.64em] text-[#8a7d63] mt-[0.2em]">
+        <p className="text-center text-[0.64em] text-[#b3a585] mt-[0.2em]">
           <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> cancel · <kbd>M</kbd> mute
         </p>
       </div>
@@ -872,7 +876,7 @@ export default function GameRoot() {
         >
           {ui.paused ? '▶' : '⏸'}
         </button>
-        <span className="text-[10px] text-[#b7a98c] mr-1 uppercase tracking-wide">Speed</span>
+        <span className="text-[10px] text-[#d3c3a0] mr-1 uppercase tracking-wide">Speed</span>
         {[1, 2, 5].map((s) => (
           <button
             key={s}
@@ -940,7 +944,7 @@ export default function GameRoot() {
                       <span className="text-[#e7d9b0] truncate">{o.name}</span>
                       {o.activeSecs > 0 && <span className="rs-ge-timer">{o.activeSecs}s</span>}
                     </span>
-                    <span className="block text-[0.7em] text-[#b7a98c] truncate">{o.desc}</span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{o.desc}</span>
                   </span>
                   <span className="font-bold whitespace-nowrap" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
                     {fmt(o.price)}
@@ -949,7 +953,7 @@ export default function GameRoot() {
               );
             })}
           </div>
-          <p className="text-center text-[0.66em] text-[#8a7d63] mt-[0.6em]">
+          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
             Buffs last 45s · prices drift with demand each wave
           </p>
         </div>
@@ -1003,7 +1007,7 @@ export default function GameRoot() {
           <div className="rs-panel p-6 text-center w-[22em]">
             <div className="rs-panel-title text-base">Game Over</div>
             <p className="text-osrs-yellow mt-3 mb-1 text-[1.6em] font-bold leading-none">Wave {ui.wave}</p>
-            <p className="text-[0.85em] text-[#b7a98c] mb-4 uppercase tracking-wide">reached</p>
+            <p className="text-[0.85em] text-[#d3c3a0] mb-4 uppercase tracking-wide">reached</p>
             <div className="grid grid-cols-2 gap-2 mb-5 text-[0.95em]">
               <GoStat icon={ASSETS.misc.attack_icon} label="Slain" value={fmt(engineRef.current?.kills ?? 0)} />
               <GoStat icon={ASSETS.misc.coins_icon} label="Earned" value={`${fmt(engineRef.current?.goldEarned ?? 0)} gp`} />
@@ -1046,7 +1050,7 @@ function GoStat({ icon, label, value }: { icon?: string; label: string; value: R
         <img src={icon} alt="" className="w-5 h-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       )}
       <span className="text-osrs-yellow font-bold leading-none">{value}</span>
-      <span className="text-[0.72em] text-[#b7a98c] uppercase tracking-wide">{label}</span>
+      <span className="text-[0.72em] text-[#d3c3a0] uppercase tracking-wide">{label}</span>
     </div>
   );
 }
