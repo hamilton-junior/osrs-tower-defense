@@ -37,7 +37,7 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
-  movingTowerId: null, gameSpeed: 1, paused: false, muted: false, volume: 0.18,
+  movingTowerId: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.18,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael',
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
@@ -351,28 +351,21 @@ export default function GameRoot() {
             </div>
           </div>
 
-          {/* Wizard spellbook: pick a mage mode, then its element / barrage. */}
+          {/* Wizard spellbook is locked at purchase; only the element/barrage
+              (its variant) can be retuned here. */}
           {selectedTower.type === 'wizard' && (
             <div className="mt-[0.7em]">
-              <div className="text-[0.72em] text-[#b7a98c] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Spellbook</div>
-              <div className="grid grid-cols-3 gap-[0.3em]">
-                {(['elemental', 'ancients', 'utility'] as MageMode[]).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => engineRef.current?.setMageMode(selectedTower.id, m)}
-                    className={`rs-btn px-0 py-[0.35em] text-[0.68em] capitalize ${(selectedTower.mageMode ?? 'elemental') === m ? 'rs-btn-primary' : ''}`}
-                  >
-                    {m}
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-[0.3em] px-[0.2em]">
+                <span className="text-[0.72em] text-[#b7a98c] uppercase tracking-wide">Spellbook</span>
+                <span className="text-[0.72em] text-osrs-yellow capitalize">{selectedTower.mageMode ?? 'elemental'} 🔒</span>
               </div>
 
               {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (
-                <div className="grid grid-cols-4 gap-[0.3em] mt-[0.3em]">
+                <div className="grid grid-cols-4 gap-[0.3em]">
                   {ELEMENT_ORDER.map((el) => (
                     <button
                       key={el}
-                      title={ELEMENTS[el].effect ? `${ELEMENTS[el].label} — ${ELEMENTS[el].effect} on hit; +50% vs weakness` : `${ELEMENTS[el].label} — pure damage; +50% vs weakness`}
+                      title={`${ELEMENTS[el].label} — ${ELEMENTS[el].desc}; +50% vs weakness`}
                       onClick={() => engineRef.current?.setWizardElement(selectedTower.id, el)}
                       className={`rs-btn px-0 py-[0.35em] text-[0.66em] ${(selectedTower.element ?? 'air') === el ? 'rs-btn-primary' : ''}`}
                       style={{ color: ELEMENTS[el].color }}
@@ -384,11 +377,11 @@ export default function GameRoot() {
               )}
 
               {selectedTower.mageMode === 'ancients' && (
-                <div className="grid grid-cols-4 gap-[0.3em] mt-[0.3em]">
+                <div className="grid grid-cols-4 gap-[0.3em]">
                   {ANCIENT_ORDER.map((a) => (
                     <button
                       key={a}
-                      title={`${ANCIENTS[a].label} barrage — AoE${ANCIENTS[a].effect ? ` + ${ANCIENTS[a].effect}` : ''}${ANCIENTS[a].lifesteal ? ' + lifesteal' : ''}`}
+                      title={`${ANCIENTS[a].label} — ${ANCIENTS[a].desc}`}
                       onClick={() => engineRef.current?.setAncientType(selectedTower.id, a)}
                       className={`rs-btn px-0 py-[0.35em] text-[0.66em] ${(selectedTower.ancientType ?? 'ice') === a ? 'rs-btn-primary' : ''}`}
                       style={{ color: ANCIENTS[a].color }}
@@ -400,8 +393,14 @@ export default function GameRoot() {
               )}
 
               {selectedTower.mageMode === 'utility' && (
-                <p className="text-[0.66em] text-[#9fd0ff] mt-[0.35em] px-[0.2em] leading-snug">
-                  Support aura — boosts nearby towers' range, speed &amp; damage as it levels up. Does not deal elemental damage.
+                <p className="text-[0.66em] text-[#9fd0ff] px-[0.2em] leading-snug">
+                  Support aura — boosts nearby towers' range, speed &amp; damage as it levels up.
+                </p>
+              )}
+
+              {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (
+                <p className="text-[0.62em] text-[#8a7d63] mt-[0.35em] px-[0.2em] leading-snug">
+                  {ELEMENTS[(selectedTower.element ?? 'air') as keyof typeof ELEMENTS].desc}
                 </p>
               )}
             </div>
@@ -543,6 +542,24 @@ export default function GameRoot() {
             );
           })}
         </div>
+        {/* Wizard spellbook chosen before placing — it's locked once built. */}
+        {ui.selectedTowerType === 'wizard' && (
+          <div className="mt-[0.5em]">
+            <div className="text-[0.68em] text-[#b7a98c] uppercase tracking-wide mb-[0.3em]">Wizard spellbook (locks on place)</div>
+            <div className="grid grid-cols-3 gap-[0.3em]">
+              {(['elemental', 'ancients', 'utility'] as MageMode[]).map((m) => (
+                <button
+                  key={m}
+                  title={m === 'elemental' ? 'Single-target elemental specialist' : m === 'ancients' ? 'AoE barrages' : 'Support aura for nearby towers'}
+                  onClick={() => engineRef.current?.setPendingMageMode(m)}
+                  className={`rs-btn px-0 py-[0.4em] text-[0.7em] capitalize ${ui.pendingMageMode === m ? 'rs-btn-primary' : ''}`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <p className="text-center text-[0.7em] text-[#b7a98c] mt-[0.5em]">
           Click a tower, then click the map to place · right‑click to cancel
         </p>

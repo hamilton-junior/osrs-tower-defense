@@ -86,6 +86,8 @@ export interface Enemy extends EnemyDef {
   burnDamage: number;
   /** Fractional burn damage carried between frames until it sums to ≥1. */
   burnAccum?: number;
+  /** Water "amp" debuff: while >0 the enemy takes extra damage from all sources. */
+  vulnTimer?: number;
   groundTimer: number;
   poisonTimer?: number;
   venomTimer?: number;

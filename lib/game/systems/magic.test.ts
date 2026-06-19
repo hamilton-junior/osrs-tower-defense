@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -17,14 +17,21 @@ describe('weaknessMultiplier', () => {
 });
 
 describe('spellbook specs', () => {
-  it('maps each element to its on-hit effect', () => {
-    expect(ELEMENTS.air.effect).toBeUndefined(); // pure damage
-    expect(ELEMENTS.water.effect).toBe('slow');
+  it('gives each element a distinct on-hit effect', () => {
+    expect(ELEMENTS.air.effect).toBe('pushback');
+    expect(ELEMENTS.water.effect).toBe('amp');
     expect(ELEMENTS.earth.effect).toBe('stun');
     expect(ELEMENTS.fire.effect).toBe('burn');
   });
   it('marks only Blood as life-stealing', () => {
     expect(ANCIENTS.blood.lifesteal).toBe(true);
     expect(ANCIENTS.ice.lifesteal).toBeUndefined();
+  });
+});
+
+describe('lifestealChance', () => {
+  it('scales (1 + level)% with tower level', () => {
+    expect(lifestealChance(1)).toBeCloseTo(0.02);
+    expect(lifestealChance(4)).toBeCloseTo(0.05);
   });
 });

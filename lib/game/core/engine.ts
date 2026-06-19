@@ -8,7 +8,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, weaknessMultiplier } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
@@ -48,6 +48,8 @@ export interface UIState {
   selectedTowerType: TowerType | null;
   selectedTowerId: string | null;
   movingTowerId: string | null;
+  /** Spellbook a freshly-placed wizard will use (pre-placement choice). */
+  pendingMageMode: MageMode;
   gameSpeed: number;
   paused: boolean;
   muted: boolean;
@@ -146,6 +148,8 @@ export class GameEngine {
   selectedTowerType: TowerType | null = null;
   selectedTowerId: string | null = null;
   movingTowerId: string | null = null;
+  /** Spellbook a newly-bought wizard will be locked into (chosen pre-placement). */
+  pendingMageMode: MageMode = 'elemental';
   gameSpeed = 1;
   paused = false;
   pointer: Point = { x: 0, y: 0 };
@@ -155,8 +159,6 @@ export class GameEngine {
   // --- run stats (read directly by the UI, e.g. the game-over screen) ---
   kills = 0;
   goldEarned = 0;
-  /** Sim-time of the last Blood-barrage lifesteal, to throttle it to 1/s. */
-  private lastLifesteal = 0;
   private notice: string | null = null;
   private noticeIcon: string | null = null;
   private noticeSeq = 0;
@@ -257,6 +259,7 @@ export class GameEngine {
       selectedTowerType: this.selectedTowerType,
       selectedTowerId: this.selectedTowerId,
       movingTowerId: this.movingTowerId,
+      pendingMageMode: this.pendingMageMode,
       gameSpeed: this.gameSpeed,
       paused: this.paused,
       muted: this.sound.isMuted,
@@ -526,9 +529,11 @@ export class GameEngine {
       specMax: 100,
       skills: { strength: { level: 1, xp: 0 }, ranged: { level: 1, xp: 0 }, magic: { level: 1, xp: 0 } },
       equipment: { weapon: null, shield: null, accessory: null },
-      // Wizards start on the Elemental spellbook casting Air; switchable in the UI.
-      mageMode: type === 'wizard' ? 'elemental' : undefined,
-      element: type === 'wizard' ? 'air' : undefined,
+      // Wizard's spellbook is the pre-placement choice and is locked from here on;
+      // only its element (Elemental) or barrage (Ancients) stays adjustable.
+      mageMode: type === 'wizard' ? this.pendingMageMode : undefined,
+      element: type === 'wizard' && this.pendingMageMode === 'elemental' ? 'air' : undefined,
+      ancientType: type === 'wizard' && this.pendingMageMode === 'ancients' ? 'ice' : undefined,
     });
     this.sound.play('place');
     this.selectedTowerType = null;
@@ -566,13 +571,10 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Switch a wizard's spellbook (Elemental / Ancients / Utility). */
-  setMageMode(towerId: string, mode: MageMode) {
-    const tower = this.towers.find(t => t.id === towerId);
-    if (!tower || tower.type !== 'wizard') return;
-    tower.mageMode = mode;
-    if (mode === 'elemental' && !tower.element) tower.element = 'air';
-    if (mode === 'ancients' && !tower.ancientType) tower.ancientType = 'ice';
+  /** Choose the spellbook the next wizard will be built with. A wizard's
+   *  spellbook is locked once placed — only its element/barrage can change. */
+  setPendingMageMode(mode: MageMode) {
+    this.pendingMageMode = mode;
     this.sound.play('click');
     this.emit();
   }
@@ -734,6 +736,7 @@ export class GameEngine {
         e.slowTimer -= dt;
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
       }
+      if (e.vulnTimer && e.vulnTimer > 0) e.vulnTimer -= dt;
       if (e.stunTimer > 0) {
         e.stunTimer -= dt;
         continue; // Earth/Shadow stun: frozen in place this frame
@@ -869,40 +872,72 @@ export class GameEngine {
 
   private hit(p: Projectile, target: Enemy) {
     this.spawnImpactParticles(p.x, p.y, p.color);
+    let targetKilled = false;
     if (p.aoe || p.special === 'aoe') {
       // Snapshot: damage() splices the live array as enemies die.
       for (const e of [...this.enemies]) {
         if (distanceSq(e.x, e.y, p.x, p.y) > 80 * 80) continue;
         const killed = this.damage(e, p.damage);
-        if (killed) { if (p.lifesteal) this.stealLife(); }
-        else this.applyOnHit(e, p.special, p.damage);
+        if (e === target) targetKilled = killed;
+        if (!killed) this.applyOnHit(e, p);
       }
     } else {
-      const killed = this.damage(target, p.damage);
-      if (killed) { if (p.lifesteal) this.stealLife(); }
-      else this.applyOnHit(target, p.special, p.damage);
+      targetKilled = this.damage(target, p.damage);
+      if (!targetKilled) this.applyOnHit(target, p);
+    }
+    // Blood barrage: only the projectile's actual target can steal a life, and
+    // only by chance — so it's not a guaranteed heal on every splash kill.
+    if (p.lifesteal && targetKilled) this.tryLifesteal(p.sourceTowerId);
+  }
+
+  /**
+   * Apply a projectile's on-hit status to a surviving enemy. Fire/Smoke share
+   * `burn` and Earth/Shadow share `stun`, but single-target (Elemental) vs AoE
+   * (Ancients) — read off `p.aoe` — tunes them: Fire burns by % max HP while
+   * Smoke is flat poison; Earth stuns long while Shadow stuns briefly.
+   */
+  private applyOnHit(e: Enemy, p: Projectile) {
+    switch (p.special) {
+      case 'slow':
+        e.speed = e.baseSpeed * 0.5;
+        e.slowTimer = 2;
+        break;
+      case 'stun':
+        e.stunTimer = Math.max(e.stunTimer, p.aoe ? 0.8 : 2);
+        break;
+      case 'burn':
+        e.burnTimer = Math.max(e.burnTimer, p.aoe ? 4 : 3);
+        e.burnDamage = Math.max(e.burnDamage, p.aoe ? 5 : Math.max(3, Math.floor(e.maxHp * 0.02)));
+        break;
+      case 'amp':
+        e.vulnTimer = Math.max(e.vulnTimer ?? 0, 3);
+        break;
+      case 'pushback':
+        this.knockback(e, 28);
+        break;
+      default:
+        break;
     }
   }
 
-  /** Apply a projectile's on-hit status to a (surviving) enemy. */
-  private applyOnHit(e: Enemy, special: Projectile['special'], dmg: number) {
-    if (special === 'slow') {
-      e.speed = e.baseSpeed * 0.5;
-      e.slowTimer = 2;
-    } else if (special === 'stun') {
-      e.stunTimer = Math.max(e.stunTimer, 1);
-    } else if (special === 'burn') {
-      e.burnTimer = Math.max(e.burnTimer, 3);
-      e.burnDamage = Math.max(e.burnDamage, Math.max(2, Math.floor(dmg * 0.2)));
-    }
-  }
-
-  /** Blood barrage lifesteal: restore a life, throttled to once per second. */
-  private stealLife() {
+  /** Blood barrage lifesteal: a level-scaled chance to restore one life. */
+  private tryLifesteal(sourceTowerId?: string) {
     if (this.lives >= this.maxLives) return;
-    if (this.gameTime - this.lastLifesteal < 1) return;
-    this.lastLifesteal = this.gameTime;
-    this.lives += 1;
+    const tower = sourceTowerId ? this.towers.find(t => t.id === sourceTowerId) : null;
+    if (Math.random() < lifestealChance(tower?.level ?? 1)) this.lives += 1;
+  }
+
+  /** Air gust: shove an enemy back toward the previous waypoint (clamped). */
+  private knockback(e: Enemy, dist: number) {
+    const prev = this.path[e.pathIndex];
+    if (!prev) return;
+    const dx = prev.x - e.x;
+    const dy = prev.y - e.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 1) return;
+    const step = Math.min(dist, d);
+    e.x += (dx / d) * step;
+    e.y += (dy / d) * step;
   }
 
   /** A small spark burst where a projectile lands. */
@@ -923,7 +958,9 @@ export class GameEngine {
 
   /** Deal damage to an enemy; returns true if it died from this hit. */
   private damage(enemy: Enemy, amount: number): boolean {
-    const dealt = Math.max(0, Math.floor(amount));
+    // Water "amp" makes the enemy take extra damage from every source.
+    const vuln = enemy.vulnTimer && enemy.vulnTimer > 0 ? 1.25 : 1;
+    const dealt = Math.max(0, Math.floor(amount * vuln));
     enemy.hp -= dealt;
     enemy.flashTimer = 0.15; // visual hit-pop
     this.hitsplats.push({
@@ -1017,7 +1054,6 @@ export class GameEngine {
     this.selectedTowerId = null;
     this.movingTowerId = null;
     this.gameTime = 0;
-    this.lastLifesteal = 0;
     this.slayer.reset();
     this.slayer.assignTask(); // fresh task for the new run
     this.prayer.reset();
