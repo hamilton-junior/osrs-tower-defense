@@ -13,8 +13,13 @@ import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
+const towerTierIcon = (type: TowerType, tier: number) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[tier];
 /** Wiki spell-icon URL for a spell-file name (e.g. `Fire_Wave`), if it exists. */
 const spellIconUrl = (name: string): string | undefined => ASSETS.spells[name];
+/** The wizard's 4 elemental staves, cycled in the placement picker. */
+const WIZARD_STAVES = ['elemental_air', 'elemental_water', 'elemental_earth', 'elemental_fire']
+  .map((k) => (ASSETS.towers.wizard as Record<string, string>)[k]);
+const hideBrokenImg = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).style.display = 'none'; };
 
 /** Attack type per tower, for the damage icon/label in the stats panel. */
 const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = {
@@ -39,7 +44,7 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
-  movingTowerId: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.18,
+  movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.18,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael',
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
@@ -73,7 +78,17 @@ export default function GameRoot() {
   const [toast, setToast] = useState<{ text: string; icon: string | null } | null>(null);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
   const [geOpen, setGeOpen] = useState(false);
+  // Drives the on-map picker's per-tick animation (cycling staves/spells).
+  const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
+  const [animTick, setAnimTick] = useState(0);
   const prevWaveActive = useRef(false);
+
+  // Tick the picker animations on the OSRS cadence, only while it's open.
+  useEffect(() => {
+    if (!ui.pendingPlacement) { setPickerHover(null); return; }
+    const id = setInterval(() => setAnimTick((t) => t + 1), 600);
+    return () => clearInterval(id);
+  }, [ui.pendingPlacement]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -223,6 +238,9 @@ export default function GameRoot() {
   const wizSpell = selectedTower?.type === 'wizard' ? spellSpriteName(selectedTower) : null;
   const wizSpellIcon = wizSpell ? spellIconUrl(wizSpell) : undefined;
   const wizSpellLabel = wizSpell ? wizSpell.replace('_', ' ') : null;
+  // Logic-space dims, so the on-map picker can be placed by percentage.
+  const engW = engineRef.current?.width || 1920;
+  const engH = engineRef.current?.height || 1080;
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black select-none font-osrs">
@@ -234,6 +252,68 @@ export default function GameRoot() {
         onClick={onClick}
         onContextMenu={onContextMenu}
       />
+
+      {/* On-map tower picker: opens where the player tapped buildable ground.
+          The wizard's icon cycles its 4 elemental staves each tick; hovering a
+          tower previews its spells/tiers cycling from lowest to highest. */}
+      {ui.pendingPlacement && (
+        <div
+          className="absolute z-30"
+          style={{
+            left: `${(ui.pendingPlacement.x / engW) * 100}%`,
+            top: `${(ui.pendingPlacement.y / engH) * 100}%`,
+            transform: 'translate(-50%, -118%)',
+          }}
+        >
+          <div className="rs-panel p-2" style={{ fontSize: 'clamp(12px, 0.85vw, 17px)' }}>
+            <div className="flex gap-[0.3em]">
+              {TOWER_ORDER.map((type) => {
+                const cost = TOWERS[type].tiers[0].upgradeCost;
+                const afford = ui.money >= cost;
+                const base = type === 'wizard' ? WIZARD_STAVES[animTick % WIZARD_STAVES.length] : towerIcon(type);
+                return (
+                  <button
+                    key={type}
+                    disabled={!afford}
+                    title={`${TOWERS[type].baseName} — ${cost} gp`}
+                    onClick={() => engineRef.current?.confirmPlacement(type)}
+                    onMouseEnter={() => setPickerHover(type)}
+                    onMouseLeave={() => setPickerHover((h) => (h === type ? null : h))}
+                    className={`rs-slot ${afford ? '' : 'rs-slot-unafford'}`}
+                  >
+                    {base
+                      ? <img src={base} alt={TOWERS[type].baseName} onError={hideBrokenImg} />
+                      : <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>}
+                    <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {pickerHover && (() => {
+              const i = animTick % 4;
+              let icon: string | undefined;
+              let label: string;
+              if (pickerHover === 'wizard') {
+                const spell = elementalSpellName(ELEMENT_ORDER[i], i + 1); // element+tier cycle together
+                icon = spellIconUrl(spell);
+                label = spell.replace('_', ' ');
+              } else {
+                icon = towerTierIcon(pickerHover, i + 1);
+                label = TOWERS[pickerHover].tiers[i].name;
+              }
+              return (
+                <div className="mt-[0.4em] flex items-center gap-[0.4em] px-[0.2em] border-t border-[#3a2f1d] pt-[0.4em]">
+                  {icon && <img src={icon} alt="" className="w-[1.6em] h-[1.6em] object-contain" onError={hideBrokenImg} />}
+                  <span className="text-[0.72em] text-osrs-yellow">{label}</span>
+                </div>
+              );
+            })()}
+
+            <div className="text-center text-[0.62em] text-[#8a7d63] mt-[0.3em]">right‑click to cancel</div>
+          </div>
+        </div>
+      )}
 
       {/* Wave start / complete banner */}
       {banner && (
@@ -613,7 +693,7 @@ export default function GameRoot() {
           </div>
         )}
         <p className="text-center text-[0.7em] text-[#b7a98c] mt-[0.5em]">
-          Click a tower, then click the map to place · right‑click to cancel
+          Click empty ground to pick a tower there · right‑click to cancel
         </p>
         <p className="text-center text-[0.64em] text-[#8a7d63] mt-[0.2em]">
           <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> cancel · <kbd>M</kbd> mute

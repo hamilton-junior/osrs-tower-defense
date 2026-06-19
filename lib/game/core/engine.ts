@@ -48,6 +48,8 @@ export interface UIState {
   selectedTowerType: TowerType | null;
   selectedTowerId: string | null;
   movingTowerId: string | null;
+  /** Grid spot the player tapped to build on — drives the on-map tower picker. */
+  pendingPlacement: { x: number; y: number } | null;
   /** Spellbook a freshly-placed wizard will use (pre-placement choice). */
   pendingMageMode: MageMode;
   gameSpeed: number;
@@ -146,6 +148,7 @@ export class GameEngine {
   bossWave = false;
 
   selectedTowerType: TowerType | null = null;
+  pendingPlacement: Point | null = null;
   selectedTowerId: string | null = null;
   movingTowerId: string | null = null;
   /** Spellbook a newly-bought wizard will be locked into (chosen pre-placement). */
@@ -259,6 +262,7 @@ export class GameEngine {
       selectedTowerType: this.selectedTowerType,
       selectedTowerId: this.selectedTowerId,
       movingTowerId: this.movingTowerId,
+      pendingPlacement: this.pendingPlacement ? { x: this.pendingPlacement.x, y: this.pendingPlacement.y } : null,
       pendingMageMode: this.pendingMageMode,
       gameSpeed: this.gameSpeed,
       paused: this.paused,
@@ -407,6 +411,7 @@ export class GameEngine {
     this.selectedTowerType = type;
     this.selectedTowerId = null;
     this.movingTowerId = null;
+    this.pendingPlacement = null;
     if (type) this.sound.play('click');
     this.emit();
   }
@@ -444,6 +449,7 @@ export class GameEngine {
     this.selectedTowerType = null;
     this.selectedTowerId = towerId;
     this.movingTowerId = towerId;
+    this.pendingPlacement = null;
     this.sound.play('click');
     this.emit();
   }
@@ -452,6 +458,7 @@ export class GameEngine {
   cancelAction() {
     this.selectedTowerType = null;
     this.movingTowerId = null;
+    this.pendingPlacement = null;
     this.emit();
   }
 
@@ -493,7 +500,28 @@ export class GameEngine {
       return;
     }
     const hit = this.towers.find(t => distance(t.x, t.y, x, y) <= TOWER_RADIUS + 4);
-    this.selectedTowerId = hit ? hit.id : null;
+    if (hit) {
+      this.selectedTowerId = hit.id;
+      this.pendingPlacement = null;
+      this.emit();
+      return;
+    }
+    // Empty ground: open the on-map tower picker if the tile is buildable;
+    // clicking unbuildable ground (or elsewhere) just closes any open picker.
+    const sx = Math.round(x / GRID) * GRID;
+    const sy = Math.round(y / GRID) * GRID;
+    this.selectedTowerId = null;
+    this.pendingPlacement = isValidPlacement(sx, sy, this.path, this.towers) ? { x: sx, y: sy } : null;
+    this.emit();
+  }
+
+  /** Build the chosen tower on the tile tapped open in the picker. */
+  confirmPlacement(type: TowerType) {
+    if (!this.pendingPlacement) return;
+    const { x, y } = this.pendingPlacement;
+    const before = this.towers.length;
+    this.placeTower(type, x, y);
+    if (this.towers.length > before) this.pendingPlacement = null; // placed → close picker
     this.emit();
   }
 
@@ -1125,6 +1153,7 @@ export class GameEngine {
     this.selectedTowerType = null;
     this.selectedTowerId = null;
     this.movingTowerId = null;
+    this.pendingPlacement = null;
     this.gameTime = 0;
     this.slayer.reset();
     this.slayer.assignTask(); // fresh task for the new run

@@ -279,6 +279,17 @@ export class GameRenderer {
   }
 
   private drawPlacementGhost(ctx: CanvasRenderingContext2D) {
+    // On-map tower picker open: highlight the tapped tile so the popup's choice
+    // is clearly anchored to where the tower will go.
+    const pending = this.e.pendingPlacement;
+    if (pending && !this.e.movingTower && !this.e.selectedTowerType) {
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 250);
+      this.drawSquareRange(
+        ctx, pending.x, pending.y, GRID / 2,
+        `rgba(255,225,120,${0.5 + pulse * 0.4})`, 'rgba(255,225,120,0.12)',
+      );
+    }
+
     // Either placing a new tower (selectedTowerType) or relocating one (movingTower).
     const moving = this.e.movingTower;
     const type = moving ? moving.type : this.e.selectedTowerType;
