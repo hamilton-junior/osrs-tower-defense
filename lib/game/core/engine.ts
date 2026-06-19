@@ -1,8 +1,8 @@
-import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell } from '../types';
+import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind } from '../types';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
-import { CAST_END, DEFAULT_CAST_FRAC } from '../data/cast-timing';
+import { CAST_TOTAL, DEFAULT_CAST_FRAC } from '../data/cast-timing';
 import { ASSETS } from '../assets';
 import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
@@ -105,6 +105,9 @@ function projectileEase(t: number): number {
  *  damage), `miss` (blue 0/block), `poison` (green), `venom` (dark green),
  *  `burn` (orange fire DoT), `heal` (purple). */
 export type HitsplatKind = 'hit' | 'miss' | 'poison' | 'venom' | 'burn' | 'heal';
+
+/** The damage-over-time kinds, ticked independently in `damageOverTime`. */
+const DOT_KINDS: readonly DotKind[] = ['burn', 'poison'];
 
 /** Transient OSRS-style hit marker shown over an enemy when it takes damage. */
 export interface Hitsplat {
@@ -464,7 +467,8 @@ export class GameEngine {
     const effects: string[] = [];
     if (best.slowTimer > 0) effects.push('Slowed');
     if (best.stunTimer > 0) effects.push('Frozen');
-    if (best.burnTimer > 0) effects.push(best.burnKind === 'poison' ? 'Poisoned' : 'Burning');
+    if ((best.dots?.burn?.timer ?? 0) > 0) effects.push('Burning');
+    if ((best.dots?.poison?.timer ?? 0) > 0) effects.push('Poisoned');
     if (best.vulnTimer && best.vulnTimer > 0) effects.push('Vulnerable');
     return {
       name: best.name,
@@ -789,8 +793,6 @@ export class GameEngine {
       slowTimer: 0,
       stunTimer: 0,
       tauntTimer: 0,
-      burnTimer: 0,
-      burnDamage: 0,
       groundTimer: 0,
     };
   }
@@ -851,25 +853,32 @@ export class GameEngine {
   }
 
   /**
-   * Tick Fire/Smoke burn damage-over-time. Damage accrues every frame but is
-   * only dealt/shown once per game tick (0.6s) as a single splat summing the
-   * period's damage — so DoT doesn't spam tiny numbers every frame.
+   * Tick Fire `burn` and Smoke `poison` damage-over-time. Each kind is tracked
+   * and ticked independently, so an enemy can carry both at once and they show as
+   * two separate hitsplats. Damage accrues every frame but is only dealt/shown
+   * once per game tick (0.6s) as a single splat summing the period's damage — so
+   * DoT doesn't spam tiny numbers every frame.
    */
   private damageOverTime(dt: number) {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
-      if (!e.burnTimer || e.burnTimer <= 0) continue;
-      e.burnTimer -= dt;
-      e.burnAccum = (e.burnAccum ?? 0) + (e.burnDamage ?? 0) * dt;
-      e.burnTickTimer = (e.burnTickTimer ?? 0) + dt;
-      const expired = e.burnTimer <= 0;
-      if (e.burnTickTimer >= TICK_SECONDS || expired) {
-        e.burnTickTimer = 0;
-        const total = Math.floor(e.burnAccum ?? 0);
-        if (total > 0) {
-          e.burnAccum = (e.burnAccum ?? 0) - total;
-          this.damage(e, total, e.burnKind ?? 'burn', true); // minor splat, once/tick
+      if (!e.dots) continue;
+      for (const kind of DOT_KINDS) {
+        const d = e.dots[kind];
+        if (!d || d.timer <= 0) continue;
+        d.timer -= dt;
+        d.accum += d.dps * dt;
+        d.tickTimer += dt;
+        const expired = d.timer <= 0;
+        if (d.tickTimer >= TICK_SECONDS || expired) {
+          d.tickTimer = 0;
+          const total = Math.floor(d.accum);
+          if (total > 0) {
+            d.accum -= total;
+            if (this.damage(e, total, kind, true)) break; // enemy died; stop ticking it
+          }
         }
+        if (expired) delete e.dots[kind];
       }
     }
   }
@@ -1003,15 +1012,15 @@ export class GameEngine {
         soundKey = mode === 'ancients'
           ? `cast_${tower.ancientType ?? 'ice'}_${tower.level}`
           : `cast_${tower.element ?? 'air'}_${tower.level}`;
-        // Land the bolt exactly at the cast→hit boundary (so the clip's impact
-        // sfx plays on contact). CAST_END holds that boundary in absolute seconds,
-        // measured per clip offline (scripts/analyze-cast-clips.mjs); clips without
-        // a measurement fall back to a fixed fraction of the clip length.
+        // Land the bolt after the clip's full cast+hit has played. CAST_TOTAL holds
+        // that total (end of audible content) in absolute seconds, measured per clip
+        // offline (scripts/analyze-cast-clips.mjs); clips without a measurement fall
+        // back to a fixed fraction of the clip length.
         // Falls back to 0.6s only until the clip is decoded (first cast).
         const dur = this.sound.duration(soundKey);
-        const castEnd = CAST_END[soundKey];
+        const total = CAST_TOTAL[soundKey];
         flight = Number.isFinite(dur)
-          ? (castEnd != null ? Math.min(castEnd, dur) : dur * DEFAULT_CAST_FRAC)
+          ? (total != null ? Math.min(total, dur) : dur * DEFAULT_CAST_FRAC)
           : 0.6;
       }
       flight = Math.max(0.05, flight); // tiny floor: never instantaneous / div-by-zero
@@ -1159,14 +1168,20 @@ export class GameEngine {
       case 'stun':
         e.stunTimer = Math.max(e.stunTimer, p.aoe ? 0.8 : 2);
         break;
-      case 'burn':
-        e.burnTimer = Math.max(e.burnTimer, p.aoe ? 4 : 3);
-        // Ancient Smoke poisons for the current wave number per second (scales
-        // into the late game); elemental Fire burns for a % of the target's max HP.
-        e.burnDamage = Math.max(e.burnDamage, p.aoe ? this.wave : Math.max(3, Math.floor(e.maxHp * 0.02)));
-        // Ancient Smoke is flat poison (green); elemental Fire reads as burn (orange).
-        e.burnKind = p.aoe ? 'poison' : 'burn';
+      case 'burn': {
+        // Ancient Smoke poisons (green) for the current wave number per second
+        // (scales into the late game); elemental Fire burns (orange) for a % of the
+        // target's max HP. Each goes in its own DoT slot so an enemy can carry both
+        // at once and they tick / splat separately rather than merging.
+        const kind: DotKind = p.aoe ? 'poison' : 'burn';
+        const dur = p.aoe ? 4 : 3;
+        const dps = p.aoe ? this.wave : Math.max(3, Math.floor(e.maxHp * 0.02));
+        const dots = (e.dots ??= {});
+        const cur = dots[kind];
+        if (cur) { cur.timer = Math.max(cur.timer, dur); cur.dps = Math.max(cur.dps, dps); }
+        else dots[kind] = { timer: dur, dps, accum: 0, tickTimer: 0 };
         break;
+      }
       case 'amp':
         e.vulnTimer = Math.max(e.vulnTimer ?? 0, 3);
         break;
@@ -1223,14 +1238,17 @@ export class GameEngine {
     enemy.hp -= dealt;
     if (!minor) enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
     const below = enemy.isBoss ? 30 : 16;
+    // DoT splats are biased to a fixed side per kind (burn left, poison right) so
+    // an enemy carrying both shows them clearly apart instead of stacked.
+    const dotSide = minor ? (kind === 'poison' ? 1 : -1) : 0;
     this.hitsplats.push({
-      x: enemy.x + (Math.random() - 0.5) * (minor ? 10 : 16),
+      x: enemy.x + dotSide * 14 + (Math.random() - 0.5) * (minor ? 8 : 16),
       y: minor ? enemy.y + below : enemy.y - 18,
       value: dealt,
       kind: dealt > 0 ? kind : 'miss',
       life: HITSPLAT_LIFE,
       minor: minor || undefined,
-      vx: minor ? (Math.random() - 0.5) * 44 : 0,
+      vx: minor ? dotSide * 30 + (Math.random() - 0.5) * 16 : 0,
     });
     if (dealt > 0 && !minor) this.sound.play('hit', 70);
     if (enemy.hp > 0) return false;

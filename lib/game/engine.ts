@@ -1752,10 +1752,10 @@ export class GameEngine {
       }
 
       // Process Burn
-      if (enemy.burnTimer > 0) {
-        enemy.burnTimer -= dt;
+      if ((enemy.burnTimer ?? 0) > 0) {
+        enemy.burnTimer = (enemy.burnTimer ?? 0) - dt;
         if (Math.random() < dt * 2) {
-          this.damageEnemy(enemy, enemy.burnDamage, undefined, true);
+          this.damageEnemy(enemy, enemy.burnDamage ?? 0, undefined, true);
         }
       }
 

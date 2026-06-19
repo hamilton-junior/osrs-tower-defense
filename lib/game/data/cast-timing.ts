@@ -2,10 +2,13 @@
 // Re-run with `npm run analyze:sounds` after changing the cast clips.
 //
 // Each wizard cast clip is a single file containing both the spell's cast and its
-// impact sfx. This maps a cast-clip sound key to the absolute time (seconds) of
-// the cast→hit boundary, measured by detecting the impact transient offline. The
-// engine times the projectile so it lands right then: flight = min(castEnd, dur).
-// Absolute seconds (not a fraction) so the clips' trailing silence can't skew it.
+// impact sfx. Measured offline (silence-trimmed RMS-flux transient detection), in
+// absolute seconds from the clip's start so its trailing padding can't skew them.
+//
+//  - CAST_END:   the cast→hit boundary (where the impact transient begins).
+//  - CAST_TOTAL: the full cast+hit duration (end of audible content). The engine
+//                times the bolt to land here — flight = min(CAST_TOTAL, dur) — so
+//                the whole cast+hit clip has played by the moment it connects.
 export const CAST_END: Record<string, number> = {
   'cast_air_1': 1.654,
   'cast_air_2': 1.704,
@@ -40,5 +43,39 @@ export const CAST_END: Record<string, number> = {
   'cast_water_4': 1.779,
 };
 
-/** Fallback fraction for clips without a reliable measurement (≈ the old `dur - dur/4.5`). */
+export const CAST_TOTAL: Record<string, number> = {
+  'cast_air_1': 1.834,
+  'cast_air_2': 2.33,
+  'cast_air_3': 2.551,
+  'cast_air_4': 2.1,
+  'cast_blood_1': 3.182,
+  'cast_blood_2': 2.746,
+  'cast_blood_3': 2.952,
+  'cast_blood_4': 2.751,
+  'cast_earth_1': 2.471,
+  'cast_earth_2': 2.751,
+  'cast_earth_3': 2.606,
+  'cast_earth_4': 2.581,
+  'cast_fire_1': 2.305,
+  'cast_fire_2': 2.355,
+  'cast_fire_3': 2.496,
+  'cast_fire_4': 2.415,
+  'cast_ice_1': 2.205,
+  'cast_ice_2': 2.375,
+  'cast_ice_3': 4.24,
+  'cast_ice_4': 4.31,
+  'cast_shadow_1': 2.636,
+  'cast_shadow_2': 3.708,
+  'cast_shadow_3': 2.265,
+  'cast_shadow_4': 3.889,
+  'cast_smoke_1': 2.1,
+  'cast_smoke_2': 2.666,
+  'cast_smoke_3': 2.085,
+  'cast_water_1': 2.385,
+  'cast_water_2': 2.43,
+  'cast_water_3': 2.42,
+  'cast_water_4': 2.18,
+};
+
+/** Fallback fraction for clips without a measurement (≈ the old `dur - dur/4.5`). */
 export const DEFAULT_CAST_FRAC = 1 - 1 / 4.5;

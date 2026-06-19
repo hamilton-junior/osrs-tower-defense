@@ -50,9 +50,9 @@ export interface AncientSpec {
 export const ANCIENT_ORDER: AncientType[] = ['ice', 'blood', 'shadow', 'smoke'];
 export const ANCIENTS: Record<AncientType, AncientSpec> = {
   ice: { effect: 'slow', color: '#7fe6ff', glow: '#dff4ff', label: 'Ice', desc: 'AoE barrage that slows' },
-  blood: { lifesteal: true, color: '#c81e1e', glow: '#c81e1e', label: 'Blood', desc: 'AoE barrage; chance to restore a life on a kill' },
+  blood: { lifesteal: true, color: '#c81e1e', glow: '#c81e1e', label: 'Blood', desc: 'AoE barrage; bonus damage = (3 + 0.5·level)% of max HP, plus a chance to restore a life on a kill' },
   shadow: { effect: 'stun', color: '#6a3fb0', glow: '#1b1024', label: 'Shadow', desc: 'AoE barrage with a brief stun' },
-  smoke: { effect: 'burn', color: '#9a9a9a', glow: '#8f8f8f', label: 'Smoke', desc: 'AoE barrage that poisons (flat damage)' },
+  smoke: { effect: 'burn', color: '#9a9a9a', glow: '#8f8f8f', label: 'Smoke', desc: 'AoE barrage that poisons for the current wave number per second' },
 };
 
 /**

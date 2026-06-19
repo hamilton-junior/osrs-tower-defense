@@ -72,6 +72,21 @@ export interface EnemyDef {
   waveUnlock?: number;
 }
 
+/** A damage-over-time effect kind. Each ticks and renders independently. */
+export type DotKind = 'burn' | 'poison';
+
+/** One independent damage-over-time effect (fire burn or poison). */
+export interface DotState {
+  /** Seconds of DoT remaining. */
+  timer: number;
+  /** Damage per second while active. */
+  dps: number;
+  /** Fractional damage carried between frames until it sums to ≥1. */
+  accum: number;
+  /** Counts up to one game tick so the DoT is dealt once per tick, not per frame. */
+  tickTimer: number;
+}
+
 export interface Enemy extends EnemyDef {
   id: string;
   x: number;
@@ -82,14 +97,14 @@ export interface Enemy extends EnemyDef {
   slowTimer: number;
   stunTimer: number;
   tauntTimer: number;
-  burnTimer: number;
-  burnDamage: number;
-  /** Fractional burn damage carried between frames until it sums to ≥1. */
-  burnAccum?: number;
-  /** Whether the active damage-over-time reads as fire `burn` or `poison`. */
-  burnKind?: 'burn' | 'poison';
-  /** Counts up to one game tick so DoT is dealt once per tick, not per frame. */
-  burnTickTimer?: number;
+  /** Independent damage-over-time effects (fire `burn`, `poison`), ticked and
+   *  shown as separate hitsplats so the two never merge into one splat. */
+  dots?: Partial<Record<DotKind, DotState>>;
+  /** @deprecated Legacy single-slot DoT, used only by the phased-out
+   *  `lib/game/engine.ts` / `renderer.ts`. The active core uses {@link dots}. */
+  burnTimer?: number;
+  /** @deprecated Legacy DoT damage — see {@link burnTimer}. */
+  burnDamage?: number;
   /** Water "amp" debuff: while >0 the enemy takes extra damage from all sources. */
   vulnTimer?: number;
   groundTimer: number;

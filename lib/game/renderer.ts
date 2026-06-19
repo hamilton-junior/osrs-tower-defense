@@ -505,7 +505,7 @@ export class GameRenderer {
           this.e.ctx.fillText('❄', enemy.x, enemy.y - (isBoss ? 28 : 20));
         }
 
-        if (enemy.burnTimer > 0) {
+        if ((enemy.burnTimer ?? 0) > 0) {
           // Fire particles or glow
           const pulse = 0.5 + 0.5 * Math.sin((this.e.gameTime / 1000) * 10);
           this.e.ctx.fillStyle = `rgba(255, 100, 0, ${0.3 * pulse})`;
