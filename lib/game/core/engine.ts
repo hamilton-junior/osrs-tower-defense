@@ -1,4 +1,4 @@
-import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType } from '../types';
+import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode } from '../types';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
@@ -8,6 +8,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
+import { ELEMENTS, ANCIENTS, weaknessMultiplier } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
@@ -154,6 +155,8 @@ export class GameEngine {
   // --- run stats (read directly by the UI, e.g. the game-over screen) ---
   kills = 0;
   goldEarned = 0;
+  /** Sim-time of the last Blood-barrage lifesteal, to throttle it to 1/s. */
+  private lastLifesteal = 0;
   private notice: string | null = null;
   private noticeIcon: string | null = null;
   private noticeSeq = 0;
@@ -523,6 +526,9 @@ export class GameEngine {
       specMax: 100,
       skills: { strength: { level: 1, xp: 0 }, ranged: { level: 1, xp: 0 }, magic: { level: 1, xp: 0 } },
       equipment: { weapon: null, shield: null, accessory: null },
+      // Wizards start on the Elemental spellbook casting Air; switchable in the UI.
+      mageMode: type === 'wizard' ? 'elemental' : undefined,
+      element: type === 'wizard' ? 'air' : undefined,
     });
     this.sound.play('place');
     this.selectedTowerType = null;
@@ -557,6 +563,35 @@ export class GameEngine {
     if (!tower) return;
     tower.targetingPriority = priority;
     tower.targetId = null; // re-acquire under the new priority next frame
+    this.emit();
+  }
+
+  /** Switch a wizard's spellbook (Elemental / Ancients / Utility). */
+  setMageMode(towerId: string, mode: MageMode) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower || tower.type !== 'wizard') return;
+    tower.mageMode = mode;
+    if (mode === 'elemental' && !tower.element) tower.element = 'air';
+    if (mode === 'ancients' && !tower.ancientType) tower.ancientType = 'ice';
+    this.sound.play('click');
+    this.emit();
+  }
+
+  /** Pick the element a Elemental-spellbook wizard casts. */
+  setWizardElement(towerId: string, element: Element) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower || tower.type !== 'wizard') return;
+    tower.element = element;
+    this.sound.play('click');
+    this.emit();
+  }
+
+  /** Pick the barrage an Ancients-spellbook wizard casts. */
+  setAncientType(towerId: string, ancient: AncientType) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower || tower.type !== 'wizard') return;
+    tower.ancientType = ancient;
+    this.sound.play('click');
     this.emit();
   }
 
@@ -633,6 +668,7 @@ export class GameEngine {
     this.prayer.update(dt);
     this.ge.update(dt);
     this.spawn(dt);
+    this.damageOverTime(dt);
     this.moveEnemies(dt);
     this.fireTowers(dt);
     this.moveProjectiles(dt);
@@ -675,6 +711,21 @@ export class GameEngine {
     }
   }
 
+  /** Tick Fire/Smoke burn damage-over-time on every burning enemy. */
+  private damageOverTime(dt: number) {
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+      const e = this.enemies[i];
+      if (!e.burnTimer || e.burnTimer <= 0) continue;
+      e.burnTimer -= dt;
+      e.burnAccum = (e.burnAccum ?? 0) + (e.burnDamage ?? 0) * dt;
+      if (e.burnAccum >= 1) {
+        const tick = Math.floor(e.burnAccum);
+        e.burnAccum -= tick;
+        this.damage(e, tick); // may splice; safe under the backward loop
+      }
+    }
+  }
+
   private moveEnemies(dt: number) {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
@@ -682,6 +733,10 @@ export class GameEngine {
       if (e.slowTimer > 0) {
         e.slowTimer -= dt;
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
+      }
+      if (e.stunTimer > 0) {
+        e.stunTimer -= dt;
+        continue; // Earth/Shadow stun: frozen in place this frame
       }
       const target = this.path[e.pathIndex + 1];
       if (!target) {
@@ -743,6 +798,31 @@ export class GameEngine {
       }
       damage = Math.floor((damage + stats.flatDamageBonus) * stats.damageMultiplier);
 
+      // Base projectile flavour; the cannon splashes, toxic slows.
+      let projColor = tower.color;
+      let projSpecial: Projectile['special'] | undefined = tower.special === 'rapid' || tower.special === 'aoe' ? undefined : tower.special;
+      let projAoe = tower.special === 'aoe';
+      let projLifesteal = false;
+
+      // Wizard spellbooks: Elemental (single-target status + weakness bonus),
+      // Ancients (AoE barrage with a signature status), Utility (support aura,
+      // applied in tower-combat — it just fires a plain bolt here).
+      if (tower.type === 'wizard') {
+        const mode = tower.mageMode ?? 'elemental';
+        if (mode === 'elemental') {
+          const spec = ELEMENTS[(tower.element ?? 'air') as Exclude<Element, 'none'>];
+          projColor = spec.color;
+          projSpecial = spec.effect;
+          damage = Math.floor(damage * weaknessMultiplier(tower.element ?? 'air', target.weakness));
+        } else if (mode === 'ancients') {
+          const spec = ANCIENTS[tower.ancientType ?? 'ice'];
+          projColor = spec.color;
+          projSpecial = spec.effect;
+          projAoe = true;
+          projLifesteal = !!spec.lifesteal;
+        }
+      }
+
       this.projectiles.push({
         id: uid(),
         x: tower.x,
@@ -750,9 +830,11 @@ export class GameEngine {
         targetId: target.id,
         speed: 600,
         damage,
-        color: tower.color,
+        color: projColor,
         type: tower.type === 'cannon' ? 'cannonball' : tower.type === 'wizard' ? 'spell' : 'arrow',
-        special: tower.special === 'rapid' ? undefined : tower.special,
+        special: projSpecial,
+        aoe: projAoe || undefined,
+        lifesteal: projLifesteal || undefined,
         sourceTowerId: tower.id,
         trail: [],
       });
@@ -787,17 +869,40 @@ export class GameEngine {
 
   private hit(p: Projectile, target: Enemy) {
     this.spawnImpactParticles(p.x, p.y, p.color);
-    if (p.special === 'aoe') {
-      for (const e of this.enemies) {
-        if (distanceSq(e.x, e.y, p.x, p.y) <= 80 * 80) this.damage(e, p.damage);
+    if (p.aoe || p.special === 'aoe') {
+      // Snapshot: damage() splices the live array as enemies die.
+      for (const e of [...this.enemies]) {
+        if (distanceSq(e.x, e.y, p.x, p.y) > 80 * 80) continue;
+        const killed = this.damage(e, p.damage);
+        if (killed) { if (p.lifesteal) this.stealLife(); }
+        else this.applyOnHit(e, p.special, p.damage);
       }
     } else {
-      this.damage(target, p.damage);
-      if (p.special === 'slow') {
-        target.speed = target.baseSpeed * 0.5;
-        target.slowTimer = 2;
-      }
+      const killed = this.damage(target, p.damage);
+      if (killed) { if (p.lifesteal) this.stealLife(); }
+      else this.applyOnHit(target, p.special, p.damage);
     }
+  }
+
+  /** Apply a projectile's on-hit status to a (surviving) enemy. */
+  private applyOnHit(e: Enemy, special: Projectile['special'], dmg: number) {
+    if (special === 'slow') {
+      e.speed = e.baseSpeed * 0.5;
+      e.slowTimer = 2;
+    } else if (special === 'stun') {
+      e.stunTimer = Math.max(e.stunTimer, 1);
+    } else if (special === 'burn') {
+      e.burnTimer = Math.max(e.burnTimer, 3);
+      e.burnDamage = Math.max(e.burnDamage, Math.max(2, Math.floor(dmg * 0.2)));
+    }
+  }
+
+  /** Blood barrage lifesteal: restore a life, throttled to once per second. */
+  private stealLife() {
+    if (this.lives >= this.maxLives) return;
+    if (this.gameTime - this.lastLifesteal < 1) return;
+    this.lastLifesteal = this.gameTime;
+    this.lives += 1;
   }
 
   /** A small spark burst where a projectile lands. */
@@ -816,7 +921,8 @@ export class GameEngine {
     }
   }
 
-  private damage(enemy: Enemy, amount: number) {
+  /** Deal damage to an enemy; returns true if it died from this hit. */
+  private damage(enemy: Enemy, amount: number): boolean {
     const dealt = Math.max(0, Math.floor(amount));
     enemy.hp -= dealt;
     enemy.flashTimer = 0.15; // visual hit-pop
@@ -828,9 +934,9 @@ export class GameEngine {
       life: HITSPLAT_LIFE,
     });
     if (dealt > 0) this.sound.play('hit', 70);
-    if (enemy.hp > 0) return;
+    if (enemy.hp > 0) return false;
     const i = this.enemies.indexOf(enemy);
-    if (i < 0) return;
+    if (i < 0) return false;
     this.enemies.splice(i, 1);
     this.spawnDeathParticles(enemy);
     this.deaths.push({
@@ -849,6 +955,7 @@ export class GameEngine {
     this.kills += 1;
     this.slayer.recordKill(enemy.type);
     this.emit();
+    return true;
   }
 
   private spawnDeathParticles(enemy: Enemy) {
@@ -910,6 +1017,7 @@ export class GameEngine {
     this.selectedTowerId = null;
     this.movingTowerId = null;
     this.gameTime = 0;
+    this.lastLifesteal = 0;
     this.slayer.reset();
     this.slayer.assignTask(); // fresh task for the new run
     this.prayer.reset();

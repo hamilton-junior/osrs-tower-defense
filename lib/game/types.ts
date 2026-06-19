@@ -84,6 +84,8 @@ export interface Enemy extends EnemyDef {
   tauntTimer: number;
   burnTimer: number;
   burnDamage: number;
+  /** Fractional burn damage carried between frames until it sums to ≥1. */
+  burnAccum?: number;
   groundTimer: number;
   poisonTimer?: number;
   venomTimer?: number;
@@ -229,8 +231,12 @@ export interface Projectile {
   damage: number;
   color: string;
   type: 'arrow' | 'spell' | 'cannonball' | 'dart' | 'bolt' | 'magic_projectile' | 'ancient_ice' | 'ancient_blood' | 'ancient_shadow' | 'ancient_smoke' | 'chinchompa' | 'godsword';
-  element?: Element; 
+  element?: Element;
   special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood' | 'aoe_slow';
+  /** Hits every enemy near impact (Ancients barrage / cannon splash). */
+  aoe?: boolean;
+  /** Restores a life when this projectile lands a kill (Blood barrage). */
+  lifesteal?: boolean;
   sourceTowerId?: string;
   /** Recent positions (oldest→newest) for drawing a motion trail. */
   trail?: { x: number; y: number }[];
