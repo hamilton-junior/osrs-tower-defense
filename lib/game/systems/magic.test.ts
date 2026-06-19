@@ -57,7 +57,7 @@ describe('spell sprite names', () => {
   it('resolves the cast for a wizard (utility → Arceuus icon), null for non-wizard', () => {
     expect(spellSpriteName({ type: 'wizard', mageMode: 'elemental', element: 'fire', level: 3 })).toBe('Fire_Blast');
     expect(spellSpriteName({ type: 'wizard', mageMode: 'ancients', ancientType: 'blood', level: 2 })).toBe('Blood_Burst');
-    expect(spellSpriteName({ type: 'wizard', mageMode: 'utility', supportSpell: 'enfeeble', level: 4 })).toBe('Resurrect_Greater_Zombie');
+    expect(spellSpriteName({ type: 'wizard', mageMode: 'utility', supportSpell: 'enfeeble', level: 4 })).toBe('Undead_Grasp');
     expect(spellSpriteName({ type: 'wizard', mageMode: 'utility', level: 4 })).toBe('Death_Charge'); // default curse
     expect(spellSpriteName({ type: 'archer', level: 1 })).toBeNull();
   });

@@ -7,7 +7,7 @@ import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
-import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
+import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
@@ -21,6 +21,20 @@ const WIZ_TOWER = ASSETS.towers.wizard as Record<string, string>;
 const WIZARD_STAVES = ['elemental_air', 'elemental_water', 'elemental_earth', 'elemental_fire'].map((k) => WIZ_TOWER[k]);
 const WIZARD_SCEPTRES = ['ancient_ice', 'ancient_blood', 'ancient_shadow', 'ancient_smoke'].map((k) => WIZ_TOWER[k]);
 const WIZARD_UTILITY_STAFF = WIZ_TOWER['utility'];
+/** The staff sprite a placed wizard shows — matches its spellbook & element,
+ *  the same image the board renders. */
+const wizardStaffUrl = (t: { mageMode?: MageMode; element?: string; ancientType?: string }): string | undefined => {
+  const mode = t.mageMode ?? 'elemental';
+  if (mode === 'ancients') return WIZ_TOWER[`ancient_${t.ancientType ?? 'ice'}`];
+  if (mode === 'utility') return WIZ_TOWER['utility'];
+  return WIZ_TOWER[`elemental_${t.element ?? 'air'}`];
+};
+/** Spellbook tab icon for a wizard's mode (Elemental→Standard, Ancients→Ancient,
+ *  Utility→Arceuus). */
+const spellbookIcon = (mode?: MageMode): string =>
+  mode === 'ancients' ? ASSETS.misc.spellbook_ancient
+    : mode === 'utility' ? ASSETS.misc.spellbook_arceuus
+      : ASSETS.misc.spellbook_standard;
 /** The old 6-tower on-map picker is kept in the source but disabled — the wizard
  *  now gets a spellbook picker on its tile instead. Flip to re-enable it. */
 const SHOW_TOWER_PICKER = false;
@@ -248,6 +262,24 @@ export default function GameRoot() {
   const engW = engineRef.current?.width || 1920;
   const engH = engineRef.current?.height || 1080;
 
+  // Hovered spellbook preview: the 4 spell tiers (each cycling its elements),
+  // or the 3 utility fields. Rendered above the options in a fixed-height row so
+  // hovering never reflows the popup (which would jitter the buttons + flicker).
+  const spellbookPreview: { icon?: string; tier: string }[] = (() => {
+    if (!spellbookHover) return [];
+    if (spellbookHover === 'utility') {
+      return SUPPORT_ORDER.map((id) => ({ icon: spellIconUrl(SUPPORT_SPELLS[id].spell), tier: SUPPORT_SPELLS[id].label }));
+    }
+    return [0, 1, 2, 3].map((t) => {
+      if (spellbookHover === 'ancients') {
+        const el = ANCIENT_ORDER[(animTick + t) % ANCIENT_ORDER.length];
+        return { icon: spellIconUrl(ancientSpellName(el, t + 1)), tier: ANCIENT_TIER_NAMES[t] };
+      }
+      const el = ELEMENT_ORDER[(animTick + t) % ELEMENT_ORDER.length];
+      return { icon: spellIconUrl(elementalSpellName(el, t + 1)), tier: ELEMENTAL_TIER_NAMES[t] };
+    });
+  })();
+
   return (
     <div className="relative w-full h-full overflow-hidden bg-black select-none font-osrs">
       <canvas
@@ -272,9 +304,23 @@ export default function GameRoot() {
             transform: 'translate(-50%, -118%)',
           }}
         >
-          <div className="rs-panel p-2" style={{ fontSize: 'clamp(12px, 0.85vw, 17px)' }}>
-            <div className="text-center text-[0.6em] text-[#b7a98c] uppercase tracking-wide mb-[0.35em]">Choose spellbook</div>
-            <div className="flex gap-[0.3em]">
+          <div className="rs-panel p-[0.7em]" style={{ fontSize: 'clamp(14px, 1vw, 20px)' }}>
+            <div className="text-center text-[0.66em] text-[#b7a98c] uppercase tracking-wide mb-[0.4em]">Choose spellbook</div>
+
+            {/* Preview ABOVE the options, fixed height so hovering never reflows
+                the popup (which would jitter the buttons under the cursor). */}
+            <div className="flex items-end justify-center gap-[0.4em] mb-[0.5em] h-[3.4em] border-b border-[#3a2f1d] pb-[0.4em]">
+              {spellbookHover
+                ? spellbookPreview.map((it, idx) => (
+                    <div key={idx} className="flex flex-col items-center w-[2.4em]">
+                      {it.icon && <img src={it.icon} alt="" className="w-[2em] h-[2em]" onError={hideBrokenImg} />}
+                      <span className="text-[0.5em] text-[#cdbb91] mt-[0.15em] leading-none text-center">{it.tier}</span>
+                    </div>
+                  ))
+                : <span className="text-[0.62em] text-[#8a7d63] self-center">Hover a spellbook to preview its spells</span>}
+            </div>
+
+            <div className="flex gap-[0.4em] justify-center">
               {([
                 { mode: 'elemental', label: 'Elemental', icon: WIZARD_STAVES[animTick % WIZARD_STAVES.length] },
                 { mode: 'ancients', label: 'Ancients', icon: WIZARD_SCEPTRES[animTick % WIZARD_SCEPTRES.length] },
@@ -286,40 +332,15 @@ export default function GameRoot() {
                   onClick={() => engineRef.current?.confirmWizardSpellbook(mode)}
                   onMouseEnter={() => setSpellbookHover(mode)}
                   onMouseLeave={() => setSpellbookHover((h) => (h === mode ? null : h))}
-                  className="rs-slot flex flex-col items-center"
+                  className="rs-slot flex flex-col items-center w-[3.6em]"
                 >
                   {icon
                     ? <img src={icon} alt={label} onError={hideBrokenImg} />
-                    : <span className="text-[10px]">{label}</span>}
-                  <span className="text-[0.56em] text-[#cdbb91] mt-[0.1em]">{label}</span>
+                    : <span className="text-[0.6em]">{label}</span>}
+                  <span className="text-[0.58em] text-[#cdbb91] mt-[0.15em]">{label}</span>
                 </button>
               ))}
             </div>
-
-            {spellbookHover && (() => {
-              const i = animTick % 4;
-              let icon: string | undefined;
-              let label: string;
-              if (spellbookHover === 'elemental') {
-                const spell = elementalSpellName(ELEMENT_ORDER[i], i + 1); // element+tier cycle together
-                icon = spellIconUrl(spell);
-                label = spell.replace('_', ' ');
-              } else if (spellbookHover === 'ancients') {
-                const spell = ancientSpellName(ANCIENT_ORDER[i], i + 1);
-                icon = spellIconUrl(spell);
-                label = spell.replace('_', ' ');
-              } else {
-                const id = SUPPORT_ORDER[i % SUPPORT_ORDER.length];
-                icon = spellIconUrl(SUPPORT_SPELLS[id].spell);
-                label = SUPPORT_SPELLS[id].label;
-              }
-              return (
-                <div className="mt-[0.4em] flex items-center gap-[0.4em] px-[0.2em] border-t border-[#3a2f1d] pt-[0.4em]">
-                  {icon && <img src={icon} alt="" className="w-[1.6em] h-[1.6em] object-contain" onError={hideBrokenImg} />}
-                  <span className="text-[0.72em] text-osrs-yellow">{label}</span>
-                </div>
-              );
-            })()}
 
             <div className="text-center text-[0.62em] text-[#8a7d63] mt-[0.3em]">right‑click to cancel</div>
           </div>
@@ -463,12 +484,14 @@ export default function GameRoot() {
           style={{ fontSize: 'clamp(13px, 0.92vw, 19px)' }}
         >
           <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1.05em' }}>
-            {towerIcon(selectedTower.type) && (
-              <img src={towerIcon(selectedTower.type)} alt="" className="w-[1.4em] h-[1.4em] object-contain" />
-            )}
+            {(() => {
+              // The wizard shows its actual staff (matching the board), not the
+              // generic tier-1 icon — so it changes with element/spellbook.
+              const staff = selectedTower.type === 'wizard' ? wizardStaffUrl(selectedTower) : towerIcon(selectedTower.type);
+              return staff ? <img src={staff} alt="" className="w-[1.4em] h-[1.4em]" onError={hideBrokenImg} /> : null;
+            })()}
             {wizSpellIcon && (
-              <img src={wizSpellIcon} alt="" className="w-[1.4em] h-[1.4em] object-contain"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src={wizSpellIcon} alt="" className="w-[1.4em] h-[1.4em]" onError={hideBrokenImg} />
             )}
             <span className="truncate">{wizSpellLabel ?? selectedTower.name}</span>
           </div>
@@ -522,7 +545,10 @@ export default function GameRoot() {
             <div className="mt-[0.7em]">
               <div className="flex items-center justify-between mb-[0.3em] px-[0.2em]">
                 <span className="text-[0.72em] text-[#b7a98c] uppercase tracking-wide">Spellbook</span>
-                <span className="text-[0.72em] text-osrs-yellow capitalize">{selectedTower.mageMode ?? 'elemental'} 🔒</span>
+                <span className="flex items-center gap-[0.3em] text-[0.72em] text-osrs-yellow capitalize">
+                  <img src={spellbookIcon(selectedTower.mageMode)} alt="" className="w-[1.2em] h-[1.2em]" onError={hideBrokenImg} />
+                  {selectedTower.mageMode ?? 'elemental'}
+                </span>
               </div>
 
               {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (

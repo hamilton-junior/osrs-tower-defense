@@ -33,6 +33,13 @@ body {
   font-family: 'RuneScape', var(--font-osrs), monospace;
 }
 
+/* Global guarantee: UI sprites (wiki PNGs) keep their aspect ratio everywhere —
+   a fixed width/height box never stretches them. OSRS icons are square-ish but
+   not always exactly square, so this prevents the squashed look app-wide. */
+.font-osrs img {
+  object-fit: contain;
+}
+
 .osrs-font {
   font-family: 'RuneScape', var(--font-osrs), monospace;
   letter-spacing: 0.5px;

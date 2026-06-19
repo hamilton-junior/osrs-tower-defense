@@ -69,7 +69,7 @@ export interface SupportSpec {
 export const SUPPORT_ORDER: SupportSpellId[] = ['curse', 'enfeeble', 'sanctity'];
 export const SUPPORT_SPELLS: Record<SupportSpellId, SupportSpec> = {
   curse: { color: '#c77dff', label: 'Vulnerability', desc: 'Enemies in range take +25% damage', spell: 'Death_Charge' },
-  enfeeble: { color: '#7fe6ff', label: 'Enfeeble', desc: 'Enemies in range are slowed', spell: 'Resurrect_Greater_Zombie' },
+  enfeeble: { color: '#7fe6ff', label: 'Enfeeble', desc: 'Enemies in range are slowed', spell: 'Undead_Grasp' },
   sanctity: { color: '#ffd24a', label: 'Prayer Restoration', desc: 'Steadily restores Prayer points', spell: 'Vile_Vigour' },
 };
 

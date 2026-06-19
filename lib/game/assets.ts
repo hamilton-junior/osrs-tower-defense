@@ -16,7 +16,7 @@ for (const w of ['Ice', 'Blood', 'Shadow', 'Smoke']) {
 }
 // Utility (Arceuus spellbook) support-spell icons.
 SPELL_ICONS['Death_Charge'] = `${WIKI}Death_Charge.png`;
-SPELL_ICONS['Resurrect_Greater_Zombie'] = `${WIKI}Resurrect_Greater_Zombie.png`;
+SPELL_ICONS['Undead_Grasp'] = `${WIKI}Undead_Grasp.png`;
 SPELL_ICONS['Vile_Vigour'] = `${WIKI}Vile_Vigour.png`;
 
 export const ASSETS = {
@@ -186,6 +186,11 @@ export const ASSETS = {
     rune_essence_icon: 'https://oldschool.runescape.wiki/images/Rune_essence_detail.png',
     herblore_icon: 'https://oldschool.runescape.wiki/images/Herblore_icon.png',
     farming_icon: 'https://oldschool.runescape.wiki/images/Farming_icon.png',
+    // Spellbook icons for the wizard panel (Elemental→Standard, Ancients→Ancient,
+    // Utility→Arceuus).
+    spellbook_standard: 'https://oldschool.runescape.wiki/images/Standard_spellbook.png',
+    spellbook_ancient: 'https://oldschool.runescape.wiki/images/Ancient_spellbook.png',
+    spellbook_arceuus: 'https://oldschool.runescape.wiki/images/Arceuus_spellbook.png',
     wiki_base: 'https://oldschool.runescape.wiki/images/',
   },
   sounds: {
