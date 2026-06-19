@@ -22,6 +22,18 @@ export const GAME_SOUNDS: Record<string, string> = {
   prayer_off: ASSETS.sounds.misc.prayer_off,
 };
 
+// Per-spell cast sounds, keyed `cast_<element|ancient>_<level>` (+ `cast_support`).
+// The wizard plays the clip for the exact spell it casts, and the engine uses the
+// clip's duration to time the projectile's flight (see fireTowers).
+const shoot = ASSETS.sounds.shoot as Record<string, Record<number, string>>;
+for (const el of ['air', 'water', 'earth', 'fire']) {
+  for (let lvl = 1; lvl <= 4; lvl++) GAME_SOUNDS[`cast_${el}_${lvl}`] = shoot[`wizard_${el}`][lvl - 1];
+}
+for (const an of ['ice', 'blood', 'shadow', 'smoke']) {
+  for (let lvl = 1; lvl <= 4; lvl++) GAME_SOUNDS[`cast_${an}_${lvl}`] = shoot[`ancient_${an}`][lvl - 1];
+}
+GAME_SOUNDS['cast_support'] = shoot.support[1];
+
 /**
  * Lightweight SFX player over HTMLAudioElement. Preloads each source once and
  * plays a clone per trigger so overlapping shots don't cut each other off.
@@ -58,6 +70,12 @@ export class SoundManager {
 
   setVolume(value: number) {
     this.volume = Math.max(0, Math.min(1, value));
+  }
+
+  /** Loaded duration (seconds) of a clip, or NaN if unknown/not yet decoded. */
+  duration(key: string): number {
+    const audio = this.cache.get(key);
+    return audio && isFinite(audio.duration) ? audio.duration : NaN;
   }
 
   play(key: string, throttleMs = 50) {

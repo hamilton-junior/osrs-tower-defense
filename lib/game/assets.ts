@@ -92,6 +92,11 @@ export const ASSETS = {
       elemental_earth: 'https://oldschool.runescape.wiki/images/Staff_of_earth.png',
       elemental_fire: 'https://oldschool.runescape.wiki/images/Staff_of_fire.png',
       ancients: 'https://oldschool.runescape.wiki/images/Ancient_staff.png',
+      // Ancients tower body = the Ancient sceptre variant matching the barrage.
+      ancient_ice: 'https://oldschool.runescape.wiki/images/Ice_ancient_sceptre.png',
+      ancient_blood: 'https://oldschool.runescape.wiki/images/Blood_ancient_sceptre.png',
+      ancient_shadow: 'https://oldschool.runescape.wiki/images/Shadow_ancient_sceptre.png',
+      ancient_smoke: 'https://oldschool.runescape.wiki/images/Smoke_ancient_sceptre.png',
       utility: 'https://oldschool.runescape.wiki/images/Ahrim%27s_staff.png',
     },
     cannon: {

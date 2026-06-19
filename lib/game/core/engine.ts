@@ -848,12 +848,26 @@ export class GameEngine {
         }
       }
 
+      // A wizard plays the exact spell's cast clip and times the projectile's
+      // flight to that clip's length, so the bolt lands as the sound finishes.
+      let soundKey = `fire_${tower.type}`;
+      let projSpeed = 600;
+      if (tower.type === 'wizard') {
+        const mode = tower.mageMode ?? 'elemental';
+        soundKey = mode === 'ancients'
+          ? `cast_${tower.ancientType ?? 'ice'}_${tower.level}`
+          : `cast_${tower.element ?? 'air'}_${tower.level}`;
+        const dur = this.sound.duration(soundKey);
+        const flight = Number.isFinite(dur) ? Math.min(1.1, Math.max(0.35, dur)) : 0.6;
+        projSpeed = distance(tower.x, tower.y, target.x, target.y) / flight;
+      }
+
       this.projectiles.push({
         id: uid(),
         x: tower.x,
         y: tower.y,
         targetId: target.id,
-        speed: 600,
+        speed: projSpeed,
         damage,
         color: projColor,
         type: tower.type === 'cannon' ? 'cannonball' : tower.type === 'wizard' ? 'spell' : 'arrow',
@@ -864,7 +878,7 @@ export class GameEngine {
         sourceTowerId: tower.id,
         trail: [],
       });
-      this.sound.play(`fire_${tower.type}`, 70);
+      this.sound.play(soundKey, 70);
     }
   }
 

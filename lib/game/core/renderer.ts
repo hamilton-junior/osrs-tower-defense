@@ -416,22 +416,20 @@ export class GameRenderer {
       ctx.save();
       ctx.translate(tower.x - Math.cos(angle) * back, tower.y - Math.sin(angle) * back);
       ctx.scale(flip * pulse, pulse);
-      this.drawTowerSprite(ctx, tower.type, tower.level, 0, 0, tower.visualRadius);
+      this.drawTowerSprite(ctx, tower.type, tower.level, 0, 0, tower.visualRadius, this.wizardStaffKey(tower));
       ctx.restore();
 
-      // Spell badge: a wizard wears the icon of the spell it currently casts
-      // (e.g. Fire Wave / Ice Barrage) at its shoulder, so the choice reads at a
-      // glance on the board.
+      // Spell icon: a wizard wears the icon of the spell it currently casts
+      // (Fire Wave / Ice Barrage / …) centred on the staff body, drawn outside
+      // the flip/recoil transform so it stays put instead of floating when the
+      // staff turns to face a target. Aspect-preserved so it isn't squashed.
       const spell = spellSpriteName(tower);
       const badgeKey = spell ? `spell_${spell}` : null;
       if (badgeKey && this.e.imageOk(badgeKey)) {
-        const bs = 14;
-        const bx = tower.x + tower.visualRadius - bs * 0.6;
-        const by = tower.y - tower.visualRadius - bs * 0.3;
         ctx.save();
-        ctx.shadowColor = 'rgba(0,0,0,0.7)';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
         ctx.shadowBlur = 3;
-        ctx.drawImage(this.e.images.get(badgeKey)!, bx, by, bs, bs);
+        this.drawImageContain(ctx, this.e.images.get(badgeKey)!, tower.x, tower.y, tower.visualRadius * 1.05);
         ctx.restore();
       }
 
@@ -439,8 +437,18 @@ export class GameRenderer {
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 11px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(String(tower.level), tower.x, tower.y + 4);
+      ctx.fillText(String(tower.level), tower.x, tower.y + tower.visualRadius + 8);
     }
+  }
+
+  /** Staff-body sprite key for a wizard, reflecting its spellbook & element
+   *  (Elemental staff / Ancient sceptre variant / utility staff); null otherwise. */
+  private wizardStaffKey(tower: { type: string; mageMode?: string; element?: string; ancientType?: string }): string | undefined {
+    if (tower.type !== 'wizard') return undefined;
+    const mode = tower.mageMode ?? 'elemental';
+    if (mode === 'elemental') return `wizard_elemental_${tower.element ?? 'air'}`;
+    if (mode === 'ancients') return `wizard_ancient_${tower.ancientType ?? 'ice'}`;
+    return 'wizard_utility';
   }
 
   private drawTowerSprite(
@@ -450,8 +458,9 @@ export class GameRenderer {
     x: number,
     y: number,
     radius: number,
+    preferredKey?: string,
   ) {
-    const keys = [`${type}_${level}`, `${type}_1`];
+    const keys = [preferredKey, `${type}_${level}`, `${type}_1`].filter(Boolean) as string[];
     const key = keys.find(k => this.e.imageOk(k));
     if (key) {
       const img = this.e.images.get(key)!;
@@ -463,6 +472,15 @@ export class GameRenderer {
       ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  /** Draw an image centred at (cx,cy) fit inside a `box`-px square, preserving
+   *  its aspect ratio (like CSS object-contain) so it never looks stretched. */
+  private drawImageContain(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cx: number, cy: number, box: number) {
+    const ratio = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 1;
+    let w = box, h = box;
+    if (ratio > 1) h = box / ratio; else w = box * ratio;
+    ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
   }
 
   private drawEnemies(ctx: CanvasRenderingContext2D) {
@@ -558,8 +576,7 @@ export class GameRenderer {
         ctx.save();
         ctx.shadowColor = p.color;
         ctx.shadowBlur = 8;
-        const s = 18;
-        ctx.drawImage(this.e.images.get(`spell_${p.spellIcon}`)!, p.x - s / 2, p.y - s / 2, s, s);
+        this.drawImageContain(ctx, this.e.images.get(`spell_${p.spellIcon}`)!, p.x, p.y, 18);
         ctx.restore();
       } else {
         // glow for magic/cannon shots
