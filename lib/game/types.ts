@@ -100,6 +100,9 @@ export interface Enemy extends EnemyDef {
   /** Independent damage-over-time effects (fire `burn`, `poison`), ticked and
    *  shown as separate hitsplats so the two never merge into one splat. */
   dots?: Partial<Record<DotKind, DotState>>;
+  /** Bosses build crowd-control resistance from non-damaging debuffs they take
+   *  (+1% tenacity each); this counts those hits. See `GameEngine.tenacity`. */
+  debuffHits?: number;
   /** @deprecated Legacy single-slot DoT, used only by the phased-out
    *  `lib/game/engine.ts` / `renderer.ts`. The active core uses {@link dots}. */
   burnTimer?: number;

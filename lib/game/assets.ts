@@ -195,6 +195,14 @@ export const ASSETS = {
     spellbook_arceuus: 'https://oldschool.runescape.wiki/images/Arceuus_spellbook.png',
     wiki_base: 'https://oldschool.runescape.wiki/images/',
   },
+  // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
+  debuffs: {
+    slow: 'https://oldschool.runescape.wiki/images/Snare.png',
+    stun: 'https://oldschool.runescape.wiki/images/Stun.png',
+    burn: 'https://oldschool.runescape.wiki/images/Fire_Wave.png',
+    poison: 'https://oldschool.runescape.wiki/images/Weapon_poison.png',
+    vuln: 'https://oldschool.runescape.wiki/images/Vulnerability.png',
+  },
   sounds: {
     shoot: {
       archer: { 1: 'https://oldschool.runescape.wiki/images/transcoded/Longbow_attack.wav/Longbow_attack.wav.mp3' },

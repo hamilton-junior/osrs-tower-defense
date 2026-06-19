@@ -9,8 +9,9 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, bloodBonusFrac, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, weaknessMultiplier, lifestealChance, bloodBonusFrac, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
+import { debuffTenacity } from '../systems/tenacity';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -124,6 +125,9 @@ export interface Hitsplat {
 }
 
 /** Live summary of the enemy under the pointer, for the hover info panel. */
+/** Active debuff kinds shown as icons in the enemy hover panel. */
+export type DebuffId = 'slow' | 'stun' | 'burn' | 'poison' | 'vuln';
+
 export interface EnemyHoverInfo {
   name: string;
   hp: number;
@@ -135,7 +139,9 @@ export interface EnemyHoverInfo {
   isBoss: boolean;
   x: number;
   y: number;
-  effects: string[];
+  effects: DebuffId[];
+  /** Crowd-control resistance, 0..1 (see `GameEngine.tenacity`). */
+  tenacity: number;
 }
 
 /** A dying enemy's sprite, fading out where it fell. */
@@ -388,6 +394,17 @@ export class GameEngine {
     this.emit();
   }
 
+  /** ESC: back out of a pending placement/move first; otherwise pause combat.
+   *  Pausing only freezes the sim (enemies, towers, projectiles, DoTs, prayer &
+   *  potion timers) — the player can still place, move, sell and pick spells. */
+  escape() {
+    if (this.pendingPlacement || this.movingTowerId || this.selectedTowerType) {
+      this.cancelAction();
+    } else {
+      this.togglePause();
+    }
+  }
+
   toggleMute() {
     this.sound.setMuted(!this.sound.isMuted);
     this.sound.play('click');
@@ -464,12 +481,12 @@ export class GameEngine {
       if (d <= r * r && d < bestD) { best = e; bestD = d; }
     }
     if (!best) return null;
-    const effects: string[] = [];
-    if (best.slowTimer > 0) effects.push('Slowed');
-    if (best.stunTimer > 0) effects.push('Frozen');
-    if ((best.dots?.burn?.timer ?? 0) > 0) effects.push('Burning');
-    if ((best.dots?.poison?.timer ?? 0) > 0) effects.push('Poisoned');
-    if (best.vulnTimer && best.vulnTimer > 0) effects.push('Vulnerable');
+    const effects: DebuffId[] = [];
+    if (best.slowTimer > 0) effects.push('slow');
+    if (best.stunTimer > 0) effects.push('stun');
+    if ((best.dots?.burn?.timer ?? 0) > 0) effects.push('burn');
+    if ((best.dots?.poison?.timer ?? 0) > 0) effects.push('poison');
+    if (best.vulnTimer && best.vulnTimer > 0) effects.push('vuln');
     return {
       name: best.name,
       hp: Math.max(0, Math.ceil(best.hp)),
@@ -482,6 +499,7 @@ export class GameEngine {
       x: best.x,
       y: best.y,
       effects,
+      tenacity: this.tenacity(best),
     };
   }
 
@@ -730,6 +748,25 @@ export class GameEngine {
     tower.supportSpell = spell;
     this.sound.play('click');
     this.emit();
+  }
+
+  /** Keyboard Q/W/E/R (slots 0..3): switch the *selected* wizard's element /
+   *  barrage / support field by slot. Utility has only 3 fields, so slot 3 (R) is
+   *  a no-op. No-op when the selected tower isn't a wizard. */
+  selectWizardSlot(slot: number) {
+    const tower = this.towers.find(t => t.id === this.selectedTowerId);
+    if (!tower || tower.type !== 'wizard') return;
+    const mode = tower.mageMode ?? 'elemental';
+    if (mode === 'elemental') {
+      const el = ELEMENT_ORDER[slot];
+      if (el) this.setWizardElement(tower.id, el);
+    } else if (mode === 'ancients') {
+      const anc = ANCIENT_ORDER[slot];
+      if (anc) this.setAncientType(tower.id, anc);
+    } else {
+      const sup = SUPPORT_ORDER[slot];
+      if (sup) this.setSupportSpell(tower.id, sup);
+    }
   }
 
   sellTower(towerId: string) {
@@ -990,13 +1027,24 @@ export class GameEngine {
           projSpecial = spec.effect;
           damage = Math.floor(damage * weaknessMultiplier(tower.element ?? 'air', target.weakness));
         } else if (mode === 'ancients') {
-          const spec = ANCIENTS[tower.ancientType ?? 'ice'];
+          const anc = tower.ancientType ?? 'ice';
+          const spec = ANCIENTS[anc];
           projColor = spec.glow ?? spec.color; // glow/trail matches the spell sprite
           projSpecial = spec.effect;
           projAoe = true;
           projLifesteal = !!spec.lifesteal;
           // Blood barrage adds (3 + 0.5·level)% of each target's max HP on hit.
-          if ((tower.ancientType ?? 'ice') === 'blood') projBonusMaxHpFrac = bloodBonusFrac(tower.level);
+          if (anc === 'blood') projBonusMaxHpFrac = bloodBonusFrac(tower.level);
+          // Ice applies its slow NOW (on the tower's attack cadence), not on contact:
+          // the long sound-synced flight shouldn't delay the crowd-control. Damage
+          // still lands with the bolt, so drop the on-hit slow. Slows every enemy in
+          // the barrage's blast radius around the target, as the splash would.
+          if (anc === 'ice') {
+            for (const e of this.enemies) {
+              if (distanceSq(e.x, e.y, target.x, target.y) <= 80 * 80) this.applySlow(e);
+            }
+            projSpecial = undefined;
+          }
         }
       }
 
@@ -1074,10 +1122,11 @@ export class GameEngine {
       for (const e of this.enemies) {
         if (!inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e))) continue;
         if (spell === 'curse') {
-          e.vulnTimer = Math.max(e.vulnTimer ?? 0, 0.5); // refreshed while inside
+          // Refreshed while inside; tenacity-scaled but doesn't build boss tenacity
+          // (it's a continuous aura, not a discrete hit).
+          e.vulnTimer = Math.max(e.vulnTimer ?? 0, 0.5 * (1 - this.tenacity(e)));
         } else if (spell === 'enfeeble') {
-          e.speed = e.baseSpeed * 0.5;
-          e.slowTimer = Math.max(e.slowTimer, 0.5);
+          this.applySlow(e, 0.5, false);
         }
       }
     }
@@ -1159,15 +1208,52 @@ export class GameEngine {
    * (Ancients) — read off `p.aoe` — tunes them: Fire burns by % max HP while
    * Smoke is flat poison; Earth stuns long while Shadow stuns briefly.
    */
+  /**
+   * Crowd-control resistance, 0..1. Reduces how long non-damaging debuffs (slow,
+   * stun, vulnerability, knockback) last — damage-over-time (burn/poison) ignores
+   * it. Normal monsters scale with the wave (wave/2 %, capped 50%); superiors cap
+   * at 75%. Bosses don't get a wave base — they BUILD tenacity from the
+   * non-damaging debuffs thrown at them (+1% each, capped at min(wave%, 90%)), so
+   * stun/slow spam can't perma-lock them.
+   */
+  tenacity(e: Enemy): number {
+    return debuffTenacity({
+      isBoss: e.isBoss,
+      superior: e.type.startsWith('superior_'),
+      wave: this.wave,
+      debuffHits: e.debuffHits,
+    });
+  }
+
+  /** Register a non-damaging debuff landing on an enemy: bosses build tenacity
+   *  (+1% per hit) from it. No-op for non-bosses. Continuous auras shouldn't call
+   *  this (they'd inflate the counter every frame). */
+  private noteDebuffHit(e: Enemy) {
+    if (e.isBoss) e.debuffHits = (e.debuffHits ?? 0) + 1;
+  }
+
+  /** Apply the move-speed slow (toxic/ice/enfeeble), shortened by the enemy's
+   *  tenacity. `count` registers the hit for boss tenacity; pass false for the
+   *  per-frame utility aura so it doesn't inflate the counter. */
+  private applySlow(e: Enemy, seconds = 2, count = true) {
+    const eff = seconds * (1 - this.tenacity(e));
+    if (count) this.noteDebuffHit(e);
+    if (eff <= 0) return;
+    e.speed = e.baseSpeed * 0.5;
+    e.slowTimer = Math.max(e.slowTimer, eff);
+  }
+
   private applyOnHit(e: Enemy, p: Projectile) {
     switch (p.special) {
       case 'slow':
-        e.speed = e.baseSpeed * 0.5;
-        e.slowTimer = 2;
+        this.applySlow(e);
         break;
-      case 'stun':
-        e.stunTimer = Math.max(e.stunTimer, p.aoe ? 0.8 : 2);
+      case 'stun': {
+        const eff = (p.aoe ? 0.8 : 2) * (1 - this.tenacity(e));
+        this.noteDebuffHit(e);
+        if (eff > 0) e.stunTimer = Math.max(e.stunTimer, eff);
         break;
+      }
       case 'burn': {
         // Ancient Smoke poisons (green) for the current wave number per second
         // (scales into the late game); elemental Fire burns (orange) for a % of the
@@ -1182,11 +1268,15 @@ export class GameEngine {
         else dots[kind] = { timer: dur, dps, accum: 0, tickTimer: 0 };
         break;
       }
-      case 'amp':
-        e.vulnTimer = Math.max(e.vulnTimer ?? 0, 3);
+      case 'amp': {
+        const eff = 3 * (1 - this.tenacity(e));
+        this.noteDebuffHit(e);
+        if (eff > 0) e.vulnTimer = Math.max(e.vulnTimer ?? 0, eff);
         break;
+      }
       case 'pushback':
-        this.knockback(e, 28);
+        this.knockback(e, 28 * (1 - this.tenacity(e)));
+        this.noteDebuffHit(e);
         break;
       default:
         break;

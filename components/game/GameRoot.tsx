@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { GameEngine, type UIState, type EnemyHoverInfo } from '@/lib/game/core/engine';
+import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId } from '@/lib/game/core/engine';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
@@ -18,6 +18,14 @@ const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<n
 const towerTierIcon = (type: TowerType, tier: number) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[tier];
 /** Wiki spell-icon URL for a spell-file name (e.g. `Fire_Wave`), if it exists. */
 const spellIconUrl = (name: string): string | undefined => ASSETS.spells[name];
+/** Label + OSRS icon for each enemy debuff, shown in the hover panel. */
+const DEBUFF_META: Record<DebuffId, { label: string; icon: string }> = {
+  slow: { label: 'Slowed', icon: ASSETS.debuffs.slow },
+  stun: { label: 'Stunned', icon: ASSETS.debuffs.stun },
+  burn: { label: 'Burning', icon: ASSETS.debuffs.burn },
+  poison: { label: 'Poisoned', icon: ASSETS.debuffs.poison },
+  vuln: { label: 'Vulnerable', icon: ASSETS.debuffs.vuln },
+};
 /** Staves cycled per spellbook in the wizard's on-tile picker. */
 const WIZ_TOWER = ASSETS.towers.wizard as Record<string, string>;
 const WIZARD_STAVES = ['elemental_air', 'elemental_water', 'elemental_earth', 'elemental_fire'].map((k) => WIZ_TOWER[k]);
@@ -173,17 +181,23 @@ export default function GameRoot() {
     return () => clearTimeout(t);
   }, [ui.noticeSeq, ui.notice, ui.noticeIcon]);
 
-  // Keyboard shortcuts: space = pause, 1/2/5 = speed, Esc = cancel, M = mute.
+  // Keyboard shortcuts: Esc = pause combat (or cancel a pending action), Space =
+  // start next wave, 1/2/5 = speed, Q/W/E/R = swap the selected wizard's element/
+  // barrage/field, M = mute.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const eng = engineRef.current;
       if (!eng) return;
       switch (e.key) {
-        case ' ': e.preventDefault(); eng.togglePause(); break;
+        case 'Escape': e.preventDefault(); eng.escape(); break;
+        case ' ': e.preventDefault(); eng.startWave(); break;
         case '1': eng.setGameSpeed(1); break;
         case '2': eng.setGameSpeed(2); break;
         case '3': case '5': eng.setGameSpeed(5); break;
-        case 'Escape': eng.cancelAction(); break;
+        case 'q': case 'Q': eng.selectWizardSlot(0); break;
+        case 'w': case 'W': eng.selectWizardSlot(1); break;
+        case 'e': case 'E': eng.selectWizardSlot(2); break;
+        case 'r': case 'R': eng.selectWizardSlot(3); break;
         case 'm': case 'M': eng.toggleMute(); break;
         default: break;
       }
@@ -372,17 +386,22 @@ export default function GameRoot() {
         onContextMenu={onContextMenu}
       />
 
-      {/* Enemy hover info — anchored above the hovered enemy, updating live. */}
+      {/* Enemy hover info — anchored to the hovered enemy, updating live. Flips
+          below the enemy and clamps horizontally so it never clips off-screen. */}
       {hoverEnemy && (() => {
         const ratio = Math.max(0, hoverEnemy.hp / hoverEnemy.maxHp);
         const wk = hoverEnemy.weakness ? ELEMENTS[hoverEnemy.weakness as keyof typeof ELEMENTS] : null;
+        const xPct = (hoverEnemy.x / engW) * 100;
+        const yPct = (hoverEnemy.y / engH) * 100;
+        const below = yPct < 22; // too near the top → drop the panel beneath the enemy
+        const clampedX = Math.min(87, Math.max(13, xPct)); // keep the box on-screen
         return (
           <div
             className="absolute z-20 pointer-events-none"
             style={{
-              left: `${(hoverEnemy.x / engW) * 100}%`,
-              top: `${(hoverEnemy.y / engH) * 100}%`,
-              transform: 'translate(-50%, -135%)',
+              left: `${clampedX}%`,
+              top: `${yPct}%`,
+              transform: `translate(-50%, ${below ? '35%' : '-135%'})`,
             }}
           >
             <div className="rs-panel px-[0.7em] py-[0.5em] w-[12em]" style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}>
@@ -402,11 +421,24 @@ export default function GameRoot() {
                 <span className="text-right text-white">{hoverEnemy.speed}{hoverEnemy.speed !== hoverEnemy.baseSpeed ? ` (${hoverEnemy.baseSpeed})` : ''}</span>
                 <span className="text-[#d3c3a0]">Gold</span>
                 <span className="text-right text-osrs-yellow">{hoverEnemy.reward}</span>
+                {hoverEnemy.tenacity > 0 && (
+                  <>
+                    <span className="text-[#d3c3a0]" title="Resistance to non-damaging debuffs (slow, stun, etc.)">Tenacity</span>
+                    <span className="text-right text-osrs-cyan">{Math.round(hoverEnemy.tenacity * 100)}%</span>
+                  </>
+                )}
               </div>
               {hoverEnemy.effects.length > 0 && (
-                <div className="mt-[0.35em] pt-[0.3em] border-t border-[#3a2f1d] flex flex-wrap gap-[0.3em]">
-                  {hoverEnemy.effects.map((e) => (
-                    <span key={e} className="text-[0.64em] px-[0.4em] py-[0.05em] rounded bg-[#2b231a] text-osrs-cyan">{e}</span>
+                <div className="mt-[0.35em] pt-[0.3em] border-t border-[#3a2f1d] flex flex-wrap items-center gap-[0.35em]">
+                  {hoverEnemy.effects.map((id) => (
+                    <img
+                      key={id}
+                      src={DEBUFF_META[id].icon}
+                      alt={DEBUFF_META[id].label}
+                      title={DEBUFF_META[id].label}
+                      className="w-[1.3em] h-[1.3em] object-contain"
+                      onError={hideBrokenImg}
+                    />
                   ))}
                 </div>
               )}
@@ -1079,16 +1111,16 @@ export default function GameRoot() {
         })}
       </div>
 
-      {/* Paused overlay */}
+      {/* Combat paused: a non-blocking banner only. The sim (enemies, towers,
+          projectiles, DoTs, prayer & potion timers) is frozen, but the player can
+          still place, move, sell towers and pick spells — so it doesn't capture
+          pointer events. Resume with Esc or the ⏸ button. */}
       {ui.paused && !ui.gameOver && (
-        <div
-          className="absolute inset-0 bg-black/45 flex flex-col items-center justify-center z-20 cursor-pointer"
-          onClick={() => engineRef.current?.togglePause()}
-        >
-          <div className="rs-wave-banner" style={{ animation: 'none', position: 'static', transform: 'none' }}>
-            ❚❚ PAUSED
+        <div className="absolute inset-x-0 top-0 mt-2 flex justify-center z-20 pointer-events-none">
+          <div className="rs-panel px-[1.1em] py-[0.4em] text-center" style={{ fontSize: 'clamp(12px, 0.85vw, 16px)' }}>
+            <div className="text-osrs-orange font-bold">❚❚ COMBAT PAUSED</div>
+            <div className="text-[#cdbe91] text-[0.8em]">build freely · press Esc or ⏸ to resume</div>
           </div>
-          <div className="text-[#cdbe91] text-sm mt-2">click anywhere or press ⏸ to resume</div>
         </div>
       )}
 
