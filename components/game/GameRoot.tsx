@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GameEngine, type UIState, type EnemyHoverInfo } from '@/lib/game/core/engine';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
+import { MovablePanel } from './MovablePanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
@@ -103,6 +104,12 @@ export default function GameRoot() {
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
   const [animTick, setAnimTick] = useState(0);
   const [hoverEnemy, setHoverEnemy] = useState<EnemyHoverInfo | null>(null);
+  // Global UI-move lock (persisted): when on, no panel can be dragged.
+  const [uiLocked, setUiLocked] = useState(false);
+  useEffect(() => { try { setUiLocked(JSON.parse(localStorage.getItem('ui_global_lock') ?? 'false')); } catch { /* ignore */ } }, []);
+  const toggleUiLock = useCallback(() => {
+    setUiLocked((v) => { const n = !v; try { localStorage.setItem('ui_global_lock', JSON.stringify(n)); } catch { /* ignore */ } return n; });
+  }, []);
   const prevWaveActive = useRef(false);
 
   // Poll the enemy under the cursor so its HP/effects read live while hovering.
@@ -558,7 +565,9 @@ export default function GameRoot() {
 
       {/* Selected tower panel (top-left) */}
       {selectedTower && (
-        <div
+        <MovablePanel
+          id="tower"
+          globalLock={uiLocked}
           className="rs-panel absolute top-4 left-4 p-3 z-10 w-[17em]"
           style={{ fontSize: 'clamp(13px, 0.92vw, 19px)' }}
         >
@@ -757,11 +766,13 @@ export default function GameRoot() {
               </div>
             </div>
           )}
-        </div>
+        </MovablePanel>
       )}
 
       {/* Bottom-right interface panel: start wave + tower shop */}
-      <div
+      <MovablePanel
+        id="shop"
+        globalLock={uiLocked}
         className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em]"
         style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
       >
@@ -864,10 +875,10 @@ export default function GameRoot() {
         <p className="text-center text-[0.64em] text-[#b3a585] mt-[0.2em]">
           <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> cancel · <kbd>M</kbd> mute
         </p>
-      </div>
+      </MovablePanel>
 
       {/* Speed + sound control (bottom-left) */}
-      <div className="rs-panel absolute bottom-4 left-4 p-2 z-10 flex items-center gap-1">
+      <MovablePanel id="controls" globalLock={uiLocked} className="rs-panel absolute bottom-4 left-4 p-2 z-10 flex items-center gap-1">
         <button
           onClick={() => engineRef.current?.togglePause()}
           title={ui.paused ? 'Resume' : 'Pause'}
@@ -912,11 +923,21 @@ export default function GameRoot() {
           <img src={ASSETS.misc.ge_logo} alt="" className="w-4 h-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           GE
         </button>
-      </div>
+        <button
+          data-no-drag
+          onClick={toggleUiLock}
+          title={uiLocked ? 'Unlock UI (allow moving panels)' : 'Lock UI (prevent moving panels)'}
+          className={`rs-btn px-2 py-1 text-xs ml-1 ${uiLocked ? 'rs-btn-primary' : ''}`}
+        >
+          {uiLocked ? '🔒' : '🔓'}
+        </button>
+      </MovablePanel>
 
       {/* Grand Exchange shop (toggled from the bottom-left controls) */}
       {geOpen && (
-        <div
+        <MovablePanel
+          id="ge"
+          globalLock={uiLocked}
           className="rs-panel absolute bottom-16 left-4 p-3 z-20 w-[21em]"
           style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
         >
@@ -956,7 +977,7 @@ export default function GameRoot() {
           <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
             Buffs last 45s · prices drift with demand each wave
           </p>
-        </div>
+        </MovablePanel>
       )}
 
       {/* Quick-prayers bar (bottom-center): all tower prayers shown; locked ones

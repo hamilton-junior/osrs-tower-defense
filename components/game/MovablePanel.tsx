@@ -1,0 +1,102 @@
+'use client';
+
+import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+
+function load<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const v = window.localStorage.getItem(key);
+    return v ? (JSON.parse(v) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function save(key: string, value: unknown) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* ignore */
+  }
+}
+
+interface Props {
+  /** Stable id used to persist this panel's drag offset + lock. */
+  id: string;
+  className?: string;
+  style?: CSSProperties;
+  /** When true (global UI lock), the panel can't be dragged. */
+  globalLock?: boolean;
+  children: React.ReactNode;
+}
+
+/**
+ * Wraps an absolutely-positioned panel and makes it draggable: drag from any
+ * empty part of the panel (interactive controls are excluded), right-click to
+ * snap it back to its original spot, and a small pin in the corner locks just
+ * this panel. A global lock (passed in) disables dragging for everything. The
+ * per-panel offset and lock persist in localStorage.
+ */
+export function MovablePanel({ id, className, style, globalLock = false, children }: Props) {
+  const [offset, setOffset] = useState(() => load(`ui_pos_${id}`, { x: 0, y: 0 }));
+  const [locked, setLocked] = useState(() => load(`ui_lock_${id}`, false));
+  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+
+  useEffect(() => save(`ui_pos_${id}`, offset), [id, offset]);
+  useEffect(() => save(`ui_lock_${id}`, locked), [id, locked]);
+
+  const canDrag = !globalLock && !locked;
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!canDrag || e.button !== 0) return;
+    // Don't start a drag from interactive controls inside the panel.
+    if ((e.target as HTMLElement).closest('button, input, select, a, [data-no-drag]')) return;
+    drag.current = { sx: e.clientX, sy: e.clientY, ox: offset.x, oy: offset.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }, [canDrag, offset]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!drag.current) return;
+    setOffset({ x: drag.current.ox + (e.clientX - drag.current.sx), y: drag.current.oy + (e.clientY - drag.current.sy) });
+  }, []);
+
+  const endDrag = useCallback(() => { drag.current = null; }, []);
+
+  const onContextMenu = useCallback((e: React.MouseEvent) => {
+    // Right-click anywhere on the panel snaps it back to its anchor.
+    e.preventDefault();
+    e.stopPropagation();
+    setOffset({ x: 0, y: 0 });
+  }, []);
+
+  const moved = offset.x !== 0 || offset.y !== 0;
+
+  return (
+    <div
+      className={className}
+      style={{ ...style, transform: `translate(${offset.x}px, ${offset.y}px)`, cursor: canDrag ? 'move' : undefined }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onContextMenu={onContextMenu}
+    >
+      {!globalLock && (
+        <button
+          data-no-drag
+          onClick={() => setLocked((l) => !l)}
+          title={locked ? 'Unlock this panel' : 'Lock this panel'}
+          className="absolute -top-2 -right-2 z-10 w-5 h-5 flex items-center justify-center rounded-full border border-[#1b1712] bg-[#2b231a] text-[11px] leading-none opacity-70 hover:opacity-100"
+        >
+          {locked ? '🔒' : '📌'}
+        </button>
+      )}
+      {moved && !globalLock && !locked && (
+        <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[9px] text-[#b3a585] whitespace-nowrap pointer-events-none">
+          right-click to reset
+        </span>
+      )}
+      {children}
+    </div>
+  );
+}
