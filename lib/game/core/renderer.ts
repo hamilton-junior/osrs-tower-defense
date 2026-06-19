@@ -1,6 +1,7 @@
 import type { GameEngine } from './engine';
 import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
+import { ELEMENTS } from '../systems/magic';
 
 const GRID = 32;
 
@@ -449,6 +450,13 @@ export class GameRenderer {
   }
 
   private drawEnemies(ctx: CanvasRenderingContext2D) {
+    // When an Elemental wizard is selected, mark enemies weak to its element
+    // (in that element's colour) so the player can see good targets.
+    const sel = this.e.selectedTowerId ? this.e.towers.find(t => t.id === this.e.selectedTowerId) : null;
+    const markEl = sel && sel.type === 'wizard' && (sel.mageMode ?? 'elemental') === 'elemental' ? (sel.element ?? 'air') : null;
+    const markColor = markEl && markEl !== 'none' ? ELEMENTS[markEl].color : null;
+    const markPulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
+
     for (const e of this.e.enemies) {
       const isBoss = !!e.isBoss;
       const size = isBoss ? 60 : 30;
@@ -487,6 +495,18 @@ export class GameRenderer {
       ctx.fillRect(e.x - bw / 2, by, bw, 4);
       ctx.fillStyle = ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a';
       ctx.fillRect(e.x - bw / 2, by, bw * ratio, 4);
+
+      // Weakness highlight: a pulsing ring in the selected wizard's element.
+      if (markColor && e.weakness === markEl) {
+        ctx.save();
+        ctx.strokeStyle = markColor;
+        ctx.globalAlpha = 0.45 + markPulse * 0.4;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, isBoss ? 26 : 16, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 

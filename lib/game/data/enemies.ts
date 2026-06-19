@@ -1,3 +1,4 @@
+import type { Element } from '../types';
 
 export interface EnemyDef {
   type: string | any; // Keep flexible for now or use EnemyType
@@ -192,7 +193,6 @@ export const ENEMIES: Record<string, EnemyDef> = {
     color: '#8b0000',
     reward: 16,
     deathSound: 'demon',
-    weakness: 'fire',
     waveUnlock: 5
   },
   dark_beast: {
@@ -325,3 +325,30 @@ export const ENEMIES: Record<string, EnemyDef> = {
     waveUnlock: 11
   }
 };
+
+/**
+ * Elemental weaknesses, themed so each element has worthwhile targets across
+ * the whole roster: Water counters fire creatures & demons, Fire counters the
+ * undead/nature/insects, Earth grounds giants/dragons/stone/reptiles, and Air
+ * preys on the agile/magical/ethereal. An Elemental wizard deals +50% to an
+ * enemy matching its element (see systems/magic `weaknessMultiplier`).
+ */
+const WEAKNESSES: Partial<Record<string, Element>> = {
+  // Water — fire creatures & demons
+  imp: 'water', hellhound: 'water', fire_giant: 'water', lesser_demon: 'water',
+  black_demon: 'water', abyssal_demon: 'water', superior_abyssal_demon: 'water',
+  nechryael: 'water', superior_nechryael: 'water', jad: 'water',
+  // Fire — undead, nature & insects
+  skeleton: 'fire', zombie: 'fire', barrow_wight: 'fire', spider: 'fire',
+  scorpion: 'fire', chaos_druid: 'fire', cow: 'fire',
+  // Earth — giants, dragons, stone & reptiles
+  goblin: 'earth', hill_giant: 'earth', gargoyle: 'earth', superior_gargoyle: 'earth',
+  blue_dragon: 'earth', green_dragon: 'earth', vorkath: 'earth', hydra: 'earth',
+  bloodveld: 'earth', superior_bloodveld: 'earth',
+  // Air — agile, magical & ethereal
+  rat: 'air', ghost: 'air', skeletal_mage: 'air', dark_beast: 'air', zulrah: 'air',
+};
+
+for (const [type, weakness] of Object.entries(WEAKNESSES)) {
+  if (ENEMIES[type]) ENEMIES[type].weakness = weakness;
+}
