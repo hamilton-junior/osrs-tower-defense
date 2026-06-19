@@ -1,5 +1,8 @@
 import type { Tower, GlobalUpgrades, PrayerType, ActivePotion } from '../types';
 import { distance } from './geometry';
+import { TOWER_STYLES } from '../data/towers';
+import { TOWER_PRAYERS } from '../data/prayers';
+import { GE_OFFERS } from '../data/ge';
 
 export interface TowerStatsContext {
   upgrades: GlobalUpgrades;
@@ -43,36 +46,28 @@ export function calculateTowerStats(
     speedMultiplier *= upgrades.cannonSpeed;
   }
 
-  // Prayer bonuses (best active prayer for the tower's combat style)
-  if (tower.type === 'archer') {
-    if (activePrayers.has('rigour')) damageMultiplier *= 1.23;
-    else if (activePrayers.has('eagle_eye')) damageMultiplier *= 1.15;
-    else if (activePrayers.has('hawk_eye')) damageMultiplier *= 1.1;
-    else if (activePrayers.has('sharp_eye')) damageMultiplier *= 1.05;
-  } else if (tower.type === 'wizard') {
-    if (activePrayers.has('augury')) damageMultiplier *= 1.25;
-    else if (activePrayers.has('mystic_will')) damageMultiplier *= 1.05;
-  } else if (tower.type === 'tzhaar') {
-    if (activePrayers.has('piety')) damageMultiplier *= 1.23;
-    else if (activePrayers.has('ultimate_strength')) damageMultiplier *= 1.15;
-    else if (activePrayers.has('burst_of_strength')) damageMultiplier *= 1.05;
-  }
+  // Prayer + potion boosts key off the weapon's combat style, and only apply to
+  // boostable weapons — the Dwarf Cannon deals Ranged damage but has fixed
+  // damage in OSRS, so it ignores them (see TOWER_STYLES).
+  const profile = TOWER_STYLES[tower.type];
+  if (profile?.boostable) {
+    // Best active offensive prayer matching this style.
+    let bestPrayer = 0;
+    for (const p of TOWER_PRAYERS) {
+      if (p.style === profile.style && activePrayers.has(p.id)) bestPrayer = Math.max(bestPrayer, p.dmg);
+    }
+    damageMultiplier *= 1 + bestPrayer;
 
-  // Potion bonuses
-  if (activePotions.some(p => p.type === 'overload')) {
-    damageMultiplier *= 1.15;
-    rangeMultiplier *= 1.1;
-    speedMultiplier *= 1.1;
-  }
-  if (tower.type === 'archer' && activePotions.some(p => p.type === 'ranging')) {
-    damageMultiplier *= 1.15;
-    rangeMultiplier *= 1.1;
-  }
-  if (tower.type === 'wizard' && activePotions.some(p => p.type === 'magic')) {
-    damageMultiplier *= 1.2;
-  }
-  if (tower.type === 'tzhaar' && activePotions.some(p => p.type === 'super_combat')) {
-    damageMultiplier *= 1.15;
+    // Potions: a style-less buff (Overload) boosts everything; a styled buff
+    // only boosts its own style.
+    for (const pot of activePotions) {
+      const offer = GE_OFFERS.find(o => o.id === pot.type);
+      if (!offer || offer.kind !== 'buff') continue;
+      if (offer.style && offer.style !== profile.style) continue;
+      damageMultiplier *= 1 + (offer.dmg ?? 0);
+      rangeMultiplier *= 1 + (offer.range ?? 0);
+      speedMultiplier *= 1 + (offer.speed ?? 0);
+    }
   }
 
   // Utility-mage support buffs from any in-range support tower

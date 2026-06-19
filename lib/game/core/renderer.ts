@@ -249,8 +249,9 @@ export class GameRenderer {
       t => t.id !== this.e.selectedTowerId && Math.abs(t.x - x) <= 18 && Math.abs(t.y - y) <= 18,
     );
     if (!hovered) return;
+    const range = this.e.effectiveStats(hovered.id)?.range ?? hovered.range;
     this.drawSquareRange(
-      ctx, hovered.x, hovered.y, squareRange(hovered.range, GRID),
+      ctx, hovered.x, hovered.y, squareRange(range, GRID),
       'rgba(255,255,255,0.2)', 'rgba(255,255,255,0.03)',
     );
   }
@@ -382,7 +383,8 @@ export class GameRenderer {
   private drawTowers(ctx: CanvasRenderingContext2D) {
     for (const tower of this.e.towers) {
       if (tower.id === this.e.selectedTowerId) {
-        this.drawSquareRange(ctx, tower.x, tower.y, squareRange(tower.range, GRID), 'rgba(255,255,255,0.35)', 'rgba(255,255,255,0.05)');
+        const range = this.e.effectiveStats(tower.id)?.range ?? tower.range;
+        this.drawSquareRange(ctx, tower.x, tower.y, squareRange(range, GRID), 'rgba(255,255,255,0.35)', 'rgba(255,255,255,0.05)');
         // Sight line to the current target, so the priority setting is legible.
         const target = tower.targetId ? this.e.enemies.find(en => en.id === tower.targetId) : null;
         if (target) {

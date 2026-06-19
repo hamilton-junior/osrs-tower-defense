@@ -53,6 +53,33 @@ describe('calculateTowerStats', () => {
     expect(s.cooldown).toBeCloseTo(1000 / 1.1);
   });
 
+  it('boosts a ranged tower with a Ranging potion (style match)', () => {
+    const s = calculateTowerStats(tower({ type: 'archer' }), ctx({ activePotions: [{ type: 'ranging', timer: 60 }] }));
+    expect(s.damageMultiplier).toBeCloseTo(1.15);
+    expect(s.range).toBeCloseTo(110); // +10% range
+  });
+
+  it('does not boost a magic tower with a Ranging potion (style mismatch)', () => {
+    const s = calculateTowerStats(tower({ type: 'wizard' }), ctx({ activePotions: [{ type: 'ranging', timer: 60 }] }));
+    expect(s.damageMultiplier).toBeCloseTo(1);
+    expect(s.range).toBeCloseTo(100);
+  });
+
+  it('boosts a melee tower with a Super Combat potion', () => {
+    const s = calculateTowerStats(tower({ type: 'tzhaar' }), ctx({ activePotions: [{ type: 'super_combat', timer: 60 }] }));
+    expect(s.damageMultiplier).toBeCloseTo(1.15);
+  });
+
+  it('leaves the (unboostable) cannon unaffected by potions and prayers', () => {
+    const s = calculateTowerStats(
+      tower({ type: 'cannon' }),
+      ctx({ activePotions: [{ type: 'ranging', timer: 60 }, { type: 'overload', timer: 60 }], activePrayers: new Set<PrayerType>(['rigour']) }),
+    );
+    expect(s.damageMultiplier).toBeCloseTo(1);
+    expect(s.range).toBeCloseTo(100);
+    expect(s.cooldown).toBeCloseTo(1000);
+  });
+
   it('adds equipment bonuses (flat damage, range %, cooldown %)', () => {
     const weapon = { id: 'w', name: 'W', description: '', type: 'weapon' as const, bonus: { damage: 5, range: 10, cooldown: 20 } };
     const s = calculateTowerStats(tower({ equipment: { weapon, shield: null, accessory: null } }), ctx());

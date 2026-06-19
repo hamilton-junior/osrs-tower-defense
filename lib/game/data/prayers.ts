@@ -25,14 +25,14 @@ export type PrayerStyle = 'ranged' | 'magic' | 'melee';
  * the OSRS prayer-book order — so the bar reads like the in-game interface.
  * Protection prayers are excluded — towers don't take style-typed damage.
  */
-export const TOWER_PRAYERS: { id: PrayerType; style: PrayerStyle }[] = [
-  { id: 'burst_of_strength', style: 'melee' }, // lvl 4
-  { id: 'sharp_eye', style: 'ranged' }, // lvl 8
-  { id: 'mystic_will', style: 'magic' }, // lvl 9
-  { id: 'hawk_eye', style: 'ranged' }, // lvl 26
-  { id: 'ultimate_strength', style: 'melee' }, // lvl 31
-  { id: 'eagle_eye', style: 'ranged' }, // lvl 44
-  { id: 'piety', style: 'melee' }, // lvl 70
-  { id: 'rigour', style: 'ranged' }, // lvl 74
-  { id: 'augury', style: 'magic' }, // lvl 77
+export const TOWER_PRAYERS: { id: PrayerType; style: PrayerStyle; dmg: number }[] = [
+  { id: 'burst_of_strength', style: 'melee', dmg: 0.05 }, // lvl 4
+  { id: 'sharp_eye', style: 'ranged', dmg: 0.05 }, // lvl 8
+  { id: 'mystic_will', style: 'magic', dmg: 0.05 }, // lvl 9
+  { id: 'hawk_eye', style: 'ranged', dmg: 0.10 }, // lvl 26
+  { id: 'ultimate_strength', style: 'melee', dmg: 0.15 }, // lvl 31
+  { id: 'eagle_eye', style: 'ranged', dmg: 0.15 }, // lvl 44
+  { id: 'piety', style: 'melee', dmg: 0.23 }, // lvl 70
+  { id: 'rigour', style: 'ranged', dmg: 0.23 }, // lvl 74
+  { id: 'augury', style: 'magic', dmg: 0.25 }, // lvl 77
 ];

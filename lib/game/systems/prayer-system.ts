@@ -68,9 +68,11 @@ export class PrayerSystem {
   }
 
   update(dt: number) {
-    // Prayers only cost points while a wave is in progress — between waves you
-    // can leave them on for free (and the pool slowly regenerates).
-    const draining = this.active.size > 0 && this.e.waveActive;
+    // Prayers only cost points while a wave is in progress AND at least one
+    // tower is actually engaging an enemy (has a target). With nothing to fight
+    // — between waves, or before enemies reach range — the drain pauses.
+    const anyTowerAttacking = this.e.towers.some(t => t.targetId !== null);
+    const draining = this.active.size > 0 && this.e.waveActive && anyTowerAttacking;
     if (draining) {
       const drain = prayerDrainRate(this.active, PRAYERS, 1, 1) * DRAIN_SCALE;
       this.points = Math.max(0, this.points - drain * dt);

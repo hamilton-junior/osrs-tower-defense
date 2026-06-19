@@ -1,5 +1,21 @@
 
-import { TowerType, Element, MageMode } from '../types';
+import { TowerType, CombatStyle, Element, MageMode } from '../types';
+
+/**
+ * Each tower's combat style and whether stat boosts (potions/prayers) apply.
+ * Boosts key off `style`, not the tower id — so a Ranging potion buffs every
+ * `ranged` weapon. The Dwarf Cannon deals Ranged damage but, like in OSRS, has
+ * fixed damage, so it is `boostable: false` and ignores potions/prayers. Retune
+ * here (e.g. make the cannon a boostable `melee` weapon) without touching logic.
+ */
+export const TOWER_STYLES: Record<TowerType, { style: CombatStyle; boostable: boolean }> = {
+  archer: { style: 'ranged', boostable: true },
+  toxic: { style: 'ranged', boostable: true },
+  cannon: { style: 'ranged', boostable: false },
+  wizard: { style: 'magic', boostable: true },
+  tzhaar: { style: 'melee', boostable: true },
+  slayer: { style: 'melee', boostable: true },
+};
 
 export interface TowerTier {
   level: number;

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GameEngine, type UIState } from '@/lib/game/core/engine';
-import { TOWERS } from '@/lib/game/data/towers';
+import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
@@ -25,14 +25,7 @@ const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = {
 
 const TICK_MS = 600; // OSRS game tick = 0.6s
 const TILE_PX = 32; // grid tile size in logic px (mirrors engine GRID)
-
-/** Which tower types each combat potion buffs (mirrors `calculateTowerStats`). */
-const POTION_TARGETS: Record<string, TowerType[] | 'all'> = {
-  overload: 'all',
-  ranging: ['archer'],
-  magic: ['wizard'],
-  super_combat: ['tzhaar'],
-};
+const pct = (frac: number) => `+${Math.round(frac * 100)}%`;
 
 /** "3 ticks (1.8s)" from a cooldown in ms. */
 const attackSpeed = (cooldownMs: number) => {
@@ -44,7 +37,7 @@ const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
   movingTowerId: null, gameSpeed: 1, paused: false, muted: false, volume: 0.18,
-  notice: null, noticeSeq: 0,
+  notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael',
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
   geOffers: [],
@@ -74,7 +67,7 @@ export default function GameRoot() {
   const engineRef = useRef<GameEngine | null>(null);
   const [ui, setUi] = useState<UIState>(INITIAL);
   const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' | 'boss' } | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; icon: string | null } | null>(null);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
   const [geOpen, setGeOpen] = useState(false);
   const prevWaveActive = useRef(false);
@@ -120,10 +113,10 @@ export default function GameRoot() {
   // Show a transient toast whenever the engine reports a blocked action.
   useEffect(() => {
     if (!ui.noticeSeq || !ui.notice) return;
-    setToast(ui.notice);
+    setToast({ text: ui.notice, icon: ui.noticeIcon });
     const t = setTimeout(() => setToast(null), 1400);
     return () => clearTimeout(t);
-  }, [ui.noticeSeq, ui.notice]);
+  }, [ui.noticeSeq, ui.notice, ui.noticeIcon]);
 
   // Keyboard shortcuts: space = pause, 1/2/5 = speed, Esc = cancel, M = mute.
   useEffect(() => {
@@ -172,17 +165,27 @@ export default function GameRoot() {
   const selectedTower = ui.selectedTowerId
     ? engineRef.current?.towers.find((t) => t.id === ui.selectedTowerId) ?? null
     : null;
-  // Effective (buffed) stats for the selected tower, plus the combat potions
-  // currently boosting it — so the panel can show the bonus and its origin.
+  // Effective (buffed) stats for the selected tower, plus the active potions and
+  // prayers boosting it — so the panel can show the bonus and its origin. Boosts
+  // key off the tower's combat style and skip unboostable weapons (the cannon).
   const eff = selectedTower ? engineRef.current?.effectiveStats(selectedTower.id) ?? null : null;
-  const towerBuffs = selectedTower
-    ? ui.geOffers.filter(
-        (o) =>
-          o.kind === 'buff' &&
-          o.activeSecs > 0 &&
-          (POTION_TARGETS[o.id] === 'all' || (POTION_TARGETS[o.id] as TowerType[] | undefined)?.includes(selectedTower.type)),
-      )
-    : [];
+  const towerStyle = selectedTower ? TOWER_STYLES[selectedTower.type] : null;
+  // One chip per active boost on this tower: icon + damage amount (no timer —
+  // the countdown already lives in the top-screen infoboxes).
+  const towerBoosts: { key: string; icon: string; amount: string; title: string }[] = [];
+  if (selectedTower && towerStyle?.boostable) {
+    for (const o of ui.geOffers) {
+      if (o.kind === 'buff' && o.activeSecs > 0 && (!o.style || o.style === towerStyle.style)) {
+        towerBoosts.push({ key: `pot-${o.id}`, icon: geIcon(o.wiki), amount: pct(o.dmg ?? 0), title: `${o.name} — ${o.desc}` });
+      }
+    }
+    for (const p of TOWER_PRAYERS) {
+      if (p.style === towerStyle.style && ui.activePrayers.includes(p.id)) {
+        const def = PRAYERS.find((d) => d.id === p.id)!;
+        towerBoosts.push({ key: `pray-${p.id}`, icon: prayerIcon(p.id), amount: pct(p.dmg), title: `${def.name} — ${def.description}` });
+      }
+    }
+  }
   // Active buffs anywhere, for the always-on infobox cluster (RuneLite-style).
   const activeInfoboxes = ui.geOffers.filter((o) => o.activeSecs > 0);
 
@@ -234,9 +237,14 @@ export default function GameRoot() {
       {toast && (
         <div
           key={ui.noticeSeq}
-          className="rs-toast absolute left-1/2 bottom-[16%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap"
+          className="rs-toast absolute left-1/2 bottom-[16%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap flex items-center gap-[0.4em] justify-center"
         >
-          ⚠ {toast}
+          {toast.icon ? (
+            <img src={toast.icon} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          ) : (
+            <span>⚠</span>
+          )}
+          {toast.text}
         </div>
       )}
 
@@ -310,16 +318,16 @@ export default function GameRoot() {
             <Stat label="Level" value={`${selectedTower.level}/${selectedTower.maxLevel}`} />
           </div>
 
-          {/* Active combat-potion boosts on this tower (origin of the green stats) */}
-          {towerBuffs.length > 0 && (
+          {/* Active boosts on this tower (origin of the green stats): each shows
+              the source icon + its damage bonus — potion timers live up top. */}
+          {towerBoosts.length > 0 && (
             <div className="mt-[0.6em] px-[0.2em]">
-              <div className="text-[0.68em] text-[#5bd75b] uppercase tracking-wide mb-[0.3em]">⚗ Potion boosts</div>
+              <div className="text-[0.68em] text-[#5bd75b] uppercase tracking-wide mb-[0.3em]">Active boosts</div>
               <div className="flex flex-wrap gap-[0.3em]">
-                {towerBuffs.map((b) => (
-                  <span key={b.id} className="rs-buff-chip" title={`${b.name} — ${b.desc} · ${b.activeSecs}s left`}>
-                    <img src={geIcon(b.wiki)} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    <span className="truncate">{b.name}</span>
-                    <span className="rs-buff-secs">{b.activeSecs}s</span>
+                {towerBoosts.map((b) => (
+                  <span key={b.key} className="rs-buff-chip" title={b.title}>
+                    <img src={b.icon} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <span className="rs-buff-secs">{b.amount}</span>
                   </span>
                 ))}
               </div>
@@ -413,8 +421,9 @@ export default function GameRoot() {
         {/* Slayer task interface (tasks are auto-assigned) */}
         {ui.slayerTask && (
           <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
-            <div className="text-[0.82em] text-osrs-orange uppercase tracking-wide mb-[0.35em]">
-              ☠ Slayer · {ui.slayerMaster}
+            <div className="flex items-center gap-[0.4em] text-[0.82em] text-osrs-orange uppercase tracking-wide mb-[0.35em]">
+              <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              Slayer · {ui.slayerMaster}
             </div>
             <div className="flex items-center justify-between text-[0.85em] mb-[0.25em]">
               <span className="capitalize text-[#e7d9b0]">{ui.slayerTask.name}</span>

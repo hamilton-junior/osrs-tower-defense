@@ -53,6 +53,8 @@ export interface UIState {
   volume: number;
   /** Last transient notice (e.g. "Not enough gold"); null when none yet. */
   notice: string | null;
+  /** Optional icon URL shown alongside the notice (e.g. the Slayer icon). */
+  noticeIcon: string | null;
   /** Bumped every time a notice fires so the UI can re-trigger on repeats. */
   noticeSeq: number;
   /** Active Slayer task (null when none assigned), as a cloneable view. */
@@ -153,6 +155,7 @@ export class GameEngine {
   kills = 0;
   goldEarned = 0;
   private notice: string | null = null;
+  private noticeIcon: string | null = null;
   private noticeSeq = 0;
 
   // --- composed subsystems ---
@@ -256,6 +259,7 @@ export class GameEngine {
       muted: this.sound.isMuted,
       volume: this.sound.level,
       notice: this.notice,
+      noticeIcon: this.noticeIcon,
       noticeSeq: this.noticeSeq,
       slayerTask: this.slayer.task
         ? {
@@ -276,9 +280,11 @@ export class GameEngine {
     });
   }
 
-  /** Flash a transient message to the UI (e.g. an action that couldn't run). */
-  notify(text: string) {
+  /** Flash a transient message to the UI (e.g. an action that couldn't run).
+   *  Pass `icon` (a URL) to show an icon alongside it instead of the default. */
+  notify(text: string, icon?: string) {
     this.notice = text;
+    this.noticeIcon = icon ?? null;
     this.noticeSeq++;
     this.emit();
   }

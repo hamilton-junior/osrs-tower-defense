@@ -1,5 +1,5 @@
 import type { GameEngine } from '../core/engine';
-import type { ActivePotion } from '../types';
+import type { ActivePotion, CombatStyle } from '../types';
 import { GE_OFFERS, GE_POTION_DURATION, type GeOffer } from '../data/ge';
 import { nextBuyPriceMultiplier } from './economy';
 
@@ -10,6 +10,10 @@ export interface GeListing {
   desc: string;
   kind: GeOffer['kind'];
   wiki: string;
+  /** Combat style this buff boosts; undefined = all styles (buff offers only). */
+  style?: CombatStyle;
+  /** Damage bonus fraction (buff offers only). */
+  dmg?: number;
   /** Current gp price (base × the drifting demand multiplier). */
   price: number;
   /** Remaining seconds on this buff (0 when inactive / not a buff). */
@@ -51,6 +55,8 @@ export class GeSystem {
       desc: o.desc,
       kind: o.kind,
       wiki: o.wiki,
+      style: o.style,
+      dmg: o.dmg,
       price: this.priceOf(o.id),
       activeSecs: Math.ceil(this.active.find(p => p.type === o.id)?.timer ?? 0),
     }));

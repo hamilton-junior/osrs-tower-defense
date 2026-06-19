@@ -2,7 +2,11 @@ import type { GameEngine } from '../core/engine';
 import type { EnemyType, SlayerTask } from '../types';
 import { ENEMIES } from '../data/enemies';
 import { SLAYER_MASTERS } from '../data/slayer';
+import { ASSETS } from '../assets';
 import { rollSlayerTask, slayerCompletionGold } from './slayer';
+
+/** Icon shown on Slayer-related notifications. */
+const SLAYER_ICON = ASSETS.misc.slayer_crossbow;
 
 /**
  * Slayer subsystem for the new core: owns the current task, accumulated Slayer
@@ -51,13 +55,13 @@ export class SlayerSystem {
       slayerRewardMultiplier: 1,
     });
     if (!task) {
-      this.e.notify('No Slayer task available yet');
+      this.e.notify('No Slayer task available yet', SLAYER_ICON);
       return;
     }
     this.task = task;
     const name = ENEMIES[task.type]?.name ?? task.type;
     this.e.playSound('click');
-    this.e.notify(`${master.name}: kill ${task.count} ${name}`);
+    this.e.notify(`${master.name}: kill ${task.count} ${name}`, SLAYER_ICON);
   }
 
   /** Tally a kill toward the active task; completes and rewards it at zero. */
@@ -79,7 +83,7 @@ export class SlayerSystem {
     this.lastTaskType = task.type;
     this.task = null;
     this.e.playSound('wave');
-    this.e.notify('Slayer task complete!');
+    this.e.notify('Slayer task complete!', SLAYER_ICON);
   }
 
   reset() {

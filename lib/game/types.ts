@@ -100,6 +100,8 @@ export interface Enemy extends EnemyDef {
 }
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
+/** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
+export type CombatStyle = 'ranged' | 'magic' | 'melee';
 export type MageMode = 'elemental' | 'ancients' | 'utility';
 export type AncientType = 'ice' | 'blood' | 'shadow' | 'smoke';
 export type SupportSpell = 'charge' | 'curse' | 'bind';
