@@ -161,3 +161,12 @@ export function weaknessMultiplier(element: Element, weakness: Element | undefin
 export function lifestealChance(towerLevel: number): number {
   return (1 + towerLevel) / 100; // 2% at L1 → 5% at L4
 }
+
+/**
+ * Blood barrage bonus damage as a fraction of the target's max HP: `(3 + 0.5·level)%`
+ * (3.5% at L1 → 5% at L4). Added on top of the flat barrage hit so Blood scales
+ * against high-HP enemies — its niche beside the chance-to-heal lifesteal.
+ */
+export function bloodBonusFrac(towerLevel: number): number {
+  return (3 + 0.5 * towerLevel) / 100;
+}

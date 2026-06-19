@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, sanctityRate, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, sanctityRate, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -33,6 +33,13 @@ describe('lifestealChance', () => {
   it('scales (1 + level)% with tower level', () => {
     expect(lifestealChance(1)).toBeCloseTo(0.02);
     expect(lifestealChance(4)).toBeCloseTo(0.05);
+  });
+});
+
+describe('bloodBonusFrac', () => {
+  it('is (3 + 0.5·level)% of max HP', () => {
+    expect(bloodBonusFrac(1)).toBeCloseTo(0.035);
+    expect(bloodBonusFrac(4)).toBeCloseTo(0.05);
   });
 });
 

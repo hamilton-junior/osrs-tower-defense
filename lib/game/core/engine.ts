@@ -8,7 +8,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, bloodBonusFrac, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
@@ -94,7 +94,7 @@ const enemyRadius = (e: { isBoss?: boolean }) => (e.isBoss ? 28 : 13);
  * cast clip ends. `EASE_K` sets the steepness (higher = slower start, harder
  * finish); the normalisation keeps f(0)=0 and f(1)=1 exactly.
  */
-const EASE_K = 2;
+const EASE_K = 6;
 const EASE_NORM = Math.exp(EASE_K) - 1;
 function projectileEase(t: number): number {
   return (Math.exp(EASE_K * t) - 1) / EASE_NORM;
@@ -966,6 +966,7 @@ export class GameEngine {
       let projSpecial: Projectile['special'] | undefined = tower.special === 'rapid' || tower.special === 'aoe' ? undefined : tower.special;
       let projAoe = tower.special === 'aoe';
       let projLifesteal = false;
+      let projBonusMaxHpFrac = 0;
       const projSpell = spellSpriteName(tower) ?? undefined;
 
       // Wizard spellbooks: Elemental (single-target status + weakness bonus),
@@ -984,6 +985,8 @@ export class GameEngine {
           projSpecial = spec.effect;
           projAoe = true;
           projLifesteal = !!spec.lifesteal;
+          // Blood barrage adds (3 + 0.5·level)% of each target's max HP on hit.
+          if ((tower.ancientType ?? 'ice') === 'blood') projBonusMaxHpFrac = bloodBonusFrac(tower.level);
         }
       }
 
@@ -1003,7 +1006,7 @@ export class GameEngine {
         // lands precisely as the sound ends — no clamping that would desync it.
         // Falls back to 0.6s only until the clip is decoded (first cast).
         const dur = this.sound.duration(soundKey);
-        flight = Number.isFinite(dur) ? dur : 0.6;
+        flight = Number.isFinite(dur) ? dur-(dur/4.5) : 0.6;
       }
       flight = Math.max(0.05, flight); // tiny floor: never instantaneous / div-by-zero
 
@@ -1023,6 +1026,7 @@ export class GameEngine {
         special: projSpecial,
         aoe: projAoe || undefined,
         lifesteal: projLifesteal || undefined,
+        bonusMaxHpFrac: projBonusMaxHpFrac || undefined,
         spellIcon: projSpell,
         sourceTowerId: tower.id,
         trail: [],
@@ -1114,7 +1118,10 @@ export class GameEngine {
             !best || distanceSq(e.x, e.y, p.x, p.y) < distanceSq(best.x, best.y, p.x, p.y) ? e : best, null);
       for (const e of near) {
         const isPrimary = e === primary;
-        const dmg = isPrimary ? p.damage : Math.floor(p.damage * splash);
+        const scale = isPrimary ? 1 : splash;
+        // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.
+        const bonus = p.bonusMaxHpFrac ? Math.floor(e.maxHp * p.bonusMaxHpFrac * scale) : 0;
+        const dmg = Math.floor(p.damage * scale) + bonus;
         const killed = this.damage(e, dmg);
         if (isPrimary) primaryKilled = killed;
         if (!killed) this.applyOnHit(e, p);
@@ -1122,7 +1129,8 @@ export class GameEngine {
     } else if (target) {
       // Single-target: only resolves if the target is still alive at impact;
       // otherwise the bolt just fizzles where the target was (particles only).
-      primaryKilled = this.damage(target, p.damage);
+      const bonus = p.bonusMaxHpFrac ? Math.floor(target.maxHp * p.bonusMaxHpFrac) : 0;
+      primaryKilled = this.damage(target, p.damage + bonus);
       if (!primaryKilled) this.applyOnHit(target, p);
     }
     // Blood barrage: a chance to steal a life when the primary target is killed —
@@ -1147,7 +1155,9 @@ export class GameEngine {
         break;
       case 'burn':
         e.burnTimer = Math.max(e.burnTimer, p.aoe ? 4 : 3);
-        e.burnDamage = Math.max(e.burnDamage, p.aoe ? 5 : Math.max(3, Math.floor(e.maxHp * 0.02)));
+        // Ancient Smoke poisons for the current wave number per second (scales
+        // into the late game); elemental Fire burns for a % of the target's max HP.
+        e.burnDamage = Math.max(e.burnDamage, p.aoe ? this.wave : Math.max(3, Math.floor(e.maxHp * 0.02)));
         // Ancient Smoke is flat poison (green); elemental Fire reads as burn (orange).
         e.burnKind = p.aoe ? 'poison' : 'burn';
         break;

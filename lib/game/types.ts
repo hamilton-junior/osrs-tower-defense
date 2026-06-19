@@ -243,6 +243,9 @@ export interface Projectile {
   aoe?: boolean;
   /** Restores a life when this projectile lands a kill (Blood barrage). */
   lifesteal?: boolean;
+  /** Bonus damage as a fraction of each hit enemy's max HP (Blood barrage),
+   *  added on top of the flat hit (splash-scaled for non-primary targets). */
+  bonusMaxHpFrac?: number;
   /** Wiki spell-file name (e.g. `Fire_Wave`) used to draw the real spell sprite. */
   spellIcon?: string;
   sourceTowerId?: string;
