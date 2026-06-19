@@ -1941,12 +1941,12 @@ export class GameEngine {
              // Utility Mage is now a passive support tower, but can still fire periodic debuffs
              if (this.gameTime - tower.lastFired >= effectiveCooldown) {
                 const rand = Math.random();
-                const spell = tower.supportSpell || (rand < 0.5 ? 'curse' : 'bind');
+                const spell = tower.supportSpell || (rand < 0.5 ? 'curse' : 'enfeeble');
                 if (spell === 'curse') {
                    this.playSound('spell_curse');
                    this.damageEnemy(target, 15 + (tower.level * 10));
                    this.particles.push({ x: target.x, y: target.y, life: 0.5, color: '#ff0000' });
-                } else if (spell === 'bind') {
+                } else if (spell === 'enfeeble') {
                    this.playSound('spell_bind');
                    target.stunTimer = (1.5 + tower.level) * (1 - (target.resistance || 0));
                    this.particles.push({ x: target.x, y: target.y, life: 0.5, color: '#0000ff' });

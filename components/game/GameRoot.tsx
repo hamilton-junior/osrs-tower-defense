@@ -7,7 +7,7 @@ import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
-import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER } from '@/lib/game/systems/magic';
+import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER } from '@/lib/game/systems/magic';
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
@@ -393,9 +393,25 @@ export default function GameRoot() {
               )}
 
               {selectedTower.mageMode === 'utility' && (
-                <p className="text-[0.66em] text-[#9fd0ff] px-[0.2em] leading-snug">
-                  Support aura — boosts nearby towers' range, speed &amp; damage as it levels up.
-                </p>
+                <>
+                  <div className="grid grid-cols-3 gap-[0.3em]">
+                    {SUPPORT_ORDER.map((s) => (
+                      <button
+                        key={s}
+                        title={`${SUPPORT_SPELLS[s].label} — ${SUPPORT_SPELLS[s].desc}`}
+                        onClick={() => engineRef.current?.setSupportSpell(selectedTower.id, s)}
+                        className={`rs-btn px-0 py-[0.35em] text-[0.66em] ${(selectedTower.supportSpell ?? 'curse') === s ? 'rs-btn-primary' : ''}`}
+                        style={{ color: SUPPORT_SPELLS[s].color }}
+                      >
+                        {SUPPORT_SPELLS[s].label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[0.62em] text-[#8a7d63] mt-[0.35em] px-[0.2em] leading-snug">
+                    {SUPPORT_SPELLS[selectedTower.supportSpell ?? 'curse'].desc}.
+                    Always-on aura boosts nearby towers' range, speed &amp; damage too.
+                  </p>
+                </>
               )}
 
               {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (

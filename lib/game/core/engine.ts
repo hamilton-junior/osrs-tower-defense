@@ -1,4 +1,4 @@
-import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode } from '../types';
+import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell } from '../types';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
@@ -8,7 +8,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, sanctityRate } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
@@ -534,6 +534,7 @@ export class GameEngine {
       mageMode: type === 'wizard' ? this.pendingMageMode : undefined,
       element: type === 'wizard' && this.pendingMageMode === 'elemental' ? 'air' : undefined,
       ancientType: type === 'wizard' && this.pendingMageMode === 'ancients' ? 'ice' : undefined,
+      supportSpell: type === 'wizard' && this.pendingMageMode === 'utility' ? 'curse' : undefined,
     });
     this.sound.play('place');
     this.selectedTowerType = null;
@@ -593,6 +594,15 @@ export class GameEngine {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower || tower.type !== 'wizard') return;
     tower.ancientType = ancient;
+    this.sound.play('click');
+    this.emit();
+  }
+
+  /** Pick the field a Utility-spellbook wizard projects. */
+  setSupportSpell(towerId: string, spell: SupportSpell) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower || tower.type !== 'wizard') return;
+    tower.supportSpell = spell;
     this.sound.play('click');
     this.emit();
   }
@@ -673,6 +683,7 @@ export class GameEngine {
     this.damageOverTime(dt);
     this.moveEnemies(dt);
     this.fireTowers(dt);
+    this.updateUtilityTowers(dt);
     this.moveProjectiles(dt);
     this.updateEffects(dt);
     this.checkWaveEnd();
@@ -768,6 +779,8 @@ export class GameEngine {
     const now = this.gameTime * 1000; // ms of simulated time (cooldowns are in ms)
     for (const tower of this.towers) {
       if (tower.recoil) tower.recoil = Math.max(0, tower.recoil - dt * 6); // ~0.16s pulse
+      // Utility wizards don't fire — they project a field (see updateUtilityTowers).
+      if (tower.type === 'wizard' && tower.mageMode === 'utility') continue;
       const stats = calculateTowerStats(tower, {
         upgrades: NO_UPGRADES,
         activePrayers: this.prayer.active,
@@ -842,6 +855,36 @@ export class GameEngine {
         trail: [],
       });
       this.sound.play(`fire_${tower.type}`, 70);
+    }
+  }
+
+  /**
+   * Utility wizards are support casters: instead of firing, each projects ONE
+   * field over the enemies in its range. The field status is re-applied every
+   * frame (short refreshed timer) so it lasts exactly while an enemy is inside.
+   * Sanctity has no field — it's a Prayer battery that trickles points back.
+   */
+  private updateUtilityTowers(dt: number) {
+    for (const tower of this.towers) {
+      if (tower.type !== 'wizard' || tower.mageMode !== 'utility') continue;
+      const spell = tower.supportSpell ?? 'curse';
+
+      if (spell === 'sanctity') {
+        this.prayer.restore(sanctityRate(tower.level) * dt);
+        continue;
+      }
+
+      const range = this.effectiveStats(tower.id)?.range ?? tower.range;
+      const half = squareRange(range, GRID);
+      for (const e of this.enemies) {
+        if (!inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e))) continue;
+        if (spell === 'curse') {
+          e.vulnTimer = Math.max(e.vulnTimer ?? 0, 0.5); // refreshed while inside
+        } else if (spell === 'enfeeble') {
+          e.speed = e.baseSpeed * 0.5;
+          e.slowTimer = Math.max(e.slowTimer, 0.5);
+        }
+      }
     }
   }
 

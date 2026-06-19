@@ -108,7 +108,7 @@ export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | '
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
 export type MageMode = 'elemental' | 'ancients' | 'utility';
 export type AncientType = 'ice' | 'blood' | 'shadow' | 'smoke';
-export type SupportSpell = 'charge' | 'curse' | 'bind';
+export type SupportSpell = 'curse' | 'enfeeble' | 'sanctity';
 
 export interface TowerSkill {
   level: number;

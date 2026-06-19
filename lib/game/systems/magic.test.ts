@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, sanctityRate, SUPPORT_SPELLS, SUPPORT_ORDER } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -33,5 +33,16 @@ describe('lifestealChance', () => {
   it('scales (1 + level)% with tower level', () => {
     expect(lifestealChance(1)).toBeCloseTo(0.02);
     expect(lifestealChance(4)).toBeCloseTo(0.05);
+  });
+});
+
+describe('utility support spells', () => {
+  it('offers the three support fields', () => {
+    expect(SUPPORT_ORDER).toEqual(['curse', 'enfeeble', 'sanctity']);
+    for (const id of SUPPORT_ORDER) expect(SUPPORT_SPELLS[id]).toBeDefined();
+  });
+  it('scales Sanctity prayer restore with tower level', () => {
+    expect(sanctityRate(1)).toBeCloseTo(2);
+    expect(sanctityRate(4)).toBeCloseTo(3.5);
   });
 });

@@ -48,6 +48,34 @@ export const ANCIENTS: Record<AncientType, AncientSpec> = {
   smoke: { effect: 'burn', color: '#9a9a9a', label: 'Smoke', desc: 'AoE barrage that poisons (flat damage)' },
 };
 
+/**
+ * Utility spellbook: support casters that don't fire projectiles. On top of the
+ * always-on aura, each utility wizard projects ONE field over the enemies in its
+ * range, chosen by the player:
+ *  - `curse`    → vulnerability field: enemies take +25% damage while inside.
+ *  - `enfeeble` → frost field: enemies are slowed while inside.
+ *  - `sanctity` → prayer battery: steadily restores Prayer points (no field).
+ */
+export type SupportSpellId = 'curse' | 'enfeeble' | 'sanctity';
+
+export interface SupportSpec {
+  color: string;
+  label: string;
+  desc: string;
+}
+
+export const SUPPORT_ORDER: SupportSpellId[] = ['curse', 'enfeeble', 'sanctity'];
+export const SUPPORT_SPELLS: Record<SupportSpellId, SupportSpec> = {
+  curse: { color: '#c77dff', label: 'Vulnerability', desc: 'Enemies in range take +25% damage' },
+  enfeeble: { color: '#7fe6ff', label: 'Enfeeble', desc: 'Enemies in range are slowed' },
+  sanctity: { color: '#ffd24a', label: 'Sanctity', desc: 'Steadily restores Prayer points' },
+};
+
+/** Prayer points/second a Sanctity wizard restores, given its level. */
+export function sanctityRate(towerLevel: number): number {
+  return 1.5 + towerLevel * 0.5; // 2/s at L1 → 3.5/s at L4
+}
+
 /** Extra damage an elemental cast deals to an enemy weak to that element. */
 export const WEAKNESS_BONUS = 1.5;
 
