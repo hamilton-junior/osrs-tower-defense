@@ -55,11 +55,15 @@ export const TOWERS: Record<string, TowerDef> = {
     type: 'wizard',
     baseName: 'Magic',
     fireSound: 'wizard',
+    // Damage mirrors the strongest standard-spellbook cast at each tier — the
+    // Fire variant (Strike 8 → Bolt 12 → Blast 16 → Wave 20, per the OSRS wiki).
+    // Every element hits for the same number; the element only changes the on-hit
+    // effect and the weakness bonus, so no element is a damage downgrade.
     tiers: [
-      { level: 1, name: 'Elemental Strike', damage: 2, cooldown: 5 * TICK * 1000, range: 6 * 25, color: '#a0cfff', upgradeCost: 40 },
-      { level: 2, name: 'Elemental Bolt', damage: 6, cooldown: 5 * TICK * 1000, range: 7 * 25, color: '#a0cfff', upgradeCost: 80 },
-      { level: 3, name: 'Elemental Blast', damage: 14, cooldown: 5 * TICK * 1000, range: 8 * 25, color: '#a0cfff', upgradeCost: 200 },
-      { level: 4, name: 'Elemental Wave', damage: 28, cooldown: 5 * TICK * 1000, range: 8 * 25, color: '#7b68ee', upgradeCost: 600 }
+      { level: 1, name: 'Strike', damage: 8, cooldown: 5 * TICK * 1000, range: 6 * 25, color: '#a0cfff', upgradeCost: 40 },
+      { level: 2, name: 'Bolt', damage: 12, cooldown: 5 * TICK * 1000, range: 7 * 25, color: '#a0cfff', upgradeCost: 80 },
+      { level: 3, name: 'Blast', damage: 16, cooldown: 5 * TICK * 1000, range: 8 * 25, color: '#a0cfff', upgradeCost: 200 },
+      { level: 4, name: 'Wave', damage: 20, cooldown: 5 * TICK * 1000, range: 8 * 25, color: '#7b68ee', upgradeCost: 600 }
     ]
   },
   cannon: {

@@ -76,6 +76,14 @@ export function sanctityRate(towerLevel: number): number {
   return 1.5 + towerLevel * 0.5; // 2/s at L1 → 3.5/s at L4
 }
 
+/**
+ * Ancients hit harder than the equivalent standard cast (per the OSRS wiki, the
+ * Barrages max 30 vs Fire Wave's 20 = 1.5×). A wizard's base damage is the
+ * Elemental/Fire value (see data/towers); an Ancients wizard scales it up by
+ * this so the AoE barrage stays the stronger, less-specialised choice.
+ */
+export const ANCIENT_DAMAGE_SCALE = 1.5;
+
 /** Extra damage an elemental cast deals to an enemy weak to that element. */
 export const WEAKNESS_BONUS = 1.5;
 

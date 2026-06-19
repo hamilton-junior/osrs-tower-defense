@@ -8,7 +8,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, sanctityRate } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, weaknessMultiplier, lifestealChance, sanctityRate, ANCIENT_DAMAGE_SCALE } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
@@ -836,6 +836,7 @@ export class GameEngine {
           projSpecial = spec.effect;
           projAoe = true;
           projLifesteal = !!spec.lifesteal;
+          damage = Math.floor(damage * ANCIENT_DAMAGE_SCALE); // barrages hit harder
         }
       }
 
