@@ -248,6 +248,13 @@ export interface Projectile {
   sourceTowerId?: string;
   /** Recent positions (oldest→newest) for drawing a motion trail. */
   trail?: { x: number; y: number }[];
+  /** Launch point — the easing lerps from here toward the (live) target. */
+  ox?: number;
+  oy?: number;
+  /** Total intended flight time (s); the bolt reaches its target at `age===flight`. */
+  flight?: number;
+  /** Seconds elapsed since launch, for the ease-in (slow→fast) flight curve. */
+  age?: number;
 }
 
 export interface SlayerTask {

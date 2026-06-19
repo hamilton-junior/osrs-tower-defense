@@ -104,6 +104,8 @@ export default function GameRoot() {
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
   const [animTick, setAnimTick] = useState(0);
   const [hoverEnemy, setHoverEnemy] = useState<EnemyHoverInfo | null>(null);
+  // Whether the upgrade button is hovered, to preview the next tier's stats.
+  const [upgradeHover, setUpgradeHover] = useState(false);
   // Global UI-move lock (persisted): when on, no panel can be dragged.
   const [uiLocked, setUiLocked] = useState(false);
   useEffect(() => { try { setUiLocked(JSON.parse(localStorage.getItem('ui_global_lock') ?? 'false')); } catch { /* ignore */ } }, []);
@@ -258,7 +260,7 @@ export default function GameRoot() {
     if (netR) parts.push(`+${pct(netR)} range`);
     if (netS) parts.push(`+${pct(netS)} attack speed`);
     if (parts.length && WIZARD_UTILITY_STAFF) {
-      towerBoosts.push({ key: 'aura', icon: WIZARD_UTILITY_STAFF, amount: `+${pct(netD || netR || netS)}`, title: `Utility aura — ${parts.join(', ')}` });
+      towerBoosts.push({ key: 'aura', icon: WIZARD_UTILITY_STAFF, amount: pct(netD || netR || netS), title: `Utility aura — ${parts.join(', ')}` });
     }
   }
   // Active buffs anywhere, for the always-on infobox cluster (RuneLite-style).
@@ -287,6 +289,46 @@ export default function GameRoot() {
     const effCd = eff ? eff.cooldown : selectedTower.cooldown;
     speedNode = buffedDisplay(attackSpeed(selectedTower.cooldown), attackSpeed(effCd), Math.round(effCd) !== Math.round(selectedTower.cooldown));
   }
+  // Next-tier preview for the upgrade button's hover tooltip: what each stat
+  // becomes at the next level, with the tower's current buffs folded in (shown
+  // in green) so the player sees the real post-upgrade values, not just raw tiers.
+  const upgradePreview = (() => {
+    if (!selectedTower || selectedTower.level >= selectedTower.maxLevel) return null;
+    const next = TOWERS[selectedTower.type]?.tiers[selectedTower.level]; // 0-indexed → next tier
+    if (!next) return null;
+    const flat = eff?.flatDamageBonus ?? 0;
+    const dmgMul = eff?.damageMultiplier ?? 1;
+    const rangeMul = eff && selectedTower.range ? eff.range / selectedTower.range : 1;
+    const cdMul = eff && selectedTower.cooldown ? eff.cooldown / selectedTower.cooldown : 1;
+    const buffDmg = (n: number) => Math.floor((n + flat) * dmgMul);
+    const dmgBuffed = dmgMul !== 1 || flat !== 0;
+    const rows: { label: string; from: string; to: string; buffed?: string }[] = [];
+
+    if (selectedTower.type === 'cannon' && selectedTower.maxDamage != null && next.maxDamage != null) {
+      const fromLo = selectedTower.minDamage ?? 0, fromHi = selectedTower.maxDamage;
+      const toLo = next.minDamage ?? 0, toHi = next.maxDamage;
+      rows.push({ label: 'Damage', from: `${fromLo}–${fromHi}`, to: `${toLo}–${toHi}`, buffed: dmgBuffed ? `${buffDmg(toLo)}–${buffDmg(toHi)}` : undefined });
+    } else {
+      const isAnc = selectedTower.type === 'wizard' && (selectedTower.mageMode ?? 'elemental') === 'ancients';
+      const fromD = isAnc ? ancientHit(selectedTower.level) : selectedTower.damage;
+      const toD = isAnc ? ancientHit(selectedTower.level + 1) : next.damage;
+      rows.push({ label: 'Damage', from: String(fromD), to: String(toD), buffed: dmgBuffed ? String(buffDmg(toD)) : undefined });
+    }
+    rows.push({
+      label: 'Range',
+      from: `${Math.round(selectedTower.range / TILE_PX)}`,
+      to: `${Math.round(next.range / TILE_PX)} tiles`,
+      buffed: rangeMul !== 1 ? `${Math.round((next.range * rangeMul) / TILE_PX)} tiles` : undefined,
+    });
+    rows.push({
+      label: 'Attack speed',
+      from: attackSpeed(selectedTower.cooldown),
+      to: attackSpeed(next.cooldown),
+      buffed: cdMul !== 1 ? attackSpeed(next.cooldown * cdMul) : undefined,
+    });
+    return { name: next.name, cost: selectedTower.upgradeCost, rows, anyBuffed: rows.some((r) => r.buffed) };
+  })();
+
   const moving = !!ui.movingTowerId;
   const moveCost = selectedTower ? engineRef.current?.moveTowerCost(selectedTower) ?? 0 : 0;
   const sellValue = selectedTower ? engineRef.current?.sellValue(selectedTower) ?? 0 : 0;
@@ -737,15 +779,43 @@ export default function GameRoot() {
           ) : (
             <div className="mt-[0.7em] space-y-[0.4em] text-[0.95em]">
               {selectedTower.level < selectedTower.maxLevel && (
-                <button
-                  className="rs-btn w-full flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
-                  title={`Upgrade to next tier for ${selectedTower.upgradeCost} gp`}
-                  disabled={ui.money < selectedTower.upgradeCost}
-                  onClick={() => engineRef.current?.upgradeTower(selectedTower.id)}
-                >
-                  <span className="text-[#5bd75b] font-bold">⬆</span>
-                  Upgrade — {selectedTower.upgradeCost} gp
-                </button>
+                <div className="relative">
+                  {upgradeHover && upgradePreview && (
+                    <div className="absolute bottom-full left-0 right-0 mb-2 z-30 rs-panel p-[0.6em] text-[0.8em] shadow-xl pointer-events-none">
+                      <div className="flex items-center gap-[0.4em] mb-[0.45em] text-osrs-yellow font-bold">
+                        <span className="text-[#5bd75b]">⬆</span>
+                        <span className="truncate">Next tier: {upgradePreview.name}</span>
+                      </div>
+                      <div className="space-y-[0.3em]">
+                        {upgradePreview.rows.map((r) => (
+                          <div key={r.label} className="flex items-center justify-between gap-[0.6em]">
+                            <span className="text-[#d3c3a0] whitespace-nowrap">{r.label}</span>
+                            <span className="flex items-center gap-[0.3em] text-right">
+                              <span className="text-[#9a8d70]">{r.from}</span>
+                              <span className="text-[#cdbe91]">→</span>
+                              <span className="text-[#e7d9b5]">{r.to}</span>
+                              {r.buffed && <span className="text-[#5bd75b]">({r.buffed})</span>}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {upgradePreview.anyBuffed && (
+                        <div className="text-[0.82em] text-[#5bd75b] mt-[0.45em]">(green) = with current buffs</div>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    className="rs-btn w-full flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
+                    title={`Upgrade to next tier for ${selectedTower.upgradeCost} gp`}
+                    disabled={ui.money < selectedTower.upgradeCost}
+                    onMouseEnter={() => setUpgradeHover(true)}
+                    onMouseLeave={() => setUpgradeHover(false)}
+                    onClick={() => engineRef.current?.upgradeTower(selectedTower.id)}
+                  >
+                    <span className="text-[#5bd75b] font-bold">⬆</span>
+                    Upgrade — {selectedTower.upgradeCost} gp
+                  </button>
+                </div>
               )}
               <div className="flex gap-[0.4em]">
                 <button

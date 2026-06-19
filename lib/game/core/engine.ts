@@ -87,6 +87,18 @@ const uid = () => Math.random().toString(36).slice(2, 11);
 /** Approximate body radius (px) used for range/hit tests, matching the sprite size. */
 const enemyRadius = (e: { isBoss?: boolean }) => (e.isBoss ? 28 : 13);
 
+/**
+ * Exponential ease-in for projectile flight: maps progress `t` (0→1) to a
+ * covered-distance fraction (0→1) that starts near-flat and ramps up steeply,
+ * so the bolt launches slowly and accelerates into its target. `EASE_K` sets
+ * the steepness; the normalisation keeps f(0)=0 and f(1)=1 exactly.
+ */
+const EASE_K = 3.4;
+const EASE_NORM = Math.exp(EASE_K) - 1;
+function projectileEase(t: number): number {
+  return (Math.exp(EASE_K * t) - 1) / EASE_NORM;
+}
+
 /** Hitsplat colour, following the OSRS Template:Hitsplat palette: `hit` (red
  *  damage), `miss` (blue 0/block), `poison` (green), `venom` (dark green),
  *  `burn` (orange fire DoT), `heal` (purple). */
@@ -953,12 +965,12 @@ export class GameEngine {
         const mode = tower.mageMode ?? 'elemental';
         if (mode === 'elemental') {
           const spec = ELEMENTS[(tower.element ?? 'air') as Exclude<Element, 'none'>];
-          projColor = spec.color;
+          projColor = spec.glow ?? spec.color; // glow/trail matches the spell sprite
           projSpecial = spec.effect;
           damage = Math.floor(damage * weaknessMultiplier(tower.element ?? 'air', target.weakness));
         } else if (mode === 'ancients') {
           const spec = ANCIENTS[tower.ancientType ?? 'ice'];
-          projColor = spec.color;
+          projColor = spec.glow ?? spec.color; // glow/trail matches the spell sprite
           projSpecial = spec.effect;
           projAoe = true;
           projLifesteal = !!spec.lifesteal;
@@ -966,25 +978,32 @@ export class GameEngine {
       }
 
       // A wizard plays the exact spell's cast clip and times the projectile's
-      // flight to that clip's length, so the bolt lands as the sound finishes.
+      // flight to that clip's length, so the bolt lands as the sound finishes;
+      // archer/cannon shots use a fixed nominal speed. Every projectile then
+      // eases in (slow→fast) over this flight time (see moveProjectiles).
       let soundKey = `fire_${tower.type}`;
-      let projSpeed = 600;
+      const dist = distance(tower.x, tower.y, target.x, target.y);
+      let flight = dist / 600; // archer/cannon nominal flight
       if (tower.type === 'wizard') {
         const mode = tower.mageMode ?? 'elemental';
         soundKey = mode === 'ancients'
           ? `cast_${tower.ancientType ?? 'ice'}_${tower.level}`
           : `cast_${tower.element ?? 'air'}_${tower.level}`;
         const dur = this.sound.duration(soundKey);
-        const flight = Number.isFinite(dur) ? Math.min(1.1, Math.max(0.35, dur)) : 0.6;
-        projSpeed = distance(tower.x, tower.y, target.x, target.y) / flight;
+        flight = Number.isFinite(dur) ? Math.min(1.1, Math.max(0.35, dur)) : 0.6;
       }
+      flight = Math.max(0.12, flight); // never instantaneous
 
       this.projectiles.push({
         id: uid(),
         x: tower.x,
         y: tower.y,
+        ox: tower.x,
+        oy: tower.y,
+        flight,
+        age: 0,
         targetId: target.id,
-        speed: projSpeed,
+        speed: dist / flight, // kept for the trail/legacy; motion uses the ease curve
         damage,
         color: projColor,
         type: tower.type === 'cannon' ? 'cannonball' : tower.type === 'wizard' ? 'spell' : 'arrow',
@@ -1041,15 +1060,21 @@ export class GameEngine {
         p.trail.push({ x: p.x, y: p.y });
         if (p.trail.length > 6) p.trail.shift();
       }
-      const dx = target.x - p.x;
-      const dy = target.y - p.y;
-      const d = Math.hypot(dx, dy);
-      if (d < 12) {
+      // Ease-in flight: lerp from the launch point toward the (live) target with
+      // an exponential curve, so the bolt creeps off slowly then accelerates,
+      // arriving at age===flight — keeping the sound-synced total flight time.
+      p.age = (p.age ?? 0) + dt;
+      const flight = p.flight ?? 0.4;
+      const t = Math.min(1, p.age / flight);
+      const f = projectileEase(t);
+      const ox = p.ox ?? p.x;
+      const oy = p.oy ?? p.y;
+      p.x = ox + (target.x - ox) * f;
+      p.y = oy + (target.y - oy) * f;
+      const d = Math.hypot(target.x - p.x, target.y - p.y);
+      if (t >= 1 || d < 8) {
         this.hit(p, target);
         this.projectiles.splice(i, 1);
-      } else {
-        p.x += (dx / d) * p.speed * dt;
-        p.y += (dy / d) * p.speed * dt;
       }
     }
   }

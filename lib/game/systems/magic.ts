@@ -13,6 +13,10 @@ export type MagicEffect = 'slow' | 'stun' | 'burn' | 'pushback' | 'amp';
 export interface ElementSpec {
   effect: MagicEffect;
   color: string;
+  /** Projectile glow/trail colour — matches the spell sprite, not the UI accent
+   *  (e.g. Earth casts glow green, Air whitish), so the bolt reads as its element.
+   *  Falls back to {@link ElementSpec.color} when omitted. */
+  glow?: string;
   label: string;
   desc: string;
 }
@@ -23,10 +27,10 @@ export interface ElementSpec {
  */
 export const ELEMENT_ORDER: Exclude<Element, 'none'>[] = ['air', 'water', 'earth', 'fire'];
 export const ELEMENTS: Record<Exclude<Element, 'none'>, ElementSpec> = {
-  air: { effect: 'pushback', color: '#cfe8ff', label: 'Air', desc: 'Knocks the enemy back along the path' },
-  water: { effect: 'amp', color: '#3fa9ff', label: 'Water', desc: 'Marks the enemy: +25% damage taken (3s)' },
-  earth: { effect: 'stun', color: '#b07a3c', label: 'Earth', desc: 'Long single-target stun (~2s)' },
-  fire: { effect: 'burn', color: '#ff5a1f', label: 'Fire', desc: 'Burns for a % of max HP per second' },
+  air: { effect: 'pushback', color: '#cfe8ff', glow: '#eaf6ff', label: 'Air', desc: 'Knocks the enemy back along the path' },
+  water: { effect: 'amp', color: '#3fa9ff', glow: '#3fa9ff', label: 'Water', desc: 'Marks the enemy: +25% damage taken (3s)' },
+  earth: { effect: 'stun', color: '#b07a3c', glow: '#46c23a', label: 'Earth', desc: 'Long single-target stun (~2s)' },
+  fire: { effect: 'burn', color: '#ff5a1f', glow: '#ff5a1f', label: 'Fire', desc: 'Burns for a % of max HP per second' },
 };
 
 export interface AncientSpec {
@@ -35,6 +39,9 @@ export interface AncientSpec {
   /** Blood barrage: chance to heal a life on a kill (scales with tower level). */
   lifesteal?: boolean;
   color: string;
+  /** Projectile glow/trail colour (matches the sprite: Shadow black, Ice white-
+   *  blue, …). Falls back to {@link AncientSpec.color} when omitted. */
+  glow?: string;
   label: string;
   desc: string;
 }
@@ -42,10 +49,10 @@ export interface AncientSpec {
 /** Ancients spellbook: AoE barrages — generally stronger, less specialised. */
 export const ANCIENT_ORDER: AncientType[] = ['ice', 'blood', 'shadow', 'smoke'];
 export const ANCIENTS: Record<AncientType, AncientSpec> = {
-  ice: { effect: 'slow', color: '#7fe6ff', label: 'Ice', desc: 'AoE barrage that slows' },
-  blood: { lifesteal: true, color: '#c81e1e', label: 'Blood', desc: 'AoE barrage; chance to restore a life on a kill' },
-  shadow: { effect: 'stun', color: '#6a3fb0', label: 'Shadow', desc: 'AoE barrage with a brief stun' },
-  smoke: { effect: 'burn', color: '#9a9a9a', label: 'Smoke', desc: 'AoE barrage that poisons (flat damage)' },
+  ice: { effect: 'slow', color: '#7fe6ff', glow: '#dff4ff', label: 'Ice', desc: 'AoE barrage that slows' },
+  blood: { lifesteal: true, color: '#c81e1e', glow: '#c81e1e', label: 'Blood', desc: 'AoE barrage; chance to restore a life on a kill' },
+  shadow: { effect: 'stun', color: '#6a3fb0', glow: '#1b1024', label: 'Shadow', desc: 'AoE barrage with a brief stun' },
+  smoke: { effect: 'burn', color: '#9a9a9a', glow: '#8f8f8f', label: 'Smoke', desc: 'AoE barrage that poisons (flat damage)' },
 };
 
 /**
