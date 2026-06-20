@@ -216,10 +216,9 @@ export const ASSETS = {
     potato: 'https://oldschool.runescape.wiki/images/Potato.png',
   },
   misc: {
-    // Spawn portal — the Pest Control void portal, an NPC model rendered from the
-    // cache (scripts/render-osrs-npcs.mjs), served locally. Drawn at the road's
-    // entry edge (renderer.drawSpawnPortal) instead of the old gradient mouth.
-    portal: `${LOCAL}/models/portal.png`,
+    // Generic portal icon (legacy UI fallback only — the live spawn portal is
+    // drawn procedurally in renderer.drawSpawnPortal, no sprite).
+    portal: 'https://oldschool.runescape.wiki/images/Transportation_logo.png',
     portal_shield: 'https://oldschool.runescape.wiki/images/Purple_Portal_Shield.png',
     tree: 'https://oldschool.runescape.wiki/images/Tree.png',
     ore_adamant: 'https://oldschool.runescape.wiki/images/Adamantite_ore.png',

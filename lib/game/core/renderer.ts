@@ -1,4 +1,5 @@
 import type { GameEngine, HitsplatKind } from './engine';
+import { SPAWN_ANIM_SECONDS } from '../types';
 import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
@@ -176,52 +177,113 @@ export class GameRenderer {
     const path = this.e.path;
     if (path.length < 2) return;
     const t = performance.now() / 1000;
-    const y = Math.max(40, Math.min(this.e.height - 40, path[0].y));
-    const x = 8; // just inside the left edge so the whole portal reads
-    const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+    const y = Math.max(56, Math.min(this.e.height - 56, path[0].y));
+    const x = 18; // just inside the left edge so the whole gateway reads
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
+
+    // A tall, narrow vertical gateway (an oval you walk out of sideways) rather
+    // than a top-down disc. OSRS void-portal palette: violet → magenta → black
+    // core. Procedural so it can actually swirl/breathe (a static model can't).
+    const RX = 26 + pulse * 2; // horizontal radius (narrow)
+    const RY = 50 + pulse * 3; // vertical radius (tall)
 
     ctx.save();
     ctx.translate(x, y);
 
-    // Wide, soft otherworldly halo that breathes with the pulse.
-    const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, 60);
-    halo.addColorStop(0, `rgba(150,80,220,${0.30 + pulse * 0.16})`);
-    halo.addColorStop(0.5, `rgba(120,60,190,${0.10 + pulse * 0.07})`);
+    // 1) Soft otherworldly halo, vertically stretched, breathing with the pulse.
+    ctx.save();
+    ctx.scale(1, RY / RX);
+    const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, RX * 1.7);
+    halo.addColorStop(0, `rgba(170,90,235,${0.34 + pulse * 0.16})`);
+    halo.addColorStop(0.5, `rgba(120,60,190,${0.12 + pulse * 0.07})`);
     halo.addColorStop(1, 'rgba(110,50,180,0)');
     ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(0, 0, 60, 0, Math.PI * 2);
+    ctx.arc(0, 0, RX * 1.7, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
 
-    // The OSRS void-portal sprite, gently pulsing. Falls back to the gradient
-    // mouth until the image decodes (or if it failed to load).
-    if (this.e.imageOk('portal')) {
-      const img = this.e.images.get('portal')!;
-      const size = 86 + pulse * 4;
-      ctx.globalAlpha = 0.96;
-      this.drawImageContain(ctx, img, 0, 0, size);
-      ctx.globalAlpha = 1;
-    } else {
-      const mouth = ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
-      mouth.addColorStop(0, '#070310');
-      mouth.addColorStop(0.65, '#1c0d2c');
-      mouth.addColorStop(1, '#341748');
-      ctx.fillStyle = mouth;
+    // 2) Inward-rippling tunnel: vertical ellipses that continuously march toward
+    // the throat (phase wraps over time) and fade at both ends, so the energy
+    // reads as being *pulled in* — the classic portal funnel.
+    const RINGS = 6;
+    for (let i = 0; i < RINGS; i++) {
+      const phase = ((i / RINGS) + t * 0.35) % 1; // 0 at rim → 1 at throat
+      const k = 1 - phase * 0.85; // radius fraction: rim (1) → throat (~0.15)
+      const fade = Math.sin(phase * Math.PI); // fade in at rim, out at throat
+      const r = Math.round(150 + 90 * k);
+      const g = Math.round(50 + 25 * (1 - k));
+      const b = Math.round(180 + 50 * k);
+      ctx.save();
+      ctx.globalAlpha = 0.5 * fade;
+      ctx.strokeStyle = `rgb(${r},${g},${b})`;
+      ctx.lineWidth = 1.5 + k * 2;
       ctx.beginPath();
-      ctx.arc(0, 0, 24, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.ellipse(0, 0, RX * k, RY * k, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
 
-    // Dark mouth at the centre that hides enemies still "inside" the portal so
-    // they appear to emerge from it (kept on top of the sprite, smaller).
-    const mouth = ctx.createRadialGradient(0, 0, 1, 0, 0, 15);
-    mouth.addColorStop(0, 'rgba(7,3,16,0.92)');
-    mouth.addColorStop(0.7, 'rgba(28,13,44,0.55)');
+    // 2b) Two spiral arms slowly rotating, to give the swirl a clear direction.
+    ctx.save();
+    ctx.rotate(t * 0.8);
+    ctx.globalAlpha = 0.3;
+    ctx.strokeStyle = '#c98bff';
+    ctx.lineWidth = 2;
+    for (let arm = 0; arm < 2; arm++) {
+      ctx.beginPath();
+      for (let s = 0; s <= 1.0001; s += 0.05) {
+        const ang = arm * Math.PI + s * Math.PI * 1.6;
+        const ex = Math.cos(ang) * RX * s;
+        const ey = Math.sin(ang) * RY * s;
+        if (s === 0) ctx.moveTo(ex, ey);
+        else ctx.lineTo(ex, ey);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 3) Bright energy rim around the gateway mouth.
+    ctx.save();
+    ctx.globalAlpha = 0.55 + pulse * 0.3;
+    ctx.strokeStyle = '#d59bff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, RX, RY, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // 4) A couple of bright sparks orbiting the throat (clipped to the mouth).
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, RX, RY, 0, 0, Math.PI * 2);
+    ctx.clip();
+    for (let k = 0; k < 5; k++) {
+      const a = t * 1.6 + (k * Math.PI * 2) / 5;
+      const rr = 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(t * 0.9 + k * 1.7));
+      const ex = Math.cos(a) * RX * rr;
+      const ey = Math.sin(a) * RY * rr;
+      ctx.globalAlpha = 0.5 + 0.4 * Math.sin(t * 3 + k);
+      ctx.fillStyle = k % 2 ? '#e9c6ff' : '#8be0ff';
+      ctx.beginPath();
+      ctx.arc(ex, ey, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 5) Dark throat at the centre — the mouth enemies emerge from, drawn last so
+    // freshly-spawned (still materialising) mobs read as stepping out of it.
+    const mouth = ctx.createRadialGradient(0, 0, 1, 0, 0, RX * 0.85);
+    mouth.addColorStop(0, 'rgba(6,2,14,0.95)');
+    mouth.addColorStop(0.6, 'rgba(26,11,42,0.6)');
     mouth.addColorStop(1, 'rgba(52,23,72,0)');
+    ctx.save();
+    ctx.scale(1, RY / RX);
     ctx.fillStyle = mouth;
     ctx.beginPath();
-    ctx.arc(0, 0, 15, 0, Math.PI * 2);
+    ctx.arc(0, 0, RX * 0.85, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
 
     ctx.restore();
   }
@@ -534,7 +596,15 @@ export class GameRenderer {
 
     for (const e of this.e.enemies) {
       const isBoss = !!e.isBoss;
-      const size = (isBoss ? 60 : 30) * (e.renderScale ?? 1);
+      // Portal materialise: for the first SPAWN_ANIM_SECONDS after emerging the
+      // enemy fades in (smoothstep) and grows from 45%→100% (ease-out), so it
+      // looks like it's stepping out of the gateway rather than popping in.
+      const spawnT = e.spawnAnim && e.spawnAnim > 0 ? 1 - e.spawnAnim / SPAWN_ANIM_SECONDS : 1;
+      const matScale = 0.45 + 0.55 * (spawnT * (2 - spawnT)); // easeOutQuad
+      const matAlpha = spawnT * spawnT * (3 - 2 * spawnT); // smoothstep
+      ctx.save();
+      ctx.globalAlpha = matAlpha;
+      const size = (isBoss ? 60 : 30) * (e.renderScale ?? 1) * matScale;
       const flash = e.flashTimer && e.flashTimer > 0 ? e.flashTimer / 0.15 : 0;
       // Impact = a slight shake while the hit registers.
       const shx = flash > 0 ? (Math.random() - 0.5) * 6 * flash : 0;
@@ -601,6 +671,8 @@ export class GameRenderer {
         ctx.stroke();
         ctx.restore();
       }
+
+      ctx.restore(); // end materialise alpha
     }
   }
 

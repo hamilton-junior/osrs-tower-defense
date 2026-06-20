@@ -126,7 +126,14 @@ export interface Enemy extends EnemyDef {
   shakeY?: number;
   /** Brief scale-pop timer set when the enemy takes a hit (visual only). */
   flashTimer?: number;
+  /** Counts down from {@link SPAWN_ANIM_SECONDS} right after the enemy emerges
+   *  from the portal; drives a fade-in + scale-up "materialise" effect. Visual
+   *  only — decremented in `moveEnemies`, read by the renderer. */
+  spawnAnim?: number;
 }
+
+/** Duration (s) of the portal materialise (fade-in + grow) on a fresh spawn. */
+export const SPAWN_ANIM_SECONDS = 0.45;
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */

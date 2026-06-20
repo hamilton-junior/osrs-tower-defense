@@ -1,4 +1,5 @@
 import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind } from '../types';
+import { SPAWN_ANIM_SECONDS } from '../types';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
@@ -440,9 +441,6 @@ export class GameEngine {
       ...Object.fromEntries(
         Object.entries(ASSETS.spells).map(([name, url]) => [`spell_${name}`, url]),
       ),
-      // Spawn-portal sprite (rendered Pest Control void portal), drawn at the
-      // road's entry edge by the renderer.
-      portal: ASSETS.misc.portal,
     };
     for (const [key, url] of Object.entries(urls)) {
       const img = new Image();
@@ -940,7 +938,10 @@ export class GameEngine {
     if (this.spawnTimer >= this.spawnInterval) {
       this.spawnTimer = 0;
       const enemy = this.spawnQueue.shift();
-      if (enemy) this.enemies.push(enemy);
+      if (enemy) {
+        enemy.spawnAnim = SPAWN_ANIM_SECONDS; // materialise out of the portal
+        this.enemies.push(enemy);
+      }
       this.emit();
     }
   }
@@ -979,6 +980,7 @@ export class GameEngine {
   private moveEnemies(dt: number) {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
+      if (e.spawnAnim && e.spawnAnim > 0) e.spawnAnim = Math.max(0, e.spawnAnim - dt);
       if (e.flashTimer && e.flashTimer > 0) e.flashTimer -= dt;
       if (e.slowTimer > 0) {
         e.slowTimer -= dt;
