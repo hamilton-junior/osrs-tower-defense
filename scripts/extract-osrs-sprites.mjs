@@ -32,12 +32,63 @@ const REPO = join(__dirname, '..');
 const DEFAULT_CACHE = join(homedir(), '.runelite', 'jagexcache', 'oldschool', 'LIVE');
 const CACHE_DIR = process.env.OSRS_CACHE_DIR || DEFAULT_CACHE;
 
-/** Named sprite targets → output PNG path. IDs from RuneLite SpriteID.java. */
+// All IDs below come from RuneLite's `net.runelite.api.SpriteID`. Each group maps
+// an output basename → the enabled-state sprite id; only true 2D interface sprites
+// are here. NPC/item/pet visuals are 3D models (a separate render track).
+
+/** Enemy status-effect badges (enemy hover panel). */
+const DEBUFF_IDS = {
+  stun: 321, // SPELL_ENTANGLE
+  burn: 1361, // Burn hitsplat (orange)
+  poison: 1360, // HITSPLAT_GREEN_POISON
+  vuln: 20, // SPELL_WEAKEN
+  // slow stays wiki-hot-linked: it's the Giant snail NPC *model*, not a sprite.
+};
+
+/**
+ * Spellbook icons (Standard elemental + Ancient + a few Arceuus support spells).
+ * Keys mirror the wiki file names used by `assets.ts`' SPELL_ICONS; the same
+ * sprite doubles as the tower badge and the projectile.
+ */
+const SPELL_IDS = {
+  Wind_Strike: 15, Water_Strike: 17, Earth_Strike: 19, Fire_Strike: 21,
+  Wind_Bolt: 23, Water_Bolt: 26, Earth_Bolt: 29, Fire_Bolt: 32,
+  Wind_Blast: 35, Water_Blast: 38, Earth_Blast: 40, Fire_Blast: 44,
+  Wind_Wave: 46, Water_Wave: 48, Earth_Wave: 51, Fire_Wave: 52,
+  Ice_Rush: 325, Ice_Burst: 326, Ice_Blitz: 327, Ice_Barrage: 328,
+  Blood_Rush: 333, Blood_Burst: 334, Blood_Blitz: 335, Blood_Barrage: 336,
+  Shadow_Rush: 337, Shadow_Burst: 338, Shadow_Blitz: 339, Shadow_Barrage: 340,
+  Smoke_Rush: 329, Smoke_Burst: 330, Smoke_Blitz: 331, Smoke_Barrage: 332,
+  Death_Charge: 1310, Undead_Grasp: 1269, Vile_Vigour: 1317,
+};
+
+/** Prayer icons (enabled state) for the prayer panel. */
+const PRAYER_IDS = {
+  burst_of_strength: 116, sharp_eye: 133, mystic_will: 134, mystic_lore: 503,
+  mystic_might: 505, hawk_eye: 502, ultimate_strength: 125,
+  protect_from_magic: 127, protect_from_missiles: 128, protect_from_melee: 129,
+  eagle_eye: 504, piety: 946, rigour: 1420, augury: 1421,
+};
+
+/** Skill / spellbook UI icons used across the HUD. */
+const MISC_IDS = {
+  attack_icon: 197, strength_icon: 198, ranged_icon: 200, prayer_icon: 201,
+  magic_icon: 202, hp_icon: 203, skill_herblore: 205, skill_crafting: 207,
+  skill_mining: 209, skill_woodcutting: 214, slayer_icon: 216, farming_icon: 217,
+  // Spellbook selector tabs (Standard / Ancient / Arceuus).
+  spellbook_standard: 780, spellbook_ancient: 1583, spellbook_arceuus: 1711,
+};
+
+/** Build flat targets from a {basename: id} group under a sub-folder. */
+const group = (ids, sub) =>
+  Object.entries(ids).map(([slug, spriteId]) => ({ slug, spriteId, out: `public/assets/${sub}/${slug}.png` }));
+
+/** Named sprite targets → output PNG path. */
 const TARGETS = [
-  { slug: 'stun', spriteId: 321, out: 'public/assets/debuffs/stun.png' }, // SPELL_ENTANGLE
-  { slug: 'burn', spriteId: 1361, out: 'public/assets/debuffs/burn.png' }, // Burn hitsplat (orange)
-  { slug: 'poison', spriteId: 1360, out: 'public/assets/debuffs/poison.png' }, // HITSPLAT_GREEN_POISON
-  { slug: 'vuln', spriteId: 20, out: 'public/assets/debuffs/vuln.png' }, // SPELL_WEAKEN
+  ...group(DEBUFF_IDS, 'debuffs'),
+  ...group(SPELL_IDS, 'spells'),
+  ...group(PRAYER_IDS, 'prayers'),
+  ...group(MISC_IDS, 'misc'),
 ];
 
 /** Encode one Sprite (ARGB pixels on a maxWidth×maxHeight canvas) to a PNG buffer. */

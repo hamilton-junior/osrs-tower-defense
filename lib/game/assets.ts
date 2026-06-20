@@ -14,15 +14,15 @@ const LOCAL = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/assets`;
  */
 const SPELL_ICONS: Record<string, string> = {};
 for (const w of ['Wind', 'Water', 'Earth', 'Fire']) {
-  for (const t of ['Strike', 'Bolt', 'Blast', 'Wave']) SPELL_ICONS[`${w}_${t}`] = `${WIKI}${w}_${t}.png`;
+  for (const t of ['Strike', 'Bolt', 'Blast', 'Wave']) SPELL_ICONS[`${w}_${t}`] = `${LOCAL}/spells/${w}_${t}.png`;
 }
 for (const w of ['Ice', 'Blood', 'Shadow', 'Smoke']) {
-  for (const t of ['Rush', 'Burst', 'Blitz', 'Barrage']) SPELL_ICONS[`${w}_${t}`] = `${WIKI}${w}_${t}.png`;
+  for (const t of ['Rush', 'Burst', 'Blitz', 'Barrage']) SPELL_ICONS[`${w}_${t}`] = `${LOCAL}/spells/${w}_${t}.png`;
 }
 // Utility (Arceuus spellbook) support-spell icons.
-SPELL_ICONS['Death_Charge'] = `${WIKI}Death_Charge.png`;
-SPELL_ICONS['Undead_Grasp'] = `${WIKI}Undead_Grasp.png`;
-SPELL_ICONS['Vile_Vigour'] = `${WIKI}Vile_Vigour.png`;
+SPELL_ICONS['Death_Charge'] = `${LOCAL}/spells/Death_Charge.png`;
+SPELL_ICONS['Undead_Grasp'] = `${LOCAL}/spells/Undead_Grasp.png`;
+SPELL_ICONS['Vile_Vigour'] = `${LOCAL}/spells/Vile_Vigour.png`;
 
 export const ASSETS = {
   spells: SPELL_ICONS,
@@ -70,21 +70,22 @@ export const ASSETS = {
     tzrek_jad: 'https://oldschool.runescape.wiki/images/TzRek-Jad.png',
     ikkle_hydra: 'https://oldschool.runescape.wiki/images/Ikkle_Hydra_%28serpentine%29.png',
   },
+  // Prayer icons — cache-extracted sprites served locally (PRAYER_* sprite ids).
   prayers: {
-    burst_of_strength: 'https://oldschool.runescape.wiki/images/Burst_of_Strength.png',
-    sharp_eye: 'https://oldschool.runescape.wiki/images/Sharp_Eye.png',
-    mystic_will: 'https://oldschool.runescape.wiki/images/Mystic_Will.png',
-    mystic_lore: 'https://oldschool.runescape.wiki/images/Mystic_Lore.png',
-    mystic_might: 'https://oldschool.runescape.wiki/images/Mystic_Might.png',
-    hawk_eye: 'https://oldschool.runescape.wiki/images/Hawk_Eye.png',
-    ultimate_strength: 'https://oldschool.runescape.wiki/images/Ultimate_Strength.png',
-    protect_from_magic: 'https://oldschool.runescape.wiki/images/Protect_from_Magic.png',
-    protect_from_missiles: 'https://oldschool.runescape.wiki/images/Protect_from_Missiles.png',
-    protect_from_melee: 'https://oldschool.runescape.wiki/images/Protect_from_Melee.png',
-    eagle_eye: 'https://oldschool.runescape.wiki/images/Eagle_Eye.png',
-    piety: 'https://oldschool.runescape.wiki/images/Piety.png',
-    rigour: 'https://oldschool.runescape.wiki/images/Rigour.png',
-    augury: 'https://oldschool.runescape.wiki/images/Augury.png',
+    burst_of_strength: `${LOCAL}/prayers/burst_of_strength.png`,
+    sharp_eye: `${LOCAL}/prayers/sharp_eye.png`,
+    mystic_will: `${LOCAL}/prayers/mystic_will.png`,
+    mystic_lore: `${LOCAL}/prayers/mystic_lore.png`,
+    mystic_might: `${LOCAL}/prayers/mystic_might.png`,
+    hawk_eye: `${LOCAL}/prayers/hawk_eye.png`,
+    ultimate_strength: `${LOCAL}/prayers/ultimate_strength.png`,
+    protect_from_magic: `${LOCAL}/prayers/protect_from_magic.png`,
+    protect_from_missiles: `${LOCAL}/prayers/protect_from_missiles.png`,
+    protect_from_melee: `${LOCAL}/prayers/protect_from_melee.png`,
+    eagle_eye: `${LOCAL}/prayers/eagle_eye.png`,
+    piety: `${LOCAL}/prayers/piety.png`,
+    rigour: `${LOCAL}/prayers/rigour.png`,
+    augury: `${LOCAL}/prayers/augury.png`,
   },
   towers: {
     archer: {
@@ -165,17 +166,18 @@ export const ASSETS = {
     tree: 'https://oldschool.runescape.wiki/images/Tree.png',
     ore_adamant: 'https://oldschool.runescape.wiki/images/Adamantite_ore.png',
     ranarr: 'https://oldschool.runescape.wiki/images/Ranarr_weed.png',
-    magic_icon: 'https://oldschool.runescape.wiki/images/Magic_icon.png',
-    ranged_icon: 'https://oldschool.runescape.wiki/images/Ranged_icon.png',
-    strength_icon: 'https://oldschool.runescape.wiki/images/Strength_icon.png',
-    attack_icon: 'https://oldschool.runescape.wiki/images/Attack_icon.png',
+    // Skill/UI icons below are cache-extracted (SKILL_* sprite ids), served locally.
+    magic_icon: `${LOCAL}/misc/magic_icon.png`,
+    ranged_icon: `${LOCAL}/misc/ranged_icon.png`,
+    strength_icon: `${LOCAL}/misc/strength_icon.png`,
+    attack_icon: `${LOCAL}/misc/attack_icon.png`,
     bones_loot: 'https://oldschool.runescape.wiki/images/Bones.png',
-    skill_mining: 'https://oldschool.runescape.wiki/images/Mining_icon.png',
-    skill_woodcutting: 'https://oldschool.runescape.wiki/images/Woodcutting_icon.png',
-    skill_herblore: 'https://oldschool.runescape.wiki/images/Herblore_icon.png',
-    skill_crafting: 'https://oldschool.runescape.wiki/images/Crafting_icon.png',
-    skill_prayer: 'https://oldschool.runescape.wiki/images/Prayer_icon.png',
-    slayer_crossbow: 'https://oldschool.runescape.wiki/images/Slayer_icon.png',
+    skill_mining: `${LOCAL}/misc/skill_mining.png`,
+    skill_woodcutting: `${LOCAL}/misc/skill_woodcutting.png`,
+    skill_herblore: `${LOCAL}/misc/skill_herblore.png`,
+    skill_crafting: `${LOCAL}/misc/skill_crafting.png`,
+    skill_prayer: `${LOCAL}/misc/prayer_icon.png`,
+    slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
     hit_splat: 'https://oldschool.runescape.wiki/images/Damage_hitsplat.png',
     magic_hit_splat: 'https://oldschool.runescape.wiki/images/Zero_damage_hitsplat.png',
     poison_hit_splat: 'https://oldschool.runescape.wiki/images/Poison_hit_splat.png',
@@ -184,20 +186,20 @@ export const ASSETS = {
     background_pattern: 'https://oldschool.runescape.wiki/images/Back_pattern.png',
     orb_background: 'https://oldschool.runescape.wiki/images/Orb_background.png',
     inventory_background: 'https://oldschool.runescape.wiki/images/Inventory_background.png',
-    hp_icon: 'https://oldschool.runescape.wiki/images/Hitpoints_icon.png',
+    hp_icon: `${LOCAL}/misc/hp_icon.png`,
     ge_logo: 'https://oldschool.runescape.wiki/images/Grand_Exchange_logo.png',
     essence_icon: 'https://oldschool.runescape.wiki/images/Pure_essence_detail.png',
     pets_tab_icon: 'https://oldschool.runescape.wiki/images/Follower_Details.png',
-    prayer_icon: 'https://oldschool.runescape.wiki/images/Prayer_icon.png',
+    prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
     coins_icon: 'https://oldschool.runescape.wiki/images/Coins_detail.png',
     rune_essence_icon: 'https://oldschool.runescape.wiki/images/Rune_essence_detail.png',
-    herblore_icon: 'https://oldschool.runescape.wiki/images/Herblore_icon.png',
-    farming_icon: 'https://oldschool.runescape.wiki/images/Farming_icon.png',
+    herblore_icon: `${LOCAL}/misc/skill_herblore.png`,
+    farming_icon: `${LOCAL}/misc/farming_icon.png`,
     // Spellbook icons for the wizard panel (Elemental→Standard, Ancients→Ancient,
-    // Utility→Arceuus).
-    spellbook_standard: 'https://oldschool.runescape.wiki/images/Standard_spellbook.png',
-    spellbook_ancient: 'https://oldschool.runescape.wiki/images/Ancient_spellbook.png',
-    spellbook_arceuus: 'https://oldschool.runescape.wiki/images/Arceuus_spellbook.png',
+    // Utility→Arceuus) — cache-extracted TAB_MAGIC* sprites, served locally.
+    spellbook_standard: `${LOCAL}/misc/spellbook_standard.png`,
+    spellbook_ancient: `${LOCAL}/misc/spellbook_ancient.png`,
+    spellbook_arceuus: `${LOCAL}/misc/spellbook_arceuus.png`,
     wiki_base: 'https://oldschool.runescape.wiki/images/',
   },
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
