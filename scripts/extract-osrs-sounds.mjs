@@ -35,17 +35,48 @@ const SAMPLE_RATE = 22050;
 
 /**
  * Curated sound-effect IDs → output basename. Empty by default: populate it from
- * `--dump` auditions. Each entry renders to `public/assets/sounds/<slug>.wav` and
- * can then be referenced from `lib/game/assets.ts`.
+ * `--dump`/`--named` auditions. Each entry renders to `public/assets/sounds/<slug>.wav`
+ * and can then be referenced from `lib/game/assets.ts`.
  */
 const TARGETS = {
   // example: archer_shot: 2693,
 };
 
+/**
+ * Verified named sound ids (RuneLite `net.runelite.api.SoundEffectID`), grouped
+ * by category. `--named` renders these into `tmp/osrs-sounds/<category>/<name>.wav`
+ * with human-readable filenames so they can be auditioned and picked. Combat /
+ * death / spell-cast sounds have NO named enum — use `--dump` (duration-bucketed)
+ * to explore those.
+ */
+const CATALOG = {
+  ui: {
+    boop: 2266, close_door: 60, open_door: 62, item_drop: 2739, item_pickup: 2582,
+    pick_plant: 2581, bury_bones: 2738, teleport_vwoop: 200, npc_teleport_woosh: 1930,
+    ge_add_offer: 3925, ge_collect: 3928, ge_coin_tinkle: 3924, ge_increment: 3929,
+    ge_decrement: 3930, town_crier_ding: 3813, town_crier_dong: 3817,
+  },
+  combat: {
+    zero_damage_splat: 511, take_damage_splat: 510, attack_hit: 2498,
+    magic_splash_boing: 227,
+  },
+  skill: {
+    tinder_strike: 2597, fire_woosh: 2596, tree_falling: 2734, tree_chop: 2735,
+    mining_tink: 3220, cook_woosh: 2577, smith_anvil_tink: 3790, smith_anvil_tonk: 3791,
+  },
+  prayer: {
+    activate_protect_melee: 2676, activate_protect_missiles: 2677, activate_protect_magic: 2675,
+    activate_piety: 3825, activate_chivalry: 3826, activate_rigour: 2685, activate_augury: 2670,
+    activate_eagle_eye: 2665, activate_mystic_might: 2669, activate_smite: 2686,
+    activate_retribution: 2682, activate_redemption: 2680, activate_thick_skin: 2690,
+    activate_ultimate_strength: 2691, deactivate_vwoop: 2663, deplete_twinkle: 2672,
+  },
+};
+
 // --------------------------------------------------------------------------
 // Minimal big-endian reader (the handful of Packet ops the synth loader uses).
 // --------------------------------------------------------------------------
-class Reader {
+export class Reader {
   constructor(bytes) {
     this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     this.pos = 0;
@@ -72,7 +103,7 @@ class JavaRandom {
 // --------------------------------------------------------------------------
 // Synth — ported 1:1 from LostCityRS/Client-TS (Envelope / Tone / JagFX).
 // --------------------------------------------------------------------------
-class Envelope {
+export class Envelope {
   constructor() {
     this.length = 2;
     this.shapeDelta = new Int32Array([0, 65535]);
@@ -84,6 +115,10 @@ class Envelope {
     this.form = dat.g1();
     this.start = dat.g4();
     this.end = dat.g4();
+    this.loadShape(dat);
+  }
+  // Just the segment table (used standalone by the filter envelope).
+  loadShape(dat) {
     this.length = dat.g1();
     this.shapeDelta = new Int32Array(this.length);
     this.shapePeak = new Int32Array(this.length);
@@ -116,7 +151,109 @@ const SINE = new Int32Array(32768);
   for (let i = 0; i < 32768; i++) SINE[i] = (Math.sin(i / 5215.1903) * 16384.0) | 0;
 }
 
-class Tone {
+// Floor-divide by 65536 — matches Java `(long)(a*b) >> 16` (arithmetic shift) for
+// the value range here, including negatives (>> floors; Math.trunc would not).
+const shr16 = (product) => Math.floor(product / 65536);
+
+/**
+ * Adaptive IIR filter (cascading biquad sections) the OSRS synth applies per tone.
+ * Ported from the 317 client `audio/SoundFilter` + the filter block of
+ * `audio/Instrument.synthesise`. The post-2004 caches (incl. OSRS LIVE) append
+ * this section after each tone's duration/begin — build-254 reference lacks it,
+ * which is why ignoring it desynced the byte stream on ~40% of sounds.
+ */
+export class SoundFilter {
+  // Shared scratch (the client keeps these static too).
+  static coef = [new Float64Array(8), new Float64Array(8)]; // float coefficients
+  static coefInt = [new Int32Array(8), new Int32Array(8)];  // fixed-point (<<16)
+  static invUnity = 0;
+  static _invUnity = 0;
+
+  constructor() {
+    this.pairCount = new Int32Array(2);
+    this.pairPhase = [[new Int32Array(4), new Int32Array(4)], [new Int32Array(4), new Int32Array(4)]];
+    this.pairMagnitude = [[new Int32Array(4), new Int32Array(4)], [new Int32Array(4), new Int32Array(4)]];
+    this.unity = new Int32Array(2);
+  }
+
+  adaptMagnitude(direction, i, f) {
+    let alpha = this.pairMagnitude[direction][0][i] + f * (this.pairMagnitude[direction][1][i] - this.pairMagnitude[direction][0][i]);
+    alpha *= 0.001525879;
+    return 1.0 - Math.pow(10, -alpha / 20);
+  }
+  adaptPhase(f, i, direction) {
+    let alpha = this.pairPhase[direction][0][i] + f * (this.pairPhase[direction][1][i] - this.pairPhase[direction][0][i]);
+    alpha *= 0.0001220703;
+    const v = 32.7032 * Math.pow(2, alpha);
+    return (v * 3.141593) / 11025;
+  }
+
+  compute(direction, f) {
+    const C = SoundFilter.coef;
+    if (direction === 0) {
+      let f1 = this.unity[0] + (this.unity[1] - this.unity[0]) * f;
+      f1 *= 0.003051758;
+      SoundFilter._invUnity = Math.pow(0.1, f1 / 20);
+      SoundFilter.invUnity = (SoundFilter._invUnity * 65536) | 0;
+    }
+    if (this.pairCount[direction] === 0) return 0;
+    const mag0 = this.adaptMagnitude(direction, 0, f);
+    C[direction][0] = -2 * mag0 * Math.cos(this.adaptPhase(f, 0, direction));
+    C[direction][1] = mag0 * mag0;
+    for (let pair = 1; pair < this.pairCount[direction]; pair++) {
+      const mag = this.adaptMagnitude(direction, pair, f);
+      const phase = -2 * mag * Math.cos(this.adaptPhase(f, pair, direction));
+      const coeff = mag * mag;
+      C[direction][pair * 2 + 1] = C[direction][pair * 2 - 1] * coeff;
+      C[direction][pair * 2] = C[direction][pair * 2 - 1] * phase + C[direction][pair * 2 - 2] * coeff;
+      for (let j = pair * 2 - 1; j >= 2; j--) {
+        C[direction][j] += C[direction][j - 1] * phase + C[direction][j - 2] * coeff;
+      }
+      C[direction][1] += C[direction][0] * phase + coeff;
+      C[direction][0] += phase;
+    }
+    if (direction === 0) {
+      for (let pair = 0; pair < this.pairCount[0] * 2; pair++) C[0][pair] *= SoundFilter._invUnity;
+    }
+    for (let pair = 0; pair < this.pairCount[direction] * 2; pair++) {
+      SoundFilter.coefInt[direction][pair] = (C[direction][pair] * 65536) | 0;
+    }
+    return this.pairCount[direction] * 2;
+  }
+
+  decode(dat, envelope) {
+    const count = dat.g1();
+    this.pairCount[0] = count >> 4;
+    this.pairCount[1] = count & 0xf;
+    if (count !== 0) {
+      this.unity[0] = dat.g2();
+      this.unity[1] = dat.g2();
+      const migrated = dat.g1();
+      for (let dir = 0; dir < 2; dir++) {
+        for (let pair = 0; pair < this.pairCount[dir]; pair++) {
+          this.pairPhase[dir][0][pair] = dat.g2();
+          this.pairMagnitude[dir][0][pair] = dat.g2();
+        }
+      }
+      for (let dir = 0; dir < 2; dir++) {
+        for (let pair = 0; pair < this.pairCount[dir]; pair++) {
+          if ((migrated & ((1 << (dir * 4)) << pair)) !== 0) {
+            this.pairPhase[dir][1][pair] = dat.g2();
+            this.pairMagnitude[dir][1][pair] = dat.g2();
+          } else {
+            this.pairPhase[dir][1][pair] = this.pairPhase[dir][0][pair];
+            this.pairMagnitude[dir][1][pair] = this.pairMagnitude[dir][0][pair];
+          }
+        }
+      }
+      if (migrated !== 0 || this.unity[1] !== this.unity[0]) envelope.loadShape(dat);
+    } else {
+      this.unity[0] = this.unity[1] = 0;
+    }
+  }
+}
+
+export class Tone {
   constructor() {
     this.frequencyBase = new Envelope();
     this.amplitudeBase = new Envelope();
@@ -130,6 +267,8 @@ class Tone {
     this.reverbVolume = 100;
     this.length = 500;
     this.start = 0;
+    this.filter = new SoundFilter();
+    this.filterEnvelope = new Envelope();
   }
 
   static buf = new Int32Array(SAMPLE_RATE * 10);
@@ -233,6 +372,50 @@ class Tone {
       }
     }
 
+    // Adaptive IIR filter pass (Instrument.synthesise filter block).
+    if (this.filter.pairCount[0] > 0 || this.filter.pairCount[1] > 0) {
+      const buf = Tone.buf;
+      const C0 = SoundFilter.coefInt[0], C1 = SoundFilter.coefInt[1];
+      this.filterEnvelope.genInit();
+      let t = this.filterEnvelope.genNext(sampleCount + 1);
+      let M = this.filter.compute(0, t / 65536);
+      let N = this.filter.compute(1, t / 65536);
+      if (sampleCount >= M + N) {
+        let n = 0;
+        let delay = N;
+        if (delay > sampleCount - M) delay = sampleCount - M;
+        for (; n < delay; n++) {
+          let y = shr16(buf[n + M] * SoundFilter.invUnity);
+          for (let k = 0; k < M; k++) y += shr16(buf[n + M - 1 - k] * C0[k]);
+          for (let j = 0; j < n; j++) y -= shr16(buf[n - 1 - j] * C1[j]);
+          buf[n] = y;
+          t = this.filterEnvelope.genNext(sampleCount + 1);
+        }
+        const STEP = 128;
+        delay = STEP;
+        for (;;) {
+          if (delay > sampleCount - M) delay = sampleCount - M;
+          for (; n < delay; n++) {
+            let y = shr16(buf[n + M] * SoundFilter.invUnity);
+            for (let k = 0; k < M; k++) y += shr16(buf[n + M - 1 - k] * C0[k]);
+            for (let j = 0; j < N; j++) y -= shr16(buf[n - 1 - j] * C1[j]);
+            buf[n] = y;
+            t = this.filterEnvelope.genNext(sampleCount + 1);
+          }
+          if (n >= sampleCount - M) break;
+          M = this.filter.compute(0, t / 65536);
+          N = this.filter.compute(1, t / 65536);
+          delay += STEP;
+        }
+        for (; n < sampleCount; n++) {
+          let y = 0;
+          for (let k = n + M - sampleCount; k < M; k++) y += shr16(buf[n + M - 1 - k] * C0[k]);
+          for (let j = 0; j < N; j++) y -= shr16(buf[n - 1 - j] * C1[j]);
+          buf[n] = y;
+        }
+      }
+    }
+
     for (let s = 0; s < sampleCount; s++) {
       if (Tone.buf[s] < -32768) Tone.buf[s] = -32768;
       else if (Tone.buf[s] > 32767) Tone.buf[s] = 32767;
@@ -276,10 +459,11 @@ class Tone {
     this.reverbVolume = dat.gsmarts();
     this.length = dat.g2();
     this.start = dat.g2();
+    this.filter.decode(dat, this.filterEnvelope);
   }
 }
 
-class JagFX {
+export class JagFX {
   constructor() { this.tones = new Array(10).fill(null); this.loopBegin = 0; this.loopEnd = 0; }
 
   load(dat) {
@@ -306,6 +490,9 @@ class JagFX {
     let loopStart = ((this.loopBegin * SAMPLE_RATE) / 1000) | 0;
     let loopStop = ((this.loopEnd * SAMPLE_RATE) / 1000) | 0;
     if (loopStart < 0 || loopStop < 0 || loopStop > sampleCount || loopStart >= loopStop) loopCount = 0;
+    // For one-shot extraction we never expand loops; force >=1 so an invalid loop
+    // region (loopCount forced to 0 above) can't yield a negative buffer length.
+    if (loopCount < 1) loopCount = 1;
 
     const totalSampleCount = sampleCount + (loopStop - loopStart) * (loopCount - 1);
     const out = new Uint8Array(totalSampleCount);
@@ -356,15 +543,15 @@ async function renderId(cache, id) {
   const content = file?.content;
   if (!content || content.length < 4) return null;
   const bytes = content instanceof Uint8Array ? content : new Uint8Array(content);
-  const fx = new JagFX();
   try {
+    const fx = new JagFX();
     fx.load(new Reader(bytes));
+    const samples = fx.makeSound(1);
+    if (samples.length === 0) return null;
+    return { wav: toWav(samples), ms: Math.round((samples.length / SAMPLE_RATE) * 1000) };
   } catch {
-    return null; // some ids aren't synth programs
+    return null; // some ids aren't synth programs / malformed for offline render
   }
-  const samples = fx.makeSound(1);
-  if (samples.length === 0) return null;
-  return { wav: toWav(samples), ms: Math.round((samples.length / SAMPLE_RATE) * 1000) };
 }
 
 async function main() {
@@ -378,21 +565,44 @@ async function main() {
 
   const dumpIdx = process.argv.indexOf('--dump');
   const onlyIdx = process.argv.indexOf('--only');
+  const named = process.argv.includes('--named');
+
+  // Render the verified named ids into category subfolders with readable names.
+  if (named) {
+    const base = join(REPO, 'tmp', 'osrs-sounds', 'named');
+    let count = 0;
+    for (const [category, ids] of Object.entries(CATALOG)) {
+      const dir = join(base, category);
+      mkdirSync(dir, { recursive: true });
+      for (const [name, id] of Object.entries(ids)) {
+        const r = await renderId(cache, id);
+        if (!r) { console.warn(`! ${category}/${name} (${id}) undecodable`); continue; }
+        writeFileSync(join(dir, `${name}_${id}.wav`), r.wav);
+        count++;
+        console.log(`✓ ${category}/${name} (${id}) ${r.ms}ms`);
+      }
+    }
+    console.log(`Dumped ${count} named sound(s) → ${base}`);
+    process.exit(0);
+  }
 
   if (dumpIdx !== -1 || onlyIdx !== -1) {
     const from = dumpIdx !== -1 ? Number(process.argv[dumpIdx + 1] ?? 0) : Number(process.argv[onlyIdx + 1]);
     const to = dumpIdx !== -1 ? Number(process.argv[dumpIdx + 2] ?? from) : from;
-    const dir = join(REPO, 'tmp', 'osrs-sounds');
-    mkdirSync(dir, { recursive: true });
+    // Bucket by clip length so the unnamed space is navigable: short clips are
+    // clicks/impacts, medium are casts/attacks, long are deaths/jingles.
+    const base = join(REPO, 'tmp', 'osrs-sounds');
+    const bucket = (ms) => (ms < 400 ? 'short' : ms < 1500 ? 'medium' : 'long');
+    for (const b of ['short', 'medium', 'long']) mkdirSync(join(base, b), { recursive: true });
     let count = 0;
     for (let id = from; id <= to; id++) {
       const r = await renderId(cache, id);
       if (!r) continue;
-      writeFileSync(join(dir, `${id}.wav`), r.wav);
+      writeFileSync(join(base, bucket(r.ms), `${id}_${r.ms}ms.wav`), r.wav);
       count++;
-      console.log(`✓ ${id} → ${id}.wav (${r.ms}ms)`);
+      if (count % 250 === 0) console.log(`… ${count} dumped (at id ${id})`);
     }
-    console.log(`Dumped ${count} sound(s) ${from}..${to} → ${dir}`);
+    console.log(`Dumped ${count} sound(s) ${from}..${to} → ${base}/{short,medium,long}`);
     process.exit(0);
   }
 
@@ -412,4 +622,7 @@ async function main() {
   process.exit(0);
 }
 
-main();
+// Only run when invoked directly, so the synth classes can be imported for tests/debug.
+if (import.meta.url === `file://${process.argv[1]}` || import.meta.url.endsWith(process.argv[1]?.replace(/\\/g, '/'))) {
+  main();
+}
