@@ -329,7 +329,7 @@ export class GameRenderer {
       const t = Math.max(0, d.life / d.maxLife); // 1 → 0
       if (!this.e.imageOk(d.type)) continue;
       const img = this.e.images.get(d.type)!;
-      const size = (d.isBoss ? 60 : 30) * (0.7 + t * 0.3); // shrink slightly
+      const size = (d.isBoss ? 60 : 30) * (d.renderScale ?? 1) * (0.7 + t * 0.3); // shrink slightly
       ctx.save();
       ctx.globalAlpha = t * 0.85;
       ctx.translate(d.x, d.y - (1 - t) * 12); // drift up a touch
@@ -514,11 +514,28 @@ export class GameRenderer {
 
     for (const e of this.e.enemies) {
       const isBoss = !!e.isBoss;
-      const size = isBoss ? 60 : 30;
+      const size = (isBoss ? 60 : 30) * (e.renderScale ?? 1);
       const flash = e.flashTimer && e.flashTimer > 0 ? e.flashTimer / 0.15 : 0;
       // Impact = a slight shake while the hit registers.
       const shx = flash > 0 ? (Math.random() - 0.5) * 6 * flash : 0;
       const shy = flash > 0 ? (Math.random() - 0.5) * 6 * flash : 0;
+
+      // Superior slayer variant: an extremely faint warm shimmer behind the
+      // sprite, echoing the sparkle that marks a "Bigger and Badder" spawn.
+      if (typeof e.type === 'string' && e.type.startsWith('superior_')) {
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 600);
+        const glowR = size * 0.62;
+        const g = ctx.createRadialGradient(e.x, e.y, glowR * 0.25, e.x, e.y, glowR);
+        g.addColorStop(0, `rgba(255, 238, 170, ${0.05 + pulse * 0.06})`);
+        g.addColorStop(1, 'rgba(255, 238, 170, 0)');
+        ctx.save();
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, glowR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
       if (this.e.imageOk(e.type)) {
         const img = this.e.images.get(e.type)!;
         const movingLeft = (this.e.path[e.pathIndex + 1]?.x ?? e.x) < e.x;
@@ -544,7 +561,9 @@ export class GameRenderer {
 
       // health bar — colour shifts green → yellow → red as HP drops.
       const bw = isBoss ? 60 : 30;
-      const by = e.y - (isBoss ? 40 : 22);
+      // Lift the bar by any extra sprite height so scaled-up sprites (Zulrah)
+      // don't cover it.
+      const by = e.y - (isBoss ? 40 : 22) - Math.max(0, ((e.renderScale ?? 1) - 1) * (isBoss ? 30 : 15));
       const ratio = Math.max(0, e.hp / e.maxHp);
       ctx.fillStyle = '#400';
       ctx.fillRect(e.x - bw / 2, by, bw, 4);

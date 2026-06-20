@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "analyze:sounds": "node scripts/analyze-cast-clips.mjs",
     "extract:sprites": "node scripts/extract-osrs-sprites.mjs",
+    "extract:sounds": "node scripts/extract-osrs-sounds.mjs",
     "render:npcs": "node scripts/render-osrs-npcs.mjs",
     "clean": "next clean"
   },

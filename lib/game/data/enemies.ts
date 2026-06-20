@@ -12,6 +12,10 @@ export interface EnemyDef {
   weakness?: any;
   isBoss?: boolean;
   waveUnlock?: number;
+  /** Sprite size multiplier at draw time (default 1). Used to compensate sprites
+   *  whose art has heavy transparent padding so they read at a consistent
+   *  on-screen size (e.g. Zulrah's serpentine pose). */
+  renderScale?: number;
 }
 
 // `hp` mirrors each monster's real OSRS hitpoints. `reward` is a "threat weight"
@@ -217,7 +221,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   jad: {
     type: 'jad',
     name: 'TzTok-Jad',
-    hp: 250,
+    hp: 750,
     speed: 20,
     color: '#ff4500',
     reward: 400,
@@ -228,7 +232,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   vorkath: {
     type: 'vorkath',
     name: 'Vorkath',
-    hp: 750,
+    hp: 2250,
     speed: 15,
     color: '#4682b4',
     reward: 700,
@@ -239,13 +243,16 @@ export const ENEMIES: Record<string, EnemyDef> = {
   zulrah: {
     type: 'zulrah',
     name: 'Zulrah',
-    hp: 500,
+    hp: 1500,
     speed: 25,
     color: '#32cd32',
     reward: 800,
     deathSound: 'boss',
     isBoss: true,
-    resistance: 0.4
+    resistance: 0.4,
+    // Zulrah's serpentine sprite has heavy padding; scale up so it reads as
+    // large as Jad/Vorkath on the field.
+    renderScale: 1.6
   },
   barrow_wight: {
     type: 'barrow_wight',

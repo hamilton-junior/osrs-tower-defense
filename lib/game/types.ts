@@ -70,6 +70,9 @@ export interface EnemyDef {
   weakness?: Element;
   isBoss?: boolean;
   waveUnlock?: number;
+  /** Sprite size multiplier at draw time (default 1); compensates for sprites
+   *  with heavy transparent padding (see data/enemies.ts). */
+  renderScale?: number;
 }
 
 /** A damage-over-time effect kind. Each ticks and renders independently. */

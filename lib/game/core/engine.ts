@@ -150,6 +150,7 @@ export interface DeathFx {
   y: number;
   type: string;
   isBoss: boolean;
+  renderScale?: number;
   movingLeft: boolean;
   life: number;
   maxLife: number;
@@ -1392,6 +1393,7 @@ export class GameEngine {
       y: enemy.y,
       type: enemy.type,
       isBoss: !!enemy.isBoss,
+      renderScale: enemy.renderScale,
       movingLeft: (this.path[enemy.pathIndex + 1]?.x ?? enemy.x) < enemy.x,
       life: 0.45,
       maxLife: 0.45,
