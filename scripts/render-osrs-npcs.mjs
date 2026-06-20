@@ -44,6 +44,9 @@ const TARGETS = {
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon
   superior_gargoyle: { npc: 7407, cullBelowGround: true }, // Marble gargoyle (drop red ground disc)
   superior_nechryael: { npc: 7411 },     // Nechryarch
+  // Spawn portal — the Pest Control void portal (swirling gateway enemies pour
+  // from). Front-on, slight downward tilt so the mouth faces the camera.
+  portal: { npc: 1739, yaw: 0, pitch: 4 },
 };
 
 // ----------------------------------------------------------- OSRS HSL palette

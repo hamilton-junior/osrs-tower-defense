@@ -20,6 +20,7 @@ export const GAME_SOUNDS: Record<string, string> = {
   game_over: ASSETS.sounds.misc.death,
   prayer_on: ASSETS.sounds.misc.prayer_on,
   prayer_off: ASSETS.sounds.misc.prayer_off,
+  select: ASSETS.sounds.misc.select,
   interface_open: ASSETS.sounds.misc.interface_open,
   interface_close: ASSETS.sounds.misc.interface_close,
 };
@@ -84,7 +85,7 @@ export class SoundManager {
   private readonly poolIdx = new Map<string, number>();
   private static readonly POOL_SIZE = 4;
   private muted = false;
-  private volume = 0.18;
+  private volume = 0.135; // default game loudness (25% quieter than the old 0.18)
 
   constructor(sources: Record<string, string>) {
     if (typeof Audio === 'undefined') return; // SSR / non-browser guard

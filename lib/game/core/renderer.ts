@@ -176,31 +176,51 @@ export class GameRenderer {
     const path = this.e.path;
     if (path.length < 2) return;
     const t = performance.now() / 1000;
-    const y = Math.max(24, Math.min(this.e.height - 24, path[0].y));
-    const x = 0; // left edge → only the right half shows
+    const y = Math.max(40, Math.min(this.e.height - 40, path[0].y));
+    const x = 8; // just inside the left edge so the whole portal reads
     const pulse = 0.5 + 0.5 * Math.sin(t * 3);
 
     ctx.save();
     ctx.translate(x, y);
 
     // Wide, soft otherworldly halo that breathes with the pulse.
-    const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, 52);
-    halo.addColorStop(0, `rgba(150,80,220,${0.34 + pulse * 0.18})`);
-    halo.addColorStop(0.5, `rgba(120,60,190,${0.12 + pulse * 0.08})`);
+    const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, 60);
+    halo.addColorStop(0, `rgba(150,80,220,${0.30 + pulse * 0.16})`);
+    halo.addColorStop(0.5, `rgba(120,60,190,${0.10 + pulse * 0.07})`);
     halo.addColorStop(1, 'rgba(110,50,180,0)');
     ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(0, 0, 52, 0, Math.PI * 2);
+    ctx.arc(0, 0, 60, 0, Math.PI * 2);
     ctx.fill();
 
-    // Dark mouth that hides enemies still "inside".
-    const mouth = ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
-    mouth.addColorStop(0, '#070310');
-    mouth.addColorStop(0.65, '#1c0d2c');
-    mouth.addColorStop(1, '#341748');
+    // The OSRS void-portal sprite, gently pulsing. Falls back to the gradient
+    // mouth until the image decodes (or if it failed to load).
+    if (this.e.imageOk('portal')) {
+      const img = this.e.images.get('portal')!;
+      const size = 86 + pulse * 4;
+      ctx.globalAlpha = 0.96;
+      this.drawImageContain(ctx, img, 0, 0, size);
+      ctx.globalAlpha = 1;
+    } else {
+      const mouth = ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
+      mouth.addColorStop(0, '#070310');
+      mouth.addColorStop(0.65, '#1c0d2c');
+      mouth.addColorStop(1, '#341748');
+      ctx.fillStyle = mouth;
+      ctx.beginPath();
+      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Dark mouth at the centre that hides enemies still "inside" the portal so
+    // they appear to emerge from it (kept on top of the sprite, smaller).
+    const mouth = ctx.createRadialGradient(0, 0, 1, 0, 0, 15);
+    mouth.addColorStop(0, 'rgba(7,3,16,0.92)');
+    mouth.addColorStop(0.7, 'rgba(28,13,44,0.55)');
+    mouth.addColorStop(1, 'rgba(52,23,72,0)');
     ctx.fillStyle = mouth;
     ctx.beginPath();
-    ctx.arc(0, 0, 24, 0, Math.PI * 2);
+    ctx.arc(0, 0, 15, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();

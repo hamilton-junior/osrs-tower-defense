@@ -101,6 +101,14 @@ function projectileEase(t: number): number {
   return (Math.exp(EASE_K * t) - 1) / EASE_NORM;
 }
 
+/**
+ * Flight-floor fallback (seconds) for a spell whose cast clip hasn't decoded yet
+ * (only the very first cast, before `loadedmetadata` fires). This is the duration
+ * of the shortest cast clip in the bundle (`cast_air_1.wav`), so the fallback can
+ * never overshoot a real cast — measured from public/assets/sounds.
+ */
+const SHORTEST_CAST_S = 1.52;
+
 /** Hitsplat colour, following the OSRS Template:Hitsplat palette: `hit` (red
  *  damage), `miss` (blue 0/block), `poison` (green), `venom` (dark green),
  *  `burn` (orange fire DoT), `heal` (purple). */
@@ -432,6 +440,9 @@ export class GameEngine {
       ...Object.fromEntries(
         Object.entries(ASSETS.spells).map(([name, url]) => [`spell_${name}`, url]),
       ),
+      // Spawn-portal sprite (rendered Pest Control void portal), drawn at the
+      // road's entry edge by the renderer.
+      portal: ASSETS.misc.portal,
     };
     for (const [key, url] of Object.entries(urls)) {
       const img = new Image();
@@ -646,7 +657,7 @@ export class GameEngine {
     if (hit) {
       this.selectedTowerId = hit.id;
       this.inspectedEnemyId = null; // a tower took focus
-      this.sound.play('interface_open'); // tower stats panel opens
+      this.sound.play('select'); // soft chime — selecting a tower (calmer than the GE open)
     } else {
       // No tower: pin an enemy under the click (open its info panel), else clear.
       const enemy = this.enemyAt(x, y);
@@ -1097,8 +1108,7 @@ export class GameEngine {
       // eases in (slow→fast) over that time (see moveProjectiles). A wizard plays
       // its spell's cast clip here on fire and tags the bolt with the matching
       // impact clip, which plays when it connects (GameEngine.hit) — the
-      // authentic OSRS cast-on-fire / hit-on-impact pair, no longer stretching
-      // the flight to a clip's length.
+      // authentic OSRS cast-on-fire / hit-on-impact pair.
       let soundKey = `fire_${tower.type}`;
       let hitSound: string | undefined;
       const dist = distance(tower.x, tower.y, target.x, target.y);
@@ -1108,7 +1118,13 @@ export class GameEngine {
         const tier = mode === 'ancients' ? (tower.ancientType ?? 'ice') : (tower.element ?? 'air');
         soundKey = `cast_${tier}_${tower.level}`;
         hitSound = `hit_${tier}_${tower.level}`;
-        flight = Math.max(flight, 0.28); // keep the spell's arc readable
+        // Sound-sync the arc: the bolt must not land before the cast clip ends,
+        // so the impact sfx never steps on the cast. Floor the flight at the cast
+        // duration + 25% (a short beat of air after the cast lands). Until the
+        // clip's duration has decoded, fall back to the shortest cast clip's
+        // length so the floor never overshoots a real cast.
+        const castDur = this.sound.duration(soundKey);
+        flight = Math.max(flight, (isFinite(castDur) ? castDur : SHORTEST_CAST_S) * 1.25);
       }
       flight = Math.max(0.05, flight); // tiny floor: never instantaneous / div-by-zero
 

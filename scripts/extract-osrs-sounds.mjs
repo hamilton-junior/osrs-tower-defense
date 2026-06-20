@@ -41,6 +41,7 @@ const SAMPLE_RATE = 22050;
 const TARGETS = {
   // --- UI / interface (verified RuneLite SoundEffectID) ---
   ui_click: 2266,              // boop — generic button / select
+  ui_select: 970,              // poh_select — soft build-select chime (tower select)
   ui_coins: 3924,              // ge coin tinkle — selling a tower
   ui_teleport: 200,            // teleport vwoop — wave start
   ge_offer: 3925,              // GE add-offer chime

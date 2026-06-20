@@ -75,7 +75,7 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
-  movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.18,
+  movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.135,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael',
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
@@ -1072,6 +1072,12 @@ export default function GameRoot() {
           className="rs-volume ml-1 w-20"
           aria-label="Volume"
         />
+        <span
+          className="ml-1 text-xs text-osrs-orange tabular-nums w-8 text-right select-none"
+          title="Current volume"
+        >
+          {ui.muted ? 'off' : `${Math.round(ui.volume * 100)}%`}
+        </span>
         <button
           onClick={() => setGeOpen((o) => !o)}
           title="Grand Exchange"

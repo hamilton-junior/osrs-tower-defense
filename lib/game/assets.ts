@@ -216,7 +216,10 @@ export const ASSETS = {
     potato: 'https://oldschool.runescape.wiki/images/Potato.png',
   },
   misc: {
-    portal: 'https://oldschool.runescape.wiki/images/Transportation_logo.png',
+    // Spawn portal — the Pest Control void portal, an NPC model rendered from the
+    // cache (scripts/render-osrs-npcs.mjs), served locally. Drawn at the road's
+    // entry edge (renderer.drawSpawnPortal) instead of the old gradient mouth.
+    portal: `${LOCAL}/models/portal.png`,
     portal_shield: 'https://oldschool.runescape.wiki/images/Purple_Portal_Shield.png',
     tree: 'https://oldschool.runescape.wiki/images/Tree.png',
     ore_adamant: 'https://oldschool.runescape.wiki/images/Adamantite_ore.png',
@@ -288,6 +291,7 @@ export const ASSETS = {
       potion: 'https://oldschool.runescape.wiki/images/transcoded/Liquid.wav/Liquid.wav.ogg',
       special_attack: 'https://oldschool.runescape.wiki/images/transcoded/Special_attack_sound.ogg/Special_attack_sound.ogg.mp3',
       click: `${LOCAL}/sounds/ui_click.wav`,            // boop (2266)
+      select: `${LOCAL}/sounds/ui_select.wav`,          // soft poh build-select chime (970)
       interface_open: `${LOCAL}/sounds/ge_offer.wav`,   // GE add-offer chime (3925)
       interface_close: `${LOCAL}/sounds/ge_collect.wav`,// GE collect (3928)
       pick_up: 'https://oldschool.runescape.wiki/images/transcoded/Pick_up_item.ogg/Pick_up_item.ogg.mp3',
