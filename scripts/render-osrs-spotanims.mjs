@@ -43,8 +43,10 @@ const TARGETS = {
   // An NPC target (`{ npc }` instead of `{ id }`) bakes that NPC's *standing*
   // animation — for cache effects that live on an NPC (e.g. the spawn portal)
   // rather than a spotanim. Tuning: `--only portal --yaw N --pitch N`.
-  // The Pest Control void portal disc, face-on (yaw 90), swirling idle loop.
-  portal: { npc: 1739, yaw: 90, pitch: 0, maxFrames: 12 },
+  // The Pest Control void portal disc, viewed at a 3/4 side angle (yaw 72 /
+  // pitch 28) so the swirling face reads with perspective and the stone frame's
+  // bottom rim curves toward the viewer (the "belly") instead of a flat disc.
+  portal: { npc: 1739, yaw: 72, pitch: 28, maxFrames: 12 },
   // Enemy spawn flash — the standard Teleport graphic (spotanim 111, model 6385):
   // a clean purple diamond gem that grows then fades. Pure geometry, so it bakes
   // crisply (texture-heavy impacts like Ice Barrage become a white box with this
