@@ -22,8 +22,8 @@ const spellIconUrl = (name: string): string | undefined => ASSETS.spells[name];
  *  debuff. The color frames the icon (a RuneLite-style badge) so the five read
  *  apart at a glance; the description shows on hover in the info panel. */
 const DEBUFF_META: Record<DebuffId, { label: string; icon: string; color: string; desc: string }> = {
-  slow: { label: 'Slowed', icon: ASSETS.debuffs.slow, color: '#5bc8ff', desc: 'Movement speed reduced' },
-  stun: { label: 'Stunned', icon: ASSETS.debuffs.stun, color: '#ffd23b', desc: 'Frozen in place — cannot move' },
+  slow: { label: 'Slowed', icon: ASSETS.debuffs.slow, color: '#5f7d96', desc: 'Movement speed reduced' },
+  stun: { label: 'Stunned', icon: ASSETS.debuffs.stun, color: '#9c6b3f', desc: 'Rooted in place — cannot move' },
   burn: { label: 'Burning', icon: ASSETS.debuffs.burn, color: '#ff7a2a', desc: 'Taking fire damage over time' },
   poison: { label: 'Poisoned', icon: ASSETS.debuffs.poison, color: '#5bd75b', desc: 'Taking poison damage over time' },
   vuln: { label: 'Vulnerable', icon: ASSETS.debuffs.vuln, color: '#c87bff', desc: 'Takes increased damage' },
