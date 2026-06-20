@@ -55,11 +55,12 @@ export const ASSETS = {
     jad: 'https://oldschool.runescape.wiki/images/TzTok-Jad.png',
     vorkath: 'https://oldschool.runescape.wiki/images/Vorkath.png',
     zulrah: 'https://oldschool.runescape.wiki/images/Zulrah_%28serpentine%29.png',
-    // Superior slayer variants (Bigger and Badder) — distinct NPC models.
-    superior_bloodveld: 'https://oldschool.runescape.wiki/images/Insatiable_Bloodveld.png',
-    superior_abyssal_demon: 'https://oldschool.runescape.wiki/images/Greater_abyssal_demon.png',
-    superior_gargoyle: 'https://oldschool.runescape.wiki/images/Marble_gargoyle.png',
-    superior_nechryael: 'https://oldschool.runescape.wiki/images/Nechryarch.png',
+    // Superior slayer variants (Bigger and Badder) — NPC models rendered from
+    // the game cache (scripts/render-osrs-npcs.mjs), served locally.
+    superior_bloodveld: `${LOCAL}/models/superior_bloodveld.png`,         // Insatiable Bloodveld
+    superior_abyssal_demon: `${LOCAL}/models/superior_abyssal_demon.png`, // Greater abyssal demon
+    superior_gargoyle: `${LOCAL}/models/superior_gargoyle.png`,           // Marble gargoyle
+    superior_nechryael: `${LOCAL}/models/superior_nechryael.png`,         // Nechryarch
   },
   pets: {
     beaver: 'https://oldschool.runescape.wiki/images/Beaver.png',
