@@ -82,13 +82,13 @@ export const SUPPORT_SPELLS: Record<SupportSpellId, SupportSpec> = {
 
 /**
  * Prayer points/second a single Prayer-Restoration wizard restores. Scales with
- * the wave (~wave/10 per 0.6s game tick), NOT the tower level — so the trade-off
+ * the wave (~wave/20 per 0.6s game tick), NOT the tower level — so the trade-off
  * is how many regen towers you field (to sustain prayers) vs. spending those
  * tiles on damage/slow utilities. Multiple towers stack additively.
  */
 export const TICK_SECONDS = 0.6;
 export function sanctityRate(wave: number): number {
-  return (wave / 10) / TICK_SECONDS; // wave/10 per tick → points per second
+  return (wave / 20) / TICK_SECONDS; // wave/20 per tick → points per second
 }
 
 /**
