@@ -1,5 +1,10 @@
 const WIKI = 'https://oldschool.runescape.wiki/images/';
 
+// Locally-bundled assets extracted from the game cache (see
+// scripts/extract-osrs-sprites.mjs). Served from `public/`, base-path aware so
+// they resolve under a GitHub Pages project subpath too.
+const LOCAL = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/assets`;
+
 /**
  * Spell-icon URLs keyed by wiki file name (e.g. `Fire_Wave`, `Ice_Barrage`),
  * generated from the elemental (Wind/Water/Earth/Fire × Strike/Bolt/Blast/Wave)
@@ -197,11 +202,14 @@ export const ASSETS = {
   },
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
   debuffs: {
+    // slow = Giant snail, an NPC *model* (not a 2D sprite) — stays hot-linked
+    // until the model-render track lands. The rest are cache-extracted sprites
+    // (scripts/extract-osrs-sprites.mjs), served locally from public/.
     slow: 'https://oldschool.runescape.wiki/images/Giant_snail.png',
-    stun: 'https://oldschool.runescape.wiki/images/Entangle.png',
-    burn: 'https://oldschool.runescape.wiki/images/Burn_hitsplat.png',
-    poison: 'https://oldschool.runescape.wiki/images/Poison_hitsplat.png',
-    vuln: 'https://oldschool.runescape.wiki/images/Weaken.png',
+    stun: `${LOCAL}/debuffs/stun.png`, // SPELL_ENTANGLE (321)
+    burn: `${LOCAL}/debuffs/burn.png`, // Burn hitsplat (1361)
+    poison: `${LOCAL}/debuffs/poison.png`, // HITSPLAT_GREEN_POISON (1360)
+    vuln: `${LOCAL}/debuffs/vuln.png`, // SPELL_WEAKEN (20)
   },
   sounds: {
     shoot: {
