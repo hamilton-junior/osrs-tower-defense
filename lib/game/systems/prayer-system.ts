@@ -63,7 +63,9 @@ export class PrayerSystem {
       if (this.styleOf(a) === style) this.active.delete(a);
     }
     this.active.add(id);
-    this.e.playSound('prayer_on');
+    // Per-prayer activation clip (`prayer_on_<id>` is always registered in
+    // sound.ts, unique where OSRS has one, generic vwoom otherwise).
+    this.e.playSound(`prayer_on_${id}`);
     this.emitNow();
   }
 

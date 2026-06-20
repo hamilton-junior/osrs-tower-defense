@@ -643,14 +643,18 @@ export class GameEngine {
       return;
     }
     const hit = this.towers.find(t => distance(t.x, t.y, x, y) <= TOWER_RADIUS + 4);
+    const hadPanel = this.selectedTowerId !== null || this.inspectedEnemyId !== null;
     if (hit) {
       this.selectedTowerId = hit.id;
       this.inspectedEnemyId = null; // a tower took focus
+      this.sound.play('interface_open'); // tower stats panel opens
     } else {
       // No tower: pin an enemy under the click (open its info panel), else clear.
       const enemy = this.enemyAt(x, y);
       this.inspectedEnemyId = enemy ? enemy.id : null;
       this.selectedTowerId = null;
+      if (enemy) this.sound.play('interface_open'); // enemy info panel opens
+      else if (hadPanel) this.sound.play('interface_close'); // clicked away → panel closes
     }
     this.pendingPlacement = null;
     this.emit();
@@ -1398,7 +1402,10 @@ export class GameEngine {
       life: 0.45,
       maxLife: 0.45,
     });
-    this.sound.play('death', 40);
+    // Per-enemy-type death clip (registered as `death_<type>` in sound.ts);
+    // falls back to the generic `death` for anything unmapped.
+    const deathKey = `death_${enemy.type}`;
+    this.sound.play(deathKey in GAME_SOUNDS ? deathKey : 'death', 40);
     const reward = goldForKill(enemy.maxHp, this.wave);
     this.money += reward;
     this.goldEarned += reward;

@@ -39,7 +39,28 @@ const SAMPLE_RATE = 22050;
  * and can then be referenced from `lib/game/assets.ts`.
  */
 const TARGETS = {
-  // example: archer_shot: 2693,
+  // --- UI / interface (verified RuneLite SoundEffectID) ---
+  ui_click: 2266,              // boop — generic button / select
+  ui_coins: 3924,              // ge coin tinkle — selling a tower
+  ui_teleport: 200,            // teleport vwoop — wave start
+  ge_offer: 3925,              // GE add-offer chime
+  ge_collect: 3928,            // GE collect
+  // --- combat ---
+  combat_hit: 2498,            // melee attack-hit thud
+  combat_block: 510,           // take-damage hitsplat
+  magic_splash: 227,           // splash (magic missed)
+  // --- prayer activations (OSRS has a unique clip for these) ---
+  prayer_ultimate_strength: 2691,
+  prayer_protect_magic: 2675,
+  prayer_protect_missiles: 2677,
+  prayer_protect_melee: 2676,
+  prayer_eagle_eye: 2665,
+  prayer_mystic_might: 2669,
+  prayer_piety: 3825,
+  prayer_rigour: 2685,
+  prayer_augury: 2670,
+  prayer_generic_on: 2690,     // thick-skin "vwoom" — fallback for prayers with no unique clip
+  prayer_off: 2663,            // deactivate vwoop (one shared clip for all, as in OSRS)
 };
 
 /**

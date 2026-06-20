@@ -20,7 +20,46 @@ export const GAME_SOUNDS: Record<string, string> = {
   game_over: ASSETS.sounds.misc.death,
   prayer_on: ASSETS.sounds.misc.prayer_on,
   prayer_off: ASSETS.sounds.misc.prayer_off,
+  interface_open: ASSETS.sounds.misc.interface_open,
+  interface_close: ASSETS.sounds.misc.interface_close,
 };
+
+// --- Per-prayer activation sounds ----------------------------------------
+// Each prayer plays its own OSRS activation clip where one exists (decoded from
+// the cache, see ASSETS.sounds.prayer); prayers without a unique clip fall back
+// to the generic `prayer_on` vwoom. The engine calls `prayer_on_<id>`, which is
+// always registered here, so the lookup never misses.
+const PRAYER_SOUNDS = ASSETS.sounds.prayer as Record<string, string>;
+export const PRAYER_IDS = [
+  'burst_of_strength', 'sharp_eye', 'mystic_will', 'hawk_eye', 'mystic_lore',
+  'ultimate_strength', 'protect_from_magic', 'protect_from_missiles',
+  'protect_from_melee', 'eagle_eye', 'mystic_might', 'piety', 'rigour', 'augury',
+];
+for (const id of PRAYER_IDS) {
+  GAME_SOUNDS[`prayer_on_${id}`] = PRAYER_SOUNDS[id] ?? ASSETS.sounds.misc.prayer_on;
+}
+
+// --- Per-enemy-type death sounds -----------------------------------------
+// The engine plays `death_<type>` on a kill; each enemy maps to the closest
+// available death clip so kills are no longer one undifferentiated thud. Falls
+// back to the generic `death` key for anything unmapped.
+const DEATH = ASSETS.sounds.death as Record<string, string>;
+/** Enemy type → death-clip family (keys of ASSETS.sounds.death). */
+export const ENEMY_DEATH_FAMILY: Record<string, keyof typeof DEATH> = {
+  goblin: 'goblin', rat: 'human', cow: 'cow', imp: 'imp', spider: 'spider',
+  scorpion: 'spider', skeleton: 'ghost', zombie: 'zombie', ghost: 'ghost',
+  barrow_wight: 'ghost', skeletal_mage: 'ghost', chaos_druid: 'human',
+  hellhound: 'demon', fire_giant: 'human', hill_giant: 'human',
+  bloodveld: 'demon', superior_bloodveld: 'demon', black_demon: 'demon',
+  gargoyle: 'demon', superior_gargoyle: 'demon', nechryael: 'demon',
+  superior_nechryael: 'demon', lesser_demon: 'demon', dark_beast: 'demon',
+  abyssal_demon: 'abyssal_demon', superior_abyssal_demon: 'abyssal_demon',
+  blue_dragon: 'dragon', green_dragon: 'dragon', hydra: 'dragon',
+  jad: 'boss', vorkath: 'boss', zulrah: 'boss',
+};
+for (const [type, family] of Object.entries(ENEMY_DEATH_FAMILY)) {
+  if (DEATH[family]) GAME_SOUNDS[`death_${type}`] = DEATH[family];
+}
 
 // Per-spell cast sounds, keyed `cast_<element|ancient>_<level>` (+ `cast_support`).
 // The wizard plays the clip for the exact spell it casts, and the engine uses the

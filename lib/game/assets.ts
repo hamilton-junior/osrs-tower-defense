@@ -250,22 +250,42 @@ export const ASSETS = {
       zombie: 'https://oldschool.runescape.wiki/images/transcoded/Zombie_death.ogg/Zombie_death.ogg.mp3',
     },
     misc: {
-      hit: 'https://oldschool.runescape.wiki/images/transcoded/Melee_hit_sound.ogg/Melee_hit_sound.ogg.mp3',
+      // Core SFX repointed to authentic clips decoded straight from the OSRS game
+      // cache (scripts/extract-osrs-sounds.mjs → public/assets/sounds/), so they no
+      // longer depend on the sparse, transcoded wiki set. The remaining wiki URLs
+      // are clips with no verified cache id yet.
+      hit: `${LOCAL}/sounds/combat_hit.wav`,            // attack-hit thud (2498)
       kill: 'https://oldschool.runescape.wiki/images/transcoded/Zombie_death.ogg/Zombie_death.ogg.mp3',
-      wave: 'https://oldschool.runescape.wiki/images/transcoded/Teleport_sound.ogg/Teleport_sound.ogg.mp3',
+      wave: `${LOCAL}/sounds/ui_teleport.wav`,          // teleport vwoop (200)
       upgrade: 'https://oldschool.runescape.wiki/images/transcoded/Level-up_sound.wav/Level-up_sound.wav.mp3',
-      sell: 'https://oldschool.runescape.wiki/images/transcoded/Coins.wav/Coins.wav.ogg',
+      sell: `${LOCAL}/sounds/ui_coins.wav`,             // coin tinkle (3924)
       boss_attack: 'https://oldschool.runescape.wiki/images/transcoded/Vorkath_attack_sound.ogg/Vorkath_attack_sound.ogg.mp3',
-      prayer_on: 'https://oldschool.runescape.wiki/images/transcoded/Protect_from_Melee.ogg/Protect_from_Melee.ogg.mp3',
-      prayer_off: 'https://oldschool.runescape.wiki/images/transcoded/Rapid_Heal.ogg/Rapid_Heal.ogg.mp3',
+      prayer_on: `${LOCAL}/sounds/prayer_generic_on.wav`,  // thick-skin "vwoom" (2690)
+      prayer_off: `${LOCAL}/sounds/prayer_off.wav`,        // deactivate vwoop (2663)
       potion: 'https://oldschool.runescape.wiki/images/transcoded/Liquid.wav/Liquid.wav.ogg',
       special_attack: 'https://oldschool.runescape.wiki/images/transcoded/Special_attack_sound.ogg/Special_attack_sound.ogg.mp3',
-      click: 'https://oldschool.runescape.wiki/images/transcoded/Button_click.ogg/Button_click.ogg.mp3',
-      interface_open: 'https://oldschool.runescape.wiki/images/transcoded/Interface_open.ogg/Interface_open.ogg.mp3',
-      interface_close: 'https://oldschool.runescape.wiki/images/transcoded/Interface_close.ogg/Interface_close.ogg.mp3',
+      click: `${LOCAL}/sounds/ui_click.wav`,            // boop (2266)
+      interface_open: `${LOCAL}/sounds/ge_offer.wav`,   // GE add-offer chime (3925)
+      interface_close: `${LOCAL}/sounds/ge_collect.wav`,// GE collect (3928)
       pick_up: 'https://oldschool.runescape.wiki/images/transcoded/Pick_up_item.ogg/Pick_up_item.ogg.mp3',
       cannon_fire: 'https://oldschool.runescape.wiki/images/transcoded/Dwarf_multicannon_fire.ogg/Dwarf_multicannon_fire.ogg.mp3',
       death: 'https://oldschool.runescape.wiki/images/transcoded/Man_death.ogg/Man_death.ogg.mp3',
-    }
+      magic_splash: `${LOCAL}/sounds/magic_splash.wav`, // splash (227)
+      block: `${LOCAL}/sounds/combat_block.wav`,        // take-damage hitsplat (510)
+    },
+    // Per-prayer activation clips, decoded from the cache. Prayers OSRS gives a
+    // unique activation sound get their own; the rest fall back to `misc.prayer_on`
+    // (the generic vwoom) in sound.ts. Deactivation is one shared clip (prayer_off).
+    prayer: {
+      ultimate_strength: `${LOCAL}/sounds/prayer_ultimate_strength.wav`, // 2691
+      protect_from_magic: `${LOCAL}/sounds/prayer_protect_magic.wav`,    // 2675
+      protect_from_missiles: `${LOCAL}/sounds/prayer_protect_missiles.wav`, // 2677
+      protect_from_melee: `${LOCAL}/sounds/prayer_protect_melee.wav`,    // 2676
+      eagle_eye: `${LOCAL}/sounds/prayer_eagle_eye.wav`,                 // 2665
+      mystic_might: `${LOCAL}/sounds/prayer_mystic_might.wav`,           // 2669
+      piety: `${LOCAL}/sounds/prayer_piety.wav`,                         // 3825
+      rigour: `${LOCAL}/sounds/prayer_rigour.wav`,                       // 2685
+      augury: `${LOCAL}/sounds/prayer_augury.wav`,                       // 2670
+    } as Record<string, string>,
   }
 };
