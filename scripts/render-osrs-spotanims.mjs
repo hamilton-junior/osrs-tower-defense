@@ -46,7 +46,11 @@ const TARGETS = {
   // The Pest Control void portal disc, viewed at a 3/4 side angle (yaw 72 /
   // pitch 28) so the swirling face reads with perspective and the stone frame's
   // bottom rim curves toward the viewer (the "belly") instead of a flat disc.
-  portal: { npc: 1739, yaw: 72, pitch: 28, maxFrames: 12 },
+  // The Pest Control void portal disc, viewed nearly edge-on (yaw 12) — a
+  // literal side profile: the stone frame is a thin vertical silhouette and the
+  // swirling energy bulges out as the portal's "belly". Nudge yaw up (18-25)
+  // for a wider belly, down toward 0 for a thinner profile.
+  portal: { npc: 1739, yaw: 12, pitch: 0, maxFrames: 12 },
   // Enemy spawn flash — the standard Teleport graphic (spotanim 111, model 6385):
   // a clean purple diamond gem that grows then fades. Pure geometry, so it bakes
   // crisply (texture-heavy impacts like Ice Barrage become a white box with this
