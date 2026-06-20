@@ -1,5 +1,6 @@
-import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind } from '../types';
+import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect } from '../types';
 import { SPAWN_ANIM_SECONDS } from '../types';
+import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
@@ -196,6 +197,8 @@ export class GameEngine {
   hitsplats: Hitsplat[] = [];
   particles: Particle[] = [];
   deaths: DeathFx[] = [];
+  /** One-shot baked-spotanim effects (enemy materialise, …) — purely visual. */
+  spotEffects: Effect[] = [];
 
   money = START_MONEY;
   lives = START_LIVES;
@@ -440,6 +443,10 @@ export class GameEngine {
       // Spell icons double as the tower badge and the projectile sprite.
       ...Object.fromEntries(
         Object.entries(ASSETS.spells).map(([name, url]) => [`spell_${name}`, url]),
+      ),
+      // Baked spotanim sprite sheets (keyed `spotanim_<slug>`).
+      ...Object.fromEntries(
+        Object.entries(SPOTANIMS).map(([slug, s]) => [`spotanim_${slug}`, s.url]),
       ),
     };
     for (const [key, url] of Object.entries(urls)) {
@@ -906,6 +913,12 @@ export class GameEngine {
   /** Advance purely-visual effects (no gameplay impact). */
   private updateEffects(dt: number) {
     if (this.baseFlash > 0) this.baseFlash = Math.max(0, this.baseFlash - dt * 1.6);
+    for (let i = this.spotEffects.length - 1; i >= 0; i--) {
+      const fx = this.spotEffects[i];
+      fx.age += dt;
+      const meta = SPOTANIMS[fx.slug];
+      if (!meta || fx.age >= spotAnimDurationS(meta)) this.spotEffects.splice(i, 1);
+    }
     for (let i = this.hitsplats.length - 1; i >= 0; i--) {
       const h = this.hitsplats[i];
       h.life -= dt;
@@ -932,6 +945,12 @@ export class GameEngine {
     }
   }
 
+  /** Queue a one-shot baked-spotanim effect at a point (purely visual). */
+  spawnEffect(slug: string, x: number, y: number) {
+    if (!SPOTANIMS[slug]) return;
+    this.spotEffects.push({ slug, x, y, age: 0 });
+  }
+
   private spawn(dt: number) {
     if (this.spawnQueue.length === 0) return;
     this.spawnTimer += dt;
@@ -940,6 +959,7 @@ export class GameEngine {
       const enemy = this.spawnQueue.shift();
       if (enemy) {
         enemy.spawnAnim = SPAWN_ANIM_SECONDS; // materialise out of the portal
+        this.spawnEffect('spawn', enemy.x, enemy.y); // teleport-gem flash at the portal
         this.enemies.push(enemy);
       }
       this.emit();
@@ -1471,6 +1491,7 @@ export class GameEngine {
     this.hitsplats = [];
     this.particles = [];
     this.deaths = [];
+    this.spotEffects = [];
     this.spawnQueue = [];
     this.money = START_MONEY;
     this.lives = START_LIVES;

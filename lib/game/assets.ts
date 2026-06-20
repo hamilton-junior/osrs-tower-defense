@@ -270,6 +270,12 @@ export const ASSETS = {
     poison: `${LOCAL}/debuffs/poison.png`, // HITSPLAT_GREEN_POISON (1360)
     vuln: `${LOCAL}/debuffs/vuln.png`, // SPELL_WEAKEN (20)
   },
+  // Baked spotanim (GFX) sprite sheets — animated cache effects rendered offline
+  // to a horizontal sheet by scripts/render-osrs-spotanims.mjs. Played frame by
+  // frame at runtime (see lib/game/data/spotanims.ts + GameRenderer.drawEffects).
+  spotanims: {
+    spawn: `${LOCAL}/spotanims/spawn.png`, // Teleport gem (spotanim 111) — enemy materialise
+  },
   sounds: {
     shoot: SHOOT_SOUNDS,
     spellHit: SPELL_HIT,

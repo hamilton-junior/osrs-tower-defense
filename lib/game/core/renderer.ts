@@ -1,5 +1,6 @@
 import type { GameEngine, HitsplatKind } from './engine';
 import { SPAWN_ANIM_SECONDS } from '../types';
+import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
@@ -35,6 +36,7 @@ export class GameRenderer {
     this.drawDeaths(ctx);
     this.drawEnemies(ctx);
     this.drawSpawnPortal(ctx); // after enemies → they appear to emerge from it
+    this.drawEffects(ctx); // baked spotanims (spawn flash) over the portal
     this.drawProjectiles(ctx);
     this.drawParticles(ctx);
     this.drawHitsplats(ctx);
@@ -286,6 +288,38 @@ export class GameRenderer {
     ctx.restore();
 
     ctx.restore();
+  }
+
+  /**
+   * Baked spotanim (GFX) effects — one-shot sprite-sheet animations the engine
+   * queues at a point (e.g. the teleport-gem flash as an enemy materialises).
+   * Drawn additively ('lighter') for the in-game energy glow, with a short
+   * fade-out at the tail so it dissolves rather than cutting off.
+   */
+  private drawEffects(ctx: CanvasRenderingContext2D) {
+    for (const fx of this.e.spotEffects) {
+      const meta = SPOTANIMS[fx.slug];
+      const key = `spotanim_${fx.slug}`;
+      if (!meta || !this.e.imageOk(key)) continue;
+      const img = this.e.images.get(key)!;
+
+      // Current frame from accumulated per-frame timings (scaled by speed).
+      let rem = fx.age * 1000 * meta.speed;
+      let fi = 0;
+      for (; fi < meta.frames - 1; fi++) {
+        if (rem < meta.frameMs[fi]) break;
+        rem -= meta.frameMs[fi];
+      }
+      const prog = fx.age / spotAnimDurationS(meta);
+      const fade = prog > 0.7 ? Math.max(0, 1 - (prog - 0.7) / 0.3) : 1;
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.92 * fade;
+      const s = meta.size;
+      ctx.drawImage(img, fi * meta.frameW, 0, meta.frameW, meta.frameH, fx.x - s / 2, fx.y - s / 2, s, s);
+      ctx.restore();
+    }
   }
 
   /**
