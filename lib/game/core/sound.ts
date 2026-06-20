@@ -50,13 +50,23 @@ for (const [type, url] of Object.entries(DEATH)) GAME_SOUNDS[`death_${type}`] = 
 // The wizard plays the clip for the exact spell it casts, and the engine uses the
 // clip's duration to time the projectile's flight (see fireTowers).
 const shoot = ASSETS.sounds.shoot as Record<string, Record<number, string>>;
+// Elemental towers have five tiers (Strike/Bolt/Blast/Wave/Surge); the wizard
+// plays `cast_<el>_<level>` on fire. (Surge = level 5 — previously unmapped.)
 for (const el of ['air', 'water', 'earth', 'fire']) {
-  for (let lvl = 1; lvl <= 4; lvl++) GAME_SOUNDS[`cast_${el}_${lvl}`] = shoot[`wizard_${el}`][lvl - 1];
+  for (let lvl = 1; lvl <= 5; lvl++) GAME_SOUNDS[`cast_${el}_${lvl}`] = shoot[`wizard_${el}`][lvl - 1];
 }
+// Ancient towers have four tiers (Rush/Burst/Blitz/Barrage); cast is shared per
+// element (every level maps to the same `ancient_<el>` clip).
 for (const an of ['ice', 'blood', 'shadow', 'smoke']) {
   for (let lvl = 1; lvl <= 4; lvl++) GAME_SOUNDS[`cast_${an}_${lvl}`] = shoot[`ancient_${an}`][lvl - 1];
 }
 GAME_SOUNDS['cast_support'] = shoot.support[1];
+
+// Spell IMPACT sounds, keyed `hit_<el|anc>_<level>`, played when the bolt lands
+// (see GameEngine.hit). Pairs 1:1 with each cast above so every spell has the
+// authentic cast-on-fire + impact-on-hit it does in OSRS.
+const spellHit = ASSETS.sounds.spellHit as Record<string, string>;
+for (const [key, url] of Object.entries(spellHit)) GAME_SOUNDS[`hit_${key}`] = url;
 
 /**
  * Lightweight SFX player over HTMLAudioElement. Preloads each source once and

@@ -2,7 +2,6 @@ import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPr
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
-import { CAST_TOTAL, DEFAULT_CAST_FRAC } from '../data/cast-timing';
 import { ASSETS } from '../assets';
 import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
@@ -1094,28 +1093,22 @@ export class GameEngine {
         }
       }
 
-      // A wizard plays the exact spell's cast clip and times the projectile's
-      // flight to that clip's length, so the bolt lands as the sound finishes;
-      // archer/cannon shots use a fixed nominal speed. Every projectile then
-      // eases in (slow→fast) over this flight time (see moveProjectiles).
+      // Every projectile flies at a fixed nominal speed (distance-scaled) and
+      // eases in (slow→fast) over that time (see moveProjectiles). A wizard plays
+      // its spell's cast clip here on fire and tags the bolt with the matching
+      // impact clip, which plays when it connects (GameEngine.hit) — the
+      // authentic OSRS cast-on-fire / hit-on-impact pair, no longer stretching
+      // the flight to a clip's length.
       let soundKey = `fire_${tower.type}`;
+      let hitSound: string | undefined;
       const dist = distance(tower.x, tower.y, target.x, target.y);
-      let flight = dist / 600; // archer/cannon nominal flight
+      let flight = dist / 600; // nominal flight (archer/cannon/spell alike)
       if (tower.type === 'wizard') {
         const mode = tower.mageMode ?? 'elemental';
-        soundKey = mode === 'ancients'
-          ? `cast_${tower.ancientType ?? 'ice'}_${tower.level}`
-          : `cast_${tower.element ?? 'air'}_${tower.level}`;
-        // Land the bolt after the clip's full cast+hit has played. CAST_TOTAL holds
-        // that total (end of audible content) in absolute seconds, measured per clip
-        // offline (scripts/analyze-cast-clips.mjs); clips without a measurement fall
-        // back to a fixed fraction of the clip length.
-        // Falls back to 0.6s only until the clip is decoded (first cast).
-        const dur = this.sound.duration(soundKey);
-        const total = CAST_TOTAL[soundKey];
-        flight = Number.isFinite(dur)
-          ? (total != null ? Math.min(total, dur) : dur * DEFAULT_CAST_FRAC)
-          : 0.6;
+        const tier = mode === 'ancients' ? (tower.ancientType ?? 'ice') : (tower.element ?? 'air');
+        soundKey = `cast_${tier}_${tower.level}`;
+        hitSound = `hit_${tier}_${tower.level}`;
+        flight = Math.max(flight, 0.28); // keep the spell's arc readable
       }
       flight = Math.max(0.05, flight); // tiny floor: never instantaneous / div-by-zero
 
@@ -1137,6 +1130,7 @@ export class GameEngine {
         lifesteal: projLifesteal || undefined,
         bonusMaxHpFrac: projBonusMaxHpFrac || undefined,
         spellIcon: projSpell,
+        hitSound,
         sourceTowerId: tower.id,
         trail: [],
       });
@@ -1213,6 +1207,7 @@ export class GameEngine {
 
   private hit(p: Projectile, target: Enemy | null) {
     this.spawnImpactParticles(p.x, p.y, p.color);
+    if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
     let primaryKilled = false;
     if (p.aoe || p.special === 'aoe') {
       // Magic barrages splash for reduced damage on non-primary targets so AoE

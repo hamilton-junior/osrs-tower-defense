@@ -269,6 +269,9 @@ export interface Projectile {
   bonusMaxHpFrac?: number;
   /** Wiki spell-file name (e.g. `Fire_Wave`) used to draw the real spell sprite. */
   spellIcon?: string;
+  /** Sound key (e.g. `hit_fire_3`) played at impact — the spell's authentic OSRS
+   *  hit sfx, paired with the cast sound played on fire. */
+  hitSound?: string;
   sourceTowerId?: string;
   /** Recent positions (oldest→newest) for drawing a motion trail. */
   trail?: { x: number; y: number }[];

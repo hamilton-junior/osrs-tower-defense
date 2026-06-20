@@ -70,17 +70,26 @@ const TARGETS = {
   fire_toxic: 1380,            // dart_fire
   cast_support: 2895,          // lunar_heal_other
 
-  // --- Standard spellbook casts (Strike/Bolt/Blast/Wave/Surge = levels 1..5) ---
-  cast_air_1: 220, cast_air_2: 218, cast_air_3: 216, cast_air_4: 2374, cast_air_5: 4028,
-  cast_water_1: 211, cast_water_2: 209, cast_water_3: 207, cast_water_4: 2362, cast_water_5: 4030,
-  cast_earth_1: 132, cast_earth_2: 130, cast_earth_3: 128, cast_earth_4: 2332, cast_earth_5: 4025,
-  cast_fire_1: 160, cast_fire_2: 157, cast_fire_3: 155, cast_fire_4: 2348, cast_fire_5: 4032,
+  // --- Standard spellbook CAST clips (Strike/Bolt/Blast/Wave/Surge = lvl 1..5),
+  //     played when the spell is fired. `<el><tier>_cast_and_fire`. ---
+  cast_air_1: 220, cast_air_2: 218, cast_air_3: 216, cast_air_4: 222, cast_air_5: 4028,
+  cast_water_1: 211, cast_water_2: 209, cast_water_3: 207, cast_water_4: 213, cast_water_5: 4030,
+  cast_earth_1: 132, cast_earth_2: 130, cast_earth_3: 128, cast_earth_4: 134, cast_earth_5: 4025,
+  cast_fire_1: 160, cast_fire_2: 157, cast_fire_3: 155, cast_fire_4: 162, cast_fire_5: 4032,
+  // Standard HIT clips (`<el><tier>_hit`), played when the bolt connects.
+  hit_air_1: 221, hit_air_2: 219, hit_air_3: 217, hit_air_4: 223, hit_air_5: 4027,
+  hit_water_1: 212, hit_water_2: 210, hit_water_3: 208, hit_water_4: 214, hit_water_5: 4029,
+  hit_earth_1: 133, hit_earth_2: 131, hit_earth_3: 129, hit_earth_4: 135, hit_earth_5: 4026,
+  hit_fire_1: 161, hit_fire_2: 158, hit_fire_3: 156, hit_fire_4: 163, hit_fire_5: 4031,
 
-  // --- Ancient casts (Rush/Burst/Blitz/Barrage = levels 1..4; impact clips) ---
-  cast_ice_1: 173, cast_ice_2: 170, cast_ice_3: 169, cast_ice_4: 168,
-  cast_blood_1: 110, cast_blood_2: 105, cast_blood_3: 104, cast_blood_4: 102,
-  cast_shadow_1: 179, cast_shadow_2: 177, cast_shadow_3: 176, cast_shadow_4: 175,
-  cast_smoke_1: 185, cast_smoke_2: 182, cast_smoke_3: 181, cast_smoke_4: 180,
+  // --- Ancient CAST clips — one shared `<el>_cast` per element (OSRS reuses the
+  //     same cast sound across an element's four tiers), played on fire. ---
+  cast_ice: 171, cast_blood: 106, cast_shadow: 178, cast_smoke: 183,
+  // Ancient HIT clips — per-tier `<el>_<tier>_impact` (Rush/Burst/Blitz/Barrage).
+  hit_ice_1: 173, hit_ice_2: 170, hit_ice_3: 169, hit_ice_4: 168,
+  hit_blood_1: 110, hit_blood_2: 105, hit_blood_3: 104, hit_blood_4: 102,
+  hit_shadow_1: 179, hit_shadow_2: 177, hit_shadow_3: 176, hit_shadow_4: 175,
+  hit_smoke_1: 185, hit_smoke_2: 182, hit_smoke_3: 181, hit_smoke_4: 180,
 
   // --- Per-enemy death clips (exact config names from List_of_sound_IDs) ---
   death_goblin: 471, death_rat: 711, death_cow: 370, death_imp: 535,

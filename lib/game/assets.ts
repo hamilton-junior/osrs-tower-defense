@@ -44,8 +44,21 @@ const SHOOT_SOUNDS: Record<string, Record<number, string>> = {
 for (const el of ['air', 'water', 'earth', 'fire']) {
   SHOOT_SOUNDS[`wizard_${el}`] = { 0: `${SND}/cast_${el}_1.wav`, 1: `${SND}/cast_${el}_2.wav`, 2: `${SND}/cast_${el}_3.wav`, 3: `${SND}/cast_${el}_4.wav`, 4: `${SND}/cast_${el}_5.wav` };
 }
+// Ancients reuse one cast clip across all four tiers (the per-tier variety is in
+// the HIT clip), so every index points at the same `cast_<el>.wav`.
 for (const an of ['ice', 'blood', 'shadow', 'smoke']) {
-  SHOOT_SOUNDS[`ancient_${an}`] = { 0: `${SND}/cast_${an}_1.wav`, 1: `${SND}/cast_${an}_2.wav`, 2: `${SND}/cast_${an}_3.wav`, 3: `${SND}/cast_${an}_4.wav` };
+  const cast = `${SND}/cast_${an}.wav`;
+  SHOOT_SOUNDS[`ancient_${an}`] = { 0: cast, 1: cast, 2: cast, 3: cast };
+}
+
+// Spell IMPACT clips, played when a bolt connects (keyed `<el|anc>_<tier>`).
+// Elemental has five tiers (Strike..Surge); ancients have four (Rush..Barrage).
+const SPELL_HIT: Record<string, string> = {};
+for (const el of ['air', 'water', 'earth', 'fire']) {
+  for (let l = 1; l <= 5; l++) SPELL_HIT[`${el}_${l}`] = `${SND}/hit_${el}_${l}.wav`;
+}
+for (const an of ['ice', 'blood', 'shadow', 'smoke']) {
+  for (let l = 1; l <= 4; l++) SPELL_HIT[`${an}_${l}`] = `${SND}/hit_${an}_${l}.wav`;
 }
 
 // Per-enemy-type death clips — each enemy maps to its own cache death sound.
@@ -257,6 +270,7 @@ export const ASSETS = {
   },
   sounds: {
     shoot: SHOOT_SOUNDS,
+    spellHit: SPELL_HIT,
     death: DEATH_SOUNDS,
     misc: {
       // Core SFX repointed to authentic clips decoded straight from the OSRS game
