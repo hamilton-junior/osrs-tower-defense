@@ -42,7 +42,7 @@ const TARGETS = {
   // npc: id is required; everything else optional (yaw/pitch in degrees).
   superior_bloodveld: { npc: 7397 },     // Insatiable Bloodveld
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon
-  superior_gargoyle: { npc: 7407 },      // Marble gargoyle
+  superior_gargoyle: { npc: 7407, cullBelowGround: true }, // Marble gargoyle (drop red ground disc)
   superior_nechryael: { npc: 7411 },     // Nechryarch
 };
 
@@ -157,24 +157,38 @@ function project(x, y, z, sinYaw, cosYaw, sinPitch, cosPitch) {
   return [rx, ry, rz];
 }
 
-function renderModel(model, { yaw = 30, pitch = 12 } = {}) {
+/** Value at percentile `q` (0..1) of a numeric array (sorted copy). */
+function percentile(arr, q) {
+  const s = Float64Array.from(arr).sort();
+  const i = Math.min(s.length - 1, Math.max(0, Math.round(q * (s.length - 1))));
+  return s[i];
+}
+
+function renderModel(model, { yaw = 30, pitch = 12, zoom = 1, cullBelowGround = false } = {}) {
   const n = model.vertexCount;
   const X = model.vertexPositionsX, Y = model.vertexPositionsY, Z = model.vertexPositionsZ;
   const yawR = (yaw * Math.PI) / 180, pitchR = (pitch * Math.PI) / 180;
   const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
 
-  // Project all vertices, track bounds for auto-fit.
   const px = new Float64Array(n), py = new Float64Array(n), pz = new Float64Array(n);
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (let i = 0; i < n; i++) {
     const [a, b, c] = project(X[i], Y[i], Z[i], sy, cy, sp, cp);
     px[i] = a; py[i] = b; pz[i] = c;
-    if (a < minX) minX = a; if (a > maxX) maxX = a;
-    if (b < minY) minY = b; if (b > maxY) maxY = b;
   }
-  const span = Math.max(maxX - minX, maxY - minY) || 1;
-  const scale = (SIZE * (1 - 2 * MARGIN)) / span;
-  const cx = (minX + maxX) / 2, cyc = (minY + maxY) / 2;
+
+  // Robust auto-fit: frame to the dense body via percentile bounds, so stray
+  // effect geometry (energy shards, ground discs) doesn't shrink the creature.
+  // Normalise primarily by HEIGHT so every NPC reads at a similar on-screen
+  // size; only fall back to width when a model is wider than tall (e.g. wings),
+  // to avoid clipping the body.
+  const TRIM = 0.03; // ignore the extreme 3% of verts per side when framing
+  const xLo = percentile(px, TRIM), xHi = percentile(px, 1 - TRIM);
+  const yLo = percentile(py, TRIM), yHi = percentile(py, 1 - TRIM);
+  const robustH = (yHi - yLo) || 1, robustW = (xHi - xLo) || 1;
+  const usable = SIZE * (1 - 2 * MARGIN);
+  let scale = (usable / robustH) * zoom;
+  if (robustW * scale > usable) scale = (usable / robustW) * zoom; // don't clip width
+  const cx = (xLo + xHi) / 2, cyc = (yLo + yHi) / 2;
   const toScreen = (i) => [SIZE / 2 + (px[i] - cx) * scale, SIZE / 2 + (py[i] - cyc) * scale];
 
   // Light direction (in projected space) for flat per-face shading.
@@ -202,6 +216,9 @@ function renderModel(model, { yaw = 30, pitch = 12 } = {}) {
     if (hsl === undefined || hsl < 0) continue;
 
     const i1 = fa[f], i2 = fb[f], i3 = fc[f];
+    // Optional: drop sub-ground decoration (shadow/contact discs sit just below
+    // the feet at model-Y > 0; nothing legitimate is below the ground plane).
+    if (cullBelowGround && Y[i1] > 4 && Y[i2] > 4 && Y[i3] > 4) continue;
     // Flat shade: face normal in projected space · light.
     const ux = px[i2] - px[i1], uy = py[i2] - py[i1], uz = pz[i2] - pz[i1];
     const vx = px[i3] - px[i1], vy = py[i3] - py[i1], vz = pz[i3] - pz[i1];
