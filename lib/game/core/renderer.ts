@@ -7,6 +7,11 @@ import { ELEMENTS, spellSpriteName } from '../systems/magic';
 
 const GRID = 32;
 
+/** Radius (logic px) around the spawn portal within which an enemy is still
+ *  "inside" it — its HP bar / overlays stay hidden until it walks clear, so
+ *  nothing pokes through the gateway. */
+const PORTAL_MASK_R = 50;
+
 /** OSRS Template:Hitsplat colours, keyed by hitsplat kind. */
 const HITSPLAT_COLORS: Record<HitsplatKind, string> = {
   hit: '#9e1414',     // red damage
@@ -34,9 +39,9 @@ export class GameRenderer {
     this.drawPlacementGhost(ctx);
     this.drawTowers(ctx);
     this.drawDeaths(ctx);
+    this.drawSpawnPortal(ctx); // before enemies → they materialise out of its face
     this.drawEnemies(ctx);
-    this.drawSpawnPortal(ctx); // after enemies → they appear to emerge from it
-    this.drawEffects(ctx); // baked spotanims (spawn flash) over the portal
+    this.drawEffects(ctx); // baked spotanims (spawn flash) over the emerging enemy
     this.drawProjectiles(ctx);
     this.drawParticles(ctx);
     this.drawHitsplats(ctx);
@@ -179,8 +184,9 @@ export class GameRenderer {
     const path = this.e.path;
     if (path.length < 2) return;
     const t = performance.now() / 1000;
-    const y = Math.max(56, Math.min(this.e.height - 56, path[0].y));
-    const x = 18; // just inside the left edge so the whole gateway reads
+    const pp = this.e.portalPoint; // on-screen point where enemies materialise
+    const x = pp.x;
+    const y = Math.max(56, Math.min(this.e.height - 56, pp.y));
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
 
     // A tall, narrow vertical gateway (an oval you walk out of sideways) rather
@@ -627,15 +633,19 @@ export class GameRenderer {
     const markEl = sel && sel.type === 'wizard' && (sel.mageMode ?? 'elemental') === 'elemental' ? (sel.element ?? 'air') : null;
     const markColor = markEl && markEl !== 'none' ? ELEMENTS[markEl].color : null;
     const markPulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
+    const pp = this.e.portalPoint;
 
     for (const e of this.e.enemies) {
       const isBoss = !!e.isBoss;
+      // While still in the portal (materialising or not yet walked clear), hide
+      // the HP bar / overlays so nothing pokes through the gateway.
+      const inPortal = (e.spawnAnim ?? 0) > 0 || Math.hypot(e.x - pp.x, e.y - pp.y) < PORTAL_MASK_R;
       // Portal materialise: for the first SPAWN_ANIM_SECONDS after emerging the
       // enemy fades in (smoothstep) and grows from 45%→100% (ease-out), so it
       // looks like it's stepping out of the gateway rather than popping in.
       const spawnT = e.spawnAnim && e.spawnAnim > 0 ? 1 - e.spawnAnim / SPAWN_ANIM_SECONDS : 1;
-      const matScale = 0.45 + 0.55 * (spawnT * (2 - spawnT)); // easeOutQuad
-      const matAlpha = spawnT * spawnT * (3 - 2 * spawnT); // smoothstep
+      const matScale = 0.3 + 0.7 * (spawnT * (2 - spawnT)); // easeOutQuad grow
+      const matAlpha = spawnT * spawnT * (3 - 2 * spawnT); // smoothstep fade-in
       ctx.save();
       ctx.globalAlpha = matAlpha;
       const size = (isBoss ? 60 : 30) * (e.renderScale ?? 1) * matScale;
@@ -683,19 +693,22 @@ export class GameRenderer {
         ctx.fill();
       }
 
-      // health bar — colour shifts green → yellow → red as HP drops.
-      const bw = isBoss ? 60 : 30;
-      // Lift the bar by any extra sprite height so scaled-up sprites (Zulrah)
-      // don't cover it.
-      const by = e.y - (isBoss ? 40 : 22) - Math.max(0, ((e.renderScale ?? 1) - 1) * (isBoss ? 30 : 15));
-      const ratio = Math.max(0, e.hp / e.maxHp);
-      ctx.fillStyle = '#400';
-      ctx.fillRect(e.x - bw / 2, by, bw, 4);
-      ctx.fillStyle = ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a';
-      ctx.fillRect(e.x - bw / 2, by, bw * ratio, 4);
+      // health bar — colour shifts green → yellow → red as HP drops. Hidden
+      // while the enemy is still in the portal so it doesn't poke through.
+      if (!inPortal) {
+        const bw = isBoss ? 60 : 30;
+        // Lift the bar by any extra sprite height so scaled-up sprites (Zulrah)
+        // don't cover it.
+        const by = e.y - (isBoss ? 40 : 22) - Math.max(0, ((e.renderScale ?? 1) - 1) * (isBoss ? 30 : 15));
+        const ratio = Math.max(0, e.hp / e.maxHp);
+        ctx.fillStyle = '#400';
+        ctx.fillRect(e.x - bw / 2, by, bw, 4);
+        ctx.fillStyle = ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a';
+        ctx.fillRect(e.x - bw / 2, by, bw * ratio, 4);
+      }
 
       // Weakness highlight: a pulsing ring in the selected wizard's element.
-      if (markColor && e.weakness === markEl) {
+      if (!inPortal && markColor && e.weakness === markEl) {
         ctx.save();
         ctx.strokeStyle = markColor;
         ctx.globalAlpha = 0.45 + markPulse * 0.4;

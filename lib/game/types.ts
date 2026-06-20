@@ -133,7 +133,7 @@ export interface Enemy extends EnemyDef {
 }
 
 /** Duration (s) of the portal materialise (fade-in + grow) on a fresh spawn. */
-export const SPAWN_ANIM_SECONDS = 0.45;
+export const SPAWN_ANIM_SECONDS = 0.6;
 
 /** A one-shot baked-spotanim effect playing at a point (purely visual). The
  *  `slug` keys into SPOTANIMS; `age` is elapsed simulated time in seconds. */

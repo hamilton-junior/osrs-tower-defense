@@ -483,6 +483,21 @@ export class GameEngine {
     ];
   }
 
+  /**
+   * Where the spawn portal sits (and enemies materialise): a fixed distance down
+   * the first path segment so it's fully on-screen, rather than at `path[0]`
+   * which starts off-screen left. Enemies spawn here and walk on toward path[1],
+   * so they emerge *from the portal's face* instead of sliding out behind it.
+   */
+  get portalPoint(): Point {
+    const a = this.path[0];
+    const b = this.path[1] ?? a;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const d = Math.min(len, 64); // 64px in along the first segment → on-screen
+    return { x: a.x + (dx / len) * d, y: a.y + (dy / len) * d };
+  }
+
   // ------------------------------------------------------------- input/actions
   setPointer(x: number, y: number) {
     this.pointer = { x, y };
@@ -877,11 +892,12 @@ export class GameEngine {
     const def = ENEMIES[type];
     if (!def) return null;
     const scaled = scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, wave);
+    const start = this.portalPoint;
     return {
       ...def,
       id: uid(),
-      x: this.path[0].x,
-      y: this.path[0].y,
+      x: start.x,
+      y: start.y,
       hp: scaled.hp,
       maxHp: scaled.hp,
       speed: scaled.speed,
