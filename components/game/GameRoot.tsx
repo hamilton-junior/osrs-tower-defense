@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId } from '@/lib/game/core/engine';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
@@ -18,13 +18,15 @@ const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<n
 const towerTierIcon = (type: TowerType, tier: number) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[tier];
 /** Wiki spell-icon URL for a spell-file name (e.g. `Fire_Wave`), if it exists. */
 const spellIconUrl = (name: string): string | undefined => ASSETS.spells[name];
-/** Label + OSRS icon for each enemy debuff, shown in the hover panel. */
-const DEBUFF_META: Record<DebuffId, { label: string; icon: string }> = {
-  slow: { label: 'Slowed', icon: ASSETS.debuffs.slow },
-  stun: { label: 'Stunned', icon: ASSETS.debuffs.stun },
-  burn: { label: 'Burning', icon: ASSETS.debuffs.burn },
-  poison: { label: 'Poisoned', icon: ASSETS.debuffs.poison },
-  vuln: { label: 'Vulnerable', icon: ASSETS.debuffs.vuln },
+/** Label, OSRS icon, theme color and a one-line description for each enemy
+ *  debuff. The color frames the icon (a RuneLite-style badge) so the five read
+ *  apart at a glance; the description shows on hover in the info panel. */
+const DEBUFF_META: Record<DebuffId, { label: string; icon: string; color: string; desc: string }> = {
+  slow: { label: 'Slowed', icon: ASSETS.debuffs.slow, color: '#5bc8ff', desc: 'Movement speed reduced' },
+  stun: { label: 'Stunned', icon: ASSETS.debuffs.stun, color: '#ffd23b', desc: 'Frozen in place — cannot move' },
+  burn: { label: 'Burning', icon: ASSETS.debuffs.burn, color: '#ff7a2a', desc: 'Taking fire damage over time' },
+  poison: { label: 'Poisoned', icon: ASSETS.debuffs.poison, color: '#5bd75b', desc: 'Taking poison damage over time' },
+  vuln: { label: 'Vulnerable', icon: ASSETS.debuffs.vuln, color: '#c87bff', desc: 'Takes increased damage' },
 };
 /** Staves cycled per spellbook in the wizard's on-tile picker. */
 const WIZ_TOWER = ASSETS.towers.wizard as Record<string, string>;
@@ -111,7 +113,12 @@ export default function GameRoot() {
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
   const [animTick, setAnimTick] = useState(0);
-  const [hoverEnemy, setHoverEnemy] = useState<EnemyHoverInfo | null>(null);
+  // The enemy info panel: the clicked/pinned enemy, or whichever is hovered.
+  const [enemyPanel, setEnemyPanel] = useState<{ info: EnemyHoverInfo; pinned: boolean } | null>(null);
+  // Measured pixel size of the enemy panel, so we can clamp it fully on-screen
+  // (a %-based flip can't know the panel's real height → it still clipped).
+  const enemyPanelRef = useRef<HTMLDivElement>(null);
+  const [enemyPanelSize, setEnemyPanelSize] = useState({ w: 0, h: 0 });
   // Whether the upgrade button is hovered, to preview the next tier's stats.
   const [upgradeHover, setUpgradeHover] = useState(false);
   // Global UI-move lock (persisted): when on, no panel can be dragged.
@@ -122,11 +129,21 @@ export default function GameRoot() {
   }, []);
   const prevWaveActive = useRef(false);
 
-  // Poll the enemy under the cursor so its HP/effects read live while hovering.
+  // Poll the active enemy (pinned by a click, else hovered) so its HP/effects
+  // read live and the panel tracks it as it moves.
   useEffect(() => {
-    const id = setInterval(() => setHoverEnemy(engineRef.current?.hoveredEnemySummary() ?? null), 80);
+    const id = setInterval(() => setEnemyPanel(engineRef.current?.activeEnemySummary() ?? null), 80);
     return () => clearInterval(id);
   }, []);
+
+  // Measure the enemy panel after each render so its placement can be clamped by
+  // its true height/width (avoids the flip-but-still-clipped case near the top).
+  useLayoutEffect(() => {
+    const el = enemyPanelRef.current;
+    if (!el) return;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    if (w !== enemyPanelSize.w || h !== enemyPanelSize.h) setEnemyPanelSize({ w, h });
+  });
 
   // Tick the picker animations on the OSRS cadence, only while it's open.
   useEffect(() => {
@@ -386,60 +403,98 @@ export default function GameRoot() {
         onContextMenu={onContextMenu}
       />
 
-      {/* Enemy hover info — anchored to the hovered enemy, updating live. Flips
-          below the enemy and clamps horizontally so it never clips off-screen. */}
-      {hoverEnemy && (() => {
-        const ratio = Math.max(0, hoverEnemy.hp / hoverEnemy.maxHp);
-        const wk = hoverEnemy.weakness ? ELEMENTS[hoverEnemy.weakness as keyof typeof ELEMENTS] : null;
-        const xPct = (hoverEnemy.x / engW) * 100;
-        const yPct = (hoverEnemy.y / engH) * 100;
-        const below = yPct < 22; // too near the top → drop the panel beneath the enemy
-        const clampedX = Math.min(87, Math.max(13, xPct)); // keep the box on-screen
+      {/* Enemy info — pinned by a click (stays until you click elsewhere) or else
+          following the hovered enemy. Positioned in pixels and clamped by the
+          panel's measured size so it is never clipped, on any edge. */}
+      {enemyPanel && (() => {
+        const { info, pinned } = enemyPanel;
+        const ratio = Math.max(0, info.hp / info.maxHp);
+        const wk = info.weakness ? ELEMENTS[info.weakness as keyof typeof ELEMENTS] : null;
+        // Enemy position in container pixels (canvas fills the container).
+        const rect = canvasRef.current?.getBoundingClientRect();
+        const cw = rect?.width ?? window.innerWidth;
+        const ch = rect?.height ?? window.innerHeight;
+        const ex = (info.x / engW) * cw;
+        const ey = (info.y / engH) * ch;
+        const m = 8;           // viewport margin
+        const gap = 22;        // clearance between the enemy sprite and the panel
+        const pw = enemyPanelSize.w, ph = enemyPanelSize.h;
+        // Horizontal: centered on the enemy, clamped to the viewport.
+        const left = Math.max(m, Math.min(cw - pw - m, ex - pw / 2));
+        // Vertical: above the enemy by default; drop below only if the *measured*
+        // panel would clip the top; then clamp so it can never exit either edge.
+        let top = ey - gap - ph;
+        if (top < m) top = ey + gap;
+        top = Math.max(m, Math.min(ch - ph - m, top));
         return (
           <div
-            className="absolute z-20 pointer-events-none"
-            style={{
-              left: `${clampedX}%`,
-              top: `${yPct}%`,
-              transform: `translate(-50%, ${below ? '35%' : '-135%'})`,
-            }}
+            ref={enemyPanelRef}
+            className={`absolute z-20 ${pinned ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            style={{ left: `${left}px`, top: `${top}px`, visibility: pw === 0 ? 'hidden' : 'visible' }}
           >
-            <div className="rs-panel px-[0.7em] py-[0.5em] w-[12em]" style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}>
+            <div
+              className={`rs-panel px-[0.7em] py-[0.5em] w-[12em] ${pinned ? 'ring-1 ring-osrs-orange/70' : ''}`}
+              style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
+            >
               <div className="flex items-center justify-between gap-2 mb-[0.3em]">
-                <span className="text-osrs-orange font-bold truncate">{hoverEnemy.name}</span>
-                {hoverEnemy.isBoss && <span className="text-[0.6em] text-osrs-red uppercase tracking-wide">Boss</span>}
+                <span className="text-osrs-orange font-bold truncate">{info.name}</span>
+                <span className="flex items-center gap-[0.4em] shrink-0">
+                  {info.isBoss && <span className="text-[0.6em] text-osrs-red uppercase tracking-wide">Boss</span>}
+                  {pinned && (
+                    <button
+                      title="Close (or click elsewhere)"
+                      onClick={() => engineRef.current?.unpinEnemy()}
+                      className="text-[#cdbe91] hover:text-white leading-none text-[1em] px-[0.2em] -mr-[0.2em]"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </span>
               </div>
               <div className="rs-progress mb-[0.35em]">
                 <div className="rs-progress-fill" style={{ width: `${Math.round(ratio * 100)}%`, background: ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a' }} />
               </div>
               <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.15em] text-[0.74em]">
                 <span className="text-[#d3c3a0]">HP</span>
-                <span className="text-right text-white">{hoverEnemy.hp}/{hoverEnemy.maxHp}</span>
+                <span className="text-right text-white">{info.hp}/{info.maxHp}</span>
                 <span className="text-[#d3c3a0]">Weakness</span>
                 <span className="text-right capitalize" style={{ color: wk?.color ?? '#9a9a9a' }}>{wk ? wk.label : 'None'}</span>
                 <span className="text-[#d3c3a0]">Move speed</span>
-                <span className="text-right text-white">{hoverEnemy.speed}{hoverEnemy.speed !== hoverEnemy.baseSpeed ? ` (${hoverEnemy.baseSpeed})` : ''}</span>
+                <span className="text-right text-white">{info.speed}{info.speed !== info.baseSpeed ? ` (${info.baseSpeed})` : ''}</span>
                 <span className="text-[#d3c3a0]">Gold</span>
-                <span className="text-right text-osrs-yellow">{hoverEnemy.reward}</span>
-                {hoverEnemy.tenacity > 0 && (
+                <span className="text-right text-osrs-yellow">{info.reward}</span>
+                {info.tenacity > 0 && (
                   <>
                     <span className="text-[#d3c3a0]" title="Resistance to non-damaging debuffs (slow, stun, etc.)">Tenacity</span>
-                    <span className="text-right text-osrs-cyan">{Math.round(hoverEnemy.tenacity * 100)}%</span>
+                    <span className="text-right text-osrs-cyan">{Math.round(info.tenacity * 100)}%</span>
                   </>
                 )}
               </div>
-              {hoverEnemy.effects.length > 0 && (
-                <div className="mt-[0.35em] pt-[0.3em] border-t border-[#3a2f1d] flex flex-wrap items-center gap-[0.35em]">
-                  {hoverEnemy.effects.map((id) => (
-                    <img
-                      key={id}
-                      src={DEBUFF_META[id].icon}
-                      alt={DEBUFF_META[id].label}
-                      title={DEBUFF_META[id].label}
-                      className="w-[1.3em] h-[1.3em] object-contain"
-                      onError={hideBrokenImg}
-                    />
-                  ))}
+              {info.effects.length > 0 && (
+                <div className="mt-[0.4em] pt-[0.35em] border-t border-[#3a2f1d] flex flex-wrap items-center gap-[0.4em] pointer-events-auto">
+                  {info.effects.map((id) => {
+                    const meta = DEBUFF_META[id];
+                    return (
+                      <span key={id} className="relative group flex">
+                        <span
+                          className="flex items-center justify-center w-[1.7em] h-[1.7em] rounded-[3px] border"
+                          style={{ borderColor: meta.color, background: `${meta.color}22`, boxShadow: `0 0 4px ${meta.color}66` }}
+                        >
+                          <img
+                            src={meta.icon}
+                            alt={meta.label}
+                            className="w-[1.25em] h-[1.25em] object-contain"
+                            onError={hideBrokenImg}
+                          />
+                        </span>
+                        {/* Hover tooltip: what the icon means. */}
+                        <span className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-[0.4em] px-[0.5em] py-[0.3em] hidden group-hover:block whitespace-nowrap z-30 pointer-events-none text-[0.72em]">
+                          <span className="font-bold" style={{ color: meta.color }}>{meta.label}</span>
+                          <span className="text-[#d3c3a0]"> — {meta.desc}</span>
+                        </span>
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>

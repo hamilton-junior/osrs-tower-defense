@@ -201,6 +201,9 @@ export class GameEngine {
   pendingPlacement: Point | null = null;
   selectedTowerId: string | null = null;
   movingTowerId: string | null = null;
+  /** Enemy "pinned" by a click: its info panel stays open (tracking the enemy as
+   *  it moves) until the player clicks elsewhere. Null = follow the hovered one. */
+  inspectedEnemyId: string | null = null;
   /** Spellbook a newly-bought wizard will be locked into (chosen pre-placement). */
   pendingMageMode: MageMode = 'elemental';
   gameSpeed = 1;
@@ -469,10 +472,8 @@ export class GameEngine {
     this.pointer = { x, y };
   }
 
-  /** Summary of the enemy under the pointer (for the hover info panel), or null.
-   *  Polled by the UI so HP/effects read live as the enemy moves and takes hits. */
-  hoveredEnemySummary(): EnemyHoverInfo | null {
-    const { x, y } = this.pointer;
+  /** Topmost enemy within click/hover range of a logic point, or null. */
+  private enemyAt(x: number, y: number): Enemy | null {
     let best: Enemy | null = null;
     let bestD = Infinity;
     for (const e of this.enemies) {
@@ -480,27 +481,58 @@ export class GameEngine {
       const d = distanceSq(e.x, e.y, x, y);
       if (d <= r * r && d < bestD) { best = e; bestD = d; }
     }
-    if (!best) return null;
+    return best;
+  }
+
+  /** Build the live info-panel summary for one enemy. */
+  private summarizeEnemy(e: Enemy): EnemyHoverInfo {
     const effects: DebuffId[] = [];
-    if (best.slowTimer > 0) effects.push('slow');
-    if (best.stunTimer > 0) effects.push('stun');
-    if ((best.dots?.burn?.timer ?? 0) > 0) effects.push('burn');
-    if ((best.dots?.poison?.timer ?? 0) > 0) effects.push('poison');
-    if (best.vulnTimer && best.vulnTimer > 0) effects.push('vuln');
+    if (e.slowTimer > 0) effects.push('slow');
+    if (e.stunTimer > 0) effects.push('stun');
+    if ((e.dots?.burn?.timer ?? 0) > 0) effects.push('burn');
+    if ((e.dots?.poison?.timer ?? 0) > 0) effects.push('poison');
+    if (e.vulnTimer && e.vulnTimer > 0) effects.push('vuln');
     return {
-      name: best.name,
-      hp: Math.max(0, Math.ceil(best.hp)),
-      maxHp: best.maxHp,
-      speed: Math.round(best.speed),
-      baseSpeed: Math.round(best.baseSpeed),
-      weakness: best.weakness && best.weakness !== 'none' ? best.weakness : null,
-      reward: goldForKill(best.maxHp, this.wave),
-      isBoss: !!best.isBoss,
-      x: best.x,
-      y: best.y,
+      name: e.name,
+      hp: Math.max(0, Math.ceil(e.hp)),
+      maxHp: e.maxHp,
+      speed: Math.round(e.speed),
+      baseSpeed: Math.round(e.baseSpeed),
+      weakness: e.weakness && e.weakness !== 'none' ? e.weakness : null,
+      reward: goldForKill(e.maxHp, this.wave),
+      isBoss: !!e.isBoss,
+      x: e.x,
+      y: e.y,
       effects,
-      tenacity: this.tenacity(best),
+      tenacity: this.tenacity(e),
     };
+  }
+
+  /** Summary of the enemy under the pointer (for the hover info panel), or null.
+   *  Polled by the UI so HP/effects read live as the enemy moves and takes hits. */
+  hoveredEnemySummary(): EnemyHoverInfo | null {
+    const best = this.enemyAt(this.pointer.x, this.pointer.y);
+    return best ? this.summarizeEnemy(best) : null;
+  }
+
+  /** Enemy summary for the info panel: the pinned (clicked) enemy if one is still
+   *  alive, otherwise whichever enemy is under the pointer. `pinned` lets the UI
+   *  keep the panel interactive (tooltips) and stationary while inspecting. */
+  activeEnemySummary(): { info: EnemyHoverInfo; pinned: boolean } | null {
+    if (this.inspectedEnemyId != null) {
+      const pinned = this.enemies.find(e => e.id === this.inspectedEnemyId);
+      if (pinned) return { info: this.summarizeEnemy(pinned), pinned: true };
+      this.inspectedEnemyId = null; // it died/escaped — fall back to hover
+    }
+    const hov = this.hoveredEnemySummary();
+    return hov ? { info: hov, pinned: false } : null;
+  }
+
+  /** Clear the pinned enemy (× button on the info panel). */
+  unpinEnemy() {
+    if (this.inspectedEnemyId == null) return;
+    this.inspectedEnemyId = null;
+    this.emit();
   }
 
   selectTowerType(type: TowerType | null) {
@@ -508,6 +540,7 @@ export class GameEngine {
     this.selectedTowerId = null;
     this.movingTowerId = null;
     this.pendingPlacement = null;
+    this.inspectedEnemyId = null;
     if (type) this.sound.play('click');
     this.emit();
   }
@@ -609,7 +642,15 @@ export class GameEngine {
       return;
     }
     const hit = this.towers.find(t => distance(t.x, t.y, x, y) <= TOWER_RADIUS + 4);
-    this.selectedTowerId = hit ? hit.id : null;
+    if (hit) {
+      this.selectedTowerId = hit.id;
+      this.inspectedEnemyId = null; // a tower took focus
+    } else {
+      // No tower: pin an enemy under the click (open its info panel), else clear.
+      const enemy = this.enemyAt(x, y);
+      this.inspectedEnemyId = enemy ? enemy.id : null;
+      this.selectedTowerId = null;
+    }
     this.pendingPlacement = null;
     this.emit();
   }
