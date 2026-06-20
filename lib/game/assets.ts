@@ -198,7 +198,7 @@ export const ASSETS = {
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
   debuffs: {
     slow: 'https://oldschool.runescape.wiki/images/Giant_snail.png',
-    stun: 'https://oldschool.runescape.wiki/images/Stun.png',
+    stun: 'https://oldschool.runescape.wiki/images/Entangle.png',
     burn: 'https://oldschool.runescape.wiki/images/Fire_Wave.png',
     poison: 'https://oldschool.runescape.wiki/images/Poison_hitsplat.png',
     vuln: 'https://oldschool.runescape.wiki/images/Vulnerability.png',
