@@ -24,6 +24,42 @@ SPELL_ICONS['Death_Charge'] = `${LOCAL}/spells/Death_Charge.png`;
 SPELL_ICONS['Undead_Grasp'] = `${LOCAL}/spells/Undead_Grasp.png`;
 SPELL_ICONS['Vile_Vigour'] = `${LOCAL}/spells/Vile_Vigour.png`;
 
+// --- Sound effects decoded straight from the OSRS game cache ----------------
+// (scripts/extract-osrs-sounds.mjs → public/assets/sounds/). IDs sourced from
+// the wiki's List_of_sound_IDs config names, so every clip is the authentic
+// in-game sound rather than a sparse wiki transcode.
+const SND = `${LOCAL}/sounds`;
+
+// Tower attack + spell-cast clips, keyed to match the legacy `shoot` shape the
+// sound layer already reads (`wizard_<el>` 0-4 = Strike/Bolt/Blast/Wave/Surge,
+// `ancient_<el>` 0-3 = Rush/Burst/Blitz/Barrage).
+const SHOOT_SOUNDS: Record<string, Record<number, string>> = {
+  archer: { 1: `${SND}/fire_archer.wav` },
+  cannon: { 1: `${SND}/fire_cannon.wav` },
+  tzhaar: { 1: `${SND}/fire_tzhaar.wav` },
+  slayer: { 1: `${SND}/fire_slayer.wav` },
+  toxic: { 1: `${SND}/fire_toxic.wav` },
+  support: { 1: `${SND}/cast_support.wav` },
+};
+for (const el of ['air', 'water', 'earth', 'fire']) {
+  SHOOT_SOUNDS[`wizard_${el}`] = { 0: `${SND}/cast_${el}_1.wav`, 1: `${SND}/cast_${el}_2.wav`, 2: `${SND}/cast_${el}_3.wav`, 3: `${SND}/cast_${el}_4.wav`, 4: `${SND}/cast_${el}_5.wav` };
+}
+for (const an of ['ice', 'blood', 'shadow', 'smoke']) {
+  SHOOT_SOUNDS[`ancient_${an}`] = { 0: `${SND}/cast_${an}_1.wav`, 1: `${SND}/cast_${an}_2.wav`, 2: `${SND}/cast_${an}_3.wav`, 3: `${SND}/cast_${an}_4.wav` };
+}
+
+// Per-enemy-type death clips — each enemy maps to its own cache death sound.
+const DEATH_TYPES = [
+  'goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost',
+  'hellhound', 'scorpion', 'fire_giant', 'bloodveld', 'hill_giant', 'black_demon',
+  'gargoyle', 'blue_dragon', 'nechryael', 'abyssal_demon', 'lesser_demon',
+  'dark_beast', 'green_dragon', 'jad', 'vorkath', 'zulrah', 'barrow_wight',
+  'chaos_druid', 'skeletal_mage', 'hydra', 'superior_bloodveld',
+  'superior_abyssal_demon', 'superior_gargoyle', 'superior_nechryael',
+];
+const DEATH_SOUNDS: Record<string, string> = {};
+for (const t of DEATH_TYPES) DEATH_SOUNDS[t] = `${SND}/death_${t}.wav`;
+
 export const ASSETS = {
   spells: SPELL_ICONS,
   enemies: {
@@ -220,35 +256,8 @@ export const ASSETS = {
     vuln: `${LOCAL}/debuffs/vuln.png`, // SPELL_WEAKEN (20)
   },
   sounds: {
-    shoot: {
-      archer: { 1: 'https://oldschool.runescape.wiki/images/transcoded/Longbow_attack.wav/Longbow_attack.wav.mp3' },
-      wizard_air: { 0: 'https://oldschool.runescape.wiki/images/transcoded/Wind_Strike.ogg/Wind_Strike.ogg.mp3', 1: 'https://oldschool.runescape.wiki/images/transcoded/Wind_Bolt.ogg/Wind_Bolt.ogg.mp3', 2: 'https://oldschool.runescape.wiki/images/transcoded/Wind_Blast.ogg/Wind_Blast.ogg.mp3', 3: 'https://oldschool.runescape.wiki/images/transcoded/Wind_Wave.ogg/Wind_Wave.ogg.mp3', 4: 'https://oldschool.runescape.wiki/images/transcoded/Wind_Surge.ogg/Wind_Surge.ogg.mp3' },
-      wizard_water: { 0: 'https://oldschool.runescape.wiki/images/transcoded/Water_Strike.ogg/Water_Strike.ogg.mp3', 1: 'https://oldschool.runescape.wiki/images/transcoded/Water_Bolt.ogg/Water_Bolt.ogg.mp3', 2: 'https://oldschool.runescape.wiki/images/transcoded/Water_Blast.ogg/Water_Blast.ogg.mp3', 3: 'https://oldschool.runescape.wiki/images/transcoded/Water_Wave.ogg/Water_Wave.ogg.mp3', 4: 'https://oldschool.runescape.wiki/images/transcoded/Water_Surge.ogg/Water_Surge.ogg.mp3' },
-      wizard_earth: { 0: 'https://oldschool.runescape.wiki/images/transcoded/Earth_Strike.ogg/Earth_Strike.ogg.mp3', 1: 'https://oldschool.runescape.wiki/images/transcoded/Earth_Bolt.ogg/Earth_Bolt.ogg.mp3', 2: 'https://oldschool.runescape.wiki/images/transcoded/Earth_Blast.ogg/Earth_Blast.ogg.mp3', 3: 'https://oldschool.runescape.wiki/images/transcoded/Earth_Wave.ogg/Earth_Wave.ogg.mp3', 4: 'https://oldschool.runescape.wiki/images/Earth_Surge.ogg/Earth_Surge.ogg.mp3' },
-      wizard_fire: { 0: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Strike.ogg/Fire_Strike.ogg.mp3', 1: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Bolt.ogg/Fire_Bolt.ogg.mp3', 2: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Blast.ogg/Fire_Blast.ogg.mp3', 3: 'https://oldschool.runescape.wiki/images/transcoded/Fire_Wave.ogg/Fire_Wave.ogg.mp3', 4: 'https://oldschool.runescape.wiki/images/Fire_Surge.ogg/Fire_Surge.ogg.mp3' },
-      ancient_ice: { 0: 'https://oldschool.runescape.wiki/images/transcoded/Ice_Rush.ogg/Ice_Rush.ogg.mp3', 1: 'https://oldschool.runescape.wiki/images/transcoded/Ice_Burst.ogg/Ice_Burst.ogg.mp3', 2: 'https://oldschool.runescape.wiki/images/transcoded/Ice_Blitz.ogg/Ice_Blitz.ogg.mp3', 3: 'https://oldschool.runescape.wiki/images/transcoded/Ice_Barrage.ogg/Ice_Barrage.ogg.mp3' },
-      ancient_blood: { 0: 'https://oldschool.runescape.wiki/images/transcoded/Blood_Rush.ogg/Blood_Rush.ogg.mp3', 1: 'https://oldschool.runescape.wiki/images/transcoded/Blood_Burst.ogg/Blood_Burst.ogg.mp3', 2: 'https://oldschool.runescape.wiki/images/transcoded/Blood_Blitz.ogg/Blood_Blitz.ogg.mp3', 3: 'https://oldschool.runescape.wiki/images/transcoded/Blood_Barrage.ogg/Blood_Barrage.ogg.mp3' },
-      ancient_shadow: { 0: 'https://oldschool.runescape.wiki/images/transcoded/Shadow_Rush.ogg/Shadow_Rush.ogg.mp3', 1: 'https://oldschool.runescape.wiki/images/transcoded/Shadow_Burst.ogg/Shadow_Burst.ogg.mp3', 2: 'https://oldschool.runescape.wiki/images/transcoded/Shadow_Blitz.ogg/Shadow_Blitz.ogg.mp3', 3: 'https://oldschool.runescape.wiki/images/transcoded/Shadow_Barrage.ogg/Shadow_Barrage.ogg.mp3' },
-      ancient_smoke: { 0: 'https://oldschool.runescape.wiki/images/transcoded/Smoke_Rush.ogg/Smoke_Rush.ogg.mp3', 1: 'https://oldschool.runescape.wiki/images/transcoded/Smoke_Burst.ogg/Smoke_Burst.ogg.mp3', 2: 'https://oldschool.runescape.wiki/images/transcoded/Smoke_Blitz.ogg/Smoke_Blitz.ogg.mp3', 3: 'https://oldschool.runescape.wiki/images/Smoke_Barrage.ogg/Smoke_Barrage.ogg.mp3' },
-      cannon: { 1: 'https://oldschool.runescape.wiki/images/transcoded/Darkness_impact.wav/Darkness_impact.wav.mp3' },
-      tzhaar: { 1: 'https://oldschool.runescape.wiki/images/Superheat_Item.ogg' },
-      slayer: { 1: 'https://oldschool.runescape.wiki/images/transcoded/Magic_Dart.ogg/Magic_Dart.ogg.mp3' },
-      support: { 1: 'https://oldschool.runescape.wiki/images/transcoded/Heal_Other_cast.ogg/Heal_Other_cast.ogg.mp3' },
-      toxic: { 1: 'https://oldschool.runescape.wiki/images/transcoded/Dart_attack.wav/Dart_attack.wav.ogg' },
-    },
-    death: {
-      demon: 'https://oldschool.runescape.wiki/images/transcoded/Demon_death.ogg/Demon_death.ogg.mp3',
-      dragon: 'https://oldschool.runescape.wiki/images/transcoded/Dragon_death.ogg/Dragon_death.ogg.mp3',
-      boss: 'https://oldschool.runescape.wiki/images/transcoded/Boss_death.ogg/Boss_death.ogg.mp3',
-      goblin: 'https://oldschool.runescape.wiki/images/transcoded/Goblin_death.ogg/Goblin_death.ogg.mp3',
-      imp: 'https://oldschool.runescape.wiki/images/transcoded/Imp_death.ogg/Imp_death.ogg.mp3',
-      abyssal_demon: 'https://oldschool.runescape.wiki/images/transcoded/Abyssal_demon_death.ogg/Abyssal_demon_death.ogg.mp3',
-      ghost: 'https://oldschool.runescape.wiki/images/transcoded/Ghost_death.wav/Ghost_death.wav.ogg',
-      human: 'https://oldschool.runescape.wiki/images/transcoded/Man_death.ogg/Man_death.ogg.mp3',
-      cow: 'https://oldschool.runescape.wiki/images/transcoded/Cow_death.wav/Cow_death.wav.ogg',
-      spider: 'https://oldschool.runescape.wiki/images/transcoded/Giant_spider_death.ogg/Giant_spider_death.ogg.mp3',
-      zombie: 'https://oldschool.runescape.wiki/images/transcoded/Zombie_death.ogg/Zombie_death.ogg.mp3',
-    },
+    shoot: SHOOT_SOUNDS,
+    death: DEATH_SOUNDS,
     misc: {
       // Core SFX repointed to authentic clips decoded straight from the OSRS game
       // cache (scripts/extract-osrs-sounds.mjs → public/assets/sounds/), so they no
@@ -268,7 +277,7 @@ export const ASSETS = {
       interface_open: `${LOCAL}/sounds/ge_offer.wav`,   // GE add-offer chime (3925)
       interface_close: `${LOCAL}/sounds/ge_collect.wav`,// GE collect (3928)
       pick_up: 'https://oldschool.runescape.wiki/images/transcoded/Pick_up_item.ogg/Pick_up_item.ogg.mp3',
-      cannon_fire: 'https://oldschool.runescape.wiki/images/transcoded/Dwarf_multicannon_fire.ogg/Dwarf_multicannon_fire.ogg.mp3',
+      cannon_fire: `${SND}/fire_cannon.wav`,             // mcannon_fire (1667)
       death: 'https://oldschool.runescape.wiki/images/transcoded/Man_death.ogg/Man_death.ogg.mp3',
       magic_splash: `${LOCAL}/sounds/magic_splash.wav`, // splash (227)
       block: `${LOCAL}/sounds/combat_block.wav`,        // take-damage hitsplat (510)

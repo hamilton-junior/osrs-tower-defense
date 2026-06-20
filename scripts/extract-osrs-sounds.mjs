@@ -61,6 +61,38 @@ const TARGETS = {
   prayer_augury: 2670,
   prayer_generic_on: 2690,     // thick-skin "vwoom" — fallback for prayers with no unique clip
   prayer_off: 2663,            // deactivate vwoop (one shared clip for all, as in OSRS)
+
+  // --- Tower attack sounds (config names from List_of_sound_IDs) ---
+  fire_archer: 2700,           // longbow
+  fire_cannon: 1667,           // mcannon_fire (dwarf multicannon)
+  fire_tzhaar: 190,            // superheat_all
+  fire_slayer: 1718,           // magic_dart_fire
+  fire_toxic: 1380,            // dart_fire
+  cast_support: 2895,          // lunar_heal_other
+
+  // --- Standard spellbook casts (Strike/Bolt/Blast/Wave/Surge = levels 1..5) ---
+  cast_air_1: 220, cast_air_2: 218, cast_air_3: 216, cast_air_4: 2374, cast_air_5: 4028,
+  cast_water_1: 211, cast_water_2: 209, cast_water_3: 207, cast_water_4: 2362, cast_water_5: 4030,
+  cast_earth_1: 132, cast_earth_2: 130, cast_earth_3: 128, cast_earth_4: 2332, cast_earth_5: 4025,
+  cast_fire_1: 160, cast_fire_2: 157, cast_fire_3: 155, cast_fire_4: 2348, cast_fire_5: 4032,
+
+  // --- Ancient casts (Rush/Burst/Blitz/Barrage = levels 1..4; impact clips) ---
+  cast_ice_1: 173, cast_ice_2: 170, cast_ice_3: 169, cast_ice_4: 168,
+  cast_blood_1: 110, cast_blood_2: 105, cast_blood_3: 104, cast_blood_4: 102,
+  cast_shadow_1: 179, cast_shadow_2: 177, cast_shadow_3: 176, cast_shadow_4: 175,
+  cast_smoke_1: 185, cast_smoke_2: 182, cast_smoke_3: 181, cast_smoke_4: 180,
+
+  // --- Per-enemy death clips (exact config names from List_of_sound_IDs) ---
+  death_goblin: 471, death_rat: 711, death_cow: 370, death_imp: 535,
+  death_spider: 3606, death_skeleton: 777, death_zombie: 922, death_ghost: 438,
+  death_hellhound: 6952, death_scorpion: 3610, death_fire_giant: 450,
+  death_bloodveld: 313, death_hill_giant: 450, death_black_demon: 398,
+  death_gargoyle: 429, death_blue_dragon: 409, death_nechryael: 646,
+  death_abyssal_demon: 277, death_lesser_demon: 403, death_dark_beast: 390,
+  death_green_dragon: 409, death_jad: 256, death_vorkath: 1523, death_zulrah: 409,
+  death_barrow_wight: 1338, death_chaos_druid: 512, death_skeletal_mage: 777,
+  death_hydra: 4080, death_superior_bloodveld: 313, death_superior_abyssal_demon: 277,
+  death_superior_gargoyle: 429, death_superior_nechryael: 646,
 };
 
 /**

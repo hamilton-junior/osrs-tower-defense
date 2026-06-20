@@ -40,26 +40,11 @@ for (const id of PRAYER_IDS) {
 }
 
 // --- Per-enemy-type death sounds -----------------------------------------
-// The engine plays `death_<type>` on a kill; each enemy maps to the closest
-// available death clip so kills are no longer one undifferentiated thud. Falls
+// The engine plays `death_<type>` on a kill; each enemy has its own death clip
+// decoded from the cache (see ASSETS.sounds.death, keyed by enemy type). Falls
 // back to the generic `death` key for anything unmapped.
 const DEATH = ASSETS.sounds.death as Record<string, string>;
-/** Enemy type → death-clip family (keys of ASSETS.sounds.death). */
-export const ENEMY_DEATH_FAMILY: Record<string, keyof typeof DEATH> = {
-  goblin: 'goblin', rat: 'human', cow: 'cow', imp: 'imp', spider: 'spider',
-  scorpion: 'spider', skeleton: 'ghost', zombie: 'zombie', ghost: 'ghost',
-  barrow_wight: 'ghost', skeletal_mage: 'ghost', chaos_druid: 'human',
-  hellhound: 'demon', fire_giant: 'human', hill_giant: 'human',
-  bloodveld: 'demon', superior_bloodveld: 'demon', black_demon: 'demon',
-  gargoyle: 'demon', superior_gargoyle: 'demon', nechryael: 'demon',
-  superior_nechryael: 'demon', lesser_demon: 'demon', dark_beast: 'demon',
-  abyssal_demon: 'abyssal_demon', superior_abyssal_demon: 'abyssal_demon',
-  blue_dragon: 'dragon', green_dragon: 'dragon', hydra: 'dragon',
-  jad: 'boss', vorkath: 'boss', zulrah: 'boss',
-};
-for (const [type, family] of Object.entries(ENEMY_DEATH_FAMILY)) {
-  if (DEATH[family]) GAME_SOUNDS[`death_${type}`] = DEATH[family];
-}
+for (const [type, url] of Object.entries(DEATH)) GAME_SOUNDS[`death_${type}`] = url;
 
 // Per-spell cast sounds, keyed `cast_<element|ancient>_<level>` (+ `cast_support`).
 // The wizard plays the clip for the exact spell it casts, and the engine uses the
