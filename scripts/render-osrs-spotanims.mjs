@@ -16,7 +16,7 @@
  *
  * Build-time/offline only (osrscachereader can't run in a static export).
  */
-import { RSCache, IndexType, ConfigType } from 'osrscachereader';
+import { RSCache, IndexType, ConfigType, ModelGroup } from 'osrscachereader';
 import { createCanvas } from 'canvas';
 import { PNG } from 'pngjs';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +40,11 @@ const MS_PER_UNIT = 20; // OSRS frame-length unit ≈ 20ms (one client cycle)
  * Discover ids with `--list`.
  */
 const TARGETS = {
+  // An NPC target (`{ npc }` instead of `{ id }`) bakes that NPC's *standing*
+  // animation — for cache effects that live on an NPC (e.g. the spawn portal)
+  // rather than a spotanim. Tuning: `--only portal --yaw N --pitch N`.
+  // The Pest Control void portal disc, face-on (yaw 90), swirling idle loop.
+  portal: { npc: 1739, yaw: 90, pitch: 0, maxFrames: 12 },
   // Enemy spawn flash — the standard Teleport graphic (spotanim 111, model 6385):
   // a clean purple diamond gem that grows then fades. Pure geometry, so it bakes
   // crisply (texture-heavy impacts like Ice Barrage become a white box with this
@@ -79,6 +84,75 @@ function parseSpotAnimDef(content) {
     else break; // unknown → stop (avoid desync garbage)
   }
   return out;
+}
+
+/**
+ * Parse an NPC config's model ids (opcode 61 / u32) + standing animation
+ * (opcode 13 / u16) + recolour (opcode 40). Same byte-walking approach as the
+ * NPC renderer — the 1.1.3 NpcLoader misses 32-bit models.
+ */
+function parseNpcDef(content) {
+  const b = new Uint8Array(content.buffer ?? content);
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  let p = 0;
+  const u8 = () => b[p++];
+  const u16 = () => { const v = dv.getUint16(p); p += 2; return v; };
+  const u32 = () => { const v = dv.getUint32(p); p += 4; return v; };
+  const i8 = () => dv.getInt8(p++);
+  const skipStr = () => { while (b[p] !== 0) p++; p++; };
+  const out = { models: [], standAnim: -1, recolorToFind: [], recolorToReplace: [] };
+  for (let guard = 0; guard < 512; guard++) {
+    const op = u8();
+    if (op === 0) break;
+    else if (op === 1) { const n = u8(); for (let i = 0; i < n; i++) out.models.push(u16()); }
+    else if (op === 61) { const n = u8(); for (let i = 0; i < n; i++) out.models.push(u32()); }
+    else if (op === 2) skipStr();
+    else if (op === 12) p += 1;
+    else if (op === 13) out.standAnim = u16();
+    else if (op === 14 || op === 15 || op === 16 || op === 18) p += 2;
+    else if (op === 17) p += 8;
+    else if (op >= 30 && op < 35) skipStr();
+    else if (op === 40 || op === 41) { const n = u8(); for (let i = 0; i < n; i++) { const f = u16(), r = u16(); if (op === 40) { out.recolorToFind.push(f); out.recolorToReplace.push(r); } } }
+    else if (op === 60) { const n = u8(); p += 2 * n; }
+    else if (op >= 74 && op <= 79) p += 2;
+    else if (op === 93) { /* flag */ }
+    else if (op === 95) p += 2;
+    else if (op === 97 || op === 98) p += 2;
+    else if (op === 99 || op === 107 || op === 109 || op === 111 || op === 122 || op === 123 || op === 129 || op === 145) { /* flag */ }
+    else if (op === 100 || op === 101) i8();
+    else if (op === 102) { const bf = u8(); let len = 0; for (let v = bf; v !== 0; v >>= 1) len++; for (let i = 0; i < len; i++) if (bf & (1 << i)) p += 4; }
+    else if (op === 103) p += 2;
+    else if (op === 106) { u16(); u16(); const n = u8(); p += 2 * (n + 1); }
+    else if (op === 118) { u16(); u16(); u16(); const n = u8(); p += 2 * (n + 1); }
+    else if (op === 114 || op === 116 || op === 124 || op === 126 || op === 146) p += 2;
+    else if (op === 115 || op === 117) p += 8;
+    else if (op === 249) { const n = u8(); for (let i = 0; i < n; i++) { const isS = u8() === 1; p += 3; if (isS) skipStr(); else p += 4; } }
+    else break;
+  }
+  return out;
+}
+
+/** Build an NPC's (merged + recoloured) model and its standing-animation id. */
+async function buildNpcModel(cache, npcId) {
+  const file = await cache.getFile(IndexType.CONFIGS, ConfigType.NPC, npcId);
+  if (!file?.content) return null;
+  const def = parseNpcDef(file.content);
+  const models = [];
+  for (const mid of def.models) {
+    const m = await cache.getDef(IndexType.MODELS, mid).catch(() => null);
+    if (m) models.push(m);
+  }
+  if (!models.length) return null;
+  const model = models.length === 1 ? models[0] : new ModelGroup(models).getMergedModel();
+  if (def.recolorToFind?.length) {
+    const map = new Map();
+    def.recolorToFind.forEach((f, i) => map.set(f & 0xffff, def.recolorToReplace[i] & 0xffff));
+    for (let i = 0; i < model.faceColors.length; i++) {
+      const r = map.get(model.faceColors[i] & 0xffff);
+      if (r !== undefined) model.faceColors[i] = r;
+    }
+  }
+  return { model, animationId: def.standAnim };
 }
 
 // ----------------------------------------------------------- OSRS HSL palette
@@ -240,24 +314,31 @@ async function main() {
 
   for (const [slug, cfgIn] of entries) {
     const cfg = { yaw: 0, pitch: 0, maxFrames: 24, ...cfgIn, ...camOverride };
-    const file = await cache.getFile(IndexType.CONFIGS, ConfigType.SPOTANIM, cfg.id);
-    const sa = parseSpotAnimDef(file.content);
-    if (sa.modelId == null) { console.warn(`! ${slug}: spotanim ${cfg.id} has no model`); continue; }
-    const model = await cache.getDef(IndexType.MODELS, sa.modelId);
-    if (!model) { console.warn(`! ${slug}: model ${sa.modelId} not found`); continue; }
-
-    // spotanim recolour (swap stored face HSLs)
-    if (sa.recolorToFind?.length) {
-      const map = new Map();
-      sa.recolorToFind.forEach((f, i) => map.set(f & 0xffff, sa.recolorToReplace[i] & 0xffff));
-      for (let i = 0; i < model.faceColors.length; i++) {
-        const r = map.get(model.faceColors[i] & 0xffff);
-        if (r !== undefined) model.faceColors[i] = r;
+    // Two sources: a spotanim (`cfg.id`) or an NPC's standing anim (`cfg.npc`).
+    let model, animationId;
+    if (cfg.npc != null) {
+      const built = await buildNpcModel(cache, cfg.npc);
+      if (!built) { console.warn(`! ${slug}: NPC ${cfg.npc} has no model`); continue; }
+      model = built.model; animationId = built.animationId;
+    } else {
+      const file = await cache.getFile(IndexType.CONFIGS, ConfigType.SPOTANIM, cfg.id);
+      const sa = parseSpotAnimDef(file.content);
+      if (sa.modelId == null) { console.warn(`! ${slug}: spotanim ${cfg.id} has no model`); continue; }
+      model = await cache.getDef(IndexType.MODELS, sa.modelId);
+      if (!model) { console.warn(`! ${slug}: model ${sa.modelId} not found`); continue; }
+      if (sa.recolorToFind?.length) {
+        const map = new Map();
+        sa.recolorToFind.forEach((f, i) => map.set(f & 0xffff, sa.recolorToReplace[i] & 0xffff));
+        for (let i = 0; i < model.faceColors.length; i++) {
+          const r = map.get(model.faceColors[i] & 0xffff);
+          if (r !== undefined) model.faceColors[i] = r;
+        }
       }
+      animationId = sa.animationId;
     }
 
-    if (sa.animationId === -1) { console.warn(`! ${slug}: spotanim ${cfg.id} has no animation`); continue; }
-    const anim = await model.loadAnimation(cache, sa.animationId);
+    if (animationId === -1) { console.warn(`! ${slug}: no animation`); continue; }
+    const anim = await model.loadAnimation(cache, animationId);
     let frames = anim.vertexData; // [frame][vertex] = [x,y,z]
     let lengths = anim.lengths;
     if (!frames?.length) { console.warn(`! ${slug}: animation produced no frames`); continue; }
@@ -304,7 +385,8 @@ async function main() {
       spotanim: cfg.id,
     };
     writeFileSync(join(outDir, `${slug}.json`), JSON.stringify(meta));
-    console.log(`✓ ${slug}: spotanim ${cfg.id} → ${frames.length} frames → public/assets/spotanims/${slug}.png`);
+    const srcLabel = cfg.npc != null ? `NPC ${cfg.npc}` : `spotanim ${cfg.id}`;
+    console.log(`✓ ${slug}: ${srcLabel} → ${frames.length} frames → public/assets/spotanims/${slug}.png`);
   }
   process.exit(0);
 }

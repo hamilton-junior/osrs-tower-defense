@@ -176,9 +176,11 @@ export class GameRenderer {
   }
 
   /**
-   * Spawn portal at the road's entry edge. Drawn *after* enemies so its dark
-   * mouth masks them until they walk clear — they appear to emerge from it.
-   * Centred on the screen edge so only its inner half is visible.
+   * Spawn portal at the road's entry point. The real OSRS Pest Control void
+   * portal (NPC 1739), baked to a looping sprite sheet and played here at the
+   * portal point, over a soft procedural halo. Drawn *before* enemies so they
+   * materialise out of its glowing face. Falls back to a procedural vortex if
+   * the baked sheet hasn't loaded.
    */
   private drawSpawnPortal(ctx: CanvasRenderingContext2D) {
     const path = this.e.path;
@@ -189,27 +191,40 @@ export class GameRenderer {
     const y = Math.max(56, Math.min(this.e.height - 56, pp.y));
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
 
-    // A tall, narrow vertical gateway (an oval you walk out of sideways) rather
-    // than a top-down disc. OSRS void-portal palette: violet → magenta → black
-    // core. Procedural so it can actually swirl/breathe (a static model can't).
-    const RX = 26 + pulse * 2; // horizontal radius (narrow)
-    const RY = 50 + pulse * 3; // vertical radius (tall)
-
     ctx.save();
     ctx.translate(x, y);
 
-    // 1) Soft otherworldly halo, vertically stretched, breathing with the pulse.
-    ctx.save();
-    ctx.scale(1, RY / RX);
-    const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, RX * 1.7);
+    // Soft otherworldly halo behind the disc, breathing with the pulse.
+    const haloR = 64 + pulse * 6;
+    const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, haloR);
     halo.addColorStop(0, `rgba(170,90,235,${0.34 + pulse * 0.16})`);
     halo.addColorStop(0.5, `rgba(120,60,190,${0.12 + pulse * 0.07})`);
     halo.addColorStop(1, 'rgba(110,50,180,0)');
     ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(0, 0, RX * 1.7, 0, Math.PI * 2);
+    ctx.arc(0, 0, haloR, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
+
+    const portal = SPOTANIMS.portal;
+    if (this.e.imageOk('spotanim_portal')) {
+      // Looping baked void-portal disc — current frame from wall-clock time.
+      const img = this.e.images.get('spotanim_portal')!;
+      const total = spotAnimDurationS(portal) * 1000;
+      let rem = ((performance.now() % total) + total) % total;
+      let fi = 0;
+      for (; fi < portal.frames - 1; fi++) {
+        if (rem < portal.frameMs[fi]) break;
+        rem -= portal.frameMs[fi];
+      }
+      const s = portal.size + pulse * 4;
+      ctx.drawImage(img, fi * portal.frameW, 0, portal.frameW, portal.frameH, -s / 2, -s / 2, s, s);
+      ctx.restore();
+      return;
+    }
+
+    // ---- Fallback: procedural vortex (until the baked sheet loads) ----------
+    const RX = 26 + pulse * 2;
+    const RY = 50 + pulse * 3;
 
     // 2) Inward-rippling tunnel: vertical ellipses that continuously march toward
     // the throat (phase wraps over time) and fade at both ends, so the energy

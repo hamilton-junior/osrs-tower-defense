@@ -19,6 +19,8 @@ export interface SpotAnimMeta {
   size: number;
   /** Playback speed multiplier (>1 plays faster than the cache timing). */
   speed: number;
+  /** Loops forever (e.g. the spawn portal) instead of playing once. */
+  loop?: boolean;
 }
 
 export const SPOTANIMS: Record<string, SpotAnimMeta> = {
@@ -32,6 +34,18 @@ export const SPOTANIMS: Record<string, SpotAnimMeta> = {
     frameMs: [120, 140, 140, 140, 420, 100, 100, 100, 100, 100, 100, 220],
     size: 56,
     speed: 1.4,
+  },
+  // Spawn portal — the Pest Control void portal NPC (1739) idle swirl, face-on.
+  // Looping: drawn every frame at the portal point (not via spawnEffect).
+  portal: {
+    url: ASSETS.spotanims.portal,
+    frames: 12,
+    frameW: 96,
+    frameH: 96,
+    frameMs: [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80],
+    size: 104,
+    speed: 1,
+    loop: true,
   },
 };
 
