@@ -1,7 +1,7 @@
 import type { GameEngine, HitsplatKind } from './engine';
 import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
-import { ENEMY_ANIMS, clipFrame, HURT_SECONDS } from '../data/enemy-anims';
+import { ENEMY_ANIMS, clipFrame, clipDurationS } from '../data/enemy-anims';
 import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
@@ -710,10 +710,12 @@ export class GameRenderer {
       const animKey = animSet ? `enemyanim_${e.type}_${hurting ? 'hurt' : 'walk'}` : '';
       if (animSet && this.e.imageOk(animKey)) {
         // Animated enemy: loop `walk` on alive-time, or play the whole `hurt`
-        // flinch across HURT_SECONDS when recently struck.
+        // flinch (priority over walk) when recently struck. The hurt window is
+        // sized to the clip's own duration in `damage`, so `elapsed` counts up
+        // from 0 across exactly that clip.
         const clip = hurting ? animSet.clips.hurt! : animSet.clips.walk;
         const img = this.e.images.get(animKey)!;
-        const elapsed = hurting ? HURT_SECONDS - (e.hurtAnim ?? 0) : e.animTime ?? 0;
+        const elapsed = hurting ? clipDurationS(clip) - (e.hurtAnim ?? 0) : e.animTime ?? 0;
         const fi = clipFrame(clip, elapsed);
         const fw = animSet.frameW, fh = animSet.frameH;
         // The baked creature fills ~88% of its cell (6% margin/side); scale up to

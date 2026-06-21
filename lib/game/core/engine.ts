@@ -1,7 +1,7 @@
 import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect } from '../types';
 import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
-import { ENEMY_ANIMS, clipDurationS, HURT_SECONDS, type EnemyClip } from '../data/enemy-anims';
+import { ENEMY_ANIMS, clipDurationS, type EnemyClip } from '../data/enemy-anims';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
@@ -1435,7 +1435,10 @@ export class GameEngine {
     enemy.hp -= dealt;
     if (!minor) {
       enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
-      if (ENEMY_ANIMS[enemy.type]?.clips.hurt) enemy.hurtAnim = HURT_SECONDS; // flinch clip
+      // Play the WHOLE hurt flinch (priority over walk) before reverting — sizing
+      // the window to the clip's own length, not a fixed slice that cut it short.
+      const hurtClip = ENEMY_ANIMS[enemy.type]?.clips.hurt;
+      if (hurtClip) enemy.hurtAnim = clipDurationS(hurtClip);
     }
     const below = enemy.isBoss ? 30 : 16;
     // DoT splats are biased to a fixed side per kind (burn left, poison right) so

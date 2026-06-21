@@ -42,12 +42,13 @@ const MS_PER_UNIT = 20; // OSRS frame-length unit ≈ 20ms (one client cycle)
  * from the cache). Defaults below frame every creature in the same front-3/4
  * view and loop `walk` only; a config entry may override
  * `yaw`/`pitch`/`maxFrames`/`mirror`/`flipY`. **Standard: every enemy is baked
- * facing RIGHT (`mirror: true`).** Enemies travel rightward, so the renderer
- * leaves them as-is when moving right and flips them when moving left
+ * facing RIGHT.** Empirically `mirror: false` at yaw 50 faces right; `mirror:
+ * true` faced LEFT (the label was inverted). Enemies travel rightward, so the
+ * renderer leaves them as-is when moving right and flips them when moving left
  * (`if (movingLeft) scale(-1,1)`) — i.e. they always face their travel
- * direction. (Baking left instead made them moonwalk while moving right.)
+ * direction. (A left-facing bake made them face backwards while moving right.)
  */
-const TARGET_DEFAULTS = { yaw: 50, pitch: 6, maxFrames: 24, mirror: true, loop: { walk: true } };
+const TARGET_DEFAULTS = { yaw: 50, pitch: 6, maxFrames: 24, mirror: false, loop: { walk: true } };
 const CONFIG_PATH = join(__dirname, 'enemy-anims.config.json');
 const TARGETS = Object.fromEntries(
   Object.entries(JSON.parse(readFileSync(CONFIG_PATH, 'utf8'))).map(([slug, cfg]) => [
@@ -251,7 +252,7 @@ function computeFit(allFrames, sy, cy, sp, cp, mirror, flipY) {
   return { scale, cx: (xLo + xHi) / 2, cy: (yLo + yHi) / 2 };
 }
 
-async function loadClip(cache, model, animId, maxFrames) {
+async function loadClip(cache, model, animId, maxFrames, reverse = true) {
   const anim = await model.loadAnimation(cache, animId);
   let frames = anim.vertexData;
   let lengths = anim.lengths;
@@ -263,6 +264,17 @@ async function loadClip(cache, model, animId, maxFrames) {
       picked.push(frames[idx]); pickedLen.push(lengths[idx] ?? 3);
     }
     frames = picked; lengths = pickedLen;
+  }
+  // Our pipeline samples the sequence so it plays back as a "rewind" (the clip
+  // runs end→start). Flip the frame order so it plays forward — reverse the
+  // per-frame durations alongside it so each frame keeps its own timing. This is
+  // purely a playback-order change: it does NOT touch the model, mirror, or Y.
+  // EXCEPTION: `death` is exempt — a death already reads correctly forward
+  // (stand → collapse, final pose held); reversing it plays as a resurrection
+  // (collapse → rise), so its frames are left in source order.
+  if (reverse) {
+    frames = frames.slice().reverse();
+    lengths = lengths.slice().reverse();
   }
   return { frames, lengths };
 }
@@ -300,7 +312,7 @@ async function main() {
     // Load every clip first so the fit can be shared across all of them.
     const clips = {};
     for (const [name, animId] of Object.entries(cfg.anims)) {
-      const clip = await loadClip(cache, model, animId, cfg.maxFrames);
+      const clip = await loadClip(cache, model, animId, cfg.maxFrames, name !== 'death');
       if (!clip) { console.warn(`! ${slug}.${name}: anim ${animId} produced no frames`); continue; }
       clips[name] = clip;
     }
