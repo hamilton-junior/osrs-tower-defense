@@ -1,0 +1,247 @@
+{
+  "goblin": {
+    "npc": 655,
+    "anims": {
+      "walk": 6180,
+      "hurt": 6184,
+      "death": 6182
+    }
+  },
+  "rat": {
+    "npc": 2510,
+    "anims": {
+      "walk": 4931,
+      "hurt": 4933,
+      "death": 4935
+    }
+  },
+  "cow": {
+    "npc": 2790,
+    "anims": {
+      "walk": 5848,
+      "hurt": 5847,
+      "death": 5851
+    }
+  },
+  "imp": {
+    "npc": 3134,
+    "anims": {
+      "walk": 168,
+      "hurt": 169,
+      "death": 172
+    }
+  },
+  "spider": {
+    "npc": 2478,
+    "anims": {
+      "walk": 6248,
+      "hurt": 6249
+    }
+  },
+  "skeleton": {
+    "npc": 70,
+    "anims": {
+      "walk": 5481,
+      "hurt": 5480,
+      "death": 5491
+    }
+  },
+  "zombie": {
+    "npc": 880,
+    "anims": {
+      "walk": 298,
+      "hurt": 300
+    }
+  },
+  "ghost": {
+    "npc": 85,
+    "anims": {
+      "walk": 5539,
+      "hurt": 5540,
+      "death": 5542
+    }
+  },
+  "hellhound": {
+    "npc": 104,
+    "anims": {
+      "walk": 6583,
+      "hurt": 6582,
+      "death": 6576
+    }
+  },
+  "scorpion": {
+    "npc": 2479,
+    "anims": {
+      "walk": 6253,
+      "hurt": 6254,
+      "death": 6256
+    }
+  },
+  "fire_giant": {
+    "npc": 2075,
+    "anims": {
+      "walk": 4660,
+      "hurt": 4661,
+      "death": 4659
+    }
+  },
+  "bloodveld": {
+    "npc": 484,
+    "anims": {
+      "walk": 1549,
+      "hurt": 1550
+    }
+  },
+  "hill_giant": {
+    "npc": 2098,
+    "anims": {
+      "walk": 4649,
+      "hurt": 4647,
+      "death": 4648
+    }
+  },
+  "black_demon": {
+    "npc": 240,
+    "anims": {
+      "walk": 63,
+      "hurt": 64
+    }
+  },
+  "gargoyle": {
+    "npc": 7407,
+    "anims": {
+      "walk": 7810,
+      "hurt": 7808
+    }
+  },
+  "blue_dragon": {
+    "npc": 265,
+    "anims": {
+      "walk": 79,
+      "hurt": 80,
+      "death": 92
+    }
+  },
+  "nechryael": {
+    "npc": 8,
+    "anims": {
+      "walk": 1526,
+      "hurt": 1525,
+      "death": 1530
+    }
+  },
+  "abyssal_demon": {
+    "npc": 415,
+    "anims": {
+      "walk": 1534,
+      "hurt": 1535
+    }
+  },
+  "lesser_demon": {
+    "npc": 2005,
+    "anims": {
+      "walk": 63,
+      "hurt": 64,
+      "death": 71
+    }
+  },
+  "dark_beast": {
+    "npc": 4005,
+    "anims": {
+      "walk": 2729,
+      "hurt": 2728,
+      "death": 2733
+    }
+  },
+  "green_dragon": {
+    "npc": 260,
+    "anims": {
+      "walk": 79,
+      "hurt": 80,
+      "death": 92
+    }
+  },
+  "jad": {
+    "npc": 3127,
+    "anims": {
+      "walk": 2651,
+      "hurt": 2652
+    }
+  },
+  "vorkath": {
+    "npc": 8061,
+    "anims": {
+      "walk": 7947,
+      "hurt": 7951,
+      "death": 7949
+    }
+  },
+  "zulrah": {
+    "npc": 2042,
+    "anims": {
+      "walk": 5070,
+      "hurt": 5069,
+      "death": 5072
+    }
+  },
+  "barrow_wight": {
+    "npc": 1673,
+    "anims": {
+      "walk": 2064,
+      "hurt": 2063
+    }
+  },
+  "chaos_druid": {
+    "npc": 520,
+    "anims": {
+      "walk": 808,
+      "hurt": 807,
+      "death": 804
+    }
+  },
+  "skeletal_mage": {
+    "npc": 84,
+    "anims": {
+      "walk": 5479,
+      "hurt": 5480,
+      "death": 5491
+    }
+  },
+  "hydra": {
+    "npc": 8609,
+    "anims": {
+      "walk": 8259,
+      "hurt": 8261,
+      "death": 8264
+    }
+  },
+  "superior_bloodveld": {
+    "npc": 7397,
+    "anims": {
+      "walk": 1549,
+      "hurt": 1550
+    }
+  },
+  "superior_abyssal_demon": {
+    "npc": 7410,
+    "anims": {
+      "walk": 1534,
+      "hurt": 1535
+    }
+  },
+  "superior_gargoyle": {
+    "npc": 7407,
+    "anims": {
+      "walk": 7810,
+      "hurt": 7808
+    }
+  },
+  "superior_nechryael": {
+    "npc": 7411,
+    "anims": {
+      "walk": 6372,
+      "hurt": 6373,
+      "death": 6369
+    }
+  }
+}

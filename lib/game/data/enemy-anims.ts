@@ -1,5 +1,3 @@
-import { ASSETS } from '../assets';
-
 /**
  * Runtime playback metadata for a baked **enemy animation** clip — one
  * horizontal sprite sheet of `frames` cells (each `frameW`×`frameH`) produced by
@@ -22,22 +20,9 @@ export interface EnemyAnimSet {
   clips: { walk: EnemyClip; hurt?: EnemyClip; death?: EnemyClip };
 }
 
-const uniform = (n: number, ms: number) => Array.from({ length: n }, () => ms);
-
-export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
-  // Goblin (NPC 655) — baked from the 618x animation block.
-  goblin: {
-    frameW: 128,
-    frameH: 128,
-    clips: {
-      walk: { url: ASSETS.enemyAnims.goblin.walk, frames: 16, frameMs: uniform(16, 60), loop: true },
-      hurt: { url: ASSETS.enemyAnims.goblin.hurt, frames: 18, frameMs: uniform(18, 60), loop: false },
-      // The cache holds a 6 s corpse-lie on the last death frame; trim it to a
-      // short settle so the body fades soon after it hits the ground.
-      death: { url: ASSETS.enemyAnims.goblin.death, frames: 24, frameMs: [...uniform(23, 60), 240], loop: false },
-    },
-  },
-};
+// The table itself is generated from the baked manifests (one entry per enemy);
+// this module owns only the contract + playback helpers.
+export { ENEMY_ANIMS } from './enemy-anims.data';
 
 /** Total play time (seconds) of one clip. */
 export function clipDurationS(clip: EnemyClip): number {

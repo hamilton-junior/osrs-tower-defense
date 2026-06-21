@@ -24,7 +24,7 @@ import { createCanvas } from 'canvas';
 import { PNG } from 'pngjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -37,26 +37,22 @@ const MARGIN = 0.06;
 const MS_PER_UNIT = 20; // OSRS frame-length unit ≈ 20ms (one client cycle)
 
 /**
- * Bake targets: slug → { npc, anims, … }. `anims` maps a clip name to its
- * sequence id. `yaw`/`pitch` (degrees) frame the creature (front 3/4 by
- * default, matching the static enemy art). `maxFrames` caps each sheet's width.
+ * Bake targets: slug → { npc, anims, … }. Loaded from enemy-anims.config.json
+ * (one entry per enemy: `{ npc, anims: { walk, hurt?, death? } }`, discovered
+ * from the cache). Defaults below frame every creature in the same front-3/4
+ * view as the static art and loop `walk` only; a config entry may override
+ * `yaw`/`pitch`/`maxFrames`/`mirror`. No `mirror` by default — the static wiki
+ * sprites face left and aren't flipped for rightward movement, so the rendered
+ * creatures match the roster rather than facing the other way.
  */
-const TARGETS = {
-  // Goblin (NPC 655): stand 6181 / walk 6180 live in the def; the rest of the
-  // 618x block holds death (6182, collapses), attack (6183, club raise) and the
-  // hurt/block flinch (6184). Loop walk/idle; play hurt/death once.
-  goblin: {
-    npc: 655,
-    yaw: 50,
-    pitch: 6,
-    maxFrames: 24,
-    // No mirror: keep the goblin facing the same way as the static wiki enemy
-    // sprites (which face left and aren't flipped for rightward movement), so it
-    // reads consistently with the rest of the roster rather than turned around.
-    anims: { walk: 6180, hurt: 6184, death: 6182, attack: 6183 },
-    loop: { walk: true }, // others are one-shot
-  },
-};
+const TARGET_DEFAULTS = { yaw: 50, pitch: 6, maxFrames: 24, loop: { walk: true } };
+const CONFIG_PATH = join(__dirname, 'enemy-anims.config.json');
+const TARGETS = Object.fromEntries(
+  Object.entries(JSON.parse(readFileSync(CONFIG_PATH, 'utf8'))).map(([slug, cfg]) => [
+    slug,
+    { ...TARGET_DEFAULTS, ...cfg, loop: { ...TARGET_DEFAULTS.loop, ...(cfg.loop ?? {}) } },
+  ]),
+);
 
 // ----------------------------------------------------------- OSRS HSL palette
 const HUE_OFFSET = 0.5 / 64;

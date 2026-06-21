@@ -1,0 +1,35 @@
+{
+  "npc": 880,
+  "frameW": 128,
+  "frameH": 128,
+  "clips": {
+    "walk": {
+      "anim": 298,
+      "frames": 8,
+      "frameMs": [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "loop": true
+    },
+    "hurt": {
+      "anim": 300,
+      "frames": 6,
+      "frameMs": [
+        200,
+        160,
+        140,
+        600,
+        140,
+        160
+      ],
+      "loop": false
+    }
+  }
+}
