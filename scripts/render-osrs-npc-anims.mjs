@@ -50,7 +50,9 @@ const TARGETS = {
     yaw: 50,
     pitch: 6,
     maxFrames: 24,
-    mirror: true, // face travel direction (enemies spawn moving right)
+    // No mirror: keep the goblin facing the same way as the static wiki enemy
+    // sprites (which face left and aren't flipped for rightward movement), so it
+    // reads consistently with the rest of the roster rather than turned around.
     anims: { walk: 6180, hurt: 6184, death: 6182, attack: 6183 },
     loop: { walk: true }, // others are one-shot
   },
