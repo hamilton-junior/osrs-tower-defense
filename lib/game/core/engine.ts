@@ -484,17 +484,18 @@ export class GameEngine {
   }
 
   /**
-   * Where the spawn portal sits (and enemies materialise): a fixed distance down
-   * the first path segment so it's fully on-screen, rather than at `path[0]`
-   * which starts off-screen left. Enemies spawn here and walk on toward path[1],
-   * so they emerge *from the portal's face* instead of sliding out behind it.
+   * Where the spawn portal sits (and enemies materialise): right at the map
+   * entrance — just onto the screen from `path[0]` (which starts off-screen at
+   * x=-GRID) so the portal is cropped by the left edge and no road shows before
+   * it. Its centre lands at the screen edge, so enemies materialise there and
+   * walk on toward path[1], emerging *from the portal's face*.
    */
   get portalPoint(): Point {
     const a = this.path[0];
     const b = this.path[1] ?? a;
     const dx = b.x - a.x, dy = b.y - a.y;
     const len = Math.hypot(dx, dy) || 1;
-    const d = Math.min(len, 64); // 64px in along the first segment → on-screen
+    const d = Math.min(len, GRID); // GRID in → centre at x≈0, portal half-cropped
     return { x: a.x + (dx / len) * d, y: a.y + (dy / len) * d };
   }
 
@@ -974,8 +975,7 @@ export class GameEngine {
       this.spawnTimer = 0;
       const enemy = this.spawnQueue.shift();
       if (enemy) {
-        enemy.spawnAnim = SPAWN_ANIM_SECONDS; // materialise out of the portal
-        this.spawnEffect('spawn', enemy.x, enemy.y); // teleport-gem flash at the portal
+        enemy.spawnAnim = SPAWN_ANIM_SECONDS; // materialise (fade-in + grow) out of the portal
         this.enemies.push(enemy);
       }
       this.emit();

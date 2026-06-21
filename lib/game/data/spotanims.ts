@@ -24,18 +24,7 @@ export interface SpotAnimMeta {
 }
 
 export const SPOTANIMS: Record<string, SpotAnimMeta> = {
-  // Enemy materialise at the spawn portal — the Teleport gem (spotanim 111).
-  // Sped up 1.4× so the flash is snappy rather than the full ~1.8s teleport.
-  spawn: {
-    url: ASSETS.spotanims.spawn,
-    frames: 12,
-    frameW: 96,
-    frameH: 96,
-    frameMs: [120, 140, 140, 140, 420, 100, 100, 100, 100, 100, 100, 220],
-    size: 56,
-    speed: 1.4,
-  },
-  // Spawn portal — the Pest Control void portal NPC (1739) idle swirl, face-on.
+  // Spawn portal — the Pest Control void portal NPC (1739) idle swirl, side-on.
   // Looping: drawn every frame at the portal point (not via spawnEffect).
   portal: {
     url: ASSETS.spotanims.portal,

@@ -274,7 +274,6 @@ export const ASSETS = {
   // to a horizontal sheet by scripts/render-osrs-spotanims.mjs. Played frame by
   // frame at runtime (see lib/game/data/spotanims.ts + GameRenderer.drawEffects).
   spotanims: {
-    spawn: `${LOCAL}/spotanims/spawn.png`, // Teleport gem (spotanim 111) — enemy materialise
     portal: `${LOCAL}/spotanims/portal.png`, // Void portal NPC (1739) idle swirl — looping
   },
   sounds: {

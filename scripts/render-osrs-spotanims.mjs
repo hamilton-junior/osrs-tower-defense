@@ -51,11 +51,6 @@ const TARGETS = {
   // swirling energy bulges out as the portal's "belly". Nudge yaw up (18-25)
   // for a wider belly, down toward 0 for a thinner profile.
   portal: { npc: 1739, yaw: 12, pitch: 0, maxFrames: 12 },
-  // Enemy spawn flash — the standard Teleport graphic (spotanim 111, model 6385):
-  // a clean purple diamond gem that grows then fades. Pure geometry, so it bakes
-  // crisply (texture-heavy impacts like Ice Barrage become a white box with this
-  // flat rasteriser — those stay procedural; see the hybrid plan).
-  spawn: { id: 111, yaw: 0, pitch: 0 },
 };
 
 /**
