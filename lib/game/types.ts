@@ -130,6 +130,12 @@ export interface Enemy extends EnemyDef {
    *  from the portal; drives a fade-in + scale-up "materialise" effect. Visual
    *  only — decremented in `moveEnemies`, read by the renderer. */
   spawnAnim?: number;
+  /** Total time alive (s), advanced every frame; drives the looping walk-cycle
+   *  for animated enemies (see `ENEMY_ANIMS`). Visual only. */
+  animTime?: number;
+  /** Counts down while a hit-flinch (`hurt`) clip plays; set on each direct hit,
+   *  decremented in `moveEnemies`. Visual only. */
+  hurtAnim?: number;
 }
 
 /** Duration (s) of the portal materialise (fade-in + grow) on a fresh spawn. */

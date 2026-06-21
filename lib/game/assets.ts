@@ -276,6 +276,15 @@ export const ASSETS = {
   spotanims: {
     portal: `${LOCAL}/spotanims/portal.png`, // Void portal NPC (1739) idle swirl — looping
   },
+  // Baked animated-enemy clip sheets (scripts/render-osrs-npc-anims.mjs), played
+  // frame by frame at runtime (see lib/game/data/enemy-anims.ts + drawEnemies).
+  enemyAnims: {
+    goblin: {
+      walk: `${LOCAL}/enemies/goblin/walk.png`,
+      hurt: `${LOCAL}/enemies/goblin/hurt.png`,
+      death: `${LOCAL}/enemies/goblin/death.png`,
+    },
+  },
   sounds: {
     shoot: SHOOT_SOUNDS,
     spellHit: SPELL_HIT,

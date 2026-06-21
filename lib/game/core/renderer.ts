@@ -1,6 +1,7 @@
 import type { GameEngine, HitsplatKind } from './engine';
 import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
+import { ENEMY_ANIMS, clipFrame, HURT_SECONDS } from '../data/enemy-anims';
 import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
@@ -464,6 +465,24 @@ export class GameRenderer {
   private drawDeaths(ctx: CanvasRenderingContext2D) {
     for (const d of this.e.deaths) {
       const t = Math.max(0, d.life / d.maxLife); // 1 → 0
+      const deathClip = ENEMY_ANIMS[d.type]?.clips.death;
+      const animKey = deathClip ? `enemyanim_${d.type}_death` : '';
+      if (deathClip && this.e.imageOk(animKey)) {
+        // Animated death: play the collapse clip over the fx lifetime, at full
+        // size; only fade out in the final stretch so the body settles first.
+        const set = ENEMY_ANIMS[d.type]!;
+        const img = this.e.images.get(animKey)!;
+        const elapsed = (d.maxLife - d.life); // 0 → maxLife
+        const fi = clipFrame(deathClip, elapsed);
+        const ds = (d.isBoss ? 60 : 30) * (d.renderScale ?? 1) / 0.88;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, t / 0.25); // hold, then fade in the last 25%
+        ctx.translate(d.x, d.y);
+        if (d.movingLeft) ctx.scale(-1, 1);
+        ctx.drawImage(img, fi * set.frameW, 0, set.frameW, set.frameH, -ds / 2, -ds / 2, ds, ds);
+        ctx.restore();
+        continue;
+      }
       if (!this.e.imageOk(d.type)) continue;
       const img = this.e.images.get(d.type)!;
       const size = (d.isBoss ? 60 : 30) * (d.renderScale ?? 1) * (0.7 + t * 0.3); // shrink slightly
@@ -685,9 +704,34 @@ export class GameRenderer {
         ctx.restore();
       }
 
-      if (this.e.imageOk(e.type)) {
+      const movingLeft = (this.e.path[e.pathIndex + 1]?.x ?? e.x) < e.x;
+      const animSet = ENEMY_ANIMS[e.type];
+      const hurting = !!animSet?.clips.hurt && (e.hurtAnim ?? 0) > 0;
+      const animKey = animSet ? `enemyanim_${e.type}_${hurting ? 'hurt' : 'walk'}` : '';
+      if (animSet && this.e.imageOk(animKey)) {
+        // Animated enemy: loop `walk` on alive-time, or play the whole `hurt`
+        // flinch across HURT_SECONDS when recently struck.
+        const clip = hurting ? animSet.clips.hurt! : animSet.clips.walk;
+        const img = this.e.images.get(animKey)!;
+        const elapsed = hurting ? HURT_SECONDS - (e.hurtAnim ?? 0) : e.animTime ?? 0;
+        const fi = clipFrame(clip, elapsed);
+        const fw = animSet.frameW, fh = animSet.frameH;
+        // The baked creature fills ~88% of its cell (6% margin/side); scale the
+        // draw box up so it reads at the same size as the static sprites.
+        const ds = size / 0.88;
+        ctx.save();
+        ctx.translate(e.x + shx, e.y + shy);
+        if (movingLeft) ctx.scale(-1, 1);
+        ctx.drawImage(img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds);
+        if (flash > 0) {
+          ctx.globalCompositeOperation = 'source-atop';
+          ctx.globalAlpha = flash * 0.6;
+          ctx.fillStyle = '#e00000';
+          ctx.fillRect(-ds / 2, -ds / 2, ds, ds);
+        }
+        ctx.restore();
+      } else if (this.e.imageOk(e.type)) {
         const img = this.e.images.get(e.type)!;
-        const movingLeft = (this.e.path[e.pathIndex + 1]?.x ?? e.x) < e.x;
         ctx.save();
         ctx.translate(e.x + shx, e.y + shy);
         if (movingLeft) ctx.scale(-1, 1);

@@ -1,6 +1,7 @@
 import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect } from '../types';
 import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
+import { ENEMY_ANIMS, clipDurationS, HURT_SECONDS, type EnemyClip } from '../data/enemy-anims';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
@@ -447,6 +448,14 @@ export class GameEngine {
       // Baked spotanim sprite sheets (keyed `spotanim_<slug>`).
       ...Object.fromEntries(
         Object.entries(SPOTANIMS).map(([slug, s]) => [`spotanim_${slug}`, s.url]),
+      ),
+      // Baked enemy animation sheets (keyed `enemyanim_<type>_<clip>`).
+      ...Object.fromEntries(
+        Object.entries(ENEMY_ANIMS).flatMap(([type, set]) =>
+          Object.entries(set.clips)
+            .filter(([, clip]) => clip)
+            .map(([clip, c]) => [`enemyanim_${type}_${clip}`, (c as EnemyClip).url]),
+        ),
       ),
     };
     for (const [key, url] of Object.entries(urls)) {
@@ -909,6 +918,7 @@ export class GameEngine {
       stunTimer: 0,
       tauntTimer: 0,
       groundTimer: 0,
+      animTime: 0,
     };
   }
 
@@ -1018,6 +1028,8 @@ export class GameEngine {
       const e = this.enemies[i];
       if (e.spawnAnim && e.spawnAnim > 0) e.spawnAnim = Math.max(0, e.spawnAnim - dt);
       if (e.flashTimer && e.flashTimer > 0) e.flashTimer -= dt;
+      e.animTime = (e.animTime ?? 0) + dt; // drives the looping walk-cycle
+      if (e.hurtAnim && e.hurtAnim > 0) e.hurtAnim = Math.max(0, e.hurtAnim - dt);
       if (e.slowTimer > 0) {
         e.slowTimer -= dt;
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
@@ -1421,7 +1433,10 @@ export class GameEngine {
     const vuln = enemy.vulnTimer && enemy.vulnTimer > 0 ? 1.25 : 1;
     const dealt = Math.max(0, Math.floor(amount * vuln));
     enemy.hp -= dealt;
-    if (!minor) enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
+    if (!minor) {
+      enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
+      if (ENEMY_ANIMS[enemy.type]?.clips.hurt) enemy.hurtAnim = HURT_SECONDS; // flinch clip
+    }
     const below = enemy.isBoss ? 30 : 16;
     // DoT splats are biased to a fixed side per kind (burn left, poison right) so
     // an enemy carrying both shows them clearly apart instead of stacked.
@@ -1441,6 +1456,10 @@ export class GameEngine {
     if (i < 0) return false;
     this.enemies.splice(i, 1);
     this.spawnDeathParticles(enemy);
+    // Animated enemies play their full death-collapse clip; others use the brief
+    // shrink-and-fade of the static sprite.
+    const deathClip = ENEMY_ANIMS[enemy.type]?.clips.death;
+    const deathLife = deathClip ? clipDurationS(deathClip) : 0.45;
     this.deaths.push({
       x: enemy.x,
       y: enemy.y,
@@ -1448,8 +1467,8 @@ export class GameEngine {
       isBoss: !!enemy.isBoss,
       renderScale: enemy.renderScale,
       movingLeft: (this.path[enemy.pathIndex + 1]?.x ?? enemy.x) < enemy.x,
-      life: 0.45,
-      maxLife: 0.45,
+      life: deathLife,
+      maxLife: deathLife,
     });
     // Per-enemy-type death clip (registered as `death_<type>` in sound.ts);
     // falls back to the generic `death` for anything unmapped.
