@@ -50,6 +50,7 @@ const TARGETS = {
     yaw: 50,
     pitch: 6,
     maxFrames: 24,
+    mirror: true, // face travel direction (enemies spawn moving right)
     anims: { walk: 6180, hurt: 6184, death: 6182, attack: 6183 },
     loop: { walk: true }, // others are one-shot
   },
@@ -164,12 +165,15 @@ async function buildNpcModel(cache, npcId) {
 }
 
 /** Render one frame's vertices into a SIZE×SIZE canvas using a shared fit. */
-function renderFrame(model, verts, fit, sy, cy, sp, cp) {
+function renderFrame(model, verts, fit, sy, cy, sp, cp, mirror) {
   const n = verts.length;
   const px = new Float64Array(n), py = new Float64Array(n), pz = new Float64Array(n);
   for (let i = 0; i < n; i++) {
-    const [a, b, c] = project(verts[i][0], verts[i][1], verts[i][2], sy, cy, sp, cp);
-    px[i] = a; py[i] = b; pz[i] = c;
+    // loadAnimation yields Y negated vs the static model space, so negate it back
+    // (else the creature renders upside down). Optionally mirror X so it faces
+    // its travel direction.
+    const [a, b, c] = project(verts[i][0], -verts[i][1], verts[i][2], sy, cy, sp, cp);
+    px[i] = mirror ? -a : a; py[i] = b; pz[i] = c;
   }
   const toScreen = (i) => [SIZE / 2 + (px[i] - fit.cx) * fit.scale, SIZE / 2 + (py[i] - fit.cy) * fit.scale];
 
@@ -215,12 +219,12 @@ function renderFrame(model, verts, fit, sy, cy, sp, cp) {
  * Shared fit across **every frame of every clip** so the creature stays the same
  * scale and ground line whether it's walking or dying (no pop between clips).
  */
-function computeFit(allFrames, sy, cy, sp, cp) {
+function computeFit(allFrames, sy, cy, sp, cp, mirror) {
   const allX = [], allY = [];
   for (const verts of allFrames) {
     for (const v of verts) {
-      const [a, b] = project(v[0], v[1], v[2], sy, cy, sp, cp);
-      allX.push(a); allY.push(b);
+      const [a, b] = project(v[0], -v[1], v[2], sy, cy, sp, cp); // negate Y (see renderFrame)
+      allX.push(mirror ? -a : a); allY.push(b);
     }
   }
   const TRIM = 0.01;
@@ -286,7 +290,7 @@ async function main() {
     }
     const everyFrame = Object.values(clips).flatMap((c) => c.frames);
     if (!everyFrame.length) { console.warn(`! ${slug}: no clips`); continue; }
-    const fit = computeFit(everyFrame, sy, cy, sp, cp);
+    const fit = computeFit(everyFrame, sy, cy, sp, cp, cfg.mirror);
 
     const outDir = join(REPO, 'public', 'assets', 'enemies', slug);
     mkdirSync(outDir, { recursive: true });
@@ -296,7 +300,7 @@ async function main() {
       const { frames, lengths } = clip;
       const sheet = new PNG({ width: SIZE * frames.length, height: SIZE });
       for (let fi = 0; fi < frames.length; fi++) {
-        const img = renderFrame(model, frames[fi], fit, sy, cy, sp, cp);
+        const img = renderFrame(model, frames[fi], fit, sy, cy, sp, cp, cfg.mirror);
         for (let y = 0; y < SIZE; y++) {
           for (let x = 0; x < SIZE; x++) {
             const src = (y * SIZE + x) * 4;

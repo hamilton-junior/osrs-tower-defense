@@ -474,7 +474,7 @@ export class GameRenderer {
         const img = this.e.images.get(animKey)!;
         const elapsed = (d.maxLife - d.life); // 0 → maxLife
         const fi = clipFrame(deathClip, elapsed);
-        const ds = (d.isBoss ? 60 : 30) * (d.renderScale ?? 1) / 0.88;
+        const ds = (d.isBoss ? 60 : 30) * (d.renderScale ?? 1) * 1.32; // match drawEnemies
         ctx.save();
         ctx.globalAlpha = Math.min(1, t / 0.25); // hold, then fade in the last 25%
         ctx.translate(d.x, d.y);
@@ -716,9 +716,9 @@ export class GameRenderer {
         const elapsed = hurting ? HURT_SECONDS - (e.hurtAnim ?? 0) : e.animTime ?? 0;
         const fi = clipFrame(clip, elapsed);
         const fw = animSet.frameW, fh = animSet.frameH;
-        // The baked creature fills ~88% of its cell (6% margin/side); scale the
-        // draw box up so it reads at the same size as the static sprites.
-        const ds = size / 0.88;
+        // The baked creature fills ~88% of its cell (6% margin/side); scale up to
+        // undo that, plus a touch more so the model reads a bit larger on the map.
+        const ds = size * 1.32;
         ctx.save();
         ctx.translate(e.x + shx, e.y + shy);
         if (movingLeft) ctx.scale(-1, 1);
