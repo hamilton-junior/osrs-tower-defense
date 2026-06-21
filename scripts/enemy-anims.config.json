@@ -1,6 +1,6 @@
 {
   "goblin": {
-    "npc": 655,
+    "npc": 3029,
     "anims": {
       "walk": 6180,
       "hurt": 6184,
@@ -32,10 +32,11 @@
     }
   },
   "spider": {
-    "npc": 2478,
+    "npc": 626,
     "anims": {
-      "walk": 6248,
-      "hurt": 6249
+      "walk": 5317,
+      "hurt": 5319,
+      "death": 5321
     }
   },
   "skeleton": {
@@ -71,6 +72,7 @@
   },
   "scorpion": {
     "npc": 2479,
+    "flipY": true,
     "anims": {
       "walk": 6253,
       "hurt": 6254,
