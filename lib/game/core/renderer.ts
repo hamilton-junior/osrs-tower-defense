@@ -478,7 +478,7 @@ export class GameRenderer {
         ctx.save();
         ctx.globalAlpha = Math.min(1, t / 0.25); // hold, then fade in the last 25%
         ctx.translate(d.x, d.y);
-        if (!d.movingLeft) ctx.scale(-1, 1); // face travel direction (see drawEnemies)
+        if (d.movingLeft) ctx.scale(-1, 1);
         ctx.drawImage(img, fi * set.frameW, 0, set.frameW, set.frameH, -ds / 2, -ds / 2, ds, ds);
         ctx.restore();
         continue;
@@ -721,9 +721,7 @@ export class GameRenderer {
         const ds = size * 1.32;
         ctx.save();
         ctx.translate(e.x + shx, e.y + shy);
-        // Clips are baked facing left; flip to face the travel direction so the
-        // walk reads forward (enemies move rightward) instead of moonwalking.
-        if (!movingLeft) ctx.scale(-1, 1);
+        if (movingLeft) ctx.scale(-1, 1);
         ctx.drawImage(img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds);
         if (flash > 0) {
           ctx.globalCompositeOperation = 'source-atop';

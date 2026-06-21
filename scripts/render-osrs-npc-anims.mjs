@@ -40,12 +40,14 @@ const MS_PER_UNIT = 20; // OSRS frame-length unit ≈ 20ms (one client cycle)
  * Bake targets: slug → { npc, anims, … }. Loaded from enemy-anims.config.json
  * (one entry per enemy: `{ npc, anims: { walk, hurt?, death? } }`, discovered
  * from the cache). Defaults below frame every creature in the same front-3/4
- * view as the static art and loop `walk` only; a config entry may override
- * `yaw`/`pitch`/`maxFrames`/`mirror`. No `mirror` by default — the static wiki
- * sprites face left and aren't flipped for rightward movement, so the rendered
- * creatures match the roster rather than facing the other way.
+ * view and loop `walk` only; a config entry may override
+ * `yaw`/`pitch`/`maxFrames`/`mirror`/`flipY`. **Standard: every enemy is baked
+ * facing RIGHT (`mirror: true`).** Enemies travel rightward, so the renderer
+ * leaves them as-is when moving right and flips them when moving left
+ * (`if (movingLeft) scale(-1,1)`) — i.e. they always face their travel
+ * direction. (Baking left instead made them moonwalk while moving right.)
  */
-const TARGET_DEFAULTS = { yaw: 50, pitch: 6, maxFrames: 24, loop: { walk: true } };
+const TARGET_DEFAULTS = { yaw: 50, pitch: 6, maxFrames: 24, mirror: true, loop: { walk: true } };
 const CONFIG_PATH = join(__dirname, 'enemy-anims.config.json');
 const TARGETS = Object.fromEntries(
   Object.entries(JSON.parse(readFileSync(CONFIG_PATH, 'utf8'))).map(([slug, cfg]) => [
@@ -139,6 +141,17 @@ function parseNpcDef(content) {
   return out;
 }
 
+/** A flat horizontal sub-model (all vertices at one Y) is the NPC's baked
+ *  ground shadow/decal, never a body part — cull it so it doesn't render as a
+ *  dark smear under the creature. */
+function isFlatPlane(m) {
+  const Y = m.vertexPositionsY;
+  if (!Y || !m.vertexCount) return false;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < m.vertexCount; i++) { lo = Math.min(lo, Y[i]); hi = Math.max(hi, Y[i]); }
+  return hi - lo <= 2;
+}
+
 /** Build an NPC's merged + recoloured model. */
 async function buildNpcModel(cache, npcId) {
   const file = await cache.getFile(IndexType.CONFIGS, ConfigType.NPC, npcId);
@@ -150,7 +163,10 @@ async function buildNpcModel(cache, npcId) {
     if (m) models.push(m);
   }
   if (!models.length) return null;
-  const model = models.length === 1 ? models[0] : new ModelGroup(models).getMergedModel();
+  // Drop baked ground-shadow planes (keep them only if that's all there is).
+  const solid = models.filter(m => !isFlatPlane(m));
+  const used = solid.length ? solid : models;
+  const model = used.length === 1 ? used[0] : new ModelGroup(used).getMergedModel();
   if (def.recolorToFind?.length) {
     const map = new Map();
     def.recolorToFind.forEach((f, i) => map.set(f & 0xffff, def.recolorToReplace[i] & 0xffff));

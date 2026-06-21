@@ -33,6 +33,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   rat: {
     type: 'rat',
+    renderScale: 0.85,
     name: 'Giant Rat',
     hp: 8,
     speed: 80,
@@ -42,6 +43,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   cow: {
     type: 'cow',
+    renderScale: 1.05,
     name: 'Cow',
     hp: 8,
     speed: 40,
@@ -51,6 +53,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   imp: {
     type: 'imp',
+    renderScale: 0.75,
     name: 'Imp',
     hp: 8,
     speed: 120,
@@ -60,6 +63,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   spider: {
     type: 'spider',
+    renderScale: 0.95,
     name: 'Giant Spider',
     hp: 22,
     speed: 90,
@@ -78,6 +82,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   zombie: {
     type: 'zombie',
+    renderScale: 0.9,
     name: 'Zombie',
     hp: 22,
     speed: 40,
@@ -96,6 +101,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   hellhound: {
     type: 'hellhound',
+    renderScale: 1.1,
     name: 'Hellhound',
     hp: 116,
     speed: 70,
@@ -105,6 +111,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   scorpion: {
     type: 'scorpion',
+    renderScale: 0.85,
     name: 'Scorpion',
     hp: 17,
     speed: 60,
@@ -114,6 +121,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   fire_giant: {
     type: 'fire_giant',
+    renderScale: 1.55,
     name: 'Fire Giant',
     hp: 111,
     speed: 35,
@@ -124,6 +132,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   bloodveld: {
     type: 'bloodveld',
+    renderScale: 1.15,
     name: 'Bloodveld',
     hp: 120,
     speed: 45,
@@ -133,6 +142,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   hill_giant: {
     type: 'hill_giant',
+    renderScale: 1.55,
     name: 'Hill Giant',
     hp: 35,
     speed: 30,
@@ -143,6 +153,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   black_demon: {
     type: 'black_demon',
+    renderScale: 1.45,
     name: 'Black Demon',
     hp: 157,
     speed: 40,
@@ -153,6 +164,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   gargoyle: {
     type: 'gargoyle',
+    renderScale: 1.15,
     name: 'Gargoyle',
     hp: 105,
     speed: 35,
@@ -162,6 +174,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   blue_dragon: {
     type: 'blue_dragon',
+    renderScale: 1.4,
     name: 'Blue Dragon',
     hp: 105,
     speed: 40,
@@ -172,6 +185,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   nechryael: {
     type: 'nechryael',
+    renderScale: 1.2,
     name: 'Nechryael',
     hp: 105,
     speed: 45,
@@ -181,6 +195,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   abyssal_demon: {
     type: 'abyssal_demon',
+    renderScale: 1.1,
     name: 'Abyssal Demon',
     hp: 150,
     speed: 65,
@@ -191,6 +206,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   lesser_demon: {
     type: 'lesser_demon',
+    renderScale: 1.25,
     name: 'Lesser Demon',
     hp: 79,
     speed: 50,
@@ -201,6 +217,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   dark_beast: {
     type: 'dark_beast',
+    renderScale: 1.3,
     name: 'Dark Beast',
     hp: 220,
     speed: 55,
@@ -210,6 +227,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   green_dragon: {
     type: 'green_dragon',
+    renderScale: 1.35,
     name: 'Green Dragon',
     hp: 75,
     speed: 45,
@@ -286,6 +304,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   hydra: {
     type: 'hydra',
+    renderScale: 1.5,
     name: 'Hydra',
     hp: 300,
     speed: 30,
@@ -296,6 +315,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   superior_bloodveld: {
     type: 'superior_bloodveld',
+    renderScale: 1.3,
     name: 'Insatiable Bloodveld',
     hp: 312,
     speed: 50,
@@ -305,6 +325,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   superior_abyssal_demon: {
     type: 'superior_abyssal_demon',
+    renderScale: 1.25,
     name: 'Greater Abyssal Demon',
     hp: 400,
     speed: 75,
@@ -315,6 +336,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   superior_gargoyle: {
     type: 'superior_gargoyle',
+    renderScale: 1.3,
     name: 'Marble Gargoyle',
     hp: 215,
     speed: 40,
@@ -324,6 +346,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   superior_nechryael: {
     type: 'superior_nechryael',
+    renderScale: 1.35,
     name: 'Nechryarch',
     hp: 312,
     speed: 50,
