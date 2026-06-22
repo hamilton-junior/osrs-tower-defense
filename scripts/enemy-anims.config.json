@@ -72,7 +72,6 @@
   },
   "scorpion": {
     "npc": 2479,
-    "flipY": true,
     "anims": {
       "walk": 6253,
       "hurt": 6255,
