@@ -10,6 +10,7 @@ import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue } from '@/lib/game/systems/meta-progression';
+import { SLAYER_REWARDS } from '@/lib/game/data/slayer';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
@@ -79,7 +80,7 @@ const INITIAL: UIState = {
   remaining: 0, waveTotal: 0, bossWave: false, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.135,
   notice: null, noticeIcon: null, noticeSeq: 0,
-  slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael',
+  slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false,
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
   geOffers: [],
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
@@ -134,6 +135,7 @@ export default function GameRoot() {
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
   const [geOpen, setGeOpen] = useState(false);
   const [essenceOpen, setEssenceOpen] = useState(false);
+  const [slayerShopOpen, setSlayerShopOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
@@ -1036,9 +1038,17 @@ export default function GameRoot() {
         {/* Slayer task interface (tasks are auto-assigned) */}
         {ui.slayerTask && (
           <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
-            <div className="flex items-center gap-[0.4em] text-[0.82em] text-osrs-orange uppercase tracking-wide mb-[0.35em]">
-              <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              Slayer · {ui.slayerMaster}
+            <div className="flex items-center justify-between mb-[0.35em]">
+              <span className="flex items-center gap-[0.4em] text-[0.82em] text-osrs-orange uppercase tracking-wide">
+                <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+                Slayer · {ui.slayerMaster}
+              </span>
+              <span className="flex items-center gap-[0.3em] text-[0.78em] text-[#7ce0ff] font-bold" title="Slayer points">
+                {ui.slayerHelmet && (
+                  <img src={geIcon('Slayer_helmet')} alt="Slayer Helmet active" title="Slayer Helmet active (+20% vs task)" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                )}
+                {ui.slayerPoints} pts
+              </span>
             </div>
             <div className="flex items-center justify-between text-[0.85em] mb-[0.25em]">
               <span className="capitalize text-[#e7d9b0]">{ui.slayerTask.name}</span>
@@ -1050,6 +1060,12 @@ export default function GameRoot() {
                 style={{ width: `${ui.slayerTask.total ? Math.round(((ui.slayerTask.total - ui.slayerTask.count) / ui.slayerTask.total) * 100) : 0}%` }}
               />
             </div>
+            <button
+              onClick={() => setSlayerShopOpen((o) => !o)}
+              className={`rs-btn w-full mt-[0.5em] py-[0.25em] text-[0.74em] ${slayerShopOpen ? 'rs-btn-primary' : ''}`}
+            >
+              Slayer Rewards
+            </button>
           </div>
         )}
 
@@ -1304,6 +1320,61 @@ export default function GameRoot() {
           </div>
           <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
             Permanent upgrades · earn essence by clearing waves
+          </p>
+        </MovablePanel>
+      )}
+
+      {/* Slayer Rewards shop — the sink for Slayer points (a per-run currency
+          earned by completing tasks). */}
+      {slayerShopOpen && (
+        <MovablePanel
+          id="slayer-shop"
+          globalLock={uiLocked}
+          className="rs-panel absolute bottom-16 left-4 p-3 z-20 w-[23em]"
+          style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
+        >
+          <div className="rs-panel-title flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+              Slayer Rewards
+            </span>
+            <button onClick={() => setSlayerShopOpen(false)} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
+          </div>
+          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
+            <span className="text-[#cdbe91] uppercase tracking-wide">Slayer Points</span>
+            <span className="text-[#7ce0ff] font-bold">{ui.slayerPoints}</span>
+          </div>
+          <div className="space-y-[0.4em] mt-[0.6em]">
+            {SLAYER_REWARDS.map((r) => {
+              const owned = !!r.once && r.id === 'helmet' && ui.slayerHelmet;
+              const afford = ui.slayerPoints >= r.cost;
+              const disabled = owned || !afford;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => engineRef.current?.buySlayerReward(r.id)}
+                  disabled={disabled}
+                  title={r.desc}
+                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${disabled ? 'rs-slot-unafford' : ''}`}
+                >
+                  <img src={geIcon(r.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="text-[#e7d9b0] truncate block">{r.name}</span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{r.desc}</span>
+                  </span>
+                  {owned ? (
+                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Owned</span>
+                  ) : (
+                    <span className="font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
+                      {r.cost} pts
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
+            Earn points by completing Slayer tasks
           </p>
         </MovablePanel>
       )}

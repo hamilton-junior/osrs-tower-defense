@@ -1,7 +1,7 @@
 import type { GameEngine } from '../core/engine';
 import type { EnemyType, SlayerTask } from '../types';
 import { ENEMIES } from '../data/enemies';
-import { SLAYER_MASTERS } from '../data/slayer';
+import { SLAYER_MASTERS, SLAYER_REWARDS, SLAYER_HELMET_BONUS, SLAYER_ESSENCE_YIELD, type SlayerReward } from '../data/slayer';
 import { ASSETS } from '../assets';
 import { rollSlayerTask, slayerCompletionGold } from './slayer';
 
@@ -20,6 +20,8 @@ export class SlayerSystem {
   points = 0;
   /** Completed tasks in a row; raises both point and gold rewards. */
   streak = 0;
+  /** Slayer Helmet bought this run — towers hit the task target harder. */
+  helmet = false;
   private lastTaskType: EnemyType | null = null;
   masterId = SLAYER_MASTERS[0].id;
 
@@ -86,10 +88,42 @@ export class SlayerSystem {
     this.e.notify('Slayer task complete!', SLAYER_ICON);
   }
 
+  /** Tower-damage multiplier vs `type`: the Slayer Helmet's on-task bonus when
+   *  owned and `type` is the current task target, else 1 (no effect). */
+  onTaskBonus(type: EnemyType): number {
+    return this.helmet && this.task?.type === type ? 1 + SLAYER_HELMET_BONUS : 1;
+  }
+
+  /** Spend Slayer points in the rewards shop (UI button). The sink for the
+   *  points the system accrues: a one-time on-task damage helm, a task skip,
+   *  or trading points into permanent Rune Essence. */
+  buyReward(id: SlayerReward['id']) {
+    const def = SLAYER_REWARDS.find(r => r.id === id);
+    if (!def) return;
+    if (def.once && id === 'helmet' && this.helmet) { this.e.notify('You already own the Slayer Helmet', SLAYER_ICON); return; }
+    if (id === 'skip' && !this.task) { this.e.notify('No task to skip', SLAYER_ICON); return; }
+    if (this.points < def.cost) { this.e.notify('Not enough Slayer points', SLAYER_ICON); return; }
+
+    this.points -= def.cost;
+    if (id === 'helmet') {
+      this.helmet = true;
+      this.e.notify('Slayer Helmet equipped', SLAYER_ICON);
+    } else if (id === 'skip') {
+      this.lastTaskType = this.task?.type ?? this.lastTaskType; // don't re-roll the same monster
+      this.task = null;
+      this.assignTask(); // rolls + announces the replacement
+    } else if (id === 'essence') {
+      this.e.meta.award(SLAYER_ESSENCE_YIELD);
+    }
+    this.e.playSound('sell'); // OSRS shop chime
+    this.e.requestEmit();
+  }
+
   reset() {
     this.task = null;
     this.points = 0;
     this.streak = 0;
+    this.helmet = false;
     this.lastTaskType = null;
     this.masterId = SLAYER_MASTERS[0].id;
   }

@@ -23,6 +23,7 @@ import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
+import type { SlayerReward } from '../data/slayer';
 
 /** Default logic dimensions, used until {@link GameEngine.resize} measures the
  *  real canvas. The play area adapts to the user's screen, sized to whole tiles. */
@@ -77,12 +78,14 @@ export interface UIState {
   noticeSeq: number;
   /** Active Slayer task (null when none assigned), as a cloneable view. */
   slayerTask: { type: EnemyType; name: string; count: number; total: number; reward: number } | null;
-  /** Accumulated Slayer points. */
+  /** Accumulated Slayer points (spendable in the Slayer Rewards shop). */
   slayerPoints: number;
   /** Completed-task streak. */
   slayerStreak: number;
   /** Name of the Slayer master that would assign the next task. */
   slayerMaster: string;
+  /** Whether the Slayer Helmet (on-task damage bonus) is owned this run. */
+  slayerHelmet: boolean;
   /** Current prayer points (rounded). */
   prayerPoints: number;
   /** Maximum prayer points. */
@@ -378,6 +381,7 @@ export class GameEngine {
       slayerPoints: this.slayer.points,
       slayerStreak: this.slayer.streak,
       slayerMaster: this.slayer.masterName,
+      slayerHelmet: this.slayer.helmet,
       prayerPoints: Math.round(this.prayer.points),
       prayerMax: this.prayer.max,
       activePrayers: [...this.prayer.active],
@@ -449,6 +453,11 @@ export class GameEngine {
   /** Buy one step of a permanent meta-progression upgrade (Essence Shop). */
   buyEssenceUpgrade(id: keyof GlobalUpgrades) {
     this.meta.buy(id);
+  }
+
+  /** Spend Slayer points in the Slayer Rewards shop (UI button). */
+  buySlayerReward(id: SlayerReward['id']) {
+    this.slayer.buyReward(id);
   }
 
   /** A tower's effective combat stats right now (prayers + potions applied),
@@ -1511,9 +1520,11 @@ export class GameEngine {
   /** Deal damage to an enemy; returns true if it died from this hit. `kind`
    *  colours the hitsplat; `minor` (DoT) draws it small/below, drifting aside. */
   private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false): boolean {
-    // Water "amp" makes the enemy take extra damage from every source.
+    // Water "amp" makes the enemy take extra damage from every source; the Slayer
+    // Helmet adds an on-task bonus vs the current task's monster.
     const vuln = enemy.vulnTimer && enemy.vulnTimer > 0 ? 1.25 : 1;
-    const dealt = Math.max(0, Math.floor(amount * vuln));
+    const onTask = this.slayer.onTaskBonus(enemy.type);
+    const dealt = Math.max(0, Math.floor(amount * vuln * onTask));
     enemy.hp -= dealt;
     if (!minor) {
       enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)

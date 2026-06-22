@@ -57,11 +57,12 @@ async function main() {
   // Give the engine a beat to boot + first emit, then open the Essence Shop so a
   // list panel is visible in the shot.
   await new Promise((r) => setTimeout(r, 1500));
-  // Open the Essence Shop (chrome check) + fire a test unlock popup via the
-  // debug panel's "Test unlock popup" cheat.
+  // Open the Slayer Rewards shop (its "Slayer Rewards" button lives in the task
+  // panel) + fire a test unlock popup via the debug panel's cheat.
   await page.evaluate(() => {
+    const bt = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.textContent || ''));
     const byTitle = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.title));
-    byTitle(/Essence Shop/i)?.click();
+    bt(/^\s*Slayer Rewards\s*$/i)?.click();
     byTitle(/Debug/i)?.click();
   });
   await new Promise((r) => setTimeout(r, 400));
@@ -86,7 +87,7 @@ async function main() {
   }, selOrText);
   const popRect = await cropOf('.rs-unlock-popup');
   if (popRect) await page.screenshot({ path: join(__dirname, 'tmp-ui-popup.png'), clip: popRect });
-  const panelRect = await cropOf('Essence Shop');
+  const panelRect = await cropOf('Slayer Points');
   if (panelRect) await page.screenshot({ path: join(__dirname, 'tmp-ui-panel.png'), clip: panelRect });
   console.log('tmp-ui.png', popRect ? '+ tmp-ui-popup.png' : '(popup not found)', panelRect ? '+ tmp-ui-panel.png' : '');
   await browser.close();
