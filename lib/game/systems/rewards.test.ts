@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { goldForKill, waveClearBonus, goldLateGameDamp } from './rewards';
 
-describe('goldForKill', () => {
-  it('scales with the enemy hp (early waves undamped)', () => {
+describe('goldForKill (fixed per type)', () => {
+  it('is a flat function of base hp', () => {
     expect(goldForKill(100)).toBe(41); // round(100 * 0.4) + 1
     expect(goldForKill(250)).toBe(101);
   });
@@ -10,12 +10,11 @@ describe('goldForKill', () => {
     expect(goldForKill(1)).toBe(2);
     expect(goldForKill(0)).toBe(2);
   });
-  it('grows monotonically with hp', () => {
+  it('grows monotonically with base hp', () => {
     expect(goldForKill(500)).toBeGreaterThan(goldForKill(100));
   });
-  it('damps the same kill in the late game', () => {
-    expect(goldForKill(250, 30)).toBeLessThan(goldForKill(250, 1));
-    expect(goldForKill(250, 12)).toBe(goldForKill(250, 1)); // unchanged through wave 12
+  it('is deterministic — the same base hp always pays the same (no wave scaling)', () => {
+    expect(goldForKill(80)).toBe(goldForKill(80));
   });
 });
 

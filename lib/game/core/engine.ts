@@ -19,6 +19,8 @@ import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
 import { PrayerSystem } from '../systems/prayer-system';
 import { GeSystem, type GeListing } from '../systems/ge-system';
+import { MetaSystem, type MetaLoad } from '../systems/meta-system';
+import { essenceForWave } from '../systems/meta-progression';
 
 /** Default logic dimensions, used until {@link GameEngine.resize} measures the
  *  real canvas. The play area adapts to the user's screen, sized to whole tiles. */
@@ -28,13 +30,6 @@ const GRID = 32;
 const TOWER_RADIUS = 15;
 const START_MONEY = 200;
 const START_LIVES = 20;
-
-/** Neutral upgrade multipliers — the MVP has no meta-progression yet. */
-const NO_UPGRADES: GlobalUpgrades = {
-  archerRange: 1, archerDamage: 1, magicDamage: 1, cannonSpeed: 1, slayerReward: 1,
-  prayerEfficiency: 1, startingMoney: 0, rewardMultiplier: 1, waveSpeed: 1,
-  towerCostReduction: 1, xpGainMultiplier: 1, prayerRegen: 0,
-};
 
 /** Flat, cloneable snapshot the engine pushes to React. */
 export interface UIState {
@@ -84,6 +79,10 @@ export interface UIState {
   activePrayers: PrayerType[];
   /** Grand Exchange stock with live prices + active-buff timers. */
   geOffers: GeListing[];
+  /** Persistent Rune Essence balance (meta-progression currency). */
+  essence: number;
+  /** Bought global upgrades that seed every run (Essence Shop). */
+  upgrades: GlobalUpgrades;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -236,6 +235,9 @@ export class GameEngine {
   readonly slayer = new SlayerSystem(this);
   readonly prayer = new PrayerSystem(this);
   readonly ge = new GeSystem(this);
+  /** Persistent meta-progression (essence + bought upgrades); seeded from the
+   *  saved blob in the constructor and kept across {@link restart}. */
+  readonly meta: MetaSystem;
 
   /** Current logic dimensions (canvas internal resolution); whole tiles. */
   width = LOGIC_WIDTH;
@@ -253,10 +255,16 @@ export class GameEngine {
   readonly images = new Map<string, HTMLImageElement>();
   private readonly brokenImages = new Set<string>();
 
-  constructor(canvas: HTMLCanvasElement, onState: (patch: Partial<UIState>) => void) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    onState: (patch: Partial<UIState>) => void,
+    save?: MetaLoad,
+  ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.onState = onState;
+    this.meta = new MetaSystem(this, save);
+    this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.renderer = new GameRenderer(this);
     this.canvas.width = this.width;
     this.canvas.height = this.height;
@@ -354,6 +362,8 @@ export class GameEngine {
       prayerMax: this.prayer.max,
       activePrayers: [...this.prayer.active],
       geOffers: this.ge.listing(),
+      essence: this.meta.essence,
+      upgrades: this.meta.upgrades,
     });
   }
 
@@ -386,13 +396,18 @@ export class GameEngine {
     this.ge.buy(id);
   }
 
+  /** Buy one step of a permanent meta-progression upgrade (Essence Shop). */
+  buyEssenceUpgrade(id: keyof GlobalUpgrades) {
+    this.meta.buy(id);
+  }
+
   /** A tower's effective combat stats right now (prayers + potions applied),
    *  for the UI to show buffed values and their origin. */
   effectiveStats(towerId: string): ComputedTowerStats | null {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower) return null;
     return calculateTowerStats(tower, {
-      upgrades: NO_UPGRADES,
+      upgrades: this.meta.upgrades,
       activePrayers: this.prayer.active,
       activePotions: this.ge.active,
       allTowers: this.towers,
@@ -540,7 +555,7 @@ export class GameEngine {
       speed: Math.round(e.speed),
       baseSpeed: Math.round(e.baseSpeed),
       weakness: e.weakness && e.weakness !== 'none' ? e.weakness : null,
-      reward: goldForKill(e.maxHp, this.wave),
+      reward: this.killGold(e.type),
       isBoss: !!e.isBoss,
       x: e.x,
       y: e.y,
@@ -587,7 +602,24 @@ export class GameEngine {
   }
 
   towerCost(type: TowerType): number {
-    return TOWERS[type]?.tiers[0].upgradeCost ?? 0;
+    const base = TOWERS[type]?.tiers[0].upgradeCost ?? 0;
+    return Math.ceil(base * this.meta.upgrades.towerCostReduction);
+  }
+
+  /** Fixed gold a kill of this enemy type pays — a flat function of its BASE HP
+   *  (see systems/rewards), NOT the wave-scaled value, so payouts stay constant
+   *  per monster however late the wave. */
+  private killGold(type: EnemyType): number {
+    return goldForKill(ENEMIES[type]?.hp ?? 0);
+  }
+
+  /** Add gold from a kill or wave clear, scaled by the rewardMultiplier upgrade,
+   *  and track it for the game-over "earned" tally. Returns the gold granted. */
+  private awardGold(base: number): number {
+    const gold = Math.round(base * this.meta.upgrades.rewardMultiplier);
+    this.money += gold;
+    this.goldEarned += gold;
+    return gold;
   }
 
   /** Total gp invested in a tower (base + all upgrades to its current level). */
@@ -1077,7 +1109,7 @@ export class GameEngine {
       // Utility wizards don't fire — they project a field (see updateUtilityTowers).
       if (tower.type === 'wizard' && tower.mageMode === 'utility') continue;
       const stats = calculateTowerStats(tower, {
-        upgrades: NO_UPGRADES,
+        upgrades: this.meta.upgrades,
         activePrayers: this.prayer.active,
         activePotions: this.ge.active,
         allTowers: this.towers,
@@ -1482,9 +1514,7 @@ export class GameEngine {
     // falls back to the generic `death` for anything unmapped.
     const deathKey = `death_${enemy.type}`;
     this.sound.play(deathKey in GAME_SOUNDS ? deathKey : 'death', 40);
-    const reward = goldForKill(enemy.maxHp, this.wave);
-    this.money += reward;
-    this.goldEarned += reward;
+    this.awardGold(this.killGold(enemy.type));
     this.kills += 1;
     this.slayer.recordKill(enemy.type);
     this.emit();
@@ -1512,9 +1542,8 @@ export class GameEngine {
     if (!this.waveActive) return;
     if (this.spawnQueue.length > 0 || this.enemies.length > 0) return;
     this.waveActive = false;
-    const bonus = waveClearBonus(this.wave);
-    this.money += bonus;
-    this.goldEarned += bonus;
+    this.awardGold(waveClearBonus(this.wave));
+    this.meta.award(essenceForWave(this.wave)); // essence reward for the cleared wave
     this.wave += 1;
     this.prayer.refill(); // top up to the new wave's (possibly larger) pool
     this.ge.onWaveCleared(); // drift shop prices toward this wave's demand
@@ -1536,7 +1565,9 @@ export class GameEngine {
     this.deaths = [];
     this.spotEffects = [];
     this.spawnQueue = [];
-    this.money = START_MONEY;
+    // Meta-progression (essence + upgrades) persists across runs — only re-apply
+    // the starting-gold bonus to the fresh balance.
+    this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.lives = START_LIVES;
     this.wave = 1;
     this.kills = 0;

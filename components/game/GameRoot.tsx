@@ -9,6 +9,7 @@ import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
+import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue } from '@/lib/game/systems/meta-progression';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
@@ -81,7 +82,21 @@ const INITIAL: UIState = {
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael',
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
   geOffers: [],
+  essence: 0, upgrades: { ...DEFAULT_UPGRADES },
 };
+
+const ESSENCE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades' } as const;
+
+/** Read the persisted meta-progression save (essence + upgrades) from
+ *  localStorage, tolerating absent/corrupt data — the engine re-clamps it. */
+function loadMetaSave(): { essence: number; upgrades: unknown } {
+  if (typeof window === 'undefined') return { essence: 0, upgrades: undefined };
+  let essence = 0;
+  let upgrades: unknown;
+  try { essence = parseInt(localStorage.getItem(ESSENCE_KEYS.essence) ?? '0', 10) || 0; } catch { /* ignore */ }
+  try { upgrades = JSON.parse(localStorage.getItem(ESSENCE_KEYS.upgrades) ?? 'null'); } catch { /* ignore */ }
+  return { essence, upgrades };
+}
 
 const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>)[id];
 /** Wiki sprite URL for a GE offer (its `wiki` filename + .png). */
@@ -110,6 +125,7 @@ export default function GameRoot() {
   const [toast, setToast] = useState<{ text: string; icon: string | null } | null>(null);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
   const [geOpen, setGeOpen] = useState(false);
+  const [essenceOpen, setEssenceOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
@@ -156,7 +172,7 @@ export default function GameRoot() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })));
+    const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })), loadMetaSave());
     engineRef.current = engine;
     engine.resize();
     engine.start();
@@ -169,6 +185,18 @@ export default function GameRoot() {
     };
   }, []);
 
+  // Persist meta-progression (essence + bought upgrades) whenever it changes, so
+  // it carries across runs and reloads. Skips the very first emit (the values the
+  // engine just loaded) to avoid a redundant write.
+  const metaLoaded = useRef(false);
+  useEffect(() => {
+    if (!metaLoaded.current) { metaLoaded.current = true; return; }
+    try {
+      localStorage.setItem(ESSENCE_KEYS.essence, String(ui.essence));
+      localStorage.setItem(ESSENCE_KEYS.upgrades, JSON.stringify(ui.upgrades));
+    } catch { /* ignore */ }
+  }, [ui.essence, ui.upgrades]);
+
   // Flash a banner when a wave begins, and a "complete" banner when it ends.
   useEffect(() => {
     const prev = prevWaveActive.current;
@@ -180,7 +208,8 @@ export default function GameRoot() {
       );
     } else if (!ui.waveActive && prev && !ui.gameOver) {
       const completed = ui.wave - 1;
-      setBanner({ text: `Wave ${completed} Complete   +${waveClearBonus(completed)} gp`, tone: 'done' });
+      const bonus = Math.round(waveClearBonus(completed) * ui.upgrades.rewardMultiplier);
+      setBanner({ text: `Wave ${completed} Complete   +${bonus} gp`, tone: 'done' });
     }
     prevWaveActive.current = ui.waveActive;
   }, [ui.waveActive, ui.wave, ui.gameOver, ui.bossWave]);
@@ -573,7 +602,7 @@ export default function GameRoot() {
           <div className="rs-panel p-2" style={{ fontSize: 'clamp(12px, 0.85vw, 17px)' }}>
             <div className="flex gap-[0.3em]">
               {TOWER_ORDER.map((type) => {
-                const cost = TOWERS[type].tiers[0].upgradeCost;
+                const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
                 const afford = ui.money >= cost;
                 const base = type === 'wizard' ? WIZARD_STAVES[animTick % WIZARD_STAVES.length] : towerIcon(type);
                 return (
@@ -1004,7 +1033,7 @@ export default function GameRoot() {
         <div className="rs-panel-title">Towers</div>
         <div className="grid grid-cols-6 gap-2">
           {TOWER_ORDER.map((type) => {
-            const cost = TOWERS[type].tiers[0].upgradeCost;
+            const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
             const active = ui.selectedTowerType === type;
             const afford = ui.money >= cost;
             const icon = towerIcon(type);
@@ -1089,6 +1118,14 @@ export default function GameRoot() {
           GE
         </button>
         <button
+          onClick={() => setEssenceOpen((o) => !o)}
+          title="Essence Shop — permanent upgrades"
+          className={`rs-btn px-2 py-1 text-xs ml-1 flex items-center gap-1 ${essenceOpen ? 'rs-btn-primary' : ''}`}
+        >
+          <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-4 h-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <span className="tabular-nums text-[#7ce0ff]">{fmt(ui.essence)}</span>
+        </button>
+        <button
           data-no-drag
           onClick={toggleUiLock}
           title={uiLocked ? 'Unlock UI (allow moving panels)' : 'Lock UI (prevent moving panels)'}
@@ -1158,6 +1195,69 @@ export default function GameRoot() {
           </div>
           <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
             Buffs last 45s · prices drift with demand each wave
+          </p>
+        </MovablePanel>
+      )}
+
+      {/* Essence Shop — permanent meta-progression upgrades (toggled from controls).
+          Earns persist across runs; buying steps a global upgrade toward its cap. */}
+      {essenceOpen && (
+        <MovablePanel
+          id="essence"
+          globalLock={uiLocked}
+          className="rs-panel absolute bottom-16 left-4 p-3 z-20 w-[23em]"
+          style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
+        >
+          <div className="rs-panel-title flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+              Essence Shop
+            </span>
+            <button onClick={() => setEssenceOpen(false)} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
+          </div>
+          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
+            <span className="text-[#cdbe91] uppercase tracking-wide">Rune Essence</span>
+            <span className="flex items-center gap-[0.3em] text-[#7ce0ff] font-bold">
+              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+              {fmt(ui.essence)}
+            </span>
+          </div>
+          <div className="space-y-[0.4em] mt-[0.6em]">
+            {GLOBAL_UPGRADE_DEFS.map((def) => {
+              const value = ui.upgrades[def.id];
+              const maxed = isMaxed(def, value);
+              const cost = nextCost(def, value);
+              const afford = ui.essence >= cost;
+              return (
+                <button
+                  key={def.id}
+                  onClick={() => engineRef.current?.buyEssenceUpgrade(def.id)}
+                  disabled={maxed || !afford}
+                  title={def.desc}
+                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${maxed || !afford ? 'rs-slot-unafford' : ''}`}
+                >
+                  <img src={geIcon(def.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-[0.4em]">
+                      <span className="text-[#e7d9b0] truncate">{def.name}</span>
+                      <span className="rs-ge-timer">{formatUpgradeValue(def, value)}</span>
+                    </span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{def.desc}</span>
+                  </span>
+                  {maxed ? (
+                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Max</span>
+                  ) : (
+                    <span className="flex items-center gap-[0.25em] font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
+                      {fmt(cost)}
+                      <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
+            Permanent upgrades · earn essence by clearing waves
           </p>
         </MovablePanel>
       )}
