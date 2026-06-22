@@ -27,6 +27,51 @@ const HITSPLAT_COLORS: Record<HitsplatKind, string> = {
 export class GameRenderer {
   constructor(private e: GameEngine) {}
 
+  /** Scratch buffer for alpha-masked sprite tints (hit-flash). Lazily sized. */
+  private flashBuf?: HTMLCanvasElement;
+  private flashCtx?: CanvasRenderingContext2D | null;
+
+  /**
+   * Draw `img` (a source region) to `ctx` at the current transform, with a red
+   * hit-flash that is **clipped to the sprite's own silhouette**.
+   *
+   * Tinting on the main canvas with `source-atop` doesn't work: the destination
+   * there is the opaque map background, so the red fills the whole sprite box.
+   * Instead we composite on an offscreen buffer whose only opaque pixels are the
+   * sprite itself — `source-atop` then masks the red by the sprite's alpha — and
+   * blit that tinted silhouette over the already-drawn sprite.
+   */
+  private drawFlashTint(
+    ctx: CanvasRenderingContext2D,
+    img: CanvasImageSource,
+    sx: number, sy: number, sw: number, sh: number,
+    dx: number, dy: number, dw: number, dh: number,
+    flash: number,
+  ) {
+    if (!this.flashBuf) {
+      this.flashBuf = document.createElement('canvas');
+      this.flashCtx = this.flashBuf.getContext('2d');
+    }
+    const buf = this.flashBuf;
+    const bctx = this.flashCtx;
+    if (!bctx) return;
+    if (buf.width !== sw || buf.height !== sh) { buf.width = sw; buf.height = sh; }
+    bctx.clearRect(0, 0, sw, sh);
+    bctx.globalCompositeOperation = 'source-over';
+    bctx.globalAlpha = 1;
+    bctx.imageSmoothingEnabled = false;
+    bctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    // Red only where the sprite is opaque (masked by its alpha).
+    bctx.globalCompositeOperation = 'source-atop';
+    bctx.globalAlpha = Math.min(1, flash) * 0.6;
+    bctx.fillStyle = '#e00000';
+    bctx.fillRect(0, 0, sw, sh);
+    bctx.globalCompositeOperation = 'source-over';
+    bctx.globalAlpha = 1;
+    // Blit the tinted silhouette over the sprite at the caller's transform.
+    ctx.drawImage(buf, 0, 0, sw, sh, dx, dy, dw, dh);
+  }
+
   draw() {
     const { ctx } = this.e;
     if (!ctx || this.e.canvas.width === 0) return;
@@ -478,6 +523,8 @@ export class GameRenderer {
         ctx.save();
         ctx.globalAlpha = Math.min(1, t / 0.25); // hold, then fade in the last 25%
         ctx.translate(d.x, d.y);
+        // Baked clips face RIGHT (canonical model space, same as static sprites);
+        // flip only when travelling left.
         if (d.movingLeft) ctx.scale(-1, 1);
         ctx.drawImage(img, fi * set.frameW, 0, set.frameW, set.frameH, -ds / 2, -ds / 2, ds, ds);
         ctx.restore();
@@ -723,13 +770,12 @@ export class GameRenderer {
         const ds = size * 1.32;
         ctx.save();
         ctx.translate(e.x + shx, e.y + shy);
+        // Baked clips face RIGHT (canonical model space, same as static sprites);
+        // flip only when travelling left, exactly like the static-sprite branch.
         if (movingLeft) ctx.scale(-1, 1);
         ctx.drawImage(img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds);
         if (flash > 0) {
-          ctx.globalCompositeOperation = 'source-atop';
-          ctx.globalAlpha = flash * 0.6;
-          ctx.fillStyle = '#e00000';
-          ctx.fillRect(-ds / 2, -ds / 2, ds, ds);
+          this.drawFlashTint(ctx, img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds, flash);
         }
         ctx.restore();
       } else if (this.e.imageOk(e.type)) {
@@ -739,11 +785,8 @@ export class GameRenderer {
         if (movingLeft) ctx.scale(-1, 1);
         ctx.drawImage(img, -size / 2, -size / 2, size, size);
         if (flash > 0) {
-          // Tint the sprite itself red (clipped to its silhouette).
-          ctx.globalCompositeOperation = 'source-atop';
-          ctx.globalAlpha = flash * 0.6;
-          ctx.fillStyle = '#e00000';
-          ctx.fillRect(-size / 2, -size / 2, size, size);
+          const sw = img.naturalWidth || size, sh = img.naturalHeight || size;
+          this.drawFlashTint(ctx, img, 0, 0, sw, sh, -size / 2, -size / 2, size, size, flash);
         }
         ctx.restore();
       } else {

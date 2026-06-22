@@ -5,6 +5,7 @@ import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId } from '@/
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
+import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
@@ -109,6 +110,7 @@ export default function GameRoot() {
   const [toast, setToast] = useState<{ text: string; icon: string | null } | null>(null);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
   const [geOpen, setGeOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
@@ -1094,7 +1096,24 @@ export default function GameRoot() {
         >
           {uiLocked ? '🔒' : '🔓'}
         </button>
+        <button
+          data-no-drag
+          onClick={() => setDebugOpen((o) => !o)}
+          title="Debug & bestiary"
+          className={`rs-btn px-2 py-1 text-xs ml-1 ${debugOpen ? 'rs-btn-primary' : ''}`}
+        >
+          🛠
+        </button>
       </MovablePanel>
+
+      {debugOpen && (
+        <DebugPanel
+          engineRef={engineRef}
+          ui={ui}
+          globalLock={uiLocked}
+          onClose={() => setDebugOpen(false)}
+        />
+      )}
 
       {/* Grand Exchange shop (toggled from the bottom-left controls) */}
       {geOpen && (

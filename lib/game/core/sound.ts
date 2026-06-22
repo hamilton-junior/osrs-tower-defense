@@ -12,6 +12,7 @@ export const GAME_SOUNDS: Record<string, string> = {
   fire_slayer: ASSETS.sounds.shoot.slayer[1],
   fire_toxic: ASSETS.sounds.shoot.toxic[1],
   hit: ASSETS.sounds.misc.hit,
+  base_hit: ASSETS.sounds.misc.block, // player taking damage, no armour (take-damage splat 510) — on a leak
   death: ASSETS.sounds.misc.kill,
   wave: ASSETS.sounds.misc.wave,
   place: ASSETS.sounds.misc.upgrade,

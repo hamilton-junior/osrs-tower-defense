@@ -1045,7 +1045,7 @@ export class GameEngine {
         this.enemies.splice(i, 1);
         this.lives -= 1;
         this.baseFlash = 1;
-        this.sound.play('hit', 90);
+        this.sound.play('base_hit', 90); // player taking damage with no armour (OSRS take-damage splat)
         if (this.lives <= 0) this.endGame();
         this.emit();
         continue;
@@ -1437,8 +1437,13 @@ export class GameEngine {
       enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
       // Play the WHOLE hurt flinch (priority over walk) before reverting — sizing
       // the window to the clip's own length, not a fixed slice that cut it short.
+      // An animation can't be interrupted by a new one of the same priority: a
+      // fresh hit while the flinch is still playing does NOT restart it (else
+      // rapid hits would freeze the enemy on frame 0). Death (higher priority)
+      // still wins — a dying enemy leaves `enemies` entirely. The flash above
+      // still fires every hit, so feedback isn't lost.
       const hurtClip = ENEMY_ANIMS[enemy.type]?.clips.hurt;
-      if (hurtClip) enemy.hurtAnim = clipDurationS(hurtClip);
+      if (hurtClip && (enemy.hurtAnim ?? 0) <= 0) enemy.hurtAnim = clipDurationS(hurtClip);
     }
     const below = enemy.isBoss ? 30 : 16;
     // DoT splats are biased to a fixed side per kind (burn left, poison right) so
@@ -1551,6 +1556,61 @@ export class GameEngine {
     this.slayer.assignTask(); // fresh task for the new run
     this.prayer.reset();
     this.ge.reset();
+    this.emit();
+  }
+
+  // ------------------------------------------------------------------- debug
+  // Cheats for the in-game debug panel (GameRoot). They mutate run state
+  // directly and re-emit; none are reachable in normal play.
+
+  /** Jump to a wave number (only between waves — mid-wave is a no-op). */
+  debugSetWave(n: number) {
+    if (this.waveActive) { this.notify('Finish the wave first'); return; }
+    this.wave = Math.max(1, Math.floor(n) || 1);
+    this.emit();
+  }
+
+  /** Set the gold balance outright. */
+  debugSetGold(n: number) {
+    this.money = Math.max(0, Math.floor(n) || 0);
+    this.emit();
+  }
+
+  /** Set remaining lives (clamped to the max). */
+  debugSetLives(n: number) {
+    this.lives = Math.max(0, Math.min(this.maxLives, Math.floor(n) || 0));
+    if (this.lives <= 0) this.endGame(); else if (this.gameOver) this.gameOver = false;
+    this.emit();
+  }
+
+  /** Start a wave built from an explicit enemy list — each chosen type spawned
+   *  `countEach` times. With no types it falls back to the normal wave. Used by
+   *  the debug "spawn custom wave" control. */
+  debugStartCustomWave(types: EnemyType[], countEach: number) {
+    if (this.waveActive || this.gameOver) return;
+    const n = Math.max(1, Math.floor(countEach) || 1);
+    const out: Enemy[] = [];
+    for (const t of types) {
+      for (let i = 0; i < n; i++) {
+        const e = this.makeEnemy(t, this.wave);
+        if (e) out.push(e);
+      }
+    }
+    if (!out.length) { this.startWave(); return; }
+    this.spawnQueue = out;
+    this.waveTotal = out.length;
+    this.bossWave = out.some((e) => e.isBoss);
+    this.waveActive = true;
+    this.sound.play('wave');
+    this.emit();
+  }
+
+  /** Remove every live enemy + queued spawn (debug "clear field"); ends the wave
+   *  cleanly if one was running. */
+  debugClearEnemies() {
+    this.enemies = [];
+    this.spawnQueue = [];
+    if (this.waveActive) this.checkWaveEnd();
     this.emit();
   }
 }

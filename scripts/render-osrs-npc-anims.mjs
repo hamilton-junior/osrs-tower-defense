@@ -22,7 +22,7 @@
 import { RSCache, IndexType, ConfigType, ModelGroup } from 'osrscachereader';
 import { createCanvas } from 'canvas';
 import { PNG } from 'pngjs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -30,9 +30,9 @@ import { homedir } from 'node:os';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
 const DEFAULT_CACHE = join(homedir(), '.runelite', 'jagexcache', 'oldschool', 'LIVE');
-const CACHE_DIR = process.env.OSRS_CACHE_DIR || DEFAULT_CACHE;
+export const CACHE_DIR = process.env.OSRS_CACHE_DIR || DEFAULT_CACHE;
 
-const SIZE = 128;       // per-frame canvas; enemies read small on the map
+export const SIZE = 128;       // per-frame canvas; enemies read small on the map
 const MARGIN = 0.06;
 const MS_PER_UNIT = 20; // OSRS frame-length unit ≈ 20ms (one client cycle)
 
@@ -41,12 +41,15 @@ const MS_PER_UNIT = 20; // OSRS frame-length unit ≈ 20ms (one client cycle)
  * (one entry per enemy: `{ npc, anims: { walk, hurt?, death? } }`, discovered
  * from the cache). Defaults below frame every creature in the same front-3/4
  * view and loop `walk` only; a config entry may override
- * `yaw`/`pitch`/`maxFrames`/`mirror`/`flipY`. **Standard: every enemy is baked
- * facing RIGHT.** Empirically `mirror: false` at yaw 50 faces right; `mirror:
- * true` faced LEFT (the label was inverted). Enemies travel rightward, so the
- * renderer leaves them as-is when moving right and flips them when moving left
- * (`if (movingLeft) scale(-1,1)`) — i.e. they always face their travel
- * direction. (A left-facing bake made them face backwards while moving right.)
+ * `yaw`/`pitch`/`maxFrames`/`mirror`/`flipY`. **Standard: every enemy bakes
+ * facing RIGHT.** This falls out of rendering the true model space (X,Y,Z) — the
+ * same space the static sprite renderer uses — which is required for correct
+ * limb motion (see `renderFrame`: negating Y AND Z was a reflection that flipped
+ * handedness, bending limbs the wrong way and mis-sorting parts as detached;
+ * the fix negates only Y and keeps Z).
+ * Enemies travel rightward, so the renderer mirrors the (right-facing) clip when
+ * moving left (`if (movingLeft) scale(-1,1)` in drawEnemies/drawDeaths) so
+ * they always face their travel direction — identical to the static branch.
  */
 const TARGET_DEFAULTS = { yaw: 50, pitch: 6, maxFrames: 24, mirror: false, loop: { walk: true } };
 const CONFIG_PATH = join(__dirname, 'enemy-anims.config.json');
@@ -82,7 +85,7 @@ function hslToRgb(hsl) {
 }
 
 /** Rotate (yaw about Y, pitch about X) then orthographically project a vertex. */
-function project(x, y, z, sy, cy, sp, cp) {
+export function project(x, y, z, sy, cy, sp, cp) {
   const rx = x * cy - z * sy;
   let rz = x * sy + z * cy;
   const ry = y * cp - rz * sp;
@@ -154,7 +157,7 @@ function isFlatPlane(m) {
 }
 
 /** Build an NPC's merged + recoloured model. */
-async function buildNpcModel(cache, npcId) {
+export async function buildNpcModel(cache, npcId) {
   const file = await cache.getFile(IndexType.CONFIGS, ConfigType.NPC, npcId);
   if (!file?.content) return null;
   const def = parseNpcDef(file.content);
@@ -180,14 +183,18 @@ async function buildNpcModel(cache, npcId) {
 }
 
 /** Render one frame's vertices into a SIZE×SIZE canvas using a shared fit. */
-function renderFrame(model, verts, fit, sy, cy, sp, cp, mirror, flipY) {
+export function renderFrame(model, verts, fit, sy, cy, sp, cp, mirror, flipY) {
   const n = verts.length;
   const px = new Float64Array(n), py = new Float64Array(n), pz = new Float64Array(n);
   for (let i = 0; i < n; i++) {
-    // loadAnimation yields Y negated vs the static model space, so negate it back
-    // (else the creature renders upside down). A few models (e.g. the scorpion)
-    // are authored the other way up and come out inverted by that rule — set
-    // `flipY` for them to keep Y as-is. Optionally mirror X to face travel.
+    // `loadAnimation` (invertZ=true) returns each vertex as (X, -Y, Z) in the
+    // SAME model space the static renderer (render-osrs-npcs.mjs) projects raw
+    // as (X, Y, Z). So negate **only Y** back and LEAVE Z alone — a pure Y-flip
+    // that preserves chirality and depth. The previous version ALSO negated Z,
+    // which is a *reflection* (det -1): it flipped handedness, bending every
+    // limb the wrong way, and inverted the painter's depth sort so parts
+    // rendered through the body / detached. `flipY` keeps the raw -Y for the
+    // rare model authored upside-down.
     const vy = flipY ? verts[i][1] : -verts[i][1];
     const [a, b, c] = project(verts[i][0], vy, verts[i][2], sy, cy, sp, cp);
     px[i] = mirror ? -a : a; py[i] = b; pz[i] = c;
@@ -236,11 +243,11 @@ function renderFrame(model, verts, fit, sy, cy, sp, cp, mirror, flipY) {
  * Shared fit across **every frame of every clip** so the creature stays the same
  * scale and ground line whether it's walking or dying (no pop between clips).
  */
-function computeFit(allFrames, sy, cy, sp, cp, mirror, flipY) {
+export function computeFit(allFrames, sy, cy, sp, cp, mirror, flipY) {
   const allX = [], allY = [];
   for (const verts of allFrames) {
     for (const v of verts) {
-      const [a, b] = project(v[0], flipY ? v[1] : -v[1], v[2], sy, cy, sp, cp); // negate Y (see renderFrame)
+      const [a, b] = project(v[0], flipY ? v[1] : -v[1], v[2], sy, cy, sp, cp); // negate Y only, keep Z (see renderFrame)
       allX.push(mirror ? -a : a); allY.push(b);
     }
   }
@@ -252,7 +259,7 @@ function computeFit(allFrames, sy, cy, sp, cp, mirror, flipY) {
   return { scale, cx: (xLo + xHi) / 2, cy: (yLo + yHi) / 2 };
 }
 
-async function loadClip(cache, model, animId, maxFrames, reverse = true) {
+export async function loadClip(cache, model, animId, maxFrames) {
   const anim = await model.loadAnimation(cache, animId);
   let frames = anim.vertexData;
   let lengths = anim.lengths;
@@ -265,17 +272,14 @@ async function loadClip(cache, model, animId, maxFrames, reverse = true) {
     }
     frames = picked; lengths = pickedLen;
   }
-  // Our pipeline samples the sequence so it plays back as a "rewind" (the clip
-  // runs end→start). Flip the frame order so it plays forward — reverse the
-  // per-frame durations alongside it so each frame keeps its own timing. This is
-  // purely a playback-order change: it does NOT touch the model, mirror, or Y.
-  // EXCEPTION: `death` is exempt — a death already reads correctly forward
-  // (stand → collapse, final pose held); reversing it plays as a resurrection
-  // (collapse → rise), so its frames are left in source order.
-  if (reverse) {
-    frames = frames.slice().reverse();
-    lengths = lengths.slice().reverse();
-  }
+  // Play frames in the cache's NATURAL ORDER (forward). `loadAnimation` returns
+  // `vertexData`/`lengths` indexed by the sequence's `frameIDs`/`frameLengths`,
+  // which IS the forward play order — the same order the library's GLTFExporter
+  // feeds to a glTF viewer. (An earlier build reversed every non-death clip to
+  // "fix a rewind"; that was a mis-diagnosis from the Z-reflection era — with the
+  // reflection gone, reversing plays motion backward, so rears/flaps/recoils ran
+  // down-when-they-should-go-up and deaths needed an exemption. No reversal now:
+  // verified a death collapses forward and resurrects when reversed.)
   return { frames, lengths };
 }
 
@@ -312,7 +316,7 @@ async function main() {
     // Load every clip first so the fit can be shared across all of them.
     const clips = {};
     for (const [name, animId] of Object.entries(cfg.anims)) {
-      const clip = await loadClip(cache, model, animId, cfg.maxFrames, name !== 'death');
+      const clip = await loadClip(cache, model, animId, cfg.maxFrames);
       if (!clip) { console.warn(`! ${slug}.${name}: anim ${animId} produced no frames`); continue; }
       clips[name] = clip;
     }
@@ -356,4 +360,8 @@ async function main() {
   process.exit(0);
 }
 
-main();
+// Run the bake only when invoked directly (so the helpers can be imported by
+// diagnostics without triggering a full bake).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

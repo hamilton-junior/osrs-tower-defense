@@ -19,7 +19,6 @@
     "npc": 2790,
     "anims": {
       "walk": 5848,
-      "hurt": 5847,
       "death": 5851
     }
   },
@@ -27,7 +26,7 @@
     "npc": 3134,
     "anims": {
       "walk": 168,
-      "hurt": 169,
+      "hurt": 171,
       "death": 172
     }
   },
@@ -48,17 +47,18 @@
     }
   },
   "zombie": {
-    "npc": 880,
+    "npc": 27,
     "anims": {
-      "walk": 298,
-      "hurt": 300
+      "walk": 5566,
+      "hurt": 5570,
+      "death": 5569
     }
   },
   "ghost": {
     "npc": 85,
     "anims": {
       "walk": 5539,
-      "hurt": 5540,
+      "hurt": 5541,
       "death": 5542
     }
   },
@@ -75,7 +75,7 @@
     "flipY": true,
     "anims": {
       "walk": 6253,
-      "hurt": 6254,
+      "hurt": 6255,
       "death": 6256
     }
   },
@@ -83,7 +83,6 @@
     "npc": 2075,
     "anims": {
       "walk": 4660,
-      "hurt": 4661,
       "death": 4659
     }
   },
@@ -91,14 +90,15 @@
     "npc": 484,
     "anims": {
       "walk": 1549,
-      "hurt": 1550
+      "hurt": 1550,
+      "death": 1557
     }
   },
   "hill_giant": {
     "npc": 2098,
     "anims": {
       "walk": 4649,
-      "hurt": 4647,
+      "hurt": 4650,
       "death": 4648
     }
   },
@@ -106,14 +106,15 @@
     "npc": 240,
     "anims": {
       "walk": 63,
-      "hurt": 64
+      "hurt": 66,
+      "death": 4677
     }
   },
   "gargoyle": {
     "npc": 7407,
     "anims": {
       "walk": 7810,
-      "hurt": 7808
+      "death": 7815
     }
   },
   "blue_dragon": {
@@ -128,7 +129,6 @@
     "npc": 8,
     "anims": {
       "walk": 1526,
-      "hurt": 1525,
       "death": 1530
     }
   },
@@ -136,15 +136,15 @@
     "npc": 415,
     "anims": {
       "walk": 1534,
-      "hurt": 1535
+      "hurt": 1536
     }
   },
   "lesser_demon": {
     "npc": 2005,
     "anims": {
       "walk": 63,
-      "hurt": 64,
-      "death": 71
+      "hurt": 66,
+      "death": 4677
     }
   },
   "dark_beast": {
@@ -167,7 +167,7 @@
     "npc": 3127,
     "anims": {
       "walk": 2651,
-      "hurt": 2652
+      "hurt": 2650
     }
   },
   "vorkath": {
@@ -182,7 +182,7 @@
     "npc": 2042,
     "anims": {
       "walk": 5070,
-      "hurt": 5069,
+      "hurt": 5066,
       "death": 5072
     }
   },
@@ -190,15 +190,15 @@
     "npc": 1673,
     "anims": {
       "walk": 2064,
-      "hurt": 2063
+      "hurt": 2065
     }
   },
   "chaos_druid": {
     "npc": 520,
     "anims": {
-      "walk": 808,
-      "hurt": 807,
-      "death": 804
+      "walk": 819,
+      "hurt": 427,
+      "death": 836
     }
   },
   "skeletal_mage": {
@@ -213,7 +213,7 @@
     "npc": 8609,
     "anims": {
       "walk": 8259,
-      "hurt": 8261,
+      "hurt": 8260,
       "death": 8264
     }
   },
@@ -221,28 +221,28 @@
     "npc": 7397,
     "anims": {
       "walk": 1549,
-      "hurt": 1550
+      "hurt": 1550,
+      "death": 1557
     }
   },
   "superior_abyssal_demon": {
     "npc": 7410,
     "anims": {
       "walk": 1534,
-      "hurt": 1535
+      "hurt": 1536
     }
   },
   "superior_gargoyle": {
     "npc": 7407,
     "anims": {
       "walk": 7810,
-      "hurt": 7808
+      "death": 7815
     }
   },
   "superior_nechryael": {
     "npc": 7411,
     "anims": {
       "walk": 6372,
-      "hurt": 6373,
       "death": 6369
     }
   }
