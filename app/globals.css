@@ -261,25 +261,45 @@ body {
   animation: pulse-yellow 2s infinite;
 }
 
-/* ===== Modern RuneScape (resizable layout) UI ===== */
+/* ===== Authentic OSRS interface chrome (collection-log / boss-log look) =====
+   Flat brown wood texture, hard chiselled bevels (no rounded corners, no blur),
+   centred orange title with an engraved divider — matching the in-game windows. */
+
+/* Shared OSRS bevels, applied via box-shadow so borders stay a single dark keyline.
+   Raised = light top-left + dark bottom-right; sunken inverts it. */
+:root {
+  --rs-keyline: #100d09;
+  --rs-bevel-light: #6f6250;
+  --rs-bevel-dark: #1b1610;
+  --rs-raised: inset 1px 1px 0 0 var(--rs-bevel-light), inset -1px -1px 0 0 var(--rs-bevel-dark);
+  --rs-sunken: inset 1px 1px 0 0 var(--rs-bevel-dark), inset -1px -1px 0 0 var(--rs-bevel-light);
+  --rs-wood: url('https://oldschool.runescape.wiki/images/Back_pattern.png');
+}
+
 .rs-panel {
-  background: linear-gradient(180deg, rgba(44, 39, 30, 0.92), rgba(26, 23, 17, 0.94));
-  border: 1px solid #5a4a2f;
-  border-radius: 6px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(2px);
+  /* Opaque tinted-brown wash over the tiled wood texture (gradient first so the
+     panel still reads brown if the wiki texture fails to load). */
+  background-color: #3e3529;
+  background-image: linear-gradient(180deg, rgba(64, 55, 42, 0.82), rgba(43, 36, 27, 0.9)), var(--rs-wood);
+  background-repeat: repeat;
+  border: 2px solid var(--rs-keyline);
+  border-radius: 0;
+  box-shadow: var(--rs-raised), 0 3px 9px rgba(0, 0, 0, 0.6);
+  color: #e9dcba;
 }
 
 .rs-panel-title {
   color: var(--osrs-orange);
-  font-size: 0.78rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-family: 'RuneScape', var(--font-osrs), monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
   text-shadow: 1px 1px 0 #000;
-  border-bottom: 1px solid rgba(90, 74, 47, 0.6);
-  padding-bottom: 4px;
-  margin-bottom: 6px;
   text-align: center;
+  padding-bottom: 5px;
+  margin-bottom: 7px;
+  /* Engraved divider: dark rule with a light hairline just beneath it. */
+  border-bottom: 1px solid var(--rs-keyline);
+  box-shadow: 0 1px 0 0 var(--rs-bevel-light);
 }
 
 /* Orb: round HP-style stat indicator */
@@ -351,9 +371,10 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  background: linear-gradient(180deg, rgba(44, 39, 30, 0.92), rgba(26, 23, 17, 0.94));
-  border: 1px solid #5a4a2f;
-  border-radius: 14px;
+  background: linear-gradient(180deg, #463b29, #2c2519);
+  border: 1px solid var(--rs-keyline);
+  border-radius: 0;
+  box-shadow: var(--rs-sunken);
   padding: 3px 12px;
   min-width: 96px;
 }
@@ -370,35 +391,44 @@ body {
   text-shadow: 1px 1px 0 #000;
 }
 
-/* Modern button */
+/* OSRS button: chiselled brown stone with a raised bevel; pressing inverts the
+   bevel (sinks in) instead of just nudging. */
 .rs-btn {
-  background: linear-gradient(180deg, #4a3f2a, #2c2519);
-  border: 1px solid #6a5733;
-  border-radius: 4px;
-  color: #ffd87a;
+  background: linear-gradient(180deg, #5a4d34, #3a3120);
+  border: 1px solid var(--rs-keyline);
+  border-radius: 0;
+  color: #ffce5c;
   text-shadow: 1px 1px 0 #000;
-  padding: 6px 14px;
-  transition: filter 0.1s, transform 0.05s;
+  padding: 5px 12px;
+  transition: filter 0.08s;
   font-family: 'RuneScape', var(--font-osrs), monospace;
+  box-shadow: inset 1px 1px 0 0 #897a56, inset -1px -1px 0 0 #241d12;
 }
 
-.rs-btn:hover:not(:disabled) { filter: brightness(1.25); }
-.rs-btn:active:not(:disabled) { transform: translateY(1px); }
+.rs-btn:hover:not(:disabled) { filter: brightness(1.18); }
+.rs-btn:active:not(:disabled) {
+  filter: brightness(0.94);
+  box-shadow: inset 1px 1px 0 0 #241d12, inset -1px -1px 0 0 #897a56;
+}
 .rs-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .rs-btn-primary {
-  background: linear-gradient(180deg, #6b5320, #3f3010);
-  border-color: var(--osrs-orange);
+  background: linear-gradient(180deg, #6f5012, #4a3408);
   color: #ffe9b0;
+  box-shadow: inset 1px 1px 0 0 #c79a3e, inset -1px -1px 0 0 #2e2008;
+}
+.rs-btn-primary:active:not(:disabled) {
+  box-shadow: inset 1px 1px 0 0 #2e2008, inset -1px -1px 0 0 #c79a3e;
 }
 
 /* Tower slot (inventory-like) */
 .rs-slot {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 4px;
-  background: radial-gradient(circle at 40% 30%, rgba(60, 52, 38, 0.6), rgba(20, 17, 12, 0.6));
-  border: 1px solid #4a3f2a;
+  border-radius: 0;
+  background: #1c1812;
+  border: 1px solid var(--rs-keyline);
+  box-shadow: inset 2px 2px 3px rgba(0, 0, 0, 0.75), inset -1px -1px 0 0 #3a3122;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -406,8 +436,11 @@ body {
   transition: border-color 0.1s, background 0.1s;
 }
 
-.rs-slot:hover { border-color: var(--osrs-orange); background: rgba(80, 68, 46, 0.5); }
-.rs-slot.selected { border-color: var(--osrs-orange); box-shadow: 0 0 8px rgba(255, 152, 31, 0.6); }
+.rs-slot:hover { border-color: var(--osrs-orange); background: #2a2417; }
+.rs-slot.selected {
+  border-color: var(--osrs-orange);
+  box-shadow: 0 0 7px rgba(255, 152, 31, 0.7), inset 2px 2px 3px rgba(0, 0, 0, 0.7);
+}
 /* Unaffordable: dimmed but still hoverable so stats can be previewed. */
 .rs-slot-unafford { opacity: 0.5; }
 .rs-slot-unafford img { filter: grayscale(0.6); }
@@ -466,15 +499,16 @@ body {
   text-shadow: 1px 1px 0 #000;
 }
 
-/* Grand Exchange shop rows */
+/* Shop / log rows — raised brown tiles sitting on the panel, collection-log style */
 .rs-ge-row {
-  border: 2px solid #2a2419;
-  background: rgba(0, 0, 0, 0.28);
-  border-radius: 3px;
-  transition: background 0.1s, border-color 0.1s;
+  border: 1px solid var(--rs-keyline);
+  background: linear-gradient(180deg, #3a3122, #2a2318);
+  border-radius: 0;
+  box-shadow: inset 1px 1px 0 0 #564a32, inset -1px -1px 0 0 var(--rs-bevel-dark);
+  transition: filter 0.1s, border-color 0.1s;
 }
 .rs-ge-row:not(:disabled):hover {
-  background: rgba(70, 56, 30, 0.45);
+  filter: brightness(1.2);
   border-color: var(--osrs-orange, #ff981f);
 }
 .rs-ge-row img { image-rendering: pixelated; }
@@ -580,9 +614,10 @@ body {
 /* Wave progress bar (in the shop panel during a wave) */
 .rs-progress {
   height: 8px;
-  border-radius: 4px;
+  border-radius: 0;
   background: linear-gradient(180deg, #1a140c, #0d0a06);
-  border: 1px solid #4a3f2a;
+  border: 1px solid var(--rs-keyline);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
 .rs-progress-fill {
@@ -607,12 +642,13 @@ kbd {
   line-height: 1.4;
 }
 
-/* Inset stat tile (used on the game-over summary) */
+/* Sunken inset area (game-over tiles, list backings) — the collection-log
+   content well: dark, chiselled inward. */
 .rs-panel-inset {
-  background: linear-gradient(180deg, rgba(20, 17, 12, 0.85), rgba(34, 29, 21, 0.85));
-  border: 1px solid #5a4a2f;
-  border-radius: 5px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  background: #1c1812;
+  border: 1px solid var(--rs-keyline);
+  border-radius: 0;
+  box-shadow: var(--rs-sunken), inset 0 2px 5px rgba(0, 0, 0, 0.55);
 }
 
 /* Transient blocked-action toast (e.g. "Not enough gold") */
@@ -621,11 +657,11 @@ kbd {
   font-size: clamp(15px, 1.5vw, 22px);
   color: #ff6b6b;
   background: linear-gradient(180deg, rgba(44, 22, 22, 0.94), rgba(28, 14, 14, 0.96));
-  border: 1px solid #7a2f2f;
-  border-radius: 6px;
+  border: 2px solid var(--rs-keyline);
+  border-radius: 0;
   padding: 0.35em 0.9em;
   text-shadow: 1px 1px 0 #000;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 1px 1px 0 0 #7a4a3a, inset -1px -1px 0 0 #3a1414, 0 3px 9px rgba(0, 0, 0, 0.6);
   animation: rs-toast-pop 1.4s ease-out forwards;
 }
 @keyframes rs-toast-pop {

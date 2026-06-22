@@ -16,6 +16,8 @@ next-env.d.ts
 
 # asset-extraction scratch (sprite-id discovery dumps)
 /tmp/
+# diagnostic image dumps from scripts (review-clip, probe-anim-block, screenshot-ui, …)
+scripts/tmp-*.png
 
 # env & local
 .env*.local
