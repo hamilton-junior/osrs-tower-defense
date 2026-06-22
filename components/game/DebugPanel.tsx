@@ -269,6 +269,13 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
           >
             ☠ Clear field (kill all enemies)
           </button>
+
+          <button
+            onClick={() => engineRef.current?.debugTestUnlock()}
+            className="rs-btn w-full py-[0.35em] text-[0.8em]"
+          >
+            ✦ Test unlock popup
+          </button>
         </div>
       )}
 

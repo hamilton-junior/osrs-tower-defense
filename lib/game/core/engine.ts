@@ -21,6 +21,8 @@ import { PrayerSystem } from '../systems/prayer-system';
 import { GeSystem, type GeListing } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
+import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
+import { prayerUnlockWave } from '../systems/prayer';
 
 /** Default logic dimensions, used until {@link GameEngine.resize} measures the
  *  real canvas. The play area adapts to the user's screen, sized to whole tiles. */
@@ -30,6 +32,16 @@ const GRID = 32;
 const TOWER_RADIUS = 15;
 const START_MONEY = 200;
 const START_LIVES = 20;
+
+/** One entry in a collection-log-style "unlock" popup. The `kind` union is the
+ *  extension point — prayers fire today; towers/spells/achievements can reuse
+ *  the same popup by adding a kind + a producer that calls `announceUnlocks`. */
+export interface UnlockItem {
+  kind: 'prayer';
+  name: string;
+  desc: string;
+  icon: string;
+}
 
 /** Flat, cloneable snapshot the engine pushes to React. */
 export interface UIState {
@@ -83,6 +95,11 @@ export interface UIState {
   essence: number;
   /** Bought global upgrades that seed every run (Essence Shop). */
   upgrades: GlobalUpgrades;
+  /** Most recent batch of unlocks to celebrate with a popup (may be several at
+   *  once, e.g. two prayers gating on the same wave). */
+  unlocks: UnlockItem[];
+  /** Bumps whenever a new unlock batch fires, so the UI enqueues it once. */
+  unlockSeq: number;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -230,6 +247,9 @@ export class GameEngine {
   private notice: string | null = null;
   private noticeIcon: string | null = null;
   private noticeSeq = 0;
+  /** Latest unlock batch + a bump counter, drained into a popup queue by the UI. */
+  private unlocks: UnlockItem[] = [];
+  private unlockSeq = 0;
 
   // --- composed subsystems ---
   readonly slayer = new SlayerSystem(this);
@@ -364,7 +384,37 @@ export class GameEngine {
       geOffers: this.ge.listing(),
       essence: this.meta.essence,
       upgrades: this.meta.upgrades,
+      unlocks: this.unlocks,
+      unlockSeq: this.unlockSeq,
     });
+  }
+
+  /** Fire a collection-log-style unlock popup batch. Generic on purpose: any
+   *  future producer (towers, spells, achievements) can call this with its own
+   *  {@link UnlockItem}s. Caller is responsible for the follow-up `emit`. */
+  private announceUnlocks(items: UnlockItem[]) {
+    if (items.length === 0) return;
+    this.unlocks = items;
+    this.unlockSeq++;
+    this.sound.play('interface_open');
+  }
+
+  /** Tower prayers that just came online at the current wave — the popup
+   *  producer for prayer unlocks (called right after the wave increments). */
+  private checkPrayerUnlocks() {
+    const items: UnlockItem[] = [];
+    for (const tp of TOWER_PRAYERS) {
+      const def = PRAYERS.find(p => p.id === tp.id);
+      if (def && prayerUnlockWave(def.level) === this.wave) {
+        items.push({
+          kind: 'prayer',
+          name: def.name,
+          desc: def.description,
+          icon: (ASSETS.prayers as Record<string, string>)[tp.id] ?? '',
+        });
+      }
+    }
+    this.announceUnlocks(items);
   }
 
   /** Flash a transient message to the UI (e.g. an action that couldn't run).
@@ -1545,6 +1595,7 @@ export class GameEngine {
     this.awardGold(waveClearBonus(this.wave));
     this.meta.award(essenceForWave(this.wave)); // essence reward for the cleared wave
     this.wave += 1;
+    this.checkPrayerUnlocks(); // celebrate any tower prayers gating on the new wave
     this.prayer.refill(); // top up to the new wave's (possibly larger) pool
     this.ge.onWaveCleared(); // drift shop prices toward this wave's demand
     this.emit();
@@ -1642,6 +1693,19 @@ export class GameEngine {
     this.enemies = [];
     this.spawnQueue = [];
     if (this.waveActive) this.checkWaveEnd();
+    this.emit();
+  }
+
+  /** Fire a sample unlock popup so the collection-log popup can be eyeballed
+   *  without clearing all the way to a prayer's unlock wave. */
+  debugTestUnlock() {
+    const def = PRAYERS.find(p => p.id === 'rigour') ?? PRAYERS[0];
+    this.announceUnlocks([{
+      kind: 'prayer',
+      name: def.name,
+      desc: def.description,
+      icon: (ASSETS.prayers as Record<string, string>)[def.id] ?? '',
+    }]);
     this.emit();
   }
 }

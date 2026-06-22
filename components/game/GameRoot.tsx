@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId } from '@/lib/game/core/engine';
+import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem } from '@/lib/game/core/engine';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
@@ -83,7 +83,11 @@ const INITIAL: UIState = {
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
   geOffers: [],
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
+  unlocks: [], unlockSeq: 0,
 };
+
+/** Title shown above an unlock's name in the collection-log popup, per kind. */
+const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = { prayer: 'Prayer Unlocked' };
 
 const ESSENCE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades' } as const;
 
@@ -123,6 +127,10 @@ export default function GameRoot() {
   const [ui, setUi] = useState<UIState>(INITIAL);
   const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' | 'boss' } | null>(null);
   const [toast, setToast] = useState<{ text: string; icon: string | null } | null>(null);
+  // Collection-log unlock popups, shown one at a time from a queue.
+  const [unlockQueue, setUnlockQueue] = useState<{ id: number; item: UnlockItem }[]>([]);
+  const unlockIdRef = useRef(0);
+  const lastUnlockSeq = useRef(0);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
   const [geOpen, setGeOpen] = useState(false);
   const [essenceOpen, setEssenceOpen] = useState(false);
@@ -228,6 +236,22 @@ export default function GameRoot() {
     const t = setTimeout(() => setToast(null), 1400);
     return () => clearTimeout(t);
   }, [ui.noticeSeq, ui.notice, ui.noticeIcon]);
+
+  // Enqueue each new unlock batch (a wave can unlock several prayers at once),
+  // then show them one at a time as collection-log popups.
+  useEffect(() => {
+    if (!ui.unlockSeq || ui.unlockSeq === lastUnlockSeq.current) return;
+    lastUnlockSeq.current = ui.unlockSeq;
+    if (ui.unlocks.length === 0) return;
+    setUnlockQueue((q) => [...q, ...ui.unlocks.map((item) => ({ id: ++unlockIdRef.current, item }))]);
+  }, [ui.unlockSeq, ui.unlocks]);
+
+  // Advance the popup queue; each popup holds ~4.2s (matches the CSS animation).
+  useEffect(() => {
+    if (unlockQueue.length === 0) return;
+    const t = setTimeout(() => setUnlockQueue((q) => q.slice(1)), 4200);
+    return () => clearTimeout(t);
+  }, [unlockQueue]);
 
   // Keyboard shortcuts: Esc = pause combat (or cancel a pending action), Space =
   // start next wave, 1/2/5 = speed, Q/W/E/R = swap the selected wizard's element/
@@ -670,6 +694,28 @@ export default function GameRoot() {
             <span>⚠</span>
           )}
           {toast.text}
+        </div>
+      )}
+
+      {/* Collection-log unlock popup (top-centre): celebrates prayers (and, later,
+          other unlock kinds) as they come online with the wave. */}
+      {unlockQueue[0] && (
+        <div className="absolute left-1/2 top-[14%] -translate-x-1/2 z-40 pointer-events-none">
+          <div key={unlockQueue[0].id} className="rs-unlock-popup">
+            {unlockQueue[0].item.icon && (
+              <img
+                src={unlockQueue[0].item.icon}
+                alt=""
+                className="rs-unlock-icon"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
+            <div className="flex flex-col">
+              <span className="rs-unlock-title">{UNLOCK_LABEL[unlockQueue[0].item.kind]}</span>
+              <span className="rs-unlock-name">{unlockQueue[0].item.name}</span>
+              <span className="rs-unlock-desc">{unlockQueue[0].item.desc}</span>
+            </div>
+          </div>
         </div>
       )}
 

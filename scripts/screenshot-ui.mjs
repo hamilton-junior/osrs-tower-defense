@@ -57,25 +57,38 @@ async function main() {
   // Give the engine a beat to boot + first emit, then open the Essence Shop so a
   // list panel is visible in the shot.
   await new Promise((r) => setTimeout(r, 1500));
+  // Open the Essence Shop (chrome check) + fire a test unlock popup via the
+  // debug panel's "Test unlock popup" cheat.
   await page.evaluate(() => {
-    const btn = [...document.querySelectorAll('button')].find((b) => /Essence Shop/i.test(b.title));
-    if (btn) btn.click();
+    const byTitle = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.title));
+    byTitle(/Essence Shop/i)?.click();
+    byTitle(/Debug/i)?.click();
   });
-  await new Promise((r) => setTimeout(r, 600));
+  await new Promise((r) => setTimeout(r, 400));
+  await page.evaluate(() => {
+    const bt = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.textContent || ''));
+    bt(/^\s*Cheats\s*$/i)?.click();
+    bt(/Test unlock popup/i)?.click();
+  });
+  await new Promise((r) => setTimeout(r, 700)); // let the popup animate in + hold
 
-  // Full shot for layout, plus a tight crop of the Essence Shop panel so the
-  // bevel/title/rows are legible (the viewer downscales the full 3200px shot).
+  // Full shot for layout, plus tight crops of the unlock popup + a panel so the
+  // bevel/border detail is legible (the viewer downscales the full shot).
   await page.screenshot({ path: join(__dirname, 'tmp-ui.png') });
-  const rect = await page.evaluate(() => {
-    const panels = [...document.querySelectorAll('.rs-panel')];
-    const el = panels.find((p) => /Essence Shop/i.test(p.textContent || ''));
+  const cropOf = (selOrText) => page.evaluate((q) => {
+    const el = q.startsWith('.')
+      ? document.querySelector(q)
+      : [...document.querySelectorAll('.rs-panel')].find((p) => new RegExp(q, 'i').test(p.textContent || ''));
     if (!el) return null;
     const r = el.getBoundingClientRect();
-    const pad = 10;
+    const pad = 12;
     return { x: Math.max(0, r.x - pad), y: Math.max(0, r.y - pad), width: r.width + pad * 2, height: r.height + pad * 2 };
-  });
-  if (rect) await page.screenshot({ path: join(__dirname, 'tmp-ui-panel.png'), clip: rect });
-  console.log('tmp-ui.png', rect ? '+ tmp-ui-panel.png' : '(panel not found)');
+  }, selOrText);
+  const popRect = await cropOf('.rs-unlock-popup');
+  if (popRect) await page.screenshot({ path: join(__dirname, 'tmp-ui-popup.png'), clip: popRect });
+  const panelRect = await cropOf('Essence Shop');
+  if (panelRect) await page.screenshot({ path: join(__dirname, 'tmp-ui-panel.png'), clip: panelRect });
+  console.log('tmp-ui.png', popRect ? '+ tmp-ui-popup.png' : '(popup not found)', panelRect ? '+ tmp-ui-panel.png' : '');
   await browser.close();
   server.close();
   process.exit(0);

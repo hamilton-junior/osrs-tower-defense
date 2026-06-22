@@ -671,6 +671,58 @@ kbd {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
+/* Collection-log "unlock" popup: an ornate gold frame over a dark panel, shown
+   top-centre when something is unlocked. Reused for any UnlockItem kind. */
+.rs-unlock-popup {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.5em 1.1em 0.5em 0.7em;
+  background: linear-gradient(180deg, #2a2114, #160f08);
+  border: 2px solid #0e0a05;
+  border-radius: 0;
+  box-shadow:
+    inset 1px 1px 0 0 #f4d27a,
+    inset -1px -1px 0 0 #6e4f17,
+    inset 0 0 0 1px rgba(184, 138, 46, 0.5),
+    0 0 16px rgba(214, 170, 70, 0.4),
+    0 4px 12px rgba(0, 0, 0, 0.65);
+  font-family: 'RuneScape', var(--font-osrs), monospace;
+  animation: rs-unlock-pop 4.2s ease-out forwards;
+}
+.rs-unlock-icon {
+  width: 2.5em;
+  height: 2.5em;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
+  flex-shrink: 0;
+}
+.rs-unlock-title {
+  color: #ffcf5a;
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 1px 1px 0 #000;
+}
+.rs-unlock-name {
+  color: #fff;
+  font-size: 1.1em;
+  line-height: 1.1;
+  text-shadow: 1px 1px 0 #000;
+}
+.rs-unlock-desc {
+  color: #c9b78c;
+  font-size: 0.72em;
+  text-shadow: 1px 1px 0 #000;
+}
+@keyframes rs-unlock-pop {
+  0% { opacity: 0; transform: translateY(-14px) scale(0.95); }
+  5% { opacity: 1; transform: translateY(0) scale(1); }
+  88% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-8px) scale(1); }
+}
+
 /* OSRS-flavoured volume slider */
 .rs-volume {
   -webkit-appearance: none;
