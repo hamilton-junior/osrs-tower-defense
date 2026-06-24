@@ -89,7 +89,12 @@ async function main() {
   }, selOrText);
   const logRect = await cropOf('Collection Log');
   if (logRect) await page.screenshot({ path: join(__dirname, 'tmp-ui-panel.png'), clip: logRect });
-  console.log('tmp-ui.png', logRect ? '+ tmp-ui-panel.png' : '(log not found)');
+  // Click the first log entry to open its detail card, then crop that too.
+  await page.evaluate(() => { document.querySelector('button.rs-log-entry')?.click(); });
+  await new Promise((r) => setTimeout(r, 400));
+  const detailRect = await cropOf('Collection Log');
+  if (detailRect) await page.screenshot({ path: join(__dirname, 'tmp-ui-detail.png'), clip: detailRect });
+  console.log('tmp-ui.png', logRect ? '+ tmp-ui-panel.png' : '(log not found)', detailRect ? '+ tmp-ui-detail.png' : '');
   await browser.close();
   server.close();
   process.exit(0);

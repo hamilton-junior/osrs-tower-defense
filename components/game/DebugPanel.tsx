@@ -201,7 +201,7 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
     <MovablePanel
       id="debug"
       globalLock={globalLock}
-      className="rs-panel absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-3 z-30 w-[26em] max-h-[86vh] overflow-y-auto"
+      className="rs-panel absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-3 z-30 w-[26em]"
       style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
     >
       <div className="rs-panel-title flex items-center justify-between">

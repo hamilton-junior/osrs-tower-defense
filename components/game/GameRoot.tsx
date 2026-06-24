@@ -12,7 +12,7 @@ import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue } from '@/lib/game/systems/meta-progression';
 import { SLAYER_REWARDS } from '@/lib/game/data/slayer';
 import { ENEMIES } from '@/lib/game/data/enemies';
-import { ENEMY_ANIMS } from '@/lib/game/data/enemy-anims';
+import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
@@ -88,6 +88,7 @@ const INITIAL: UIState = {
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
   unlocks: [], unlockSeq: 0,
   killCounts: {},
+  lastWaveSandbox: false,
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
@@ -117,17 +118,33 @@ const LOG_ENTRIES = Object.entries(ENEMIES).map(([type, def]) => ({ type, name: 
 const BOSS_ENTRIES = LOG_ENTRIES.filter((e) => e.isBoss);
 const MONSTER_ENTRIES = LOG_ENTRIES.filter((e) => !e.isBoss);
 
-/** Show the first walk frame of an enemy's baked sheet as a static icon (the
- *  same in-game model the board draws), or undefined if nothing is baked. */
-function enemySpriteStyle(type: string): React.CSSProperties | undefined {
+/** Show an enemy's baked walk sheet as an icon: the first frame statically, or
+ *  (when `animate`) the whole walk cycle looping via a CSS steps animation. The
+ *  element width equals one frame, so the shift is `frames` element-widths; we
+ *  express it in `em` (3.4em = the `.rs-log-sprite` width) so it tracks the
+ *  card's font-size. Returns undefined if nothing is baked. */
+function enemySpriteStyle(type: string, animate = false): React.CSSProperties | undefined {
   const clip = ENEMY_ANIMS[type]?.clips.walk;
   if (!clip) return undefined;
-  return {
+  const base: React.CSSProperties = {
     backgroundImage: `url(${clip.url})`,
     backgroundSize: `${clip.frames * 100}% 100%`,
     backgroundPosition: 'left center',
     backgroundRepeat: 'no-repeat',
   };
+  if (!animate || clip.frames <= 1) return base;
+  const dur = Math.max(0.5, clipDurationS(clip));
+  return {
+    ...base,
+    ['--rs-walk-shift' as string]: `-${clip.frames * 3.4}em`,
+    animation: `rs-log-walk ${dur}s steps(${clip.frames}) infinite`,
+  };
+}
+
+/** Persisted boolean (panel minimize state), tolerant of absent/corrupt data. */
+function loadBool(key: string, fallback: boolean): boolean {
+  if (typeof window === 'undefined') return fallback;
+  try { const v = localStorage.getItem(key); return v == null ? fallback : !!JSON.parse(v); } catch { return fallback; }
 }
 
 /** Render a stat value, showing `base → buffed` (buffed in green) when a buff
@@ -162,6 +179,9 @@ export default function GameRoot() {
   const [logOpen, setLogOpen] = useState(false);
   const [logTab, setLogTab] = useState<'bosses' | 'monsters'>('monsters');
   const [debugOpen, setDebugOpen] = useState(false);
+  // Minimize state for the prayer bar (collapses to the best prayer per style).
+  const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
+  useEffect(() => { try { localStorage.setItem('ui_min_prayers', JSON.stringify(prayersMin)); } catch { /* ignore */ } }, [prayersMin]);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
@@ -174,12 +194,9 @@ export default function GameRoot() {
   const [enemyPanelSize, setEnemyPanelSize] = useState({ w: 0, h: 0 });
   // Whether the upgrade button is hovered, to preview the next tier's stats.
   const [upgradeHover, setUpgradeHover] = useState(false);
-  // Global UI-move lock (persisted): when on, no panel can be dragged.
-  const [uiLocked, setUiLocked] = useState(false);
-  useEffect(() => { try { setUiLocked(JSON.parse(localStorage.getItem('ui_global_lock') ?? 'false')); } catch { /* ignore */ } }, []);
-  const toggleUiLock = useCallback(() => {
-    setUiLocked((v) => { const n = !v; try { localStorage.setItem('ui_global_lock', JSON.stringify(n)); } catch { /* ignore */ } return n; });
-  }, []);
+  // No global UI lock anymore — each MovablePanel still has its own 📌 pin to
+  // lock just itself. Kept as a constant so the panels' globalLock prop stays wired.
+  const uiLocked = false;
   const prevWaveActive = useRef(false);
 
   // Poll the active enemy (pinned by a click, else hovered) so its HP/effects
@@ -250,12 +267,17 @@ export default function GameRoot() {
           : { text: `Wave ${ui.wave}`, tone: 'start' },
       );
     } else if (!ui.waveActive && prev && !ui.gameOver) {
-      const completed = ui.wave - 1;
-      const bonus = Math.round(waveClearBonus(completed) * ui.upgrades.rewardMultiplier);
-      setBanner({ text: `Wave ${completed} Complete   +${bonus} gp`, tone: 'done' });
+      if (ui.lastWaveSandbox) {
+        // A debug sandbox wave: no payout, no progression — just acknowledge it.
+        setBanner({ text: `Custom Wave Complete!`, tone: 'done' });
+      } else {
+        const completed = ui.wave - 1;
+        const bonus = Math.round(waveClearBonus(completed) * ui.upgrades.rewardMultiplier);
+        setBanner({ text: `Wave ${completed} Complete   +${bonus} gp`, tone: 'done' });
+      }
     }
     prevWaveActive.current = ui.waveActive;
-  }, [ui.waveActive, ui.wave, ui.gameOver, ui.bossWave]);
+  }, [ui.waveActive, ui.wave, ui.gameOver, ui.bossWave, ui.lastWaveSandbox]);
 
   // Auto-dismiss whichever banner is showing.
   useEffect(() => {
@@ -481,6 +503,41 @@ export default function GameRoot() {
       return { icon: spellIconUrl(elementalSpellName(el, t + 1)), tier: ELEMENTAL_TIER_NAMES[t] };
     });
   })();
+
+  // One quick-prayer toggle button (shared by the full bar and the minimized
+  // "best per style" view). Locked prayers preview greyed-out with their wave.
+  const prayerButton = (p: (typeof TOWER_PRAYERS)[number]) => {
+    const def = PRAYERS.find((d) => d.id === p.id)!;
+    const locked = !isPrayerUnlocked(def.level, ui.wave);
+    const on = ui.activePrayers.includes(p.id);
+    const icon = prayerIcon(p.id);
+    const title = locked
+      ? `🔒 Unlocks at Wave ${prayerUnlockWave(def.level)} — ${def.name}: ${def.description}`
+      : `${def.name} — ${def.description}`;
+    return (
+      <button
+        key={p.id}
+        title={title}
+        disabled={locked}
+        onClick={() => engineRef.current?.togglePrayer(p.id)}
+        className={`rs-prayer ${on ? 'rs-prayer-on' : ''} ${locked ? 'rs-prayer-locked' : ''}`}
+      >
+        {icon && <img src={icon} alt={def.name} onError={hideBrokenImg} />}
+        {locked && <span className="rs-prayer-lock">{prayerUnlockWave(def.level)}</span>}
+      </button>
+    );
+  };
+  // The strongest currently-unlocked prayer for each combat style (TOWER_PRAYERS
+  // is ordered ascending by level, so the last unlocked per style is the best).
+  // These are what the prayer bar shows when minimized.
+  const bestPrayerPerStyle = (['melee', 'ranged', 'magic'] as const)
+    .map((style) => {
+      const unlocked = TOWER_PRAYERS.filter(
+        (p) => p.style === style && isPrayerUnlocked(PRAYERS.find((d) => d.id === p.id)!.level, ui.wave),
+      );
+      return unlocked.length ? unlocked[unlocked.length - 1] : null;
+    })
+    .filter((p): p is (typeof TOWER_PRAYERS)[number] => p !== null);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black select-none font-osrs">
@@ -1045,6 +1102,31 @@ export default function GameRoot() {
         className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em]"
         style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
       >
+        {/* OSRS sidebar tab strip: each stone opens an interface panel. Sits at
+            the top of the main panel, above the Slayer task — the in-game tab-row
+            idiom (icons + tooltips, with live badges for essence / Slayer points). */}
+        <div
+          className="flex items-center justify-center gap-[0.4em] pb-[0.55em] mb-[0.6em] border-b border-[var(--rs-keyline)]"
+          style={{ boxShadow: '0 1px 0 0 var(--rs-bevel-light)' }}
+        >
+          <button onClick={() => setGeOpen((o) => !o)} title="Grand Exchange" className={`rs-tab ${geOpen ? 'rs-tab-on' : ''}`}>
+            <img src={ASSETS.misc.ge_logo} alt="Grand Exchange" onError={hideBrokenImg} />
+          </button>
+          <button onClick={() => setEssenceOpen((o) => !o)} title="Essence Shop — permanent upgrades" className={`rs-tab ${essenceOpen ? 'rs-tab-on' : ''}`}>
+            <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
+            <span className="rs-tab-badge">{fmt(ui.essence)}</span>
+          </button>
+          <button onClick={() => setSlayerShopOpen((o) => !o)} title="Slayer Rewards" className={`rs-tab ${slayerShopOpen ? 'rs-tab-on' : ''}`}>
+            <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
+            <span className="rs-tab-badge">{ui.slayerPoints}</span>
+          </button>
+          <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
+            <img src={`${ASSETS.misc.wiki_base}Collection_log.png`} alt="Collection Log" onError={hideBrokenImg} />
+          </button>
+          <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
+            🛠
+          </button>
+        </div>
         {/* Hover tooltip: tier-1 stats before buying */}
         {hoverShop && (() => {
           const t0 = TOWERS[hoverShop].tiers[0];
@@ -1093,12 +1175,6 @@ export default function GameRoot() {
                 style={{ width: `${ui.slayerTask.total ? Math.round(((ui.slayerTask.total - ui.slayerTask.count) / ui.slayerTask.total) * 100) : 0}%` }}
               />
             </div>
-            <button
-              onClick={() => setSlayerShopOpen((o) => !o)}
-              className={`rs-btn w-full mt-[0.5em] py-[0.25em] text-[0.74em] ${slayerShopOpen ? 'rs-btn-primary' : ''}`}
-            >
-              Slayer Rewards
-            </button>
           </div>
         )}
 
@@ -1204,46 +1280,6 @@ export default function GameRoot() {
         >
           {ui.muted ? 'off' : `${Math.round(ui.volume * 100)}%`}
         </span>
-        <button
-          onClick={() => setGeOpen((o) => !o)}
-          title="Grand Exchange"
-          className={`rs-btn px-2 py-1 text-xs ml-1 flex items-center gap-1 ${geOpen ? 'rs-btn-primary' : ''}`}
-        >
-          <img src={ASSETS.misc.ge_logo} alt="" className="w-4 h-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          GE
-        </button>
-        <button
-          onClick={() => setEssenceOpen((o) => !o)}
-          title="Essence Shop — permanent upgrades"
-          className={`rs-btn px-2 py-1 text-xs ml-1 flex items-center gap-1 ${essenceOpen ? 'rs-btn-primary' : ''}`}
-        >
-          <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-4 h-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          <span className="tabular-nums text-[#7ce0ff]">{fmt(ui.essence)}</span>
-        </button>
-        <button
-          onClick={() => setLogOpen((o) => !o)}
-          title="Collection Log"
-          className={`rs-btn px-2 py-1 text-xs ml-1 flex items-center gap-1 ${logOpen ? 'rs-btn-primary' : ''}`}
-        >
-          <img src={`${ASSETS.misc.wiki_base}Collection_log.png`} alt="" className="w-4 h-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          Log
-        </button>
-        <button
-          data-no-drag
-          onClick={toggleUiLock}
-          title={uiLocked ? 'Unlock UI (allow moving panels)' : 'Lock UI (prevent moving panels)'}
-          className={`rs-btn px-2 py-1 text-xs ml-1 ${uiLocked ? 'rs-btn-primary' : ''}`}
-        >
-          {uiLocked ? '🔒' : '🔓'}
-        </button>
-        <button
-          data-no-drag
-          onClick={() => setDebugOpen((o) => !o)}
-          title="Debug & bestiary"
-          className={`rs-btn px-2 py-1 text-xs ml-1 ${debugOpen ? 'rs-btn-primary' : ''}`}
-        >
-          🛠
-        </button>
       </MovablePanel>
 
       {debugOpen && (
@@ -1432,32 +1468,44 @@ export default function GameRoot() {
       )}
 
       {/* Quick-prayers bar (bottom-center): all tower prayers shown; locked ones
-          are previewed greyed-out with the wave they unlock (OSRS prayer-book style). */}
-      <div className="rs-panel absolute bottom-4 left-1/2 -translate-x-1/2 z-10 p-2 flex items-center gap-[0.3em]">
-        <img src={ASSETS.misc.prayer_icon} alt="" className="w-[1.1em] h-[1.1em] mr-[0.2em] opacity-80" />
-        {TOWER_PRAYERS.map((p) => {
-          const def = PRAYERS.find((d) => d.id === p.id)!;
-          const locked = !isPrayerUnlocked(def.level, ui.wave);
-          const on = ui.activePrayers.includes(p.id);
-          const icon = prayerIcon(p.id);
-          const title = locked
-            ? `🔒 Unlocks at Wave ${prayerUnlockWave(def.level)} — ${def.name}: ${def.description}`
-            : `${def.name} — ${def.description}`;
-          return (
-            <button
-              key={p.id}
-              title={title}
-              disabled={locked}
-              onClick={() => engineRef.current?.togglePrayer(p.id)}
-              className={`rs-prayer ${on ? 'rs-prayer-on' : ''} ${locked ? 'rs-prayer-locked' : ''}`}
-            >
-              {icon && (
-                <img src={icon} alt={def.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              )}
-              {locked && <span className="rs-prayer-lock">{prayerUnlockWave(def.level)}</span>}
-            </button>
-          );
-        })}
+          are previewed greyed-out with the wave they unlock (OSRS prayer-book
+          style). Draggable + minimizable — an outer wrapper holds the centred
+          anchor so MovablePanel's own transform only carries the drag offset. */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+        <MovablePanel id="prayers" globalLock={uiLocked} className="rs-panel p-2 flex items-center gap-[0.3em]">
+          {prayersMin ? (
+            <>
+              <button
+                data-no-drag
+                onClick={() => setPrayersMin(false)}
+                title="Show all prayers"
+                className="rs-btn px-[0.4em] py-0 text-xs mr-[0.1em] self-stretch"
+              >
+                »
+              </button>
+              {bestPrayerPerStyle.length > 0
+                ? bestPrayerPerStyle.map((p) => prayerButton(p))
+                : <span className="text-[0.7em] text-[#b3a585] px-[0.3em]">No prayers yet</span>}
+            </>
+          ) : (
+            <>
+              <button
+                data-no-drag
+                onClick={() => setPrayersMin(true)}
+                title="Collapse to best prayers"
+                className="rs-btn px-[0.4em] py-0 text-xs mr-[0.1em] self-stretch"
+              >
+                «
+              </button>
+              {/* Section brand: a fixed square wrapper guarantees the prayer icon
+                  is contained (never stretched), independent of the global rule. */}
+              <span className="inline-flex items-center justify-center w-[1.4em] h-[1.4em] shrink-0 mr-[0.1em] opacity-80">
+                <img src={ASSETS.misc.prayer_icon} alt="" className="max-w-full max-h-full object-contain" style={{ imageRendering: 'pixelated' }} />
+              </span>
+              {TOWER_PRAYERS.map((p) => prayerButton(p))}
+            </>
+          )}
+        </MovablePanel>
       </div>
 
       {/* Combat paused: a non-blocking banner only. The sim (enemies, towers,
@@ -1554,6 +1602,8 @@ function CollectionLog({ killCounts, tab, setTab, onClose, globalLock }: {
   const entries = tab === 'bosses' ? BOSS_ENTRIES : MONSTER_ENTRIES;
   const obtained = entries.filter((e) => (killCounts[e.type] ?? 0) > 0).length;
   const complete = entries.length > 0 && obtained === entries.length;
+  // The clicked entry, shown as a detail card (stats + animated sprite).
+  const [selected, setSelected] = useState<string | null>(null);
   return (
     <MovablePanel
       id="collection-log"
@@ -1573,7 +1623,7 @@ function CollectionLog({ killCounts, tab, setTab, onClose, globalLock }: {
           {(['bosses', 'monsters'] as const).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => { setTab(t); setSelected(null); }}
               className={`rs-btn px-[0.8em] py-[0.15em] text-[0.78em] capitalize ${tab === t ? 'rs-btn-primary' : ''}`}
             >
               {t}
@@ -1584,24 +1634,69 @@ function CollectionLog({ killCounts, tab, setTab, onClose, globalLock }: {
           {obtained}/{entries.length} found
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-[0.4em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
-        {entries.map((e) => {
-          const kc = killCounts[e.type] ?? 0;
-          const seen = kc > 0;
-          const style = enemySpriteStyle(e.type);
-          return (
-            <div
-              key={e.type}
-              className={`rs-log-entry ${seen ? '' : 'rs-log-locked'}`}
-              title={`${e.name} — ${kc} kill${kc === 1 ? '' : 's'}`}
-            >
-              <div className="rs-log-sprite" style={style}>{style ? null : '?'}</div>
-              <span className="rs-log-name">{e.name}</span>
-              <span className="rs-log-kc">{seen ? `× ${fmt(kc)}` : '0'}</span>
-            </div>
-          );
-        })}
-      </div>
+      {selected
+        ? <LogDetail type={selected} kc={killCounts[selected] ?? 0} onBack={() => setSelected(null)} />
+        : (
+          <div className="grid grid-cols-3 gap-[0.4em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
+            {entries.map((e) => {
+              const kc = killCounts[e.type] ?? 0;
+              const seen = kc > 0;
+              const style = enemySpriteStyle(e.type, true);
+              return (
+                <button
+                  key={e.type}
+                  onClick={() => setSelected(e.type)}
+                  className={`rs-log-entry ${seen ? '' : 'rs-log-locked'}`}
+                  title={`${e.name} — ${kc} kill${kc === 1 ? '' : 's'} · click for info`}
+                >
+                  <div className="rs-log-sprite" style={style}>{style ? null : '?'}</div>
+                  <span className="rs-log-name">{e.name}</span>
+                  <span className="rs-log-kc">{seen ? `× ${fmt(kc)}` : '0'}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
     </MovablePanel>
+  );
+}
+
+/** Detail card for one bestiary entry: an enlarged looping walk sprite + the
+ *  enemy's combat stats and lifetime kill count. Opened by clicking a log card. */
+function LogDetail({ type, kc, onBack }: { type: string; kc: number; onBack: () => void }) {
+  const def = ENEMIES[type as keyof typeof ENEMIES];
+  if (!def) return null;
+  const wk = def.weakness ? ELEMENTS[def.weakness as keyof typeof ELEMENTS] : null;
+  const style = enemySpriteStyle(type, true);
+  return (
+    <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
+      <button onClick={onBack} className="rs-btn px-[0.7em] py-[0.2em] text-[0.75em] mb-[0.6em]">◂ Back</button>
+      <div className="rs-panel-inset p-[0.7em] flex gap-[0.8em] items-start">
+        <div
+          className="rs-log-sprite shrink-0"
+          style={{ ...style, fontSize: '2.4em' }}
+        >
+          {style ? null : '?'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-[0.5em] mb-[0.4em]">
+            <span className="text-osrs-orange font-bold text-[1.05em] truncate">{def.name}</span>
+            {def.isBoss && <span className="text-[0.6em] text-osrs-red uppercase tracking-wide">Boss</span>}
+          </div>
+          <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.2em] text-[0.78em]">
+            <span className="text-[#d3c3a0]">Kills</span>
+            <span className="text-right text-osrs-yellow font-bold">{fmt(kc)}</span>
+            <span className="text-[#d3c3a0]">HP</span>
+            <span className="text-right text-white">{def.hp}</span>
+            <span className="text-[#d3c3a0]">Move speed</span>
+            <span className="text-right text-white">{def.speed}</span>
+            <span className="text-[#d3c3a0]">Weakness</span>
+            <span className="text-right capitalize" style={{ color: wk?.color ?? '#9a9a9a' }}>{wk ? wk.label : 'None'}</span>
+            <span className="text-[#d3c3a0]">Gold</span>
+            <span className="text-right text-osrs-yellow">{def.reward}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

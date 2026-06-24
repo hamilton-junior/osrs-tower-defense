@@ -136,6 +136,10 @@ export interface Enemy extends EnemyDef {
   /** Counts down while a hit-flinch (`hurt`) clip plays; set on each direct hit,
    *  decremented in `moveEnemies`. Visual only. */
   hurtAnim?: number;
+  /** Spawned by the debug "custom wave" (a sandbox): killing or leaking it has no
+   *  effect on the run — no gold/essence/Slayer points, no life lost, no wave
+   *  advance. Purely for testing enemies/towers. */
+  debug?: boolean;
 }
 
 /** Duration (s) of the portal materialise (fade-in + grow) on a fresh spawn. */

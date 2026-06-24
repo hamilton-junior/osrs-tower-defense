@@ -453,6 +453,46 @@ body {
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
 }
 
+/* OSRS sidebar "stone tab": a square icon button that opens an interface panel
+   (Grand Exchange, Essence Shop, Slayer Rewards, Collection Log, Debug). Mirrors
+   the in-game tab stones — chiselled dark stone, lit orange while its panel is
+   open — so the menu row reads as a real OSRS tab strip rather than text buttons. */
+.rs-tab {
+  position: relative;
+  width: 2.5em;
+  height: 2.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: linear-gradient(180deg, #4a4035, #2a241b);
+  border: 1px solid var(--rs-keyline);
+  box-shadow: var(--rs-raised);
+  color: #ffce5c;
+  transition: filter 0.08s, border-color 0.1s;
+}
+.rs-tab:hover:not(:disabled) { filter: brightness(1.2); border-color: #6b5836; }
+.rs-tab:active:not(:disabled) { box-shadow: var(--rs-sunken); filter: brightness(0.94); }
+.rs-tab.rs-tab-on {
+  border-color: var(--osrs-orange);
+  background: linear-gradient(180deg, #5a4a22, #3a2c0e);
+  box-shadow: 0 0 6px rgba(255, 152, 31, 0.55), inset 1px 1px 0 0 #c79a3e, inset -1px -1px 0 0 #2e2008;
+}
+.rs-tab img { width: 1.45em; height: 1.45em; object-fit: contain; image-rendering: pixelated; }
+/* Small live counter on a tab (essence balance, Slayer points), like the OSRS
+   tab notification badges. */
+.rs-tab-badge {
+  position: absolute;
+  bottom: -2px;
+  right: 1px;
+  font-size: 0.56em;
+  font-weight: bold;
+  color: #7ce0ff;
+  text-shadow: 1px 1px 0 #000, -1px 0 0 #000, 0 -1px 0 #000, 1px -1px 0 #000;
+  line-height: 1;
+  pointer-events: none;
+}
+
 /* Quick-prayer toggle buttons */
 .rs-prayer {
   position: relative;
@@ -762,6 +802,14 @@ kbd {
 .rs-log-locked .rs-log-sprite { filter: grayscale(1) brightness(0.3); }
 .rs-log-locked .rs-log-name { color: #7a7058; }
 .rs-log-locked .rs-log-kc { color: #5f5642; }
+/* Looping walk-cycle for a baked sprite sheet: the element width equals one
+   frame (background-size = frames*100%), so stepping background-position-x left
+   by the whole sheet (`--rs-walk-shift`) in `frames` steps plays every frame
+   and wraps cleanly. The shift + step count are set inline per enemy. */
+@keyframes rs-log-walk { to { background-position-x: var(--rs-walk-shift, 0); } }
+/* A grid entry is a button — keep it visually identical to the static card. */
+button.rs-log-entry { cursor: pointer; text-align: center; }
+button.rs-log-entry:hover { border-color: var(--osrs-orange); }
 
 /* OSRS-flavoured volume slider */
 .rs-volume {

@@ -105,6 +105,10 @@ export interface UIState {
   unlockSeq: number;
   /** Lifetime kills per enemy type (the Collection Log). */
   killCounts: Record<string, number>;
+  /** True when the wave that just ended was a debug "custom wave" sandbox, so the
+   *  UI can show a distinct "Custom Wave Complete!" banner. Reset when any wave
+   *  starts. */
+  lastWaveSandbox: boolean;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -242,6 +246,13 @@ export class GameEngine {
   gameOver = false;
   waveTotal = 0;
   bossWave = false;
+  /** The current wave is a debug "custom wave" sandbox — its enemies don't affect
+   *  the run (no rewards, no life loss, no wave advance). Set by
+   *  {@link debugStartCustomWave}, cleared when the sandbox wave ends. */
+  private sandboxWave = false;
+  /** Whether the most recently ended wave was a sandbox custom wave (drives the
+   *  "Custom Wave Complete!" banner). Cleared when any wave starts. */
+  private lastWaveSandbox = false;
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
@@ -409,6 +420,7 @@ export class GameEngine {
       unlocks: this.unlocks,
       unlockSeq: this.unlockSeq,
       killCounts: this.killCounts,
+      lastWaveSandbox: this.lastWaveSandbox,
     });
   }
 
@@ -984,6 +996,8 @@ export class GameEngine {
     this.waveTotal = this.spawnQueue.length;
     this.bossWave = this.spawnQueue.some(e => e.isBoss);
     this.waveActive = true;
+    this.sandboxWave = false; // a real wave: rewards/progression apply normally
+    this.lastWaveSandbox = false; // a new wave started: clear the sandbox banner flag
     this.sound.play('wave');
     this.emit();
   }
@@ -1151,12 +1165,14 @@ export class GameEngine {
       }
       const target = this.path[e.pathIndex + 1];
       if (!target) {
-        // reached the end → leak a life
+        // reached the end → leak a life (debug/sandbox enemies leak harmlessly)
         this.enemies.splice(i, 1);
-        this.lives -= 1;
-        this.baseFlash = 1;
-        this.sound.play('base_hit', 90); // player taking damage with no armour (OSRS take-damage splat)
-        if (this.lives <= 0) this.endGame();
+        if (!e.debug) {
+          this.lives -= 1;
+          this.baseFlash = 1;
+          this.sound.play('base_hit', 90); // player taking damage with no armour (OSRS take-damage splat)
+          if (this.lives <= 0) this.endGame();
+        }
         this.emit();
         continue;
       }
@@ -1594,11 +1610,15 @@ export class GameEngine {
     // falls back to the generic `death` for anything unmapped.
     const deathKey = `death_${enemy.type}`;
     this.sound.play(deathKey in GAME_SOUNDS ? deathKey : 'death', 40);
-    this.awardGold(this.killGold(enemy.type));
-    this.kills += 1;
-    // New object each kill so the UI's persistence effect sees the change.
-    this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
-    this.slayer.recordKill(enemy.type);
+    // Debug/sandbox enemies pay nothing and don't progress anything — they exist
+    // only to test towers/enemies. The death FX above still play (visual feedback).
+    if (!enemy.debug) {
+      this.awardGold(this.killGold(enemy.type));
+      this.kills += 1;
+      // New object each kill so the UI's persistence effect sees the change.
+      this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
+      this.slayer.recordKill(enemy.type);
+    }
     this.emit();
     return true;
   }
@@ -1624,6 +1644,14 @@ export class GameEngine {
     if (!this.waveActive) return;
     if (this.spawnQueue.length > 0 || this.enemies.length > 0) return;
     this.waveActive = false;
+    // A debug sandbox wave clears with no payout and no progression — it leaves
+    // the run exactly as it was before spawning.
+    if (this.sandboxWave) {
+      this.sandboxWave = false;
+      this.lastWaveSandbox = true; // flag the UI to show "Custom Wave Complete!"
+      this.emit();
+      return;
+    }
     this.awardGold(waveClearBonus(this.wave));
     this.meta.award(essenceForWave(this.wave)); // essence reward for the cleared wave
     this.wave += 1;
@@ -1657,6 +1685,8 @@ export class GameEngine {
     this.goldEarned = 0;
     this.waveTotal = 0;
     this.bossWave = false;
+    this.sandboxWave = false;
+    this.lastWaveSandbox = false;
     this.baseFlash = 0;
     this.paused = false;
     this.waveActive = false;
@@ -1707,7 +1737,7 @@ export class GameEngine {
     for (const t of types) {
       for (let i = 0; i < n; i++) {
         const e = this.makeEnemy(t, this.wave);
-        if (e) out.push(e);
+        if (e) { e.debug = true; out.push(e); } // sandbox: no effect on the run
       }
     }
     if (!out.length) { this.startWave(); return; }
@@ -1715,6 +1745,8 @@ export class GameEngine {
     this.waveTotal = out.length;
     this.bossWave = out.some((e) => e.isBoss);
     this.waveActive = true;
+    this.sandboxWave = true;
+    this.lastWaveSandbox = false; // clear any prior banner flag while this one runs
     this.sound.play('wave');
     this.emit();
   }
