@@ -57,24 +57,26 @@ async function main() {
   // Give the engine a beat to boot + first emit, then open the Essence Shop so a
   // list panel is visible in the shot.
   await new Promise((r) => setTimeout(r, 1500));
-  // Open the Slayer Rewards shop (its "Slayer Rewards" button lives in the task
-  // panel) + fire a test unlock popup via the debug panel's cheat.
+  // Seed the Collection Log via the debug cheat, then open the log window.
   await page.evaluate(() => {
-    const bt = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.textContent || ''));
-    const byTitle = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.title));
-    bt(/^\s*Slayer Rewards\s*$/i)?.click();
-    byTitle(/Debug/i)?.click();
+    [...document.querySelectorAll('button')].find((b) => /Debug/i.test(b.title))?.click();
   });
   await new Promise((r) => setTimeout(r, 400));
   await page.evaluate(() => {
     const bt = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.textContent || ''));
     bt(/^\s*Cheats\s*$/i)?.click();
-    bt(/Test unlock popup/i)?.click();
+    bt(/Seed Collection Log/i)?.click();
   });
-  await new Promise((r) => setTimeout(r, 700)); // let the popup animate in + hold
+  await new Promise((r) => setTimeout(r, 300));
+  await page.evaluate(() => {
+    const byT = (re) => [...document.querySelectorAll('button')].find((b) => re.test(b.title));
+    byT(/Debug/i)?.click();          // close debug so it doesn't overlap
+    byT(/Collection Log/i)?.click(); // open the log window
+  });
+  await new Promise((r) => setTimeout(r, 500));
 
-  // Full shot for layout, plus tight crops of the unlock popup + a panel so the
-  // bevel/border detail is legible (the viewer downscales the full shot).
+  // Full shot for layout + a tight crop of the Collection Log so entry/bevel
+  // detail is legible (the viewer downscales the full shot).
   await page.screenshot({ path: join(__dirname, 'tmp-ui.png') });
   const cropOf = (selOrText) => page.evaluate((q) => {
     const el = q.startsWith('.')
@@ -85,11 +87,9 @@ async function main() {
     const pad = 12;
     return { x: Math.max(0, r.x - pad), y: Math.max(0, r.y - pad), width: r.width + pad * 2, height: r.height + pad * 2 };
   }, selOrText);
-  const popRect = await cropOf('.rs-unlock-popup');
-  if (popRect) await page.screenshot({ path: join(__dirname, 'tmp-ui-popup.png'), clip: popRect });
-  const panelRect = await cropOf('Slayer Points');
-  if (panelRect) await page.screenshot({ path: join(__dirname, 'tmp-ui-panel.png'), clip: panelRect });
-  console.log('tmp-ui.png', popRect ? '+ tmp-ui-popup.png' : '(popup not found)', panelRect ? '+ tmp-ui-panel.png' : '');
+  const logRect = await cropOf('Collection Log');
+  if (logRect) await page.screenshot({ path: join(__dirname, 'tmp-ui-panel.png'), clip: logRect });
+  console.log('tmp-ui.png', logRect ? '+ tmp-ui-panel.png' : '(log not found)');
   await browser.close();
   server.close();
   process.exit(0);

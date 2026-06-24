@@ -103,12 +103,26 @@ export interface UIState {
   unlocks: UnlockItem[];
   /** Bumps whenever a new unlock batch fires, so the UI enqueues it once. */
   unlockSeq: number;
+  /** Lifetime kills per enemy type (the Collection Log). */
+  killCounts: Record<string, number>;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
 
 /** Approximate body radius (px) used for range/hit tests, matching the sprite size. */
 const enemyRadius = (e: { isBoss?: boolean }) => (e.isBoss ? 28 : 13);
+
+/** Clean a persisted Collection-Log blob: keep only known enemy types with a
+ *  positive finite integer count, so a corrupt/stale save can't poison the log. */
+function sanitizeKillCounts(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (raw && typeof raw === 'object') {
+    for (const [type, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (type in ENEMIES && typeof v === 'number' && Number.isFinite(v) && v > 0) out[type] = Math.floor(v);
+    }
+  }
+  return out;
+}
 
 /**
  * Exponential ease-in for projectile flight: maps progress `t` (0→1) to a
@@ -247,6 +261,9 @@ export class GameEngine {
   // --- run stats (read directly by the UI, e.g. the game-over screen) ---
   kills = 0;
   goldEarned = 0;
+  /** Lifetime kills per enemy type (the Collection Log). Account-wide: seeded
+   *  from the save, persisted by the UI, and NOT cleared on restart. */
+  killCounts: Record<string, number> = {};
   private notice: string | null = null;
   private noticeIcon: string | null = null;
   private noticeSeq = 0;
@@ -281,12 +298,13 @@ export class GameEngine {
   constructor(
     canvas: HTMLCanvasElement,
     onState: (patch: Partial<UIState>) => void,
-    save?: MetaLoad,
+    save?: MetaLoad & { killCounts?: unknown },
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.onState = onState;
     this.meta = new MetaSystem(this, save);
+    this.killCounts = sanitizeKillCounts(save?.killCounts);
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.renderer = new GameRenderer(this);
     this.canvas.width = this.width;
@@ -390,6 +408,7 @@ export class GameEngine {
       upgrades: this.meta.upgrades,
       unlocks: this.unlocks,
       unlockSeq: this.unlockSeq,
+      killCounts: this.killCounts,
     });
   }
 
@@ -1577,6 +1596,8 @@ export class GameEngine {
     this.sound.play(deathKey in GAME_SOUNDS ? deathKey : 'death', 40);
     this.awardGold(this.killGold(enemy.type));
     this.kills += 1;
+    // New object each kill so the UI's persistence effect sees the change.
+    this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
     this.slayer.recordKill(enemy.type);
     this.emit();
     return true;
@@ -1704,6 +1725,15 @@ export class GameEngine {
     this.enemies = [];
     this.spawnQueue = [];
     if (this.waveActive) this.checkWaveEnd();
+    this.emit();
+  }
+
+  /** Seed a few Collection-Log kills so the obtained/locked states can be
+   *  eyeballed without grinding (debug panel). */
+  debugSeedLog() {
+    const next = { ...this.killCounts };
+    Object.keys(ENEMIES).slice(0, 6).forEach((t, i) => { next[t] = (next[t] ?? 0) + (i + 1) * 3; });
+    this.killCounts = next;
     this.emit();
   }
 

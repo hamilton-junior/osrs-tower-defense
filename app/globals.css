@@ -723,6 +723,46 @@ kbd {
   100% { opacity: 0; transform: translateY(-8px) scale(1); }
 }
 
+/* Collection Log entries — sunken item-grid cards. Unobtained enemies show as a
+   darkened silhouette (the collection-log "locked" look). */
+.rs-log-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1em;
+  padding: 0.4em 0.25em 0.3em;
+  background: #1c1812;
+  border: 1px solid var(--rs-keyline);
+  box-shadow: var(--rs-sunken);
+}
+.rs-log-sprite {
+  width: 3.4em;
+  height: 3.4em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6a5f48;
+  font-size: 1.3em;
+  font-weight: bold;
+  image-rendering: pixelated;
+}
+.rs-log-name {
+  font-size: 0.64em;
+  line-height: 1.05;
+  color: #e7d9b0;
+  text-align: center;
+  text-shadow: 1px 1px 0 #000;
+}
+.rs-log-kc {
+  font-size: 0.68em;
+  font-weight: bold;
+  color: #ffce5c;
+  text-shadow: 1px 1px 0 #000;
+}
+.rs-log-locked .rs-log-sprite { filter: grayscale(1) brightness(0.3); }
+.rs-log-locked .rs-log-name { color: #7a7058; }
+.rs-log-locked .rs-log-kc { color: #5f5642; }
+
 /* OSRS-flavoured volume slider */
 .rs-volume {
   -webkit-appearance: none;

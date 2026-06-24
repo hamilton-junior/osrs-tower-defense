@@ -276,6 +276,13 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
           >
             ✦ Test unlock popup
           </button>
+
+          <button
+            onClick={() => engineRef.current?.debugSeedLog()}
+            className="rs-btn w-full py-[0.35em] text-[0.8em]"
+          >
+            📖 Seed Collection Log
+          </button>
         </div>
       )}
 

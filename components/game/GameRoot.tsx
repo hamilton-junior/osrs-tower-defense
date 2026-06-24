@@ -11,6 +11,8 @@ import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue } from '@/lib/game/systems/meta-progression';
 import { SLAYER_REWARDS } from '@/lib/game/data/slayer';
+import { ENEMIES } from '@/lib/game/data/enemies';
+import { ENEMY_ANIMS } from '@/lib/game/data/enemy-anims';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
@@ -85,27 +87,48 @@ const INITIAL: UIState = {
   geOffers: [],
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
   unlocks: [], unlockSeq: 0,
+  killCounts: {},
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = { prayer: 'Prayer Unlocked' };
 
-const ESSENCE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades' } as const;
+const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts' } as const;
 
-/** Read the persisted meta-progression save (essence + upgrades) from
+/** Read the persisted account save (meta-progression + Collection Log) from
  *  localStorage, tolerating absent/corrupt data — the engine re-clamps it. */
-function loadMetaSave(): { essence: number; upgrades: unknown } {
-  if (typeof window === 'undefined') return { essence: 0, upgrades: undefined };
+function loadSave(): { essence: number; upgrades: unknown; killCounts: unknown } {
+  if (typeof window === 'undefined') return { essence: 0, upgrades: undefined, killCounts: undefined };
   let essence = 0;
   let upgrades: unknown;
-  try { essence = parseInt(localStorage.getItem(ESSENCE_KEYS.essence) ?? '0', 10) || 0; } catch { /* ignore */ }
-  try { upgrades = JSON.parse(localStorage.getItem(ESSENCE_KEYS.upgrades) ?? 'null'); } catch { /* ignore */ }
-  return { essence, upgrades };
+  let killCounts: unknown;
+  try { essence = parseInt(localStorage.getItem(SAVE_KEYS.essence) ?? '0', 10) || 0; } catch { /* ignore */ }
+  try { upgrades = JSON.parse(localStorage.getItem(SAVE_KEYS.upgrades) ?? 'null'); } catch { /* ignore */ }
+  try { killCounts = JSON.parse(localStorage.getItem(SAVE_KEYS.killCounts) ?? 'null'); } catch { /* ignore */ }
+  return { essence, upgrades, killCounts };
 }
 
 const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>)[id];
 /** Wiki sprite URL for a GE offer (its `wiki` filename + .png). */
 const geIcon = (wiki: string) => `${ASSETS.misc.wiki_base}${wiki}.png`;
+
+/** Collection Log roster, split into the Bosses / Monsters tabs (computed once). */
+const LOG_ENTRIES = Object.entries(ENEMIES).map(([type, def]) => ({ type, name: def.name, isBoss: !!def.isBoss }));
+const BOSS_ENTRIES = LOG_ENTRIES.filter((e) => e.isBoss);
+const MONSTER_ENTRIES = LOG_ENTRIES.filter((e) => !e.isBoss);
+
+/** Show the first walk frame of an enemy's baked sheet as a static icon (the
+ *  same in-game model the board draws), or undefined if nothing is baked. */
+function enemySpriteStyle(type: string): React.CSSProperties | undefined {
+  const clip = ENEMY_ANIMS[type]?.clips.walk;
+  if (!clip) return undefined;
+  return {
+    backgroundImage: `url(${clip.url})`,
+    backgroundSize: `${clip.frames * 100}% 100%`,
+    backgroundPosition: 'left center',
+    backgroundRepeat: 'no-repeat',
+  };
+}
 
 /** Render a stat value, showing `base → buffed` (buffed in green) when a buff
  *  has changed it; a plain string otherwise (the parent styles it). */
@@ -136,6 +159,8 @@ export default function GameRoot() {
   const [geOpen, setGeOpen] = useState(false);
   const [essenceOpen, setEssenceOpen] = useState(false);
   const [slayerShopOpen, setSlayerShopOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
+  const [logTab, setLogTab] = useState<'bosses' | 'monsters'>('monsters');
   const [debugOpen, setDebugOpen] = useState(false);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
@@ -182,7 +207,7 @@ export default function GameRoot() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })), loadMetaSave());
+    const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })), loadSave());
     engineRef.current = engine;
     engine.resize();
     engine.start();
@@ -202,10 +227,18 @@ export default function GameRoot() {
   useEffect(() => {
     if (!metaLoaded.current) { metaLoaded.current = true; return; }
     try {
-      localStorage.setItem(ESSENCE_KEYS.essence, String(ui.essence));
-      localStorage.setItem(ESSENCE_KEYS.upgrades, JSON.stringify(ui.upgrades));
+      localStorage.setItem(SAVE_KEYS.essence, String(ui.essence));
+      localStorage.setItem(SAVE_KEYS.upgrades, JSON.stringify(ui.upgrades));
     } catch { /* ignore */ }
   }, [ui.essence, ui.upgrades]);
+
+  // Persist the Collection Log (lifetime kills per type) separately — it changes
+  // on every kill, so it gets its own effect rather than re-writing the meta save.
+  const kcLoaded = useRef(false);
+  useEffect(() => {
+    if (!kcLoaded.current) { kcLoaded.current = true; return; }
+    try { localStorage.setItem(SAVE_KEYS.killCounts, JSON.stringify(ui.killCounts)); } catch { /* ignore */ }
+  }, [ui.killCounts]);
 
   // Flash a banner when a wave begins, and a "complete" banner when it ends.
   useEffect(() => {
@@ -1188,6 +1221,14 @@ export default function GameRoot() {
           <span className="tabular-nums text-[#7ce0ff]">{fmt(ui.essence)}</span>
         </button>
         <button
+          onClick={() => setLogOpen((o) => !o)}
+          title="Collection Log"
+          className={`rs-btn px-2 py-1 text-xs ml-1 flex items-center gap-1 ${logOpen ? 'rs-btn-primary' : ''}`}
+        >
+          <img src={`${ASSETS.misc.wiki_base}Collection_log.png`} alt="" className="w-4 h-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          Log
+        </button>
+        <button
           data-no-drag
           onClick={toggleUiLock}
           title={uiLocked ? 'Unlock UI (allow moving panels)' : 'Lock UI (prevent moving panels)'}
@@ -1379,6 +1420,17 @@ export default function GameRoot() {
         </MovablePanel>
       )}
 
+      {/* Collection Log / Boss Log — lifetime kills per enemy, account-wide. */}
+      {logOpen && (
+        <CollectionLog
+          killCounts={ui.killCounts}
+          tab={logTab}
+          setTab={setLogTab}
+          onClose={() => setLogOpen(false)}
+          globalLock={uiLocked}
+        />
+      )}
+
       {/* Quick-prayers bar (bottom-center): all tower prayers shown; locked ones
           are previewed greyed-out with the wave they unlock (OSRS prayer-book style). */}
       <div className="rs-panel absolute bottom-4 left-1/2 -translate-x-1/2 z-10 p-2 flex items-center gap-[0.3em]">
@@ -1486,5 +1538,70 @@ function Stat({ icon, label, value }: { icon?: string; label: string; value: Rea
       </span>
       <span className="text-osrs-yellow font-bold whitespace-nowrap">{value}</span>
     </div>
+  );
+}
+
+/** Collection Log / Boss Log: a centred OSRS window with Bosses / Monsters tabs.
+ *  Every enemy shows its baked sprite + lifetime kill count; unobtained ones are
+ *  darkened silhouettes (collection-log style). A completion counter per tab. */
+function CollectionLog({ killCounts, tab, setTab, onClose, globalLock }: {
+  killCounts: Record<string, number>;
+  tab: 'bosses' | 'monsters';
+  setTab: (t: 'bosses' | 'monsters') => void;
+  onClose: () => void;
+  globalLock: boolean;
+}) {
+  const entries = tab === 'bosses' ? BOSS_ENTRIES : MONSTER_ENTRIES;
+  const obtained = entries.filter((e) => (killCounts[e.type] ?? 0) > 0).length;
+  const complete = entries.length > 0 && obtained === entries.length;
+  return (
+    <MovablePanel
+      id="collection-log"
+      globalLock={globalLock}
+      className="rs-panel absolute top-10 left-1/2 z-30 w-[30em] flex flex-col p-3"
+      style={{ marginLeft: '-15em', maxHeight: '82vh', fontSize: 'clamp(13px, 0.9vw, 18px)' }}
+    >
+      <div className="rs-panel-title flex items-center justify-between">
+        <span className="flex items-center gap-2">
+          <img src={`${ASSETS.misc.wiki_base}Collection_log.png`} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+          Collection Log
+        </span>
+        <button onClick={onClose} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
+      </div>
+      <div className="flex items-center justify-between mt-[0.4em] mb-[0.5em]">
+        <div className="flex gap-[0.3em]">
+          {(['bosses', 'monsters'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`rs-btn px-[0.8em] py-[0.15em] text-[0.78em] capitalize ${tab === t ? 'rs-btn-primary' : ''}`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <span className="text-[0.78em] font-bold" style={{ color: complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}>
+          {obtained}/{entries.length} found
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-[0.4em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
+        {entries.map((e) => {
+          const kc = killCounts[e.type] ?? 0;
+          const seen = kc > 0;
+          const style = enemySpriteStyle(e.type);
+          return (
+            <div
+              key={e.type}
+              className={`rs-log-entry ${seen ? '' : 'rs-log-locked'}`}
+              title={`${e.name} — ${kc} kill${kc === 1 ? '' : 's'}`}
+            >
+              <div className="rs-log-sprite" style={style}>{style ? null : '?'}</div>
+              <span className="rs-log-name">{e.name}</span>
+              <span className="rs-log-kc">{seen ? `× ${fmt(kc)}` : '0'}</span>
+            </div>
+          );
+        })}
+      </div>
+    </MovablePanel>
   );
 }
