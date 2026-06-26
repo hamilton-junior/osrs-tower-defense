@@ -14,6 +14,7 @@ import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-c
 import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, weaknessMultiplier, lifestealChance, bloodBonusFrac, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
+import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp } from '../systems/tower-identity';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -1240,10 +1241,18 @@ export class GameEngine {
       }
       let damage = Math.floor((baseDamage + stats.flatDamageBonus) * stats.damageMultiplier);
 
-      // Base projectile flavour; the cannon splashes, toxic slows.
+      // Slayer weapon: native bonus vs the current task target / superiors / bosses,
+      // independent of (and stacking with) the Slayer Helmet applied in damage().
+      if (tower.type === 'slayer') {
+        damage = Math.floor(damage * slayerWeaponBonus(target.type, this.slayer.task?.type ?? null, !!target.isBoss));
+      }
+
+      // Base projectile flavour; the cannon splashes (radius grows by tier), toxic
+      // venoms, tzhaar crushes.
       let projColor = tower.color;
       let projSpecial: Projectile['special'] | undefined = tower.special === 'rapid' || tower.special === 'aoe' ? undefined : tower.special;
       let projAoe = tower.special === 'aoe';
+      const projBlastRadius = tower.type === 'cannon' ? cannonBlastRadius(tower.level) : undefined;
       let projLifesteal = false;
       let projBonusMaxHpFrac = 0;
       const projSpell = spellSpriteName(tower) ?? undefined;
@@ -1304,31 +1313,51 @@ export class GameEngine {
       }
       flight = Math.max(0.05, flight); // tiny floor: never instantaneous / div-by-zero
 
-      this.projectiles.push({
-        id: uid(),
-        x: tower.x,
-        y: tower.y,
-        ox: tower.x,
-        oy: tower.y,
-        flight,
-        age: 0,
-        targetId: target.id,
-        speed: dist / flight, // kept for the trail/legacy; motion uses the ease curve
-        damage,
-        color: projColor,
-        type: tower.type === 'cannon' ? 'cannonball' : tower.type === 'wizard' ? 'spell' : 'arrow',
-        special: projSpecial,
-        aoe: projAoe || undefined,
-        lifesteal: projLifesteal || undefined,
-        bonusMaxHpFrac: projBonusMaxHpFrac || undefined,
-        spellIcon: projSpell,
-        hitSound,
-        sourceTowerId: tower.id,
-        trail: [],
-      });
-      // Count this shot toward the target so other towers firing this same frame
-      // also treat it as (more) doomed and look elsewhere.
-      incoming.set(target.id, (incoming.get(target.id) ?? 0) + damage);
+      // Launch one projectile at `tgt` for `dmg`, counting it as incoming so other
+      // towers firing this same frame treat the target as (more) doomed.
+      const projType = tower.type === 'cannon' ? 'cannonball' : tower.type === 'wizard' ? 'spell' : 'arrow';
+      const launch = (tgt: Enemy, dmg: number, fl: number) => {
+        this.projectiles.push({
+          id: uid(),
+          x: tower.x,
+          y: tower.y,
+          ox: tower.x,
+          oy: tower.y,
+          flight: fl,
+          age: 0,
+          targetId: tgt.id,
+          speed: distance(tower.x, tower.y, tgt.x, tgt.y) / fl, // trail/legacy; motion uses the ease curve
+          damage: dmg,
+          color: projColor,
+          type: projType,
+          special: projSpecial,
+          aoe: projAoe || undefined,
+          blastRadius: projBlastRadius,
+          lifesteal: projLifesteal || undefined,
+          bonusMaxHpFrac: projBonusMaxHpFrac || undefined,
+          spellIcon: projSpell,
+          hitSound,
+          sourceTowerId: tower.id,
+          trail: [],
+        });
+        incoming.set(tgt.id, (incoming.get(tgt.id) ?? 0) + dmg);
+      };
+
+      // The tier-4 bow gets a modest, capped anti-tank nudge per target.
+      const arrowDmg = (tgt: Enemy) =>
+        tower.type === 'archer' && tower.level >= 4 ? Math.floor(damage * bowAntiTankMult(tgt.maxHp)) : damage;
+
+      launch(target, arrowDmg(target), flight);
+
+      // Dark Bow twin-shot: the archer (tier 3+) looses a second arrow at the next
+      // best target in range, or the same one if it's alone (a focused burst).
+      if (tower.type === 'archer' && archerArrowCount(tower.level) > 1) {
+        const others = this.enemies.filter(e => e.id !== target.id && inReach(e));
+        const second = selectTarget(others, tower.x, tower.y, this.path, tower.targetingPriority) ?? target;
+        const fl2 = Math.max(0.05, distance(tower.x, tower.y, second.x, second.y) / 600);
+        launch(second, arrowDmg(second), fl2);
+      }
+
       this.sound.play(soundKey, 70);
     }
   }
@@ -1405,8 +1434,10 @@ export class GameEngine {
       // Magic barrages splash for reduced damage on non-primary targets so AoE
       // stays a side-grade to single-target; the cannon keeps full splash.
       const splash = p.type === 'cannonball' ? 1 : BARRAGE_SPLASH_FALLOFF;
-      // Snapshot: damage() splices the live array as enemies die.
-      const near = this.enemies.filter(e => distanceSq(e.x, e.y, p.x, p.y) <= 80 * 80);
+      // Snapshot: damage() splices the live array as enemies die. The cannon's
+      // blast widens by tier (blastRadius); Ancients barrages keep the 80px default.
+      const radius = p.blastRadius ?? 80;
+      const near = this.enemies.filter(e => distanceSq(e.x, e.y, p.x, p.y) <= radius * radius);
       // If the intended target died mid-flight, the closest enemy at impact takes
       // the full-damage primary hit so the barrage still lands "normally".
       const primary = target && near.includes(target)
@@ -1511,6 +1542,24 @@ export class GameEngine {
         this.knockback(e, 28 * (1 - this.tenacity(e)));
         this.noteDebuffHit(e);
         break;
+      case 'crush': {
+        // TzHaar maul: shove the enemy back AND briefly stun (a crushing blow).
+        this.knockback(e, 28 * (1 - this.tenacity(e)));
+        const eff = 0.6 * (1 - this.tenacity(e));
+        this.noteDebuffHit(e);
+        if (eff > 0) e.stunTimer = Math.max(e.stunTimer, eff);
+        break;
+      }
+      case 'venom': {
+        // Toxic venom: a poison DoT that ramps each reapply up to a damage-scaled
+        // cap and keeps ticking after the enemy leaves range. DoT → tenacity-immune.
+        const { step, cap, dur } = venomRamp(p.damage);
+        const dots = (e.dots ??= {});
+        const cur = dots.poison;
+        if (cur) { cur.dps = Math.min(cap, cur.dps + step); cur.timer = Math.max(cur.timer, dur); }
+        else dots.poison = { timer: dur, dps: step, accum: 0, tickTimer: 0 };
+        break;
+      }
       default:
         break;
     }

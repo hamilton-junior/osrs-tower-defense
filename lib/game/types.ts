@@ -250,7 +250,7 @@ export interface Tower {
   targetingPriority: TargetingPriority;
   name: string;
   upgradeCost: number;
-  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood' | 'aoe_slow';
+  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow';
   specCharge: number;
   specMax: number;
   lastSpecFired?: number;
@@ -285,9 +285,11 @@ export interface Projectile {
   color: string;
   type: 'arrow' | 'spell' | 'cannonball' | 'dart' | 'bolt' | 'magic_projectile' | 'ancient_ice' | 'ancient_blood' | 'ancient_shadow' | 'ancient_smoke' | 'chinchompa' | 'godsword';
   element?: Element;
-  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'burn' | 'amp' | 'blood' | 'aoe_slow';
+  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow';
   /** Hits every enemy near impact (Ancients barrage / cannon splash). */
   aoe?: boolean;
+  /** Splash radius (logic px) for an AoE projectile; defaults to 80 (Ancients). */
+  blastRadius?: number;
   /** Restores a life when this projectile lands a kill (Blood barrage). */
   lifesteal?: boolean;
   /** Bonus damage as a fraction of each hit enemy's max HP (Blood barrage),

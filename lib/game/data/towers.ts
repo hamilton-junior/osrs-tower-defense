@@ -71,21 +71,28 @@ export const TOWERS: Record<string, TowerDef> = {
     baseName: 'Cannon',
     fireSound: 'cannon_1',
     tiers: [
+      // AoE on every tier — the cannon's identity is full-damage crowd-clear (no
+      // Ancients splash falloff). Early tiers are fast + small; late tiers are
+      // slow, hard-hitting and wide (see cannonBlastRadius). Min/max give the
+      // shot a spread; fixed-damage so it ignores potions/prayers (TOWER_STYLES).
       { level: 1, name: 'Dwarf Multicannon', damage: 0, minDamage: 0, maxDamage: 8, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#cd5c5c', upgradeCost: 100, special: 'aoe' },
       { level: 2, name: 'Upgraded Dwarf Multicannon', damage: 0, minDamage: 5, maxDamage: 12, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#808080', upgradeCost: 200, special: 'aoe' },
-      { level: 3, name: 'Ornamented Multicannon', damage: 35, minDamage: 25, maxDamage: 45, cooldown: 6 * TICK * 1000, range: 11 * 25, color: '#d2b48c', upgradeCost: 400 },
-      { level: 4, name: 'Upgraded Ornamented Multicannon', damage: 65, minDamage: 50, maxDamage: 80, cooldown: 6 * TICK * 1000, range: 12 * 25, color: '#ff4500', upgradeCost: 800 }
+      { level: 3, name: 'Ornamented Multicannon', damage: 35, minDamage: 25, maxDamage: 45, cooldown: 6 * TICK * 1000, range: 11 * 25, color: '#d2b48c', upgradeCost: 400, special: 'aoe' },
+      { level: 4, name: 'Upgraded Ornamented Multicannon', damage: 65, minDamage: 50, maxDamage: 80, cooldown: 6 * TICK * 1000, range: 12 * 25, color: '#ff4500', upgradeCost: 800, special: 'aoe' }
     ]
   },
   tzhaar: {
     type: 'tzhaar',
     baseName: 'TzHaar',
     fireSound: 'tzhaar_1',
+    // Obsidian melee: short range, heavy hits, and a knockback that shoves the
+    // enemy back along the path — tempo control no wizard has. The maul tiers
+    // (Ket-Om / Inquisitor's) also crush for a brief stun ('crush').
     tiers: [
-      { level: 1, name: 'TzHaar-Ket', damage: 12, cooldown: 4 * TICK * 1000, range: 3 * 25, color: '#8B0000', upgradeCost: 150 },
-      { level: 2, name: 'Toktz-xil-ak', damage: 22, cooldown: 4 * TICK * 1000, range: 4 * 25, color: '#ff4500', upgradeCost: 300 },
-      { level: 3, name: 'TzHaar-Ket-Om', damage: 45, cooldown: 6 * TICK * 1000, range: 5 * 25, color: '#ff0000', upgradeCost: 600 },
-      { level: 4, name: "Inquisitor's Mace", damage: 85, cooldown: 4 * TICK * 1000, range: 5 * 25, color: '#ffd700', upgradeCost: 1000 }
+      { level: 1, name: 'TzHaar-Ket', damage: 12, cooldown: 4 * TICK * 1000, range: 3 * 25, color: '#8B0000', upgradeCost: 150, special: 'pushback' },
+      { level: 2, name: 'Toktz-xil-ak', damage: 22, cooldown: 4 * TICK * 1000, range: 4 * 25, color: '#ff4500', upgradeCost: 300, special: 'pushback' },
+      { level: 3, name: 'TzHaar-Ket-Om', damage: 45, cooldown: 6 * TICK * 1000, range: 5 * 25, color: '#ff0000', upgradeCost: 600, special: 'crush' },
+      { level: 4, name: "Inquisitor's Mace", damage: 85, cooldown: 4 * TICK * 1000, range: 5 * 25, color: '#ffd700', upgradeCost: 1000, special: 'crush' }
     ]
   },
   slayer: {
@@ -103,11 +110,14 @@ export const TOWERS: Record<string, TowerDef> = {
     type: 'toxic',
     baseName: 'Toxic',
     fireSound: 'toxic_1',
+    // Venom on every tier: each hit ramps a poison DoT that climbs with sustained
+    // fire and keeps ticking after the enemy leaves range — a DoT that *grows*,
+    // unlike the wizard's flat burn/poison (see venomRamp / applyOnHit 'venom').
     tiers: [
-      { level: 1, name: 'Tanzanite Fang', damage: 8, cooldown: 2 * TICK * 1000, range: 5 * 25, color: '#2a6b5a', upgradeCost: 200, special: 'slow' },
-      { level: 2, name: 'Toxic Blowpipe', damage: 16, cooldown: 2 * TICK * 1000, range: 5 * 25, color: '#008b8b', upgradeCost: 400, special: 'slow' },
-      { level: 3, name: 'Magic Fang', damage: 32, cooldown: 3 * TICK * 1000, range: 6 * 25, color: '#32cd32', upgradeCost: 800 },
-      { level: 4, name: 'Trident of the Swamp', damage: 55, cooldown: 2 * TICK * 1000, range: 6 * 25, color: '#ff4500', upgradeCost: 1500 }
+      { level: 1, name: 'Tanzanite Fang', damage: 8, cooldown: 2 * TICK * 1000, range: 5 * 25, color: '#2a6b5a', upgradeCost: 200, special: 'venom' },
+      { level: 2, name: 'Toxic Blowpipe', damage: 16, cooldown: 2 * TICK * 1000, range: 5 * 25, color: '#008b8b', upgradeCost: 400, special: 'venom' },
+      { level: 3, name: 'Magic Fang', damage: 32, cooldown: 3 * TICK * 1000, range: 6 * 25, color: '#32cd32', upgradeCost: 800, special: 'venom' },
+      { level: 4, name: 'Trident of the Swamp', damage: 55, cooldown: 2 * TICK * 1000, range: 6 * 25, color: '#ff4500', upgradeCost: 1500, special: 'venom' }
     ]
   }
 };
