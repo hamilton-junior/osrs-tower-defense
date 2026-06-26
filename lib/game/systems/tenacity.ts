@@ -4,10 +4,11 @@
  * (burn/poison) ignores it. Keeps stun/slow spam (e.g. Shadow barrage) from
  * perma-locking the field.
  *
- *  - Normal monsters scale with the wave: wave/2 percent, capped at 50%.
- *  - Superior monsters use the same curve but cap at 75%.
- *  - Bosses get NO wave base; instead they BUILD tenacity from the non-damaging
- *    debuffs thrown at them (+1% per hit), capped at min(wave%, 90%).
+ * One wave curve (wave/2 percent) with a per-tier base floor and cap:
+ *  - Normal monsters: no base, scale wave/2 % up to 50%.
+ *  - Superior monsters: start at 50%, scale up to 75%.
+ *  - Bosses: start at 50%, scale up to 90% — resistant from the first hit so
+ *    early CC can't fully lock them, still climbing into the late game.
  */
 export function debuffTenacity(opts: {
   isBoss?: boolean;
@@ -15,13 +16,11 @@ export function debuffTenacity(opts: {
   wave: number;
   debuffHits?: number;
 }): number {
-  const { isBoss, superior, wave, debuffHits = 0 } = opts;
-  if (isBoss) {
-    const cap = Math.min(wave / 100, 0.9);
-    return clamp01(Math.min(debuffHits * 0.01, cap));
-  }
-  const cap = superior ? 0.75 : 0.5;
-  return clamp01(Math.min(wave / 200, cap)); // wave/2 as a percentage
+  const { isBoss, superior, wave } = opts;
+  const waveScale = wave / 200; // wave/2 as a percentage
+  if (isBoss) return clamp01(Math.min(0.5 + waveScale, 0.9));
+  if (superior) return clamp01(Math.min(0.5 + waveScale, 0.75));
+  return clamp01(Math.min(waveScale, 0.5));
 }
 
 function clamp01(v: number): number {

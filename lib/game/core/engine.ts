@@ -551,6 +551,10 @@ export class GameEngine {
       ...Object.fromEntries(
         Object.entries(ASSETS.spells).map(([name, url]) => [`spell_${name}`, url]),
       ),
+      // Flying projectile sprites (keyed `proj_<name>`), e.g. the archer's arrow.
+      ...Object.fromEntries(
+        Object.entries(ASSETS.projectiles).map(([name, url]) => [`proj_${name}`, url]),
+      ),
       // Baked spotanim sprite sheets (keyed `spotanim_<slug>`).
       ...Object.fromEntries(
         Object.entries(SPOTANIMS).map(([slug, s]) => [`spotanim_${slug}`, s.url]),
@@ -1336,6 +1340,7 @@ export class GameEngine {
           lifesteal: projLifesteal || undefined,
           bonusMaxHpFrac: projBonusMaxHpFrac || undefined,
           spellIcon: projSpell,
+          arrowIcon: tower.type === 'archer' ? 'dragon_arrow' : undefined,
           hitSound,
           sourceTowerId: tower.id,
           trail: [],
@@ -1538,13 +1543,17 @@ export class GameEngine {
         if (eff > 0) e.vulnTimer = Math.max(e.vulnTimer ?? 0, eff);
         break;
       }
-      case 'pushback':
-        this.knockback(e, 28 * (1 - this.tenacity(e)));
+      case 'pushback': {
+        // The wizard's Air gust shoves hard (28); the TzHaar's heavy swing only
+        // nudges the enemy back (10) — its knockback fires far more often.
+        const src = p.sourceTowerId ? this.towers.find(t => t.id === p.sourceTowerId) : undefined;
+        this.knockback(e, (src?.type === 'tzhaar' ? 10 : 28) * (1 - this.tenacity(e)));
         this.noteDebuffHit(e);
         break;
+      }
       case 'crush': {
-        // TzHaar maul: shove the enemy back AND briefly stun (a crushing blow).
-        this.knockback(e, 28 * (1 - this.tenacity(e)));
+        // TzHaar maul: a small shove (10) plus a brief stun — a crushing blow.
+        this.knockback(e, 10 * (1 - this.tenacity(e)));
         const eff = 0.6 * (1 - this.tenacity(e));
         this.noteDebuffHit(e);
         if (eff > 0) e.stunTimer = Math.max(e.stunTimer, eff);

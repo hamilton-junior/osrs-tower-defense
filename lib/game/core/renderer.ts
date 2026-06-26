@@ -848,11 +848,22 @@ export class GameRenderer {
       ctx.fillStyle = p.color;
       if (p.type === 'arrow') {
         const target = this.e.enemies.find(en => en.id === p.targetId);
-        const angle = target ? Math.atan2(target.y - p.y, target.x - p.x) : 0;
+        const angle = target
+          ? Math.atan2(target.y - p.y, target.x - p.x)
+          : Math.atan2((p.destY ?? p.y) - p.y, (p.destX ?? p.x) - p.x);
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(angle);
-        ctx.fillRect(-8, -1, 16, 2);
+        const arrowImg = p.arrowIcon ? this.e.images.get(`proj_${p.arrowIcon}`) : undefined;
+        if (arrowImg && p.arrowIcon && this.e.imageOk(`proj_${p.arrowIcon}`)) {
+          // Rotate the dragon-arrow detail sprite by π so its heads point along the
+          // travel direction (verified empirically — fletching trails behind).
+          // drawImageContain keeps the sprite's aspect (no distortion).
+          ctx.rotate(Math.PI);
+          this.drawImageContain(ctx, arrowImg, 0, 0, 22);
+        } else {
+          ctx.fillRect(-8, -1, 16, 2);
+        }
         ctx.restore();
       } else if (p.spellIcon && this.e.imageOk(`spell_${p.spellIcon}`)) {
         // Real spell sprite (Fire Wave / Ice Barrage / …), with a coloured glow.

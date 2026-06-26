@@ -146,7 +146,8 @@ export const ASSETS = {
     archer: {
       1: 'https://oldschool.runescape.wiki/images/Shortbow.png',
       2: 'https://oldschool.runescape.wiki/images/Magic_shortbow.png',
-      3: 'https://oldschool.runescape.wiki/images/Crystal_bow.png',
+      // Tier 3 is the Dark Bow (twin-shot) — match the sprite to the name.
+      3: 'https://oldschool.runescape.wiki/images/Dark_bow.png',
       4: 'https://oldschool.runescape.wiki/images/Bow_of_faerdhinen.png',
     },
     wizard: {
@@ -191,6 +192,11 @@ export const ASSETS = {
       3: 'https://oldschool.runescape.wiki/images/Magic_fang.png',
       4: 'https://oldschool.runescape.wiki/images/Trident_of_the_swamp.png',
     },
+  },
+  // Flying projectile sprites drawn on the canvas (keyed `proj_<name>`). The
+  // detail render is a single clean bundle of dragon arrows (heads pointing up).
+  projectiles: {
+    dragon_arrow: 'https://oldschool.runescape.wiki/images/Dragon_arrow_detail.png',
   },
   items: {
     amulet_of_power: 'https://oldschool.runescape.wiki/images/Amulet_of_power.png',
