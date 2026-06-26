@@ -18,6 +18,9 @@ import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPO
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
+/** Which interface fills the bottom-right sidebar body (OSRS tabbed-sidebar
+ *  model — one stone per interface). 'home' = wave control + tower shop. */
+type SideTab = 'home' | 'ge' | 'essence' | 'slayer';
 const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
 const towerTierIcon = (type: TowerType, tier: number) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[tier];
@@ -173,9 +176,10 @@ export default function GameRoot() {
   const unlockIdRef = useRef(0);
   const lastUnlockSeq = useRef(0);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
-  const [geOpen, setGeOpen] = useState(false);
-  const [essenceOpen, setEssenceOpen] = useState(false);
-  const [slayerShopOpen, setSlayerShopOpen] = useState(false);
+  // Bottom-right sidebar: which interface tab fills the panel body. The compact
+  // shop-style interfaces (Home/towers, GE, Essence, Slayer Rewards) swap inline;
+  // Collection Log and Debug still pop out their own larger windows.
+  const [tab, setTab] = useState<SideTab>('home');
   const [logOpen, setLogOpen] = useState(false);
   const [logTab, setLogTab] = useState<'bosses' | 'monsters'>('monsters');
   const [debugOpen, setDebugOpen] = useState(false);
@@ -1095,28 +1099,33 @@ export default function GameRoot() {
         </MovablePanel>
       )}
 
-      {/* Bottom-right interface panel: start wave + tower shop */}
+      {/* Bottom-right interface: an OSRS-style tabbed sidebar. The stone strip
+          selects which interface fills the body — Home (wave + tower shop), Grand
+          Exchange, Essence Shop, Slayer Rewards — while the Collection Log and
+          Debug stones pop out their own larger windows (as they do in-game). */}
       <MovablePanel
         id="shop"
         globalLock={uiLocked}
         className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em]"
         style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
       >
-        {/* OSRS sidebar tab strip: each stone opens an interface panel. Sits at
-            the top of the main panel, above the Slayer task — the in-game tab-row
-            idiom (icons + tooltips, with live badges for essence / Slayer points). */}
+        {/* OSRS sidebar tab strip: each stone selects an interface (or pops one
+            out). Icons + tooltips, with live badges for essence / Slayer points. */}
         <div
           className="flex items-center justify-center gap-[0.4em] pb-[0.55em] mb-[0.6em] border-b border-[var(--rs-keyline)]"
           style={{ boxShadow: '0 1px 0 0 var(--rs-bevel-light)' }}
         >
-          <button onClick={() => setGeOpen((o) => !o)} title="Grand Exchange" className={`rs-tab ${geOpen ? 'rs-tab-on' : ''}`}>
+          <button onClick={() => setTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
+            <img src={towerIcon('archer')} alt="Towers" onError={hideBrokenImg} />
+          </button>
+          <button onClick={() => setTab('ge')} title="Grand Exchange" className={`rs-tab ${tab === 'ge' ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.ge_logo} alt="Grand Exchange" onError={hideBrokenImg} />
           </button>
-          <button onClick={() => setEssenceOpen((o) => !o)} title="Essence Shop — permanent upgrades" className={`rs-tab ${essenceOpen ? 'rs-tab-on' : ''}`}>
+          <button onClick={() => setTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
             <span className="rs-tab-badge">{fmt(ui.essence)}</span>
           </button>
-          <button onClick={() => setSlayerShopOpen((o) => !o)} title="Slayer Rewards" className={`rs-tab ${slayerShopOpen ? 'rs-tab-on' : ''}`}>
+          <button onClick={() => setTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
             <span className="rs-tab-badge">{ui.slayerPoints}</span>
           </button>
@@ -1127,6 +1136,10 @@ export default function GameRoot() {
             🛠
           </button>
         </div>
+
+        {/* ── HOME: tower shop + wave control ── */}
+        {tab === 'home' && (
+        <>
         {/* Hover tooltip: tier-1 stats before buying */}
         {hoverShop && (() => {
           const t0 = TOWERS[hoverShop].tiers[0];
@@ -1234,6 +1247,147 @@ export default function GameRoot() {
         <p className="text-center text-[0.64em] text-[#b3a585] mt-[0.2em]">
           <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> cancel · <kbd>M</kbd> mute
         </p>
+        </>
+        )}
+
+        {/* ── GRAND EXCHANGE ── */}
+        {tab === 'ge' && (
+        <>
+          <div className="rs-panel-title flex items-center gap-2">
+            <img src={ASSETS.misc.ge_logo} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+            Grand Exchange
+          </div>
+          <div className="space-y-[0.4em] mt-[0.6em] max-h-[52vh] overflow-y-auto pr-[0.2em]">
+            {ui.geOffers.map((o) => {
+              const afford = ui.money >= o.price;
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => engineRef.current?.buyGeOffer(o.id)}
+                  disabled={!afford}
+                  title={o.desc}
+                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${afford ? '' : 'rs-slot-unafford'}`}
+                >
+                  <img src={geIcon(o.wiki)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-[0.4em]">
+                      <span className="text-[#e7d9b0] truncate">{o.name}</span>
+                      {o.activeSecs > 0 && <span className="rs-ge-timer">{o.activeSecs}s</span>}
+                    </span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{o.desc}</span>
+                  </span>
+                  <span className="font-bold whitespace-nowrap" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
+                    {fmt(o.price)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
+            Buffs last 45s · prices drift with demand each wave
+          </p>
+        </>
+        )}
+
+        {/* ── ESSENCE SHOP (permanent meta-progression upgrades) ── */}
+        {tab === 'essence' && (
+        <>
+          <div className="rs-panel-title flex items-center gap-2">
+            <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+            Essence Shop
+          </div>
+          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
+            <span className="text-[#cdbe91] uppercase tracking-wide">Rune Essence</span>
+            <span className="flex items-center gap-[0.3em] text-[#7ce0ff] font-bold">
+              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+              {fmt(ui.essence)}
+            </span>
+          </div>
+          <div className="space-y-[0.4em] mt-[0.6em] max-h-[48vh] overflow-y-auto pr-[0.2em]">
+            {GLOBAL_UPGRADE_DEFS.map((def) => {
+              const value = ui.upgrades[def.id];
+              const maxed = isMaxed(def, value);
+              const cost = nextCost(def, value);
+              const afford = ui.essence >= cost;
+              return (
+                <button
+                  key={def.id}
+                  onClick={() => engineRef.current?.buyEssenceUpgrade(def.id)}
+                  disabled={maxed || !afford}
+                  title={def.desc}
+                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${maxed || !afford ? 'rs-slot-unafford' : ''}`}
+                >
+                  <img src={geIcon(def.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-[0.4em]">
+                      <span className="text-[#e7d9b0] truncate">{def.name}</span>
+                      <span className="rs-ge-timer">{formatUpgradeValue(def, value)}</span>
+                    </span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{def.desc}</span>
+                  </span>
+                  {maxed ? (
+                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Max</span>
+                  ) : (
+                    <span className="flex items-center gap-[0.25em] font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
+                      {fmt(cost)}
+                      <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
+            Permanent upgrades · earn essence by clearing waves
+          </p>
+        </>
+        )}
+
+        {/* ── SLAYER REWARDS (sink for Slayer points) ── */}
+        {tab === 'slayer' && (
+        <>
+          <div className="rs-panel-title flex items-center gap-2">
+            <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+            Slayer Rewards
+          </div>
+          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
+            <span className="text-[#cdbe91] uppercase tracking-wide">Slayer Points</span>
+            <span className="text-[#7ce0ff] font-bold">{ui.slayerPoints}</span>
+          </div>
+          <div className="space-y-[0.4em] mt-[0.6em] max-h-[48vh] overflow-y-auto pr-[0.2em]">
+            {SLAYER_REWARDS.map((r) => {
+              const owned = !!r.once && r.id === 'helmet' && ui.slayerHelmet;
+              const afford = ui.slayerPoints >= r.cost;
+              const disabled = owned || !afford;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => engineRef.current?.buySlayerReward(r.id)}
+                  disabled={disabled}
+                  title={r.desc}
+                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${disabled ? 'rs-slot-unafford' : ''}`}
+                >
+                  <img src={geIcon(r.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="text-[#e7d9b0] truncate block">{r.name}</span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{r.desc}</span>
+                  </span>
+                  {owned ? (
+                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Owned</span>
+                  ) : (
+                    <span className="font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
+                      {r.cost} pts
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
+            Earn points by completing Slayer tasks
+          </p>
+        </>
+        )}
       </MovablePanel>
 
       {/* Speed + sound control (bottom-left) */}
@@ -1289,171 +1443,6 @@ export default function GameRoot() {
           globalLock={uiLocked}
           onClose={() => setDebugOpen(false)}
         />
-      )}
-
-      {/* Grand Exchange shop (toggled from the bottom-left controls) */}
-      {geOpen && (
-        <MovablePanel
-          id="ge"
-          globalLock={uiLocked}
-          className="rs-panel absolute bottom-16 left-4 p-3 z-20 w-[21em]"
-          style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
-        >
-          <div className="rs-panel-title flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <img src={ASSETS.misc.ge_logo} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              Grand Exchange
-            </span>
-            <button onClick={() => setGeOpen(false)} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
-          </div>
-          <div className="space-y-[0.4em] mt-[0.6em]">
-            {ui.geOffers.map((o) => {
-              const afford = ui.money >= o.price;
-              return (
-                <button
-                  key={o.id}
-                  onClick={() => engineRef.current?.buyGeOffer(o.id)}
-                  disabled={!afford}
-                  title={o.desc}
-                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${afford ? '' : 'rs-slot-unafford'}`}
-                >
-                  <img src={geIcon(o.wiki)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-[0.4em]">
-                      <span className="text-[#e7d9b0] truncate">{o.name}</span>
-                      {o.activeSecs > 0 && <span className="rs-ge-timer">{o.activeSecs}s</span>}
-                    </span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{o.desc}</span>
-                  </span>
-                  <span className="font-bold whitespace-nowrap" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
-                    {fmt(o.price)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
-            Buffs last 45s · prices drift with demand each wave
-          </p>
-        </MovablePanel>
-      )}
-
-      {/* Essence Shop — permanent meta-progression upgrades (toggled from controls).
-          Earns persist across runs; buying steps a global upgrade toward its cap. */}
-      {essenceOpen && (
-        <MovablePanel
-          id="essence"
-          globalLock={uiLocked}
-          className="rs-panel absolute bottom-16 left-4 p-3 z-20 w-[23em]"
-          style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
-        >
-          <div className="rs-panel-title flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-              Essence Shop
-            </span>
-            <button onClick={() => setEssenceOpen(false)} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
-          </div>
-          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
-            <span className="text-[#cdbe91] uppercase tracking-wide">Rune Essence</span>
-            <span className="flex items-center gap-[0.3em] text-[#7ce0ff] font-bold">
-              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-              {fmt(ui.essence)}
-            </span>
-          </div>
-          <div className="space-y-[0.4em] mt-[0.6em]">
-            {GLOBAL_UPGRADE_DEFS.map((def) => {
-              const value = ui.upgrades[def.id];
-              const maxed = isMaxed(def, value);
-              const cost = nextCost(def, value);
-              const afford = ui.essence >= cost;
-              return (
-                <button
-                  key={def.id}
-                  onClick={() => engineRef.current?.buyEssenceUpgrade(def.id)}
-                  disabled={maxed || !afford}
-                  title={def.desc}
-                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${maxed || !afford ? 'rs-slot-unafford' : ''}`}
-                >
-                  <img src={geIcon(def.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-[0.4em]">
-                      <span className="text-[#e7d9b0] truncate">{def.name}</span>
-                      <span className="rs-ge-timer">{formatUpgradeValue(def, value)}</span>
-                    </span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{def.desc}</span>
-                  </span>
-                  {maxed ? (
-                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Max</span>
-                  ) : (
-                    <span className="flex items-center gap-[0.25em] font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
-                      {fmt(cost)}
-                      <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
-            Permanent upgrades · earn essence by clearing waves
-          </p>
-        </MovablePanel>
-      )}
-
-      {/* Slayer Rewards shop — the sink for Slayer points (a per-run currency
-          earned by completing tasks). */}
-      {slayerShopOpen && (
-        <MovablePanel
-          id="slayer-shop"
-          globalLock={uiLocked}
-          className="rs-panel absolute bottom-16 left-4 p-3 z-20 w-[23em]"
-          style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
-        >
-          <div className="rs-panel-title flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-              Slayer Rewards
-            </span>
-            <button onClick={() => setSlayerShopOpen(false)} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
-          </div>
-          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
-            <span className="text-[#cdbe91] uppercase tracking-wide">Slayer Points</span>
-            <span className="text-[#7ce0ff] font-bold">{ui.slayerPoints}</span>
-          </div>
-          <div className="space-y-[0.4em] mt-[0.6em]">
-            {SLAYER_REWARDS.map((r) => {
-              const owned = !!r.once && r.id === 'helmet' && ui.slayerHelmet;
-              const afford = ui.slayerPoints >= r.cost;
-              const disabled = owned || !afford;
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => engineRef.current?.buySlayerReward(r.id)}
-                  disabled={disabled}
-                  title={r.desc}
-                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${disabled ? 'rs-slot-unafford' : ''}`}
-                >
-                  <img src={geIcon(r.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                  <span className="flex-1 min-w-0">
-                    <span className="text-[#e7d9b0] truncate block">{r.name}</span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{r.desc}</span>
-                  </span>
-                  {owned ? (
-                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Owned</span>
-                  ) : (
-                    <span className="font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
-                      {r.cost} pts
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
-            Earn points by completing Slayer tasks
-          </p>
-        </MovablePanel>
       )}
 
       {/* Collection Log / Boss Log — lifetime kills per enemy, account-wide. */}
