@@ -1116,7 +1116,7 @@ export default function GameRoot() {
           style={{ boxShadow: '0 1px 0 0 var(--rs-bevel-light)' }}
         >
           <button onClick={() => setTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
-            <img src={towerIcon('archer')} alt="Towers" onError={hideBrokenImg} />
+            <img src={ASSETS.misc.multicombat_icon} alt="Towers &amp; Wave" onError={hideBrokenImg} />
           </button>
           <button onClick={() => setTab('ge')} title="Grand Exchange" className={`rs-tab ${tab === 'ge' ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.ge_logo} alt="Grand Exchange" onError={hideBrokenImg} />
@@ -1137,6 +1137,9 @@ export default function GameRoot() {
           </button>
         </div>
 
+        {/* Tab body: keyed by `tab` so switching re-mounts this wrapper and
+            retriggers the soft fade/slide-in (rs-tab-body) on each change. */}
+        <div key={tab} className="rs-tab-body">
         {/* ── HOME: tower shop + wave control ── */}
         {tab === 'home' && (
         <>
@@ -1388,6 +1391,7 @@ export default function GameRoot() {
           </p>
         </>
         )}
+        </div>
       </MovablePanel>
 
       {/* Speed + sound control (bottom-left) */}
@@ -1624,7 +1628,23 @@ function CollectionLog({ killCounts, tab, setTab, onClose, globalLock }: {
         </span>
       </div>
       {selected
-        ? <LogDetail type={selected} kc={killCounts[selected] ?? 0} onBack={() => setSelected(null)} />
+        ? (() => {
+            // Navigate within the current tab's list; wrap around so prev/next
+            // are always live (continuous bestiary browsing).
+            const idx = entries.findIndex((e) => e.type === selected);
+            const prev = entries[(idx - 1 + entries.length) % entries.length];
+            const next = entries[(idx + 1) % entries.length];
+            return (
+              <LogDetail
+                type={selected}
+                kc={killCounts[selected] ?? 0}
+                onBack={() => setSelected(null)}
+                onPrev={() => setSelected(prev.type)}
+                onNext={() => setSelected(next.type)}
+                position={{ index: idx + 1, total: entries.length }}
+              />
+            );
+          })()
         : (
           <div className="grid grid-cols-3 gap-[0.4em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
             {entries.map((e) => {
@@ -1652,14 +1672,25 @@ function CollectionLog({ killCounts, tab, setTab, onClose, globalLock }: {
 
 /** Detail card for one bestiary entry: an enlarged looping walk sprite + the
  *  enemy's combat stats and lifetime kill count. Opened by clicking a log card. */
-function LogDetail({ type, kc, onBack }: { type: string; kc: number; onBack: () => void }) {
+function LogDetail({ type, kc, onBack, onPrev, onNext, position }: {
+  type: string; kc: number; onBack: () => void;
+  onPrev: () => void; onNext: () => void;
+  position: { index: number; total: number };
+}) {
   const def = ENEMIES[type as keyof typeof ENEMIES];
   if (!def) return null;
   const wk = def.weakness ? ELEMENTS[def.weakness as keyof typeof ELEMENTS] : null;
   const style = enemySpriteStyle(type, true);
   return (
     <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
-      <button onClick={onBack} className="rs-btn px-[0.7em] py-[0.2em] text-[0.75em] mb-[0.6em]">◂ Back</button>
+      <div className="flex items-center justify-between mb-[0.6em]">
+        <button onClick={onBack} className="rs-btn px-[0.7em] py-[0.2em] text-[0.75em]">◂ Back</button>
+        <div className="flex items-center gap-[0.4em]">
+          <button onClick={onPrev} title="Previous (anterior)" className="rs-btn px-[0.7em] py-[0.2em] text-[0.85em] leading-none">‹</button>
+          <span className="text-[0.7em] text-[#d3c3a0] tabular-nums">{position.index} / {position.total}</span>
+          <button onClick={onNext} title="Next (próximo)" className="rs-btn px-[0.7em] py-[0.2em] text-[0.85em] leading-none">›</button>
+        </div>
+      </div>
       <div className="rs-panel-inset p-[0.7em] flex gap-[0.8em] items-start">
         <div
           className="rs-log-sprite shrink-0"

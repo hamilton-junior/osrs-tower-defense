@@ -235,6 +235,8 @@ export const ASSETS = {
     skill_crafting: `${LOCAL}/misc/skill_crafting.png`,
     skill_prayer: `${LOCAL}/misc/prayer_icon.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
+    // Multi-combat (crossed-swords) indicator — used as the Home/Wave sidebar tab.
+    multicombat_icon: 'https://oldschool.runescape.wiki/images/Multicombat.png',
     hit_splat: 'https://oldschool.runescape.wiki/images/Damage_hitsplat.png',
     magic_hit_splat: 'https://oldschool.runescape.wiki/images/Zero_damage_hitsplat.png',
     poison_hit_splat: 'https://oldschool.runescape.wiki/images/Poison_hit_splat.png',

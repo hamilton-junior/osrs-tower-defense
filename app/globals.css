@@ -493,6 +493,19 @@ body {
   pointer-events: none;
 }
 
+/* Soft fade + slight slide-up when the sidebar tab body switches. The wrapper is
+   keyed by the active tab, so React re-mounts it on each change and replays this. */
+.rs-tab-body {
+  animation: rs-tab-in 160ms ease-out both;
+}
+@keyframes rs-tab-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rs-tab-body { animation: none; }
+}
+
 /* Quick-prayer toggle buttons */
 .rs-prayer {
   position: relative;
