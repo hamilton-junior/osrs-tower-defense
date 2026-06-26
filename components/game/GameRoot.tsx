@@ -1106,13 +1106,13 @@ export default function GameRoot() {
       <MovablePanel
         id="shop"
         globalLock={uiLocked}
-        className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em]"
-        style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
+        className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em] flex flex-col"
+        style={{ fontSize: 'clamp(13px, 0.9vw, 18px)', maxHeight: '92vh' }}
       >
         {/* OSRS sidebar tab strip: each stone selects an interface (or pops one
             out). Icons + tooltips, with live badges for essence / Slayer points. */}
         <div
-          className="flex items-center justify-center gap-[0.4em] pb-[0.55em] mb-[0.6em] border-b border-[var(--rs-keyline)]"
+          className="shrink-0 flex items-center justify-center gap-[0.4em] pb-[0.55em] mb-[0.6em] border-b border-[var(--rs-keyline)]"
           style={{ boxShadow: '0 1px 0 0 var(--rs-bevel-light)' }}
         >
           <button onClick={() => setTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
@@ -1137,35 +1137,14 @@ export default function GameRoot() {
           </button>
         </div>
 
-        {/* Tab body: keyed by `tab` so switching re-mounts this wrapper and
-            retriggers the soft fade/slide-in (rs-tab-body) on each change. */}
-        <div key={tab} className="rs-tab-body">
-        {/* ── HOME: tower shop + wave control ── */}
+        {/* Tab body (top section): keyed by `tab` so switching re-mounts this
+            wrapper and retriggers the soft fade/slide-in (rs-tab-body). This is the
+            ONLY part the tab stones swap — the tower dock below stays mounted. flex-1
+            + overflow lets a long shop list scroll while the dock stays pinned. */}
+        <div key={tab} className="rs-tab-body flex-1 min-h-0 overflow-y-auto pr-[0.1em]">
+        {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
         <>
-        {/* Hover tooltip: tier-1 stats before buying */}
-        {hoverShop && (() => {
-          const t0 = TOWERS[hoverShop].tiers[0];
-          const combat = TOWER_COMBAT[hoverShop];
-          const dmg = t0.maxDamage != null ? `${t0.minDamage ?? 0}–${t0.maxDamage}` : t0.damage;
-          const icon = towerIcon(hoverShop);
-          return (
-            <div
-              className="rs-panel absolute bottom-full right-0 mb-2 p-2 w-[15em] z-20 pointer-events-none"
-              style={{ fontSize: 'clamp(12px, 0.85vw, 16px)' }}
-            >
-              <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
-                {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
-                <span className="truncate">{t0.name}</span>
-              </div>
-              <div className="space-y-[0.3em] mt-[0.4em] px-[0.1em]">
-                <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
-                <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
-                <Stat label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
-              </div>
-            </div>
-          );
-        })()}
         {/* Slayer task interface (tasks are auto-assigned) */}
         {ui.slayerTask && (
           <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
@@ -1217,39 +1196,6 @@ export default function GameRoot() {
             </button>
           )
         )}
-        <div className="rs-panel-title">Towers</div>
-        <div className="grid grid-cols-6 gap-2">
-          {TOWER_ORDER.map((type) => {
-            const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
-            const active = ui.selectedTowerType === type;
-            const afford = ui.money >= cost;
-            const icon = towerIcon(type);
-            return (
-              <button
-                key={type}
-                onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
-                onMouseEnter={() => setHoverShop(type)}
-                onMouseLeave={() => setHoverShop((h) => (h === type ? null : h))}
-                className={`rs-slot ${active ? 'selected' : ''} ${afford ? '' : 'rs-slot-unafford'}`}
-              >
-                {icon ? (
-                  <img src={icon} alt={TOWERS[type].baseName} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                ) : (
-                  <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>
-                )}
-                <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-center text-[0.7em] text-[#d3c3a0] mt-[0.5em]">
-          {ui.selectedTowerType === 'wizard'
-            ? 'Click a tile to choose its spellbook there · right‑click to cancel'
-            : 'Pick a tower, then click the map to place · right‑click to cancel'}
-        </p>
-        <p className="text-center text-[0.64em] text-[#b3a585] mt-[0.2em]">
-          <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> cancel · <kbd>M</kbd> mute
-        </p>
         </>
         )}
 
@@ -1260,7 +1206,7 @@ export default function GameRoot() {
             <img src={ASSETS.misc.ge_logo} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
             Grand Exchange
           </div>
-          <div className="space-y-[0.4em] mt-[0.6em] max-h-[52vh] overflow-y-auto pr-[0.2em]">
+          <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
             {ui.geOffers.map((o) => {
               const afford = ui.money >= o.price;
               return (
@@ -1306,7 +1252,7 @@ export default function GameRoot() {
               {fmt(ui.essence)}
             </span>
           </div>
-          <div className="space-y-[0.4em] mt-[0.6em] max-h-[48vh] overflow-y-auto pr-[0.2em]">
+          <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
             {GLOBAL_UPGRADE_DEFS.map((def) => {
               const value = ui.upgrades[def.id];
               const maxed = isMaxed(def, value);
@@ -1357,7 +1303,7 @@ export default function GameRoot() {
             <span className="text-[#cdbe91] uppercase tracking-wide">Slayer Points</span>
             <span className="text-[#7ce0ff] font-bold">{ui.slayerPoints}</span>
           </div>
-          <div className="space-y-[0.4em] mt-[0.6em] max-h-[48vh] overflow-y-auto pr-[0.2em]">
+          <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
             {SLAYER_REWARDS.map((r) => {
               const owned = !!r.once && r.id === 'helmet' && ui.slayerHelmet;
               const afford = ui.slayerPoints >= r.cost;
@@ -1391,6 +1337,71 @@ export default function GameRoot() {
           </p>
         </>
         )}
+        </div>
+
+        {/* Tower shop — ALWAYS visible, regardless of the selected tab, so towers
+            stay one click away while browsing the GE / Essence / Slayer interfaces.
+            The tab stones above only swap the top section; this dock never unmounts. */}
+        <div
+          className="shrink-0 relative pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
+          style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
+        >
+          {/* Hover tooltip: tier-1 stats before buying (anchored above the dock) */}
+          {hoverShop && (() => {
+            const t0 = TOWERS[hoverShop].tiers[0];
+            const combat = TOWER_COMBAT[hoverShop];
+            const dmg = t0.maxDamage != null ? `${t0.minDamage ?? 0}–${t0.maxDamage}` : t0.damage;
+            const icon = towerIcon(hoverShop);
+            return (
+              <div
+                className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[15em] z-20 pointer-events-none"
+                style={{ fontSize: 'clamp(12px, 0.85vw, 16px)' }}
+              >
+                <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
+                  {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
+                  <span className="truncate">{t0.name}</span>
+                </div>
+                <div className="space-y-[0.3em] mt-[0.4em] px-[0.1em]">
+                  <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
+                  <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
+                  <Stat label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
+                </div>
+              </div>
+            );
+          })()}
+          <div className="rs-panel-title">Towers</div>
+          <div className="grid grid-cols-6 gap-2">
+            {TOWER_ORDER.map((type) => {
+              const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
+              const active = ui.selectedTowerType === type;
+              const afford = ui.money >= cost;
+              const icon = towerIcon(type);
+              return (
+                <button
+                  key={type}
+                  onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
+                  onMouseEnter={() => setHoverShop(type)}
+                  onMouseLeave={() => setHoverShop((h) => (h === type ? null : h))}
+                  className={`rs-slot ${active ? 'selected' : ''} ${afford ? '' : 'rs-slot-unafford'}`}
+                >
+                  {icon ? (
+                    <img src={icon} alt={TOWERS[type].baseName} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  ) : (
+                    <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>
+                  )}
+                  <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-center text-[0.7em] text-[#d3c3a0] mt-[0.5em]">
+            {ui.selectedTowerType === 'wizard'
+              ? 'Click a tile to choose its spellbook there · right‑click to cancel'
+              : 'Pick a tower, then click the map to place · right‑click to cancel'}
+          </p>
+          <p className="text-center text-[0.64em] text-[#b3a585] mt-[0.2em]">
+            <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> cancel · <kbd>M</kbd> mute
+          </p>
         </div>
       </MovablePanel>
 
