@@ -64,7 +64,7 @@ const TARGETS = {
   prayer_off: 2663,            // deactivate vwoop (one shared clip for all, as in OSRS)
 
   // --- Tower attack sounds (config names from List_of_sound_IDs) ---
-  fire_archer: 2694,           // dark bow — crisp arrow release (was 2700 longbow, a mushy late-swell draw)
+  fire_archer: 2700,           // longbow
   fire_cannon: 1667,           // mcannon_fire (dwarf multicannon)
   fire_tzhaar: 190,            // superheat_all
   fire_slayer: 1718,           // magic_dart_fire
