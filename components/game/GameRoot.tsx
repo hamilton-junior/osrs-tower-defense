@@ -70,6 +70,57 @@ const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = {
   toxic: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
 };
 
+/** Each non-wizard tower's signature niche — the specific scenario where it earns
+ *  its slot over the wizard (which owns raw single-target + AoE). Copy mirrors the
+ *  maths in systems/tower-identity.ts and the on-hit effects in the engine. Notes
+ *  gated on a tier the tower hasn't reached are shown locked, so upgrading carries
+ *  a visible promise. The wizard returns null — it has its own spellbook section. */
+function towerSignature(
+  type: TowerType,
+  level: number,
+): { label: string; desc: string; notes: { text: string; active: boolean }[] } | null {
+  switch (type) {
+    case 'archer':
+      return {
+        label: 'Twin Shot',
+        desc: 'Fast, relentless arrows — raw single-target volume.',
+        notes: [
+          { text: 'Lv3 Dark Bow: looses a 2nd arrow at the next target', active: level >= 3 },
+          { text: 'Lv4: arrows bite harder vs high-HP foes', active: level >= 4 },
+        ],
+      };
+    case 'cannon':
+      return {
+        label: 'Full Splash',
+        desc: 'Every shell detonates for FULL damage on all caught in the blast — no AoE falloff like the Ancients barrage.',
+        notes: [{ text: 'Blast radius widens with each tier', active: true }],
+      };
+    case 'tzhaar':
+      return {
+        label: 'Knockback',
+        desc: 'Shoves enemies back down the path, stalling the rush — crowd control the wizard can’t match.',
+        notes: [{ text: 'Lv3 maul: the blow also briefly stuns (crush)', active: level >= 3 }],
+      };
+    case 'slayer':
+      return {
+        label: 'Slayer Mark',
+        desc: 'Bonus damage by monster category — your answer to tasks, Superiors and bosses.',
+        notes: [
+          { text: '+50% vs your current Slayer task', active: true },
+          { text: '+30% vs Superiors · +25% vs bosses', active: true },
+        ],
+      };
+    case 'toxic':
+      return {
+        label: 'Venom',
+        desc: 'Stacks ramping poison that keeps ticking after foes leave its range — deadliest on tanky, long-lived targets.',
+        notes: [],
+      };
+    default:
+      return null;
+  }
+}
+
 const TICK_MS = 600; // OSRS game tick = 0.6s
 const TILE_PX = 32; // grid tile size in logic px (mirrors engine GRID)
 const pct = (frac: number) => `+${Math.round(frac * 100)}%`;
@@ -896,6 +947,35 @@ export default function GameRoot() {
             <Stat label="Range" value={rangeNode} />
             <Stat label="Level" value={`${selectedTower.level}/${selectedTower.maxLevel}`} />
           </div>
+
+          {/* Signature niche — what this tower does that the wizard can't, made
+              explicit so players grasp each tower's identity. */}
+          {(() => {
+            const sig = towerSignature(selectedTower.type, selectedTower.level);
+            if (!sig) return null;
+            return (
+              <div className="mt-[0.6em] px-[0.2em]">
+                <div className="flex items-center gap-[0.4em] mb-[0.25em]">
+                  <span className="text-[0.72em] text-[#d3c3a0] uppercase tracking-wide">Signature</span>
+                  <span className="text-[0.74em] text-osrs-yellow font-semibold">{sig.label}</span>
+                </div>
+                <p className="text-[0.62em] text-[#b3a585] leading-snug">{sig.desc}</p>
+                {sig.notes.length > 0 && (
+                  <ul className="mt-[0.3em] space-y-[0.15em]">
+                    {sig.notes.map((n, i) => (
+                      <li
+                        key={i}
+                        className={`text-[0.6em] leading-snug flex gap-[0.35em] ${n.active ? 'text-[#9ccf9c]' : 'text-[#7a6f57]'}`}
+                      >
+                        <span>{n.active ? '▸' : '▹'}</span>
+                        <span>{n.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Active boosts on this tower (origin of the green stats): each shows
               the source icon + its damage bonus — potion timers live up top. */}
