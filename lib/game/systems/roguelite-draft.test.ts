@@ -12,7 +12,21 @@ const seq = (...xs: number[]) => {
   return () => xs[i++ % xs.length];
 };
 
+/** All leaf effects of a card, flattening `multi` bundles. */
+const leafEffects = (card: DraftCard): Exclude<DraftCard['effect'], { kind: 'multi' }>[] => {
+  const out: Exclude<DraftCard['effect'], { kind: 'multi' }>[] = [];
+  const walk = (e: DraftCard['effect']) => {
+    if (e.kind === 'multi') e.effects.forEach(walk);
+    else out.push(e);
+  };
+  walk(card.effect);
+  return out;
+};
+
 describe('DRAFT_POOL integrity', () => {
+  it('offers at least 50 distinct cards', () => {
+    expect(DRAFT_POOL.length).toBeGreaterThanOrEqual(50);
+  });
   it('has unique ids', () => {
     const ids = DRAFT_POOL.map(c => c.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -21,6 +35,29 @@ describe('DRAFT_POOL integrity', () => {
     for (const c of DRAFT_POOL) {
       expect(RARITY_WEIGHT[c.rarity]).toBeGreaterThan(0);
       expect(c.icon).toBeTruthy();
+    }
+  });
+  it('covers every rarity', () => {
+    const rarities = new Set(DRAFT_POOL.map(c => c.rarity));
+    expect(rarities).toEqual(new Set(['common', 'rare', 'epic']));
+  });
+  it('keeps range/fire-rate multipliers small and >1 (they are game-changers)', () => {
+    for (const c of DRAFT_POOL) {
+      for (const e of leafEffects(c)) {
+        if (e.kind === 'range' || e.kind === 'fireRate') {
+          expect(e.mult).toBeGreaterThan(1);
+          expect(e.mult).toBeLessThanOrEqual(1.1); // never a runaway single step
+        }
+        if (e.kind === 'damage') {
+          expect(e.mult).toBeGreaterThan(1);
+          expect(e.mult).toBeLessThanOrEqual(1.3);
+        }
+      }
+    }
+  });
+  it('multi cards bundle at least two effects', () => {
+    for (const c of DRAFT_POOL) {
+      if (c.effect.kind === 'multi') expect(c.effect.effects.length).toBeGreaterThanOrEqual(2);
     }
   });
 });

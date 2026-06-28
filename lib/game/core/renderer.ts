@@ -493,7 +493,11 @@ export class GameRenderer {
     const affordable = moving ? this.e.money >= this.e.moveTowerCost(moving) : this.e.money >= this.e.towerCost(type);
     const valid = affordable && isValidPlacement(sx, sy, this.e.path, others);
     const level = moving ? moving.level : 1;
-    const range = moving ? moving.range : TOWERS[type].tiers[0].range;
+    // Show the *effective* range (run mods, global upgrades, nearby Utility auras),
+    // so what the preview circle promises is what the placed tower actually gets.
+    const range = moving
+      ? (this.e.effectiveStats(moving.id)?.range ?? moving.range)
+      : this.e.previewStats(type, sx, sy).range;
 
     this.drawSquareRange(
       ctx, sx, sy, squareRange(range, GRID),

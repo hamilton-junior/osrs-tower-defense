@@ -874,10 +874,12 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
   background: linear-gradient(115deg, transparent 38%, rgba(255, 236, 190, 0.38) 50%, transparent 62%);
   background-size: 220% 100%;
   background-position: 130% 0;
-  animation: draft-foil-sweep 5.5s ease-in-out infinite;
+  animation: draft-foil-sweep 5.6s linear infinite;
 }
+/* One fast diagonal sweep (~0.55s, matching the plugin's 575ms), then a long
+   idle for the rest of the cycle (plugin: 5s cooldown). */
 @keyframes draft-foil-sweep {
-  0%, 72% { background-position: 130% 0; }
-  88% { background-position: -30% 0; }
-  100% { background-position: -30% 0; }
+  0% { background-position: 130% 0; }
+  10% { background-position: -30% 0; }
+  10.01%, 100% { background-position: 130% 0; }
 }

@@ -22,7 +22,7 @@ import { PrayerSystem } from '../systems/prayer-system';
 import { GeSystem, type GeListing } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
-import { rollDraft, type DraftCard } from '../systems/roguelite-draft';
+import { rollDraft, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import type { SlayerReward } from '../data/slayer';
@@ -549,6 +549,33 @@ export class GameEngine {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower) return null;
     return calculateTowerStats(tower, {
+      upgrades: this.meta.upgrades,
+      activePrayers: this.prayer.active,
+      activePotions: this.ge.active,
+      allTowers: this.towers,
+      runMods: this.runMods,
+    });
+  }
+
+  /** Effective stats for a not-yet-placed ghost tower of `type` at (x, y), so the
+   *  placement preview shows its *true* range (run mods, global upgrades, nearby
+   *  Utility auras) rather than the raw base tier range. */
+  previewStats(type: TowerType, x: number, y: number, level = 1): ComputedTowerStats {
+    const def = TOWERS[type];
+    const tier = def.tiers[Math.min(Math.max(level, 1), def.tiers.length) - 1];
+    const ghost: Tower = {
+      id: '__ghost__', x, y, type, level,
+      maxLevel: def.tiers.length,
+      range: tier.range, damage: tier.damage, cooldown: tier.cooldown,
+      lastFired: 0, color: tier.color, targetId: null, targetingPriority: 'first',
+      name: tier.name, upgradeCost: 0, special: tier.special,
+      minDamage: tier.minDamage, maxDamage: tier.maxDamage,
+      visualRadius: 18, disabledTimer: 0, specCharge: 0, specMax: 100,
+      skills: { strength: { level: 1, xp: 0 }, ranged: { level: 1, xp: 0 }, magic: { level: 1, xp: 0 } },
+      equipment: { weapon: null, shield: null, accessory: null },
+      mageMode: type === 'wizard' ? this.pendingMageMode : undefined,
+    };
+    return calculateTowerStats(ghost, {
       upgrades: this.meta.upgrades,
       activePrayers: this.prayer.active,
       activePotions: this.ge.active,
@@ -1806,9 +1833,13 @@ export class GameEngine {
   }
 
   /** Apply a drafted card's effect to the run. Instant effects grant a resource;
-   *  the multiplier effects fold into {@link runMods} and buff every tower. */
+   *  the multiplier effects fold into {@link runMods} and buff every tower; a
+   *  `multi` card bundles several effects (applied in order). */
   private applyDraftEffect(card: DraftCard) {
-    const e = card.effect;
+    this.applyDraftEffectOne(card.effect);
+  }
+
+  private applyDraftEffectOne(e: DraftEffect) {
     switch (e.kind) {
       case 'gold': this.awardGold(e.amount); break;
       case 'essence': this.meta.award(e.amount); break;
@@ -1817,6 +1848,7 @@ export class GameEngine {
       case 'damage': this.runMods.damage *= e.mult; break;
       case 'range': this.runMods.range *= e.mult; break;
       case 'fireRate': this.runMods.fireRate *= e.mult; break;
+      case 'multi': for (const sub of e.effects) this.applyDraftEffectOne(sub); break;
     }
   }
 

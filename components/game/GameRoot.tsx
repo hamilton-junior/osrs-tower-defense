@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
-import type { DraftCard, DraftRarity } from '@/lib/game/systems/roguelite-draft';
+import type { DraftCard, DraftRarity, DraftEffect } from '@/lib/game/systems/roguelite-draft';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
@@ -440,6 +440,9 @@ export default function GameRoot() {
   // key off the tower's combat style and skip unboostable weapons (the cannon).
   const eff = selectedTower ? engineRef.current?.effectiveStats(selectedTower.id) ?? null : null;
   const towerStyle = selectedTower ? TOWER_STYLES[selectedTower.type] : null;
+  // The Utility wizard is support-only: it never attacks, so its panel omits the
+  // damage / attack-speed lines (its "range" is the aura radius instead).
+  const isUtility = selectedTower?.type === 'wizard' && selectedTower.mageMode === 'utility';
   // One chip per active boost on this tower: icon + amount. Potions/prayers key
   // off the weapon's style (boostable only); the Utility aura buffs EVERY tower
   // (incl. the cannon), so it's listed separately with its net (post-diminishing)
@@ -519,28 +522,33 @@ export default function GameRoot() {
     const dmgBuffed = dmgMul !== 1 || flat !== 0;
     const rows: { label: string; from: string; to: string; buffed?: string }[] = [];
 
-    if (selectedTower.type === 'cannon' && selectedTower.maxDamage != null && next.maxDamage != null) {
-      const fromLo = selectedTower.minDamage ?? 0, fromHi = selectedTower.maxDamage;
-      const toLo = next.minDamage ?? 0, toHi = next.maxDamage;
-      rows.push({ label: 'Damage', from: `${fromLo}–${fromHi}`, to: `${toLo}–${toHi}`, buffed: dmgBuffed ? `${buffDmg(toLo)}–${buffDmg(toHi)}` : undefined });
-    } else {
-      const isAnc = selectedTower.type === 'wizard' && (selectedTower.mageMode ?? 'elemental') === 'ancients';
-      const fromD = isAnc ? ancientHit(selectedTower.level) : selectedTower.damage;
-      const toD = isAnc ? ancientHit(selectedTower.level + 1) : next.damage;
-      rows.push({ label: 'Damage', from: String(fromD), to: String(toD), buffed: dmgBuffed ? String(buffDmg(toD)) : undefined });
+    // Utility wizard never attacks → no damage / attack-speed rows; only its aura range.
+    if (!isUtility) {
+      if (selectedTower.type === 'cannon' && selectedTower.maxDamage != null && next.maxDamage != null) {
+        const fromLo = selectedTower.minDamage ?? 0, fromHi = selectedTower.maxDamage;
+        const toLo = next.minDamage ?? 0, toHi = next.maxDamage;
+        rows.push({ label: 'Damage', from: `${fromLo}–${fromHi}`, to: `${toLo}–${toHi}`, buffed: dmgBuffed ? `${buffDmg(toLo)}–${buffDmg(toHi)}` : undefined });
+      } else {
+        const isAnc = selectedTower.type === 'wizard' && (selectedTower.mageMode ?? 'elemental') === 'ancients';
+        const fromD = isAnc ? ancientHit(selectedTower.level) : selectedTower.damage;
+        const toD = isAnc ? ancientHit(selectedTower.level + 1) : next.damage;
+        rows.push({ label: 'Damage', from: String(fromD), to: String(toD), buffed: dmgBuffed ? String(buffDmg(toD)) : undefined });
+      }
     }
     rows.push({
-      label: 'Range',
+      label: isUtility ? 'Aura range' : 'Range',
       from: `${Math.round(selectedTower.range / TILE_PX)}`,
       to: `${Math.round(next.range / TILE_PX)} tiles`,
       buffed: rangeMul !== 1 ? `${Math.round((next.range * rangeMul) / TILE_PX)} tiles` : undefined,
     });
-    rows.push({
-      label: 'Attack speed',
-      from: attackSpeed(selectedTower.cooldown),
-      to: attackSpeed(next.cooldown),
-      buffed: cdMul !== 1 ? attackSpeed(next.cooldown * cdMul) : undefined,
-    });
+    if (!isUtility) {
+      rows.push({
+        label: 'Attack speed',
+        from: attackSpeed(selectedTower.cooldown),
+        to: attackSpeed(next.cooldown),
+        buffed: cdMul !== 1 ? attackSpeed(next.cooldown * cdMul) : undefined,
+      });
+    }
     return { name: next.name, cost: selectedTower.upgradeCost, rows, anyBuffed: rows.some((r) => r.buffed) };
   })();
 
@@ -955,13 +963,19 @@ export default function GameRoot() {
           </div>
 
           <div className="space-y-[0.4em] px-[0.2em] mt-[0.5em]">
-            <Stat
-              icon={TOWER_COMBAT[selectedTower.type].icon}
-              label={`Damage (${TOWER_COMBAT[selectedTower.type].label})`}
-              value={dmgNode}
-            />
-            <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={speedNode} />
-            <Stat label="Range" value={rangeNode} />
+            {/* The Utility wizard is a pure support aura — it never attacks, so it
+                has no Damage / Attack-speed line; its "range" is the aura radius. */}
+            {!isUtility && (
+              <>
+                <Stat
+                  icon={TOWER_COMBAT[selectedTower.type].icon}
+                  label={`Damage (${TOWER_COMBAT[selectedTower.type].label})`}
+                  value={dmgNode}
+                />
+                <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={speedNode} />
+              </>
+            )}
+            <Stat label={isUtility ? 'Aura range' : 'Range'} value={rangeNode} />
             <Stat label="Level" value={`${selectedTower.level}/${selectedTower.maxLevel}`} />
           </div>
 
@@ -1703,18 +1717,23 @@ const RARITY_COLOR: Record<DraftRarity, string> = {
 };
 const RARITY_LABEL: Record<DraftRarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic' };
 
-/** Short stat tag for a card's bottom band (mirrors the TCG "Score" line). */
-function draftEffectTag(card: DraftCard): string {
-  const e = card.effect;
+/** Short stat tag for a single effect. */
+function effectTag(e: DraftEffect): string {
   switch (e.kind) {
     case 'gold': return `+${e.amount} gp`;
-    case 'essence': return `+${e.amount} essence`;
+    case 'essence': return `+${e.amount} ess`;
     case 'life': return `+${e.amount} lives`;
     case 'maxLife': return `+${e.amount} max life`;
     case 'damage': return `×${e.mult.toFixed(2)} dmg`;
     case 'range': return `×${e.mult.toFixed(2)} range`;
     case 'fireRate': return `×${e.mult.toFixed(2)} speed`;
+    case 'multi': return e.effects.map(effectTag).join(' · ');
   }
+}
+
+/** Short stat tag for a card's bottom band (mirrors the TCG "Score" line). */
+function draftEffectTag(card: DraftCard): string {
+  return effectTag(card.effect);
 }
 
 /**
@@ -1760,7 +1779,7 @@ function DraftCardView({ card, onPick }: { card: DraftCard; onPick: () => void }
       </div>
       {/* stats band (10%) */}
       <div className="flex items-center justify-center" style={{ height: '10%', background: dark }}>
-        <span className="font-osrs text-white" style={{ fontSize: 'clamp(9px,0.7vw,11px)' }}>{draftEffectTag(card)}</span>
+        <span className="font-osrs text-white truncate max-w-full px-1" style={{ fontSize: 'clamp(8px,0.66vw,11px)' }}>{draftEffectTag(card)}</span>
       </div>
       {foil && <span className="draft-foil" aria-hidden />}
     </button>

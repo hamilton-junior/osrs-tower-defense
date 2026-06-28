@@ -99,11 +99,15 @@ export const TOWERS: Record<string, TowerDef> = {
     type: 'slayer',
     baseName: 'Slayer',
     fireSound: 'slayer_1',
+    // Melee executioner: short reach (a blade, not a bow) with a cadence that only
+    // ever gets *faster* as it tiers — 4 → 3 → 3 → 2 ticks — so its big per-tier
+    // damage + category bonus (slayerWeaponBonus) makes it the single-target boss
+    // killer. Tight range keeps it off the archer's long-range volume niche.
     tiers: [
-      { level: 1, name: 'Darklight', damage: 15, cooldown: 4 * TICK * 1000, range: 7 * 25, color: '#4B0082', upgradeCost: 125 },
-      { level: 2, name: 'Arclight', damage: 25, cooldown: 3 * TICK * 1000, range: 8 * 25, color: '#006400', upgradeCost: 250 },
-      { level: 3, name: 'Leaf-bladed Sword', damage: 55, cooldown: 5 * TICK * 1000, range: 10 * 25, color: '#00ff00', upgradeCost: 500 },
-      { level: 4, name: 'Emberlight', damage: 95, cooldown: 4 * TICK * 1000, range: 9 * 25, color: '#0000ff', upgradeCost: 1200 }
+      { level: 1, name: 'Darklight', damage: 15, cooldown: 4 * TICK * 1000, range: 4 * 25, color: '#4B0082', upgradeCost: 125 },
+      { level: 2, name: 'Arclight', damage: 25, cooldown: 3 * TICK * 1000, range: 4 * 25, color: '#006400', upgradeCost: 250 },
+      { level: 3, name: 'Leaf-bladed Sword', damage: 55, cooldown: 3 * TICK * 1000, range: 5 * 25, color: '#00ff00', upgradeCost: 500 },
+      { level: 4, name: 'Emberlight', damage: 95, cooldown: 2 * TICK * 1000, range: 5 * 25, color: '#0000ff', upgradeCost: 1200 }
     ]
   },
   toxic: {
