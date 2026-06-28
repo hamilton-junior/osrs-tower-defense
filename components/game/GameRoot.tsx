@@ -258,6 +258,9 @@ export default function GameRoot() {
   const [tab, setTab] = useState<SideTab>('home');
   const [logOpen, setLogOpen] = useState(false);
   const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards'>('monsters');
+  // The title / mode-select screen gates the very first wave; it returns on
+  // restart so each run picks its mode afresh.
+  const [runStarted, setRunStarted] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   // Minimize state for the prayer bar (collapses to the best prayer per style).
   const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
@@ -1316,23 +1319,11 @@ export default function GameRoot() {
             </div>
           ) : (
             <>
-              {ui.wave === 1 && (
-                <div className="mb-[0.6em]">
-                  <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.3em] text-center">Game Mode</div>
-                  <div className="grid grid-cols-2 gap-[0.4em]">
-                    {(['classic', 'roguelite'] as GameMode[]).map((m) => (
-                      <button
-                        key={m}
-                        className={`rs-btn py-[0.35em] text-[0.85em] ${ui.gameMode === m ? 'rs-btn-primary' : ''}`}
-                        onClick={() => engineRef.current?.setMode(m)}
-                        title={m === 'classic' ? 'Pure tower defense' : 'Draft a reward card after every wave'}
-                      >
-                        {m === 'classic' ? 'Classic' : 'Roguelite'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Mode is chosen on the StartScreen; here we only show the current
+                  mode as a small badge before each wave starts. */}
+              <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
+                Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
+              </div>
               <button
                 className="rs-btn rs-btn-primary w-full py-[0.5em] mb-[0.6em] text-[1.05em] animate-pulse"
                 onClick={() => engineRef.current?.startWave()}
@@ -1720,11 +1711,20 @@ export default function GameRoot() {
               <GoStat icon={ASSETS.misc.attack_icon} label="Slain" value={fmt(engineRef.current?.kills ?? 0)} />
               <GoStat icon={ASSETS.misc.coins_icon} label="Earned" value={`${fmt(engineRef.current?.goldEarned ?? 0)} gp`} />
             </div>
-            <button className="rs-btn rs-btn-primary px-6 py-2 w-full" onClick={() => engineRef.current?.restart()}>
+            <button className="rs-btn rs-btn-primary px-6 py-2 w-full" onClick={() => { engineRef.current?.restart(); setRunStarted(false); }}>
               ▶ Play Again
             </button>
           </div>
         </div>
+      )}
+
+      {/* Title / mode-select screen — gates the first wave of each run */}
+      {!runStarted && !ui.gameOver && (
+        <StartScreen
+          mode={ui.gameMode}
+          onSelect={(m) => engineRef.current?.setMode(m)}
+          onStart={() => { setRunStarted(true); engineRef.current?.startWave(); }}
+        />
       )}
     </div>
   );
@@ -1990,6 +1990,63 @@ function Stat({ icon, label, value }: { icon?: string; label: string; value: Rea
         {label}
       </span>
       <span className="text-osrs-yellow font-bold whitespace-nowrap">{value}</span>
+    </div>
+  );
+}
+
+/** Title / mode-select screen shown before the first wave of a run (and again on
+ *  restart). Two selectable mode panels — Classic (pure TD) vs Roguelite (per-wave
+ *  draft) — plus a Start button that locks the choice and kicks off wave 1. Mode
+ *  can only change here, since the engine freezes it once a run begins. */
+function StartScreen({ mode, onSelect, onStart }: {
+  mode: GameMode;
+  onSelect: (m: GameMode) => void;
+  onStart: () => void;
+}) {
+  const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string }[] = [
+    {
+      id: 'classic', name: 'Classic', tag: 'Pure Tower Defense',
+      desc: 'Build towers and survive the waves. No draft, no run buffs — just your defences against the horde.',
+      icon: `${ASSETS.misc.wiki_base}Dwarf_multicannon.png`,
+    },
+    {
+      id: 'roguelite', name: 'Roguelite', tag: 'Draft a card each wave',
+      desc: 'Clear a wave, then keep one OSRS reward card. Stack potions, weapons and combos into a build that snowballs.',
+      icon: `${ASSETS.misc.wiki_base}Collection_log.png`,
+    },
+  ];
+  return (
+    <div className="absolute inset-0 bg-black/82 flex flex-col items-center justify-center z-40 p-4">
+      <div className="rs-panel p-6 w-[34em] max-w-[94vw] flex flex-col">
+        <div className="text-center mb-1">
+          <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: 'clamp(20px, 2.4vw, 32px)' }}>OSRS Tower Defense</div>
+          <div className="text-[#cdbe91] text-[0.85em] mt-[0.4em]">Choose your mode</div>
+        </div>
+        <div className="grid grid-cols-2 gap-[0.7em] my-4">
+          {MODES.map((m) => {
+            const on = mode === m.id;
+            return (
+              <button
+                key={m.id}
+                onClick={() => onSelect(m.id)}
+                className="rs-panel-inset text-left p-[0.8em] flex flex-col gap-[0.35em]"
+                style={{ outline: `2px solid ${on ? 'var(--osrs-orange)' : 'transparent'}`, opacity: on ? 1 : 0.78 }}
+              >
+                <div className="flex items-center gap-[0.5em]">
+                  <img src={m.icon} alt="" className="w-[1.6em] h-[1.6em] object-contain" onError={hideBrokenImg} />
+                  <span className="text-osrs-yellow font-bold text-[1.05em]">{m.name}</span>
+                  {on && <span className="ml-auto text-osrs-orange text-[0.9em]">✓</span>}
+                </div>
+                <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{m.tag}</span>
+                <span className="text-[0.78em] text-[#d3c3a0] leading-snug">{m.desc}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button className="rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] animate-pulse" onClick={onStart}>
+          ▶ Start
+        </button>
+      </div>
     </div>
   );
 }
