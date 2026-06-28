@@ -22,7 +22,7 @@ import { PrayerSystem } from '../systems/prayer-system';
 import { GeSystem, type GeListing } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
-import { rollDraft, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
+import { rollDraft, DRAFT_POOL, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import type { SlayerReward } from '../data/slayer';
@@ -141,6 +141,8 @@ export interface UIState {
   unlockSeq: number;
   /** Lifetime kills per enemy type (the Collection Log). */
   killCounts: Record<string, number>;
+  /** Lifetime pick counts per draft-card id (the Collection Log "Cards" tab). */
+  cardCounts: Record<string, number>;
   /** True when the wave that just ended was a debug "custom wave" sandbox, so the
    *  UI can show a distinct "Custom Wave Complete!" banner. Reset when any wave
    *  starts. */
@@ -167,6 +169,19 @@ function sanitizeKillCounts(raw: unknown): Record<string, number> {
   if (raw && typeof raw === 'object') {
     for (const [type, v] of Object.entries(raw as Record<string, unknown>)) {
       if (type in ENEMIES && typeof v === 'number' && Number.isFinite(v) && v > 0) out[type] = Math.floor(v);
+    }
+  }
+  return out;
+}
+
+/** Clean a persisted Cards-log blob: keep only known card ids with a positive
+ *  finite integer pick count, so a corrupt/stale save can't poison the log. */
+function sanitizeCardCounts(raw: unknown): Record<string, number> {
+  const known = new Set(DRAFT_POOL.map(c => c.id));
+  const out: Record<string, number> = {};
+  if (raw && typeof raw === 'object') {
+    for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (known.has(id) && typeof v === 'number' && Number.isFinite(v) && v > 0) out[id] = Math.floor(v);
     }
   }
   return out;
@@ -341,6 +356,7 @@ export class GameEngine {
   /** Lifetime kills per enemy type (the Collection Log). Account-wide: seeded
    *  from the save, persisted by the UI, and NOT cleared on restart. */
   killCounts: Record<string, number> = {};
+  cardCounts: Record<string, number> = {};
   private notice: string | null = null;
   private noticeIcon: string | null = null;
   private noticeSeq = 0;
@@ -375,13 +391,14 @@ export class GameEngine {
   constructor(
     canvas: HTMLCanvasElement,
     onState: (patch: Partial<UIState>) => void,
-    save?: MetaLoad & { killCounts?: unknown },
+    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown },
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.onState = onState;
     this.meta = new MetaSystem(this, save);
     this.killCounts = sanitizeKillCounts(save?.killCounts);
+    this.cardCounts = sanitizeCardCounts(save?.cardCounts);
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.renderer = new GameRenderer(this);
     this.canvas.width = this.width;
@@ -486,6 +503,7 @@ export class GameEngine {
       unlocks: this.unlocks,
       unlockSeq: this.unlockSeq,
       killCounts: this.killCounts,
+      cardCounts: this.cardCounts,
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
       pendingDraft: this.pendingDraft,
@@ -1849,6 +1867,8 @@ export class GameEngine {
     const card = this.pendingDraft?.find(c => c.id === id);
     if (!card) return;
     this.applyDraftEffect(card);
+    // Lifetime Cards collection-log tally (account-wide, survives restart).
+    this.cardCounts = { ...this.cardCounts, [card.id]: (this.cardCounts[card.id] ?? 0) + 1 };
     this.pendingDraft = null;
     this.sound.play('sell'); // OSRS reward chime
     this.notify(`Drafted: ${card.name}`, card.icon);
@@ -1995,6 +2015,9 @@ export class GameEngine {
     const next = { ...this.killCounts };
     Object.keys(ENEMIES).slice(0, 6).forEach((t, i) => { next[t] = (next[t] ?? 0) + (i + 1) * 3; });
     this.killCounts = next;
+    const cards = { ...this.cardCounts };
+    DRAFT_POOL.slice(0, 8).forEach((c, i) => { cards[c.id] = (cards[c.id] ?? 0) + (i + 1); });
+    this.cardCounts = cards;
     this.emit();
   }
 

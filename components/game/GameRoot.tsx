@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
-import type { DraftCard, DraftRarity, DraftEffect } from '@/lib/game/systems/roguelite-draft';
+import { DRAFT_POOL, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
@@ -158,6 +158,7 @@ const INITIAL: UIState = {
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
   unlocks: [], unlockSeq: 0,
   killCounts: {},
+  cardCounts: {},
   lastWaveSandbox: false,
   gameMode: 'classic', pendingDraft: null,
   runMods: {
@@ -170,19 +171,21 @@ const INITIAL: UIState = {
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = { prayer: 'Prayer Unlocked' };
 
-const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts' } as const;
+const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts' } as const;
 
 /** Read the persisted account save (meta-progression + Collection Log) from
  *  localStorage, tolerating absent/corrupt data — the engine re-clamps it. */
-function loadSave(): { essence: number; upgrades: unknown; killCounts: unknown } {
-  if (typeof window === 'undefined') return { essence: 0, upgrades: undefined, killCounts: undefined };
+function loadSave(): { essence: number; upgrades: unknown; killCounts: unknown; cardCounts: unknown } {
+  if (typeof window === 'undefined') return { essence: 0, upgrades: undefined, killCounts: undefined, cardCounts: undefined };
   let essence = 0;
   let upgrades: unknown;
   let killCounts: unknown;
+  let cardCounts: unknown;
   try { essence = parseInt(localStorage.getItem(SAVE_KEYS.essence) ?? '0', 10) || 0; } catch { /* ignore */ }
   try { upgrades = JSON.parse(localStorage.getItem(SAVE_KEYS.upgrades) ?? 'null'); } catch { /* ignore */ }
   try { killCounts = JSON.parse(localStorage.getItem(SAVE_KEYS.killCounts) ?? 'null'); } catch { /* ignore */ }
-  return { essence, upgrades, killCounts };
+  try { cardCounts = JSON.parse(localStorage.getItem(SAVE_KEYS.cardCounts) ?? 'null'); } catch { /* ignore */ }
+  return { essence, upgrades, killCounts, cardCounts };
 }
 
 const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>)[id];
@@ -254,7 +257,7 @@ export default function GameRoot() {
   // Collection Log and Debug still pop out their own larger windows.
   const [tab, setTab] = useState<SideTab>('home');
   const [logOpen, setLogOpen] = useState(false);
-  const [logTab, setLogTab] = useState<'bosses' | 'monsters'>('monsters');
+  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards'>('monsters');
   const [debugOpen, setDebugOpen] = useState(false);
   // Minimize state for the prayer bar (collapses to the best prayer per style).
   const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
@@ -333,6 +336,14 @@ export default function GameRoot() {
     if (!kcLoaded.current) { kcLoaded.current = true; return; }
     try { localStorage.setItem(SAVE_KEYS.killCounts, JSON.stringify(ui.killCounts)); } catch { /* ignore */ }
   }, [ui.killCounts]);
+
+  // Persist the Cards collection log (lifetime draft-card picks) — like killCounts,
+  // it changes mid-run (on each draft pick) so it gets its own effect.
+  const ccLoaded = useRef(false);
+  useEffect(() => {
+    if (!ccLoaded.current) { ccLoaded.current = true; return; }
+    try { localStorage.setItem(SAVE_KEYS.cardCounts, JSON.stringify(ui.cardCounts)); } catch { /* ignore */ }
+  }, [ui.cardCounts]);
 
   // Flash a banner when a wave begins, and a "complete" banner when it ends.
   useEffect(() => {
@@ -1618,6 +1629,7 @@ export default function GameRoot() {
       {logOpen && (
         <CollectionLog
           killCounts={ui.killCounts}
+          cardCounts={ui.cardCounts}
           tab={logTab}
           setTab={setLogTab}
           onClose={() => setLogOpen(false)}
@@ -1686,7 +1698,12 @@ export default function GameRoot() {
           <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">Wave {ui.wave} cleared — keep one card</div>
           <div className="flex gap-4 flex-wrap justify-center">
             {ui.pendingDraft.map((card) => (
-              <DraftCardView key={card.id} card={card} onPick={() => engineRef.current?.pickDraftCard(card.id)} />
+              <DraftCardView
+                key={card.id}
+                card={card}
+                onPick={() => engineRef.current?.pickDraftCard(card.id)}
+                ctx={{ runMods: ui.runMods, gold: ui.money, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
+              />
             ))}
           </div>
         </div>
@@ -1728,26 +1745,99 @@ const RARITY_LABEL: Record<DraftRarity, string> = {
   ultra: 'Ultra-rare',
 };
 
-/** Short combat-style prefix for a styled stat tag (general buffs have none). */
-const STYLE_TAG: Record<'melee' | 'ranged' | 'magic', string> = { melee: 'melee ', ranged: 'ranged ', magic: 'magic ' };
+/** Combat-style → its OSRS combat-triangle icon (sword / bow / staff), used to
+ *  replace the words "melee"/"ranged"/"magic" inline in card text. */
+const STYLE_ICON: Record<'melee' | 'ranged' | 'magic', string> = {
+  melee: ASSETS.misc.attack_icon,
+  ranged: ASSETS.misc.ranged_icon,
+  magic: ASSETS.misc.magic_icon,
+};
 
-/** Short stat tag for a single effect. */
+/** Inline combat-style icon sized to the text it sits in. */
+function StyleIcon({ style }: { style: 'melee' | 'ranged' | 'magic' }) {
+  return (
+    <img
+      src={STYLE_ICON[style]}
+      alt={style}
+      title={style}
+      className="inline-block align-text-bottom"
+      style={{ width: '1.15em', height: '1.15em', objectFit: 'contain' }}
+      onError={hideBrokenImg}
+    />
+  );
+}
+
+/** Render a string with every "melee"/"ranged"/"magic" word swapped for its
+ *  combat-style icon (case-insensitive), so card copy reads in OSRS iconography. */
+function renderWithStyleIcons(text: string): React.ReactNode {
+  return text.split(/(melee|ranged|magic)/gi).map((part, i) => {
+    const low = part.toLowerCase();
+    if (low === 'melee' || low === 'ranged' || low === 'magic') return <StyleIcon key={i} style={low} />;
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
+
+/** Short stat tag for a single effect (collection-log / static use, no run). */
 function effectTag(e: DraftEffect): string {
   switch (e.kind) {
     case 'gold': return `+${e.amount} gp`;
     case 'essence': return `+${e.amount} ess`;
     case 'life': return `+${e.amount} lives`;
     case 'maxLife': return `+${e.amount} max life`;
-    case 'damage': return `×${e.mult.toFixed(2)} ${e.style ? STYLE_TAG[e.style] : ''}dmg`;
-    case 'range': return `×${e.mult.toFixed(2)} ${e.style ? STYLE_TAG[e.style] : ''}range`;
-    case 'fireRate': return `×${e.mult.toFixed(2)} ${e.style ? STYLE_TAG[e.style] : ''}speed`;
+    case 'damage': return `+${Math.round((e.mult - 1) * 100)}% ${e.style ? e.style + ' ' : ''}dmg`;
+    case 'range': return `+${Math.round((e.mult - 1) * 100)}% ${e.style ? e.style + ' ' : ''}range`;
+    case 'fireRate': return `+${Math.round((e.mult - 1) * 100)}% ${e.style ? e.style + ' ' : ''}speed`;
     case 'multi': return e.effects.map(effectTag).join(' · ');
   }
 }
 
-/** Short stat tag for a card's bottom band (mirrors the TCG "Score" line). */
-function draftEffectTag(card: DraftCard): string {
-  return effectTag(card.effect);
+/** Run state a draft card needs to preview "current → new total" on pick. */
+interface PreviewCtx {
+  runMods: UIState['runMods'];
+  gold: number;
+  essence: number;
+  lives: number;
+  maxLives: number;
+}
+
+/** One "current → new total" line for the card's stats band. */
+interface PreviewRow {
+  style?: 'melee' | 'ranged' | 'magic';
+  label: string;
+  from: string;
+  to: string;
+}
+
+const STAT_PCT = (v: number) => `+${Math.round((v - 1) * 100)}%`;
+const styleMods = (m: { melee: number; ranged: number; magic: number }, style?: 'melee' | 'ranged' | 'magic') =>
+  style ? m[style] : (m.melee + m.ranged + m.magic) / 3;
+
+/** Flatten a card's effect into "current → after-pick" rows against live run state. */
+function previewRows(card: DraftCard, ctx: PreviewCtx): PreviewRow[] {
+  const rows: PreviewRow[] = [];
+  const pushStat = (
+    m: { melee: number; ranged: number; magic: number },
+    style: 'melee' | 'ranged' | 'magic' | undefined,
+    mult: number,
+    label: string,
+  ) => {
+    const cur = styleMods(m, style);
+    rows.push({ style, label: style ? label : `all ${label}`, from: STAT_PCT(cur), to: STAT_PCT(cur * mult) });
+  };
+  const walk = (e: DraftEffect) => {
+    switch (e.kind) {
+      case 'multi': e.effects.forEach(walk); break;
+      case 'gold': rows.push({ label: 'gp', from: fmt(ctx.gold), to: fmt(ctx.gold + e.amount) }); break;
+      case 'essence': rows.push({ label: 'ess', from: fmt(ctx.essence), to: fmt(ctx.essence + e.amount) }); break;
+      case 'life': rows.push({ label: 'lives', from: String(ctx.lives), to: String(Math.min(ctx.maxLives, ctx.lives + e.amount)) }); break;
+      case 'maxLife': rows.push({ label: 'max life', from: String(ctx.maxLives), to: String(ctx.maxLives + e.amount) }); break;
+      case 'damage': pushStat(ctx.runMods.damage, e.style, e.mult, 'dmg'); break;
+      case 'range': pushStat(ctx.runMods.range, e.style, e.mult, 'range'); break;
+      case 'fireRate': pushStat(ctx.runMods.fireRate, e.style, e.mult, 'speed'); break;
+    }
+  };
+  walk(card.effect);
+  return rows;
 }
 
 /** A single themed band tile: a vertical gradient (lighter top → base bottom)
@@ -1769,48 +1859,85 @@ function bandStyle(base: string, grow: number): React.CSSProperties {
  * — title / art / tier / examine / stats — each its own rounded, gradient-shaded
  * tile (lighter top → base bottom) separated by dark gaps. Bands are tinted toward
  * the rarity colour; ultra-rare cards get an animated gold foil sheen.
+ *
+ * `ctx` (draft overlay) turns the stats band into a live "current → new total"
+ * preview; without it (collection log) the band shows the card's static buff.
+ * `locked`/`count` drive the collection-log silhouette + lifetime pick tally;
+ * `fill` makes the card stretch to its grid cell instead of a fixed width.
  */
-function DraftCardView({ card, onPick }: { card: DraftCard; onPick: () => void }) {
+function DraftCardView({ card, onPick, ctx, locked, count, fill }: {
+  card: DraftCard;
+  onPick?: () => void;
+  ctx?: PreviewCtx;
+  locked?: boolean;
+  count?: number;
+  fill?: boolean;
+}) {
   const color = RARITY_COLOR[card.rarity];
-  const foil = card.rarity === 'ultra';
+  const foil = card.rarity === 'ultra' && !locked;
   const dark = `color-mix(in srgb, #222222 68%, ${color} 32%)`;
   const mid = `color-mix(in srgb, #2F2F2F 80%, ${color} 20%)`;
+  const rows = ctx ? previewRows(card, ctx) : null;
   return (
     <button
       onClick={onPick}
+      disabled={!onPick}
       title={card.desc}
       className="draft-card group relative flex flex-col overflow-hidden text-center"
       style={{
-        width: 'clamp(132px, 12vw, 168px)',
+        width: fill ? '100%' : 'clamp(132px, 12vw, 168px)',
         aspectRatio: '180 / 260',
         background: '#2A2A2A',
         border: '3px solid #000000',
         borderRadius: 10,
         padding: 3,
         gap: 2,
+        cursor: onPick ? 'pointer' : 'default',
+        filter: locked ? 'grayscale(1) brightness(0.42)' : undefined,
+        opacity: locked ? 0.85 : 1,
         boxShadow: `0 0 0 1px #000, 0 8px 20px rgba(0,0,0,0.6), 0 0 14px ${color}44`,
       }}
     >
       {/* title band (10%) */}
       <div className="flex items-center justify-center px-1" style={bandStyle(dark, 10)}>
-        <span className="font-osrs leading-none" style={{ color, fontSize: 'clamp(9px,0.78vw,12px)', textShadow: '0 1px 1px #000' }}>{card.name}</span>
+        <span className="font-osrs leading-none" style={{ color, fontSize: 'clamp(8px,0.74vw,12px)', textShadow: '0 1px 1px #000' }}>{card.name}</span>
       </div>
-      {/* art window (40%) */}
-      <div className="flex items-center justify-center" style={bandStyle(mid, 40)}>
+      {/* art window (38%) */}
+      <div className="flex items-center justify-center" style={bandStyle(mid, 38)}>
         <img src={card.icon} alt="" className="object-contain" style={{ maxWidth: '64%', maxHeight: '78%', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.7))' }} onError={hideBrokenImg} />
       </div>
-      {/* tier band (10%) */}
-      <div className="flex items-center justify-center" style={bandStyle(dark, 10)}>
-        <span className="font-osrs uppercase tracking-wide" style={{ color, fontSize: 'clamp(8px,0.6vw,10px)', textShadow: '0 1px 1px #000' }}>{RARITY_LABEL[card.rarity]}</span>
+      {/* tier band (9%) */}
+      <div className="flex items-center justify-center" style={bandStyle(dark, 9)}>
+        <span className="font-osrs uppercase tracking-wide" style={{ color, fontSize: 'clamp(7px,0.56vw,10px)', textShadow: '0 1px 1px #000' }}>{RARITY_LABEL[card.rarity]}</span>
       </div>
-      {/* examine band (30%) */}
-      <div className="flex items-center justify-center px-2" style={bandStyle(mid, 30)}>
-        <span className="font-osrs leading-tight" style={{ color: '#d6cdb6', fontSize: 'clamp(9px,0.72vw,11px)', textShadow: '0 1px 1px #000' }}>{card.desc}</span>
+      {/* examine band (28%) — style words rendered as combat-triangle icons */}
+      <div className="flex items-center justify-center px-2" style={bandStyle(mid, 28)}>
+        <span className="font-osrs leading-tight" style={{ color: '#d6cdb6', fontSize: 'clamp(8px,0.7vw,11px)', textShadow: '0 1px 1px #000' }}>{renderWithStyleIcons(card.desc)}</span>
       </div>
-      {/* stats band (10%) */}
-      <div className="flex items-center justify-center" style={bandStyle(dark, 10)}>
-        <span className="font-osrs text-white truncate max-w-full px-1" style={{ fontSize: 'clamp(8px,0.66vw,11px)', textShadow: '0 1px 1px #000' }}>{draftEffectTag(card)}</span>
+      {/* stats band (15%) — live "current → new" preview, or the static buff */}
+      <div className="flex flex-col items-center justify-center px-1 overflow-hidden" style={bandStyle(dark, 15)}>
+        {rows
+          ? rows.map((r, i) => (
+              <span key={i} className="font-osrs flex items-center gap-[0.22em] leading-none whitespace-nowrap" style={{ fontSize: 'clamp(7px,0.6vw,10px)', textShadow: '0 1px 1px #000' }}>
+                {r.style && <StyleIcon style={r.style} />}
+                <span className="text-[#cdbe91]">{r.label}</span>
+                <span className="text-white/70">{r.from}</span>
+                <span className="text-[#9a8f72]">→</span>
+                <span className="text-osrs-yellow font-bold">{r.to}</span>
+              </span>
+            ))
+          : (
+            <span className="font-osrs text-white truncate max-w-full" style={{ fontSize: 'clamp(7px,0.6vw,10px)', textShadow: '0 1px 1px #000' }}>{renderWithStyleIcons(effectTag(card.effect))}</span>
+          )}
       </div>
+      {typeof count === 'number' && count > 0 && (
+        <span
+          className="absolute top-[2px] right-[2px] font-osrs text-osrs-yellow"
+          style={{ fontSize: 'clamp(8px,0.66vw,11px)', textShadow: '0 1px 2px #000', background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '0 0.3em' }}
+        >
+          × {fmt(count)}
+        </span>
+      )}
       {foil && <span className="draft-foil" aria-hidden />}
     </button>
   );
@@ -1863,20 +1990,27 @@ function Stat({ icon, label, value }: { icon?: string; label: string; value: Rea
   );
 }
 
-/** Collection Log / Boss Log: a centred OSRS window with Bosses / Monsters tabs.
- *  Every enemy shows its baked sprite + lifetime kill count; unobtained ones are
- *  darkened silhouettes (collection-log style). A completion counter per tab. */
-function CollectionLog({ killCounts, tab, setTab, onClose, globalLock }: {
+/** Collection Log / Boss Log: a centred OSRS window with Bosses / Monsters / Cards
+ *  tabs. Enemies show their baked sprite + lifetime kill count; the Cards tab shows
+ *  every draft card with its lifetime pick count. Unobtained entries are darkened
+ *  silhouettes (collection-log style). A completion counter per tab. */
+function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
-  tab: 'bosses' | 'monsters';
-  setTab: (t: 'bosses' | 'monsters') => void;
+  cardCounts: Record<string, number>;
+  tab: 'bosses' | 'monsters' | 'cards';
+  setTab: (t: 'bosses' | 'monsters' | 'cards') => void;
   onClose: () => void;
   globalLock: boolean;
 }) {
-  const entries = tab === 'bosses' ? BOSS_ENTRIES : MONSTER_ENTRIES;
-  const obtained = entries.filter((e) => (killCounts[e.type] ?? 0) > 0).length;
-  const complete = entries.length > 0 && obtained === entries.length;
-  // The clicked entry, shown as a detail card (stats + animated sprite).
+  const isCards = tab === 'cards';
+  const entries = tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : [];
+  const total = isCards ? DRAFT_POOL.length : entries.length;
+  const obtained = isCards
+    ? DRAFT_POOL.filter((c) => (cardCounts[c.id] ?? 0) > 0).length
+    : entries.filter((e) => (killCounts[e.type] ?? 0) > 0).length;
+  const complete = total > 0 && obtained === total;
+  // The clicked entry, shown as a detail card (stats + animated sprite). Enemy
+  // tabs only — cards self-describe, so the Cards grid isn't drill-down.
   const [selected, setSelected] = useState<string | null>(null);
   return (
     <MovablePanel
@@ -1894,7 +2028,7 @@ function CollectionLog({ killCounts, tab, setTab, onClose, globalLock }: {
       </div>
       <div className="flex items-center justify-between mt-[0.4em] mb-[0.5em]">
         <div className="flex gap-[0.3em]">
-          {(['bosses', 'monsters'] as const).map((t) => (
+          {(['bosses', 'monsters', 'cards'] as const).map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setSelected(null); }}
@@ -1905,10 +2039,19 @@ function CollectionLog({ killCounts, tab, setTab, onClose, globalLock }: {
           ))}
         </div>
         <span className="text-[0.78em] font-bold" style={{ color: complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}>
-          {obtained}/{entries.length} found
+          {obtained}/{total} found
         </span>
       </div>
-      {selected
+      {isCards
+        ? (
+          <div className="grid grid-cols-3 gap-[0.5em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
+            {DRAFT_POOL.map((c) => {
+              const n = cardCounts[c.id] ?? 0;
+              return <DraftCardView key={c.id} card={c} locked={n === 0} count={n} fill />;
+            })}
+          </div>
+        )
+        : selected
         ? (() => {
             // Navigate within the current tab's list; wrap around so prev/next
             // are always live (continuous bestiary browsing).
