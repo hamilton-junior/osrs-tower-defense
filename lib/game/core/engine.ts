@@ -67,6 +67,14 @@ export interface RunModifiers {
   damage: StyleMods;
   range: StyleMods;
   fireRate: StyleMods;
+  /** Flat gold added to every kill's payout (roguelite `bounty` cards). */
+  bounty: number;
+  /** Universal damage-taken multiplier on enemies — every tower's hit is scaled
+   *  by this (roguelite `vuln` cards). 1 = none. */
+  enemyDmgTaken: number;
+  /** Universal enemy move-speed multiplier applied at spawn (roguelite `chill`
+   *  cards). ≤1 = slower; composes with per-hit slows. 1 = none. */
+  enemySpeed: number;
 }
 
 const freshStyleMods = (): StyleMods => ({ melee: 1, ranged: 1, magic: 1 });
@@ -74,11 +82,17 @@ export const freshRunMods = (): RunModifiers => ({
   damage: freshStyleMods(),
   range: freshStyleMods(),
   fireRate: freshStyleMods(),
+  bounty: 0,
+  enemyDmgTaken: 1,
+  enemySpeed: 1,
 });
 const cloneRunMods = (m: RunModifiers): RunModifiers => ({
   damage: { ...m.damage },
   range: { ...m.range },
   fireRate: { ...m.fireRate },
+  bounty: m.bounty,
+  enemyDmgTaken: m.enemyDmgTaken,
+  enemySpeed: m.enemySpeed,
 });
 
 export interface UIState {
@@ -1154,6 +1168,9 @@ export class GameEngine {
     if (!def) return null;
     const scaled = scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, wave);
     const start = this.portalPoint;
+    // Roguelite `chill` cards slow every enemy run-wide; bake it into the spawn
+    // speed so it composes with (and is a floor under) the per-hit slows.
+    const spawnSpeed = scaled.speed * this.runMods.enemySpeed;
     return {
       ...def,
       id: uid(),
@@ -1161,8 +1178,8 @@ export class GameEngine {
       y: start.y,
       hp: scaled.hp,
       maxHp: scaled.hp,
-      speed: scaled.speed,
-      baseSpeed: scaled.speed,
+      speed: spawnSpeed,
+      baseSpeed: spawnSpeed,
       reward: scaled.reward,
       pathIndex: 0,
       slowTimer: 0,
@@ -1746,7 +1763,9 @@ export class GameEngine {
     // Helmet adds an on-task bonus vs the current task's monster.
     const vuln = enemy.vulnTimer && enemy.vulnTimer > 0 ? 1.25 : 1;
     const onTask = this.slayer.onTaskBonus(enemy.type);
-    const dealt = Math.max(0, Math.floor(amount * vuln * onTask));
+    // `enemyDmgTaken` is the run-wide roguelite curse amp (vuln cards) — a flat
+    // multiplier on every source of damage, stacking with the timed Water `vuln`.
+    const dealt = Math.max(0, Math.floor(amount * vuln * onTask * this.runMods.enemyDmgTaken));
     enemy.hp -= dealt;
     if (!minor) {
       enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
@@ -1804,7 +1823,8 @@ export class GameEngine {
     // Debug/sandbox enemies pay nothing and don't progress anything — they exist
     // only to test towers/enemies. The death FX above still play (visual feedback).
     if (!enemy.debug) {
-      this.awardGold(this.killGold(enemy.type));
+      // Roguelite `bounty` cards add flat gold to every kill's payout.
+      this.awardGold(this.killGold(enemy.type) + this.runMods.bounty);
       this.kills += 1;
       // New object each kill so the UI's persistence effect sees the change.
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
@@ -1895,6 +1915,9 @@ export class GameEngine {
       case 'damage': this.applyStyleMult(this.runMods.damage, e.mult, e.style); break;
       case 'range': this.applyStyleMult(this.runMods.range, e.mult, e.style); break;
       case 'fireRate': this.applyStyleMult(this.runMods.fireRate, e.mult, e.style); break;
+      case 'bounty': this.runMods.bounty += e.amount; break;
+      case 'vuln': this.runMods.enemyDmgTaken *= e.mult; break;
+      case 'chill': this.runMods.enemySpeed *= e.mult; break;
       case 'multi': for (const sub of e.effects) this.applyDraftEffectOne(sub); break;
     }
   }

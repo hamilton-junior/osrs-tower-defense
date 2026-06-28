@@ -27,7 +27,15 @@ export type DraftRarity = 'common' | 'uncommon' | 'rare' | 'ultra';
  *  `*Mult` effects fold into the engine's run modifiers and buff towers of the
  *  given `style` (or every tower when `style` is omitted = general). `multi`
  *  bundles several effects into one card. Add a kind here, handle it in the
- *  engine's `applyDraftEffectOne`, and add a card to {@link DRAFT_POOL}. */
+ *  engine's `applyDraftEffectOne`, and add a card to {@link DRAFT_POOL}.
+ *
+ *  The "battlefield" kinds are run-wide and play differently from the per-style
+ *  tower stats above — they enable distinct archetypes:
+ *  - `bounty`  : +flat gold on every kill (an economy build).
+ *  - `vuln`    : enemies take ×mult damage from ALL towers (a universal offence
+ *               that stacks with, and is style-agnostic unlike, `damage`).
+ *  - `chill`   : enemies move ×mult speed for the whole run (≤1 = slower; tempo /
+ *               crowd-control, keeping them in range longer). */
 export type DraftEffect =
   | { kind: 'gold'; amount: number }
   | { kind: 'essence'; amount: number }
@@ -36,6 +44,9 @@ export type DraftEffect =
   | { kind: 'damage'; mult: number; style?: CombatStyle }
   | { kind: 'range'; mult: number; style?: CombatStyle }
   | { kind: 'fireRate'; mult: number; style?: CombatStyle }
+  | { kind: 'bounty'; amount: number }
+  | { kind: 'vuln'; mult: number }
+  | { kind: 'chill'; mult: number }
   | { kind: 'multi'; effects: DraftEffect[] };
 
 export interface DraftCard {
@@ -72,6 +83,12 @@ const W = ASSETS.misc.wiki_base;
 const DMG: Record<DraftRarity, number> = { common: 1.03, uncommon: 1.05, rare: 1.075, ultra: 1.11 };
 const RNG: Record<DraftRarity, number> = { common: 1.015, uncommon: 1.02, rare: 1.03, ultra: 1.04 };
 const SPD: Record<DraftRarity, number> = { common: 1.015, uncommon: 1.02, rare: 1.03, ultra: 1.04 };
+// Battlefield steps. `vuln` is a UNIVERSAL damage amp (every tower, every style),
+// so its steps sit a touch below the general-damage tier to avoid eclipsing the
+// per-style cards. `chill` is a move-speed multiplier (≤1 = slower); small steps,
+// since keeping enemies in range longer compounds with every tower's uptime.
+const VULN: Record<DraftRarity, number> = { common: 1.02, uncommon: 1.03, rare: 1.04, ultra: 1.06 };
+const CHILL: Record<DraftRarity, number> = { common: 0.98, uncommon: 0.965, rare: 0.95, ultra: 0.93 };
 
 /**
  * The draft pool. 50+ OSRS-flavoured cards across four rarities. Stat buffs are
@@ -144,6 +161,21 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'reward_casket', name: 'Reward Casket', desc: '+300 gold from a master clue', rarity: 'rare', icon: `${W}Reward_casket_%28master%29.png`, effect: { kind: 'gold', amount: 300 } },
   { id: 'anglerfish', name: 'Anglerfish', desc: 'An overheal restores +3 lives', rarity: 'uncommon', icon: `${W}Anglerfish.png`, effect: { kind: 'life', amount: 3 } },
   { id: 'gilded_altar', name: 'Blessed Bone Shards', desc: '+18 Rune Essence (kept after the run)', rarity: 'uncommon', icon: `${W}Blessed_bone_shards.png`, effect: { kind: 'essence', amount: 18 } },
+
+  // ──────────────── battlefield: bounty (gold per kill) ───────────────────
+  { id: 'ring_of_wealth', name: 'Ring of Wealth', desc: '+3 gold from every kill, this run', rarity: 'uncommon', icon: `${W}Ring_of_wealth.png`, effect: { kind: 'bounty', amount: 3 } },
+  { id: 'ring_of_wealth_i', name: 'Ring of Wealth (i)', desc: '+6 gold from every kill, this run', rarity: 'rare', icon: `${W}Ring_of_wealth_%28i%29.png`, effect: { kind: 'bounty', amount: 6 } },
+  { id: 'gilded_scarab', name: 'Pharaoh’s Sceptre', desc: '+10 gold from every kill, this run', rarity: 'ultra', icon: `${W}Pharaoh%27s_sceptre.png`, effect: { kind: 'bounty', amount: 10 } },
+  // ─────────── battlefield: vulnerability (enemies take more damage) ────────
+  { id: 'curse', name: 'Curse', desc: 'Enemies take +2% damage from ALL towers, this run', rarity: 'common', icon: `${W}Curse.png`, effect: { kind: 'vuln', mult: VULN.common } },
+  { id: 'vulnerability', name: 'Vulnerability', desc: 'Enemies take +3% damage from ALL towers, this run', rarity: 'uncommon', icon: `${W}Vulnerability.png`, effect: { kind: 'vuln', mult: VULN.uncommon } },
+  { id: 'mark_of_darkness', name: 'Mark of Darkness', desc: 'Enemies take +4% damage from ALL towers, this run', rarity: 'rare', icon: `${W}Mark_of_Darkness.png`, effect: { kind: 'vuln', mult: VULN.rare } },
+  { id: 'enfeeble', name: 'Enfeeble', desc: 'Enemies take +6% damage from ALL towers, this run', rarity: 'ultra', icon: `${W}Enfeeble.png`, effect: { kind: 'vuln', mult: VULN.ultra } },
+  // ─────────────── battlefield: chill (enemies move slower) ────────────────
+  { id: 'bind', name: 'Bind', desc: 'Enemies move 2% slower, this run', rarity: 'common', icon: `${W}Bind.png`, effect: { kind: 'chill', mult: CHILL.common } },
+  { id: 'snare', name: 'Snare', desc: 'Enemies move 3.5% slower, this run', rarity: 'uncommon', icon: `${W}Snare.png`, effect: { kind: 'chill', mult: CHILL.uncommon } },
+  { id: 'entangle', name: 'Entangle', desc: 'Enemies move 5% slower, this run', rarity: 'rare', icon: `${W}Entangle.png`, effect: { kind: 'chill', mult: CHILL.rare } },
+  { id: 'ice_barrage_field', name: 'Ice Barrage', desc: 'Enemies move 7% slower, this run', rarity: 'ultra', icon: `${W}Ice_Barrage.png`, effect: { kind: 'chill', mult: CHILL.ultra } },
 
   // ───────────────────────────── combo cards ──────────────────────────────
   { id: 'berserker_ring', name: 'Berserker Ring', desc: '+3% damage & +1.5% attack speed for melee, this run', rarity: 'uncommon', icon: `${W}Berserker_ring.png`,
