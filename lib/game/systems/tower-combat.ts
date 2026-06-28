@@ -10,6 +10,9 @@ export interface TowerStatsContext {
   activePotions: ActivePotion[];
   /** All placed towers — needed to apply nearby Utility-mage support buffs. */
   allTowers: Tower[];
+  /** Roguelite run-scoped multipliers (damage/range/fireRate). Omitted in classic
+   *  mode; each defaults to 1 (no effect) when absent. */
+  runMods?: { damage: number; range: number; fireRate: number };
 }
 
 export interface ComputedTowerStats {
@@ -115,6 +118,13 @@ export function calculateTowerStats(
     if (item.bonus.damage) flatDamageBonus += item.bonus.damage;
     if (item.bonus.range) rangeMultiplier *= 1 + item.bonus.range / 100;
     if (item.bonus.cooldown) speedMultiplier *= 1 + item.bonus.cooldown / 100;
+  }
+
+  // Roguelite run-scoped buffs (drafts) — the last, run-wide layer over everything.
+  if (ctx.runMods) {
+    damageMultiplier *= ctx.runMods.damage;
+    rangeMultiplier *= ctx.runMods.range;
+    speedMultiplier *= ctx.runMods.fireRate;
   }
 
   return {

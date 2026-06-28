@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem } from '@/lib/game/core/engine';
+import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
+import type { DraftCard, DraftRarity } from '@/lib/game/systems/roguelite-draft';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
@@ -158,6 +159,7 @@ const INITIAL: UIState = {
   unlocks: [], unlockSeq: 0,
   killCounts: {},
   lastWaveSandbox: false,
+  gameMode: 'classic', pendingDraft: null, runMods: { damage: 1, range: 1, fireRate: 1 },
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
@@ -1283,12 +1285,31 @@ export default function GameRoot() {
               </div>
             </div>
           ) : (
-            <button
-              className="rs-btn rs-btn-primary w-full py-[0.5em] mb-[0.6em] text-[1.05em] animate-pulse"
-              onClick={() => engineRef.current?.startWave()}
-            >
-              ▶ Start Wave {ui.wave}
-            </button>
+            <>
+              {ui.wave === 1 && (
+                <div className="mb-[0.6em]">
+                  <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.3em] text-center">Game Mode</div>
+                  <div className="grid grid-cols-2 gap-[0.4em]">
+                    {(['classic', 'roguelite'] as GameMode[]).map((m) => (
+                      <button
+                        key={m}
+                        className={`rs-btn py-[0.35em] text-[0.85em] ${ui.gameMode === m ? 'rs-btn-primary' : ''}`}
+                        onClick={() => engineRef.current?.setMode(m)}
+                        title={m === 'classic' ? 'Pure tower defense' : 'Draft a reward card after every wave'}
+                      >
+                        {m === 'classic' ? 'Classic' : 'Roguelite'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button
+                className="rs-btn rs-btn-primary w-full py-[0.5em] mb-[0.6em] text-[1.05em] animate-pulse"
+                onClick={() => engineRef.current?.startWave()}
+              >
+                ▶ Start Wave {ui.wave}
+              </button>
+            </>
           )
         )}
         </>
@@ -1639,6 +1660,19 @@ export default function GameRoot() {
         </div>
       )}
 
+      {/* Roguelite draft — pick one card to keep before the next wave */}
+      {ui.pendingDraft && !ui.gameOver && (
+        <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30 p-4">
+          <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Draft a Reward</div>
+          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">Wave {ui.wave} cleared — keep one card</div>
+          <div className="flex gap-4 flex-wrap justify-center">
+            {ui.pendingDraft.map((card) => (
+              <DraftCardView key={card.id} card={card} onPick={() => engineRef.current?.pickDraftCard(card.id)} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Game over */}
       {ui.gameOver && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-30">
@@ -1657,6 +1691,79 @@ export default function GameRoot() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Draft-card rarity palette + labels, lifted from the OSRS TCG plugin's tier
+ *  colours (common white, rare blue, epic purple). */
+const RARITY_COLOR: Record<DraftRarity, string> = {
+  common: '#FFFFFF',
+  rare: '#3498DB',
+  epic: '#9B59B6',
+};
+const RARITY_LABEL: Record<DraftRarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic' };
+
+/** Short stat tag for a card's bottom band (mirrors the TCG "Score" line). */
+function draftEffectTag(card: DraftCard): string {
+  const e = card.effect;
+  switch (e.kind) {
+    case 'gold': return `+${e.amount} gp`;
+    case 'essence': return `+${e.amount} essence`;
+    case 'life': return `+${e.amount} lives`;
+    case 'maxLife': return `+${e.amount} max life`;
+    case 'damage': return `×${e.mult.toFixed(2)} dmg`;
+    case 'range': return `×${e.mult.toFixed(2)} range`;
+    case 'fireRate': return `×${e.mult.toFixed(2)} speed`;
+  }
+}
+
+/**
+ * A single roguelite draft card, styled after the OSRS TCG plugin's card face:
+ * a rounded rarity-coloured frame over a dark body, with five stacked bands —
+ * title / art window / tier / examine / stats — each tinted toward the rarity
+ * colour. Epic cards get an animated foil sheen.
+ */
+function DraftCardView({ card, onPick }: { card: DraftCard; onPick: () => void }) {
+  const color = RARITY_COLOR[card.rarity];
+  const foil = card.rarity === 'epic';
+  const dark = `color-mix(in srgb, #222222 68%, ${color} 32%)`;
+  const mid = `color-mix(in srgb, #2F2F2F 80%, ${color} 20%)`;
+  return (
+    <button
+      onClick={onPick}
+      title={card.desc}
+      className="draft-card group relative flex flex-col overflow-hidden text-center"
+      style={{
+        width: 'clamp(132px, 12vw, 168px)',
+        aspectRatio: '180 / 260',
+        background: '#2A2A2A',
+        border: `4px solid ${color}`,
+        borderRadius: 10,
+        boxShadow: `0 0 0 1px #100d09, 0 8px 20px rgba(0,0,0,0.6), 0 0 16px ${color}55`,
+      }}
+    >
+      {/* title band (10%) */}
+      <div className="flex items-center justify-center px-1" style={{ height: '10%', background: dark }}>
+        <span className="font-osrs leading-none" style={{ color, fontSize: 'clamp(9px,0.78vw,12px)', textShadow: '0 1px 0 #000' }}>{card.name}</span>
+      </div>
+      {/* art window (40%) */}
+      <div className="flex items-center justify-center" style={{ height: '40%', background: mid }}>
+        <img src={card.icon} alt="" className="object-contain" style={{ maxWidth: '64%', maxHeight: '78%', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))' }} onError={hideBrokenImg} />
+      </div>
+      {/* tier band (10%) */}
+      <div className="flex items-center justify-center" style={{ height: '10%', background: dark }}>
+        <span className="font-osrs uppercase tracking-wide" style={{ color, fontSize: 'clamp(8px,0.6vw,10px)' }}>{RARITY_LABEL[card.rarity]}</span>
+      </div>
+      {/* examine band (30%) */}
+      <div className="flex items-center justify-center px-2" style={{ height: '30%', background: mid }}>
+        <span className="font-osrs leading-tight" style={{ color: '#c9c1ad', fontSize: 'clamp(9px,0.72vw,11px)' }}>{card.desc}</span>
+      </div>
+      {/* stats band (10%) */}
+      <div className="flex items-center justify-center" style={{ height: '10%', background: dark }}>
+        <span className="font-osrs text-white" style={{ fontSize: 'clamp(9px,0.7vw,11px)' }}>{draftEffectTag(card)}</span>
+      </div>
+      {foil && <span className="draft-foil" aria-hidden />}
+    </button>
   );
 }
 

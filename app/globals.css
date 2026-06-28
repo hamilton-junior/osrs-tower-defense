@@ -853,3 +853,31 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
   background: linear-gradient(180deg, #cba94f, #8a6d24);
   border: 1px solid #0c0905;
 }
+
+/* ===== Roguelite draft cards (OSRS TCG-inspired) ===== */
+.draft-card {
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.draft-card:hover {
+  transform: translateY(-6px) scale(1.03);
+  filter: brightness(1.06);
+}
+.draft-card:active {
+  transform: translateY(-2px) scale(1.0);
+}
+/* Moving gold sheen on epic (foil) cards — idle most of the cycle, then sweeps. */
+.draft-foil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 236, 190, 0.38) 50%, transparent 62%);
+  background-size: 220% 100%;
+  background-position: 130% 0;
+  animation: draft-foil-sweep 5.5s ease-in-out infinite;
+}
+@keyframes draft-foil-sweep {
+  0%, 72% { background-position: 130% 0; }
+  88% { background-position: -30% 0; }
+  100% { background-position: -30% 0; }
+}

@@ -22,6 +22,7 @@ import { PrayerSystem } from '../systems/prayer-system';
 import { GeSystem, type GeListing } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
+import { rollDraft, type DraftCard } from '../systems/roguelite-draft';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import type { SlayerReward } from '../data/slayer';
@@ -46,6 +47,18 @@ export interface UnlockItem {
 }
 
 /** Flat, cloneable snapshot the engine pushes to React. */
+/** Which mode the run is played in. `classic` is plain tower-defense; `roguelite`
+ *  adds a per-wave {@link DraftCard} choice that buffs the run. */
+export type GameMode = 'classic' | 'roguelite';
+
+/** Run-scoped multipliers granted by roguelite drafts. All default to 1 and reset
+ *  on {@link GameEngine.restart}; they layer onto every tower in the combat pipe. */
+export interface RunModifiers {
+  damage: number;
+  range: number;
+  fireRate: number;
+}
+
 export interface UIState {
   money: number;
   lives: number;
@@ -110,6 +123,14 @@ export interface UIState {
    *  UI can show a distinct "Custom Wave Complete!" banner. Reset when any wave
    *  starts. */
   lastWaveSandbox: boolean;
+  /** Active game mode (`classic` / `roguelite`). */
+  gameMode: GameMode;
+  /** Roguelite: the draft hand offered after the last wave clear, awaiting a pick
+   *  (null when no draft is pending). The next wave can't start until it's
+   *  resolved. */
+  pendingDraft: DraftCard[] | null;
+  /** Roguelite: the accumulated run-scoped buffs from drafts (for the UI). */
+  runMods: RunModifiers;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -254,7 +275,8 @@ export class GameEngine {
 
   money = START_MONEY;
   lives = START_LIVES;
-  readonly maxLives = START_LIVES;
+  /** Not readonly: roguelite "Fortify" drafts raise the cap mid-run. */
+  maxLives = START_LIVES;
   wave = 1;
   waveActive = false;
   gameOver = false;
@@ -267,6 +289,14 @@ export class GameEngine {
   /** Whether the most recently ended wave was a sandbox custom wave (drives the
    *  "Custom Wave Complete!" banner). Cleared when any wave starts. */
   private lastWaveSandbox = false;
+
+  /** Active game mode. Roguelite layers a per-wave draft over classic TD. Chosen
+   *  before the first wave via {@link setMode}; persists across {@link restart}. */
+  gameMode: GameMode = 'classic';
+  /** Roguelite: the draft hand awaiting a pick after a wave clear (null = none). */
+  pendingDraft: DraftCard[] | null = null;
+  /** Roguelite: run-scoped buff multipliers accumulated from drafts. */
+  runMods: RunModifiers = { damage: 1, range: 1, fireRate: 1 };
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
@@ -435,6 +465,9 @@ export class GameEngine {
       unlockSeq: this.unlockSeq,
       killCounts: this.killCounts,
       lastWaveSandbox: this.lastWaveSandbox,
+      gameMode: this.gameMode,
+      pendingDraft: this.pendingDraft,
+      runMods: { ...this.runMods },
     });
   }
 
@@ -520,6 +553,7 @@ export class GameEngine {
       activePrayers: this.prayer.active,
       activePotions: this.ge.active,
       allTowers: this.towers,
+      runMods: this.runMods,
     });
   }
 
@@ -1011,6 +1045,7 @@ export class GameEngine {
 
   startWave() {
     if (this.waveActive || this.gameOver) return;
+    if (this.pendingDraft) { this.notify('Choose a draft card first'); return; }
     this.slayer.assignTask(); // idempotent: ensure a task exists so it can seed the wave
     this.spawnQueue = this.generateWave(this.wave);
     this.waveTotal = this.spawnQueue.length;
@@ -1227,6 +1262,7 @@ export class GameEngine {
         activePrayers: this.prayer.active,
         activePotions: this.ge.active,
         allTowers: this.towers,
+        runMods: this.runMods,
       });
       const half = squareRange(stats.range, GRID);
       // Test the enemy's body, not just its centre, so a tower fires as soon as
@@ -1741,7 +1777,47 @@ export class GameEngine {
     this.checkPrayerUnlocks(); // celebrate any tower prayers gating on the new wave
     this.prayer.refill(); // top up to the new wave's (possibly larger) pool
     this.ge.onWaveCleared(); // drift shop prices toward this wave's demand
+    // Roguelite: offer a draft hand to keep before the next wave can start.
+    if (this.gameMode === 'roguelite' && !this.gameOver) {
+      this.pendingDraft = rollDraft(Math.random, 3);
+      this.sound.play('interface_open');
+    }
     this.emit();
+  }
+
+  /** Choose the game mode. Only switches before the run starts (wave 1, no wave
+   *  running) and restarts to apply it cleanly; ignored mid-run. */
+  setMode(mode: GameMode) {
+    if (mode === this.gameMode) return;
+    if (this.wave !== 1 || this.waveActive) { this.notify('Finish the run to switch modes'); return; }
+    this.gameMode = mode;
+    this.restart();
+  }
+
+  /** Roguelite: keep one drafted card, apply its effect, and clear the hand so the
+   *  next wave can start. No-op if the id isn't in the current hand. */
+  pickDraftCard(id: string) {
+    const card = this.pendingDraft?.find(c => c.id === id);
+    if (!card) return;
+    this.applyDraftEffect(card);
+    this.pendingDraft = null;
+    this.sound.play('sell'); // OSRS reward chime
+    this.notify(`Drafted: ${card.name}`, card.icon);
+  }
+
+  /** Apply a drafted card's effect to the run. Instant effects grant a resource;
+   *  the multiplier effects fold into {@link runMods} and buff every tower. */
+  private applyDraftEffect(card: DraftCard) {
+    const e = card.effect;
+    switch (e.kind) {
+      case 'gold': this.awardGold(e.amount); break;
+      case 'essence': this.meta.award(e.amount); break;
+      case 'life': this.lives = Math.min(this.maxLives, this.lives + e.amount); break;
+      case 'maxLife': this.maxLives += e.amount; this.lives += e.amount; break;
+      case 'damage': this.runMods.damage *= e.mult; break;
+      case 'range': this.runMods.range *= e.mult; break;
+      case 'fireRate': this.runMods.fireRate *= e.mult; break;
+    }
   }
 
   private endGame() {
@@ -1763,6 +1839,10 @@ export class GameEngine {
     // the starting-gold bonus to the fresh balance.
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.lives = START_LIVES;
+    this.maxLives = START_LIVES;
+    // Roguelite run-scoped state resets; the chosen game mode itself persists.
+    this.runMods = { damage: 1, range: 1, fireRate: 1 };
+    this.pendingDraft = null;
     this.wave = 1;
     this.kills = 0;
     this.goldEarned = 0;
