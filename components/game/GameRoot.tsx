@@ -1723,7 +1723,7 @@ export default function GameRoot() {
         <StartScreen
           mode={ui.gameMode}
           onSelect={(m) => engineRef.current?.setMode(m)}
-          onStart={() => { setRunStarted(true); engineRef.current?.startWave(); }}
+          onStart={() => { setRunStarted(true); }}
         />
       )}
     </div>
@@ -2044,8 +2044,9 @@ function StartScreen({ mode, onSelect, onStart }: {
           })}
         </div>
         <button className="rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] animate-pulse" onClick={onStart}>
-          ▶ Start
+          ▶ Confirm
         </button>
+        <div className="text-center text-[0.7em] text-[#cdbe91] mt-[0.5em]">Then press <span className="text-osrs-orange">Start Wave</span> when you&apos;re ready.</div>
       </div>
     </div>
   );

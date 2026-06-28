@@ -140,6 +140,10 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'saradomin_brew', name: 'Saradomin Brew', desc: 'A blessed brew restores +4 lives', rarity: 'rare', icon: `${W}Saradomin_brew%284%29.png`, effect: { kind: 'life', amount: 4 } },
   { id: 'fortify_gate', name: 'Rune Kiteshield', desc: '+1 max life (and heal 1)', rarity: 'rare', icon: `${W}Rune_kiteshield.png`, effect: { kind: 'maxLife', amount: 1 } },
   { id: 'greater_fortify', name: 'Dragon Kiteshield', desc: '+2 max life (and heal 2)', rarity: 'ultra', icon: `${W}Dragon_kiteshield.png`, effect: { kind: 'maxLife', amount: 2 } },
+  { id: 'tokkul', name: 'Tokkul', desc: '+120 gold from the TzHaar', rarity: 'common', icon: `${W}Tokkul.png`, effect: { kind: 'gold', amount: 120 } },
+  { id: 'reward_casket', name: 'Reward Casket', desc: '+300 gold from a master clue', rarity: 'rare', icon: `${W}Reward_casket_%28master%29.png`, effect: { kind: 'gold', amount: 300 } },
+  { id: 'anglerfish', name: 'Anglerfish', desc: 'An overheal restores +3 lives', rarity: 'uncommon', icon: `${W}Anglerfish.png`, effect: { kind: 'life', amount: 3 } },
+  { id: 'gilded_altar', name: 'Blessed Bone Shards', desc: '+18 Rune Essence (kept after the run)', rarity: 'uncommon', icon: `${W}Blessed_bone_shards.png`, effect: { kind: 'essence', amount: 18 } },
 
   // ───────────────────────────── combo cards ──────────────────────────────
   { id: 'berserker_ring', name: 'Berserker Ring', desc: '+3% damage & +1.5% attack speed for melee, this run', rarity: 'uncommon', icon: `${W}Berserker_ring.png`,
@@ -158,6 +162,24 @@ export const DRAFT_POOL: readonly DraftCard[] = [
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'melee' }, { kind: 'fireRate', mult: SPD.rare, style: 'melee' }, { kind: 'range', mult: RNG.rare, style: 'melee' }] } },
   { id: 'elite_void', name: 'Elite Void', desc: '+5% damage, +2% range & +2% attack speed for ALL, this run', rarity: 'ultra', icon: `${W}Elite_void_top.png`,
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon }, { kind: 'range', mult: RNG.uncommon }, { kind: 'fireRate', mult: SPD.uncommon }] } },
+  { id: 'dragon_boots', name: 'Dragon Boots', desc: '+3% damage & +1.5% range for melee, this run', rarity: 'uncommon', icon: `${W}Dragon_boots.png`,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'range', mult: RNG.common, style: 'melee' }] } },
+  { id: 'archers_ring', name: 'Archers Ring', desc: '+3% damage & +1.5% range for ranged, this run', rarity: 'uncommon', icon: `${W}Archers_ring.png`,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'ranged' }, { kind: 'range', mult: RNG.common, style: 'ranged' }] } },
+  { id: 'seers_ring', name: 'Seers Ring', desc: '+3% damage & +1.5% range for magic, this run', rarity: 'uncommon', icon: `${W}Seers_ring.png`,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'magic' }, { kind: 'range', mult: RNG.common, style: 'magic' }] } },
+  { id: 'fire_cape', name: 'Fire Cape', desc: '+5% damage & +2% range for melee, this run', rarity: 'rare', icon: `${W}Fire_cape.png`,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'melee' }, { kind: 'range', mult: RNG.uncommon, style: 'melee' }] } },
+  { id: 'avas_assembler', name: "Ava's Assembler", desc: '+5% damage & +2% attack speed for ranged, this run', rarity: 'rare', icon: `${W}Ava%27s_assembler.png`,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'ranged' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'ranged' }] } },
+  { id: 'eternal_boots', name: 'Eternal Boots', desc: '+5% damage & +2% attack speed for magic, this run', rarity: 'rare', icon: `${W}Eternal_boots.png`,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'magic' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' }] } },
+  { id: 'amulet_of_fury', name: 'Amulet of Fury', desc: '+3% damage & +1.5% attack speed for ALL towers, this run', rarity: 'rare', icon: `${W}Amulet_of_fury.png`,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common }, { kind: 'fireRate', mult: SPD.common }] } },
+  { id: 'masori_set', name: 'Masori Armour', desc: '+7.5% damage, +3% range & +3% attack speed for ranged, this run', rarity: 'ultra', icon: `${W}Masori_body.png`,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'ranged' }, { kind: 'range', mult: RNG.rare, style: 'ranged' }, { kind: 'fireRate', mult: SPD.rare, style: 'ranged' }] } },
+  { id: 'ancestral_set', name: 'Ancestral Robes', desc: '+7.5% damage, +3% range & +3% attack speed for magic, this run', rarity: 'ultra', icon: `${W}Ancestral_robe_top.png`,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'magic' }, { kind: 'range', mult: RNG.rare, style: 'magic' }, { kind: 'fireRate', mult: SPD.rare, style: 'magic' }] } },
 ];
 
 /**
