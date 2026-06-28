@@ -158,10 +158,16 @@ export type HitsplatKind = 'hit' | 'miss' | 'poison' | 'venom' | 'burn' | 'heal'
 /** The damage-over-time kinds, ticked independently in `damageOverTime`. */
 const DOT_KINDS: readonly DotKind[] = ['burn', 'poison', 'venom'];
 
-/** Vertical lane per DoT kind so multiple DoTs on one enemy fan out instead of
- *  overriding each other: poison rises, venom sinks, burn holds the middle.
- *  A new DoT kind just needs a lane here to inherit the same spread. */
-const DOT_LANE: Record<DotKind, number> = { poison: -1, burn: 0, venom: 1 };
+/** Per-DoT-kind splat lane so multiple DoTs on one enemy fan out instead of
+ *  overriding each other. `side` picks the horizontal side (-1 left, +1 right);
+ *  `rise` picks the vertical sense (+1 up, -1 down). The four quadrants give room
+ *  for new DoT kinds — burn=left/up, poison=right/up, venom=right/down, leaving
+ *  left/down ({ side: -1, rise: -1 }) free for the next one. */
+const DOT_LANE: Record<DotKind, { side: number; rise: number }> = {
+  burn: { side: -1, rise: 1 },
+  poison: { side: 1, rise: 1 },
+  venom: { side: 1, rise: -1 },
+};
 
 /** Transient OSRS-style hit marker shown over an enemy when it takes damage. */
 export interface Hitsplat {
@@ -1088,8 +1094,8 @@ export class GameEngine {
       const h = this.hitsplats[i];
       h.life -= dt;
       if (h.minor) {
-        h.x += (h.vx ?? 0) * dt; // slight horizontal jitter
-        h.y += (h.vy ?? 0) * dt; // per-kind lane: poison rises, venom sinks
+        h.x += (h.vx ?? 0) * dt; // drift to its lane's side
+        h.y += (h.vy ?? 0) * dt; // and up or down per its lane
       } else {
         h.y -= 28 * dt; // direct hits float up
       }
@@ -1647,19 +1653,21 @@ export class GameEngine {
       if (hurtClip && (enemy.hurtAnim ?? 0) <= 0) enemy.hurtAnim = clipDurationS(hurtClip);
     }
     const below = enemy.isBoss ? 30 : 16;
-    // DoT splats fan out into per-kind lanes (poison rises, venom sinks, burn
-    // holds the middle) so an enemy carrying several shows them clearly apart
-    // rather than one overriding the next. See DOT_LANE.
-    const lane = minor ? (DOT_LANE[kind as DotKind] ?? 0) : 0;
+    // DoT splats fan into per-kind lanes (side + rise) so an enemy carrying
+    // several shows them clearly apart rather than one overriding the next:
+    // burn drifts left/up, poison right/up, venom right/down. See DOT_LANE.
+    const lane = minor ? DOT_LANE[kind as DotKind] : undefined;
+    const side = lane?.side ?? 0;
+    const rise = lane?.rise ?? 0;
     this.hitsplats.push({
-      x: enemy.x + lane * 12 + (Math.random() - 0.5) * (minor ? 8 : 16),
-      y: (minor ? enemy.y + below : enemy.y - 18) + lane * 4,
+      x: enemy.x + side * 14 + (Math.random() - 0.5) * (minor ? 8 : 16),
+      y: minor ? enemy.y + below : enemy.y - 18,
       value: dealt,
       kind: dealt > 0 ? kind : 'miss',
       life: HITSPLAT_LIFE,
       minor: minor || undefined,
-      vx: minor ? (Math.random() - 0.5) * 16 : 0,
-      vy: minor ? lane * 26 : 0,
+      vx: minor ? side * 30 + (Math.random() - 0.5) * 16 : 0,
+      vy: minor ? rise * -26 : 0,
     });
     if (dealt > 0 && !minor && !silent) this.sound.play('hit', 70);
     if (enemy.hp > 0) return false;
