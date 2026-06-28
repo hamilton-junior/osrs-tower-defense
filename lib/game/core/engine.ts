@@ -156,7 +156,7 @@ const SHORTEST_CAST_S = 1.52;
 export type HitsplatKind = 'hit' | 'miss' | 'poison' | 'venom' | 'burn' | 'heal';
 
 /** The damage-over-time kinds, ticked independently in `damageOverTime`. */
-const DOT_KINDS: readonly DotKind[] = ['burn', 'poison'];
+const DOT_KINDS: readonly DotKind[] = ['burn', 'poison', 'venom'];
 
 /** Transient OSRS-style hit marker shown over an enemy when it takes damage. */
 export interface Hitsplat {
@@ -174,7 +174,7 @@ export interface Hitsplat {
 
 /** Live summary of the enemy under the pointer, for the hover info panel. */
 /** Active debuff kinds shown as icons in the enemy hover panel. */
-export type DebuffId = 'slow' | 'stun' | 'burn' | 'poison' | 'vuln';
+export type DebuffId = 'slow' | 'stun' | 'burn' | 'poison' | 'venom' | 'vuln';
 
 export interface EnemyHoverInfo {
   name: string;
@@ -487,6 +487,11 @@ export class GameEngine {
     this.meta.buy(id);
   }
 
+  /** Respec the Essence Shop: reset all upgrades and refund 90% of essence spent. */
+  refundEssence() {
+    this.meta.refund();
+  }
+
   /** Spend Slayer points in the Slayer Rewards shop (UI button). */
   buySlayerReward(id: SlayerReward['id']) {
     this.slayer.buyReward(id);
@@ -638,6 +643,7 @@ export class GameEngine {
     if (e.stunTimer > 0) effects.push('stun');
     if ((e.dots?.burn?.timer ?? 0) > 0) effects.push('burn');
     if ((e.dots?.poison?.timer ?? 0) > 0) effects.push('poison');
+    if ((e.dots?.venom?.timer ?? 0) > 0) effects.push('venom');
     if (e.vulnTimer && e.vulnTimer > 0) effects.push('vuln');
     return {
       name: e.name,
@@ -1560,13 +1566,14 @@ export class GameEngine {
         break;
       }
       case 'venom': {
-        // Toxic venom: a poison DoT that ramps each reapply up to a damage-scaled
-        // cap and keeps ticking after the enemy leaves range. DoT → tenacity-immune.
+        // Toxic venom: its OWN DoT (tracked apart from Smoke `poison`) that ramps
+        // each reapply up to a damage-scaled cap and keeps ticking after the enemy
+        // leaves range. DoT → tenacity-immune; splats a darker green than poison.
         const { step, cap, dur } = venomRamp(p.damage);
         const dots = (e.dots ??= {});
-        const cur = dots.poison;
+        const cur = dots.venom;
         if (cur) { cur.dps = Math.min(cap, cur.dps + step); cur.timer = Math.max(cur.timer, dur); }
-        else dots.poison = { timer: dur, dps: step, accum: 0, tickTimer: 0 };
+        else dots.venom = { timer: dur, dps: step, accum: 0, tickTimer: 0 };
         break;
       }
       default:
@@ -1632,9 +1639,9 @@ export class GameEngine {
       if (hurtClip && (enemy.hurtAnim ?? 0) <= 0) enemy.hurtAnim = clipDurationS(hurtClip);
     }
     const below = enemy.isBoss ? 30 : 16;
-    // DoT splats are biased to a fixed side per kind (burn left, poison right) so
-    // an enemy carrying both shows them clearly apart instead of stacked.
-    const dotSide = minor ? (kind === 'poison' ? 1 : -1) : 0;
+    // DoT splats are biased to a fixed side per kind (burn left, poison/venom
+    // right) so an enemy carrying both shows them clearly apart, not stacked.
+    const dotSide = minor ? (kind === 'poison' || kind === 'venom' ? 1 : -1) : 0;
     this.hitsplats.push({
       x: enemy.x + dotSide * 14 + (Math.random() - 0.5) * (minor ? 8 : 16),
       y: minor ? enemy.y + below : enemy.y - 18,
@@ -1776,6 +1783,11 @@ export class GameEngine {
   debugSetGold(n: number) {
     this.money = Math.max(0, Math.floor(n) || 0);
     this.emit();
+  }
+
+  /** Set the persistent Rune Essence balance outright. */
+  debugSetEssence(n: number) {
+    this.meta.setEssence(n);
   }
 
   /** Set remaining lives (clamped to the max). */

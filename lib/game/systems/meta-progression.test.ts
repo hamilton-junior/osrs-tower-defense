@@ -9,6 +9,9 @@ import {
   steppedValue,
   formatUpgradeValue,
   sanitizeUpgrades,
+  spentOn,
+  totalEssenceSpent,
+  refundValue,
   type UpgradeDef,
 } from './meta-progression';
 
@@ -78,6 +81,27 @@ describe('isMaxed / steppedValue', () => {
     let v = 1;
     for (let i = 0; i < 10; i++) v = steppedValue(def('archerRange'), v);
     expect(isMaxed(def('archerRange'), v)).toBe(true);
+  });
+});
+
+describe('spentOn / totalEssenceSpent / refundValue', () => {
+  it('sums the geometric purchase prices for one upgrade', () => {
+    const d = def('startingMoney'); // baseCost 50
+    expect(spentOn(d, 0)).toBe(0);    // nothing bought
+    expect(spentOn(d, 50)).toBe(50);  // 50
+    expect(spentOn(d, 100)).toBe(150); // 50 + 100
+    expect(spentOn(d, 150)).toBe(350); // 50 + 100 + 200
+  });
+  it('totals spend across every upgrade', () => {
+    expect(totalEssenceSpent(DEFAULT_UPGRADES)).toBe(0);
+    // startingMoney +100 (50+100=150) and archerRange one step (100).
+    const ups = { ...DEFAULT_UPGRADES, startingMoney: 100, archerRange: 1.1 };
+    expect(totalEssenceSpent(ups)).toBe(150 + 100);
+  });
+  it('refunds 90% of total spend, floored', () => {
+    expect(refundValue(DEFAULT_UPGRADES)).toBe(0);
+    const ups = { ...DEFAULT_UPGRADES, startingMoney: 150 }; // spent 350
+    expect(refundValue(ups)).toBe(Math.floor(350 * 0.9)); // 315
   });
 });
 

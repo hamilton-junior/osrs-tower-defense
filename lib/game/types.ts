@@ -75,10 +75,12 @@ export interface EnemyDef {
   renderScale?: number;
 }
 
-/** A damage-over-time effect kind. Each ticks and renders independently. */
-export type DotKind = 'burn' | 'poison';
+/** A damage-over-time effect kind. Each ticks and renders independently. Toxic
+ *  `venom` is tracked apart from Smoke `poison` (it ramps, and splats a darker
+ *  green) even though both are poison-family. */
+export type DotKind = 'burn' | 'poison' | 'venom';
 
-/** One independent damage-over-time effect (fire burn or poison). */
+/** One independent damage-over-time effect (fire burn, poison or venom). */
 export interface DotState {
   /** Seconds of DoT remaining. */
   timer: number;
@@ -100,8 +102,8 @@ export interface Enemy extends EnemyDef {
   slowTimer: number;
   stunTimer: number;
   tauntTimer: number;
-  /** Independent damage-over-time effects (fire `burn`, `poison`), ticked and
-   *  shown as separate hitsplats so the two never merge into one splat. */
+  /** Independent damage-over-time effects (`burn`, `poison`, `venom`), ticked and
+   *  shown as separate hitsplats so they never merge into one splat. */
   dots?: Partial<Record<DotKind, DotState>>;
   /** Bosses build crowd-control resistance from non-damaging debuffs they take
    *  (+1% tenacity each); this counts those hits. See `GameEngine.tenacity`. */

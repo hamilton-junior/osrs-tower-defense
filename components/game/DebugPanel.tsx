@@ -175,7 +175,7 @@ function NumberRow({ label, value, onCommit, min = 0 }: {
  *  plays each enemy's baked walk/hurt/death clips off-wave, with its stats). */
 export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   engineRef: React.RefObject<GameEngine | null>;
-  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean };
+  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number };
   onClose: () => void;
   globalLock: boolean;
 }) {
@@ -226,6 +226,7 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
           <div className="rs-panel-inset p-[0.5em] space-y-[0.4em]">
             <NumberRow label="Wave" value={ui.wave} min={1} onCommit={(n) => engineRef.current?.debugSetWave(n)} />
             <NumberRow label="Gold" value={ui.money} onCommit={(n) => engineRef.current?.debugSetGold(n)} />
+            <NumberRow label="Essence" value={ui.essence} onCommit={(n) => engineRef.current?.debugSetEssence(n)} />
             <NumberRow label="Lives" value={ui.lives} onCommit={(n) => engineRef.current?.debugSetLives(n)} />
             {ui.waveActive && <p className="text-[0.66em] text-[#b3a585]">Wave editing is locked mid-wave.</p>}
           </div>

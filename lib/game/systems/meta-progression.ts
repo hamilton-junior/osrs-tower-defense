@@ -84,6 +84,25 @@ export function nextCost(def: UpgradeDef, value: number): number {
   return def.baseCost * Math.pow(2, purchaseCount(def, value));
 }
 
+/** Total essence sunk into one upgrade at its current value — the geometric sum
+ *  of every purchase made so far (baseCost·(2^count − 1)). */
+export function spentOn(def: UpgradeDef, value: number): number {
+  return def.baseCost * (Math.pow(2, purchaseCount(def, value)) - 1);
+}
+
+/** Total essence spent across all bought upgrades — the basis for a refund. */
+export function totalEssenceSpent(upgrades: GlobalUpgrades): number {
+  return GLOBAL_UPGRADE_DEFS.reduce((sum, def) => sum + spentOn(def, upgrades[def.id]), 0);
+}
+
+/** Fraction of spent essence returned by a full refund (the rest is the sink). */
+export const REFUND_RATE = 0.9;
+
+/** Essence returned by refunding every upgrade at the current `upgrades` state. */
+export function refundValue(upgrades: GlobalUpgrades): number {
+  return Math.floor(totalEssenceSpent(upgrades) * REFUND_RATE);
+}
+
 /** Whether the upgrade is already saturated (a further step would pass the cap). */
 export function isMaxed(def: UpgradeDef, value: number): boolean {
   return def.inc > 0 ? value >= def.max - EPS : value <= def.max + EPS;

@@ -2,10 +2,12 @@ import type { GameEngine } from '../core/engine';
 import type { GlobalUpgrades } from '../types';
 import {
   GLOBAL_UPGRADE_DEFS,
+  DEFAULT_UPGRADES,
   sanitizeUpgrades,
   nextCost,
   isMaxed,
   steppedValue,
+  refundValue,
 } from './meta-progression';
 
 /** Persisted meta-progression blob (localStorage on the React side). */
@@ -55,6 +57,24 @@ export class MetaSystem {
     this.essence -= cost;
     this.upgrades = { ...this.upgrades, [id]: steppedValue(def, value) };
     this.e.playSound('sell'); // OSRS shop chime
+    this.e.requestEmit();
+  }
+
+  /** Refund every bought upgrade: reset them to baseline and return REFUND_RATE
+   *  (90%) of the essence ever spent. The 10% kept is the respec sink. */
+  refund() {
+    const back = refundValue(this.upgrades);
+    if (back <= 0) { this.e.notify('Nothing to refund'); return; }
+    this.upgrades = { ...DEFAULT_UPGRADES };
+    this.essence += back;
+    this.e.playSound('sell'); // OSRS shop chime
+    this.e.notify(`Refunded ${back} essence (90%)`);
+    this.e.requestEmit();
+  }
+
+  /** Set the essence balance outright (debug cheat). */
+  setEssence(amount: number) {
+    this.essence = Math.max(0, Math.floor(amount) || 0);
     this.e.requestEmit();
   }
 

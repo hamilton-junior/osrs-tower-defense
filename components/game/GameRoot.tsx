@@ -9,7 +9,7 @@ import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
-import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue } from '@/lib/game/systems/meta-progression';
+import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, refundValue } from '@/lib/game/systems/meta-progression';
 import { SLAYER_REWARDS } from '@/lib/game/data/slayer';
 import { ENEMIES } from '@/lib/game/data/enemies';
 import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
@@ -34,6 +34,7 @@ const DEBUFF_META: Record<DebuffId, { label: string; icon: string; color: string
   stun: { label: 'Stunned', icon: ASSETS.debuffs.stun, color: '#9c6b3f', desc: 'Rooted in place — cannot move' },
   burn: { label: 'Burning', icon: ASSETS.debuffs.burn, color: '#ff7a2a', desc: 'Taking fire damage over time' },
   poison: { label: 'Poisoned', icon: ASSETS.debuffs.poison, color: '#5bd75b', desc: 'Taking poison damage over time' },
+  venom: { label: 'Envenomed', icon: ASSETS.debuffs.poison, color: '#0b5c0b', desc: 'Taking venom damage that ramps the longer it stacks' },
   vuln: { label: 'Vulnerable', icon: ASSETS.debuffs.vuln, color: '#c87bff', desc: 'Takes increased damage' },
 };
 /** Staves cycled per spellbook in the wizard's on-tile picker. */
@@ -113,8 +114,22 @@ function towerSignature(
     case 'toxic':
       return {
         label: 'Venom',
-        desc: 'Stacks ramping poison that keeps ticking after foes leave its range — deadliest on tanky, long-lived targets.',
-        notes: [],
+        desc: 'Drips venom — its own dark-green DoT, apart from poison.',
+        notes: [
+          { text: 'Each hit ramps the venom up to a damage-scaled cap', active: true },
+          { text: 'Keeps ticking after foes leave its range', active: true },
+          { text: 'Ignores crowd-control resistance — bites bosses just as hard', active: true },
+        ],
+      };
+    case 'wizard':
+      return {
+        label: 'Arcane Mastery',
+        desc: 'The complete caster — pick a spellbook below to specialise.',
+        notes: [
+          { text: 'Elemental: raw single-target + weakness bonus', active: true },
+          { text: 'Ancients: true AoE barrages with a status', active: true },
+          { text: 'Utility: an always-on aura that buffs nearby towers', active: true },
+        ],
       };
     default:
       return null;
@@ -1366,6 +1381,25 @@ export default function GameRoot() {
               );
             })}
           </div>
+          {(() => {
+            const refund = refundValue(ui.upgrades);
+            return (
+              <button
+                onClick={() => engineRef.current?.refundEssence()}
+                disabled={refund <= 0}
+                title="Reset every upgrade and reclaim 90% of the essence you've spent"
+                className={`rs-btn w-full mt-[0.6em] py-[0.4em] text-[0.78em] flex items-center justify-center gap-[0.35em] ${refund <= 0 ? 'rs-slot-unafford' : ''}`}
+              >
+                Refund all
+                {refund > 0 && (
+                  <span className="flex items-center gap-[0.2em] text-[#7ce0ff] font-bold">
+                    +{fmt(refund)}
+                    <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                  </span>
+                )}
+              </button>
+            );
+          })()}
           <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
             Permanent upgrades · earn essence by clearing waves
           </p>

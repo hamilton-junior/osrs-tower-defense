@@ -23,7 +23,9 @@
 body {
   background-color: #000;
   color: #fff;
-  font-family: system-ui, -apple-system, sans-serif;
+  /* The whole game uses the OSRS pixel font (RuneScape, with VT323 as the close
+     web fallback) — no element should fall back to a system sans-serif. */
+  font-family: 'RuneScape', var(--font-osrs), 'VT323', monospace;
   overflow: hidden;
   image-rendering: pixelated;
   font-size: 120%;
