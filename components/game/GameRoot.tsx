@@ -165,9 +165,6 @@ const INITIAL: UIState = {
     damage: { melee: 1, ranged: 1, magic: 1 },
     range: { melee: 1, ranged: 1, magic: 1 },
     fireRate: { melee: 1, ranged: 1, magic: 1 },
-    bounty: 0,
-    enemyDmgTaken: 1,
-    enemySpeed: 1,
   },
 };
 
@@ -1783,8 +1780,6 @@ function renderWithStyleIcons(text: string): React.ReactNode {
 /** Format a multiplier's bonus as a percent, keeping a single decimal only when
  *  needed (so 1.075 → "7.5", 1.03 → "3") — buff steps can be fractional now. */
 const pctStr = (mult: number) => String(+((mult - 1) * 100).toFixed(1));
-/** Format a ≤1 slow multiplier as its reduction percent (0.95 → "5"). */
-const slowPctStr = (mult: number) => String(+((1 - mult) * 100).toFixed(1));
 
 /** Short stat tag for a single effect (collection-log / static use, no run). */
 function effectTag(e: DraftEffect): string {
@@ -1796,9 +1791,6 @@ function effectTag(e: DraftEffect): string {
     case 'damage': return `+${pctStr(e.mult)}% ${e.style ? e.style + ' ' : ''}dmg`;
     case 'range': return `+${pctStr(e.mult)}% ${e.style ? e.style + ' ' : ''}range`;
     case 'fireRate': return `+${pctStr(e.mult)}% ${e.style ? e.style + ' ' : ''}speed`;
-    case 'bounty': return `+${e.amount} gp/kill`;
-    case 'vuln': return `+${pctStr(e.mult)}% enemy dmg`;
-    case 'chill': return `−${slowPctStr(e.mult)}% enemy speed`;
     case 'multi': return e.effects.map(effectTag).join(' · ');
   }
 }
@@ -1846,9 +1838,6 @@ function previewRows(card: DraftCard, ctx: PreviewCtx): PreviewRow[] {
       case 'damage': pushStat(ctx.runMods.damage, e.style, e.mult, 'dmg'); break;
       case 'range': pushStat(ctx.runMods.range, e.style, e.mult, 'range'); break;
       case 'fireRate': pushStat(ctx.runMods.fireRate, e.style, e.mult, 'speed'); break;
-      case 'bounty': rows.push({ label: 'gp/kill', from: fmt(ctx.runMods.bounty), to: fmt(ctx.runMods.bounty + e.amount) }); break;
-      case 'vuln': { const cur = ctx.runMods.enemyDmgTaken; rows.push({ label: 'enemy dmg', from: STAT_PCT(cur), to: STAT_PCT(cur * e.mult) }); break; }
-      case 'chill': { const cur = ctx.runMods.enemySpeed; rows.push({ label: 'enemy slow', from: `−${slowPctStr(cur)}%`, to: `−${slowPctStr(cur * e.mult)}%` }); break; }
     }
   };
   walk(card.effect);

@@ -69,28 +69,6 @@ describe('DRAFT_POOL integrity', () => {
       if (c.effect.kind === 'multi') expect(c.effect.effects.length).toBeGreaterThanOrEqual(2);
     }
   });
-  it('battlefield effects are well-formed (bounty>0, vuln amp>1, chill slow in (0,1])', () => {
-    for (const c of DRAFT_POOL) {
-      for (const e of leafEffects(c)) {
-        if (e.kind === 'bounty') expect(e.amount).toBeGreaterThan(0);
-        if (e.kind === 'vuln') {
-          expect(e.mult).toBeGreaterThan(1);
-          expect(e.mult).toBeLessThanOrEqual(1.1); // a universal amp stays modest
-        }
-        if (e.kind === 'chill') {
-          expect(e.mult).toBeGreaterThan(0);
-          expect(e.mult).toBeLessThanOrEqual(1); // ≤1 = a slow, never a speed-up
-          expect(e.mult).toBeGreaterThanOrEqual(0.9); // never a runaway single step
-        }
-      }
-    }
-  });
-  it('includes the three new battlefield archetypes', () => {
-    const kinds = new Set(DRAFT_POOL.flatMap(leafEffects).map(e => e.kind));
-    expect(kinds).toContain('bounty');
-    expect(kinds).toContain('vuln');
-    expect(kinds).toContain('chill');
-  });
 });
 
 describe('rollDraft', () => {
