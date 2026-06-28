@@ -158,6 +158,11 @@ export type HitsplatKind = 'hit' | 'miss' | 'poison' | 'venom' | 'burn' | 'heal'
 /** The damage-over-time kinds, ticked independently in `damageOverTime`. */
 const DOT_KINDS: readonly DotKind[] = ['burn', 'poison', 'venom'];
 
+/** Vertical lane per DoT kind so multiple DoTs on one enemy fan out instead of
+ *  overriding each other: poison rises, venom sinks, burn holds the middle.
+ *  A new DoT kind just needs a lane here to inherit the same spread. */
+const DOT_LANE: Record<DotKind, number> = { poison: -1, burn: 0, venom: 1 };
+
 /** Transient OSRS-style hit marker shown over an enemy when it takes damage. */
 export interface Hitsplat {
   x: number;
@@ -170,6 +175,8 @@ export interface Hitsplat {
   minor?: boolean;
   /** Horizontal drift (px/s) for minor splats. */
   vx?: number;
+  /** Vertical drift (px/s) for minor splats — per-kind lane (poison up, venom down). */
+  vy?: number;
 }
 
 /** Live summary of the enemy under the pointer, for the hover info panel. */
@@ -1081,8 +1088,8 @@ export class GameEngine {
       const h = this.hitsplats[i];
       h.life -= dt;
       if (h.minor) {
-        h.x += (h.vx ?? 0) * dt; // drift sideways
-        h.y += 8 * dt;           // and slightly down, away from the main splat
+        h.x += (h.vx ?? 0) * dt; // slight horizontal jitter
+        h.y += (h.vy ?? 0) * dt; // per-kind lane: poison rises, venom sinks
       } else {
         h.y -= 28 * dt; // direct hits float up
       }
@@ -1437,9 +1444,10 @@ export class GameEngine {
     this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
     // Archer arrows have no impact clip wired yet, and the generic melee "thud" is
-    // wrong for a flying arrow — so they land silently for now (`arrowIcon` is set
-    // iff the shot came from an archer). Everything else keeps the impact thud.
-    const silent = !!p.arrowIcon;
+    // wrong for a flying arrow — so they land silently (`arrowIcon` is set iff the
+    // shot came from an archer). The Toxic dart is likewise silent on impact: its
+    // venom is the payload, and the melee thud doesn't fit. Everything else thuds.
+    const silent = !!p.arrowIcon || p.special === 'venom';
     let primaryKilled = false;
     if (p.aoe || p.special === 'aoe') {
       // Magic barrages splash for reduced damage on non-primary targets so AoE
@@ -1639,17 +1647,19 @@ export class GameEngine {
       if (hurtClip && (enemy.hurtAnim ?? 0) <= 0) enemy.hurtAnim = clipDurationS(hurtClip);
     }
     const below = enemy.isBoss ? 30 : 16;
-    // DoT splats are biased to a fixed side per kind (burn left, poison/venom
-    // right) so an enemy carrying both shows them clearly apart, not stacked.
-    const dotSide = minor ? (kind === 'poison' || kind === 'venom' ? 1 : -1) : 0;
+    // DoT splats fan out into per-kind lanes (poison rises, venom sinks, burn
+    // holds the middle) so an enemy carrying several shows them clearly apart
+    // rather than one overriding the next. See DOT_LANE.
+    const lane = minor ? (DOT_LANE[kind as DotKind] ?? 0) : 0;
     this.hitsplats.push({
-      x: enemy.x + dotSide * 14 + (Math.random() - 0.5) * (minor ? 8 : 16),
-      y: minor ? enemy.y + below : enemy.y - 18,
+      x: enemy.x + lane * 12 + (Math.random() - 0.5) * (minor ? 8 : 16),
+      y: (minor ? enemy.y + below : enemy.y - 18) + lane * 4,
       value: dealt,
       kind: dealt > 0 ? kind : 'miss',
       life: HITSPLAT_LIFE,
       minor: minor || undefined,
-      vx: minor ? dotSide * 30 + (Math.random() - 0.5) * 16 : 0,
+      vx: minor ? (Math.random() - 0.5) * 16 : 0,
+      vy: minor ? lane * 26 : 0,
     });
     if (dealt > 0 && !minor && !silent) this.sound.play('hit', 70);
     if (enemy.hp > 0) return false;
