@@ -159,6 +159,11 @@ export interface UIState {
 
 const uid = () => Math.random().toString(36).slice(2, 11);
 
+/** Global throttle on the general gold flow (per-kill + wave-clear payouts) to
+ *  keep the economy tight. Card gold is halved at the data layer instead, so it
+ *  isn't double-cut here (both still route through {@link GameEngine.awardGold}). */
+const GENERAL_GOLD_FACTOR = 0.5;
+
 /** Approximate body radius (px) used for range/hit tests, matching the sprite size. */
 const enemyRadius = (e: { isBoss?: boolean }) => (e.isBoss ? 28 : 13);
 
@@ -821,7 +826,7 @@ export class GameEngine {
    *  (see systems/rewards), NOT the wave-scaled value, so payouts stay constant
    *  per monster however late the wave. */
   private killGold(type: EnemyType): number {
-    return goldForKill(ENEMIES[type]?.hp ?? 0);
+    return Math.round(goldForKill(ENEMIES[type]?.hp ?? 0) * GENERAL_GOLD_FACTOR);
   }
 
   /** Add gold from a kill or wave clear, scaled by the rewardMultiplier upgrade,
@@ -1838,7 +1843,7 @@ export class GameEngine {
       this.emit();
       return;
     }
-    this.awardGold(waveClearBonus(this.wave));
+    this.awardGold(Math.round(waveClearBonus(this.wave) * GENERAL_GOLD_FACTOR));
     this.meta.award(essenceForWave(this.wave)); // essence reward for the cleared wave
     this.wave += 1;
     this.checkPrayerUnlocks(); // celebrate any tower prayers gating on the new wave

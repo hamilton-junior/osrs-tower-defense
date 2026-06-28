@@ -1777,6 +1777,10 @@ function renderWithStyleIcons(text: string): React.ReactNode {
   });
 }
 
+/** Format a multiplier's bonus as a percent, keeping a single decimal only when
+ *  needed (so 1.075 → "7.5", 1.03 → "3") — buff steps can be fractional now. */
+const pctStr = (mult: number) => String(+((mult - 1) * 100).toFixed(1));
+
 /** Short stat tag for a single effect (collection-log / static use, no run). */
 function effectTag(e: DraftEffect): string {
   switch (e.kind) {
@@ -1784,9 +1788,9 @@ function effectTag(e: DraftEffect): string {
     case 'essence': return `+${e.amount} ess`;
     case 'life': return `+${e.amount} lives`;
     case 'maxLife': return `+${e.amount} max life`;
-    case 'damage': return `+${Math.round((e.mult - 1) * 100)}% ${e.style ? e.style + ' ' : ''}dmg`;
-    case 'range': return `+${Math.round((e.mult - 1) * 100)}% ${e.style ? e.style + ' ' : ''}range`;
-    case 'fireRate': return `+${Math.round((e.mult - 1) * 100)}% ${e.style ? e.style + ' ' : ''}speed`;
+    case 'damage': return `+${pctStr(e.mult)}% ${e.style ? e.style + ' ' : ''}dmg`;
+    case 'range': return `+${pctStr(e.mult)}% ${e.style ? e.style + ' ' : ''}range`;
+    case 'fireRate': return `+${pctStr(e.mult)}% ${e.style ? e.style + ' ' : ''}speed`;
     case 'multi': return e.effects.map(effectTag).join(' · ');
   }
 }
@@ -1808,7 +1812,7 @@ interface PreviewRow {
   to: string;
 }
 
-const STAT_PCT = (v: number) => `+${Math.round((v - 1) * 100)}%`;
+const STAT_PCT = (v: number) => `+${pctStr(v)}%`;
 const styleMods = (m: { melee: number; ranged: number; magic: number }, style?: 'melee' | 'ranged' | 'magic') =>
   style ? m[style] : (m.melee + m.ranged + m.magic) / 3;
 
@@ -2043,14 +2047,37 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
         </span>
       </div>
       {isCards
-        ? (
-          <div className="grid grid-cols-3 gap-[0.5em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
-            {DRAFT_POOL.map((c) => {
-              const n = cardCounts[c.id] ?? 0;
-              return <DraftCardView key={c.id} card={c} locked={n === 0} count={n} fill />;
-            })}
-          </div>
-        )
+        ? selected
+          ? (() => {
+              // Inspect one card enlarged; wrap-around prev/next across the pool.
+              const idx = DRAFT_POOL.findIndex((c) => c.id === selected);
+              const card = DRAFT_POOL[idx];
+              if (!card) return null;
+              const prev = DRAFT_POOL[(idx - 1 + DRAFT_POOL.length) % DRAFT_POOL.length];
+              const next = DRAFT_POOL[(idx + 1) % DRAFT_POOL.length];
+              return (
+                <CardInspect
+                  card={card}
+                  count={cardCounts[card.id] ?? 0}
+                  onBack={() => setSelected(null)}
+                  onPrev={() => setSelected(prev.id)}
+                  onNext={() => setSelected(next.id)}
+                  position={{ index: idx + 1, total: DRAFT_POOL.length }}
+                />
+              );
+            })()
+          : (
+            <div className="grid grid-cols-3 gap-[0.55em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0 py-[0.1em]">
+              {DRAFT_POOL.map((c) => {
+                const n = cardCounts[c.id] ?? 0;
+                return (
+                  <div key={c.id} className="transition-transform duration-100 hover:scale-[1.06] hover:z-10">
+                    <DraftCardView card={c} locked={n === 0} count={n} fill onPick={() => setSelected(c.id)} />
+                  </div>
+                );
+              })}
+            </div>
+          )
         : selected
         ? (() => {
             // Navigate within the current tab's list; wrap around so prev/next
@@ -2139,6 +2166,45 @@ function LogDetail({ type, kc, onBack, onPrev, onNext, position }: {
             <span className="text-[#d3c3a0]">Gold</span>
             <span className="text-right text-osrs-yellow">{def.reward}</span>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Detail view for one draft card: the card face rendered large enough to read,
+ *  plus its rarity, full examine text and lifetime pick count. Opened by clicking
+ *  a Cards-tab entry; prev/next wrap around the whole pool. Always full-colour
+ *  (even un-drafted) so the card can actually be inspected. */
+function CardInspect({ card, count, onBack, onPrev, onNext, position }: {
+  card: DraftCard; count: number; onBack: () => void;
+  onPrev: () => void; onNext: () => void;
+  position: { index: number; total: number };
+}) {
+  const obtained = count > 0;
+  return (
+    <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
+      <div className="flex items-center justify-between mb-[0.6em]">
+        <button onClick={onBack} className="rs-btn px-[0.7em] py-[0.2em] text-[0.75em]">◂ Back</button>
+        <div className="flex items-center gap-[0.4em]">
+          <button onClick={onPrev} title="Previous (anterior)" className="rs-btn px-[0.7em] py-[0.2em] text-[0.85em] leading-none">‹</button>
+          <span className="text-[0.7em] text-[#d3c3a0] tabular-nums">{position.index} / {position.total}</span>
+          <button onClick={onNext} title="Next (próximo)" className="rs-btn px-[0.7em] py-[0.2em] text-[0.85em] leading-none">›</button>
+        </div>
+      </div>
+      <div className="flex flex-col items-center gap-[0.7em]">
+        <div style={{ width: 'clamp(150px, 46%, 200px)' }}>
+          <DraftCardView card={card} fill />
+        </div>
+        <div className="rs-panel-inset p-[0.6em] w-full grid grid-cols-2 gap-x-[0.6em] gap-y-[0.25em] text-[0.78em]">
+          <span className="text-[#d3c3a0]">Rarity</span>
+          <span className="text-right font-bold" style={{ color: RARITY_COLOR[card.rarity] }}>{RARITY_LABEL[card.rarity]}</span>
+          <span className="text-[#d3c3a0]">Effect</span>
+          <span className="text-right text-white flex items-center justify-end gap-[0.2em] flex-wrap">{renderWithStyleIcons(effectTag(card.effect))}</span>
+          <span className="text-[#d3c3a0]">Drafted</span>
+          <span className="text-right font-bold" style={{ color: obtained ? 'var(--osrs-yellow)' : '#9a9a9a' }}>
+            {obtained ? `× ${fmt(count)}` : 'Not yet'}
+          </span>
         </div>
       </div>
     </div>
