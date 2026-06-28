@@ -69,6 +69,41 @@ describe('DRAFT_POOL integrity', () => {
       if (c.effect.kind === 'multi') expect(c.effect.effects.length).toBeGreaterThanOrEqual(2);
     }
   });
+  it('offers behavioural cards from all three families', () => {
+    const kinds = new Set(DRAFT_POOL.flatMap(leafEffects).map(e => e.kind));
+    // on-kill chains
+    expect(kinds).toContain('ricochet');
+    expect(kinds).toContain('overkill');
+    expect(kinds).toContain('soulSplit');
+    expect(kinds).toContain('killStreak');
+    // risk/reward curses
+    expect(kinds).toContain('lastStand');
+    expect(kinds).toContain('berserker');
+    expect(kinds).toContain('bloodPact');
+    expect(kinds).toContain('greed');
+    // tower transforms
+    expect(kinds).toContain('doubleShot');
+    expect(kinds).toContain('venomTips');
+    expect(kinds).toContain('chainFreeze');
+    expect(kinds).toContain('pierce');
+  });
+  it('behavioural effects carry sane params', () => {
+    for (const c of DRAFT_POOL) {
+      for (const e of leafEffects(c)) {
+        if (e.kind === 'ricochet') { expect(e.frac).toBeGreaterThan(0); expect(e.frac).toBeLessThanOrEqual(1); expect(e.radius).toBeGreaterThan(0); }
+        if (e.kind === 'overkill') expect(e.radius).toBeGreaterThan(0);
+        if (e.kind === 'soulSplit') expect(e.every).toBeGreaterThanOrEqual(2);
+        if (e.kind === 'killStreak') { expect(e.every).toBeGreaterThanOrEqual(2); expect(e.damage).toBeGreaterThan(0); }
+        if (e.kind === 'lastStand') { expect(e.belowLives).toBeGreaterThan(0); expect(e.mult).toBeGreaterThan(1); }
+        if (e.kind === 'berserker') expect(e.perMissingLife).toBeGreaterThan(0);
+        if (e.kind === 'bloodPact') expect(e.mult).toBeGreaterThan(1);
+        if (e.kind === 'greed') { expect(e.hpMult).toBeGreaterThan(1); expect(e.goldMult).toBeGreaterThan(1); }
+        if (e.kind === 'venomTips') { expect(e.dps).toBeGreaterThan(0); expect(e.dur).toBeGreaterThan(0); }
+        if (e.kind === 'chainFreeze') expect(e.radius).toBeGreaterThan(0);
+        if (e.kind === 'pierce') expect(e.radius).toBeGreaterThan(0);
+      }
+    }
+  });
 });
 
 describe('rollDraft', () => {

@@ -3,7 +3,7 @@ import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMY_ANIMS, clipDurationS, type EnemyClip } from '../data/enemy-anims';
 import { ENEMIES } from '../data/enemies';
-import { TOWERS } from '../data/towers';
+import { TOWERS, TOWER_STYLES } from '../data/towers';
 import { LANDMARK_WAVES } from '../data/waves';
 import { ASSETS } from '../assets';
 import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } from '../systems/geometry';
@@ -79,6 +79,48 @@ const cloneRunMods = (m: RunModifiers): RunModifiers => ({
   damage: { ...m.damage },
   range: { ...m.range },
   fireRate: { ...m.fireRate },
+});
+
+/** Run-scoped BEHAVIOURAL effects granted by roguelite drafts — each changes a
+ *  rule of the run (not a stat) and is read at a dedicated engine hook. Null /
+ *  0 / 1 means "off". Reset on {@link GameEngine.restart}; not emitted to the UI
+ *  (cards explain themselves), but their bookkeeping counters live here too. */
+export interface RunEffects {
+  // on-kill chain reactions
+  ricochet: { frac: number; radius: number } | null;
+  overkill: { radius: number } | null;
+  soulSplitEvery: number;                              // 0 = off
+  killStreak: { every: number; damage: number } | null;
+  killTally: number;                                   // lifetime kills, drives the two above
+  // risk / reward curses
+  lastStand: { belowLives: number; mult: number } | null;
+  berserkerPerLife: number;                            // 0 = off
+  bloodPactMult: number;                               // 1 = off (also flips the per-wave life cost on)
+  bloodPact: boolean;                                  // whether the per-wave life cost applies
+  enemyHpMult: number;                                 // 1 = off (greed)
+  goldMult: number;                                    // 1 = off (greed)
+  // tower transformations
+  doubleShot: boolean;
+  venomTips: { dps: number; dur: number } | null;
+  chainFreezeRadius: number;                           // 0 = off
+  pierce: { radius: number } | null;
+}
+const freshRunEffects = (): RunEffects => ({
+  ricochet: null,
+  overkill: null,
+  soulSplitEvery: 0,
+  killStreak: null,
+  killTally: 0,
+  lastStand: null,
+  berserkerPerLife: 0,
+  bloodPactMult: 1,
+  bloodPact: false,
+  enemyHpMult: 1,
+  goldMult: 1,
+  doubleShot: false,
+  venomTips: null,
+  chainFreezeRadius: 0,
+  pierce: null,
 });
 
 export interface UIState {
@@ -339,6 +381,8 @@ export class GameEngine {
   pendingDraft: DraftCard[] | null = null;
   /** Roguelite: run-scoped buff multipliers accumulated from drafts. */
   runMods: RunModifiers = freshRunMods();
+  /** Behavioural roguelite effects (chain-on-kill / curses / transforms). */
+  runFx: RunEffects = freshRunEffects();
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
@@ -1154,13 +1198,15 @@ export class GameEngine {
     if (!def) return null;
     const scaled = scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, wave);
     const start = this.portalPoint;
+    // Greed curse: enemies spawn with ×hpMult HP (default 1) in exchange for gold.
+    const hp = Math.round(scaled.hp * this.runFx.enemyHpMult);
     return {
       ...def,
       id: uid(),
       x: start.x,
       y: start.y,
-      hp: scaled.hp,
-      maxHp: scaled.hp,
+      hp,
+      maxHp: hp,
       speed: scaled.speed,
       baseSpeed: scaled.speed,
       reward: scaled.reward,
@@ -1366,7 +1412,7 @@ export class GameEngine {
         const hi = tower.maxDamage ?? 0;
         baseDamage = lo + Math.random() * (hi - lo);
       }
-      let damage = Math.floor((baseDamage + stats.flatDamageBonus) * stats.damageMultiplier);
+      let damage = Math.floor((baseDamage + stats.flatDamageBonus) * stats.damageMultiplier * this.runDamageMult());
 
       // Slayer weapon: native bonus vs the current task target / superiors / bosses,
       // independent of (and stacking with) the Slayer Helmet applied in damage().
@@ -1486,6 +1532,17 @@ export class GameEngine {
         launch(second, arrowDmg(second), fl2);
       }
 
+      // Double Shot (roguelite transform): ranged towers loose an extra shot at
+      // a *different* enemy in range — spreads damage rather than amplifying it.
+      if (this.runFx.doubleShot && TOWER_STYLES[tower.type]?.style === 'ranged') {
+        const others = this.enemies.filter(e => e.id !== target.id && inReach(e));
+        const extra = others.length ? others[Math.floor(Math.random() * others.length)] : null;
+        if (extra) {
+          const fl2 = Math.max(0.05, distance(tower.x, tower.y, extra.x, extra.y) / 600);
+          launch(extra, arrowDmg(extra), fl2);
+        }
+      }
+
       this.sound.play(soundKey, 70);
     }
   }
@@ -1585,14 +1642,17 @@ export class GameEngine {
         const dmg = Math.floor(p.damage * scale) + bonus;
         const killed = this.damage(e, dmg, 'hit', false, silent);
         if (isPrimary) primaryKilled = killed;
-        if (!killed) this.applyOnHit(e, p);
+        if (!killed) { this.applyOnHit(e, p); this.applyVenomTips(e); }
       }
     } else if (target) {
       // Single-target: only resolves if the target is still alive at impact;
       // otherwise the bolt just fizzles where the target was (particles only).
       const bonus = p.bonusMaxHpFrac ? Math.floor(target.maxHp * p.bonusMaxHpFrac) : 0;
       primaryKilled = this.damage(target, p.damage + bonus, 'hit', false, silent);
-      if (!primaryKilled) this.applyOnHit(target, p);
+      if (!primaryKilled) { this.applyOnHit(target, p); this.applyVenomTips(target); }
+      // Pierce (roguelite transform): the bolt punches through to the nearest
+      // *other* enemy near the impact, landing a second full hit.
+      if (this.runFx.pierce) this.pierceThrough(p, target);
     }
     // Blood barrage: a chance to steal a life when the primary target is killed —
     // not a guaranteed heal on every splash kill.
@@ -1631,13 +1691,53 @@ export class GameEngine {
 
   /** Apply the move-speed slow (toxic/ice/enfeeble), shortened by the enemy's
    *  tenacity. `count` registers the hit for boss tenacity; pass false for the
-   *  per-frame utility aura so it doesn't inflate the counter. */
-  private applySlow(e: Enemy, seconds = 2, count = true) {
+   *  per-frame utility aura so it doesn't inflate the counter. `spread` lets the
+   *  Chain Freeze card propagate the slow to neighbours (once, non-spreading). */
+  private applySlow(e: Enemy, seconds = 2, count = true, spread = true) {
     const eff = seconds * (1 - this.tenacity(e));
     if (count) this.noteDebuffHit(e);
     if (eff <= 0) return;
     e.speed = e.baseSpeed * 0.5;
     e.slowTimer = Math.max(e.slowTimer, eff);
+    // Chain Freeze (roguelite transform): the chill jumps to nearby enemies, so
+    // a single slow source locks down a cluster. Neighbours don't re-spread.
+    const r = this.runFx.chainFreezeRadius;
+    if (spread && r > 0) {
+      for (const o of this.enemies) {
+        if (o !== e && o.slowTimer <= 0 && distanceSq(o.x, o.y, e.x, e.y) <= r * r) {
+          this.applySlow(o, seconds, false, false);
+        }
+      }
+    }
+  }
+
+  /** Venom Tips (roguelite transform): stack a venom DoT on every hit, ramping
+   *  to a damage-scaled cap (shares the enemy's `venom` slot with the Toxic tower). */
+  private applyVenomTips(e: Enemy) {
+    const v = this.runFx.venomTips;
+    if (!v) return;
+    const dots = (e.dots ??= {});
+    const cur = dots.venom;
+    const cap = v.dps * 3;
+    if (cur) { cur.dps = Math.min(cap, cur.dps + v.dps); cur.timer = Math.max(cur.timer, v.dur); }
+    else dots.venom = { timer: v.dur, dps: v.dps, accum: 0, tickTimer: 0 };
+  }
+
+  /** Pierce (roguelite transform): land a second full hit on the nearest enemy
+   *  other than `target` within the impact radius. Depth-guarded via damage(). */
+  private pierceThrough(p: Projectile, target: Enemy) {
+    const r = this.runFx.pierce?.radius ?? 0;
+    if (r <= 0) return;
+    let best: Enemy | null = null;
+    let bestD = r * r;
+    for (const o of this.enemies) {
+      if (o === target) continue;
+      const d = distanceSq(o.x, o.y, target.x, target.y);
+      if (d <= bestD) { bestD = d; best = o; }
+    }
+    if (!best) return;
+    const killed = this.damage(best, p.damage, 'hit', false, true, 1);
+    if (!killed) { this.applyOnHit(best, p); this.applyVenomTips(best); }
   }
 
   private applyOnHit(e: Enemy, p: Projectile) {
@@ -1740,8 +1840,10 @@ export class GameEngine {
   }
 
   /** Deal damage to an enemy; returns true if it died from this hit. `kind`
-   *  colours the hitsplat; `minor` (DoT) draws it small/below, drifting aside. */
-  private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false, silent = false): boolean {
+   *  colours the hitsplat; `minor` (DoT) draws it small/below, drifting aside.
+   *  `depth` guards the on-kill chain cards (ricochet / overkill / streak smite)
+   *  against unbounded recursion — chains only fire from a depth-0 (direct) kill. */
+  private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false, silent = false, depth = 0): boolean {
     // Water "amp" makes the enemy take extra damage from every source; the Slayer
     // Helmet adds an on-task bonus vs the current task's monster.
     const vuln = enemy.vulnTimer && enemy.vulnTimer > 0 ? 1.25 : 1;
@@ -1781,6 +1883,9 @@ export class GameEngine {
     if (enemy.hp > 0) return false;
     const i = this.enemies.indexOf(enemy);
     if (i < 0) return false;
+    // Overkill = damage spilled past 0 HP (for the Scythe cleave card).
+    const overkillDmg = Math.max(0, -enemy.hp);
+    const killX = enemy.x, killY = enemy.y;
     this.enemies.splice(i, 1);
     this.spawnDeathParticles(enemy);
     // Animated enemies play their full death-collapse clip; others use the brief
@@ -1804,14 +1909,50 @@ export class GameEngine {
     // Debug/sandbox enemies pay nothing and don't progress anything — they exist
     // only to test towers/enemies. The death FX above still play (visual feedback).
     if (!enemy.debug) {
-      this.awardGold(this.killGold(enemy.type));
+      // Greed curse: enemies pay ×goldMult (default 1).
+      this.awardGold(Math.round(this.killGold(enemy.type) * this.runFx.goldMult));
       this.kills += 1;
       // New object each kill so the UI's persistence effect sees the change.
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
       this.slayer.recordKill(enemy.type);
+      this.onKillChains(killX, killY, dealt, overkillDmg, depth);
     }
     this.emit();
     return true;
+  }
+
+  /** Roguelite on-kill chain cards. Soul Split (heal) and the streak meter count
+   *  every kill (chained ones too); the damaging follow-ups (ricochet, overkill
+   *  cleave, streak smite) only fire from a direct kill (`depth===0`) and deal
+   *  their damage at depth 1, so a cascade can advance the meter but never recurse
+   *  without bound. */
+  private onKillChains(x: number, y: number, dealt: number, overkillDmg: number, depth: number) {
+    const fx = this.runFx;
+    fx.killTally += 1;
+    // Soul Split: every Nth kill restores a life (up to the cap).
+    if (fx.soulSplitEvery > 0 && fx.killTally % fx.soulSplitEvery === 0 && this.lives < this.maxLives) {
+      this.lives += 1;
+    }
+    if (depth > 0) return; // follow-ups don't recurse
+    // Kill Streak: every Nth kill, a shockwave smites every enemy on the field.
+    if (fx.killStreak && fx.killTally % fx.killStreak.every === 0) {
+      for (const e of [...this.enemies]) this.damage(e, fx.killStreak.damage, 'hit', false, true, 1);
+    }
+    // Ricochet: arc a fraction of the killing blow into the nearest enemy.
+    if (fx.ricochet) this.chainNearest(x, y, fx.ricochet.radius, Math.max(1, Math.floor(dealt * fx.ricochet.frac)));
+    // Overkill: cleave the spilled damage into the nearest enemy.
+    if (fx.overkill && overkillDmg > 0) this.chainNearest(x, y, fx.overkill.radius, overkillDmg);
+  }
+
+  /** Deal `dmg` to the nearest enemy within `radius` of (x,y), at chain depth 1. */
+  private chainNearest(x: number, y: number, radius: number, dmg: number) {
+    let best: Enemy | null = null;
+    let bestD = radius * radius;
+    for (const o of this.enemies) {
+      const d = distanceSq(o.x, o.y, x, y);
+      if (d <= bestD) { bestD = d; best = o; }
+    }
+    if (best) this.damage(best, dmg, 'hit', false, true, 1);
   }
 
   private spawnDeathParticles(enemy: Enemy) {
@@ -1845,6 +1986,12 @@ export class GameEngine {
     }
     this.awardGold(Math.round(waveClearBonus(this.wave) * GENERAL_GOLD_FACTOR));
     this.meta.award(essenceForWave(this.wave)); // essence reward for the cleared wave
+    // Blood Pact curse: clearing a wave costs a life (the price of its +damage).
+    if (this.runFx.bloodPact) {
+      this.lives -= 1;
+      this.baseFlash = 1;
+      if (this.lives <= 0) { this.lives = 0; this.endGame(); this.emit(); return; }
+    }
     this.wave += 1;
     this.checkPrayerUnlocks(); // celebrate any tower prayers gating on the new wave
     this.prayer.refill(); // top up to the new wave's (possibly larger) pool
@@ -1895,6 +2042,21 @@ export class GameEngine {
       case 'damage': this.applyStyleMult(this.runMods.damage, e.mult, e.style); break;
       case 'range': this.applyStyleMult(this.runMods.range, e.mult, e.style); break;
       case 'fireRate': this.applyStyleMult(this.runMods.fireRate, e.mult, e.style); break;
+      // ── on-kill chain reactions ──
+      case 'ricochet': this.runFx.ricochet = { frac: e.frac, radius: e.radius }; break;
+      case 'overkill': this.runFx.overkill = { radius: e.radius }; break;
+      case 'soulSplit': this.runFx.soulSplitEvery = e.every; break;
+      case 'killStreak': this.runFx.killStreak = { every: e.every, damage: e.damage }; break;
+      // ── risk / reward curses ──
+      case 'lastStand': this.runFx.lastStand = { belowLives: e.belowLives, mult: e.mult }; break;
+      case 'berserker': this.runFx.berserkerPerLife += e.perMissingLife; break;
+      case 'bloodPact': this.runFx.bloodPactMult *= e.mult; this.runFx.bloodPact = true; break;
+      case 'greed': this.runFx.enemyHpMult *= e.hpMult; this.runFx.goldMult *= e.goldMult; break;
+      // ── tower transformations ──
+      case 'doubleShot': this.runFx.doubleShot = true; break;
+      case 'venomTips': this.runFx.venomTips = { dps: e.dps, dur: e.dur }; break;
+      case 'chainFreeze': this.runFx.chainFreezeRadius = Math.max(this.runFx.chainFreezeRadius, e.radius); break;
+      case 'pierce': this.runFx.pierce = { radius: e.radius }; break;
       case 'multi': for (const sub of e.effects) this.applyDraftEffectOne(sub); break;
     }
   }
@@ -1904,6 +2066,17 @@ export class GameEngine {
   private applyStyleMult(mods: StyleMods, mult: number, style?: CombatStyle) {
     if (style) mods[style] *= mult;
     else { mods.melee *= mult; mods.ranged *= mult; mods.magic *= mult; }
+  }
+
+  /** Dynamic, run-wide damage multiplier from the *curse* cards — recomputed per
+   *  shot because it depends on live state (current lives). Blood Pact is a flat
+   *  multiplier; Berserker scales with lives lost; Last Stand doubles while low. */
+  private runDamageMult(): number {
+    const fx = this.runFx;
+    let m = fx.bloodPactMult;
+    if (fx.berserkerPerLife > 0) m *= 1 + fx.berserkerPerLife * Math.max(0, this.maxLives - this.lives);
+    if (fx.lastStand && this.lives <= fx.lastStand.belowLives) m *= fx.lastStand.mult;
+    return m;
   }
 
   private endGame() {
@@ -1928,6 +2101,7 @@ export class GameEngine {
     this.maxLives = START_LIVES;
     // Roguelite run-scoped state resets; the chosen game mode itself persists.
     this.runMods = freshRunMods();
+    this.runFx = freshRunEffects();
     this.pendingDraft = null;
     this.wave = 1;
     this.kills = 0;

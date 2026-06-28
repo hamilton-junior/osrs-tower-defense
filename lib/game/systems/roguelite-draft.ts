@@ -27,7 +27,28 @@ export type DraftRarity = 'common' | 'uncommon' | 'rare' | 'ultra';
  *  `*Mult` effects fold into the engine's run modifiers and buff towers of the
  *  given `style` (or every tower when `style` is omitted = general). `multi`
  *  bundles several effects into one card. Add a kind here, handle it in the
- *  engine's `applyDraftEffectOne`, and add a card to {@link DRAFT_POOL}. */
+ *  engine's `applyDraftEffectOne`, and add a card to {@link DRAFT_POOL}.
+ *
+ *  Beyond the numeric `*Mult` buffs, the **behavioural** kinds below change a
+ *  *rule of the run* rather than a stat — they are what make the draft feel like
+ *  a roguelite. They carry concrete params (not a multiplier) and each is wired
+ *  to a dedicated engine hook (kill resolution / fire loop / wave clear):
+ *
+ *  On-kill chain reactions —
+ *  - `ricochet`  : a kill arcs `frac` of the blow to the nearest enemy in `radius`.
+ *  - `overkill`  : a kill's *excess* damage cleaves into the nearest enemy.
+ *  - `soulSplit` : every `every`-th kill restores a life.
+ *  - `killStreak`: every `every` kills, a shockwave hits ALL enemies for `damage`.
+ *  Risk / reward curses —
+ *  - `lastStand` : ×`mult` damage while at `belowLives` lives or fewer.
+ *  - `berserker` : +`perMissingLife` damage for each life you've lost.
+ *  - `bloodPact` : ×`mult` damage, but every wave cleared costs one life.
+ *  - `greed`     : enemies get ×`hpMult` HP but pay ×`goldMult` gold.
+ *  Tower transformations —
+ *  - `doubleShot`: ranged towers loose a second shot at another enemy.
+ *  - `venomTips` : every tower's hit also injects a venom DoT.
+ *  - `chainFreeze`: a slow spreads to enemies within `radius`.
+ *  - `pierce`    : projectiles punch through to the enemy behind. */
 export type DraftEffect =
   | { kind: 'gold'; amount: number }
   | { kind: 'essence'; amount: number }
@@ -36,6 +57,21 @@ export type DraftEffect =
   | { kind: 'damage'; mult: number; style?: CombatStyle }
   | { kind: 'range'; mult: number; style?: CombatStyle }
   | { kind: 'fireRate'; mult: number; style?: CombatStyle }
+  // ── on-kill chain reactions ──
+  | { kind: 'ricochet'; frac: number; radius: number }
+  | { kind: 'overkill'; radius: number }
+  | { kind: 'soulSplit'; every: number }
+  | { kind: 'killStreak'; every: number; damage: number }
+  // ── risk / reward curses ──
+  | { kind: 'lastStand'; belowLives: number; mult: number }
+  | { kind: 'berserker'; perMissingLife: number }
+  | { kind: 'bloodPact'; mult: number }
+  | { kind: 'greed'; hpMult: number; goldMult: number }
+  // ── tower transformations ──
+  | { kind: 'doubleShot' }
+  | { kind: 'venomTips'; dps: number; dur: number }
+  | { kind: 'chainFreeze'; radius: number }
+  | { kind: 'pierce'; radius: number }
   | { kind: 'multi'; effects: DraftEffect[] };
 
 export interface DraftCard {
@@ -180,6 +216,23 @@ export const DRAFT_POOL: readonly DraftCard[] = [
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'ranged' }, { kind: 'range', mult: RNG.rare, style: 'ranged' }, { kind: 'fireRate', mult: SPD.rare, style: 'ranged' }] } },
   { id: 'ancestral_set', name: 'Ancestral Robes', desc: '+7.5% damage, +3% range & +3% attack speed for magic, this run', rarity: 'ultra', icon: `${W}Ancestral_robe_top.png`,
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'magic' }, { kind: 'range', mult: RNG.rare, style: 'magic' }, { kind: 'fireRate', mult: SPD.rare, style: 'magic' }] } },
+
+  // ═══════════════ behavioural cards — change a RULE, not a stat ════════════
+  // ── on-kill chain reactions ──────────────────────────────────────────────
+  { id: 'dragon_claws', name: 'Dragon Claws', desc: 'On a kill, the strike rends the nearest enemy for 50% of the blow', rarity: 'rare', icon: `${W}Dragon_claws.png`, effect: { kind: 'ricochet', frac: 0.5, radius: 95 } },
+  { id: 'scythe_of_vitur', name: 'Scythe of Vitur', desc: 'A kill’s excess damage cleaves into the nearest enemy', rarity: 'ultra', icon: `${W}Scythe_of_vitur.png`, effect: { kind: 'overkill', radius: 95 } },
+  { id: 'soul_split', name: 'Soul Split', desc: 'Every 8th kill restores 1 life', rarity: 'rare', icon: `${W}Soul_Split.png`, effect: { kind: 'soulSplit', every: 8 } },
+  { id: 'dragon_warhammer', name: 'Dragon Warhammer', desc: 'Every 20 kills, a shockwave smashes ALL enemies for 40', rarity: 'ultra', icon: `${W}Dragon_warhammer.png`, effect: { kind: 'killStreak', every: 20, damage: 40 } },
+  // ── risk / reward curses ─────────────────────────────────────────────────
+  { id: 'phoenix_necklace', name: 'Phoenix Necklace', desc: 'While at 2 lives or fewer, ALL towers deal double damage', rarity: 'rare', icon: `${W}Phoenix_necklace.png`, effect: { kind: 'lastStand', belowLives: 2, mult: 2 } },
+  { id: 'berserker_brew', name: 'Berserker Necklace', desc: '+12% damage for every life you have lost', rarity: 'rare', icon: `${W}Berserker_necklace.png`, effect: { kind: 'berserker', perMissingLife: 0.12 } },
+  { id: 'blood_pact', name: 'Blood Pact', desc: '+40% damage to ALL towers, but each wave cleared costs 1 life', rarity: 'rare', icon: `${W}Blood_shard.png`, effect: { kind: 'bloodPact', mult: 1.4 } },
+  { id: 'greedy_pact', name: 'Greedy Pact', desc: 'Enemies have +25% HP, but drop double gold', rarity: 'uncommon', icon: `${W}Zenyte.png`, effect: { kind: 'greed', hpMult: 1.25, goldMult: 2 } },
+  // ── tower transformations ────────────────────────────────────────────────
+  { id: 'dragon_knife', name: 'Dragon Knife', desc: 'Ranged towers loose a second shot at another enemy in range', rarity: 'rare', icon: `${W}Dragon_knife.png`, effect: { kind: 'doubleShot' } },
+  { id: 'toxic_blowpipe', name: 'Toxic Blowpipe', desc: 'Every tower’s hit also injects venom', rarity: 'rare', icon: `${W}Toxic_blowpipe.png`, effect: { kind: 'venomTips', dps: 6, dur: 4 } },
+  { id: 'ice_barrage_card', name: 'Ice Barrage', desc: 'Any slow now spreads to nearby enemies', rarity: 'uncommon', icon: `${W}Ice_Barrage.png`, effect: { kind: 'chainFreeze', radius: 75 } },
+  { id: 'heavy_ballista', name: 'Heavy Ballista', desc: 'Projectiles punch through to strike the enemy behind', rarity: 'rare', icon: `${W}Heavy_ballista.png`, effect: { kind: 'pierce', radius: 70 } },
 ];
 
 /**

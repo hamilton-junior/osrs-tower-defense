@@ -1791,6 +1791,19 @@ function effectTag(e: DraftEffect): string {
     case 'damage': return `+${pctStr(e.mult)}% ${e.style ? e.style + ' ' : ''}dmg`;
     case 'range': return `+${pctStr(e.mult)}% ${e.style ? e.style + ' ' : ''}range`;
     case 'fireRate': return `+${pctStr(e.mult)}% ${e.style ? e.style + ' ' : ''}speed`;
+    // behavioural cards — describe the rule, not a number
+    case 'ricochet': return `kill arcs ${Math.round(e.frac * 100)}% to nearest`;
+    case 'overkill': return 'overkill cleaves on';
+    case 'soulSplit': return `heal every ${e.every} kills`;
+    case 'killStreak': return `smite all per ${e.every} kills`;
+    case 'lastStand': return `×${e.mult} dmg at ≤${e.belowLives} lives`;
+    case 'berserker': return `+${Math.round(e.perMissingLife * 100)}% dmg per lost life`;
+    case 'bloodPact': return `×${e.mult} dmg · −1 life/wave`;
+    case 'greed': return `enemies ×${e.hpMult} HP · ×${e.goldMult} gold`;
+    case 'doubleShot': return 'ranged fire a 2nd shot';
+    case 'venomTips': return 'hits inject venom';
+    case 'chainFreeze': return 'slows spread to nearby';
+    case 'pierce': return 'shots pierce through';
     case 'multi': return e.effects.map(effectTag).join(' · ');
   }
 }
@@ -1920,7 +1933,7 @@ function DraftCardView({ card, onPick, ctx, locked, count, fill }: {
       </div>
       {/* stats band (15%) — live "current → new" preview, or the static buff */}
       <div className="flex flex-col items-center justify-center px-1 overflow-hidden" style={bandStyle(dark, 15)}>
-        {rows
+        {rows && rows.length
           ? rows.map((r, i) => (
               <span key={i} className="font-osrs flex items-center gap-[0.22em] leading-none whitespace-nowrap" style={{ fontSize: 'clamp(7px,0.6vw,10px)', textShadow: '0 1px 1px #000' }}>
                 {r.style && <StyleIcon style={r.style} />}
