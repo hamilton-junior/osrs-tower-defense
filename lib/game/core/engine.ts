@@ -1,4 +1,4 @@
-import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect } from '../types';
+import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect, CombatStyle } from '../types';
 import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMY_ANIMS, clipDurationS, type EnemyClip } from '../data/enemy-anims';
@@ -51,13 +51,35 @@ export interface UnlockItem {
  *  adds a per-wave {@link DraftCard} choice that buffs the run. */
 export type GameMode = 'classic' | 'roguelite';
 
-/** Run-scoped multipliers granted by roguelite drafts. All default to 1 and reset
- *  on {@link GameEngine.restart}; they layer onto every tower in the combat pipe. */
-export interface RunModifiers {
-  damage: number;
-  range: number;
-  fireRate: number;
+/** Per-combat-style multiplier (1 = no change). A "general" draft buff bumps all
+ *  three; a styled one (e.g. a Strength Potion → melee) bumps only its style. */
+export interface StyleMods {
+  melee: number;
+  ranged: number;
+  magic: number;
 }
+
+/** Run-scoped multipliers granted by roguelite drafts, split by combat style so a
+ *  card can buff melee / ranged / magic towers independently (or all three, when
+ *  "general"). All default to 1 and reset on {@link GameEngine.restart}; they
+ *  layer onto every tower in the combat pipe, keyed off the tower's style. */
+export interface RunModifiers {
+  damage: StyleMods;
+  range: StyleMods;
+  fireRate: StyleMods;
+}
+
+const freshStyleMods = (): StyleMods => ({ melee: 1, ranged: 1, magic: 1 });
+export const freshRunMods = (): RunModifiers => ({
+  damage: freshStyleMods(),
+  range: freshStyleMods(),
+  fireRate: freshStyleMods(),
+});
+const cloneRunMods = (m: RunModifiers): RunModifiers => ({
+  damage: { ...m.damage },
+  range: { ...m.range },
+  fireRate: { ...m.fireRate },
+});
 
 export interface UIState {
   money: number;
@@ -296,7 +318,7 @@ export class GameEngine {
   /** Roguelite: the draft hand awaiting a pick after a wave clear (null = none). */
   pendingDraft: DraftCard[] | null = null;
   /** Roguelite: run-scoped buff multipliers accumulated from drafts. */
-  runMods: RunModifiers = { damage: 1, range: 1, fireRate: 1 };
+  runMods: RunModifiers = freshRunMods();
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
@@ -467,7 +489,7 @@ export class GameEngine {
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
       pendingDraft: this.pendingDraft,
-      runMods: { ...this.runMods },
+      runMods: cloneRunMods(this.runMods),
     });
   }
 
@@ -1845,11 +1867,18 @@ export class GameEngine {
       case 'essence': this.meta.award(e.amount); break;
       case 'life': this.lives = Math.min(this.maxLives, this.lives + e.amount); break;
       case 'maxLife': this.maxLives += e.amount; this.lives += e.amount; break;
-      case 'damage': this.runMods.damage *= e.mult; break;
-      case 'range': this.runMods.range *= e.mult; break;
-      case 'fireRate': this.runMods.fireRate *= e.mult; break;
+      case 'damage': this.applyStyleMult(this.runMods.damage, e.mult, e.style); break;
+      case 'range': this.applyStyleMult(this.runMods.range, e.mult, e.style); break;
+      case 'fireRate': this.applyStyleMult(this.runMods.fireRate, e.mult, e.style); break;
       case 'multi': for (const sub of e.effects) this.applyDraftEffectOne(sub); break;
     }
+  }
+
+  /** Multiply one stat's per-style mods: a specific `style` buffs only that style,
+   *  an omitted style is "general" and buffs all three (e.g. Overload). */
+  private applyStyleMult(mods: StyleMods, mult: number, style?: CombatStyle) {
+    if (style) mods[style] *= mult;
+    else { mods.melee *= mult; mods.ranged *= mult; mods.magic *= mult; }
   }
 
   private endGame() {
@@ -1873,7 +1902,7 @@ export class GameEngine {
     this.lives = START_LIVES;
     this.maxLives = START_LIVES;
     // Roguelite run-scoped state resets; the chosen game mode itself persists.
-    this.runMods = { damage: 1, range: 1, fireRate: 1 };
+    this.runMods = freshRunMods();
     this.pendingDraft = null;
     this.wave = 1;
     this.kills = 0;

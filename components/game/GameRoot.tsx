@@ -159,7 +159,12 @@ const INITIAL: UIState = {
   unlocks: [], unlockSeq: 0,
   killCounts: {},
   lastWaveSandbox: false,
-  gameMode: 'classic', pendingDraft: null, runMods: { damage: 1, range: 1, fireRate: 1 },
+  gameMode: 'classic', pendingDraft: null,
+  runMods: {
+    damage: { melee: 1, ranged: 1, magic: 1 },
+    range: { melee: 1, ranged: 1, magic: 1 },
+    fireRate: { melee: 1, ranged: 1, magic: 1 },
+  },
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
@@ -1712,10 +1717,19 @@ export default function GameRoot() {
  *  colours (common white, rare blue, epic purple). */
 const RARITY_COLOR: Record<DraftRarity, string> = {
   common: '#FFFFFF',
+  uncommon: '#2ECC71',
   rare: '#3498DB',
-  epic: '#9B59B6',
+  ultra: '#9B59B6',
 };
-const RARITY_LABEL: Record<DraftRarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic' };
+const RARITY_LABEL: Record<DraftRarity, string> = {
+  common: 'Common',
+  uncommon: 'Uncommon',
+  rare: 'Rare',
+  ultra: 'Ultra-rare',
+};
+
+/** Short combat-style prefix for a styled stat tag (general buffs have none). */
+const STYLE_TAG: Record<'melee' | 'ranged' | 'magic', string> = { melee: 'melee ', ranged: 'ranged ', magic: 'magic ' };
 
 /** Short stat tag for a single effect. */
 function effectTag(e: DraftEffect): string {
@@ -1724,9 +1738,9 @@ function effectTag(e: DraftEffect): string {
     case 'essence': return `+${e.amount} ess`;
     case 'life': return `+${e.amount} lives`;
     case 'maxLife': return `+${e.amount} max life`;
-    case 'damage': return `×${e.mult.toFixed(2)} dmg`;
-    case 'range': return `×${e.mult.toFixed(2)} range`;
-    case 'fireRate': return `×${e.mult.toFixed(2)} speed`;
+    case 'damage': return `×${e.mult.toFixed(2)} ${e.style ? STYLE_TAG[e.style] : ''}dmg`;
+    case 'range': return `×${e.mult.toFixed(2)} ${e.style ? STYLE_TAG[e.style] : ''}range`;
+    case 'fireRate': return `×${e.mult.toFixed(2)} ${e.style ? STYLE_TAG[e.style] : ''}speed`;
     case 'multi': return e.effects.map(effectTag).join(' · ');
   }
 }
@@ -1736,15 +1750,29 @@ function draftEffectTag(card: DraftCard): string {
   return effectTag(card.effect);
 }
 
+/** A single themed band tile: a vertical gradient (lighter top → base bottom)
+ *  with rounded corners and a drop shadow, matching the plugin's `fillSection`.
+ *  Bands sit in a padded column with gaps, so the dark body shows as separators. */
+function bandStyle(base: string, grow: number): React.CSSProperties {
+  return {
+    flex: `${grow} 0 0`,
+    minHeight: 0,
+    borderRadius: 5,
+    background: `linear-gradient(to bottom, color-mix(in srgb, ${base} 82%, #ffffff 18%), ${base})`,
+    boxShadow: '0 1px 2px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)',
+  };
+}
+
 /**
- * A single roguelite draft card, styled after the OSRS TCG plugin's card face:
- * a rounded rarity-coloured frame over a dark body, with five stacked bands —
- * title / art window / tier / examine / stats — each tinted toward the rarity
- * colour. Epic cards get an animated foil sheen.
+ * A single roguelite draft card, styled after the OSRS TCG plugin's card face
+ * (`SharedCardRenderer`): a BLACK frame over a dark body, with five stacked bands
+ * — title / art / tier / examine / stats — each its own rounded, gradient-shaded
+ * tile (lighter top → base bottom) separated by dark gaps. Bands are tinted toward
+ * the rarity colour; ultra-rare cards get an animated gold foil sheen.
  */
 function DraftCardView({ card, onPick }: { card: DraftCard; onPick: () => void }) {
   const color = RARITY_COLOR[card.rarity];
-  const foil = card.rarity === 'epic';
+  const foil = card.rarity === 'ultra';
   const dark = `color-mix(in srgb, #222222 68%, ${color} 32%)`;
   const mid = `color-mix(in srgb, #2F2F2F 80%, ${color} 20%)`;
   return (
@@ -1756,30 +1784,32 @@ function DraftCardView({ card, onPick }: { card: DraftCard; onPick: () => void }
         width: 'clamp(132px, 12vw, 168px)',
         aspectRatio: '180 / 260',
         background: '#2A2A2A',
-        border: `4px solid ${color}`,
+        border: '3px solid #000000',
         borderRadius: 10,
-        boxShadow: `0 0 0 1px #100d09, 0 8px 20px rgba(0,0,0,0.6), 0 0 16px ${color}55`,
+        padding: 3,
+        gap: 2,
+        boxShadow: `0 0 0 1px #000, 0 8px 20px rgba(0,0,0,0.6), 0 0 14px ${color}44`,
       }}
     >
       {/* title band (10%) */}
-      <div className="flex items-center justify-center px-1" style={{ height: '10%', background: dark }}>
-        <span className="font-osrs leading-none" style={{ color, fontSize: 'clamp(9px,0.78vw,12px)', textShadow: '0 1px 0 #000' }}>{card.name}</span>
+      <div className="flex items-center justify-center px-1" style={bandStyle(dark, 10)}>
+        <span className="font-osrs leading-none" style={{ color, fontSize: 'clamp(9px,0.78vw,12px)', textShadow: '0 1px 1px #000' }}>{card.name}</span>
       </div>
       {/* art window (40%) */}
-      <div className="flex items-center justify-center" style={{ height: '40%', background: mid }}>
-        <img src={card.icon} alt="" className="object-contain" style={{ maxWidth: '64%', maxHeight: '78%', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.6))' }} onError={hideBrokenImg} />
+      <div className="flex items-center justify-center" style={bandStyle(mid, 40)}>
+        <img src={card.icon} alt="" className="object-contain" style={{ maxWidth: '64%', maxHeight: '78%', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.7))' }} onError={hideBrokenImg} />
       </div>
       {/* tier band (10%) */}
-      <div className="flex items-center justify-center" style={{ height: '10%', background: dark }}>
-        <span className="font-osrs uppercase tracking-wide" style={{ color, fontSize: 'clamp(8px,0.6vw,10px)' }}>{RARITY_LABEL[card.rarity]}</span>
+      <div className="flex items-center justify-center" style={bandStyle(dark, 10)}>
+        <span className="font-osrs uppercase tracking-wide" style={{ color, fontSize: 'clamp(8px,0.6vw,10px)', textShadow: '0 1px 1px #000' }}>{RARITY_LABEL[card.rarity]}</span>
       </div>
       {/* examine band (30%) */}
-      <div className="flex items-center justify-center px-2" style={{ height: '30%', background: mid }}>
-        <span className="font-osrs leading-tight" style={{ color: '#c9c1ad', fontSize: 'clamp(9px,0.72vw,11px)' }}>{card.desc}</span>
+      <div className="flex items-center justify-center px-2" style={bandStyle(mid, 30)}>
+        <span className="font-osrs leading-tight" style={{ color: '#d6cdb6', fontSize: 'clamp(9px,0.72vw,11px)', textShadow: '0 1px 1px #000' }}>{card.desc}</span>
       </div>
       {/* stats band (10%) */}
-      <div className="flex items-center justify-center" style={{ height: '10%', background: dark }}>
-        <span className="font-osrs text-white truncate max-w-full px-1" style={{ fontSize: 'clamp(8px,0.66vw,11px)' }}>{draftEffectTag(card)}</span>
+      <div className="flex items-center justify-center" style={bandStyle(dark, 10)}>
+        <span className="font-osrs text-white truncate max-w-full px-1" style={{ fontSize: 'clamp(8px,0.66vw,11px)', textShadow: '0 1px 1px #000' }}>{draftEffectTag(card)}</span>
       </div>
       {foil && <span className="draft-foil" aria-hidden />}
     </button>

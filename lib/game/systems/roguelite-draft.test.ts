@@ -39,7 +39,16 @@ describe('DRAFT_POOL integrity', () => {
   });
   it('covers every rarity', () => {
     const rarities = new Set(DRAFT_POOL.map(c => c.rarity));
-    expect(rarities).toEqual(new Set(['common', 'rare', 'epic']));
+    expect(rarities).toEqual(new Set(['common', 'uncommon', 'rare', 'ultra']));
+  });
+  it('styled stat buffs use a valid combat style; general buffs omit it', () => {
+    for (const c of DRAFT_POOL) {
+      for (const e of leafEffects(c)) {
+        if (e.kind === 'damage' || e.kind === 'range' || e.kind === 'fireRate') {
+          if (e.style !== undefined) expect(['melee', 'ranged', 'magic']).toContain(e.style);
+        }
+      }
+    }
   });
   it('keeps range/fire-rate multipliers small and >1 (they are game-changers)', () => {
     for (const c of DRAFT_POOL) {
@@ -81,14 +90,14 @@ describe('rollDraft', () => {
   });
   it('respects rarity weighting over many rolls', () => {
     let commons = 0;
-    let epics = 0;
+    let ultras = 0;
     const rng = () => Math.random();
     for (let i = 0; i < 4000; i++) {
       const first: DraftCard = rollDraft(rng, 1)[0];
       if (first.rarity === 'common') commons++;
-      if (first.rarity === 'epic') epics++;
+      if (first.rarity === 'ultra') ultras++;
     }
-    // Commons (weight 100×3) should massively outnumber epics (weight 11×3).
-    expect(commons).toBeGreaterThan(epics * 3);
+    // Commons (weight 100 each) should massively outnumber ultras (weight 8 each).
+    expect(commons).toBeGreaterThan(ultras * 3);
   });
 });

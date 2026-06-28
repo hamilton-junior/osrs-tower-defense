@@ -10,9 +10,13 @@ export interface TowerStatsContext {
   activePotions: ActivePotion[];
   /** All placed towers — needed to apply nearby Utility-mage support buffs. */
   allTowers: Tower[];
-  /** Roguelite run-scoped multipliers (damage/range/fireRate). Omitted in classic
-   *  mode; each defaults to 1 (no effect) when absent. */
-  runMods?: { damage: number; range: number; fireRate: number };
+  /** Roguelite run-scoped multipliers (damage/range/fireRate), split per combat
+   *  style. Omitted in classic mode; the tower's own style is read off. */
+  runMods?: {
+    damage: { melee: number; ranged: number; magic: number };
+    range: { melee: number; ranged: number; magic: number };
+    fireRate: { melee: number; ranged: number; magic: number };
+  };
 }
 
 export interface ComputedTowerStats {
@@ -120,11 +124,14 @@ export function calculateTowerStats(
     if (item.bonus.cooldown) speedMultiplier *= 1 + item.bonus.cooldown / 100;
   }
 
-  // Roguelite run-scoped buffs (drafts) — the last, run-wide layer over everything.
+  // Roguelite run-scoped buffs (drafts) — the last, run-wide layer over
+  // everything, keyed off this tower's combat style so a "melee damage" card only
+  // touches melee towers (a "general" card buffs all three styles equally).
   if (ctx.runMods) {
-    damageMultiplier *= ctx.runMods.damage;
-    rangeMultiplier *= ctx.runMods.range;
-    speedMultiplier *= ctx.runMods.fireRate;
+    const s = TOWER_STYLES[tower.type]?.style ?? 'melee';
+    damageMultiplier *= ctx.runMods.damage[s];
+    rangeMultiplier *= ctx.runMods.range[s];
+    speedMultiplier *= ctx.runMods.fireRate[s];
   }
 
   return {

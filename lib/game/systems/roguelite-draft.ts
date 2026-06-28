@@ -1,4 +1,5 @@
 import { ASSETS } from '../assets';
+import type { CombatStyle } from '../types';
 
 /**
  * Roguelite draft: the per-wave choice that defines the mode. After clearing a
@@ -7,28 +8,34 @@ import { ASSETS } from '../assets';
  * is pure (RNG injected) so the pool and the weighted roll are unit-testable; the
  * engine owns applying the chosen effect.
  *
+ * Stat buffs are **per combat style** (melee / ranged / magic) — a Strength Potion
+ * only helps melee towers, a Ranging Potion only ranged, etc. — modelled after the
+ * in-game potion progression (Strength → Super Strength → Super Combat, then the
+ * universal Overload as the general top tier). A buff with no `style` is "general"
+ * and hits all three. Names/icons map to their OSRS equivalents.
+ *
  * Balance note — `range`/`fireRate` multipliers are GAME-CHANGING (they reshape
  * coverage and DPS far more than flat damage), so their per-rarity steps are kept
- * deliberately *small* (see {@link RNG}/{@link SPD}). All `*Mult` effects fold
- * into the run's {@link RunModifiers} **multiplicatively**, so stacking three
- * +5% range cards compounds to ×1.16, not +15% — the curve is intentional.
+ * deliberately *small* (see {@link RNG}/{@link SPD}). All `*Mult` effects fold into
+ * the run's modifiers **multiplicatively**, so the curve compounds, not adds.
  */
 
-export type DraftRarity = 'common' | 'rare' | 'epic';
+/** Four tiers, ramping in power and dropping in draft frequency. */
+export type DraftRarity = 'common' | 'uncommon' | 'rare' | 'ultra';
 
 /** What keeping a card does. Instant effects grant a one-off resource; the
- *  `*Mult` effects fold into the engine's run-scoped {@link RunModifiers} and
- *  buff every tower for the rest of the run (multiplicatively). `multi` bundles
- *  several effects into one card (combo rewards). Add a kind here, handle it in
- *  the engine's `applyDraftEffect`, and add a card to {@link DRAFT_POOL}. */
+ *  `*Mult` effects fold into the engine's run modifiers and buff towers of the
+ *  given `style` (or every tower when `style` is omitted = general). `multi`
+ *  bundles several effects into one card. Add a kind here, handle it in the
+ *  engine's `applyDraftEffectOne`, and add a card to {@link DRAFT_POOL}. */
 export type DraftEffect =
   | { kind: 'gold'; amount: number }
   | { kind: 'essence'; amount: number }
   | { kind: 'life'; amount: number }
   | { kind: 'maxLife'; amount: number }
-  | { kind: 'damage'; mult: number }
-  | { kind: 'range'; mult: number }
-  | { kind: 'fireRate'; mult: number }
+  | { kind: 'damage'; mult: number; style?: CombatStyle }
+  | { kind: 'range'; mult: number; style?: CombatStyle }
+  | { kind: 'fireRate'; mult: number; style?: CombatStyle }
   | { kind: 'multi'; effects: DraftEffect[] };
 
 export interface DraftCard {
@@ -42,11 +49,12 @@ export interface DraftCard {
   effect: DraftEffect;
 }
 
-/** Selection weight per rarity — commons are the backbone, epics rare treats. */
+/** Selection weight per rarity — commons are the backbone, ultras rare treats. */
 export const RARITY_WEIGHT: Record<DraftRarity, number> = {
   common: 100,
-  rare: 36,
-  epic: 11,
+  uncommon: 50,
+  rare: 22,
+  ultra: 8,
 };
 
 const M = ASSETS.misc;
@@ -54,93 +62,96 @@ const M = ASSETS.misc;
 /**
  * Per-rarity multiplier steps. Damage may step harder; range & fire-rate are the
  * game-changers, so their steps stay small and compound multiplicatively. Combo
- * (`multi`) cards reuse the *lower* tier's step per stat, so a two-stat card is
+ * (`multi`) cards reuse a *lower* tier's step per stat, so a two-stat card is
  * roughly worth one single-stat card of its own rarity.
  */
-const DMG: Record<DraftRarity, number> = { common: 1.06, rare: 1.12, epic: 1.22 };
-const RNG: Record<DraftRarity, number> = { common: 1.03, rare: 1.05, epic: 1.08 };
-const SPD: Record<DraftRarity, number> = { common: 1.03, rare: 1.05, epic: 1.08 };
+const DMG: Record<DraftRarity, number> = { common: 1.06, uncommon: 1.10, rare: 1.15, ultra: 1.22 };
+const RNG: Record<DraftRarity, number> = { common: 1.03, uncommon: 1.04, rare: 1.06, ultra: 1.08 };
+const SPD: Record<DraftRarity, number> = { common: 1.03, uncommon: 1.04, rare: 1.06, ultra: 1.08 };
 
 /**
- * The draft pool. 50+ OSRS-flavoured cards across three rarities — single-stat
- * boosts, instant resources, and combo (`multi`) cards. Grow it by adding cards
- * here (and, later, tower/prayer/debuff kinds + their `applyDraftEffect` cases).
+ * The draft pool. 50+ OSRS-flavoured cards across four rarities. Stat buffs are
+ * per-style (melee/ranged/magic) and named after their in-game equivalents;
+ * resources stay general. Grow it by adding cards here (and, later, tower /
+ * prayer / debuff kinds + their `applyDraftEffect` cases).
  */
 export const DRAFT_POOL: readonly DraftCard[] = [
-  // ───────────────────────── commons (the backbone) ─────────────────────────
+  // ───────────────────────────── melee damage ─────────────────────────────
+  { id: 'strength_potion', name: 'Strength Potion', desc: '+6% damage for melee towers, this run', rarity: 'common', icon: M.strength_icon, effect: { kind: 'damage', mult: DMG.common, style: 'melee' } },
+  { id: 'super_strength', name: 'Super Strength', desc: '+10% damage for melee towers, this run', rarity: 'uncommon', icon: M.strength_icon, effect: { kind: 'damage', mult: DMG.uncommon, style: 'melee' } },
+  { id: 'super_combat', name: 'Super Combat Potion', desc: '+15% damage for melee towers, this run', rarity: 'rare', icon: M.skill_herblore, effect: { kind: 'damage', mult: DMG.rare, style: 'melee' } },
+  // ───────────────────────────── ranged damage ────────────────────────────
+  { id: 'ranging_potion', name: 'Ranging Potion', desc: '+6% damage for ranged towers, this run', rarity: 'common', icon: M.ranged_icon, effect: { kind: 'damage', mult: DMG.common, style: 'ranged' } },
+  { id: 'super_ranging', name: 'Super Ranging Potion', desc: '+10% damage for ranged towers, this run', rarity: 'uncommon', icon: M.ranged_icon, effect: { kind: 'damage', mult: DMG.uncommon, style: 'ranged' } },
+  { id: 'bastion_potion', name: 'Bastion Potion', desc: '+15% damage for ranged towers, this run', rarity: 'rare', icon: M.skill_herblore, effect: { kind: 'damage', mult: DMG.rare, style: 'ranged' } },
+  // ───────────────────────────── magic damage ─────────────────────────────
+  { id: 'magic_potion', name: 'Magic Potion', desc: '+6% damage for magic towers, this run', rarity: 'common', icon: M.magic_icon, effect: { kind: 'damage', mult: DMG.common, style: 'magic' } },
+  { id: 'imbued_heart', name: 'Imbued Heart', desc: '+10% damage for magic towers, this run', rarity: 'uncommon', icon: M.magic_icon, effect: { kind: 'damage', mult: DMG.uncommon, style: 'magic' } },
+  { id: 'battlemage_potion', name: 'Battlemage Potion', desc: '+15% damage for magic towers, this run', rarity: 'rare', icon: M.spellbook_standard, effect: { kind: 'damage', mult: DMG.rare, style: 'magic' } },
+  // ──────────────────────── general damage (Overload) ─────────────────────
+  { id: 'overload', name: 'Overload', desc: '+22% damage for ALL towers, this run', rarity: 'ultra', icon: M.skill_herblore, effect: { kind: 'damage', mult: DMG.ultra } },
+
+  // ───────────────────────────── melee speed ──────────────────────────────
+  { id: 'rune_scimitar', name: 'Rune Scimitar', desc: '+3% attack speed for melee towers, this run', rarity: 'common', icon: M.attack_icon, effect: { kind: 'fireRate', mult: SPD.common, style: 'melee' } },
+  { id: 'dragon_scimitar', name: 'Dragon Scimitar', desc: '+4% attack speed for melee towers, this run', rarity: 'uncommon', icon: M.attack_icon, effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'melee' } },
+  { id: 'abyssal_whip', name: 'Abyssal Whip', desc: '+6% attack speed for melee towers, this run', rarity: 'rare', icon: M.attack_icon, effect: { kind: 'fireRate', mult: SPD.rare, style: 'melee' } },
+  // ───────────────────────────── ranged speed ─────────────────────────────
+  { id: 'rapid_stance', name: 'Rapid Stance', desc: '+3% attack speed for ranged towers, this run', rarity: 'common', icon: M.ranged_icon, effect: { kind: 'fireRate', mult: SPD.common, style: 'ranged' } },
+  { id: 'magic_shortbow', name: 'Magic Shortbow', desc: '+4% attack speed for ranged towers, this run', rarity: 'uncommon', icon: M.ranged_icon, effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'ranged' } },
+  { id: 'dragon_darts', name: 'Dragon Darts', desc: '+6% attack speed for ranged towers, this run', rarity: 'rare', icon: M.ranged_icon, effect: { kind: 'fireRate', mult: SPD.rare, style: 'ranged' } },
+  // ───────────────────────────── magic speed ──────────────────────────────
+  { id: 'swift_glyphs', name: 'Swift Glyphs', desc: '+3% attack speed for magic towers, this run', rarity: 'common', icon: M.magic_icon, effect: { kind: 'fireRate', mult: SPD.common, style: 'magic' } },
+  { id: 'trident_seas', name: 'Trident of the Seas', desc: '+4% attack speed for magic towers, this run', rarity: 'uncommon', icon: M.magic_icon, effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' } },
+  { id: 'harmonised_staff', name: 'Harmonised Staff', desc: '+6% attack speed for magic towers, this run', rarity: 'rare', icon: M.spellbook_arceuus, effect: { kind: 'fireRate', mult: SPD.rare, style: 'magic' } },
+  // ─────────────────────── general speed (top tier) ───────────────────────
+  { id: 'war_tempo', name: 'War Tempo', desc: '+8% attack speed for ALL towers, this run', rarity: 'ultra', icon: M.attack_icon, effect: { kind: 'fireRate', mult: SPD.ultra } },
+
+  // ───────────────────────── melee range (halberds) ───────────────────────
+  { id: 'halberd', name: 'Halberd', desc: '+3% range for melee towers, this run', rarity: 'common', icon: M.attack_icon, effect: { kind: 'range', mult: RNG.common, style: 'melee' } },
+  { id: 'dragon_halberd', name: 'Dragon Halberd', desc: '+4% range for melee towers, this run', rarity: 'uncommon', icon: M.attack_icon, effect: { kind: 'range', mult: RNG.uncommon, style: 'melee' } },
+  { id: 'noxious_halberd', name: 'Noxious Halberd', desc: '+6% range for melee towers, this run', rarity: 'rare', icon: M.attack_icon, effect: { kind: 'range', mult: RNG.rare, style: 'melee' } },
+  // ─────────────────────────── ranged range ───────────────────────────────
+  { id: 'longrange_stance', name: 'Longrange Stance', desc: '+3% range for ranged towers, this run', rarity: 'common', icon: M.ranged_icon, effect: { kind: 'range', mult: RNG.common, style: 'ranged' } },
+  { id: 'eagle_eye', name: 'Eagle Eye', desc: '+4% range for ranged towers, this run', rarity: 'uncommon', icon: M.ranged_icon, effect: { kind: 'range', mult: RNG.uncommon, style: 'ranged' } },
+  { id: 'twisted_bow', name: 'Twisted Bow', desc: '+6% range for ranged towers, this run', rarity: 'rare', icon: M.ranged_icon, effect: { kind: 'range', mult: RNG.rare, style: 'ranged' } },
+  // ─────────────────────────── magic range ────────────────────────────────
+  { id: 'iban_staff', name: "Iban's Staff", desc: '+3% range for magic towers, this run', rarity: 'common', icon: M.magic_icon, effect: { kind: 'range', mult: RNG.common, style: 'magic' } },
+  { id: 'ahrims_staff', name: "Ahrim's Staff", desc: '+4% range for magic towers, this run', rarity: 'uncommon', icon: M.magic_icon, effect: { kind: 'range', mult: RNG.uncommon, style: 'magic' } },
+  { id: 'nightmare_staff', name: 'Nightmare Staff', desc: '+6% range for magic towers, this run', rarity: 'rare', icon: M.spellbook_arceuus, effect: { kind: 'range', mult: RNG.rare, style: 'magic' } },
+  // ─────────────────────── general range (top tier) ───────────────────────
+  { id: 'far_sight', name: 'Far Sight', desc: '+8% range for ALL towers, this run', rarity: 'ultra', icon: M.ranged_icon, effect: { kind: 'range', mult: RNG.ultra } },
+
+  // ─────────────────────────── resources (general) ────────────────────────
   { id: 'coin_pouch', name: 'Coin Pouch', desc: '+200 gold to spend now', rarity: 'common', icon: M.coins_icon, effect: { kind: 'gold', amount: 200 } },
   { id: 'looted_coins', name: 'Looted Coins', desc: '+275 gold scavenged from the fallen', rarity: 'common', icon: M.coins_icon, effect: { kind: 'gold', amount: 275 } },
-  { id: 'tax_rebate', name: 'Tax Rebate', desc: '+150 gold back from the bank', rarity: 'common', icon: M.coins_icon, effect: { kind: 'gold', amount: 150 } },
+  { id: 'slayer_bounty', name: 'Slayer Bounty', desc: '+500 gold contract reward', rarity: 'rare', icon: M.slayer_crossbow, effect: { kind: 'gold', amount: 500 } },
+  { id: 'dragonstone_hoard', name: 'Dragonstone Hoard', desc: '+900 gold to spend now', rarity: 'ultra', icon: M.coins_icon, effect: { kind: 'gold', amount: 900 } },
   { id: 'essence_shard', name: 'Essence Shard', desc: '+12 Rune Essence (kept after the run)', rarity: 'common', icon: M.rune_essence_icon, effect: { kind: 'essence', amount: 12 } },
-  { id: 'pure_essence', name: 'Pure Essence', desc: '+18 Rune Essence (kept after the run)', rarity: 'common', icon: M.essence_icon, effect: { kind: 'essence', amount: 18 } },
+  { id: 'essence_cache', name: 'Essence Cache', desc: '+22 Rune Essence (kept after the run)', rarity: 'uncommon', icon: M.essence_icon, effect: { kind: 'essence', amount: 22 } },
+  { id: 'essence_motherlode', name: 'Essence Motherlode', desc: '+35 Rune Essence (kept after the run)', rarity: 'rare', icon: M.rune_essence_icon, effect: { kind: 'essence', amount: 35 } },
   { id: 'bandages', name: 'Bandages', desc: 'Patch the gate for +2 lives', rarity: 'common', icon: M.hp_icon, effect: { kind: 'life', amount: 2 } },
-  { id: 'shark_supper', name: 'Shark Supper', desc: 'A hearty meal restores +3 lives', rarity: 'common', icon: M.hp_icon, effect: { kind: 'life', amount: 3 } },
-  { id: 'whetstone', name: 'Whetstone', desc: '+6% damage for every tower, this run', rarity: 'common', icon: M.strength_icon, effect: { kind: 'damage', mult: DMG.common } },
-  { id: 'attack_potion', name: 'Attack Potion', desc: '+6% damage for every tower, this run', rarity: 'common', icon: M.strength_icon, effect: { kind: 'damage', mult: DMG.common } },
-  { id: 'spyglass', name: 'Spyglass', desc: '+3% range for every tower, this run', rarity: 'common', icon: M.ranged_icon, effect: { kind: 'range', mult: RNG.common } },
-  { id: 'far_sight', name: 'Far Sight', desc: '+3% range for every tower, this run', rarity: 'common', icon: M.ranged_icon, effect: { kind: 'range', mult: RNG.common } },
-  { id: 'swift_gloves', name: 'Swift Gloves', desc: '+3% attack speed for every tower, this run', rarity: 'common', icon: M.attack_icon, effect: { kind: 'fireRate', mult: SPD.common } },
-  { id: 'oiled_gears', name: 'Oiled Gears', desc: '+3% attack speed for every tower, this run', rarity: 'common', icon: M.attack_icon, effect: { kind: 'fireRate', mult: SPD.common } },
-  { id: 'prayer_drops', name: 'Prayer Drops', desc: '+6% damage for every tower, this run', rarity: 'common', icon: M.prayer_icon, effect: { kind: 'damage', mult: DMG.common } },
-  { id: 'whittled_arrows', name: 'Whittled Arrows', desc: '+6% damage for every tower, this run', rarity: 'common', icon: M.skill_woodcutting, effect: { kind: 'damage', mult: DMG.common } },
-  { id: 'mined_shot', name: 'Mined Shot', desc: '+275 gold from a rich ore vein', rarity: 'common', icon: M.skill_mining, effect: { kind: 'gold', amount: 275 } },
-  { id: 'guam_tincture', name: 'Guam Tincture', desc: 'A weak brew mends +2 lives', rarity: 'common', icon: M.skill_herblore, effect: { kind: 'life', amount: 2 } },
-  { id: 'apprentice_focus', name: 'Apprentice Focus', desc: '+6% damage for every tower, this run', rarity: 'common', icon: M.magic_icon, effect: { kind: 'damage', mult: DMG.common } },
-  { id: 'sturdy_planks', name: 'Sturdy Planks', desc: 'Reinforce the gate: +1 max life', rarity: 'common', icon: M.skill_crafting, effect: { kind: 'maxLife', amount: 1 } },
-  { id: 'fletched_quiver', name: 'Fletched Quiver', desc: '+3% range & +6% damage, this run', rarity: 'common', icon: M.ranged_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.common }, { kind: 'damage', mult: DMG.common }] } },
-
-  // ───────────────────────────── rares (mid power) ───────────────────────────
-  { id: 'sharpened_blades', name: 'Sharpened Blades', desc: '+12% damage for every tower, this run', rarity: 'rare', icon: M.strength_icon, effect: { kind: 'damage', mult: DMG.rare } },
-  { id: 'super_strength', name: 'Super Strength', desc: '+12% damage for every tower, this run', rarity: 'rare', icon: M.strength_icon, effect: { kind: 'damage', mult: DMG.rare } },
-  { id: 'eagle_eyes', name: 'Eagle Eyes', desc: '+5% range for every tower, this run', rarity: 'rare', icon: M.ranged_icon, effect: { kind: 'range', mult: RNG.rare } },
-  { id: 'hawk_eye', name: 'Hawk Eye', desc: '+5% range for every tower, this run', rarity: 'rare', icon: M.ranged_icon, effect: { kind: 'range', mult: RNG.rare } },
-  { id: 'battle_cadence', name: 'Battle Cadence', desc: '+5% attack speed for every tower, this run', rarity: 'rare', icon: M.attack_icon, effect: { kind: 'fireRate', mult: SPD.rare } },
-  { id: 'war_drums', name: 'War Drums', desc: '+5% attack speed for every tower, this run', rarity: 'rare', icon: M.attack_icon, effect: { kind: 'fireRate', mult: SPD.rare } },
+  { id: 'shark_supper', name: 'Shark Supper', desc: 'A hearty meal restores +3 lives', rarity: 'uncommon', icon: M.hp_icon, effect: { kind: 'life', amount: 3 } },
+  { id: 'saradomin_brew', name: 'Saradomin Brew', desc: 'A blessed brew restores +4 lives', rarity: 'rare', icon: M.skill_herblore, effect: { kind: 'life', amount: 4 } },
   { id: 'fortify_gate', name: 'Fortify Gate', desc: '+1 max life (and heal 1)', rarity: 'rare', icon: M.hp_icon, effect: { kind: 'maxLife', amount: 1 } },
-  { id: 'mystic_lore', name: 'Mystic Lore', desc: '+12% damage for every tower, this run', rarity: 'rare', icon: M.magic_icon, effect: { kind: 'damage', mult: DMG.rare } },
-  { id: 'piety', name: 'Piety', desc: '+12% damage for every tower, this run', rarity: 'rare', icon: M.prayer_icon, effect: { kind: 'damage', mult: DMG.rare } },
-  { id: 'slayer_contract', name: 'Slayer Contract', desc: '+450 gold bounty paid in full', rarity: 'rare', icon: M.slayer_crossbow, effect: { kind: 'gold', amount: 450 } },
-  { id: 'essence_cache', name: 'Essence Cache', desc: '+28 Rune Essence (kept after the run)', rarity: 'rare', icon: M.rune_essence_icon, effect: { kind: 'essence', amount: 28 } },
-  { id: 'ranarr_harvest', name: 'Ranarr Harvest', desc: 'A potent crop restores +4 lives', rarity: 'rare', icon: M.ranarr, effect: { kind: 'life', amount: 4 } },
-  // — rare combos (two stats at common-tier steps each) —
-  { id: 'rangers_kit', name: "Ranger's Kit", desc: '+5% range & +12% damage, this run', rarity: 'rare', icon: M.ranged_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.rare }, { kind: 'damage', mult: DMG.common }] } },
-  { id: 'duelists_stance', name: "Duelist's Stance", desc: '+5% attack speed & +12% damage, this run', rarity: 'rare', icon: M.attack_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'fireRate', mult: SPD.rare }, { kind: 'damage', mult: DMG.common }] } },
-  { id: 'sentinels_watch', name: "Sentinel's Watch", desc: '+5% range & +3% attack speed, this run', rarity: 'rare', icon: M.ranged_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.rare }, { kind: 'fireRate', mult: SPD.common }] } },
-  { id: 'war_chest', name: 'War Chest', desc: '+300 gold & +6% damage, this run', rarity: 'rare', icon: M.coins_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'gold', amount: 300 }, { kind: 'damage', mult: DMG.common }] } },
-  { id: 'field_medic', name: 'Field Medic', desc: '+2 lives & +1 max life', rarity: 'rare', icon: M.hp_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'life', amount: 2 }, { kind: 'maxLife', amount: 1 }] } },
-  { id: 'arcane_study', name: 'Arcane Study', desc: '+18 Essence & +6% damage, this run', rarity: 'rare', icon: M.spellbook_standard,
-    effect: { kind: 'multi', effects: [{ kind: 'essence', amount: 18 }, { kind: 'damage', mult: DMG.common }] } },
+  { id: 'greater_fortify', name: 'Greater Fortify', desc: '+2 max life (and heal 2)', rarity: 'ultra', icon: M.hp_icon, effect: { kind: 'maxLife', amount: 2 } },
 
-  // ───────────────────────────── epics (rare treats) ─────────────────────────
-  { id: 'berserk', name: 'Berserk', desc: '+22% damage for every tower, this run', rarity: 'epic', icon: M.strength_icon, effect: { kind: 'damage', mult: DMG.epic } },
-  { id: 'overload', name: 'Overload', desc: '+22% damage for every tower, this run', rarity: 'epic', icon: M.skill_herblore, effect: { kind: 'damage', mult: DMG.epic } },
-  { id: 'farsight_scope', name: 'Farsight Scope', desc: '+8% range for every tower, this run', rarity: 'epic', icon: M.ranged_icon, effect: { kind: 'range', mult: RNG.epic } },
-  { id: 'rapid_fire', name: 'Rapid Fire', desc: '+8% attack speed for every tower, this run', rarity: 'epic', icon: M.attack_icon, effect: { kind: 'fireRate', mult: SPD.epic } },
-  { id: 'dragonstone_hoard', name: 'Dragonstone Hoard', desc: '+750 gold to spend now', rarity: 'epic', icon: M.coins_icon, effect: { kind: 'gold', amount: 750 } },
-  { id: 'essence_motherlode', name: 'Essence Motherlode', desc: '+45 Rune Essence (kept after the run)', rarity: 'epic', icon: M.rune_essence_icon, effect: { kind: 'essence', amount: 45 } },
-  { id: 'greater_fortify', name: 'Greater Fortify', desc: '+2 max life (and heal 2)', rarity: 'epic', icon: M.hp_icon, effect: { kind: 'maxLife', amount: 2 } },
-  { id: 'second_wind', name: 'Second Wind', desc: 'Rally the gate for +5 lives', rarity: 'epic', icon: M.hp_icon, effect: { kind: 'life', amount: 5 } },
-  // — epic combos (two/three stats at rare-tier steps) —
-  { id: 'rigour', name: 'Rigour', desc: '+8% range & +12% damage, this run', rarity: 'epic', icon: M.prayer_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.epic }, { kind: 'damage', mult: DMG.rare }] } },
-  { id: 'augury', name: 'Augury', desc: '+8% attack speed & +12% damage, this run', rarity: 'epic', icon: M.magic_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'fireRate', mult: SPD.epic }, { kind: 'damage', mult: DMG.rare }] } },
-  { id: 'twisted_bow', name: 'Twisted Bow', desc: '+5% range & +5% attack speed, this run', rarity: 'epic', icon: M.ranged_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.rare }, { kind: 'fireRate', mult: SPD.rare }] } },
-  { id: 'inquisitors_set', name: "Inquisitor's Set", desc: '+12% damage, +5% attack speed & +5% range, this run', rarity: 'epic', icon: M.strength_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare }, { kind: 'fireRate', mult: SPD.rare }, { kind: 'range', mult: RNG.rare }] } },
-  { id: 'ancients_pact', name: "Ancient's Pact", desc: '+12% damage & +30 Essence, this run', rarity: 'epic', icon: M.spellbook_ancient,
-    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare }, { kind: 'essence', amount: 30 }] } },
-  { id: 'kings_ransom', name: "King's Ransom", desc: '+500 gold & +12% damage, this run', rarity: 'epic', icon: M.coins_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'gold', amount: 500 }, { kind: 'damage', mult: DMG.rare }] } },
-  { id: 'last_stand', name: 'Last Stand', desc: '+1 max life & +12% damage, this run', rarity: 'epic', icon: M.hp_icon,
-    effect: { kind: 'multi', effects: [{ kind: 'maxLife', amount: 1 }, { kind: 'damage', mult: DMG.rare }] } },
+  // ───────────────────────────── combo cards ──────────────────────────────
+  { id: 'berserker_ring', name: 'Berserker Ring', desc: '+6% damage & +3% attack speed for melee, this run', rarity: 'uncommon', icon: M.strength_icon,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'fireRate', mult: SPD.common, style: 'melee' }] } },
+  { id: 'pegasian_boots', name: 'Pegasian Boots', desc: '+3% range & +3% attack speed for ranged, this run', rarity: 'uncommon', icon: M.ranged_icon,
+    effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.common, style: 'ranged' }, { kind: 'fireRate', mult: SPD.common, style: 'ranged' }] } },
+  { id: 'slayer_helmet', name: 'Slayer Helmet', desc: '+6% melee damage & +200 gold', rarity: 'uncommon', icon: M.slayer_crossbow,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'gold', amount: 200 }] } },
+  { id: 'rangers_kit', name: "Ranger's Kit", desc: '+10% damage & +4% range for ranged, this run', rarity: 'rare', icon: M.ranged_icon,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'ranged' }, { kind: 'range', mult: RNG.uncommon, style: 'ranged' }] } },
+  { id: 'occult_necklace', name: 'Occult Necklace', desc: '+10% damage & +4% attack speed for magic, this run', rarity: 'rare', icon: M.magic_icon,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'magic' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' }] } },
+  { id: 'void_knight', name: 'Void Knight', desc: '+6% damage & +3% attack speed for ALL towers, this run', rarity: 'rare', icon: M.prayer_icon,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common }, { kind: 'fireRate', mult: SPD.common }] } },
+  { id: 'inquisitors_set', name: "Inquisitor's Set", desc: '+15% damage, +6% attack speed & +6% range for melee, this run', rarity: 'ultra', icon: M.strength_icon,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'melee' }, { kind: 'fireRate', mult: SPD.rare, style: 'melee' }, { kind: 'range', mult: RNG.rare, style: 'melee' }] } },
+  { id: 'elite_void', name: 'Elite Void', desc: '+10% damage, +4% range & +4% attack speed for ALL, this run', rarity: 'ultra', icon: M.prayer_icon,
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon }, { kind: 'range', mult: RNG.uncommon }, { kind: 'fireRate', mult: SPD.uncommon }] } },
 ];
 
 /**
