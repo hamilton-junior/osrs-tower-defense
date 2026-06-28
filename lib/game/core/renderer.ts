@@ -854,15 +854,28 @@ export class GameRenderer {
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(angle);
-        const arrowImg = p.arrowIcon ? this.e.images.get(`proj_${p.arrowIcon}`) : undefined;
-        if (arrowImg && p.arrowIcon && this.e.imageOk(`proj_${p.arrowIcon}`)) {
-          // Rotate the dragon-arrow detail sprite by π so its heads point along the
-          // travel direction (verified empirically — fletching trails behind).
-          // drawImageContain keeps the sprite's aspect (no distortion).
-          ctx.rotate(Math.PI);
-          this.drawImageContain(ctx, arrowImg, 0, 0, 22);
+        if (p.arrowIcon) {
+          // Archer: a single procedural dragon arrow, drawn pointing +x — i.e.
+          // already along the travel direction (we rotated to `angle`), so no
+          // sprite/orientation guesswork. Dragon look: dark shaft, crimson
+          // dragon-metal head with a bright edge, red fletching.
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = '#4a3320'; // shaft (dark wood)
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-8, 0);
+          ctx.lineTo(7, 0);
+          ctx.stroke();
+          ctx.fillStyle = '#a3242a'; // fletching (crimson feathers)
+          ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(-11, -3); ctx.lineTo(-4, -1); ctx.closePath(); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(-11, 3); ctx.lineTo(-4, 1); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#5e1414'; // arrowhead (dark dragon metal)
+          ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(6, -3.5); ctx.lineTo(6, 3.5); ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#c2483c'; // bright leading edge
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(6, -3.5); ctx.moveTo(11, 0); ctx.lineTo(6, 3.5); ctx.stroke();
         } else {
-          ctx.fillRect(-8, -1, 16, 2);
+          ctx.fillRect(-8, -1, 16, 2); // plain bolt (tzhaar / slayer / toxic)
         }
         ctx.restore();
       } else if (p.spellIcon && this.e.imageOk(`spell_${p.spellIcon}`)) {

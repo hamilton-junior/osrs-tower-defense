@@ -193,11 +193,6 @@ export const ASSETS = {
       4: 'https://oldschool.runescape.wiki/images/Trident_of_the_swamp.png',
     },
   },
-  // Flying projectile sprites drawn on the canvas (keyed `proj_<name>`). The
-  // detail render is a single clean bundle of dragon arrows (heads pointing up).
-  projectiles: {
-    dragon_arrow: 'https://oldschool.runescape.wiki/images/Dragon_arrow_detail.png',
-  },
   items: {
     amulet_of_power: 'https://oldschool.runescape.wiki/images/Amulet_of_power.png',
     anti_dragon_shield: 'https://oldschool.runescape.wiki/images/Anti-dragon_shield.png',

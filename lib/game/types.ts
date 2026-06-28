@@ -297,7 +297,8 @@ export interface Projectile {
   bonusMaxHpFrac?: number;
   /** Wiki spell-file name (e.g. `Fire_Wave`) used to draw the real spell sprite. */
   spellIcon?: string;
-  /** Projectile sprite name (keyed `proj_<name>`) drawn rotated for arrow shots. */
+  /** Arrow style marker for archer shots (`'dragon_arrow'`): the renderer draws a
+   *  procedural dragon arrow, and the engine skips the melee impact thud for it. */
   arrowIcon?: string;
   /** Sound key (e.g. `hit_fire_3`) played at impact — the spell's authentic OSRS
    *  hit sfx, paired with the cast sound played on fire. */

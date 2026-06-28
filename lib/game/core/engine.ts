@@ -551,10 +551,6 @@ export class GameEngine {
       ...Object.fromEntries(
         Object.entries(ASSETS.spells).map(([name, url]) => [`spell_${name}`, url]),
       ),
-      // Flying projectile sprites (keyed `proj_<name>`), e.g. the archer's arrow.
-      ...Object.fromEntries(
-        Object.entries(ASSETS.projectiles).map(([name, url]) => [`proj_${name}`, url]),
-      ),
       // Baked spotanim sprite sheets (keyed `spotanim_<slug>`).
       ...Object.fromEntries(
         Object.entries(SPOTANIMS).map(([slug, s]) => [`spotanim_${slug}`, s.url]),
@@ -1434,6 +1430,10 @@ export class GameEngine {
   private hit(p: Projectile, target: Enemy | null) {
     this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
+    // Archer arrows have no impact clip wired yet, and the generic melee "thud" is
+    // wrong for a flying arrow — so they land silently for now (`arrowIcon` is set
+    // iff the shot came from an archer). Everything else keeps the impact thud.
+    const silent = !!p.arrowIcon;
     let primaryKilled = false;
     if (p.aoe || p.special === 'aoe') {
       // Magic barrages splash for reduced damage on non-primary targets so AoE
@@ -1455,7 +1455,7 @@ export class GameEngine {
         // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.
         const bonus = p.bonusMaxHpFrac ? Math.floor(e.maxHp * p.bonusMaxHpFrac * scale) : 0;
         const dmg = Math.floor(p.damage * scale) + bonus;
-        const killed = this.damage(e, dmg);
+        const killed = this.damage(e, dmg, 'hit', false, silent);
         if (isPrimary) primaryKilled = killed;
         if (!killed) this.applyOnHit(e, p);
       }
@@ -1463,7 +1463,7 @@ export class GameEngine {
       // Single-target: only resolves if the target is still alive at impact;
       // otherwise the bolt just fizzles where the target was (particles only).
       const bonus = p.bonusMaxHpFrac ? Math.floor(target.maxHp * p.bonusMaxHpFrac) : 0;
-      primaryKilled = this.damage(target, p.damage + bonus);
+      primaryKilled = this.damage(target, p.damage + bonus, 'hit', false, silent);
       if (!primaryKilled) this.applyOnHit(target, p);
     }
     // Blood barrage: a chance to steal a life when the primary target is killed —
@@ -1612,7 +1612,7 @@ export class GameEngine {
 
   /** Deal damage to an enemy; returns true if it died from this hit. `kind`
    *  colours the hitsplat; `minor` (DoT) draws it small/below, drifting aside. */
-  private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false): boolean {
+  private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false, silent = false): boolean {
     // Water "amp" makes the enemy take extra damage from every source; the Slayer
     // Helmet adds an on-task bonus vs the current task's monster.
     const vuln = enemy.vulnTimer && enemy.vulnTimer > 0 ? 1.25 : 1;
@@ -1644,7 +1644,7 @@ export class GameEngine {
       minor: minor || undefined,
       vx: minor ? dotSide * 30 + (Math.random() - 0.5) * 16 : 0,
     });
-    if (dealt > 0 && !minor) this.sound.play('hit', 70);
+    if (dealt > 0 && !minor && !silent) this.sound.play('hit', 70);
     if (enemy.hp > 0) return false;
     const i = this.enemies.indexOf(enemy);
     if (i < 0) return false;
