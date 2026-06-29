@@ -252,7 +252,7 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'ice_barrage_card', name: 'Ice Barrage', desc: 'Any slow now spreads to nearby enemies', rarity: 'rare', unique: true, icon: `${W}Ice_Barrage.png`, effect: { kind: 'chainFreeze', radius: 75 } },
   { id: 'heavy_ballista', name: 'Heavy Ballista', desc: 'Projectiles punch through to strike the enemy behind', rarity: 'rare', unique: true, icon: `${W}Heavy_ballista.png`, effect: { kind: 'pierce', radius: 70 } },
   // ── placement synergies (reward HOW you position, not just what you pick) ──
-  { id: 'clan_vexillum', name: 'Clan Vexillum', desc: 'Each tower gains +8% damage per nearby tower of the same kind (max +40%)', rarity: 'ultra', unique: true, icon: `${W}Clan_vexillum.png`, effect: { kind: 'packTactics', frac: 0.08, radius: 96, maxStacks: 5 } },
+  { id: 'clan_vexillum', name: 'Clan Vexillum', desc: 'Each tower gains +8% damage per nearby tower of the same kind (max +40%)', rarity: 'ultra', unique: true, icon: `${W}Clan_vexillum_%28green%29.png`, effect: { kind: 'packTactics', frac: 0.08, radius: 96, maxStacks: 5 } },
   { id: 'combat_triangle', name: 'Combat Triangle', desc: 'A tower flanked by both other combat styles deals +30% damage', rarity: 'ultra', unique: true, icon: `${W}Multicombat.png`, effect: { kind: 'trinity', mult: 1.3, radius: 96 } },
   { id: 'dinhs_bulwark', name: "Dinh's Bulwark", desc: 'Your frontmost tower (nearest the portal) deals +60% damage', rarity: 'ultra', unique: true, icon: `${W}Dinh%27s_bulwark.png`, effect: { kind: 'vanguard', mult: 1.6 } },
   { id: 'lone_wolf', name: 'Lone Wolf', desc: 'A tower with no other tower nearby deals +50% damage', rarity: 'ultra', unique: true, icon: `${W}Wolf_mask.png`, effect: { kind: 'loneWolf', mult: 1.5, radius: 96 } },

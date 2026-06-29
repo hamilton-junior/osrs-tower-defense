@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
 import { DRAFT_POOL, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
-import { utilityAuraBonus, diminishingSum } from '@/lib/game/systems/tower-combat';
+import { utilityAuraBonus, diminishingSum, synergyDamageMult } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
@@ -500,6 +500,29 @@ export default function GameRoot() {
     if (netS) parts.push(`+${pct(netS)} attack speed`);
     if (parts.length && WIZARD_UTILITY_STAFF) {
       towerBoosts.push({ key: 'aura', icon: WIZARD_UTILITY_STAFF, amount: pct(netD || netR || netS), title: `Utility aura — ${parts.join(', ')}` });
+    }
+    // Roguelite relics that touch THIS tower: placement synergies (per-tower,
+    // layout-dependent) and magic-spellbook specialisations — one chip each.
+    const eng = engineRef.current;
+    if (eng && ui.gameMode === 'roguelite') {
+      const syn = eng.runFx.synergy;
+      for (const key of Object.keys(SYNERGY_CARD_ID) as (keyof typeof syn)[]) {
+        if (!syn[key]) continue;
+        const m = synergyDamageMult(selectedTower, eng.towers, { [key]: syn[key] } as typeof syn, eng.portalPoint);
+        if (m > 1.001) {
+          const card = CARD_BY_ID[SYNERGY_CARD_ID[key]];
+          if (card) towerBoosts.push({ key: `relic-${key}`, icon: card.icon, amount: pct(m - 1), title: `${card.name} — ${effectTag(card.effect)}` });
+        }
+      }
+      if (selectedTower.type === 'wizard') {
+        const mode = selectedTower.mageMode ?? 'elemental';
+        const b = eng.runFx.mageBuff[mode];
+        if (b && (b.damage > 1 || b.range > 1 || b.fireRate > 1)) {
+          const card = CARD_BY_ID[MAGE_CARD_ID[mode]];
+          const amt = b.damage > 1 ? b.damage - 1 : b.range > 1 ? b.range - 1 : b.fireRate - 1;
+          if (card) towerBoosts.push({ key: 'relic-mage', icon: card.icon, amount: pct(amt), title: `${card.name} — ${effectTag(card.effect)}` });
+        }
+      }
     }
   }
   // Active buffs anywhere, for the always-on infobox cluster (RuneLite-style).
@@ -2304,6 +2327,15 @@ function CardInspect({ card, count, onBack, onPrev, onNext, position }: {
 /** Resolve a drafted-card id back to its pool definition. */
 const CARD_BY_ID: Record<string, DraftCard> = Object.fromEntries(DRAFT_POOL.map((c) => [c.id, c]));
 
+/** Which card each per-tower relic effect comes from, so the tower panel can show
+ *  the relic's icon/name as a boost chip. */
+const SYNERGY_CARD_ID: Record<'packTactics' | 'trinity' | 'vanguard' | 'loneWolf', string> = {
+  packTactics: 'clan_vexillum', trinity: 'combat_triangle', vanguard: 'dinhs_bulwark', loneWolf: 'lone_wolf',
+};
+const MAGE_CARD_ID: Record<string, string> = {
+  elemental: 'tome_of_fire', ancients: 'ancient_sceptre', utility: 'lunar_staff',
+};
+
 /** True when a card leaves a lasting mark on the run (a rule-changing relic),
  *  not a one-shot resource (gold/essence/life) that's spent the moment it's taken. */
 function isRelicCard(card: DraftCard): boolean {
@@ -2316,33 +2348,43 @@ function isRelicCard(card: DraftCard): boolean {
  *  rarity-bordered icons (×N badge for stacked stat cards), each with a hover
  *  tooltip naming the relic and its effect. One-shot resource cards are omitted. */
 function RelicStrip({ cards }: { cards: { id: string; count: number }[] }) {
+  const [collapsed, setCollapsed] = useState(false);
   const relics = cards
     .map((c) => ({ card: CARD_BY_ID[c.id], count: c.count }))
     .filter((r): r is { card: DraftCard; count: number } => !!r.card && isRelicCard(r.card));
   if (relics.length === 0) return null;
   return (
     <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
-      <div className="flex items-center justify-between mb-[0.4em]">
-        <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide">Relics</span>
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        title={collapsed ? 'Expand relics' : 'Minimise relics'}
+        className={`flex items-center justify-between w-full ${collapsed ? '' : 'mb-[0.4em]'}`}
+      >
+        <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide flex items-center gap-[0.3em]">
+          <span className="text-[0.85em] text-[#cdbe91]">{collapsed ? '▸' : '▾'}</span>
+          Relics
+        </span>
         <span className="text-[0.7em] text-[#cdbe91]">{relics.length}</span>
-      </div>
-      <div className="flex flex-wrap gap-[0.35em]">
-        {relics.map(({ card, count }) => (
-          <span
-            key={card.id}
-            title={`${card.name} — ${effectTag(card.effect)}`}
-            className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
-            style={{ border: `1px solid ${RARITY_COLOR[card.rarity]}`, boxShadow: `inset 0 0 6px ${RARITY_COLOR[card.rarity]}55` }}
-          >
-            <img src={card.icon} alt={card.name} className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
-            {count > 1 && (
-              <span className="absolute -bottom-[0.15em] -right-[0.15em] text-[0.58em] font-bold text-osrs-yellow bg-black/85 px-[0.25em] leading-tight rounded-sm">
-                ×{count}
-              </span>
-            )}
-          </span>
-        ))}
-      </div>
+      </button>
+      {!collapsed && (
+        <div className="flex flex-wrap gap-[0.35em]">
+          {relics.map(({ card, count }) => (
+            <span
+              key={card.id}
+              title={`${card.name} — ${effectTag(card.effect)}`}
+              className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
+              style={{ border: `1px solid ${RARITY_COLOR[card.rarity]}`, boxShadow: `inset 0 0 6px ${RARITY_COLOR[card.rarity]}55` }}
+            >
+              <img src={card.icon} alt={card.name} className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
+              {count > 1 && (
+                <span className="absolute -bottom-[0.15em] -right-[0.15em] text-[0.58em] font-bold text-osrs-yellow bg-black/85 px-[0.25em] leading-tight rounded-sm">
+                  ×{count}
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
