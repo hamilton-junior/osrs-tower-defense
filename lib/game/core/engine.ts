@@ -207,6 +207,9 @@ export interface UIState {
   pendingDraft: DraftCard[] | null;
   /** Roguelite: the accumulated run-scoped buffs from drafts (for the UI). */
   runMods: RunModifiers;
+  /** Roguelite: cards drafted this run (id + stack count, in pick order) — the
+   *  active-relics / build panel resolves each id against the draft pool. */
+  runCards: { id: string; count: number }[];
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -395,6 +398,9 @@ export class GameEngine {
   runFx: RunEffects = freshRunEffects();
   /** Ids of `unique` cards drafted this run — excluded from later hands. */
   private draftedUnique = new Set<string>();
+  /** Cards drafted this run, in pick order, with a stack count for repeatable
+   *  ones — the source for the UI's active-relics / build panel. Resets per run. */
+  runCards: { id: string; count: number }[] = [];
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
@@ -569,6 +575,7 @@ export class GameEngine {
       gameMode: this.gameMode,
       pendingDraft: this.pendingDraft,
       runMods: cloneRunMods(this.runMods),
+      runCards: this.runCards.map(c => ({ ...c })),
     });
   }
 
@@ -2057,6 +2064,10 @@ export class GameEngine {
     this.applyDraftEffect(card);
     // Unique (build-defining) cards are spent: keep them out of this run's later hands.
     if (card.unique) this.draftedUnique.add(card.id);
+    // Track the run's build for the active-relics panel (stack repeatable cards).
+    const owned = this.runCards.find(c => c.id === card.id);
+    if (owned) owned.count++;
+    else this.runCards.push({ id: card.id, count: 1 });
     // Lifetime Cards collection-log tally (account-wide, survives restart).
     this.cardCounts = { ...this.cardCounts, [card.id]: (this.cardCounts[card.id] ?? 0) + 1 };
     this.pendingDraft = null;
@@ -2146,6 +2157,7 @@ export class GameEngine {
     this.runMods = freshRunMods();
     this.runFx = freshRunEffects();
     this.draftedUnique.clear();
+    this.runCards = [];
     this.pendingDraft = null;
     this.wave = 1;
     this.kills = 0;

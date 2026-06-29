@@ -166,6 +166,7 @@ const INITIAL: UIState = {
     range: { melee: 1, ranged: 1, magic: 1 },
     fireRate: { melee: 1, ranged: 1, magic: 1 },
   },
+  runCards: [],
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
@@ -1333,6 +1334,12 @@ export default function GameRoot() {
             </>
           )
         )}
+
+        {/* Roguelite build-at-a-glance: the relics (rule-changing cards) drafted
+            this run, so the active loadout is visible instead of forgotten. */}
+        {ui.gameMode === 'roguelite' && ui.runCards.length > 0 && (
+          <RelicStrip cards={ui.runCards} />
+        )}
         </>
         )}
 
@@ -2281,6 +2288,52 @@ function CardInspect({ card, count, onBack, onPrev, onNext, position }: {
             {obtained ? `× ${fmt(count)}` : 'Not yet'}
           </span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Resolve a drafted-card id back to its pool definition. */
+const CARD_BY_ID: Record<string, DraftCard> = Object.fromEntries(DRAFT_POOL.map((c) => [c.id, c]));
+
+/** True when a card leaves a lasting mark on the run (a rule-changing relic),
+ *  not a one-shot resource (gold/essence/life) that's spent the moment it's taken. */
+function isRelicCard(card: DraftCard): boolean {
+  const oneShot = new Set(['gold', 'essence', 'life']);
+  const walk = (e: DraftEffect): boolean => (e.kind === 'multi' ? e.effects.some(walk) : !oneShot.has(e.kind));
+  return walk(card.effect);
+}
+
+/** Roguelite build-at-a-glance: the relics drafted this run as a wrapped strip of
+ *  rarity-bordered icons (×N badge for stacked stat cards), each with a hover
+ *  tooltip naming the relic and its effect. One-shot resource cards are omitted. */
+function RelicStrip({ cards }: { cards: { id: string; count: number }[] }) {
+  const relics = cards
+    .map((c) => ({ card: CARD_BY_ID[c.id], count: c.count }))
+    .filter((r): r is { card: DraftCard; count: number } => !!r.card && isRelicCard(r.card));
+  if (relics.length === 0) return null;
+  return (
+    <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
+      <div className="flex items-center justify-between mb-[0.4em]">
+        <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide">Relics</span>
+        <span className="text-[0.7em] text-[#cdbe91]">{relics.length}</span>
+      </div>
+      <div className="flex flex-wrap gap-[0.35em]">
+        {relics.map(({ card, count }) => (
+          <span
+            key={card.id}
+            title={`${card.name} — ${effectTag(card.effect)}`}
+            className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
+            style={{ border: `1px solid ${RARITY_COLOR[card.rarity]}`, boxShadow: `inset 0 0 6px ${RARITY_COLOR[card.rarity]}55` }}
+          >
+            <img src={card.icon} alt={card.name} className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
+            {count > 1 && (
+              <span className="absolute -bottom-[0.15em] -right-[0.15em] text-[0.58em] font-bold text-osrs-yellow bg-black/85 px-[0.25em] leading-tight rounded-sm">
+                ×{count}
+              </span>
+            )}
+          </span>
+        ))}
       </div>
     </div>
   );
