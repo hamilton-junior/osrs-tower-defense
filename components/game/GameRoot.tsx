@@ -167,6 +167,7 @@ const INITIAL: UIState = {
     fireRate: { melee: 1, ranged: 1, magic: 1 },
   },
   runCards: [],
+  autoplay: false, autoplaySecs: 3,
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */

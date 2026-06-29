@@ -175,7 +175,7 @@ function NumberRow({ label, value, onCommit, min = 0 }: {
  *  plays each enemy's baked walk/hurt/death clips off-wave, with its stats). */
 export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   engineRef: React.RefObject<GameEngine | null>;
-  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number };
+  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; autoplay: boolean; autoplaySecs: number };
   onClose: () => void;
   globalLock: boolean;
 }) {
@@ -229,6 +229,20 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
             <NumberRow label="Essence" value={ui.essence} onCommit={(n) => engineRef.current?.debugSetEssence(n)} />
             <NumberRow label="Lives" value={ui.lives} onCommit={(n) => engineRef.current?.debugSetLives(n)} />
             {ui.waveActive && <p className="text-[0.66em] text-[#b3a585]">Wave editing is locked mid-wave.</p>}
+          </div>
+
+          <div className="rs-panel-inset p-[0.5em] space-y-[0.4em]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[#cdbe91] text-[0.85em]">Autoplay waves</span>
+              <button
+                onClick={() => engineRef.current?.setAutoplay(!ui.autoplay)}
+                className={`rs-btn px-[0.7em] py-[0.2em] text-[0.78em] ${ui.autoplay ? 'rs-btn-primary' : ''}`}
+              >
+                {ui.autoplay ? 'On' : 'Off'}
+              </button>
+            </div>
+            <NumberRow label="Delay (s)" value={ui.autoplaySecs} min={1} onCommit={(n) => engineRef.current?.setAutoplaySecs(n)} />
+            <p className="text-[0.66em] text-[#b3a585]">Auto-starts the next wave once idle. Waits on a pending draft.</p>
           </div>
 
           <div className="rs-panel-inset p-[0.5em]">

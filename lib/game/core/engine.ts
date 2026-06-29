@@ -217,6 +217,9 @@ export interface UIState {
   /** Roguelite: cards drafted this run (id + stack count, in pick order) — the
    *  active-relics / build panel resolves each id against the draft pool. */
   runCards: { id: string; count: number }[];
+  /** Debug autoplay state (toggle + delay in seconds). */
+  autoplay: boolean;
+  autoplaySecs: number;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -417,6 +420,11 @@ export class GameEngine {
   /** Cards drafted this run, in pick order, with a stack count for repeatable
    *  ones — the source for the UI's active-relics / build panel. Resets per run. */
   runCards: { id: string; count: number }[] = [];
+  /** Debug autoplay: when on, auto-start the next wave `autoplaySecs` (min 1)
+   *  after the field is idle (between waves, no pending draft). */
+  autoplay = false;
+  autoplaySecs = 3;
+  private autoplayTimer = 0;
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
@@ -592,6 +600,8 @@ export class GameEngine {
       pendingDraft: this.pendingDraft,
       runMods: cloneRunMods(this.runMods),
       runCards: this.runCards.map(c => ({ ...c })),
+      autoplay: this.autoplay,
+      autoplaySecs: this.autoplaySecs,
     });
   }
 
@@ -1291,6 +1301,34 @@ export class GameEngine {
     this.moveProjectiles(dt);
     this.updateEffects(dt);
     this.checkWaveEnd();
+    this.tickAutoplay(dt);
+  }
+
+  /** Debug autoplay: count up while idle and auto-start the next wave once the
+   *  delay elapses. Waits on a pending roguelite draft (the pick stays manual). */
+  private tickAutoplay(dt: number) {
+    if (!this.autoplay || this.gameOver || this.waveActive || this.pendingDraft) {
+      this.autoplayTimer = 0;
+      return;
+    }
+    this.autoplayTimer += dt;
+    if (this.autoplayTimer >= this.autoplaySecs) {
+      this.autoplayTimer = 0;
+      this.startWave();
+    }
+  }
+
+  /** Debug: toggle autoplay on/off. */
+  setAutoplay(on: boolean) {
+    this.autoplay = on;
+    this.autoplayTimer = 0;
+    this.emit();
+  }
+
+  /** Debug: seconds between autoplayed waves (clamped to a 1s minimum). */
+  setAutoplaySecs(s: number) {
+    this.autoplaySecs = Math.max(1, Math.floor(s));
+    this.emit();
   }
 
   /** Advance purely-visual effects (no gameplay impact). */
