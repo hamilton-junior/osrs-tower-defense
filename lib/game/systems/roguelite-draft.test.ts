@@ -3,6 +3,7 @@ import {
   DRAFT_POOL,
   RARITY_WEIGHT,
   rollDraft,
+  availableCards,
   type DraftCard,
 } from './roguelite-draft';
 
@@ -87,6 +88,21 @@ describe('DRAFT_POOL integrity', () => {
     expect(kinds).toContain('chainFreeze');
     expect(kinds).toContain('pierce');
   });
+  it('behavioural (unique) cards are all rare or ultra', () => {
+    for (const c of DRAFT_POOL) {
+      if (c.unique) expect(['rare', 'ultra']).toContain(c.rarity);
+    }
+  });
+  it('every behavioural-kind card is flagged unique', () => {
+    const BEHAVIOURAL = new Set([
+      'ricochet', 'overkill', 'soulSplit', 'killStreak',
+      'lastStand', 'berserker', 'bloodPact', 'greed',
+      'doubleShot', 'venomTips', 'chainFreeze', 'pierce',
+    ]);
+    for (const c of DRAFT_POOL) {
+      if (leafEffects(c).some(e => BEHAVIOURAL.has(e.kind))) expect(c.unique).toBe(true);
+    }
+  });
   it('behavioural effects carry sane params', () => {
     for (const c of DRAFT_POOL) {
       for (const e of leafEffects(c)) {
@@ -103,6 +119,28 @@ describe('DRAFT_POOL integrity', () => {
         if (e.kind === 'pierce') expect(e.radius).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe('availableCards', () => {
+  it('returns the full pool when nothing has been taken', () => {
+    expect(availableCards(new Set())).toHaveLength(DRAFT_POOL.length);
+  });
+  it('drops a taken unique card but keeps everything else', () => {
+    const unique = DRAFT_POOL.find(c => c.unique)!;
+    const left = availableCards(new Set([unique.id]));
+    expect(left).toHaveLength(DRAFT_POOL.length - 1);
+    expect(left.some(c => c.id === unique.id)).toBe(false);
+  });
+  it('never drops a non-unique (stackable) card even if its id is passed', () => {
+    const stat = DRAFT_POOL.find(c => !c.unique)!;
+    const left = availableCards(new Set([stat.id]));
+    expect(left.some(c => c.id === stat.id)).toBe(true);
+  });
+  it('a hand rolled from the filtered pool excludes taken uniques', () => {
+    const taken = new Set(DRAFT_POOL.filter(c => c.unique).map(c => c.id));
+    const hand = rollDraft(Math.random, 3, availableCards(taken));
+    expect(hand.every(c => !c.unique)).toBe(true);
   });
 });
 

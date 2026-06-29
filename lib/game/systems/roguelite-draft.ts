@@ -83,6 +83,10 @@ export interface DraftCard {
   /** Icon URL (from {@link ASSETS}) shown on the card. */
   icon: string;
   effect: DraftEffect;
+  /** Once-per-run cards (the build-defining behavioural effects): after a card
+   *  is drafted it is dropped from the rest of the run's hands. Stat buffs are
+   *  meant to stack, so they leave this unset. See {@link availableCards}. */
+  unique?: boolean;
 }
 
 /** Selection weight per rarity — commons are the backbone, ultras rare treats. */
@@ -218,22 +222,34 @@ export const DRAFT_POOL: readonly DraftCard[] = [
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'magic' }, { kind: 'range', mult: RNG.rare, style: 'magic' }, { kind: 'fireRate', mult: SPD.rare, style: 'magic' }] } },
 
   // ═══════════════ behavioural cards — change a RULE, not a stat ════════════
+  // Build-defining one-offs: all rare/ultra and `unique` (drafted once per run,
+  // then removed from the pool — they set a flag, so a repeat would be dead weight).
   // ── on-kill chain reactions ──────────────────────────────────────────────
-  { id: 'dragon_claws', name: 'Dragon Claws', desc: 'On a kill, the strike rends the nearest enemy for 50% of the blow', rarity: 'rare', icon: `${W}Dragon_claws.png`, effect: { kind: 'ricochet', frac: 0.5, radius: 95 } },
-  { id: 'scythe_of_vitur', name: 'Scythe of Vitur', desc: 'A kill’s excess damage cleaves into the nearest enemy', rarity: 'ultra', icon: `${W}Scythe_of_vitur.png`, effect: { kind: 'overkill', radius: 95 } },
-  { id: 'soul_split', name: 'Soul Split', desc: 'Every 8th kill restores 1 life', rarity: 'rare', icon: `${W}Soul_Split.png`, effect: { kind: 'soulSplit', every: 8 } },
-  { id: 'dragon_warhammer', name: 'Dragon Warhammer', desc: 'Every 20 kills, a shockwave smashes ALL enemies for 40', rarity: 'ultra', icon: `${W}Dragon_warhammer.png`, effect: { kind: 'killStreak', every: 20, damage: 40 } },
+  { id: 'dragon_claws', name: 'Dragon Claws', desc: 'On a kill, the strike rends the nearest enemy for 50% of the blow', rarity: 'rare', unique: true, icon: `${W}Dragon_claws.png`, effect: { kind: 'ricochet', frac: 0.5, radius: 95 } },
+  { id: 'scythe_of_vitur', name: 'Scythe of Vitur', desc: 'A kill’s excess damage cleaves into the nearest enemy', rarity: 'ultra', unique: true, icon: `${W}Scythe_of_vitur.png`, effect: { kind: 'overkill', radius: 95 } },
+  { id: 'soul_split', name: 'Soul Split', desc: 'Every 8th kill restores 1 life', rarity: 'rare', unique: true, icon: `${W}Soul_Split.png`, effect: { kind: 'soulSplit', every: 8 } },
+  { id: 'dragon_warhammer', name: 'Dragon Warhammer', desc: 'Every 20 kills, a shockwave smashes ALL enemies for 40', rarity: 'ultra', unique: true, icon: `${W}Dragon_warhammer.png`, effect: { kind: 'killStreak', every: 20, damage: 40 } },
   // ── risk / reward curses ─────────────────────────────────────────────────
-  { id: 'phoenix_necklace', name: 'Phoenix Necklace', desc: 'While at 2 lives or fewer, ALL towers deal double damage', rarity: 'rare', icon: `${W}Phoenix_necklace.png`, effect: { kind: 'lastStand', belowLives: 2, mult: 2 } },
-  { id: 'berserker_brew', name: 'Berserker Necklace', desc: '+12% damage for every life you have lost', rarity: 'rare', icon: `${W}Berserker_necklace.png`, effect: { kind: 'berserker', perMissingLife: 0.12 } },
-  { id: 'blood_pact', name: 'Blood Pact', desc: '+40% damage to ALL towers, but each wave cleared costs 1 life', rarity: 'rare', icon: `${W}Blood_shard.png`, effect: { kind: 'bloodPact', mult: 1.4 } },
-  { id: 'greedy_pact', name: 'Greedy Pact', desc: 'Enemies have +25% HP, but drop double gold', rarity: 'uncommon', icon: `${W}Zenyte.png`, effect: { kind: 'greed', hpMult: 1.25, goldMult: 2 } },
+  { id: 'phoenix_necklace', name: 'Phoenix Necklace', desc: 'While at 2 lives or fewer, ALL towers deal double damage', rarity: 'rare', unique: true, icon: `${W}Phoenix_necklace.png`, effect: { kind: 'lastStand', belowLives: 2, mult: 2 } },
+  { id: 'berserker_brew', name: 'Berserker Necklace', desc: '+12% damage for every life you have lost', rarity: 'rare', unique: true, icon: `${W}Berserker_necklace.png`, effect: { kind: 'berserker', perMissingLife: 0.12 } },
+  { id: 'blood_pact', name: 'Blood Pact', desc: '+40% damage to ALL towers, but each wave cleared costs 1 life', rarity: 'rare', unique: true, icon: `${W}Blood_shard.png`, effect: { kind: 'bloodPact', mult: 1.4 } },
+  { id: 'greedy_pact', name: 'Greedy Pact', desc: 'Enemies have +25% HP, but drop double gold', rarity: 'rare', unique: true, icon: `${W}Zenyte.png`, effect: { kind: 'greed', hpMult: 1.25, goldMult: 2 } },
   // ── tower transformations ────────────────────────────────────────────────
-  { id: 'dragon_knife', name: 'Dragon Knife', desc: 'Ranged towers loose a second shot at another enemy in range', rarity: 'rare', icon: `${W}Dragon_knife.png`, effect: { kind: 'doubleShot' } },
-  { id: 'toxic_blowpipe', name: 'Toxic Blowpipe', desc: 'Every tower’s hit also injects venom', rarity: 'rare', icon: `${W}Toxic_blowpipe.png`, effect: { kind: 'venomTips', dps: 6, dur: 4 } },
-  { id: 'ice_barrage_card', name: 'Ice Barrage', desc: 'Any slow now spreads to nearby enemies', rarity: 'uncommon', icon: `${W}Ice_Barrage.png`, effect: { kind: 'chainFreeze', radius: 75 } },
-  { id: 'heavy_ballista', name: 'Heavy Ballista', desc: 'Projectiles punch through to strike the enemy behind', rarity: 'rare', icon: `${W}Heavy_ballista.png`, effect: { kind: 'pierce', radius: 70 } },
+  { id: 'dragon_knife', name: 'Dragon Knife', desc: 'Ranged towers loose a second shot at another enemy in range', rarity: 'rare', unique: true, icon: `${W}Dragon_knife.png`, effect: { kind: 'doubleShot' } },
+  { id: 'toxic_blowpipe', name: 'Toxic Blowpipe', desc: 'Every tower’s hit also injects venom', rarity: 'rare', unique: true, icon: `${W}Toxic_blowpipe.png`, effect: { kind: 'venomTips', dps: 6, dur: 4 } },
+  { id: 'ice_barrage_card', name: 'Ice Barrage', desc: 'Any slow now spreads to nearby enemies', rarity: 'rare', unique: true, icon: `${W}Ice_Barrage.png`, effect: { kind: 'chainFreeze', radius: 75 } },
+  { id: 'heavy_ballista', name: 'Heavy Ballista', desc: 'Projectiles punch through to strike the enemy behind', rarity: 'rare', unique: true, icon: `${W}Heavy_ballista.png`, effect: { kind: 'pierce', radius: 70 } },
 ];
+
+/** Cards still eligible to roll: drops any `unique` card already taken this run
+ *  (so a build-defining behavioural effect can't reappear). Stat buffs lack the
+ *  flag and always remain draftable. */
+export function availableCards(
+  takenUniqueIds: ReadonlySet<string>,
+  pool: readonly DraftCard[] = DRAFT_POOL,
+): DraftCard[] {
+  return pool.filter(c => !(c.unique && takenUniqueIds.has(c.id)));
+}
 
 /**
  * Roll a hand of `count` distinct cards, weighted by rarity, without

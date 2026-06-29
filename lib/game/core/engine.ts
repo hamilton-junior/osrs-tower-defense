@@ -22,7 +22,7 @@ import { PrayerSystem } from '../systems/prayer-system';
 import { GeSystem, type GeListing } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
-import { rollDraft, DRAFT_POOL, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
+import { rollDraft, availableCards, DRAFT_POOL, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import type { SlayerReward } from '../data/slayer';
@@ -383,6 +383,8 @@ export class GameEngine {
   runMods: RunModifiers = freshRunMods();
   /** Behavioural roguelite effects (chain-on-kill / curses / transforms). */
   runFx: RunEffects = freshRunEffects();
+  /** Ids of `unique` cards drafted this run — excluded from later hands. */
+  private draftedUnique = new Set<string>();
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
@@ -1998,7 +2000,7 @@ export class GameEngine {
     this.ge.onWaveCleared(); // drift shop prices toward this wave's demand
     // Roguelite: offer a draft hand to keep before the next wave can start.
     if (this.gameMode === 'roguelite' && !this.gameOver) {
-      this.pendingDraft = rollDraft(Math.random, 3);
+      this.pendingDraft = rollDraft(Math.random, 3, availableCards(this.draftedUnique));
       this.sound.play('interface_open');
     }
     this.emit();
@@ -2019,6 +2021,8 @@ export class GameEngine {
     const card = this.pendingDraft?.find(c => c.id === id);
     if (!card) return;
     this.applyDraftEffect(card);
+    // Unique (build-defining) cards are spent: keep them out of this run's later hands.
+    if (card.unique) this.draftedUnique.add(card.id);
     // Lifetime Cards collection-log tally (account-wide, survives restart).
     this.cardCounts = { ...this.cardCounts, [card.id]: (this.cardCounts[card.id] ?? 0) + 1 };
     this.pendingDraft = null;
@@ -2102,6 +2106,7 @@ export class GameEngine {
     // Roguelite run-scoped state resets; the chosen game mode itself persists.
     this.runMods = freshRunMods();
     this.runFx = freshRunEffects();
+    this.draftedUnique.clear();
     this.pendingDraft = null;
     this.wave = 1;
     this.kills = 0;
