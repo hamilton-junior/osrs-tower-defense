@@ -317,6 +317,16 @@ function buffedDisplay(base: string, buffed: string, changed: boolean): React.Re
 
 const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
 
+/** Seconds → `m:ss` (or `h:mm:ss` past an hour) for the run-summary timer. */
+const fmtTime = (s: number) => {
+  const t = Math.max(0, Math.floor(s));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const sec = t % 60;
+  const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
+  return `${h > 0 ? `${h}:` : ''}${mm}:${String(sec).padStart(2, '0')}`;
+};
+
 export default function GameRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
@@ -1891,17 +1901,31 @@ export default function GameRoot() {
         </div>
       )}
 
-      {/* Game over */}
+      {/* Game over — end-of-run summary */}
       {ui.gameOver && (
-        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-30">
-          <div className="rs-panel p-6 text-center w-[22em]">
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-30 p-4 overflow-auto">
+          <div className="rs-panel p-6 text-center w-[26em] max-w-full">
             <div className="rs-panel-title text-base">Game Over</div>
-            <p className="text-osrs-yellow mt-3 mb-1 text-[1.6em] font-bold leading-none">Wave {ui.wave}</p>
-            <p className="text-[0.85em] text-[#d3c3a0] mb-4 uppercase tracking-wide">reached</p>
-            <div className="grid grid-cols-2 gap-2 mb-5 text-[0.95em]">
+            <p className="text-[0.78em] text-[#d3c3a0] mt-2 uppercase tracking-wider">
+              {ui.gameMode === 'roguelite' ? 'Roguelite run' : 'Classic run'}
+            </p>
+            <p className="text-osrs-yellow mt-1 mb-0 text-[1.7em] font-bold leading-none">Wave {ui.wave}</p>
+            <p className="text-[0.8em] text-[#d3c3a0] mb-4 uppercase tracking-wide">reached</p>
+            <div className="grid grid-cols-2 gap-2 mb-3 text-[0.95em]">
               <GoStat icon={ASSETS.misc.attack_icon} label="Slain" value={fmt(engineRef.current?.kills ?? 0)} />
               <GoStat icon={ASSETS.misc.coins_icon} label="Earned" value={`${fmt(engineRef.current?.goldEarned ?? 0)} gp`} />
+              <GoStat icon={ASSETS.misc.multicombat_icon} label="Towers built" value={fmt(engineRef.current?.towersBuilt ?? 0)} />
+              <GoStat label="Survived" value={fmtTime(engineRef.current?.runSeconds ?? 0)} />
             </div>
+            {/* Essence is the meta reward — call it out so the player sees the run paid off. */}
+            <div className="rs-panel-inset flex items-center justify-center gap-[0.5em] py-[0.5em] mb-4 text-[0.95em]">
+              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+              <span className="text-osrs-yellow font-bold">+{fmt(engineRef.current?.essenceEarnedThisRun ?? 0)}</span>
+              <span className="text-[0.82em] text-[#d3c3a0] uppercase tracking-wide">Rune Essence banked</span>
+            </div>
+            {ui.gameMode === 'roguelite' && ui.runCards.length > 0 && (
+              <RunBuild cards={ui.runCards} />
+            )}
             <button className="rs-btn rs-btn-primary px-6 py-2 w-full" onClick={() => { engineRef.current?.restart(); setRunStarted(false); }}>
               ▶ Play Again
             </button>
@@ -2609,6 +2633,43 @@ function RelicStrip({ cards }: { cards: { id: string; count: number }[] }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** End-of-run summary of every card drafted this run: each card as a
+ *  rarity-bordered icon (stack count badge), ordered rarest-first so the run's
+ *  highlights read at a glance. `n cards · n picks` header counts uniques vs total. */
+function RunBuild({ cards }: { cards: { id: string; count: number }[] }) {
+  const built = cards
+    .map((c) => ({ card: CARD_BY_ID[c.id], count: c.count }))
+    .filter((r): r is { card: DraftCard; count: number } => !!r.card)
+    .sort((a, b) => RARITY_WEIGHT[a.card.rarity] - RARITY_WEIGHT[b.card.rarity]);
+  if (built.length === 0) return null;
+  const picks = built.reduce((n, r) => n + r.count, 0);
+  return (
+    <div className="rs-panel-inset p-[0.55em] mb-4">
+      <div className="text-[0.72em] text-osrs-orange uppercase tracking-wide mb-[0.45em] flex items-center justify-between">
+        <span>Your Build</span>
+        <span className="text-[#cdbe91]">{built.length} cards · {picks} picks</span>
+      </div>
+      <div className="flex flex-wrap gap-[0.35em] justify-center">
+        {built.map(({ card, count }) => (
+          <span
+            key={card.id}
+            title={`${card.name} — ${effectTag(card.effect)}`}
+            className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
+            style={{ border: `1px solid ${RARITY_COLOR[card.rarity]}`, boxShadow: `inset 0 0 6px ${RARITY_COLOR[card.rarity]}55` }}
+          >
+            <img src={card.icon} alt={card.name} className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
+            {count > 1 && (
+              <span className="absolute -bottom-[0.15em] -right-[0.15em] text-[0.58em] font-bold text-osrs-yellow bg-black/85 px-[0.25em] leading-tight rounded-sm">
+                ×{count}
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

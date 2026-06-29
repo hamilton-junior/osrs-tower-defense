@@ -451,6 +451,18 @@ export class GameEngine {
   // --- run stats (read directly by the UI, e.g. the game-over screen) ---
   kills = 0;
   goldEarned = 0;
+  /** Towers built this run (every successful {@link placeTower}); for the
+   *  end-of-run summary. Not decremented on sell — it counts what you raised. */
+  towersBuilt = 0;
+  /** Rune Essence awarded *during this run* (wave clears + essence cards), kept
+   *  separate from the persistent {@link MetaSystem} balance so the summary can
+   *  show what the run earned. Reset on {@link restart}. */
+  essenceEarnedThisRun = 0;
+
+  /** Elapsed simulated seconds of the current run (for the summary's timer). */
+  get runSeconds(): number {
+    return this.gameTime;
+  }
   /** Lifetime kills per enemy type (the Collection Log). Account-wide: seeded
    *  from the save, persisted by the UI, and NOT cleared on restart. */
   killCounts: Record<string, number> = {};
@@ -1140,6 +1152,7 @@ export class GameEngine {
       ancientType: type === 'wizard' && this.pendingMageMode === 'ancients' ? 'ice' : undefined,
       supportSpell: type === 'wizard' && this.pendingMageMode === 'utility' ? 'curse' : undefined,
     });
+    this.towersBuilt += 1;
     this.sound.play('place');
     // Shift-place keeps the type selected so the next click drops another.
     if (!keepPlacing) this.selectedTowerType = null;
@@ -2184,7 +2197,9 @@ export class GameEngine {
       return;
     }
     this.awardGold(Math.round(waveClearBonus(this.wave) * GENERAL_GOLD_FACTOR));
-    this.meta.award(essenceForWave(this.wave)); // essence reward for the cleared wave
+    const waveEssence = essenceForWave(this.wave);
+    this.meta.award(waveEssence); // essence reward for the cleared wave
+    this.essenceEarnedThisRun += waveEssence;
     // Blood Pact curse: clearing a wave costs a life (the price of its +damage).
     if (this.runFx.bloodPact) {
       this.lives -= 1;
@@ -2241,7 +2256,7 @@ export class GameEngine {
   private applyDraftEffectOne(e: DraftEffect) {
     switch (e.kind) {
       case 'gold': this.awardGold(e.amount); break;
-      case 'essence': this.meta.award(e.amount); break;
+      case 'essence': this.meta.award(e.amount); this.essenceEarnedThisRun += e.amount; break;
       case 'life': this.lives = Math.min(this.maxLives, this.lives + e.amount); break;
       case 'maxLife': this.maxLives += e.amount; this.lives += e.amount; break;
       case 'damage': this.applyStyleMult(this.runMods.damage, e.mult, e.style); break;
@@ -2327,6 +2342,8 @@ export class GameEngine {
     this.wave = 1;
     this.kills = 0;
     this.goldEarned = 0;
+    this.towersBuilt = 0;
+    this.essenceEarnedThisRun = 0;
     this.waveTotal = 0;
     this.bossWave = false;
     this.sandboxWave = false;
