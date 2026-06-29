@@ -150,6 +150,7 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
+  multiSelectedIds: [],
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.135,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false,
@@ -254,6 +255,12 @@ export default function GameRoot() {
   const unlockIdRef = useRef(0);
   const lastUnlockSeq = useRef(0);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
+  // Marquee drag-box multi-select (for batch tower upgrades). Start is kept in
+  // client coords; the rendered box is in container pixels. `dragged` suppresses
+  // the click that fires on mouse-up after a real drag.
+  const marqueeStart = useRef<{ cx: number; cy: number } | null>(null);
+  const marqueeDragged = useRef(false);
+  const [marqueeBox, setMarqueeBox] = useState<{ l: number; t: number; w: number; h: number } | null>(null);
   // Bottom-right sidebar: which interface tab fills the panel body. The compact
   // shop-style interfaces (Home/towers, GE, Essence, Slayer Rewards) swap inline;
   // Collection Log and Debug still pop out their own larger windows.
@@ -441,11 +448,45 @@ export default function GameRoot() {
   const onMove = useCallback((e: React.MouseEvent) => {
     const { x, y } = toLogic(e.clientX, e.clientY);
     engineRef.current?.setPointer(x, y);
+    // Marquee drag: once moved past a small threshold, draw the selection box.
+    const start = marqueeStart.current;
+    if (start && (e.buttons & 1)) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      if (Math.hypot(e.clientX - start.cx, e.clientY - start.cy) > 6) marqueeDragged.current = true;
+      if (marqueeDragged.current) {
+        const x0 = start.cx - rect.left, y0 = start.cy - rect.top;
+        const x1 = e.clientX - rect.left, y1 = e.clientY - rect.top;
+        setMarqueeBox({ l: Math.min(x0, x1), t: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) });
+      }
+    }
+  }, [toLogic]);
+
+  // Start a marquee only when not placing/moving a tower (so click-to-place is
+  // untouched). Left button only.
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    const eng = engineRef.current;
+    if (e.button !== 0 || !eng || eng.selectedTowerType || eng.movingTowerId) return;
+    marqueeStart.current = { cx: e.clientX, cy: e.clientY };
+    marqueeDragged.current = false;
+  }, []);
+
+  const onMouseUp = useCallback((e: React.MouseEvent) => {
+    const start = marqueeStart.current;
+    marqueeStart.current = null;
+    setMarqueeBox(null);
+    if (start && marqueeDragged.current) {
+      const a = toLogic(start.cx, start.cy);
+      const b = toLogic(e.clientX, e.clientY);
+      engineRef.current?.selectTowersInBox(a.x, a.y, b.x, b.y);
+    }
   }, [toLogic]);
 
   const onClick = useCallback((e: React.MouseEvent) => {
+    // A real marquee drag already handled selection on mouse-up; swallow the click.
+    if (marqueeDragged.current) { marqueeDragged.current = false; return; }
     const { x, y } = toLogic(e.clientX, e.clientY);
-    engineRef.current?.handleClick(x, y);
+    engineRef.current?.handleClick(x, y, e.shiftKey);
   }, [toLogic]);
 
   const onContextMenu = useCallback((e: React.MouseEvent) => {
@@ -670,9 +711,41 @@ export default function GameRoot() {
         className="absolute inset-0 w-full h-full block cursor-crosshair touch-none"
         style={{ imageRendering: 'pixelated' }}
         onMouseMove={onMove}
+        onMouseDown={onMouseDown}
+        onMouseUp={onMouseUp}
         onClick={onClick}
         onContextMenu={onContextMenu}
       />
+
+      {/* Marquee selection box while dragging to multi-select towers. */}
+      {marqueeBox && (
+        <div
+          className="absolute z-20 pointer-events-none border border-[#6edcff] bg-[#6edcff]/10"
+          style={{ left: marqueeBox.l, top: marqueeBox.t, width: marqueeBox.w, height: marqueeBox.h }}
+        />
+      )}
+
+      {/* Batch-upgrade panel for a marquee multi-selection. */}
+      {ui.multiSelectedIds.length > 0 && (() => {
+        const info = engineRef.current?.multiUpgradeInfo ?? { count: 0, cost: 0 };
+        const afford = ui.money >= info.cost;
+        return (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 rs-panel p-2 flex items-center gap-[0.6em]" style={{ fontSize: 'clamp(12px, 0.85vw, 16px)' }}>
+            <span className="text-osrs-orange font-bold whitespace-nowrap">{ui.multiSelectedIds.length} towers</span>
+            <button
+              className="rs-btn rs-btn-primary px-[0.7em] py-[0.3em] flex items-center gap-[0.3em] disabled:opacity-50"
+              disabled={info.count === 0}
+              title={info.count === 0 ? 'All selected towers are max level' : `Upgrade ${info.count} tower(s) one tier`}
+              onClick={() => engineRef.current?.upgradeMultiSelected()}
+            >
+              <span className="text-[#5bd75b] font-bold">⬆</span>
+              Upgrade {info.count > 0 ? `(${info.count})` : ''}
+              {info.count > 0 && <span style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{fmt(info.cost)} gp</span>}
+            </button>
+            <button className="rs-btn px-[0.6em] py-[0.3em]" onClick={() => engineRef.current?.clearMultiSelect()}>Clear</button>
+          </div>
+        );
+      })()}
 
       {/* Enemy info — pinned by a click (stays until you click elsewhere) or else
           following the hovered enemy. Positioned in pixels and clamped by the

@@ -751,6 +751,12 @@ export class GameRenderer {
       // orange vanguard / cyan lone wolf). The sprite is redrawn a few times in
       // the tint colour with a blurred shadow *before* the real sprite, which then
       // covers the centre and leaves a coloured contour around the edges.
+      // Marquee multi-selection: a cyan tile marker so the batch-upgrade set is
+      // clearly readable while the drag-box panel is open.
+      if (this.e.multiSelectedIds.includes(tower.id)) {
+        this.drawSquareRange(ctx, tower.x, tower.y, GRID / 2 + 2, 'rgba(110,220,255,0.9)', 'rgba(110,220,255,0.16)');
+      }
+
       const aura = this.e.towerSynergyAura(tower);
       const auraImg = aura ? this.towerImage(tower) : null;
 

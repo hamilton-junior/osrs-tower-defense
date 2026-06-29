@@ -156,6 +156,8 @@ export interface UIState {
   gameOver: boolean;
   selectedTowerType: TowerType | null;
   selectedTowerId: string | null;
+  /** Marquee multi-selection (tower ids) for the batch-upgrade panel. */
+  multiSelectedIds: string[];
   movingTowerId: string | null;
   /** Grid spot the player tapped to build on — drives the on-map tower picker. */
   pendingPlacement: { x: number; y: number } | null;
@@ -428,7 +430,12 @@ export class GameEngine {
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
+  /** Shift was held when the wizard picker opened — keep placing after the pick. */
+  private pendingKeepPlacing = false;
   selectedTowerId: string | null = null;
+  /** Marquee multi-selection: ids of towers picked by a drag-box, for batch
+   *  upgrade. Cleared by any normal click / placement. */
+  multiSelectedIds: string[] = [];
   movingTowerId: string | null = null;
   /** Enemy "pinned" by a click: its info panel stays open (tracking the enemy as
    *  it moves) until the player clicks elsewhere. Null = follow the hovered one. */
@@ -562,6 +569,7 @@ export class GameEngine {
       gameOver: this.gameOver,
       selectedTowerType: this.selectedTowerType,
       selectedTowerId: this.selectedTowerId,
+      multiSelectedIds: [...this.multiSelectedIds],
       movingTowerId: this.movingTowerId,
       pendingPlacement: this.pendingPlacement ? { x: this.pendingPlacement.x, y: this.pendingPlacement.y } : null,
       pendingMageMode: this.pendingMageMode,
@@ -1020,8 +1028,11 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Handle a click in logic space: move/place a tower or select/deselect one. */
-  handleClick(x: number, y: number) {
+  /** Handle a click in logic space: move/place a tower or select/deselect one.
+   *  `keepPlacing` (Shift-click) keeps the tower type selected after a successful
+   *  build so several can be dropped in a row. */
+  handleClick(x: number, y: number, keepPlacing = false) {
+    this.multiSelectedIds = []; // any normal click drops a marquee selection
     if (this.movingTowerId) {
       this.tryMoveTower(x, y);
       return;
@@ -1033,6 +1044,7 @@ export class GameEngine {
         const sx = Math.round(x / GRID) * GRID;
         const sy = Math.round(y / GRID) * GRID;
         if (isValidPlacement(sx, sy, this.path, this.towers)) {
+          this.pendingKeepPlacing = keepPlacing; // remembered for confirmWizardSpellbook
           this.pendingPlacement = { x: sx, y: sy };
           this.emit();
         } else {
@@ -1040,7 +1052,7 @@ export class GameEngine {
         }
         return;
       }
-      this.placeTower(this.selectedTowerType, x, y);
+      this.placeTower(this.selectedTowerType, x, y, keepPlacing);
       return;
     }
     const hit = this.towers.find(t => distance(t.x, t.y, x, y) <= TOWER_RADIUS + 4);
@@ -1078,12 +1090,14 @@ export class GameEngine {
     this.pendingMageMode = mode;
     const { x, y } = this.pendingPlacement;
     const before = this.towers.length;
-    this.placeTower('wizard', x, y); // reads pendingMageMode; clears selectedTowerType
+    // Shift-place (remembered when the picker opened) keeps 'wizard' selected so
+    // the picker re-opens on the next click for another build.
+    this.placeTower('wizard', x, y, this.pendingKeepPlacing);
     if (this.towers.length > before) this.pendingPlacement = null; // placed → close picker
     this.emit();
   }
 
-  placeTower(type: TowerType, x: number, y: number) {
+  placeTower(type: TowerType, x: number, y: number, keepPlacing = false) {
     const def = TOWERS[type];
     if (!def) return;
     const cost = this.towerCost(type);
@@ -1127,7 +1141,8 @@ export class GameEngine {
       supportSpell: type === 'wizard' && this.pendingMageMode === 'utility' ? 'curse' : undefined,
     });
     this.sound.play('place');
-    this.selectedTowerType = null;
+    // Shift-place keeps the type selected so the next click drops another.
+    if (!keepPlacing) this.selectedTowerType = null;
     this.emit();
   }
 
@@ -1152,6 +1167,50 @@ export class GameEngine {
     tower.upgradeCost = def.tiers[tower.level]?.upgradeCost ?? 0;
     this.sound.play('place');
     this.emit();
+  }
+
+  /** Marquee select: pick every tower whose centre falls inside the drag box, and
+   *  drop the single selection / placement so the multi panel takes over. */
+  selectTowersInBox(x0: number, y0: number, x1: number, y1: number) {
+    const minX = Math.min(x0, x1), maxX = Math.max(x0, x1);
+    const minY = Math.min(y0, y1), maxY = Math.max(y0, y1);
+    this.multiSelectedIds = this.towers
+      .filter(t => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY)
+      .map(t => t.id);
+    this.selectedTowerId = null;
+    this.selectedTowerType = null;
+    this.inspectedEnemyId = null;
+    if (this.multiSelectedIds.length) this.sound.play('select');
+    this.emit();
+  }
+
+  clearMultiSelect() {
+    if (this.multiSelectedIds.length === 0) return;
+    this.multiSelectedIds = [];
+    this.emit();
+  }
+
+  /** Count + total gold to raise every upgradeable selected tower one tier. */
+  get multiUpgradeInfo(): { count: number; cost: number } {
+    let count = 0, cost = 0;
+    for (const id of this.multiSelectedIds) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (t && t.level < t.maxLevel) { count++; cost += t.upgradeCost; }
+    }
+    return { count, cost };
+  }
+
+  /** Upgrade each selected tower one tier, in selection order, spending gold until
+   *  it runs out (a partial batch still upgrades as many as affordable). */
+  upgradeMultiSelected() {
+    let any = false;
+    for (const id of [...this.multiSelectedIds]) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (!t || t.level >= t.maxLevel || this.money < t.upgradeCost) continue;
+      this.upgradeTower(id);
+      any = true;
+    }
+    if (!any) this.notify('Not enough gold');
   }
 
   setTargetingPriority(towerId: string, priority: TargetingPriority) {
@@ -2278,6 +2337,7 @@ export class GameEngine {
     this.gameOver = false;
     this.selectedTowerType = null;
     this.selectedTowerId = null;
+    this.multiSelectedIds = [];
     this.movingTowerId = null;
     this.pendingPlacement = null;
     this.gameTime = 0;
