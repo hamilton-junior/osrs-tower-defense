@@ -18,13 +18,13 @@ import {
 const def = (id: string): UpgradeDef => GLOBAL_UPGRADE_DEFS.find(d => d.id === id)!;
 
 describe('essenceForWave', () => {
-  it('scales with the wave', () => {
-    expect(essenceForWave(1)).toBe(6); // floor(5 + 1.5)
-    expect(essenceForWave(10)).toBe(20); // floor(5 + 15)
+  it('scales with the wave (at the 25% cut rate)', () => {
+    expect(essenceForWave(1)).toBe(1); // floor((5 + 1.5) * 0.25)
+    expect(essenceForWave(10)).toBe(5); // floor(20 * 0.25)
   });
   it('is non-decreasing and never negative', () => {
-    expect(essenceForWave(0)).toBe(5);
-    expect(essenceForWave(-3)).toBe(5); // clamped
+    expect(essenceForWave(0)).toBe(1); // floor(5 * 0.25)
+    expect(essenceForWave(-3)).toBe(1); // clamped
     expect(essenceForWave(20)).toBeGreaterThan(essenceForWave(10));
   });
 });

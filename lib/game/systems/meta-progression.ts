@@ -67,9 +67,10 @@ export const GLOBAL_UPGRADE_DEFS: readonly UpgradeDef[] = [
   { id: 'prayerRegen', name: 'Prayer Regeneration', desc: 'Prayer points recover between fights', icon: 'Prayer_icon', baseCost: 200, inc: 0.2, baseline: 0, max: 1.0, format: 'perSec' },
 ];
 
-/** Essence awarded for clearing `wave` — scales gently so late waves pay more. */
+/** Essence awarded for clearing `wave` — scales gently so late waves pay more.
+ *  Cut to 25% of the original rate so meta upgrades are earned more slowly. */
 export function essenceForWave(wave: number): number {
-  return Math.floor(5 + Math.max(0, wave) * 1.5);
+  return Math.floor((5 + Math.max(0, wave) * 1.5) * 0.25);
 }
 
 const EPS = 1e-6;
