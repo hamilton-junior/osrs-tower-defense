@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Tower, GlobalUpgrades, PrayerType, ActivePotion } from '../types';
-import { calculateTowerStats, TowerStatsContext, diminishingSum, utilityAuraBonus } from './tower-combat';
+import { calculateTowerStats, TowerStatsContext, diminishingSum, utilityAuraBonus, synergyDamageMult } from './tower-combat';
 
 const baseUpgrades: GlobalUpgrades = {
   archerRange: 1, archerDamage: 1, magicDamage: 1, cannonSpeed: 1, slayerReward: 1,
@@ -44,6 +44,59 @@ describe('utilityAuraBonus', () => {
   it('grows the aura by tower level', () => {
     expect(utilityAuraBonus(1)).toEqual({ range: 0.1, speed: 0, damage: 0 });
     expect(utilityAuraBonus(4)).toEqual({ range: 0.2, speed: 0.1, damage: 0.1 });
+  });
+});
+
+describe('synergyDamageMult', () => {
+  const A = (over: Partial<Tower> = {}) => tower({ id: 'a', ...over });
+
+  it('is 1 when no synergy is configured', () => {
+    expect(synergyDamageMult(A(), [A()], undefined)).toBe(1);
+  });
+
+  it('packTactics: +frac per same-type tower in radius, capped at maxStacks', () => {
+    const self = A({ id: 's', type: 'archer', x: 0, y: 0 });
+    const field = [
+      self,
+      A({ id: '1', type: 'archer', x: 30, y: 0 }),   // in radius, same type
+      A({ id: '2', type: 'archer', x: 50, y: 0 }),   // in radius, same type
+      A({ id: '3', type: 'wizard', x: 30, y: 0 }),   // in radius, wrong type
+      A({ id: '4', type: 'archer', x: 999, y: 0 }),  // same type, out of radius
+    ];
+    const syn = { packTactics: { frac: 0.1, radius: 96, maxStacks: 5 } };
+    expect(synergyDamageMult(self, field, syn)).toBeCloseTo(1.2); // 2 same-type allies in range
+  });
+
+  it('packTactics: respects the stack cap', () => {
+    const self = A({ id: 's', type: 'archer', x: 0, y: 0 });
+    const field = [self, ...Array.from({ length: 6 }, (_, i) => A({ id: `n${i}`, type: 'archer', x: 10 + i, y: 0 }))];
+    const syn = { packTactics: { frac: 0.1, radius: 96, maxStacks: 3 } };
+    expect(synergyDamageMult(self, field, syn)).toBeCloseTo(1.3); // capped at 3 stacks
+  });
+
+  it('trinity: only when BOTH other styles sit within radius', () => {
+    const self = A({ id: 's', type: 'archer', x: 0, y: 0 }); // ranged
+    const syn = { trinity: { mult: 1.3, radius: 96 } };
+    const meleeOnly = [self, A({ id: 'm', type: 'tzhaar', x: 20, y: 0 })];
+    expect(synergyDamageMult(self, meleeOnly, syn)).toBe(1); // missing magic
+    const both = [...meleeOnly, A({ id: 'w', type: 'wizard', x: 20, y: 0 })];
+    expect(synergyDamageMult(self, both, syn)).toBeCloseTo(1.3);
+  });
+
+  it('vanguard: only the tower nearest the portal is buffed', () => {
+    const front = A({ id: 'f', x: 10, y: 0 });
+    const back = A({ id: 'b', x: 200, y: 0 });
+    const syn = { vanguard: { mult: 1.6 } };
+    const portal = { x: 0, y: 0 };
+    expect(synergyDamageMult(front, [front, back], syn, portal)).toBeCloseTo(1.6);
+    expect(synergyDamageMult(back, [front, back], syn, portal)).toBe(1);
+  });
+
+  it('loneWolf: buffs a tower only when no other sits within radius', () => {
+    const self = A({ id: 's', x: 0, y: 0 });
+    const syn = { loneWolf: { mult: 1.5, radius: 96 } };
+    expect(synergyDamageMult(self, [self], syn)).toBeCloseTo(1.5); // alone
+    expect(synergyDamageMult(self, [self, A({ id: 'o', x: 30, y: 0 })], syn)).toBe(1); // has a neighbour
   });
 });
 

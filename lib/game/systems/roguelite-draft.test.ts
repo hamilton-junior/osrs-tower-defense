@@ -87,6 +87,11 @@ describe('DRAFT_POOL integrity', () => {
     expect(kinds).toContain('venomTips');
     expect(kinds).toContain('chainFreeze');
     expect(kinds).toContain('pierce');
+    // placement synergies
+    expect(kinds).toContain('packTactics');
+    expect(kinds).toContain('trinity');
+    expect(kinds).toContain('vanguard');
+    expect(kinds).toContain('loneWolf');
   });
   it('behavioural (unique) cards are all rare or ultra', () => {
     for (const c of DRAFT_POOL) {
@@ -98,6 +103,7 @@ describe('DRAFT_POOL integrity', () => {
       'ricochet', 'overkill', 'soulSplit', 'killStreak',
       'lastStand', 'berserker', 'bloodPact', 'greed',
       'doubleShot', 'venomTips', 'chainFreeze', 'pierce',
+      'packTactics', 'trinity', 'vanguard', 'loneWolf',
     ]);
     for (const c of DRAFT_POOL) {
       if (leafEffects(c).some(e => BEHAVIOURAL.has(e.kind))) expect(c.unique).toBe(true);
@@ -117,6 +123,10 @@ describe('DRAFT_POOL integrity', () => {
         if (e.kind === 'venomTips') { expect(e.dps).toBeGreaterThan(0); expect(e.dur).toBeGreaterThan(0); }
         if (e.kind === 'chainFreeze') expect(e.radius).toBeGreaterThan(0);
         if (e.kind === 'pierce') expect(e.radius).toBeGreaterThan(0);
+        if (e.kind === 'packTactics') { expect(e.frac).toBeGreaterThan(0); expect(e.radius).toBeGreaterThan(0); expect(e.maxStacks).toBeGreaterThanOrEqual(1); }
+        if (e.kind === 'trinity') { expect(e.mult).toBeGreaterThan(1); expect(e.radius).toBeGreaterThan(0); }
+        if (e.kind === 'vanguard') expect(e.mult).toBeGreaterThan(1);
+        if (e.kind === 'loneWolf') { expect(e.mult).toBeGreaterThan(1); expect(e.radius).toBeGreaterThan(0); }
       }
     }
   });

@@ -1804,6 +1804,10 @@ function effectTag(e: DraftEffect): string {
     case 'venomTips': return 'hits inject venom';
     case 'chainFreeze': return 'slows spread to nearby';
     case 'pierce': return 'shots pierce through';
+    case 'packTactics': return `+${Math.round(e.frac * 100)}% dmg per same-kind ally`;
+    case 'trinity': return `×${e.mult} dmg flanked by both styles`;
+    case 'vanguard': return `×${e.mult} dmg, frontmost tower`;
+    case 'loneWolf': return `×${e.mult} dmg when isolated`;
     case 'multi': return e.effects.map(effectTag).join(' · ');
   }
 }

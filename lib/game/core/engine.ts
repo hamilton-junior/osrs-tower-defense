@@ -10,7 +10,7 @@ import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } fr
 import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
-import { calculateTowerStats, type ComputedTowerStats } from '../systems/tower-combat';
+import { calculateTowerStats, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
 import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, weaknessMultiplier, lifestealChance, bloodBonusFrac, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
@@ -104,6 +104,8 @@ export interface RunEffects {
   venomTips: { dps: number; dur: number } | null;
   chainFreezeRadius: number;                           // 0 = off
   pierce: { radius: number } | null;
+  // placement synergies (per-tower damage from the field layout)
+  synergy: TowerSynergy;
 }
 const freshRunEffects = (): RunEffects => ({
   ricochet: null,
@@ -121,6 +123,7 @@ const freshRunEffects = (): RunEffects => ({
   venomTips: null,
   chainFreezeRadius: 0,
   pierce: null,
+  synergy: { packTactics: null, trinity: null, vanguard: null, loneWolf: null },
 });
 
 export interface UIState {
@@ -645,6 +648,8 @@ export class GameEngine {
       activePotions: this.ge.active,
       allTowers: this.towers,
       runMods: this.runMods,
+      synergy: this.runFx.synergy,
+      portal: this.portalPoint,
     });
   }
 
@@ -672,6 +677,8 @@ export class GameEngine {
       activePotions: this.ge.active,
       allTowers: this.towers,
       runMods: this.runMods,
+      synergy: this.runFx.synergy,
+      portal: this.portalPoint,
     });
   }
 
@@ -1383,6 +1390,8 @@ export class GameEngine {
         activePotions: this.ge.active,
         allTowers: this.towers,
         runMods: this.runMods,
+        synergy: this.runFx.synergy,
+        portal: this.portalPoint,
       });
       const half = squareRange(stats.range, GRID);
       // Test the enemy's body, not just its centre, so a tower fires as soon as
@@ -2061,6 +2070,11 @@ export class GameEngine {
       case 'venomTips': this.runFx.venomTips = { dps: e.dps, dur: e.dur }; break;
       case 'chainFreeze': this.runFx.chainFreezeRadius = Math.max(this.runFx.chainFreezeRadius, e.radius); break;
       case 'pierce': this.runFx.pierce = { radius: e.radius }; break;
+      // ── placement synergies ──
+      case 'packTactics': this.runFx.synergy.packTactics = { frac: e.frac, radius: e.radius, maxStacks: e.maxStacks }; break;
+      case 'trinity': this.runFx.synergy.trinity = { mult: e.mult, radius: e.radius }; break;
+      case 'vanguard': this.runFx.synergy.vanguard = { mult: e.mult }; break;
+      case 'loneWolf': this.runFx.synergy.loneWolf = { mult: e.mult, radius: e.radius }; break;
       case 'multi': for (const sub of e.effects) this.applyDraftEffectOne(sub); break;
     }
   }

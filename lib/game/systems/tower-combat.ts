@@ -17,6 +17,18 @@ export interface TowerStatsContext {
     range: { melee: number; ranged: number; magic: number };
     fireRate: { melee: number; ranged: number; magic: number };
   };
+  /** Roguelite placement-synergy cards — a per-tower damage layer that depends
+   *  on the field layout (nearby towers / position). All optional/null. */
+  synergy?: TowerSynergy;
+  /** Enemy spawn point, for the `vanguard` synergy (frontmost tower). */
+  portal?: { x: number; y: number };
+}
+
+export interface TowerSynergy {
+  packTactics?: { frac: number; radius: number; maxStacks: number } | null;
+  trinity?: { mult: number; radius: number } | null;
+  vanguard?: { mult: number } | null;
+  loneWolf?: { mult: number; radius: number } | null;
 }
 
 export interface ComputedTowerStats {
@@ -45,6 +57,59 @@ export function diminishingSum(bonuses: number[], factor = 0.5): number {
     .filter(b => b > 0)
     .sort((a, b) => b - a)
     .reduce((sum, b, i) => sum + b * Math.pow(factor, i), 0);
+}
+
+/**
+ * Per-tower damage multiplier from the roguelite placement-synergy cards. Pure:
+ * reads only the tower, the field (`allTowers`), the synergy config and the
+ * portal. Each active card layers multiplicatively, rewarding a distinct layout —
+ * clustering same types (pack), mixing styles (trinity), pushing one forward
+ * (vanguard), or spreading out (lone wolf).
+ */
+export function synergyDamageMult(
+  tower: Tower,
+  allTowers: Tower[],
+  synergy: TowerSynergy | undefined,
+  portal?: { x: number; y: number },
+): number {
+  if (!synergy) return 1;
+  let m = 1;
+  const style = TOWER_STYLES[tower.type]?.style ?? 'melee';
+
+  if (synergy.packTactics) {
+    const { frac, radius, maxStacks } = synergy.packTactics;
+    let n = 0;
+    for (const t of allTowers) {
+      if (t.id !== tower.id && t.type === tower.type && distance(t.x, t.y, tower.x, tower.y) <= radius) n++;
+    }
+    m *= 1 + frac * Math.min(n, maxStacks);
+  }
+
+  if (synergy.trinity) {
+    const { mult, radius } = synergy.trinity;
+    const near = new Set<string>();
+    for (const t of allTowers) {
+      if (t.id !== tower.id && distance(t.x, t.y, tower.x, tower.y) <= radius) {
+        near.add(TOWER_STYLES[t.type]?.style ?? 'melee');
+      }
+    }
+    const others = (['melee', 'ranged', 'magic'] as const).filter(s => s !== style);
+    if (others.every(s => near.has(s))) m *= mult;
+  }
+
+  if (synergy.vanguard && portal && allTowers.length) {
+    let nearest = Infinity;
+    for (const t of allTowers) nearest = Math.min(nearest, distance(t.x, t.y, portal.x, portal.y));
+    if (distance(tower.x, tower.y, portal.x, portal.y) <= nearest + 0.001) m *= synergy.vanguard.mult;
+  }
+
+  if (synergy.loneWolf) {
+    const { mult, radius } = synergy.loneWolf;
+    const alone = !allTowers.some(t => t.id !== tower.id && distance(t.x, t.y, tower.x, tower.y) <= radius);
+    if (alone) m *= mult;
+  }
+
+  return m;
 }
 
 /**
@@ -133,6 +198,9 @@ export function calculateTowerStats(
     rangeMultiplier *= ctx.runMods.range[s];
     speedMultiplier *= ctx.runMods.fireRate[s];
   }
+
+  // Placement-synergy cards: a final per-tower damage layer keyed off the layout.
+  if (ctx.synergy) damageMultiplier *= synergyDamageMult(tower, allTowers, ctx.synergy, ctx.portal);
 
   return {
     damageMultiplier,
