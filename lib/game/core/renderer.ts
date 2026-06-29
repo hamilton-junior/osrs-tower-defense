@@ -1,5 +1,6 @@
 import type { GameEngine, HitsplatKind } from './engine';
 import { SPAWN_ANIM_SECONDS } from '../types';
+import type { Tower, TowerType } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMY_ANIMS, clipFrame, clipDurationS } from '../data/enemy-anims';
 import { TOWERS } from '../data/towers';
@@ -505,9 +506,85 @@ export class GameRenderer {
       valid ? 'rgba(0,255,0,0.06)' : 'rgba(255,0,0,0.06)',
     );
 
+    // If a radius-based synergy is active, show its reach around this spot so the
+    // player can position for it — Lone Wolf's "no towers nearby" zone especially.
+    this.drawPlacementSynergy(ctx, sx, sy, type, moving ? moving.id : null);
+
     ctx.globalAlpha = 0.6;
     this.drawTowerSprite(ctx, type, level, sx, sy, moving ? moving.visualRadius : 18);
     ctx.globalAlpha = 1;
+  }
+
+  /** While placing/moving, overlay the reach of any active radius-based synergy
+   *  (Lone Wolf / Clan Vexillum / Combat Triangle), with live qualify feedback so
+   *  "near"/"far" is concrete instead of a number buried in a card description. */
+  private drawPlacementSynergy(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    cy: number,
+    type: TowerType,
+    ignoreId: string | null,
+  ) {
+    const syn = this.e.runFx.synergy;
+    const others = this.e.towers.filter(t => t.id !== ignoreId);
+
+    // Lone Wolf — the isolation radius. Cyan + green tint when the spot is clear
+    // (bonus would apply), red tint when a tower sits inside (bonus suppressed).
+    if (syn.loneWolf) {
+      const radius = syn.loneWolf.radius;
+      const crowded = others.some(t => Math.hypot(t.x - cx, t.y - cy) <= radius);
+      const ok = !crowded;
+      this.drawSynergyCircle(
+        ctx, cx, cy, radius,
+        ok ? '#5ec8ff' : '#ff6a6a',
+        ok ? 'rgba(94,200,255,0.10)' : 'rgba(255,80,80,0.12)',
+        ok ? `Lone Wolf ✓ ×${syn.loneWolf.mult}` : 'Lone Wolf — tower in range',
+      );
+    }
+
+    // Clan Vexillum — how many same-kind allies this spot would rally (capped).
+    if (syn.packTactics) {
+      const { radius, maxStacks, frac } = syn.packTactics;
+      const n = Math.min(maxStacks, others.filter(t => t.type === type && Math.hypot(t.x - cx, t.y - cy) <= radius).length);
+      this.drawSynergyCircle(
+        ctx, cx, cy, radius, '#57d957', 'rgba(87,217,87,0.08)',
+        n > 0 ? `Clan Vexillum +${Math.round(frac * n * 100)}%` : 'Clan Vexillum +0% (no allies)',
+      );
+    }
+
+    // Combat Triangle — its reach; bonus needs both *other* styles inside.
+    if (syn.trinity) {
+      this.drawSynergyCircle(ctx, cx, cy, syn.trinity.radius, '#ffd257', 'rgba(255,210,87,0.07)', 'Combat Triangle reach');
+    }
+  }
+
+  /** A dashed true-circle radius marker with a faint fill and a small caption. */
+  private drawSynergyCircle(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    cy: number,
+    radius: number,
+    stroke: string,
+    fill: string,
+    label: string,
+  ) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 6]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = "bold 12px 'RuneScape', Arial";
+    ctx.textAlign = 'center';
+    ctx.fillStyle = stroke;
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 3;
+    ctx.fillText(label, cx, cy - radius - 6);
+    ctx.restore();
   }
 
   /** Fading, shrinking sprites of enemies that just died. */
@@ -634,31 +711,24 @@ export class GameRenderer {
         }
       }
 
-      // Placement-synergy aura: a soft, gently-pulsing glow under any tower the
-      // roguelite synergy cards are currently buffing, tinted by the dominant
-      // synergy (green pack / gold trinity / orange vanguard / cyan lone wolf).
-      // Drawn before the sprite so it reads as a halo on the ground, not an overlay.
+      // Placement-synergy aura: a glowing outline that hugs the tower's own
+      // silhouette (not a ground circle) whenever the roguelite synergy cards are
+      // buffing it, tinted by the dominant synergy (green pack / gold trinity /
+      // orange vanguard / cyan lone wolf). We draw the sprite a few times in the
+      // tint colour with a blurred shadow *before* the real sprite; the real
+      // sprite then covers the centre, leaving a coloured contour around the edges.
       const aura = this.e.towerSynergyAura(tower);
-      if (aura) {
+      const auraImg = aura ? this.towerImage(tower) : null;
+      if (aura && auraImg) {
         const intensity = Math.min(1, (aura.mult - 1) / 0.6); // 0..1 by buff strength
         const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 520);
-        const r = tower.visualRadius * (1.3 + 0.3 * intensity);
+        const r = tower.visualRadius;
         ctx.save();
-        const g = ctx.createRadialGradient(tower.x, tower.y, r * 0.25, tower.x, tower.y, r);
-        g.addColorStop(0, aura.color + '00');
-        g.addColorStop(0.65, aura.color + '55');
-        g.addColorStop(1, aura.color + '00');
-        ctx.globalAlpha = 0.35 + 0.4 * intensity * (0.7 + 0.3 * pulse);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(tower.x, tower.y, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 0.45 + 0.35 * intensity;
-        ctx.strokeStyle = aura.color;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(tower.x, tower.y, r * 0.9, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.shadowColor = aura.color;
+        ctx.shadowBlur = 5 + 9 * intensity * (0.7 + 0.3 * pulse);
+        ctx.globalAlpha = 0.55 + 0.4 * intensity;
+        // Multiple passes deepen the coloured halo bleeding past the sprite edge.
+        for (let i = 0; i < 3; i++) ctx.drawImage(auraImg, tower.x - r, tower.y - r, r * 2, r * 2);
         ctx.restore();
       }
 
@@ -705,6 +775,14 @@ export class GameRenderer {
     if (mode === 'elemental') return `wizard_elemental_${tower.element ?? 'air'}`;
     if (mode === 'ancients') return `wizard_ancient_${tower.ancientType ?? 'ice'}`;
     return 'wizard_utility';
+  }
+
+  /** The image a tower currently renders with (staff variant → tier → base),
+   *  or null when none has loaded — shared by the sprite draw and the aura outline. */
+  private towerImage(tower: Tower): HTMLImageElement | null {
+    const keys = [this.wizardStaffKey(tower), `${tower.type}_${tower.level}`, `${tower.type}_1`].filter(Boolean) as string[];
+    const key = keys.find(k => this.e.imageOk(k));
+    return key ? this.e.images.get(key)! : null;
   }
 
   private drawTowerSprite(
