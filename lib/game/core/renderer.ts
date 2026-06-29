@@ -528,37 +528,47 @@ export class GameRenderer {
     const syn = this.e.runFx.synergy;
     const others = this.e.towers.filter(t => t.id !== ignoreId);
 
-    // Lone Wolf — the isolation radius. Cyan + green tint when the spot is clear
-    // (bonus would apply), red tint when a tower sits inside (bonus suppressed).
+    // Collect every active radius-based synergy, draw the circles, then stack
+    // their captions above the widest circle so multiple labels never overlap
+    // (e.g. Lone Wolf + Clan Vexillum, both radius 96).
+    const items: { radius: number; stroke: string; fill: string; label: string }[] = [];
+
+    // Lone Wolf — the isolation radius. Cyan when the spot is clear (bonus would
+    // apply), red when a tower sits inside (bonus suppressed).
     if (syn.loneWolf) {
       const radius = syn.loneWolf.radius;
-      const crowded = others.some(t => Math.hypot(t.x - cx, t.y - cy) <= radius);
-      const ok = !crowded;
-      this.drawSynergyCircle(
-        ctx, cx, cy, radius,
-        ok ? '#5ec8ff' : '#ff6a6a',
-        ok ? 'rgba(94,200,255,0.10)' : 'rgba(255,80,80,0.12)',
-        ok ? `Lone Wolf ✓ ×${syn.loneWolf.mult}` : 'Lone Wolf — tower in range',
-      );
+      const ok = !others.some(t => Math.hypot(t.x - cx, t.y - cy) <= radius);
+      items.push({
+        radius,
+        stroke: ok ? '#5ec8ff' : '#ff6a6a',
+        fill: ok ? 'rgba(94,200,255,0.10)' : 'rgba(255,80,80,0.12)',
+        label: ok ? `Lone Wolf ✓ ×${syn.loneWolf.mult}` : 'Lone Wolf — tower in range',
+      });
     }
 
     // Clan Vexillum — how many same-kind allies this spot would rally (capped).
     if (syn.packTactics) {
       const { radius, maxStacks, frac } = syn.packTactics;
       const n = Math.min(maxStacks, others.filter(t => t.type === type && Math.hypot(t.x - cx, t.y - cy) <= radius).length);
-      this.drawSynergyCircle(
-        ctx, cx, cy, radius, '#57d957', 'rgba(87,217,87,0.08)',
-        n > 0 ? `Clan Vexillum +${Math.round(frac * n * 100)}%` : 'Clan Vexillum +0% (no allies)',
-      );
+      items.push({
+        radius, stroke: '#57d957', fill: 'rgba(87,217,87,0.08)',
+        label: n > 0 ? `Clan Vexillum +${Math.round(frac * n * 100)}%` : 'Clan Vexillum +0% (no allies)',
+      });
     }
 
     // Combat Triangle — its reach; bonus needs both *other* styles inside.
     if (syn.trinity) {
-      this.drawSynergyCircle(ctx, cx, cy, syn.trinity.radius, '#ffd257', 'rgba(255,210,87,0.07)', 'Combat Triangle reach');
+      items.push({ radius: syn.trinity.radius, stroke: '#ffd257', fill: 'rgba(255,210,87,0.07)', label: 'Combat Triangle reach' });
     }
+
+    if (items.length === 0) return;
+    for (const it of items) this.drawSynergyCircle(ctx, cx, cy, it.radius, it.stroke, it.fill);
+    // Captions: one per line, climbing upward from just above the widest circle.
+    const top = cy - Math.max(...items.map(i => i.radius)) - 8;
+    items.forEach((it, i) => this.drawSynergyLabel(ctx, cx, top - i * 15, it.stroke, it.label));
   }
 
-  /** A dashed true-circle radius marker with a faint fill and a small caption. */
+  /** A dashed true-circle radius marker with a faint fill. */
   private drawSynergyCircle(
     ctx: CanvasRenderingContext2D,
     cx: number,
@@ -566,7 +576,6 @@ export class GameRenderer {
     radius: number,
     stroke: string,
     fill: string,
-    label: string,
   ) {
     ctx.save();
     ctx.beginPath();
@@ -578,12 +587,19 @@ export class GameRenderer {
     ctx.setLineDash([7, 6]);
     ctx.stroke();
     ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  /** A single synergy caption, drawn with a dark outline so it stays legible. */
+  private drawSynergyLabel(ctx: CanvasRenderingContext2D, cx: number, y: number, color: string, label: string) {
+    ctx.save();
     ctx.font = "bold 12px 'RuneScape', Arial";
     ctx.textAlign = 'center';
-    ctx.fillStyle = stroke;
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = 3;
-    ctx.fillText(label, cx, cy - radius - 6);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    ctx.strokeText(label, cx, y);
+    ctx.fillStyle = color;
+    ctx.fillText(label, cx, y);
     ctx.restore();
   }
 
@@ -714,26 +730,15 @@ export class GameRenderer {
       // Placement-synergy aura: a glowing outline that hugs the tower's own
       // silhouette (not a ground circle) whenever the roguelite synergy cards are
       // buffing it, tinted by the dominant synergy (green pack / gold trinity /
-      // orange vanguard / cyan lone wolf). We draw the sprite a few times in the
-      // tint colour with a blurred shadow *before* the real sprite; the real
-      // sprite then covers the centre, leaving a coloured contour around the edges.
+      // orange vanguard / cyan lone wolf). The sprite is redrawn a few times in
+      // the tint colour with a blurred shadow *before* the real sprite, which then
+      // covers the centre and leaves a coloured contour around the edges.
       const aura = this.e.towerSynergyAura(tower);
       const auraImg = aura ? this.towerImage(tower) : null;
-      if (aura && auraImg) {
-        const intensity = Math.min(1, (aura.mult - 1) / 0.6); // 0..1 by buff strength
-        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 520);
-        const r = tower.visualRadius;
-        ctx.save();
-        ctx.shadowColor = aura.color;
-        ctx.shadowBlur = 5 + 9 * intensity * (0.7 + 0.3 * pulse);
-        ctx.globalAlpha = 0.55 + 0.4 * intensity;
-        // Multiple passes deepen the coloured halo bleeding past the sprite edge.
-        for (let i = 0; i < 3; i++) ctx.drawImage(auraImg, tower.x - r, tower.y - r, r * 2, r * 2);
-        ctx.restore();
-      }
 
       // Aim + recoil: nudge the sprite back along the firing direction and
-      // pulse its scale; flip horizontally to face the target.
+      // pulse its scale; flip horizontally to face the target. The aura is drawn
+      // inside the SAME transform so the glow recoils and flips with the sprite.
       const recoil = tower.recoil ?? 0;
       const angle = tower.recoilAngle ?? 0;
       const back = recoil * 4;
@@ -742,6 +747,18 @@ export class GameRenderer {
       ctx.save();
       ctx.translate(tower.x - Math.cos(angle) * back, tower.y - Math.sin(angle) * back);
       ctx.scale(flip * pulse, pulse);
+      if (aura && auraImg) {
+        const intensity = Math.min(1, (aura.mult - 1) / 0.6); // 0..1 by buff strength
+        const glow = 0.5 + 0.5 * Math.sin(performance.now() / 520);
+        const r = tower.visualRadius;
+        ctx.save();
+        ctx.shadowColor = aura.color;
+        ctx.shadowBlur = 5 + 9 * intensity * (0.7 + 0.3 * glow);
+        ctx.globalAlpha = 0.55 + 0.4 * intensity;
+        // Multiple passes deepen the coloured halo bleeding past the sprite edge.
+        for (let i = 0; i < 3; i++) ctx.drawImage(auraImg, -r, -r, r * 2, r * 2);
+        ctx.restore();
+      }
       this.drawTowerSprite(ctx, tower.type, tower.level, 0, 0, tower.visualRadius, this.wizardStaffKey(tower));
       ctx.restore();
 
