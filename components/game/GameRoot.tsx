@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
-import { DRAFT_POOL, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
+import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum, synergyDamageMult } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
@@ -151,7 +151,7 @@ const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
   multiSelectedIds: [],
-  movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.135,
+  movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false,
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
@@ -195,10 +195,83 @@ const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>
 /** Wiki sprite URL for a GE offer (its `wiki` filename + .png). */
 const geIcon = (wiki: string) => `${ASSETS.misc.wiki_base}${wiki}.png`;
 
-/** Collection Log roster, split into the Bosses / Monsters tabs (computed once). */
-const LOG_ENTRIES = Object.entries(ENEMIES).map(([type, def]) => ({ type, name: def.name, isBoss: !!def.isBoss }));
+/** Collection Log roster, split into the Bosses / Monsters tabs (computed once).
+ *  Carries the stat fields the log can sort by (hp / speed / weakness / gold). */
+const LOG_ENTRIES = Object.entries(ENEMIES).map(([type, def]) => ({
+  type,
+  name: def.name,
+  isBoss: !!def.isBoss,
+  hp: def.hp,
+  speed: def.speed,
+  weakness: def.weakness ?? '',
+  reward: def.reward,
+}));
 const BOSS_ENTRIES = LOG_ENTRIES.filter((e) => e.isBoss);
 const MONSTER_ENTRIES = LOG_ENTRIES.filter((e) => !e.isBoss);
+type LogEntry = (typeof LOG_ENTRIES)[number];
+
+/** Collection-log list controls: which entries to show, and how to order them. */
+type LogFilter = 'all' | 'obtained' | 'missing';
+const LOG_FILTERS: { key: LogFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'obtained', label: 'Logged' },
+  { key: 'missing', label: 'Missing' },
+];
+/** Sort options offered per tab (enemy tabs vs the Cards tab). `name` is default.
+ *  `obtained`/`missing` order by collection status; the rest by the named stat. */
+const ENEMY_SORTS: { key: string; label: string }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'count', label: 'Kills' },
+  { key: 'hp', label: 'HP' },
+  { key: 'speed', label: 'Move speed' },
+  { key: 'weakness', label: 'Weakness' },
+  { key: 'gold', label: 'Gold' },
+  { key: 'obtained', label: 'Logged first' },
+  { key: 'missing', label: 'Missing first' },
+];
+const CARD_SORTS: { key: string; label: string }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'rarity', label: 'Rarity' },
+  { key: 'count', label: 'Quantity' },
+  { key: 'obtained', label: 'Logged first' },
+  { key: 'missing', label: 'Missing first' },
+];
+
+/** Apply the collection-log filter, then sort, to the enemy roster of a tab.
+ *  `dir` flips the whole ordering (1 = the sort's natural order, -1 = reversed). */
+function sortedEnemies(entries: readonly LogEntry[], killCounts: Record<string, number>, filter: LogFilter, sort: string, dir: 1 | -1): LogEntry[] {
+  const kc = (e: LogEntry) => killCounts[e.type] ?? 0;
+  const list = entries.filter((e) => filter === 'all' || (filter === 'obtained' ? kc(e) > 0 : kc(e) === 0));
+  const byName = (a: LogEntry, b: LogEntry) => a.name.localeCompare(b.name);
+  return list.sort((a, b) => dir * (() => {
+    switch (sort) {
+      case 'count': return kc(b) - kc(a) || byName(a, b);
+      case 'hp': return b.hp - a.hp || byName(a, b);
+      case 'speed': return b.speed - a.speed || byName(a, b);
+      case 'gold': return b.reward - a.reward || byName(a, b);
+      case 'weakness': return a.weakness.localeCompare(b.weakness) || byName(a, b);
+      case 'obtained': return (kc(b) > 0 ? 1 : 0) - (kc(a) > 0 ? 1 : 0) || byName(a, b);
+      case 'missing': return (kc(a) > 0 ? 1 : 0) - (kc(b) > 0 ? 1 : 0) || byName(a, b);
+      default: return byName(a, b);
+    }
+  })());
+}
+
+/** Apply the collection-log filter, then sort, to the draft-card pool. */
+function sortedCards(cardCounts: Record<string, number>, filter: LogFilter, sort: string, dir: 1 | -1): DraftCard[] {
+  const cc = (c: DraftCard) => cardCounts[c.id] ?? 0;
+  const list = DRAFT_POOL.filter((c) => filter === 'all' || (filter === 'obtained' ? cc(c) > 0 : cc(c) === 0));
+  const byName = (a: DraftCard, b: DraftCard) => a.name.localeCompare(b.name);
+  return list.sort((a, b) => dir * (() => {
+    switch (sort) {
+      case 'count': return cc(b) - cc(a) || byName(a, b);
+      case 'rarity': return RARITY_WEIGHT[a.rarity] - RARITY_WEIGHT[b.rarity] || byName(a, b);
+      case 'obtained': return (cc(b) > 0 ? 1 : 0) - (cc(a) > 0 ? 1 : 0) || byName(a, b);
+      case 'missing': return (cc(a) > 0 ? 1 : 0) - (cc(b) > 0 ? 1 : 0) || byName(a, b);
+      default: return byName(a, b);
+    }
+  })());
+}
 
 /** Show an enemy's baked walk sheet as an icon: the first frame statically, or
  *  (when `animate`) the whole walk cycle looping via a CSS steps animation. The
@@ -274,6 +347,16 @@ export default function GameRoot() {
   // Minimize state for the prayer bar (collapses to the best prayer per style).
   const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
   useEffect(() => { try { localStorage.setItem('ui_min_prayers', JSON.stringify(prayersMin)); } catch { /* ignore */ } }, [prayersMin]);
+  // Sidebar interface body collapse: clicking the already-selected tab stone
+  // minimises the body (OSRS-style), leaving only the tab strip + tower dock.
+  const [sideBodyMin, setSideBodyMin] = useState(() => loadBool('ui_min_sidebody', false));
+  useEffect(() => { try { localStorage.setItem('ui_min_sidebody', JSON.stringify(sideBodyMin)); } catch { /* ignore */ } }, [sideBodyMin]);
+  // Click a tab stone: switch to it (and expand) if it's another tab; toggle the
+  // body minimised if it's already the active one.
+  const onSideTab = useCallback((t: SideTab) => {
+    setSideBodyMin((m) => (tab === t ? !m : false));
+    setTab(t);
+  }, [tab]);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
@@ -1343,17 +1426,17 @@ export default function GameRoot() {
           className="shrink-0 flex items-center justify-center gap-[0.4em] pb-[0.55em] mb-[0.6em] border-b border-[var(--rs-keyline)]"
           style={{ boxShadow: '0 1px 0 0 var(--rs-bevel-light)' }}
         >
-          <button onClick={() => setTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
+          <button onClick={() => onSideTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.multicombat_icon} alt="Towers &amp; Wave" onError={hideBrokenImg} />
           </button>
-          <button onClick={() => setTab('ge')} title="Grand Exchange" className={`rs-tab ${tab === 'ge' ? 'rs-tab-on' : ''}`}>
+          <button onClick={() => onSideTab('ge')} title="Grand Exchange" className={`rs-tab ${tab === 'ge' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.ge_logo} alt="Grand Exchange" onError={hideBrokenImg} />
           </button>
-          <button onClick={() => setTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
+          <button onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
             <span className="rs-tab-badge">{fmt(ui.essence)}</span>
           </button>
-          <button onClick={() => setTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
+          <button onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
             <span className="rs-tab-badge">{ui.slayerPoints}</span>
           </button>
@@ -1368,7 +1451,10 @@ export default function GameRoot() {
         {/* Tab body (top section): keyed by `tab` so switching re-mounts this
             wrapper and retriggers the soft fade/slide-in (rs-tab-body). This is the
             ONLY part the tab stones swap — the tower dock below stays mounted. flex-1
-            + overflow lets a long shop list scroll while the dock stays pinned. */}
+            + overflow lets a long shop list scroll while the dock stays pinned.
+            Hidden when the active tab is clicked again (sideBodyMin), collapsing
+            the panel to just the tab strip + tower dock. */}
+        {!sideBodyMin && (
         <div key={tab} className="rs-tab-body flex-1 min-h-0 overflow-y-auto pr-[0.1em]">
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
@@ -1598,6 +1684,7 @@ export default function GameRoot() {
         </>
         )}
         </div>
+        )}
 
         {/* Tower shop — ALWAYS visible, regardless of the selected tab, so towers
             stay one click away while browsing the GE / Essence / Slayer interfaces.
@@ -2180,6 +2267,16 @@ function StartScreen({ mode, onSelect, onStart }: {
   );
 }
 
+/** Placeholder shown when a filter empties the current list (e.g. "Missing" with
+ *  everything already logged). */
+function LogEmpty() {
+  return (
+    <div className="flex-1 min-h-0 flex items-center justify-center text-[0.8em] text-[#b3a585] py-[2em]">
+      Nothing here for this filter.
+    </div>
+  );
+}
+
 /** Collection Log / Boss Log: a centred OSRS window with Bosses / Monsters / Cards
  *  tabs. Enemies show their baked sprite + lifetime kill count; the Cards tab shows
  *  every draft card with its lifetime pick count. Unobtained entries are darkened
@@ -2202,6 +2299,14 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
   // The clicked entry, shown as a detail card (stats + animated sprite). Enemy
   // tabs only — cards self-describe, so the Cards grid isn't drill-down.
   const [selected, setSelected] = useState<string | null>(null);
+  // List controls: show all/logged/missing, and the sort key + direction. Sort
+  // keys are tab-specific, so reset to 'name' when the active tab changes.
+  const [filter, setFilter] = useState<LogFilter>('all');
+  const [sort, setSort] = useState('name');
+  const [dir, setDir] = useState<1 | -1>(1);
+  const sortOptions = isCards ? CARD_SORTS : ENEMY_SORTS;
+  const dispEnemies = useMemo(() => sortedEnemies(entries, killCounts, filter, sort, dir), [entries, killCounts, filter, sort, dir]);
+  const dispCards = useMemo(() => sortedCards(cardCounts, filter, sort, dir), [cardCounts, filter, sort, dir]);
   return (
     <MovablePanel
       id="collection-log"
@@ -2221,7 +2326,7 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
           {(['bosses', 'monsters', 'cards'] as const).map((t) => (
             <button
               key={t}
-              onClick={() => { setTab(t); setSelected(null); }}
+              onClick={() => { setTab(t); setSelected(null); setSort('name'); }}
               className={`rs-btn px-[0.8em] py-[0.15em] text-[0.78em] capitalize ${tab === t ? 'rs-btn-primary' : ''}`}
             >
               {t}
@@ -2232,15 +2337,55 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
           {obtained}/{total} found
         </span>
       </div>
+
+      {/* List controls (grid view only): filter by collection status, and choose
+          the sort key + direction. Hidden in the drill-down detail view. */}
+      {!selected && (
+        <div className="flex items-center justify-between gap-[0.4em] mb-[0.5em] flex-wrap">
+          <div className="flex gap-[0.2em]">
+            {LOG_FILTERS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`rs-btn px-[0.55em] py-[0.1em] text-[0.7em] ${filter === f.key ? 'rs-btn-primary' : ''}`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-[0.3em]">
+            <span className="text-[0.66em] text-[#b3a585] uppercase tracking-wide">Sort</span>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="rs-select text-[0.72em] px-[0.3em] py-[0.1em]"
+            >
+              {sortOptions.map((o) => (
+                <option key={o.key} value={o.key}>{o.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setDir((d) => (d === 1 ? -1 : 1))}
+              title={dir === 1 ? 'Descending order' : 'Ascending order'}
+              className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] leading-none"
+            >
+              {sort === 'name' ? (dir === 1 ? 'A→Z' : 'Z→A') : (dir === 1 ? '▼' : '▲')}
+            </button>
+          </div>
+        </div>
+      )}
       {isCards
         ? selected
           ? (() => {
-              // Inspect one card enlarged; wrap-around prev/next across the pool.
-              const idx = DRAFT_POOL.findIndex((c) => c.id === selected);
-              const card = DRAFT_POOL[idx];
+              // Inspect one card enlarged; wrap-around prev/next follow the
+              // current filter+sort order (fall back to the full pool if the
+              // selected card was filtered out).
+              const nav = dispCards.some((c) => c.id === selected) ? dispCards : DRAFT_POOL;
+              const idx = nav.findIndex((c) => c.id === selected);
+              const card = nav[idx];
               if (!card) return null;
-              const prev = DRAFT_POOL[(idx - 1 + DRAFT_POOL.length) % DRAFT_POOL.length];
-              const next = DRAFT_POOL[(idx + 1) % DRAFT_POOL.length];
+              const prev = nav[(idx - 1 + nav.length) % nav.length];
+              const next = nav[(idx + 1) % nav.length];
               return (
                 <CardInspect
                   card={card}
@@ -2248,13 +2393,15 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
                   onBack={() => setSelected(null)}
                   onPrev={() => setSelected(prev.id)}
                   onNext={() => setSelected(next.id)}
-                  position={{ index: idx + 1, total: DRAFT_POOL.length }}
+                  position={{ index: idx + 1, total: nav.length }}
                 />
               );
             })()
+          : dispCards.length === 0
+          ? <LogEmpty />
           : (
             <div className="grid grid-cols-3 gap-[0.55em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0 py-[0.1em]">
-              {DRAFT_POOL.map((c) => {
+              {dispCards.map((c) => {
                 const n = cardCounts[c.id] ?? 0;
                 return (
                   <div key={c.id} className="transition-transform duration-100 hover:scale-[1.06] hover:z-10">
@@ -2266,11 +2413,13 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
           )
         : selected
         ? (() => {
-            // Navigate within the current tab's list; wrap around so prev/next
-            // are always live (continuous bestiary browsing).
-            const idx = entries.findIndex((e) => e.type === selected);
-            const prev = entries[(idx - 1 + entries.length) % entries.length];
-            const next = entries[(idx + 1) % entries.length];
+            // Navigate within the current filter+sort order; wrap around so
+            // prev/next are always live (continuous bestiary browsing). Fall back
+            // to the full tab list if the selected entry was filtered out.
+            const nav = dispEnemies.some((e) => e.type === selected) ? dispEnemies : entries;
+            const idx = nav.findIndex((e) => e.type === selected);
+            const prev = nav[(idx - 1 + nav.length) % nav.length];
+            const next = nav[(idx + 1) % nav.length];
             return (
               <LogDetail
                 type={selected}
@@ -2278,13 +2427,15 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
                 onBack={() => setSelected(null)}
                 onPrev={() => setSelected(prev.type)}
                 onNext={() => setSelected(next.type)}
-                position={{ index: idx + 1, total: entries.length }}
+                position={{ index: idx + 1, total: nav.length }}
               />
             );
           })()
+        : dispEnemies.length === 0
+        ? <LogEmpty />
         : (
           <div className="grid grid-cols-3 gap-[0.4em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
-            {entries.map((e) => {
+            {dispEnemies.map((e) => {
               const kc = killCounts[e.type] ?? 0;
               const seen = kc > 0;
               const style = enemySpriteStyle(e.type, true);

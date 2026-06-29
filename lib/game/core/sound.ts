@@ -86,14 +86,25 @@ export class SoundManager {
   private readonly poolIdx = new Map<string, number>();
   private static readonly POOL_SIZE = 4;
   private muted = false;
-  private volume = 0.135; // default game loudness (25% quieter than the old 0.18)
+  /** Element gain at slider 100% — the comfortable game loudness (25% quieter
+   *  than the old 0.18). The UI slider is a 0..1 fraction OF this, so 100% never
+   *  blasts and the player only turns it down from a sane ceiling. */
+  private static readonly MAX_GAIN = 0.135;
+  /** User-facing volume on a 0..1 scale (what the UI shows as a %). Starts at
+   *  75% so the default isn't too loud but there's headroom to raise it. */
+  private volume = 0.75;
+
+  /** Real HTMLAudioElement gain for the current slider position. */
+  private gain() {
+    return this.volume * SoundManager.MAX_GAIN;
+  }
 
   constructor(sources: Record<string, string>) {
     if (typeof Audio === 'undefined') return; // SSR / non-browser guard
     for (const [key, url] of Object.entries(sources)) {
       const audio = new Audio();
       audio.preload = 'auto';
-      audio.volume = this.volume;
+      audio.volume = this.gain();
       // Cache the duration the moment metadata decodes, so projectiles fired on
       // the very first cast already get the exact clip length (no 0.6s guess).
       audio.addEventListener('loadedmetadata', () => {
@@ -145,7 +156,7 @@ export class SoundManager {
     if (!pool) {
       pool = Array.from({ length: SoundManager.POOL_SIZE }, () => {
         const a = base.cloneNode() as HTMLAudioElement;
-        a.volume = this.volume;
+        a.volume = this.gain();
         return a;
       });
       this.pools.set(key, pool);
@@ -155,7 +166,7 @@ export class SoundManager {
     this.poolIdx.set(key, idx + 1);
     const node = pool[idx];
     try {
-      node.volume = this.volume;
+      node.volume = this.gain();
       node.currentTime = 0; // restart this voice
       void node.play().catch(() => {}); // ignore autoplay rejections
     } catch {

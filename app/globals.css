@@ -423,6 +423,20 @@ body {
   box-shadow: inset 1px 1px 0 0 #2e2008, inset -1px -1px 0 0 #c79a3e;
 }
 
+/* OSRS-styled dropdown — matches .rs-btn chrome (used by the collection-log sort). */
+.rs-select {
+  background: linear-gradient(180deg, #5a4d34, #3a3120);
+  border: 1px solid var(--rs-keyline);
+  border-radius: 0;
+  color: #ffce5c;
+  text-shadow: 1px 1px 0 #000;
+  font-family: 'RuneScape', var(--font-osrs), monospace;
+  box-shadow: inset 1px 1px 0 0 #897a56, inset -1px -1px 0 0 #241d12;
+  cursor: pointer;
+}
+.rs-select:hover { filter: brightness(1.12); }
+.rs-select option { background: #2b2417; color: #ffce5c; }
+
 /* Tower slot (inventory-like) */
 .rs-slot {
   width: 100%;
