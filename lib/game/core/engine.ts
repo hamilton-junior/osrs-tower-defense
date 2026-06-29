@@ -350,6 +350,13 @@ export interface Particle {
   size?: number;
 }
 
+/** Lightweight procedural VFX for the roguelite behavioural cards (expanding
+ *  rings + energy bolts), separate from the baked spotanims. Each ages by `dt`
+ *  and is culled once `age >= life`; purely visual, no game effect. */
+export type RuneFx =
+  | { kind: 'ring'; x: number; y: number; age: number; life: number; r0: number; r1: number; color: string; width: number }
+  | { kind: 'bolt'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string };
+
 const HITSPLAT_LIFE = 0.9;
 
 export class GameEngine {
@@ -369,6 +376,8 @@ export class GameEngine {
   deaths: DeathFx[] = [];
   /** One-shot baked-spotanim effects (enemy materialise, …) — purely visual. */
   spotEffects: Effect[] = [];
+  /** Procedural roguelite VFX (chain bolts, cleave/shockwave/heal rings). */
+  fx: RuneFx[] = [];
 
   money = START_MONEY;
   lives = START_LIVES;
@@ -1308,12 +1317,26 @@ export class GameEngine {
       d.life -= dt;
       if (d.life <= 0) this.deaths.splice(i, 1);
     }
+    for (let i = this.fx.length - 1; i >= 0; i--) {
+      this.fx[i].age += dt;
+      if (this.fx[i].age >= this.fx[i].life) this.fx.splice(i, 1);
+    }
   }
 
   /** Queue a one-shot baked-spotanim effect at a point (purely visual). */
   spawnEffect(slug: string, x: number, y: number) {
     if (!SPOTANIMS[slug]) return;
     this.spotEffects.push({ slug, x, y, age: 0 });
+  }
+
+  /** An expanding ring VFX (overkill cleave, kill-streak shockwave, soul-split heal). */
+  private addRing(x: number, y: number, r0: number, r1: number, color: string, life = 0.5, width = 3) {
+    this.fx.push({ kind: 'ring', x, y, age: 0, life, r0, r1, color, width });
+  }
+
+  /** A quick energy bolt between two points (ricochet / pierce / chain-freeze jump). */
+  private addBolt(x0: number, y0: number, x1: number, y1: number, color: string, life = 0.25) {
+    this.fx.push({ kind: 'bolt', x0, y0, x1, y1, age: 0, life, color });
   }
 
   private spawn(dt: number) {
@@ -1748,6 +1771,7 @@ export class GameEngine {
     if (spread && r > 0) {
       for (const o of this.enemies) {
         if (o !== e && o.slowTimer <= 0 && distanceSq(o.x, o.y, e.x, e.y) <= r * r) {
+          this.addBolt(e.x, e.y, o.x, o.y, '#7ad7ff', 0.3); // the chill jumping across
           this.applySlow(o, seconds, false, false);
         }
       }
@@ -1764,6 +1788,10 @@ export class GameEngine {
     const cap = v.dps * 3;
     if (cur) { cur.dps = Math.min(cap, cur.dps + v.dps); cur.timer = Math.max(cur.timer, v.dur); }
     else dots.venom = { timer: v.dur, dps: v.dps, accum: 0, tickTimer: 0 };
+    // A couple of green venom motes flick off the target on each envenomed hit.
+    for (let i = 0; i < 2; i++) {
+      this.particles.push({ x: e.x + (Math.random() - 0.5) * 10, y: e.y, vx: (Math.random() - 0.5) * 40, vy: -20 - Math.random() * 30, life: 0.45, maxLife: 0.45, color: '#6abe30', size: 2 });
+    }
   }
 
   /** Pierce (roguelite transform): land a second full hit on the nearest enemy
@@ -1779,6 +1807,7 @@ export class GameEngine {
       if (d <= bestD) { bestD = d; best = o; }
     }
     if (!best) return;
+    this.addBolt(target.x, target.y, best.x, best.y, '#ffe08a', 0.22); // the bolt punching through
     const killed = this.damage(best, p.damage, 'hit', false, true, 1);
     if (!killed) { this.applyOnHit(best, p); this.applyVenomTips(best); }
   }
@@ -1972,30 +2001,50 @@ export class GameEngine {
   private onKillChains(x: number, y: number, dealt: number, overkillDmg: number, depth: number) {
     const fx = this.runFx;
     fx.killTally += 1;
-    // Soul Split: every Nth kill restores a life (up to the cap).
+    // Soul Split: every Nth kill restores a life (up to the cap) — green heal
+    // ring + rising motes at the kill so the restore reads where it happened.
     if (fx.soulSplitEvery > 0 && fx.killTally % fx.soulSplitEvery === 0 && this.lives < this.maxLives) {
       this.lives += 1;
+      this.addRing(x, y, 4, 36, '#7CFC6A', 0.6, 3);
+      for (let i = 0; i < 8; i++) {
+        const a = Math.random() * Math.PI * 2;
+        this.particles.push({ x, y, vx: Math.cos(a) * 22, vy: -40 - Math.random() * 40, life: 0.6, maxLife: 0.6, color: '#9dffa0', gravity: 90, size: 2.4 });
+      }
     }
     if (depth > 0) return; // follow-ups don't recurse
-    // Kill Streak: every Nth kill, a shockwave smites every enemy on the field.
+    // Kill Streak (Dragon Warhammer): every Nth kill, a shockwave smites every
+    // enemy on the field — a big gold ring from centre + a white burst per enemy.
     if (fx.killStreak && fx.killTally % fx.killStreak.every === 0) {
-      for (const e of [...this.enemies]) this.damage(e, fx.killStreak.damage, 'hit', false, true, 1);
+      this.addRing(this.width / 2, this.height / 2, 24, Math.max(this.width, this.height) * 0.62, '#ffd257', 0.55, 7);
+      for (const e of [...this.enemies]) {
+        this.addRing(e.x, e.y, 2, 26, '#fff2c0', 0.35, 3);
+        this.damage(e, fx.killStreak.damage, 'hit', false, true, 1);
+      }
     }
-    // Ricochet: arc a fraction of the killing blow into the nearest enemy.
-    if (fx.ricochet) this.chainNearest(x, y, fx.ricochet.radius, Math.max(1, Math.floor(dealt * fx.ricochet.frac)));
-    // Overkill: cleave the spilled damage into the nearest enemy.
-    if (fx.overkill && overkillDmg > 0) this.chainNearest(x, y, fx.overkill.radius, overkillDmg);
+    // Ricochet (Dragon Claws): arc a fraction of the killing blow into the nearest
+    // enemy — a cyan claw-spec bolt.
+    if (fx.ricochet) this.chainNearest(x, y, fx.ricochet.radius, Math.max(1, Math.floor(dealt * fx.ricochet.frac)), '#bfe8ff');
+    // Overkill (Scythe): cleave the spilled damage outward — a red cleave ring +
+    // a red bolt to the enemy it carries into.
+    if (fx.overkill && overkillDmg > 0) {
+      this.addRing(x, y, 6, fx.overkill.radius, '#ff7a4c', 0.4, 4);
+      this.chainNearest(x, y, fx.overkill.radius, overkillDmg, '#ff5a3c');
+    }
   }
 
-  /** Deal `dmg` to the nearest enemy within `radius` of (x,y), at chain depth 1. */
-  private chainNearest(x: number, y: number, radius: number, dmg: number) {
+  /** Deal `dmg` to the nearest enemy within `radius` of (x,y), at chain depth 1.
+   *  Arcs a coloured bolt to the struck enemy so the chain is visible. */
+  private chainNearest(x: number, y: number, radius: number, dmg: number, color = '#bfe8ff') {
     let best: Enemy | null = null;
     let bestD = radius * radius;
     for (const o of this.enemies) {
       const d = distanceSq(o.x, o.y, x, y);
       if (d <= bestD) { bestD = d; best = o; }
     }
-    if (best) this.damage(best, dmg, 'hit', false, true, 1);
+    if (best) {
+      this.addBolt(x, y, best.x, best.y, color);
+      this.damage(best, dmg, 'hit', false, true, 1);
+    }
   }
 
   private spawnDeathParticles(enemy: Enemy) {
@@ -2147,6 +2196,7 @@ export class GameEngine {
     this.particles = [];
     this.deaths = [];
     this.spotEffects = [];
+    this.fx = [];
     this.spawnQueue = [];
     // Meta-progression (essence + upgrades) persists across runs — only re-apply
     // the starting-gold bonus to the fresh balance.

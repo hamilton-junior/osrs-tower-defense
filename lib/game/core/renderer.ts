@@ -91,6 +91,7 @@ export class GameRenderer {
     this.drawEffects(ctx); // baked spotanims (spawn flash) over the emerging enemy
     this.drawProjectiles(ctx);
     this.drawParticles(ctx);
+    this.drawFx(ctx); // procedural roguelite VFX (chain bolts / cleave + shockwave rings)
     this.drawHitsplats(ctx);
     this.drawVignette(ctx);
     this.drawBossBar(ctx);
@@ -703,7 +704,24 @@ export class GameRenderer {
   }
 
   private drawTowers(ctx: CanvasRenderingContext2D) {
+    // Last Stand (curse): while the run is at/below its threshold, every tower is
+    // enraged (damage up) — a red, pulsing ground ring marks the active state.
+    const ls = this.e.runFx.lastStand;
+    const enraged = !!ls && !this.e.gameOver && this.e.lives <= ls.belowLives;
+    const enragePulse = 0.5 + 0.5 * Math.sin(performance.now() / 240);
+
     for (const tower of this.e.towers) {
+      if (enraged) {
+        const rr = tower.visualRadius * (1.25 + 0.18 * enragePulse);
+        ctx.save();
+        ctx.globalAlpha = 0.35 + 0.3 * enragePulse;
+        ctx.strokeStyle = '#ff3b3b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, rr, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
       if (tower.id === this.e.selectedTowerId) {
         const range = this.e.effectiveStats(tower.id)?.range ?? tower.range;
         this.drawSquareRange(ctx, tower.x, tower.y, squareRange(range, GRID), 'rgba(255,255,255,0.35)', 'rgba(255,255,255,0.05)');
@@ -1035,6 +1053,53 @@ export class GameRenderer {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  }
+
+  /** Procedural roguelite VFX: expanding rings (cleave / shockwave / heal) and
+   *  jagged energy bolts (ricochet / pierce / chain-freeze jump). */
+  private drawFx(ctx: CanvasRenderingContext2D) {
+    for (const f of this.e.fx) {
+      const t = Math.min(1, f.age / f.life); // 0 → 1 over its life
+      if (f.kind === 'ring') {
+        const r = f.r0 + (f.r1 - f.r0) * (1 - (1 - t) * (1 - t)); // ease-out expand
+        ctx.save();
+        ctx.globalAlpha = (1 - t) * 0.9;
+        ctx.strokeStyle = f.color;
+        ctx.lineWidth = f.width * (1 - t * 0.5);
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 1 - t;
+        ctx.strokeStyle = f.color;
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = f.color;
+        ctx.shadowBlur = 6;
+        this.strokeBolt(ctx, f.x0, f.y0, f.x1, f.y1);
+        ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** A jagged lightning-style polyline between two points (re-jittered each frame
+   *  so a short-lived bolt flickers like energy). */
+  private strokeBolt(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) {
+    const segs = 5;
+    const dx = x1 - x0, dy = y1 - y0;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len; // unit perpendicular
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    for (let i = 1; i < segs; i++) {
+      const k = i / segs;
+      const off = (Math.random() - 0.5) * 12;
+      ctx.lineTo(x0 + dx * k + nx * off, y0 + dy * k + ny * off);
+    }
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
   }
 
   private drawHitsplats(ctx: CanvasRenderingContext2D) {
