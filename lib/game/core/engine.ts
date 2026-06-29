@@ -106,6 +106,8 @@ export interface RunEffects {
   pierce: { radius: number } | null;
   // placement synergies (per-tower damage from the field layout)
   synergy: TowerSynergy;
+  // magic spellbook specialisations — per-wizard-subtype stat multipliers (1 = off)
+  mageBuff: Record<MageMode, { damage: number; range: number; fireRate: number }>;
 }
 /** Aura tint per placement-synergy, for the renderer's buffed-tower glow. */
 const SYNERGY_COLORS = {
@@ -131,6 +133,11 @@ const freshRunEffects = (): RunEffects => ({
   chainFreezeRadius: 0,
   pierce: null,
   synergy: { packTactics: null, trinity: null, vanguard: null, loneWolf: null },
+  mageBuff: {
+    elemental: { damage: 1, range: 1, fireRate: 1 },
+    ancients: { damage: 1, range: 1, fireRate: 1 },
+    utility: { damage: 1, range: 1, fireRate: 1 },
+  },
 });
 
 export interface UIState {
@@ -673,6 +680,7 @@ export class GameEngine {
       runMods: this.runMods,
       synergy: this.runFx.synergy,
       portal: this.portalPoint,
+      mageBuff: this.runFx.mageBuff,
     });
   }
 
@@ -720,6 +728,7 @@ export class GameEngine {
       runMods: this.runMods,
       synergy: this.runFx.synergy,
       portal: this.portalPoint,
+      mageBuff: this.runFx.mageBuff,
     });
   }
 
@@ -1447,6 +1456,7 @@ export class GameEngine {
         runMods: this.runMods,
         synergy: this.runFx.synergy,
         portal: this.portalPoint,
+        mageBuff: this.runFx.mageBuff,
       });
       const half = squareRange(stats.range, GRID);
       // Test the enemy's body, not just its centre, so a tower fires as soon as
@@ -2160,6 +2170,14 @@ export class GameEngine {
       case 'trinity': this.runFx.synergy.trinity = { mult: e.mult, radius: e.radius }; break;
       case 'vanguard': this.runFx.synergy.vanguard = { mult: e.mult }; break;
       case 'loneWolf': this.runFx.synergy.loneWolf = { mult: e.mult, radius: e.radius }; break;
+      // ── magic spellbook specialisations ──
+      case 'mageBuff': {
+        const b = this.runFx.mageBuff[e.mode];
+        b.damage *= e.damage ?? 1;
+        b.range *= e.range ?? 1;
+        b.fireRate *= e.fireRate ?? 1;
+        break;
+      }
       case 'multi': for (const sub of e.effects) this.applyDraftEffectOne(sub); break;
     }
   }

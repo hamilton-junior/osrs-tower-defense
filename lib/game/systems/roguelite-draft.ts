@@ -1,5 +1,5 @@
 import { ASSETS } from '../assets';
-import type { CombatStyle } from '../types';
+import type { CombatStyle, MageMode } from '../types';
 
 /**
  * Roguelite draft: the per-wave choice that defines the mode. After clearing a
@@ -82,6 +82,8 @@ export type DraftEffect =
   | { kind: 'trinity'; mult: number; radius: number }
   | { kind: 'vanguard'; mult: number }
   | { kind: 'loneWolf'; mult: number; radius: number }
+  // ── magic spellbook specialisations (buff only one wizard subtype) ──
+  | { kind: 'mageBuff'; mode: MageMode; damage?: number; range?: number; fireRate?: number }
   | { kind: 'multi'; effects: DraftEffect[] };
 
 export interface DraftCard {
@@ -254,6 +256,10 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'combat_triangle', name: 'Combat Triangle', desc: 'A tower flanked by both other combat styles deals +30% damage', rarity: 'ultra', unique: true, icon: `${W}Multicombat.png`, effect: { kind: 'trinity', mult: 1.3, radius: 96 } },
   { id: 'dinhs_bulwark', name: "Dinh's Bulwark", desc: 'Your frontmost tower (nearest the portal) deals +60% damage', rarity: 'ultra', unique: true, icon: `${W}Dinh%27s_bulwark.png`, effect: { kind: 'vanguard', mult: 1.6 } },
   { id: 'lone_wolf', name: 'Lone Wolf', desc: 'A tower with no other tower nearby deals +50% damage', rarity: 'ultra', unique: true, icon: `${W}Wolf_mask.png`, effect: { kind: 'loneWolf', mult: 1.5, radius: 96 } },
+  // ── magic spellbook specialisations — buff ONE wizard subtype only ──
+  { id: 'tome_of_fire', name: 'Tome of Fire', desc: 'Elemental wizards: +25% damage and +10% attack speed', rarity: 'ultra', unique: true, icon: `${W}Tome_of_fire.png`, effect: { kind: 'mageBuff', mode: 'elemental', damage: 1.25, fireRate: 1.1 } },
+  { id: 'ancient_sceptre', name: 'Ancient Sceptre', desc: 'Ancient wizards: +20% damage and +15% range', rarity: 'ultra', unique: true, icon: `${W}Ancient_sceptre.png`, effect: { kind: 'mageBuff', mode: 'ancients', damage: 1.2, range: 1.15 } },
+  { id: 'lunar_staff', name: 'Lunar Staff', desc: 'Utility wizards: +25% support range and +15% damage', rarity: 'ultra', unique: true, icon: `${W}Lunar_staff.png`, effect: { kind: 'mageBuff', mode: 'utility', range: 1.25, damage: 1.15 } },
 ];
 
 /** Cards still eligible to roll: drops any `unique` card already taken this run

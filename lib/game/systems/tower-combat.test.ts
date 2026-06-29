@@ -167,6 +167,24 @@ describe('calculateTowerStats', () => {
     expect(s.damageMultiplier).toBeCloseTo(1.1); // lvl4 damage buff
   });
 
+  it('applies a magic-subtype buff only to the matching wizard mode', () => {
+    const mageBuff = {
+      elemental: { damage: 1.25, range: 1.1, fireRate: 1 },
+      ancients: { damage: 1, range: 1, fireRate: 1 },
+      utility: { damage: 1, range: 1, fireRate: 1 },
+    };
+    const elem = calculateTowerStats(tower({ type: 'wizard', mageMode: 'elemental' }), ctx({ mageBuff }));
+    expect(elem.damageMultiplier).toBeCloseTo(1.25);
+    expect(elem.range).toBeCloseTo(110); // +10% range on the matching mode
+    // a different spellbook is untouched
+    const anc = calculateTowerStats(tower({ type: 'wizard', mageMode: 'ancients' }), ctx({ mageBuff }));
+    expect(anc.damageMultiplier).toBeCloseTo(1);
+    expect(anc.range).toBeCloseTo(100);
+    // a non-wizard is never touched, whatever the buff
+    const arch = calculateTowerStats(tower({ type: 'archer' }), ctx({ mageBuff }));
+    expect(arch.damageMultiplier).toBeCloseTo(1);
+  });
+
   it('ignores out-of-range support towers', () => {
     const support = tower({ id: 'sup', type: 'wizard', mageMode: 'utility', level: 4, range: 50, x: 9999, y: 0 });
     const s = calculateTowerStats(tower(), ctx({ allTowers: [tower(), support] }));

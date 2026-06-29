@@ -1,4 +1,4 @@
-import type { Tower, GlobalUpgrades, PrayerType, ActivePotion } from '../types';
+import type { Tower, GlobalUpgrades, PrayerType, ActivePotion, MageMode } from '../types';
 import { distance } from './geometry';
 import { TOWER_STYLES } from '../data/towers';
 import { TOWER_PRAYERS } from '../data/prayers';
@@ -22,6 +22,9 @@ export interface TowerStatsContext {
   synergy?: TowerSynergy;
   /** Enemy spawn point, for the `vanguard` synergy (frontmost tower). */
   portal?: { x: number; y: number };
+  /** Roguelite magic-spellbook specialisations: per-wizard-subtype multipliers
+   *  applied only to that mage mode's towers (1 = off). */
+  mageBuff?: Record<MageMode, { damage: number; range: number; fireRate: number }>;
 }
 
 export interface TowerSynergy {
@@ -201,6 +204,17 @@ export function calculateTowerStats(
 
   // Placement-synergy cards: a final per-tower damage layer keyed off the layout.
   if (ctx.synergy) damageMultiplier *= synergyDamageMult(tower, allTowers, ctx.synergy, ctx.portal);
+
+  // Magic spellbook specialisations: buff only one wizard subtype (elemental /
+  // ancients / utility), so a card touches that spellbook's towers and no others.
+  if (ctx.mageBuff && tower.type === 'wizard') {
+    const b = ctx.mageBuff[tower.mageMode ?? 'elemental'];
+    if (b) {
+      damageMultiplier *= b.damage;
+      rangeMultiplier *= b.range;
+      speedMultiplier *= b.fireRate;
+    }
+  }
 
   return {
     damageMultiplier,

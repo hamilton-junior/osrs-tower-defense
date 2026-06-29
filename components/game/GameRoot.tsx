@@ -1815,6 +1815,13 @@ function effectTag(e: DraftEffect): string {
     case 'trinity': return `×${e.mult} dmg flanked by both styles`;
     case 'vanguard': return `×${e.mult} dmg, frontmost tower`;
     case 'loneWolf': return `×${e.mult} dmg when isolated`;
+    case 'mageBuff': {
+      const parts: string[] = [];
+      if (e.damage) parts.push(`+${pctStr(e.damage)}% dmg`);
+      if (e.range) parts.push(`+${pctStr(e.range)}% range`);
+      if (e.fireRate) parts.push(`+${pctStr(e.fireRate)}% speed`);
+      return `${e.mode}: ${parts.join(' · ')}`;
+    }
     case 'multi': return e.effects.map(effectTag).join(' · ');
   }
 }

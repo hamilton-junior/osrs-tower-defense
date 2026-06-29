@@ -93,6 +93,16 @@ describe('DRAFT_POOL integrity', () => {
     expect(kinds).toContain('vanguard');
     expect(kinds).toContain('loneWolf');
   });
+  it('offers a magic-subtype (mageBuff) card for each spellbook, ultra + unique', () => {
+    const modes = DRAFT_POOL.flatMap(leafEffects).filter(e => e.kind === 'mageBuff').map(e => (e as { mode: string }).mode);
+    expect(new Set(modes)).toEqual(new Set(['elemental', 'ancients', 'utility']));
+    for (const c of DRAFT_POOL) {
+      if (leafEffects(c).some(e => e.kind === 'mageBuff')) {
+        expect(c.rarity).toBe('ultra');
+        expect(c.unique).toBe(true);
+      }
+    }
+  });
   it('behavioural (unique) cards are all rare or ultra', () => {
     for (const c of DRAFT_POOL) {
       if (c.unique) expect(['rare', 'ultra']).toContain(c.rarity);
