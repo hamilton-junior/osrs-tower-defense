@@ -10,7 +10,7 @@ import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } fr
 import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
-import { calculateTowerStats, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
+import { calculateTowerStats, synergyDamageMult, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
 import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, weaknessMultiplier, lifestealChance, bloodBonusFrac, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
@@ -107,6 +107,13 @@ export interface RunEffects {
   // placement synergies (per-tower damage from the field layout)
   synergy: TowerSynergy;
 }
+/** Aura tint per placement-synergy, for the renderer's buffed-tower glow. */
+const SYNERGY_COLORS = {
+  packTactics: '#57d957', // green — rally same kinds
+  trinity: '#ffd257',     // gold — balanced triangle
+  vanguard: '#ff7a3c',    // orange — frontline
+  loneWolf: '#5ec8ff',    // cyan — solo
+} as const;
 const freshRunEffects = (): RunEffects => ({
   ricochet: null,
   overkill: null,
@@ -651,6 +658,24 @@ export class GameEngine {
       synergy: this.runFx.synergy,
       portal: this.portalPoint,
     });
+  }
+
+  /** The placement-synergy buff a tower is enjoying right now, for the renderer's
+   *  aura: the total damage multiplier (>1) and the colour of the *dominant*
+   *  contributing synergy. null when none applies (or not in roguelite mode). */
+  towerSynergyAura(tower: Tower): { mult: number; color: string } | null {
+    if (this.gameMode !== 'roguelite') return null;
+    const syn = this.runFx.synergy;
+    const total = synergyDamageMult(tower, this.towers, syn, this.portalPoint);
+    if (total <= 1.001) return null;
+    let bestKey: keyof typeof SYNERGY_COLORS | null = null;
+    let bestMult = 1;
+    for (const key of Object.keys(SYNERGY_COLORS) as (keyof typeof SYNERGY_COLORS)[]) {
+      if (!syn[key]) continue;
+      const m = synergyDamageMult(tower, this.towers, { [key]: syn[key] } as TowerSynergy, this.portalPoint);
+      if (m > bestMult) { bestMult = m; bestKey = key; }
+    }
+    return { mult: total, color: bestKey ? SYNERGY_COLORS[bestKey] : '#ffd257' };
   }
 
   /** Effective stats for a not-yet-placed ghost tower of `type` at (x, y), so the

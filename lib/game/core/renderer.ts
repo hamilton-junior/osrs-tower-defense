@@ -634,6 +634,34 @@ export class GameRenderer {
         }
       }
 
+      // Placement-synergy aura: a soft, gently-pulsing glow under any tower the
+      // roguelite synergy cards are currently buffing, tinted by the dominant
+      // synergy (green pack / gold trinity / orange vanguard / cyan lone wolf).
+      // Drawn before the sprite so it reads as a halo on the ground, not an overlay.
+      const aura = this.e.towerSynergyAura(tower);
+      if (aura) {
+        const intensity = Math.min(1, (aura.mult - 1) / 0.6); // 0..1 by buff strength
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 520);
+        const r = tower.visualRadius * (1.3 + 0.3 * intensity);
+        ctx.save();
+        const g = ctx.createRadialGradient(tower.x, tower.y, r * 0.25, tower.x, tower.y, r);
+        g.addColorStop(0, aura.color + '00');
+        g.addColorStop(0.65, aura.color + '55');
+        g.addColorStop(1, aura.color + '00');
+        ctx.globalAlpha = 0.35 + 0.4 * intensity * (0.7 + 0.3 * pulse);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 0.45 + 0.35 * intensity;
+        ctx.strokeStyle = aura.color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, r * 0.9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // Aim + recoil: nudge the sprite back along the firing direction and
       // pulse its scale; flip horizontally to face the target.
       const recoil = tower.recoil ?? 0;
