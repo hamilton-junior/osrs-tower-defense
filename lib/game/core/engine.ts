@@ -1,6 +1,7 @@
 import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect, CombatStyle } from '../types';
 import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
+import { resolveImpactTheme, IMPACT_RECIPES, type ImpactTheme } from '../systems/impact-fx';
 import { ENEMY_ANIMS, clipDurationS, type EnemyClip } from '../data/enemy-anims';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS, TOWER_STYLES } from '../data/towers';
@@ -2116,7 +2117,12 @@ export class GameEngine {
 
   private hit(p: Projectile, target: Enemy | null) {
     const style = this.projectileStyle(p);
-    this.spawnImpactParticles(p.x, p.y, p.color);
+    // Magic impacts get an element-themed procedural burst (the runtime half of
+    // the spotanim hybrid — textured spell GFX rasterise to white boxes, so we
+    // draw them procedurally); arrows/cannonballs keep the plain coloured spark.
+    const theme = resolveImpactTheme(p.type, p.element);
+    if (theme) this.spawnMagicImpact(p.x, p.y, theme);
+    else this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
     // Archer arrows have no impact clip wired yet, and the generic melee "thud" is
     // wrong for a flying arrow — so they land silently (`arrowIcon` is set iff the
@@ -2342,6 +2348,30 @@ export class GameEngine {
   }
 
   /** A small spark burst where a projectile lands. */
+  /** Element-themed magic impact: an expanding shockwave ring plus a themed
+   *  particle burst, both from {@link IMPACT_RECIPES} (this engine applies the
+   *  jitter). Reuses the existing ring + particle draws — no renderer change. */
+  private spawnMagicImpact(x: number, y: number, theme: ImpactTheme) {
+    const r = IMPACT_RECIPES[theme];
+    this.addRing(x, y, r.ring.r0, r.ring.r1, r.ring.color, r.ring.life, r.ring.width);
+    const pc = r.particles;
+    for (let i = 0; i < pc.count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = pc.speedMin + Math.random() * (pc.speedMax - pc.speedMin);
+      const life = pc.lifeMin + Math.random() * (pc.lifeMax - pc.lifeMin);
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed + pc.riseBias,
+        life,
+        maxLife: life,
+        color: pc.colors[(Math.random() * pc.colors.length) | 0],
+        gravity: pc.gravity,
+        size: pc.sizeMin + Math.random() * (pc.sizeMax - pc.sizeMin),
+      });
+    }
+  }
+
   private spawnImpactParticles(x: number, y: number, color: string) {
     for (let i = 0; i < 6; i++) {
       const angle = Math.random() * Math.PI * 2;
