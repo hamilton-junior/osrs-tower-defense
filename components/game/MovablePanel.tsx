@@ -27,6 +27,8 @@ interface Props {
   style?: CSSProperties;
   /** When true (global UI lock), the panel can't be dragged. */
   globalLock?: boolean;
+  /** Optional `data-tut` marker so the guided tour can spotlight this panel. */
+  tut?: string;
   children: React.ReactNode;
 }
 
@@ -37,7 +39,7 @@ interface Props {
  * this panel. A global lock (passed in) disables dragging for everything. The
  * per-panel offset and lock persist in localStorage.
  */
-export function MovablePanel({ id, className, style, globalLock = false, children }: Props) {
+export function MovablePanel({ id, className, style, globalLock = false, tut, children }: Props) {
   const [offset, setOffset] = useState(() => load(`ui_pos_${id}`, { x: 0, y: 0 }));
   const [locked, setLocked] = useState(() => load(`ui_lock_${id}`, false));
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
@@ -74,6 +76,7 @@ export function MovablePanel({ id, className, style, globalLock = false, childre
   return (
     <div
       className={className}
+      data-tut={tut}
       style={{ ...style, transform: `translate(${offset.x}px, ${offset.y}px)`, cursor: canDrag ? 'move' : undefined }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

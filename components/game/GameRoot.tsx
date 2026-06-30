@@ -354,15 +354,22 @@ export default function GameRoot() {
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
-  // "How to Play" guide overlay. Opens automatically on a player's first ever
-  // visit (then remembers it), and is reachable any time from the start screen
-  // or the ❓ stone.
+  // "How to Play" reference guide — reachable any time from the start screen or
+  // the ❓ stone. (The FIRST-visit onboarding is the guided tour below, not this.)
   const [helpOpen, setHelpOpen] = useState(false);
+  // Guided tour: a step-by-step spotlight of the live UI, shown once on a
+  // player's first ever run. `tourPending` waits for the run to actually start
+  // (so the game UI is on-screen to point at); it's only marked "seen" when the
+  // tour is finished or skipped, so a reload before then doesn't lose it.
+  const [tourPending, setTourPending] = useState(() => !loadBool('osrs_td_seen_tutorial', false));
+  const [tourOpen, setTourOpen] = useState(false);
   useEffect(() => {
-    if (!loadBool('osrs_td_seen_tutorial', false)) {
-      setHelpOpen(true);
-      try { localStorage.setItem('osrs_td_seen_tutorial', JSON.stringify(true)); } catch { /* ignore */ }
-    }
+    if (tourPending && runStarted) setTourOpen(true);
+  }, [tourPending, runStarted]);
+  const closeTour = useCallback(() => {
+    setTourOpen(false);
+    setTourPending(false);
+    try { localStorage.setItem('osrs_td_seen_tutorial', JSON.stringify(true)); } catch { /* ignore */ }
   }, []);
   // Minimize state for the prayer bar (collapses to the best prayer per style).
   const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
@@ -811,6 +818,7 @@ export default function GameRoot() {
     <div className="relative w-full h-full overflow-hidden bg-black select-none font-osrs">
       <canvas
         ref={canvasRef}
+        data-tut="map"
         className="absolute inset-0 w-full h-full block cursor-crosshair touch-none"
         style={{ imageRendering: 'pixelated' }}
         onMouseMove={onMove}
@@ -1129,7 +1137,7 @@ export default function GameRoot() {
       )}
 
       {/* Top-right data-orb cluster (OSRS minimap-orb style) */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2 z-10 items-end">
+      <div data-tut="hud" className="absolute top-4 right-4 flex flex-col gap-2 z-10 items-end">
         <Orb
           icon={ASSETS.misc.hp_icon}
           title="Lives"
@@ -1443,6 +1451,7 @@ export default function GameRoot() {
         {/* OSRS sidebar tab strip: each stone selects an interface (or pops one
             out). Icons + tooltips, with live badges for essence / Slayer points. */}
         <div
+          data-tut="sidebar"
           className="shrink-0 flex items-center justify-center gap-[0.4em] pb-[0.55em] mb-[0.6em] border-b border-[var(--rs-keyline)]"
           style={{ boxShadow: '0 1px 0 0 var(--rs-bevel-light)' }}
         >
@@ -1466,7 +1475,7 @@ export default function GameRoot() {
           <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
             🛠
           </button>
-          <button onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
+          <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
             ❓
           </button>
         </div>
@@ -1532,6 +1541,7 @@ export default function GameRoot() {
                 Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
               </div>
               <button
+                data-tut="startwave"
                 className="rs-btn rs-btn-primary w-full py-[0.5em] mb-[0.6em] text-[1.05em] animate-pulse"
                 onClick={() => engineRef.current?.startWave()}
               >
@@ -1725,6 +1735,10 @@ export default function GameRoot() {
             // What the tower *does* (its niche), not just its numbers — so a new
             // player knows what they're buying before placing it. Tier-1 signature.
             const sig = towerSignature(hoverShop, 1);
+            // The Wizard's tier-1 name is its spell ("Strike"), not a weapon like
+            // the other towers (Shortbow, Dwarf Multicannon…) — show "Staff" so the
+            // shop title reads as the tower, not the spell tier.
+            const title = hoverShop === 'wizard' ? 'Staff' : t0.name;
             return (
               <div
                 className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[16em] z-20 pointer-events-none"
@@ -1732,7 +1746,7 @@ export default function GameRoot() {
               >
                 <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
                   {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
-                  <span className="truncate">{t0.name}</span>
+                  <span className="truncate">{title}</span>
                 </div>
                 {sig && (
                   <div className="mt-[0.35em] px-[0.1em]">
@@ -1749,7 +1763,7 @@ export default function GameRoot() {
             );
           })()}
           <div className="rs-panel-title">Towers</div>
-          <div className="grid grid-cols-6 gap-2">
+          <div data-tut="dock" className="grid grid-cols-6 gap-2">
             {TOWER_ORDER.map((type) => {
               const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
               const active = ui.selectedTowerType === type;
@@ -1785,7 +1799,7 @@ export default function GameRoot() {
       </MovablePanel>
 
       {/* Speed + sound control (bottom-left) */}
-      <MovablePanel id="controls" globalLock={uiLocked} className="rs-panel absolute bottom-4 left-4 p-2 z-10 flex items-center gap-1">
+      <MovablePanel id="controls" tut="controls" globalLock={uiLocked} className="rs-panel absolute bottom-4 left-4 p-2 z-10 flex items-center gap-1">
         <button
           onClick={() => engineRef.current?.togglePause()}
           title={ui.paused ? 'Resume' : 'Pause'}
@@ -1965,8 +1979,11 @@ export default function GameRoot() {
         />
       )}
 
-      {/* How-to-play guide — top layer so it reads over the start screen too */}
+      {/* How-to-play reference guide — top layer so it reads over the start screen too */}
       {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} />}
+
+      {/* First-run guided tour — spotlights each part of the live UI in turn */}
+      {tourOpen && <GuidedTour onClose={closeTour} />}
     </div>
   );
 }
@@ -2263,6 +2280,108 @@ function Stat({ icon, label, value }: { icon?: string; label: string; value: Rea
  *  restart). Two selectable mode panels — Classic (pure TD) vs Roguelite (per-wave
  *  draft) — plus a Start button that locks the choice and kicks off wave 1. Mode
  *  can only change here, since the engine freezes it once a run begins. */
+// ─────────────────────────── Guided first-run tour ────────────────────────
+// A step-by-step spotlight over the live UI: each step optionally points at a
+// real element (tagged `data-tut="…"`) by measuring its on-screen rect, dimming
+// everything else, and floating a caption beside it. Steps without a target are
+// centred (intro / whole-screen context). Shown once on a player's first run.
+
+interface TourStep { target?: string; title: string; body: string }
+
+const TOUR_STEPS: TourStep[] = [
+  { title: 'Welcome to OSRS Tower Defense', body: 'A 60-second tour of the screen. Hit Skip anytime — and you can reopen the full guide from the ❓ stone later.' },
+  { title: 'The battlefield', body: 'Enemies march along the path toward your base. You stop them by building towers on the grass — they aim and fire on their own.' },
+  { target: 'dock', title: 'Tower shop', body: 'Pick a tower here, then click the grass to place it. Hover any tower first to see what it does and its cost.' },
+  { target: 'startwave', title: 'Start the wave', body: 'Set up your defences, then press this to send the next wave. Between waves the game waits — no rush.' },
+  { target: 'hud', title: 'Lives & gold', body: 'Up here: your lives (you lose one each time an enemy reaches the base) and your gold (earned from kills, spent on towers).' },
+  { target: 'sidebar', title: 'More interfaces', body: 'These stones open the Grand Exchange, Essence Shop, Slayer Rewards and the Collection Log — extra power as you go deeper.' },
+  { target: 'controls', title: 'Speed & sound', body: 'Fast-forward the action at 1× / 2× / 5×, pause, and set the volume — all down here.' },
+  { target: 'help', title: 'Need a refresher?', body: 'Click the ❓ stone anytime to reopen the full How to Play guide. That’s it — good luck out there!' },
+];
+
+/** First-run guided tour overlay. Measures each step's target rect, draws a
+ *  spotlight (the rest dimmed via a giant box-shadow), and anchors a caption
+ *  beside it with Back / Next / Skip. */
+function GuidedTour({ onClose }: { onClose: () => void }) {
+  const [i, setI] = useState(0);
+  const [box, setBox] = useState<{ rect: DOMRect | null; vw: number; vh: number }>({ rect: null, vw: 0, vh: 0 });
+  const step = TOUR_STEPS[i];
+  const last = i === TOUR_STEPS.length - 1;
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = step.target ? document.querySelector(`[data-tut="${step.target}"]`) : null;
+      setBox({ rect: el ? el.getBoundingClientRect() : null, vw: window.innerWidth, vh: window.innerHeight });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const id = window.setInterval(measure, 250); // re-measure: panels may move / layout settles
+    return () => { window.removeEventListener('resize', measure); window.clearInterval(id); };
+  }, [step.target]);
+
+  const { rect, vw, vh } = box;
+  const pad = 6;
+  const balloonW = Math.min(340, (vw || 360) - 24);
+
+  // Place the caption beside the spotlight on whichever side has room; centre it
+  // when the step has no target. Clamp so it never spills off-screen.
+  let bStyle: React.CSSProperties;
+  if (rect) {
+    const placeBelow = vh - rect.bottom > 200 || vh - rect.bottom >= rect.top;
+    const cx = rect.left + rect.width / 2;
+    const left = Math.min(Math.max(12, cx - balloonW / 2), vw - balloonW - 12);
+    bStyle = placeBelow
+      ? { left, top: Math.min(rect.bottom + 14, vh - 170) }
+      : { left, bottom: Math.min(vh - rect.top + 14, vh - 60) };
+  } else {
+    bStyle = { left: (vw || 360) / 2 - balloonW / 2, top: (vh || 640) / 2 - 90 };
+  }
+
+  const next = () => (last ? onClose() : setI((n) => Math.min(TOUR_STEPS.length - 1, n + 1)));
+
+  return (
+    <>
+      {/* Click-blocker. With a target, the spotlight's box-shadow does the dimming;
+          without one, this sheet dims the whole screen. */}
+      <div
+        className="fixed inset-0 z-[60]"
+        style={{ background: rect ? 'transparent' : 'rgba(0,0,0,0.8)' }}
+        onClick={(e) => e.stopPropagation()}
+      />
+      {rect && (
+        <div
+          className="fixed z-[61] pointer-events-none"
+          style={{
+            left: rect.left - pad, top: rect.top - pad,
+            width: rect.width + pad * 2, height: rect.height + pad * 2,
+            borderRadius: 8, border: '2px solid var(--osrs-orange)',
+            boxShadow: '0 0 0 9999px rgba(0,0,0,0.74), 0 0 12px 2px rgba(255,140,0,0.5)',
+            transition: 'left .2s, top .2s, width .2s, height .2s',
+          }}
+        />
+      )}
+      <div className="fixed z-[62] rs-panel p-3 flex flex-col" style={{ ...bStyle, width: balloonW, fontSize: 'clamp(12px,0.85vw,16px)' }}>
+        <div className="flex items-center justify-between mb-[0.3em]">
+          <span className="text-osrs-orange font-bold text-[0.95em]">{step.title}</span>
+          <span className="text-[0.68em] text-[#cdbe91]">{i + 1}/{TOUR_STEPS.length}</span>
+        </div>
+        <p className="text-[0.82em] text-[#d3c3a0] leading-snug mb-[0.7em]">{step.body}</p>
+        <div className="flex items-center justify-between gap-[0.5em]">
+          <button className="rs-btn px-[0.7em] py-[0.25em] text-[0.72em]" onClick={onClose}>Skip</button>
+          <div className="flex items-center gap-[0.4em]">
+            {i > 0 && (
+              <button className="rs-btn px-[0.8em] py-[0.25em] text-[0.78em]" onClick={() => setI((n) => Math.max(0, n - 1))}>‹ Back</button>
+            )}
+            <button className="rs-btn rs-btn-primary px-[0.9em] py-[0.25em] text-[0.78em]" onClick={next}>
+              {last ? 'Finish ✓' : 'Next ›'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ───────────────────────── How to Play (tutorial) ─────────────────────────
 // A layered, OSRS-styled guide. Sections run Basic → Advanced so a total
 // newcomer can read just the first pages and start, while everything (Prayer,
