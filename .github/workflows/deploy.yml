@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       # No committed lockfile, so use install (not ci). --legacy-peer-deps
       # works around the pre-existing eslint/eslint-config-next conflict.
       - run: npm install --legacy-peer-deps

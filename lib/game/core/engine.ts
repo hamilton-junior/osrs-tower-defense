@@ -23,6 +23,19 @@ import { GeSystem, type GeListing } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
 import { rollDraft, availableCards, DRAFT_POOL, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
+import {
+  rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRenderScaleMult, shieldHpFor,
+  regenPerSec, leakLifeCost, bossLeakCost, SUPERIOR_LEAK_COST, isCcImmune, styleDamageMult, absorbWithShield, rollArmoredStyle,
+  ALL_AFFIXES, SWARM_COUNT, VOLATILE_STUN_SECS,
+  type EnemyAffix, type AffixRoll,
+} from '../systems/affixes';
+import {
+  freshBossState, bossStyleMult, zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick,
+  ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION,
+  JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS,
+  JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN,
+  type BossId,
+} from '../systems/boss-mechanics';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import type { SlayerReward } from '../data/slayer';
@@ -202,6 +215,10 @@ export interface UIState {
   unlockSeq: number;
   /** Lifetime kills per enemy type (the Collection Log). */
   killCounts: Record<string, number>;
+  /** Lifetime sighting count per boss type. A boss only rolls modifiers once it
+   *  has appeared at least once, so a first encounter is always the "vanilla"
+   *  fight; the count also ramps the lives a boss costs when it leaks. */
+  bossesSeen: Record<string, number>;
   /** Lifetime pick counts per draft-card id (the Collection Log "Cards" tab). */
   cardCounts: Record<string, number>;
   /** True when the wave that just ended was a debug "custom wave" sandbox, so the
@@ -254,6 +271,25 @@ function sanitizeCardCounts(raw: unknown): Record<string, number> {
   if (raw && typeof raw === 'object') {
     for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
       if (known.has(id) && typeof v === 'number' && Number.isFinite(v) && v > 0) out[id] = Math.floor(v);
+    }
+  }
+  return out;
+}
+
+/** Boss types that carry phase mechanics (and can roll modifiers once seen). */
+const MECHANIC_BOSSES: readonly BossId[] = ['jad', 'vorkath', 'zulrah'];
+
+/** Clean a persisted "bosses seen" blob: keep only the three mechanic bosses
+ *  flagged true, so a corrupt/stale save can't gate modifiers on bad data. */
+function sanitizeBossesSeen(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (raw && typeof raw === 'object') {
+    for (const id of MECHANIC_BOSSES) {
+      const v = (raw as Record<string, unknown>)[id];
+      // Migrate the old boolean flag (`true` → 1) and coerce counts to a
+      // non-negative integer.
+      const n = v === true ? 1 : typeof v === 'number' && v > 0 ? Math.floor(v) : 0;
+      if (n > 0) out[id] = n;
     }
   }
   return out;
@@ -333,6 +369,10 @@ export interface EnemyHoverInfo {
   effects: DebuffId[];
   /** Crowd-control resistance, 0..1 (see `GameEngine.tenacity`). */
   tenacity: number;
+  /** Rolled affixes/modifiers this enemy carries (for the info-panel badges). */
+  affixes: EnemyAffix[];
+  /** Combat style the `armored` affix resists, if rolled (badge tooltip detail). */
+  armoredStyle?: CombatStyle;
 }
 
 /** A dying enemy's sprite, fading out where it fell. */
@@ -467,6 +507,9 @@ export class GameEngine {
    *  from the save, persisted by the UI, and NOT cleared on restart. */
   killCounts: Record<string, number> = {};
   cardCounts: Record<string, number> = {};
+  /** Bosses encountered at least once (lifetime, persisted like killCounts).
+   *  Gates boss modifiers — a boss is only "vanilla" on its first-ever sighting. */
+  bossesSeen: Record<string, number> = {};
   private notice: string | null = null;
   private noticeIcon: string | null = null;
   private noticeSeq = 0;
@@ -485,6 +528,11 @@ export class GameEngine {
   /** Current logic dimensions (canvas internal resolution); whole tiles. */
   width = LOGIC_WIDTH;
   height = LOGIC_HEIGHT;
+  /** devicePixelRatio at construction. The canvas resolution is measured against
+   *  this baseline so browser **page zoom** (which scales devicePixelRatio and
+   *  shrinks/grows CSS px in lock-step) leaves the logical resolution unchanged —
+   *  only genuine window resizes (which don't change DPR) re-fit the canvas. */
+  private readonly baselineDpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
 
   // --- spawn/loop bookkeeping ---
   private spawnQueue: Enemy[] = [];
@@ -501,7 +549,7 @@ export class GameEngine {
   constructor(
     canvas: HTMLCanvasElement,
     onState: (patch: Partial<UIState>) => void,
-    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown },
+    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown; bossesSeen?: unknown },
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -509,6 +557,7 @@ export class GameEngine {
     this.meta = new MetaSystem(this, save);
     this.killCounts = sanitizeKillCounts(save?.killCounts);
     this.cardCounts = sanitizeCardCounts(save?.cardCounts);
+    this.bossesSeen = sanitizeBossesSeen(save?.bossesSeen);
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.renderer = new GameRenderer(this);
     this.canvas.width = this.width;
@@ -528,8 +577,13 @@ export class GameEngine {
   resize() {
     const rect = this.canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
-    const w = Math.max(GRID * 12, Math.floor(rect.width / GRID) * GRID);
-    const h = Math.max(GRID * 8, Math.floor(rect.height / GRID) * GRID);
+    // Counteract browser page zoom: as the user zooms, devicePixelRatio scales up
+    // and the element's CSS px scale down together, so `cssPx × dpr` is invariant.
+    // Measuring against the construction-time DPR keeps the logical resolution
+    // fixed under zoom while still adapting to real window resizes.
+    const zoom = (typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1) / this.baselineDpr;
+    const w = Math.max(GRID * 12, Math.floor((rect.width * zoom) / GRID) * GRID);
+    const h = Math.max(GRID * 8, Math.floor((rect.height * zoom) / GRID) * GRID);
     if (w === this.width && h === this.height && this.canvas.width === w) return;
     const sx = w / this.width;
     const sy = h / this.height;
@@ -615,6 +669,7 @@ export class GameEngine {
       unlockSeq: this.unlockSeq,
       killCounts: this.killCounts,
       cardCounts: this.cardCounts,
+      bossesSeen: this.bossesSeen,
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
       pendingDraft: this.pendingDraft,
@@ -910,6 +965,8 @@ export class GameEngine {
       y: e.y,
       effects,
       tenacity: this.tenacity(e),
+      affixes: e.affixes ?? [],
+      armoredStyle: e.armoredStyle,
     };
   }
 
@@ -1328,19 +1385,41 @@ export class GameEngine {
     for (const cfg of configs) {
       for (let i = 0; i < cfg.count; i++) {
         const enemy = this.makeEnemy(cfg.type, wave);
-        if (enemy) out.push(enemy);
+        if (!enemy) continue;
+        out.push(enemy);
+        // Swarm affix: the rolled enemy arrives as a pack of frail copies (its HP
+        // was already halved in makeEnemy); clone it into a full trio.
+        if (enemy.affixes?.includes('swarm')) {
+          for (let k = 1; k < SWARM_COUNT; k++) {
+            out.push({ ...enemy, id: uid(), affixes: enemy.affixes ? [...enemy.affixes] : undefined });
+          }
+        }
       }
     }
     return out;
   }
 
-  private makeEnemy(type: EnemyType, wave: number): Enemy | null {
+  private makeEnemy(type: EnemyType, wave: number, forced?: AffixRoll): Enemy | null {
     const def = ENEMIES[type];
     if (!def) return null;
     const scaled = scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, wave);
     const start = this.portalPoint;
-    // Greed curse: enemies spawn with ×hpMult HP (default 1) in exchange for gold.
-    const hp = Math.round(scaled.hp * this.runFx.enemyHpMult);
+    // `forced` (debug cheats) wins outright — it bypasses the seen-gate and the
+    // elite roll so a tester can dial in exact modifiers. Otherwise: bosses roll
+    // the boss-modifier set only once they've been seen at least once (their
+    // first-ever encounter is the clean, mechanic-only fight); normal enemies roll
+    // the standard elite affixes.
+    const roll = forced ?? (def.isBoss
+      ? (this.bossesSeen[type] ? rollBossAffixes(Math.random) : { affixes: [] })
+      : rollAffixes(wave, false, Math.random));
+    const affixes = roll.affixes;
+    const bossKind = def.isBoss && (MECHANIC_BOSSES as readonly string[]).includes(type)
+      ? (type as BossId) : undefined;
+    // Greed curse (×enemyHpMult) compounds with the affix spawn-HP multiplier
+    // (swarm frail / colossal tanky). Speed and draw-scale fold in their affixes too.
+    const hp = Math.max(1, Math.round(scaled.hp * this.runFx.enemyHpMult * affixSpawnHpMult(affixes)));
+    const speed = Math.max(1, Math.round(scaled.speed * affixSpeedMult(affixes)));
+    const shieldHp = shieldHpFor(affixes, hp);
     return {
       ...def,
       id: uid(),
@@ -1348,15 +1427,20 @@ export class GameEngine {
       y: start.y,
       hp,
       maxHp: hp,
-      speed: scaled.speed,
-      baseSpeed: scaled.speed,
+      speed,
+      baseSpeed: speed,
       reward: scaled.reward,
+      renderScale: (def.renderScale ?? 1) * affixRenderScaleMult(affixes),
       pathIndex: 0,
       slowTimer: 0,
       stunTimer: 0,
       tauntTimer: 0,
       groundTimer: 0,
       animTime: 0,
+      affixes: affixes.length ? affixes : undefined,
+      armoredStyle: roll.armoredStyle,
+      shieldHp: shieldHp > 0 ? shieldHp : undefined,
+      bossState: bossKind ? freshBossState(bossKind) : undefined,
     };
   }
 
@@ -1371,9 +1455,149 @@ export class GameEngine {
     this.fireTowers(dt);
     this.updateUtilityTowers(dt);
     this.moveProjectiles(dt);
+    this.handleBossMechanics(dt);
     this.updateEffects(dt);
     this.checkWaveEnd();
     this.tickAutoplay(dt);
+  }
+
+  /**
+   * Drive the signature boss phases each frame (#4B). Zulrah rotates its weak
+   * style; Vorkath raises a periodic ice shield (immune + freezes a tower); Jad
+   * summons Yt-HurKot healers below half HP that claw back his recent damage
+   * until killed. Pure phase maths live in `systems/boss-mechanics`; this owns
+   * the timers, the healer entities, and the telegraph VFX.
+   */
+  private handleBossMechanics(dt: number) {
+    // Orphaned Jad healers (their boss died/left) serve no purpose and would
+    // otherwise block the wave from ending — clear them.
+    if (!this.enemies.some(e => e.bossState?.kind === 'jad')) {
+      for (let i = this.enemies.length - 1; i >= 0; i--) {
+        if (this.enemies[i].healer) this.enemies.splice(i, 1);
+      }
+    }
+    for (const e of this.enemies) {
+      const st = e.bossState;
+      if (!st) continue;
+      st.timer += dt;
+      if (st.kind === 'zulrah') {
+        const idx = zulrahPhaseIndex(st.timer);
+        if (idx !== st.phaseIndex) {
+          st.phaseIndex = idx;
+          // A coloured shockwave in the new form's tint as it morphs.
+          const pc = ZULRAH_PHASES[idx % ZULRAH_PHASES.length].color;
+          this.addRing(e.x, e.y, 8, 60, pc, 0.5, 4);
+          this.sound.play('wave', 55); // the teleport "vwoop" reads as a morph
+        }
+      } else if (st.kind === 'vorkath') {
+        this.updateVorkath(e, dt);
+      } else if (st.kind === 'jad') {
+        this.updateJad(e, dt);
+      }
+    }
+  }
+
+  /** Vorkath: alternate a vulnerable window and a short ice shield. When the
+   *  shield raises, Vorkath is immune and the nearest tower freezes for its
+   *  duration — the player must weather it, not out-DPS it. */
+  private updateVorkath(e: Enemy, dt: number) {
+    const st = e.bossState!;
+    st.iceTimer = (st.iceTimer ?? VORKATH_ICE_INTERVAL) - dt;
+    if (st.iceTimer > 0) return;
+    if (st.immune) {
+      // Shield ends → vulnerable again until the next interval.
+      st.immune = false;
+      st.iceTimer = VORKATH_ICE_INTERVAL;
+    } else {
+      // Raise the shield: immune + freeze the nearest tower for the duration.
+      st.immune = true;
+      st.iceTimer = VORKATH_ICE_DURATION;
+      let best: Tower | null = null;
+      let bestD = Infinity;
+      for (const t of this.towers) {
+        const d = distanceSq(t.x, t.y, e.x, e.y);
+        if (d < bestD) { bestD = d; best = t; }
+      }
+      if (best) best.disabledTimer = Math.max(best.disabledTimer, VORKATH_ICE_DURATION);
+      this.addRing(e.x, e.y, 10, 70, '#bfe9ff', 0.5, 4); // a frost burst as the shield raises
+      this.notify('Vorkath raises an ice shield!');
+      this.sound.play('hit', 70);
+    }
+  }
+
+  /** Jad: below half HP he summons Yt-HurKot healers; while any live, he
+   *  regenerates a slice of the damage dealt to him over the last few seconds.
+   *  Recent damage is recorded in `damage()`; here we prune it, summon/re-summon,
+   *  and apply the heal on a tick. */
+  private updateJad(e: Enemy, dt: number) {
+    const st = e.bossState!;
+    const now = this.gameTime;
+    st.recentDamage = pruneDamageEvents(st.recentDamage ?? [], now, JAD_HEAL_WINDOW_SECS);
+
+    const healersAlive = this.enemies.some(h => h.healer);
+    if (!healersAlive && st.healSummoned) {
+      // Batch wiped — start the re-summon cooldown (once).
+      st.healSummoned = false;
+      st.resummonTimer = JAD_RESUMMON_COOLDOWN;
+    }
+    if (st.resummonTimer && st.resummonTimer > 0) st.resummonTimer -= dt;
+
+    // Summon (or re-summon, once the cooldown elapses) while below the threshold.
+    const belowThreshold = e.hp <= e.maxHp * JAD_HEAL_THRESHOLD;
+    if (belowThreshold && !st.healSummoned && (st.resummonTimer ?? 0) <= 0) {
+      st.healSummoned = true;
+      this.summonJadHealers(e);
+      this.notify('Jad summons Yt-HurKot healers!');
+    }
+
+    if (healersAlive && e.hp < e.maxHp) {
+      st.healTickTimer = (st.healTickTimer ?? 0) + dt;
+      if (st.healTickTimer >= JAD_HEAL_TICK_SECS) {
+        st.healTickTimer -= JAD_HEAL_TICK_SECS;
+        const heal = jadHealPerTick(recentDamageSum(st.recentDamage, now, JAD_HEAL_WINDOW_SECS));
+        if (heal > 0) {
+          e.hp = Math.min(e.maxHp, e.hp + heal);
+          // A green "heal" splat floats off Jad so the regen reads clearly.
+          this.hitsplats.push({ x: e.x + (Math.random() - 0.5) * 16, y: e.y - 18, value: heal, kind: 'heal', life: HITSPLAT_LIFE });
+          for (let i = 0; i < 3; i++) {
+            this.particles.push({ x: e.x + (Math.random() - 0.5) * 20, y: e.y, vx: (Math.random() - 0.5) * 30, vy: -30 - Math.random() * 30, life: 0.5, maxLife: 0.5, color: '#48d04a', size: 2 });
+          }
+        }
+      }
+    }
+  }
+
+  /** Spawn Jad's ring of stationary healers. They don't walk the path or leak,
+   *  award nothing on death (`debug`), and exist only to be cut down. */
+  private summonJadHealers(jad: Enemy) {
+    const hp = Math.max(20, Math.round(jad.maxHp * JAD_HEALER_HP_FRAC));
+    for (let i = 0; i < JAD_HEALER_COUNT; i++) {
+      const ang = (i / JAD_HEALER_COUNT) * Math.PI * 2 - Math.PI / 2;
+      this.enemies.push({
+        ...ENEMIES.imp,
+        id: uid(),
+        type: 'imp',
+        name: 'Yt-HurKot',
+        healer: true,
+        debug: jad.debug, // inherit sandbox flag so a debug Jad spawns debug healers
+        x: jad.x + Math.cos(ang) * 78,
+        y: jad.y + Math.sin(ang) * 78,
+        hp,
+        maxHp: hp,
+        speed: 0,
+        baseSpeed: 0,
+        renderScale: 0.7,
+        pathIndex: jad.pathIndex,
+        slowTimer: 0,
+        stunTimer: 0,
+        tauntTimer: 0,
+        groundTimer: 0,
+        animTime: Math.random() * 2,
+        spawnAnim: SPAWN_ANIM_SECONDS,
+      });
+    }
+    this.addRing(jad.x, jad.y, 10, 80, '#48d04a', 0.55, 4); // a green summon pulse
+    this.sound.play('wave', 60); // summon vwoop
   }
 
   /** Debug autoplay: count up while idle and auto-start the next wave once the
@@ -1467,6 +1691,12 @@ export class GameEngine {
       if (enemy) {
         enemy.spawnAnim = SPAWN_ANIM_SECONDS; // materialise (fade-in + grow) out of the portal
         this.enemies.push(enemy);
+        // Count every real boss sighting (lifetime): the first one unlocks the
+        // boss's modifier rolls for all future encounters, and the running tally
+        // ramps the lives it costs on a leak. Debug/sandbox spawns don't count.
+        if (enemy.isBoss && !enemy.debug) {
+          this.bossesSeen = { ...this.bossesSeen, [enemy.type]: (this.bossesSeen[enemy.type] ?? 0) + 1 };
+        }
       }
       this.emit();
     }
@@ -1510,21 +1740,37 @@ export class GameEngine {
       if (e.flashTimer && e.flashTimer > 0) e.flashTimer -= dt;
       e.animTime = (e.animTime ?? 0) + dt; // drives the looping walk-cycle
       if (e.hurtAnim && e.hurtAnim > 0) e.hurtAnim = Math.max(0, e.hurtAnim - dt);
+      // Jad's healers are stationary — they never advance the path or leak; the
+      // only way they leave the field is by being killed.
+      if (e.healer) continue;
       if (e.slowTimer > 0) {
         e.slowTimer -= dt;
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
       }
       if (e.vulnTimer && e.vulnTimer > 0) e.vulnTimer -= dt;
+      // Regenerating affix: claw back HP over time, capped at full health.
+      if (e.affixes) {
+        const regen = regenPerSec(e.affixes, e.maxHp);
+        if (regen > 0 && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + regen * dt);
+      }
       if (e.stunTimer > 0) {
         e.stunTimer -= dt;
         continue; // Earth/Shadow stun: frozen in place this frame
       }
       const target = this.path[e.pathIndex + 1];
       if (!target) {
-        // reached the end → leak a life (debug/sandbox enemies leak harmlessly)
+        // reached the end → leak lives (debug/sandbox enemies leak harmlessly).
+        // Bosses cost 5 + 1 per prior sighting (capped 10), elites/superiors
+        // cost 3, and normal monsters cost 1 (2 for a Colossal). The sighting
+        // tally already counts this appearance, so subtract it for "prior".
         this.enemies.splice(i, 1);
         if (!e.debug) {
-          this.lives -= 1;
+          const cost = e.isBoss
+            ? bossLeakCost((this.bossesSeen[e.type] ?? 1) - 1)
+            : e.type.startsWith('superior_')
+            ? SUPERIOR_LEAK_COST
+            : leakLifeCost(e.affixes ?? []);
+          this.lives -= cost;
           this.baseFlash = 1;
           this.sound.play('base_hit', 90); // player taking damage with no armour (OSRS take-damage splat)
           if (this.lives <= 0) this.endGame();
@@ -1556,6 +1802,9 @@ export class GameEngine {
     const doomed = (e: Enemy) => (incoming.get(e.id) ?? 0) >= e.hp;
     for (const tower of this.towers) {
       if (tower.recoil) tower.recoil = Math.max(0, tower.recoil - dt * 6); // ~0.16s pulse
+      // Disabled (e.g. by a Volatile enemy's death blast): tick the timer down and
+      // hold fire until it clears.
+      if (tower.disabledTimer > 0) { tower.disabledTimer = Math.max(0, tower.disabledTimer - dt); continue; }
       // Utility wizards don't fire — they project a field (see updateUtilityTowers).
       if (tower.type === 'wizard' && tower.mageMode === 'utility') continue;
       const stats = calculateTowerStats(tower, {
@@ -1797,7 +2046,23 @@ export class GameEngine {
     }
   }
 
+  /** Combat style behind a projectile (for the Armored affix's style resist).
+   *  Reads the source tower's style; falls back to the projectile kind if the
+   *  tower is already gone. */
+  private projectileStyle(p: Projectile): CombatStyle | undefined {
+    const t = p.sourceTowerId ? this.towers.find(tw => tw.id === p.sourceTowerId) : undefined;
+    if (t) return TOWER_STYLES[t.type]?.style;
+    switch (p.type) {
+      case 'arrow': case 'dart': case 'bolt': case 'chinchompa': return 'ranged';
+      case 'spell': case 'magic_projectile':
+      case 'ancient_ice': case 'ancient_blood': case 'ancient_shadow': case 'ancient_smoke': return 'magic';
+      case 'cannonball': case 'godsword': return 'melee';
+      default: return undefined;
+    }
+  }
+
   private hit(p: Projectile, target: Enemy | null) {
+    const style = this.projectileStyle(p);
     this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
     // Archer arrows have no impact clip wired yet, and the generic melee "thud" is
@@ -1826,7 +2091,7 @@ export class GameEngine {
         // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.
         const bonus = p.bonusMaxHpFrac ? Math.floor(e.maxHp * p.bonusMaxHpFrac * scale) : 0;
         const dmg = Math.floor(p.damage * scale) + bonus;
-        const killed = this.damage(e, dmg, 'hit', false, silent);
+        const killed = this.damage(e, dmg, 'hit', false, silent, 0, style);
         if (isPrimary) primaryKilled = killed;
         if (!killed) { this.applyOnHit(e, p); this.applyVenomTips(e); }
       }
@@ -1834,7 +2099,7 @@ export class GameEngine {
       // Single-target: only resolves if the target is still alive at impact;
       // otherwise the bolt just fizzles where the target was (particles only).
       const bonus = p.bonusMaxHpFrac ? Math.floor(target.maxHp * p.bonusMaxHpFrac) : 0;
-      primaryKilled = this.damage(target, p.damage + bonus, 'hit', false, silent);
+      primaryKilled = this.damage(target, p.damage + bonus, 'hit', false, silent, 0, style);
       if (!primaryKilled) { this.applyOnHit(target, p); this.applyVenomTips(target); }
       // Pierce (roguelite transform): the bolt punches through to the nearest
       // *other* enemy near the impact, landing a second full hit.
@@ -1880,6 +2145,7 @@ export class GameEngine {
    *  per-frame utility aura so it doesn't inflate the counter. `spread` lets the
    *  Chain Freeze card propagate the slow to neighbours (once, non-spreading). */
   private applySlow(e: Enemy, seconds = 2, count = true, spread = true) {
+    if (isCcImmune(e.affixes ?? [])) return; // Warded affix: ignores slows/freezes
     const eff = seconds * (1 - this.tenacity(e));
     if (count) this.noteDebuffHit(e);
     if (eff <= 0) return;
@@ -1928,11 +2194,14 @@ export class GameEngine {
     }
     if (!best) return;
     this.addBolt(target.x, target.y, best.x, best.y, '#ffe08a', 0.22); // the bolt punching through
-    const killed = this.damage(best, p.damage, 'hit', false, true, 1);
+    const killed = this.damage(best, p.damage, 'hit', false, true, 1, this.projectileStyle(p));
     if (!killed) { this.applyOnHit(best, p); this.applyVenomTips(best); }
   }
 
   private applyOnHit(e: Enemy, p: Projectile) {
+    // Warded affix: shrug off the movement crowd-control specials (slow handled in
+    // applySlow; stun/pushback/crush guarded here). DoTs and amp still apply.
+    if (isCcImmune(e.affixes ?? []) && (p.special === 'stun' || p.special === 'pushback' || p.special === 'crush')) return;
     switch (p.special) {
       case 'slow':
         this.applySlow(e);
@@ -2035,13 +2304,28 @@ export class GameEngine {
    *  colours the hitsplat; `minor` (DoT) draws it small/below, drifting aside.
    *  `depth` guards the on-kill chain cards (ricochet / overkill / streak smite)
    *  against unbounded recursion — chains only fire from a depth-0 (direct) kill. */
-  private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false, silent = false, depth = 0): boolean {
+  private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false, silent = false, depth = 0, style?: CombatStyle): boolean {
     // Water "amp" makes the enemy take extra damage from every source; the Slayer
-    // Helmet adds an on-task bonus vs the current task's monster.
+    // Helmet adds an on-task bonus vs the current task's monster. The Armored affix
+    // halves damage from its rolled style (DoT/no-style hits are unaffected).
     const vuln = enemy.vulnTimer && enemy.vulnTimer > 0 ? 1.25 : 1;
     const onTask = this.slayer.onTaskBonus(enemy.type);
-    const dealt = Math.max(0, Math.floor(amount * vuln * onTask));
+    const resist = styleDamageMult(enemy.armoredStyle, style);
+    // Boss phase bias: Zulrah's per-form style rock-paper-scissors, and a 0 while
+    // Vorkath's ice shield is up (fully immune). Neutral for non-boss enemies.
+    const bossMult = bossStyleMult(enemy.bossState, style);
+    let dealt = Math.max(0, Math.floor(amount * vuln * onTask * resist * bossMult));
+    // Shielded affix: damage is drained from the shield pool before HP is touched.
+    if (enemy.shieldHp && enemy.shieldHp > 0 && dealt > 0) {
+      const a = absorbWithShield(enemy.shieldHp, dealt);
+      enemy.shieldHp = a.shield;
+      dealt = a.dmg;
+    }
     enemy.hp -= dealt;
+    // Jad: remember damage that actually landed, for the Yt-HurKot heal window.
+    if (dealt > 0 && enemy.bossState?.kind === 'jad') {
+      (enemy.bossState.recentDamage ??= []).push({ t: this.gameTime, amount: dealt });
+    }
     if (!minor) {
       enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
       // Play the WHOLE hurt flinch (priority over walk) before reverting — sizing
@@ -2099,8 +2383,9 @@ export class GameEngine {
     const deathKey = `death_${enemy.type}`;
     this.sound.play(deathKey in GAME_SOUNDS ? deathKey : 'death', 40);
     // Debug/sandbox enemies pay nothing and don't progress anything — they exist
-    // only to test towers/enemies. The death FX above still play (visual feedback).
-    if (!enemy.debug) {
+    // only to test towers/enemies. Jad's healers likewise award nothing (their
+    // payoff is denying Jad's heal). The death FX above still play.
+    if (!enemy.debug && !enemy.healer) {
       // Greed curse: enemies pay ×goldMult (default 1).
       this.awardGold(Math.round(this.killGold(enemy.type) * this.runFx.goldMult));
       this.kills += 1;
@@ -2108,9 +2393,34 @@ export class GameEngine {
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
       this.slayer.recordKill(enemy.type);
       this.onKillChains(killX, killY, dealt, overkillDmg, depth);
+      // Volatile affix: a death blast briefly disables the nearest tower.
+      if (enemy.affixes?.includes('volatile')) this.detonateVolatile(killX, killY);
     }
     this.emit();
     return true;
+  }
+
+  /** Volatile affix: on death, disable the nearest tower for a beat and pop a
+   *  warning spotanim at the blast so the threat reads clearly. */
+  private detonateVolatile(x: number, y: number) {
+    let best: Tower | null = null;
+    let bestD = Infinity;
+    for (const t of this.towers) {
+      const d = distanceSq(t.x, t.y, x, y);
+      if (d < bestD) { bestD = d; best = t; }
+    }
+    // An orange shockwave + sparks for the detonation (NOT the spawn-portal
+    // spotanim, which read as a gateway opening on the corpse).
+    this.addRing(x, y, 6, 46, '#ff7a3c', 0.45, 4);
+    for (let i = 0; i < 10; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = 60 + Math.random() * 120;
+      this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.35, maxLife: 0.35, color: '#ff8a3c', size: 2 });
+    }
+    if (best) {
+      best.disabledTimer = Math.max(best.disabledTimer, VOLATILE_STUN_SECS);
+      this.sound.play('hit', 80);
+    }
   }
 
   /** Roguelite on-kill chain cards. Soul Split (heal) and the streak meter count
@@ -2414,6 +2724,62 @@ export class GameEngine {
     this.waveActive = true;
     this.sandboxWave = true;
     this.lastWaveSandbox = false; // clear any prior banner flag while this one runs
+    this.sound.play('wave');
+    this.emit();
+  }
+
+  /** Build a forced affix roll for the debug cheats: the explicit list, or — when
+   *  empty — a random 1–2 affix elite, so "spawn elite" still does something. */
+  private buildForcedRoll(affixes: EnemyAffix[]): AffixRoll {
+    let list = affixes.slice();
+    if (!list.length) {
+      const pool = [...ALL_AFFIXES];
+      const n = 1 + (Math.random() < 0.4 ? 1 : 0);
+      list = [];
+      for (let i = 0; i < n && pool.length; i++) list.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+    const roll: AffixRoll = { affixes: list };
+    if (list.includes('armored')) roll.armoredStyle = rollArmoredStyle(Math.random);
+    return roll;
+  }
+
+  /** Debug: spawn a sandbox wave of enemies with forced affixes (empty list =
+   *  a random elite). Lets affixes be eyeballed without waiting on the rare roll. */
+  debugSpawnAffixed(types: EnemyType[], affixes: EnemyAffix[], countEach: number) {
+    if (this.waveActive || this.gameOver) return;
+    const n = Math.max(1, Math.floor(countEach) || 1);
+    const out: Enemy[] = [];
+    for (const t of types) {
+      for (let i = 0; i < n; i++) {
+        const e = this.makeEnemy(t, this.wave, this.buildForcedRoll(affixes));
+        if (e) { e.debug = true; out.push(e); }
+      }
+    }
+    if (!out.length) return;
+    this.spawnQueue = out;
+    this.waveTotal = out.length;
+    this.bossWave = out.some((e) => e.isBoss);
+    this.waveActive = true;
+    this.sandboxWave = true;
+    this.lastWaveSandbox = false;
+    this.sound.play('wave');
+    this.emit();
+  }
+
+  /** Debug: spawn one boss (sandbox), optionally with forced modifiers — bypasses
+   *  the seen-gate so boss modifiers + phase mechanics can be tested on demand. */
+  debugSpawnBoss(type: EnemyType, affixes: EnemyAffix[]) {
+    if (this.waveActive || this.gameOver) return;
+    const forced: AffixRoll = affixes.length ? this.buildForcedRoll(affixes) : { affixes: [] };
+    const e = this.makeEnemy(type, this.wave, forced);
+    if (!e) return;
+    e.debug = true;
+    this.spawnQueue = [e];
+    this.waveTotal = 1;
+    this.bossWave = true;
+    this.waveActive = true;
+    this.sandboxWave = true;
+    this.lastWaveSandbox = false;
     this.sound.play('wave');
     this.emit();
   }

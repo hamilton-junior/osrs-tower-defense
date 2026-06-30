@@ -271,6 +271,7 @@ export const ASSETS = {
     stun: `${LOCAL}/debuffs/stun.png`, // SPELL_ENTANGLE (321)
     burn: `${LOCAL}/debuffs/burn.png`, // Burn hitsplat (1361)
     poison: `${LOCAL}/debuffs/poison.png`, // HITSPLAT_GREEN_POISON (1360)
+    venom: `${LOCAL}/debuffs/venom.png`, // HITSPLAT_DARK_GREEN_VENOM (1632)
     vuln: `${LOCAL}/debuffs/vuln.png`, // SPELL_WEAKEN (20)
   },
   // Baked spotanim (GFX) sprite sheets — animated cache effects rendered offline

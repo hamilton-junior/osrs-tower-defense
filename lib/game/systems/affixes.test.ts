@@ -1,0 +1,223 @@
+import { describe, it, expect } from 'vitest';
+import {
+  rollAffixes,
+  rollBossAffixes,
+  eliteChanceForWave,
+  extraAffixChance,
+  rollArmoredStyle,
+  affixSpeedMult,
+  affixSpawnHpMult,
+  affixRenderScaleMult,
+  shieldHpFor,
+  regenPerSec,
+  leakLifeCost,
+  bossLeakCost,
+  BOSS_LEAK_BASE,
+  BOSS_LEAK_MAX,
+  isCcImmune,
+  styleDamageMult,
+  absorbWithShield,
+  ALL_AFFIXES,
+  AFFIX_DEFS,
+  AFFIX_UNLOCK_WAVE,
+  ELITE_CHANCE_STEP,
+  ELITE_CHANCE_CAP,
+  EXTRA_AFFIX_MAX,
+  EXTRA_AFFIX_RAMP_WAVES,
+  EXTRA_AFFIX_DECAY,
+  BOSS_AFFIX_POOL,
+  BOSS_AFFIX_CHANCE,
+  SHIELD_HP_FRAC,
+  ARMORED_RESIST,
+  REGEN_FRAC_PER_SEC,
+  HASTE_SPEED_MULT,
+  COLOSSAL_HP_MULT,
+  COLOSSAL_SPEED_MULT,
+  SWARM_HP_MULT,
+} from './affixes';
+
+/** A deterministic RNG that yields the given sequence, then 0 forever. */
+const seq = (...values: number[]) => {
+  let i = 0;
+  return () => (i < values.length ? values[i++] : 0);
+};
+
+describe('eliteChanceForWave', () => {
+  it('is 0 before the unlock wave', () => {
+    expect(eliteChanceForWave(AFFIX_UNLOCK_WAVE - 1)).toBe(0);
+    expect(eliteChanceForWave(1)).toBe(0);
+  });
+  it('starts at one step on the unlock wave and ramps', () => {
+    expect(eliteChanceForWave(AFFIX_UNLOCK_WAVE)).toBeCloseTo(ELITE_CHANCE_STEP);
+    expect(eliteChanceForWave(AFFIX_UNLOCK_WAVE + 2)).toBeCloseTo(3 * ELITE_CHANCE_STEP);
+  });
+  it('caps at the ceiling', () => {
+    expect(eliteChanceForWave(999)).toBe(ELITE_CHANCE_CAP);
+  });
+});
+
+describe('rollAffixes', () => {
+  it('never affixes a boss', () => {
+    expect(rollAffixes(50, true, () => 0).affixes).toEqual([]);
+  });
+  it('returns nothing before the unlock wave', () => {
+    expect(rollAffixes(AFFIX_UNLOCK_WAVE - 1, false, () => 0).affixes).toEqual([]);
+  });
+  it('returns nothing when the elite roll fails', () => {
+    // chance on the unlock wave is small; an rng >= chance fails the gate.
+    expect(rollAffixes(AFFIX_UNLOCK_WAVE, false, () => 0.99).affixes).toEqual([]);
+  });
+  it('rolls a single affix when the gate passes', () => {
+    // first rng() = 0 passes the elite gate; second picks index 0 of the pool.
+    const roll = rollAffixes(AFFIX_UNLOCK_WAVE, false, seq(0, 0));
+    expect(roll.affixes).toHaveLength(1);
+    expect(ALL_AFFIXES).toContain(roll.affixes[0]);
+  });
+  it('grants exactly one affix on the unlock wave even with all-pass rolls', () => {
+    // extraAffixChance is 0 at the unlock wave, so no extra can stack — the
+    // player can never be blindsided by a fully-loaded elite the moment it unlocks.
+    const roll = rollAffixes(AFFIX_UNLOCK_WAVE, false, seq(0, 0, 0, 0, 0, 0));
+    expect(roll.affixes).toHaveLength(1);
+  });
+  it('stacks extra affixes deep in the run when the extra rolls pass', () => {
+    // Full-ramp wave: gate(0), pick1(0), extra1(0<0.5 ✓), pick2(0), extra2(0.9 ✗ stop).
+    const wave = AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
+    const roll = rollAffixes(wave, false, seq(0, 0, 0, 0, 0.9));
+    expect(roll.affixes).toHaveLength(2);
+    expect(roll.affixes[0]).not.toBe(roll.affixes[1]); // distinct (drawn without replacement)
+  });
+  it('has no hard cap — can stack several when every extra roll passes', () => {
+    const wave = AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
+    const roll = rollAffixes(wave, false, () => 0); // every roll passes
+    expect(roll.affixes.length).toBe(ALL_AFFIXES.length); // drains the whole pool
+  });
+  it('attaches an armoredStyle whenever armored is rolled', () => {
+    // Force index of "armored" within the pool for the pick; stop after one.
+    const armoredIdx = ALL_AFFIXES.indexOf('armored');
+    const pickFrac = (armoredIdx + 0.5) / ALL_AFFIXES.length;
+    const roll = rollAffixes(AFFIX_UNLOCK_WAVE, false, seq(0, pickFrac, 0));
+    expect(roll.affixes).toEqual(['armored']);
+    expect(roll.armoredStyle).toBeDefined();
+  });
+});
+
+describe('extraAffixChance', () => {
+  it('is 0 on the unlock wave (guaranteed single)', () => {
+    expect(extraAffixChance(AFFIX_UNLOCK_WAVE, 1)).toBe(0);
+  });
+  it('ramps to the max for the first extra at full ramp', () => {
+    expect(extraAffixChance(AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES, 1)).toBeCloseTo(EXTRA_AFFIX_MAX);
+  });
+  it('decays for each affix already granted', () => {
+    const wave = AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
+    expect(extraAffixChance(wave, 2)).toBeCloseTo(EXTRA_AFFIX_MAX * EXTRA_AFFIX_DECAY);
+    expect(extraAffixChance(wave, 3)).toBeCloseTo(EXTRA_AFFIX_MAX * EXTRA_AFFIX_DECAY ** 2);
+  });
+  it('never exceeds the ramp ceiling past full ramp', () => {
+    expect(extraAffixChance(999, 1)).toBeCloseTo(EXTRA_AFFIX_MAX);
+  });
+});
+
+describe('rollBossAffixes', () => {
+  it('returns nothing when the boss roll fails', () => {
+    expect(rollBossAffixes(() => 0.99).affixes).toEqual([]);
+  });
+  it('grants one boss-pool affix when the roll passes', () => {
+    // gate(0 < CHANCE ✓), pick(0), extra(0.99 ✗ stop)
+    const roll = rollBossAffixes(seq(0, 0, 0.99));
+    expect(roll.affixes).toHaveLength(1);
+    expect(BOSS_AFFIX_POOL).toContain(roll.affixes[0]);
+  });
+  it('only ever draws from the boss pool (no swarm/colossal/volatile)', () => {
+    const roll = rollBossAffixes(() => 0); // every roll passes → drains boss pool
+    for (const a of roll.affixes) expect(BOSS_AFFIX_POOL).toContain(a);
+    expect(roll.affixes).not.toContain('swarm');
+    expect(roll.affixes).not.toContain('colossal');
+    expect(roll.affixes).not.toContain('volatile');
+  });
+  it('uses BOSS_AFFIX_CHANCE as the gate', () => {
+    // Just below the gate passes; at/above fails.
+    expect(rollBossAffixes(() => BOSS_AFFIX_CHANCE - 0.001).affixes.length).toBeGreaterThan(0);
+    expect(rollBossAffixes(() => BOSS_AFFIX_CHANCE).affixes).toEqual([]);
+  });
+});
+
+describe('rollArmoredStyle', () => {
+  it('returns one of the three combat styles', () => {
+    expect(['ranged', 'magic', 'melee']).toContain(rollArmoredStyle(() => 0));
+    expect(['ranged', 'magic', 'melee']).toContain(rollArmoredStyle(() => 0.99));
+  });
+});
+
+describe('stat helpers', () => {
+  it('affixSpeedMult compounds hasted and colossal', () => {
+    expect(affixSpeedMult([])).toBe(1);
+    expect(affixSpeedMult(['hasted'])).toBeCloseTo(HASTE_SPEED_MULT);
+    expect(affixSpeedMult(['colossal'])).toBeCloseTo(COLOSSAL_SPEED_MULT);
+    expect(affixSpeedMult(['hasted', 'colossal'])).toBeCloseTo(HASTE_SPEED_MULT * COLOSSAL_SPEED_MULT);
+  });
+  it('affixSpawnHpMult compounds swarm and colossal', () => {
+    expect(affixSpawnHpMult([])).toBe(1);
+    expect(affixSpawnHpMult(['swarm'])).toBeCloseTo(SWARM_HP_MULT);
+    expect(affixSpawnHpMult(['colossal'])).toBeCloseTo(COLOSSAL_HP_MULT);
+  });
+  it('affixRenderScaleMult only grows colossals', () => {
+    expect(affixRenderScaleMult([])).toBe(1);
+    expect(affixRenderScaleMult(['colossal'])).toBeGreaterThan(1);
+  });
+  it('shieldHpFor scales with max HP only when shielded', () => {
+    expect(shieldHpFor([], 100)).toBe(0);
+    expect(shieldHpFor(['shielded'], 100)).toBe(Math.round(100 * SHIELD_HP_FRAC));
+  });
+  it('regenPerSec scales with max HP only when regenerating', () => {
+    expect(regenPerSec([], 100)).toBe(0);
+    expect(regenPerSec(['regenerating'], 100)).toBeCloseTo(100 * REGEN_FRAC_PER_SEC);
+  });
+  it('leakLifeCost is 2 for colossal, 1 otherwise', () => {
+    expect(leakLifeCost([])).toBe(1);
+    expect(leakLifeCost(['hasted'])).toBe(1);
+    expect(leakLifeCost(['colossal'])).toBe(2);
+  });
+  it('bossLeakCost is base + prior sightings, capped at the max', () => {
+    expect(bossLeakCost(0)).toBe(BOSS_LEAK_BASE); // first encounter: just the base
+    expect(bossLeakCost(1)).toBe(BOSS_LEAK_BASE + 1);
+    expect(bossLeakCost(5)).toBe(BOSS_LEAK_MAX);
+    expect(bossLeakCost(99)).toBe(BOSS_LEAK_MAX); // never exceeds the cap
+    expect(bossLeakCost(-3)).toBe(BOSS_LEAK_BASE); // negatives floor to base
+  });
+  it('isCcImmune only for warded', () => {
+    expect(isCcImmune([])).toBe(false);
+    expect(isCcImmune(['warded'])).toBe(true);
+  });
+  it('styleDamageMult halves only the matching armored style', () => {
+    expect(styleDamageMult('ranged', 'ranged')).toBe(ARMORED_RESIST);
+    expect(styleDamageMult('ranged', 'magic')).toBe(1);
+    expect(styleDamageMult(undefined, 'magic')).toBe(1);
+    expect(styleDamageMult('melee', undefined)).toBe(1);
+  });
+});
+
+describe('absorbWithShield', () => {
+  it('passes damage straight through when there is no shield', () => {
+    expect(absorbWithShield(0, 30)).toEqual({ shield: 0, dmg: 30 });
+  });
+  it('absorbs fully when the shield outlasts the hit', () => {
+    expect(absorbWithShield(50, 20)).toEqual({ shield: 30, dmg: 0 });
+  });
+  it('spills the remainder once the shield breaks', () => {
+    expect(absorbWithShield(15, 20)).toEqual({ shield: 0, dmg: 5 });
+  });
+});
+
+describe('AFFIX_DEFS', () => {
+  it('has a complete def for every affix', () => {
+    for (const a of ALL_AFFIXES) {
+      const def = AFFIX_DEFS[a];
+      expect(def.id).toBe(a);
+      expect(def.name).toBeTruthy();
+      expect(def.desc).toBeTruthy();
+      expect(def.color).toMatch(/^#/);
+      expect(def.icon).toContain('http');
+    }
+  });
+});

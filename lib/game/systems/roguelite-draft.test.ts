@@ -181,6 +181,23 @@ describe('rollDraft', () => {
     const hand = rollDraft(seq(0), 3);
     expect(hand.map(c => c.id)).toEqual(DRAFT_POOL.slice(0, 3).map(c => c.id));
   });
+  it('never offers two cards of the same resource group when alternatives exist', () => {
+    const gold1 = DRAFT_POOL.find(c => c.id === 'coin_pouch')!;     // gold (currency)
+    const gold2 = DRAFT_POOL.find(c => c.id === 'looted_coins')!;   // gold (currency)
+    const stat = DRAFT_POOL.find(c => c.id === 'strength_potion')!; // not a resource
+    const hand = rollDraft(seq(0), 2, [gold1, gold2, stat]);
+    const currency = hand.filter(c => c.effect.kind === 'gold' || c.effect.kind === 'essence');
+    expect(currency).toHaveLength(1); // the second gold card is skipped for the stat card
+  });
+  it('a full 3-card hand never doubles up a currency or a lives reward', () => {
+    for (let i = 0; i < 500; i++) {
+      const hand = rollDraft(Math.random, 3);
+      const currency = hand.filter(c => c.effect.kind === 'gold' || c.effect.kind === 'essence').length;
+      const lives = hand.filter(c => c.effect.kind === 'life' || c.effect.kind === 'maxLife').length;
+      expect(currency).toBeLessThanOrEqual(1);
+      expect(lives).toBeLessThanOrEqual(1);
+    }
+  });
   it('respects rarity weighting over many rolls', () => {
     let commons = 0;
     let ultras = 0;

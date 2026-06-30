@@ -28,9 +28,9 @@ body {
   font-family: 'RuneScape', var(--font-osrs), 'VT323', monospace;
   overflow: hidden;
   image-rendering: pixelated;
-  /* Base size every `em`-based UI scales from. The +2px bumps the whole
+  /* Base size every `em`-based UI scales from. The +3px bumps the whole
      interface a touch larger for readability without rewriting per-element sizes. */
-  font-size: calc(120% + 2px);
+  font-size: calc(120% + 3px);
 }
 
 .font-osrs {

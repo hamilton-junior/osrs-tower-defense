@@ -7,6 +7,10 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { MovablePanel } from './MovablePanel';
 import { EnemyModelViewer } from './EnemyModelViewer';
 import type { EnemyType } from '@/lib/game/types';
+import { ALL_AFFIXES, AFFIX_DEFS, type EnemyAffix } from '@/lib/game/systems/affixes';
+
+/** Bosses that carry phase mechanics (and can be force-spawned with modifiers). */
+const MECHANIC_BOSSES: readonly EnemyType[] = ['jad', 'vorkath', 'zulrah'];
 
 const CLIP_NAMES = ['walk', 'hurt', 'death'] as const;
 type ClipName = (typeof CLIP_NAMES)[number];
@@ -180,6 +184,8 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   globalLock: boolean;
 }) {
   const [tab, setTab] = useState<'cheats' | 'bestiary'>('cheats');
+  // Cheats are split into subcategories so the panel never grows past the screen.
+  const [cheatTab, setCheatTab] = useState<'run' | 'spawn' | 'tools'>('run');
 
   // --- custom-wave builder state ---
   const allEnemies = useMemo(() => Object.keys(ENEMIES) as EnemyType[], []);
@@ -187,6 +193,11 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   const [countEach, setCountEach] = useState(5);
   const togglePick = (t: EnemyType) =>
     setPicked((prev) => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
+
+  // --- affix / boss cheat state ---
+  const [affixPick, setAffixPick] = useState<Set<EnemyAffix>>(new Set());
+  const toggleAffix = (a: EnemyAffix) =>
+    setAffixPick((prev) => { const n = new Set(prev); n.has(a) ? n.delete(a) : n.add(a); return n; });
 
   // --- bestiary state ---
   const animated = useMemo(() => Object.keys(ENEMY_ANIMS) as EnemyType[], []);
@@ -223,6 +234,21 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
 
       {tab === 'cheats' && (
         <div className="space-y-[0.5em]">
+          {/* Subcategories keep each group compact instead of one tall column. */}
+          <div className="grid grid-cols-3 gap-[0.3em]">
+            {(['run', 'spawn', 'tools'] as const).map((ct) => (
+              <button
+                key={ct}
+                onClick={() => setCheatTab(ct)}
+                className={`rs-btn py-[0.25em] text-[0.72em] capitalize ${cheatTab === ct ? 'rs-btn-primary' : ''}`}
+              >
+                {ct}
+              </button>
+            ))}
+          </div>
+
+          {cheatTab === 'run' && (
+          <>
           <div className="rs-panel-inset p-[0.5em] space-y-[0.4em]">
             <NumberRow label="Wave" value={ui.wave} min={1} onCommit={(n) => engineRef.current?.debugSetWave(n)} />
             <NumberRow label="Gold" value={ui.money} onCommit={(n) => engineRef.current?.debugSetGold(n)} />
@@ -244,7 +270,11 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
             <NumberRow label="Delay (s)" value={ui.autoplaySecs} min={1} onCommit={(n) => engineRef.current?.setAutoplaySecs(n)} />
             <p className="text-[0.66em] text-[#b3a585]">Auto-starts the next wave once idle. Waits on a pending draft.</p>
           </div>
+          </>
+          )}
 
+          {cheatTab === 'spawn' && (
+          <>
           <div className="rs-panel-inset p-[0.5em]">
             <div className="text-[0.72em] text-osrs-orange uppercase tracking-wide mb-[0.4em]">Custom wave</div>
             <div className="flex flex-wrap gap-[0.25em] max-h-[9em] overflow-y-auto mb-[0.5em]">
@@ -278,13 +308,61 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
             {ui.waveActive && <p className="text-[0.66em] text-[#b3a585] mt-[0.4em]">Finish or clear the field first.</p>}
           </div>
 
+          <div className="rs-panel-inset p-[0.5em]">
+            <div className="text-[0.72em] text-osrs-orange uppercase tracking-wide mb-[0.4em]">Affixes &amp; bosses</div>
+            <div className="flex flex-wrap gap-[0.25em] mb-[0.5em]">
+              {ALL_AFFIXES.map((a) => {
+                const on = affixPick.has(a);
+                return (
+                  <button
+                    key={a}
+                    onClick={() => toggleAffix(a)}
+                    title={AFFIX_DEFS[a].desc}
+                    className={`px-[0.4em] py-[0.15em] rounded-[3px] border text-[0.66em] capitalize ${on ? 'border-osrs-orange bg-osrs-orange/20 text-osrs-yellow' : 'border-[#3a2f1d] text-[#cdbe91] hover:border-[#6b5836]'}`}
+                  >
+                    {AFFIX_DEFS[a].name}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[0.62em] text-[#b3a585] mb-[0.5em]">
+              No affix selected = a random elite. Spawning applies the selected affixes to the
+              Custom-wave picks above (or Goblins if none).
+            </p>
+            <button
+              disabled={ui.waveActive}
+              onClick={() => engineRef.current?.debugSpawnAffixed(picked.size ? [...picked] : ['goblin'], [...affixPick], countEach)}
+              className="rs-btn rs-btn-primary w-full py-[0.35em] text-[0.78em] disabled:opacity-50 mb-[0.5em]"
+            >
+              ✦ Spawn affixed ({(picked.size || 1) * countEach})
+            </button>
+            <div className="text-[0.66em] text-[#cdbe91] mb-[0.3em]">Spawn boss (with selected modifiers):</div>
+            <div className="flex gap-[0.4em]">
+              {MECHANIC_BOSSES.map((b) => (
+                <button
+                  key={b}
+                  disabled={ui.waveActive}
+                  onClick={() => engineRef.current?.debugSpawnBoss(b, [...affixPick])}
+                  className="rs-btn flex-1 py-[0.35em] text-[0.72em] capitalize disabled:opacity-50"
+                >
+                  {ENEMIES[b]?.name ?? b}
+                </button>
+              ))}
+            </div>
+            {ui.waveActive && <p className="text-[0.66em] text-[#b3a585] mt-[0.4em]">Finish or clear the field first.</p>}
+          </div>
+
           <button
             onClick={() => engineRef.current?.debugClearEnemies()}
             className="rs-btn w-full py-[0.35em] text-[0.8em]"
           >
             ☠ Clear field (kill all enemies)
           </button>
+          </>
+          )}
 
+          {cheatTab === 'tools' && (
+          <>
           <button
             onClick={() => engineRef.current?.debugTestUnlock()}
             className="rs-btn w-full py-[0.35em] text-[0.8em]"
@@ -298,6 +376,8 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
           >
             📖 Seed Collection Log
           </button>
+          </>
+          )}
         </div>
       )}
 

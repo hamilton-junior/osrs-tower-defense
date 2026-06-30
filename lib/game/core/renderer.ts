@@ -1,11 +1,13 @@
 import type { GameEngine, HitsplatKind } from './engine';
 import { SPAWN_ANIM_SECONDS } from '../types';
-import type { Tower, TowerType } from '../types';
+import type { Tower, TowerType, Enemy } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMY_ANIMS, clipFrame, clipDurationS } from '../data/enemy-anims';
 import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
+import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
+import { ZULRAH_PHASES } from '../systems/boss-mechanics';
 
 const GRID = 32;
 
@@ -48,6 +50,7 @@ export class GameRenderer {
     sx: number, sy: number, sw: number, sh: number,
     dx: number, dy: number, dw: number, dh: number,
     flash: number,
+    color = '#e00000',
   ) {
     if (!this.flashBuf) {
       this.flashBuf = document.createElement('canvas');
@@ -62,10 +65,10 @@ export class GameRenderer {
     bctx.globalAlpha = 1;
     bctx.imageSmoothingEnabled = false;
     bctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-    // Red only where the sprite is opaque (masked by its alpha).
+    // `color` only where the sprite is opaque (masked by its alpha).
     bctx.globalCompositeOperation = 'source-atop';
     bctx.globalAlpha = Math.min(1, flash) * 0.6;
-    bctx.fillStyle = '#e00000';
+    bctx.fillStyle = color;
     bctx.fillRect(0, 0, sw, sh);
     bctx.globalCompositeOperation = 'source-over';
     bctx.globalAlpha = 1;
@@ -512,7 +515,10 @@ export class GameRenderer {
     this.drawPlacementSynergy(ctx, sx, sy, type, moving ? moving.id : null);
 
     ctx.globalAlpha = 0.6;
-    this.drawTowerSprite(ctx, type, level, sx, sy, moving ? moving.visualRadius : 18);
+    // When relocating a wizard, preview its *current* staff (spellbook + element),
+    // not the default base sprite — match what the placed tower actually shows.
+    const preferredKey = moving ? this.wizardStaffKey(moving) : undefined;
+    this.drawTowerSprite(ctx, type, level, sx, sy, moving ? moving.visualRadius : 18, preferredKey);
     ctx.globalAlpha = 1;
   }
 
@@ -684,6 +690,27 @@ export class GameRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(`${boss.name}   ${Math.ceil(boss.hp)} / ${boss.maxHp}`, w / 2, y + barH / 2 + 1);
+    // Phase caption under the bar: Zulrah's current form (weak style) or Vorkath's
+    // ice-shield warning — so the mechanic is legible without watching the tint.
+    const st = boss.bossState;
+    let caption: string | null = null;
+    let capColor = '#cfe8ff';
+    if (st?.kind === 'zulrah') {
+      const phase = ZULRAH_PHASES[st.phaseIndex % ZULRAH_PHASES.length];
+      caption = `${phase.name} — weak to ${phase.weak}`;
+      capColor = phase.color;
+    } else if (st?.kind === 'vorkath' && st.immune) {
+      caption = 'ICE SHIELD — immune!';
+      capColor = '#bfe9ff';
+    } else if (st?.kind === 'jad' && boss.hp <= boss.maxHp * 0.5 && this.e.enemies.some(en => en.healer)) {
+      caption = 'Healers active — kill them!';
+      capColor = '#7dff9a';
+    }
+    if (caption) {
+      ctx.font = "bold 12px 'RuneScape', Arial";
+      ctx.fillStyle = capColor;
+      ctx.fillText(caption, w / 2, y + barH + 11);
+    }
     ctx.textBaseline = 'alphabetic';
     ctx.restore();
   }
@@ -866,9 +893,21 @@ export class GameRenderer {
     const markColor = markEl && markEl !== 'none' ? ELEMENTS[markEl].color : null;
     const markPulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
     const pp = this.e.portalPoint;
+    // Jad (if present) — its healers draw a heal-beam back to it.
+    const jad = this.e.enemies.find((en) => en.bossState?.kind === 'jad');
 
     for (const e of this.e.enemies) {
       const isBoss = !!e.isBoss;
+      // Jad's Yt-HurKot healers render as a procedural orb + a beam to Jad, not a
+      // sprite — drawn here and skipped from the normal enemy pipeline.
+      if (e.healer) {
+        const spawnT = e.spawnAnim && e.spawnAnim > 0 ? 1 - e.spawnAnim / SPAWN_ANIM_SECONDS : 1;
+        ctx.save();
+        ctx.globalAlpha = spawnT * spawnT * (3 - 2 * spawnT);
+        this.drawHealer(ctx, e, jad);
+        ctx.restore();
+        continue;
+      }
       // While still in the portal (materialising or not yet walked clear), hide
       // the HP bar / overlays so nothing pokes through the gateway.
       const inPortal = (e.spawnAnim ?? 0) > 0 || Math.hypot(e.x - pp.x, e.y - pp.y) < PORTAL_MASK_R;
@@ -928,6 +967,11 @@ export class GameRenderer {
         if (flash > 0) {
           this.drawFlashTint(ctx, img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds, flash);
         }
+        // Zulrah form tint: recolour the serpent to its current phase (green /
+        // blue / red) so the player reads which style it's weak to at a glance.
+        const zc = e.bossState?.kind === 'zulrah'
+          ? ZULRAH_PHASES[e.bossState.phaseIndex % ZULRAH_PHASES.length].color : null;
+        if (zc) this.drawFlashTint(ctx, img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds, 0.6, zc);
         ctx.restore();
       } else if (this.e.imageOk(e.type)) {
         const img = this.e.images.get(e.type)!;
@@ -948,6 +992,62 @@ export class GameRenderer {
         ctx.fill();
       }
 
+      // Affix auras: a pulsing ring per affix in its themed colour, so an elite
+      // enemy reads at a glance (concentric when it carries two).
+      if (!inPortal && e.affixes && e.affixes.length) {
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 400);
+        ctx.save();
+        ctx.lineWidth = 2;
+        e.affixes.forEach((a, idx) => {
+          ctx.strokeStyle = AFFIX_DEFS[a].color;
+          ctx.globalAlpha = matAlpha * (0.35 + pulse * 0.35);
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, (isBoss ? 24 : 15) + idx * 4, 0, Math.PI * 2);
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+
+      // Boss phase telegraphs.
+      if (!inPortal && e.bossState) {
+        const st = e.bossState;
+        if (st.kind === 'zulrah') {
+          // A pulsing ring in the current form's colour, echoing the body tint.
+          const phase = ZULRAH_PHASES[st.phaseIndex % ZULRAH_PHASES.length];
+          const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 320);
+          ctx.save();
+          ctx.strokeStyle = phase.color;
+          ctx.globalAlpha = 0.5 + pulse * 0.4;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, size * 0.62, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        } else if (st.kind === 'vorkath' && st.immune) {
+          // Ice shield: a crystalline frosted ring while Vorkath is immune.
+          const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 200);
+          ctx.save();
+          const r = size * 0.66;
+          const g = ctx.createRadialGradient(e.x, e.y, r * 0.4, e.x, e.y, r);
+          g.addColorStop(0, 'rgba(150,220,255,0)');
+          g.addColorStop(1, `rgba(150,220,255,${0.22 + pulse * 0.16})`);
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = `rgba(200,240,255,${0.7 + pulse * 0.3})`;
+          ctx.lineWidth = 2;
+          for (let k = 0; k < 6; k++) {
+            const a = (k / 6) * Math.PI * 2 + performance.now() / 1600;
+            ctx.beginPath();
+            ctx.moveTo(e.x + Math.cos(a) * r * 0.5, e.y + Math.sin(a) * r * 0.5);
+            ctx.lineTo(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
       // health bar — colour shifts green → yellow → red as HP drops. Hidden
       // while the enemy is still in the portal so it doesn't poke through.
       if (!inPortal) {
@@ -960,6 +1060,15 @@ export class GameRenderer {
         ctx.fillRect(e.x - bw / 2, by, bw, 4);
         ctx.fillStyle = ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a';
         ctx.fillRect(e.x - bw / 2, by, bw * ratio, 4);
+        // Shielded affix: a slim cyan pip above the HP bar for the shield left,
+        // normalised against the affix's max shield (≈ SHIELD_HP_FRAC of max HP).
+        if (e.shieldHp && e.shieldHp > 0) {
+          const sratio = Math.min(1, e.shieldHp / Math.max(1, e.maxHp * SHIELD_HP_FRAC));
+          ctx.fillStyle = '#13303a';
+          ctx.fillRect(e.x - bw / 2, by - 5, bw, 3);
+          ctx.fillStyle = '#7fd0ff';
+          ctx.fillRect(e.x - bw / 2, by - 5, bw * sratio, 3);
+        }
       }
 
       // Weakness highlight: a pulsing ring in the selected wizard's element.
@@ -976,6 +1085,54 @@ export class GameRenderer {
 
       ctx.restore(); // end materialise alpha
     }
+  }
+
+  /** A Yt-HurKot healer: a green heal-beam to Jad plus a small floating orb with
+   *  a red cross and its own HP bar — clearly a target to cut down. */
+  private drawHealer(ctx: CanvasRenderingContext2D, e: Enemy, jad?: Enemy) {
+    const bob = Math.sin((e.animTime ?? 0) * 3) * 3; // gentle hover
+    const cy = e.y + bob;
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 240);
+    // Heal beam to Jad.
+    if (jad) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(80,220,90,${0.3 + pulse * 0.35})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(e.x, cy);
+      ctx.lineTo(jad.x, jad.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    const r = 9;
+    // Orb body.
+    ctx.save();
+    const g = ctx.createRadialGradient(e.x, cy, 1, e.x, cy, r);
+    g.addColorStop(0, '#ff8a8a');
+    g.addColorStop(1, '#8a1c1c');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(e.x, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(120,255,140,${0.6 + pulse * 0.4})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Red cross.
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(e.x - 4, cy); ctx.lineTo(e.x + 4, cy);
+    ctx.moveTo(e.x, cy - 4); ctx.lineTo(e.x, cy + 4);
+    ctx.stroke();
+    ctx.restore();
+    // HP pip.
+    const ratio = Math.max(0, e.hp / e.maxHp);
+    ctx.fillStyle = '#400';
+    ctx.fillRect(e.x - 12, cy - r - 7, 24, 3);
+    ctx.fillStyle = '#3c3';
+    ctx.fillRect(e.x - 12, cy - r - 7, 24 * ratio, 3);
   }
 
   private drawProjectiles(ctx: CanvasRenderingContext2D) {

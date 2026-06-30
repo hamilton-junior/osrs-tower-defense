@@ -41,6 +41,7 @@ const DEBUFF_IDS = {
   stun: 321, // SPELL_ENTANGLE
   burn: 1361, // Burn hitsplat (orange)
   poison: 1360, // HITSPLAT_GREEN_POISON
+  venom: 1632, // HITSPLAT_DARK_GREEN_VENOM
   vuln: 20, // SPELL_WEAKEN
   // slow stays wiki-hot-linked: it's the Giant snail NPC *model*, not a sprite.
 };

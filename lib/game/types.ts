@@ -1,3 +1,5 @@
+import type { EnemyAffix } from './systems/affixes';
+import type { BossState } from './systems/boss-mechanics';
 
 export type HitsplatType = 'melee' | 'ranged' | 'magic' | 'poison' | 'miss';
 
@@ -135,6 +137,19 @@ export interface Enemy extends EnemyDef {
   /** Total time alive (s), advanced every frame; drives the looping walk-cycle
    *  for animated enemies (see `ENEMY_ANIMS`). Visual only. */
   animTime?: number;
+  /** Rolled enemy affixes (per-instance modifiers; see `systems/affixes`). Bosses
+   *  and pre-unlock waves carry none. Drives combat hooks + the renderer's aura. */
+  affixes?: EnemyAffix[];
+  /** Combat style this enemy takes reduced damage from (the `armored` affix). */
+  armoredStyle?: CombatStyle;
+  /** Remaining shield pool (the `shielded` affix): absorbed before HP is touched. */
+  shieldHp?: number;
+  /** Per-boss phase/mechanic state (Zulrah forms, Vorkath ice, Jad heal window);
+   *  set on boss spawn, driven by `GameEngine.handleBossMechanics`. */
+  bossState?: BossState;
+  /** A Yt-HurKot healer summoned by Jad: stationary, heals Jad while alive,
+   *  awards nothing — kill it to deny the heal. Skips path movement and leaks. */
+  healer?: boolean;
   /** Counts down while a hit-flinch (`hurt`) clip plays; set on each direct hit,
    *  decremented in `moveEnemies`. Visual only. */
   hurtAnim?: number;

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
 import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
+import { AFFIX_DEFS } from '@/lib/game/systems/affixes';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum, synergyDamageMult } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
@@ -35,7 +36,7 @@ const DEBUFF_META: Record<DebuffId, { label: string; icon: string; color: string
   stun: { label: 'Stunned', icon: ASSETS.debuffs.stun, color: '#9c6b3f', desc: 'Rooted in place — cannot move' },
   burn: { label: 'Burning', icon: ASSETS.debuffs.burn, color: '#ff7a2a', desc: 'Taking fire damage over time' },
   poison: { label: 'Poisoned', icon: ASSETS.debuffs.poison, color: '#5bd75b', desc: 'Taking poison damage over time' },
-  venom: { label: 'Envenomed', icon: ASSETS.debuffs.poison, color: '#0b5c0b', desc: 'Taking venom damage that ramps the longer it stacks' },
+  venom: { label: 'Envenomed', icon: ASSETS.debuffs.venom, color: '#0b5c0b', desc: 'Taking venom damage that ramps the longer it stacks' },
   vuln: { label: 'Vulnerable', icon: ASSETS.debuffs.vuln, color: '#c87bff', desc: 'Takes increased damage' },
 };
 /** Staves cycled per spellbook in the wizard's on-tile picker. */
@@ -160,6 +161,7 @@ const INITIAL: UIState = {
   unlocks: [], unlockSeq: 0,
   killCounts: {},
   cardCounts: {},
+  bossesSeen: {},
   lastWaveSandbox: false,
   gameMode: 'classic', pendingDraft: null,
   runMods: {
@@ -174,21 +176,23 @@ const INITIAL: UIState = {
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = { prayer: 'Prayer Unlocked' };
 
-const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts' } as const;
+const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen' } as const;
 
 /** Read the persisted account save (meta-progression + Collection Log) from
  *  localStorage, tolerating absent/corrupt data — the engine re-clamps it. */
-function loadSave(): { essence: number; upgrades: unknown; killCounts: unknown; cardCounts: unknown } {
-  if (typeof window === 'undefined') return { essence: 0, upgrades: undefined, killCounts: undefined, cardCounts: undefined };
+function loadSave(): { essence: number; upgrades: unknown; killCounts: unknown; cardCounts: unknown; bossesSeen: unknown } {
+  if (typeof window === 'undefined') return { essence: 0, upgrades: undefined, killCounts: undefined, cardCounts: undefined, bossesSeen: undefined };
   let essence = 0;
   let upgrades: unknown;
   let killCounts: unknown;
   let cardCounts: unknown;
+  let bossesSeen: unknown;
   try { essence = parseInt(localStorage.getItem(SAVE_KEYS.essence) ?? '0', 10) || 0; } catch { /* ignore */ }
   try { upgrades = JSON.parse(localStorage.getItem(SAVE_KEYS.upgrades) ?? 'null'); } catch { /* ignore */ }
   try { killCounts = JSON.parse(localStorage.getItem(SAVE_KEYS.killCounts) ?? 'null'); } catch { /* ignore */ }
   try { cardCounts = JSON.parse(localStorage.getItem(SAVE_KEYS.cardCounts) ?? 'null'); } catch { /* ignore */ }
-  return { essence, upgrades, killCounts, cardCounts };
+  try { bossesSeen = JSON.parse(localStorage.getItem(SAVE_KEYS.bossesSeen) ?? 'null'); } catch { /* ignore */ }
+  return { essence, upgrades, killCounts, cardCounts, bossesSeen };
 }
 
 const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>)[id];
@@ -473,6 +477,14 @@ export default function GameRoot() {
     if (!ccLoaded.current) { ccLoaded.current = true; return; }
     try { localStorage.setItem(SAVE_KEYS.cardCounts, JSON.stringify(ui.cardCounts)); } catch { /* ignore */ }
   }, [ui.cardCounts]);
+
+  // Persist which bosses have been seen (gates boss modifiers). Changes the first
+  // time each boss appears, so it gets its own effect like the logs above.
+  const bsLoaded = useRef(false);
+  useEffect(() => {
+    if (!bsLoaded.current) { bsLoaded.current = true; return; }
+    try { localStorage.setItem(SAVE_KEYS.bossesSeen, JSON.stringify(ui.bossesSeen)); } catch { /* ignore */ }
+  }, [ui.bossesSeen]);
 
   // Flash a banner when a wave begins, and a "complete" banner when it ends.
   useEffect(() => {
@@ -848,7 +860,7 @@ export default function GameRoot() {
         const info = engineRef.current?.multiUpgradeInfo ?? { count: 0, cost: 0 };
         const afford = ui.money >= info.cost;
         return (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 rs-panel p-2 flex items-center gap-[0.6em]" style={{ fontSize: 'clamp(12px, 0.85vw, 16px)' }}>
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 rs-panel p-2 flex items-center gap-[0.6em]" style={{ fontSize: 'clamp(13px, 0.85vw, 17px)' }}>
             <span className="text-osrs-orange font-bold whitespace-nowrap">{ui.multiSelectedIds.length} towers</span>
             <button
               className="rs-btn rs-btn-primary px-[0.7em] py-[0.3em] flex items-center gap-[0.3em] disabled:opacity-50"
@@ -896,10 +908,36 @@ export default function GameRoot() {
           >
             <div
               className={`rs-panel px-[0.7em] py-[0.5em] w-[12em] ${pinned ? 'ring-1 ring-osrs-orange/70' : ''}`}
-              style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}
+              style={{ fontSize: 'clamp(14px, 0.9vw, 19px)' }}
             >
               <div className="flex items-center justify-between gap-2 mb-[0.3em]">
-                <span className="text-osrs-orange font-bold truncate">{info.name}</span>
+                <span className="flex items-center gap-[0.3em] min-w-0">
+                  <span className="text-osrs-orange font-bold truncate">{info.name}</span>
+                  {/* Modifier badges: one small icon per affix, hover for its effect
+                      (mirrors the debuff badges below). */}
+                  {info.affixes.length > 0 && (
+                    <span className="flex items-center gap-[0.2em] shrink-0 pointer-events-auto">
+                      {info.affixes.map((a) => {
+                        const def = AFFIX_DEFS[a];
+                        const desc = a === 'armored' && info.armoredStyle ? `${def.desc} (${info.armoredStyle})` : def.desc;
+                        return (
+                          <span key={a} className="relative group flex">
+                            <span
+                              className="flex items-center justify-center w-[1.35em] h-[1.35em] rounded-[3px] border"
+                              style={{ borderColor: def.color, background: `${def.color}22`, boxShadow: `0 0 4px ${def.color}66` }}
+                            >
+                              <img src={def.icon} alt={def.name} className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                            </span>
+                            <span className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-[0.4em] px-[0.5em] py-[0.3em] hidden group-hover:block whitespace-nowrap z-30 pointer-events-none text-[0.72em]">
+                              <span className="font-bold" style={{ color: def.color }}>{def.name}</span>
+                              <span className="text-[#d3c3a0]"> — {desc}</span>
+                            </span>
+                          </span>
+                        );
+                      })}
+                    </span>
+                  )}
+                </span>
                 <span className="flex items-center gap-[0.4em] shrink-0">
                   {info.isBoss && <span className="text-[0.6em] text-osrs-red uppercase tracking-wide">Boss</span>}
                   {pinned && (
@@ -977,7 +1015,7 @@ export default function GameRoot() {
             transform: 'translate(-50%, -118%)',
           }}
         >
-          <div className="rs-panel p-[0.7em]" style={{ fontSize: 'clamp(14px, 1vw, 20px)' }}>
+          <div className="rs-panel p-[0.7em]" style={{ fontSize: 'clamp(15px, 1vw, 21px)' }}>
             <div className="text-center text-[0.66em] text-[#d3c3a0] uppercase tracking-wide mb-[0.4em]">Choose spellbook</div>
 
             {/* Preview ABOVE the options, fixed height so hovering never reflows
@@ -1030,7 +1068,7 @@ export default function GameRoot() {
             transform: 'translate(-50%, -118%)',
           }}
         >
-          <div className="rs-panel p-2" style={{ fontSize: 'clamp(12px, 0.85vw, 17px)' }}>
+          <div className="rs-panel p-2" style={{ fontSize: 'clamp(13px, 0.85vw, 18px)' }}>
             <div className="flex gap-[0.3em]">
               {TOWER_ORDER.map((type) => {
                 const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
@@ -1182,7 +1220,7 @@ export default function GameRoot() {
           id="tower"
           globalLock={uiLocked}
           className="rs-panel absolute top-4 left-4 p-3 z-10 w-[17em]"
-          style={{ fontSize: 'clamp(13px, 0.92vw, 19px)' }}
+          style={{ fontSize: 'clamp(14px, 0.92vw, 20px)' }}
         >
           <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1.05em' }}>
             {(() => {
@@ -1259,21 +1297,25 @@ export default function GameRoot() {
             </div>
           )}
 
-          <div className="mt-[0.7em]">
-            <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>
-            <div className="grid grid-cols-5 gap-[0.3em]">
-              {(['first', 'last', 'strongest', 'weakest', 'closest'] as const).map((p) => (
-                <button
-                  key={p}
-                  title={p}
-                  onClick={() => engineRef.current?.setTargetingPriority(selectedTower.id, p)}
-                  className={`rs-btn px-0 py-[0.35em] text-[0.7em] ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
-                >
-                  {PRIORITY_LABELS[p]}
-                </button>
-              ))}
+          {/* Utility wizards project an aura instead of firing, so target priority
+              is meaningless for them — hide it. */}
+          {!isUtility && (
+            <div className="mt-[0.7em]">
+              <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>
+              <div className="grid grid-cols-5 gap-[0.3em]">
+                {(['first', 'last', 'strongest', 'weakest', 'closest'] as const).map((p) => (
+                  <button
+                    key={p}
+                    title={p}
+                    onClick={() => engineRef.current?.setTargetingPriority(selectedTower.id, p)}
+                    className={`rs-btn px-0 py-[0.35em] text-[0.7em] ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
+                  >
+                    {PRIORITY_LABELS[p]}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Wizard spellbook is locked at purchase; only the element/barrage
               (its variant) can be retuned here. */}
@@ -1453,7 +1495,7 @@ export default function GameRoot() {
         id="shop"
         globalLock={uiLocked}
         className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em] flex flex-col"
-        style={{ fontSize: 'clamp(13px, 0.9vw, 18px)', maxHeight: '92vh' }}
+        style={{ fontSize: 'clamp(14px, 0.9vw, 19px)', maxHeight: '92vh' }}
       >
         {/* OSRS sidebar tab strip: each stone selects an interface (or pops one
             out). Icons + tooltips, with live badges for essence / Slayer points. */}
@@ -1749,7 +1791,7 @@ export default function GameRoot() {
             return (
               <div
                 className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[16em] z-20 pointer-events-none"
-                style={{ fontSize: 'clamp(12px, 0.85vw, 16px)' }}
+                style={{ fontSize: 'clamp(13px, 0.85vw, 17px)' }}
               >
                 <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
                   {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
@@ -1800,7 +1842,7 @@ export default function GameRoot() {
               : 'Pick a tower, then click the map to place · right‑click to cancel'}
           </p>
           <p className="text-center text-[0.64em] text-[#b3a585] mt-[0.2em]">
-            <kbd>Space</kbd> pause · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> cancel · <kbd>M</kbd> mute
+            <kbd>Space</kbd> next wave · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> pause/cancel · <kbd>M</kbd> mute
           </p>
         </div>
       </MovablePanel>
@@ -1919,7 +1961,7 @@ export default function GameRoot() {
           pointer events. Resume with Esc or the ⏸ button. */}
       {ui.paused && !ui.gameOver && (
         <div className="absolute inset-x-0 top-0 mt-2 flex justify-center z-20 pointer-events-none">
-          <div className="rs-panel px-[1.1em] py-[0.4em] text-center" style={{ fontSize: 'clamp(12px, 0.85vw, 16px)' }}>
+          <div className="rs-panel px-[1.1em] py-[0.4em] text-center" style={{ fontSize: 'clamp(13px, 0.85vw, 17px)' }}>
             <div className="text-osrs-orange font-bold">❚❚ COMBAT PAUSED</div>
             <div className="text-[#cdbe91] text-[0.8em]">build freely · press Esc or ⏸ to resume</div>
           </div>
@@ -1931,11 +1973,12 @@ export default function GameRoot() {
         <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30 p-4">
           <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Draft a Reward</div>
           <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">Wave {ui.wave} cleared — keep one card</div>
-          <div className="flex gap-4 flex-wrap justify-center">
+          <div className="flex gap-6 flex-wrap justify-center">
             {ui.pendingDraft.map((card) => (
               <DraftCardView
                 key={card.id}
                 card={card}
+                large
                 onPick={() => engineRef.current?.pickDraftCard(card.id)}
                 ctx={{ runMods: ui.runMods, gold: ui.money, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
               />
@@ -2158,19 +2201,25 @@ function bandStyle(base: string, grow: number): React.CSSProperties {
  * `locked`/`count` drive the collection-log silhouette + lifetime pick tally;
  * `fill` makes the card stretch to its grid cell instead of a fixed width.
  */
-function DraftCardView({ card, onPick, ctx, locked, count, fill }: {
+function DraftCardView({ card, onPick, ctx, locked, count, fill, large }: {
   card: DraftCard;
   onPick?: () => void;
   ctx?: PreviewCtx;
   locked?: boolean;
   count?: number;
   fill?: boolean;
+  /** Enlarge the whole card (the draft-selection overlay) so it reads at a glance. */
+  large?: boolean;
 }) {
   const color = RARITY_COLOR[card.rarity];
   const foil = card.rarity === 'ultra' && !locked;
   const dark = `color-mix(in srgb, #222222 68%, ${color} 32%)`;
   const mid = `color-mix(in srgb, #2F2F2F 80%, ${color} 20%)`;
   const rows = ctx ? previewRows(card, ctx) : null;
+  // All band font-sizes go through `fz` so the `large` variant scales text, art
+  // and frame together (×1.5) rather than leaving small text in a bigger card.
+  const k = large ? 1.5 : 1;
+  const fz = (min: number, vw: number, max: number) => `clamp(${min * k}px, ${(vw * k).toFixed(3)}vw, ${max * k}px)`;
   return (
     <button
       onClick={onPick}
@@ -2178,7 +2227,7 @@ function DraftCardView({ card, onPick, ctx, locked, count, fill }: {
       title={card.desc}
       className="draft-card group relative flex flex-col overflow-hidden text-center"
       style={{
-        width: fill ? '100%' : 'clamp(132px, 12vw, 168px)',
+        width: fill ? '100%' : (large ? 'clamp(198px, 18vw, 252px)' : 'clamp(132px, 12vw, 168px)'),
         aspectRatio: '180 / 260',
         background: '#2A2A2A',
         border: '3px solid #000000',
@@ -2193,7 +2242,7 @@ function DraftCardView({ card, onPick, ctx, locked, count, fill }: {
     >
       {/* title band (10%) */}
       <div className="flex items-center justify-center px-1" style={bandStyle(dark, 10)}>
-        <span className="font-osrs leading-none" style={{ color, fontSize: 'clamp(8px,0.74vw,12px)', textShadow: '0 1px 1px #000' }}>{card.name}</span>
+        <span className="font-osrs leading-none" style={{ color, fontSize: fz(8, 0.74, 12), textShadow: '0 1px 1px #000' }}>{card.name}</span>
       </div>
       {/* art window (38%) */}
       <div className="flex items-center justify-center" style={bandStyle(mid, 38)}>
@@ -2201,17 +2250,17 @@ function DraftCardView({ card, onPick, ctx, locked, count, fill }: {
       </div>
       {/* tier band (9%) */}
       <div className="flex items-center justify-center" style={bandStyle(dark, 9)}>
-        <span className="font-osrs uppercase tracking-wide" style={{ color, fontSize: 'clamp(7px,0.56vw,10px)', textShadow: '0 1px 1px #000' }}>{RARITY_LABEL[card.rarity]}</span>
+        <span className="font-osrs uppercase tracking-wide" style={{ color, fontSize: fz(7, 0.56, 10), textShadow: '0 1px 1px #000' }}>{RARITY_LABEL[card.rarity]}</span>
       </div>
       {/* examine band (28%) — style words rendered as combat-triangle icons */}
       <div className="flex items-center justify-center px-2" style={bandStyle(mid, 28)}>
-        <span className="font-osrs leading-tight" style={{ color: '#d6cdb6', fontSize: 'clamp(8px,0.7vw,11px)', textShadow: '0 1px 1px #000' }}>{renderWithStyleIcons(card.desc)}</span>
+        <span className="font-osrs leading-tight" style={{ color: '#d6cdb6', fontSize: fz(8, 0.7, 11), textShadow: '0 1px 1px #000' }}>{renderWithStyleIcons(card.desc)}</span>
       </div>
       {/* stats band (15%) — live "current → new" preview, or the static buff */}
       <div className="flex flex-col items-center justify-center px-1 overflow-hidden" style={bandStyle(dark, 15)}>
         {rows && rows.length
           ? rows.map((r, i) => (
-              <span key={i} className="font-osrs flex items-center gap-[0.22em] leading-none whitespace-nowrap" style={{ fontSize: 'clamp(7px,0.6vw,10px)', textShadow: '0 1px 1px #000' }}>
+              <span key={i} className="font-osrs flex items-center gap-[0.22em] leading-none whitespace-nowrap" style={{ fontSize: fz(7, 0.6, 10), textShadow: '0 1px 1px #000' }}>
                 {r.style && <StyleIcon style={r.style} />}
                 <span className="text-[#cdbe91]">{r.label}</span>
                 <span className="text-white/70">{r.from}</span>
@@ -2220,7 +2269,7 @@ function DraftCardView({ card, onPick, ctx, locked, count, fill }: {
               </span>
             ))
           : (
-            <span className="font-osrs text-white truncate max-w-full" style={{ fontSize: 'clamp(7px,0.6vw,10px)', textShadow: '0 1px 1px #000' }}>{renderWithStyleIcons(effectTag(card.effect))}</span>
+            <span className="font-osrs text-white truncate max-w-full" style={{ fontSize: fz(7, 0.6, 10), textShadow: '0 1px 1px #000' }}>{renderWithStyleIcons(effectTag(card.effect))}</span>
           )}
       </div>
       {typeof count === 'number' && count > 0 && (
@@ -2301,6 +2350,8 @@ const TOUR_STEPS: TourStep[] = [
   { target: 'dock', title: 'Tower shop', body: 'Pick a tower here, then click the grass to place it. Hover any tower first to see what it does and its cost.' },
   { target: 'startwave', title: 'Start the wave', body: 'Set up your defences, then press this to send the next wave. Between waves the game waits — no rush.' },
   { target: 'hud', title: 'Lives & gold', body: 'Up here: your lives (you lose one each time an enemy reaches the base) and your gold (earned from kills, spent on towers).' },
+  { title: 'Enemy affixes', body: 'From wave 5, some enemies glow with an affix that changes the rules: Shielded soaks a burst, Armored halves one style, Warded ignores slows/stuns, Volatile disables a tower on death, Swarm packs in, Colossal costs two lives. Just one affix when they first unlock — but deep into a run a single elite can stack several at once. Read the aura colours and diversify your defences.' },
+  { title: 'Boss mechanics', body: 'The signature bosses fight back. Zulrah cycles three forms (green / blue / red) — each weak to one style and resistant to the others, so switch towers to match its colour. Vorkath periodically raises an ice shield: it turns immune and freezes your nearest tower for a few seconds — weather it. Jad summons Yt-HurKot healers below half health that claw back the damage you dealt him — divert fire to kill the healers. And once you have beaten a boss, future encounters can also roll affixes on top.' },
   { target: 'prayers', title: 'Prayer', body: 'Toggle prayers to buff a tower style (ranged / magic / melee) or protect your base. They drain a Prayer pool while on and refill between waves — flip the big ones on for boss waves.' },
   { target: 'sidebar', title: 'More interfaces', body: 'These stones open the Grand Exchange, Essence Shop, Slayer Rewards and the Collection Log. The next few steps walk through each.' },
   { target: 'ge', title: 'Grand Exchange', body: 'Spend gold on potions and consumables for a timed buff. Prices drift with demand each wave, so stock up on the buffs you rely on when they are cheap.' },
@@ -2372,7 +2423,7 @@ function GuidedTour({ onClose }: { onClose: () => void }) {
           }}
         />
       )}
-      <div className="fixed z-[62] rs-panel p-3 flex flex-col" style={{ ...bStyle, width: balloonW, fontSize: 'clamp(12px,0.85vw,16px)' }}>
+      <div className="fixed z-[62] rs-panel p-3 flex flex-col" style={{ ...bStyle, width: balloonW, fontSize: 'clamp(13px,0.85vw,17px)' }}>
         <div className="flex items-center justify-between mb-[0.3em]">
           <span className="text-osrs-orange font-bold text-[0.95em]">{step.title}</span>
           <span className="text-[0.68em] text-[#cdbe91]">{i + 1}/{TOUR_STEPS.length}</span>
@@ -2433,7 +2484,27 @@ const HELP_SECTIONS: HelpSection[] = [
       { title: 'Start a wave', body: 'Nothing spawns until you press Start Wave. Between waves the game sits in build mode (paused) so you can place and upgrade freely — take your time.' },
       { title: 'Boss waves', body: 'Some waves bring a boss with its own health bar. They hit harder and soak far more damage — line up your strongest towers and buffs first.' },
       { title: 'Lives & game over', body: 'The hearts up top are your lives; every leak takes one. At zero the run ends with a summary screen, and you can jump straight into another.' },
-      { title: 'Speed & pause', body: 'Run the action at 1× / 2× / 5× to fast-forward the quiet stretches, and press Space (or ⏸) to pause whenever you need to think.' },
+      { title: 'Speed & pause', body: 'Run the action at 1× / 2× / 5× to fast-forward the quiet stretches, and press Esc (or ⏸) to pause whenever you need to think. Space sends the next wave.' },
+    ],
+  },
+  {
+    id: 'affixes', label: 'Enemy Affixes', tier: 'basic',
+    intro: 'From wave 5 on, some enemies arrive "elite" — glowing with an affix that forces you to adapt instead of stacking one tower.',
+    blocks: [
+      { title: 'How to read them', body: 'An elite enemy is wrapped in a coloured aura — one ring per affix. On the wave they first unlock an elite always carries exactly one; the deeper you push, the more a single enemy can stack (with no hard ceiling), so read every ring. Bosses come clean the first time, then can roll affixes on top of their mechanics on later encounters.' },
+      { title: 'Defensive affixes', body: 'Shielded — a cyan pip soaks a burst of damage before its health is touched (punishes chip DPS). Armored — takes half damage from one combat style, so bring another. Regenerating — heals over time unless you finish it fast.' },
+      { title: 'Disruptive affixes', body: 'Warded — immune to slows, stuns and freezes. Volatile — detonates on death, briefly disabling your nearest tower (so don’t cram towers in one spot). Hasted — moves much faster and exposes coverage gaps.' },
+      { title: 'Mass affixes', body: 'Swarm — arrives as a pack of frail copies, so spread/area damage shines. Colossal — one hulking, slow straggler with extra health that costs two lives if it leaks. Diversify your defences and elites stop being scary.' },
+    ],
+  },
+  {
+    id: 'bosses', label: 'Boss Mechanics', tier: 'basic',
+    intro: 'The signature bosses are not just big health bars — each fights with its own mechanic you have to answer.',
+    blocks: [
+      { title: 'Zulrah — rotating forms', body: 'Zulrah cycles three forms shown by its colour: green is weak to magic, blue to ranged, red to melee — and it strongly resists the other two styles. Watch the tint and the caption under its health bar, and switch which towers are firing to match the current form.' },
+      { title: 'Vorkath — ice shield', body: 'Every so often Vorkath raises an ice shield: it turns fully immune to damage and freezes your nearest tower for a few seconds. You cannot out-DPS the shield — keep the rest of your line firing and wait it out, then resume.' },
+      { title: 'Jad — Yt-HurKot healers', body: 'Below half health Jad summons healer orbs that regenerate a slice of the damage you just dealt him, undoing your progress. Divert fire to cut the healers down (they award nothing — their death is the reward); kill them all and pile back onto Jad before he summons another batch.' },
+      { title: 'Boss modifiers', body: 'Once you have survived a boss at least once, future encounters can also roll one or two of the normal affixes on top of its mechanic — a Shielded or Hasted Zulrah, say. The very first time you meet a boss is always the clean, mechanic-only fight.' },
     ],
   },
   {
@@ -2496,9 +2567,10 @@ const HELP_SECTIONS: HelpSection[] = [
     id: 'controls', label: 'Controls', tier: 'basic',
     intro: 'Handy shortcuts once you find your rhythm.',
     blocks: [
-      { body: 'Space — pause / resume' },
+      { body: 'Space — start the next wave' },
+      { body: 'Esc — pause / resume (or cancel a pending placement or selection)' },
       { body: '1 / 2 / 5 — game speed' },
-      { body: 'Esc — cancel placement or selection' },
+      { body: 'Q / W / E / R — swap the selected wizard’s element / barrage / field' },
       { body: 'M — mute' },
       { body: 'Shift — keep placing the same tower' },
       { body: 'Drag a box — multi-select towers to batch-upgrade' },
@@ -2521,7 +2593,7 @@ function HowToPlay({ onClose, onReplay }: { onClose: () => void; onReplay: () =>
   const badge = HELP_TIER_BADGE[section.tier];
   return (
     <div className="absolute inset-0 bg-black/82 flex items-center justify-center z-50 p-4">
-      <div className="rs-panel p-5 w-[40em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: 'clamp(13px, 0.95vw, 18px)' }}>
+      <div className="rs-panel p-5 w-[40em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: 'clamp(14px, 0.95vw, 19px)' }}>
         <div className="flex items-center justify-between gap-[0.5em] mb-[0.5em]">
           <span className="text-osrs-orange font-bold text-[1.15em]">How to Play</span>
           <div className="flex items-center gap-[0.4em]">
@@ -2699,7 +2771,7 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
       id="collection-log"
       globalLock={globalLock}
       className="rs-panel absolute top-10 left-1/2 z-30 w-[30em] flex flex-col p-3"
-      style={{ marginLeft: '-15em', maxHeight: '82vh', fontSize: 'clamp(13px, 0.9vw, 18px)' }}
+      style={{ marginLeft: '-15em', maxHeight: '82vh', fontSize: 'clamp(14px, 0.9vw, 19px)' }}
     >
       <div className="rs-panel-title flex items-center justify-between">
         <span className="flex items-center gap-2">

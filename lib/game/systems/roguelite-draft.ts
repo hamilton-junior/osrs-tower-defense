@@ -245,7 +245,7 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'phoenix_necklace', name: 'Phoenix Necklace', desc: 'While at 2 lives or fewer, ALL towers deal double damage', rarity: 'rare', unique: true, icon: `${W}Phoenix_necklace.png`, effect: { kind: 'lastStand', belowLives: 2, mult: 2 } },
   { id: 'berserker_brew', name: 'Berserker Necklace', desc: '+12% damage for every life you have lost', rarity: 'rare', unique: true, icon: `${W}Berserker_necklace.png`, effect: { kind: 'berserker', perMissingLife: 0.12 } },
   { id: 'blood_pact', name: 'Blood Pact', desc: '+40% damage to ALL towers, but each wave cleared costs 1 life', rarity: 'rare', unique: true, icon: `${W}Blood_shard.png`, effect: { kind: 'bloodPact', mult: 1.4 } },
-  { id: 'greedy_pact', name: 'Greedy Pact', desc: 'Enemies have +25% HP, but drop double gold', rarity: 'rare', unique: true, icon: `${W}Zenyte.png`, effect: { kind: 'greed', hpMult: 1.25, goldMult: 2 } },
+  { id: 'greedy_pact', name: 'Greedy Pact', desc: 'Enemies have +50% HP, but drop double gold', rarity: 'rare', unique: true, icon: `${W}Zenyte.png`, effect: { kind: 'greed', hpMult: 1.5, goldMult: 2 } },
   // ── tower transformations ────────────────────────────────────────────────
   { id: 'dragon_knife', name: 'Dragon Knife', desc: 'Ranged towers loose a second shot at another enemy in range', rarity: 'rare', unique: true, icon: `${W}Dragon_knife.png`, effect: { kind: 'doubleShot' } },
   { id: 'toxic_blowpipe', name: 'Toxic Blowpipe', desc: 'Every tower’s hit also injects venom', rarity: 'rare', unique: true, icon: `${W}Toxic_blowpipe.png`, effect: { kind: 'venomTips', dps: 6, dur: 4 } },
@@ -273,9 +273,29 @@ export function availableCards(
 }
 
 /**
+ * Resource-reward group of a *pure* resource card (one whose whole effect is a
+ * single resource grant), or null for anything else (stat buffs, behavioural
+ * cards, `multi` bundles). Used to keep a hand from offering two interchangeable
+ * "numbers go up" rewards — choosing between 100 and 150 gold is no choice at
+ * all. `currency` = gold/essence, `lives` = current/max life.
+ */
+function resourceGroup(card: DraftCard): 'currency' | 'lives' | null {
+  switch (card.effect.kind) {
+    case 'gold': case 'essence': return 'currency';
+    case 'life': case 'maxLife': return 'lives';
+    default: return null;
+  }
+}
+
+/**
  * Roll a hand of `count` distinct cards, weighted by rarity, without
  * replacement. `rng` is injected (`Math.random` in the engine) so the roll is
  * deterministic under test. Never returns more than the pool holds.
+ *
+ * A hand carries **at most one card per resource group** ({@link resourceGroup}):
+ * two pure-currency (or two pure-life) cards are a false choice, so once one is
+ * drawn the rest of that group is skipped — unless the pool has nothing else
+ * left to offer (then the guard relaxes so the hand still fills).
  */
 export function rollDraft(
   rng: () => number,
@@ -284,18 +304,26 @@ export function rollDraft(
 ): DraftCard[] {
   const remaining = [...pool];
   const hand: DraftCard[] = [];
+  const usedGroups = new Set<'currency' | 'lives'>();
   const n = Math.min(count, remaining.length);
   for (let i = 0; i < n; i++) {
-    const total = remaining.reduce((s, c) => s + RARITY_WEIGHT[c.rarity], 0);
+    // Prefer cards whose resource group isn't already represented; fall back to
+    // the full remaining pool only if that leaves nothing to draw.
+    const eligible = remaining.filter(c => { const g = resourceGroup(c); return !g || !usedGroups.has(g); });
+    const pickFrom = eligible.length ? eligible : remaining;
+    const total = pickFrom.reduce((s, c) => s + RARITY_WEIGHT[c.rarity], 0);
     let roll = rng() * total;
     let idx = 0;
-    for (let j = 0; j < remaining.length; j++) {
-      roll -= RARITY_WEIGHT[remaining[j].rarity];
+    for (let j = 0; j < pickFrom.length; j++) {
+      roll -= RARITY_WEIGHT[pickFrom[j].rarity];
       if (roll < 0) { idx = j; break; }
       idx = j;
     }
-    hand.push(remaining[idx]);
-    remaining.splice(idx, 1);
+    const card = pickFrom[idx];
+    const g = resourceGroup(card);
+    if (g) usedGroups.add(g);
+    hand.push(card);
+    remaining.splice(remaining.indexOf(card), 1);
   }
   return hand;
 }
