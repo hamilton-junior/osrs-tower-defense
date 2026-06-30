@@ -2442,21 +2442,48 @@ const HELP_SECTIONS: HelpSection[] = [
     ],
   },
   {
-    id: 'osrs', label: 'OSRS Systems', tier: 'advanced',
-    intro: 'These RuneScape systems pile extra power onto your towers. Optional at first — reach for them as the waves get harder.',
+    id: 'prayer', label: 'Prayer', tier: 'advanced',
+    intro: 'Prayer is a toggled boost layer for your towers — strong, but it burns a limited pool.',
     blocks: [
-      { icon: ASSETS.misc.prayer_icon, title: 'Prayer', body: 'Switch on prayers to buff your towers (e.g. boost ranged or magic damage) or protect the base. Prayer points drain while active and refill between waves, so flip them on when it counts.' },
-      { icon: ASSETS.misc.slayer_crossbow, title: 'Slayer', body: 'A Slayer master assigns a task — kill X of a monster type — for Slayer points. Spend them in the Rewards shop: a Helmet (+damage vs your task), Skip Task, or convert leftovers into essence.' },
-      { icon: ASSETS.misc.ge_logo, title: 'Grand Exchange', body: 'Spend gold on consumables and potions for temporary buffs. Prices drift with demand each wave, so good deals come and go.' },
-      { icon: ASSETS.misc.magic_icon, title: 'Magic spellbooks', body: 'Before you place a Wizard, choose its spellbook: Elemental (single-target burst), Ancients (AoE barrage) or Utility (support). The choice locks once placed — pick for the job.' },
+      { icon: ASSETS.misc.prayer_icon, title: 'What it does', body: 'Each prayer is a buff you switch on: some raise a combat style (ranged, magic or melee tower damage and accuracy), others protect your base from a damage type. Several can run at once.' },
+      { title: 'How to use it', body: 'Open the Prayer panel and click a prayer to toggle it. Active prayers drain your Prayer points; when the pool hits zero they all switch off. Points refill between waves, so flip the big buffs on for boss waves and tough pushes, then off to coast.' },
+      { title: 'How to improve it', body: 'Stronger prayers unlock automatically as you reach deeper waves. Between runs, the Essence Shop sells Prayer regen / max-point upgrades so you can hold the good prayers on for longer every run.' },
     ],
   },
   {
-    id: 'meta', label: 'Progression', tier: 'advanced',
-    intro: 'Losing is never wasted — runs feed permanent progress.',
+    id: 'slayer', label: 'Slayer', tier: 'advanced',
+    intro: 'Slayer turns "which monster do I kill" into a reward loop with its own currency.',
     blocks: [
-      { icon: ASSETS.misc.rune_essence_icon, title: 'Rune Essence', body: 'You earn Rune Essence every wave, and it is kept forever — even through a game over. It is the currency that makes you permanently stronger.' },
-      { icon: ASSETS.misc.rune_essence_icon, title: 'Essence Shop', body: 'Spend essence on global upgrades — starting gold, tower range, damage, prayer regen and more — that seed every future run.' },
+      { icon: ASSETS.misc.slayer_crossbow, title: 'What it does', body: 'A Slayer master assigns a task — kill X of a specific monster type. Finishing it pays Slayer points and builds a streak; the more tasks you complete in a row, the bigger the point payouts.' },
+      { title: 'How to use it', body: 'Just keep killing — the task counts down on its own as the right monsters die. The Slayer tower also deals bonus damage to your current task, to superior monsters and to bosses, so it shines while a task is up.' },
+      { title: 'How to improve it', body: 'Spend points in the Slayer Rewards shop: the Helmet (+damage vs your task this run), Skip Task to dodge a bad assignment, or an Essence Pouch to convert leftover points into permanent Rune Essence. Protect your streak — it scales every future payout.' },
+    ],
+  },
+  {
+    id: 'magic', label: 'Magic', tier: 'advanced',
+    intro: 'The Wizard is the only tower whose role you pick — its spellbook decides what it is good at.',
+    blocks: [
+      { icon: ASSETS.misc.magic_icon, title: 'What it does', body: 'Before you place a Wizard you choose its spellbook: Elemental (single-target burst), Ancients (AoE barrage that splashes nearby enemies) or Utility (support effects). The choice locks once the tower is down.' },
+      { title: 'How to use it', body: 'Match the book to the threat: Elemental to delete a single tank or boss, Ancients to melt clustered packs. Elemental spells also have elemental weaknesses — hitting an enemy with the type it is weak to deals extra damage.' },
+      { title: 'How to improve it', body: 'Upgrade the Wizard to climb its spell tier (Strike → Bolt → Blast → Wave → Surge) for more damage and range. Draft cards and prayers that buff magic stack on top, and a couple of well-chosen elements cover most enemy weaknesses.' },
+    ],
+  },
+  {
+    id: 'ge', label: 'Grand Exchange', tier: 'advanced',
+    intro: 'The GE is your gold sink for temporary, on-demand power spikes.',
+    blocks: [
+      { icon: ASSETS.misc.ge_logo, title: 'What it does', body: 'Spend gold on consumables and potions that grant a timed buff — extra damage, range or a combat-style boost — for a stretch of the fight.' },
+      { title: 'How to use it', body: 'Buy from the GE panel; the effect runs on a timer shown with your active potions. A styled potion (e.g. a Strength brew) only buffs that tower style, so line the potion up with the towers it helps before a hard wave.' },
+      { title: 'How to improve it', body: 'Prices drift with demand every wave, so the same item gets cheaper or pricier over time — stock up when a buff you rely on is cheap, and cash in on bigger gold income from kills and draft cards.' },
+    ],
+  },
+  {
+    id: 'meta', label: 'Essence & Progress', tier: 'advanced',
+    intro: 'Losing is never wasted — every run feeds permanent progress through Rune Essence.',
+    blocks: [
+      { icon: ASSETS.misc.rune_essence_icon, title: 'What Rune Essence is', body: 'Essence is the meta-currency that makes you permanently stronger. You earn it every wave you clear (and from essence draft cards), and unlike gold it is kept forever — even through a game over.' },
+      { icon: ASSETS.misc.rune_essence_icon, title: 'How to spend it (Essence Shop)', body: 'Between runs, spend essence in the Essence Shop on global upgrades — starting gold, tower range, tower damage, prayer regen and more. These seed every future run, so a fresh game starts stronger than the last.' },
+      { title: 'How to improve your gains', body: 'Reach deeper waves (later clears pay more essence), pick essence cards in Roguelite, and turn spare Slayer points into essence via the Slayer Essence Pouch. It all banks into the same permanent pool.' },
       { icon: COLLECTION_LOG_ICON, title: 'Collection Log', body: 'Tracks your lifetime kills per monster and every draft card you have picked. Filter and sort each tab to chase 100% completion.' },
     ],
   },
