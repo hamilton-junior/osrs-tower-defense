@@ -354,6 +354,16 @@ export default function GameRoot() {
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  // "How to Play" guide overlay. Opens automatically on a player's first ever
+  // visit (then remembers it), and is reachable any time from the start screen
+  // or the ❓ stone.
+  const [helpOpen, setHelpOpen] = useState(false);
+  useEffect(() => {
+    if (!loadBool('osrs_td_seen_tutorial', false)) {
+      setHelpOpen(true);
+      try { localStorage.setItem('osrs_td_seen_tutorial', JSON.stringify(true)); } catch { /* ignore */ }
+    }
+  }, []);
   // Minimize state for the prayer bar (collapses to the best prayer per style).
   const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
   useEffect(() => { try { localStorage.setItem('ui_min_prayers', JSON.stringify(prayersMin)); } catch { /* ignore */ } }, [prayersMin]);
@@ -1456,6 +1466,9 @@ export default function GameRoot() {
           <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
             🛠
           </button>
+          <button onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
+            ❓
+          </button>
         </div>
 
         {/* Tab body (top section): keyed by `tab` so switching re-mounts this
@@ -1709,16 +1722,25 @@ export default function GameRoot() {
             const combat = TOWER_COMBAT[hoverShop];
             const dmg = t0.maxDamage != null ? `${t0.minDamage ?? 0}–${t0.maxDamage}` : t0.damage;
             const icon = towerIcon(hoverShop);
+            // What the tower *does* (its niche), not just its numbers — so a new
+            // player knows what they're buying before placing it. Tier-1 signature.
+            const sig = towerSignature(hoverShop, 1);
             return (
               <div
-                className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[15em] z-20 pointer-events-none"
+                className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[16em] z-20 pointer-events-none"
                 style={{ fontSize: 'clamp(12px, 0.85vw, 16px)' }}
               >
                 <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
                   {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
                   <span className="truncate">{t0.name}</span>
                 </div>
-                <div className="space-y-[0.3em] mt-[0.4em] px-[0.1em]">
+                {sig && (
+                  <div className="mt-[0.35em] px-[0.1em]">
+                    <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{sig.label}</span>
+                    <p className="text-[0.76em] text-[#cdbe91] leading-snug mt-[0.1em]">{sig.desc}</p>
+                  </div>
+                )}
+                <div className="space-y-[0.3em] mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
                   <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
                   <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
                   <Stat label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
@@ -1939,8 +1961,12 @@ export default function GameRoot() {
           mode={ui.gameMode}
           onSelect={(m) => engineRef.current?.setMode(m)}
           onStart={() => { setRunStarted(true); }}
+          onHelp={() => setHelpOpen(true)}
         />
       )}
+
+      {/* How-to-play guide — top layer so it reads over the start screen too */}
+      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }
@@ -2237,10 +2263,183 @@ function Stat({ icon, label, value }: { icon?: string; label: string; value: Rea
  *  restart). Two selectable mode panels — Classic (pure TD) vs Roguelite (per-wave
  *  draft) — plus a Start button that locks the choice and kicks off wave 1. Mode
  *  can only change here, since the engine freezes it once a run begins. */
-function StartScreen({ mode, onSelect, onStart }: {
+// ───────────────────────── How to Play (tutorial) ─────────────────────────
+// A layered, OSRS-styled guide. Sections run Basic → Advanced so a total
+// newcomer can read just the first pages and start, while everything (Prayer,
+// Slayer, GE, Magic, meta) is one tab away. Content is data so the copy stays
+// readable and easy to tweak without touching layout.
+
+type HelpTier = 'basic' | 'advanced';
+interface HelpBlock { icon?: string; title?: string; body: string; }
+interface HelpSection { id: string; label: string; tier: HelpTier; intro?: string; blocks: HelpBlock[] }
+
+const COLLECTION_LOG_ICON = `${ASSETS.misc.wiki_base}Collection_log.png`;
+
+const HELP_SECTIONS: HelpSection[] = [
+  {
+    id: 'basics', label: 'Basics', tier: 'basic',
+    intro: "Never played a tower defense? Here's the whole idea in four steps.",
+    blocks: [
+      { title: 'Enemies follow the path', body: 'Each wave, monsters march along the marked path toward your base. They never attack your towers — they just try to get through.' },
+      { title: 'You build towers', body: 'Place towers on the grass beside the path. They shoot anything in range on their own — you win by positioning, not aiming.' },
+      { title: 'Kills pay for more', body: 'Every kill drops gold. Spend it on new towers and upgrades. Stronger defences let you survive deeper, tougher waves.' },
+      { title: "Don't let them through", body: 'An enemy that reaches your base costs a life. Lose all your lives and the run ends. That is the whole game: outbuild the horde.' },
+    ],
+  },
+  {
+    id: 'towers', label: 'Towers', tier: 'basic',
+    blocks: [
+      { title: 'Placing', body: 'Pick a tower from the dock, then click an empty patch of grass. Its price is on the button; the ring that appears is its attack range.' },
+      { title: 'Upgrade & sell', body: "Click a tower you've built to open it. Upgrade raises its tier — more damage, range and fire rate. Sell refunds it and frees the spot." },
+      { title: 'Target priority', body: 'Each tower can focus the First, Last, Strongest, Weakest or Closest enemy in range. Strongest hunts tanks; First stops leaks at the front.' },
+      { title: 'Build in bulk', body: 'Hold Shift to keep placing the same tower without re-picking it. Drag a box over several towers to select them and upgrade the whole batch at once.' },
+      { title: 'Every tower has a niche', body: 'Archer = fast volume DPS (twin-shot when upgraded). Wizard = the all-rounder, its spellbook does single-target or AoE. Cannon = splash crowd-clear. TzHaar = heavy melee. Slayer = bonus vs your task, superiors and bosses. Toxic = venom that climbs the longer it burns.' },
+    ],
+  },
+  {
+    id: 'waves', label: 'Waves & Lives', tier: 'basic',
+    blocks: [
+      { title: 'Start a wave', body: 'Nothing spawns until you press Start Wave. Between waves the game sits in build mode (paused) so you can place and upgrade freely — take your time.' },
+      { title: 'Boss waves', body: 'Some waves bring a boss with its own health bar. They hit harder and soak far more damage — line up your strongest towers and buffs first.' },
+      { title: 'Lives & game over', body: 'The hearts up top are your lives; every leak takes one. At zero the run ends with a summary screen, and you can jump straight into another.' },
+      { title: 'Speed & pause', body: 'Run the action at 1× / 2× / 5× to fast-forward the quiet stretches, and press Space (or ⏸) to pause whenever you need to think.' },
+    ],
+  },
+  {
+    id: 'roguelite', label: 'Roguelite', tier: 'basic',
+    intro: 'The Roguelite mode layers a card draft on top of everything above.',
+    blocks: [
+      { icon: COLLECTION_LOG_ICON, title: 'Pick one card per wave', body: 'Clear a wave and you are offered three reward cards — keep one. They stack all run long, so your defences snowball into a build that is uniquely yours.' },
+      { title: 'Rarities', body: 'Cards range Common → Uncommon → Rare → Ultra-rare. Rarer cards are stronger or wilder, and turn up far less often.' },
+      { title: 'What cards do', body: 'Some give flat boosts — damage, range, gold, lives, essence. Others rewrite how towers behave: ricochet kills, venom tips, chain-freeze, pierce, last-stand. The standout ones become Relics in their own panel.' },
+      { title: 'Run summary', body: 'When a run ends you get a recap — wave reached, kills, gold, essence banked, and the full build of cards you drafted.' },
+    ],
+  },
+  {
+    id: 'osrs', label: 'OSRS Systems', tier: 'advanced',
+    intro: 'These RuneScape systems pile extra power onto your towers. Optional at first — reach for them as the waves get harder.',
+    blocks: [
+      { icon: ASSETS.misc.prayer_icon, title: 'Prayer', body: 'Switch on prayers to buff your towers (e.g. boost ranged or magic damage) or protect the base. Prayer points drain while active and refill between waves, so flip them on when it counts.' },
+      { icon: ASSETS.misc.slayer_crossbow, title: 'Slayer', body: 'A Slayer master assigns a task — kill X of a monster type — for Slayer points. Spend them in the Rewards shop: a Helmet (+damage vs your task), Skip Task, or convert leftovers into essence.' },
+      { icon: ASSETS.misc.ge_logo, title: 'Grand Exchange', body: 'Spend gold on consumables and potions for temporary buffs. Prices drift with demand each wave, so good deals come and go.' },
+      { icon: ASSETS.misc.magic_icon, title: 'Magic spellbooks', body: 'Before you place a Wizard, choose its spellbook: Elemental (single-target burst), Ancients (AoE barrage) or Utility (support). The choice locks once placed — pick for the job.' },
+    ],
+  },
+  {
+    id: 'meta', label: 'Progression', tier: 'advanced',
+    intro: 'Losing is never wasted — runs feed permanent progress.',
+    blocks: [
+      { icon: ASSETS.misc.rune_essence_icon, title: 'Rune Essence', body: 'You earn Rune Essence every wave, and it is kept forever — even through a game over. It is the currency that makes you permanently stronger.' },
+      { icon: ASSETS.misc.rune_essence_icon, title: 'Essence Shop', body: 'Spend essence on global upgrades — starting gold, tower range, damage, prayer regen and more — that seed every future run.' },
+      { icon: COLLECTION_LOG_ICON, title: 'Collection Log', body: 'Tracks your lifetime kills per monster and every draft card you have picked. Filter and sort each tab to chase 100% completion.' },
+    ],
+  },
+  {
+    id: 'controls', label: 'Controls', tier: 'basic',
+    intro: 'Handy shortcuts once you find your rhythm.',
+    blocks: [
+      { body: 'Space — pause / resume' },
+      { body: '1 / 2 / 5 — game speed' },
+      { body: 'Esc — cancel placement or selection' },
+      { body: 'M — mute' },
+      { body: 'Shift — keep placing the same tower' },
+      { body: 'Drag a box — multi-select towers to batch-upgrade' },
+      { body: 'Panels are draggable — use the lock to pin your layout' },
+      { body: 'Reopen this guide anytime from the ❓ stone.' },
+    ],
+  },
+];
+
+const HELP_TIER_BADGE: Record<HelpTier, { label: string; color: string }> = {
+  basic: { label: 'Basic', color: '#2ECC71' },
+  advanced: { label: 'Advanced', color: '#E0A030' },
+};
+
+/** "How to Play" overlay: a tabbed OSRS window. Section tabs run Basic →
+ *  Advanced; the body scrolls and Back/Next walk through them in order. */
+function HowToPlay({ onClose }: { onClose: () => void }) {
+  const [page, setPage] = useState(0);
+  const section = HELP_SECTIONS[page];
+  const badge = HELP_TIER_BADGE[section.tier];
+  return (
+    <div className="absolute inset-0 bg-black/82 flex items-center justify-center z-50 p-4">
+      <div className="rs-panel p-5 w-[40em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: 'clamp(13px, 0.95vw, 18px)' }}>
+        <div className="flex items-center justify-between mb-[0.5em]">
+          <span className="text-osrs-orange font-bold text-[1.15em]">How to Play</span>
+          <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
+        </div>
+
+        {/* Section tabs */}
+        <div className="flex flex-wrap gap-[0.3em] mb-[0.7em] shrink-0">
+          {HELP_SECTIONS.map((s, i) => (
+            <button
+              key={s.id}
+              onClick={() => setPage(i)}
+              className={`rs-btn px-[0.6em] py-[0.25em] text-[0.78em] ${i === page ? 'rs-btn-primary' : ''}`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div className="rs-panel-inset p-[0.8em] flex-1 min-h-0 overflow-y-auto">
+          <div className="flex items-center gap-[0.5em] mb-[0.6em]">
+            <span className="text-osrs-yellow font-bold text-[1.05em]">{section.label}</span>
+            <span
+              className="text-[0.6em] uppercase tracking-wide px-[0.5em] py-[0.1em] rounded-sm"
+              style={{ color: badge.color, border: `1px solid ${badge.color}`, opacity: 0.9 }}
+            >
+              {badge.label}
+            </span>
+          </div>
+          {section.intro && <p className="text-[0.85em] text-[#cdbe91] mb-[0.7em] leading-snug">{section.intro}</p>}
+          <div className="flex flex-col gap-[0.6em]">
+            {section.blocks.map((b, i) => (
+              <div key={i} className="flex gap-[0.55em] items-start">
+                {b.icon
+                  ? <img src={b.icon} alt="" className="w-[1.5em] h-[1.5em] object-contain shrink-0 mt-[0.1em]" onError={hideBrokenImg} />
+                  : <span className="text-osrs-orange shrink-0 leading-none mt-[0.15em]">•</span>}
+                <div className="leading-snug">
+                  {b.title && <span className="text-osrs-yellow font-bold text-[0.92em]">{b.title}. </span>}
+                  <span className="text-[0.88em] text-[#d3c3a0]">{b.body}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer nav */}
+        <div className="flex items-center justify-between gap-[0.5em] mt-[0.7em] shrink-0">
+          <button
+            className="rs-btn px-[1em] py-[0.35em] text-[0.85em]"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            style={{ opacity: page === 0 ? 0.5 : 1 }}
+          >
+            ‹ Back
+          </button>
+          <span className="text-[0.72em] text-[#cdbe91]">{page + 1} / {HELP_SECTIONS.length}</span>
+          {page < HELP_SECTIONS.length - 1 ? (
+            <button className="rs-btn rs-btn-primary px-[1em] py-[0.35em] text-[0.85em]" onClick={() => setPage((p) => Math.min(HELP_SECTIONS.length - 1, p + 1))}>
+              Next ›
+            </button>
+          ) : (
+            <button className="rs-btn rs-btn-primary px-[1em] py-[0.35em] text-[0.85em]" onClick={onClose}>
+              Got it ✓
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StartScreen({ mode, onSelect, onStart, onHelp }: {
   mode: GameMode;
   onSelect: (m: GameMode) => void;
   onStart: () => void;
+  onHelp: () => void;
 }) {
   const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string }[] = [
     {
@@ -2285,7 +2484,10 @@ function StartScreen({ mode, onSelect, onStart }: {
         <button className="rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] animate-pulse" onClick={onStart}>
           ▶ Confirm
         </button>
-        <div className="text-center text-[0.7em] text-[#cdbe91] mt-[0.5em]">Then press <span className="text-osrs-orange">Start Wave</span> when you&apos;re ready.</div>
+        <button className="rs-btn w-full py-[0.4em] text-[0.85em] mt-[0.5em]" onClick={onHelp}>
+          ❓ How to Play
+        </button>
+        <div className="text-center text-[0.7em] text-[#cdbe91] mt-[0.5em]">First time? Read <span className="text-osrs-orange">How to Play</span>. Then press <span className="text-osrs-orange">Start Wave</span> when you&apos;re ready.</div>
       </div>
     </div>
   );
