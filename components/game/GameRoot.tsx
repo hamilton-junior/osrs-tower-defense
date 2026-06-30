@@ -1465,14 +1465,14 @@ export default function GameRoot() {
           <button onClick={() => onSideTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.multicombat_icon} alt="Towers &amp; Wave" onError={hideBrokenImg} />
           </button>
-          <button onClick={() => onSideTab('ge')} title="Grand Exchange" className={`rs-tab ${tab === 'ge' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
+          <button data-tut="ge" onClick={() => onSideTab('ge')} title="Grand Exchange" className={`rs-tab ${tab === 'ge' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.ge_logo} alt="Grand Exchange" onError={hideBrokenImg} />
           </button>
-          <button onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
+          <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
             <span className="rs-tab-badge">{fmt(ui.essence)}</span>
           </button>
-          <button onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
+          <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
             <span className="rs-tab-badge">{ui.slayerPoints}</span>
           </button>
@@ -1877,7 +1877,7 @@ export default function GameRoot() {
           style). Draggable + minimizable — an outer wrapper holds the centred
           anchor so MovablePanel's own transform only carries the drag offset. */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-        <MovablePanel id="prayers" globalLock={uiLocked} className="rs-panel p-2 flex items-center gap-[0.3em]">
+        <MovablePanel id="prayers" tut="prayers" globalLock={uiLocked} className="rs-panel p-2 flex items-center gap-[0.3em]">
           {prayersMin ? (
             <>
               <button
@@ -2296,14 +2296,19 @@ function Stat({ icon, label, value }: { icon?: string; label: string; value: Rea
 interface TourStep { target?: string; title: string; body: string }
 
 const TOUR_STEPS: TourStep[] = [
-  { title: 'Welcome to OSRS Tower Defense', body: 'A 60-second tour of the screen. Hit Skip anytime — and you can reopen the full guide from the ❓ stone later.' },
+  { title: 'Welcome to OSRS Tower Defense', body: 'A quick tour of the screen and its systems. Hit Skip anytime — and you can reopen the full guide from the ❓ stone later.' },
   { title: 'The battlefield', body: 'Enemies march along the path toward your base. You stop them by building towers on the grass — they aim and fire on their own.' },
   { target: 'dock', title: 'Tower shop', body: 'Pick a tower here, then click the grass to place it. Hover any tower first to see what it does and its cost.' },
   { target: 'startwave', title: 'Start the wave', body: 'Set up your defences, then press this to send the next wave. Between waves the game waits — no rush.' },
   { target: 'hud', title: 'Lives & gold', body: 'Up here: your lives (you lose one each time an enemy reaches the base) and your gold (earned from kills, spent on towers).' },
-  { target: 'sidebar', title: 'More interfaces', body: 'These stones open the Grand Exchange, Essence Shop, Slayer Rewards and the Collection Log — extra power as you go deeper.' },
+  { target: 'prayers', title: 'Prayer', body: 'Toggle prayers to buff a tower style (ranged / magic / melee) or protect your base. They drain a Prayer pool while on and refill between waves — flip the big ones on for boss waves.' },
+  { target: 'sidebar', title: 'More interfaces', body: 'These stones open the Grand Exchange, Essence Shop, Slayer Rewards and the Collection Log. The next few steps walk through each.' },
+  { target: 'ge', title: 'Grand Exchange', body: 'Spend gold on potions and consumables for a timed buff. Prices drift with demand each wave, so stock up on the buffs you rely on when they are cheap.' },
+  { target: 'essence', title: 'Essence Shop', body: 'Rune Essence is earned every wave and kept forever — even through a game over. Spend it here on permanent global upgrades that seed every future run.' },
+  { target: 'slayer', title: 'Slayer', body: 'A master assigns a kill-X-of-a-monster task for Slayer points and a streak. Spend points on a Helmet (+damage vs your task), Skip Task, or convert them into permanent essence.' },
+  { title: 'Magic spellbooks', body: 'Before placing a Wizard you pick its spellbook: Elemental (single-target burst), Ancients (AoE barrage) or Utility (support). It locks once placed — match the book to the threat, and hit enemies with the element they are weak to.' },
   { target: 'controls', title: 'Speed & sound', body: 'Fast-forward the action at 1× / 2× / 5×, pause, and set the volume — all down here.' },
-  { target: 'help', title: 'Need a refresher?', body: 'Click the ❓ stone anytime to reopen the full How to Play guide. That’s it — good luck out there!' },
+  { target: 'help', title: 'Need a refresher?', body: 'Click the ❓ stone anytime to reopen the full How to Play guide — every system above has a detailed page there. Good luck out there!' },
 ];
 
 /** First-run guided tour overlay. Measures each step's target rect, draws a
