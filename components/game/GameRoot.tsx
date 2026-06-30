@@ -371,6 +371,13 @@ export default function GameRoot() {
     setTourPending(false);
     try { localStorage.setItem('osrs_td_seen_tutorial', JSON.stringify(true)); } catch { /* ignore */ }
   }, []);
+  // Replay the guided tour from the ❓ guide. Close the guide and reveal the live
+  // game UI (the tour points at it), then start the tour from step one.
+  const replayTour = useCallback(() => {
+    setHelpOpen(false);
+    setRunStarted(true);
+    setTourOpen(true);
+  }, []);
   // Minimize state for the prayer bar (collapses to the best prayer per style).
   const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
   useEffect(() => { try { localStorage.setItem('ui_min_prayers', JSON.stringify(prayersMin)); } catch { /* ignore */ } }, [prayersMin]);
@@ -1980,7 +1987,7 @@ export default function GameRoot() {
       )}
 
       {/* How-to-play reference guide — top layer so it reads over the start screen too */}
-      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} />}
+      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} onReplay={replayTour} />}
 
       {/* First-run guided tour — spotlights each part of the live UI in turn */}
       {tourOpen && <GuidedTour onClose={closeTour} />}
@@ -2476,16 +2483,19 @@ const HELP_TIER_BADGE: Record<HelpTier, { label: string; color: string }> = {
 
 /** "How to Play" overlay: a tabbed OSRS window. Section tabs run Basic →
  *  Advanced; the body scrolls and Back/Next walk through them in order. */
-function HowToPlay({ onClose }: { onClose: () => void }) {
+function HowToPlay({ onClose, onReplay }: { onClose: () => void; onReplay: () => void }) {
   const [page, setPage] = useState(0);
   const section = HELP_SECTIONS[page];
   const badge = HELP_TIER_BADGE[section.tier];
   return (
     <div className="absolute inset-0 bg-black/82 flex items-center justify-center z-50 p-4">
       <div className="rs-panel p-5 w-[40em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: 'clamp(13px, 0.95vw, 18px)' }}>
-        <div className="flex items-center justify-between mb-[0.5em]">
+        <div className="flex items-center justify-between gap-[0.5em] mb-[0.5em]">
           <span className="text-osrs-orange font-bold text-[1.15em]">How to Play</span>
-          <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
+          <div className="flex items-center gap-[0.4em]">
+            <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.72em]" onClick={onReplay} title="Replay the guided tour">↻ Replay tour</button>
+            <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
+          </div>
         </div>
 
         {/* Section tabs */}
