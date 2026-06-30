@@ -24,6 +24,10 @@ import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
 import { rollDraft, availableCards, DRAFT_POOL, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import {
+  rollRelicChoice, isRelicWave, shouldExecute, interestGain,
+  type Relic, type RelicEffect,
+} from '../systems/relics';
+import {
   rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRenderScaleMult, shieldHpFor,
   regenPerSec, leakLifeCost, bossLeakCost, SUPERIOR_LEAK_COST, isCcImmune, styleDamageMult, absorbWithShield, rollArmoredStyle,
   ALL_AFFIXES, SWARM_COUNT, VOLATILE_STUN_SECS,
@@ -153,6 +157,31 @@ const freshRunEffects = (): RunEffects => ({
   },
 });
 
+/** Run-scoped state from owned {@link Relic}s whose mechanics aren't covered by
+ *  {@link RunModifiers} / {@link RunEffects}. (A relic's stat buffs fold into
+ *  those buckets at pickup; only its *relic-only* hooks live here.) Reset on
+ *  {@link GameEngine.restart}. */
+export interface RelicEffects {
+  /** Execute threshold: a non-boss at/below this fraction of max HP is slain
+   *  outright. 0 = off (no Executioner relic). */
+  executeFrac: number;
+  /** Banker's Note interest paid per wave clear, or null when not owned. */
+  interest: { rate: number; cap: number } | null;
+  /** Draft re-rolls granted per wave (Trickster). */
+  rerollsPerWave: number;
+  /** Extra cards every draft hand offers (Production Prodigy). */
+  handBonus: number;
+  /** Remaining cheat-death charges (Last Recall): a lethal leak spends one. */
+  cheatDeathLeft: number;
+}
+const freshRelicEffects = (): RelicEffects => ({
+  executeFrac: 0,
+  interest: null,
+  rerollsPerWave: 0,
+  handBonus: 0,
+  cheatDeathLeft: 0,
+});
+
 export interface UIState {
   money: number;
   lives: number;
@@ -236,6 +265,14 @@ export interface UIState {
   /** Roguelite: cards drafted this run (id + stack count, in pick order) — the
    *  active-relics / build panel resolves each id against the draft pool. */
   runCards: { id: string; count: number }[];
+  /** Roguelite: a relic choice offered at a milestone wave, awaiting a pick (null
+   *  when none). Like {@link pendingDraft} it blocks the next wave until resolved.
+   *  A cloneable view (the engine holds the full {@link Relic}). */
+  pendingRelics: { id: string; name: string; desc: string; tier: string; icon: string }[] | null;
+  /** Roguelite: ids of the relics owned this run, in pick order. */
+  ownedRelics: string[];
+  /** Roguelite: re-rolls left on the current draft hand (Trickster relic). */
+  draftRerolls: number;
   /** Debug autoplay state (toggle + delay in seconds). */
   autoplay: boolean;
   autoplaySecs: number;
@@ -462,6 +499,14 @@ export class GameEngine {
   /** Cards drafted this run, in pick order, with a stack count for repeatable
    *  ones — the source for the UI's active-relics / build panel. Resets per run. */
   runCards: { id: string; count: number }[] = [];
+  /** Roguelite: relic choice offered at a milestone wave, awaiting a pick. */
+  pendingRelics: Relic[] | null = null;
+  /** Relics owned this run, in pick order (each relic is unique). */
+  ownedRelics: Relic[] = [];
+  /** Relic-only run state (execute / interest / rerolls / cheat-death). */
+  relicFx: RelicEffects = freshRelicEffects();
+  /** Re-rolls remaining on the current draft hand (refilled per draft). */
+  private draftRerollsLeft = 0;
   /** Debug autoplay: when on, auto-start the next wave `autoplaySecs` (min 1)
    *  after the field is idle (between waves, no pending draft). */
   autoplay = false;
@@ -675,6 +720,11 @@ export class GameEngine {
       pendingDraft: this.pendingDraft,
       runMods: cloneRunMods(this.runMods),
       runCards: this.runCards.map(c => ({ ...c })),
+      pendingRelics: this.pendingRelics
+        ? this.pendingRelics.map(r => ({ id: r.id, name: r.name, desc: r.desc, tier: r.tier, icon: r.icon }))
+        : null,
+      ownedRelics: this.ownedRelics.map(r => r.id),
+      draftRerolls: this.draftRerollsLeft,
       autoplay: this.autoplay,
       autoplaySecs: this.autoplaySecs,
     });
@@ -1359,6 +1409,7 @@ export class GameEngine {
 
   startWave() {
     if (this.waveActive || this.gameOver) return;
+    if (this.pendingRelics) { this.notify('Choose a relic first'); return; }
     if (this.pendingDraft) { this.notify('Choose a draft card first'); return; }
     this.slayer.assignTask(); // idempotent: ensure a task exists so it can seed the wave
     this.spawnQueue = this.generateWave(this.wave);
@@ -1603,7 +1654,7 @@ export class GameEngine {
   /** Debug autoplay: count up while idle and auto-start the next wave once the
    *  delay elapses. Waits on a pending roguelite draft (the pick stays manual). */
   private tickAutoplay(dt: number) {
-    if (!this.autoplay || this.gameOver || this.waveActive || this.pendingDraft) {
+    if (!this.autoplay || this.gameOver || this.waveActive || this.pendingDraft || this.pendingRelics) {
       this.autoplayTimer = 0;
       return;
     }
@@ -1773,7 +1824,7 @@ export class GameEngine {
           this.lives -= cost;
           this.baseFlash = 1;
           this.sound.play('base_hit', 90); // player taking damage with no armour (OSRS take-damage splat)
-          if (this.lives <= 0) this.endGame();
+          this.checkLethal();
         }
         this.emit();
         continue;
@@ -2326,6 +2377,12 @@ export class GameEngine {
     if (dealt > 0 && enemy.bossState?.kind === 'jad') {
       (enemy.bossState.recentDamage ??= []).push({ t: this.gameTime, amount: dealt });
     }
+    // Executioner relic: a non-boss reduced to a sliver is slain outright (bosses,
+    // their phases, and Jad's healers are immune).
+    if (dealt > 0 && !enemy.isBoss && !enemy.bossState && !enemy.healer &&
+        shouldExecute(this.relicFx.executeFrac, enemy.hp, enemy.maxHp)) {
+      enemy.hp = 0;
+    }
     if (!minor) {
       enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
       // Play the WHOLE hurt flinch (priority over walk) before reverting — sizing
@@ -2506,26 +2563,66 @@ export class GameEngine {
       this.emit();
       return;
     }
+    const clearedWave = this.wave;
     this.awardGold(Math.round(waveClearBonus(this.wave) * GENERAL_GOLD_FACTOR));
     const waveEssence = essenceForWave(this.wave);
     this.meta.award(waveEssence); // essence reward for the cleared wave
     this.essenceEarnedThisRun += waveEssence;
+    // Banker's Note relic: pay interest on the gold on hand (capped, full value —
+    // it's a relic reward, so it skips the general-flow factor).
+    if (this.relicFx.interest) {
+      const gain = interestGain(this.relicFx.interest.rate, this.relicFx.interest.cap, this.money);
+      if (gain > 0) this.awardGold(gain);
+    }
     // Blood Pact curse: clearing a wave costs a life (the price of its +damage).
     if (this.runFx.bloodPact) {
       this.lives -= 1;
       this.baseFlash = 1;
-      if (this.lives <= 0) { this.lives = 0; this.endGame(); this.emit(); return; }
+      if (this.checkLethal()) { this.emit(); return; }
     }
     this.wave += 1;
     this.checkPrayerUnlocks(); // celebrate any tower prayers gating on the new wave
     this.prayer.refill(); // top up to the new wave's (possibly larger) pool
     this.ge.onWaveCleared(); // drift shop prices toward this wave's demand
-    // Roguelite: offer a draft hand to keep before the next wave can start.
+    // Roguelite: at a milestone wave offer a run-defining relic choice; otherwise
+    // the usual per-wave draft hand. Either blocks the next wave until resolved.
     if (this.gameMode === 'roguelite' && !this.gameOver) {
-      this.pendingDraft = rollDraft(Math.random, 3, availableCards(this.draftedUnique));
-      this.sound.play('interface_open');
+      const relicChoice = isRelicWave(clearedWave)
+        ? rollRelicChoice(Math.random, new Set(this.ownedRelics.map(r => r.id)))
+        : [];
+      if (relicChoice.length > 0) {
+        this.pendingRelics = relicChoice;
+        this.sound.play('interface_open');
+      } else {
+        this.offerDraft();
+      }
     }
     this.emit();
+  }
+
+  /** Roll and offer a fresh draft hand (bigger if Production Prodigy is owned) and
+   *  refill the per-wave re-roll allowance (Trickster). */
+  private offerDraft() {
+    this.pendingDraft = rollDraft(Math.random, 3 + this.relicFx.handBonus, availableCards(this.draftedUnique));
+    this.draftRerollsLeft = this.relicFx.rerollsPerWave;
+    this.sound.play('interface_open');
+  }
+
+  /** Resolve a would-be-lethal life total. Returns true if the run ended; false if
+   *  the player survives — including a Last Recall relic spending a charge to leave
+   *  them on 1 life. Call right after any life subtraction that could hit 0. */
+  private checkLethal(): boolean {
+    if (this.lives > 0) return false;
+    if (this.relicFx.cheatDeathLeft > 0) {
+      this.relicFx.cheatDeathLeft -= 1;
+      this.lives = 1;
+      this.addRing(this.width / 2, this.height / 2, 24, Math.max(this.width, this.height) * 0.5, '#9dffa0', 0.7, 8);
+      this.notify('Last Recall — cheated death!');
+      return false;
+    }
+    this.lives = 0;
+    this.endGame();
+    return true;
   }
 
   /** Choose the game mode. Only switches before the run starts (wave 1, no wave
@@ -2554,6 +2651,48 @@ export class GameEngine {
     this.pendingDraft = null;
     this.sound.play('sell'); // OSRS reward chime
     this.notify(`Drafted: ${card.name}`, card.icon);
+  }
+
+  /** Roguelite: re-roll the current draft hand, spending one Trickster charge.
+   *  No-op when there's no pending draft or no re-rolls left. */
+  rerollDraft() {
+    if (!this.pendingDraft || this.draftRerollsLeft <= 0) return;
+    this.draftRerollsLeft -= 1;
+    this.pendingDraft = rollDraft(Math.random, 3 + this.relicFx.handBonus, availableCards(this.draftedUnique));
+    this.sound.play('interface_open');
+    this.emit();
+  }
+
+  /** Roguelite: keep the chosen relic from the milestone offer, apply its effect,
+   *  and clear the offer so the next wave can start. No-op if the id isn't offered. */
+  pickRelic(id: string) {
+    const relic = this.pendingRelics?.find(r => r.id === id);
+    if (!relic) return;
+    this.applyRelicEffect(relic.effect);
+    this.ownedRelics.push(relic);
+    this.pendingRelics = null;
+    this.sound.play('sell'); // OSRS reward chime
+    this.notify(`Relic: ${relic.name}`, relic.icon);
+  }
+
+  /** Fold a chosen relic's effect into the run. Stat/utility kinds reuse the
+   *  draft pipelines ({@link runMods} / {@link runFx}); the relic-only kinds set
+   *  their {@link relicFx} hooks. `multi` applies each sub-effect in order. */
+  private applyRelicEffect(e: RelicEffect) {
+    switch (e.kind) {
+      case 'execute': this.relicFx.executeFrac = Math.max(this.relicFx.executeFrac, e.frac); break;
+      case 'interest': this.relicFx.interest = { rate: e.rate, cap: e.cap }; break;
+      case 'reroll': this.relicFx.rerollsPerWave += e.perWave; break;
+      case 'handSize': this.relicFx.handBonus += e.extra; break;
+      case 'cheatDeath': this.relicFx.cheatDeathLeft += 1; break;
+      case 'damage': this.applyStyleMult(this.runMods.damage, e.mult, e.style); break;
+      case 'range': this.applyStyleMult(this.runMods.range, e.mult, e.style); break;
+      case 'fireRate': this.applyStyleMult(this.runMods.fireRate, e.mult, e.style); break;
+      case 'goldFind': this.runFx.goldMult *= e.mult; break;
+      case 'soulSplit': this.runFx.soulSplitEvery = e.every; break;
+      case 'maxLife': this.maxLives += e.amount; this.lives += e.amount; break;
+      case 'multi': for (const sub of e.effects) this.applyRelicEffect(sub); break;
+    }
   }
 
   /** Apply a drafted card's effect to the run. Instant effects grant a resource;
@@ -2649,6 +2788,10 @@ export class GameEngine {
     this.draftedUnique.clear();
     this.runCards = [];
     this.pendingDraft = null;
+    this.relicFx = freshRelicEffects();
+    this.ownedRelics = [];
+    this.pendingRelics = null;
+    this.draftRerollsLeft = 0;
     this.wave = 1;
     this.kills = 0;
     this.goldEarned = 0;

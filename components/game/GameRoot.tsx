@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
 import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
+import { RELICS, type Relic, type RelicTier } from '@/lib/game/systems/relics';
 import { AFFIX_DEFS } from '@/lib/game/systems/affixes';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum, synergyDamageMult } from '@/lib/game/systems/tower-combat';
@@ -170,6 +171,7 @@ const INITIAL: UIState = {
     fireRate: { melee: 1, ranged: 1, magic: 1 },
   },
   runCards: [],
+  pendingRelics: null, ownedRelics: [], draftRerolls: 0,
   autoplay: false, autoplaySecs: 3,
 };
 
@@ -1600,8 +1602,11 @@ export default function GameRoot() {
           )
         )}
 
-        {/* Roguelite build-at-a-glance: the relics (rule-changing cards) drafted
-            this run, so the active loadout is visible instead of forgotten. */}
+        {/* Roguelite loadout-at-a-glance: the run's claimed relics (milestone
+            picks) above the rule-changing draft boons, so neither is forgotten. */}
+        {ui.gameMode === 'roguelite' && ui.ownedRelics.length > 0 && (
+          <OwnedRelicTray ids={ui.ownedRelics} />
+        )}
         {ui.gameMode === 'roguelite' && ui.runCards.length > 0 && (
           <RelicStrip cards={ui.runCards} />
         )}
@@ -1968,6 +1973,23 @@ export default function GameRoot() {
         </div>
       )}
 
+      {/* Roguelite relic choice — milestone-wave run-defining pick (over the draft) */}
+      {ui.pendingRelics && !ui.gameOver && (
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4">
+          <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Choose a Relic</div>
+          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">A milestone reached — claim one run-long power</div>
+          <div className="flex gap-6 flex-wrap justify-center">
+            {ui.pendingRelics.map((relic) => (
+              <RelicCardView
+                key={relic.id}
+                relic={relic}
+                onPick={() => engineRef.current?.pickRelic(relic.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Roguelite draft — pick one card to keep before the next wave */}
       {ui.pendingDraft && !ui.gameOver && (
         <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30 p-4">
@@ -1984,6 +2006,15 @@ export default function GameRoot() {
               />
             ))}
           </div>
+          {/* Trickster relic: re-roll the hand while charges remain. */}
+          {ui.draftRerolls > 0 && (
+            <button
+              className="rs-btn rs-btn-primary mt-4 px-[1.2em] py-[0.4em] text-[0.9em]"
+              onClick={() => engineRef.current?.rerollDraft()}
+            >
+              ⟳ Re-roll ({ui.draftRerolls} left)
+            </button>
+          )}
         </div>
       )}
 
@@ -2009,6 +2040,9 @@ export default function GameRoot() {
               <span className="text-osrs-yellow font-bold">+{fmt(engineRef.current?.essenceEarnedThisRun ?? 0)}</span>
               <span className="text-[0.82em] text-[#d3c3a0] uppercase tracking-wide">Rune Essence banked</span>
             </div>
+            {ui.gameMode === 'roguelite' && ui.ownedRelics.length > 0 && (
+              <OwnedRelicTray ids={ui.ownedRelics} summary />
+            )}
             {ui.gameMode === 'roguelite' && ui.runCards.length > 0 && (
               <RunBuild cards={ui.runCards} />
             )}
@@ -2052,6 +2086,20 @@ const RARITY_LABEL: Record<DraftRarity, string> = {
   rare: 'Rare',
   ultra: 'Ultra-rare',
 };
+
+/** Relic tier palette + labels — warmer/regal tones to read distinct from the
+ *  draft-card rarities (minor bronze, major gold, mythic crimson). */
+const TIER_COLOR: Record<RelicTier, string> = {
+  minor: '#CD7F32',
+  major: '#F2C94C',
+  mythic: '#E74C3C',
+};
+const TIER_LABEL: Record<RelicTier, string> = {
+  minor: 'Minor Relic',
+  major: 'Major Relic',
+  mythic: 'Mythic Relic',
+};
+const RELIC_BY_ID: Record<string, Relic> = Object.fromEntries(RELICS.map((r) => [r.id, r]));
 
 /** Combat-style → its OSRS combat-triangle icon (sword / bow / staff), used to
  *  replace the words "melee"/"ranged"/"magic" inline in card text. */
@@ -2352,6 +2400,7 @@ const TOUR_STEPS: TourStep[] = [
   { target: 'hud', title: 'Lives & gold', body: 'Up here: your lives (you lose one each time an enemy reaches the base) and your gold (earned from kills, spent on towers).' },
   { title: 'Enemy affixes', body: 'From wave 5, some enemies glow with an affix that changes the rules: Shielded soaks a burst, Armored halves one style, Warded ignores slows/stuns, Volatile disables a tower on death, Swarm packs in, Colossal costs two lives. Just one affix when they first unlock — but deep into a run a single elite can stack several at once. Read the aura colours and diversify your defences.' },
   { title: 'Boss mechanics', body: 'The signature bosses fight back. Zulrah cycles three forms (green / blue / red) — each weak to one style and resistant to the others, so switch towers to match its colour. Vorkath periodically raises an ice shield: it turns immune and freezes your nearest tower for a few seconds — weather it. Jad summons Yt-HurKot healers below half health that claw back the damage you dealt him — divert fire to kill the healers. And once you have beaten a boss, future encounters can also roll affixes on top.' },
+  { title: 'Relics (Roguelite)', body: 'In Roguelite mode, every 5th wave swaps the card draft for a choice of Relics: powerful run-long passives, one of each, themed on the OSRS Leagues relics. Executioner slays low-health enemies outright, Banker\'s Note pays gold interest each wave, Trickster re-rolls a draft hand, Production Prodigy adds a card to every hand, and Last Recall cheats one lethal leak. They live in your Relics panel, above the rule-changing Boons.' },
   { target: 'prayers', title: 'Prayer', body: 'Toggle prayers to buff a tower style (ranged / magic / melee) or protect your base. They drain a Prayer pool while on and refill between waves — flip the big ones on for boss waves.' },
   { target: 'sidebar', title: 'More interfaces', body: 'These stones open the Grand Exchange, Essence Shop, Slayer Rewards and the Collection Log. The next few steps walk through each.' },
   { target: 'ge', title: 'Grand Exchange', body: 'Spend gold on potions and consumables for a timed buff. Prices drift with demand each wave, so stock up on the buffs you rely on when they are cheap.' },
@@ -2513,8 +2562,9 @@ const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       { icon: COLLECTION_LOG_ICON, title: 'Pick one card per wave', body: 'Clear a wave and you are offered three reward cards — keep one. They stack all run long, so your defences snowball into a build that is uniquely yours.' },
       { title: 'Rarities', body: 'Cards range Common → Uncommon → Rare → Ultra-rare. Rarer cards are stronger or wilder, and turn up far less often.' },
-      { title: 'What cards do', body: 'Some give flat boosts — damage, range, gold, lives, essence. Others rewrite how towers behave: ricochet kills, venom tips, chain-freeze, pierce, last-stand. The standout ones become Relics in their own panel.' },
-      { title: 'Run summary', body: 'When a run ends you get a recap — wave reached, kills, gold, essence banked, and the full build of cards you drafted.' },
+      { title: 'What cards do', body: 'Some give flat boosts — damage, range, gold, lives, essence. Others rewrite how towers behave: ricochet kills, venom tips, chain-freeze, pierce, last-stand. The rule-changing ones gather in your Boons panel.' },
+      { title: 'Relics — milestone picks', body: 'Every 5th wave the draft is replaced by a choice of Relics: powerful, run-long passives you only ever hold one of, themed on the OSRS Leagues relics. Executioner slays low-health enemies outright, Banker\'s Note pays interest each wave, Trickster lets you re-roll a draft hand, Production Prodigy adds a card to every hand, and Last Recall saves you from one lethal leak. They sit in your Relics panel, above your Boons.' },
+      { title: 'Run summary', body: 'When a run ends you get a recap — wave reached, kills, gold, essence banked, the relics you claimed and the full build of cards you drafted.' },
     ],
   },
   {
@@ -3045,7 +3095,7 @@ function RelicStrip({ cards }: { cards: { id: string; count: number }[] }) {
       >
         <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide flex items-center gap-[0.3em]">
           <span className="text-[0.85em] text-[#cdbe91]">{collapsed ? '▸' : '▾'}</span>
-          Relics
+          Boons
         </span>
         <span className="text-[0.7em] text-[#cdbe91]">{relics.length}</span>
       </button>
@@ -3102,6 +3152,85 @@ function RunBuild({ cards }: { cards: { id: string; count: number }[] }) {
                 ×{count}
               </span>
             )}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The cloneable relic shape the engine emits for the choice overlay (`tier` is a
+ *  plain string across the boundary; resolved back to a {@link RelicTier} here). */
+type RelicView = { id: string; name: string; desc: string; tier: string; icon: string };
+
+/** A relic offered at a milestone wave, framed like a draft card but in the relic
+ *  tier palette. Relics carry their own one-line examine, so there's no live stat
+ *  preview band — the whole card is the pitch. */
+function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => void }) {
+  const tier = (relic.tier in TIER_COLOR ? relic.tier : 'minor') as RelicTier;
+  const color = TIER_COLOR[tier];
+  const dark = `color-mix(in srgb, #222222 64%, ${color} 36%)`;
+  const mid = `color-mix(in srgb, #2F2F2F 78%, ${color} 22%)`;
+  const k = 1.5;
+  const fz = (min: number, vw: number, max: number) => `clamp(${min * k}px, ${(vw * k).toFixed(3)}vw, ${max * k}px)`;
+  return (
+    <button
+      onClick={onPick}
+      disabled={!onPick}
+      title={relic.desc}
+      className="draft-card group relative flex flex-col overflow-hidden text-center"
+      style={{
+        width: 'clamp(198px, 18vw, 252px)',
+        aspectRatio: '180 / 260',
+        background: '#2A2A2A',
+        border: '3px solid #000000',
+        borderRadius: 10,
+        padding: 3,
+        gap: 2,
+        cursor: onPick ? 'pointer' : 'default',
+        boxShadow: `0 0 0 1px #000, 0 8px 20px rgba(0,0,0,0.6), 0 0 16px ${color}55`,
+      }}
+    >
+      {/* title band (12%) */}
+      <div className="flex items-center justify-center px-1" style={bandStyle(dark, 12)}>
+        <span className="font-osrs leading-none" style={{ color, fontSize: fz(8, 0.74, 12), textShadow: '0 1px 1px #000' }}>{relic.name}</span>
+      </div>
+      {/* art window (42%) */}
+      <div className="flex items-center justify-center" style={bandStyle(mid, 42)}>
+        <img src={relic.icon} alt="" className="object-contain" style={{ maxWidth: '64%', maxHeight: '78%', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.7))' }} onError={hideBrokenImg} />
+      </div>
+      {/* tier band (10%) */}
+      <div className="flex items-center justify-center" style={bandStyle(dark, 10)}>
+        <span className="font-osrs uppercase tracking-wide" style={{ color, fontSize: fz(7, 0.56, 10), textShadow: '0 1px 1px #000' }}>{TIER_LABEL[tier]}</span>
+      </div>
+      {/* examine band (36%) */}
+      <div className="flex items-center justify-center px-2" style={bandStyle(mid, 36)}>
+        <span className="font-osrs leading-tight" style={{ color: '#e7dcc0', fontSize: fz(8, 0.72, 12), textShadow: '0 1px 1px #000' }}>{relic.desc}</span>
+      </div>
+    </button>
+  );
+}
+
+/** Roguelite owned-relics tray: the run's claimed relics as tier-bordered icons
+ *  with a hover tooltip. Rendered in the HUD and the end-of-run summary. */
+function OwnedRelicTray({ ids, summary }: { ids: string[]; summary?: boolean }) {
+  const relics = ids.map((id) => RELIC_BY_ID[id]).filter((r): r is Relic => !!r);
+  if (relics.length === 0) return null;
+  return (
+    <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
+      <div className="text-[0.78em] text-osrs-orange uppercase tracking-wide mb-[0.4em] flex items-center justify-between">
+        <span>{summary ? 'Relics Claimed' : 'Relics'}</span>
+        <span className="text-[0.85em] text-[#cdbe91]">{relics.length}</span>
+      </div>
+      <div className={`flex flex-wrap gap-[0.35em] ${summary ? 'justify-center' : ''}`}>
+        {relics.map((relic) => (
+          <span
+            key={relic.id}
+            title={`${relic.name} — ${relic.desc}`}
+            className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
+            style={{ border: `1px solid ${TIER_COLOR[relic.tier]}`, boxShadow: `inset 0 0 6px ${TIER_COLOR[relic.tier]}55` }}
+          >
+            <img src={relic.icon} alt={relic.name} className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
           </span>
         ))}
       </div>
