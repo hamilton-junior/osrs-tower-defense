@@ -1776,7 +1776,9 @@ export class GameEngine {
           const total = Math.floor(d.accum);
           if (total > 0) {
             d.accum -= total;
-            if (this.damage(e, total, kind, true)) break; // enemy died; stop ticking it
+            // Pass the source style so boss style-resistance (Zulrah) reduces the
+            // DoT — including Fire's %max-HP burn — like it does the direct hit.
+            if (this.damage(e, total, kind, true, false, 0, d.style)) break; // enemy died; stop ticking it
           }
         }
         if (expired) delete e.dots[kind];
@@ -2253,6 +2255,10 @@ export class GameEngine {
     // Warded affix: shrug off the movement crowd-control specials (slow handled in
     // applySlow; stun/pushback/crush guarded here). DoTs and amp still apply.
     if (isCcImmune(e.affixes ?? []) && (p.special === 'stun' || p.special === 'pushback' || p.special === 'crush')) return;
+    // Source style, stamped on any DoT raised below so boss style-resistance
+    // (Zulrah's phases) reduces the over-time damage — notably Fire's %max-HP
+    // burn — just as it already reduces the projectile's direct hit.
+    const style = this.projectileStyle(p);
     switch (p.special) {
       case 'slow':
         this.applySlow(e);
@@ -2273,8 +2279,8 @@ export class GameEngine {
         const dps = p.aoe ? this.wave : Math.max(3, Math.floor(e.maxHp * 0.02));
         const dots = (e.dots ??= {});
         const cur = dots[kind];
-        if (cur) { cur.timer = Math.max(cur.timer, dur); cur.dps = Math.max(cur.dps, dps); }
-        else dots[kind] = { timer: dur, dps, accum: 0, tickTimer: 0 };
+        if (cur) { cur.timer = Math.max(cur.timer, dur); cur.dps = Math.max(cur.dps, dps); cur.style = style; }
+        else dots[kind] = { timer: dur, dps, accum: 0, tickTimer: 0, style };
         break;
       }
       case 'amp': {
@@ -2306,8 +2312,8 @@ export class GameEngine {
         const { step, cap, dur } = venomRamp(p.damage);
         const dots = (e.dots ??= {});
         const cur = dots.venom;
-        if (cur) { cur.dps = Math.min(cap, cur.dps + step); cur.timer = Math.max(cur.timer, dur); }
-        else dots.venom = { timer: dur, dps: step, accum: 0, tickTimer: 0 };
+        if (cur) { cur.dps = Math.min(cap, cur.dps + step); cur.timer = Math.max(cur.timer, dur); cur.style = style; }
+        else dots.venom = { timer: dur, dps: step, accum: 0, tickTimer: 0, style };
         break;
       }
       default:

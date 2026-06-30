@@ -92,6 +92,10 @@ export interface DotState {
   accum: number;
   /** Counts up to one game tick so the DoT is dealt once per tick, not per frame. */
   tickTimer: number;
+  /** Combat style of the source tower, so boss style-resistance (e.g. Zulrah's
+   *  per-phase rock-paper-scissors) reduces the DoT — including the Fire burn's
+   *  %max-HP tick — exactly as it reduces the direct hit. Undefined → typeless. */
+  style?: CombatStyle;
 }
 
 export interface Enemy extends EnemyDef {
