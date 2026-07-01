@@ -169,6 +169,13 @@
       "hurt": 2650
     }
   },
+  "yt_hurkot": {
+    "npc": 3128,
+    "anims": {
+      "walk": 2634,
+      "death": 2630
+    }
+  },
   "vorkath": {
     "npc": 8061,
     "anims": {

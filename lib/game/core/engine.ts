@@ -428,6 +428,9 @@ export interface DeathFx {
   x: number;
   y: number;
   type: string;
+  /** Baked-clip override (e.g. a Jad healer dies as `yt_hurkot`, not its `imp`
+   *  combat type); mirrors Enemy.animType. Falls back to `type` when unbaked. */
+  animType?: string;
   isBoss: boolean;
   renderScale?: number;
   movingLeft: boolean;
@@ -1918,8 +1921,11 @@ export class GameEngine {
         // Bosses cost 5 + 1 per prior sighting (capped 10), elites/superiors
         // cost 3, and normal monsters cost 1 (2 for a Colossal). The sighting
         // tally already counts this appearance, so subtract it for "prior".
+        // Jad's healers never reach here (they `continue` above), but guard the
+        // life-cost anyway so only the boss itself — never a healer — can cost a
+        // life if that path is ever refactored.
         this.enemies.splice(i, 1);
-        if (!e.debug) {
+        if (!e.debug && !e.healer) {
           const cost = e.isBoss
             ? bossLeakCost((this.bossesSeen[e.type] ?? 1) - 1)
             : e.type.startsWith('superior_')
@@ -2547,7 +2553,8 @@ export class GameEngine {
       // rapid hits would freeze the enemy on frame 0). Death (higher priority)
       // still wins — a dying enemy leaves `enemies` entirely. The flash above
       // still fires every hit, so feedback isn't lost.
-      const hurtClip = ENEMY_ANIMS[enemy.type]?.clips.hurt;
+      const animSlug = enemy.animType && ENEMY_ANIMS[enemy.animType] ? enemy.animType : enemy.type;
+      const hurtClip = ENEMY_ANIMS[animSlug]?.clips.hurt;
       if (hurtClip && (enemy.hurtAnim ?? 0) <= 0) enemy.hurtAnim = clipDurationS(hurtClip);
     }
     const below = enemy.isBoss ? 30 : 16;
@@ -2578,12 +2585,14 @@ export class GameEngine {
     this.spawnDeathParticles(enemy);
     // Animated enemies play their full death-collapse clip; others use the brief
     // shrink-and-fade of the static sprite.
-    const deathClip = ENEMY_ANIMS[enemy.type]?.clips.death;
+    const deathSlug = enemy.animType && ENEMY_ANIMS[enemy.animType] ? enemy.animType : enemy.type;
+    const deathClip = ENEMY_ANIMS[deathSlug]?.clips.death;
     const deathLife = deathClip ? clipDurationS(deathClip) : 0.45;
     this.deaths.push({
       x: enemy.x,
       y: enemy.y,
       type: enemy.type,
+      animType: enemy.animType,
       isBoss: !!enemy.isBoss,
       renderScale: enemy.renderScale,
       movingLeft: (this.path[enemy.pathIndex + 1]?.x ?? enemy.x) < enemy.x,

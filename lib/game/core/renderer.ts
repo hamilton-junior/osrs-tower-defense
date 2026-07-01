@@ -614,12 +614,14 @@ export class GameRenderer {
   private drawDeaths(ctx: CanvasRenderingContext2D) {
     for (const d of this.e.deaths) {
       const t = Math.max(0, d.life / d.maxLife); // 1 → 0
-      const deathClip = ENEMY_ANIMS[d.type]?.clips.death;
-      const animKey = deathClip ? `enemyanim_${d.type}_death` : '';
+      // `animType` override (a Jad healer dies as `yt_hurkot`), same as drawEnemies.
+      const deathSlug = d.animType && ENEMY_ANIMS[d.animType] ? d.animType : d.type;
+      const deathClip = ENEMY_ANIMS[deathSlug]?.clips.death;
+      const animKey = deathClip ? `enemyanim_${deathSlug}_death` : '';
       if (deathClip && this.e.imageOk(animKey)) {
         // Animated death: play the collapse clip over the fx lifetime, at full
         // size; only fade out in the final stretch so the body settles first.
-        const set = ENEMY_ANIMS[d.type]!;
+        const set = ENEMY_ANIMS[deathSlug]!;
         const img = this.e.images.get(animKey)!;
         const elapsed = (d.maxLife - d.life); // 0 → maxLife
         const fi = clipFrame(deathClip, elapsed);
