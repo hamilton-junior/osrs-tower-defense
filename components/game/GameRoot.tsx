@@ -308,6 +308,15 @@ function loadBool(key: string, fallback: boolean): boolean {
   try { const v = localStorage.getItem(key); return v == null ? fallback : !!JSON.parse(v); } catch { return fallback; }
 }
 
+/** Collapse state for a tray, persisted under `key` so it survives the combat
+ *  sidebar body unmounting when its tab is minimised — the tray remounts and its
+ *  local state would otherwise reset to expanded every time. */
+function usePersistedCollapse(key: string): [boolean, () => void] {
+  const [collapsed, setCollapsed] = useState(() => loadBool(key, false));
+  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(collapsed)); } catch { /* ignore */ } }, [key, collapsed]);
+  return [collapsed, () => setCollapsed((c) => !c)];
+}
+
 /** Render a stat value, showing `base → buffed` (buffed in green) when a buff
  *  has changed it; a plain string otherwise (the parent styles it). */
 function buffedDisplay(base: string, buffed: string, changed: boolean): React.ReactNode {
@@ -3103,7 +3112,7 @@ function isRelicCard(card: DraftCard): boolean {
  *  rarity-bordered icons (×N badge for stacked stat cards), each with a hover
  *  tooltip naming the relic and its effect. One-shot resource cards are omitted. */
 function RelicStrip({ cards }: { cards: { id: string; count: number }[] }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, toggle] = usePersistedCollapse('ui_min_boons');
   const relics = cards
     .map((c) => ({ card: CARD_BY_ID[c.id], count: c.count }))
     .filter((r): r is { card: DraftCard; count: number } => !!r.card && isRelicCard(r.card));
@@ -3111,8 +3120,8 @@ function RelicStrip({ cards }: { cards: { id: string; count: number }[] }) {
   return (
     <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
       <button
-        onClick={() => setCollapsed((c) => !c)}
-        title={collapsed ? 'Expand relics' : 'Minimise relics'}
+        onClick={toggle}
+        title={collapsed ? 'Expand boons' : 'Minimise boons'}
         className={`flex items-center justify-between w-full ${collapsed ? '' : 'mb-[0.4em]'}`}
       >
         <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide flex items-center gap-[0.3em]">
@@ -3292,14 +3301,32 @@ function WaveEventBanner({ event }: { event: NonNullable<UIState['activeEvent']>
 }
 
 function OwnedRelicTray({ ids, summary }: { ids: string[]; summary?: boolean }) {
+  const [collapsed, toggle] = usePersistedCollapse('ui_min_relics');
   const relics = ids.map((id) => RELIC_BY_ID[id]).filter((r): r is Relic => !!r);
   if (relics.length === 0) return null;
+  // The end-of-run summary always shows the full tray (not collapsible).
+  const isCollapsed = !summary && collapsed;
   return (
     <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
-      <div className="text-[0.78em] text-osrs-orange uppercase tracking-wide mb-[0.4em] flex items-center justify-between">
-        <span>{summary ? 'Relics Claimed' : 'Relics'}</span>
-        <span className="text-[0.85em] text-[#cdbe91]">{relics.length}</span>
-      </div>
+      {summary ? (
+        <div className="text-[0.78em] text-osrs-orange uppercase tracking-wide mb-[0.4em] flex items-center justify-between">
+          <span>Relics Claimed</span>
+          <span className="text-[0.85em] text-[#cdbe91]">{relics.length}</span>
+        </div>
+      ) : (
+        <button
+          onClick={toggle}
+          title={isCollapsed ? 'Expand relics' : 'Minimise relics'}
+          className={`flex items-center justify-between w-full ${isCollapsed ? '' : 'mb-[0.4em]'}`}
+        >
+          <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide flex items-center gap-[0.3em]">
+            <span className="text-[0.85em] text-[#cdbe91]">{isCollapsed ? '▸' : '▾'}</span>
+            Relics
+          </span>
+          <span className="text-[0.85em] text-[#cdbe91]">{relics.length}</span>
+        </button>
+      )}
+      {!isCollapsed && (
       <div className={`flex flex-wrap gap-[0.35em] ${summary ? 'justify-center' : ''}`}>
         {relics.map((relic) => (
           <span
@@ -3312,6 +3339,7 @@ function OwnedRelicTray({ ids, summary }: { ids: string[]; summary?: boolean }) 
           </span>
         ))}
       </div>
+      )}
     </div>
   );
 }
