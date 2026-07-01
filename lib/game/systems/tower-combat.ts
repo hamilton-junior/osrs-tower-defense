@@ -25,6 +25,9 @@ export interface TowerStatsContext {
   /** Roguelite magic-spellbook specialisations: per-wizard-subtype multipliers
    *  applied only to that mage mode's towers (1 = off). */
   mageBuff?: Record<MageMode, { damage: number; range: number; fireRate: number }>;
+  /** Wave-event board-wide multipliers (all towers equally, this wave only).
+   *  Omitted / all-1 when no event is active. See `systems/wave-events`. */
+  globalMods?: { damage: number; range: number; fireRate: number };
 }
 
 export interface TowerSynergy {
@@ -200,6 +203,14 @@ export function calculateTowerStats(
     damageMultiplier *= ctx.runMods.damage[s];
     rangeMultiplier *= ctx.runMods.range[s];
     speedMultiplier *= ctx.runMods.fireRate[s];
+  }
+
+  // Wave-event board-wide multipliers — a transient, this-wave-only layer over
+  // everything, applied equally to every tower regardless of style.
+  if (ctx.globalMods) {
+    damageMultiplier *= ctx.globalMods.damage;
+    rangeMultiplier *= ctx.globalMods.range;
+    speedMultiplier *= ctx.globalMods.fireRate;
   }
 
   // Placement-synergy cards: a final per-tower damage layer keyed off the layout.

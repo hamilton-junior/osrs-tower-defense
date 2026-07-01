@@ -151,7 +151,7 @@ const attackSpeed = (cooldownMs: number) => {
 
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
-  remaining: 0, waveTotal: 0, bossWave: false, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
+  remaining: 0, waveTotal: 0, bossWave: false, activeEvent: null, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
   multiSelectedIds: [],
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
@@ -1592,6 +1592,7 @@ export default function GameRoot() {
                   style={{ width: `${ui.waveTotal ? Math.round(((ui.waveTotal - ui.remaining) / ui.waveTotal) * 100) : 0}%` }}
                 />
               </div>
+              {ui.activeEvent && <WaveEventBanner event={ui.activeEvent} />}
             </div>
           ) : (
             <>
@@ -2408,6 +2409,7 @@ const TOUR_STEPS: TourStep[] = [
   { target: 'startwave', title: 'Start the wave', body: 'Set up your defences, then press this to send the next wave. Between waves the game waits — no rush.' },
   { target: 'hud', title: 'Lives & gold', body: 'Up here: your lives (you lose one each time an enemy reaches the base) and your gold (earned from kills, spent on towers).' },
   { title: 'Enemy affixes', body: 'From wave 5, some enemies glow with an affix that changes the rules: Shielded soaks a burst, Armored halves one style, Warded ignores slows/stuns, Volatile disables a tower on death, Swarm packs in, Colossal costs two lives. Just one affix when they first unlock — but deep into a run a single elite can stack several at once. Read the aura colours and diversify your defences.' },
+  { title: 'Wave events', body: 'From wave 3, a wave can roll an event — a board-wide twist shown by a banner under the wave bar that lasts just that wave. Hazards make you adapt: Dense Fog shrinks tower range, Iron Tide toughens every enemy, Frenzy speeds the horde, Curse of Darkness saps your damage, Infestation swells the wave with frail stragglers. Blood Moon is a gamble — harder, but pays far more gold. And boons help: Overcharge (faster towers), Clear Skies (more range), War Banner (more damage). Events never roll on a boss wave.' },
   { title: 'Boss mechanics', body: 'The signature bosses fight back. Zulrah cycles three forms (green / blue / red) — each weak to one style and resistant to the others, so switch towers to match its colour. Vorkath periodically raises an ice shield: it turns immune and freezes your nearest tower for a few seconds — weather it. Jad summons Yt-HurKot healers below half health that claw back the damage you dealt him — divert fire to kill the healers. And once you have beaten a boss, future encounters can also roll affixes on top.' },
   { title: 'Relics (Roguelite)', body: 'In Roguelite mode, every 5th wave swaps the card draft for a choice of Relics: powerful run-long passives, one of each, themed on the OSRS Leagues relics. Executioner slays low-health enemies outright, Banker\'s Note pays gold interest each wave, Trickster re-rolls a draft hand, Production Prodigy adds a card to every hand, and Last Recall cheats one lethal leak. They live in your Relics panel, above the rule-changing Boons.' },
   { target: 'prayers', title: 'Prayer', body: 'Toggle prayers to buff a tower style (ranged / magic / melee) or protect your base. They drain a Prayer pool while on and refill between waves — flip the big ones on for boss waves.' },
@@ -2553,6 +2555,15 @@ const HELP_SECTIONS: HelpSection[] = [
       { title: 'Defensive affixes', body: 'Shielded — a cyan pip soaks a burst of damage before its health is touched (punishes chip DPS). Armored — takes half damage from one combat style, so bring another. Regenerating — heals over time unless you finish it fast.' },
       { title: 'Disruptive affixes', body: 'Warded — immune to slows, stuns and freezes. Volatile — detonates on death, briefly disabling your nearest tower (so don’t cram towers in one spot). Hasted — moves much faster and exposes coverage gaps.' },
       { title: 'Mass affixes', body: 'Swarm — arrives as a pack of frail copies, so spread/area damage shines. Colossal — one hulking, slow straggler with extra health that costs two lives if it leaks. Diversify your defences and elites stop being scary.' },
+    ],
+  },
+  {
+    id: 'events', label: 'Wave Events', tier: 'basic',
+    intro: 'From wave 3 on, a wave can roll an event — a board-wide twist announced by a banner under the wave bar that lasts that one wave, then clears. It hits every enemy and every tower, in both Classic and Roguelite.',
+    blocks: [
+      { title: 'Hazards', body: 'Most events make you work: Dense Fog cuts your towers’ range, Iron Tide makes every enemy far tougher, Frenzy sends the horde charging in much faster, Curse of Darkness saps your towers’ damage, and Infestation swells the wave with frail, numberless stragglers. Read the banner and play around it — reposition, switch styles, lean on area damage.' },
+      { title: 'Risk & reward', body: 'Blood Moon is the gamble: enemies are stronger and swifter, but drop far more gold. It never inflates the economy for free — you earn the payout by beating a genuinely harder wave.' },
+      { title: 'Boons', body: 'Some events help instead: Overcharge speeds up every tower, Clear Skies extends their range, and War Banner boosts their damage. When one lands, press the advantage. Events never roll on a boss wave — the boss is the headline act.' },
     ],
   },
   {
@@ -3222,6 +3233,37 @@ function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => voi
 
 /** Roguelite owned-relics tray: the run's claimed relics as tier-bordered icons
  *  with a hover tooltip. Rendered in the HUD and the end-of-run summary. */
+/** Announces the wave's active event (#1): a board-wide rule-bender for this wave
+ *  only. Tinted by the event's own colour; the tone word tells hazard from boon. */
+function WaveEventBanner({ event }: { event: NonNullable<UIState['activeEvent']> }) {
+  return (
+    <div
+      className="rs-panel-inset p-[0.5em] mb-[0.6em] flex items-center gap-[0.55em]"
+      style={{ border: `1px solid ${event.color}`, boxShadow: `inset 0 0 8px ${event.color}44` }}
+      title={event.desc}
+    >
+      <span
+        className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset shrink-0"
+        style={{ border: `1px solid ${event.color}` }}
+      >
+        <img src={event.icon} alt={event.name} className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
+      </span>
+      <div className="min-w-0">
+        <div className="flex items-center gap-[0.4em] leading-none">
+          <span className="text-[0.9em] font-bold truncate" style={{ color: event.color }}>{event.name}</span>
+          <span
+            className="text-[0.6em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm shrink-0"
+            style={{ background: `${event.color}22`, color: event.color }}
+          >
+            {event.tone === 'boon' ? 'Boon' : 'Hazard'}
+          </span>
+        </div>
+        <div className="text-[0.72em] text-[#cdbe91] mt-[0.2em] leading-tight">{event.desc}</div>
+      </div>
+    </div>
+  );
+}
+
 function OwnedRelicTray({ ids, summary }: { ids: string[]; summary?: boolean }) {
   const relics = ids.map((id) => RELIC_BY_ID[id]).filter((r): r is Relic => !!r);
   if (relics.length === 0) return null;

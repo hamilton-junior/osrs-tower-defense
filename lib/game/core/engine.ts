@@ -5,7 +5,7 @@ import { resolveImpactTheme, IMPACT_RECIPES, type ImpactTheme } from '../systems
 import { ENEMY_ANIMS, clipDurationS, type EnemyClip } from '../data/enemy-anims';
 import { ENEMIES } from '../data/enemies';
 import { TOWERS, TOWER_STYLES } from '../data/towers';
-import { LANDMARK_WAVES } from '../data/waves';
+import { LANDMARK_WAVES, type WaveConfig } from '../data/waves';
 import { ASSETS } from '../assets';
 import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
@@ -34,6 +34,7 @@ import {
   ALL_AFFIXES, SWARM_COUNT, VOLATILE_STUN_SECS,
   type EnemyAffix, type AffixRoll,
 } from '../systems/affixes';
+import { rollWaveEvent, resolveEventMods, type WaveEvent } from '../systems/wave-events';
 import {
   freshBossState, bossStyleMult, zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick,
   ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION,
@@ -194,6 +195,10 @@ export interface UIState {
   waveTotal: number;
   /** Whether the current wave contains a boss. */
   bossWave: boolean;
+  /** The active wave event (#1) for the current wave, or null when none. A
+   *  cloneable view (the engine holds the full {@link WaveEvent}). Drives the
+   *  banner that announces the wave's board-wide twist. */
+  activeEvent: { id: string; name: string; desc: string; tone: string; color: string; icon: string } | null;
   /** Whether a boss is currently alive on the field (its HP bar is showing). */
   bossOnField: boolean;
   gameOver: boolean;
@@ -484,6 +489,10 @@ export class GameEngine {
   gameOver = false;
   waveTotal = 0;
   bossWave = false;
+  /** Wave event active for the current wave (#1): a board-wide rule-bender rolled
+   *  at {@link startWave} and cleared at wave end. Null between waves / when none
+   *  rolled. Read at the spawn / tower-stat / gold hooks via {@link resolveEventMods}. */
+  activeEvent: WaveEvent | null = null;
   /** The current wave is a debug "custom wave" sandbox — its enemies don't affect
    *  the run (no rewards, no life loss, no wave advance). Set by
    *  {@link debugStartCustomWave}, cleared when the sandbox wave ends. */
@@ -683,6 +692,10 @@ export class GameEngine {
       remaining: this.spawnQueue.length + this.enemies.length,
       waveTotal: this.waveTotal,
       bossWave: this.bossWave,
+      activeEvent: this.activeEvent
+        ? { id: this.activeEvent.id, name: this.activeEvent.name, desc: this.activeEvent.desc,
+            tone: this.activeEvent.tone, color: this.activeEvent.color, icon: this.activeEvent.icon }
+        : null,
       bossOnField: this.enemies.some(e => e.isBoss),
       gameOver: this.gameOver,
       selectedTowerType: this.selectedTowerType,
@@ -809,6 +822,13 @@ export class GameEngine {
     this.slayer.buyReward(id);
   }
 
+  /** The active wave event's board-wide tower multipliers (all 1 when no event),
+   *  passed to {@link calculateTowerStats} as its `globalMods` layer. */
+  private eventTowerMods() {
+    const m = resolveEventMods(this.activeEvent);
+    return { damage: m.towerDamage, range: m.towerRange, fireRate: m.towerFireRate };
+  }
+
   /** A tower's effective combat stats right now (prayers + potions applied),
    *  for the UI to show buffed values and their origin. */
   effectiveStats(towerId: string): ComputedTowerStats | null {
@@ -823,6 +843,7 @@ export class GameEngine {
       synergy: this.runFx.synergy,
       portal: this.portalPoint,
       mageBuff: this.runFx.mageBuff,
+      globalMods: this.eventTowerMods(),
     });
   }
 
@@ -871,6 +892,7 @@ export class GameEngine {
       synergy: this.runFx.synergy,
       portal: this.portalPoint,
       mageBuff: this.runFx.mageBuff,
+      globalMods: this.eventTowerMods(),
     });
   }
 
@@ -1419,9 +1441,21 @@ export class GameEngine {
     if (this.pendingRelics) { this.notify('Choose a relic first'); return; }
     if (this.pendingDraft) { this.notify('Choose a draft card first'); return; }
     this.slayer.assignTask(); // idempotent: ensure a task exists so it can seed the wave
-    this.spawnQueue = this.generateWave(this.wave);
+    const configs = buildWaveConfigs(this.wave, {
+      enemies: Object.values(ENEMIES),
+      blockedEnemies: [],
+      landmark: LANDMARK_WAVES[this.wave],
+      // Seed the active Slayer-task target so its enemies keep spawning —
+      // the fail-safe against a task whose monster has dropped out of waves.
+      slayerTask: this.slayer.task,
+    });
+    // A boss wave stays the headline act — no event rolls on it (see wave-events).
+    const bossWave = configs.some(c => ENEMIES[c.type]?.isBoss);
+    this.activeEvent = rollWaveEvent(this.wave, bossWave, Math.random);
+    this.spawnQueue = this.buildWaveEnemies(configs, this.wave);
     this.waveTotal = this.spawnQueue.length;
-    this.bossWave = this.spawnQueue.some(e => e.isBoss);
+    this.bossWave = bossWave;
+    if (this.activeEvent) this.notify(this.activeEvent.name, this.activeEvent.icon);
     this.waveActive = true;
     this.sandboxWave = false; // a real wave: rewards/progression apply normally
     this.lastWaveSandbox = false; // a new wave started: clear the sandbox banner flag
@@ -1430,18 +1464,15 @@ export class GameEngine {
   }
 
   // --------------------------------------------------------------- wave build
-  private generateWave(wave: number): Enemy[] {
-    const configs = buildWaveConfigs(wave, {
-      enemies: Object.values(ENEMIES),
-      blockedEnemies: [],
-      landmark: LANDMARK_WAVES[wave],
-      // Seed the active Slayer-task target so its enemies keep spawning —
-      // the fail-safe against a task whose monster has dropped out of waves.
-      slayerTask: this.slayer.task,
-    });
+  /** Build the spawn queue from resolved wave configs, folding in the active
+   *  event's enemy-count multiplier (Infestation swells the horde). */
+  private buildWaveEnemies(configs: WaveConfig[], wave: number): Enemy[] {
+    const countMult = resolveEventMods(this.activeEvent).enemyCount;
     const out: Enemy[] = [];
     for (const cfg of configs) {
-      for (let i = 0; i < cfg.count; i++) {
+      // Bosses/uniques (count 1) are never multiplied — only the rank-and-file swell.
+      const count = cfg.count > 1 ? Math.max(1, Math.round(cfg.count * countMult)) : cfg.count;
+      for (let i = 0; i < count; i++) {
         const enemy = this.makeEnemy(cfg.type, wave);
         if (!enemy) continue;
         out.push(enemy);
@@ -1474,9 +1505,11 @@ export class GameEngine {
     const bossKind = def.isBoss && (MECHANIC_BOSSES as readonly string[]).includes(type)
       ? (type as BossId) : undefined;
     // Greed curse (×enemyHpMult) compounds with the affix spawn-HP multiplier
-    // (swarm frail / colossal tanky). Speed and draw-scale fold in their affixes too.
-    const hp = Math.max(1, Math.round(scaled.hp * this.runFx.enemyHpMult * affixSpawnHpMult(affixes)));
-    const speed = Math.max(1, Math.round(scaled.speed * affixSpeedMult(affixes)));
+    // (swarm frail / colossal tanky) and the active wave event (Iron Tide tougher /
+    // Infestation frail). Speed folds in its affixes and the event too (Frenzy).
+    const ev = resolveEventMods(this.activeEvent);
+    const hp = Math.max(1, Math.round(scaled.hp * this.runFx.enemyHpMult * affixSpawnHpMult(affixes) * ev.enemyHp));
+    const speed = Math.max(1, Math.round(scaled.speed * affixSpeedMult(affixes) * ev.enemySpeed));
     const shieldHp = shieldHpFor(affixes, hp);
     return {
       ...def,
@@ -1907,6 +1940,7 @@ export class GameEngine {
         synergy: this.runFx.synergy,
         portal: this.portalPoint,
         mageBuff: this.runFx.mageBuff,
+        globalMods: this.eventTowerMods(),
       });
       const half = squareRange(stats.range, GRID);
       // Test the enemy's body, not just its centre, so a tower fires as soon as
@@ -2533,8 +2567,9 @@ export class GameEngine {
     // only to test towers/enemies. Jad's healers likewise award nothing (their
     // payoff is denying Jad's heal). The death FX above still play.
     if (!enemy.debug && !enemy.healer) {
-      // Greed curse: enemies pay ×goldMult (default 1).
-      this.awardGold(Math.round(this.killGold(enemy.type) * this.runFx.goldMult));
+      // Greed curse (×goldMult) and the active wave event (×event gold, e.g. Blood
+      // Moon's harder-wave payout) both scale the drop; both default to 1.
+      this.awardGold(Math.round(this.killGold(enemy.type) * this.runFx.goldMult * resolveEventMods(this.activeEvent).gold));
       this.kills += 1;
       // New object each kill so the UI's persistence effect sees the change.
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
@@ -2645,6 +2680,7 @@ export class GameEngine {
     if (!this.waveActive) return;
     if (this.spawnQueue.length > 0 || this.enemies.length > 0) return;
     this.waveActive = false;
+    this.activeEvent = null; // the event lasts exactly its wave — clear it on clear
     // A debug sandbox wave clears with no payout and no progression — it leaves
     // the run exactly as it was before spawning.
     if (this.sandboxWave) {
@@ -2889,6 +2925,7 @@ export class GameEngine {
     this.essenceEarnedThisRun = 0;
     this.waveTotal = 0;
     this.bossWave = false;
+    this.activeEvent = null;
     this.sandboxWave = false;
     this.lastWaveSandbox = false;
     this.baseFlash = 0;
