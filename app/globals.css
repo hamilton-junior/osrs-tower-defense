@@ -265,6 +265,16 @@ body {
   animation: pulse-yellow 2s infinite;
 }
 
+/* Wave-event indicator: a colour-agnostic brightness shimmer so the event-tinted
+   chip pulls the eye without fighting its own inline glow colour. */
+@keyframes rs-event-shimmer {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.32); }
+}
+.wave-event-chip {
+  animation: rs-event-shimmer 1.8s ease-in-out infinite;
+}
+
 /* ===== Authentic OSRS interface chrome (collection-log / boss-log look) =====
    Flat brown wood texture, hard chiselled bevels (no rounded corners, no blur),
    centred orange title with an engraved divider — matching the in-game windows. */

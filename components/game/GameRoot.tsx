@@ -1166,16 +1166,18 @@ export default function GameRoot() {
         </div>
       )}
 
-      {/* Always-on buff infoboxes (RuneLite-style): icon + remaining seconds.
-          Timers pause between waves, so this doubles as a "ready to pull" cue. */}
-      {activeInfoboxes.length > 0 && (
+      {/* Always-on top-center cluster: the active wave-event twist + buff infoboxes
+          (RuneLite-style icon + remaining seconds). Timers pause between waves, so the
+          infoboxes double as a "ready to pull" cue. The whole row drops below the boss
+          HP bar while a boss is alive, so the bar stays topmost. */}
+      {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0) && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 flex gap-[0.4em] pointer-events-none transition-[top] duration-300"
-          // Drop below the boss HP bar while a boss is alive, so the bar stays topmost.
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex items-start gap-[0.4em] transition-[top] duration-300"
           style={{ top: ui.bossOnField ? '4.5rem' : '0.5rem' }}
         >
+          {ui.waveActive && ui.activeEvent && <WaveEventChip event={ui.activeEvent} />}
           {activeInfoboxes.map((o) => (
-            <div key={o.id} className="rs-infobox" title={`${o.name} — ${o.desc} · ${o.activeSecs}s left`}>
+            <div key={o.id} className="rs-infobox pointer-events-none" title={`${o.name} — ${o.desc} · ${o.activeSecs}s left`}>
               <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               <span className="rs-infobox-time">{o.activeSecs}</span>
             </div>
@@ -1214,9 +1216,6 @@ export default function GameRoot() {
           fill={ui.prayerPoints / ui.prayerMax}
           fillColor="linear-gradient(180deg, #6db3f2, #1f5fa8)"
         />
-        {/* Persistent wave-event indicator — always on screen (even when the main
-            panel is minimized) so the active twist is never missed. */}
-        {ui.waveActive && ui.activeEvent && <WaveEventChip event={ui.activeEvent} />}
       </div>
 
       {/* Selected tower panel (top-left) */}
@@ -3240,18 +3239,22 @@ function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => voi
  *  the active twist stays visible even when the main panel is collapsed. Hover for
  *  the full description; the banner in the main panel carries it inline. */
 function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }) {
+  const boon = event.tone === 'boon';
   return (
     <div
-      className="rs-panel flex items-center gap-[0.4em] px-[0.5em] py-[0.3em]"
-      style={{ border: `1px solid ${event.color}`, boxShadow: `0 0 6px ${event.color}55`, fontSize: 'clamp(12px, 0.8vw, 16px)' }}
+      className="wave-event-chip rs-panel flex items-center gap-[0.4em] pl-[0.3em] pr-[0.55em] py-[0.25em] pointer-events-auto"
+      style={{ border: `1px solid ${event.color}`, boxShadow: `0 0 8px ${event.color}66` }}
       title={`${event.name} — ${event.desc}`}
     >
-      <img src={event.icon} alt={event.name} className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
+      {/* Icon box mirrors the potion infoboxes sitting to its right, tinted to the event. */}
+      <span className="rs-infobox shrink-0" style={{ border: `1px solid ${event.color}`, boxShadow: `inset 0 0 6px ${event.color}55` }}>
+        <img src={event.icon} alt={event.name} onError={hideBrokenImg} />
+      </span>
       <div className="flex flex-col leading-none">
-        <span className="text-[0.6em] uppercase tracking-wide" style={{ color: event.color }}>
-          {event.tone === 'boon' ? 'Boon' : 'Hazard'}
+        <span className="text-[0.6em] uppercase tracking-wide font-bold" style={{ color: event.color }}>
+          {boon ? 'Boon' : 'Hazard'}
         </span>
-        <span className="font-bold text-[0.82em]" style={{ color: event.color }}>{event.name}</span>
+        <span className="font-bold text-[0.82em] text-[#ffe8b0] whitespace-nowrap">{event.name}</span>
       </div>
     </div>
   );
