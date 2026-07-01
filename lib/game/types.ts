@@ -151,9 +151,17 @@ export interface Enemy extends EnemyDef {
   /** Per-boss phase/mechanic state (Zulrah forms, Vorkath ice, Jad heal window);
    *  set on boss spawn, driven by `GameEngine.handleBossMechanics`. */
   bossState?: BossState;
-  /** A Yt-HurKot healer summoned by Jad: stationary, heals Jad while alive,
-   *  awards nothing — kill it to deny the heal. Skips path movement and leaks. */
+  /** A Yt-HurKot healer summoned by Jad: trails Jad in a loose orbit (never walks
+   *  the path or leaks), heals Jad while alive, awards nothing — kill it to deny
+   *  the heal. */
   healer?: boolean;
+  /** Orbit phase (radians) of a Jad healer around Jad; advanced each frame so the
+   *  healers drift around him while following at a limited distance. */
+  orbit?: number;
+  /** Overrides `type` for the baked-animation lookup only (sprite/clip slug),
+   *  leaving combat/stats on `type`. Lets a Jad healer render the real Yt-HurKot
+   *  model (`yt_hurkot`) once it's baked, falling back to `type`'s clip. */
+  animType?: string;
   /** Counts down while a hit-flinch (`hurt`) clip plays; set on each direct hit,
    *  decremented in `moveEnemies`. Visual only. */
   hurtAnim?: number;

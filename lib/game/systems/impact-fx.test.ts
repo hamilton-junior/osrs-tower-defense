@@ -35,10 +35,21 @@ describe('IMPACT_RECIPES', () => {
     for (const theme of THEMES) {
       const r = IMPACT_RECIPES[theme];
       expect(r, theme).toBeTruthy();
+      // flash core blooms with a positive radius/life
+      expect(r.flash.r).toBeGreaterThan(0);
+      expect(r.flash.life).toBeGreaterThan(0);
+      expect(r.flash.color).toMatch(/^#/);
       // ring expands outward
       expect(r.ring.r1).toBeGreaterThan(r.ring.r0);
       expect(r.ring.life).toBeGreaterThan(0);
       expect(r.ring.color).toMatch(/^#/);
+      // shards (optional) are internally consistent when present
+      if (r.shards) {
+        expect(r.shards.count).toBeGreaterThan(0);
+        expect(r.shards.lenMax).toBeGreaterThanOrEqual(r.shards.lenMin);
+        expect(r.shards.life).toBeGreaterThan(0);
+        expect(r.shards.color).toMatch(/^#/);
+      }
       // particle burst is non-empty and internally consistent
       const p = r.particles;
       expect(p.count).toBeGreaterThan(0);

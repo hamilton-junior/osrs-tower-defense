@@ -898,16 +898,6 @@ export class GameRenderer {
 
     for (const e of this.e.enemies) {
       const isBoss = !!e.isBoss;
-      // Jad's Yt-HurKot healers render as a procedural orb + a beam to Jad, not a
-      // sprite — drawn here and skipped from the normal enemy pipeline.
-      if (e.healer) {
-        const spawnT = e.spawnAnim && e.spawnAnim > 0 ? 1 - e.spawnAnim / SPAWN_ANIM_SECONDS : 1;
-        ctx.save();
-        ctx.globalAlpha = spawnT * spawnT * (3 - 2 * spawnT);
-        this.drawHealer(ctx, e, jad);
-        ctx.restore();
-        continue;
-      }
       // While still in the portal (materialising or not yet walked clear), hide
       // the HP bar / overlays so nothing pokes through the gateway.
       const inPortal = (e.spawnAnim ?? 0) > 0 || Math.hypot(e.x - pp.x, e.y - pp.y) < PORTAL_MASK_R;
@@ -942,9 +932,12 @@ export class GameRenderer {
       }
 
       const movingLeft = (this.e.path[e.pathIndex + 1]?.x ?? e.x) < e.x;
-      const animSet = ENEMY_ANIMS[e.type];
+      // `animType` overrides the clip slug (e.g. a Jad healer renders `yt_hurkot`
+      // once baked); fall back to `type`'s clip when the override isn't baked.
+      const animSlug = e.animType && ENEMY_ANIMS[e.animType] ? e.animType : e.type;
+      const animSet = ENEMY_ANIMS[animSlug];
       const hurting = !!animSet?.clips.hurt && (e.hurtAnim ?? 0) > 0;
-      const animKey = animSet ? `enemyanim_${e.type}_${hurting ? 'hurt' : 'walk'}` : '';
+      const animKey = animSet ? `enemyanim_${animSlug}_${hurting ? 'hurt' : 'walk'}` : '';
       if (animSet && this.e.imageOk(animKey)) {
         // Animated enemy: loop `walk` on alive-time, or play the whole `hurt`
         // flinch (priority over walk) when recently struck. The hurt window is
@@ -991,6 +984,10 @@ export class GameRenderer {
         ctx.arc(e.x + shx, e.y + shy, r, 0, Math.PI * 2);
         ctx.fill();
       }
+
+      // Yt-HurKot healer flair: a pulsing heal-beam back to Jad + a small heal
+      // badge, drawn over the (imp / real Yt-HurKot) body the normal path rendered.
+      if (e.healer && !inPortal) this.drawHealerFx(ctx, e, jad, size);
 
       // Affix auras: a pulsing ring per affix in its themed colour, so an elite
       // enemy reads at a glance (concentric when it carries two).
@@ -1087,52 +1084,39 @@ export class GameRenderer {
     }
   }
 
-  /** A Yt-HurKot healer: a green heal-beam to Jad plus a small floating orb with
-   *  a red cross and its own HP bar — clearly a target to cut down. */
-  private drawHealer(ctx: CanvasRenderingContext2D, e: Enemy, jad?: Enemy) {
-    const bob = Math.sin((e.animTime ?? 0) * 3) * 3; // gentle hover
-    const cy = e.y + bob;
+  /** Yt-HurKot healer flair over its rendered body: a pulsing green heal-beam back
+   *  to Jad and a small green cross badge, so it reads as the thing mending Jad and
+   *  a target to cut down. The body sprite + HP bar come from the normal enemy path. */
+  private drawHealerFx(ctx: CanvasRenderingContext2D, e: Enemy, jad: Enemy | undefined, size: number) {
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 240);
-    // Heal beam to Jad.
+    // Heal beam to Jad — a soft green tendril pulsing along its length.
     if (jad) {
       ctx.save();
       ctx.strokeStyle = `rgba(80,220,90,${0.3 + pulse * 0.35})`;
       ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(80,220,90,0.8)';
+      ctx.shadowBlur = 5;
       ctx.setLineDash([3, 4]);
       ctx.beginPath();
-      ctx.moveTo(e.x, cy);
+      ctx.moveTo(e.x, e.y);
       ctx.lineTo(jad.x, jad.y);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
     }
-    const r = 9;
-    // Orb body.
+    // Green cross badge floating just above the body.
+    const bx = e.x, by = e.y - size * 0.55 - 4;
     ctx.save();
-    const g = ctx.createRadialGradient(e.x, cy, 1, e.x, cy, r);
-    g.addColorStop(0, '#ff8a8a');
-    g.addColorStop(1, '#8a1c1c');
-    ctx.fillStyle = g;
+    ctx.strokeStyle = `rgba(120,255,140,${0.7 + pulse * 0.3})`;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(60,220,90,0.9)';
+    ctx.shadowBlur = 4;
     ctx.beginPath();
-    ctx.arc(e.x, cy, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = `rgba(120,255,140,${0.6 + pulse * 0.4})`;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    // Red cross.
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(e.x - 4, cy); ctx.lineTo(e.x + 4, cy);
-    ctx.moveTo(e.x, cy - 4); ctx.lineTo(e.x, cy + 4);
+    ctx.moveTo(bx - 4, by); ctx.lineTo(bx + 4, by);
+    ctx.moveTo(bx, by - 4); ctx.lineTo(bx, by + 4);
     ctx.stroke();
     ctx.restore();
-    // HP pip.
-    const ratio = Math.max(0, e.hp / e.maxHp);
-    ctx.fillStyle = '#400';
-    ctx.fillRect(e.x - 12, cy - r - 7, 24, 3);
-    ctx.fillStyle = '#3c3';
-    ctx.fillRect(e.x - 12, cy - r - 7, 24 * ratio, 3);
   }
 
   private drawProjectiles(ctx: CanvasRenderingContext2D) {
@@ -1232,6 +1216,21 @@ export class GameRenderer {
         ctx.beginPath();
         ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.restore();
+      } else if (f.kind === 'flash') {
+        // Explosion core: a filled radial bloom that fades and shrinks quickly.
+        const r = f.r * (1 - t * 0.4);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+        g.addColorStop(0, f.color);
+        g.addColorStop(0.5, f.color);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = (1 - t) * 0.85;
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
       } else {
         ctx.save();

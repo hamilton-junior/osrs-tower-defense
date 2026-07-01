@@ -317,6 +317,11 @@ function sanitizeCardCounts(raw: unknown): Record<string, number> {
 /** Boss types that carry phase mechanics (and can roll modifiers once seen). */
 const MECHANIC_BOSSES: readonly BossId[] = ['jad', 'vorkath', 'zulrah'];
 
+/** Jad-healer follow: orbit radius (px) they hold around Jad, and how fast that
+ *  orbit slot drifts (rad/s) so they circle him while trailing at a set distance. */
+const JAD_HEALER_ORBIT = 82;
+const HEALER_ORBIT_DRIFT = 0.5;
+
 /** Clean a persisted "bosses seen" blob: keep only the three mechanic bosses
  *  flagged true, so a corrupt/stale save can't gate modifiers on bad data. */
 function sanitizeBossesSeen(raw: unknown): Record<string, number> {
@@ -445,7 +450,8 @@ export interface Particle {
  *  and is culled once `age >= life`; purely visual, no game effect. */
 export type RuneFx =
   | { kind: 'ring'; x: number; y: number; age: number; life: number; r0: number; r1: number; color: string; width: number }
-  | { kind: 'bolt'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string };
+  | { kind: 'bolt'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string }
+  | { kind: 'flash'; x: number; y: number; age: number; life: number; r: number; color: string };
 
 const HITSPLAT_LIFE = 0.9;
 
@@ -1629,15 +1635,20 @@ export class GameEngine {
         ...ENEMIES.imp,
         id: uid(),
         type: 'imp',
+        // Render the real Yt-HurKot model once it's baked (falls back to the imp
+        // clip until then); stats/combat stay on `type: 'imp'`.
+        animType: 'yt_hurkot',
         name: 'Yt-HurKot',
         healer: true,
+        orbit: ang,
         debug: jad.debug, // inherit sandbox flag so a debug Jad spawns debug healers
-        x: jad.x + Math.cos(ang) * 78,
-        y: jad.y + Math.sin(ang) * 78,
+        x: jad.x + Math.cos(ang) * JAD_HEALER_ORBIT,
+        y: jad.y + Math.sin(ang) * JAD_HEALER_ORBIT,
         hp,
         maxHp: hp,
-        speed: 0,
-        baseSpeed: 0,
+        // A follow speed (px/s): fast enough to keep formation as Jad advances.
+        speed: 70,
+        baseSpeed: 70,
         renderScale: 0.7,
         pathIndex: jad.pathIndex,
         slowTimer: 0,
@@ -1650,6 +1661,26 @@ export class GameEngine {
     }
     this.addRing(jad.x, jad.y, 10, 80, '#48d04a', 0.55, 4); // a green summon pulse
     this.sound.play('wave', 60); // summon vwoop
+  }
+
+  /** Move a Yt-HurKot healer toward its orbit slot around Jad, so it follows him
+   *  at a limited distance (the orbit radius) and drifts around him rather than
+   *  walking the path. Orphans (no Jad) hold still until `handleBossMechanics`
+   *  culls them. */
+  private updateHealerFollow(e: Enemy, dt: number) {
+    const jad = this.enemies.find(h => h.bossState?.kind === 'jad');
+    if (!jad) return;
+    e.orbit = (e.orbit ?? 0) + dt * HEALER_ORBIT_DRIFT; // slow circle around Jad
+    const tx = jad.x + Math.cos(e.orbit) * JAD_HEALER_ORBIT;
+    const ty = jad.y + Math.sin(e.orbit) * JAD_HEALER_ORBIT;
+    const dx = tx - e.x, dy = ty - e.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 1) return;
+    // Keep pace with Jad even if he's faster than the healer's base follow speed.
+    const speed = Math.max(e.speed, (jad.speed || 0) * 1.4 + 40);
+    const step = Math.min(d, speed * dt);
+    e.x += (dx / d) * step;
+    e.y += (dy / d) * step;
   }
 
   /** Debug autoplay: count up while idle and auto-start the next wave once the
@@ -1734,6 +1765,12 @@ export class GameEngine {
     this.fx.push({ kind: 'bolt', x0, y0, x1, y1, age: 0, life, color });
   }
 
+  /** A bright bloom at a point that fades fast — the "explosion" core of a spell
+   *  impact (drawn as a filled radial disc). */
+  private addFlash(x: number, y: number, r: number, color: string, life = 0.16) {
+    this.fx.push({ kind: 'flash', x, y, age: 0, life, r, color });
+  }
+
   private spawn(dt: number) {
     if (this.spawnQueue.length === 0) return;
     this.spawnTimer += dt;
@@ -1794,9 +1831,9 @@ export class GameEngine {
       if (e.flashTimer && e.flashTimer > 0) e.flashTimer -= dt;
       e.animTime = (e.animTime ?? 0) + dt; // drives the looping walk-cycle
       if (e.hurtAnim && e.hurtAnim > 0) e.hurtAnim = Math.max(0, e.hurtAnim - dt);
-      // Jad's healers are stationary — they never advance the path or leak; the
-      // only way they leave the field is by being killed.
-      if (e.healer) continue;
+      // Jad's healers don't walk the path or leak — they trail Jad in a loose
+      // orbit; the only way they leave the field is by being killed.
+      if (e.healer) { this.updateHealerFollow(e, dt); continue; }
       if (e.slowTimer > 0) {
         e.slowTimer -= dt;
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
@@ -2121,7 +2158,12 @@ export class GameEngine {
     // the spotanim hybrid — textured spell GFX rasterise to white boxes, so we
     // draw them procedurally); arrows/cannonballs keep the plain coloured spark.
     const theme = resolveImpactTheme(p.type, p.element);
-    if (theme) this.spawnMagicImpact(p.x, p.y, theme);
+    // Land the burst on the target's body (enemies draw centred on x/y) when it's
+    // still alive, so the explosion reads as hitting the model rather than fizzling
+    // at wherever the homing shot happened to end; fall back to the impact point.
+    const ax = target && target.hp > 0 ? target.x : p.x;
+    const ay = target && target.hp > 0 ? target.y : p.y;
+    if (theme) this.spawnMagicImpact(ax, ay, theme);
     else this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
     // Archer arrows have no impact clip wired yet, and the generic melee "thud" is
@@ -2353,7 +2395,19 @@ export class GameEngine {
    *  jitter). Reuses the existing ring + particle draws — no renderer change. */
   private spawnMagicImpact(x: number, y: number, theme: ImpactTheme) {
     const r = IMPACT_RECIPES[theme];
+    // Bloom core, then the shockwave ring — the "small explosion on the model".
+    this.addFlash(x, y, r.flash.r, r.flash.color, r.flash.life);
     this.addRing(x, y, r.ring.r0, r.ring.r1, r.ring.color, r.ring.life, r.ring.width);
+    // Radiating spikes/cracks (ice/earth/shadow/blood/air): short jagged bolts fired
+    // outward from the impact centre in evenly-spread directions (jittered).
+    const sh = r.shards;
+    if (sh) {
+      for (let i = 0; i < sh.count; i++) {
+        const a = (i / sh.count) * Math.PI * 2 + Math.random() * 0.6;
+        const len = sh.lenMin + Math.random() * (sh.lenMax - sh.lenMin);
+        this.addBolt(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len, sh.color, sh.life);
+      }
+    }
     const pc = r.particles;
     for (let i = 0; i < pc.count; i++) {
       const angle = Math.random() * Math.PI * 2;
