@@ -81,7 +81,7 @@ export const RELICS: readonly Relic[] = [
     icon: `${W}Dragon_longsword.png`, effect: { kind: 'execute', frac: 0.12 } },
   { id: 'bankers_note', name: "Banker's Note", tier: 'major',
     desc: 'Each wave cleared pays 6% of your gold as interest (up to 80).',
-    icon: `${W}Banker%27s_note.png`, effect: { kind: 'interest', rate: 0.06, cap: 80 } },
+    icon: `${W}Bank_note.png`, effect: { kind: 'interest', rate: 0.06, cap: 80 } },
   { id: 'trickster', name: 'Trickster', tier: 'major',
     desc: 'Re-roll each draft hand once if you dislike the cards on offer.',
     icon: `${W}Ring_of_wealth.png`, effect: { kind: 'reroll', perWave: 1 } },

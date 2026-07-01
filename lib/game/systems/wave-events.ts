@@ -83,7 +83,7 @@ export const WAVE_EVENTS: readonly WaveEvent[] = [
     icon: `${W}Curse.png`, effect: { towerDamageMult: 0.8 } },
   { id: 'infestation', name: 'Infestation', tone: 'hazard', color: '#b6d957', weight: 16,
     desc: 'An infestation swells the horde with frail, numberless stragglers.',
-    icon: `${W}Kalphite_larva.png`, effect: { enemyCountMult: 1.6, enemyHpMult: 0.6 } },
+    icon: `${W}Kalphite_Larva.png`, effect: { enemyCountMult: 1.6, enemyHpMult: 0.6 } },
 
   // ───────────────────────────── risk / reward ────────────────────────────
   { id: 'blood_moon', name: 'Blood Moon', tone: 'hazard', color: '#c0392b', weight: 10,
@@ -96,10 +96,10 @@ export const WAVE_EVENTS: readonly WaveEvent[] = [
     icon: `${W}Battlestaff.png`, effect: { towerFireRateMult: 1.25 } },
   { id: 'clear_skies', name: 'Clear Skies', tone: 'boon', color: '#57c8ff', weight: 12,
     desc: 'The skies clear — your towers see much farther this wave.',
-    icon: `${W}Eagle_eye.png`, effect: { towerRangeMult: 1.3 } },
+    icon: `${W}Eagle_Eye.png`, effect: { towerRangeMult: 1.3 } },
   { id: 'war_banner', name: 'War Banner', tone: 'boon', color: '#ffd257', weight: 12,
     desc: 'A war banner rallies your towers — they strike harder this wave.',
-    icon: `${W}Decorative_sword.png`, effect: { towerDamageMult: 1.22 } },
+    icon: `${W}Saradomin_banner.png`, effect: { towerDamageMult: 1.22 } },
 ];
 
 // ───────────────────────────── tuning constants ────────────────────────────
