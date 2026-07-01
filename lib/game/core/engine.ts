@@ -458,8 +458,7 @@ export interface Particle {
  *  and is culled once `age >= life`; purely visual, no game effect. */
 export type RuneFx =
   | { kind: 'ring'; x: number; y: number; age: number; life: number; r0: number; r1: number; color: string; width: number }
-  | { kind: 'bolt'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string }
-  | { kind: 'flash'; x: number; y: number; age: number; life: number; r: number; color: string };
+  | { kind: 'bolt'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string };
 
 const HITSPLAT_LIFE = 0.9;
 
@@ -1832,12 +1831,6 @@ export class GameEngine {
     this.fx.push({ kind: 'bolt', x0, y0, x1, y1, age: 0, life, color });
   }
 
-  /** A bright bloom at a point that fades fast — the "explosion" core of a spell
-   *  impact (drawn as a filled radial disc). */
-  private addFlash(x: number, y: number, r: number, color: string, life = 0.16) {
-    this.fx.push({ kind: 'flash', x, y, age: 0, life, r, color });
-  }
-
   private spawn(dt: number) {
     if (this.spawnQueue.length === 0) return;
     this.spawnTimer += dt;
@@ -2020,6 +2013,12 @@ export class GameEngine {
       // Base projectile flavour; the cannon splashes (radius grows by tier), toxic
       // venoms, tzhaar crushes.
       let projColor = tower.color;
+      // Impact theme is keyed off the PROJECTILE (the tower's spell), never the
+      // enemy hit — elemental wizards tag the bolt with their element, ancients
+      // with their barrage type, so hit() themes the burst correctly (undefined
+      // here → a plain arrow/cannon spark).
+      let projElement: Element | undefined;
+      let projAncient: AncientType | undefined;
       let projSpecial: Projectile['special'] | undefined = tower.special === 'rapid' || tower.special === 'aoe' ? undefined : tower.special;
       let projAoe = tower.special === 'aoe';
       const projBlastRadius = tower.type === 'cannon' ? cannonBlastRadius(tower.level) : undefined;
@@ -2035,12 +2034,14 @@ export class GameEngine {
         if (mode === 'elemental') {
           const spec = ELEMENTS[(tower.element ?? 'air') as Exclude<Element, 'none'>];
           projColor = spec.glow ?? spec.color; // glow/trail matches the spell sprite
+          projElement = tower.element ?? 'air'; // themes the impact burst (fire → fire, …)
           projSpecial = spec.effect;
           damage = Math.floor(damage * weaknessMultiplier(tower.element ?? 'air', target.weakness));
         } else if (mode === 'ancients') {
           const anc = tower.ancientType ?? 'ice';
           const spec = ANCIENTS[anc];
           projColor = spec.glow ?? spec.color; // glow/trail matches the spell sprite
+          projAncient = anc; // themes the impact burst (ice/blood/shadow/smoke)
           projSpecial = spec.effect;
           projAoe = true;
           projLifesteal = !!spec.lifesteal;
@@ -2085,7 +2086,11 @@ export class GameEngine {
 
       // Launch one projectile at `tgt` for `dmg`, counting it as incoming so other
       // towers firing this same frame treat the target as (more) doomed.
-      const projType = tower.type === 'cannon' ? 'cannonball' : tower.type === 'wizard' ? 'spell' : 'arrow';
+      const projType: Projectile['type'] =
+        tower.type === 'cannon' ? 'cannonball'
+        : tower.type !== 'wizard' ? 'arrow'
+        : projAncient ? (`ancient_${projAncient}` as Projectile['type']) // ancients carry their tier so the impact themes right
+        : 'spell';
       const launch = (tgt: Enemy, dmg: number, fl: number) => {
         this.projectiles.push({
           id: uid(),
@@ -2100,6 +2105,7 @@ export class GameEngine {
           damage: dmg,
           color: projColor,
           type: projType,
+          element: projElement,
           special: projSpecial,
           aoe: projAoe || undefined,
           blastRadius: projBlastRadius,
@@ -2460,24 +2466,19 @@ export class GameEngine {
     e.y += (dy / d) * step;
   }
 
-  /** A small spark burst where a projectile lands. */
-  /** Element-themed magic impact: an expanding shockwave ring plus a themed
-   *  particle burst, both from {@link IMPACT_RECIPES} (this engine applies the
-   *  jitter). Reuses the existing ring + particle draws — no renderer change. */
+  /** Element-themed magic impact: radiating shards + a themed particle burst from
+   *  {@link IMPACT_RECIPES} (this engine applies the jitter). Deliberately has NO
+   *  round bloom/ring — the hit reads as a directional spray of its element's
+   *  colour (keyed off the projectile, via {@link resolveImpactTheme}). */
   private spawnMagicImpact(x: number, y: number, theme: ImpactTheme) {
     const r = IMPACT_RECIPES[theme];
-    // Bloom core, then the shockwave ring — the "small explosion on the model".
-    this.addFlash(x, y, r.flash.r, r.flash.color, r.flash.life);
-    this.addRing(x, y, r.ring.r0, r.ring.r1, r.ring.color, r.ring.life, r.ring.width);
-    // Radiating spikes/cracks (ice/earth/shadow/blood/air): short jagged bolts fired
-    // outward from the impact centre in evenly-spread directions (jittered).
+    // Radiating spikes/cracks/spray: short jagged bolts fired outward from the
+    // impact centre in evenly-spread directions (jittered).
     const sh = r.shards;
-    if (sh) {
-      for (let i = 0; i < sh.count; i++) {
-        const a = (i / sh.count) * Math.PI * 2 + Math.random() * 0.6;
-        const len = sh.lenMin + Math.random() * (sh.lenMax - sh.lenMin);
-        this.addBolt(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len, sh.color, sh.life);
-      }
+    for (let i = 0; i < sh.count; i++) {
+      const a = (i / sh.count) * Math.PI * 2 + Math.random() * 0.6;
+      const len = sh.lenMin + Math.random() * (sh.lenMax - sh.lenMin);
+      this.addBolt(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len, sh.color, sh.life);
     }
     const pc = r.particles;
     for (let i = 0; i < pc.count; i++) {

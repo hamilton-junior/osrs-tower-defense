@@ -1257,23 +1257,6 @@ export class GameRenderer {
         ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
-      } else if (f.kind === 'flash') {
-        // Explosion core: a filled radial bloom that fades and shrinks quickly.
-        const r = f.r * (1 - t * 0.4);
-        ctx.save();
-        // Normal alpha blending (NOT additive `lighter`) — additive summed the core
-        // onto a bright path/sprite and clipped every element's flash to white. Plain
-        // source-over keeps the bloom the element's own colour on any background.
-        const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
-        g.addColorStop(0, f.color);
-        g.addColorStop(0.35, f.color);
-        g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.globalAlpha = (1 - t) * 0.7;
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
       } else {
         ctx.save();
         ctx.globalAlpha = 1 - t;

@@ -35,21 +35,11 @@ describe('IMPACT_RECIPES', () => {
     for (const theme of THEMES) {
       const r = IMPACT_RECIPES[theme];
       expect(r, theme).toBeTruthy();
-      // flash core blooms with a positive radius/life
-      expect(r.flash.r).toBeGreaterThan(0);
-      expect(r.flash.life).toBeGreaterThan(0);
-      expect(r.flash.color).toMatch(/^#/);
-      // ring expands outward
-      expect(r.ring.r1).toBeGreaterThan(r.ring.r0);
-      expect(r.ring.life).toBeGreaterThan(0);
-      expect(r.ring.color).toMatch(/^#/);
-      // shards (optional) are internally consistent when present
-      if (r.shards) {
-        expect(r.shards.count).toBeGreaterThan(0);
-        expect(r.shards.lenMax).toBeGreaterThanOrEqual(r.shards.lenMin);
-        expect(r.shards.life).toBeGreaterThan(0);
-        expect(r.shards.color).toMatch(/^#/);
-      }
+      // radiating shards — every theme has them, and they're internally consistent
+      expect(r.shards.count).toBeGreaterThan(0);
+      expect(r.shards.lenMax).toBeGreaterThanOrEqual(r.shards.lenMin);
+      expect(r.shards.life).toBeGreaterThan(0);
+      expect(r.shards.color).toMatch(/^#/);
       // particle burst is non-empty and internally consistent
       const p = r.particles;
       expect(p.count).toBeGreaterThan(0);
@@ -66,14 +56,15 @@ describe('IMPACT_RECIPES', () => {
     expect(Object.keys(IMPACT_RECIPES).sort()).toEqual([...THEMES].sort());
   });
 
-  it('stays crisp, not a blown-out explosion', () => {
-    // Guard against the effects creeping back to the over-scaled "grenade" look:
-    // small flashes, short shockwaves, a handful of motes.
+  it('is a punchy directional burst, not a round bloom or a grenade', () => {
+    // No round primitives (flash/ring) may creep back — the recipe is shards +
+    // particles only — and the spray stays bounded (a burst, not an explosion).
     for (const theme of THEMES) {
-      const r = IMPACT_RECIPES[theme];
-      expect(r.flash.r, theme).toBeLessThanOrEqual(14);
-      expect(r.ring.r1, theme).toBeLessThanOrEqual(30);
-      expect(r.particles.count, theme).toBeLessThanOrEqual(10);
+      const r = IMPACT_RECIPES[theme] as unknown as Record<string, unknown>;
+      expect(r.flash, theme).toBeUndefined();
+      expect(r.ring, theme).toBeUndefined();
+      expect(IMPACT_RECIPES[theme].particles.count, theme).toBeLessThanOrEqual(16);
+      expect(IMPACT_RECIPES[theme].shards.count, theme).toBeLessThanOrEqual(10);
     }
   });
 
@@ -87,8 +78,7 @@ describe('IMPACT_RECIPES', () => {
       return r.toLowerCase() === g.toLowerCase() && g.toLowerCase() === b.toLowerCase();
     };
     const s = IMPACT_RECIPES.smoke;
-    expect(isGrey(s.flash.color)).toBe(true);
-    expect(isGrey(s.ring.color)).toBe(true);
+    expect(isGrey(s.shards.color)).toBe(true);
     expect(s.particles.colors.every(isGrey)).toBe(true);
   });
 });
