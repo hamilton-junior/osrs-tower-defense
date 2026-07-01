@@ -785,7 +785,7 @@ export class GameRenderer {
       }
 
       const aura = this.e.towerSynergyAura(tower);
-      const auraImg = aura ? this.towerImage(tower) : null;
+      const auraEntry = aura ? this.towerImageEntry(tower) : null;
 
       // Aim + recoil: nudge the sprite back along the firing direction and
       // pulse its scale; flip horizontally to face the target. The aura is drawn
@@ -798,17 +798,21 @@ export class GameRenderer {
       ctx.save();
       ctx.translate(tower.x - Math.cos(angle) * back, tower.y - Math.sin(angle) * back);
       ctx.scale(flip * pulse, pulse);
-      if (aura && auraImg) {
-        const intensity = Math.min(1, (aura.mult - 1) / 0.6); // 0..1 by buff strength
-        const glow = 0.5 + 0.5 * Math.sin(performance.now() / 520);
+      if (aura && auraEntry) {
+        // Draw a *pre-baked* coloured glow sprite (blur done once, off the hot path)
+        // and animate only its opacity — cheap even with a screen full of towers.
         const r = tower.visualRadius;
-        ctx.save();
-        ctx.shadowColor = aura.color;
-        ctx.shadowBlur = 5 + 9 * intensity * (0.7 + 0.3 * glow);
-        ctx.globalAlpha = 0.55 + 0.4 * intensity;
-        // Multiple passes deepen the coloured halo bleeding past the sprite edge.
-        for (let i = 0; i < 3; i++) ctx.drawImage(auraImg, -r, -r, r * 2, r * 2);
-        ctx.restore();
+        const size = Math.round(r * 2);
+        const glowSprite = this.glowSprite(auraEntry.img, auraEntry.key, aura.color, size);
+        if (glowSprite) {
+          const intensity = Math.min(1, (aura.mult - 1) / 0.6); // 0..1 by buff strength
+          const pulseGlow = 0.5 + 0.5 * Math.sin(performance.now() / 520);
+          const pad = GameRenderer.GLOW_PAD;
+          ctx.save();
+          ctx.globalAlpha = (0.45 + 0.4 * intensity) * (0.75 + 0.25 * pulseGlow);
+          ctx.drawImage(glowSprite, -r - pad, -r - pad, size + pad * 2, size + pad * 2);
+          ctx.restore();
+        }
       }
       this.drawTowerSprite(ctx, tower.type, tower.level, 0, 0, tower.visualRadius, this.wizardStaffKey(tower));
       ctx.restore();
@@ -845,12 +849,46 @@ export class GameRenderer {
     return 'wizard_utility';
   }
 
-  /** The image a tower currently renders with (staff variant → tier → base),
-   *  or null when none has loaded — shared by the sprite draw and the aura outline. */
-  private towerImage(tower: Tower): HTMLImageElement | null {
+  /** The image a tower currently renders with (staff variant → tier → base) plus
+   *  the resolved key, or null when none has loaded — shared by the sprite draw and
+   *  the aura glow (the key doubles as the glow-sprite cache key). */
+  private towerImageEntry(tower: Tower): { img: HTMLImageElement; key: string } | null {
     const keys = [this.wizardStaffKey(tower), `${tower.type}_${tower.level}`, `${tower.type}_1`].filter(Boolean) as string[];
     const key = keys.find(k => this.e.imageOk(k));
-    return key ? this.e.images.get(key)! : null;
+    return key ? { img: this.e.images.get(key)!, key } : null;
+  }
+
+  private towerImage(tower: Tower): HTMLImageElement | null {
+    return this.towerImageEntry(tower)?.img ?? null;
+  }
+
+  /** Padding (logic px) around a baked glow sprite so its blurred halo isn't clipped. */
+  private static readonly GLOW_PAD = 12;
+  /** Cache of pre-rendered synergy-aura glow sprites, keyed by image+colour+size.
+   *  Baking the blurred silhouette once (offscreen) turns the per-frame cost from
+   *  "3 shadow-blurred drawImage passes per tower" into a single plain drawImage —
+   *  the fix for the frame-rate collapse with many buffed towers. */
+  private glowCache = new Map<string, HTMLCanvasElement>();
+
+  /** A tower's coloured glow silhouette, baked once and reused. The offscreen
+   *  canvas holds the sprite plus its blurred coloured halo; drawn *under* the real
+   *  sprite, the opaque centre is covered and only the halo bleeds past the edge. */
+  private glowSprite(img: HTMLImageElement, imageKey: string, color: string, size: number): HTMLCanvasElement | null {
+    const key = `${imageKey}|${color}|${size}`;
+    const cached = this.glowCache.get(key);
+    if (cached) return cached;
+    const pad = GameRenderer.GLOW_PAD;
+    const canvas = document.createElement('canvas');
+    canvas.width = size + pad * 2;
+    canvas.height = size + pad * 2;
+    const g = canvas.getContext('2d');
+    if (!g) return null;
+    g.shadowColor = color;
+    g.shadowBlur = 12;
+    // A few passes deepen the halo — done ONCE here, not every frame per tower.
+    for (let i = 0; i < 3; i++) g.drawImage(img, pad, pad, size, size);
+    this.glowCache.set(key, canvas);
+    return canvas;
   }
 
   private drawTowerSprite(

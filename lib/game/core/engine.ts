@@ -493,6 +493,11 @@ export class GameEngine {
    *  at {@link startWave} and cleared at wave end. Null between waves / when none
    *  rolled. Read at the spawn / tower-stat / gold hooks via {@link resolveEventMods}. */
   activeEvent: WaveEvent | null = null;
+  /** Bumped whenever the tower layout or synergy config changes, so the per-tower
+   *  synergy-aura glow can be cached across frames instead of recomputed O(n²)
+   *  every frame (the glow depends only on positions/types/synergy, not time). */
+  private towerLayoutVersion = 0;
+  private synergyAuraCache: { version: number; auras: Map<string, { mult: number; color: string } | null> } | null = null;
   /** The current wave is a debug "custom wave" sandbox — its enemies don't affect
    *  the run (no rewards, no life loss, no wave advance). Set by
    *  {@link debugStartCustomWave}, cleared when the sandbox wave ends. */
@@ -847,22 +852,45 @@ export class GameEngine {
     });
   }
 
+  /** Invalidate the cached synergy-aura glows — call whenever the tower layout or
+   *  synergy config changes (place / sell / move / synergy draft / restart). */
+  private bumpTowerLayout() { this.towerLayoutVersion++; this.synergyAuraCache = null; }
+
   /** The placement-synergy buff a tower is enjoying right now, for the renderer's
    *  aura: the total damage multiplier (>1) and the colour of the *dominant*
-   *  contributing synergy. null when none applies (or not in roguelite mode). */
+   *  contributing synergy. null when none applies (or not in roguelite mode).
+   *  Cached per {@link towerLayoutVersion} so the O(n²) synergy scan runs once per
+   *  layout change, not once per tower every frame (the value is time-invariant —
+   *  only the glow's pulse, applied at draw time, animates). */
   towerSynergyAura(tower: Tower): { mult: number; color: string } | null {
     if (this.gameMode !== 'roguelite') return null;
-    const syn = this.runFx.synergy;
-    const total = synergyDamageMult(tower, this.towers, syn, this.portalPoint);
-    if (total <= 1.001) return null;
-    let bestKey: keyof typeof SYNERGY_COLORS | null = null;
-    let bestMult = 1;
-    for (const key of Object.keys(SYNERGY_COLORS) as (keyof typeof SYNERGY_COLORS)[]) {
-      if (!syn[key]) continue;
-      const m = synergyDamageMult(tower, this.towers, { [key]: syn[key] } as TowerSynergy, this.portalPoint);
-      if (m > bestMult) { bestMult = m; bestKey = key; }
+    if (!this.synergyAuraCache || this.synergyAuraCache.version !== this.towerLayoutVersion) {
+      this.synergyAuraCache = { version: this.towerLayoutVersion, auras: this.computeSynergyAuras() };
     }
-    return { mult: total, color: bestKey ? SYNERGY_COLORS[bestKey] : '#ffd257' };
+    return this.synergyAuraCache.auras.get(tower.id) ?? null;
+  }
+
+  /** Compute every tower's dominant synergy aura in one pass (still O(n²) in the
+   *  worst case, but run only on a layout change — see {@link towerSynergyAura}).
+   *  Short-circuits to all-null when no synergy card is active at all. */
+  private computeSynergyAuras(): Map<string, { mult: number; color: string } | null> {
+    const map = new Map<string, { mult: number; color: string } | null>();
+    const syn = this.runFx.synergy;
+    const anyActive = !!(syn.packTactics || syn.trinity || syn.vanguard || syn.loneWolf);
+    for (const tower of this.towers) {
+      if (!anyActive) { map.set(tower.id, null); continue; }
+      const total = synergyDamageMult(tower, this.towers, syn, this.portalPoint);
+      if (total <= 1.001) { map.set(tower.id, null); continue; }
+      let bestKey: keyof typeof SYNERGY_COLORS | null = null;
+      let bestMult = 1;
+      for (const key of Object.keys(SYNERGY_COLORS) as (keyof typeof SYNERGY_COLORS)[]) {
+        if (!syn[key]) continue;
+        const m = synergyDamageMult(tower, this.towers, { [key]: syn[key] } as TowerSynergy, this.portalPoint);
+        if (m > bestMult) { bestMult = m; bestKey = key; }
+      }
+      map.set(tower.id, { mult: total, color: bestKey ? SYNERGY_COLORS[bestKey] : '#ffd257' });
+    }
+    return map;
   }
 
   /** Effective stats for a not-yet-placed ghost tower of `type` at (x, y), so the
@@ -1172,6 +1200,7 @@ export class GameEngine {
     tower.y = sy;
     tower.targetId = null; // re-acquire from the new position
     this.movingTowerId = null;
+    this.bumpTowerLayout(); // position changed → synergy auras may shift
     this.sound.play('place');
     this.emit();
   }
@@ -1289,6 +1318,7 @@ export class GameEngine {
       supportSpell: type === 'wizard' && this.pendingMageMode === 'utility' ? 'curse' : undefined,
     });
     this.towersBuilt += 1;
+    this.bumpTowerLayout();
     this.sound.play('place');
     // Shift-place keeps the type selected so the next click drops another.
     if (!keepPlacing) this.selectedTowerType = null;
@@ -1430,6 +1460,7 @@ export class GameEngine {
     const tower = this.towers[i];
     this.money += this.sellValue(tower);
     this.towers.splice(i, 1);
+    this.bumpTowerLayout();
     if (this.selectedTowerId === towerId) this.selectedTowerId = null;
     if (this.movingTowerId === towerId) this.movingTowerId = null;
     this.sound.play('sell');
@@ -2766,6 +2797,7 @@ export class GameEngine {
     const card = this.pendingDraft?.find(c => c.id === id);
     if (!card) return;
     this.applyDraftEffect(card);
+    this.bumpTowerLayout(); // a synergy card changes the aura glows
     // Unique (build-defining) cards are spent: keep them out of this run's later hands.
     if (card.unique) this.draftedUnique.add(card.id);
     // Track the run's build for the active-relics panel (stack repeatable cards).
@@ -2896,6 +2928,7 @@ export class GameEngine {
   restart() {
     this.enemies = [];
     this.towers = [];
+    this.bumpTowerLayout();
     this.projectiles = [];
     this.hitsplats = [];
     this.particles = [];

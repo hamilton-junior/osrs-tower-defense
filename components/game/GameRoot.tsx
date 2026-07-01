@@ -1214,6 +1214,9 @@ export default function GameRoot() {
           fill={ui.prayerPoints / ui.prayerMax}
           fillColor="linear-gradient(180deg, #6db3f2, #1f5fa8)"
         />
+        {/* Persistent wave-event indicator — always on screen (even when the main
+            panel is minimized) so the active twist is never missed. */}
+        {ui.waveActive && ui.activeEvent && <WaveEventChip event={ui.activeEvent} />}
       </div>
 
       {/* Selected tower panel (top-left) */}
@@ -3233,6 +3236,27 @@ function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => voi
 
 /** Roguelite owned-relics tray: the run's claimed relics as tier-bordered icons
  *  with a hover tooltip. Rendered in the HUD and the end-of-run summary. */
+/** Compact, always-on-screen wave-event indicator, docked in the top-right HUD so
+ *  the active twist stays visible even when the main panel is collapsed. Hover for
+ *  the full description; the banner in the main panel carries it inline. */
+function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }) {
+  return (
+    <div
+      className="rs-panel flex items-center gap-[0.4em] px-[0.5em] py-[0.3em]"
+      style={{ border: `1px solid ${event.color}`, boxShadow: `0 0 6px ${event.color}55`, fontSize: 'clamp(12px, 0.8vw, 16px)' }}
+      title={`${event.name} — ${event.desc}`}
+    >
+      <img src={event.icon} alt={event.name} className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
+      <div className="flex flex-col leading-none">
+        <span className="text-[0.6em] uppercase tracking-wide" style={{ color: event.color }}>
+          {event.tone === 'boon' ? 'Boon' : 'Hazard'}
+        </span>
+        <span className="font-bold text-[0.82em]" style={{ color: event.color }}>{event.name}</span>
+      </div>
+    </div>
+  );
+}
+
 /** Announces the wave's active event (#1): a board-wide rule-bender for this wave
  *  only. Tinted by the event's own colour; the tone word tells hazard from boon. */
 function WaveEventBanner({ event }: { event: NonNullable<UIState['activeEvent']> }) {
