@@ -1231,7 +1231,9 @@ export class GameRenderer {
   }
 
   private drawParticles(ctx: CanvasRenderingContext2D) {
+    // Pass 1: solid physical debris (shatter motes), drawn normally.
     for (const p of this.e.particles) {
+      if (p.twinkle) continue;
       const t = Math.max(0, p.life / p.maxLife);
       ctx.globalAlpha = t * t; // ease-out for a softer tail
       ctx.fillStyle = p.color;
@@ -1239,7 +1241,35 @@ export class GameRenderer {
       ctx.arc(p.x, p.y, (p.size ?? 2.5) * (0.6 + t * 0.4), 0, Math.PI * 2);
       ctx.fill();
     }
+    // Pass 2: mystical arcane sparks — additive shimmering 4-point stars that glow
+    // in the element's colour, laid over the debris for the "magic" sheen.
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of this.e.particles) {
+      if (!p.twinkle) continue;
+      const t = Math.max(0, p.life / p.maxLife);
+      const flicker = 0.55 + 0.45 * Math.sin(p.life * 42 + p.x); // twinkle
+      ctx.globalAlpha = Math.min(1, t * 1.2) * flicker;
+      ctx.fillStyle = p.color;
+      this.drawSpark(ctx, p.x, p.y, (p.size ?? 2.5) * (0.7 + t * 0.7));
+    }
+    ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
+  }
+
+  /** A four-point arcane sparkle (a slim star) — the magical accent on spell hits. */
+  private drawSpark(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+    const w = r * 0.28; // waist of the star points
+    ctx.beginPath();
+    ctx.moveTo(x, y - r);
+    ctx.lineTo(x + w, y - w);
+    ctx.lineTo(x + r, y);
+    ctx.lineTo(x + w, y + w);
+    ctx.lineTo(x, y + r);
+    ctx.lineTo(x - w, y + w);
+    ctx.lineTo(x - r, y);
+    ctx.lineTo(x - w, y - w);
+    ctx.closePath();
+    ctx.fill();
   }
 
   /** Procedural roguelite VFX: expanding rings (cleave / shockwave / heal) and

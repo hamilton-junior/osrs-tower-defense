@@ -53,6 +53,12 @@ describe('IMPACT_RECIPES', () => {
       expect(p.spread, theme).toBeGreaterThan(0);
       expect(p.spread, theme).toBeLessThanOrEqual(Math.PI);
       expect(p.forwardBias, theme).toBeGreaterThanOrEqual(0);
+      // mystical spark accent — a bright, non-empty, well-formed twinkle
+      const sp = r.spark;
+      expect(sp.count, theme).toBeGreaterThan(0);
+      expect(sp.color, theme).toMatch(/^#/);
+      expect(sp.life, theme).toBeGreaterThan(0);
+      expect(sp.size, theme).toBeGreaterThan(0);
     }
   });
 
@@ -84,5 +90,6 @@ describe('IMPACT_RECIPES', () => {
     const s = IMPACT_RECIPES.smoke;
     expect(isGrey(s.shards.color)).toBe(true);
     expect(s.particles.colors.every(isGrey)).toBe(true);
+    expect(isGrey(s.spark.color)).toBe(true);
   });
 });

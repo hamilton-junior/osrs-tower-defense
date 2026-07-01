@@ -55,6 +55,10 @@ export interface ImpactRecipe {
      *  forward "punch" that knocks the debris off in the direction of the hit. */
     forwardBias: number;
   };
+  /** Mystical accent laid over the physical debris: a few slow, bright motes drawn
+   *  as shimmering 4-point arcane sparks that drift upward and twinkle in the
+   *  element's *glow* colour — the "magic" sheen (not physical shatter). */
+  spark: { count: number; color: string; life: number; size: number };
 }
 
 /**
@@ -94,33 +98,41 @@ export const IMPACT_RECIPES: Record<ImpactTheme, ImpactRecipe> = {
   fire: {
     shards: { count: 5, lenMin: 12, lenMax: 26, color: '#ff8a2e', life: 0.22 },
     particles: { count: 15, speedMin: 55, speedMax: 155, gravity: 120, sizeMin: 1.8, sizeMax: 4, lifeMin: 0.26, lifeMax: 0.5, colors: ['#ff5a1f', '#ffab3a', '#ffd86a'], riseBias: -40, spread: 2, forwardBias: 55 },
+    spark: { count: 4, color: '#ffe08a', life: 0.6, size: 2.6 },
   },
   water: {
     shards: { count: 4, lenMin: 10, lenMax: 22, color: '#67b8ff', life: 0.18 },
     particles: { count: 15, speedMin: 45, speedMax: 130, gravity: 420, sizeMin: 1.6, sizeMax: 3.4, lifeMin: 0.28, lifeMax: 0.52, colors: ['#2e7bd6', '#67b8ff', '#bfe4ff'], riseBias: -55, spread: 1.8, forwardBias: 40 },
+    spark: { count: 4, color: '#cfeeff', life: 0.6, size: 2.4 },
   },
   earth: {
     shards: { count: 6, lenMin: 12, lenMax: 28, color: '#6a4f28', life: 0.28 },
     particles: { count: 15, speedMin: 42, speedMax: 130, gravity: 620, sizeMin: 2, sizeMax: 4.6, lifeMin: 0.3, lifeMax: 0.56, colors: ['#7a5a30', '#46c23a', '#5f7a35'], riseBias: -70, spread: 1.5, forwardBias: 55 },
+    spark: { count: 4, color: '#8affa0', life: 0.6, size: 2.6 },
   },
   air: {
     shards: { count: 5, lenMin: 14, lenMax: 30, color: '#cfe8ff', life: 0.16 },
     particles: { count: 13, speedMin: 85, speedMax: 180, gravity: 40, sizeMin: 1.1, sizeMax: 2.6, lifeMin: 0.16, lifeMax: 0.32, colors: ['#cfe8ff', '#a9d4ff', '#bcd4ff'], riseBias: -10, spread: 1.5, forwardBias: 95 },
+    spark: { count: 5, color: '#eaf6ff', life: 0.5, size: 2.2 },
   },
   ice: {
     shards: { count: 6, lenMin: 14, lenMax: 32, color: '#9fe0ff', life: 0.3 },
     particles: { count: 14, speedMin: 48, speedMax: 135, gravity: 260, sizeMin: 1.7, sizeMax: 3.6, lifeMin: 0.26, lifeMax: 0.5, colors: ['#7fe6ff', '#cdeeff', '#6fc7ee'], riseBias: -30, spread: 1.25, forwardBias: 70 },
+    spark: { count: 5, color: '#e6faff', life: 0.7, size: 2.6 },
   },
   blood: {
     shards: { count: 5, lenMin: 10, lenMax: 24, color: '#8e1414', life: 0.22 },
     particles: { count: 15, speedMin: 44, speedMax: 130, gravity: 500, sizeMin: 1.9, sizeMax: 4.2, lifeMin: 0.3, lifeMax: 0.58, colors: ['#8e1414', '#c81e1e', '#5e0d0d'], riseBias: -40, spread: 1.7, forwardBias: 45 },
+    spark: { count: 4, color: '#ff6a6a', life: 0.6, size: 2.6 },
   },
   shadow: {
     shards: { count: 6, lenMin: 12, lenMax: 28, color: '#2a1840', life: 0.3 },
     particles: { count: 14, speedMin: 34, speedMax: 108, gravity: 180, sizeMin: 2, sizeMax: 4.4, lifeMin: 0.34, lifeMax: 0.64, colors: ['#5a2f86', '#6a3fb0', '#1b1024'], riseBias: -30, spread: 1.5, forwardBias: 35 },
+    spark: { count: 5, color: '#b98cff', life: 0.7, size: 2.8 },
   },
   smoke: {
     shards: { count: 4, lenMin: 8, lenMax: 18, color: '#8f8f8f', life: 0.2 },
     particles: { count: 14, speedMin: 22, speedMax: 84, gravity: -50, sizeMin: 2.4, sizeMax: 5, lifeMin: 0.44, lifeMax: 0.84, colors: ['#6f6f6f', '#9a9a9a', '#4f4f4f'], riseBias: -44, spread: 2.3, forwardBias: 18 },
+    spark: { count: 4, color: '#d8d8d8', life: 0.7, size: 2.6 },
   },
 };

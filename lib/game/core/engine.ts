@@ -451,6 +451,9 @@ export interface Particle {
   gravity?: number;
   /** Draw radius (px); defaults to 2.5 when omitted. */
   size?: number;
+  /** Mystical accent: draw additively as a shimmering 4-point arcane spark (used
+   *  by magic impacts) instead of a solid debris mote. */
+  twinkle?: boolean;
 }
 
 /** Lightweight procedural VFX for the roguelite behavioural cards (expanding
@@ -2548,6 +2551,28 @@ export class GameEngine {
       const a = baseAngle + (Math.random() * 2 - 1) * shardSpread;
       const len = (sh.lenMin + Math.random() * (sh.lenMax - sh.lenMin)) * scale;
       this.addBolt(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len, sh.color, sh.life);
+    }
+    // Mystical accent: a handful of slow, bright arcane sparks that drift *upward*
+    // (against the debris' fall) and twinkle in the element's glow colour — the
+    // "magic" sheen over the physical shatter. Rendered additively as 4-point stars.
+    const sp = r.spark;
+    const sparkCount = Math.max(2, Math.round(sp.count * Math.min(1.5, Math.max(0.7, scale))));
+    for (let i = 0; i < sparkCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = (16 + Math.random() * 40) * scale; // gentle outward drift
+      const push = hasDir ? pc.forwardBias * 0.3 * scale : 0; // slight nudge along the hit
+      const life = sp.life * (0.7 + Math.random() * 0.6);
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed + ux * push,
+        vy: Math.sin(angle) * speed + uy * push - (28 + Math.random() * 42) * scale, // float up
+        life,
+        maxLife: life,
+        color: sp.color,
+        gravity: 28 * scale, // barely falls — the spark hangs and shimmers
+        size: sp.size * (0.8 + Math.random() * 0.5) * scale,
+        twinkle: true,
+      });
     }
   }
 
