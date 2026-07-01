@@ -704,6 +704,42 @@ export default function GameRoot() {
           if (card) towerBoosts.push({ key: 'relic-mage', icon: card.icon, amount: pct(amt), title: `${card.name} — ${effectTag(card.effect)}` });
         }
       }
+      // Run-wide draft "boons": the per-style stat buffs (damage / range / attack
+      // speed) that pile up in the Boons panel also lift THIS tower — surface one
+      // chip per contributing card so the green stats trace back to their source.
+      // (mageBuff / synergy cards are handled above; here we only fold the flat
+      // damage/range/fireRate cards that hit this tower's style or all towers.)
+      const style = towerStyle?.style;
+      if (style) {
+        for (const rc of ui.runCards) {
+          const card = CARD_BY_ID[rc.id];
+          if (!card) continue;
+          const parts = card.effect.kind === 'multi' ? card.effect.effects : [card.effect];
+          let dmg = 1, rng = 1, spd = 1;
+          for (const p of parts) {
+            if ((p.kind === 'damage' || p.kind === 'range' || p.kind === 'fireRate') && (!p.style || p.style === style)) {
+              if (p.kind === 'damage') dmg *= p.mult;
+              else if (p.kind === 'range') rng *= p.mult;
+              else spd *= p.mult;
+            }
+          }
+          if (dmg === 1 && rng === 1 && spd === 1) continue; // nothing for this style
+          // A stat card can be drafted repeatedly — compound its bonus by the stack.
+          const n = rc.count;
+          dmg **= n; rng **= n; spd **= n;
+          const bits: string[] = [];
+          if (dmg > 1) bits.push(`${pct(dmg - 1)} damage`);
+          if (rng > 1) bits.push(`${pct(rng - 1)} range`);
+          if (spd > 1) bits.push(`${pct(spd - 1)} attack speed`);
+          const headline = dmg > 1 ? dmg - 1 : rng > 1 ? rng - 1 : spd - 1;
+          towerBoosts.push({
+            key: `boon-${rc.id}`,
+            icon: card.icon,
+            amount: pct(headline),
+            title: `${card.name}${n > 1 ? ` ×${n}` : ''} — ${bits.join(', ')}`,
+          });
+        }
+      }
     }
   }
   // Active buffs anywhere, for the always-on infobox cluster (RuneLite-style).
