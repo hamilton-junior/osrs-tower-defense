@@ -44,6 +44,8 @@ import {
 } from '../systems/boss-mechanics';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
+import { generateMapLayout, type MapLayout } from '../systems/map-generation';
+import { BIOMES, pickBiome, type BiomeDef } from '../data/biomes';
 import type { SlayerReward } from '../data/slayer';
 
 /** Default logic dimensions, used until {@link GameEngine.resize} measures the
@@ -482,6 +484,12 @@ export class GameEngine {
 
   // --- world state ---
   path: Point[] = [];
+  /** Seed for this run's procedural map (path + biome); re-rolled on restart. */
+  private mapSeed = 0;
+  /** Normalized ([0,1]) road layout for this run; `buildPath` snaps it to the grid. */
+  private mapLayout: MapLayout = { points: [], columns: 0 };
+  /** The active battlefield theme (OSRS region palette) — read by the renderer. */
+  biome: BiomeDef = BIOMES.lumbridge;
   enemies: Enemy[] = [];
   towers: Tower[] = [];
   projectiles: Projectile[] = [];
@@ -641,7 +649,7 @@ export class GameEngine {
     this.renderer = new GameRenderer(this);
     this.canvas.width = this.width;
     this.canvas.height = this.height;
-    this.buildPath();
+    this.generateMap();
     this.preloadImages();
     this.slayer.assignTask(); // auto-assign the first Slayer task
     this.emit();
@@ -1011,22 +1019,33 @@ export class GameEngine {
   }
 
   // --------------------------------------------------------------------- path
+  /**
+   * Roll a fresh procedural battlefield for a run: a new random-but-valid road
+   * layout and a biome to skin it. Called on construction and every {@link restart}
+   * so no two runs share a map; {@link buildPath} then re-snaps this same layout on
+   * any resize without changing the run's shape.
+   */
+  private generateMap() {
+    this.mapSeed = (Math.random() * 0x100000000) >>> 0;
+    this.mapLayout = generateMapLayout(this.mapSeed);
+    this.biome = pickBiome(this.mapSeed);
+    this.buildPath();
+  }
+
   private buildPath() {
     // Snap every vertex onto a grid line so the road runs along tile edges and
-    // tower square-ranges align with it (no half-tiles through the road).
+    // tower square-ranges align with it (no half-tiles through the road). The
+    // layout is normalized, so the same run keeps its shape across resizes.
     const tx = Math.floor(this.width / GRID);
     const ty = Math.floor(this.height / GRID);
     const col = (f: number) => Math.round(tx * f) * GRID;
     const row = (f: number) => Math.round(ty * f) * GRID;
+    const pts = this.mapLayout.points.map(p => ({ x: col(p.fx), y: row(p.fy) }));
+    if (pts.length === 0) return; // pre-generation guard (never hit in normal flow)
     this.path = [
-      { x: -GRID, y: row(0.2) },
-      { x: col(0.2), y: row(0.2) },
-      { x: col(0.2), y: row(0.8) },
-      { x: col(0.5), y: row(0.8) },
-      { x: col(0.5), y: row(0.4) },
-      { x: col(0.8), y: row(0.4) },
-      { x: col(0.8), y: row(0.6) },
-      { x: this.width + GRID, y: row(0.6) },
+      { x: -GRID, y: pts[0].y }, // off-screen entry stub at the first turn's row
+      ...pts,
+      { x: this.width + GRID, y: pts[pts.length - 1].y }, // off-screen exit stub
     ];
   }
 
@@ -3014,6 +3033,7 @@ export class GameEngine {
   }
 
   restart() {
+    this.generateMap(); // fresh procedural map + biome for the new run
     this.enemies = [];
     this.towers = [];
     this.bumpTowerLayout();

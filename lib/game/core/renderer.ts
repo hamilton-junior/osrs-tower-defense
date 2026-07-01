@@ -106,27 +106,28 @@ export class GameRenderer {
   private drawBackground(ctx: CanvasRenderingContext2D) {
     const w = this.e.width;
     const h = this.e.height;
+    const biome = this.e.biome;
 
-    // Grass base with a soft vertical gradient.
+    // Ground base with a soft vertical gradient (biome-themed).
     const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, '#34561f');
-    grad.addColorStop(1, '#27411a');
+    grad.addColorStop(0, biome.bgTop);
+    grad.addColorStop(1, biome.bgBottom);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
 
-    // Texture: scattered grass tufts (two tones) for a less flat field.
+    // Texture: scattered ground tufts (two tones) for a less flat field.
     for (let i = 0; i < 220; i++) {
       const x = (i * 137.5) % w;
       const y = (i * 224.7) % h;
-      ctx.fillStyle = i % 3 === 0 ? 'rgba(120,170,70,0.18)' : 'rgba(60,95,39,0.5)';
+      ctx.fillStyle = i % 3 === 0 ? biome.tuft[0] : biome.tuft[1];
       ctx.fillRect(x, y, 2, 2);
       ctx.fillRect(x + 2, y + 2, 2, 4);
     }
 
     this.drawDecorations(ctx, w, h);
 
-    // Faint tile grid.
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    // Faint tile grid (biome-tinted).
+    ctx.strokeStyle = biome.grid;
     ctx.lineWidth = 1;
     for (let x = 0; x <= w; x += GRID) {
       ctx.beginPath();
@@ -152,9 +153,10 @@ export class GameRenderer {
     return min;
   }
 
-  /** Scatter deterministic off-path scenery (bushes, rocks, flowers). */
+  /** Scatter deterministic off-path scenery (bushes, rocks, flowers) in the
+   *  active biome's palette. */
   private drawDecorations(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    const flowers = ['#e7d34b', '#e06b6b', '#d7d7e6', '#c98ad6'];
+    const { bush, rock, rockHi, flowers } = this.e.biome.decor;
     const hash = (n: number) => {
       const v = Math.sin(n) * 43758.5453;
       return v - Math.floor(v); // fractional part in [0,1)
@@ -167,7 +169,7 @@ export class GameRenderer {
       const kind = i % 5;
       if (kind === 0 || kind === 1) {
         // bush
-        ctx.fillStyle = '#2c5018';
+        ctx.fillStyle = bush;
         ctx.beginPath();
         ctx.arc(x, y, 7, 0, Math.PI * 2);
         ctx.arc(x + 6, y + 2, 5, 0, Math.PI * 2);
@@ -175,11 +177,11 @@ export class GameRenderer {
         ctx.fill();
       } else if (kind === 2) {
         // rock
-        ctx.fillStyle = '#6b6b6b';
+        ctx.fillStyle = rock;
         ctx.beginPath();
         ctx.ellipse(x, y, 6, 4, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#888';
+        ctx.fillStyle = rockHi;
         ctx.fillRect(x - 3, y - 3, 3, 2);
       } else {
         // flower cluster
@@ -204,23 +206,24 @@ export class GameRenderer {
       for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
       ctx.stroke();
     };
+    const road = this.e.biome.road;
     const layers: [number, string][] = [
-      [50, '#1c2f12'],   // faint grassy shadow rim
-      [46, '#3d2b1f'],   // dark dirt border
-      [40, '#6d4c33'],   // mid dirt
-      [32, '#8a6646'],   // walked path
+      [50, road.shadow],   // faint ground shadow rim
+      [46, road.border],   // dark border
+      [40, road.mid],      // mid surface
+      [32, road.walked],   // walked path
     ];
     for (const [width, color] of layers) {
       ctx.strokeStyle = color;
       ctx.lineWidth = width;
       trace();
     }
-    // Lighter packed-dirt centre with a dashed track line.
-    ctx.strokeStyle = '#9c7a55';
+    // Lighter packed centre with a dashed track line.
+    ctx.strokeStyle = road.centre;
     ctx.lineWidth = 18;
     trace();
     ctx.setLineDash([10, 16]);
-    ctx.strokeStyle = 'rgba(60,40,24,0.5)';
+    ctx.strokeStyle = road.dash;
     ctx.lineWidth = 3;
     trace();
     ctx.setLineDash([]);
