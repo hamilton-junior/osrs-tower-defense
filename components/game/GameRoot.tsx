@@ -1556,11 +1556,15 @@ export default function GameRoot() {
         style={{ fontSize: 'clamp(14px, 0.9vw, 19px)', maxHeight: '92vh' }}
       >
         {/* OSRS sidebar tab strip: each stone selects an interface (or pops one
-            out). Icons + tooltips, with live badges for essence / Slayer points. */}
+            out). Icons + tooltips, with live badges for essence / Slayer points.
+            `order-2` pins it BELOW the tab body (order-1) and ABOVE the tower dock
+            (order-3): since the panel is bottom-anchored and grows upward, keeping
+            the strip low means the buttons hold a constant position no matter how
+            tall the open interface above them is. */}
         <div
           data-tut="sidebar"
-          className="shrink-0 flex items-center justify-center gap-[0.4em] pb-[0.55em] mb-[0.6em] border-b border-[var(--rs-keyline)]"
-          style={{ boxShadow: '0 1px 0 0 var(--rs-bevel-light)' }}
+          className="order-2 shrink-0 flex items-center justify-center gap-[0.4em] pt-[0.55em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
+          style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
         >
           <button onClick={() => onSideTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.multicombat_icon} alt="Towers &amp; Wave" onError={hideBrokenImg} />
@@ -1594,7 +1598,7 @@ export default function GameRoot() {
             Hidden when the active tab is clicked again (sideBodyMin), collapsing
             the panel to just the tab strip + tower dock. */}
         {!sideBodyMin && (
-        <div key={tab} className="rs-tab-body flex-1 min-h-0 overflow-y-auto pr-[0.1em]">
+        <div key={tab} className="order-1 rs-tab-body flex-1 min-h-0 overflow-y-auto pr-[0.1em]">
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
         <>
@@ -1832,9 +1836,10 @@ export default function GameRoot() {
 
         {/* Tower shop — ALWAYS visible, regardless of the selected tab, so towers
             stay one click away while browsing the GE / Essence / Slayer interfaces.
-            The tab stones above only swap the top section; this dock never unmounts. */}
+            The tab stones only swap the top section; this dock never unmounts.
+            `order-3` keeps it pinned at the very bottom, below the tab strip. */}
         <div
-          className="shrink-0 relative pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
+          className="order-3 shrink-0 relative pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
           style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
         >
           {/* Hover tooltip: tier-1 stats before buying (anchored above the dock) */}
