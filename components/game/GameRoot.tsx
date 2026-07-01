@@ -1429,7 +1429,11 @@ export default function GameRoot() {
           ) : (
             <div className="mt-[0.7em] space-y-[0.4em] text-[0.95em]">
               {selectedTower.level < selectedTower.maxLevel && (
-                <div className="relative">
+                <div
+                  className="relative"
+                  onMouseEnter={() => setUpgradeHover(true)}
+                  onMouseLeave={() => setUpgradeHover(false)}
+                >
                   {upgradeHover && upgradePreview && (
                     <div className="absolute bottom-full left-0 right-0 mb-2 z-30 rs-panel p-[0.6em] text-[0.8em] shadow-xl pointer-events-none">
                       <div className="flex items-center gap-[0.4em] mb-[0.45em] text-osrs-yellow font-bold">
@@ -1452,14 +1456,19 @@ export default function GameRoot() {
                       {upgradePreview.anyBuffed && (
                         <div className="text-[0.82em] text-[#5bd75b] mt-[0.45em]">(green) = with current buffs</div>
                       )}
+                      <div className="flex items-center justify-between gap-[0.6em] mt-[0.45em] pt-[0.4em] border-t border-[#3a3327]">
+                        <span className="text-[#d3c3a0] whitespace-nowrap">Cost</span>
+                        <span className={ui.money < selectedTower.upgradeCost ? 'text-[#ff6b6b]' : 'text-osrs-yellow'}>
+                          {selectedTower.upgradeCost} gp
+                          {ui.money < selectedTower.upgradeCost && ` (need ${selectedTower.upgradeCost - ui.money} more)`}
+                        </span>
+                      </div>
                     </div>
                   )}
                   <button
                     className="rs-btn w-full flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
                     title={`Upgrade to next tier for ${selectedTower.upgradeCost} gp`}
                     disabled={ui.money < selectedTower.upgradeCost}
-                    onMouseEnter={() => setUpgradeHover(true)}
-                    onMouseLeave={() => setUpgradeHover(false)}
                     onClick={() => engineRef.current?.upgradeTower(selectedTower.id)}
                   >
                     <span className="text-[#5bd75b] font-bold">⬆</span>
