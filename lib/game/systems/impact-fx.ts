@@ -66,55 +66,62 @@ export function resolveImpactTheme(type: Projectile['type'], element?: Element):
 }
 
 /**
- * Per-theme impact recipes, tuned for an OSRS read: fire flashes and licks up,
- * water splashes down, earth cracks and rains rubble, air is a fast faint swirl,
- * ice blooms white-blue and throws crystal spikes, blood splatters dark and wet,
- * shadow implodes into purple claws, smoke billows a soft rising cloud.
+ * Per-theme impact recipes. Kept **small and crisp** (a spell landing on a body,
+ * not a grenade): tight flashes, short shockwaves, a handful of motes. Colours
+ * track each element's canonical palette from `systems/magic` so the burst reads
+ * as the same element as its projectile/staff:
+ *   - fire orange (#ff5a1f), warm licks that float up;
+ *   - water blue (#3fa9ff), droplets that splash down;
+ *   - earth GREEN-glow (#46c23a) with brown rock cracks & rubble;
+ *   - air pale white-blue (#cfe8ff), a fast faint puff (no shards);
+ *   - ice white-blue (#7fe6ff), crystal spikes;
+ *   - blood deep red (#c81e1e), dark wet spray that falls;
+ *   - shadow deep purple (#6a3fb0), dark imploding claws;
+ *   - smoke GREY (#9a9a9a), a soft cloud that rises.
  */
 export const IMPACT_RECIPES: Record<ImpactTheme, ImpactRecipe> = {
   fire: {
-    flash: { r: 20, color: '#ffd27a', life: 0.16 },
-    ring: { r0: 5, r1: 44, color: '#ff7a3c', width: 4, life: 0.42 },
-    particles: { count: 12, speedMin: 35, speedMax: 120, gravity: -40, sizeMin: 1.5, sizeMax: 3.6, lifeMin: 0.25, lifeMax: 0.5, colors: ['#ff5a1f', '#ffb03a', '#ffd86a'], riseBias: -34 },
+    flash: { r: 12, color: '#ffcf7a', life: 0.12 },
+    ring: { r0: 4, r1: 26, color: '#ff5a1f', width: 3, life: 0.3 },
+    particles: { count: 8, speedMin: 30, speedMax: 95, gravity: -30, sizeMin: 1.2, sizeMax: 2.8, lifeMin: 0.22, lifeMax: 0.42, colors: ['#ff5a1f', '#ffab3a', '#ffd86a'], riseBias: -30 },
   },
   water: {
-    flash: { r: 16, color: '#bfe4ff', life: 0.14 },
-    ring: { r0: 4, r1: 40, color: '#4aa3ff', width: 3.5, life: 0.4 },
-    particles: { count: 11, speedMin: 30, speedMax: 95, gravity: 300, sizeMin: 1.5, sizeMax: 3, lifeMin: 0.3, lifeMax: 0.55, colors: ['#2e7bd6', '#67b8ff', '#bfe4ff'], riseBias: -34 },
+    flash: { r: 10, color: '#bfe4ff', life: 0.1 },
+    ring: { r0: 4, r1: 24, color: '#3fa9ff', width: 2.5, life: 0.28 },
+    particles: { count: 7, speedMin: 25, speedMax: 80, gravity: 340, sizeMin: 1.2, sizeMax: 2.6, lifeMin: 0.28, lifeMax: 0.5, colors: ['#2e7bd6', '#67b8ff', '#bfe4ff'], riseBias: -30 },
   },
   earth: {
-    flash: { r: 16, color: '#c7a86a', life: 0.13 },
-    ring: { r0: 5, r1: 38, color: '#8a6a3a', width: 4.5, life: 0.4 },
-    shards: { count: 5, lenMin: 14, lenMax: 30, color: '#6a4f28', life: 0.28 },
-    particles: { count: 11, speedMin: 40, speedMax: 110, gravity: 460, sizeMin: 2, sizeMax: 4.2, lifeMin: 0.3, lifeMax: 0.6, colors: ['#7a5a30', '#9c7a44', '#4f7a35'], riseBias: -48 },
+    flash: { r: 10, color: '#7bbf55', life: 0.1 },
+    ring: { r0: 4, r1: 24, color: '#5a8f3a', width: 3, life: 0.3 },
+    shards: { count: 4, lenMin: 10, lenMax: 22, color: '#6a4f28', life: 0.24 },
+    particles: { count: 7, speedMin: 30, speedMax: 90, gravity: 480, sizeMin: 1.6, sizeMax: 3.4, lifeMin: 0.28, lifeMax: 0.5, colors: ['#7a5a30', '#46c23a', '#5f7a35'], riseBias: -40 },
   },
   air: {
-    flash: { r: 14, color: '#eef4ff', life: 0.1 },
-    ring: { r0: 6, r1: 48, color: '#dfe9ff', width: 3, life: 0.32 },
-    shards: { count: 4, lenMin: 16, lenMax: 34, color: '#dfe9ff', life: 0.18 },
-    particles: { count: 12, speedMin: 70, speedMax: 165, gravity: 20, sizeMin: 1, sizeMax: 2.4, lifeMin: 0.18, lifeMax: 0.38, colors: ['#cfe0ff', '#ffffff', '#a9c6ff'], riseBias: 0 },
+    flash: { r: 9, color: '#eaf6ff', life: 0.09 },
+    ring: { r0: 5, r1: 26, color: '#cfe8ff', width: 2, life: 0.26 },
+    particles: { count: 6, speedMin: 55, speedMax: 120, gravity: 15, sizeMin: 0.8, sizeMax: 1.8, lifeMin: 0.16, lifeMax: 0.3, colors: ['#cfe8ff', '#ffffff', '#bcd4ff'], riseBias: 0 },
   },
   ice: {
-    flash: { r: 22, color: '#e6f7ff', life: 0.18 },
-    ring: { r0: 5, r1: 48, color: '#bfe9ff', width: 4, life: 0.46 },
-    shards: { count: 8, lenMin: 16, lenMax: 38, color: '#cdeeff', life: 0.34 },
-    particles: { count: 13, speedMin: 45, speedMax: 125, gravity: 160, sizeMin: 1.5, sizeMax: 3.6, lifeMin: 0.3, lifeMax: 0.55, colors: ['#9fe0ff', '#ffffff', '#6fc7ee'], riseBias: -22 },
+    flash: { r: 12, color: '#dff4ff', life: 0.13 },
+    ring: { r0: 4, r1: 28, color: '#7fe6ff', width: 3, life: 0.34 },
+    shards: { count: 6, lenMin: 12, lenMax: 28, color: '#cdeeff', life: 0.3 },
+    particles: { count: 7, speedMin: 35, speedMax: 95, gravity: 140, sizeMin: 1.2, sizeMax: 2.8, lifeMin: 0.26, lifeMax: 0.46, colors: ['#9fe0ff', '#ffffff', '#6fc7ee'], riseBias: -18 },
   },
   blood: {
-    flash: { r: 17, color: '#e85a5a', life: 0.14 },
-    ring: { r0: 4, r1: 40, color: '#b01f1f', width: 4, life: 0.44 },
-    shards: { count: 6, lenMin: 12, lenMax: 28, color: '#7a1010', life: 0.24 },
-    particles: { count: 12, speedMin: 30, speedMax: 105, gravity: 360, sizeMin: 1.6, sizeMax: 3.6, lifeMin: 0.3, lifeMax: 0.6, colors: ['#8e1414', '#c52828', '#5e0d0d'], riseBias: -26 },
+    flash: { r: 10, color: '#d64444', life: 0.1 },
+    ring: { r0: 4, r1: 24, color: '#b01f1f', width: 3, life: 0.32 },
+    shards: { count: 4, lenMin: 10, lenMax: 20, color: '#7a1010', life: 0.2 },
+    particles: { count: 8, speedMin: 28, speedMax: 88, gravity: 380, sizeMin: 1.4, sizeMax: 3.2, lifeMin: 0.3, lifeMax: 0.55, colors: ['#8e1414', '#c81e1e', '#5e0d0d'], riseBias: -22 },
   },
   shadow: {
-    flash: { r: 18, color: '#b98af0', life: 0.16 },
-    ring: { r0: 5, r1: 42, color: '#7a4fb0', width: 4, life: 0.52 },
-    shards: { count: 6, lenMin: 14, lenMax: 30, color: '#3a1f5a', life: 0.3 },
-    particles: { count: 11, speedMin: 20, speedMax: 82, gravity: 80, sizeMin: 2, sizeMax: 4, lifeMin: 0.4, lifeMax: 0.72, colors: ['#5a2f86', '#8a5fc0', '#2a1840'], riseBias: -6 },
+    flash: { r: 11, color: '#8a5fc0', life: 0.13 },
+    ring: { r0: 4, r1: 26, color: '#6a3fb0', width: 3, life: 0.36 },
+    shards: { count: 5, lenMin: 12, lenMax: 24, color: '#2a1840', life: 0.28 },
+    particles: { count: 7, speedMin: 18, speedMax: 64, gravity: 60, sizeMin: 1.6, sizeMax: 3.4, lifeMin: 0.34, lifeMax: 0.6, colors: ['#5a2f86', '#6a3fb0', '#1b1024'], riseBias: -4 },
   },
   smoke: {
-    flash: { r: 16, color: '#c2cc9a', life: 0.15 },
-    ring: { r0: 5, r1: 40, color: '#7e8a5a', width: 4, life: 0.5 },
-    particles: { count: 11, speedMin: 20, speedMax: 72, gravity: -60, sizeMin: 2.5, sizeMax: 5, lifeMin: 0.5, lifeMax: 0.9, colors: ['#6f7d4a', '#9aa86a', '#4f5836'], riseBias: -42 },
+    flash: { r: 11, color: '#c9c9c9', life: 0.12 },
+    ring: { r0: 4, r1: 24, color: '#8f8f8f', width: 3, life: 0.34 },
+    particles: { count: 8, speedMin: 16, speedMax: 58, gravity: -50, sizeMin: 2, sizeMax: 4.2, lifeMin: 0.44, lifeMax: 0.8, colors: ['#6f6f6f', '#9a9a9a', '#4f4f4f'], riseBias: -36 },
   },
 };

@@ -1260,11 +1260,13 @@ export class GameRenderer {
         const r = f.r * (1 - t * 0.4);
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
+        // Tight bright core that falls off fast — a spark on the model, not a blown-out
+        // additive disc (a wide solid core saturates every element's flash to white).
         const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
         g.addColorStop(0, f.color);
-        g.addColorStop(0.5, f.color);
+        g.addColorStop(0.28, f.color);
         g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.globalAlpha = (1 - t) * 0.85;
+        ctx.globalAlpha = (1 - t) * 0.6;
         ctx.fillStyle = g;
         ctx.beginPath();
         ctx.arc(f.x, f.y, r, 0, Math.PI * 2);

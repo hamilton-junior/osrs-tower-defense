@@ -65,4 +65,30 @@ describe('IMPACT_RECIPES', () => {
   it('covers exactly the eight themes', () => {
     expect(Object.keys(IMPACT_RECIPES).sort()).toEqual([...THEMES].sort());
   });
+
+  it('stays crisp, not a blown-out explosion', () => {
+    // Guard against the effects creeping back to the over-scaled "grenade" look:
+    // small flashes, short shockwaves, a handful of motes.
+    for (const theme of THEMES) {
+      const r = IMPACT_RECIPES[theme];
+      expect(r.flash.r, theme).toBeLessThanOrEqual(14);
+      expect(r.ring.r1, theme).toBeLessThanOrEqual(30);
+      expect(r.particles.count, theme).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it('smoke reads grey, not olive', () => {
+    // Smoke is a colourless element (canonical #9a9a9a); every colour it uses must
+    // be greyscale (r == g == b) so it never drifts back to the old green tint.
+    const isGrey = (hex: string) => {
+      const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+      expect(m, hex).toBeTruthy();
+      const [, r, g, b] = m!;
+      return r.toLowerCase() === g.toLowerCase() && g.toLowerCase() === b.toLowerCase();
+    };
+    const s = IMPACT_RECIPES.smoke;
+    expect(isGrey(s.flash.color)).toBe(true);
+    expect(isGrey(s.ring.color)).toBe(true);
+    expect(s.particles.colors.every(isGrey)).toBe(true);
+  });
 });
