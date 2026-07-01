@@ -462,6 +462,14 @@ export type RuneFx =
 
 const HITSPLAT_LIFE = 0.9;
 
+/** Magic-impact sizing. The burst scales with the struck model's size (a boss's
+ *  hit reads bigger than a rat's) around a halved baseline — the old effect was
+ *  ~2× too large. Secondary (splash) targets render at a fraction so the smaller
+ *  burst telegraphs their reduced damage. Each hit also gets a small random
+ *  jitter so no two land identically. */
+const IMPACT_BASE_SCALE = 0.5;   // halve the old footprint (normal enemy ≈ this)
+const IMPACT_SPLASH_SCALE = 0.6; // splash-target burst vs the primary's
+
 export class GameEngine {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
@@ -2235,13 +2243,17 @@ export class GameEngine {
     // the spotanim hybrid — textured spell GFX rasterise to white boxes, so we
     // draw them procedurally); arrows/cannonballs keep the plain coloured spark.
     const theme = resolveImpactTheme(p.type, p.element);
+    const isAoe = !!(p.aoe || p.special === 'aoe');
     // Land the burst on the target's body (enemies draw centred on x/y) when it's
     // still alive, so the explosion reads as hitting the model rather than fizzling
     // at wherever the homing shot happened to end; fall back to the impact point.
     const ax = target && target.hp > 0 ? target.x : p.x;
     const ay = target && target.hp > 0 ? target.y : p.y;
-    if (theme) this.spawnMagicImpact(ax, ay, theme);
-    else this.spawnImpactParticles(p.x, p.y, p.color);
+    // Single-target magic bursts here (sized to the struck model); AoE bursts are
+    // spawned per-target in the splash loop below so each hit — primary and splash
+    // — gets its own right-sized burst. Non-magic shots keep the plain spark.
+    if (theme && !isAoe) this.spawnMagicImpact(ax, ay, theme, this.impactScale(target && target.hp > 0 ? target : null));
+    else if (!theme) this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
     // Archer arrows have no impact clip wired yet, and the generic melee "thud" is
     // wrong for a flying arrow — so they land silently (`arrowIcon` is set iff the
@@ -2249,7 +2261,7 @@ export class GameEngine {
     // venom is the payload, and the melee thud doesn't fit. Everything else thuds.
     const silent = !!p.arrowIcon || p.special === 'venom';
     let primaryKilled = false;
-    if (p.aoe || p.special === 'aoe') {
+    if (isAoe) {
       // Magic barrages splash for reduced damage on non-primary targets so AoE
       // stays a side-grade to single-target; the cannon keeps full splash.
       const splash = p.type === 'cannonball' ? 1 : BARRAGE_SPLASH_FALLOFF;
@@ -2266,6 +2278,10 @@ export class GameEngine {
       for (const e of near) {
         const isPrimary = e === primary;
         const scale = isPrimary ? 1 : splash;
+        // Themed burst on EVERY struck enemy: primary at full model-size, splash
+        // targets shrunk (IMPACT_SPLASH_SCALE) so the smaller hit reads as the
+        // reduced splash damage. Colour is the projectile's element, as always.
+        if (theme) this.spawnMagicImpact(e.x, e.y, theme, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE));
         // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.
         const bonus = p.bonusMaxHpFrac ? Math.floor(e.maxHp * p.bonusMaxHpFrac * scale) : 0;
         const dmg = Math.floor(p.damage * scale) + bonus;
@@ -2466,34 +2482,49 @@ export class GameEngine {
     e.y += (dy / d) * step;
   }
 
+  /** Per-hit size multiplier for a magic impact, derived from the struck model
+   *  (a boss's 60px half-size vs a normal 30px), around the halved baseline, with
+   *  ±15% random jitter so no two bursts are identical. `null` (a fizzle with no
+   *  live target) falls back to a normal-sized enemy. */
+  private impactScale(e: Enemy | null): number {
+    const modelSize = e ? (e.isBoss ? 60 : 30) * (e.renderScale ?? 1) : 30;
+    const modelScale = Math.min(2.2, Math.max(0.7, modelSize / 30)); // 1 = normal, ~2 = boss
+    const jitter = 0.85 + Math.random() * 0.3;
+    return IMPACT_BASE_SCALE * modelScale * jitter;
+  }
+
   /** Element-themed magic impact: radiating shards + a themed particle burst from
    *  {@link IMPACT_RECIPES} (this engine applies the jitter). Deliberately has NO
    *  round bloom/ring — the hit reads as a directional spray of its element's
-   *  colour (keyed off the projectile, via {@link resolveImpactTheme}). */
-  private spawnMagicImpact(x: number, y: number, theme: ImpactTheme) {
+   *  colour (keyed off the projectile, via {@link resolveImpactTheme}). Everything
+   *  spatial (shard length, particle spread/size/arc) scales by `scale`, and the
+   *  shard/mote counts wobble ±1 so the shape varies impact-to-impact. */
+  private spawnMagicImpact(x: number, y: number, theme: ImpactTheme, scale = 1) {
     const r = IMPACT_RECIPES[theme];
     // Radiating spikes/cracks/spray: short jagged bolts fired outward from the
     // impact centre in evenly-spread directions (jittered).
     const sh = r.shards;
-    for (let i = 0; i < sh.count; i++) {
-      const a = (i / sh.count) * Math.PI * 2 + Math.random() * 0.6;
-      const len = sh.lenMin + Math.random() * (sh.lenMax - sh.lenMin);
+    const shardCount = Math.max(2, sh.count + (((Math.random() * 3) | 0) - 1)); // ±1 for shape variety
+    for (let i = 0; i < shardCount; i++) {
+      const a = (i / shardCount) * Math.PI * 2 + Math.random() * 0.6;
+      const len = (sh.lenMin + Math.random() * (sh.lenMax - sh.lenMin)) * scale;
       this.addBolt(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len, sh.color, sh.life);
     }
     const pc = r.particles;
-    for (let i = 0; i < pc.count; i++) {
+    const count = Math.max(3, pc.count + (((Math.random() * 3) | 0) - 1)); // ±1 for shape variety
+    for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = pc.speedMin + Math.random() * (pc.speedMax - pc.speedMin);
+      const speed = (pc.speedMin + Math.random() * (pc.speedMax - pc.speedMin)) * scale;
       const life = pc.lifeMin + Math.random() * (pc.lifeMax - pc.lifeMin);
       this.particles.push({
         x, y,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed + pc.riseBias,
+        vy: Math.sin(angle) * speed + pc.riseBias * scale,
         life,
         maxLife: life,
         color: pc.colors[(Math.random() * pc.colors.length) | 0],
-        gravity: pc.gravity,
-        size: pc.sizeMin + Math.random() * (pc.sizeMax - pc.sizeMin),
+        gravity: pc.gravity * scale,
+        size: (pc.sizeMin + Math.random() * (pc.sizeMax - pc.sizeMin)) * scale,
       });
     }
   }
