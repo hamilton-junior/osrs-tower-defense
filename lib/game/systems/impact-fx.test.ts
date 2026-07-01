@@ -49,6 +49,10 @@ describe('IMPACT_RECIPES', () => {
       expect(p.sizeMax).toBeGreaterThanOrEqual(p.sizeMin);
       expect(p.lifeMax).toBeGreaterThanOrEqual(p.lifeMin);
       expect(p.lifeMin).toBeGreaterThan(0);
+      // directional debris: a bounded fan (0 < spread <= PI) and a forward punch
+      expect(p.spread, theme).toBeGreaterThan(0);
+      expect(p.spread, theme).toBeLessThanOrEqual(Math.PI);
+      expect(p.forwardBias, theme).toBeGreaterThanOrEqual(0);
     }
   });
 

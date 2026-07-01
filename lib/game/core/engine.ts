@@ -2249,10 +2249,14 @@ export class GameEngine {
     // at wherever the homing shot happened to end; fall back to the impact point.
     const ax = target && target.hp > 0 ? target.x : p.x;
     const ay = target && target.hp > 0 ? target.y : p.y;
+    // Impact direction = the way the shot was travelling (launch → impact), so the
+    // debris is knocked off the model in the direction of the hit.
+    const travelX = ax - (p.ox ?? p.x);
+    const travelY = ay - (p.oy ?? p.y);
     // Single-target magic bursts here (sized to the struck model); AoE bursts are
     // spawned per-target in the splash loop below so each hit — primary and splash
     // — gets its own right-sized burst. Non-magic shots keep the plain spark.
-    if (theme && !isAoe) this.spawnMagicImpact(ax, ay, theme, this.impactScale(target && target.hp > 0 ? target : null));
+    if (theme && !isAoe) this.spawnMagicImpact(ax, ay, theme, this.impactScale(target && target.hp > 0 ? target : null), travelX, travelY);
     else if (!theme) this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
     // Archer arrows have no impact clip wired yet, and the generic melee "thud" is
@@ -2281,7 +2285,11 @@ export class GameEngine {
         // Themed burst on EVERY struck enemy: primary at full model-size, splash
         // targets shrunk (IMPACT_SPLASH_SCALE) so the smaller hit reads as the
         // reduced splash damage. Colour is the projectile's element, as always.
-        if (theme) this.spawnMagicImpact(e.x, e.y, theme, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE));
+        // Direction: the primary keeps the shot's travel; splash debris is thrown
+        // outward from the blast centre (the explosion pushing it off the model).
+        const dx = isPrimary ? travelX : e.x - p.x;
+        const dy = isPrimary ? travelY : e.y - p.y;
+        if (theme) this.spawnMagicImpact(e.x, e.y, theme, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), dx, dy);
         // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.
         const bonus = p.bonusMaxHpFrac ? Math.floor(e.maxHp * p.bonusMaxHpFrac * scale) : 0;
         const dmg = Math.floor(p.damage * scale) + bonus;
@@ -2493,39 +2501,53 @@ export class GameEngine {
     return IMPACT_BASE_SCALE * modelScale * jitter;
   }
 
-  /** Element-themed magic impact: radiating shards + a themed particle burst from
-   *  {@link IMPACT_RECIPES} (this engine applies the jitter). Deliberately has NO
-   *  round bloom/ring — the hit reads as a directional spray of its element's
-   *  colour (keyed off the projectile, via {@link resolveImpactTheme}). Everything
-   *  spatial (shard length, particle spread/size/arc) scales by `scale`, and the
-   *  shard/mote counts wobble ±1 so the shape varies impact-to-impact. */
-  private spawnMagicImpact(x: number, y: number, theme: ImpactTheme, scale = 1) {
+  /** Element-themed magic impact: a themed particle debris burst (the star) plus a
+   *  few leading shards, from {@link IMPACT_RECIPES} (this engine applies the jitter
+   *  + direction). Deliberately has NO round bloom/ring — the hit reads like the
+   *  enemy death shatter but **directional**: debris flies off the model along
+   *  `dirX,dirY` (the shot's travel direction, or outward-from-blast for splash),
+   *  fanned within the recipe's `spread` and shoved forward by `forwardBias`, in the
+   *  element's own colour (keyed off the projectile, via {@link resolveImpactTheme}).
+   *  Everything spatial scales by `scale`; counts wobble ±1 for shape variety. If
+   *  `dirX,dirY` is ~zero the burst falls back to a full radial spray. */
+  private spawnMagicImpact(x: number, y: number, theme: ImpactTheme, scale = 1, dirX = 0, dirY = 0) {
     const r = IMPACT_RECIPES[theme];
-    // Radiating spikes/cracks/spray: short jagged bolts fired outward from the
-    // impact centre in evenly-spread directions (jittered).
-    const sh = r.shards;
-    const shardCount = Math.max(2, sh.count + (((Math.random() * 3) | 0) - 1)); // ±1 for shape variety
-    for (let i = 0; i < shardCount; i++) {
-      const a = (i / shardCount) * Math.PI * 2 + Math.random() * 0.6;
-      const len = (sh.lenMin + Math.random() * (sh.lenMax - sh.lenMin)) * scale;
-      this.addBolt(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len, sh.color, sh.life);
-    }
+    // Impact direction: unit vector the debris is pushed along. Degenerate (a shot
+    // that landed on its own launch point / a dead-centre splash) → full radial.
+    const dlen = Math.hypot(dirX, dirY);
+    const hasDir = dlen > 0.001;
+    const baseAngle = hasDir ? Math.atan2(dirY, dirX) : 0;
+    const ux = hasDir ? dirX / dlen : 0;
+    const uy = hasDir ? dirY / dlen : 0;
     const pc = r.particles;
+    // Fan the debris off the model within ±spread of the impact direction (or the
+    // full circle when we have no direction), then shove it forward along the hit.
+    const spread = hasDir ? pc.spread : Math.PI;
     const count = Math.max(3, pc.count + (((Math.random() * 3) | 0) - 1)); // ±1 for shape variety
     for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
+      const angle = baseAngle + (Math.random() * 2 - 1) * spread;
       const speed = (pc.speedMin + Math.random() * (pc.speedMax - pc.speedMin)) * scale;
+      const push = hasDir ? pc.forwardBias * scale : 0;
       const life = pc.lifeMin + Math.random() * (pc.lifeMax - pc.lifeMin);
       this.particles.push({
         x, y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed + pc.riseBias * scale,
+        vx: Math.cos(angle) * speed + ux * push,
+        vy: Math.sin(angle) * speed + uy * push + pc.riseBias * scale,
         life,
         maxLife: life,
         color: pc.colors[(Math.random() * pc.colors.length) | 0],
         gravity: pc.gravity * scale,
         size: (pc.sizeMin + Math.random() * (pc.sizeMax - pc.sizeMin)) * scale,
       });
+    }
+    // A few leading shards — the "crack" — biased the same way (tighter cone).
+    const sh = r.shards;
+    const shardCount = Math.max(2, sh.count + (((Math.random() * 3) | 0) - 1)); // ±1 for shape variety
+    const shardSpread = hasDir ? spread * 0.7 : Math.PI;
+    for (let i = 0; i < shardCount; i++) {
+      const a = baseAngle + (Math.random() * 2 - 1) * shardSpread;
+      const len = (sh.lenMin + Math.random() * (sh.lenMax - sh.lenMin)) * scale;
+      this.addBolt(x, y, x + Math.cos(a) * len, y + Math.sin(a) * len, sh.color, sh.life);
     }
   }
 

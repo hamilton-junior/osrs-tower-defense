@@ -4,13 +4,17 @@ import type { Element, Projectile } from '../types';
  * Procedural, **element-themed magic-impact VFX** — the runtime half of the
  * spotanim hybrid. Where geometry-only GFX (the spawn portal) are baked to sprite
  * sheets offline, textured spell impacts rasterise to white boxes, so we draw
- * those *procedurally* instead. Each impact is a directional **burst on the target
- * model** — deliberately built from NON-round primitives (no filled bloom, no
- * expanding ring) so nothing reads as a "circle" over the sprite:
- *   - radiating `shards` (flame licks / water spray / rock cracks / ice spikes /
- *     shadow claws / blood spray / wind streaks), drawn as short jagged bolts
- *     shooting out from the centre, and
- *   - a punchy themed `particles` burst.
+ * those *procedurally* instead. Each impact reads like the **enemy death burst** —
+ * debris shattered *off the struck model* — but **directional**: the force and
+ * spray follow the shot (the projectile's travel direction on a direct hit, or
+ * outward from the blast centre for splash). Built from NON-round primitives (no
+ * filled bloom, no expanding ring) so nothing reads as a "circle" over the sprite:
+ *   - a themed `particles` debris burst — the star of the effect — fanned into a
+ *     cone (`spread`) around the impact direction with a forward "punch"
+ *     (`forwardBias`) and gravity, so the motes fly off the model the way the hit
+ *     pushed them and then settle, and
+ *   - a few radiating `shards` (flame licks / rock cracks / ice spikes / …) drawn
+ *     as short jagged bolts biased the same way, for the leading "crack".
  * This module is **pure** (no `this`/DOM): it owns the per-element recipe table
  * and the projectile→theme resolver; the engine reads a recipe and spawns the
  * shards/particles (applying the randomness) at the impact point.
@@ -43,6 +47,13 @@ export interface ImpactRecipe {
     colors: string[];
     /** Added to each mote's initial vy (negative launches it upward first). */
     riseBias: number;
+    /** Half-angle (rad) of the debris fan around the impact direction — the motes
+     *  spray off the struck model within ±spread of the way the shot was travelling
+     *  (wide = a broad shatter, narrow = a focused jet). */
+    spread: number;
+    /** Extra speed (px/s) added to every mote *along the impact direction* — the
+     *  forward "punch" that knocks the debris off in the direction of the hit. */
+    forwardBias: number;
   };
 }
 
@@ -81,35 +92,35 @@ export function resolveImpactTheme(type: Projectile['type'], element?: Element):
  */
 export const IMPACT_RECIPES: Record<ImpactTheme, ImpactRecipe> = {
   fire: {
-    shards: { count: 6, lenMin: 12, lenMax: 26, color: '#ff8a2e', life: 0.22 },
-    particles: { count: 14, speedMin: 45, speedMax: 140, gravity: -40, sizeMin: 1.6, sizeMax: 3.6, lifeMin: 0.24, lifeMax: 0.48, colors: ['#ff5a1f', '#ffab3a', '#ffd86a'], riseBias: -50 },
+    shards: { count: 5, lenMin: 12, lenMax: 26, color: '#ff8a2e', life: 0.22 },
+    particles: { count: 15, speedMin: 55, speedMax: 155, gravity: 120, sizeMin: 1.8, sizeMax: 4, lifeMin: 0.26, lifeMax: 0.5, colors: ['#ff5a1f', '#ffab3a', '#ffd86a'], riseBias: -40, spread: 2, forwardBias: 55 },
   },
   water: {
-    shards: { count: 5, lenMin: 10, lenMax: 22, color: '#67b8ff', life: 0.18 },
-    particles: { count: 13, speedMin: 40, speedMax: 120, gravity: 380, sizeMin: 1.5, sizeMax: 3.2, lifeMin: 0.28, lifeMax: 0.52, colors: ['#2e7bd6', '#67b8ff', '#bfe4ff'], riseBias: -45 },
+    shards: { count: 4, lenMin: 10, lenMax: 22, color: '#67b8ff', life: 0.18 },
+    particles: { count: 15, speedMin: 45, speedMax: 130, gravity: 420, sizeMin: 1.6, sizeMax: 3.4, lifeMin: 0.28, lifeMax: 0.52, colors: ['#2e7bd6', '#67b8ff', '#bfe4ff'], riseBias: -55, spread: 1.8, forwardBias: 40 },
   },
   earth: {
-    shards: { count: 7, lenMin: 12, lenMax: 28, color: '#6a4f28', life: 0.28 },
-    particles: { count: 13, speedMin: 38, speedMax: 120, gravity: 540, sizeMin: 1.8, sizeMax: 4, lifeMin: 0.3, lifeMax: 0.54, colors: ['#7a5a30', '#46c23a', '#5f7a35'], riseBias: -55 },
+    shards: { count: 6, lenMin: 12, lenMax: 28, color: '#6a4f28', life: 0.28 },
+    particles: { count: 15, speedMin: 42, speedMax: 130, gravity: 620, sizeMin: 2, sizeMax: 4.6, lifeMin: 0.3, lifeMax: 0.56, colors: ['#7a5a30', '#46c23a', '#5f7a35'], riseBias: -70, spread: 1.5, forwardBias: 55 },
   },
   air: {
-    shards: { count: 6, lenMin: 14, lenMax: 30, color: '#cfe8ff', life: 0.16 },
-    particles: { count: 12, speedMin: 75, speedMax: 165, gravity: 15, sizeMin: 1, sizeMax: 2.4, lifeMin: 0.16, lifeMax: 0.32, colors: ['#cfe8ff', '#a9d4ff', '#bcd4ff'], riseBias: 0 },
+    shards: { count: 5, lenMin: 14, lenMax: 30, color: '#cfe8ff', life: 0.16 },
+    particles: { count: 13, speedMin: 85, speedMax: 180, gravity: 40, sizeMin: 1.1, sizeMax: 2.6, lifeMin: 0.16, lifeMax: 0.32, colors: ['#cfe8ff', '#a9d4ff', '#bcd4ff'], riseBias: -10, spread: 1.5, forwardBias: 95 },
   },
   ice: {
-    shards: { count: 8, lenMin: 14, lenMax: 32, color: '#9fe0ff', life: 0.3 },
-    particles: { count: 13, speedMin: 42, speedMax: 120, gravity: 150, sizeMin: 1.5, sizeMax: 3.2, lifeMin: 0.26, lifeMax: 0.48, colors: ['#7fe6ff', '#cdeeff', '#6fc7ee'], riseBias: -18 },
+    shards: { count: 6, lenMin: 14, lenMax: 32, color: '#9fe0ff', life: 0.3 },
+    particles: { count: 14, speedMin: 48, speedMax: 135, gravity: 260, sizeMin: 1.7, sizeMax: 3.6, lifeMin: 0.26, lifeMax: 0.5, colors: ['#7fe6ff', '#cdeeff', '#6fc7ee'], riseBias: -30, spread: 1.25, forwardBias: 70 },
   },
   blood: {
-    shards: { count: 6, lenMin: 10, lenMax: 24, color: '#8e1414', life: 0.22 },
-    particles: { count: 14, speedMin: 38, speedMax: 115, gravity: 440, sizeMin: 1.7, sizeMax: 3.8, lifeMin: 0.3, lifeMax: 0.58, colors: ['#8e1414', '#c81e1e', '#5e0d0d'], riseBias: -26 },
+    shards: { count: 5, lenMin: 10, lenMax: 24, color: '#8e1414', life: 0.22 },
+    particles: { count: 15, speedMin: 44, speedMax: 130, gravity: 500, sizeMin: 1.9, sizeMax: 4.2, lifeMin: 0.3, lifeMax: 0.58, colors: ['#8e1414', '#c81e1e', '#5e0d0d'], riseBias: -40, spread: 1.7, forwardBias: 45 },
   },
   shadow: {
-    shards: { count: 7, lenMin: 12, lenMax: 28, color: '#2a1840', life: 0.3 },
-    particles: { count: 13, speedMin: 24, speedMax: 92, gravity: 60, sizeMin: 1.8, sizeMax: 4, lifeMin: 0.34, lifeMax: 0.64, colors: ['#5a2f86', '#6a3fb0', '#1b1024'], riseBias: -6 },
+    shards: { count: 6, lenMin: 12, lenMax: 28, color: '#2a1840', life: 0.3 },
+    particles: { count: 14, speedMin: 34, speedMax: 108, gravity: 180, sizeMin: 2, sizeMax: 4.4, lifeMin: 0.34, lifeMax: 0.64, colors: ['#5a2f86', '#6a3fb0', '#1b1024'], riseBias: -30, spread: 1.5, forwardBias: 35 },
   },
   smoke: {
-    shards: { count: 5, lenMin: 8, lenMax: 18, color: '#8f8f8f', life: 0.2 },
-    particles: { count: 14, speedMin: 18, speedMax: 74, gravity: -60, sizeMin: 2.2, sizeMax: 4.8, lifeMin: 0.44, lifeMax: 0.84, colors: ['#6f6f6f', '#9a9a9a', '#4f4f4f'], riseBias: -44 },
+    shards: { count: 4, lenMin: 8, lenMax: 18, color: '#8f8f8f', life: 0.2 },
+    particles: { count: 14, speedMin: 22, speedMax: 84, gravity: -50, sizeMin: 2.4, sizeMax: 5, lifeMin: 0.44, lifeMax: 0.84, colors: ['#6f6f6f', '#9a9a9a', '#4f4f4f'], riseBias: -44, spread: 2.3, forwardBias: 18 },
   },
 };
