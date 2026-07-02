@@ -179,7 +179,7 @@ function NumberRow({ label, value, onCommit, min = 0 }: {
  *  plays each enemy's baked walk/hurt/death clips off-wave, with its stats). */
 export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   engineRef: React.RefObject<GameEngine | null>;
-  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; autoplay: boolean; autoplaySecs: number };
+  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; autoplay: boolean; autoplaySecs: number; biomeName: string };
   onClose: () => void;
   globalLock: boolean;
 }) {
@@ -363,6 +363,31 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
 
           {cheatTab === 'tools' && (
           <>
+          <div className="rs-panel-inset p-[0.5em] space-y-[0.4em]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[0.72em] text-osrs-orange uppercase tracking-wide">Map</span>
+              <span className="text-[0.74em] text-osrs-yellow truncate" title={ui.biomeName}>{ui.biomeName}</span>
+            </div>
+            <div className="flex gap-[0.4em]">
+              <button
+                disabled={ui.waveActive}
+                onClick={() => engineRef.current?.debugRerollMap()}
+                title="Roll a fresh road layout + biome (between waves only)"
+                className="rs-btn flex-1 py-[0.35em] text-[0.78em] disabled:opacity-50"
+              >
+                🎲 Reroll map
+              </button>
+              <button
+                onClick={() => engineRef.current?.debugCycleBiome()}
+                title="Re-skin this layout with the next region's palette"
+                className="rs-btn flex-1 py-[0.35em] text-[0.78em]"
+              >
+                🎨 Cycle biome
+              </button>
+            </div>
+            {ui.waveActive && <p className="text-[0.66em] text-[#b3a585]">Reroll is locked mid-wave. Cycle biome is always safe.</p>}
+          </div>
+
           <button
             onClick={() => engineRef.current?.debugTestUnlock()}
             className="rs-btn w-full py-[0.35em] text-[0.8em]"

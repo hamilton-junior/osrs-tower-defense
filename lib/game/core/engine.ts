@@ -45,7 +45,7 @@ import {
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import { generateMapLayout, type MapLayout } from '../systems/map-generation';
-import { BIOMES, pickBiome, type BiomeDef } from '../data/biomes';
+import { BIOMES, pickBiome, nextBiome, type BiomeDef } from '../data/biomes';
 import type { SlayerReward } from '../data/slayer';
 
 /** Default logic dimensions, used until {@link GameEngine.resize} measures the
@@ -284,6 +284,8 @@ export interface UIState {
   /** Debug autoplay state (toggle + delay in seconds). */
   autoplay: boolean;
   autoplaySecs: number;
+  /** Player-facing name of the run's current biome (shown in the debug map tools). */
+  biomeName: string;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -773,6 +775,7 @@ export class GameEngine {
       draftRerolls: this.draftRerollsLeft,
       autoplay: this.autoplay,
       autoplaySecs: this.autoplaySecs,
+      biomeName: this.biome.name,
     });
   }
 
@@ -3201,6 +3204,24 @@ export class GameEngine {
     this.enemies = [];
     this.spawnQueue = [];
     if (this.waveActive) this.checkWaveEnd();
+    this.emit();
+  }
+
+  /** Roll a brand-new procedural map (fresh road layout + biome) without touching
+   *  the run — lets the debug panel preview the map variety without a full restart.
+   *  Blocked mid-wave so live enemies never have their path yanked out. */
+  debugRerollMap() {
+    if (this.waveActive || this.enemies.length) { this.notify('Clear the field first'); return; }
+    this.generateMap();
+    this.bumpTowerLayout(); // towers may now sit on/off the new road — refresh ranges
+    this.emit();
+  }
+
+  /** Re-skin the current layout with the next biome in the list (colours only —
+   *  the road shape is untouched), so every region's palette can be eyeballed on
+   *  the same map. Safe any time; purely cosmetic. */
+  debugCycleBiome() {
+    this.biome = nextBiome(this.biome);
     this.emit();
   }
 

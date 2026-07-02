@@ -173,6 +173,7 @@ const INITIAL: UIState = {
   runCards: [],
   pendingRelics: null, ownedRelics: [], draftRerolls: 0,
   autoplay: false, autoplaySecs: 3,
+  biomeName: 'Misthalin Plains',
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */

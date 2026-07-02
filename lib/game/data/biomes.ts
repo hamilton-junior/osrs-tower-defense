@@ -128,9 +128,17 @@ export const BIOMES: Record<string, BiomeDef> = {
 
 export type BiomeId = keyof typeof BIOMES;
 
-const BIOME_LIST = Object.values(BIOMES);
+/** Every biome in a stable order (the cycle order used by the debug skinner). */
+export const BIOME_LIST = Object.values(BIOMES);
 
 /** Deterministically pick a biome for a run seed (stable per seed). */
 export function pickBiome(seed: number): BiomeDef {
   return BIOME_LIST[(seed >>> 0) % BIOME_LIST.length];
+}
+
+/** The biome after `current` in {@link BIOME_LIST}, wrapping around — used by the
+ *  debug "cycle biome" control to preview each region's skin on the same layout. */
+export function nextBiome(current: BiomeDef): BiomeDef {
+  const i = BIOME_LIST.findIndex(b => b.id === current.id);
+  return BIOME_LIST[(i + 1) % BIOME_LIST.length];
 }
