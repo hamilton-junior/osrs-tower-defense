@@ -413,6 +413,9 @@ export interface EnemyHoverInfo {
   maxHp: number;
   speed: number;
   baseSpeed: number;
+  /** The enemy type's natural (un-evented, un-affixed) speed — the panel flags a
+   *  hastened/slowed enemy when {@link baseSpeed} differs from this. */
+  naturalSpeed: number;
   weakness: Element | null;
   reward: number;
   isBoss: boolean;
@@ -1100,6 +1103,7 @@ export class GameEngine {
       maxHp: e.maxHp,
       speed: Math.round(e.speed),
       baseSpeed: Math.round(e.baseSpeed),
+      naturalSpeed: Math.round(e.naturalSpeed ?? e.baseSpeed),
       weakness: e.weakness && e.weakness !== 'none' ? e.weakness : null,
       reward: this.effectiveKillGold(e.type),
       isBoss: !!e.isBoss,
@@ -1590,6 +1594,7 @@ export class GameEngine {
     // Infestation frail). Speed folds in its affixes and the event too (Frenzy).
     const ev = resolveEventMods(this.activeEvent);
     const hp = Math.max(1, Math.round(scaled.hp * this.runFx.enemyHpMult * affixSpawnHpMult(affixes) * ev.enemyHp));
+    const naturalSpeed = Math.max(1, Math.round(scaled.speed));
     const speed = Math.max(1, Math.round(scaled.speed * affixSpeedMult(affixes) * ev.enemySpeed));
     const shieldHp = shieldHpFor(affixes, hp);
     return {
@@ -1601,6 +1606,7 @@ export class GameEngine {
       maxHp: hp,
       speed,
       baseSpeed: speed,
+      naturalSpeed,
       reward: scaled.reward,
       renderScale: (def.renderScale ?? 1) * affixRenderScaleMult(affixes),
       pathIndex: 0,
@@ -1763,6 +1769,7 @@ export class GameEngine {
         // A follow speed (px/s): fast enough to keep formation as Jad advances.
         speed: 70,
         baseSpeed: 70,
+        naturalSpeed: 70,
         renderScale: 0.7,
         pathIndex: jad.pathIndex,
         slowTimer: 0,

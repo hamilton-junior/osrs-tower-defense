@@ -104,6 +104,11 @@ export interface Enemy extends EnemyDef {
   y: number;
   maxHp: number;
   baseSpeed: number;
+  /** The enemy type's wave-scaled speed *before* any wave-event or affix multiplier
+   *  (unlike {@link baseSpeed}, which bakes those in). The reference the hover panel
+   *  compares against to flag a hastened/slowed enemy. Optional only so the legacy
+   *  engine's `Enemy` literals still type-check; the live engine always sets it. */
+  naturalSpeed?: number;
   pathIndex: number;
   slowTimer: number;
   stunTimer: number;

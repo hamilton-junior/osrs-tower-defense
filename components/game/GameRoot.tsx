@@ -932,6 +932,11 @@ export default function GameRoot() {
         const { info, pinned } = enemyPanel;
         const ratio = Math.max(0, info.hp / info.maxHp);
         const wk = info.weakness ? ELEMENTS[info.weakness as keyof typeof ELEMENTS] : null;
+        // A wave event (Frenzy/Blood Moon) or a speed affix bakes into baseSpeed but
+        // not naturalSpeed — flag the difference so a hastened/slowed enemy reads at
+        // a glance (▲ red = faster than normal, ▼ cyan = slower).
+        const natSpeed = info.naturalSpeed ?? info.baseSpeed;
+        const speedShift = info.baseSpeed > natSpeed ? 'up' : info.baseSpeed < natSpeed ? 'down' : null;
         // Enemy position in container pixels (canvas fills the container).
         const rect = canvasRef.current?.getBoundingClientRect();
         const cw = rect?.width ?? window.innerWidth;
@@ -1008,7 +1013,18 @@ export default function GameRoot() {
                 <span className="text-[#d3c3a0]">Weakness</span>
                 <span className="text-right capitalize" style={{ color: wk?.color ?? '#9a9a9a' }}>{wk ? wk.label : 'None'}</span>
                 <span className="text-[#d3c3a0]">Move speed</span>
-                <span className="text-right text-white">{info.speed}{info.speed !== info.baseSpeed ? ` (${info.baseSpeed})` : ''}</span>
+                <span className="text-right text-white flex items-center justify-end gap-[0.3em]">
+                  <span>{info.speed}{info.speed !== info.baseSpeed ? ` (${info.baseSpeed})` : ''}</span>
+                  {speedShift && (
+                    <span
+                      className="text-[0.9em] leading-none font-bold"
+                      style={{ color: speedShift === 'up' ? '#ff6a4d' : '#57c8ff' }}
+                      title={`${speedShift === 'up' ? 'Hastened' : 'Slowed'} by an event or affix — normally ${natSpeed}`}
+                    >
+                      {speedShift === 'up' ? '▲' : '▼'}
+                    </span>
+                  )}
+                </span>
                 <span className="text-[#d3c3a0]">Gold</span>
                 <span className="text-right text-osrs-yellow">{info.reward}</span>
                 {info.tenacity > 0 && (
