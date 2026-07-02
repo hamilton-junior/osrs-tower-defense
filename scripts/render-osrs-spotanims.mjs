@@ -17,12 +17,12 @@
  * Build-time/offline only (osrscachereader can't run in a static export).
  */
 import { RSCache, IndexType, ConfigType, ModelGroup } from 'osrscachereader';
-import { createCanvas } from 'canvas';
 import { PNG } from 'pngjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { computeFit, renderModelFrame, loadTextures, modelTextureIds, loadAnimationWithAlpha } from './lib/rs-raster.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -54,6 +54,33 @@ const TARGETS = {
 };
 
 /**
+ * The real spell GFX: every wizard spell's projectile + impact spotanim, keyed
+ * to mirror the engine's `hit_<element>_<level>` sound keys (so `hitSound` doubles
+ * as the impact-GFX slug, and `proj_…` as the flight loop). IDs verified
+ * visually against the cache (contact-strip bakes, 2026-07-02):
+ *  - Elemental levels 1-5 = Strike/Bolt/Blast/Wave/Surge. Each entry [proj, hit].
+ *  - Ancients levels 1-4 = Rush/Burst/Blitz/Barrage. Blitz/Barrage fly with no
+ *    cache projectile of their own — they reuse their element's rush/blitz orb
+ *    (the closest authentic flight visual).
+ */
+const SPELL_GFX = {
+  air:   [[91, 92], [118, 119], [133, 134], [159, 160], [1456, 1457]],
+  water: [[94, 95], [121, 122], [136, 137], [162, 163], [1459, 1460]],
+  earth: [[97, 98], [124, 125], [139, 140], [165, 166], [1462, 1463]],
+  fire:  [[100, 101], [127, 128], [130, 131], [156, 157], [1465, 1466]],
+  ice:    [[360, 361], [362, 363], [360, 367], [360, 369]],
+  blood:  [[372, 373], [372, 376], [374, 375], [374, 377]],
+  shadow: [[378, 379], [378, 382], [380, 381], [380, 383]],
+  smoke:  [[384, 385], [384, 389], [386, 387], [386, 391]],
+};
+for (const [el, tiers] of Object.entries(SPELL_GFX)) {
+  tiers.forEach(([proj, hit], i) => {
+    TARGETS[`proj_${el}_${i + 1}`] = { id: proj, maxFrames: 12 };
+    TARGETS[`hit_${el}_${i + 1}`] = { id: hit, maxFrames: 16 };
+  });
+}
+
+/**
  * Parse a spotanim config's model id + animation id (+ recolour) ourselves.
  *
  * Why not osrscachereader's SpotAnimLoader: in the current LIVE cache the model
@@ -70,7 +97,7 @@ function parseSpotAnimDef(content) {
   const u16 = () => { const v = dv.getUint16(p); p += 2; return v; };
   const u32 = () => { const v = dv.getUint32(p); p += 4; return v; };
   const skipStr = () => { while (b[p] !== 0) p++; p++; };
-  const out = { modelId: undefined, animationId: -1, recolorToFind: [], recolorToReplace: [] };
+  const out = { modelId: undefined, animationId: -1, recolorToFind: [], recolorToReplace: [], retexToFind: [], retexToReplace: [] };
   for (let guard = 0; guard < 256; guard++) {
     const op = u8();
     if (op === 0) break;
@@ -81,7 +108,7 @@ function parseSpotAnimDef(content) {
     else if (op === 7 || op === 8) u8();             // ambient / contrast
     else if (op === 9) skipStr();                    // name
     else if (op === 40) { const n = u8(); for (let i = 0; i < n; i++) { out.recolorToFind.push(u16()); out.recolorToReplace.push(u16()); } }
-    else if (op === 41) { const n = u8(); p += 4 * n; } // texture find/replace
+    else if (op === 41) { const n = u8(); for (let i = 0; i < n; i++) { out.retexToFind.push(u16()); out.retexToReplace.push(u16()); } }
     else break; // unknown → stop (avoid desync garbage)
   }
   return out;
@@ -156,119 +183,9 @@ async function buildNpcModel(cache, npcId) {
   return { model, animationId: def.standAnim };
 }
 
-// ----------------------------------------------------------- OSRS HSL palette
-const HUE_OFFSET = 0.5 / 64;
-const SATURATION_OFFSET = 0.5 / 8;
-const BRIGHTNESS = 0.7;
-
-function hslToRgb(hsl) {
-  const hue = ((hsl >> 10) & 63) / 64 + HUE_OFFSET;
-  const sat = ((hsl >> 7) & 7) / 8 + SATURATION_OFFSET;
-  const lum = (hsl & 127) / 128;
-  const chroma = (1 - Math.abs(2 * lum - 1)) * sat;
-  const x = chroma * (1 - Math.abs(((hue * 6) % 2) - 1));
-  const m = lum - chroma / 2;
-  let r = m, g = m, b = m;
-  switch (Math.trunc(hue * 6)) {
-    case 0: r += chroma; g += x; break;
-    case 1: g += chroma; r += x; break;
-    case 2: g += chroma; b += x; break;
-    case 3: b += chroma; g += x; break;
-    case 4: b += chroma; r += x; break;
-    default: r += chroma; b += x; break;
-  }
-  return [r, g, b].map((c) => Math.min(255, Math.pow(Math.max(c, 0), BRIGHTNESS) * 255));
-}
-
-/** Rotate (yaw about Y, pitch about X) then orthographically project a vertex. */
-function project(x, y, z, sy, cy, sp, cp) {
-  const rx = x * cy - z * sy;
-  let rz = x * sy + z * cy;
-  const ry = y * cp - rz * sp;
-  rz = y * sp + rz * cp;
-  return [rx, ry, rz];
-}
-
-function percentile(arr, q) {
-  const s = Float64Array.from(arr).sort();
-  const i = Math.min(s.length - 1, Math.max(0, Math.round(q * (s.length - 1))));
-  return s[i];
-}
-
-/**
- * Render one frame's vertices into a SIZE×SIZE canvas using a pre-computed
- * shared fit (`scale`, `cx`, `cy`) so every frame lines up. Additive blending
- * ('lighter') gives the energy/glow look spotanims have in-client.
- */
-function renderFrame(model, verts, fit, sy, cy, sp, cp) {
-  const n = verts.length;
-  const px = new Float64Array(n), py = new Float64Array(n), pz = new Float64Array(n);
-  for (let i = 0; i < n; i++) {
-    const [a, b, c] = project(verts[i][0], verts[i][1], verts[i][2], sy, cy, sp, cp);
-    px[i] = a; py[i] = b; pz[i] = c;
-  }
-  const toScreen = (i) => [SIZE / 2 + (px[i] - fit.cx) * fit.scale, SIZE / 2 + (py[i] - fit.cy) * fit.scale];
-
-  const L = [-0.4, -0.5, -0.75];
-  const Lmag = Math.hypot(...L);
-
-  const canvas = createCanvas(SIZE, SIZE);
-  const ctx = canvas.getContext('2d');
-  // Bake real face colours over transparency (source-over). The energy/glow
-  // additive look is applied at *runtime* when the sheet is drawn, so the baked
-  // sprite stays a normal RGBA image (and doesn't blow out to white here).
-
-  const fa = model.faceVertexIndices1, fb = model.faceVertexIndices2, fc = model.faceVertexIndices3;
-  const order = [];
-  for (let f = 0; f < model.faceCount; f++) {
-    order.push([f, (pz[fa[f]] + pz[fb[f]] + pz[fc[f]]) / 3]);
-  }
-  order.sort((p, q) => q[1] - p[1]);
-
-  for (const [f] of order) {
-    const renderType = model.faceRenderTypes ? model.faceRenderTypes[f] : 0;
-    if (renderType === 2) continue;
-    const alpha = model.faceAlphas?.[f] ?? 0;
-    if (alpha === 255) continue;
-    const hsl = model.faceColors[f];
-    if (hsl === undefined || hsl < 0) continue;
-
-    const i1 = fa[f], i2 = fb[f], i3 = fc[f];
-    const ux = px[i2] - px[i1], uy = py[i2] - py[i1], uz = pz[i2] - pz[i1];
-    const vx = px[i3] - px[i1], vy = py[i3] - py[i1], vz = pz[i3] - pz[i1];
-    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    const nmag = Math.hypot(nx, ny, nz) || 1;
-    const dot = (nx * L[0] + ny * L[1] + nz * L[2]) / (nmag * Lmag);
-    const shade = 0.6 + 0.4 * Math.abs(dot);
-
-    const [r, g, b] = hslToRgb(hsl);
-    ctx.fillStyle = `rgb(${Math.round(r * shade)},${Math.round(g * shade)},${Math.round(b * shade)})`;
-    ctx.globalAlpha = (255 - alpha) / 255;
-    const [x1, y1] = toScreen(i1), [x2, y2] = toScreen(i2), [x3, y3] = toScreen(i3);
-    ctx.beginPath();
-    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath();
-    ctx.fill();
-  }
-  return ctx.getImageData(0, 0, SIZE, SIZE);
-}
-
-/** Compute one shared fit (scale + center) from every vertex of every frame. */
-function computeFit(frames, sy, cy, sp, cp) {
-  const allX = [], allY = [];
-  for (const verts of frames) {
-    for (const v of verts) {
-      const [a, b] = project(v[0], v[1], v[2], sy, cy, sp, cp);
-      allX.push(a); allY.push(b);
-    }
-  }
-  const TRIM = 0.01;
-  const xLo = percentile(allX, TRIM), xHi = percentile(allX, 1 - TRIM);
-  const yLo = percentile(allY, TRIM), yHi = percentile(allY, 1 - TRIM);
-  const robustH = (yHi - yLo) || 1, robustW = (xHi - xLo) || 1;
-  const usable = SIZE * (1 - 2 * MARGIN);
-  let scale = usable / Math.max(robustH, robustW); // fit the larger extent
-  return { scale, cx: (xLo + xHi) / 2, cy: (yLo + yHi) / 2 };
-}
+// Rasterisation (projection, fit, per-face fill, textures, the unsigned-alpha
+// fix that cures the old "white box" bakes) lives in ./lib/rs-raster.mjs and is
+// shared with the other bakers.
 
 // ----------------------------------------------------------------------- main
 async function main() {
@@ -335,33 +252,47 @@ async function main() {
           if (r !== undefined) model.faceColors[i] = r;
         }
       }
+      // Opcode 41: texture find/replace — swap face texture ids before baking.
+      if (sa.retexToFind?.length && model.faceTextures?.length) {
+        const map = new Map();
+        sa.retexToFind.forEach((f, i) => map.set(f, sa.retexToReplace[i]));
+        for (let i = 0; i < model.faceTextures.length; i++) {
+          const r = map.get(model.faceTextures[i]);
+          if (r !== undefined) model.faceTextures[i] = r;
+        }
+      }
       animationId = sa.animationId;
     }
 
     if (animationId === -1) { console.warn(`! ${slug}: no animation`); continue; }
-    const anim = await model.loadAnimation(cache, animationId);
+    // Real cache textures for any textured faces (rare on GFX, common on NPCs).
+    const textures = await loadTextures(cache, modelTextureIds(model));
+    // Alpha-aware load: applies the sequence's type-5 transparency transforms
+    // (fades) that plain loadAnimation drops — see lib/rs-raster.mjs.
+    const anim = await loadAnimationWithAlpha(cache, model, animationId);
     let frames = anim.vertexData; // [frame][vertex] = [x,y,z]
     let lengths = anim.lengths;
+    let alphas = anim.alphaData; // [frame] → per-face alpha (or null)
     if (!frames?.length) { console.warn(`! ${slug}: animation produced no frames`); continue; }
 
     // Cap frame count (sample evenly) to keep the sheet small.
     if (frames.length > cfg.maxFrames) {
-      const picked = [], pickedLen = [];
+      const picked = [], pickedLen = [], pickedA = [];
       for (let i = 0; i < cfg.maxFrames; i++) {
         const idx = Math.round((i * (frames.length - 1)) / (cfg.maxFrames - 1));
-        picked.push(frames[idx]); pickedLen.push(lengths[idx] ?? 3);
+        picked.push(frames[idx]); pickedLen.push(lengths[idx] ?? 3); pickedA.push(alphas?.[idx] ?? null);
       }
-      frames = picked; lengths = pickedLen;
+      frames = picked; lengths = pickedLen; alphas = pickedA;
     }
 
     const yawR = (cfg.yaw * Math.PI) / 180, pitchR = (cfg.pitch * Math.PI) / 180;
     const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
-    const fit = computeFit(frames, sy, cy, sp, cp);
+    const fit = computeFit(frames, sy, cy, sp, cp, SIZE, MARGIN);
 
     // Tile frames left→right into one sheet.
     const sheet = new PNG({ width: SIZE * frames.length, height: SIZE });
     for (let fi = 0; fi < frames.length; fi++) {
-      const img = renderFrame(model, frames[fi], fit, sy, cy, sp, cp);
+      const img = renderModelFrame(model, frames[fi], fit, sy, cy, sp, cp, SIZE, textures, alphas?.[fi] ?? undefined);
       // blit into the sheet at column fi
       for (let y = 0; y < SIZE; y++) {
         for (let x = 0; x < SIZE; x++) {

@@ -186,6 +186,9 @@ export interface Effect {
   x: number;
   y: number;
   age: number;
+  /** Draw-size multiplier over the spotanim's base size (impacts scale to the
+   *  struck model, like the procedural bursts did). Defaults to 1. */
+  scale?: number;
 }
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
@@ -335,8 +338,12 @@ export interface Projectile {
    *  procedural dragon arrow, and the engine skips the melee impact thud for it. */
   arrowIcon?: string;
   /** Sound key (e.g. `hit_fire_3`) played at impact — the spell's authentic OSRS
-   *  hit sfx, paired with the cast sound played on fire. */
+   *  hit sfx, paired with the cast sound played on fire. Doubles as the baked
+   *  impact-GFX slug (SPOTANIMS shares the key). */
   hitSound?: string;
+  /** Baked flight-GFX slug (e.g. `proj_fire_3`) — the spell's real OSRS
+   *  projectile spotanim, drawn as a looping sheet instead of the spell icon. */
+  projAnim?: string;
   sourceTowerId?: string;
   /** Recent positions (oldest→newest) for drawing a motion trail. */
   trail?: { x: number; y: number }[];

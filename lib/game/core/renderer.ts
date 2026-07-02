@@ -389,9 +389,11 @@ export class GameRenderer {
       const fade = prog > 0.7 ? Math.max(0, 1 - (prog - 0.7) / 0.3) : 1;
 
       ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
+      // 'add' glows (energy/light GFX); 'alpha' is the client's plain
+      // translucency — dark GFX (smoke/shadow) vanish under additive.
+      ctx.globalCompositeOperation = meta.blend === 'add' ? 'lighter' : 'source-over';
       ctx.globalAlpha = 0.92 * fade;
-      const s = meta.size;
+      const s = meta.size * (fx.scale ?? 1);
       ctx.drawImage(img, fi * meta.frameW, 0, meta.frameW, meta.frameH, fx.x - s / 2, fx.y - s / 2, s, s);
       ctx.restore();
     }
@@ -1213,8 +1215,21 @@ export class GameRenderer {
           ctx.fillRect(-8, -1, 16, 2); // plain bolt (tzhaar / slayer / toxic)
         }
         ctx.restore();
+      } else if (p.projAnim && SPOTANIMS[p.projAnim] && this.e.imageOk(`spotanim_${p.projAnim}`)) {
+        // The spell's REAL flight GFX from the cache — a looping baked spotanim
+        // riding the bolt (frame picked from game time so all bolts animate).
+        const meta = SPOTANIMS[p.projAnim];
+        let rem = (this.e.runSeconds * 1000 * meta.speed) % meta.frameMs.reduce((a, b) => a + b, 0);
+        let fi = 0;
+        for (; fi < meta.frames - 1; fi++) {
+          if (rem < meta.frameMs[fi]) break;
+          rem -= meta.frameMs[fi];
+        }
+        const img = this.e.images.get(`spotanim_${p.projAnim}`)!;
+        const s = meta.size;
+        ctx.drawImage(img, fi * meta.frameW, 0, meta.frameW, meta.frameH, p.x - s / 2, p.y - s / 2, s, s);
       } else if (p.spellIcon && this.e.imageOk(`spell_${p.spellIcon}`)) {
-        // Real spell sprite (Fire Wave / Ice Barrage / …), with a coloured glow.
+        // Fallback: the spell's icon sprite, with a coloured glow.
         ctx.save();
         ctx.shadowColor = p.color;
         ctx.shadowBlur = 8;

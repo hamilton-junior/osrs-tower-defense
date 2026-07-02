@@ -1870,10 +1870,11 @@ export class GameEngine {
     }
   }
 
-  /** Queue a one-shot baked-spotanim effect at a point (purely visual). */
-  spawnEffect(slug: string, x: number, y: number) {
+  /** Queue a one-shot baked-spotanim effect at a point (purely visual).
+   *  `scale` multiplies the spotanim's base draw size (impacts fit the model). */
+  spawnEffect(slug: string, x: number, y: number, scale = 1) {
     if (!SPOTANIMS[slug]) return;
-    this.spotEffects.push({ slug, x, y, age: 0 });
+    this.spotEffects.push({ slug, x, y, age: 0, scale });
   }
 
   /** An expanding ring VFX (overkill cleave, kill-streak shockwave, soul-split heal). */
@@ -2124,11 +2125,15 @@ export class GameEngine {
       let hitSound: string | undefined;
       const dist = distance(tower.x, tower.y, target.x, target.y);
       let flight = dist / 600; // nominal flight (archer/cannon/spell alike)
+      let projAnim: string | undefined;
       if (tower.type === 'wizard') {
         const mode = tower.mageMode ?? 'elemental';
         const tier = mode === 'ancients' ? (tower.ancientType ?? 'ice') : (tower.element ?? 'air');
         soundKey = `cast_${tier}_${tower.level}`;
         hitSound = `hit_${tier}_${tower.level}`;
+        // The spell's real flight GFX (baked from the cache); the spell icon
+        // stays as the renderer's fallback if the sheet ever fails to load.
+        if (SPOTANIMS[`proj_${tier}_${tower.level}`]) projAnim = `proj_${tier}_${tower.level}`;
         // Sound-sync the arc: the bolt must not land before the cast clip ends,
         // so the impact sfx never steps on the cast. Floor the flight at the cast
         // duration + 25% (a short beat of air after the cast lands). Until the
@@ -2169,6 +2174,7 @@ export class GameEngine {
           spellIcon: projSpell,
           arrowIcon: tower.type === 'archer' ? 'dragon_arrow' : undefined,
           hitSound,
+          projAnim,
           sourceTowerId: tower.id,
           trail: [],
         });
@@ -2286,10 +2292,12 @@ export class GameEngine {
 
   private hit(p: Projectile, target: Enemy | null) {
     const style = this.projectileStyle(p);
-    // Magic impacts get an element-themed procedural burst (the runtime half of
-    // the spotanim hybrid — textured spell GFX rasterise to white boxes, so we
-    // draw them procedurally); arrows/cannonballs keep the plain coloured spark.
-    const theme = resolveImpactTheme(p.type, p.element);
+    // Magic impacts play the spell's REAL baked hit-GFX from the cache when one
+    // exists (`hitSound` doubles as the SPOTANIMS slug, e.g. `hit_fire_4`); the
+    // element-themed procedural burst survives only as the fallback for magic
+    // without a baked sheet. Arrows/cannonballs keep the plain coloured spark.
+    const gfx = p.hitSound && SPOTANIMS[p.hitSound] ? p.hitSound : null;
+    const theme = gfx ? null : resolveImpactTheme(p.type, p.element);
     const isAoe = !!(p.aoe || p.special === 'aoe');
     // Land the burst on the target's body (enemies draw centred on x/y) when it's
     // still alive, so the explosion reads as hitting the model rather than fizzling
@@ -2303,8 +2311,9 @@ export class GameEngine {
     // Single-target magic bursts here (sized to the struck model); AoE bursts are
     // spawned per-target in the splash loop below so each hit — primary and splash
     // — gets its own right-sized burst. Non-magic shots keep the plain spark.
-    if (theme && !isAoe) this.spawnMagicImpact(ax, ay, theme, this.impactScale(target && target.hp > 0 ? target : null), travelX, travelY);
-    else if (!theme) this.spawnImpactParticles(p.x, p.y, p.color);
+    if (gfx && !isAoe) this.spawnEffect(gfx, ax, ay, this.impactScale(target && target.hp > 0 ? target : null));
+    else if (theme && !isAoe) this.spawnMagicImpact(ax, ay, theme, this.impactScale(target && target.hp > 0 ? target : null), travelX, travelY);
+    else if (!theme && !gfx) this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
     // Archer arrows have no impact clip wired yet, and the generic melee "thud" is
     // wrong for a flying arrow — so they land silently (`arrowIcon` is set iff the
@@ -2329,14 +2338,16 @@ export class GameEngine {
       for (const e of near) {
         const isPrimary = e === primary;
         const scale = isPrimary ? 1 : splash;
-        // Themed burst on EVERY struck enemy: primary at full model-size, splash
-        // targets shrunk (IMPACT_SPLASH_SCALE) so the smaller hit reads as the
-        // reduced splash damage. Colour is the projectile's element, as always.
-        // Direction: the primary keeps the shot's travel; splash debris is thrown
-        // outward from the blast centre (the explosion pushing it off the model).
+        // Real hit-GFX (or themed fallback burst) on EVERY struck enemy: primary
+        // at full model-size, splash targets shrunk (IMPACT_SPLASH_SCALE) so the
+        // smaller hit reads as the reduced splash damage — a barrage paints its
+        // spell's authentic impact across the whole clump, like in the client.
+        // Direction (procedural only): primary keeps the shot's travel; splash
+        // debris is thrown outward from the blast centre.
         const dx = isPrimary ? travelX : e.x - p.x;
         const dy = isPrimary ? travelY : e.y - p.y;
-        if (theme) this.spawnMagicImpact(e.x, e.y, theme, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), dx, dy);
+        if (gfx) this.spawnEffect(gfx, e.x, e.y, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE));
+        else if (theme) this.spawnMagicImpact(e.x, e.y, theme, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), dx, dy);
         // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.
         const bonus = p.bonusMaxHpFrac ? Math.floor(e.maxHp * p.bonusMaxHpFrac * scale) : 0;
         const dmg = Math.floor(p.damage * scale) + bonus;

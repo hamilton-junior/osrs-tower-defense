@@ -1,14 +1,14 @@
-import { ASSETS } from '../assets';
+import { SPOTANIM_SHEETS } from './spotanims.data';
 
 /**
  * Playback metadata for a baked spotanim (GFX) sprite sheet. The PNG is a
  * horizontal strip of `frames` cells, each `frameW`×`frameH`, produced by
- * scripts/render-osrs-spotanims.mjs (which also emits a matching JSON sidecar —
- * the per-frame timings below are copied from it). The renderer plays the strip
- * once at the effect's location, additively blended for the in-game glow.
+ * scripts/render-osrs-spotanims.mjs (whose JSON sidecars are folded into
+ * spotanims.data.ts by scripts/generate-spotanims-data.mjs). The renderer
+ * plays the strip once (or loops it) at the effect's location.
  */
 export interface SpotAnimMeta {
-  /** Sprite-sheet URL (already base-path-prefixed via ASSETS). */
+  /** Sprite-sheet URL (already base-path-prefixed via the generated data). */
   url: string;
   frames: number;
   frameW: number;
@@ -19,24 +19,31 @@ export interface SpotAnimMeta {
   size: number;
   /** Playback speed multiplier (>1 plays faster than the cache timing). */
   speed: number;
-  /** Loops forever (e.g. the spawn portal) instead of playing once. */
+  /** Loops forever (spawn portal, projectile flight) instead of playing once. */
   loop?: boolean;
+  /** Composite mode: 'add' glows (energy/light), 'alpha' is the client's plain
+   *  translucency (needed for dark GFX — smoke/shadow add ~nothing additively). */
+  blend: 'add' | 'alpha';
 }
 
-export const SPOTANIMS: Record<string, SpotAnimMeta> = {
-  // Spawn portal — the Pest Control void portal NPC (1739) idle swirl, side-on.
-  // Looping: drawn every frame at the portal point (not via spawnEffect).
-  portal: {
-    url: ASSETS.spotanims.portal,
-    frames: 12,
-    frameW: 96,
-    frameH: 96,
-    frameMs: [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80],
-    size: 104,
-    speed: 1,
-    loop: true,
-  },
-};
+/**
+ * Presentation defaults by slug family. Sheet facts (frames/timings) come from
+ * the generated table; this layer decides how each GFX *plays* in our scenes:
+ *  - `hit_*` spell impacts: one-shot on the struck model, sized near the
+ *    procedural bursts they replaced; scaled per-enemy at spawn (Effect.scale).
+ *  - `proj_*` spell flights: small looping orb riding the projectile.
+ *  - `portal`: the looping spawn portal, drawn every frame (not spawnEffect).
+ */
+function presentationFor(slug: string): { size: number; speed: number; loop?: boolean; blend: 'add' | 'alpha' } {
+  if (slug.startsWith('proj_')) return { size: 30, speed: 1, loop: true, blend: 'alpha' };
+  if (slug.startsWith('hit_')) return { size: 72, speed: 1, blend: 'alpha' };
+  // portal (and future NPC-sourced loops)
+  return { size: 104, speed: 1, loop: true, blend: 'add' };
+}
+
+export const SPOTANIMS: Record<string, SpotAnimMeta> = Object.fromEntries(
+  Object.entries(SPOTANIM_SHEETS).map(([slug, sheet]) => [slug, { ...sheet, ...presentationFor(slug) }]),
+);
 
 /** Total play time (seconds) of a spotanim at its configured speed. */
 export function spotAnimDurationS(meta: SpotAnimMeta): number {
