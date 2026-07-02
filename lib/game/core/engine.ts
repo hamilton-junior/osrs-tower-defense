@@ -1101,7 +1101,7 @@ export class GameEngine {
       speed: Math.round(e.speed),
       baseSpeed: Math.round(e.baseSpeed),
       weakness: e.weakness && e.weakness !== 'none' ? e.weakness : null,
-      reward: this.killGold(e.type),
+      reward: this.effectiveKillGold(e.type),
       isBoss: !!e.isBoss,
       x: e.x,
       y: e.y,
@@ -1159,6 +1159,21 @@ export class GameEngine {
    *  per monster however late the wave. */
   private killGold(type: EnemyType): number {
     return Math.round(goldForKill(ENEMIES[type]?.hp ?? 0) * GENERAL_GOLD_FACTOR);
+  }
+
+  /** Base kill gold folded with the run's greed/goldFind multiplier and the active
+   *  wave event's gold multiplier (e.g. Blood Moon's payout) — everything except the
+   *  permanent reward-multiplier upgrade that {@link awardGold} applies on top. The
+   *  single source of truth so the drop and the hover panel never drift. */
+  private killGoldPreReward(type: EnemyType): number {
+    return Math.round(this.killGold(type) * this.runFx.goldMult * resolveEventMods(this.activeEvent).gold);
+  }
+
+  /** The gold the player actually receives for killing `type` right now, with every
+   *  live multiplier applied (greed/goldFind, wave event, reward upgrade). Shown in
+   *  the enemy hover panel so event twists like Blood Moon read correctly. */
+  effectiveKillGold(type: EnemyType): number {
+    return Math.round(this.killGoldPreReward(type) * this.meta.upgrades.rewardMultiplier);
   }
 
   /** Add gold from a kill or wave clear, scaled by the rewardMultiplier upgrade,
@@ -2710,7 +2725,7 @@ export class GameEngine {
     if (!enemy.debug && !enemy.healer) {
       // Greed curse (×goldMult) and the active wave event (×event gold, e.g. Blood
       // Moon's harder-wave payout) both scale the drop; both default to 1.
-      this.awardGold(Math.round(this.killGold(enemy.type) * this.runFx.goldMult * resolveEventMods(this.activeEvent).gold));
+      this.awardGold(this.killGoldPreReward(enemy.type));
       this.kills += 1;
       // New object each kill so the UI's persistence effect sees the change.
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
