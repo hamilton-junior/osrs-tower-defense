@@ -20,7 +20,7 @@ describe('WAVE_EVENTS pool', () => {
       expect(e.name).not.toBe('');
       expect(e.desc).not.toBe('');
       expect(e.color).toMatch(/^#/);
-      expect(e.icon).toMatch(/^https?:\/\//);
+      expect(e.icon).toMatch(/^(https?:\/\/|\/|\.\/)?\S+\.png$/); // baked local asset (or wiki fallback)
       expect(e.weight).toBeGreaterThan(0);
       expect(['hazard', 'boon']).toContain(e.tone);
       // effect has at least one modifier, and every present one is a positive mult

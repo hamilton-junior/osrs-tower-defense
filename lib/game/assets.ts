@@ -5,6 +5,77 @@ const WIKI = 'https://oldschool.runescape.wiki/images/';
 // they resolve under a GitHub Pages project subpath too.
 const LOCAL = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/assets`;
 
+/** Authentic inventory icon baked from the game cache
+ *  (scripts/render-osrs-items.mjs → public/assets/items/<slug>.png). */
+export const itemIcon = (slug: string) => `${LOCAL}/items/${slug}.png`;
+
+/**
+ * Wiki-filename → locally-baked icon. Data tables (GE shop, slayer rewards,
+ * meta upgrades) key icons by wiki filename; `iconUrl` resolves them to the
+ * cache-baked local asset, hot-linking only names with no bake yet.
+ */
+const LOCAL_BY_WIKI: Record<string, string> = {
+  // GE consumables (data/shop.ts `wiki` keys)
+  'Ranging_potion(4)': itemIcon('ranging_potion'),
+  'Magic_potion(4)': itemIcon('magic_potion'),
+  'Super_combat_potion(4)': itemIcon('super_combat_potion'),
+  'Prayer_potion(4)': itemIcon('prayer_potion'),
+  'Super_restore(4)': itemIcon('super_restore'),
+  'Overload_(4)': itemIcon('overload_4'),
+  Bronze_ore: itemIcon('bronze_ore'),
+  Iron_ore: itemIcon('iron_ore'),
+  Coal: itemIcon('coal'),
+  Mithril_ore: itemIcon('mithril_ore'),
+  Adamantite_ore: itemIcon('adamantite_ore'),
+  Rune_ore: itemIcon('rune_ore'),
+  Grimy_guam: itemIcon('grimy_guam'),
+  Clean_guam: itemIcon('guam_leaf'),
+  Grimy_ranarr: itemIcon('grimy_ranarr'),
+  Clean_ranarr: itemIcon('ranarr_weed'),
+  Vial_of_water: itemIcon('vial_of_water'),
+  Eye_of_newt: itemIcon('eye_of_newt'),
+  Limpwurt_root: itemIcon('limpwurt_root'),
+  Red_spiders_eggs: itemIcon('red_spiders_eggs'),
+  Bird_nest: itemIcon('bird_nest'),
+  Snape_grass: itemIcon('snape_grass'),
+  Guam_seed: itemIcon('guam_seed'),
+  Harralander_seed: itemIcon('harralander_seed'),
+  Toadflax_seed: itemIcon('toadflax_seed'),
+  Ranarr_seed: itemIcon('ranarr_seed'),
+  Snapdragon_seed: itemIcon('snapdragon_seed'),
+  Torstol_seed: itemIcon('torstol_seed'),
+  Potato_seed: itemIcon('potato_seed'),
+  Onion_seed: itemIcon('onion_seed'),
+  Cabbage_seed: itemIcon('cabbage_seed'),
+  Sweetcorn_seed: itemIcon('sweetcorn_seed'),
+  Watermelon_seed: itemIcon('watermelon_seed'),
+  Snape_grass_seed: itemIcon('snape_grass_seed'),
+  Bones: itemIcon('bones'),
+  Big_bones: itemIcon('big_bones'),
+  Dragon_bones: itemIcon('dragon_bones'),
+  Logs: itemIcon('logs'),
+  Oak_logs: itemIcon('oak_logs'),
+  Willow_logs: itemIcon('willow_logs'),
+  Yew_logs: itemIcon('yew_logs'),
+  Magic_logs: itemIcon('magic_logs'),
+  // Slayer rewards (data/slayer.ts `icon` keys)
+  Slayer_helmet: itemIcon('slayer_helmet'),
+  Enchanted_gem: itemIcon('enchanted_gem'),
+  Pure_essence: itemIcon('pure_essence'),
+  // Meta-progression upgrades (systems/meta-progression.ts `icon` keys)
+  Coins_detail: itemIcon('coins'),
+  Cannon_barrels: itemIcon('cannon_barrels'),
+  Ranged_icon: `${LOCAL}/misc/ranged_icon.png`,
+  Magic_icon: `${LOCAL}/misc/magic_icon.png`,
+  Prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
+  // HUD icons that are real items
+  Collection_log: itemIcon('collection_log'),
+  Dwarf_multicannon: itemIcon('dwarf_multicannon'),
+};
+
+/** Resolve a wiki icon filename (no extension) to its best URL. */
+export const iconUrl = (wiki: string) => LOCAL_BY_WIKI[wiki] ?? `${WIKI}${wiki}.png`;
+
 /**
  * Spell-icon URLs keyed by wiki file name (e.g. `Fire_Wave`, `Ice_Barrage`),
  * generated from the elemental (Wind/Water/Earth/Fire × Strike/Bolt/Blast/Wave)
@@ -23,6 +94,8 @@ for (const w of ['Ice', 'Blood', 'Shadow', 'Smoke']) {
 SPELL_ICONS['Death_Charge'] = `${LOCAL}/spells/Death_Charge.png`;
 SPELL_ICONS['Undead_Grasp'] = `${LOCAL}/spells/Undead_Grasp.png`;
 SPELL_ICONS['Vile_Vigour'] = `${LOCAL}/spells/Vile_Vigour.png`;
+// Standard-book Curse — the "Curse of Darkness" wave-event badge.
+SPELL_ICONS['Curse'] = `${LOCAL}/spells/Curse.png`;
 
 // --- Sound effects decoded straight from the OSRS game cache ----------------
 // (scripts/extract-osrs-sounds.mjs → public/assets/sounds/). IDs sourced from
@@ -142,43 +215,47 @@ export const ASSETS = {
     rigour: `${LOCAL}/prayers/rigour.png`,
     augury: `${LOCAL}/prayers/augury.png`,
   },
+  // Tower badges — authentic inventory icons baked from the game cache
+  // (scripts/render-osrs-items.mjs). TzHaar stays wiki: those are NPC models
+  // (phase-4 of the extraction track).
   towers: {
     archer: {
-      1: 'https://oldschool.runescape.wiki/images/Shortbow.png',
-      2: 'https://oldschool.runescape.wiki/images/Magic_shortbow.png',
+      1: itemIcon('shortbow'),
+      2: itemIcon('magic_shortbow'),
       // Tier 3 is the Dark Bow (twin-shot) — match the sprite to the name.
-      3: 'https://oldschool.runescape.wiki/images/Dark_bow.png',
-      4: 'https://oldschool.runescape.wiki/images/Bow_of_faerdhinen.png',
+      3: itemIcon('dark_bow'),
+      4: itemIcon('bow_of_faerdhinen'),
     },
     wizard: {
-      1: 'https://oldschool.runescape.wiki/images/Staff_of_air.png',
-      2: 'https://oldschool.runescape.wiki/images/Staff_of_water.png',
-      3: 'https://oldschool.runescape.wiki/images/Ancient_staff.png',
-      4: 'https://oldschool.runescape.wiki/images/Tumeken%27s_shadow.png',
-      elemental_air: 'https://oldschool.runescape.wiki/images/Staff_of_air.png',
-      elemental_water: 'https://oldschool.runescape.wiki/images/Staff_of_water.png',
-      elemental_earth: 'https://oldschool.runescape.wiki/images/Staff_of_earth.png',
-      elemental_fire: 'https://oldschool.runescape.wiki/images/Staff_of_fire.png',
-      ancients: 'https://oldschool.runescape.wiki/images/Ancient_staff.png',
+      1: itemIcon('staff_of_air'),
+      2: itemIcon('staff_of_water'),
+      3: itemIcon('ancient_staff'),
+      4: itemIcon('tumekens_shadow'),
+      elemental_air: itemIcon('staff_of_air'),
+      elemental_water: itemIcon('staff_of_water'),
+      elemental_earth: itemIcon('staff_of_earth'),
+      elemental_fire: itemIcon('staff_of_fire'),
+      ancients: itemIcon('ancient_staff'),
       // Ancients tower body = the Ancient sceptre variant matching the barrage.
-      ancient_ice: 'https://oldschool.runescape.wiki/images/Ice_ancient_sceptre.png',
-      ancient_blood: 'https://oldschool.runescape.wiki/images/Blood_ancient_sceptre.png',
-      ancient_shadow: 'https://oldschool.runescape.wiki/images/Shadow_ancient_sceptre.png',
-      ancient_smoke: 'https://oldschool.runescape.wiki/images/Smoke_ancient_sceptre.png',
+      ancient_ice: itemIcon('ice_ancient_sceptre'),
+      ancient_blood: itemIcon('blood_ancient_sceptre'),
+      ancient_shadow: itemIcon('shadow_ancient_sceptre'),
+      ancient_smoke: itemIcon('smoke_ancient_sceptre'),
       // Utility tower body: the Lunar staff (Lunar/Arceuus support magic).
-      utility: 'https://oldschool.runescape.wiki/images/Lunar_staff.png',
+      utility: itemIcon('lunar_staff'),
     },
+    // Tier progression assembles a real dwarf multicannon, part by part.
     cannon: {
-      1: 'https://oldschool.runescape.wiki/images/Broken_multicannon.png',
-      2: 'https://oldschool.runescape.wiki/images/Cannon_barrels_%28scenery%29.png',
-      3: 'https://oldschool.runescape.wiki/images/Broken_multicannon_%28Shattered_Relics_League%29.png',
-      4: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_%28Shattered_Relics_League%29.png',
+      1: itemIcon('cannon_base'),
+      2: itemIcon('cannon_stand'),
+      3: itemIcon('cannon_barrels'),
+      4: itemIcon('cannon_furnace'),
     },
     slayer: {
-      1: 'https://oldschool.runescape.wiki/images/Darklight.png',
-      2: 'https://oldschool.runescape.wiki/images/Arclight.png',
-      3: 'https://oldschool.runescape.wiki/images/Leaf-bladed_sword.png',
-      4: 'https://oldschool.runescape.wiki/images/Emberlight.png',
+      1: itemIcon('darklight'),
+      2: itemIcon('arclight'),
+      3: itemIcon('leaf_bladed_sword'),
+      4: itemIcon('emberlight'),
     },
     tzhaar: {
       1: 'https://oldschool.runescape.wiki/images/TzHaar-Hur.png',
@@ -187,34 +264,35 @@ export const ASSETS = {
       4: 'https://oldschool.runescape.wiki/images/TzHaar-Ket_%28level_149%29.png',
     },
     toxic: {
-      1: 'https://oldschool.runescape.wiki/images/Tanzanite_fang.png',
-      2: 'https://oldschool.runescape.wiki/images/Toxic_blowpipe.png',
-      3: 'https://oldschool.runescape.wiki/images/Magic_fang.png',
-      4: 'https://oldschool.runescape.wiki/images/Trident_of_the_swamp.png',
+      1: itemIcon('tanzanite_fang'),
+      2: itemIcon('toxic_blowpipe'),
+      3: itemIcon('magic_fang'),
+      4: itemIcon('trident_of_the_swamp'),
     },
   },
   items: {
-    amulet_of_power: 'https://oldschool.runescape.wiki/images/Amulet_of_power.png',
-    anti_dragon_shield: 'https://oldschool.runescape.wiki/images/Anti-dragon_shield.png',
-    combat_bracelet: 'https://oldschool.runescape.wiki/images/Combat_bracelet.png',
-    silverlight: 'https://oldschool.runescape.wiki/images/Silverlight.png',
-    dragon_scimitar: 'https://oldschool.runescape.wiki/images/Dragon_scimitar.png',
-    logs: 'https://oldschool.runescape.wiki/images/Logs.png',
-    iron_ore: 'https://oldschool.runescape.wiki/images/Iron_ore.png',
-    grimy_guam: 'https://oldschool.runescape.wiki/images/Grimy_guam_leaf.png',
-    vial: 'https://oldschool.runescape.wiki/images/Vial_detail.png',
-    guam_seed: 'https://oldschool.runescape.wiki/images/Guam_seed.png',
-    ranarr_seed: 'https://oldschool.runescape.wiki/images/Ranarr_seed.png',
-    potato_seed: 'https://oldschool.runescape.wiki/images/Potato_seed.png',
-    potato: 'https://oldschool.runescape.wiki/images/Potato.png',
+    amulet_of_power: itemIcon('amulet_of_power'),
+    anti_dragon_shield: itemIcon('anti_dragon_shield'),
+    combat_bracelet: itemIcon('combat_bracelet'),
+    silverlight: itemIcon('silverlight'),
+    dragon_scimitar: itemIcon('dragon_scimitar'),
+    logs: itemIcon('logs'),
+    iron_ore: itemIcon('iron_ore'),
+    grimy_guam: itemIcon('grimy_guam'),
+    vial: itemIcon('vial'),
+    guam_seed: itemIcon('guam_seed'),
+    ranarr_seed: itemIcon('ranarr_seed'),
+    potato_seed: itemIcon('potato_seed'),
+    potato: itemIcon('potato'),
   },
   farming: {
+    // Patches are scenery (LOC) models — phase-5 of the extraction track.
     patch_empty: 'https://oldschool.runescape.wiki/images/Allotment_patch_%28empty%29.png',
     patch_growing: 'https://oldschool.runescape.wiki/images/Allotment_patch_%28growing%29.png',
     patch_ready: 'https://oldschool.runescape.wiki/images/Allotment_patch_%28ready%29.png',
-    guam: 'https://oldschool.runescape.wiki/images/Guam_leaf.png',
-    ranarr: 'https://oldschool.runescape.wiki/images/Ranarr_weed.png',
-    potato: 'https://oldschool.runescape.wiki/images/Potato.png',
+    guam: itemIcon('guam_leaf'),
+    ranarr: itemIcon('ranarr_weed'),
+    potato: itemIcon('potato'),
   },
   misc: {
     // Generic portal icon (legacy UI fallback only — the live spawn portal is
@@ -222,14 +300,14 @@ export const ASSETS = {
     portal: 'https://oldschool.runescape.wiki/images/Transportation_logo.png',
     portal_shield: 'https://oldschool.runescape.wiki/images/Purple_Portal_Shield.png',
     tree: 'https://oldschool.runescape.wiki/images/Tree.png',
-    ore_adamant: 'https://oldschool.runescape.wiki/images/Adamantite_ore.png',
-    ranarr: 'https://oldschool.runescape.wiki/images/Ranarr_weed.png',
+    ore_adamant: itemIcon('adamantite_ore'),
+    ranarr: itemIcon('ranarr_weed'),
     // Skill/UI icons below are cache-extracted (SKILL_* sprite ids), served locally.
     magic_icon: `${LOCAL}/misc/magic_icon.png`,
     ranged_icon: `${LOCAL}/misc/ranged_icon.png`,
     strength_icon: `${LOCAL}/misc/strength_icon.png`,
     attack_icon: `${LOCAL}/misc/attack_icon.png`,
-    bones_loot: 'https://oldschool.runescape.wiki/images/Bones.png',
+    bones_loot: itemIcon('bones'),
     skill_mining: `${LOCAL}/misc/skill_mining.png`,
     skill_woodcutting: `${LOCAL}/misc/skill_woodcutting.png`,
     skill_herblore: `${LOCAL}/misc/skill_herblore.png`,
@@ -248,11 +326,11 @@ export const ASSETS = {
     inventory_background: 'https://oldschool.runescape.wiki/images/Inventory_background.png',
     hp_icon: `${LOCAL}/misc/hp_icon.png`,
     ge_logo: 'https://oldschool.runescape.wiki/images/Grand_Exchange_logo.png',
-    essence_icon: 'https://oldschool.runescape.wiki/images/Pure_essence_detail.png',
+    essence_icon: itemIcon('pure_essence'),
     pets_tab_icon: 'https://oldschool.runescape.wiki/images/Follower_Details.png',
     prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
-    coins_icon: 'https://oldschool.runescape.wiki/images/Coins_detail.png',
-    rune_essence_icon: 'https://oldschool.runescape.wiki/images/Rune_essence_detail.png',
+    coins_icon: itemIcon('coins'),
+    rune_essence_icon: itemIcon('rune_essence'),
     herblore_icon: `${LOCAL}/misc/skill_herblore.png`,
     farming_icon: `${LOCAL}/misc/farming_icon.png`,
     // Spellbook icons for the wizard panel (Elemental→Standard, Ancients→Ancient,

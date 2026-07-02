@@ -1,4 +1,4 @@
-import { ASSETS } from '../assets';
+import { itemIcon } from '../assets';
 import type { CombatStyle } from '../types';
 
 /**
@@ -67,8 +67,6 @@ export const TIER_WEIGHT: Record<RelicTier, number> = {
   mythic: 12,
 };
 
-const W = ASSETS.misc.wiki_base;
-
 /**
  * The relic pool — a curated dozen, each named after (and themed on) an OSRS
  * Leagues relic or its closest in-game analogue, with the matching item sprite as
@@ -78,43 +76,43 @@ export const RELICS: readonly Relic[] = [
   // ───────────────────────────── relic-only rules ─────────────────────────
   { id: 'executioner', name: 'Executioner', tier: 'major',
     desc: 'Your towers instantly slay any non-boss that drops to 12% health.',
-    icon: `${W}Dragon_longsword.png`, effect: { kind: 'execute', frac: 0.12 } },
+    icon: itemIcon('dragon_longsword'), effect: { kind: 'execute', frac: 0.12 } },
   { id: 'bankers_note', name: "Banker's Note", tier: 'major',
     desc: 'Each wave cleared pays 6% of your gold as interest (up to 80).',
-    icon: `${W}Bank_note.png`, effect: { kind: 'interest', rate: 0.06, cap: 80 } },
+    icon: itemIcon('bank_note'), effect: { kind: 'interest', rate: 0.06, cap: 80 } },
   { id: 'trickster', name: 'Trickster', tier: 'major',
     desc: 'Re-roll each draft hand once if you dislike the cards on offer.',
-    icon: `${W}Ring_of_wealth.png`, effect: { kind: 'reroll', perWave: 1 } },
+    icon: itemIcon('ring_of_wealth'), effect: { kind: 'reroll', perWave: 1 } },
   { id: 'production_prodigy', name: 'Production Prodigy', tier: 'major',
     desc: 'Every draft offers one extra card to choose from.',
-    icon: `${W}Clue_scroll_%28master%29.png`, effect: { kind: 'handSize', extra: 1 } },
+    icon: itemIcon('clue_scroll_master'), effect: { kind: 'handSize', extra: 1 } },
   { id: 'last_recall', name: 'Last Recall', tier: 'mythic',
     desc: 'The first leak that would end your run leaves you on 1 life instead.',
-    icon: `${W}Ring_of_life.png`, effect: { kind: 'cheatDeath' } },
+    icon: itemIcon('ring_of_life'), effect: { kind: 'cheatDeath' } },
 
   // ──────────────────────── strong always-on passives ─────────────────────
   { id: 'berserker', name: 'Berserker', tier: 'minor',
     desc: '+15% damage for every tower, all run long.',
-    icon: `${W}Berserker_helm.png`, effect: { kind: 'damage', mult: 1.15 } },
+    icon: itemIcon('berserker_helm'), effect: { kind: 'damage', mult: 1.15 } },
   { id: 'quick_shot', name: 'Quick Shot', tier: 'minor',
     desc: '+12% attack speed for every tower, all run long.',
-    icon: `${W}Magic_shortbow_%28i%29.png`, effect: { kind: 'fireRate', mult: 1.12 } },
+    icon: itemIcon('magic_shortbow_i'), effect: { kind: 'fireRate', mult: 1.12 } },
   { id: 'treasure_hunter', name: 'Treasure Hunter', tier: 'minor',
     desc: 'Slain enemies drop 30% more gold.',
-    icon: `${W}Reward_casket_%28elite%29.png`, effect: { kind: 'goldFind', mult: 1.3 } },
+    icon: itemIcon('reward_casket_elite'), effect: { kind: 'goldFind', mult: 1.3 } },
   { id: 'soul_stealer', name: 'Soul Stealer', tier: 'minor',
     desc: 'Every 6th kill restores a life (up to your maximum).',
-    icon: `${W}Soul_rune.png`, effect: { kind: 'soulSplit', every: 6 } },
+    icon: itemIcon('soul_rune'), effect: { kind: 'soulSplit', every: 6 } },
   { id: 'brawlers_resolve', name: "Brawler's Resolve", tier: 'minor',
     desc: '+2 maximum lives (and heal 2 now).',
-    icon: `${W}Justiciar_chestguard.png`, effect: { kind: 'maxLife', amount: 2 } },
+    icon: itemIcon('justiciar_chestguard'), effect: { kind: 'maxLife', amount: 2 } },
   { id: 'arcane_surge', name: 'Arcane Surge', tier: 'minor',
     desc: '+18% damage and +8% range for magic towers.',
-    icon: `${W}Kodai_insignia.png`,
+    icon: itemIcon('kodai_insignia'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: 1.18, style: 'magic' }, { kind: 'range', mult: 1.08, style: 'magic' }] } },
   { id: 'equilibrium', name: 'Equilibrium', tier: 'major',
     desc: '+25% damage for every tower, but they attack 10% slower.',
-    icon: `${W}Elder_maul.png`,
+    icon: itemIcon('elder_maul'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: 1.25 }, { kind: 'fireRate', mult: 0.9 }] } },
 ];
 

@@ -217,7 +217,7 @@ describe('AFFIX_DEFS', () => {
       expect(def.name).toBeTruthy();
       expect(def.desc).toBeTruthy();
       expect(def.color).toMatch(/^#/);
-      expect(def.icon).toContain('http');
+      expect(def.icon).toMatch(/^(https?:\/\/|\/|\.\/)?\S+\.png$/); // baked local asset (or wiki fallback)
     }
   });
 });

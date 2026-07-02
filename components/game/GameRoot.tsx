@@ -10,7 +10,7 @@ import { utilityAuraBonus, diminishingSum, synergyDamageMult } from '@/lib/game/
 import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
-import { ASSETS } from '@/lib/game/assets';
+import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, refundValue } from '@/lib/game/systems/meta-progression';
 import { SLAYER_REWARDS } from '@/lib/game/data/slayer';
@@ -199,8 +199,9 @@ function loadSave(): { essence: number; upgrades: unknown; killCounts: unknown; 
 }
 
 const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>)[id];
-/** Wiki sprite URL for a GE offer (its `wiki` filename + .png). */
-const geIcon = (wiki: string) => `${ASSETS.misc.wiki_base}${wiki}.png`;
+/** Icon for a GE offer / slayer reward / meta upgrade: resolves the data table's
+ *  wiki filename to the cache-baked local asset (wiki hot-link as fallback). */
+const geIcon = (wiki: string) => iconUrl(wiki);
 
 /** Collection Log roster, split into the Bosses / Monsters tabs (computed once).
  *  Carries the stat fields the log can sort by (hp / speed / weakness / gold). */
@@ -1598,7 +1599,7 @@ export default function GameRoot() {
             <span className="rs-tab-badge">{ui.slayerPoints}</span>
           </button>
           <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
-            <img src={`${ASSETS.misc.wiki_base}Collection_log.png`} alt="Collection Log" onError={hideBrokenImg} />
+            <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
           </button>
           <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
             🛠
@@ -2584,7 +2585,7 @@ type HelpTier = 'basic' | 'advanced';
 interface HelpBlock { icon?: string; title?: string; body: string; }
 interface HelpSection { id: string; label: string; tier: HelpTier; intro?: string; blocks: HelpBlock[] }
 
-const COLLECTION_LOG_ICON = `${ASSETS.misc.wiki_base}Collection_log.png`;
+const COLLECTION_LOG_ICON = iconUrl('Collection_log');
 
 const HELP_SECTIONS: HelpSection[] = [
   {
@@ -2817,12 +2818,12 @@ function StartScreen({ mode, onSelect, onStart, onHelp }: {
     {
       id: 'classic', name: 'Classic', tag: 'Pure Tower Defense',
       desc: 'Build towers and survive the waves. No draft, no run buffs — just your defences against the horde.',
-      icon: `${ASSETS.misc.wiki_base}Dwarf_multicannon.png`,
+      icon: iconUrl('Dwarf_multicannon'),
     },
     {
       id: 'roguelite', name: 'Roguelite', tag: 'Draft a card each wave',
       desc: 'Clear a wave, then keep one OSRS reward card. Stack potions, weapons and combos into a build that snowballs.',
-      icon: `${ASSETS.misc.wiki_base}Collection_log.png`,
+      icon: iconUrl('Collection_log'),
     },
   ];
   return (
@@ -2914,7 +2915,7 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
     >
       <div className="rs-panel-title flex items-center justify-between">
         <span className="flex items-center gap-2">
-          <img src={`${ASSETS.misc.wiki_base}Collection_log.png`} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+          <img src={iconUrl('Collection_log')} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
           Collection Log
         </span>
         <button onClick={onClose} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>

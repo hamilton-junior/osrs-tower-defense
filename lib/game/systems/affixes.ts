@@ -1,4 +1,4 @@
-import { ASSETS } from '../assets';
+import { ASSETS, itemIcon } from '../assets';
 import type { CombatStyle } from '../types';
 
 /**
@@ -38,14 +38,14 @@ export interface AffixDef {
 const W = ASSETS.misc.wiki_base;
 
 export const AFFIX_DEFS: Record<EnemyAffix, AffixDef> = {
-  shielded:     { id: 'shielded',     name: 'Shielded',     desc: 'Absorbs a shield of damage before its health is touched.', color: '#7fd0ff', icon: `${W}Rune_kiteshield.png` },
-  armored:      { id: 'armored',      name: 'Armored',      desc: 'Takes half damage from one combat style — bring another.', color: '#9aa0a8', icon: `${W}Dragon_platebody.png` },
-  regenerating: { id: 'regenerating', name: 'Regenerating', desc: 'Heals over time — finish it fast or it claws health back.', color: '#57d957', icon: `${W}Regen_bracelet.png` },
+  shielded:     { id: 'shielded',     name: 'Shielded',     desc: 'Absorbs a shield of damage before its health is touched.', color: '#7fd0ff', icon: itemIcon('rune_kiteshield') },
+  armored:      { id: 'armored',      name: 'Armored',      desc: 'Takes half damage from one combat style — bring another.', color: '#9aa0a8', icon: itemIcon('dragon_platebody') },
+  regenerating: { id: 'regenerating', name: 'Regenerating', desc: 'Heals over time — finish it fast or it claws health back.', color: '#57d957', icon: itemIcon('regen_bracelet') },
   swarm:        { id: 'swarm',        name: 'Swarm',        desc: 'Arrives as a pack of weaker copies — bring area damage.', color: '#b6d957', icon: `${W}Kalphite_Larva.png` },
-  hasted:       { id: 'hasted',       name: 'Hasted',       desc: 'Moves much faster — your coverage gaps will show.', color: '#cfe8ff', icon: `${W}Graceful_boots.png` },
-  warded:       { id: 'warded',       name: 'Warded',       desc: 'Immune to slows, stuns and freezes.', color: '#b07cff', icon: `${W}Spirit_shield.png` },
-  volatile:     { id: 'volatile',     name: 'Volatile',     desc: 'Detonates on death, briefly disabling the nearest tower.', color: '#ff7a3c', icon: `${W}Volatile_orb.png` },
-  colossal:     { id: 'colossal',     name: 'Colossal',     desc: 'A hulking straggler — extra health, but costs two lives if it leaks.', color: '#d9a957', icon: `${W}Granite_maul.png` },
+  hasted:       { id: 'hasted',       name: 'Hasted',       desc: 'Moves much faster — your coverage gaps will show.', color: '#cfe8ff', icon: itemIcon('graceful_boots') },
+  warded:       { id: 'warded',       name: 'Warded',       desc: 'Immune to slows, stuns and freezes.', color: '#b07cff', icon: itemIcon('spirit_shield') },
+  volatile:     { id: 'volatile',     name: 'Volatile',     desc: 'Detonates on death, briefly disabling the nearest tower.', color: '#ff7a3c', icon: itemIcon('volatile_orb') },
+  colossal:     { id: 'colossal',     name: 'Colossal',     desc: 'A hulking straggler — extra health, but costs two lives if it leaks.', color: '#d9a957', icon: itemIcon('granite_maul') },
 };
 
 export const ALL_AFFIXES: readonly EnemyAffix[] = Object.keys(AFFIX_DEFS) as EnemyAffix[];

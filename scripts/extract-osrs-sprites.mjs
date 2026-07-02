@@ -61,6 +61,7 @@ const SPELL_IDS = {
   Shadow_Rush: 337, Shadow_Burst: 338, Shadow_Blitz: 339, Shadow_Barrage: 340,
   Smoke_Rush: 329, Smoke_Burst: 330, Smoke_Blitz: 331, Smoke_Barrage: 332,
   Death_Charge: 1310, Undead_Grasp: 1269, Vile_Vigour: 1317,
+  Curse: 24, // wave-event "Curse of Darkness" icon
 };
 
 /** Prayer icons (enabled state) for the prayer panel. */

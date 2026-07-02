@@ -1,4 +1,4 @@
-import { ASSETS } from '../assets';
+import { ASSETS, itemIcon } from '../assets';
 import type { CombatStyle, MageMode } from '../types';
 
 /**
@@ -109,8 +109,8 @@ export const RARITY_WEIGHT: Record<DraftRarity, number> = {
   ultra: 8,
 };
 
-/** Wiki image base — every card art is the real in-game item matching its name
- *  (hot-linked, same host the rest of the app uses; broken loads degrade away). */
+/** Wiki image base — only for the two icons with no cache-baked asset yet
+ *  (Soul_Split / Multicombat interface art; broken loads degrade away). */
 const W = ASSETS.misc.wiki_base;
 
 /**
@@ -135,131 +135,131 @@ const SPD: Record<DraftRarity, number> = { common: 1.015, uncommon: 1.02, rare: 
  */
 export const DRAFT_POOL: readonly DraftCard[] = [
   // ───────────────────────── melee damage (potions) ───────────────────────
-  { id: 'strength_potion', name: 'Strength Potion', desc: '+3% damage for melee towers, this run', rarity: 'common', icon: `${W}Strength_potion%284%29.png`, effect: { kind: 'damage', mult: DMG.common, style: 'melee' } },
-  { id: 'super_strength', name: 'Super Strength', desc: '+5% damage for melee towers, this run', rarity: 'uncommon', icon: `${W}Super_strength%284%29.png`, effect: { kind: 'damage', mult: DMG.uncommon, style: 'melee' } },
-  { id: 'super_combat', name: 'Super Combat Potion', desc: '+7.5% damage for melee towers, this run', rarity: 'rare', icon: `${W}Super_combat_potion%284%29.png`, effect: { kind: 'damage', mult: DMG.rare, style: 'melee' } },
+  { id: 'strength_potion', name: 'Strength Potion', desc: '+3% damage for melee towers, this run', rarity: 'common', icon: itemIcon('strength_potion'), effect: { kind: 'damage', mult: DMG.common, style: 'melee' } },
+  { id: 'super_strength', name: 'Super Strength', desc: '+5% damage for melee towers, this run', rarity: 'uncommon', icon: itemIcon('super_strength'), effect: { kind: 'damage', mult: DMG.uncommon, style: 'melee' } },
+  { id: 'super_combat', name: 'Super Combat Potion', desc: '+7.5% damage for melee towers, this run', rarity: 'rare', icon: itemIcon('super_combat_potion'), effect: { kind: 'damage', mult: DMG.rare, style: 'melee' } },
   // ──────────────────────── ranged damage (potions) ───────────────────────
-  { id: 'ranging_potion', name: 'Ranging Potion', desc: '+3% damage for ranged towers, this run', rarity: 'common', icon: `${W}Ranging_potion%284%29.png`, effect: { kind: 'damage', mult: DMG.common, style: 'ranged' } },
-  { id: 'super_ranging', name: 'Divine Ranging Potion', desc: '+5% damage for ranged towers, this run', rarity: 'uncommon', icon: `${W}Divine_ranging_potion%284%29.png`, effect: { kind: 'damage', mult: DMG.uncommon, style: 'ranged' } },
-  { id: 'bastion_potion', name: 'Bastion Potion', desc: '+7.5% damage for ranged towers, this run', rarity: 'rare', icon: `${W}Bastion_potion%284%29.png`, effect: { kind: 'damage', mult: DMG.rare, style: 'ranged' } },
+  { id: 'ranging_potion', name: 'Ranging Potion', desc: '+3% damage for ranged towers, this run', rarity: 'common', icon: itemIcon('ranging_potion'), effect: { kind: 'damage', mult: DMG.common, style: 'ranged' } },
+  { id: 'super_ranging', name: 'Divine Ranging Potion', desc: '+5% damage for ranged towers, this run', rarity: 'uncommon', icon: itemIcon('divine_ranging_potion'), effect: { kind: 'damage', mult: DMG.uncommon, style: 'ranged' } },
+  { id: 'bastion_potion', name: 'Bastion Potion', desc: '+7.5% damage for ranged towers, this run', rarity: 'rare', icon: itemIcon('bastion_potion'), effect: { kind: 'damage', mult: DMG.rare, style: 'ranged' } },
   // ───────────────────────── magic damage (potions) ───────────────────────
-  { id: 'magic_potion', name: 'Magic Potion', desc: '+3% damage for magic towers, this run', rarity: 'common', icon: `${W}Magic_potion%284%29.png`, effect: { kind: 'damage', mult: DMG.common, style: 'magic' } },
-  { id: 'imbued_heart', name: 'Imbued Heart', desc: '+5% damage for magic towers, this run', rarity: 'uncommon', icon: `${W}Imbued_heart.png`, effect: { kind: 'damage', mult: DMG.uncommon, style: 'magic' } },
-  { id: 'battlemage_potion', name: 'Battlemage Potion', desc: '+7.5% damage for magic towers, this run', rarity: 'rare', icon: `${W}Battlemage_potion%284%29.png`, effect: { kind: 'damage', mult: DMG.rare, style: 'magic' } },
+  { id: 'magic_potion', name: 'Magic Potion', desc: '+3% damage for magic towers, this run', rarity: 'common', icon: itemIcon('magic_potion'), effect: { kind: 'damage', mult: DMG.common, style: 'magic' } },
+  { id: 'imbued_heart', name: 'Imbued Heart', desc: '+5% damage for magic towers, this run', rarity: 'uncommon', icon: itemIcon('imbued_heart'), effect: { kind: 'damage', mult: DMG.uncommon, style: 'magic' } },
+  { id: 'battlemage_potion', name: 'Battlemage Potion', desc: '+7.5% damage for magic towers, this run', rarity: 'rare', icon: itemIcon('battlemage_potion'), effect: { kind: 'damage', mult: DMG.rare, style: 'magic' } },
   // ──────────────────────── general damage (Overload) ─────────────────────
-  { id: 'overload', name: 'Overload', desc: '+11% damage for ALL towers, this run', rarity: 'ultra', icon: `${W}Overload_%284%29.png`, effect: { kind: 'damage', mult: DMG.ultra } },
+  { id: 'overload', name: 'Overload', desc: '+11% damage for ALL towers, this run', rarity: 'ultra', icon: itemIcon('overload_4'), effect: { kind: 'damage', mult: DMG.ultra } },
 
   // ───────────────────────── melee speed (weapons) ────────────────────────
-  { id: 'rune_scimitar', name: 'Rune Scimitar', desc: '+1.5% attack speed for melee towers, this run', rarity: 'common', icon: `${W}Rune_scimitar.png`, effect: { kind: 'fireRate', mult: SPD.common, style: 'melee' } },
-  { id: 'dragon_scimitar', name: 'Dragon Scimitar', desc: '+2% attack speed for melee towers, this run', rarity: 'uncommon', icon: `${W}Dragon_scimitar.png`, effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'melee' } },
-  { id: 'abyssal_whip', name: 'Abyssal Whip', desc: '+3% attack speed for melee towers, this run', rarity: 'rare', icon: `${W}Abyssal_whip.png`, effect: { kind: 'fireRate', mult: SPD.rare, style: 'melee' } },
+  { id: 'rune_scimitar', name: 'Rune Scimitar', desc: '+1.5% attack speed for melee towers, this run', rarity: 'common', icon: itemIcon('rune_scimitar'), effect: { kind: 'fireRate', mult: SPD.common, style: 'melee' } },
+  { id: 'dragon_scimitar', name: 'Dragon Scimitar', desc: '+2% attack speed for melee towers, this run', rarity: 'uncommon', icon: itemIcon('dragon_scimitar'), effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'melee' } },
+  { id: 'abyssal_whip', name: 'Abyssal Whip', desc: '+3% attack speed for melee towers, this run', rarity: 'rare', icon: itemIcon('abyssal_whip'), effect: { kind: 'fireRate', mult: SPD.rare, style: 'melee' } },
   // ──────────────────────── ranged speed (weapons) ────────────────────────
-  { id: 'rapid_stance', name: 'Rune Knife', desc: '+1.5% attack speed for ranged towers, this run', rarity: 'common', icon: `${W}Rune_knife.png`, effect: { kind: 'fireRate', mult: SPD.common, style: 'ranged' } },
-  { id: 'magic_shortbow', name: 'Magic Shortbow', desc: '+2% attack speed for ranged towers, this run', rarity: 'uncommon', icon: `${W}Magic_shortbow.png`, effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'ranged' } },
-  { id: 'dragon_darts', name: 'Dragon Darts', desc: '+3% attack speed for ranged towers, this run', rarity: 'rare', icon: `${W}Dragon_dart.png`, effect: { kind: 'fireRate', mult: SPD.rare, style: 'ranged' } },
+  { id: 'rapid_stance', name: 'Rune Knife', desc: '+1.5% attack speed for ranged towers, this run', rarity: 'common', icon: itemIcon('rune_knife'), effect: { kind: 'fireRate', mult: SPD.common, style: 'ranged' } },
+  { id: 'magic_shortbow', name: 'Magic Shortbow', desc: '+2% attack speed for ranged towers, this run', rarity: 'uncommon', icon: itemIcon('magic_shortbow'), effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'ranged' } },
+  { id: 'dragon_darts', name: 'Dragon Darts', desc: '+3% attack speed for ranged towers, this run', rarity: 'rare', icon: itemIcon('dragon_dart'), effect: { kind: 'fireRate', mult: SPD.rare, style: 'ranged' } },
   // ───────────────────────── magic speed (weapons) ────────────────────────
-  { id: 'swift_glyphs', name: 'Kodai Wand', desc: '+1.5% attack speed for magic towers, this run', rarity: 'common', icon: `${W}Kodai_wand.png`, effect: { kind: 'fireRate', mult: SPD.common, style: 'magic' } },
-  { id: 'trident_seas', name: 'Trident of the Seas', desc: '+2% attack speed for magic towers, this run', rarity: 'uncommon', icon: `${W}Trident_of_the_seas.png`, effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' } },
-  { id: 'harmonised_staff', name: 'Harmonised Staff', desc: '+3% attack speed for magic towers, this run', rarity: 'rare', icon: `${W}Harmonised_nightmare_staff.png`, effect: { kind: 'fireRate', mult: SPD.rare, style: 'magic' } },
+  { id: 'swift_glyphs', name: 'Kodai Wand', desc: '+1.5% attack speed for magic towers, this run', rarity: 'common', icon: itemIcon('kodai_wand'), effect: { kind: 'fireRate', mult: SPD.common, style: 'magic' } },
+  { id: 'trident_seas', name: 'Trident of the Seas', desc: '+2% attack speed for magic towers, this run', rarity: 'uncommon', icon: itemIcon('trident_of_the_seas'), effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' } },
+  { id: 'harmonised_staff', name: 'Harmonised Staff', desc: '+3% attack speed for magic towers, this run', rarity: 'rare', icon: itemIcon('harmonised_nightmare_staff'), effect: { kind: 'fireRate', mult: SPD.rare, style: 'magic' } },
   // ──────────────────── general speed (Stamina, top tier) ──────────────────
-  { id: 'war_tempo', name: 'Stamina Potion', desc: '+4% attack speed for ALL towers, this run', rarity: 'ultra', icon: `${W}Stamina_potion%284%29.png`, effect: { kind: 'fireRate', mult: SPD.ultra } },
+  { id: 'war_tempo', name: 'Stamina Potion', desc: '+4% attack speed for ALL towers, this run', rarity: 'ultra', icon: itemIcon('stamina_potion'), effect: { kind: 'fireRate', mult: SPD.ultra } },
 
   // ───────────────────────── melee range (halberds) ───────────────────────
-  { id: 'halberd', name: 'Rune Halberd', desc: '+1.5% range for melee towers, this run', rarity: 'common', icon: `${W}Rune_halberd.png`, effect: { kind: 'range', mult: RNG.common, style: 'melee' } },
-  { id: 'dragon_halberd', name: 'Dragon Halberd', desc: '+2% range for melee towers, this run', rarity: 'uncommon', icon: `${W}Dragon_halberd.png`, effect: { kind: 'range', mult: RNG.uncommon, style: 'melee' } },
-  { id: 'noxious_halberd', name: 'Noxious Halberd', desc: '+3% range for melee towers, this run', rarity: 'rare', icon: `${W}Noxious_halberd.png`, effect: { kind: 'range', mult: RNG.rare, style: 'melee' } },
+  { id: 'halberd', name: 'Rune Halberd', desc: '+1.5% range for melee towers, this run', rarity: 'common', icon: itemIcon('rune_halberd'), effect: { kind: 'range', mult: RNG.common, style: 'melee' } },
+  { id: 'dragon_halberd', name: 'Dragon Halberd', desc: '+2% range for melee towers, this run', rarity: 'uncommon', icon: itemIcon('dragon_halberd'), effect: { kind: 'range', mult: RNG.uncommon, style: 'melee' } },
+  { id: 'noxious_halberd', name: 'Noxious Halberd', desc: '+3% range for melee towers, this run', rarity: 'rare', icon: itemIcon('noxious_halberd'), effect: { kind: 'range', mult: RNG.rare, style: 'melee' } },
   // ─────────────────────────── ranged range (bows) ────────────────────────
-  { id: 'longrange_stance', name: 'Magic Longbow', desc: '+1.5% range for ranged towers, this run', rarity: 'common', icon: `${W}Magic_longbow.png`, effect: { kind: 'range', mult: RNG.common, style: 'ranged' } },
-  { id: 'eagle_eye', name: 'Dark Bow', desc: '+2% range for ranged towers, this run', rarity: 'uncommon', icon: `${W}Dark_bow.png`, effect: { kind: 'range', mult: RNG.uncommon, style: 'ranged' } },
-  { id: 'twisted_bow', name: 'Twisted Bow', desc: '+3% range for ranged towers, this run', rarity: 'rare', icon: `${W}Twisted_bow.png`, effect: { kind: 'range', mult: RNG.rare, style: 'ranged' } },
+  { id: 'longrange_stance', name: 'Magic Longbow', desc: '+1.5% range for ranged towers, this run', rarity: 'common', icon: itemIcon('magic_longbow'), effect: { kind: 'range', mult: RNG.common, style: 'ranged' } },
+  { id: 'eagle_eye', name: 'Dark Bow', desc: '+2% range for ranged towers, this run', rarity: 'uncommon', icon: itemIcon('dark_bow'), effect: { kind: 'range', mult: RNG.uncommon, style: 'ranged' } },
+  { id: 'twisted_bow', name: 'Twisted Bow', desc: '+3% range for ranged towers, this run', rarity: 'rare', icon: itemIcon('twisted_bow'), effect: { kind: 'range', mult: RNG.rare, style: 'ranged' } },
   // ────────────────────────── magic range (staves) ────────────────────────
-  { id: 'iban_staff', name: "Iban's Staff", desc: '+1.5% range for magic towers, this run', rarity: 'common', icon: `${W}Iban%27s_staff.png`, effect: { kind: 'range', mult: RNG.common, style: 'magic' } },
-  { id: 'ahrims_staff', name: "Ahrim's Staff", desc: '+2% range for magic towers, this run', rarity: 'uncommon', icon: `${W}Ahrim%27s_staff.png`, effect: { kind: 'range', mult: RNG.uncommon, style: 'magic' } },
-  { id: 'nightmare_staff', name: 'Nightmare Staff', desc: '+3% range for magic towers, this run', rarity: 'rare', icon: `${W}Nightmare_staff.png`, effect: { kind: 'range', mult: RNG.rare, style: 'magic' } },
+  { id: 'iban_staff', name: "Iban's Staff", desc: '+1.5% range for magic towers, this run', rarity: 'common', icon: itemIcon('ibans_staff'), effect: { kind: 'range', mult: RNG.common, style: 'magic' } },
+  { id: 'ahrims_staff', name: "Ahrim's Staff", desc: '+2% range for magic towers, this run', rarity: 'uncommon', icon: itemIcon('ahrims_staff'), effect: { kind: 'range', mult: RNG.uncommon, style: 'magic' } },
+  { id: 'nightmare_staff', name: 'Nightmare Staff', desc: '+3% range for magic towers, this run', rarity: 'rare', icon: itemIcon('nightmare_staff'), effect: { kind: 'range', mult: RNG.rare, style: 'magic' } },
   // ──────────────────── general range (Hunter, top tier) ───────────────────
-  { id: 'far_sight', name: 'Hunter Potion', desc: '+4% range for ALL towers, this run', rarity: 'ultra', icon: `${W}Hunter_potion%284%29.png`, effect: { kind: 'range', mult: RNG.ultra } },
+  { id: 'far_sight', name: 'Hunter Potion', desc: '+4% range for ALL towers, this run', rarity: 'ultra', icon: itemIcon('hunter_potion'), effect: { kind: 'range', mult: RNG.ultra } },
 
   // ─────────────────────────── resources (general) ────────────────────────
-  { id: 'coin_pouch', name: 'Coin Pouch', desc: '+100 gold to spend now', rarity: 'common', icon: `${W}Coins_detail.png`, effect: { kind: 'gold', amount: 100 } },
-  { id: 'looted_coins', name: 'Looting Bag', desc: '+140 gold scavenged from the fallen', rarity: 'common', icon: `${W}Looting_bag.png`, effect: { kind: 'gold', amount: 140 } },
-  { id: 'slayer_bounty', name: 'Slayer Bounty', desc: '+250 gold contract reward', rarity: 'rare', icon: `${W}Enchanted_gem.png`, effect: { kind: 'gold', amount: 250 } },
-  { id: 'dragonstone_hoard', name: 'Dragonstone', desc: '+450 gold to spend now', rarity: 'ultra', icon: `${W}Dragonstone.png`, effect: { kind: 'gold', amount: 450 } },
-  { id: 'essence_shard', name: 'Rune Essence', desc: '+12 Rune Essence (kept after the run)', rarity: 'common', icon: `${W}Rune_essence_detail.png`, effect: { kind: 'essence', amount: 12 } },
-  { id: 'essence_cache', name: 'Pure Essence', desc: '+22 Rune Essence (kept after the run)', rarity: 'uncommon', icon: `${W}Pure_essence_detail.png`, effect: { kind: 'essence', amount: 22 } },
-  { id: 'essence_motherlode', name: 'Daeyalt Essence', desc: '+35 Rune Essence (kept after the run)', rarity: 'rare', icon: `${W}Daeyalt_essence.png`, effect: { kind: 'essence', amount: 35 } },
-  { id: 'bandages', name: 'Bandages', desc: 'Patch the gate for +2 lives', rarity: 'common', icon: `${W}Bandages.png`, effect: { kind: 'life', amount: 2 } },
-  { id: 'shark_supper', name: 'Shark', desc: 'A hearty meal restores +3 lives', rarity: 'uncommon', icon: `${W}Shark.png`, effect: { kind: 'life', amount: 3 } },
-  { id: 'saradomin_brew', name: 'Saradomin Brew', desc: 'A blessed brew restores +4 lives', rarity: 'rare', icon: `${W}Saradomin_brew%284%29.png`, effect: { kind: 'life', amount: 4 } },
-  { id: 'fortify_gate', name: 'Rune Kiteshield', desc: '+1 max life (and heal 1)', rarity: 'rare', icon: `${W}Rune_kiteshield.png`, effect: { kind: 'maxLife', amount: 1 } },
-  { id: 'greater_fortify', name: 'Dragon Kiteshield', desc: '+2 max life (and heal 2)', rarity: 'ultra', icon: `${W}Dragon_kiteshield.png`, effect: { kind: 'maxLife', amount: 2 } },
-  { id: 'tokkul', name: 'Tokkul', desc: '+120 gold from the TzHaar', rarity: 'common', icon: `${W}Tokkul.png`, effect: { kind: 'gold', amount: 120 } },
-  { id: 'reward_casket', name: 'Reward Casket', desc: '+300 gold from a master clue', rarity: 'rare', icon: `${W}Reward_casket_%28master%29.png`, effect: { kind: 'gold', amount: 300 } },
-  { id: 'anglerfish', name: 'Anglerfish', desc: 'An overheal restores +3 lives', rarity: 'uncommon', icon: `${W}Anglerfish.png`, effect: { kind: 'life', amount: 3 } },
-  { id: 'gilded_altar', name: 'Blessed Bone Shards', desc: '+18 Rune Essence (kept after the run)', rarity: 'uncommon', icon: `${W}Blessed_bone_shards.png`, effect: { kind: 'essence', amount: 18 } },
+  { id: 'coin_pouch', name: 'Coin Pouch', desc: '+100 gold to spend now', rarity: 'common', icon: itemIcon('coins'), effect: { kind: 'gold', amount: 100 } },
+  { id: 'looted_coins', name: 'Looting Bag', desc: '+140 gold scavenged from the fallen', rarity: 'common', icon: itemIcon('looting_bag'), effect: { kind: 'gold', amount: 140 } },
+  { id: 'slayer_bounty', name: 'Slayer Bounty', desc: '+250 gold contract reward', rarity: 'rare', icon: itemIcon('enchanted_gem'), effect: { kind: 'gold', amount: 250 } },
+  { id: 'dragonstone_hoard', name: 'Dragonstone', desc: '+450 gold to spend now', rarity: 'ultra', icon: itemIcon('dragonstone'), effect: { kind: 'gold', amount: 450 } },
+  { id: 'essence_shard', name: 'Rune Essence', desc: '+12 Rune Essence (kept after the run)', rarity: 'common', icon: itemIcon('rune_essence'), effect: { kind: 'essence', amount: 12 } },
+  { id: 'essence_cache', name: 'Pure Essence', desc: '+22 Rune Essence (kept after the run)', rarity: 'uncommon', icon: itemIcon('pure_essence'), effect: { kind: 'essence', amount: 22 } },
+  { id: 'essence_motherlode', name: 'Daeyalt Essence', desc: '+35 Rune Essence (kept after the run)', rarity: 'rare', icon: itemIcon('daeyalt_essence'), effect: { kind: 'essence', amount: 35 } },
+  { id: 'bandages', name: 'Bandages', desc: 'Patch the gate for +2 lives', rarity: 'common', icon: itemIcon('bandages'), effect: { kind: 'life', amount: 2 } },
+  { id: 'shark_supper', name: 'Shark', desc: 'A hearty meal restores +3 lives', rarity: 'uncommon', icon: itemIcon('shark'), effect: { kind: 'life', amount: 3 } },
+  { id: 'saradomin_brew', name: 'Saradomin Brew', desc: 'A blessed brew restores +4 lives', rarity: 'rare', icon: itemIcon('saradomin_brew'), effect: { kind: 'life', amount: 4 } },
+  { id: 'fortify_gate', name: 'Rune Kiteshield', desc: '+1 max life (and heal 1)', rarity: 'rare', icon: itemIcon('rune_kiteshield'), effect: { kind: 'maxLife', amount: 1 } },
+  { id: 'greater_fortify', name: 'Dragon Kiteshield', desc: '+2 max life (and heal 2)', rarity: 'ultra', icon: itemIcon('dragon_kiteshield'), effect: { kind: 'maxLife', amount: 2 } },
+  { id: 'tokkul', name: 'Tokkul', desc: '+120 gold from the TzHaar', rarity: 'common', icon: itemIcon('tokkul'), effect: { kind: 'gold', amount: 120 } },
+  { id: 'reward_casket', name: 'Reward Casket', desc: '+300 gold from a master clue', rarity: 'rare', icon: itemIcon('reward_casket_master'), effect: { kind: 'gold', amount: 300 } },
+  { id: 'anglerfish', name: 'Anglerfish', desc: 'An overheal restores +3 lives', rarity: 'uncommon', icon: itemIcon('anglerfish'), effect: { kind: 'life', amount: 3 } },
+  { id: 'gilded_altar', name: 'Blessed Bone Shards', desc: '+18 Rune Essence (kept after the run)', rarity: 'uncommon', icon: itemIcon('blessed_bone_shards'), effect: { kind: 'essence', amount: 18 } },
 
   // ───────────────────────────── combo cards ──────────────────────────────
-  { id: 'berserker_ring', name: 'Berserker Ring', desc: '+3% damage & +1.5% attack speed for melee, this run', rarity: 'uncommon', icon: `${W}Berserker_ring.png`,
+  { id: 'berserker_ring', name: 'Berserker Ring', desc: '+3% damage & +1.5% attack speed for melee, this run', rarity: 'uncommon', icon: itemIcon('berserker_ring'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'fireRate', mult: SPD.common, style: 'melee' }] } },
-  { id: 'pegasian_boots', name: 'Pegasian Boots', desc: '+1.5% range & +1.5% attack speed for ranged, this run', rarity: 'uncommon', icon: `${W}Pegasian_boots.png`,
+  { id: 'pegasian_boots', name: 'Pegasian Boots', desc: '+1.5% range & +1.5% attack speed for ranged, this run', rarity: 'uncommon', icon: itemIcon('pegasian_boots'),
     effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.common, style: 'ranged' }, { kind: 'fireRate', mult: SPD.common, style: 'ranged' }] } },
-  { id: 'slayer_helmet', name: 'Slayer Helmet', desc: '+3% melee damage & +100 gold', rarity: 'uncommon', icon: `${W}Slayer_helmet.png`,
+  { id: 'slayer_helmet', name: 'Slayer Helmet', desc: '+3% melee damage & +100 gold', rarity: 'uncommon', icon: itemIcon('slayer_helmet'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'gold', amount: 100 }] } },
-  { id: 'rangers_kit', name: 'Ranger Boots', desc: '+5% damage & +2% range for ranged, this run', rarity: 'rare', icon: `${W}Ranger_boots.png`,
+  { id: 'rangers_kit', name: 'Ranger Boots', desc: '+5% damage & +2% range for ranged, this run', rarity: 'rare', icon: itemIcon('ranger_boots'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'ranged' }, { kind: 'range', mult: RNG.uncommon, style: 'ranged' }] } },
-  { id: 'occult_necklace', name: 'Occult Necklace', desc: '+5% damage & +2% attack speed for magic, this run', rarity: 'rare', icon: `${W}Occult_necklace.png`,
+  { id: 'occult_necklace', name: 'Occult Necklace', desc: '+5% damage & +2% attack speed for magic, this run', rarity: 'rare', icon: itemIcon('occult_necklace'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'magic' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' }] } },
-  { id: 'void_knight', name: 'Void Knight', desc: '+3% damage & +1.5% attack speed for ALL towers, this run', rarity: 'rare', icon: `${W}Void_knight_top.png`,
+  { id: 'void_knight', name: 'Void Knight', desc: '+3% damage & +1.5% attack speed for ALL towers, this run', rarity: 'rare', icon: itemIcon('void_knight_top'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common }, { kind: 'fireRate', mult: SPD.common }] } },
-  { id: 'inquisitors_set', name: "Inquisitor's Set", desc: '+7.5% damage, +3% attack speed & +3% range for melee, this run', rarity: 'ultra', icon: `${W}Inquisitor%27s_great_helm.png`,
+  { id: 'inquisitors_set', name: "Inquisitor's Set", desc: '+7.5% damage, +3% attack speed & +3% range for melee, this run', rarity: 'ultra', icon: itemIcon('inquisitors_great_helm'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'melee' }, { kind: 'fireRate', mult: SPD.rare, style: 'melee' }, { kind: 'range', mult: RNG.rare, style: 'melee' }] } },
-  { id: 'elite_void', name: 'Elite Void', desc: '+5% damage, +2% range & +2% attack speed for ALL, this run', rarity: 'ultra', icon: `${W}Elite_void_top.png`,
+  { id: 'elite_void', name: 'Elite Void', desc: '+5% damage, +2% range & +2% attack speed for ALL, this run', rarity: 'ultra', icon: itemIcon('elite_void_top'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon }, { kind: 'range', mult: RNG.uncommon }, { kind: 'fireRate', mult: SPD.uncommon }] } },
-  { id: 'dragon_boots', name: 'Dragon Boots', desc: '+3% damage & +1.5% range for melee, this run', rarity: 'uncommon', icon: `${W}Dragon_boots.png`,
+  { id: 'dragon_boots', name: 'Dragon Boots', desc: '+3% damage & +1.5% range for melee, this run', rarity: 'uncommon', icon: itemIcon('dragon_boots'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'range', mult: RNG.common, style: 'melee' }] } },
-  { id: 'archers_ring', name: 'Archers Ring', desc: '+3% damage & +1.5% range for ranged, this run', rarity: 'uncommon', icon: `${W}Archers_ring.png`,
+  { id: 'archers_ring', name: 'Archers Ring', desc: '+3% damage & +1.5% range for ranged, this run', rarity: 'uncommon', icon: itemIcon('archers_ring'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'ranged' }, { kind: 'range', mult: RNG.common, style: 'ranged' }] } },
-  { id: 'seers_ring', name: 'Seers Ring', desc: '+3% damage & +1.5% range for magic, this run', rarity: 'uncommon', icon: `${W}Seers_ring.png`,
+  { id: 'seers_ring', name: 'Seers Ring', desc: '+3% damage & +1.5% range for magic, this run', rarity: 'uncommon', icon: itemIcon('seers_ring'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'magic' }, { kind: 'range', mult: RNG.common, style: 'magic' }] } },
-  { id: 'fire_cape', name: 'Fire Cape', desc: '+5% damage & +2% range for melee, this run', rarity: 'rare', icon: `${W}Fire_cape.png`,
+  { id: 'fire_cape', name: 'Fire Cape', desc: '+5% damage & +2% range for melee, this run', rarity: 'rare', icon: itemIcon('fire_cape'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'melee' }, { kind: 'range', mult: RNG.uncommon, style: 'melee' }] } },
-  { id: 'avas_assembler', name: "Ava's Assembler", desc: '+5% damage & +2% attack speed for ranged, this run', rarity: 'rare', icon: `${W}Ava%27s_assembler.png`,
+  { id: 'avas_assembler', name: "Ava's Assembler", desc: '+5% damage & +2% attack speed for ranged, this run', rarity: 'rare', icon: itemIcon('avas_assembler'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'ranged' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'ranged' }] } },
-  { id: 'eternal_boots', name: 'Eternal Boots', desc: '+5% damage & +2% attack speed for magic, this run', rarity: 'rare', icon: `${W}Eternal_boots.png`,
+  { id: 'eternal_boots', name: 'Eternal Boots', desc: '+5% damage & +2% attack speed for magic, this run', rarity: 'rare', icon: itemIcon('eternal_boots'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'magic' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' }] } },
-  { id: 'amulet_of_fury', name: 'Amulet of Fury', desc: '+3% damage & +1.5% attack speed for ALL towers, this run', rarity: 'rare', icon: `${W}Amulet_of_fury.png`,
+  { id: 'amulet_of_fury', name: 'Amulet of Fury', desc: '+3% damage & +1.5% attack speed for ALL towers, this run', rarity: 'rare', icon: itemIcon('amulet_of_fury'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common }, { kind: 'fireRate', mult: SPD.common }] } },
-  { id: 'masori_set', name: 'Masori Armour', desc: '+7.5% damage, +3% range & +3% attack speed for ranged, this run', rarity: 'ultra', icon: `${W}Masori_body.png`,
+  { id: 'masori_set', name: 'Masori Armour', desc: '+7.5% damage, +3% range & +3% attack speed for ranged, this run', rarity: 'ultra', icon: itemIcon('masori_body'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'ranged' }, { kind: 'range', mult: RNG.rare, style: 'ranged' }, { kind: 'fireRate', mult: SPD.rare, style: 'ranged' }] } },
-  { id: 'ancestral_set', name: 'Ancestral Robes', desc: '+7.5% damage, +3% range & +3% attack speed for magic, this run', rarity: 'ultra', icon: `${W}Ancestral_robe_top.png`,
+  { id: 'ancestral_set', name: 'Ancestral Robes', desc: '+7.5% damage, +3% range & +3% attack speed for magic, this run', rarity: 'ultra', icon: itemIcon('ancestral_robe_top'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'magic' }, { kind: 'range', mult: RNG.rare, style: 'magic' }, { kind: 'fireRate', mult: SPD.rare, style: 'magic' }] } },
 
   // ═══════════════ behavioural cards — change a RULE, not a stat ════════════
   // Build-defining one-offs: all rare/ultra and `unique` (drafted once per run,
   // then removed from the pool — they set a flag, so a repeat would be dead weight).
   // ── on-kill chain reactions ──────────────────────────────────────────────
-  { id: 'dragon_claws', name: 'Dragon Claws', desc: 'On a kill, the strike rends the nearest enemy for 50% of the blow', rarity: 'rare', unique: true, icon: `${W}Dragon_claws.png`, effect: { kind: 'ricochet', frac: 0.5, radius: 95 } },
-  { id: 'scythe_of_vitur', name: 'Scythe of Vitur', desc: 'A kill’s excess damage cleaves into the nearest enemy', rarity: 'ultra', unique: true, icon: `${W}Scythe_of_vitur.png`, effect: { kind: 'overkill', radius: 95 } },
+  { id: 'dragon_claws', name: 'Dragon Claws', desc: 'On a kill, the strike rends the nearest enemy for 50% of the blow', rarity: 'rare', unique: true, icon: itemIcon('dragon_claws'), effect: { kind: 'ricochet', frac: 0.5, radius: 95 } },
+  { id: 'scythe_of_vitur', name: 'Scythe of Vitur', desc: 'A kill’s excess damage cleaves into the nearest enemy', rarity: 'ultra', unique: true, icon: itemIcon('scythe_of_vitur'), effect: { kind: 'overkill', radius: 95 } },
   { id: 'soul_split', name: 'Soul Split', desc: 'Every 8th kill restores 1 life', rarity: 'rare', unique: true, icon: `${W}Soul_Split.png`, effect: { kind: 'soulSplit', every: 8 } },
-  { id: 'dragon_warhammer', name: 'Dragon Warhammer', desc: 'Every 20 kills, a shockwave smashes ALL enemies for 40', rarity: 'ultra', unique: true, icon: `${W}Dragon_warhammer.png`, effect: { kind: 'killStreak', every: 20, damage: 40 } },
+  { id: 'dragon_warhammer', name: 'Dragon Warhammer', desc: 'Every 20 kills, a shockwave smashes ALL enemies for 40', rarity: 'ultra', unique: true, icon: itemIcon('dragon_warhammer'), effect: { kind: 'killStreak', every: 20, damage: 40 } },
   // ── risk / reward curses ─────────────────────────────────────────────────
-  { id: 'phoenix_necklace', name: 'Phoenix Necklace', desc: 'While at 2 lives or fewer, ALL towers deal double damage', rarity: 'rare', unique: true, icon: `${W}Phoenix_necklace.png`, effect: { kind: 'lastStand', belowLives: 2, mult: 2 } },
-  { id: 'berserker_brew', name: 'Berserker Necklace', desc: '+12% damage for every life you have lost', rarity: 'rare', unique: true, icon: `${W}Berserker_necklace.png`, effect: { kind: 'berserker', perMissingLife: 0.12 } },
-  { id: 'blood_pact', name: 'Blood Pact', desc: '+40% damage to ALL towers, but each wave cleared costs 1 life', rarity: 'rare', unique: true, icon: `${W}Blood_shard.png`, effect: { kind: 'bloodPact', mult: 1.4 } },
-  { id: 'greedy_pact', name: 'Greedy Pact', desc: 'Enemies have +50% HP, but drop double gold', rarity: 'rare', unique: true, icon: `${W}Zenyte.png`, effect: { kind: 'greed', hpMult: 1.5, goldMult: 2 } },
+  { id: 'phoenix_necklace', name: 'Phoenix Necklace', desc: 'While at 2 lives or fewer, ALL towers deal double damage', rarity: 'rare', unique: true, icon: itemIcon('phoenix_necklace'), effect: { kind: 'lastStand', belowLives: 2, mult: 2 } },
+  { id: 'berserker_brew', name: 'Berserker Necklace', desc: '+12% damage for every life you have lost', rarity: 'rare', unique: true, icon: itemIcon('berserker_necklace'), effect: { kind: 'berserker', perMissingLife: 0.12 } },
+  { id: 'blood_pact', name: 'Blood Pact', desc: '+40% damage to ALL towers, but each wave cleared costs 1 life', rarity: 'rare', unique: true, icon: itemIcon('blood_shard'), effect: { kind: 'bloodPact', mult: 1.4 } },
+  { id: 'greedy_pact', name: 'Greedy Pact', desc: 'Enemies have +50% HP, but drop double gold', rarity: 'rare', unique: true, icon: itemIcon('zenyte'), effect: { kind: 'greed', hpMult: 1.5, goldMult: 2 } },
   // ── tower transformations ────────────────────────────────────────────────
-  { id: 'dragon_knife', name: 'Dragon Knife', desc: 'Ranged towers loose a second shot at another enemy in range', rarity: 'rare', unique: true, icon: `${W}Dragon_knife.png`, effect: { kind: 'doubleShot' } },
-  { id: 'toxic_blowpipe', name: 'Toxic Blowpipe', desc: 'Every tower’s hit also injects venom', rarity: 'rare', unique: true, icon: `${W}Toxic_blowpipe.png`, effect: { kind: 'venomTips', dps: 6, dur: 4 } },
-  { id: 'ice_barrage_card', name: 'Ice Barrage', desc: 'Any slow now spreads to nearby enemies', rarity: 'rare', unique: true, icon: `${W}Ice_Barrage.png`, effect: { kind: 'chainFreeze', radius: 75 } },
-  { id: 'heavy_ballista', name: 'Heavy Ballista', desc: 'Projectiles punch through to strike the enemy behind', rarity: 'rare', unique: true, icon: `${W}Heavy_ballista.png`, effect: { kind: 'pierce', radius: 70 } },
+  { id: 'dragon_knife', name: 'Dragon Knife', desc: 'Ranged towers loose a second shot at another enemy in range', rarity: 'rare', unique: true, icon: itemIcon('dragon_knife'), effect: { kind: 'doubleShot' } },
+  { id: 'toxic_blowpipe', name: 'Toxic Blowpipe', desc: 'Every tower’s hit also injects venom', rarity: 'rare', unique: true, icon: itemIcon('toxic_blowpipe'), effect: { kind: 'venomTips', dps: 6, dur: 4 } },
+  { id: 'ice_barrage_card', name: 'Ice Barrage', desc: 'Any slow now spreads to nearby enemies', rarity: 'rare', unique: true, icon: ASSETS.spells['Ice_Barrage'], effect: { kind: 'chainFreeze', radius: 75 } },
+  { id: 'heavy_ballista', name: 'Heavy Ballista', desc: 'Projectiles punch through to strike the enemy behind', rarity: 'rare', unique: true, icon: itemIcon('heavy_ballista'), effect: { kind: 'pierce', radius: 70 } },
   // ── placement synergies (reward HOW you position, not just what you pick) ──
-  { id: 'clan_vexillum', name: 'Clan Vexillum', desc: 'Each tower gains +8% damage per nearby tower of the same kind (max +40%)', rarity: 'ultra', unique: true, icon: `${W}Clan_vexillum_%28green%29.png`, effect: { kind: 'packTactics', frac: 0.08, radius: 96, maxStacks: 5 } },
+  { id: 'clan_vexillum', name: 'Clan Vexillum', desc: 'Each tower gains +8% damage per nearby tower of the same kind (max +40%)', rarity: 'ultra', unique: true, icon: itemIcon('clan_vexillum'), effect: { kind: 'packTactics', frac: 0.08, radius: 96, maxStacks: 5 } },
   { id: 'combat_triangle', name: 'Combat Triangle', desc: 'A tower flanked by both other combat styles deals +30% damage', rarity: 'ultra', unique: true, icon: `${W}Multicombat.png`, effect: { kind: 'trinity', mult: 1.3, radius: 96 } },
-  { id: 'dinhs_bulwark', name: "Dinh's Bulwark", desc: 'Your frontmost tower (nearest the portal) deals +60% damage', rarity: 'ultra', unique: true, icon: `${W}Dinh%27s_bulwark.png`, effect: { kind: 'vanguard', mult: 1.6 } },
-  { id: 'lone_wolf', name: 'Lone Wolf', desc: 'A tower with no other tower nearby deals +50% damage', rarity: 'ultra', unique: true, icon: `${W}Wolf_mask.png`, effect: { kind: 'loneWolf', mult: 1.5, radius: 96 } },
+  { id: 'dinhs_bulwark', name: "Dinh's Bulwark", desc: 'Your frontmost tower (nearest the portal) deals +60% damage', rarity: 'ultra', unique: true, icon: itemIcon('dinhs_bulwark'), effect: { kind: 'vanguard', mult: 1.6 } },
+  { id: 'lone_wolf', name: 'Lone Wolf', desc: 'A tower with no other tower nearby deals +50% damage', rarity: 'ultra', unique: true, icon: itemIcon('wolf_mask'), effect: { kind: 'loneWolf', mult: 1.5, radius: 96 } },
   // ── magic spellbook specialisations — buff ONE wizard subtype only ──
-  { id: 'tome_of_fire', name: 'Tome of Fire', desc: 'Elemental wizards: +25% damage and +10% attack speed', rarity: 'ultra', unique: true, icon: `${W}Tome_of_fire.png`, effect: { kind: 'mageBuff', mode: 'elemental', damage: 1.25, fireRate: 1.1 } },
-  { id: 'ancient_sceptre', name: 'Ancient Sceptre', desc: 'Ancient wizards: +20% damage and +15% range', rarity: 'ultra', unique: true, icon: `${W}Ancient_sceptre.png`, effect: { kind: 'mageBuff', mode: 'ancients', damage: 1.2, range: 1.15 } },
-  { id: 'lunar_staff', name: 'Lunar Staff', desc: 'Utility wizards: +25% support range and +15% damage', rarity: 'ultra', unique: true, icon: `${W}Lunar_staff.png`, effect: { kind: 'mageBuff', mode: 'utility', range: 1.25, damage: 1.15 } },
+  { id: 'tome_of_fire', name: 'Tome of Fire', desc: 'Elemental wizards: +25% damage and +10% attack speed', rarity: 'ultra', unique: true, icon: itemIcon('tome_of_fire'), effect: { kind: 'mageBuff', mode: 'elemental', damage: 1.25, fireRate: 1.1 } },
+  { id: 'ancient_sceptre', name: 'Ancient Sceptre', desc: 'Ancient wizards: +20% damage and +15% range', rarity: 'ultra', unique: true, icon: itemIcon('ancient_sceptre'), effect: { kind: 'mageBuff', mode: 'ancients', damage: 1.2, range: 1.15 } },
+  { id: 'lunar_staff', name: 'Lunar Staff', desc: 'Utility wizards: +25% support range and +15% damage', rarity: 'ultra', unique: true, icon: itemIcon('lunar_staff'), effect: { kind: 'mageBuff', mode: 'utility', range: 1.25, damage: 1.15 } },
 ];
 
 /** Cards still eligible to roll: drops any `unique` card already taken this run

@@ -23,7 +23,7 @@ describe('RELICS pool', () => {
     for (const r of RELICS) {
       expect(r.name).toBeTruthy();
       expect(r.desc).toBeTruthy();
-      expect(r.icon).toContain('http');
+      expect(r.icon).toMatch(/^(https?:\/\/|\/|\.\/)?\S+\.png$/); // baked local asset (or wiki fallback)
       expect(TIER_WEIGHT[r.tier]).toBeGreaterThan(0);
     }
   });

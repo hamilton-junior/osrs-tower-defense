@@ -1,4 +1,4 @@
-import { ASSETS } from '../assets';
+import { ASSETS, itemIcon } from '../assets';
 
 /**
  * Wave events (#1): occasional *global* rule-benders announced at the start of a
@@ -71,16 +71,16 @@ export const WAVE_EVENTS: readonly WaveEvent[] = [
   // ───────────────────────────────── hazards ──────────────────────────────
   { id: 'dense_fog', name: 'Dense Fog', tone: 'hazard', color: '#8aa0b0', weight: 20,
     desc: 'A thick sea fog rolls in — your towers see much less far this wave.',
-    icon: `${W}Ghostly_hood.png`, effect: { towerRangeMult: 0.72 } },
+    icon: itemIcon('ghostly_hood'), effect: { towerRangeMult: 0.72 } },
   { id: 'iron_tide', name: 'Iron Tide', tone: 'hazard', color: '#9aa0a8', weight: 20,
     desc: 'The horde marches in heavy armour — every enemy is far tougher.',
-    icon: `${W}Rune_platebody.png`, effect: { enemyHpMult: 1.35 } },
+    icon: itemIcon('rune_platebody'), effect: { enemyHpMult: 1.35 } },
   { id: 'frenzy', name: 'Frenzy', tone: 'hazard', color: '#ff5a3c', weight: 18,
     desc: 'A blood-frenzy grips the horde — they charge in much faster.',
-    icon: `${W}Berserker_necklace.png`, effect: { enemySpeedMult: 1.4 } },
+    icon: itemIcon('berserker_necklace'), effect: { enemySpeedMult: 1.4 } },
   { id: 'curse_of_darkness', name: 'Curse of Darkness', tone: 'hazard', color: '#7a5cff', weight: 14,
     desc: 'A creeping darkness saps your towers — they hit weaker this wave.',
-    icon: `${W}Curse.png`, effect: { towerDamageMult: 0.8 } },
+    icon: ASSETS.spells['Curse'], effect: { towerDamageMult: 0.8 } },
   { id: 'infestation', name: 'Infestation', tone: 'hazard', color: '#b6d957', weight: 16,
     desc: 'An infestation swells the horde with frail, numberless stragglers.',
     icon: `${W}Kalphite_Larva.png`, effect: { enemyCountMult: 1.6, enemyHpMult: 0.6 } },
@@ -88,18 +88,18 @@ export const WAVE_EVENTS: readonly WaveEvent[] = [
   // ───────────────────────────── risk / reward ────────────────────────────
   { id: 'blood_moon', name: 'Blood Moon', tone: 'hazard', color: '#c0392b', weight: 10,
     desc: 'Under the blood moon enemies are stronger and swifter — but drop far more gold.',
-    icon: `${W}Blood_rune.png`, effect: { enemyHpMult: 1.2, enemySpeedMult: 1.2, goldMult: 1.4 } },
+    icon: itemIcon('blood_rune'), effect: { enemyHpMult: 1.2, enemySpeedMult: 1.2, goldMult: 1.4 } },
 
   // ────────────────────────────────── boons ───────────────────────────────
   { id: 'overcharge', name: 'Overcharge', tone: 'boon', color: '#57d9d9', weight: 12,
     desc: 'Arcane winds overcharge your towers — they attack faster this wave.',
-    icon: `${W}Battlestaff.png`, effect: { towerFireRateMult: 1.25 } },
+    icon: itemIcon('battlestaff'), effect: { towerFireRateMult: 1.25 } },
   { id: 'clear_skies', name: 'Clear Skies', tone: 'boon', color: '#57c8ff', weight: 12,
     desc: 'The skies clear — your towers see much farther this wave.',
-    icon: `${W}Eagle_Eye.png`, effect: { towerRangeMult: 1.3 } },
+    icon: ASSETS.prayers.eagle_eye, effect: { towerRangeMult: 1.3 } },
   { id: 'war_banner', name: 'War Banner', tone: 'boon', color: '#ffd257', weight: 12,
     desc: 'A war banner rallies your towers — they strike harder this wave.',
-    icon: `${W}Saradomin_banner.png`, effect: { towerDamageMult: 1.22 } },
+    icon: itemIcon('saradomin_banner'), effect: { towerDamageMult: 1.22 } },
 ];
 
 // ───────────────────────────── tuning constants ────────────────────────────
