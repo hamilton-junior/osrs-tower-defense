@@ -531,7 +531,7 @@ export class GameEngine {
 
   /** Active game mode. Roguelite layers a per-wave draft over classic TD. Chosen
    *  before the first wave via {@link setMode}; persists across {@link restart}. */
-  gameMode: GameMode = 'classic';
+  gameMode: GameMode = 'roguelite';
   /** Roguelite: the draft hand awaiting a pick after a wave clear (null = none). */
   pendingDraft: DraftCard[] | null = null;
   /** Roguelite: run-scoped buff multipliers accumulated from drafts. */

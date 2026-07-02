@@ -164,7 +164,7 @@ const INITIAL: UIState = {
   cardCounts: {},
   bossesSeen: {},
   lastWaveSandbox: false,
-  gameMode: 'classic', pendingDraft: null,
+  gameMode: 'roguelite', pendingDraft: null,
   runMods: {
     damage: { melee: 1, ranged: 1, magic: 1 },
     range: { melee: 1, ranged: 1, magic: 1 },
