@@ -81,6 +81,30 @@ const MISC_IDS = {
   spellbook_standard: 780, spellbook_ancient: 1583, spellbook_arceuus: 1711,
 };
 
+/**
+ * Hitsplats — the real interface splats, keyed by the core engine's
+ * HitsplatKind. `miss` is the blue zero-splat, `heal` the gold one.
+ */
+const HITSPLAT_IDS = {
+  hit: 1359,  // HITSPLAT_RED_DAMAGE
+  miss: 1358, // HITSPLAT_BLUE_MISS
+  poison: 1360, // HITSPLAT_GREEN_POISON
+  venom: 1632, // HITSPLAT_DARK_GREEN_VENOM
+  burn: 1361, // orange disease/burn splat
+  heal: 1362, // gold heal splat
+};
+
+/** Interface chrome / HUD sprites. */
+const UI_IDS = {
+  multicombat_icon: 442, // MULTI_COMBAT_ZONE_CROSSED_SWORDS
+  ge_logo: 1531, // MAP_ICON_GRAND_EXCHANGE (the gold-scales map icon)
+  back_pattern: 452, // TEXTURE_WOOD_DARK — the tiling interface wood (wiki "Back_pattern")
+  orb_background: 1059, // MINIMAP_ORB_EMPTY
+  inventory_background: 1031, // FIXED_MODE_SIDE_PANEL_BACKGROUND
+  transportation_icon: 1504, // MAP_ICON_TRANSPORTATION (legacy portal fallback)
+  follower_details: 1166, // OPTIONS_FOLLOWER_RIGHT_CLICK_MENU (pets tab)
+};
+
 /** Build flat targets from a {basename: id} group under a sub-folder. */
 const group = (ids, sub) =>
   Object.entries(ids).map(([slug, spriteId]) => ({ slug, spriteId, out: `public/assets/${sub}/${slug}.png` }));
@@ -91,6 +115,8 @@ const TARGETS = [
   ...group(SPELL_IDS, 'spells'),
   ...group(PRAYER_IDS, 'prayers'),
   ...group(MISC_IDS, 'misc'),
+  ...group(HITSPLAT_IDS, 'hitsplats'),
+  ...group(UI_IDS, 'ui'),
 ];
 
 /** Encode one Sprite (ARGB pixels on a maxWidth×maxHeight canvas) to a PNG buffer. */

@@ -1370,9 +1370,9 @@ export class GameRenderer {
   }
 
   /**
-   * Draw an OSRS-style hitsplat — a coloured lozenge with the value in white,
-   * coloured per the OSRS Template:Hitsplat palette (red damage, blue 0/block,
-   * green poison, orange burn, …). Rendered on the canvas so it always shows.
+   * Draw an OSRS hitsplat — the real interface sprite (cache-extracted, keyed
+   * `hitsplat_<kind>`) with the value in white on top. Falls back to the
+   * Template:Hitsplat-coloured lozenge while the sprite hasn't decoded.
    */
   private drawSplat(
     ctx: CanvasRenderingContext2D,
@@ -1383,24 +1383,34 @@ export class GameRenderer {
     minor = false,
   ) {
     const s = minor ? 0.7 : 1; // DoT splats are smaller so direct hits dominate
-    const hw = 14 * s; // half width
-    const hh = 10 * s; // half height
-    const p = 5 * s; // point inset
     ctx.save();
     ctx.translate(x, y);
-    ctx.beginPath();
-    ctx.moveTo(-hw, 0);
-    ctx.lineTo(-hw + p, -hh);
-    ctx.lineTo(hw - p, -hh);
-    ctx.lineTo(hw, 0);
-    ctx.lineTo(hw - p, hh);
-    ctx.lineTo(-hw + p, hh);
-    ctx.closePath();
-    ctx.fillStyle = HITSPLAT_COLORS[kind] ?? HITSPLAT_COLORS.hit;
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-    ctx.stroke();
+    if (this.e.imageOk(`hitsplat_${kind}`)) {
+      const img = this.e.images.get(`hitsplat_${kind}`)!;
+      // The sprites are ~24px; draw at 1.25× so values stay legible at game zoom.
+      const dw = img.naturalWidth * 1.25 * s;
+      const dh = img.naturalHeight * 1.25 * s;
+      ctx.imageSmoothingEnabled = false; // keep the pixel art crisp
+      ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+      ctx.imageSmoothingEnabled = true;
+    } else {
+      const hw = 14 * s; // half width
+      const hh = 10 * s; // half height
+      const p = 5 * s; // point inset
+      ctx.beginPath();
+      ctx.moveTo(-hw, 0);
+      ctx.lineTo(-hw + p, -hh);
+      ctx.lineTo(hw - p, -hh);
+      ctx.lineTo(hw, 0);
+      ctx.lineTo(hw - p, hh);
+      ctx.lineTo(-hw + p, hh);
+      ctx.closePath();
+      ctx.fillStyle = HITSPLAT_COLORS[kind] ?? HITSPLAT_COLORS.hit;
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.stroke();
+    }
     ctx.fillStyle = '#fff';
     ctx.font = `bold ${Math.round(14 * s)}px 'RuneScape', Arial`;
     ctx.shadowColor = 'rgba(0,0,0,0.9)';

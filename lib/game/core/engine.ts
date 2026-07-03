@@ -1016,6 +1016,10 @@ export class GameEngine {
             .map(([clip, c]) => [`enemyanim_${type}_${clip}`, (c as EnemyClip).url]),
         ),
       ),
+      // The real interface hitsplats (keyed `hitsplat_<kind>`).
+      ...Object.fromEntries(
+        Object.entries(ASSETS.hitsplats).map(([kind, url]) => [`hitsplat_${kind}`, url]),
+      ),
     };
     for (const [key, url] of Object.entries(urls)) {
       const img = new Image();

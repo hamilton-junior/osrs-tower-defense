@@ -308,8 +308,7 @@ export const ASSETS = {
   misc: {
     // Generic portal icon (legacy UI fallback only — the live spawn portal is
     // drawn procedurally in renderer.drawSpawnPortal, no sprite).
-    portal: 'https://oldschool.runescape.wiki/images/Transportation_logo.png',
-    portal_shield: 'https://oldschool.runescape.wiki/images/Purple_Portal_Shield.png',
+    portal: `${LOCAL}/ui/transportation_icon.png`, // MAP_ICON_TRANSPORTATION (1504)
     tree: `${LOCAL}/objects/tree.png`, // cache-rendered LOC (render-osrs-objects.mjs)
     ore_adamant: itemIcon('adamantite_ore'),
     ranarr: itemIcon('ranarr_weed'),
@@ -326,19 +325,20 @@ export const ASSETS = {
     skill_prayer: `${LOCAL}/misc/prayer_icon.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
     // Multi-combat (crossed-swords) indicator — used as the Home/Wave sidebar tab.
-    multicombat_icon: 'https://oldschool.runescape.wiki/images/Multicombat.png',
-    hit_splat: 'https://oldschool.runescape.wiki/images/Damage_hitsplat.png',
-    magic_hit_splat: 'https://oldschool.runescape.wiki/images/Zero_damage_hitsplat.png',
-    poison_hit_splat: 'https://oldschool.runescape.wiki/images/Poison_hit_splat.png',
-    ranged_hit_splat: 'https://oldschool.runescape.wiki/images/Yellow-green_hitsplat.png',
-    miss_hit_splat: 'https://oldschool.runescape.wiki/images/Shield_hitsplat.png',
-    background_pattern: 'https://oldschool.runescape.wiki/images/Back_pattern.png',
-    orb_background: 'https://oldschool.runescape.wiki/images/Orb_background.png',
-    inventory_background: 'https://oldschool.runescape.wiki/images/Inventory_background.png',
+    // Cache-extracted (MULTI_COMBAT_ZONE_CROSSED_SWORDS 442), like the splats below.
+    multicombat_icon: `${LOCAL}/ui/multicombat_icon.png`,
+    hit_splat: `${LOCAL}/hitsplats/hit.png`,          // red damage (1359)
+    magic_hit_splat: `${LOCAL}/hitsplats/miss.png`,   // blue zero-splat (1358)
+    poison_hit_splat: `${LOCAL}/hitsplats/poison.png`,// green (1360)
+    ranged_hit_splat: `${LOCAL}/hitsplats/heal.png`,  // gold (1362) — legacy renderer's ranged tint
+    miss_hit_splat: `${LOCAL}/hitsplats/miss.png`,    // blue zero-splat (1358)
+    background_pattern: `${LOCAL}/ui/back_pattern.png`, // TEXTURE_WOOD_DARK (452) — the interface wood tile
+    orb_background: `${LOCAL}/ui/orb_background.png`, // MINIMAP_ORB_EMPTY (1059)
+    inventory_background: `${LOCAL}/ui/inventory_background.png`, // FIXED_MODE_SIDE_PANEL_BACKGROUND (1031)
     hp_icon: `${LOCAL}/misc/hp_icon.png`,
-    ge_logo: 'https://oldschool.runescape.wiki/images/Grand_Exchange_logo.png',
+    ge_logo: `${LOCAL}/ui/ge_logo.png`, // GE map icon, the gold scales (1531)
     essence_icon: itemIcon('pure_essence'),
-    pets_tab_icon: 'https://oldschool.runescape.wiki/images/Follower_Details.png',
+    pets_tab_icon: `${LOCAL}/ui/follower_details.png`, // OPTIONS_FOLLOWER_RIGHT_CLICK_MENU (1166)
     prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
     coins_icon: itemIcon('coins'),
     rune_essence_icon: itemIcon('rune_essence'),
@@ -350,6 +350,16 @@ export const ASSETS = {
     spellbook_ancient: `${LOCAL}/misc/spellbook_ancient.png`,
     spellbook_arceuus: `${LOCAL}/misc/spellbook_arceuus.png`,
     wiki_base: 'https://oldschool.runescape.wiki/images/',
+  },
+  // The real interface hitsplats, cache-extracted (extract-osrs-sprites.mjs),
+  // keyed by the core engine's HitsplatKind. Drawn on-canvas by the renderer.
+  hitsplats: {
+    hit: `${LOCAL}/hitsplats/hit.png`,       // red damage (1359)
+    miss: `${LOCAL}/hitsplats/miss.png`,     // blue zero-splat (1358)
+    poison: `${LOCAL}/hitsplats/poison.png`, // green (1360)
+    venom: `${LOCAL}/hitsplats/venom.png`,   // dark green (1632)
+    burn: `${LOCAL}/hitsplats/burn.png`,     // orange (1361)
+    heal: `${LOCAL}/hitsplats/heal.png`,     // gold (1362)
   },
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
   debuffs: {
