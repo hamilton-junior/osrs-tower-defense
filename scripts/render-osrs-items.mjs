@@ -16,6 +16,7 @@
  */
 import { RSCache, IndexType, ConfigType } from 'osrscachereader';
 import { createCanvas } from 'canvas';
+import UPNG from 'upng-js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
@@ -365,6 +366,30 @@ function outlineAndShadow(img, w, h) {
   return out;
 }
 
+/** Render the icon pose once → 36×32-aspect crop → outline + shadow canvas. */
+function renderIcon(model, verts, fit, size, textures) {
+  const img = renderModelFrame(model, verts, fit, 0, 1, 0, 1, size, textures);
+  const sq = createCanvas(size, size);
+  sq.getContext('2d').putImageData(img, 0, 0);
+  const iconRaw = createCanvas(ICON_W, ICON_H);
+  iconRaw.getContext('2d').drawImage(sq, (size - ICON_W) / 2, (size - ICON_H) / 2, ICON_W, ICON_H, 0, 0, ICON_W, ICON_H);
+  const raw = iconRaw.getContext('2d').getImageData(0, 0, ICON_W, ICON_H);
+  return outlineAndShadow(raw, ICON_W, ICON_H);
+}
+
+/** A copy of texture `t` scrolled `off` px along its animation direction
+ *  (odd dirs scroll v, even scroll u; 3/4 run negative), wrapping round. */
+function scrollTexture(t, off) {
+  const c = createCanvas(t.w, t.h);
+  const ctx = c.getContext('2d');
+  const vert = t.animDir % 2 === 1;
+  const span = vert ? t.h : t.w;
+  const o = (((t.animDir >= 3 ? -off : off) % span) + span) % span;
+  if (vert) { ctx.drawImage(t.canvas, 0, o - span); ctx.drawImage(t.canvas, 0, o); }
+  else { ctx.drawImage(t.canvas, o - span, 0); ctx.drawImage(t.canvas, o, 0); }
+  return c;
+}
+
 // ----------------------------------------------------------------------- main
 async function main() {
   if (!existsSync(join(CACHE_DIR, 'main_file_cache.dat2'))) {
@@ -440,17 +465,35 @@ async function main() {
     const verts = clientIconVerts(model, def);
     const size = Math.max(ICON_W, ICON_H);
     const fit = computeFit([verts], 0, 1, 0, 1, size, PAD / size);
-    const img = renderModelFrame(model, verts, fit, 0, 1, 0, 1, size, textures);
 
-    // Crop the square render to 36×32 aspect, then outline + shadow.
-    const sq = createCanvas(size, size);
-    sq.getContext('2d').putImageData(img, 0, 0);
-    const iconRaw = createCanvas(ICON_W, ICON_H);
-    iconRaw.getContext('2d').drawImage(sq, (size - ICON_W) / 2, (size - ICON_H) / 2, ICON_W, ICON_H, 0, 0, ICON_W, ICON_H);
-    const raw = iconRaw.getContext('2d').getImageData(0, 0, ICON_W, ICON_H);
-    const icon = outlineAndShadow(raw, ICON_W, ICON_H);
-
-    writeFileSync(join(outDir, `${slug}.png`), icon.toBuffer('image/png'));
+    // Animated textures (fire cape's lava, magic logs' sparkle, the msbi
+    // string): the client scrolls the texture `animSpeed` px per 20ms engine
+    // tick along `animDir`. Bake one full wrap as an APNG — browsers animate
+    // it in <img>; canvas drawImage falls back to the first frame. Everything
+    // else stays a plain single-frame PNG.
+    const animated = [...textures.values()].filter((t) => t.animDir !== 0 && t.animSpeed !== 0);
+    if (animated.length) {
+      // Ticks for the slowest animated texture to wrap = the seamless loop.
+      const period = Math.max(...animated.map((t) => (t.animDir % 2 === 1 ? t.h : t.w) / t.animSpeed));
+      const N = Math.min(16, Math.max(2, Math.round(period)));
+      const step = period / N; // ticks per APNG frame
+      const frames = [], delays = [];
+      for (let i = 0; i < N; i++) {
+        const scrolled = new Map(textures);
+        for (const [id, t] of textures) {
+          if (t.animDir === 0 || t.animSpeed === 0) continue;
+          scrolled.set(id, { ...t, canvas: scrollTexture(t, Math.round(i * step * t.animSpeed)) });
+        }
+        const icon = renderIcon(model, verts, fit, size, scrolled);
+        frames.push(icon.getContext('2d').getImageData(0, 0, ICON_W, ICON_H).data.buffer);
+        delays.push(Math.round(step * 20)); // client engine tick = 20ms
+      }
+      writeFileSync(join(outDir, `${slug}.png`), Buffer.from(UPNG.encode(frames, ICON_W, ICON_H, 0, delays)));
+      console.log(`  ~ ${slug}: animated (${N} frames @ ${delays[0]}ms)`);
+    } else {
+      const icon = renderIcon(model, verts, fit, size, textures);
+      writeFileSync(join(outDir, `${slug}.png`), icon.toBuffer('image/png'));
+    }
     ok++;
   }
   console.log(`✓ ${ok}/${entries.length} icons → public/assets/items/`);

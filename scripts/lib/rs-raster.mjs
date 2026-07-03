@@ -112,7 +112,14 @@ export async function loadTextures(cache, texIds) {
       }
       ctx.putImageData(img, 0, 0);
       const n = Math.max(1, nOpaque);
-      out.set(id, { canvas, w, h, avg: [rSum / n, gSum / n, bSum / n] });
+      // animSpeed/animDir: the client's texture animation (a u/v scroll of
+      // `animationSpeed` px per 20ms engine tick along `animationDirection`).
+      // 0/0 = static. Bakers that animate (item APNGs) read these; everything
+      // else ignores them.
+      out.set(id, {
+        canvas, w, h, avg: [rSum / n, gSum / n, bSum / n],
+        animSpeed: def?.animationSpeed ?? 0, animDir: def?.animationDirection ?? 0,
+      });
     } catch { /* missing texture → colour fallback */ }
   }
   return out;
