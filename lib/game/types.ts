@@ -189,6 +189,9 @@ export interface Effect {
   /** Draw-size multiplier over the spotanim's base size (impacts scale to the
    *  struck model, like the procedural bursts did). Defaults to 1. */
   scale?: number;
+  /** When set, the effect rides this enemy's position while it lives — actor
+   *  graphics (Ancients hit GFX) play ON the struck model, like in the client. */
+  enemyId?: string;
 }
 
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';

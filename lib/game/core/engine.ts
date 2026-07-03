@@ -480,6 +480,13 @@ const HITSPLAT_LIFE = 0.9;
 const IMPACT_BASE_SCALE = 0.5;   // halve the old footprint (normal enemy ≈ this)
 const IMPACT_SPLASH_SCALE = 0.6; // splash-target burst vs the primary's
 
+/** Ancients hit-GFX fit: drawn effect size as a multiple of the struck model's
+ *  drawn body size. Ice is the proportion baseline — its freeze cube encases the
+ *  whole NPC; shadow spans feet to just over the head, smoke billows a touch
+ *  wider, blood hugs the body. The baked sheets keep an ~8%/side fit margin, so
+ *  the multipliers overshoot 1 to land the visible GFX on the body. */
+const ANCIENT_HIT_FIT: Record<string, number> = { ice: 1.3, smoke: 1.25, shadow: 1.15, blood: 1.05 };
+
 export class GameEngine {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
@@ -1837,6 +1844,13 @@ export class GameEngine {
     for (let i = this.spotEffects.length - 1; i >= 0; i--) {
       const fx = this.spotEffects[i];
       fx.age += dt;
+      // Enemy-anchored GFX (Ancients hits) ride the struck model while it
+      // lives; once it dies or leaks, the effect finishes where it stood.
+      if (fx.enemyId) {
+        const t = this.enemies.find((en) => en.id === fx.enemyId);
+        if (t) { fx.x = t.x; fx.y = t.y; }
+        else fx.enemyId = undefined;
+      }
       const meta = SPOTANIMS[fx.slug];
       if (!meta || fx.age >= spotAnimDurationS(meta)) this.spotEffects.splice(i, 1);
     }
@@ -1875,6 +1889,18 @@ export class GameEngine {
   spawnEffect(slug: string, x: number, y: number, scale = 1) {
     if (!SPOTANIMS[slug]) return;
     this.spotEffects.push({ slug, x, y, age: 0, scale });
+  }
+
+  /** An Ancients hit GFX played ON the struck model: sized from the enemy's
+   *  drawn body (ice barrage's cube encases the whole NPC — the proportion
+   *  baseline) and anchored to it, so the effect follows the model like an
+   *  actor graphic in the client. No jitter — the fit is the point. */
+  private spawnAncientHitFx(slug: string, e: Enemy) {
+    const meta = SPOTANIMS[slug];
+    if (!meta) return;
+    const fit = ANCIENT_HIT_FIT[slug.split('_')[1]] ?? 1.15;
+    const bodyPx = (e.isBoss ? 60 : 30) * (e.renderScale ?? 1) * 1.32; // matches drawEnemies' ds
+    this.spotEffects.push({ slug, x: e.x, y: e.y, age: 0, scale: (bodyPx * fit) / meta.size, enemyId: e.id });
   }
 
   /** An expanding ring VFX (overkill cleave, kill-streak shockwave, soul-split heal). */
@@ -2297,6 +2323,9 @@ export class GameEngine {
     // element-themed procedural burst survives only as the fallback for magic
     // without a baked sheet. Arrows/cannonballs keep the plain coloured spark.
     const gfx = p.hitSound && SPOTANIMS[p.hitSound] ? p.hitSound : null;
+    // Ancients hits are actor graphics: fitted to the struck model (ice cube
+    // encases the NPC) and anchored to it, instead of a point burst.
+    const isAncientGfx = !!gfx && /^hit_(ice|blood|shadow|smoke)_/.test(gfx);
     const theme = gfx ? null : resolveImpactTheme(p.type, p.element);
     const isAoe = !!(p.aoe || p.special === 'aoe');
     // Land the burst on the target's body (enemies draw centred on x/y) when it's
@@ -2311,8 +2340,12 @@ export class GameEngine {
     // Single-target magic bursts here (sized to the struck model); AoE bursts are
     // spawned per-target in the splash loop below so each hit — primary and splash
     // — gets its own right-sized burst. Non-magic shots keep the plain spark.
-    if (gfx && !isAoe) this.spawnEffect(gfx, ax, ay, this.impactScale(target && target.hp > 0 ? target : null));
-    else if (theme && !isAoe) this.spawnMagicImpact(ax, ay, theme, this.impactScale(target && target.hp > 0 ? target : null), travelX, travelY);
+    const liveTarget = target && target.hp > 0 ? target : null;
+    if (gfx && !isAoe) {
+      if (isAncientGfx && liveTarget) this.spawnAncientHitFx(gfx, liveTarget);
+      else this.spawnEffect(gfx, ax, ay, this.impactScale(liveTarget));
+    }
+    else if (theme && !isAoe) this.spawnMagicImpact(ax, ay, theme, this.impactScale(liveTarget), travelX, travelY);
     else if (!theme && !gfx) this.spawnImpactParticles(p.x, p.y, p.color);
     if (p.hitSound) this.sound.play(p.hitSound, 60); // spell impact sfx (paired with its cast)
     // Archer arrows have no impact clip wired yet, and the generic melee "thud" is
@@ -2338,15 +2371,19 @@ export class GameEngine {
       for (const e of near) {
         const isPrimary = e === primary;
         const scale = isPrimary ? 1 : splash;
-        // Real hit-GFX (or themed fallback burst) on EVERY struck enemy: primary
-        // at full model-size, splash targets shrunk (IMPACT_SPLASH_SCALE) so the
-        // smaller hit reads as the reduced splash damage — a barrage paints its
-        // spell's authentic impact across the whole clump, like in the client.
+        // Real hit-GFX (or themed fallback burst) on EVERY struck enemy — a
+        // barrage paints its spell's authentic impact across the whole clump,
+        // like in the client. Ancients GFX fit each struck model at full size
+        // (every barraged NPC wears its own ice cube); other impacts shrink on
+        // splash targets (IMPACT_SPLASH_SCALE) to read as the reduced damage.
         // Direction (procedural only): primary keeps the shot's travel; splash
         // debris is thrown outward from the blast centre.
         const dx = isPrimary ? travelX : e.x - p.x;
         const dy = isPrimary ? travelY : e.y - p.y;
-        if (gfx) this.spawnEffect(gfx, e.x, e.y, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE));
+        if (gfx) {
+          if (isAncientGfx) this.spawnAncientHitFx(gfx, e);
+          else this.spawnEffect(gfx, e.x, e.y, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE));
+        }
         else if (theme) this.spawnMagicImpact(e.x, e.y, theme, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), dx, dy);
         // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.
         const bonus = p.bonusMaxHpFrac ? Math.floor(e.maxHp * p.bonusMaxHpFrac * scale) : 0;
