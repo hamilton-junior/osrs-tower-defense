@@ -17,11 +17,11 @@
  */
 import { RSCache, IndexType, ConfigType, ModelGroup } from 'osrscachereader';
 import { createCanvas } from 'canvas';
-import { PNG } from 'pngjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { renderModelFrame, loadTextures, modelTextureIds, computeFit } from './lib/rs-raster.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -47,31 +47,38 @@ const TARGETS = {
   // NOTE: the spawn portal is no longer a model render — OSRS portals are mostly
   // animated spotanims, so a static render reads poorly. It's now drawn
   // procedurally as a swirling vortex in renderer.drawSpawnPortal.
+
+  // --- Skilling pets (ASSETS.pets) ---
+  beaver: { npc: 12169 },
+  rock_golem: { npc: 6725 },
+  tangleroot: { npc: 7335 },
+  heron: { npc: 6715 },
+  rift_guardian: { npc: 7337 },          // fire variant (matches the old wiki art)
+  baby_mole: { npc: 5780 },
+  vorki: { npc: 8025 },
+  snakeling: { npc: 2132 },              // tanzanite (matches the old wiki art)
+  prince_black_dragon: { npc: 6636 },
+  kalphite_princess: { npc: 6637 },      // 2nd form (matches the old wiki art)
+  tzrek_jad: { npc: 5892 },
+  ikkle_hydra: { npc: 8492 },            // serpentine (matches the old wiki art)
+
+  // --- TzHaar tower tier icons (ASSETS.towers.tzhaar) ---
+  tzhaar_hur: { npc: 2161 },
+  tzhaar_mej: { npc: 2154 },
+  tzhaar_xil: { npc: 2167 },             // sword variant (matches the old wiki art)
+  tzhaar_ket: { npc: 2173 },
+
+  // --- Misc NPC-model icons ---
+  giant_snail: { npc: 5628 },            // "slow" debuff icon
+  kalphite_larva: { npc: 966 },          // Swarm affix / wave-event icon
 };
 
-// ----------------------------------------------------------- OSRS HSL palette
-const HUE_OFFSET = 0.5 / 64;
-const SATURATION_OFFSET = 0.5 / 8;
-const BRIGHTNESS = 0.7; // 0.6 = client default; nudge up so sprites read on dark UI
-
-function hslToRgb(hsl) {
-  const hue = ((hsl >> 10) & 63) / 64 + HUE_OFFSET;
-  const sat = ((hsl >> 7) & 7) / 8 + SATURATION_OFFSET;
-  const lum = (hsl & 127) / 128;
-  const chroma = (1 - Math.abs(2 * lum - 1)) * sat;
-  const x = chroma * (1 - Math.abs(((hue * 6) % 2) - 1));
-  const m = lum - chroma / 2;
-  let r = m, g = m, b = m;
-  switch (Math.trunc(hue * 6)) {
-    case 0: r += chroma; g += x; break;
-    case 1: g += chroma; r += x; break;
-    case 2: g += chroma; b += x; break;
-    case 3: b += chroma; g += x; break;
-    case 4: b += chroma; r += x; break;
-    default: r += chroma; b += x; break;
-  }
-  // brightness curve (client raises colours to `BRIGHTNESS` power)
-  return [r, g, b].map((c) => Math.min(255, Math.pow(Math.max(c, 0), BRIGHTNESS) * 255));
+// Bestiary statics: reuse the exact NPC ids the anim baker renders clips from
+// (scripts/enemy-anims.config.json — the single source of truth), so the
+// static portrait always matches the animated model on the map.
+const ANIM_CFG = JSON.parse(readFileSync(join(__dirname, 'enemy-anims.config.json'), 'utf8'));
+for (const [slug, { npc }] of Object.entries(ANIM_CFG)) {
+  if (!TARGETS[slug]) TARGETS[slug] = { npc };
 }
 
 // ------------------------------------------------------------ NPC def parsing
@@ -149,101 +156,35 @@ async function buildNpcModel(cache, def) {
   return merged;
 }
 
-/** Rotate (yaw about Y, pitch about X) then orthographically project a vertex. */
-function project(x, y, z, sinYaw, cosYaw, sinPitch, cosPitch) {
-  // yaw around vertical axis
-  let rx = x * cosYaw - z * sinYaw;
-  let rz = x * sinYaw + z * cosYaw;
-  // pitch around horizontal axis
-  let ry = y * cosPitch - rz * sinPitch;
-  rz = y * sinPitch + rz * cosPitch;
-  return [rx, ry, rz];
-}
-
-/** Value at percentile `q` (0..1) of a numeric array (sorted copy). */
-function percentile(arr, q) {
-  const s = Float64Array.from(arr).sort();
-  const i = Math.min(s.length - 1, Math.max(0, Math.round(q * (s.length - 1))));
-  return s[i];
-}
-
-function renderModel(model, { yaw = 30, pitch = 12, zoom = 1, cullBelowGround = false } = {}) {
+/**
+ * Static NPC portrait through the shared rasteriser (rs-raster: painter sort,
+ * client backface culling, real cache textures with the face-lightness rule,
+ * unsigned face alpha). Base-pose vertices, 3/4 view by default.
+ */
+function renderNpc(model, { yaw = 30, pitch = 12, zoom = 1, cullBelowGround = false } = {}, textures) {
+  // Sub-ground decoration (shadow/contact discs sit just below the feet at
+  // model-Y > 4): mark hidden so the shared renderer skips them.
+  if (cullBelowGround) {
+    const Y = model.vertexPositionsY;
+    const fa = model.faceVertexIndices1, fb = model.faceVertexIndices2, fc = model.faceVertexIndices3;
+    if (!model.faceRenderTypes) model.faceRenderTypes = new Array(model.faceCount).fill(0);
+    for (let f = 0; f < model.faceCount; f++) {
+      if (Y[fa[f]] > 4 && Y[fb[f]] > 4 && Y[fc[f]] > 4) model.faceRenderTypes[f] = 2;
+    }
+  }
   const n = model.vertexCount;
-  const X = model.vertexPositionsX, Y = model.vertexPositionsY, Z = model.vertexPositionsZ;
+  const verts = new Array(n);
+  for (let i = 0; i < n; i++) {
+    verts[i] = [model.vertexPositionsX[i], model.vertexPositionsY[i], model.vertexPositionsZ[i]];
+  }
   const yawR = (yaw * Math.PI) / 180, pitchR = (pitch * Math.PI) / 180;
   const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
-
-  const px = new Float64Array(n), py = new Float64Array(n), pz = new Float64Array(n);
-  for (let i = 0; i < n; i++) {
-    const [a, b, c] = project(X[i], Y[i], Z[i], sy, cy, sp, cp);
-    px[i] = a; py[i] = b; pz[i] = c;
-  }
-
-  // Robust auto-fit: frame to the dense body via percentile bounds, so stray
-  // effect geometry (energy shards, ground discs) doesn't shrink the creature.
-  // Normalise primarily by HEIGHT so every NPC reads at a similar on-screen
-  // size; only fall back to width when a model is wider than tall (e.g. wings),
-  // to avoid clipping the body.
-  const TRIM = 0.03; // ignore the extreme 3% of verts per side when framing
-  const xLo = percentile(px, TRIM), xHi = percentile(px, 1 - TRIM);
-  const yLo = percentile(py, TRIM), yHi = percentile(py, 1 - TRIM);
-  const robustH = (yHi - yLo) || 1, robustW = (xHi - xLo) || 1;
-  const usable = SIZE * (1 - 2 * MARGIN);
-  let scale = (usable / robustH) * zoom;
-  if (robustW * scale > usable) scale = (usable / robustW) * zoom; // don't clip width
-  const cx = (xLo + xHi) / 2, cyc = (yLo + yHi) / 2;
-  const toScreen = (i) => [SIZE / 2 + (px[i] - cx) * scale, SIZE / 2 + (py[i] - cyc) * scale];
-
-  // Light direction (in projected space) for flat per-face shading.
-  const L = [-0.5, -0.6, -0.7];
-  const Lmag = Math.hypot(...L);
-
+  const fit = computeFit([verts], sy, cy, sp, cp, SIZE, MARGIN);
+  fit.scale *= zoom;
+  const img = renderModelFrame(model, verts, fit, sy, cy, sp, cp, SIZE, textures);
   const canvas = createCanvas(SIZE, SIZE);
-  const ctx = canvas.getContext('2d');
-
-  // Painter's algorithm: sort faces back-to-front by average projected depth.
-  const fa = model.faceVertexIndices1, fb = model.faceVertexIndices2, fc = model.faceVertexIndices3;
-  const order = [];
-  for (let f = 0; f < model.faceCount; f++) {
-    const depth = (pz[fa[f]] + pz[fb[f]] + pz[fc[f]]) / 3;
-    order.push([f, depth]);
-  }
-  order.sort((p, q) => q[1] - p[1]); // far (large z) first
-
-  for (const [f] of order) {
-    const renderType = model.faceRenderTypes ? model.faceRenderTypes[f] : 0;
-    if (renderType === 2) continue; // hidden
-    const alpha = model.faceAlphas?.[f] ?? 0;
-    if (alpha === 255) continue; // fully transparent in OSRS
-    const hsl = model.faceColors[f];
-    if (hsl === undefined || hsl < 0) continue;
-
-    const i1 = fa[f], i2 = fb[f], i3 = fc[f];
-    // Optional: drop sub-ground decoration (shadow/contact discs sit just below
-    // the feet at model-Y > 0; nothing legitimate is below the ground plane).
-    if (cullBelowGround && Y[i1] > 4 && Y[i2] > 4 && Y[i3] > 4) continue;
-    // Flat shade: face normal in projected space · light.
-    const ux = px[i2] - px[i1], uy = py[i2] - py[i1], uz = pz[i2] - pz[i1];
-    const vx = px[i3] - px[i1], vy = py[i3] - py[i1], vz = pz[i3] - pz[i1];
-    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    const nmag = Math.hypot(nx, ny, nz) || 1;
-    const dot = (nx * L[0] + ny * L[1] + nz * L[2]) / (nmag * Lmag);
-    const shade = 0.55 + 0.45 * Math.abs(dot); // ambient + diffuse, both sides lit
-
-    const [r, g, b] = hslToRgb(hsl);
-    ctx.fillStyle = `rgb(${Math.round(r * shade)},${Math.round(g * shade)},${Math.round(b * shade)})`;
-    ctx.globalAlpha = (255 - alpha) / 255;
-    const [x1, y1] = toScreen(i1), [x2, y2] = toScreen(i2), [x3, y3] = toScreen(i3);
-    ctx.beginPath();
-    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath();
-    ctx.fill();
-  }
-
-  // node-canvas → PNG buffer (keep transparency).
-  const img = ctx.getImageData(0, 0, SIZE, SIZE);
-  const png = new PNG({ width: SIZE, height: SIZE });
-  png.data.set(img.data);
-  return PNG.sync.write(png);
+  canvas.getContext('2d').putImageData(img, 0, 0);
+  return canvas.toBuffer('image/png');
 }
 
 // ----------------------------------------------------------------------- main
@@ -287,7 +228,8 @@ async function main() {
     const def = { name: file.def?.name, ...parseNpcDef(file.content) };
     const model = await buildNpcModel(cache, def);
     if (!model) { console.warn(`! ${slug}: no model geometry`); continue; }
-    const buf = renderModel(model, { ...cfg, ...camOverride });
+    const textures = await loadTextures(cache, modelTextureIds(model));
+    const buf = renderNpc(model, { ...cfg, ...camOverride }, textures);
     const outPath = join(REPO, 'public', 'assets', 'models', `${slug}.png`);
     mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, buf);

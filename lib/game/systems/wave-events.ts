@@ -1,4 +1,4 @@
-import { ASSETS, itemIcon } from '../assets';
+import { ASSETS, itemIcon, npcModel } from '../assets';
 
 /**
  * Wave events (#1): occasional *global* rule-benders announced at the start of a
@@ -83,7 +83,7 @@ export const WAVE_EVENTS: readonly WaveEvent[] = [
     icon: ASSETS.spells['Curse'], effect: { towerDamageMult: 0.8 } },
   { id: 'infestation', name: 'Infestation', tone: 'hazard', color: '#b6d957', weight: 16,
     desc: 'An infestation swells the horde with frail, numberless stragglers.',
-    icon: `${W}Kalphite_Larva.png`, effect: { enemyCountMult: 1.6, enemyHpMult: 0.6 } },
+    icon: npcModel('kalphite_larva'), effect: { enemyCountMult: 1.6, enemyHpMult: 0.6 } },
 
   // ───────────────────────────── risk / reward ────────────────────────────
   { id: 'blood_moon', name: 'Blood Moon', tone: 'hazard', color: '#c0392b', weight: 10,

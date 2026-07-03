@@ -9,6 +9,10 @@ const LOCAL = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/assets`;
  *  (scripts/render-osrs-items.mjs → public/assets/items/<slug>.png). */
 export const itemIcon = (slug: string) => `${LOCAL}/items/${slug}.png`;
 
+/** Cache-rendered NPC model portrait
+ *  (scripts/render-osrs-npcs.mjs → public/assets/models/<slug>.png). */
+export const npcModel = (slug: string) => `${LOCAL}/models/${slug}.png`;
+
 /**
  * Wiki-filename → locally-baked icon. Data tables (GE shop, slayer rewards,
  * meta upgrades) key icons by wiki filename; `iconUrl` resolves them to the
@@ -150,55 +154,56 @@ for (const t of DEATH_TYPES) DEATH_SOUNDS[t] = `${SND}/death_${t}.wav`;
 
 export const ASSETS = {
   spells: SPELL_ICONS,
+  // Enemy & pet portraits — NPC models rendered from the game cache
+  // (scripts/render-osrs-npcs.mjs, same NPC ids as the animated clips),
+  // served locally from public/assets/models/.
   enemies: {
-    goblin: 'https://oldschool.runescape.wiki/images/Goblin.png',
-    rat: 'https://oldschool.runescape.wiki/images/Giant_rat.png',
-    cow: 'https://oldschool.runescape.wiki/images/Cow_%281%29.png',
-    imp: 'https://oldschool.runescape.wiki/images/Imp.png',
-    spider: 'https://oldschool.runescape.wiki/images/Spider.png',
-    scorpion: 'https://oldschool.runescape.wiki/images/Scorpion.png',
-    hill_giant: 'https://oldschool.runescape.wiki/images/Hill_Giant.png',
-    lesser_demon: 'https://oldschool.runescape.wiki/images/Lesser_demon.png',
-    green_dragon: 'https://oldschool.runescape.wiki/images/Green_dragon.png',
-    blue_dragon: 'https://oldschool.runescape.wiki/images/Blue_dragon.png',
-    black_demon: 'https://oldschool.runescape.wiki/images/Black_demon.png',
-    abyssal_demon: 'https://oldschool.runescape.wiki/images/Abyssal_demon.png',
-    barrow_wight: 'https://oldschool.runescape.wiki/images/Dharok_the_Wretched.png',
-    chaos_druid: 'https://oldschool.runescape.wiki/images/Chaos_druid.png',
-    skeletal_mage: 'https://oldschool.runescape.wiki/images/Skeleton_Mage_%28lv_16%29.png',
-    skeleton: 'https://oldschool.runescape.wiki/images/Skeleton_%28level_22%2C_3%29.png',
-    zombie: 'https://oldschool.runescape.wiki/images/Zombie_%28Level_13%2C_14%29.png',
-    ghost: 'https://oldschool.runescape.wiki/images/Ghost.png',
-    hellhound: 'https://oldschool.runescape.wiki/images/Hellhound.png',
-    fire_giant: 'https://oldschool.runescape.wiki/images/Fire_giant.png',
-    bloodveld: 'https://oldschool.runescape.wiki/images/Bloodveld.png',
-    gargoyle: 'https://oldschool.runescape.wiki/images/Gargoyle.png',
-    nechryael: 'https://oldschool.runescape.wiki/images/Nechryael.png',
-    dark_beast: 'https://oldschool.runescape.wiki/images/Dark_beast.png',
-    hydra: 'https://oldschool.runescape.wiki/images/Hydra.png',
-    jad: 'https://oldschool.runescape.wiki/images/TzTok-Jad.png',
-    vorkath: 'https://oldschool.runescape.wiki/images/Vorkath.png',
-    zulrah: 'https://oldschool.runescape.wiki/images/Zulrah_%28serpentine%29.png',
-    // Superior slayer variants (Bigger and Badder) — NPC models rendered from
-    // the game cache (scripts/render-osrs-npcs.mjs), served locally.
+    goblin: `${LOCAL}/models/goblin.png`,
+    rat: `${LOCAL}/models/rat.png`,
+    cow: `${LOCAL}/models/cow.png`,
+    imp: `${LOCAL}/models/imp.png`,
+    spider: `${LOCAL}/models/spider.png`,
+    scorpion: `${LOCAL}/models/scorpion.png`,
+    hill_giant: `${LOCAL}/models/hill_giant.png`,
+    lesser_demon: `${LOCAL}/models/lesser_demon.png`,
+    green_dragon: `${LOCAL}/models/green_dragon.png`,
+    blue_dragon: `${LOCAL}/models/blue_dragon.png`,
+    black_demon: `${LOCAL}/models/black_demon.png`,
+    abyssal_demon: `${LOCAL}/models/abyssal_demon.png`,
+    barrow_wight: `${LOCAL}/models/barrow_wight.png`,   // Dharok the Wretched
+    chaos_druid: `${LOCAL}/models/chaos_druid.png`,
+    skeletal_mage: `${LOCAL}/models/skeletal_mage.png`,
+    skeleton: `${LOCAL}/models/skeleton.png`,
+    zombie: `${LOCAL}/models/zombie.png`,
+    ghost: `${LOCAL}/models/ghost.png`,
+    hellhound: `${LOCAL}/models/hellhound.png`,
+    fire_giant: `${LOCAL}/models/fire_giant.png`,
+    bloodveld: `${LOCAL}/models/bloodveld.png`,
+    gargoyle: `${LOCAL}/models/gargoyle.png`,
+    nechryael: `${LOCAL}/models/nechryael.png`,
+    dark_beast: `${LOCAL}/models/dark_beast.png`,
+    hydra: `${LOCAL}/models/hydra.png`,
+    jad: `${LOCAL}/models/jad.png`,                     // TzTok-Jad
+    vorkath: `${LOCAL}/models/vorkath.png`,
+    zulrah: `${LOCAL}/models/zulrah.png`,               // serpentine
     superior_bloodveld: `${LOCAL}/models/superior_bloodveld.png`,         // Insatiable Bloodveld
     superior_abyssal_demon: `${LOCAL}/models/superior_abyssal_demon.png`, // Greater abyssal demon
     superior_gargoyle: `${LOCAL}/models/superior_gargoyle.png`,           // Marble gargoyle
     superior_nechryael: `${LOCAL}/models/superior_nechryael.png`,         // Nechryarch
   },
   pets: {
-    beaver: 'https://oldschool.runescape.wiki/images/Beaver.png',
-    rock_golem: 'https://oldschool.runescape.wiki/images/Rock_golem.png',
-    tangleroot: 'https://oldschool.runescape.wiki/images/Tangleroot.png',
-    heron: 'https://oldschool.runescape.wiki/images/Heron.png',
-    rift_guardian: 'https://oldschool.runescape.wiki/images/Rift_guardian_%28follower%2C_fire%29.png',
-    baby_mole: 'https://oldschool.runescape.wiki/images/Baby_mole.png',
-    vorki: 'https://oldschool.runescape.wiki/images/Vorki.png',
-    snakeling: 'https://oldschool.runescape.wiki/images/Snakeling_%28tanzanite%29.png',
-    prince_black_dragon: 'https://oldschool.runescape.wiki/images/Prince_black_dragon.png',
-    kalphite_princess: 'https://oldschool.runescape.wiki/images/Kalphite_Princess_2nd_form.png',
-    tzrek_jad: 'https://oldschool.runescape.wiki/images/TzRek-Jad.png',
-    ikkle_hydra: 'https://oldschool.runescape.wiki/images/Ikkle_Hydra_%28serpentine%29.png',
+    beaver: `${LOCAL}/models/beaver.png`,
+    rock_golem: `${LOCAL}/models/rock_golem.png`,
+    tangleroot: `${LOCAL}/models/tangleroot.png`,
+    heron: `${LOCAL}/models/heron.png`,
+    rift_guardian: `${LOCAL}/models/rift_guardian.png`, // fire variant
+    baby_mole: `${LOCAL}/models/baby_mole.png`,
+    vorki: `${LOCAL}/models/vorki.png`,
+    snakeling: `${LOCAL}/models/snakeling.png`,         // tanzanite
+    prince_black_dragon: `${LOCAL}/models/prince_black_dragon.png`,
+    kalphite_princess: `${LOCAL}/models/kalphite_princess.png`, // 2nd form
+    tzrek_jad: `${LOCAL}/models/tzrek_jad.png`,
+    ikkle_hydra: `${LOCAL}/models/ikkle_hydra.png`,     // serpentine
   },
   // Prayer icons — cache-extracted sprites served locally (PRAYER_* sprite ids).
   prayers: {
@@ -263,10 +268,11 @@ export const ASSETS = {
       4: itemIcon('emberlight'),
     },
     tzhaar: {
-      1: 'https://oldschool.runescape.wiki/images/TzHaar-Hur.png',
-      2: 'https://oldschool.runescape.wiki/images/TzHaar-Mej.png',
-      3: 'https://oldschool.runescape.wiki/images/TzHaar-Xil_%28sword%29.png',
-      4: 'https://oldschool.runescape.wiki/images/TzHaar-Ket_%28level_149%29.png',
+      // Cache-rendered NPC models (scripts/render-osrs-npcs.mjs).
+      1: `${LOCAL}/models/tzhaar_hur.png`,
+      2: `${LOCAL}/models/tzhaar_mej.png`,
+      3: `${LOCAL}/models/tzhaar_xil.png`, // sword variant
+      4: `${LOCAL}/models/tzhaar_ket.png`,
     },
     toxic: {
       1: itemIcon('tanzanite_fang'),
@@ -347,10 +353,10 @@ export const ASSETS = {
   },
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
   debuffs: {
-    // slow = Giant snail, an NPC *model* (not a 2D sprite) — stays hot-linked
-    // until the model-render track lands. The rest are cache-extracted sprites
+    // slow = Giant snail, an NPC *model* rendered from the cache
+    // (scripts/render-osrs-npcs.mjs). The rest are cache-extracted sprites
     // (scripts/extract-osrs-sprites.mjs), served locally from public/.
-    slow: 'https://oldschool.runescape.wiki/images/Giant_snail.png',
+    slow: `${LOCAL}/models/giant_snail.png`,
     stun: `${LOCAL}/debuffs/stun.png`, // SPELL_ENTANGLE (321)
     burn: `${LOCAL}/debuffs/burn.png`, // Burn hitsplat (1361)
     poison: `${LOCAL}/debuffs/poison.png`, // HITSPLAT_GREEN_POISON (1360)
