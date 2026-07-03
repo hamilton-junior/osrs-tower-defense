@@ -374,27 +374,26 @@ export const ASSETS = {
     spellHit: SPELL_HIT,
     death: DEATH_SOUNDS,
     misc: {
-      // Core SFX repointed to authentic clips decoded straight from the OSRS game
-      // cache (scripts/extract-osrs-sounds.mjs → public/assets/sounds/), so they no
-      // longer depend on the sparse, transcoded wiki set. The remaining wiki URLs
-      // are clips with no verified cache id yet.
+      // Core SFX — every clip decoded straight from the OSRS game cache
+      // (scripts/extract-osrs-sounds.mjs → public/assets/sounds/). Sound ids
+      // verified against the wiki List_of_sound_IDs config-name dump.
       hit: `${LOCAL}/sounds/combat_hit.wav`,            // attack-hit thud (2498)
-      kill: 'https://oldschool.runescape.wiki/images/transcoded/Zombie_death.ogg/Zombie_death.ogg.mp3',
+      kill: `${SND}/death_zombie.wav`,                  // zombie_death (922) — same clip the wiki mp3 transcoded
       wave: `${LOCAL}/sounds/ui_teleport.wav`,          // teleport vwoop (200)
-      upgrade: 'https://oldschool.runescape.wiki/images/transcoded/Level-up_sound.wav/Level-up_sound.wav.mp3',
+      upgrade: `${SND}/upgrade.wav`,                    // firework (2396) — the level-up fireworks burst
       sell: `${LOCAL}/sounds/ui_coins.wav`,             // coin tinkle (3924)
-      boss_attack: 'https://oldschool.runescape.wiki/images/transcoded/Vorkath_attack_sound.ogg/Vorkath_attack_sound.ogg.mp3',
+      boss_attack: `${SND}/boss_attack.wav`,            // vorkath_attack (1521)
       prayer_on: `${LOCAL}/sounds/prayer_generic_on.wav`,  // thick-skin "vwoom" (2690)
       prayer_off: `${LOCAL}/sounds/prayer_off.wav`,        // deactivate vwoop (2663)
-      potion: 'https://oldschool.runescape.wiki/images/transcoded/Liquid.wav/Liquid.wav.ogg',
-      special_attack: 'https://oldschool.runescape.wiki/images/transcoded/Special_attack_sound.ogg/Special_attack_sound.ogg.mp3',
+      potion: `${SND}/potion.wav`,                      // liquid (2401) — potion gulp
+      special_attack: `${SND}/special_attack.wav`,      // puncture (2537) — the dragon dagger spec
       click: `${LOCAL}/sounds/ui_click.wav`,            // boop (2266)
       select: `${LOCAL}/sounds/ui_select.wav`,          // soft poh build-select chime (970)
       interface_open: `${LOCAL}/sounds/ge_offer.wav`,   // GE add-offer chime (3925)
       interface_close: `${LOCAL}/sounds/ge_collect.wav`,// GE collect (3928)
-      pick_up: 'https://oldschool.runescape.wiki/images/transcoded/Pick_up_item.ogg/Pick_up_item.ogg.mp3',
+      pick_up: `${SND}/pick_up.wav`,                    // pick2 (2582) — item-pickup plop
       cannon_fire: `${SND}/fire_cannon.wav`,             // mcannon_fire (1667)
-      death: 'https://oldschool.runescape.wiki/images/transcoded/Man_death.ogg/Man_death.ogg.mp3',
+      death: `${SND}/death_human.wav`,                  // human_death (512) — a life lost
       magic_splash: `${LOCAL}/sounds/magic_splash.wav`, // splash (227)
       block: `${LOCAL}/sounds/combat_block.wav`,        // take-damage hitsplat (510)
     },

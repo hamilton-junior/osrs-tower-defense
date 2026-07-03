@@ -50,6 +50,13 @@ const TARGETS = {
   combat_hit: 2498,            // melee attack-hit thud
   combat_block: 510,           // take-damage hitsplat
   magic_splash: 227,           // splash (magic missed)
+  // --- misc core SFX (config names verified against the wiki List_of_sound_IDs) ---
+  pick_up: 2582,               // pick2 — item-pickup plop (RuneLite ITEM_PICKUP)
+  potion: 2401,                // liquid — drinking a potion
+  death_human: 512,            // human_death — a life lost
+  boss_attack: 1521,           // vorkath_attack — boss attack roar
+  special_attack: 2537,        // puncture — the dragon dagger special
+  upgrade: 2396,               // firework — the level-up fireworks burst
   // --- prayer activations (OSRS has a unique clip for these) ---
   prayer_ultimate_strength: 2691,
   prayer_protect_magic: 2675,
