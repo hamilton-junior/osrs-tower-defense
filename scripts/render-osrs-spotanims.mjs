@@ -75,7 +75,14 @@ const SPELL_GFX = {
 };
 for (const [el, tiers] of Object.entries(SPELL_GFX)) {
   tiers.forEach(([proj, hit], i) => {
-    TARGETS[`proj_${el}_${i + 1}`] = { id: proj, maxFrames: 12 };
+    // Projectiles: a 3/4 SIDE view (yaw) + slight downward tilt. Front-on
+    // (yaw 0) sees the bolt down its flight axis — a flat 2D disc with no
+    // body; yawing shows its length the way the game camera does in flight.
+    // +65 puts the ORB head on the right and the tapered comet tail trailing
+    // left — the sheet's canonical "flying +x" pose the renderer rotates to
+    // the live flight angle. (The taper is the TAIL, not the nose: -65 baked
+    // every bolt flying backwards.)
+    TARGETS[`proj_${el}_${i + 1}`] = { id: proj, maxFrames: 12, yaw: 65, pitch: 12 };
     TARGETS[`hit_${el}_${i + 1}`] = { id: hit, maxFrames: 16 };
   });
 }
@@ -284,6 +291,12 @@ async function main() {
       }
       frames = picked; lengths = pickedLen; alphas = pickedA;
     }
+
+    // `loadAnimation` returns vertices as (X, -Y, Z) — Y up-positive — while the
+    // canvas is down-positive. Negate Y back (same as render-osrs-npc-anims.mjs)
+    // or every bake comes out vertically flipped; the symmetric GFX hid it, the
+    // asymmetric ones (shadow tendrils, flames) gave it away.
+    frames = frames.map((fr) => fr.map(([x, y, z]) => [x, -y, z]));
 
     const yawR = (cfg.yaw * Math.PI) / 180, pitchR = (cfg.pitch * Math.PI) / 180;
     const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);

@@ -636,6 +636,11 @@ export default function GameRoot() {
     engineRef.current?.cancelAction();
   }, []);
 
+  // Which boon stat-group chip (damage/range/speed) is hovered in the tower
+  // panel — drives its breakdown popover AND highlights the contributing cards
+  // over in the Boons panel.
+  const [hoverBoonGroup, setHoverBoonGroup] = useState<BoonGroupId | null>(null);
+
   const selectedTower = ui.selectedTowerId
     ? engineRef.current?.towers.find((t) => t.id === ui.selectedTowerId) ?? null
     : null;
@@ -652,6 +657,14 @@ export default function GameRoot() {
   // (incl. the cannon), so it's listed separately with its net (post-diminishing)
   // bonus — which is why it must be computed outside the boostable guard.
   const towerBoosts: { key: string; icon: string; amount: string; title: string }[] = [];
+  // Boon-derived stat buffs on the selected tower, grouped by stat. Each group
+  // renders as ONE chip (the tower's total from boons); hovering it opens the
+  // per-card breakdown and highlights those cards in the Boons panel.
+  const boonGroups: Record<BoonGroupId, { total: number; sources: BoonSource[] }> = {
+    damage: { total: 1, sources: [] },
+    range: { total: 1, sources: [] },
+    speed: { total: 1, sources: [] },
+  };
   if (selectedTower) {
     if (towerStyle?.boostable) {
       for (const o of ui.geOffers) {
@@ -707,10 +720,12 @@ export default function GameRoot() {
         }
       }
       // Run-wide draft "boons": the per-style stat buffs (damage / range / attack
-      // speed) that pile up in the Boons panel also lift THIS tower — surface one
-      // chip per contributing card so the green stats trace back to their source.
-      // (mageBuff / synergy cards are handled above; here we only fold the flat
-      // damage/range/fireRate cards that hit this tower's style or all towers.)
+      // speed) that pile up in the Boons panel also lift THIS tower. Rather than
+      // one chip per card, fold them into the per-stat `boonGroups` — the panel
+      // shows one chip per stat with the TOTAL, and hovering it breaks the total
+      // back down into the contributing cards. (mageBuff / synergy cards are
+      // handled above; here we only fold the flat damage/range/fireRate cards
+      // that hit this tower's style or all towers.)
       const style = towerStyle?.style;
       if (style) {
         for (const rc of ui.runCards) {
@@ -729,17 +744,14 @@ export default function GameRoot() {
           // A stat card can be drafted repeatedly — compound its bonus by the stack.
           const n = rc.count;
           dmg **= n; rng **= n; spd **= n;
-          const bits: string[] = [];
-          if (dmg > 1) bits.push(`${pct(dmg - 1)} damage`);
-          if (rng > 1) bits.push(`${pct(rng - 1)} range`);
-          if (spd > 1) bits.push(`${pct(spd - 1)} attack speed`);
-          const headline = dmg > 1 ? dmg - 1 : rng > 1 ? rng - 1 : spd - 1;
-          towerBoosts.push({
-            key: `boon-${rc.id}`,
-            icon: card.icon,
-            amount: pct(headline),
-            title: `${card.name}${n > 1 ? ` ×${n}` : ''} — ${bits.join(', ')}`,
-          });
+          const fold = (group: BoonGroupId, mult: number) => {
+            if (mult <= 1) return;
+            boonGroups[group].total *= mult; // stacks multiply, matching the engine
+            boonGroups[group].sources.push({ id: rc.id, icon: card.icon, name: card.name, count: n, frac: mult - 1 });
+          };
+          fold('damage', dmg);
+          fold('range', rng);
+          fold('speed', spd);
         }
       }
     }
@@ -1349,8 +1361,11 @@ export default function GameRoot() {
           })()}
 
           {/* Active boosts on this tower (origin of the green stats): each shows
-              the source icon + its damage bonus — potion timers live up top. */}
-          {towerBoosts.length > 0 && (
+              the source icon + its damage bonus — potion timers live up top.
+              Boon-card buffs collapse into one chip per stat (damage / range /
+              speed); hovering a group opens the per-card breakdown and lights
+              those cards up in the Boons panel. */}
+          {(towerBoosts.length > 0 || BOON_GROUP_META.some((g) => boonGroups[g.id].total > 1)) && (
             <div className="mt-[0.6em] px-[0.2em]">
               <div className="text-[0.68em] text-[#5bd75b] uppercase tracking-wide mb-[0.3em]">Active boosts</div>
               <div className="flex flex-wrap gap-[0.3em]">
@@ -1360,6 +1375,36 @@ export default function GameRoot() {
                     <span className="rs-buff-secs">{b.amount}</span>
                   </span>
                 ))}
+                {BOON_GROUP_META.map((g) => {
+                  const grp = boonGroups[g.id];
+                  if (grp.total <= 1) return null;
+                  return (
+                    <span
+                      key={`boons-${g.id}`}
+                      className="rs-buff-chip relative cursor-help"
+                      style={{ borderColor: g.color }}
+                      onMouseEnter={() => setHoverBoonGroup(g.id)}
+                      onMouseLeave={() => setHoverBoonGroup(null)}
+                    >
+                      <span className="font-bold text-[0.88em]" style={{ color: g.color, textShadow: '1px 1px 0 #000' }}>{g.label}</span>
+                      <span className="rs-buff-secs">{pct(grp.total - 1)}</span>
+                      {hoverBoonGroup === g.id && (
+                        <div className="absolute bottom-full left-0 mb-[0.35em] z-50 rs-panel-inset p-[0.45em] w-max max-w-[16em] shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+                          <div className="text-[0.68em] uppercase tracking-wide mb-[0.3em] whitespace-nowrap" style={{ color: g.color }}>
+                            {g.title} — {pct(grp.total - 1)} total
+                          </div>
+                          {grp.sources.map((s) => (
+                            <div key={s.id} className="flex items-center gap-[0.35em] text-[0.72em] text-[#d3c3a0] leading-[1.6] whitespace-nowrap">
+                              <img src={s.icon} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+                              <span className="flex-1 pr-[0.6em]">{s.name}{s.count > 1 ? ` ×${s.count}` : ''}</span>
+                              <span className="rs-buff-secs">+{pct(s.frac)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1687,7 +1732,10 @@ export default function GameRoot() {
           <OwnedRelicTray ids={ui.ownedRelics} />
         )}
         {ui.gameMode === 'roguelite' && ui.runCards.length > 0 && (
-          <RelicStrip cards={ui.runCards} />
+          <RelicStrip
+            cards={ui.runCards}
+            highlight={hoverBoonGroup ? boonGroups[hoverBoonGroup].sources.map((s) => s.id) : null}
+          />
         )}
         </>
         )}
@@ -3150,6 +3198,17 @@ function CardInspect({ card, count, onBack, onPrev, onNext, position }: {
 /** Resolve a drafted-card id back to its pool definition. */
 const CARD_BY_ID: Record<string, DraftCard> = Object.fromEntries(DRAFT_POOL.map((c) => [c.id, c]));
 
+/** The three stats boon cards can buff, as shown grouped in the tower panel. */
+type BoonGroupId = 'damage' | 'range' | 'speed';
+/** One boon card's contribution to a stat group (breakdown popover rows). */
+type BoonSource = { id: string; icon: string; name: string; count: number; frac: number };
+/** Chip meta per boon stat group: short label, popover title, accent colour. */
+const BOON_GROUP_META: { id: BoonGroupId; label: string; title: string; color: string }[] = [
+  { id: 'damage', label: 'DMG', title: 'Damage boons', color: '#ff9040' },
+  { id: 'range', label: 'RNG', title: 'Range boons', color: '#5ec8ff' },
+  { id: 'speed', label: 'SPD', title: 'Attack-speed boons', color: '#ffd257' },
+];
+
 /** Which card each per-tower relic effect comes from, so the tower panel can show
  *  the relic's icon/name as a boost chip. */
 const SYNERGY_CARD_ID: Record<'packTactics' | 'trinity' | 'vanguard' | 'loneWolf', string> = {
@@ -3170,7 +3229,7 @@ function isRelicCard(card: DraftCard): boolean {
 /** Roguelite build-at-a-glance: the relics drafted this run as a wrapped strip of
  *  rarity-bordered icons (×N badge for stacked stat cards), each with a hover
  *  tooltip naming the relic and its effect. One-shot resource cards are omitted. */
-function RelicStrip({ cards }: { cards: { id: string; count: number }[] }) {
+function RelicStrip({ cards, highlight }: { cards: { id: string; count: number }[]; highlight?: string[] | null }) {
   const [collapsed, toggle] = usePersistedCollapse('ui_min_boons');
   const relics = cards
     .map((c) => ({ card: CARD_BY_ID[c.id], count: c.count }))
@@ -3191,21 +3250,34 @@ function RelicStrip({ cards }: { cards: { id: string; count: number }[] }) {
       </button>
       {!collapsed && (
         <div className="flex flex-wrap gap-[0.35em]">
-          {relics.map(({ card, count }) => (
-            <span
-              key={card.id}
-              title={`${card.name} — ${effectTag(card.effect)}`}
-              className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
-              style={{ border: `1px solid ${RARITY_COLOR[card.rarity]}`, boxShadow: `inset 0 0 6px ${RARITY_COLOR[card.rarity]}55` }}
-            >
-              <img src={card.icon} alt={card.name} className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
-              {count > 1 && (
-                <span className="absolute -bottom-[0.15em] -right-[0.15em] text-[0.58em] font-bold text-osrs-yellow bg-black/85 px-[0.25em] leading-tight rounded-sm">
-                  ×{count}
-                </span>
-              )}
-            </span>
-          ))}
+          {relics.map(({ card, count }) => {
+            // While a boon stat-group chip is hovered in the tower panel, light
+            // up the cards feeding that total and dim everything else.
+            const hi = highlight?.includes(card.id) ?? false;
+            const dim = !!highlight?.length && !hi;
+            return (
+              <span
+                key={card.id}
+                title={`${card.name} — ${effectTag(card.effect)}`}
+                className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
+                style={{
+                  border: `1px solid ${hi ? '#ffd257' : RARITY_COLOR[card.rarity]}`,
+                  boxShadow: hi
+                    ? '0 0 7px #ffd257, inset 0 0 6px #ffd25766'
+                    : `inset 0 0 6px ${RARITY_COLOR[card.rarity]}55`,
+                  opacity: dim ? 0.35 : 1,
+                  transition: 'opacity 120ms, box-shadow 120ms',
+                }}
+              >
+                <img src={card.icon} alt={card.name} className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
+                {count > 1 && (
+                  <span className="absolute -bottom-[0.15em] -right-[0.15em] text-[0.58em] font-bold text-osrs-yellow bg-black/85 px-[0.25em] leading-tight rounded-sm">
+                    ×{count}
+                  </span>
+                )}
+              </span>
+            );
+          })}
         </div>
       )}
     </div>

@@ -474,9 +474,14 @@ export class GameRenderer {
     const size = half * 2;
     ctx.fillStyle = fill;
     ctx.fillRect(x, y, size, size);
-    ctx.strokeStyle = stroke;
+    // Dark halo under the coloured dash (same dash pattern, wider line) so the
+    // marker stays legible on light biomes (sand/snow), not just dark ones.
     ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.strokeRect(x, y, size, size);
     ctx.lineWidth = 2;
+    ctx.strokeStyle = stroke;
     ctx.strokeRect(x, y, size, size);
     ctx.setLineDash([]);
   }
@@ -594,9 +599,13 @@ export class GameRenderer {
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.fillStyle = fill;
     ctx.fill();
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 2;
+    // Dark halo pass first (see drawSquareRange) — legible on light biomes.
     ctx.setLineDash([7, 6]);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = stroke;
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -1218,6 +1227,8 @@ export class GameRenderer {
       } else if (p.projAnim && SPOTANIMS[p.projAnim] && this.e.imageOk(`spotanim_${p.projAnim}`)) {
         // The spell's REAL flight GFX from the cache — a looping baked spotanim
         // riding the bolt (frame picked from game time so all bolts animate).
+        // Sheets are baked side-on with the nose pointing +x, so rotate the
+        // sprite to the live flight angle — same convention as the arrows.
         const meta = SPOTANIMS[p.projAnim];
         let rem = (this.e.runSeconds * 1000 * meta.speed) % meta.frameMs.reduce((a, b) => a + b, 0);
         let fi = 0;
@@ -1225,9 +1236,17 @@ export class GameRenderer {
           if (rem < meta.frameMs[fi]) break;
           rem -= meta.frameMs[fi];
         }
+        const target = this.e.enemies.find(en => en.id === p.targetId);
+        const angle = target
+          ? Math.atan2(target.y - p.y, target.x - p.x)
+          : Math.atan2((p.destY ?? p.y) - p.y, (p.destX ?? p.x) - p.x);
         const img = this.e.images.get(`spotanim_${p.projAnim}`)!;
         const s = meta.size;
-        ctx.drawImage(img, fi * meta.frameW, 0, meta.frameW, meta.frameH, p.x - s / 2, p.y - s / 2, s, s);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(angle);
+        ctx.drawImage(img, fi * meta.frameW, 0, meta.frameW, meta.frameH, -s / 2, -s / 2, s, s);
+        ctx.restore();
       } else if (p.spellIcon && this.e.imageOk(`spell_${p.spellIcon}`)) {
         // Fallback: the spell's icon sprite, with a coloured glow.
         ctx.save();

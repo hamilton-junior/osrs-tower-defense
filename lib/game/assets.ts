@@ -70,7 +70,9 @@ const LOCAL_BY_WIKI: Record<string, string> = {
   Prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
   // HUD icons that are real items
   Collection_log: itemIcon('collection_log'),
-  Dwarf_multicannon: itemIcon('dwarf_multicannon'),
+  // NOTE: Dwarf_multicannon intentionally NOT mapped — the "Dwarf cannon set"
+  // item icon is a flatpack crate; the assembled cannon is a scenery OBJECT
+  // (bake it in the objects pass). Until then the wiki render is correct.
 };
 
 /** Resolve a wiki icon filename (no extension) to its best URL. */
@@ -244,12 +246,15 @@ export const ASSETS = {
       // Utility tower body: the Lunar staff (Lunar/Arceuus support magic).
       utility: itemIcon('lunar_staff'),
     },
-    // Tier progression assembles a real dwarf multicannon, part by part.
+    // Tier progression: the ASSEMBLED multicannon built up stage by stage.
+    // These are scenery OBJECT renders — the flatpack item-part icons read as
+    // loose pieces, not a cannon. Bake from LOC defs in the objects pass;
+    // wiki renders until then.
     cannon: {
-      1: itemIcon('cannon_base'),
-      2: itemIcon('cannon_stand'),
-      3: itemIcon('cannon_barrels'),
-      4: itemIcon('cannon_furnace'),
+      1: 'https://oldschool.runescape.wiki/images/Broken_multicannon.png',
+      2: 'https://oldschool.runescape.wiki/images/Cannon_barrels_%28scenery%29.png',
+      3: 'https://oldschool.runescape.wiki/images/Broken_multicannon_%28Shattered_Relics_League%29.png',
+      4: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_%28Shattered_Relics_League%29.png',
     },
     slayer: {
       1: itemIcon('darklight'),

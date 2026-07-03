@@ -80,8 +80,12 @@ export const VORKATH_ICE_DURATION = 3;
 export const JAD_HEAL_THRESHOLD = 0.5;
 /** Healers summoned per wave of adds. */
 export const JAD_HEALER_COUNT = 3;
-/** Each healer's HP as a fraction of Jad's max HP (kept low so they die fast). */
-export const JAD_HEALER_HP_FRAC = 0.035;
+/** Each healer's HP as a fraction of Jad's max HP. Scaling off Jad keeps them
+ *  relevant at every wave: high enough that stray splash doesn't one-shot them
+ *  the moment they spawn (3.5% did, on late waves), low enough that focused
+ *  fire still cuts them down well before Jad. OSRS ratio is 90/250 ≈ 36% —
+ *  far too tanky with 3 of them in a TD, so we sit in between. */
+export const JAD_HEALER_HP_FRAC = 0.12;
 /** Rolling window (s) of damage-to-Jad that the heal is computed from. */
 export const JAD_HEAL_WINDOW_SECS = 5;
 /** Fraction of the windowed damage Jad claws back over the full window. */

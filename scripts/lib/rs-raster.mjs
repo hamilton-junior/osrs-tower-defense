@@ -179,7 +179,7 @@ export async function loadAnimationWithAlpha(cache, model, animationId) {
  * `alphaOverride` is loadAnimationWithAlpha's per-face alpha for this frame
  * (optional — the model's static faceAlphas otherwise).
  */
-export function renderModelFrame(model, verts, fit, sy, cy, sp, cp, size, textures, alphaOverride) {
+export function renderModelFrame(model, verts, fit, sy, cy, sp, cp, size, textures, alphaOverride, cull = true) {
   const n = verts.length;
   const px = new Float64Array(n), py = new Float64Array(n), pz = new Float64Array(n);
   for (let i = 0; i < n; i++) {
@@ -220,12 +220,22 @@ export function renderModelFrame(model, verts, fit, sy, cy, sp, cp, size, textur
     const shade = 0.6 + 0.4 * Math.abs(dot);
 
     const x1 = sx(i1), y1 = syc(i1), x2 = sx(i2), y2 = syc(i2), x3 = sx(i3), y3 = syc(i3);
+    // Client-style backface culling: OSRS models are authored with consistent
+    // winding and the software rasteriser skips faces wound away from the
+    // camera. Without this, a model's BACK (e.g. a kiteshield's wooden rear)
+    // paints over its front wherever the painter's depth sort ties.
+    if (cull && (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1) >= 0) continue;
     ctx.globalAlpha = (255 - alpha) / 255;
 
     const texId = model.faceTextures?.[f] ?? -1;
     const tex = texId !== -1 ? textures?.get(texId) : undefined;
     if (tex) {
-      drawTexturedTriangle(ctx, model, f, tex, shade, x1, y1, x2, y2, x3, y3);
+      // Client rule: a texture replaces the face colour's hue/sat but KEEPS its
+      // lightness (& 127, linear multiply in the texture raster). Most textured
+      // faces are authored at L127 (no-op); e.g. Magic shortbow (i)'s string is
+      // L49 — pale-yellow texture 34 lit down to the dark strand the client shows.
+      const texLight = ((model.faceColors[f] ?? 127) & 127) / 127;
+      drawTexturedTriangle(ctx, model, f, tex, shade * texLight, x1, y1, x2, y2, x3, y3);
     } else {
       const hsl = model.faceColors[f];
       if (hsl === undefined || hsl < 0) continue;
