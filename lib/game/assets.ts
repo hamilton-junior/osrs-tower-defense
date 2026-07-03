@@ -251,15 +251,14 @@ export const ASSETS = {
       // Utility tower body: the Lunar staff (Lunar/Arceuus support magic).
       utility: itemIcon('lunar_staff'),
     },
-    // Tier progression: the ASSEMBLED multicannon built up stage by stage.
-    // These are scenery OBJECT renders — the flatpack item-part icons read as
-    // loose pieces, not a cannon. Bake from LOC defs in the objects pass;
-    // wiki renders until then.
+    // Tier progression: the ASSEMBLED multicannon built up stage by stage —
+    // the real in-game setup sequence (base → +stand → +barrels → complete),
+    // cache-rendered from the LOC defs (scripts/render-osrs-objects.mjs).
     cannon: {
-      1: 'https://oldschool.runescape.wiki/images/Broken_multicannon.png',
-      2: 'https://oldschool.runescape.wiki/images/Cannon_barrels_%28scenery%29.png',
-      3: 'https://oldschool.runescape.wiki/images/Broken_multicannon_%28Shattered_Relics_League%29.png',
-      4: 'https://oldschool.runescape.wiki/images/Dwarf_multicannon_%28Shattered_Relics_League%29.png',
+      1: `${LOCAL}/objects/cannon_base.png`,
+      2: `${LOCAL}/objects/cannon_stand.png`,
+      3: `${LOCAL}/objects/cannon_barrels.png`,
+      4: `${LOCAL}/objects/dwarf_multicannon.png`,
     },
     slayer: {
       1: itemIcon('darklight'),
@@ -297,10 +296,11 @@ export const ASSETS = {
     potato: itemIcon('potato'),
   },
   farming: {
-    // Patches are scenery (LOC) models — phase-5 of the extraction track.
-    patch_empty: 'https://oldschool.runescape.wiki/images/Allotment_patch_%28empty%29.png',
-    patch_growing: 'https://oldschool.runescape.wiki/images/Allotment_patch_%28growing%29.png',
-    patch_ready: 'https://oldschool.runescape.wiki/images/Allotment_patch_%28ready%29.png',
+    // Allotment patch states, cache-rendered from the LOC morph targets
+    // (scripts/render-osrs-objects.mjs): raked soil → potato plant → potato.
+    patch_empty: `${LOCAL}/objects/patch_empty.png`,
+    patch_growing: `${LOCAL}/objects/patch_growing.png`,
+    patch_ready: `${LOCAL}/objects/patch_ready.png`,
     guam: itemIcon('guam_leaf'),
     ranarr: itemIcon('ranarr_weed'),
     potato: itemIcon('potato'),
@@ -310,7 +310,7 @@ export const ASSETS = {
     // drawn procedurally in renderer.drawSpawnPortal, no sprite).
     portal: 'https://oldschool.runescape.wiki/images/Transportation_logo.png',
     portal_shield: 'https://oldschool.runescape.wiki/images/Purple_Portal_Shield.png',
-    tree: 'https://oldschool.runescape.wiki/images/Tree.png',
+    tree: `${LOCAL}/objects/tree.png`, // cache-rendered LOC (render-osrs-objects.mjs)
     ore_adamant: itemIcon('adamantite_ore'),
     ranarr: itemIcon('ranarr_weed'),
     // Skill/UI icons below are cache-extracted (SKILL_* sprite ids), served locally.
