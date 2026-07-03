@@ -56,7 +56,7 @@ const TARGETS = {
   death_human: 512,            // human_death — a life lost
   boss_attack: 1521,           // vorkath_attack — boss attack roar
   special_attack: 2537,        // puncture — the dragon dagger special
-  upgrade: 2396,               // firework — the level-up fireworks burst
+  fireworks: 2396,             // firework — relic-pickup celebration burst
   // --- prayer activations (OSRS has a unique clip for these) ---
   prayer_ultimate_strength: 2691,
   prayer_protect_magic: 2675,

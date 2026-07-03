@@ -251,14 +251,15 @@ export const ASSETS = {
       // Utility tower body: the Lunar staff (Lunar/Arceuus support magic).
       utility: itemIcon('lunar_staff'),
     },
-    // Tier progression: the ASSEMBLED multicannon built up stage by stage —
-    // the real in-game setup sequence (base → +stand → +barrels → complete),
-    // cache-rendered from the LOC defs (scripts/render-osrs-objects.mjs).
+    // Tier progression: four *distinct*, fully-built cannons (a half-assembled
+    // multicannon firing made no sense) — Goblin paint cannon → ship cannon
+    // (Cabin Fever) → Dwarf multicannon → Shattered Relics ornament kit,
+    // cache-rendered from the model defs (scripts/render-osrs-objects.mjs).
     cannon: {
-      1: `${LOCAL}/objects/cannon_base.png`,
-      2: `${LOCAL}/objects/cannon_stand.png`,
-      3: `${LOCAL}/objects/cannon_barrels.png`,
-      4: `${LOCAL}/objects/dwarf_multicannon.png`,
+      1: `${LOCAL}/objects/goblin_paint_cannon.png`,
+      2: `${LOCAL}/objects/ship_cannon.png`,
+      3: `${LOCAL}/objects/dwarf_multicannon.png`,
+      4: `${LOCAL}/objects/shattered_cannon.png`,
     },
     slayer: {
       1: itemIcon('darklight'),
@@ -390,7 +391,7 @@ export const ASSETS = {
       hit: `${LOCAL}/sounds/combat_hit.wav`,            // attack-hit thud (2498)
       kill: `${SND}/death_zombie.wav`,                  // zombie_death (922) — same clip the wiki mp3 transcoded
       wave: `${LOCAL}/sounds/ui_teleport.wav`,          // teleport vwoop (200)
-      upgrade: `${SND}/upgrade.wav`,                    // firework (2396) — the level-up fireworks burst
+      fireworks: `${SND}/fireworks.wav`,                // firework (2396) — relic-pickup celebration burst
       sell: `${LOCAL}/sounds/ui_coins.wav`,             // coin tinkle (3924)
       boss_attack: `${SND}/boss_attack.wav`,            // vorkath_attack (1521)
       prayer_on: `${LOCAL}/sounds/prayer_generic_on.wav`,  // thick-skin "vwoom" (2690)

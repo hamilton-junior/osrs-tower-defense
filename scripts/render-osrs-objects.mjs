@@ -48,11 +48,16 @@ const MARGIN = 0.12;
 const TARGETS = {
   tree: { obj: 1276 },                        // classic "Tree" (Chop down)
 
-  // Dwarf multicannon assembly stages — the cannon tower's tier icons.
-  cannon_base: { obj: 7 },
-  cannon_stand: { obj: 8 },
-  cannon_barrels: { obj: 9 },
+  // Cannon tower tier icons — four *distinct*, fully-built cannons (a
+  // half-assembled multicannon firing made no sense), weakest → strongest:
+  // the Goblin paint cannon (2014 event; item 12727's model — no placed LOC
+  // exists, so borrow the multicannon def purely as the config shell), the
+  // ship cannon (Cabin Fever, armed), the Dwarf multicannon, and the
+  // Shattered Relics ornament-kit multicannon.
+  goblin_paint_cannon: { obj: 6, models: [3075] },
+  ship_cannon: { obj: 11214 },
   dwarf_multicannon: { obj: 6 },
+  shattered_cannon: { obj: 43027 },
 
   // Allotment patch states (morph targets of patch shell 8550/8150).
   // patch_empty is a raked-soil overlay quad coplanar with the black base

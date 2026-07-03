@@ -1266,7 +1266,6 @@ export class GameEngine {
     tower.targetId = null; // re-acquire from the new position
     this.movingTowerId = null;
     this.bumpTowerLayout(); // position changed → synergy auras may shift
-    this.sound.play('place');
     this.emit();
   }
 
@@ -1384,7 +1383,8 @@ export class GameEngine {
     });
     this.towersBuilt += 1;
     this.bumpTowerLayout();
-    this.sound.play('place');
+    // No build SFX for now — the old fireworks read as a celebration; per-tower
+    // construction sounds are a future pick.
     // Shift-place keeps the type selected so the next click drops another.
     if (!keepPlacing) this.selectedTowerType = null;
     this.emit();
@@ -1409,7 +1409,6 @@ export class GameEngine {
     tower.maxDamage = tier.maxDamage;
     tower.visualRadius += 2;
     tower.upgradeCost = def.tiers[tower.level]?.upgradeCost ?? 0;
-    this.sound.play('place');
     this.emit();
   }
 
@@ -3013,7 +3012,7 @@ export class GameEngine {
     this.applyRelicEffect(relic.effect);
     this.ownedRelics.push(relic);
     this.pendingRelics = null;
-    this.sound.play('sell'); // OSRS reward chime
+    this.sound.play('fireworks'); // a relic is the run's celebration moment
     this.notify(`Relic: ${relic.name}`, relic.icon);
   }
 

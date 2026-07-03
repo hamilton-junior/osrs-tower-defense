@@ -15,7 +15,7 @@ export const GAME_SOUNDS: Record<string, string> = {
   base_hit: ASSETS.sounds.misc.block, // player taking damage, no armour (take-damage splat 510) — on a leak
   death: ASSETS.sounds.misc.kill,
   wave: ASSETS.sounds.misc.wave,
-  place: ASSETS.sounds.misc.upgrade,
+  fireworks: ASSETS.sounds.misc.fireworks, // relic pickup only — too festive for a routine build
   sell: ASSETS.sounds.misc.sell,
   click: ASSETS.sounds.misc.click,
   game_over: ASSETS.sounds.misc.game_over, // the "You Are Dead!" jingle
