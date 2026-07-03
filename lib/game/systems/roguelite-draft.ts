@@ -109,10 +109,6 @@ export const RARITY_WEIGHT: Record<DraftRarity, number> = {
   ultra: 8,
 };
 
-/** Wiki image base — only for the two icons with no cache-baked asset yet
- *  (Soul_Split / Multicombat interface art; broken loads degrade away). */
-const W = ASSETS.misc.wiki_base;
-
 /**
  * Per-rarity multiplier steps. Damage may step harder; range & fire-rate are the
  * game-changers, so their steps stay small and compound multiplicatively. Combo
@@ -239,7 +235,7 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   // ── on-kill chain reactions ──────────────────────────────────────────────
   { id: 'dragon_claws', name: 'Dragon Claws', desc: 'On a kill, the strike rends the nearest enemy for 50% of the blow', rarity: 'rare', unique: true, icon: itemIcon('dragon_claws'), effect: { kind: 'ricochet', frac: 0.5, radius: 95 } },
   { id: 'scythe_of_vitur', name: 'Scythe of Vitur', desc: 'A kill’s excess damage cleaves into the nearest enemy', rarity: 'ultra', unique: true, icon: itemIcon('scythe_of_vitur'), effect: { kind: 'overkill', radius: 95 } },
-  { id: 'soul_split', name: 'Soul Split', desc: 'Every 8th kill restores 1 life', rarity: 'rare', unique: true, icon: `${W}Soul_Split.png`, effect: { kind: 'soulSplit', every: 8 } },
+  { id: 'soul_split', name: 'Soul Split', desc: 'Every 8th kill restores 1 life', rarity: 'rare', unique: true, icon: itemIcon('soul_rune'), effect: { kind: 'soulSplit', every: 8 } },
   { id: 'dragon_warhammer', name: 'Dragon Warhammer', desc: 'Every 20 kills, a shockwave smashes ALL enemies for 40', rarity: 'ultra', unique: true, icon: itemIcon('dragon_warhammer'), effect: { kind: 'killStreak', every: 20, damage: 40 } },
   // ── risk / reward curses ─────────────────────────────────────────────────
   { id: 'phoenix_necklace', name: 'Phoenix Necklace', desc: 'While at 2 lives or fewer, ALL towers deal double damage', rarity: 'rare', unique: true, icon: itemIcon('phoenix_necklace'), effect: { kind: 'lastStand', belowLives: 2, mult: 2 } },
@@ -253,7 +249,7 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'heavy_ballista', name: 'Heavy Ballista', desc: 'Projectiles punch through to strike the enemy behind', rarity: 'rare', unique: true, icon: itemIcon('heavy_ballista'), effect: { kind: 'pierce', radius: 70 } },
   // ── placement synergies (reward HOW you position, not just what you pick) ──
   { id: 'clan_vexillum', name: 'Clan Vexillum', desc: 'Each tower gains +8% damage per nearby tower of the same kind (max +40%)', rarity: 'ultra', unique: true, icon: itemIcon('clan_vexillum'), effect: { kind: 'packTactics', frac: 0.08, radius: 96, maxStacks: 5 } },
-  { id: 'combat_triangle', name: 'Combat Triangle', desc: 'A tower flanked by both other combat styles deals +30% damage', rarity: 'ultra', unique: true, icon: `${W}Multicombat.png`, effect: { kind: 'trinity', mult: 1.3, radius: 96 } },
+  { id: 'combat_triangle', name: 'Combat Triangle', desc: 'A tower flanked by both other combat styles deals +30% damage', rarity: 'ultra', unique: true, icon: ASSETS.misc.multicombat_icon, effect: { kind: 'trinity', mult: 1.3, radius: 96 } },
   { id: 'dinhs_bulwark', name: "Dinh's Bulwark", desc: 'Your frontmost tower (nearest the portal) deals +60% damage', rarity: 'ultra', unique: true, icon: itemIcon('dinhs_bulwark'), effect: { kind: 'vanguard', mult: 1.6 } },
   { id: 'lone_wolf', name: 'Lone Wolf', desc: 'A tower with no other tower nearby deals +50% damage', rarity: 'ultra', unique: true, icon: itemIcon('wolf_mask'), effect: { kind: 'loneWolf', mult: 1.5, radius: 96 } },
   // ── magic spellbook specialisations — buff ONE wizard subtype only ──

@@ -1,4 +1,4 @@
-import { ASSETS, itemIcon, npcModel } from '../assets';
+import { itemIcon, npcModel } from '../assets';
 import type { CombatStyle } from '../types';
 
 /**
@@ -31,11 +31,9 @@ export interface AffixDef {
   desc: string;
   /** Aura tint the renderer draws around an enemy carrying this affix. */
   color: string;
-  /** Icon URL (wiki item art, hot-linked like the draft cards; degrades away). */
+  /** Icon URL (cache-baked item/NPC art; broken loads degrade away). */
   icon: string;
 }
-
-const W = ASSETS.misc.wiki_base;
 
 export const AFFIX_DEFS: Record<EnemyAffix, AffixDef> = {
   shielded:     { id: 'shielded',     name: 'Shielded',     desc: 'Absorbs a shield of damage before its health is touched.', color: '#7fd0ff', icon: itemIcon('rune_kiteshield') },

@@ -59,8 +59,6 @@ export interface WaveEvent {
   effect: WaveEventEffect;
 }
 
-const W = ASSETS.misc.wiki_base;
-
 /**
  * The event pool. Hazards force adaptation, boons reward it, and Blood Moon is the
  * lone risk/reward twist (tougher + swifter, but pays out). Weights make hazards

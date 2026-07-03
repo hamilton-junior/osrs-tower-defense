@@ -74,9 +74,9 @@ const LOCAL_BY_WIKI: Record<string, string> = {
   Prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
   // HUD icons that are real items
   Collection_log: itemIcon('collection_log'),
-  // NOTE: Dwarf_multicannon intentionally NOT mapped — the "Dwarf cannon set"
-  // item icon is a flatpack crate; the assembled cannon is a scenery OBJECT
-  // (bake it in the objects pass). Until then the wiki render is correct.
+  // The assembled cannon is a scenery OBJECT (the item icon is a flatpack
+  // crate), so this maps to the cache-rendered LOC from the objects pass.
+  Dwarf_multicannon: `${LOCAL}/objects/dwarf_multicannon.png`,
 };
 
 /** Resolve a wiki icon filename (no extension) to its best URL. */
