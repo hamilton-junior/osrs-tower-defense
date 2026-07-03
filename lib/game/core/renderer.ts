@@ -849,7 +849,7 @@ export class GameRenderer {
 
       // level pip
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 11px Arial';
+      ctx.font = "bold 11px 'RuneScape', Arial";
       ctx.textAlign = 'center';
       ctx.fillText(String(tower.level), tower.x, tower.y + tower.visualRadius + 8);
     }
@@ -1357,8 +1357,6 @@ export class GameRenderer {
   }
 
   private drawHitsplats(ctx: CanvasRenderingContext2D) {
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     // Direct hits last so they sit on top of any DoT splats drifting below.
     const splats = [...this.e.hitsplats].sort((a, b) => Number(!!b.minor) - Number(!!a.minor));
     for (const h of splats) {
@@ -1366,7 +1364,6 @@ export class GameRenderer {
       this.drawSplat(ctx, h.x, h.y, h.value, h.kind, !!h.minor);
     }
     ctx.globalAlpha = 1;
-    ctx.textBaseline = 'alphabetic';
   }
 
   /**
@@ -1382,7 +1379,10 @@ export class GameRenderer {
     kind: HitsplatKind,
     minor = false,
   ) {
-    const s = minor ? 0.7 : 1; // DoT splats are smaller so direct hits dominate
+    // Splat size tracks the number: a 1-digit poke reads smaller than a
+    // 3-digit slam, so big hits shout and chip damage whispers.
+    const digits = Math.abs(Math.trunc(value)).toString().length;
+    const s = (minor ? 0.7 : 1) * (digits <= 1 ? 0.82 : digits === 2 ? 1 : 1.18);
     ctx.save();
     ctx.translate(x, y);
     if (this.e.imageOk(`hitsplat_${kind}`)) {
@@ -1411,11 +1411,20 @@ export class GameRenderer {
       ctx.strokeStyle = 'rgba(0,0,0,0.6)';
       ctx.stroke();
     }
+    // The value in the OSRS pixel font — no synthetic bold (it smears the
+    // pixels) and the client's hard 1px drop shadow instead of a blur.
+    // Centre optically from the measured glyph bounds rather than trusting
+    // baseline metrics, which sit pixel fonts visibly off-centre.
+    const text = String(value);
+    ctx.font = `${Math.round(14 * s)}px 'RuneScape', Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    const m = ctx.measureText(text);
+    const yOff = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.9)';
+    ctx.fillText(text, 1, yOff + 1);
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.round(14 * s)}px 'RuneScape', Arial`;
-    ctx.shadowColor = 'rgba(0,0,0,0.9)';
-    ctx.shadowBlur = 2;
-    ctx.fillText(String(value), 0, 1);
+    ctx.fillText(text, 0, yOff);
     ctx.restore();
   }
 }

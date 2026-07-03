@@ -54,10 +54,13 @@ const TARGETS = {
   // exists, so borrow the multicannon def purely as the config shell), the
   // ship cannon (Cabin Fever, armed), the Dwarf multicannon, and the
   // Shattered Relics ornament-kit multicannon.
-  goblin_paint_cannon: { obj: 6, models: [3075] },
-  ship_cannon: { obj: 11214 },
-  dwarf_multicannon: { obj: 6 },
-  shattered_cannon: { obj: 43027 },
+  // Yaws picked from an 8-way contact sheet so every cannon reads side-on
+  // with the muzzle to the RIGHT (the game's canonical facing) — a tower
+  // model must look like it's aiming down the lane, not at the camera.
+  goblin_paint_cannon: { obj: 6, models: [3075], yaw: 45 },
+  ship_cannon: { obj: 11214, yaw: 45 },
+  dwarf_multicannon: { obj: 6, yaw: 225 },
+  shattered_cannon: { obj: 43027, yaw: 225 },
 
   // Allotment patch states (morph targets of patch shell 8550/8150).
   // patch_empty is a raked-soil overlay quad coplanar with the black base

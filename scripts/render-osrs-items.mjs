@@ -3,8 +3,8 @@
  * the game cache, replacing the wiki hot-links. Each item def carries the
  * client's own 2D pose (xan2d/yan2d/zan2d rotation): we render its inventory
  * model at that pose through the shared rasteriser (scripts/lib/rs-raster.mjs,
- * real textures included), auto-fit, at 2× the client's 36×32 — then add the
- * classic black outline + drop shadow so it reads like the in-game icon.
+ * real textures included), in the client's exact 36×32 framing at 2× — then add
+ * the classic black outline + drop shadow so it reads like the in-game icon.
  *
  *   node scripts/render-osrs-items.mjs                    # bake every TARGET
  *   node scripts/render-osrs-items.mjs --only coins       # bake one TARGET
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { renderModelFrame, loadTextures, modelTextureIds, computeFit } from './lib/rs-raster.mjs';
+import { renderModelFrame, loadTextures, modelTextureIds } from './lib/rs-raster.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -31,11 +31,10 @@ const CACHE_DIR = process.env.OSRS_CACHE_DIR || DEFAULT_CACHE;
 // 2× the client's native 36×32 icon: crisp at UI sizes, still reads "pixel".
 const SCALE = 2;
 const ICON_W = 36 * SCALE, ICON_H = 32 * SCALE;
-const PAD = 2 * SCALE; // breathing room the outline+shadow need
 
 /**
  * slug → item. `name` = exact cache name (preferred; survives id renumbering),
- * `id` pins an exact def. Optional `zoom` (0-1) shrinks the auto-fit further.
+ * `id` pins an exact def.
  * Slugs are what the app references: public/assets/items/<slug>.png.
  */
 const TARGETS = {
@@ -324,8 +323,10 @@ function clientIconVerts(model, def) {
   // calculateBoundsCylinder's height: the highest point above ground (-y up).
   let height = 0;
   for (let i = 0; i < model.vertexCount; i++) height = Math.max(height, -model.vertexPositionsY[i]);
+  // Client quirk (ItemSpriteFactory): yOffset2d is added to BOTH the y and z
+  // translations (zOffset = cos·zoom + yOffset2d), not just y.
   const dy = sinD * def.zoom2d + height / 2 + def.yOffset2d;
-  const dz = cosD * def.zoom2d;
+  const dz = cosD * def.zoom2d + def.yOffset2d;
   const out = [];
   for (let i = 0; i < model.vertexCount; i++) {
     let x = model.vertexPositionsX[i], y = model.vertexPositionsY[i], z = model.vertexPositionsZ[i];
@@ -464,7 +465,13 @@ async function main() {
     // The def's own icon pose, transformed exactly like the client would.
     const verts = clientIconVerts(model, def);
     const size = Math.max(ICON_W, ICON_H);
-    const fit = computeFit([verts], 0, 1, 0, 1, size, PAD / size);
+    // Client framing, not an auto-fit: the icon raster is 36×32 with its
+    // centre at (16,16) (ItemSpriteFactory does setOffset(16,16)) and zoom2d
+    // already baked into the perspective divide — so a dagger really is
+    // smaller than a 2h sword in its slot. Mapping that raster onto our
+    // square 2× canvas (72×72, later centre-cropped to 72×64) gives
+    // sx = 2·px+32, sy = 2·py+36 ⇒ fit {scale: SCALE, cx: 2, cy: 0}.
+    const fit = { scale: SCALE, cx: ICON_W / (2 * SCALE) - 16, cy: ICON_H / (2 * SCALE) - 16 };
 
     // Animated textures (fire cape's lava, magic logs' sparkle, the msbi
     // string): the client scrolls the texture `animSpeed` px per 20ms engine

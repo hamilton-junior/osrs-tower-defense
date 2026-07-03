@@ -691,9 +691,9 @@ export default function GameRoot() {
     }
     const netD = diminishingSum(auraD), netR = diminishingSum(auraR), netS = diminishingSum(auraS);
     const parts: string[] = [];
-    if (netD) parts.push(`+${pct(netD)} damage`);
-    if (netR) parts.push(`+${pct(netR)} range`);
-    if (netS) parts.push(`+${pct(netS)} attack speed`);
+    if (netD) parts.push(`${pct(netD)} damage`);
+    if (netR) parts.push(`${pct(netR)} range`);
+    if (netS) parts.push(`${pct(netS)} attack speed`);
     if (parts.length && WIZARD_UTILITY_STAFF) {
       towerBoosts.push({ key: 'aura', icon: WIZARD_UTILITY_STAFF, amount: pct(netD || netR || netS), title: `Utility aura — ${parts.join(', ')}` });
     }
@@ -1397,7 +1397,7 @@ export default function GameRoot() {
                             <div key={s.id} className="flex items-center gap-[0.35em] text-[0.72em] text-[#d3c3a0] leading-[1.6] whitespace-nowrap">
                               <img src={s.icon} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
                               <span className="flex-1 pr-[0.6em]">{s.name}{s.count > 1 ? ` ×${s.count}` : ''}</span>
-                              <span className="rs-buff-secs">+{pct(s.frac)}</span>
+                              <span className="rs-buff-secs">{pct(s.frac)}</span>
                             </div>
                           ))}
                         </div>

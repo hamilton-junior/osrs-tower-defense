@@ -1888,10 +1888,12 @@ export class GameEngine {
   }
 
   /** Queue a one-shot baked-spotanim effect at a point (purely visual).
-   *  `scale` multiplies the spotanim's base draw size (impacts fit the model). */
-  spawnEffect(slug: string, x: number, y: number, scale = 1) {
+   *  `scale` multiplies the spotanim's base draw size (impacts fit the model).
+   *  `anchor` pins the GFX to an enemy — like the client's actor graphics, the
+   *  effect rides the model while it lives (then finishes where it stood). */
+  spawnEffect(slug: string, x: number, y: number, scale = 1, anchor?: Enemy) {
     if (!SPOTANIMS[slug]) return;
-    this.spotEffects.push({ slug, x, y, age: 0, scale });
+    this.spotEffects.push({ slug, x, y, age: 0, scale, enemyId: anchor?.id });
   }
 
   /** An Ancients hit GFX played ON the struck model: sized from the enemy's
@@ -2346,7 +2348,7 @@ export class GameEngine {
     const liveTarget = target && target.hp > 0 ? target : null;
     if (gfx && !isAoe) {
       if (isAncientGfx && liveTarget) this.spawnAncientHitFx(gfx, liveTarget);
-      else this.spawnEffect(gfx, ax, ay, this.impactScale(liveTarget));
+      else this.spawnEffect(gfx, ax, ay, this.impactScale(liveTarget), liveTarget ?? undefined);
     }
     else if (theme && !isAoe) this.spawnMagicImpact(ax, ay, theme, this.impactScale(liveTarget), travelX, travelY);
     else if (!theme && !gfx) this.spawnImpactParticles(p.x, p.y, p.color);
@@ -2385,7 +2387,7 @@ export class GameEngine {
         const dy = isPrimary ? travelY : e.y - p.y;
         if (gfx) {
           if (isAncientGfx) this.spawnAncientHitFx(gfx, e);
-          else this.spawnEffect(gfx, e.x, e.y, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE));
+          else this.spawnEffect(gfx, e.x, e.y, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), e);
         }
         else if (theme) this.spawnMagicImpact(e.x, e.y, theme, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), dx, dy);
         // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.

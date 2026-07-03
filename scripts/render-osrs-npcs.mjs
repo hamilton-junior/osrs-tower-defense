@@ -63,10 +63,16 @@ const TARGETS = {
   ikkle_hydra: { npc: 8492 },            // serpentine (matches the old wiki art)
 
   // --- TzHaar tower tier icons (ASSETS.towers.tzhaar) ---
-  tzhaar_hur: { npc: 2161 },
-  tzhaar_mej: { npc: 2154 },
-  tzhaar_xil: { npc: 2167 },             // sword variant (matches the old wiki art)
-  tzhaar_ket: { npc: 2173 },
+  // Tower icons face RIGHT-ish (front is yaw 0; yaw 60 turns them 60° toward
+  // the lane on the right — check the forward-pointing flipper feet / held
+  // weapons to judge facing, the faces are unreadable at 256px). They must
+  // read as attacking, not posing for the camera. Hur uses the 2166
+  // colour-morph — the warm pink-grey body + red joints of the wiki art
+  // (2161 is the cool-grey morph).
+  tzhaar_hur: { npc: 2166, yaw: 60 },
+  tzhaar_mej: { npc: 2154, yaw: 60 },
+  tzhaar_xil: { npc: 2167, yaw: 60 },    // knife (ranged) caste — obsidian-dark morph
+  tzhaar_ket: { npc: 2173, yaw: 60 },
 
   // --- Misc NPC-model icons ---
   giant_snail: { npc: 5628 },            // "slow" debuff icon

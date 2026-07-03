@@ -75,10 +75,12 @@ export const TOWERS: Record<string, TowerDef> = {
       // Ancients splash falloff). Early tiers are fast + small; late tiers are
       // slow, hard-hitting and wide (see cannonBlastRadius). Min/max give the
       // shot a spread; fixed-damage so it ignores potions/prayers (TOWER_STYLES).
-      { level: 1, name: 'Dwarf Multicannon', damage: 0, minDamage: 0, maxDamage: 8, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#cd5c5c', upgradeCost: 100, special: 'aoe' },
-      { level: 2, name: 'Upgraded Dwarf Multicannon', damage: 0, minDamage: 5, maxDamage: 12, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#808080', upgradeCost: 200, special: 'aoe' },
-      { level: 3, name: 'Ornamented Multicannon', damage: 35, minDamage: 25, maxDamage: 45, cooldown: 6 * TICK * 1000, range: 11 * 25, color: '#d2b48c', upgradeCost: 400, special: 'aoe' },
-      { level: 4, name: 'Upgraded Ornamented Multicannon', damage: 65, minDamage: 50, maxDamage: 80, cooldown: 6 * TICK * 1000, range: 12 * 25, color: '#ff4500', upgradeCost: 800, special: 'aoe' }
+      // Tier names match the tier models (see ASSETS.towers.cannon): paint
+      // cannon → ship cannon → multicannon → ornament-kit multicannon.
+      { level: 1, name: 'Hand Cannon', damage: 0, minDamage: 0, maxDamage: 8, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#cd5c5c', upgradeCost: 100, special: 'aoe' },
+      { level: 2, name: 'Naval Cannon', damage: 0, minDamage: 5, maxDamage: 12, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#808080', upgradeCost: 200, special: 'aoe' },
+      { level: 3, name: 'Dwarf Multicannon', damage: 35, minDamage: 25, maxDamage: 45, cooldown: 6 * TICK * 1000, range: 11 * 25, color: '#d2b48c', upgradeCost: 400, special: 'aoe' },
+      { level: 4, name: 'Ornated Dwarf Multicannon', damage: 65, minDamage: 50, maxDamage: 80, cooldown: 6 * TICK * 1000, range: 12 * 25, color: '#ff4500', upgradeCost: 800, special: 'aoe' }
     ]
   },
   tzhaar: {
