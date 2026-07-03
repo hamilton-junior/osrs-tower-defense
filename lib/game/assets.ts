@@ -394,6 +394,10 @@ export const ASSETS = {
       pick_up: `${SND}/pick_up.wav`,                    // pick2 (2582) — item-pickup plop
       cannon_fire: `${SND}/fire_cannon.wav`,             // mcannon_fire (1667)
       death: `${SND}/death_human.wav`,                  // human_death (512) — a life lost
+      // The "You Are Dead!" jingle — the music played when you die. It's a MIDI
+      // jingle (cache music index, not an index-4 synth), so it can't go through
+      // extract-osrs-sounds.mjs; this is the wiki's ogg of the real thing.
+      game_over: `${SND}/game_over.ogg`,
       magic_splash: `${LOCAL}/sounds/magic_splash.wav`, // splash (227)
       block: `${LOCAL}/sounds/combat_block.wav`,        // take-damage hitsplat (510)
     },

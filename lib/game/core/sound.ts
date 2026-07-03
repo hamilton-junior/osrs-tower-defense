@@ -18,7 +18,7 @@ export const GAME_SOUNDS: Record<string, string> = {
   place: ASSETS.sounds.misc.upgrade,
   sell: ASSETS.sounds.misc.sell,
   click: ASSETS.sounds.misc.click,
-  game_over: ASSETS.sounds.misc.death,
+  game_over: ASSETS.sounds.misc.game_over, // the "You Are Dead!" jingle
   prayer_on: ASSETS.sounds.misc.prayer_on,
   prayer_off: ASSETS.sounds.misc.prayer_off,
   select: ASSETS.sounds.misc.select,
