@@ -316,6 +316,13 @@ function loadNum(key: string, fallback: number): number {
   try { const v = Number(localStorage.getItem(key)); return Number.isFinite(v) && v > 0 ? v : fallback; } catch { return fallback; }
 }
 
+/** Wrap a base font-size (usually a `clamp()`) so it also honours the global
+ *  `--ui-scale` nudge from the controls bar. Most panels set their OWN font-size
+ *  rather than inheriting `body`, so each must multiply by the scale for the
+ *  UI −/+ control to reach it — otherwise only body-inheriting UI (e.g. the
+ *  prayer bar) would scale. Panels then scale as one via their `em` children. */
+const fs = (base: string) => `calc(${base} * var(--ui-scale, 1))`;
+
 /** Collapse state for a tray, persisted under `key` so it survives the combat
  *  sidebar body unmounting when its tab is minimised — the tray remounts and its
  *  local state would otherwise reset to expanded every time. */
@@ -941,7 +948,7 @@ export default function GameRoot() {
         const info = engineRef.current?.multiUpgradeInfo ?? { count: 0, cost: 0 };
         const afford = ui.money >= info.cost;
         return (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 rs-panel p-2 flex items-center gap-[0.6em]" style={{ fontSize: 'clamp(13px, 0.85vw, 17px)' }}>
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 rs-panel p-2 flex items-center gap-[0.6em]" style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}>
             <span className="text-osrs-orange font-bold whitespace-nowrap">{ui.multiSelectedIds.length} towers</span>
             <button
               className="rs-btn rs-btn-primary px-[0.7em] py-[0.3em] flex items-center gap-[0.3em] disabled:opacity-50"
@@ -994,7 +1001,7 @@ export default function GameRoot() {
           >
             <div
               className={`rs-panel px-[0.7em] py-[0.5em] w-[12em] ${pinned ? 'ring-1 ring-osrs-orange/70' : ''}`}
-              style={{ fontSize: 'clamp(14px, 0.9vw, 19px)' }}
+              style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}
             >
               <div className="flex items-center justify-between gap-2 mb-[0.3em]">
                 <span className="flex items-center gap-[0.3em] min-w-0">
@@ -1112,7 +1119,7 @@ export default function GameRoot() {
             transform: 'translate(-50%, -118%)',
           }}
         >
-          <div className="rs-panel p-[0.7em]" style={{ fontSize: 'clamp(15px, 1vw, 21px)' }}>
+          <div className="rs-panel p-[0.7em]" style={{ fontSize: fs('clamp(15px, 1vw, 21px)') }}>
             <div className="text-center text-[0.66em] text-[#d3c3a0] uppercase tracking-wide mb-[0.4em]">Choose spellbook</div>
 
             {/* Preview ABOVE the options, fixed height so hovering never reflows
@@ -1165,7 +1172,7 @@ export default function GameRoot() {
             transform: 'translate(-50%, -118%)',
           }}
         >
-          <div className="rs-panel p-2" style={{ fontSize: 'clamp(13px, 0.85vw, 18px)' }}>
+          <div className="rs-panel p-2" style={{ fontSize: fs('clamp(13px, 0.85vw, 18px)') }}>
             <div className="flex gap-[0.3em]">
               {TOWER_ORDER.map((type) => {
                 const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
@@ -1319,7 +1326,7 @@ export default function GameRoot() {
           id="tower"
           globalLock={uiLocked}
           className="rs-panel absolute top-4 left-4 p-3 z-10 w-[17em]"
-          style={{ fontSize: 'clamp(14px, 0.92vw, 20px)' }}
+          style={{ fontSize: fs('clamp(14px, 0.92vw, 20px)') }}
         >
           <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1.05em' }}>
             {(() => {
@@ -1636,7 +1643,7 @@ export default function GameRoot() {
         id="shop"
         globalLock={uiLocked}
         className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em] flex flex-col"
-        style={{ fontSize: 'clamp(14px, 0.9vw, 19px)', maxHeight: '92vh' }}
+        style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)'), maxHeight: '92vh' }}
       >
         {/* OSRS sidebar tab strip: each stone selects an interface (or pops one
             out). Icons + tooltips, with live badges for essence / Slayer points.
@@ -1948,7 +1955,7 @@ export default function GameRoot() {
             return (
               <div
                 className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[16em] z-20 pointer-events-none"
-                style={{ fontSize: 'clamp(13px, 0.85vw, 17px)' }}
+                style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}
               >
                 <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
                   {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
@@ -2151,7 +2158,7 @@ export default function GameRoot() {
           pointer events. Resume with Esc or the ⏸ button. */}
       {ui.paused && !ui.gameOver && (
         <div className="absolute inset-x-0 top-0 mt-2 flex justify-center z-20 pointer-events-none">
-          <div className="rs-panel px-[1.1em] py-[0.4em] text-center" style={{ fontSize: 'clamp(13px, 0.85vw, 17px)' }}>
+          <div className="rs-panel px-[1.1em] py-[0.4em] text-center" style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}>
             <div className="text-osrs-orange font-bold">❚❚ COMBAT PAUSED</div>
             <div className="text-[#cdbe91] text-[0.8em]">build freely · press Esc or ⏸ to resume</div>
           </div>
@@ -2462,7 +2469,7 @@ function DraftCardView({ card, onPick, ctx, locked, count, fill, large }: {
   // All band font-sizes go through `fz` so the `large` variant scales text, art
   // and frame together (×1.5) rather than leaving small text in a bigger card.
   const k = large ? 1.5 : 1;
-  const fz = (min: number, vw: number, max: number) => `clamp(${min * k}px, ${(vw * k).toFixed(3)}vw, ${max * k}px)`;
+  const fz = (min: number, vw: number, max: number) => fs(`clamp(${min * k}px, ${(vw * k).toFixed(3)}vw, ${max * k}px)`);
   return (
     <button
       onClick={onPick}
@@ -2518,7 +2525,7 @@ function DraftCardView({ card, onPick, ctx, locked, count, fill, large }: {
       {typeof count === 'number' && count > 0 && (
         <span
           className="absolute top-[2px] right-[2px] font-osrs text-osrs-yellow"
-          style={{ fontSize: 'clamp(8px,0.66vw,11px)', textShadow: '0 1px 2px #000', background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '0 0.3em' }}
+          style={{ fontSize: fs('clamp(8px,0.66vw,11px)'), textShadow: '0 1px 2px #000', background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '0 0.3em' }}
         >
           × {fmt(count)}
         </span>
@@ -2689,7 +2696,7 @@ function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll }: {
           }}
         />
       )}
-      <div className="fixed z-[62] rs-panel p-3 flex flex-col" style={{ ...bStyle, width: balloonW, fontSize: 'clamp(13px,0.85vw,17px)' }}>
+      <div className="fixed z-[62] rs-panel p-3 flex flex-col" style={{ ...bStyle, width: balloonW, fontSize: fs('clamp(13px,0.85vw,17px)') }}>
         <div className="flex items-center justify-between gap-[0.5em] mb-[0.3em]">
           <span className="text-osrs-orange font-bold text-[0.95em]">{step.title}</span>
           <span className="text-[0.55em] uppercase tracking-wide text-[#cdbe91] border border-[#6f6250] rounded-sm px-[0.45em] py-[0.05em] shrink-0">Tip</span>
@@ -2746,7 +2753,7 @@ const TLDR: TldrGroup[] = [
 function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onResetTips: () => void }) {
   return (
     <div className="absolute inset-0 bg-black/82 flex items-center justify-center z-50 p-4">
-      <div className="rs-panel p-5 w-[32em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: 'clamp(14px, 0.95vw, 19px)' }}>
+      <div className="rs-panel p-5 w-[32em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: fs('clamp(14px, 0.95vw, 19px)') }}>
         <div className="flex items-center justify-between gap-[0.5em] mb-[0.2em]">
           <span className="text-osrs-orange font-bold text-[1.15em]">How to Play</span>
           <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
@@ -2800,7 +2807,7 @@ function StartScreen({ mode, onSelect, onStart, onHelp }: {
     <div className="absolute inset-0 bg-black/82 flex flex-col items-center justify-center z-40 p-4">
       <div className="rs-panel p-6 w-[34em] max-w-[94vw] flex flex-col">
         <div className="text-center mb-1">
-          <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: 'clamp(20px, 2.4vw, 32px)' }}>OSRS Tower Defense</div>
+          <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: fs('clamp(20px, 2.4vw, 32px)') }}>OSRS Tower Defense</div>
           <div className="text-[#cdbe91] text-[0.85em] mt-[0.4em]">Choose your mode</div>
         </div>
         <div className="grid grid-cols-2 gap-[0.7em] my-4">
@@ -2881,7 +2888,7 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
       id="collection-log"
       globalLock={globalLock}
       className="rs-panel absolute top-10 left-1/2 z-30 w-[30em] flex flex-col p-3"
-      style={{ marginLeft: '-15em', maxHeight: '82vh', fontSize: 'clamp(14px, 0.9vw, 19px)' }}
+      style={{ marginLeft: '-15em', maxHeight: '82vh', fontSize: fs('clamp(14px, 0.9vw, 19px)') }}
     >
       <div className="rs-panel-title flex items-center justify-between">
         <span className="flex items-center gap-2">
@@ -3256,7 +3263,7 @@ function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => voi
   const dark = `color-mix(in srgb, #222222 64%, ${color} 36%)`;
   const mid = `color-mix(in srgb, #2F2F2F 78%, ${color} 22%)`;
   const k = 1.5;
-  const fz = (min: number, vw: number, max: number) => `clamp(${min * k}px, ${(vw * k).toFixed(3)}vw, ${max * k}px)`;
+  const fz = (min: number, vw: number, max: number) => fs(`clamp(${min * k}px, ${(vw * k).toFixed(3)}vw, ${max * k}px)`);
   return (
     <button
       onClick={onPick}
