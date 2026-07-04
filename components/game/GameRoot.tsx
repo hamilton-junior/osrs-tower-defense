@@ -221,10 +221,10 @@ type LogEntry = (typeof LOG_ENTRIES)[number];
 
 /** Collection-log list controls: which entries to show, and how to order them. */
 type LogFilter = 'all' | 'obtained' | 'missing';
-const LOG_FILTERS: { key: LogFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'obtained', label: 'Logged' },
-  { key: 'missing', label: 'Missing' },
+const LOG_FILTERS: { key: LogFilter; label: string; hint: string }[] = [
+  { key: 'all', label: 'All', hint: 'Show every entry' },
+  { key: 'obtained', label: 'Logged', hint: 'Show only entries you have obtained' },
+  { key: 'missing', label: 'Missing', hint: 'Show only entries you are still missing' },
 ];
 /** Sort options offered per tab (enemy tabs vs the Cards tab). `name` is default.
  *  `obtained`/`missing` order by collection status; the rest by the named stat. */
@@ -964,7 +964,7 @@ export default function GameRoot() {
               Upgrade {info.count > 0 ? `(${info.count})` : ''}
               {info.count > 0 && <span style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{fmt(info.cost)} gp</span>}
             </button>
-            <button className="rs-btn px-[0.6em] py-[0.3em]" onClick={() => engineRef.current?.clearMultiSelect()}>Clear</button>
+            <button className="rs-btn px-[0.6em] py-[0.3em]" title="Deselect all towers" onClick={() => engineRef.current?.clearMultiSelect()}>Clear</button>
           </div>
         );
       })()}
@@ -1278,6 +1278,7 @@ export default function GameRoot() {
           HP bar while a boss is alive, so the bar stays topmost. */}
       {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0) && (
         <div
+          data-tut="waveevent"
           className="absolute left-1/2 -translate-x-1/2 z-10 flex items-start gap-[0.4em] transition-[top] duration-300"
           style={{ top: ui.bossOnField ? '4.5rem' : '0.5rem' }}
         >
@@ -2035,6 +2036,7 @@ export default function GameRoot() {
           <button
             key={s}
             onClick={() => engineRef.current?.setGameSpeed(s)}
+            title={`Run the game at ${s}× speed`}
             className={`rs-btn px-2 py-1 text-xs ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
           >
             {s}×
@@ -2196,13 +2198,26 @@ export default function GameRoot() {
         <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30 p-4">
           <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Draft a Reward</div>
           <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">Wave {ui.wave} cleared — keep one card</div>
+          {/* First-time coaching, shown right here while the cards are on the table
+              (never after the fact). The overlay is modal, so this can't overlap
+              anything happening on the board. Dismiss it or just pick a card. */}
+          {!learnSeen.includes('draft') && (
+            <div className="rs-panel-inset max-w-[36em] mb-4 px-[1.1em] py-[0.7em] text-center" style={{ fontSize: fs('clamp(12px, 0.8vw, 16px)') }}>
+              <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.3em]">✦ How reward cards work</div>
+              <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.55em]">
+                Each wave you keep <b>one</b> card to snowball your build — potions, weapons and rule-changing boons.
+                Hover a card to preview exactly what it does; duplicates stack, and a <b>Relic</b> is offered every 5th wave.
+              </p>
+              <button className="rs-btn px-[0.9em] py-[0.2em] text-[0.8em]" onClick={() => markTipSeen('draft')}>Got it ✓</button>
+            </div>
+          )}
           <div className="flex gap-6 flex-wrap justify-center">
             {ui.pendingDraft.map((card) => (
               <DraftCardView
                 key={card.id}
                 card={card}
                 large
-                onPick={() => engineRef.current?.pickDraftCard(card.id)}
+                onPick={() => { markTipSeen('draft'); engineRef.current?.pickDraftCard(card.id); }}
                 ctx={{ runMods: ui.runMods, gold: ui.money, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
               />
             ))}
@@ -2211,6 +2226,7 @@ export default function GameRoot() {
           {ui.draftRerolls > 0 && (
             <button
               className="rs-btn rs-btn-primary mt-4 px-[1.2em] py-[0.4em] text-[0.9em]"
+              title="Discard this hand and draw a fresh set of cards"
               onClick={() => engineRef.current?.rerollDraft()}
             >
               ⟳ Re-roll ({ui.draftRerolls} left)
@@ -2247,7 +2263,7 @@ export default function GameRoot() {
             {ui.gameMode === 'roguelite' && ui.runCards.length > 0 && (
               <RunBuild cards={ui.runCards} />
             )}
-            <button className="rs-btn rs-btn-primary px-6 py-2 w-full" onClick={() => { engineRef.current?.restart(); setRunStarted(false); }}>
+            <button className="rs-btn rs-btn-primary px-6 py-2 w-full" title="Start a fresh run" onClick={() => { engineRef.current?.restart(); setRunStarted(false); }}>
               ▶ Play Again
             </button>
           </div>
@@ -2636,15 +2652,15 @@ const LEARN_STEPS: LearnStep[] = [
   { id: 'affix', title: 'Elite enemies',
     body: 'Some enemies now arrive glowing with an affix that rewrites the rules — Shielded, Armored, Hasted and more. Read the aura colour and diversify your towers.',
     when: (ui) => ui.wave >= 5 && ui.waveActive },
-  { id: 'event', title: 'Wave event',
+  { id: 'event', target: 'waveevent', title: 'Wave event',
     body: 'A board-wide twist just rolled for this wave only. Some hurt (less range, tougher enemies), some help (faster or longer-range towers) — adapt until the banner clears.',
     when: (ui) => !!ui.activeEvent },
   { id: 'boss', title: 'Boss wave',
     body: 'A boss has its own health bar and a mechanic to answer — pile your strongest towers and buffs on it, and watch the caption under its bar.',
     when: (ui) => ui.bossWave },
-  { id: 'draft', title: 'Reward cards',
-    body: 'You kept your first reward card. Draft one each wave to snowball a build; rule-changing cards gather in your Boons panel, with a Relic every 5th wave.',
-    when: (ui) => ui.gameMode === 'roguelite' && ui.runCards.length > 0 },
+  // The 'draft' tip is taught *inside* the draft overlay itself (see the roguelite
+  // draft block) so it explains the cards while you are choosing, not after — it is
+  // not a floating coach step.
 ];
 
 /** Learn-as-you-go coach. Renders the first not-yet-seen tip whose trigger fits
@@ -2678,8 +2694,11 @@ function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll }: {
   const pad = 6;
   const balloonW = Math.min(340, (vw || 360) - 24);
 
-  // Beside the target on whichever side has room; float top-centre when the tip
-  // is targetless (so it never covers the battlefield or the bottom panels).
+  // Beside the target on whichever side has room; park on the mid-left when the
+  // tip is targetless. The mid-left strip is the one region no live event uses —
+  // the top-centre carries the wave/event/boss banners, the top-right the orbs and
+  // the bottom the dock/prayers — so a targetless tip never sits over what's
+  // happening on the board.
   let bStyle: React.CSSProperties;
   if (rect) {
     const placeBelow = vh - rect.bottom > 200 || vh - rect.bottom >= rect.top;
@@ -2689,7 +2708,7 @@ function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll }: {
       ? { left, top: Math.min(rect.bottom + 14, vh - 170) }
       : { left, bottom: Math.min(vh - rect.top + 14, vh - 60) };
   } else {
-    bStyle = { left: (vw || 360) / 2 - balloonW / 2, top: 16 };
+    bStyle = { left: 12, top: Math.max(72, ((vh || 600) - 220) / 2) };
   }
 
   return (
@@ -2835,6 +2854,7 @@ function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
           {FEEDBACK.bugFormUrl && (
             <button
               className="rs-btn w-full py-[0.5em] text-[0.95em] flex items-center justify-center gap-[0.4em]"
+              title="Open the bug-report form in a new tab"
               onClick={() => open(FEEDBACK.bugFormUrl)}
             >
               🐛 Report a bug
@@ -2843,6 +2863,7 @@ function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
           {FEEDBACK.suggestionFormUrl && (
             <button
               className="rs-btn w-full py-[0.5em] text-[0.95em] flex items-center justify-center gap-[0.4em]"
+              title="Open the suggestion form in a new tab"
               onClick={() => open(FEEDBACK.suggestionFormUrl)}
             >
               💡 Suggest an idea
@@ -2891,6 +2912,7 @@ function StartScreen({ mode, onSelect, onStart, onHelp }: {
               <button
                 key={m.id}
                 onClick={() => onSelect(m.id)}
+                title={`${m.name} — ${m.desc}`}
                 className="rs-panel-inset text-left p-[0.8em] flex flex-col gap-[0.35em]"
                 style={{ outline: `2px solid ${on ? 'var(--osrs-orange)' : 'transparent'}`, opacity: on ? 1 : 0.78 }}
               >
@@ -2905,10 +2927,10 @@ function StartScreen({ mode, onSelect, onStart, onHelp }: {
             );
           })}
         </div>
-        <button className="rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] animate-pulse" onClick={onStart}>
+        <button className="rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] animate-pulse" title="Lock in this mode and start the run" onClick={onStart}>
           ▶ Confirm
         </button>
-        <button className="rs-btn w-full py-[0.4em] text-[0.85em] mt-[0.5em]" onClick={onHelp}>
+        <button className="rs-btn w-full py-[0.4em] text-[0.85em] mt-[0.5em]" title="Open the how-to-play guide" onClick={onHelp}>
           ❓ How to Play
         </button>
         <div className="text-center text-[0.7em] text-[#cdbe91] mt-[0.5em]">First time? Read <span className="text-osrs-orange">How to Play</span>. Then press <span className="text-osrs-orange">Start Wave</span> when you&apos;re ready.</div>
@@ -2977,6 +2999,7 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
             <button
               key={t}
               onClick={() => { setTab(t); setSelected(null); setSort('name'); }}
+              title={t === 'cards' ? 'Reward cards collected' : `${t === 'bosses' ? 'Bosses' : 'Monsters'} slain`}
               className={`rs-btn px-[0.8em] py-[0.15em] text-[0.78em] capitalize ${tab === t ? 'rs-btn-primary' : ''}`}
             >
               {t}
@@ -2997,6 +3020,7 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
+                title={f.hint}
                 className={`rs-btn px-[0.55em] py-[0.1em] text-[0.7em] ${filter === f.key ? 'rs-btn-primary' : ''}`}
               >
                 {f.label}
@@ -3008,6 +3032,7 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value)}
+              title="Choose how to sort the list"
               className="rs-select text-[0.72em] px-[0.3em] py-[0.1em]"
             >
               {sortOptions.map((o) => (
@@ -3122,7 +3147,7 @@ function LogDetail({ type, kc, onBack, onPrev, onNext, position }: {
   return (
     <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
       <div className="flex items-center justify-between mb-[0.6em]">
-        <button onClick={onBack} className="rs-btn px-[0.7em] py-[0.2em] text-[0.75em]">◂ Back</button>
+        <button onClick={onBack} title="Back to the list" className="rs-btn px-[0.7em] py-[0.2em] text-[0.75em]">◂ Back</button>
         <div className="flex items-center gap-[0.4em]">
           <button onClick={onPrev} title="Previous (anterior)" className="rs-btn px-[0.7em] py-[0.2em] text-[0.85em] leading-none">‹</button>
           <span className="text-[0.7em] text-[#d3c3a0] tabular-nums">{position.index} / {position.total}</span>
@@ -3172,7 +3197,7 @@ function CardInspect({ card, count, onBack, onPrev, onNext, position }: {
   return (
     <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
       <div className="flex items-center justify-between mb-[0.6em]">
-        <button onClick={onBack} className="rs-btn px-[0.7em] py-[0.2em] text-[0.75em]">◂ Back</button>
+        <button onClick={onBack} title="Back to the list" className="rs-btn px-[0.7em] py-[0.2em] text-[0.75em]">◂ Back</button>
         <div className="flex items-center gap-[0.4em]">
           <button onClick={onPrev} title="Previous (anterior)" className="rs-btn px-[0.7em] py-[0.2em] text-[0.85em] leading-none">‹</button>
           <span className="text-[0.7em] text-[#d3c3a0] tabular-nums">{position.index} / {position.total}</span>
