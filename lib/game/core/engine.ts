@@ -2997,6 +2997,12 @@ export class GameEngine {
         this.offerDraft();
       }
     }
+    // Roll the next Slayer task now (idempotent — only fires when the last task was
+    // just completed) so it is assigned during prep, not at Start Wave. This keeps
+    // the next-wave preview exact: computeWaveConfigs folds in the task's seed, and
+    // startWave reuses the same memoised makeup. The player also sees their task
+    // while placing towers.
+    if (!this.gameOver) this.slayer.assignTask();
     this.emit();
   }
 
