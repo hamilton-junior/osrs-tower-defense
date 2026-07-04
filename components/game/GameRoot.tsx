@@ -1271,7 +1271,7 @@ export default function GameRoot() {
       {/* Top-right data-orb cluster (OSRS minimap-orb style) */}
       <div data-tut="hud" className="absolute top-4 right-4 flex flex-col gap-2 z-10 items-end">
         <Orb
-          icon={ASSETS.misc.hp_icon}
+          icon={ASSETS.misc.orb_hitpoints}
           title="Lives"
           value={ui.lives}
           valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
@@ -1293,7 +1293,7 @@ export default function GameRoot() {
           fillColor="linear-gradient(180deg, #3ac0c0, #0a6b6b)"
         />
         <Orb
-          icon={ASSETS.misc.prayer_icon}
+          icon={ASSETS.misc.orb_prayer}
           title="Prayer"
           value={ui.prayerPoints}
           fill={ui.prayerPoints / ui.prayerMax}

@@ -337,6 +337,11 @@ export const ASSETS = {
     orb_background: `${LOCAL}/ui/orb_background.png`, // MINIMAP_ORB_EMPTY (1059)
     inventory_background: `${LOCAL}/ui/inventory_background.png`, // FIXED_MODE_SIDE_PANEL_BACKGROUND (1031)
     hp_icon: `${LOCAL}/misc/hp_icon.png`,
+    // Minimap data-orb glyphs — the authentic status symbols inside the HUD orbs
+    // (extract-osrs-sprites.mjs). orb_run doubles as the Hasted affix icon.
+    orb_hitpoints: `${LOCAL}/orbs/hitpoints.png`, // MINIMAP_ORB_HITPOINTS (1067)
+    orb_prayer: `${LOCAL}/orbs/prayer.png`, // MINIMAP_ORB_PRAYER (1068)
+    orb_run: `${LOCAL}/orbs/run_energy.png`, // MINIMAP_ORB_RUN (1069)
     ge_logo: `${LOCAL}/ui/ge_logo.png`, // GE map icon, the gold scales (1531)
     essence_icon: itemIcon('pure_essence'),
     pets_tab_icon: `${LOCAL}/ui/follower_details.png`, // OPTIONS_FOLLOWER_RIGHT_CLICK_MENU (1166)

@@ -72,6 +72,17 @@ const PRAYER_IDS = {
   eagle_eye: 504, piety: 946, rigour: 1420, augury: 1421,
 };
 
+/**
+ * Minimap data-orb glyph icons — the little status symbols inside the HUD orbs
+ * (hitpoints heart, prayer star, run-energy boot). The run boot doubles as the
+ * Hasted affix icon. IDs verified by eyeballing a --dump of the 1055-1085 range.
+ */
+const ORB_IDS = {
+  hitpoints: 1067, // MINIMAP_ORB_HITPOINTS — red heart
+  prayer: 1068, // MINIMAP_ORB_PRAYER — white/silver star
+  run_energy: 1069, // MINIMAP_ORB_RUN — run-energy boot
+};
+
 /** Skill / spellbook UI icons used across the HUD. */
 const MISC_IDS = {
   attack_icon: 197, strength_icon: 198, ranged_icon: 200, prayer_icon: 201,
@@ -115,6 +126,7 @@ const TARGETS = [
   ...group(SPELL_IDS, 'spells'),
   ...group(PRAYER_IDS, 'prayers'),
   ...group(MISC_IDS, 'misc'),
+  ...group(ORB_IDS, 'orbs'),
   ...group(HITSPLAT_IDS, 'hitsplats'),
   ...group(UI_IDS, 'ui'),
 ];
