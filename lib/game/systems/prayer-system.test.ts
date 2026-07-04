@@ -9,12 +9,13 @@ function makeEngine(cfg: {
   waveActive: boolean;
   towers: { type: string; mageMode?: string; supportSpell?: string; targetId: string | null }[];
   prayerEfficiency: number;
+  prayerRegen?: number;
 }): GameEngine {
   return {
     wave: cfg.wave,
     waveActive: cfg.waveActive,
     towers: cfg.towers,
-    meta: { upgrades: { ...DEFAULT_UPGRADES, prayerEfficiency: cfg.prayerEfficiency } },
+    meta: { upgrades: { ...DEFAULT_UPGRADES, prayerEfficiency: cfg.prayerEfficiency, prayerRegen: cfg.prayerRegen ?? 0 } },
     playSound() {},
     notify() {},
     requestEmit() {},
@@ -55,20 +56,33 @@ describe('PrayerSystem — drain of the three best prayers', () => {
 });
 
 describe('PrayerSystem — zero-drain capstone', () => {
-  it('never drains at max meta AND 5 batteries', () => {
+  it('never drains at BOTH metas maxed AND 5 batteries', () => {
     const towers = [battery(), battery(), battery(), battery(), battery()]; // 5
-    const e = makeEngine({ wave: 20, waveActive: true, towers, prayerEfficiency: 0.55 });
+    const e = makeEngine({ wave: 20, waveActive: true, towers, prayerEfficiency: 0.55, prayerRegen: 1.0 });
     const p = new PrayerSystem(e);
     p.points = 42;
     prayTrio(p);
     expect(p.fullySustained()).toBe(true);
     p.update(1);
-    expect(p.points).toBe(42); // untouched
+    // No drain at all — and with regen maxed the pool even ticks up (+1.0/s here)
+    // instead of falling. The key assertion is simply: it never went down.
+    expect(p.points).toBe(43);
   });
 
-  it('requires BOTH conditions — 5 batteries without max meta still drains', () => {
+  it('needs ALL three — 5 batteries + maxed efficiency but un-maxed regen still drains', () => {
     const towers = [battery(), battery(), battery(), battery(), battery()];
-    const e = makeEngine({ wave: 20, waveActive: true, towers, prayerEfficiency: 0.64 }); // one step short
+    const e = makeEngine({ wave: 20, waveActive: true, towers, prayerEfficiency: 0.55, prayerRegen: 0.8 }); // regen one step short
+    const p = new PrayerSystem(e);
+    p.points = 99;
+    prayTrio(p);
+    expect(p.fullySustained()).toBe(false);
+    p.update(1);
+    expect(p.points).toBeLessThan(99);
+  });
+
+  it('needs ALL three — 5 batteries + maxed regen but un-maxed efficiency still drains', () => {
+    const towers = [battery(), battery(), battery(), battery(), battery()];
+    const e = makeEngine({ wave: 20, waveActive: true, towers, prayerEfficiency: 0.64, prayerRegen: 1.0 }); // efficiency one step short
     const p = new PrayerSystem(e);
     p.points = 99;
     prayTrio(p);

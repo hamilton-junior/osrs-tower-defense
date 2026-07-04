@@ -8,9 +8,10 @@ import { GLOBAL_UPGRADE_DEFS, isMaxed } from './meta-progression';
  *  that's meaningful against the wave-scaled pool over a wave. */
 const DRAIN_SCALE = 6;
 
-/** The Prayer-efficiency meta upgrade (drives both the drain multiplier and the
- *  "maxed" half of the zero-drain capstone). */
+/** The two prayer meta upgrades gating the zero-drain capstone: efficiency also
+ *  scales the live drain multiplier; regen must simply be maxed too. */
 const PRAYER_EFF_DEF = GLOBAL_UPGRADE_DEFS.find(d => d.id === 'prayerEfficiency');
+const PRAYER_REGEN_DEF = GLOBAL_UPGRADE_DEFS.find(d => d.id === 'prayerRegen');
 
 /**
  * Prayer-Restoration ("Vile Vigour") wizards that, together with a fully-maxed
@@ -93,13 +94,16 @@ export class PrayerSystem {
 
   /**
    * True when prayers are fully sustained — the ONLY way to reach zero drain:
-   * the Prayer-efficiency meta upgrade is maxed AND at least
-   * {@link PRAYER_SUSTAIN_TOWERS} Prayer-Restoration wizards are on the field.
-   * Short of both, prayers always drain (the maxed upgrade alone only slows it).
+   * BOTH prayer meta upgrades are maxed (Prayer-efficiency AND Prayer-regen) AND
+   * at least {@link PRAYER_SUSTAIN_TOWERS} Prayer-Restoration wizards are on the
+   * field. Short of all three, prayers always drain (a maxed upgrade alone, or
+   * the towers alone, only slows it).
    */
   fullySustained(): boolean {
-    return !!PRAYER_EFF_DEF
-      && isMaxed(PRAYER_EFF_DEF, this.e.meta.upgrades.prayerEfficiency)
+    const up = this.e.meta.upgrades;
+    return !!PRAYER_EFF_DEF && !!PRAYER_REGEN_DEF
+      && isMaxed(PRAYER_EFF_DEF, up.prayerEfficiency)
+      && isMaxed(PRAYER_REGEN_DEF, up.prayerRegen)
       && this.sanctityTowers() >= PRAYER_SUSTAIN_TOWERS;
   }
 
