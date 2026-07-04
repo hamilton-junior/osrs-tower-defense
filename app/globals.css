@@ -1,13 +1,39 @@
 @import "tailwindcss";
 
+/* ===== OSRS fonts — RuneStar/fonts (CC0), self-hosted =====
+   Pixel-perfect recreations of the client's own glyph sets: Plain 12
+   (p12_full, the standard interface font), Bold 12 (b12_full, a real bold
+   face — synthetic emboldening smears pixel fonts) and Plain 11 (p11_full,
+   the small font). Relative url()s so the build bundles them under
+   _next/static and any base path (GitHub Pages) keeps working. */
 @font-face {
   font-family: 'RuneScape';
-  src: url('https://db.onlinewebfonts.com/t/083332009268886d382607137831039a.woff2') format('woff2');
+  src: url('./fonts/RuneScape-Plain-12.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'RuneScape';
+  src: url('./fonts/RuneScape-Bold-12.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'RuneScape Small';
+  src: url('./fonts/RuneScape-Plain-11.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
 :root {
+  /* Single source of truth for the game's typeface — every font-family in the
+     app (and the canvas renderer) resolves to these faces. */
+  --font-osrs: 'RuneScape', 'RuneScape Small', monospace;
   --osrs-brown: #3e3529;
   --osrs-brown-light: #5d5245;
   --osrs-brown-dark: #2b231a;
@@ -23,9 +49,9 @@
 body {
   background-color: #000;
   color: #fff;
-  /* The whole game uses the OSRS pixel font (RuneScape, with VT323 as the close
-     web fallback) — no element should fall back to a system sans-serif. */
-  font-family: 'RuneScape', var(--font-osrs), 'VT323', monospace;
+  /* The whole game uses the self-hosted OSRS pixel font (RuneStar recreations)
+     — no element should fall back to a system sans-serif. */
+  font-family: var(--font-osrs);
   overflow: hidden;
   image-rendering: pixelated;
   /* Base size every `em`-based UI scales from. The +3px bumps the whole
@@ -34,7 +60,7 @@ body {
 }
 
 .font-osrs {
-  font-family: 'RuneScape', var(--font-osrs), monospace;
+  font-family: var(--font-osrs);
 }
 
 /* Global guarantee: UI sprites (wiki PNGs) keep their aspect ratio everywhere —
@@ -45,7 +71,7 @@ body {
 }
 
 .osrs-font {
-  font-family: 'RuneScape', var(--font-osrs), monospace;
+  font-family: var(--font-osrs);
   letter-spacing: 0.5px;
 }
 
@@ -174,7 +200,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: 'RuneScape', var(--font-osrs), monospace;
+  font-family: var(--font-osrs);
 }
 
 /* OSRS Button - Standard Button Style */
@@ -305,7 +331,7 @@ body {
 
 .rs-panel-title {
   color: var(--osrs-orange);
-  font-family: 'RuneScape', var(--font-osrs), monospace;
+  font-family: var(--font-osrs);
   font-size: 0.95rem;
   letter-spacing: 0.02em;
   text-shadow: 1px 1px 0 #000;
@@ -416,7 +442,7 @@ body {
   text-shadow: 1px 1px 0 #000;
   padding: 5px 12px;
   transition: filter 0.08s;
-  font-family: 'RuneScape', var(--font-osrs), monospace;
+  font-family: var(--font-osrs);
   box-shadow: inset 1px 1px 0 0 #897a56, inset -1px -1px 0 0 #241d12;
 }
 
@@ -443,7 +469,7 @@ body {
   border-radius: 0;
   color: #ffce5c;
   text-shadow: 1px 1px 0 #000;
-  font-family: 'RuneScape', var(--font-osrs), monospace;
+  font-family: var(--font-osrs);
   box-shadow: inset 1px 1px 0 0 #897a56, inset -1px -1px 0 0 #241d12;
   cursor: pointer;
 }
@@ -659,7 +685,7 @@ body {
 
 /* Wave-start banner */
 .rs-wave-banner {
-  font-family: var(--font-osrs), 'VT323', monospace;
+  font-family: var(--font-osrs);
   font-size: clamp(28px, 4vw, 64px);
   color: var(--osrs-yellow, #ffcb05);
   text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 0 0 14px rgba(255, 180, 0, 0.5);
@@ -735,7 +761,7 @@ kbd {
 
 /* Transient blocked-action toast (e.g. "Not enough gold") */
 .rs-toast {
-  font-family: var(--font-osrs), 'VT323', monospace;
+  font-family: var(--font-osrs);
   font-size: clamp(15px, 1.5vw, 22px);
   color: #ff6b6b;
   background: linear-gradient(180deg, rgba(44, 22, 22, 0.94), rgba(28, 14, 14, 0.96));
@@ -769,7 +795,7 @@ kbd {
     inset 0 0 0 1px rgba(184, 138, 46, 0.5),
     0 0 16px rgba(214, 170, 70, 0.4),
     0 4px 12px rgba(0, 0, 0, 0.65);
-  font-family: 'RuneScape', var(--font-osrs), monospace;
+  font-family: var(--font-osrs);
   animation: rs-unlock-pop 4.2s ease-out forwards;
 }
 .rs-unlock-icon {

@@ -448,6 +448,14 @@ export default function GameRoot() {
     return () => clearInterval(id);
   }, [ui.pendingPlacement]);
 
+  // ctx.font never triggers an @font-face download, so kick the OSRS faces off
+  // now; the canvas redraws every frame and picks them up once loaded.
+  useEffect(() => {
+    document.fonts?.load('16px RuneScape');
+    document.fonts?.load('bold 16px RuneScape');
+    document.fonts?.load('12px "RuneScape Small"');
+  }, []);
+
   useEffect(() => {
     if (!canvasRef.current) return;
     const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })), loadSave());

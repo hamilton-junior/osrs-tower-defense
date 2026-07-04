@@ -74,7 +74,7 @@ Sprites are hot-linked from `oldschool.runescape.wiki` (and `picsum.photos`); bo
 
 ### Styling
 
-OSRS look-and-feel is hand-rolled CSS in [`app/globals.css`](app/globals.css): CSS variables (`--osrs-brown`, `--osrs-orange`, …) and utility classes (`.osrs-button`, `.osrs-window`, `.font-osrs`) used across all UI. Tailwind v4 (via `@tailwindcss/postcss`) is also available. The RuneScape pixel font is loaded as `@font-face` with the `VT323` Google font as fallback (`--font-osrs`, wired in `app/layout.tsx`).
+OSRS look-and-feel is hand-rolled CSS in [`app/globals.css`](app/globals.css): CSS variables (`--osrs-brown`, `--osrs-orange`, …) and utility classes (`.osrs-button`, `.osrs-window`, `.font-osrs`) used across all UI. Tailwind v4 (via `@tailwindcss/postcss`) is also available. The OSRS pixel fonts are self-hosted in `app/fonts/` (RuneStar/fonts recreations, CC0): 'RuneScape' (Plain 12 at normal weight, Bold 12 at bold — a real bold face, no synthetic emboldening) and 'RuneScape Small' (Plain 11), registered as `@font-face` in `globals.css` with relative `url()`s so the build bundles them basePath-safely; `--font-osrs` is defined in `:root` there. No Google fonts.
 
 ### Game systems implemented in the engine
 
