@@ -24,6 +24,11 @@ const PRAYER_REGEN_MAX = PRAYER_REGEN_DEF?.max ?? 1;
 const DRAIN_REDUCTION_PER_TOWER = 0.08;
 const REGEN_MAX_DRAIN_REDUCTION = 0.10;
 const DRAIN_REDUCTION_CAP = 0.5;
+
+/** Hard cap on fielded Prayer Ward wizards. Matches the point where the drain
+ *  reduction saturates (5·0.08 + 0.10 = the 0.5 cap), so a 6th ward would do
+ *  nothing anyway — the engine refuses to set more than this many to `sanctity`. */
+export const MAX_PRAYER_WARDS = 5;
 /**
  * Prayer subsystem for the new core: owns the prayer-point pool and the set of
  * active prayers. While praying, points drain (via the tested `prayerDrainRate`)

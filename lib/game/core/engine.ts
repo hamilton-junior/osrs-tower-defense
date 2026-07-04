@@ -19,7 +19,7 @@ import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
-import { PrayerSystem } from '../systems/prayer-system';
+import { PrayerSystem, MAX_PRAYER_WARDS } from '../systems/prayer-system';
 import { GeSystem, type GeListing } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
@@ -1510,10 +1510,22 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Pick the field a Utility-spellbook wizard projects. */
+  /** Count of Prayer Ward (utility + sanctity) wizards currently fielded. */
+  prayerWardCount(): number {
+    return this.towers.filter(t => t.type === 'wizard' && t.mageMode === 'utility' && (t.supportSpell ?? 'curse') === 'sanctity').length;
+  }
+
+  /** Pick the field a Utility-spellbook wizard projects. Prayer Ward (sanctity)
+   *  is capped at {@link MAX_PRAYER_WARDS} on the field — you can still swap any
+   *  ward to another field freely, but can't set a new one past the cap. */
   setSupportSpell(towerId: string, spell: SupportSpell) {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower || tower.type !== 'wizard') return;
+    if (spell === 'sanctity' && (tower.supportSpell ?? 'curse') !== 'sanctity'
+        && this.prayerWardCount() >= MAX_PRAYER_WARDS) {
+      this.notify(`Max ${MAX_PRAYER_WARDS} Prayer Ward wizards`);
+      return;
+    }
     tower.supportSpell = spell;
     this.sound.play('click');
     this.emit();

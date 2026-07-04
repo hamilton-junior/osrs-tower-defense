@@ -18,6 +18,7 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
+import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 
@@ -1527,12 +1528,19 @@ export default function GameRoot() {
                     {SUPPORT_ORDER.map((s) => {
                       const icon = spellIconUrl(SUPPORT_SPELLS[s].spell);
                       const active = (selectedTower.supportSpell ?? 'curse') === s;
+                      // Prayer Ward (sanctity) is capped on the field: block picking
+                      // a new one once the cap is reached (but never the one already set).
+                      const wardCapped = s === 'sanctity' && !active
+                        && (engineRef.current?.prayerWardCount() ?? 0) >= MAX_PRAYER_WARDS;
                       return (
                         <button
                           key={s}
-                          title={`${SUPPORT_SPELLS[s].label} — ${SUPPORT_SPELLS[s].desc}`}
+                          disabled={wardCapped}
+                          title={wardCapped
+                            ? `Max ${MAX_PRAYER_WARDS} Prayer Ward wizards on the field`
+                            : `${SUPPORT_SPELLS[s].label} — ${SUPPORT_SPELLS[s].desc}`}
                           onClick={() => engineRef.current?.setSupportSpell(selectedTower.id, s)}
-                          className={`rs-btn flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
+                          className={`rs-btn flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''} ${wardCapped ? 'opacity-40 cursor-not-allowed' : ''}`}
                           style={{ borderBottom: `2px solid ${SUPPORT_SPELLS[s].color}` }}
                         >
                           {icon
