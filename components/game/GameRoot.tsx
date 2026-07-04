@@ -310,6 +310,12 @@ function loadBool(key: string, fallback: boolean): boolean {
   try { const v = localStorage.getItem(key); return v == null ? fallback : !!JSON.parse(v); } catch { return fallback; }
 }
 
+/** Persisted positive number, tolerant of absent/corrupt data (SSR-safe). */
+function loadNum(key: string, fallback: number): number {
+  if (typeof window === 'undefined') return fallback;
+  try { const v = Number(localStorage.getItem(key)); return Number.isFinite(v) && v > 0 ? v : fallback; } catch { return fallback; }
+}
+
 /** Collapse state for a tray, persisted under `key` so it survives the combat
  *  sidebar body unmounting when its tab is minimised — the tray remounts and its
  *  local state would otherwise reset to expanded every time. */
@@ -399,6 +405,15 @@ export default function GameRoot() {
   // drive waves with the spacebar only. Off by default — the button is shown.
   const [hideStartWave, setHideStartWave] = useState(() => loadBool('ui_hide_startwave', false));
   useEffect(() => { try { localStorage.setItem('ui_hide_startwave', JSON.stringify(hideStartWave)); } catch { /* ignore */ } }, [hideStartWave]);
+  // Global UI text scale — a manual multiplier on top of the viewport-adaptive
+  // base font-size (globals.css), applied as the `--ui-scale` CSS var the body
+  // reads. Lets the player dial the whole em-based interface up/down for their
+  // display without touching the browser zoom. Persisted; default 1.0 (100%).
+  const [uiScale, setUiScale] = useState(() => loadNum('ui_scale', 1));
+  useEffect(() => {
+    try { localStorage.setItem('ui_scale', String(uiScale)); } catch { /* ignore */ }
+    document.documentElement.style.setProperty('--ui-scale', String(uiScale));
+  }, [uiScale]);
   // Click a tab stone: switch to it (and expand) if it's another tab; toggle the
   // body minimised if it's already the active one.
   const onSideTab = useCallback((t: SideTab) => {
@@ -2012,6 +2027,27 @@ export default function GameRoot() {
           className={`rs-btn px-2 py-1 text-xs ${hideStartWave ? '' : 'rs-btn-primary'}`}
         >
           {hideStartWave ? 'Off' : 'On'}
+        </button>
+        {/* Global UI text-size nudge, on top of the viewport-adaptive base size. */}
+        <span className="text-[10px] text-[#d3c3a0] ml-2 mr-1 uppercase tracking-wide select-none">UI</span>
+        <button
+          onClick={() => setUiScale((v) => Math.max(0.7, +(v - 0.1).toFixed(2)))}
+          disabled={uiScale <= 0.7}
+          title="Smaller interface"
+          className="rs-btn px-2 py-1 text-xs disabled:opacity-40"
+        >
+          −
+        </button>
+        <span className="text-xs text-osrs-orange tabular-nums w-9 text-center select-none" title="Interface size">
+          {Math.round(uiScale * 100)}%
+        </span>
+        <button
+          onClick={() => setUiScale((v) => Math.min(1.6, +(v + 0.1).toFixed(2)))}
+          disabled={uiScale >= 1.6}
+          title="Larger interface"
+          className="rs-btn px-2 py-1 text-xs disabled:opacity-40"
+        >
+          +
         </button>
       </MovablePanel>
 
