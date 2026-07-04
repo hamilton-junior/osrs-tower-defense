@@ -105,19 +105,6 @@ describe('spentOn / totalEssenceSpent / refundValue', () => {
   });
 });
 
-describe('prayerEfficiency (Clarity of Thought)', () => {
-  it('cuts drain in five −9% steps, maxing at 0.55 (−45%)', () => {
-    const d = def('prayerEfficiency');
-    expect(d.baseline).toBe(1);
-    let v = 1;
-    for (let i = 0; i < 5; i++) v = steppedValue(d, v);
-    expect(v).toBeCloseTo(0.55);
-    expect(purchaseCount(d, v)).toBe(5);
-    expect(isMaxed(d, v)).toBe(true);
-    expect(isMaxed(d, 0.64)).toBe(false); // one step short is not maxed
-  });
-});
-
 describe('formatUpgradeValue', () => {
   it('renders each format', () => {
     expect(formatUpgradeValue(def('startingMoney'), 250)).toBe('+250 gp');

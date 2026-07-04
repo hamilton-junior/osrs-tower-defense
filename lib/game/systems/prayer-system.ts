@@ -2,32 +2,28 @@ import type { GameEngine } from '../core/engine';
 import type { PrayerType } from '../types';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerDrainRate, isPrayerUnlocked, prayerMaxForWave } from './prayer';
-import { GLOBAL_UPGRADE_DEFS, isMaxed } from './meta-progression';
+import { GLOBAL_UPGRADE_DEFS } from './meta-progression';
 
 /** Scales the (deliberately small) pure drain rate up to a per-second cost
  *  that's meaningful against the wave-scaled pool over a wave. */
 const DRAIN_SCALE = 6;
 
-/** The two prayer meta upgrades gating the zero-drain capstone: efficiency also
- *  scales the live drain multiplier; regen must simply be maxed too. */
-const PRAYER_EFF_DEF = GLOBAL_UPGRADE_DEFS.find(d => d.id === 'prayerEfficiency');
+/** The Prayer-regen meta upgrade — its maxed value both drives idle recovery and
+ *  contributes to the active-drain reduction below. */
 const PRAYER_REGEN_DEF = GLOBAL_UPGRADE_DEFS.find(d => d.id === 'prayerRegen');
+const PRAYER_REGEN_MAX = PRAYER_REGEN_DEF?.max ?? 1;
 
 /**
- * Prayer-Restoration ("Vile Vigour") wizards that, together with a fully-maxed
- * Prayer-efficiency meta upgrade, let prayers run without ever draining. Derived
- * from the break-even at wave 20 — where the three strongest prayers (Piety,
- * Rigour, Augury) all unlock. There the trio drains 14.4 pts/s; the maxed
- * upgrade (−45%) cuts that to ~7.9 pts/s, and each battery restores wave/12 =
- * ~1.67 pts/s, so ⌈7.9 / 1.67⌉ = 5 batteries exactly cover it. Past wave 20 the
- * batteries only scale up, so 5 keeps sustaining the trio for the rest of the run.
+ * Active-drain reduction. Prayer Ward ("Vile Vigour") wizards each shave the
+ * live drain, and a maxed Prayer-regen upgrade shaves a little more. Tuned so the
+ * headline case lands exactly on target: with 5 wizards AND regen maxed, the
+ * three strongest prayers drain at HALF their base rate.
+ *   base(trio) = 14.4 pts/s → 5·0.08 (towers) + 0.10 (regen) = 0.50 → 7.2 pts/s.
+ * Capped at 0.5 so prayers always drain at least half — there is no zero-drain.
  */
-const PRAYER_SUSTAIN_TOWERS = 5;
-/**
- * Prayer points restored per second while not draining (idle / between waves)
- * are driven by the persistent `prayerRegen` meta-upgrade (0 with no upgrade,
- * up to +1.0/s fully bought — see the Essence Shop / meta-progression catalog).
- */
+const DRAIN_REDUCTION_PER_TOWER = 0.08;
+const REGEN_MAX_DRAIN_REDUCTION = 0.10;
+const DRAIN_REDUCTION_CAP = 0.5;
 /**
  * Prayer subsystem for the new core: owns the prayer-point pool and the set of
  * active prayers. While praying, points drain (via the tested `prayerDrainRate`)
@@ -83,7 +79,7 @@ export class PrayerSystem {
     this.emitNow();
   }
 
-  /** Count of Prayer-Restoration ("Vile Vigour") wizards currently fielded. */
+  /** Count of Prayer Ward ("Vile Vigour") wizards currently fielded. */
   private sanctityTowers(): number {
     let n = 0;
     for (const t of this.e.towers) {
@@ -93,29 +89,26 @@ export class PrayerSystem {
   }
 
   /**
-   * True when prayers are fully sustained — the ONLY way to reach zero drain:
-   * BOTH prayer meta upgrades are maxed (Prayer-efficiency AND Prayer-regen) AND
-   * at least {@link PRAYER_SUSTAIN_TOWERS} Prayer-Restoration wizards are on the
-   * field. Short of all three, prayers always drain (a maxed upgrade alone, or
-   * the towers alone, only slows it).
+   * Fraction (0–{@link DRAIN_REDUCTION_CAP}) the active drain is cut by: each
+   * Prayer Ward wizard shaves {@link DRAIN_REDUCTION_PER_TOWER}, plus up to
+   * {@link REGEN_MAX_DRAIN_REDUCTION} scaled by how far Prayer-regen is bought.
+   * At 5 wizards + maxed regen this is exactly 0.5 (drain halved).
    */
-  fullySustained(): boolean {
-    const up = this.e.meta.upgrades;
-    return !!PRAYER_EFF_DEF && !!PRAYER_REGEN_DEF
-      && isMaxed(PRAYER_EFF_DEF, up.prayerEfficiency)
-      && isMaxed(PRAYER_REGEN_DEF, up.prayerRegen)
-      && this.sanctityTowers() >= PRAYER_SUSTAIN_TOWERS;
+  drainReduction(): number {
+    const regenRatio = Math.min(1, Math.max(0, this.e.meta.upgrades.prayerRegen / PRAYER_REGEN_MAX));
+    const raw = DRAIN_REDUCTION_PER_TOWER * this.sanctityTowers() + REGEN_MAX_DRAIN_REDUCTION * regenRatio;
+    return Math.min(DRAIN_REDUCTION_CAP, raw);
   }
 
   update(dt: number) {
     // Prayers only cost points while a wave is in progress AND at least one
     // tower is actually engaging an enemy (has a target). With nothing to fight
-    // — between waves, or before enemies reach range — the drain pauses. The
-    // maxed-meta + 5-battery capstone stops the drain outright (see fullySustained).
+    // — between waves, or before enemies reach range — the drain pauses. Prayer
+    // Ward wizards + a maxed Prayer-regen upgrade cut the rate (down to half).
     const anyTowerAttacking = this.e.towers.some(t => t.targetId !== null);
-    const draining = this.active.size > 0 && this.e.waveActive && anyTowerAttacking && !this.fullySustained();
+    const draining = this.active.size > 0 && this.e.waveActive && anyTowerAttacking;
     if (draining) {
-      const drain = prayerDrainRate(this.active, PRAYERS, this.e.meta.upgrades.prayerEfficiency, 1) * DRAIN_SCALE;
+      const drain = prayerDrainRate(this.active, PRAYERS, 1, 1) * DRAIN_SCALE * (1 - this.drainReduction());
       this.points = Math.max(0, this.points - drain * dt);
       if (this.points <= 0) {
         this.active.clear();

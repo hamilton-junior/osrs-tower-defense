@@ -61,7 +61,9 @@ export const ANCIENTS: Record<AncientType, AncientSpec> = {
  * range, chosen by the player:
  *  - `curse`    → vulnerability field: enemies take +25% damage while inside.
  *  - `enfeeble` → frost field: enemies are slowed while inside.
- *  - `sanctity` → prayer battery: steadily restores Prayer points (no field).
+ *  - `sanctity` → Prayer Ward: cuts your active Prayer drain (no field). Each
+ *    such wizard shaves the drain; 5 of them (with a maxed Prayer-regen upgrade)
+ *    halve it. See {@link PrayerSystem.drainReduction}.
  */
 export type SupportSpellId = 'curse' | 'enfeeble' | 'sanctity';
 
@@ -77,19 +79,11 @@ export const SUPPORT_ORDER: SupportSpellId[] = ['curse', 'enfeeble', 'sanctity']
 export const SUPPORT_SPELLS: Record<SupportSpellId, SupportSpec> = {
   curse: { color: '#c77dff', label: 'Vulnerability', desc: 'Enemies in range take +25% damage', spell: 'Death_Charge' },
   enfeeble: { color: '#7fe6ff', label: 'Enfeeble', desc: 'Enemies in range are slowed', spell: 'Undead_Grasp' },
-  sanctity: { color: '#ffd24a', label: 'Prayer Restoration', desc: 'Steadily restores Prayer points', spell: 'Vile_Vigour' },
+  sanctity: { color: '#ffd24a', label: 'Prayer Ward', desc: 'Cuts your active Prayer drain (stacks per wizard)', spell: 'Vile_Vigour' },
 };
 
-/**
- * Prayer points/second a single Prayer-Restoration wizard restores. Scales with
- * the wave (~wave/20 per 0.6s game tick), NOT the tower level — so the trade-off
- * is how many regen towers you field (to sustain prayers) vs. spending those
- * tiles on damage/slow utilities. Multiple towers stack additively.
- */
+/** OSRS game tick (0.6s). */
 export const TICK_SECONDS = 0.6;
-export function sanctityRate(wave: number): number {
-  return (wave / 20) / TICK_SECONDS; // wave/20 per tick → points per second
-}
 
 /**
  * Spell names per tower level (level 1→4). Used to build the on-canvas spell

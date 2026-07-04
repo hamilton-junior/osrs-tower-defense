@@ -12,7 +12,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, synergyDamageMult, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, weaknessMultiplier, lifestealChance, bloodBonusFrac, sanctityRate, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, weaknessMultiplier, lifestealChance, bloodBonusFrac, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp } from '../systems/tower-identity';
@@ -1699,7 +1699,7 @@ export class GameEngine {
     this.damageOverTime(dt);
     this.moveEnemies(dt);
     this.fireTowers(dt);
-    this.updateUtilityTowers(dt);
+    this.updateUtilityTowers();
     this.moveProjectiles(dt);
     this.handleBossMechanics(dt);
     this.updateEffects(dt);
@@ -2306,15 +2306,12 @@ export class GameEngine {
    * frame (short refreshed timer) so it lasts exactly while an enemy is inside.
    * Sanctity has no field — it's a Prayer battery that trickles points back.
    */
-  private updateUtilityTowers(dt: number) {
+  private updateUtilityTowers() {
     for (const tower of this.towers) {
       if (tower.type !== 'wizard' || tower.mageMode !== 'utility') continue;
       const spell = tower.supportSpell ?? 'curse';
 
-      if (spell === 'sanctity') {
-        this.prayer.restore(sanctityRate(this.wave) * dt); // wave-scaled, stacks per tower
-        continue;
-      }
+      if (spell === 'sanctity') continue; // Prayer Ward: cuts drain (in PrayerSystem), no field
 
       const range = this.effectiveStats(tower.id)?.range ?? tower.range;
       const half = squareRange(range, GRID);

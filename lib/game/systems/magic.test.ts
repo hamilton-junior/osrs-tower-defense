@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, sanctityRate, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -75,8 +75,7 @@ describe('utility support spells', () => {
     expect(SUPPORT_ORDER).toEqual(['curse', 'enfeeble', 'sanctity']);
     for (const id of SUPPORT_ORDER) expect(SUPPORT_SPELLS[id]).toBeDefined();
   });
-  it('scales Prayer-Restoration regen with the wave (~wave/20 per tick)', () => {
-    expect(sanctityRate(20)).toBeCloseTo(1 / 0.6); // wave 20 → 1/tick
-    expect(sanctityRate(60)).toBeCloseTo(3 / 0.6); // wave 60 → 3/tick
+  it('labels sanctity as the Prayer Ward (drain reducer, no field)', () => {
+    expect(SUPPORT_SPELLS.sanctity.label).toBe('Prayer Ward');
   });
 });

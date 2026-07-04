@@ -64,8 +64,7 @@ export const GLOBAL_UPGRADE_DEFS: readonly UpgradeDef[] = [
   { id: 'cannonSpeed', name: 'Dwarf Engineering', desc: 'Cannon towers fire faster', icon: 'Cannon_barrels', baseCost: 200, inc: 0.1, baseline: 1, max: 2.0, format: 'mulBonus' },
   { id: 'rewardMultiplier', name: 'Wealthy Drops', desc: 'More gold from kills and wave clears', icon: 'Coins_detail', baseCost: 250, inc: 0.2, baseline: 1, max: 3.0, format: 'mulBonus' },
   { id: 'towerCostReduction', name: 'Bargain Hunter', desc: 'Towers cost less to build', icon: 'Coins_detail', baseCost: 300, inc: -0.05, baseline: 1, max: 0.5, format: 'mulReduction' },
-  { id: 'prayerRegen', name: 'Prayer Regeneration', desc: 'Prayer points recover between fights. Part of the zero-drain capstone (with Clarity of Thought + 5 Prayer-Restoration wizards).', icon: 'Prayer_icon', baseCost: 200, inc: 0.2, baseline: 0, max: 1.0, format: 'perSec' },
-  { id: 'prayerEfficiency', name: 'Clarity of Thought', desc: 'Active prayers drain slower. Max this AND Prayer Regeneration, then field 5 Prayer-Restoration wizards, and your prayers never drain at all.', icon: 'Prayer_icon', baseCost: 250, inc: -0.09, baseline: 1, max: 0.55, format: 'mulReduction' },
+  { id: 'prayerRegen', name: 'Prayer Regeneration', desc: 'Prayer points recover between fights, and — maxed — cut active Prayer drain by an extra 10% (stacks with Prayer Ward wizards).', icon: 'Prayer_icon', baseCost: 200, inc: 0.2, baseline: 0, max: 1.0, format: 'perSec' },
 ];
 
 /** Essence awarded for clearing `wave` — scales gently so late waves pay more.

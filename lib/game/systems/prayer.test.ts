@@ -35,10 +35,9 @@ describe('prayerDrainRate', () => {
       { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '' },
     ];
     const active = new Set<PrayerType>(['piety', 'rigour', 'augury']);
-    // 24/10 = 2.4 pure → ×6 DRAIN_SCALE = 14.4 pts/s at the sim layer.
+    // 24/10 = 2.4 pure → ×6 DRAIN_SCALE = 14.4 pts/s at the sim layer. Prayer
+    // Ward wizards + Prayer-regen then cut this rate (see prayer-system tests).
     expect(prayerDrainRate(active, trio, 1, 1)).toBeCloseTo(2.4);
-    // Clarity of Thought maxed (−45%): 2.4 × 0.55 = 1.32 pure → 7.92 pts/s.
-    expect(prayerDrainRate(active, trio, 0.55, 1)).toBeCloseTo(1.32);
   });
 });
 

@@ -8,22 +8,22 @@ function makeEngine(cfg: {
   wave: number;
   waveActive: boolean;
   towers: { type: string; mageMode?: string; supportSpell?: string; targetId: string | null }[];
-  prayerEfficiency: number;
   prayerRegen?: number;
 }): GameEngine {
   return {
     wave: cfg.wave,
     waveActive: cfg.waveActive,
     towers: cfg.towers,
-    meta: { upgrades: { ...DEFAULT_UPGRADES, prayerEfficiency: cfg.prayerEfficiency, prayerRegen: cfg.prayerRegen ?? 0 } },
+    meta: { upgrades: { ...DEFAULT_UPGRADES, prayerRegen: cfg.prayerRegen ?? 0 } },
     playSound() {},
     notify() {},
     requestEmit() {},
   } as unknown as GameEngine;
 }
 
-/** A Prayer-Restoration ("Vile Vigour") wizard, flagged as actively casting. */
-const battery = () => ({ type: 'wizard', mageMode: 'utility', supportSpell: 'sanctity', targetId: 'e' });
+/** A Prayer Ward ("Vile Vigour") wizard, flagged as actively casting. */
+const ward = () => ({ type: 'wizard', mageMode: 'utility', supportSpell: 'sanctity', targetId: 'e' });
+const wards = (n: number) => Array.from({ length: n }, ward);
 
 /** Turn on the three strongest prayers (all unlocked by wave 20). */
 function prayTrio(p: PrayerSystem) {
@@ -33,61 +33,59 @@ function prayTrio(p: PrayerSystem) {
   expect(p.active.size).toBe(3);
 }
 
-describe('PrayerSystem — drain of the three best prayers', () => {
-  it('drains 14.4 pts/s with no meta upgrade', () => {
-    const e = makeEngine({ wave: 20, waveActive: true, towers: [battery()], prayerEfficiency: 1 });
+describe('PrayerSystem — three best prayers, base drain', () => {
+  it('drains 14.4 pts/s with no wards and no regen', () => {
+    const e = makeEngine({ wave: 20, waveActive: true, towers: [ward()], prayerRegen: 0 });
+    // one ward present but regen 0 → reduction is only 1·0.08 = 0.08
     const p = new PrayerSystem(e);
     p.points = 99;
     prayTrio(p);
     p.update(1);
-    expect(p.points).toBeCloseTo(99 - 14.4); // 84.6
+    expect(p.points).toBeCloseTo(99 - 14.4 * (1 - 0.08)); // 13.248/s → 85.75
   });
 
-  it('drains 7.92 pts/s with the maxed upgrade but too few batteries', () => {
-    const towers = [battery(), battery(), battery(), battery()]; // 4 < 5
-    const e = makeEngine({ wave: 20, waveActive: true, towers, prayerEfficiency: 0.55 });
+  it('drains a clean 14.4 pts/s with nothing helping', () => {
+    const e = makeEngine({ wave: 20, waveActive: true, towers: [], prayerRegen: 0 });
+    // No wards; but with no towers there is nothing attacking, so add a plain
+    // attacker to make the wave "draining" without contributing reduction.
+    (e.towers as unknown[]).push({ type: 'archer', targetId: 'e' });
     const p = new PrayerSystem(e);
     p.points = 99;
     prayTrio(p);
-    expect(p.fullySustained()).toBe(false);
+    expect(p.drainReduction()).toBe(0);
     p.update(1);
-    expect(p.points).toBeCloseTo(99 - 7.92); // 91.08
+    expect(p.points).toBeCloseTo(99 - 14.4);
   });
 });
 
-describe('PrayerSystem — zero-drain capstone', () => {
-  it('never drains at BOTH metas maxed AND 5 batteries', () => {
-    const towers = [battery(), battery(), battery(), battery(), battery()]; // 5
-    const e = makeEngine({ wave: 20, waveActive: true, towers, prayerEfficiency: 0.55, prayerRegen: 1.0 });
-    const p = new PrayerSystem(e);
-    p.points = 42;
-    prayTrio(p);
-    expect(p.fullySustained()).toBe(true);
-    p.update(1);
-    // No drain at all — and with regen maxed the pool even ticks up (+1.0/s here)
-    // instead of falling. The key assertion is simply: it never went down.
-    expect(p.points).toBe(43);
-  });
-
-  it('needs ALL three — 5 batteries + maxed efficiency but un-maxed regen still drains', () => {
-    const towers = [battery(), battery(), battery(), battery(), battery()];
-    const e = makeEngine({ wave: 20, waveActive: true, towers, prayerEfficiency: 0.55, prayerRegen: 0.8 }); // regen one step short
+describe('PrayerSystem — Prayer Ward drain reduction', () => {
+  it('halves the drain with 5 wards AND regen maxed (7.2 pts/s)', () => {
+    const e = makeEngine({ wave: 20, waveActive: true, towers: wards(5), prayerRegen: 1.0 });
     const p = new PrayerSystem(e);
     p.points = 99;
     prayTrio(p);
-    expect(p.fullySustained()).toBe(false);
+    expect(p.drainReduction()).toBeCloseTo(0.5); // 5·0.08 + 0.10
     p.update(1);
-    expect(p.points).toBeLessThan(99);
+    expect(p.points).toBeCloseTo(99 - 7.2);
   });
 
-  it('needs ALL three — 5 batteries + maxed regen but un-maxed efficiency still drains', () => {
-    const towers = [battery(), battery(), battery(), battery(), battery()];
-    const e = makeEngine({ wave: 20, waveActive: true, towers, prayerEfficiency: 0.64, prayerRegen: 1.0 }); // efficiency one step short
+  it('reduces less without maxed regen — 5 wards alone give -40%', () => {
+    const e = makeEngine({ wave: 20, waveActive: true, towers: wards(5), prayerRegen: 0 });
     const p = new PrayerSystem(e);
     p.points = 99;
     prayTrio(p);
-    expect(p.fullySustained()).toBe(false);
+    expect(p.drainReduction()).toBeCloseTo(0.4);
     p.update(1);
-    expect(p.points).toBeLessThan(99);
+    expect(p.points).toBeCloseTo(99 - 14.4 * 0.6); // 8.64/s → 90.36
+  });
+
+  it('never cuts below half — extra wards past 5 are capped', () => {
+    const e = makeEngine({ wave: 20, waveActive: true, towers: wards(10), prayerRegen: 1.0 });
+    const p = new PrayerSystem(e);
+    p.points = 99;
+    prayTrio(p);
+    expect(p.drainReduction()).toBe(0.5); // capped, not 0.9
+    p.update(1);
+    expect(p.points).toBeCloseTo(99 - 7.2); // still half, never zero
   });
 });
