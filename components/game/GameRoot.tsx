@@ -23,7 +23,7 @@ import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 /** Which interface fills the bottom-right sidebar body (OSRS tabbed-sidebar
  *  model — one stone per interface). 'home' = wave control + tower shop. */
-type SideTab = 'home' | 'ge' | 'essence' | 'slayer';
+type SideTab = 'home' | 'essence' | 'slayer';
 const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
 const towerTierIcon = (type: TowerType, tier: number) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[tier];
@@ -374,27 +374,20 @@ export default function GameRoot() {
   // "How to Play" reference guide — reachable any time from the start screen or
   // the ❓ stone. (The FIRST-visit onboarding is the guided tour below, not this.)
   const [helpOpen, setHelpOpen] = useState(false);
-  // Guided tour: a step-by-step spotlight of the live UI, shown once on a
-  // player's first ever run. `tourPending` waits for the run to actually start
-  // (so the game UI is on-screen to point at); it's only marked "seen" when the
-  // tour is finished or skipped, so a reload before then doesn't lose it.
-  const [tourPending, setTourPending] = useState(() => !loadBool('osrs_td_seen_tutorial', false));
-  const [tourOpen, setTourOpen] = useState(false);
-  useEffect(() => {
-    if (tourPending && runStarted) setTourOpen(true);
-  }, [tourPending, runStarted]);
-  const closeTour = useCallback(() => {
-    setTourOpen(false);
-    setTourPending(false);
-    try { localStorage.setItem('osrs_td_seen_tutorial', JSON.stringify(true)); } catch { /* ignore */ }
-  }, []);
-  // Replay the guided tour from the ❓ guide. Close the guide and reveal the live
-  // game UI (the tour points at it), then start the tour from step one.
-  const replayTour = useCallback(() => {
-    setHelpOpen(false);
-    setRunStarted(true);
-    setTourOpen(true);
-  }, []);
+  // Learn-as-you-go coaching: instead of one long up-front tour, a single
+  // contextual tip surfaces the first time each situation comes up (place a
+  // tower, send the first wave, first boss / affix / event…). Each tip is
+  // dismissed once and remembered in localStorage, so the game teaches itself
+  // gradually without overwhelming a newcomer.
+  const [learnSeen, setLearnSeen] = useState<string[]>(() => {
+    try { const v = JSON.parse(localStorage.getItem('osrs_td_learn_seen') ?? 'null'); return Array.isArray(v) ? v : []; } catch { return []; }
+  });
+  useEffect(() => { try { localStorage.setItem('osrs_td_learn_seen', JSON.stringify(learnSeen)); } catch { /* ignore */ } }, [learnSeen]);
+  const markTipSeen = useCallback((id: string) => setLearnSeen((s) => (s.includes(id) ? s : [...s, id])), []);
+  // "Skip tips" retires every remaining tip; "Replay tips" (from the ❓ guide)
+  // wipes the seen set so they all surface again as you play.
+  const skipAllTips = useCallback(() => setLearnSeen(LEARN_STEPS.map((s) => s.id)), []);
+  const resetTips = useCallback(() => { setHelpOpen(false); setLearnSeen([]); }, []);
   // Minimize state for the prayer bar (collapses to the best prayer per style).
   const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
   useEffect(() => { try { localStorage.setItem('ui_min_prayers', JSON.stringify(prayersMin)); } catch { /* ignore */ } }, [prayersMin]);
@@ -402,6 +395,10 @@ export default function GameRoot() {
   // minimises the body (OSRS-style), leaving only the tab strip + tower dock.
   const [sideBodyMin, setSideBodyMin] = useState(() => loadBool('ui_min_sidebody', false));
   useEffect(() => { try { localStorage.setItem('ui_min_sidebody', JSON.stringify(sideBodyMin)); } catch { /* ignore */ } }, [sideBodyMin]);
+  // Optionally hide the always-on Start Wave button (above the tower dock) and
+  // drive waves with the spacebar only. Off by default — the button is shown.
+  const [hideStartWave, setHideStartWave] = useState(() => loadBool('ui_hide_startwave', false));
+  useEffect(() => { try { localStorage.setItem('ui_hide_startwave', JSON.stringify(hideStartWave)); } catch { /* ignore */ } }, [hideStartWave]);
   // Click a tab stone: switch to it (and expand) if it's another tab; toggle the
   // body minimised if it's already the active one.
   const onSideTab = useCallback((t: SideTab) => {
@@ -1640,9 +1637,6 @@ export default function GameRoot() {
           <button onClick={() => onSideTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.multicombat_icon} alt="Towers &amp; Wave" onError={hideBrokenImg} />
           </button>
-          <button data-tut="ge" onClick={() => onSideTab('ge')} title="Grand Exchange" className={`rs-tab ${tab === 'ge' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
-            <img src={ASSETS.misc.ge_logo} alt="Grand Exchange" onError={hideBrokenImg} />
-          </button>
           <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
             <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
             <span className="rs-tab-badge">{fmt(ui.essence)}</span>
@@ -1719,17 +1713,11 @@ export default function GameRoot() {
           ) : (
             <>
               {/* Mode is chosen on the StartScreen; here we only show the current
-                  mode as a small badge before each wave starts. */}
+                  mode as a small badge before each wave starts. The Start Wave
+                  button itself lives just above the tower dock (always visible). */}
               <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
                 Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
               </div>
-              <button
-                data-tut="startwave"
-                className="rs-btn rs-btn-primary w-full py-[0.5em] mb-[0.6em] text-[1.05em] animate-pulse"
-                onClick={() => engineRef.current?.startWave()}
-              >
-                ▶ Start Wave {ui.wave}
-              </button>
             </>
           )
         )}
@@ -1745,45 +1733,6 @@ export default function GameRoot() {
             highlight={hoverBoonGroup ? boonGroups[hoverBoonGroup].sources.map((s) => s.id) : null}
           />
         )}
-        </>
-        )}
-
-        {/* ── GRAND EXCHANGE ── */}
-        {tab === 'ge' && (
-        <>
-          <div className="rs-panel-title flex items-center gap-2">
-            <img src={ASSETS.misc.ge_logo} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-            Grand Exchange
-          </div>
-          <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
-            {ui.geOffers.map((o) => {
-              const afford = ui.money >= o.price;
-              return (
-                <button
-                  key={o.id}
-                  onClick={() => engineRef.current?.buyGeOffer(o.id)}
-                  disabled={!afford}
-                  title={o.desc}
-                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${afford ? '' : 'rs-slot-unafford'}`}
-                >
-                  <img src={geIcon(o.wiki)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-[0.4em]">
-                      <span className="text-[#e7d9b0] truncate">{o.name}</span>
-                      {o.activeSecs > 0 && <span className="rs-ge-timer">{o.activeSecs}s</span>}
-                    </span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{o.desc}</span>
-                  </span>
-                  <span className="font-bold whitespace-nowrap" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
-                    {fmt(o.price)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
-            Buffs last 45s · prices drift with demand each wave
-          </p>
         </>
         )}
 
@@ -1908,12 +1857,32 @@ export default function GameRoot() {
         </div>
         )}
 
+        {/* Start Wave — always one click above the tower dock, no matter which
+            interface tab is open. Only between waves (during a wave the Home tab
+            shows the progress bar instead). Can be hidden from the controls bar,
+            where the spacebar still sends waves. `order-3` sits it below the tab
+            strip and above the dock. */}
+        {!ui.gameOver && !ui.waveActive && !hideStartWave && (
+          <div
+            className="order-3 shrink-0 pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
+            style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
+          >
+            <button
+              data-tut="startwave"
+              className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse"
+              onClick={() => engineRef.current?.startWave()}
+            >
+              ▶ Start Wave {ui.wave}
+            </button>
+          </div>
+        )}
+
         {/* Tower shop — ALWAYS visible, regardless of the selected tab, so towers
-            stay one click away while browsing the GE / Essence / Slayer interfaces.
+            stay one click away while browsing the Essence / Slayer interfaces.
             The tab stones only swap the top section; this dock never unmounts.
-            `order-3` keeps it pinned at the very bottom, below the tab strip. */}
+            `order-4` keeps it pinned at the very bottom, below the Start Wave slot. */}
         <div
-          className="order-3 shrink-0 relative pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
+          className="order-4 shrink-0 relative pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
           style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
         >
           {/* Hover tooltip: tier-1 stats before buying (anchored above the dock) */}
@@ -2032,6 +2001,18 @@ export default function GameRoot() {
         >
           {ui.muted ? 'off' : `${Math.round(ui.volume * 100)}%`}
         </span>
+        {/* Show/hide the always-on Start Wave button (spacebar still sends waves). */}
+        <span className="text-[10px] text-[#d3c3a0] ml-2 mr-1 uppercase tracking-wide select-none">Start&nbsp;▶</span>
+        <button
+          onClick={() => setHideStartWave((v) => !v)}
+          aria-pressed={!hideStartWave}
+          title={hideStartWave
+            ? 'Start Wave button is hidden — press Space to send waves. Click to show it.'
+            : 'Hide the Start Wave button and send waves with Space instead.'}
+          className={`rs-btn px-2 py-1 text-xs ${hideStartWave ? '' : 'rs-btn-primary'}`}
+        >
+          {hideStartWave ? 'Off' : 'On'}
+        </button>
       </MovablePanel>
 
       {debugOpen && (
@@ -2200,10 +2181,20 @@ export default function GameRoot() {
       )}
 
       {/* How-to-play reference guide — top layer so it reads over the start screen too */}
-      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} onReplay={replayTour} />}
+      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} onResetTips={resetTips} />}
 
-      {/* First-run guided tour — spotlights each part of the live UI in turn */}
-      {tourOpen && <GuidedTour onClose={closeTour} />}
+      {/* Learn-as-you-go: one contextual tip at a time, keyed to what's happening
+          on-screen. Suppressed over the start screen, game-over, the guide and the
+          draft overlay so it never fights another modal. */}
+      {runStarted && !ui.gameOver && !helpOpen && !ui.pendingDraft && (
+        <LearnAsYouGo
+          ui={ui}
+          towersPlaced={(engineRef.current?.towers.length ?? 0) > 0}
+          seen={learnSeen}
+          onSeen={markTipSeen}
+          onSkipAll={skipAllTips}
+        />
+      )}
     </div>
   );
 }
@@ -2520,60 +2511,90 @@ function Stat({ icon, label, value }: { icon?: string; label: string; value: Rea
  *  restart). Two selectable mode panels — Classic (pure TD) vs Roguelite (per-wave
  *  draft) — plus a Start button that locks the choice and kicks off wave 1. Mode
  *  can only change here, since the engine freezes it once a run begins. */
-// ─────────────────────────── Guided first-run tour ────────────────────────
-// A step-by-step spotlight over the live UI: each step optionally points at a
-// real element (tagged `data-tut="…"`) by measuring its on-screen rect, dimming
-// everything else, and floating a caption beside it. Steps without a target are
-// centred (intro / whole-screen context). Shown once on a player's first run.
+// ───────────────────────── Learn-as-you-go coaching ───────────────────────
+// One contextual tip at a time, surfaced the first time each situation applies
+// (place a tower, send the first wave, first affix / event / boss…). Each tip
+// anchors to a live UI element (tagged `data-tut="…"`) or floats top-centre,
+// never blocks the game underneath, and is remembered once dismissed — teaching
+// the game gradually instead of front-loading one long tour.
 
-interface TourStep { target?: string; title: string; body: string }
+interface LearnCtx { towersPlaced: boolean }
+interface LearnStep {
+  id: string;
+  target?: string;
+  title: string;
+  body: string;
+  /** Trigger: show this tip the first time it returns true. Kept simple and
+   *  mostly keyed to a specific wave/phase so tips never bunch up. */
+  when: (ui: UIState, ctx: LearnCtx) => boolean;
+}
 
-const TOUR_STEPS: TourStep[] = [
-  { title: 'Welcome to OSRS Tower Defense', body: 'A quick tour of the screen and its systems. Hit Skip anytime — and you can reopen the full guide from the ❓ stone later.' },
-  { title: 'The battlefield', body: 'Enemies march along the path toward your base. You stop them by building towers on the grass — they aim and fire on their own.' },
-  { target: 'dock', title: 'Tower shop', body: 'Pick a tower here, then click the grass to place it. Hover any tower first to see what it does and its cost.' },
-  { target: 'startwave', title: 'Start the wave', body: 'Set up your defences, then press this to send the next wave. Between waves the game waits — no rush.' },
-  { target: 'hud', title: 'Lives & gold', body: 'Up here: your lives (you lose one each time an enemy reaches the base) and your gold (earned from kills, spent on towers).' },
-  { title: 'Enemy affixes', body: 'From wave 5, some enemies glow with an affix that changes the rules: Shielded soaks a burst, Armored halves one style, Warded ignores slows/stuns, Volatile disables a tower on death, Swarm packs in, Colossal costs two lives. Just one affix when they first unlock — but deep into a run a single elite can stack several at once. Read the aura colours and diversify your defences.' },
-  { title: 'Wave events', body: 'From wave 3, a wave can roll an event — a board-wide twist shown by a banner under the wave bar that lasts just that wave. Hazards make you adapt: Dense Fog shrinks tower range, Iron Tide toughens every enemy, Frenzy speeds the horde, Curse of Darkness saps your damage, Infestation swells the wave with frail stragglers. Blood Moon is a gamble — harder, but pays far more gold. And boons help: Overcharge (faster towers), Clear Skies (more range), War Banner (more damage). Events never roll on a boss wave.' },
-  { title: 'Boss mechanics', body: 'The signature bosses fight back. Zulrah cycles three forms (green / blue / red) — each weak to one style and resistant to the others, so switch towers to match its colour. Vorkath periodically raises an ice shield: it turns immune and freezes your nearest tower for a few seconds — weather it. Jad summons Yt-HurKot healers below half health that claw back the damage you dealt him — divert fire to kill the healers. And once you have beaten a boss, future encounters can also roll affixes on top.' },
-  { title: 'Relics (Roguelite)', body: 'In Roguelite mode, every 5th wave swaps the card draft for a choice of Relics: powerful run-long passives, one of each, themed on the OSRS Leagues relics. Executioner slays low-health enemies outright, Banker\'s Note pays gold interest each wave, Trickster re-rolls a draft hand, Production Prodigy adds a card to every hand, and Last Recall cheats one lethal leak. They live in your Relics panel, above the rule-changing Boons.' },
-  { target: 'prayers', title: 'Prayer', body: 'Toggle prayers to buff a tower style (ranged / magic / melee) or protect your base. They drain a Prayer pool while on and refill between waves — flip the big ones on for boss waves.' },
-  { target: 'sidebar', title: 'More interfaces', body: 'These stones open the Grand Exchange, Essence Shop, Slayer Rewards and the Collection Log. The next few steps walk through each.' },
-  { target: 'ge', title: 'Grand Exchange', body: 'Spend gold on potions and consumables for a timed buff. Prices drift with demand each wave, so stock up on the buffs you rely on when they are cheap.' },
-  { target: 'essence', title: 'Essence Shop', body: 'Rune Essence is earned every wave and kept forever — even through a game over. Spend it here on permanent global upgrades that seed every future run.' },
-  { target: 'slayer', title: 'Slayer', body: 'A master assigns a kill-X-of-a-monster task for Slayer points and a streak. Spend points on a Helmet (+damage vs your task), Skip Task, or convert them into permanent essence.' },
-  { title: 'Magic spellbooks', body: 'Before placing a Wizard you pick its spellbook: Elemental (single-target burst), Ancients (AoE barrage) or Utility (support). It locks once placed — match the book to the threat, and hit enemies with the element they are weak to.' },
-  { target: 'controls', title: 'Speed & sound', body: 'Fast-forward the action at 1× / 2× / 5×, pause, and set the volume — all down here.' },
-  { target: 'help', title: 'Need a refresher?', body: 'Click the ❓ stone anytime to reopen the full How to Play guide — every system above has a detailed page there. Good luck out there!' },
+const LEARN_STEPS: LearnStep[] = [
+  { id: 'build', target: 'dock', title: 'Build your first tower',
+    body: 'Pick a tower from the dock, then click the grass to place it. It aims and fires on its own — you win by positioning, not aiming.',
+    when: (ui, c) => !ui.waveActive && ui.wave === 1 && !c.towersPlaced },
+  { id: 'start', target: 'startwave', title: 'Send the wave',
+    body: 'Happy with your defences? Press Start Wave — or tap Space. Nothing spawns until you do, so the game waits while you build.',
+    when: (ui, c) => !ui.waveActive && ui.wave === 1 && c.towersPlaced },
+  { id: 'hud', target: 'hud', title: 'Lives & gold',
+    body: 'These orbs are your lives and gold. Every enemy that reaches the base costs a life; every kill pays gold for more towers and upgrades.',
+    when: (ui) => ui.waveActive && ui.wave === 1 },
+  { id: 'upgrade', target: 'dock', title: 'Spend between waves',
+    body: 'Click a tower you built to upgrade or sell it, and buy more from the dock. Build mode is paused, so take your time before the next wave.',
+    when: (ui) => !ui.waveActive && ui.wave === 2 },
+  { id: 'prayer', target: 'prayers', title: 'Prayer',
+    body: 'Toggle a prayer to buff a tower style or shield your base. It drains a pool that refills between waves — flip the strong ones on for boss waves.',
+    when: (ui) => !ui.waveActive && ui.wave === 3 },
+  { id: 'sidebar', target: 'sidebar', title: 'Shops & guide',
+    body: 'These stones open the Essence Shop (permanent upgrades) and Slayer Rewards. The ❓ stone reopens the quick reference anytime.',
+    when: (ui) => !ui.waveActive && ui.wave === 4 },
+  { id: 'affix', title: 'Elite enemies',
+    body: 'Some enemies now arrive glowing with an affix that rewrites the rules — Shielded, Armored, Hasted and more. Read the aura colour and diversify your towers.',
+    when: (ui) => ui.wave >= 5 && ui.waveActive },
+  { id: 'event', title: 'Wave event',
+    body: 'A board-wide twist just rolled for this wave only. Some hurt (less range, tougher enemies), some help (faster or longer-range towers) — adapt until the banner clears.',
+    when: (ui) => !!ui.activeEvent },
+  { id: 'boss', title: 'Boss wave',
+    body: 'A boss has its own health bar and a mechanic to answer — pile your strongest towers and buffs on it, and watch the caption under its bar.',
+    when: (ui) => ui.bossWave },
+  { id: 'draft', title: 'Reward cards',
+    body: 'You kept your first reward card. Draft one each wave to snowball a build; rule-changing cards gather in your Boons panel, with a Relic every 5th wave.',
+    when: (ui) => ui.gameMode === 'roguelite' && ui.runCards.length > 0 },
 ];
 
-/** First-run guided tour overlay. Measures each step's target rect, draws a
- *  spotlight (the rest dimmed via a giant box-shadow), and anchors a caption
- *  beside it with Back / Next / Skip. */
-function GuidedTour({ onClose }: { onClose: () => void }) {
-  const [i, setI] = useState(0);
+/** Learn-as-you-go coach. Renders the first not-yet-seen tip whose trigger fits
+ *  the current game state, anchored beside its `data-tut` target (or floating
+ *  top-centre when it has none) with a highlight ring. Non-blocking — the game
+ *  plays on underneath. "Got it" retires the tip; "Skip tips" retires them all. */
+function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll }: {
+  ui: UIState;
+  towersPlaced: boolean;
+  seen: string[];
+  onSeen: (id: string) => void;
+  onSkipAll: () => void;
+}) {
+  const step = LEARN_STEPS.find((s) => !seen.includes(s.id) && s.when(ui, { towersPlaced })) ?? null;
   const [box, setBox] = useState<{ rect: DOMRect | null; vw: number; vh: number }>({ rect: null, vw: 0, vh: 0 });
-  const step = TOUR_STEPS[i];
-  const last = i === TOUR_STEPS.length - 1;
+  const target = step?.target;
 
   useLayoutEffect(() => {
     const measure = () => {
-      const el = step.target ? document.querySelector(`[data-tut="${step.target}"]`) : null;
+      const el = target ? document.querySelector(`[data-tut="${target}"]`) : null;
       setBox({ rect: el ? el.getBoundingClientRect() : null, vw: window.innerWidth, vh: window.innerHeight });
     };
     measure();
     window.addEventListener('resize', measure);
-    const id = window.setInterval(measure, 250); // re-measure: panels may move / layout settles
+    const id = window.setInterval(measure, 300); // panels drift / layout settles
     return () => { window.removeEventListener('resize', measure); window.clearInterval(id); };
-  }, [step.target]);
+  }, [target, step?.id]);
 
+  if (!step) return null;
   const { rect, vw, vh } = box;
   const pad = 6;
   const balloonW = Math.min(340, (vw || 360) - 24);
 
-  // Place the caption beside the spotlight on whichever side has room; centre it
-  // when the step has no target. Clamp so it never spills off-screen.
+  // Beside the target on whichever side has room; float top-centre when the tip
+  // is targetless (so it never covers the battlefield or the bottom panels).
   let bStyle: React.CSSProperties;
   if (rect) {
     const placeBelow = vh - rect.bottom > 200 || vh - rect.bottom >= rect.top;
@@ -2583,20 +2604,11 @@ function GuidedTour({ onClose }: { onClose: () => void }) {
       ? { left, top: Math.min(rect.bottom + 14, vh - 170) }
       : { left, bottom: Math.min(vh - rect.top + 14, vh - 60) };
   } else {
-    bStyle = { left: (vw || 360) / 2 - balloonW / 2, top: (vh || 640) / 2 - 90 };
+    bStyle = { left: (vw || 360) / 2 - balloonW / 2, top: 16 };
   }
-
-  const next = () => (last ? onClose() : setI((n) => Math.min(TOUR_STEPS.length - 1, n + 1)));
 
   return (
     <>
-      {/* Click-blocker. With a target, the spotlight's box-shadow does the dimming;
-          without one, this sheet dims the whole screen. */}
-      <div
-        className="fixed inset-0 z-[60]"
-        style={{ background: rect ? 'transparent' : 'rgba(0,0,0,0.8)' }}
-        onClick={(e) => e.stopPropagation()}
-      />
       {rect && (
         <div
           className="fixed z-[61] pointer-events-none"
@@ -2604,27 +2616,20 @@ function GuidedTour({ onClose }: { onClose: () => void }) {
             left: rect.left - pad, top: rect.top - pad,
             width: rect.width + pad * 2, height: rect.height + pad * 2,
             borderRadius: 8, border: '2px solid var(--osrs-orange)',
-            boxShadow: '0 0 0 9999px rgba(0,0,0,0.74), 0 0 12px 2px rgba(255,140,0,0.5)',
+            boxShadow: '0 0 12px 2px rgba(255,140,0,0.5)',
             transition: 'left .2s, top .2s, width .2s, height .2s',
           }}
         />
       )}
       <div className="fixed z-[62] rs-panel p-3 flex flex-col" style={{ ...bStyle, width: balloonW, fontSize: 'clamp(13px,0.85vw,17px)' }}>
-        <div className="flex items-center justify-between mb-[0.3em]">
+        <div className="flex items-center justify-between gap-[0.5em] mb-[0.3em]">
           <span className="text-osrs-orange font-bold text-[0.95em]">{step.title}</span>
-          <span className="text-[0.68em] text-[#cdbe91]">{i + 1}/{TOUR_STEPS.length}</span>
+          <span className="text-[0.55em] uppercase tracking-wide text-[#cdbe91] border border-[#6f6250] rounded-sm px-[0.45em] py-[0.05em] shrink-0">Tip</span>
         </div>
         <p className="text-[0.82em] text-[#d3c3a0] leading-snug mb-[0.7em]">{step.body}</p>
         <div className="flex items-center justify-between gap-[0.5em]">
-          <button className="rs-btn px-[0.7em] py-[0.25em] text-[0.72em]" onClick={onClose}>Skip</button>
-          <div className="flex items-center gap-[0.4em]">
-            {i > 0 && (
-              <button className="rs-btn px-[0.8em] py-[0.25em] text-[0.78em]" onClick={() => setI((n) => Math.max(0, n - 1))}>‹ Back</button>
-            )}
-            <button className="rs-btn rs-btn-primary px-[0.9em] py-[0.25em] text-[0.78em]" onClick={next}>
-              {last ? 'Finish ✓' : 'Next ›'}
-            </button>
-          </div>
+          <button className="rs-btn px-[0.7em] py-[0.25em] text-[0.72em]" onClick={onSkipAll}>Skip tips</button>
+          <button className="rs-btn rs-btn-primary px-[0.9em] py-[0.25em] text-[0.78em]" onClick={() => onSeen(step.id)}>Got it ✓</button>
         </div>
       </div>
     </>
@@ -2637,227 +2642,68 @@ function GuidedTour({ onClose }: { onClose: () => void }) {
 // Slayer, GE, Magic, meta) is one tab away. Content is data so the copy stays
 // readable and easy to tweak without touching layout.
 
-type HelpTier = 'basic' | 'advanced';
-interface HelpBlock { icon?: string; title?: string; body: string; }
-interface HelpSection { id: string; label: string; tier: HelpTier; intro?: string; blocks: HelpBlock[] }
+// A short TL;DR reference for the How to Play window. The learn-as-you-go tips
+// (LEARN_STEPS) teach each system in context the first time it appears; this is
+// the terse cheat sheet a returning player skims to remember how something works.
+interface TldrGroup { h: string; lines: string[] }
 
-const COLLECTION_LOG_ICON = iconUrl('Collection_log');
-
-const HELP_SECTIONS: HelpSection[] = [
-  {
-    id: 'basics', label: 'Basics', tier: 'basic',
-    intro: "Never played a tower defense? Here's the whole idea in four steps.",
-    blocks: [
-      { title: 'Enemies follow the path', body: 'Each wave, monsters march along the marked path toward your base. They never attack your towers — they just try to get through.' },
-      { title: 'You build towers', body: 'Place towers on the grass beside the path. They shoot anything in range on their own — you win by positioning, not aiming.' },
-      { title: 'Kills pay for more', body: 'Every kill drops gold. Spend it on new towers and upgrades. Stronger defences let you survive deeper, tougher waves.' },
-      { title: "Don't let them through", body: 'An enemy that reaches your base costs a life. Lose all your lives and the run ends. That is the whole game: outbuild the horde.' },
-    ],
-  },
-  {
-    id: 'towers', label: 'Towers', tier: 'basic',
-    blocks: [
-      { title: 'Placing', body: 'Pick a tower from the dock, then click an empty patch of grass. Its price is on the button; the ring that appears is its attack range.' },
-      { title: 'Upgrade & sell', body: "Click a tower you've built to open it. Upgrade raises its tier — more damage, range and fire rate. Sell refunds it and frees the spot." },
-      { title: 'Target priority', body: 'Each tower can focus the First, Last, Strongest, Weakest or Closest enemy in range. Strongest hunts tanks; First stops leaks at the front.' },
-      { title: 'Build in bulk', body: 'Hold Shift to keep placing the same tower without re-picking it. Drag a box over several towers to select them and upgrade the whole batch at once.' },
-      { title: 'Every tower has a niche', body: 'Archer = fast volume DPS (twin-shot when upgraded). Wizard = the all-rounder, its spellbook does single-target or AoE. Cannon = splash crowd-clear. TzHaar = heavy melee. Slayer = bonus vs your task, superiors and bosses. Toxic = venom that climbs the longer it burns.' },
-    ],
-  },
-  {
-    id: 'waves', label: 'Waves & Lives', tier: 'basic',
-    blocks: [
-      { title: 'Start a wave', body: 'Nothing spawns until you press Start Wave. Between waves the game sits in build mode (paused) so you can place and upgrade freely — take your time.' },
-      { title: 'Boss waves', body: 'Some waves bring a boss with its own health bar. They hit harder and soak far more damage — line up your strongest towers and buffs first.' },
-      { title: 'Lives & game over', body: 'The hearts up top are your lives; every leak takes one. At zero the run ends with a summary screen, and you can jump straight into another.' },
-      { title: 'Speed & pause', body: 'Run the action at 1× / 2× / 5× to fast-forward the quiet stretches, and press Esc (or ⏸) to pause whenever you need to think. Space sends the next wave.' },
-    ],
-  },
-  {
-    id: 'affixes', label: 'Enemy Affixes', tier: 'basic',
-    intro: 'From wave 5 on, some enemies arrive "elite" — glowing with an affix that forces you to adapt instead of stacking one tower.',
-    blocks: [
-      { title: 'How to read them', body: 'An elite enemy is wrapped in a coloured aura — one ring per affix. On the wave they first unlock an elite always carries exactly one; the deeper you push, the more a single enemy can stack (with no hard ceiling), so read every ring. Bosses come clean the first time, then can roll affixes on top of their mechanics on later encounters.' },
-      { title: 'Defensive affixes', body: 'Shielded — a cyan pip soaks a burst of damage before its health is touched (punishes chip DPS). Armored — takes half damage from one combat style, so bring another. Regenerating — heals over time unless you finish it fast.' },
-      { title: 'Disruptive affixes', body: 'Warded — immune to slows, stuns and freezes. Volatile — detonates on death, briefly disabling your nearest tower (so don’t cram towers in one spot). Hasted — moves much faster and exposes coverage gaps.' },
-      { title: 'Mass affixes', body: 'Swarm — arrives as a pack of frail copies, so spread/area damage shines. Colossal — one hulking, slow straggler with extra health that costs two lives if it leaks. Diversify your defences and elites stop being scary.' },
-    ],
-  },
-  {
-    id: 'events', label: 'Wave Events', tier: 'basic',
-    intro: 'From wave 3 on, a wave can roll an event — a board-wide twist announced by a banner under the wave bar that lasts that one wave, then clears. It hits every enemy and every tower, in both Classic and Roguelite.',
-    blocks: [
-      { title: 'Hazards', body: 'Most events make you work: Dense Fog cuts your towers’ range, Iron Tide makes every enemy far tougher, Frenzy sends the horde charging in much faster, Curse of Darkness saps your towers’ damage, and Infestation swells the wave with frail, numberless stragglers. Read the banner and play around it — reposition, switch styles, lean on area damage.' },
-      { title: 'Risk & reward', body: 'Blood Moon is the gamble: enemies are stronger and swifter, but drop far more gold. It never inflates the economy for free — you earn the payout by beating a genuinely harder wave.' },
-      { title: 'Boons', body: 'Some events help instead: Overcharge speeds up every tower, Clear Skies extends their range, and War Banner boosts their damage. When one lands, press the advantage. Events never roll on a boss wave — the boss is the headline act.' },
-    ],
-  },
-  {
-    id: 'bosses', label: 'Boss Mechanics', tier: 'basic',
-    intro: 'The signature bosses are not just big health bars — each fights with its own mechanic you have to answer.',
-    blocks: [
-      { title: 'Zulrah — rotating forms', body: 'Zulrah cycles three forms shown by its colour: green is weak to magic, blue to ranged, red to melee — and it strongly resists the other two styles. Watch the tint and the caption under its health bar, and switch which towers are firing to match the current form.' },
-      { title: 'Vorkath — ice shield', body: 'Every so often Vorkath raises an ice shield: it turns fully immune to damage and freezes your nearest tower for a few seconds. You cannot out-DPS the shield — keep the rest of your line firing and wait it out, then resume.' },
-      { title: 'Jad — Yt-HurKot healers', body: 'Below half health Jad summons healer orbs that regenerate a slice of the damage you just dealt him, undoing your progress. Divert fire to cut the healers down (they award nothing — their death is the reward); kill them all and pile back onto Jad before he summons another batch.' },
-      { title: 'Boss modifiers', body: 'Once you have survived a boss at least once, future encounters can also roll one or two of the normal affixes on top of its mechanic — a Shielded or Hasted Zulrah, say. The very first time you meet a boss is always the clean, mechanic-only fight.' },
-    ],
-  },
-  {
-    id: 'roguelite', label: 'Roguelite', tier: 'basic',
-    intro: 'The Roguelite mode layers a card draft on top of everything above.',
-    blocks: [
-      { icon: COLLECTION_LOG_ICON, title: 'Pick one card per wave', body: 'Clear a wave and you are offered three reward cards — keep one. They stack all run long, so your defences snowball into a build that is uniquely yours.' },
-      { title: 'Rarities', body: 'Cards range Common → Uncommon → Rare → Ultra-rare. Rarer cards are stronger or wilder, and turn up far less often.' },
-      { title: 'What cards do', body: 'Some give flat boosts — damage, range, gold, lives, essence. Others rewrite how towers behave: ricochet kills, venom tips, chain-freeze, pierce, last-stand. The rule-changing ones gather in your Boons panel.' },
-      { title: 'Relics — milestone picks', body: 'Every 5th wave the draft is replaced by a choice of Relics: powerful, run-long passives you only ever hold one of, themed on the OSRS Leagues relics. Executioner slays low-health enemies outright, Banker\'s Note pays interest each wave, Trickster lets you re-roll a draft hand, Production Prodigy adds a card to every hand, and Last Recall saves you from one lethal leak. They sit in your Relics panel, above your Boons.' },
-      { title: 'Run summary', body: 'When a run ends you get a recap — wave reached, kills, gold, essence banked, the relics you claimed and the full build of cards you drafted.' },
-    ],
-  },
-  {
-    id: 'prayer', label: 'Prayer', tier: 'advanced',
-    intro: 'Prayer is a toggled boost layer for your towers — strong, but it burns a limited pool.',
-    blocks: [
-      { icon: ASSETS.misc.prayer_icon, title: 'What it does', body: 'Each prayer is a buff you switch on: some raise a combat style (ranged, magic or melee tower damage and accuracy), others protect your base from a damage type. Several can run at once.' },
-      { title: 'How to use it', body: 'Open the Prayer panel and click a prayer to toggle it. Active prayers drain your Prayer points; when the pool hits zero they all switch off. Points refill between waves, so flip the big buffs on for boss waves and tough pushes, then off to coast.' },
-      { title: 'How to improve it', body: 'Stronger prayers unlock automatically as you reach deeper waves. Between runs, the Essence Shop sells Prayer regen / max-point upgrades so you can hold the good prayers on for longer every run.' },
-    ],
-  },
-  {
-    id: 'slayer', label: 'Slayer', tier: 'advanced',
-    intro: 'Slayer turns "which monster do I kill" into a reward loop with its own currency.',
-    blocks: [
-      { icon: ASSETS.misc.slayer_crossbow, title: 'What it does', body: 'A Slayer master assigns a task — kill X of a specific monster type. Finishing it pays Slayer points and builds a streak; the more tasks you complete in a row, the bigger the point payouts.' },
-      { title: 'How to use it', body: 'Just keep killing — the task counts down on its own as the right monsters die. The Slayer tower also deals bonus damage to your current task, to superior monsters and to bosses, so it shines while a task is up.' },
-      { title: 'How to improve it', body: 'Spend points in the Slayer Rewards shop: the Helmet (+damage vs your task this run), Skip Task to dodge a bad assignment, or an Essence Pouch to convert leftover points into permanent Rune Essence. Protect your streak — it scales every future payout.' },
-    ],
-  },
-  {
-    id: 'magic', label: 'Magic', tier: 'advanced',
-    intro: 'The Wizard is the only tower whose role you pick — its spellbook decides what it is good at.',
-    blocks: [
-      { icon: ASSETS.misc.magic_icon, title: 'What it does', body: 'Before you place a Wizard you choose its spellbook: Elemental (single-target burst), Ancients (AoE barrage that splashes nearby enemies) or Utility (support effects). The choice locks once the tower is down.' },
-      { title: 'How to use it', body: 'Match the book to the threat: Elemental to delete a single tank or boss, Ancients to melt clustered packs. Elemental spells also have elemental weaknesses — hitting an enemy with the type it is weak to deals extra damage.' },
-      { title: 'How to improve it', body: 'Upgrade the Wizard to climb its spell tier (Strike → Bolt → Blast → Wave → Surge) for more damage and range. Draft cards and prayers that buff magic stack on top, and a couple of well-chosen elements cover most enemy weaknesses.' },
-    ],
-  },
-  {
-    id: 'ge', label: 'Grand Exchange', tier: 'advanced',
-    intro: 'The GE is your gold sink for temporary, on-demand power spikes.',
-    blocks: [
-      { icon: ASSETS.misc.ge_logo, title: 'What it does', body: 'Spend gold on consumables and potions that grant a timed buff — extra damage, range or a combat-style boost — for a stretch of the fight.' },
-      { title: 'How to use it', body: 'Buy from the GE panel; the effect runs on a timer shown with your active potions. A styled potion (e.g. a Strength brew) only buffs that tower style, so line the potion up with the towers it helps before a hard wave.' },
-      { title: 'How to improve it', body: 'Prices drift with demand every wave, so the same item gets cheaper or pricier over time — stock up when a buff you rely on is cheap, and cash in on bigger gold income from kills and draft cards.' },
-    ],
-  },
-  {
-    id: 'meta', label: 'Essence & Progress', tier: 'advanced',
-    intro: 'Losing is never wasted — every run feeds permanent progress through Rune Essence.',
-    blocks: [
-      { icon: ASSETS.misc.rune_essence_icon, title: 'What Rune Essence is', body: 'Essence is the meta-currency that makes you permanently stronger. You earn it every wave you clear (and from essence draft cards), and unlike gold it is kept forever — even through a game over.' },
-      { icon: ASSETS.misc.rune_essence_icon, title: 'How to spend it (Essence Shop)', body: 'Between runs, spend essence in the Essence Shop on global upgrades — starting gold, tower range, tower damage, prayer regen and more. These seed every future run, so a fresh game starts stronger than the last.' },
-      { title: 'How to improve your gains', body: 'Reach deeper waves (later clears pay more essence), pick essence cards in Roguelite, and turn spare Slayer points into essence via the Slayer Essence Pouch. It all banks into the same permanent pool.' },
-      { icon: COLLECTION_LOG_ICON, title: 'Collection Log', body: 'Tracks your lifetime kills per monster and every draft card you have picked. Filter and sort each tab to chase 100% completion.' },
-    ],
-  },
-  {
-    id: 'controls', label: 'Controls', tier: 'basic',
-    intro: 'Handy shortcuts once you find your rhythm.',
-    blocks: [
-      { body: 'Space — start the next wave' },
-      { body: 'Esc — pause / resume (or cancel a pending placement or selection)' },
-      { body: '1 / 2 / 5 — game speed' },
-      { body: 'Q / W / E / R — swap the selected wizard’s element / barrage / field' },
-      { body: 'M — mute' },
-      { body: 'Shift — keep placing the same tower' },
-      { body: 'Drag a box — multi-select towers to batch-upgrade' },
-      { body: 'Panels are draggable — use the lock to pin your layout' },
-      { body: 'Reopen this guide anytime from the ❓ stone.' },
-    ],
-  },
+const TLDR: TldrGroup[] = [
+  { h: 'Goal', lines: [
+    'Enemies walk the path to your base. Every leak costs a life; at zero lives the run ends.',
+  ] },
+  { h: 'Towers', lines: [
+    'Pick one from the dock, then click the grass — it aims and fires on its own.',
+    'Click a placed tower to Upgrade or Sell it, and set its target priority (First / Last / Strongest…).',
+    'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
+    'Hold Shift to keep placing the same tower; drag a box to multi-select and batch-upgrade.',
+  ] },
+  { h: 'Waves', lines: [
+    'Nothing spawns until you Start Wave (button above the dock, or Space). Between waves is paused build time.',
+    'From wave 3 a wave can roll a board-wide event; from wave 5 enemies can turn elite (glowing affixes). Bosses have their own mechanic.',
+  ] },
+  { h: 'Systems', lines: [
+    'Prayer — toggle buffs or base protection; drains a pool that refills between waves.',
+    'Slayer — auto-assigned kill tasks pay points for the Slayer Rewards shop.',
+    'Essence — earned every wave and kept forever; spend it in the Essence Shop on permanent upgrades.',
+    'Roguelite — keep one reward card per wave, with a Relic every 5th wave.',
+  ] },
+  { h: 'Controls', lines: [
+    'Space start wave · Esc pause / cancel · 1 / 2 / 5 speed · M mute · Shift keep placing · drag a box to multi-select · Q/W/E/R swap a wizard’s spell.',
+  ] },
 ];
 
-const HELP_TIER_BADGE: Record<HelpTier, { label: string; color: string }> = {
-  basic: { label: 'Basic', color: '#2ECC71' },
-  advanced: { label: 'Advanced', color: '#E0A030' },
-};
-
-/** "How to Play" overlay: a tabbed OSRS window. Section tabs run Basic →
- *  Advanced; the body scrolls and Back/Next walk through them in order. */
-function HowToPlay({ onClose, onReplay }: { onClose: () => void; onReplay: () => void }) {
-  const [page, setPage] = useState(0);
-  const section = HELP_SECTIONS[page];
-  const badge = HELP_TIER_BADGE[section.tier];
+/** "How to Play" — a short TL;DR reference. The learn-as-you-go tips cover the
+ *  detail in context the first time each thing appears; this window is the terse
+ *  "I forgot how X works" cheat sheet. "Replay tips" re-arms those tips. */
+function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onResetTips: () => void }) {
   return (
     <div className="absolute inset-0 bg-black/82 flex items-center justify-center z-50 p-4">
-      <div className="rs-panel p-5 w-[40em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: 'clamp(14px, 0.95vw, 19px)' }}>
-        <div className="flex items-center justify-between gap-[0.5em] mb-[0.5em]">
+      <div className="rs-panel p-5 w-[32em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: 'clamp(14px, 0.95vw, 19px)' }}>
+        <div className="flex items-center justify-between gap-[0.5em] mb-[0.2em]">
           <span className="text-osrs-orange font-bold text-[1.15em]">How to Play</span>
-          <div className="flex items-center gap-[0.4em]">
-            <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.72em]" onClick={onReplay} title="Replay the guided tour">↻ Replay tour</button>
-            <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
-          </div>
+          <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
         </div>
+        <p className="text-[0.72em] text-[#cdbe91] mb-[0.6em] leading-snug">The quick version — tips also pop up in-game the first time each thing comes up.</p>
 
-        {/* Section tabs */}
-        <div className="flex flex-wrap gap-[0.3em] mb-[0.7em] shrink-0">
-          {HELP_SECTIONS.map((s, i) => (
-            <button
-              key={s.id}
-              onClick={() => setPage(i)}
-              className={`rs-btn px-[0.6em] py-[0.25em] text-[0.78em] ${i === page ? 'rs-btn-primary' : ''}`}
-            >
-              {s.label}
-            </button>
+        <div className="rs-panel-inset p-[0.8em] flex-1 min-h-0 overflow-y-auto flex flex-col gap-[0.7em]">
+          {TLDR.map((g) => (
+            <div key={g.h}>
+              <div className="text-osrs-yellow font-bold text-[0.95em] mb-[0.25em]">{g.h}</div>
+              <ul className="flex flex-col gap-[0.3em]">
+                {g.lines.map((line, i) => (
+                  <li key={i} className="flex gap-[0.5em] items-start leading-snug">
+                    <span className="text-osrs-orange shrink-0 leading-none mt-[0.15em]">•</span>
+                    <span className="text-[0.85em] text-[#d3c3a0]">{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
         </div>
 
-        {/* Body */}
-        <div className="rs-panel-inset p-[0.8em] flex-1 min-h-0 overflow-y-auto">
-          <div className="flex items-center gap-[0.5em] mb-[0.6em]">
-            <span className="text-osrs-yellow font-bold text-[1.05em]">{section.label}</span>
-            <span
-              className="text-[0.6em] uppercase tracking-wide px-[0.5em] py-[0.1em] rounded-sm"
-              style={{ color: badge.color, border: `1px solid ${badge.color}`, opacity: 0.9 }}
-            >
-              {badge.label}
-            </span>
-          </div>
-          {section.intro && <p className="text-[0.85em] text-[#cdbe91] mb-[0.7em] leading-snug">{section.intro}</p>}
-          <div className="flex flex-col gap-[0.6em]">
-            {section.blocks.map((b, i) => (
-              <div key={i} className="flex gap-[0.55em] items-start">
-                {b.icon
-                  ? <img src={b.icon} alt="" className="w-[1.5em] h-[1.5em] object-contain shrink-0 mt-[0.1em]" onError={hideBrokenImg} />
-                  : <span className="text-osrs-orange shrink-0 leading-none mt-[0.15em]">•</span>}
-                <div className="leading-snug">
-                  {b.title && <span className="text-osrs-yellow font-bold text-[0.92em]">{b.title}. </span>}
-                  <span className="text-[0.88em] text-[#d3c3a0]">{b.body}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Footer nav */}
         <div className="flex items-center justify-between gap-[0.5em] mt-[0.7em] shrink-0">
-          <button
-            className="rs-btn px-[1em] py-[0.35em] text-[0.85em]"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            style={{ opacity: page === 0 ? 0.5 : 1 }}
-          >
-            ‹ Back
-          </button>
-          <span className="text-[0.72em] text-[#cdbe91]">{page + 1} / {HELP_SECTIONS.length}</span>
-          {page < HELP_SECTIONS.length - 1 ? (
-            <button className="rs-btn rs-btn-primary px-[1em] py-[0.35em] text-[0.85em]" onClick={() => setPage((p) => Math.min(HELP_SECTIONS.length - 1, p + 1))}>
-              Next ›
-            </button>
-          ) : (
-            <button className="rs-btn rs-btn-primary px-[1em] py-[0.35em] text-[0.85em]" onClick={onClose}>
-              Got it ✓
-            </button>
-          )}
+          <button className="rs-btn px-[0.9em] py-[0.35em] text-[0.8em]" onClick={onResetTips} title="Show the in-game tips again from the start">↻ Replay tips</button>
+          <button className="rs-btn rs-btn-primary px-[1.1em] py-[0.35em] text-[0.85em]" onClick={onClose}>Got it ✓</button>
         </div>
       </div>
     </div>
