@@ -27,6 +27,19 @@ describe('prayerDrainRate', () => {
     // 0.8 * 0.5 * (1 - 10*0.01) = 0.8 * 0.5 * 0.9
     expect(rate).toBeCloseTo(0.36);
   });
+
+  it('rates the three strongest prayers, before and after the maxed meta upgrade', () => {
+    const trio: PrayerDef[] = [
+      { id: 'piety', name: 'Piety', level: 70, drain: 8, description: '' },
+      { id: 'rigour', name: 'Rigour', level: 74, drain: 8, description: '' },
+      { id: 'augury', name: 'Augury', level: 77, drain: 8, description: '' },
+    ];
+    const active = new Set<PrayerType>(['piety', 'rigour', 'augury']);
+    // 24/10 = 2.4 pure → ×6 DRAIN_SCALE = 14.4 pts/s at the sim layer.
+    expect(prayerDrainRate(active, trio, 1, 1)).toBeCloseTo(2.4);
+    // Clarity of Thought maxed (−45%): 2.4 × 0.55 = 1.32 pure → 7.92 pts/s.
+    expect(prayerDrainRate(active, trio, 0.55, 1)).toBeCloseTo(1.32);
+  });
 });
 
 describe('isPrayerUnlocked', () => {

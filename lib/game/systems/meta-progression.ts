@@ -65,6 +65,7 @@ export const GLOBAL_UPGRADE_DEFS: readonly UpgradeDef[] = [
   { id: 'rewardMultiplier', name: 'Wealthy Drops', desc: 'More gold from kills and wave clears', icon: 'Coins_detail', baseCost: 250, inc: 0.2, baseline: 1, max: 3.0, format: 'mulBonus' },
   { id: 'towerCostReduction', name: 'Bargain Hunter', desc: 'Towers cost less to build', icon: 'Coins_detail', baseCost: 300, inc: -0.05, baseline: 1, max: 0.5, format: 'mulReduction' },
   { id: 'prayerRegen', name: 'Prayer Regeneration', desc: 'Prayer points recover between fights', icon: 'Prayer_icon', baseCost: 200, inc: 0.2, baseline: 0, max: 1.0, format: 'perSec' },
+  { id: 'prayerEfficiency', name: 'Clarity of Thought', desc: 'Active prayers drain slower. Fully maxed, with 5 Prayer-Restoration wizards fielded, your prayers never drain at all.', icon: 'Prayer_icon', baseCost: 250, inc: -0.09, baseline: 1, max: 0.55, format: 'mulReduction' },
 ];
 
 /** Essence awarded for clearing `wave` — scales gently so late waves pay more.
