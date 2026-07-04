@@ -186,6 +186,15 @@ const freshRelicEffects = (): RelicEffects => ({
   cheatDeathLeft: 0,
 });
 
+/** One monster line in the next-wave preview (Start Wave hover). Plain data; the
+ *  UI resolves the sprite from `type`. */
+export interface WavePreviewEntry {
+  type: EnemyType;
+  name: string;
+  count: number;
+  isBoss: boolean;
+}
+
 export interface UIState {
   money: number;
   lives: number;
@@ -197,6 +206,11 @@ export interface UIState {
   waveTotal: number;
   /** Whether the current wave contains a boss. */
   bossWave: boolean;
+  /** Makeup of the wave the Start Wave button will launch (drives its hover
+   *  preview). Aggregated per enemy type, regular monsters first then any boss.
+   *  Empty while a wave is active or on game over; deterministic — it matches
+   *  exactly what {@link GameEngine.startWave} then spawns. */
+  wavePreview: WavePreviewEntry[];
   /** The active wave event (#1) for the current wave, or null when none. A
    *  cloneable view (the engine holds the full {@link WaveEvent}). Drives the
    *  banner that announces the wave's board-wide twist. */
@@ -635,6 +649,11 @@ export class GameEngine {
 
   // --- spawn/loop bookkeeping ---
   private spawnQueue: Enemy[] = [];
+  /** Memoised makeup of the upcoming wave, keyed by (wave, current Slayer task)
+   *  so the Start Wave preview is stable across emits/hovers and {@link startWave}
+   *  spawns exactly what was shown. Recomputed only when the wave advances or the
+   *  task changes (e.g. a Slayer skip). */
+  private previewCache: { wave: number; task: EnemyType | null; configs: WaveConfig[] } | null = null;
   private spawnTimer = 0;
   private readonly spawnInterval = 0.7; // seconds between spawns
   private rafId = 0;
@@ -730,6 +749,7 @@ export class GameEngine {
       remaining: this.spawnQueue.length + this.enemies.length,
       waveTotal: this.waveTotal,
       bossWave: this.bossWave,
+      wavePreview: this.wavePreview(),
       activeEvent: this.activeEvent
         ? { id: this.activeEvent.id, name: this.activeEvent.name, desc: this.activeEvent.desc,
             tone: this.activeEvent.tone, color: this.activeEvent.color, icon: this.activeEvent.icon }
@@ -1531,11 +1551,16 @@ export class GameEngine {
     this.emit();
   }
 
-  startWave() {
-    if (this.waveActive || this.gameOver) return;
-    if (this.pendingRelics) { this.notify('Choose a relic first'); return; }
-    if (this.pendingDraft) { this.notify('Choose a draft card first'); return; }
-    this.slayer.assignTask(); // idempotent: ensure a task exists so it can seed the wave
+  /** Resolve (and memoise) the upcoming wave's `{type,count}` makeup. Pure aside
+   *  from the cache: it assigns no task and fires no notifications, so it is safe
+   *  to call from a UI hover or on every emit. Keyed by (wave, current task) so a
+   *  Slayer skip refreshes it; {@link startWave} consumes the same result so the
+   *  preview always matches what actually spawns. */
+  private computeWaveConfigs(): WaveConfig[] {
+    const taskType = this.slayer.task?.type ?? null;
+    if (this.previewCache && this.previewCache.wave === this.wave && this.previewCache.task === taskType) {
+      return this.previewCache.configs;
+    }
     const configs = buildWaveConfigs(this.wave, {
       enemies: Object.values(ENEMIES),
       blockedEnemies: [],
@@ -1544,6 +1569,39 @@ export class GameEngine {
       // the fail-safe against a task whose monster has dropped out of waves.
       slayerTask: this.slayer.task,
     });
+    this.previewCache = { wave: this.wave, task: taskType, configs };
+    return configs;
+  }
+
+  /** Plain-data view of the upcoming wave for the Start Wave hover: aggregated
+   *  per enemy type, regular monsters first then any boss. Empty during a wave /
+   *  on game over. */
+  private wavePreview(): WavePreviewEntry[] {
+    if (this.waveActive || this.gameOver) return [];
+    const totals = new Map<EnemyType, number>();
+    for (const c of this.computeWaveConfigs()) {
+      const t = c.type as EnemyType;
+      totals.set(t, (totals.get(t) ?? 0) + c.count);
+    }
+    const rows: WavePreviewEntry[] = [];
+    for (const [type, count] of totals) {
+      const def = ENEMIES[type];
+      rows.push({ type, name: def?.name ?? type, count, isBoss: !!def?.isBoss });
+    }
+    // Regular monsters first (largest packs first), any boss headlining at the end.
+    rows.sort((a, b) => (a.isBoss ? 1 : 0) - (b.isBoss ? 1 : 0) || b.count - a.count);
+    return rows;
+  }
+
+  startWave() {
+    if (this.waveActive || this.gameOver) return;
+    if (this.pendingRelics) { this.notify('Choose a relic first'); return; }
+    if (this.pendingDraft) { this.notify('Choose a draft card first'); return; }
+    this.slayer.assignTask(); // idempotent: ensure a task exists so it can seed the wave
+    // Spawn exactly what the Start Wave hover previewed. assignTask above may have
+    // just rolled a task — that changes the cache key, so this recomputes with the
+    // Slayer seed folded in; otherwise it reuses the memoised makeup.
+    const configs = this.computeWaveConfigs();
     // A boss wave stays the headline act — no event rolls on it (see wave-events).
     const bossWave = configs.some(c => ENEMIES[c.type]?.isBoss);
     this.activeEvent = rollWaveEvent(this.wave, bossWave, Math.random);

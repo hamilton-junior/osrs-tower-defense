@@ -66,6 +66,22 @@ describe('buildWaveConfigs', () => {
     expect(out.find(c => c.type === 'imp')?.count).toBeGreaterThanOrEqual(1); // seed added
   });
 
+  it('does not mutate the caller\'s landmark configs when seeding the task', () => {
+    // The landmark already contains the task target, so the seed merges into that
+    // entry. The caller's objects alias a shared table (LANDMARK_WAVES) and the
+    // preview calls this repeatedly, so they must be left untouched.
+    const landmark = [{ type: 'imp' as const, count: 4 }];
+    const before = landmark.map(c => ({ ...c }));
+    buildWaveConfigs(10, {
+      enemies: registry,
+      blockedEnemies: [],
+      landmark,
+      slayerTask: { type: 'imp', count: 20 },
+      rng: () => 0,
+    });
+    expect(landmark).toEqual(before);
+  });
+
   it('is deterministic for a fixed rng', () => {
     const opts = { enemies: registry, blockedEnemies: [], rng: () => 0.5 };
     expect(buildWaveConfigs(7, opts)).toEqual(buildWaveConfigs(7, opts));

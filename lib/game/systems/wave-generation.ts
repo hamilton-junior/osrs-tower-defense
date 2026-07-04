@@ -29,7 +29,10 @@ export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveC
   // Landmark waves keep their fixed makeup, but still get the Slayer seed
   // appended below — otherwise a task assigned during the (all-landmark) early
   // waves or at a ×10 wave never makes progress and softlocks.
-  const configs: WaveConfig[] = opts.landmark ? [...opts.landmark] : [];
+  // Copy each landmark config (not just the array) so the Slayer-seed merge below
+  // never mutates the shared LANDMARK_WAVES table — this runs repeatedly (wave
+  // preview + the real start), so aliasing would inflate the fixed counts.
+  const configs: WaveConfig[] = opts.landmark ? opts.landmark.map(c => ({ ...c })) : [];
 
   const addToConfig = (type: EnemyType, count: number) => {
     const existing = configs.find(c => c.type === type);

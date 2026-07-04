@@ -151,7 +151,7 @@ const attackSpeed = (cooldownMs: number) => {
 
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
-  remaining: 0, waveTotal: 0, bossWave: false, activeEvent: null, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
+  remaining: 0, waveTotal: 0, bossWave: false, wavePreview: [], activeEvent: null, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
   multiSelectedIds: [],
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
@@ -1882,13 +1882,45 @@ export default function GameRoot() {
             className="order-3 shrink-0 pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
             style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
           >
-            <button
-              data-tut="startwave"
-              className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse"
-              onClick={() => engineRef.current?.startWave()}
-            >
-              ▶ Start Wave {ui.wave}
-            </button>
+            <div className="relative group">
+              <button
+                data-tut="startwave"
+                className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse"
+                onClick={() => engineRef.current?.startWave()}
+              >
+                ▶ Start Wave {ui.wave}
+              </button>
+              {/* Hover preview of the monsters the next wave will send — the exact,
+                  deterministic makeup the engine will spawn (wavePreview in UIState). */}
+              {ui.wavePreview.length > 0 && (
+                <div className="rs-panel absolute bottom-full right-0 mb-[0.5em] p-[0.5em] w-[15em] max-w-[92vw] hidden group-hover:block z-30 pointer-events-none">
+                  <div className="text-center text-[0.62em] text-[#d3c3a0] uppercase tracking-wide mb-[0.45em]">
+                    Wave {ui.wave} · {ui.wavePreview.reduce((s, m) => s + m.count, 0)} incoming
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.3em]">
+                    {ui.wavePreview.map((m) => {
+                      const style = enemySpriteStyle(m.type);
+                      return (
+                        <div
+                          key={m.type}
+                          className={`flex items-center gap-[0.4em] min-w-0 ${m.isBoss ? 'col-span-2 justify-center mt-[0.15em] pt-[0.3em] border-t border-[#3a2f1d]' : ''}`}
+                        >
+                          <span
+                            className="inline-block w-[1.5em] h-[1.5em] shrink-0"
+                            style={style ? { ...style, imageRendering: 'pixelated' } : undefined}
+                          />
+                          <span
+                            className={`text-[0.72em] truncate ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}
+                          >
+                            {m.isBoss ? `⚠ ${m.name}` : `${m.count}× ${m.name}`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
