@@ -19,6 +19,7 @@ import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
+import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 /** Which interface fills the bottom-right sidebar body (OSRS tabbed-sidebar
@@ -387,6 +388,9 @@ export default function GameRoot() {
   // "How to Play" reference guide — reachable any time from the start screen or
   // the ❓ stone. (The FIRST-visit onboarding is the guided tour below, not this.)
   const [helpOpen, setHelpOpen] = useState(false);
+  // In-game feedback launcher (opens NocoDB form links in a new tab). Only shown
+  // when at least one form URL is configured in lib/game/feedback.ts.
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   // Learn-as-you-go coaching: instead of one long up-front tour, a single
   // contextual tip surfaces the first time each situation comes up (place a
   // tower, send the first wave, first boss / affix / event…). Each tip is
@@ -1676,6 +1680,11 @@ export default function GameRoot() {
           <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
             ❓
           </button>
+          {FEEDBACK_ENABLED && (
+            <button onClick={() => setFeedbackOpen(true)} title="Send feedback — report a bug or suggest an idea" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
+              💬
+            </button>
+          )}
         </div>
 
         {/* Tab body (top section): keyed by `tab` so switching re-mounts this
@@ -2257,6 +2266,7 @@ export default function GameRoot() {
 
       {/* How-to-play reference guide — top layer so it reads over the start screen too */}
       {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} onResetTips={resetTips} />}
+      {feedbackOpen && <FeedbackModal ui={ui} onClose={() => setFeedbackOpen(false)} />}
 
       {/* Learn-as-you-go: one contextual tip at a time, keyed to what's happening
           on-screen. Suppressed over the start screen, game-over, the guide and the
@@ -2780,6 +2790,70 @@ function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onResetTips:
           <button className="rs-btn px-[0.9em] py-[0.35em] text-[0.8em]" onClick={onResetTips} title="Show the in-game tips again from the start">↻ Replay tips</button>
           <button className="rs-btn rs-btn-primary px-[1.1em] py-[0.35em] text-[0.85em]" onClick={onClose}>Got it ✓</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** In-game feedback launcher — opens the configured NocoDB Form Views in a new
+ *  tab. No API/token: these are public form pages the player fills externally.
+ *  When a context field is configured, some run/device context rides along on the
+ *  URL so a report arrives actionable (see lib/game/feedback.ts). */
+function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
+  const ctx: FeedbackContext = useMemo(() => ({
+    wave: ui.wave,
+    mode: ui.gameMode,
+    lives: ui.lives,
+    gold: ui.money,
+    build: process.env.NEXT_PUBLIC_BUILD_SHA || 'live',
+    screen: typeof window !== 'undefined' ? `${window.innerWidth}×${window.innerHeight}` : '',
+    ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    when: new Date().toISOString(),
+  }), [ui.wave, ui.gameMode, ui.lives, ui.money]);
+
+  const open = (base: string) => {
+    const url = feedbackUrl(base, ctx);
+    if (url && typeof window !== 'undefined') window.open(url, '_blank', 'noopener,noreferrer');
+    onClose();
+  };
+
+  return (
+    <div className="absolute inset-0 bg-black/82 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className="rs-panel p-5 w-[24em] max-w-[94vw] flex flex-col"
+        style={{ fontSize: fs('clamp(14px, 0.95vw, 19px)') }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-[0.5em] mb-[0.3em]">
+          <span className="text-osrs-orange font-bold text-[1.1em]">💬 Feedback</span>
+          <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
+        </div>
+        <p className="text-[0.72em] text-[#cdbe91] mb-[0.7em] leading-snug">
+          Opens a short form in a new tab. Thanks for helping shape the game — every note is read.
+        </p>
+        <div className="flex flex-col gap-[0.5em]">
+          {FEEDBACK.bugFormUrl && (
+            <button
+              className="rs-btn w-full py-[0.5em] text-[0.95em] flex items-center justify-center gap-[0.4em]"
+              onClick={() => open(FEEDBACK.bugFormUrl)}
+            >
+              🐛 Report a bug
+            </button>
+          )}
+          {FEEDBACK.suggestionFormUrl && (
+            <button
+              className="rs-btn w-full py-[0.5em] text-[0.95em] flex items-center justify-center gap-[0.4em]"
+              onClick={() => open(FEEDBACK.suggestionFormUrl)}
+            >
+              💡 Suggest an idea
+            </button>
+          )}
+        </div>
+        {FEEDBACK.contextField && (
+          <p className="text-[0.62em] text-[#9a8d70] mt-[0.7em] leading-snug">
+            Context (wave {ctx.wave}, {ctx.mode} mode, your screen size &amp; build) is attached automatically to speed up fixes.
+          </p>
+        )}
       </div>
     </div>
   );
