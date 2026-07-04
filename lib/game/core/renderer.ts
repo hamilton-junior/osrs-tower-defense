@@ -817,7 +817,7 @@ export class GameRenderer {
       if (aura && auraEntry) {
         // Draw a *pre-baked* coloured glow sprite (blur done once, off the hot path)
         // and animate only its opacity — cheap even with a screen full of towers.
-        const r = tower.visualRadius;
+        const r = this.spriteRadius(tower.type, tower.visualRadius);
         const size = Math.round(r * 2);
         const glowSprite = this.glowSprite(auraEntry.img, auraEntry.key, aura.color, size);
         if (glowSprite) {
@@ -851,7 +851,7 @@ export class GameRenderer {
       ctx.fillStyle = '#fff';
       ctx.font = "bold 11px 'RuneScape', Arial";
       ctx.textAlign = 'center';
-      ctx.fillText(String(tower.level), tower.x, tower.y + tower.visualRadius + 8);
+      ctx.fillText(String(tower.level), tower.x, tower.y + this.spriteRadius(tower.type, tower.visualRadius) + 8);
     }
   }
 
@@ -907,6 +907,16 @@ export class GameRenderer {
     return canvas;
   }
 
+  /** TzHaar towers are whole NPC models — tall, narrow figures — while every
+   *  other tower is an item icon or a squat cannon that fills its frame, so at
+   *  the shared radius the size-2 giants read punier than a crossbow. Scale
+   *  the *drawing* only; range/placement/selection radii are untouched. */
+  private static readonly SPRITE_SCALE: Record<string, number> = { tzhaar: 1.5 };
+
+  private spriteRadius(type: string, radius: number): number {
+    return radius * (GameRenderer.SPRITE_SCALE[type] ?? 1);
+  }
+
   private drawTowerSprite(
     ctx: CanvasRenderingContext2D,
     type: string,
@@ -916,6 +926,7 @@ export class GameRenderer {
     radius: number,
     preferredKey?: string,
   ) {
+    radius = this.spriteRadius(type, radius);
     const keys = [preferredKey, `${type}_${level}`, `${type}_1`].filter(Boolean) as string[];
     const key = keys.find(k => this.e.imageOk(k));
     if (key) {
