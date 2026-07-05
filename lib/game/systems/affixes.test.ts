@@ -10,6 +10,7 @@ import {
   affixRenderScaleMult,
   shieldHpFor,
   regenPerSec,
+  regenFracForWave,
   leakLifeCost,
   bossLeakCost,
   BOSS_LEAK_BASE,
@@ -29,7 +30,10 @@ import {
   BOSS_AFFIX_CHANCE,
   SHIELD_HP_FRAC,
   ARMORED_RESIST,
-  REGEN_FRAC_PER_SEC,
+  REGEN_UNLOCK_WAVE,
+  REGEN_FRAC_MIN,
+  REGEN_FRAC_MAX,
+  REGEN_RAMP_END_WAVE,
   HASTE_SPEED_MULT,
   COLOSSAL_HP_MULT,
   COLOSSAL_SPEED_MULT,
@@ -120,16 +124,16 @@ describe('extraAffixChance', () => {
 
 describe('rollBossAffixes', () => {
   it('returns nothing when the boss roll fails', () => {
-    expect(rollBossAffixes(() => 0.99).affixes).toEqual([]);
+    expect(rollBossAffixes(() => 0.99, 50).affixes).toEqual([]);
   });
   it('grants one boss-pool affix when the roll passes', () => {
     // gate(0 < CHANCE ✓), pick(0), extra(0.99 ✗ stop)
-    const roll = rollBossAffixes(seq(0, 0, 0.99));
+    const roll = rollBossAffixes(seq(0, 0, 0.99), 50);
     expect(roll.affixes).toHaveLength(1);
     expect(BOSS_AFFIX_POOL).toContain(roll.affixes[0]);
   });
   it('only ever draws from the boss pool (no swarm/colossal/volatile)', () => {
-    const roll = rollBossAffixes(() => 0); // every roll passes → drains boss pool
+    const roll = rollBossAffixes(() => 0, 50); // every roll passes → drains boss pool
     for (const a of roll.affixes) expect(BOSS_AFFIX_POOL).toContain(a);
     expect(roll.affixes).not.toContain('swarm');
     expect(roll.affixes).not.toContain('colossal');
@@ -137,8 +141,8 @@ describe('rollBossAffixes', () => {
   });
   it('uses BOSS_AFFIX_CHANCE as the gate', () => {
     // Just below the gate passes; at/above fails.
-    expect(rollBossAffixes(() => BOSS_AFFIX_CHANCE - 0.001).affixes.length).toBeGreaterThan(0);
-    expect(rollBossAffixes(() => BOSS_AFFIX_CHANCE).affixes).toEqual([]);
+    expect(rollBossAffixes(() => BOSS_AFFIX_CHANCE - 0.001, 50).affixes.length).toBeGreaterThan(0);
+    expect(rollBossAffixes(() => BOSS_AFFIX_CHANCE, 50).affixes).toEqual([]);
   });
 });
 
@@ -170,8 +174,8 @@ describe('stat helpers', () => {
     expect(shieldHpFor(['shielded'], 100)).toBe(Math.round(100 * SHIELD_HP_FRAC));
   });
   it('regenPerSec scales with max HP only when regenerating', () => {
-    expect(regenPerSec([], 100)).toBe(0);
-    expect(regenPerSec(['regenerating'], 100)).toBeCloseTo(100 * REGEN_FRAC_PER_SEC);
+    expect(regenPerSec([], 100, REGEN_RAMP_END_WAVE)).toBe(0);
+    expect(regenPerSec(['regenerating'], 100, REGEN_RAMP_END_WAVE)).toBeCloseTo(100 * REGEN_FRAC_MAX);
   });
   it('leakLifeCost is 2 for colossal, 1 otherwise', () => {
     expect(leakLifeCost([])).toBe(1);
@@ -206,6 +210,36 @@ describe('absorbWithShield', () => {
   });
   it('spills the remainder once the shield breaks', () => {
     expect(absorbWithShield(15, 20)).toEqual({ shield: 0, dmg: 5 });
+  });
+});
+
+describe('regenerating gating + ramp', () => {
+  it('never rolls regenerating before its unlock wave', () => {
+    for (let i = 0; i < 200; i++) {
+      const roll = rollAffixes(REGEN_UNLOCK_WAVE - 1, false, seq(0, i / 200, 0.99));
+      expect(roll.affixes).not.toContain('regenerating');
+    }
+  });
+  it('can roll regenerating from its unlock wave', () => {
+    const all: string[] = [];
+    for (let i = 0; i < 200; i++) all.push(...rollAffixes(60, false, seq(0, i / 200, 0.99)).affixes);
+    expect(all).toContain('regenerating');
+  });
+  it('ramps 1%/s at wave 12 to 2%/s at wave 30+, linearly', () => {
+    expect(regenFracForWave(REGEN_UNLOCK_WAVE)).toBeCloseTo(REGEN_FRAC_MIN);
+    expect(regenFracForWave(21)).toBeCloseTo((REGEN_FRAC_MIN + REGEN_FRAC_MAX) / 2);
+    expect(regenFracForWave(30)).toBeCloseTo(REGEN_FRAC_MAX);
+    expect(regenFracForWave(99)).toBeCloseTo(REGEN_FRAC_MAX);
+  });
+  it('regenPerSec applies the wave-scaled frac', () => {
+    expect(regenPerSec(['regenerating'], 1000, REGEN_UNLOCK_WAVE)).toBeCloseTo(10);
+    expect(regenPerSec(['regenerating'], 1000, 30)).toBeCloseTo(20);
+    expect(regenPerSec(['hasted'], 1000, 30)).toBe(0);
+  });
+  it('boss rolls also exclude regenerating before the unlock wave', () => {
+    for (let i = 0; i < 200; i++) {
+      expect(rollBossAffixes(seq(0, i / 200, 0.99), REGEN_UNLOCK_WAVE - 1).affixes).not.toContain('regenerating');
+    }
   });
 });
 

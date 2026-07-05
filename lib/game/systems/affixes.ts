@@ -82,8 +82,12 @@ export const BOSS_EXTRA_AFFIX_CHANCE = 0.25;
 export const SHIELD_HP_FRAC = 0.12;
 /** Damage multiplier applied to the armored enemy's resisted style. */
 export const ARMORED_RESIST = 0.5;
-/** Regen per second = this fraction of max HP. */
-export const REGEN_FRAC_PER_SEC = 0.02;
+/** Regenerating never appears before this wave — early DPS can't outpace it. */
+export const REGEN_UNLOCK_WAVE = 12;
+/** Regen ramps from MIN %/s at its unlock wave to MAX %/s at the ramp end. */
+export const REGEN_FRAC_MIN = 0.01;
+export const REGEN_FRAC_MAX = 0.02;
+export const REGEN_RAMP_END_WAVE = 30;
 /** A swarm enemy spawns SWARM_COUNT copies, each at SWARM_HP_MULT health. */
 export const SWARM_COUNT = 3;
 export const SWARM_HP_MULT = 0.5;
@@ -97,6 +101,17 @@ export const COLOSSAL_RENDER_SCALE = 1.4;
 export const VOLATILE_STUN_SECS = 1.5;
 
 const ARMOR_STYLES: readonly CombatStyle[] = ['ranged', 'magic', 'melee'];
+
+/** Wave-scaled regen fraction (of max HP, per second). */
+export function regenFracForWave(wave: number): number {
+  const t = Math.max(0, Math.min(1, (wave - REGEN_UNLOCK_WAVE) / (REGEN_RAMP_END_WAVE - REGEN_UNLOCK_WAVE)));
+  return REGEN_FRAC_MIN + (REGEN_FRAC_MAX - REGEN_FRAC_MIN) * t;
+}
+
+/** The affix pool for a given wave (regenerating is gated late). */
+function poolForWave(base: readonly EnemyAffix[], wave: number): EnemyAffix[] {
+  return base.filter((a) => a !== 'regenerating' || wave >= REGEN_UNLOCK_WAVE);
+}
 
 /** Chance (0–1) that an enemy on `wave` rolls any affix at all. */
 export function eliteChanceForWave(wave: number): number {
@@ -149,7 +164,7 @@ export function rollAffixes(wave: number, isBoss: boolean, rng: () => number): A
   if (isBoss) return { affixes: [] };
   const chance = eliteChanceForWave(wave);
   if (chance <= 0 || rng() >= chance) return { affixes: [] };
-  return drawAffixes([...ALL_AFFIXES], rng, (granted) => extraAffixChance(wave, granted));
+  return drawAffixes(poolForWave(ALL_AFFIXES, wave), rng, (granted) => extraAffixChance(wave, granted));
 }
 
 /**
@@ -158,9 +173,9 @@ export function rollAffixes(wave: number, isBoss: boolean, rng: () => number): A
  * otherwise one affix from {@link BOSS_AFFIX_POOL}, rarely two. Pure / injected
  * RNG like {@link rollAffixes}.
  */
-export function rollBossAffixes(rng: () => number): AffixRoll {
+export function rollBossAffixes(rng: () => number, wave: number): AffixRoll {
   if (rng() >= BOSS_AFFIX_CHANCE) return { affixes: [] };
-  return drawAffixes([...BOSS_AFFIX_POOL], rng, () => BOSS_EXTRA_AFFIX_CHANCE);
+  return drawAffixes(poolForWave(BOSS_AFFIX_POOL, wave), rng, () => BOSS_EXTRA_AFFIX_CHANCE);
 }
 
 // ──────────────────────── pure runtime stat helpers ────────────────────────
@@ -196,8 +211,8 @@ export function shieldHpFor(affixes: readonly EnemyAffix[], maxHp: number): numb
 }
 
 /** HP regenerated per second (0 when not regenerating). */
-export function regenPerSec(affixes: readonly EnemyAffix[], maxHp: number): number {
-  return has(affixes, 'regenerating') ? maxHp * REGEN_FRAC_PER_SEC : 0;
+export function regenPerSec(affixes: readonly EnemyAffix[], maxHp: number, wave: number): number {
+  return has(affixes, 'regenerating') ? maxHp * regenFracForWave(wave) : 0;
 }
 
 /** Lives lost when this enemy leaks (colossals cost two). */

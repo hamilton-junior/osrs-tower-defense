@@ -1704,7 +1704,7 @@ export class GameEngine {
     // first-ever encounter is the clean, mechanic-only fight); normal enemies roll
     // the standard elite affixes.
     const roll = forced ?? (def.isBoss
-      ? (this.bossesSeen[type] ? rollBossAffixes(Math.random) : { affixes: [] })
+      ? (this.bossesSeen[type] ? rollBossAffixes(Math.random, wave) : { affixes: [] })
       : rollAffixes(wave, false, Math.random));
     const affixes = roll.affixes;
     const bossKind = def.isBoss && (MECHANIC_BOSSES as readonly string[]).includes(type)
@@ -2119,7 +2119,7 @@ export class GameEngine {
       if (e.vulnTimer && e.vulnTimer > 0) e.vulnTimer -= dt;
       // Regenerating affix: claw back HP over time, capped at full health.
       if (e.affixes) {
-        const regen = regenPerSec(e.affixes, e.maxHp);
+        const regen = regenPerSec(e.affixes, e.maxHp, this.wave);
         if (regen > 0 && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + regen * dt);
       }
       if (e.stunTimer > 0) {
