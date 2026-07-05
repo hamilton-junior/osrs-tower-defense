@@ -4,10 +4,11 @@ import type { CombatStyle } from '../types';
 /**
  * Enemy affixes: per-instance modifiers that change how a *normal* enemy behaves
  * (never bosses — those carry their own mechanics). From {@link AFFIX_UNLOCK_WAVE}
- * onward a fraction of spawned enemies roll one (or, very late, two) affixes that
- * force the player to *adapt* the build rather than stack a single tower —
- * shields punish fast chip damage, armour forces style diversity, wards punish
- * crowd-control builds, and so on.
+ * onward a fraction of spawned enemies roll affixes that force the player to
+ * *adapt* the build rather than stack a single tower. Enemies spawn with a hard
+ * maximum of 1 affix before wave 30, then up to {@link MAX_AFFIXES} after. Certain
+ * affix pairs are banned to avoid unkillable-feeling combos. Shields punish fast
+ * chip damage, armour forces style diversity, wards punish crowd-control builds, etc.
  *
  * This module is **pure** (RNG injected, no `this`/DOM): the roll and every stat
  * helper are unit-testable. The engine owns spawning the rolled affixes onto an
@@ -54,18 +55,27 @@ export const AFFIX_UNLOCK_WAVE = 5;
 /** Per-wave step and ceiling for the chance a given enemy rolls any affix. */
 export const ELITE_CHANCE_STEP = 0.03;
 export const ELITE_CHANCE_CAP = 0.35;
+/** Second affix unlocks here; before it every elite is exactly one affix. */
+export const EXTRA_AFFIX_UNLOCK_WAVE = 30;
+/** Hard ceiling on affixes per enemy (normal AND boss rolls). */
+export const MAX_AFFIXES = 2;
 /**
  * Multi-affix stacking. Once an enemy is elite it always gets one affix; each
  * *additional* affix is an independent roll whose chance ramps with the wave and
- * decays per affix already granted, with NO hard ceiling on the count — late
- * waves can (rarely) pile several on. The ramp is deliberately 0 at
- * {@link AFFIX_UNLOCK_WAVE}: on the very wave affixes unlock an elite is
- * guaranteed *exactly one*, so the player can never be blindsided by a fully
- * stacked enemy the moment the mechanic appears.
+ * decays per affix already granted, but is capped at {@link MAX_AFFIXES} total.
+ * The ramp is deliberately 0 before {@link EXTRA_AFFIX_UNLOCK_WAVE}: on that
+ * wave an elite is guaranteed *exactly one*, and the chance ramps thereafter so
+ * the player has time to adapt before facing multi-affix enemies.
  */
-export const EXTRA_AFFIX_MAX = 0.5;        // first-extra chance at full ramp
-export const EXTRA_AFFIX_RAMP_WAVES = 25;  // waves from unlock → full ramp
-export const EXTRA_AFFIX_DECAY = 0.5;      // each further extra half as likely
+export const EXTRA_AFFIX_MAX = 0.5;        // extra-affix chance at full ramp
+export const EXTRA_AFFIX_RAMP_WAVES = 25;  // waves from extra-unlock → full ramp
+export const EXTRA_AFFIX_DECAY = 0.5;      // kept for tuning symmetry
+
+/** Pairs that must never co-occur (unkillable-feeling combos). */
+export const BANNED_PAIRS: readonly [EnemyAffix, EnemyAffix][] = [
+  ['regenerating', 'warded'],
+  ['regenerating', 'shielded'],
+];
 
 /**
  * Boss modifiers. A boss only rolls these once it has been *seen at least once*
@@ -121,12 +131,14 @@ export function eliteChanceForWave(wave: number): number {
 
 /**
  * Chance (0–1) of granting one *more* affix when `granted` are already on the
- * enemy. Ramps linearly from 0 at the unlock wave to {@link EXTRA_AFFIX_MAX}
- * over {@link EXTRA_AFFIX_RAMP_WAVES} waves, then halves for every affix already
- * granted ({@link EXTRA_AFFIX_DECAY}). 0 on the unlock wave → guaranteed single.
+ * enemy. Returns 0 if the cap is reached. Otherwise ramps linearly from 0 at
+ * {@link EXTRA_AFFIX_UNLOCK_WAVE} to {@link EXTRA_AFFIX_MAX} over
+ * {@link EXTRA_AFFIX_RAMP_WAVES} waves, then halves for every affix already
+ * granted ({@link EXTRA_AFFIX_DECAY}).
  */
 export function extraAffixChance(wave: number, granted: number): number {
-  const ramp = Math.max(0, Math.min(1, (wave - AFFIX_UNLOCK_WAVE) / EXTRA_AFFIX_RAMP_WAVES));
+  if (granted >= MAX_AFFIXES) return 0;
+  const ramp = Math.max(0, Math.min(1, (wave - EXTRA_AFFIX_UNLOCK_WAVE) / EXTRA_AFFIX_RAMP_WAVES));
   return EXTRA_AFFIX_MAX * ramp * Math.pow(EXTRA_AFFIX_DECAY, Math.max(0, granted - 1));
 }
 
@@ -141,13 +153,21 @@ export interface AffixRoll {
   armoredStyle?: CombatStyle;
 }
 
-/** Draw one guaranteed affix from `pool`, then keep drawing extras while the
- *  per-extra `extraChance(granted)` roll succeeds and the pool isn't empty.
- *  Attaches an `armoredStyle` if `armored` came out. Mutates (consumes) `pool`. */
 function drawAffixes(pool: EnemyAffix[], rng: () => number, extraChance: (granted: number) => number): AffixRoll {
   const take = () => pool.splice(Math.floor(rng() * pool.length), 1)[0];
   const affixes: EnemyAffix[] = [take()];
-  while (pool.length && rng() < extraChance(affixes.length)) affixes.push(take());
+  // Prune anything banned alongside what's already granted.
+  const prune = () => {
+    for (let i = pool.length - 1; i >= 0; i--) {
+      const c = pool[i];
+      if (BANNED_PAIRS.some(([a, b]) => (affixes.includes(a) && c === b) || (affixes.includes(b) && c === a))) pool.splice(i, 1);
+    }
+  };
+  prune();
+  while (pool.length && affixes.length < MAX_AFFIXES && rng() < extraChance(affixes.length)) {
+    affixes.push(take());
+    prune();
+  }
   const roll: AffixRoll = { affixes };
   if (affixes.includes('armored')) roll.armoredStyle = rollArmoredStyle(rng);
   return roll;

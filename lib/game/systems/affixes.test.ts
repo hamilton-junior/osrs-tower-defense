@@ -26,6 +26,9 @@ import {
   EXTRA_AFFIX_MAX,
   EXTRA_AFFIX_RAMP_WAVES,
   EXTRA_AFFIX_DECAY,
+  EXTRA_AFFIX_UNLOCK_WAVE,
+  MAX_AFFIXES,
+  BANNED_PAIRS,
   BOSS_AFFIX_POOL,
   BOSS_AFFIX_CHANCE,
   SHIELD_HP_FRAC,
@@ -77,23 +80,23 @@ describe('rollAffixes', () => {
     expect(roll.affixes).toHaveLength(1);
     expect(ALL_AFFIXES).toContain(roll.affixes[0]);
   });
-  it('grants exactly one affix on the unlock wave even with all-pass rolls', () => {
-    // extraAffixChance is 0 at the unlock wave, so no extra can stack — the
-    // player can never be blindsided by a fully-loaded elite the moment it unlocks.
-    const roll = rollAffixes(AFFIX_UNLOCK_WAVE, false, seq(0, 0, 0, 0, 0, 0));
+  it('grants exactly one affix before the extra unlock wave even with all-pass rolls', () => {
+    // extraAffixChance is 0 before wave 30, so no extra can stack — the
+    // player is guaranteed at most one affix per enemy until wave 30.
+    const roll = rollAffixes(EXTRA_AFFIX_UNLOCK_WAVE - 1, false, seq(0, 0, 0, 0, 0, 0));
     expect(roll.affixes).toHaveLength(1);
   });
   it('stacks extra affixes deep in the run when the extra rolls pass', () => {
-    // Full-ramp wave: gate(0), pick1(0), extra1(0<0.5 ✓), pick2(0), extra2(0.9 ✗ stop).
-    const wave = AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
+    // Full-ramp wave after extra unlock: gate(0), pick1(0), extra1(0<0.5 ✓), pick2(0), extra2(0.9 ✗ stop).
+    const wave = EXTRA_AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
     const roll = rollAffixes(wave, false, seq(0, 0, 0, 0, 0.9));
     expect(roll.affixes).toHaveLength(2);
     expect(roll.affixes[0]).not.toBe(roll.affixes[1]); // distinct (drawn without replacement)
   });
-  it('has no hard cap — can stack several when every extra roll passes', () => {
-    const wave = AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
+  it('enforces the hard cap of MAX_AFFIXES even with every extra roll passing', () => {
+    const wave = EXTRA_AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
     const roll = rollAffixes(wave, false, () => 0); // every roll passes
-    expect(roll.affixes.length).toBe(ALL_AFFIXES.length); // drains the whole pool
+    expect(roll.affixes.length).toBeLessThanOrEqual(MAX_AFFIXES); // capped at 2, not the pool size
   });
   it('attaches an armoredStyle whenever armored is rolled', () => {
     // Force index of "armored" within the pool for the pick; stop after one.
@@ -106,16 +109,23 @@ describe('rollAffixes', () => {
 });
 
 describe('extraAffixChance', () => {
-  it('is 0 on the unlock wave (guaranteed single)', () => {
-    expect(extraAffixChance(AFFIX_UNLOCK_WAVE, 1)).toBe(0);
+  it('is 0 before the extra unlock wave', () => {
+    expect(extraAffixChance(EXTRA_AFFIX_UNLOCK_WAVE - 1, 1)).toBe(0);
+  });
+  it('is 0 on the extra unlock wave (guaranteed single before ramp)', () => {
+    expect(extraAffixChance(EXTRA_AFFIX_UNLOCK_WAVE, 1)).toBeCloseTo(0);
   });
   it('ramps to the max for the first extra at full ramp', () => {
-    expect(extraAffixChance(AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES, 1)).toBeCloseTo(EXTRA_AFFIX_MAX);
+    expect(extraAffixChance(EXTRA_AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES, 1)).toBeCloseTo(EXTRA_AFFIX_MAX);
   });
-  it('decays for each affix already granted', () => {
-    const wave = AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
-    expect(extraAffixChance(wave, 2)).toBeCloseTo(EXTRA_AFFIX_MAX * EXTRA_AFFIX_DECAY);
-    expect(extraAffixChance(wave, 3)).toBeCloseTo(EXTRA_AFFIX_MAX * EXTRA_AFFIX_DECAY ** 2);
+  it('decays for each affix already granted (up to the cap)', () => {
+    const wave = EXTRA_AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
+    expect(extraAffixChance(wave, 1)).toBeCloseTo(EXTRA_AFFIX_MAX); // no decay on first extra
+    expect(extraAffixChance(wave, 2)).toBe(0); // at cap, no more allowed
+  });
+  it('is 0 once MAX_AFFIXES is already granted', () => {
+    expect(extraAffixChance(999, MAX_AFFIXES)).toBe(0);
+    expect(extraAffixChance(999, MAX_AFFIXES + 1)).toBe(0);
   });
   it('never exceeds the ramp ceiling past full ramp', () => {
     expect(extraAffixChance(999, 1)).toBeCloseTo(EXTRA_AFFIX_MAX);
@@ -210,6 +220,45 @@ describe('absorbWithShield', () => {
   });
   it('spills the remainder once the shield breaks', () => {
     expect(absorbWithShield(15, 20)).toEqual({ shield: 0, dmg: 5 });
+  });
+});
+
+describe('affix stacking cap + banned pairs', () => {
+  it('is a hard max-1 before the extra unlock wave', () => {
+    for (let w = AFFIX_UNLOCK_WAVE; w < EXTRA_AFFIX_UNLOCK_WAVE; w++) {
+      expect(extraAffixChance(w, 1)).toBe(0);
+    }
+    for (let i = 0; i < 300; i++) {
+      const roll = rollAffixes(EXTRA_AFFIX_UNLOCK_WAVE - 1, false, seq(0, i / 300, 0, 0, 0));
+      expect(roll.affixes.length).toBeLessThanOrEqual(1);
+    }
+  });
+  it('re-anchors the ramp at the unlock wave (no cliff)', () => {
+    expect(extraAffixChance(EXTRA_AFFIX_UNLOCK_WAVE, 1)).toBeCloseTo(0);
+    expect(extraAffixChance(EXTRA_AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES, 1)).toBeCloseTo(EXTRA_AFFIX_MAX);
+  });
+  it('never exceeds MAX_AFFIXES even with an always-yes rng', () => {
+    for (let i = 0; i < 300; i++) {
+      const roll = rollAffixes(200, false, seq(0, i / 300, 0, 0, 0, 0, 0));
+      expect(roll.affixes.length).toBeLessThanOrEqual(MAX_AFFIXES);
+    }
+  });
+  it('banned pairs never co-occur, in either draw order', () => {
+    for (let i = 0; i < 500; i++) {
+      const affixes = rollAffixes(200, false, seq(0, i / 500, i % 100 / 100, 0)).affixes;
+      for (const [a, b] of BANNED_PAIRS) {
+        expect(affixes.includes(a) && affixes.includes(b)).toBe(false);
+      }
+    }
+  });
+  it('boss rolls respect the bans and the cap', () => {
+    for (let i = 0; i < 500; i++) {
+      const affixes = rollBossAffixes(seq(0, i / 500, 0, 0, 0), 200).affixes;
+      expect(affixes.length).toBeLessThanOrEqual(MAX_AFFIXES);
+      for (const [a, b] of BANNED_PAIRS) {
+        expect(affixes.includes(a) && affixes.includes(b)).toBe(false);
+      }
+    }
   });
 });
 
