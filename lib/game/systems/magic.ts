@@ -33,6 +33,26 @@ export const ELEMENTS: Record<Exclude<Element, 'none'>, ElementSpec> = {
   fire: { effect: 'burn', color: '#ff5a1f', glow: '#ff5a1f', label: 'Fire', desc: 'Burns for a % of max HP per second' },
 };
 
+/** Base knockback distance (logic px) of the wizard's Air gust — the reference the
+ *  TzHaar's level-scaled knockback is expressed against. */
+export const AIR_KNOCKBACK = 28;
+
+/** TzHaar knockback per weapon tier (level 1..4), as a fraction of {@link
+ *  AIR_KNOCKBACK}: ½ · = · +50% · ×2. Unlike Air (only its element's on-hit), the
+ *  TzHaar ALWAYS knocks back; the maul tiers (3-4) also crush-stun on top. */
+export const TZHAAR_KNOCKBACK: readonly number[] = [
+  AIR_KNOCKBACK * 0.5, // L1: half of Air
+  AIR_KNOCKBACK,       // L2: same as Air
+  AIR_KNOCKBACK * 1.5, // L3: +50%
+  AIR_KNOCKBACK * 2,   // L4: double
+];
+
+/** TzHaar knockback distance for a given weapon tier (clamped to the table). */
+export function tzhaarKnockback(level: number): number {
+  const i = Math.max(0, Math.min(TZHAAR_KNOCKBACK.length - 1, Math.floor(level) - 1));
+  return TZHAAR_KNOCKBACK[i];
+}
+
 export interface AncientSpec {
   /** Status applied to every enemy caught in the barrage (Blood has none). */
   effect?: MagicEffect;

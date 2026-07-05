@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName, AIR_KNOCKBACK, tzhaarKnockback } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -67,6 +67,19 @@ describe('spell sprite names', () => {
     expect(spellSpriteName({ type: 'wizard', mageMode: 'utility', supportSpell: 'enfeeble', level: 4 })).toBe('Undead_Grasp');
     expect(spellSpriteName({ type: 'wizard', mageMode: 'utility', level: 4 })).toBe('Death_Charge'); // default curse
     expect(spellSpriteName({ type: 'archer', level: 1 })).toBeNull();
+  });
+});
+
+describe('tzhaarKnockback', () => {
+  it('scales by weapon tier relative to Air (½, =, +50%, ×2)', () => {
+    expect(tzhaarKnockback(1)).toBe(AIR_KNOCKBACK * 0.5); // 14
+    expect(tzhaarKnockback(2)).toBe(AIR_KNOCKBACK);       // 28
+    expect(tzhaarKnockback(3)).toBe(AIR_KNOCKBACK * 1.5); // 42
+    expect(tzhaarKnockback(4)).toBe(AIR_KNOCKBACK * 2);   // 56
+  });
+  it('clamps out-of-range levels to the table ends', () => {
+    expect(tzhaarKnockback(0)).toBe(AIR_KNOCKBACK * 0.5);
+    expect(tzhaarKnockback(9)).toBe(AIR_KNOCKBACK * 2);
   });
 });
 

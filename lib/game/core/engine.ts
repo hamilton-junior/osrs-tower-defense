@@ -12,7 +12,7 @@ import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, synergyDamageMult, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, weaknessMultiplier, lifestealChance, bloodBonusFrac, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, weaknessMultiplier, lifestealChance, bloodBonusFrac, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp } from '../systems/tower-identity';
@@ -2606,16 +2606,19 @@ export class GameEngine {
         break;
       }
       case 'pushback': {
-        // The wizard's Air gust shoves hard (28); the TzHaar's heavy swing only
-        // nudges the enemy back (10) — its knockback fires far more often.
+        // The wizard's Air gust shoves by AIR_KNOCKBACK; the TzHaar always knocks
+        // back too, scaled by its weapon tier (½·=·+50%·×2 of Air).
         const src = p.sourceTowerId ? this.towers.find(t => t.id === p.sourceTowerId) : undefined;
-        this.knockback(e, (src?.type === 'tzhaar' ? 10 : 28) * (1 - this.tenacity(e)));
+        const dist = (src?.type === 'tzhaar' ? tzhaarKnockback(src.level) : AIR_KNOCKBACK) * (1 - this.tenacity(e));
+        this.knockback(e, dist);
         this.noteDebuffHit(e);
         break;
       }
       case 'crush': {
-        // TzHaar maul: a small shove (10) plus a brief stun — a crushing blow.
-        this.knockback(e, 10 * (1 - this.tenacity(e)));
+        // TzHaar maul: a tier-scaled shove (see tzhaarKnockback) plus a brief stun —
+        // a crushing blow.
+        const src = p.sourceTowerId ? this.towers.find(t => t.id === p.sourceTowerId) : undefined;
+        this.knockback(e, tzhaarKnockback(src?.level ?? 3) * (1 - this.tenacity(e)));
         const eff = 0.6 * (1 - this.tenacity(e));
         this.noteDebuffHit(e);
         if (eff > 0) e.stunTimer = Math.max(e.stunTimer, eff);
@@ -2644,17 +2647,20 @@ export class GameEngine {
     if (Math.random() < lifestealChance(tower?.level ?? 1)) this.lives += 1;
   }
 
-  /** Air gust: shove an enemy back toward the previous waypoint (clamped). */
-  private knockback(e: Enemy, dist: number) {
+  /** Air gust: shove an enemy back toward the previous waypoint (clamped).
+   *  Returns the distance actually moved (logic px), for the damage-meter's
+   *  "tiles pushed" tally. */
+  private knockback(e: Enemy, dist: number): number {
     const prev = this.path[e.pathIndex];
-    if (!prev) return;
+    if (!prev) return 0;
     const dx = prev.x - e.x;
     const dy = prev.y - e.y;
     const d = Math.hypot(dx, dy);
-    if (d < 1) return;
+    if (d < 1) return 0;
     const step = Math.min(dist, d);
     e.x += (dx / d) * step;
     e.y += (dy / d) * step;
+    return step;
   }
 
   /** Per-hit size multiplier for a magic impact, derived from the struck model
