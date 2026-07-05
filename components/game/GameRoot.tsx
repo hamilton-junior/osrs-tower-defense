@@ -1195,7 +1195,7 @@ export default function GameRoot() {
                   >
                     {base
                       ? <img src={base} alt={TOWERS[type].baseName} onError={hideBrokenImg} />
-                      : <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>}
+                      : <span className="text-[0.5em] capitalize">{TOWERS[type].baseName}</span>}
                     <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
                   </button>
                 );

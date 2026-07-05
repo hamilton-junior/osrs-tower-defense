@@ -58,8 +58,12 @@ body {
      whole interface tracks the screen resolution — bigger on large / hi-dpi
      displays — with a readable floor and a ceiling that keeps 4K sane. The
      `--ui-scale` var (default 1, nudged from the controls bar) multiplies it for
-     a manual size preference. Change this one value to rescale the entire UI. */
-  font-size: calc(clamp(22px, 2.4vmin, 42px) * var(--ui-scale, 1));
+     a manual size preference. Change this one value to rescale the entire UI.
+     Floor raised to 24px (+2px) so the small em text (tower elemental effects,
+     tooltip/description copy, etc.) is legible without manual upscaling; the bump
+     is weighted to the small end (floor + a slightly steeper vmin), tapering to
+     the same 4K ceiling so large text isn't blown up disproportionally. */
+  font-size: calc(clamp(24px, 2.5vmin, 42px) * var(--ui-scale, 1));
 }
 
 .font-osrs {
@@ -424,7 +428,9 @@ body {
 }
 
 .rs-pill-label {
-  font-size: 0.58rem;
+  /* `em` (not `rem`) so it tracks the resolution-scaling base like the rest of the
+     UI, instead of being pinned to the 16px root and reading tiny on large screens. */
+  font-size: 0.46em;
   color: #b7a98c;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -507,7 +513,8 @@ body {
   position: absolute;
   bottom: 0;
   right: 3px;
-  font-size: 0.62rem;
+  /* `em` so the cost label scales with the UI (see .rs-pill-label). */
+  font-size: 0.5em;
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
 }
 
