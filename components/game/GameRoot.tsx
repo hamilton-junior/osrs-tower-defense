@@ -1382,13 +1382,13 @@ export default function GameRoot() {
                   <span className="text-[0.72em] text-[#d3c3a0] uppercase tracking-wide">Signature</span>
                   <span className="text-[0.74em] text-osrs-yellow font-semibold">{sig.label}</span>
                 </div>
-                <p className="text-[0.62em] text-[#b3a585] leading-snug">{sig.desc}</p>
+                <p className="text-[0.72em] text-[#b3a585] leading-snug">{sig.desc}</p>
                 {sig.notes.length > 0 && (
                   <ul className="mt-[0.3em] space-y-[0.15em]">
                     {sig.notes.map((n, i) => (
                       <li
                         key={i}
-                        className={`text-[0.6em] leading-snug flex gap-[0.35em] ${n.active ? 'text-[#9ccf9c]' : 'text-[#7a6f57]'}`}
+                        className={`text-[0.7em] leading-snug flex gap-[0.35em] ${n.active ? 'text-[#9ccf9c]' : 'text-[#7a6f57]'}`}
                       >
                         <span>{n.active ? '▸' : '▹'}</span>
                         <span>{n.text}</span>
@@ -1557,7 +1557,7 @@ export default function GameRoot() {
                       );
                     })}
                   </div>
-                  <p className="text-[0.62em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
+                  <p className="text-[0.72em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
                     {SUPPORT_SPELLS[selectedTower.supportSpell ?? 'curse'].desc}.
                     Always-on aura boosts nearby towers' range, speed &amp; damage too.
                   </p>
@@ -1565,13 +1565,13 @@ export default function GameRoot() {
               )}
 
               {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (
-                <p className="text-[0.62em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
+                <p className="text-[0.72em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
                   {ELEMENTS[(selectedTower.element ?? 'air') as keyof typeof ELEMENTS].desc}
                 </p>
               )}
 
               {selectedTower.mageMode === 'ancients' && (
-                <p className="text-[0.62em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
+                <p className="text-[0.72em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
                   {ANCIENTS[selectedTower.ancientType ?? 'ice'].desc}
                 </p>
               )}
@@ -3013,6 +3013,7 @@ interface DpsRow {
   id: string;
   name: string;
   color: string;
+  icon?: string;
   type: TowerType | 'run';
   style: CombatStyle | 'run';
   subLabel: string | null;
@@ -3040,7 +3041,7 @@ function buildDpsRow(t: DpsTowerStat, view: 'wave' | 'total', wave: number, wave
   // the board's combat clock; real towers use their own engaged seconds.
   const denom = t.isUtility || t.style === 'run' ? waveDenom : combat;
   return {
-    id: t.id, name: t.name, color: t.color, type: t.type, style: t.style,
+    id: t.id, name: t.name, color: t.color, icon: t.icon, type: t.type, style: t.style,
     subLabel: t.subLabel, isUtility: t.isUtility,
     damage, dps: denom > 0 ? damage / denom : 0, byWave, effects,
   };
@@ -3083,8 +3084,8 @@ function DpsPanel({ snap, onClose, globalLock }: {
 
   // Bucket the rows for the active grouping (each bucket is collapsible).
   const buckets = useMemo(() => {
-    if (group === 'none') return [{ key: '', label: '', color: '', rows }];
-    const map = new Map<string, { key: string; label: string; color: string; rows: DpsRow[] }>();
+    if (group === 'none') return [{ key: '', label: '', color: '', style: 'run' as CombatStyle | 'run', icon: undefined as string | undefined, rows }];
+    const map = new Map<string, { key: string; label: string; color: string; style: CombatStyle | 'run'; icon?: string; rows: DpsRow[] }>();
     for (const r of rows) {
       let key: string, label: string, color: string;
       if (group === 'style') {
@@ -3095,7 +3096,9 @@ function DpsPanel({ snap, onClose, globalLock }: {
         key = r.type; label = r.type === 'run' ? 'Run Effects' : (TOWERS[r.type]?.baseName ?? r.type); color = r.color;
       }
       let b = map.get(key);
-      if (!b) { b = { key, label, color, rows: [] }; map.set(key, b); }
+      // The bucket's badge is the first tower's live icon (Tower groups); Damage
+      // groups render a combat-style icon in the header instead.
+      if (!b) { b = { key, label, color, style: r.style, icon: r.icon, rows: [] }; map.set(key, b); }
       b.rows.push(r);
     }
     const arr = [...map.values()];
@@ -3117,9 +3120,9 @@ function DpsPanel({ snap, onClose, globalLock }: {
           className="w-full flex items-center gap-[0.5em] text-left"
         >
           <span className="text-[0.7em] w-[1em] shrink-0 text-[#b3a585]">{open ? '▾' : '▸'}</span>
-          {r.type !== 'run' && towerTierIcon(r.type as TowerType, 1)
-            ? <img src={towerTierIcon(r.type as TowerType, 1)} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />
-            : <span className="w-[1.3em] shrink-0 text-center text-[0.9em]">✦</span>}
+          {r.icon
+            ? <img src={r.icon} alt="" className="w-[1.5em] h-[1.5em] object-contain shrink-0" onError={hideBrokenImg} />
+            : <span className="w-[1.5em] shrink-0 text-center text-[0.9em]">✦</span>}
           <span className="flex-1 min-w-0">
             <span className="flex items-center justify-between gap-[0.4em]">
               <span className="truncate text-[0.8em]" style={{ color: r.isUtility ? '#c9a24a' : '#f0e6d2' }}>
@@ -3183,49 +3186,53 @@ function DpsPanel({ snap, onClose, globalLock }: {
     <MovablePanel
       id="dps-panel"
       globalLock={globalLock}
-      className="rs-panel absolute top-10 left-1/2 z-30 w-[29em] flex flex-col p-3"
-      style={{ marginLeft: '-14.5em', maxHeight: '82vh', fontSize: fs('clamp(14px, 0.9vw, 19px)') }}
+      className="rs-panel absolute top-3 right-3 bottom-3 z-30 w-[24em] max-w-[92vw] flex flex-col p-3"
+      style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}
     >
       <div className="rs-panel-title flex items-center justify-between">
         <span className="flex items-center gap-2">📊 DPS Meter</span>
         <button onClick={onClose} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
       </div>
 
-      {/* View: by-wave (with a wave stepper) or the whole run. */}
-      <div className="flex items-center justify-between gap-[0.4em] mt-[0.4em] mb-[0.35em] flex-wrap">
-        <div className="flex gap-[0.3em]">
-          <button onClick={() => setView('wave')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'wave' ? 'rs-btn-primary' : ''}`}>By Wave</button>
-          <button onClick={() => setView('total')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'total' ? 'rs-btn-primary' : ''}`}>Total</button>
-        </div>
-        {view === 'wave' && waves.length > 0 && (
-          <div className="flex items-center gap-[0.3em]">
-            <button onClick={() => setWave(Math.max(waves[0], curWave - 1))} disabled={curWave <= waves[0]} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">◀</button>
-            <span className="text-[0.74em] text-[#f0e6d2] w-[4.4em] text-center">Wave {curWave}</span>
-            <button onClick={() => setWave(Math.min(lastWave, curWave + 1))} disabled={curWave >= lastWave} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">▶</button>
+      {/* One calm toolbar for every control — view, wave nav, grouping, format,
+          empty-tower filter — so they read as a single strip, not scattered chips. */}
+      <div className="rs-panel-inset flex flex-col gap-[0.35em] p-[0.45em] mt-[0.4em] mb-[0.5em]" style={{ borderRadius: 0 }}>
+        {/* View: by-wave (with a wave stepper) or the whole run. */}
+        <div className="flex items-center justify-between gap-[0.4em] flex-wrap">
+          <div className="flex gap-[0.3em]">
+            <button onClick={() => setView('wave')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'wave' ? 'rs-btn-primary' : ''}`}>By Wave</button>
+            <button onClick={() => setView('total')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'total' ? 'rs-btn-primary' : ''}`}>Total</button>
           </div>
-        )}
-      </div>
-
-      {/* Group / number-format / show-empty controls. */}
-      <div className="flex items-center justify-between gap-[0.4em] mb-[0.5em] flex-wrap">
-        <div className="flex items-center gap-[0.25em]">
-          <span className="text-[0.62em] text-[#b3a585] uppercase tracking-wide mr-[0.1em]">Group</span>
-          {([['none', 'None'], ['tower', 'Tower'], ['style', 'Damage']] as const).map(([k, label]) => (
-            <button key={k} onClick={() => setGroup(k)} className={`rs-btn px-[0.5em] py-[0.1em] text-[0.68em] ${group === k ? 'rs-btn-primary' : ''}`}>{label}</button>
-          ))}
+          {view === 'wave' && waves.length > 0 && (
+            <div className="flex items-center gap-[0.3em]">
+              <button onClick={() => setWave(Math.max(waves[0], curWave - 1))} disabled={curWave <= waves[0]} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">◀</button>
+              <span className="text-[0.74em] text-[#f0e6d2] w-[4.4em] text-center">Wave {curWave}</span>
+              <button onClick={() => setWave(Math.min(lastWave, curWave + 1))} disabled={curWave >= lastWave} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">▶</button>
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-[0.4em]">
-          <button
-            onClick={() => setFormat((f) => (f === 'number' ? 'percent' : 'number'))}
-            title="Toggle raw numbers / % of the wave (or run) total"
-            className="rs-btn px-[0.55em] py-[0.1em] text-[0.68em]"
-          >
-            {format === 'number' ? '123' : '%'}
-          </button>
-          <label className="flex items-center gap-[0.25em] text-[0.66em] text-[#cdbe91] cursor-pointer select-none">
-            <input type="checkbox" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />
-            Show empty
-          </label>
+
+        {/* Group / number-format / show-empty controls. */}
+        <div className="flex items-center justify-between gap-[0.4em] flex-wrap">
+          <div className="flex items-center gap-[0.25em]">
+            <span className="text-[0.62em] text-[#b3a585] uppercase tracking-wide mr-[0.1em]">Group</span>
+            {([['none', 'None'], ['tower', 'Tower'], ['style', 'Damage']] as const).map(([k, label]) => (
+              <button key={k} onClick={() => setGroup(k)} className={`rs-btn px-[0.5em] py-[0.1em] text-[0.68em] ${group === k ? 'rs-btn-primary' : ''}`}>{label}</button>
+            ))}
+          </div>
+          <div className="flex items-center gap-[0.4em]">
+            <button
+              onClick={() => setFormat((f) => (f === 'number' ? 'percent' : 'number'))}
+              title="Toggle raw numbers / % of the wave (or run) total"
+              className="rs-btn px-[0.55em] py-[0.1em] text-[0.68em]"
+            >
+              {format === 'number' ? '123' : '%'}
+            </button>
+            <label className="flex items-center gap-[0.25em] text-[0.66em] text-[#cdbe91] cursor-pointer select-none" title="Show towers that dealt no damage in this view">
+              <input type="checkbox" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />
+              Empty
+            </label>
+          </div>
         </div>
       </div>
 
@@ -3251,7 +3258,11 @@ function DpsPanel({ snap, onClose, globalLock }: {
                 >
                   <span className="flex items-center gap-[0.4em] min-w-0">
                     <span className="text-[0.7em] text-[#b3a585]">{isCollapsed ? '▸' : '▾'}</span>
-                    <span className="w-[0.7em] h-[0.7em] shrink-0" style={{ background: b.color }} />
+                    {group === 'style' && b.style !== 'run'
+                      ? <StyleIcon style={b.style} />
+                      : b.icon
+                        ? <img src={b.icon} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />
+                        : <span className="w-[0.7em] h-[0.7em] shrink-0" style={{ background: b.color }} />}
                     <span className="text-[0.76em] font-bold text-[#f0e6d2] truncate">{b.label}</span>
                     <span className="text-[0.64em] text-[#8a7f68]">×{b.rows.length}</span>
                   </span>

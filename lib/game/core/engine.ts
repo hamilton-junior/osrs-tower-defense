@@ -2420,6 +2420,15 @@ export class GameEngine {
         isUtility = true;
       }
     }
+    // Current icon: a wizard shows its live spell icon (element/barrage/utility
+    // cast), everything else its current tier sprite — matching the board.
+    const towerIcons = ASSETS.towers as Record<string, Record<number, string>>;
+    let icon: string | undefined;
+    if (t.type === 'wizard') {
+      const sp = spellSpriteName(t);
+      icon = sp ? (ASSETS.spells as Record<string, string>)[sp] : undefined;
+    }
+    icon ??= towerIcons[t.type]?.[t.level] ?? towerIcons[t.type]?.[1];
     return {
       type: t.type,
       style: TOWER_STYLES[t.type]?.style ?? 'melee',
@@ -2427,6 +2436,7 @@ export class GameEngine {
       subLabel,
       name: t.name,
       color: t.color,
+      icon,
       isUtility,
     };
   }

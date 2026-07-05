@@ -44,6 +44,10 @@ export interface TowerIdentity {
   subLabel: string | null;
   name: string;
   color: string;
+  /** The tower's *current* in-game icon URL (spell icon for wizards, tier sprite
+   *  otherwise), so the panel shows the same art the board does — not a generic
+   *  stand-in. Undefined for run FX. */
+  icon?: string;
   /** True for Utility wizards — their recorded damage is the *extra they granted*. */
   isUtility: boolean;
 }
