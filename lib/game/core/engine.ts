@@ -11,8 +11,9 @@ import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } fr
 import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
-import { calculateTowerStats, synergyDamageMult, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
-import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, weaknessMultiplier, lifestealChance, bloodBonusFrac, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback } from '../systems/magic';
+import { calculateTowerStats, synergyDamageMult, utilityAuraBonus, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
+import { CombatStatsSystem, RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity, type DpsSnapshot } from '../systems/combat-stats';
+import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp } from '../systems/tower-identity';
@@ -264,6 +265,9 @@ export interface UIState {
   unlocks: UnlockItem[];
   /** Bumps whenever a new unlock batch fires, so the UI enqueues it once. */
   unlockSeq: number;
+  /** DPS-panel snapshot: a plain per-tower damage/effect tree for the current run,
+   *  pushed only while the panel is open (null otherwise). See CombatStatsSystem. */
+  dpsStats?: DpsSnapshot | null;
   /** Lifetime kills per enemy type (the Collection Log). */
   killCounts: Record<string, number>;
   /** Lifetime sighting count per boss type. A boss only rolls modifiers once it
@@ -634,6 +638,9 @@ export class GameEngine {
   readonly slayer = new SlayerSystem(this);
   readonly prayer = new PrayerSystem(this);
   readonly ge = new GeSystem(this);
+  /** Per-run damage accounting for the DPS panel; identity is resolved live off
+   *  the current tower so it tracks upgrades and survives a sold tower. */
+  readonly stats = new CombatStatsSystem((id) => this.towerIdentity(id));
   /** Persistent meta-progression (essence + bought upgrades); seeded from the
    *  saved blob in the constructor and kept across {@link restart}. */
   readonly meta: MetaSystem;
@@ -849,6 +856,29 @@ export class GameEngine {
   /** Re-push the UI snapshot — used by composed subsystems after mutating state. */
   requestEmit() {
     this.emit();
+  }
+
+  // --- DPS panel: the stats snapshot is only serialised to the UI while the panel
+  //     is open (the counters always run; pushing the whole tree every frame is the
+  //     only expensive part), refreshed on a light throttle. ---
+  private dpsPanelOpen = false;
+  private dpsPushTimer = 0;
+
+  /** Open/close the DPS panel. Pushes a fresh snapshot on open and clears it on
+   *  close so the UI copy is freed; while open, {@link pushDpsStats} refreshes it. */
+  setDpsPanelOpen(open: boolean) {
+    if (this.dpsPanelOpen === open) return;
+    this.dpsPanelOpen = open;
+    this.dpsPushTimer = 0;
+    this.onState({ dpsStats: open ? this.stats.snapshot() : null });
+  }
+
+  private pushDpsStats(dt: number) {
+    if (!this.dpsPanelOpen) return;
+    this.dpsPushTimer += dt;
+    if (this.dpsPushTimer < 0.25) return; // ~4 Hz
+    this.dpsPushTimer = 0;
+    this.onState({ dpsStats: this.stats.snapshot() });
   }
 
   /** Play a game sound (thin public wrapper for composed subsystems). */
@@ -1712,11 +1742,29 @@ export class GameEngine {
     this.moveEnemies(dt);
     this.fireTowers(dt);
     this.updateUtilityTowers();
+    this.recordCombatTime(dt);
     this.moveProjectiles(dt);
     this.handleBossMechanics(dt);
     this.updateEffects(dt);
     this.checkWaveEnd();
     this.tickAutoplay(dt);
+    this.pushDpsStats(dt);
+  }
+
+  /** DPS meter: bank engagement time. A tower's own combat seconds tick while it
+   *  has a target during a live wave (the DPS-rate denominator); the board-wide
+   *  wave-combat clock ticks while ANY damage-dealing tower is engaging, and backs
+   *  the DPS rate for Utility / Run-FX rows that have no engagement time. */
+  private recordCombatTime(dt: number) {
+    if (!this.waveActive || dt <= 0) return;
+    let anyEngaging = false;
+    for (const t of this.towers) {
+      if (t.targetId === null) continue;
+      if (t.type === 'wizard' && t.mageMode === 'utility') continue; // utility never targets
+      this.stats.addCombatTime(t.id, this.wave, dt);
+      anyEngaging = true;
+    }
+    if (anyEngaging) this.stats.addWaveCombat(this.wave, dt);
   }
 
   /**
@@ -2033,7 +2081,10 @@ export class GameEngine {
             d.accum -= total;
             // Pass the source style so boss style-resistance (Zulrah) reduces the
             // DoT — including Fire's %max-HP burn — like it does the direct hit.
-            if (this.damage(e, total, kind, true, false, 0, d.style)) break; // enemy died; stop ticking it
+            // Tag maps the DoT slot to its meter bucket (burn/poison/venom).
+            const dotTag = kind === 'burn' ? 'burn' : kind === 'venom' ? 'venom' : 'poison';
+            if (this.damage(e, total, kind, true, false, 0, d.style,
+                { towerId: d.sourceTowerId, tag: dotTag })) break; // enemy died; stop ticking it
           }
         }
         if (expired) delete e.dots[kind];
@@ -2160,6 +2211,8 @@ export class GameEngine {
         baseDamage = lo + Math.random() * (hi - lo);
       }
       let damage = Math.floor((baseDamage + stats.flatDamageBonus) * stats.damageMultiplier * this.runDamageMult());
+      // Utility damage-aura boosting this shot (for the DPS meter's attribution).
+      const projAura = this.utilityAura(tower);
 
       // Slayer weapon: native bonus vs the current task target / superiors / bosses,
       // independent of (and stacking with) the Slayer Helmet applied in damage().
@@ -2277,6 +2330,7 @@ export class GameEngine {
           hitSound,
           projAnim,
           sourceTowerId: tower.id,
+          aura: projAura,
           trail: [],
         });
         incoming.set(tgt.id, (incoming.get(tgt.id) ?? 0) + dmg);
@@ -2338,6 +2392,65 @@ export class GameEngine {
         }
       }
     }
+  }
+
+  /** Display identity of a tower for the DPS panel (grouping + labels). Returns
+   *  null for an unknown id (e.g. a sold tower or the Run-FX bucket), letting the
+   *  stats system fall back to its last-known / synthetic identity. */
+  private towerIdentity(id: string): TowerIdentity | null {
+    const t = this.towers.find(tw => tw.id === id);
+    if (!t) return null;
+    let subcategory: string | null = null;
+    let subLabel: string | null = null;
+    let isUtility = false;
+    if (t.type === 'wizard') {
+      const mode = t.mageMode ?? 'elemental';
+      if (mode === 'elemental') {
+        const el = t.element ?? 'air';
+        subcategory = el;
+        subLabel = ELEMENTS[el as Exclude<Element, 'none'>]?.label ?? el;
+      } else if (mode === 'ancients') {
+        const anc = t.ancientType ?? 'ice';
+        subcategory = anc;
+        subLabel = `${ANCIENTS[anc]?.label ?? anc} barrage`;
+      } else {
+        const sp = t.supportSpell ?? 'curse';
+        subcategory = 'utility';
+        subLabel = SUPPORT_SPELLS[sp]?.label ?? sp;
+        isUtility = true;
+      }
+    }
+    return {
+      type: t.type,
+      style: TOWER_STYLES[t.type]?.style ?? 'melee',
+      subcategory,
+      subLabel,
+      name: t.name,
+      color: t.color,
+      isUtility,
+    };
+  }
+
+  /** The Utility damage-aura boosting a firing tower right now, resolved to the
+   *  contributing wizards + each one's share of the extra (mirrors the diminishing
+   *  stack in tower-combat). Undefined when no aura applies, so a plain hit records
+   *  no split. */
+  private utilityAura(tower: Tower): AuraAttribution | undefined {
+    const parts: { id: string; bonus: number }[] = [];
+    for (const t of this.towers) {
+      if (t.id === tower.id || t.type !== 'wizard' || t.mageMode !== 'utility') continue;
+      if (distance(t.x, t.y, tower.x, tower.y) > t.range) continue;
+      const b = utilityAuraBonus(t.level).damage;
+      if (b > 0) parts.push({ id: t.id, bonus: b });
+    }
+    if (!parts.length) return undefined;
+    // Diminishing returns: strongest counts fully, each next ×0.5^rank (matches
+    // diminishingSum), so the per-wizard weight is its own term in that sum.
+    parts.sort((a, b) => b.bonus - a.bonus);
+    const weights = parts.map((p, i) => p.bonus * Math.pow(0.5, i));
+    const factor = weights.reduce((s, w) => s + w, 0);
+    if (factor <= 0) return undefined;
+    return { factor, parts: parts.map((p, i) => ({ id: p.id, share: weights[i] / factor })) };
   }
 
   private moveProjectiles(dt: number) {
@@ -2460,7 +2573,8 @@ export class GameEngine {
         // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.
         const bonus = p.bonusMaxHpFrac ? Math.floor(e.maxHp * p.bonusMaxHpFrac * scale) : 0;
         const dmg = Math.floor(p.damage * scale) + bonus;
-        const killed = this.damage(e, dmg, 'hit', false, silent, 0, style);
+        const killed = this.damage(e, dmg, 'hit', false, silent, 0, style,
+          { towerId: p.sourceTowerId, tag: isPrimary ? 'direct' : 'splash', aura: p.aura });
         if (isPrimary) primaryKilled = killed;
         if (!killed) { this.applyOnHit(e, p); this.applyVenomTips(e); }
       }
@@ -2468,7 +2582,8 @@ export class GameEngine {
       // Single-target: only resolves if the target is still alive at impact;
       // otherwise the bolt just fizzles where the target was (particles only).
       const bonus = p.bonusMaxHpFrac ? Math.floor(target.maxHp * p.bonusMaxHpFrac) : 0;
-      primaryKilled = this.damage(target, p.damage + bonus, 'hit', false, silent, 0, style);
+      primaryKilled = this.damage(target, p.damage + bonus, 'hit', false, silent, 0, style,
+        { towerId: p.sourceTowerId, tag: 'direct', aura: p.aura });
       if (!primaryKilled) { this.applyOnHit(target, p); this.applyVenomTips(target); }
       // Pierce (roguelite transform): the bolt punches through to the nearest
       // *other* enemy near the impact, landing a second full hit.
@@ -2563,7 +2678,9 @@ export class GameEngine {
     }
     if (!best) return;
     this.addBolt(target.x, target.y, best.x, best.y, '#ffe08a', 0.22); // the bolt punching through
-    const killed = this.damage(best, p.damage, 'hit', false, true, 1, this.projectileStyle(p));
+    // A second full hit from the same bolt — credit the firing tower (with its aura).
+    const killed = this.damage(best, p.damage, 'hit', false, true, 1, this.projectileStyle(p),
+      { towerId: p.sourceTowerId, tag: 'direct', aura: p.aura });
     if (!killed) { this.applyOnHit(best, p); this.applyVenomTips(best); }
   }
 
@@ -2575,14 +2692,19 @@ export class GameEngine {
     // (Zulrah's phases) reduces the over-time damage — notably Fire's %max-HP
     // burn — just as it already reduces the projectile's direct hit.
     const style = this.projectileStyle(p);
+    const fx = p.sourceTowerId ?? RUN_FX_ID; // DPS-meter owner for this hit's effects
     switch (p.special) {
       case 'slow':
         this.applySlow(e);
+        this.stats.recordEffect(fx, this.wave, { slowCount: 1 });
         break;
       case 'stun': {
         const eff = (p.aoe ? 0.8 : 2) * (1 - this.tenacity(e));
         this.noteDebuffHit(e);
-        if (eff > 0) e.stunTimer = Math.max(e.stunTimer, eff);
+        if (eff > 0) {
+          e.stunTimer = Math.max(e.stunTimer, eff);
+          this.stats.recordEffect(fx, this.wave, { stunCount: 1, stunSeconds: eff });
+        }
         break;
       }
       case 'burn': {
@@ -2595,14 +2717,17 @@ export class GameEngine {
         const dps = p.aoe ? this.wave : Math.max(3, Math.floor(e.maxHp * 0.02));
         const dots = (e.dots ??= {});
         const cur = dots[kind];
-        if (cur) { cur.timer = Math.max(cur.timer, dur); cur.dps = Math.max(cur.dps, dps); cur.style = style; }
-        else dots[kind] = { timer: dur, dps, accum: 0, tickTimer: 0, style };
+        if (cur) { cur.timer = Math.max(cur.timer, dur); cur.dps = Math.max(cur.dps, dps); cur.style = style; cur.sourceTowerId = p.sourceTowerId; }
+        else dots[kind] = { timer: dur, dps, accum: 0, tickTimer: 0, style, sourceTowerId: p.sourceTowerId };
         break;
       }
       case 'amp': {
         const eff = 3 * (1 - this.tenacity(e));
         this.noteDebuffHit(e);
-        if (eff > 0) e.vulnTimer = Math.max(e.vulnTimer ?? 0, eff);
+        if (eff > 0) {
+          e.vulnTimer = Math.max(e.vulnTimer ?? 0, eff);
+          this.stats.recordEffect(fx, this.wave, { ampCount: 1 });
+        }
         break;
       }
       case 'pushback': {
@@ -2610,18 +2735,23 @@ export class GameEngine {
         // back too, scaled by its weapon tier (½·=·+50%·×2 of Air).
         const src = p.sourceTowerId ? this.towers.find(t => t.id === p.sourceTowerId) : undefined;
         const dist = (src?.type === 'tzhaar' ? tzhaarKnockback(src.level) : AIR_KNOCKBACK) * (1 - this.tenacity(e));
-        this.knockback(e, dist);
+        const moved = this.knockback(e, dist);
         this.noteDebuffHit(e);
+        if (moved > 0) this.stats.recordEffect(fx, this.wave, { pushCount: 1, pushTiles: moved / GRID });
         break;
       }
       case 'crush': {
         // TzHaar maul: a tier-scaled shove (see tzhaarKnockback) plus a brief stun —
         // a crushing blow.
         const src = p.sourceTowerId ? this.towers.find(t => t.id === p.sourceTowerId) : undefined;
-        this.knockback(e, tzhaarKnockback(src?.level ?? 3) * (1 - this.tenacity(e)));
+        const moved = this.knockback(e, tzhaarKnockback(src?.level ?? 3) * (1 - this.tenacity(e)));
         const eff = 0.6 * (1 - this.tenacity(e));
         this.noteDebuffHit(e);
         if (eff > 0) e.stunTimer = Math.max(e.stunTimer, eff);
+        this.stats.recordEffect(fx, this.wave, {
+          ...(moved > 0 ? { pushCount: 1, pushTiles: moved / GRID } : {}),
+          ...(eff > 0 ? { stunCount: 1, stunSeconds: eff } : {}),
+        });
         break;
       }
       case 'venom': {
@@ -2631,8 +2761,8 @@ export class GameEngine {
         const { step, cap, dur } = venomRamp(p.damage);
         const dots = (e.dots ??= {});
         const cur = dots.venom;
-        if (cur) { cur.dps = Math.min(cap, cur.dps + step); cur.timer = Math.max(cur.timer, dur); cur.style = style; }
-        else dots.venom = { timer: dur, dps: step, accum: 0, tickTimer: 0, style };
+        if (cur) { cur.dps = Math.min(cap, cur.dps + step); cur.timer = Math.max(cur.timer, dur); cur.style = style; cur.sourceTowerId = p.sourceTowerId; }
+        else dots.venom = { timer: dur, dps: step, accum: 0, tickTimer: 0, style, sourceTowerId: p.sourceTowerId };
         break;
       }
       default:
@@ -2765,7 +2895,7 @@ export class GameEngine {
    *  colours the hitsplat; `minor` (DoT) draws it small/below, drifting aside.
    *  `depth` guards the on-kill chain cards (ricochet / overkill / streak smite)
    *  against unbounded recursion — chains only fire from a depth-0 (direct) kill. */
-  private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false, silent = false, depth = 0, style?: CombatStyle): boolean {
+  private damage(enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false, silent = false, depth = 0, style?: CombatStyle, source?: DamageSource): boolean {
     // Water "amp" makes the enemy take extra damage from every source; the Slayer
     // Helmet adds an on-task bonus vs the current task's monster. The Armored affix
     // halves damage from its rolled style (DoT/no-style hits are unaffected).
@@ -2783,6 +2913,20 @@ export class GameEngine {
       dealt = a.dmg;
     }
     enemy.hp -= dealt;
+    // DPS meter: credit the dealt damage to its source (splitting off any Utility-
+    // aura extra), plus the effect-specific tallies (DoT damage, splash hits, the
+    // Slayer Helmet's on-task slice) so the panel can break them out per tower.
+    if (source && dealt > 0) {
+      this.stats.recordDamage(source, this.wave, enemy.type, dealt);
+      const owner = source.towerId ?? RUN_FX_ID;
+      if (source.tag === 'burn') this.stats.recordEffect(owner, this.wave, { burnDmg: dealt });
+      else if (source.tag === 'poison') this.stats.recordEffect(owner, this.wave, { poisonDmg: dealt });
+      else if (source.tag === 'venom') this.stats.recordEffect(owner, this.wave, { venomDmg: dealt });
+      else if (source.tag === 'splash') this.stats.recordEffect(owner, this.wave, { splashHits: 1 });
+      if (source.towerId && onTask > 1) {
+        this.stats.recordEffect(source.towerId, this.wave, { taskBonusDmg: dealt * (1 - 1 / onTask) });
+      }
+    }
     // Jad: remember damage that actually landed, for the Yt-HurKot heal window.
     if (dealt > 0 && enemy.bossState?.kind === 'jad') {
       (enemy.bossState.recentDamage ??= []).push({ t: this.gameTime, amount: dealt });
@@ -2919,7 +3063,7 @@ export class GameEngine {
       this.addRing(this.width / 2, this.height / 2, 24, Math.max(this.width, this.height) * 0.62, '#ffd257', 0.55, 7);
       for (const e of [...this.enemies]) {
         this.addRing(e.x, e.y, 2, 26, '#fff2c0', 0.35, 3);
-        this.damage(e, fx.killStreak.damage, 'hit', false, true, 1);
+        this.damage(e, fx.killStreak.damage, 'hit', false, true, 1, undefined, { tag: 'chain' });
       }
     }
     // Ricochet (Dragon Claws): arc a fraction of the killing blow into the nearest
@@ -2944,7 +3088,8 @@ export class GameEngine {
     }
     if (best) {
       this.addBolt(x, y, best.x, best.y, color);
-      this.damage(best, dmg, 'hit', false, true, 1);
+      // Card-driven chain FX (ricochet / overkill cleave) — bucketed as Run Effects.
+      this.damage(best, dmg, 'hit', false, true, 1, undefined, { tag: 'chain' });
     }
   }
 
@@ -3240,6 +3385,8 @@ export class GameEngine {
     this.slayer.assignTask(); // fresh task for the new run
     this.prayer.reset();
     this.ge.reset();
+    this.stats.reset();
+    if (this.dpsPanelOpen) this.onState({ dpsStats: this.stats.snapshot() });
     this.emit();
   }
 

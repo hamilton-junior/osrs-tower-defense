@@ -19,7 +19,8 @@ import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
-import type { TowerType, PrayerType, MageMode } from '@/lib/game/types';
+import type { TowerType, PrayerType, MageMode, CombatStyle } from '@/lib/game/types';
+import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
@@ -165,6 +166,7 @@ const INITIAL: UIState = {
   killCounts: {},
   cardCounts: {},
   bossesSeen: {},
+  dpsStats: null,
   lastWaveSandbox: false,
   gameMode: 'roguelite', pendingDraft: null,
   runMods: {
@@ -382,6 +384,9 @@ export default function GameRoot() {
   const [tab, setTab] = useState<SideTab>('home');
   const [logOpen, setLogOpen] = useState(false);
   const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards'>('monsters');
+  // DPS meter window. The engine only serialises its stats snapshot while this is
+  // open (told via setDpsPanelOpen), so the effect below toggles that collection.
+  const [dpsOpen, setDpsOpen] = useState(false);
   // The title / mode-select screen gates the very first wave; it returns on
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
@@ -402,6 +407,8 @@ export default function GameRoot() {
   });
   useEffect(() => { try { localStorage.setItem('osrs_td_learn_seen', JSON.stringify(learnSeen)); } catch { /* ignore */ } }, [learnSeen]);
   const markTipSeen = useCallback((id: string) => setLearnSeen((s) => (s.includes(id) ? s : [...s, id])), []);
+  // Start/stop the engine's per-run damage-stats streaming with the DPS window.
+  useEffect(() => { engineRef.current?.setDpsPanelOpen(dpsOpen); }, [dpsOpen]);
   // "Skip tips" retires every remaining tip; "Replay tips" (from the ❓ guide)
   // wipes the seen set so they all surface again as you play.
   const skipAllTips = useCallback(() => setLearnSeen(LEARN_STEPS.map((s) => s.id)), []);
@@ -1683,6 +1690,9 @@ export default function GameRoot() {
           <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
             <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
           </button>
+          <button onClick={() => setDpsOpen((o) => !o)} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab text-[1.15em] ${dpsOpen ? 'rs-tab-on' : ''}`}>
+            📊
+          </button>
           <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
             🛠
           </button>
@@ -2129,6 +2139,9 @@ export default function GameRoot() {
           globalLock={uiLocked}
         />
       )}
+
+      {/* DPS meter — per-tower damage dealt, by wave / total, with breakdowns. */}
+      {dpsOpen && <DpsPanel snap={ui.dpsStats ?? null} onClose={() => setDpsOpen(false)} globalLock={uiLocked} />}
 
       {/* Quick-prayers bar (bottom-center): all tower prayers shown; locked ones
           are previewed greyed-out with the wave they unlock (OSRS prayer-book
@@ -2954,6 +2967,309 @@ function LogEmpty() {
     <div className="flex-1 min-h-0 flex items-center justify-center text-[0.8em] text-[#b3a585] py-[2em]">
       Nothing here for this filter.
     </div>
+  );
+}
+
+// ============================ DPS meter ============================
+
+/** Effect tallies surfaced in a tower's drill-down, with how each is formatted. */
+const DPS_EFFECT_META: { key: keyof EffectStat; label: string; kind: 'dmg' | 'int' | 'sec' | 'tiles' }[] = [
+  { key: 'burnDmg', label: 'Burn damage', kind: 'dmg' },
+  { key: 'poisonDmg', label: 'Poison damage', kind: 'dmg' },
+  { key: 'venomDmg', label: 'Venom damage', kind: 'dmg' },
+  { key: 'taskBonusDmg', label: 'Slayer bonus dmg', kind: 'dmg' },
+  { key: 'stunCount', label: 'Enemies stunned', kind: 'int' },
+  { key: 'stunSeconds', label: 'Stun time', kind: 'sec' },
+  { key: 'pushCount', label: 'Knockbacks', kind: 'int' },
+  { key: 'pushTiles', label: 'Tiles pushed', kind: 'tiles' },
+  { key: 'slowCount', label: 'Slows applied', kind: 'int' },
+  { key: 'ampCount', label: 'Enemies marked', kind: 'int' },
+  { key: 'splashHits', label: 'Splash hits', kind: 'int' },
+  { key: 'lifeStealHeals', label: 'Lives stolen', kind: 'int' },
+];
+
+const DPS_STYLE_LABEL: Record<CombatStyle | 'run', string> = { melee: 'Melee', ranged: 'Ranged', magic: 'Magic', run: 'Run Effects' };
+const DPS_STYLE_COLOR: Record<CombatStyle | 'run', string> = { melee: '#e07a4c', ranged: '#5bbf5b', magic: '#6aa9ff', run: '#c9a24a' };
+const DPS_STYLE_ORDER: (CombatStyle | 'run')[] = ['melee', 'ranged', 'magic', 'run'];
+
+/** Compact damage formatting (1.2k / 3.4m). */
+function dpsFmt(n: number): string {
+  if (!isFinite(n)) return '0';
+  const a = Math.abs(n);
+  if (a >= 1_000_000) return (n / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1) + 'm';
+  if (a >= 1000) return (n / 1000).toFixed(a >= 10_000 ? 0 : 1) + 'k';
+  return Math.round(n).toString();
+}
+
+function dpsEffectValue(v: number, kind: 'dmg' | 'int' | 'sec' | 'tiles'): string {
+  if (kind === 'dmg') return dpsFmt(v);
+  if (kind === 'int') return Math.round(v).toString();
+  if (kind === 'sec') return v.toFixed(1) + 's';
+  return v.toFixed(1); // tiles
+}
+
+/** A tower's stats collapsed to the current view (a single wave, or the run). */
+interface DpsRow {
+  id: string;
+  name: string;
+  color: string;
+  type: TowerType | 'run';
+  style: CombatStyle | 'run';
+  subLabel: string | null;
+  isUtility: boolean;
+  damage: number;
+  dps: number;
+  /** Per-enemy breakdown, grouped by wave (one group in wave view). */
+  byWave: { wave: number; entries: { type: string; damage: number }[] }[];
+  effects: Record<string, number>;
+}
+
+function buildDpsRow(t: DpsTowerStat, view: 'wave' | 'total', wave: number, waveCombat: Record<number, number>): DpsRow {
+  const slots: DpsWaveStat[] = view === 'wave' ? t.perWave.filter((w) => w.wave === wave) : t.perWave;
+  let damage = 0, combat = 0, waveDenom = 0;
+  const effects: Record<string, number> = {};
+  const byWave: DpsRow['byWave'] = [];
+  for (const w of slots) {
+    damage += w.damage;
+    combat += w.combatSeconds;
+    waveDenom += waveCombat[w.wave] ?? 0;
+    for (const [k, v] of Object.entries(w.effects)) if (v) effects[k] = (effects[k] ?? 0) + v;
+    if (w.byEnemy.length) byWave.push({ wave: w.wave, entries: w.byEnemy });
+  }
+  // Utility / Run-FX rows have no engagement time of their own — rate them against
+  // the board's combat clock; real towers use their own engaged seconds.
+  const denom = t.isUtility || t.style === 'run' ? waveDenom : combat;
+  return {
+    id: t.id, name: t.name, color: t.color, type: t.type, style: t.style,
+    subLabel: t.subLabel, isUtility: t.isUtility,
+    damage, dps: denom > 0 ? damage / denom : 0, byWave, effects,
+  };
+}
+
+/** DPS meter window: per-tower damage dealt, by wave or total, groupable by tower
+ *  type / damage type, with a per-enemy + per-effect drill-down on each tower. */
+function DpsPanel({ snap, onClose, globalLock }: {
+  snap: DpsSnapshot | null;
+  onClose: () => void;
+  globalLock: boolean;
+}) {
+  const [view, setView] = useState<'wave' | 'total'>('wave');
+  const [wave, setWave] = useState<number | null>(null);
+  const [group, setGroup] = useState<'none' | 'tower' | 'style'>('none');
+  const [format, setFormat] = useState<'number' | 'percent'>('number');
+  const [showEmpty, setShowEmpty] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const waves = snap?.waves ?? [];
+  const lastWave = waves.length ? waves[waves.length - 1] : 1;
+  const curWave = wave != null && waves.includes(wave) ? wave : lastWave;
+
+  const rows = useMemo(() => {
+    if (!snap) return [] as DpsRow[];
+    return snap.towers
+      .map((t) => buildDpsRow(t, view, curWave, snap.waveCombat))
+      .filter((r) => showEmpty || r.damage > 0.5)
+      .sort((a, b) => b.damage - a.damage);
+  }, [snap, view, curWave, showEmpty]);
+
+  const grandTotal = rows.reduce((s, r) => s + r.damage, 0);
+  const maxDamage = rows.reduce((m, r) => Math.max(m, r.damage), 0) || 1;
+
+  // Value label for a damage amount, honouring the number/percent toggle.
+  const valLabel = (d: number) => (format === 'percent'
+    ? (grandTotal > 0 ? (d / grandTotal * 100).toFixed(1) : '0') + '%'
+    : dpsFmt(d));
+
+  // Bucket the rows for the active grouping (each bucket is collapsible).
+  const buckets = useMemo(() => {
+    if (group === 'none') return [{ key: '', label: '', color: '', rows }];
+    const map = new Map<string, { key: string; label: string; color: string; rows: DpsRow[] }>();
+    for (const r of rows) {
+      let key: string, label: string, color: string;
+      if (group === 'style') {
+        key = r.style; label = DPS_STYLE_LABEL[r.style]; color = DPS_STYLE_COLOR[r.style];
+      } else if (r.type === 'wizard') {
+        key = `wizard:${r.subLabel}`; label = `Wizard · ${r.subLabel}`; color = r.color;
+      } else {
+        key = r.type; label = r.type === 'run' ? 'Run Effects' : (TOWERS[r.type]?.baseName ?? r.type); color = r.color;
+      }
+      let b = map.get(key);
+      if (!b) { b = { key, label, color, rows: [] }; map.set(key, b); }
+      b.rows.push(r);
+    }
+    const arr = [...map.values()];
+    if (group === 'style') arr.sort((a, b) => DPS_STYLE_ORDER.indexOf(a.key as CombatStyle | 'run') - DPS_STYLE_ORDER.indexOf(b.key as CombatStyle | 'run'));
+    else arr.sort((a, b) => b.rows.reduce((s, r) => s + r.damage, 0) - a.rows.reduce((s, r) => s + r.damage, 0));
+    return arr;
+  }, [rows, group]);
+
+  const toggleCollapse = (k: string) => setCollapsed((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+
+  const renderRow = (r: DpsRow) => {
+    const open = expanded === r.id;
+    const enemyMax = r.byWave.reduce((m, g) => Math.max(m, ...g.entries.map((e) => e.damage)), 1);
+    return (
+      <div key={r.id} className="rs-panel-inset px-[0.4em] py-[0.3em]" style={{ borderRadius: 0 }}>
+        <button
+          onClick={() => setExpanded(open ? null : r.id)}
+          title="Show per-enemy + effect breakdown"
+          className="w-full flex items-center gap-[0.5em] text-left"
+        >
+          <span className="text-[0.7em] w-[1em] shrink-0 text-[#b3a585]">{open ? '▾' : '▸'}</span>
+          {r.type !== 'run' && towerTierIcon(r.type as TowerType, 1)
+            ? <img src={towerTierIcon(r.type as TowerType, 1)} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />
+            : <span className="w-[1.3em] shrink-0 text-center text-[0.9em]">✦</span>}
+          <span className="flex-1 min-w-0">
+            <span className="flex items-center justify-between gap-[0.4em]">
+              <span className="truncate text-[0.8em]" style={{ color: r.isUtility ? '#c9a24a' : '#f0e6d2' }}>
+                {r.name}
+                {r.subLabel && <span className="text-[0.82em] text-[#9a8d70] ml-[0.3em]">{r.subLabel}</span>}
+                {r.isUtility && <span className="text-[0.72em] text-[#9a8d70] ml-[0.3em]">(extra)</span>}
+              </span>
+              <span className="shrink-0 flex items-baseline gap-[0.5em]">
+                <span className="text-[0.82em] font-bold" style={{ color: '#ffd257' }}>{valLabel(r.damage)}</span>
+                <span className="text-[0.66em] text-[#8fbf8f] w-[3.4em] text-right">{dpsFmt(r.dps)}/s</span>
+              </span>
+            </span>
+            <span className="block mt-[0.2em] h-[0.42em] bg-[#241d15] overflow-hidden" style={{ boxShadow: 'inset 1px 1px 0 #100d09' }}>
+              <span className="block h-full" style={{ width: `${Math.max(2, (r.damage / maxDamage) * 100)}%`, background: r.isUtility ? '#c9a24a' : r.color }} />
+            </span>
+          </span>
+        </button>
+
+        {open && (
+          <div className="mt-[0.4em] pl-[1.6em] pr-[0.2em] flex flex-col gap-[0.5em]">
+            {/* Per-enemy breakdown (grouped by wave in Total view). */}
+            {r.byWave.length > 0 ? r.byWave.map((g) => (
+              <div key={g.wave}>
+                {view === 'total' && <div className="text-[0.62em] text-[#b3a585] uppercase tracking-wide mb-[0.15em]">Wave {g.wave}</div>}
+                <div className="flex flex-col gap-[0.15em]">
+                  {g.entries.map((e) => (
+                    <div key={e.type} className="flex items-center gap-[0.4em]">
+                      <span className="text-[0.68em] text-[#cdbe91] w-[7em] truncate shrink-0">{ENEMIES[e.type as keyof typeof ENEMIES]?.name ?? e.type}</span>
+                      <span className="flex-1 h-[0.4em] bg-[#241d15] overflow-hidden">
+                        <span className="block h-full" style={{ width: `${Math.max(2, (e.damage / enemyMax) * 100)}%`, background: r.color }} />
+                      </span>
+                      <span className="text-[0.68em] text-[#ffd257] w-[3.2em] text-right shrink-0">{valLabel(e.damage)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )) : <div className="text-[0.66em] text-[#8a7f68] italic">No damage this {view === 'wave' ? 'wave' : 'run'} yet.</div>}
+
+            {/* Effect-specific tallies (only the non-zero ones for this tower). */}
+            {(() => {
+              const shown = DPS_EFFECT_META.filter((m) => (r.effects[m.key] ?? 0) > 0.05);
+              if (!shown.length) return null;
+              return (
+                <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.15em] mt-[0.1em] pt-[0.35em]" style={{ borderTop: '1px solid #2b231a' }}>
+                  {shown.map((m) => (
+                    <div key={m.key} className="flex items-center justify-between gap-[0.4em]">
+                      <span className="text-[0.66em] text-[#b3a585]">{m.label}</span>
+                      <span className="text-[0.7em] text-[#e7d9b6] font-bold">{dpsEffectValue(r.effects[m.key] ?? 0, m.kind)}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <MovablePanel
+      id="dps-panel"
+      globalLock={globalLock}
+      className="rs-panel absolute top-10 left-1/2 z-30 w-[29em] flex flex-col p-3"
+      style={{ marginLeft: '-14.5em', maxHeight: '82vh', fontSize: fs('clamp(14px, 0.9vw, 19px)') }}
+    >
+      <div className="rs-panel-title flex items-center justify-between">
+        <span className="flex items-center gap-2">📊 DPS Meter</span>
+        <button onClick={onClose} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
+      </div>
+
+      {/* View: by-wave (with a wave stepper) or the whole run. */}
+      <div className="flex items-center justify-between gap-[0.4em] mt-[0.4em] mb-[0.35em] flex-wrap">
+        <div className="flex gap-[0.3em]">
+          <button onClick={() => setView('wave')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'wave' ? 'rs-btn-primary' : ''}`}>By Wave</button>
+          <button onClick={() => setView('total')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'total' ? 'rs-btn-primary' : ''}`}>Total</button>
+        </div>
+        {view === 'wave' && waves.length > 0 && (
+          <div className="flex items-center gap-[0.3em]">
+            <button onClick={() => setWave(Math.max(waves[0], curWave - 1))} disabled={curWave <= waves[0]} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">◀</button>
+            <span className="text-[0.74em] text-[#f0e6d2] w-[4.4em] text-center">Wave {curWave}</span>
+            <button onClick={() => setWave(Math.min(lastWave, curWave + 1))} disabled={curWave >= lastWave} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">▶</button>
+          </div>
+        )}
+      </div>
+
+      {/* Group / number-format / show-empty controls. */}
+      <div className="flex items-center justify-between gap-[0.4em] mb-[0.5em] flex-wrap">
+        <div className="flex items-center gap-[0.25em]">
+          <span className="text-[0.62em] text-[#b3a585] uppercase tracking-wide mr-[0.1em]">Group</span>
+          {([['none', 'None'], ['tower', 'Tower'], ['style', 'Damage']] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setGroup(k)} className={`rs-btn px-[0.5em] py-[0.1em] text-[0.68em] ${group === k ? 'rs-btn-primary' : ''}`}>{label}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-[0.4em]">
+          <button
+            onClick={() => setFormat((f) => (f === 'number' ? 'percent' : 'number'))}
+            title="Toggle raw numbers / % of the wave (or run) total"
+            className="rs-btn px-[0.55em] py-[0.1em] text-[0.68em]"
+          >
+            {format === 'number' ? '123' : '%'}
+          </button>
+          <label className="flex items-center gap-[0.25em] text-[0.66em] text-[#cdbe91] cursor-pointer select-none">
+            <input type="checkbox" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />
+            Show empty
+          </label>
+        </div>
+      </div>
+
+      <div className="rs-tab-body flex-1 min-h-0 overflow-y-auto pr-[0.15em] flex flex-col gap-[0.3em]">
+        {!snap || rows.length === 0 ? (
+          <div className="text-[0.78em] text-[#b3a585] text-center py-[2em] px-[1em] leading-relaxed">
+            {snap && snap.waves.length > 0
+              ? 'No damage recorded for this view yet.'
+              : 'No damage yet — start a wave and your towers will show up here.'}
+          </div>
+        ) : group === 'none' ? (
+          rows.map(renderRow)
+        ) : (
+          buckets.map((b) => {
+            const isCollapsed = collapsed.has(b.key);
+            const bTotal = b.rows.reduce((s, r) => s + r.damage, 0);
+            return (
+              <div key={b.key} className="flex flex-col gap-[0.25em]">
+                <button
+                  onClick={() => toggleCollapse(b.key)}
+                  className="flex items-center justify-between gap-[0.4em] px-[0.4em] py-[0.2em]"
+                  style={{ background: '#2b231a', boxShadow: 'inset 1px 1px 0 #6f6250, inset -1px -1px 0 #1b1610' }}
+                >
+                  <span className="flex items-center gap-[0.4em] min-w-0">
+                    <span className="text-[0.7em] text-[#b3a585]">{isCollapsed ? '▸' : '▾'}</span>
+                    <span className="w-[0.7em] h-[0.7em] shrink-0" style={{ background: b.color }} />
+                    <span className="text-[0.76em] font-bold text-[#f0e6d2] truncate">{b.label}</span>
+                    <span className="text-[0.64em] text-[#8a7f68]">×{b.rows.length}</span>
+                  </span>
+                  <span className="text-[0.76em] font-bold shrink-0" style={{ color: '#ffd257' }}>{valLabel(bTotal)}</span>
+                </button>
+                {!isCollapsed && <div className="flex flex-col gap-[0.25em] pl-[0.3em]">{b.rows.map(renderRow)}</div>}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Footer: the grand total for the current view + a note on the DPS window. */}
+      <div className="flex items-center justify-between mt-[0.5em] pt-[0.4em] text-[0.68em]" style={{ borderTop: '1px solid #2b231a' }}>
+        <span className="text-[#b3a585]">{view === 'wave' ? `Wave ${curWave}` : 'Whole run'} · {rows.length} tower{rows.length === 1 ? '' : 's'}</span>
+        <span className="text-[#f0e6d2] font-bold">Total {dpsFmt(grandTotal)}</span>
+      </div>
+    </MovablePanel>
   );
 }
 

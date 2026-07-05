@@ -96,6 +96,9 @@ export interface DotState {
    *  per-phase rock-paper-scissors) reduces the DoT — including the Fire burn's
    *  %max-HP tick — exactly as it reduces the direct hit. Undefined → typeless. */
   style?: CombatStyle;
+  /** Source tower id, so the DPS meter can credit each DoT tick (burn/poison/
+   *  venom) to the tower that applied it. Undefined → bucketed as run FX. */
+  sourceTowerId?: string;
 }
 
 export interface Enemy extends EnemyDef {
@@ -348,6 +351,10 @@ export interface Projectile {
    *  projectile spotanim, drawn as a looping sheet instead of the spell icon. */
   projAnim?: string;
   sourceTowerId?: string;
+  /** Utility damage-aura that boosted this shot, for the DPS meter's per-tower
+   *  attribution (peeled off as the utility wizards' "extra"). Structurally the
+   *  systems' `AuraAttribution`; inlined here to avoid a types↔systems import. */
+  aura?: { factor: number; parts: { id: string; share: number }[] };
   /** Recent positions (oldest→newest) for drawing a motion trail. */
   trail?: { x: number; y: number }[];
   /** Launch point — the easing lerps from here toward the (live) target. */
