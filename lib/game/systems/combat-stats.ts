@@ -67,6 +67,9 @@ export interface EffectStat {
   splashHits: number;
   lifeStealHeals: number;
   taskBonusDmg: number;
+  /** Damage from chained board FX (ricochet / overkill cleave / kill-streak) —
+   *  the Run-Effects damage that isn't a burn/poison/venom tick. */
+  chainDmg: number;
 }
 
 export interface DpsWaveStat {

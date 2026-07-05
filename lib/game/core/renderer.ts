@@ -788,6 +788,22 @@ export class GameRenderer {
         }
       }
 
+      // Hover-highlight from a DPS-panel row: ring the tower and show its range in
+      // gold — distinct from the white selection marker — without touching the real
+      // selection. Skipped when this tower is already the selected one.
+      if (tower.id === this.e.highlightTowerId && tower.id !== this.e.selectedTowerId) {
+        const range = this.e.effectiveStats(tower.id)?.range ?? tower.range;
+        this.drawSquareRange(ctx, tower.x, tower.y, squareRange(range, GRID), 'rgba(255,210,90,0.6)', 'rgba(255,210,90,0.08)');
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 250);
+        ctx.save();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = `rgba(255,210,90,${0.5 + 0.4 * pulse})`;
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, tower.visualRadius + 6 + 2 * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // Placement-synergy aura: a glowing outline that hugs the tower's own
       // silhouette (not a ground circle) whenever the roguelite synergy cards are
       // buffing it, tinted by the dominant synergy (green pack / gold trinity /

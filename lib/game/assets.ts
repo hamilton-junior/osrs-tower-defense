@@ -325,6 +325,8 @@ export const ASSETS = {
     skill_crafting: `${LOCAL}/misc/skill_crafting.png`,
     skill_prayer: `${LOCAL}/misc/prayer_icon.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
+    // OSRS "Stats" (Skills) tab icon — the bar-chart glyph; used for the DPS tab.
+    stats_icon: `${LOCAL}/misc/stats_icon.png`,
     // Multi-combat (crossed-swords) indicator — used as the Home/Wave sidebar tab.
     // Cache-extracted (MULTI_COMBAT_ZONE_CROSSED_SWORDS 442), like the splats below.
     multicombat_icon: `${LOCAL}/ui/multicombat_icon.png`,

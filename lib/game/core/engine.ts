@@ -590,6 +590,9 @@ export class GameEngine {
   /** Shift was held when the wizard picker opened — keep placing after the pick. */
   private pendingKeepPlacing = false;
   selectedTowerId: string | null = null;
+  /** Transient hover-highlight (e.g. hovering a DPS-panel row): the renderer rings
+   *  this tower and shows its range, without changing the real selection. */
+  highlightTowerId: string | null = null;
   /** Marquee multi-selection: ids of towers picked by a drag-box, for batch
    *  upgrade. Cleared by any normal click / placement. */
   multiSelectedIds: string[] = [];
@@ -1202,6 +1205,13 @@ export class GameEngine {
     if (this.inspectedEnemyId == null) return;
     this.inspectedEnemyId = null;
     this.emit();
+  }
+
+  /** Hover-highlight a tower (e.g. from a DPS-panel row) so the renderer rings it
+   *  and shows its range. Pass null to clear. Read live by the render loop, so no
+   *  state emit is needed. */
+  setHighlightTower(id: string | null) {
+    this.highlightTowerId = id;
   }
 
   selectTowerType(type: TowerType | null) {
@@ -2420,13 +2430,20 @@ export class GameEngine {
         isUtility = true;
       }
     }
-    // Current icon: a wizard shows its live spell icon (element/barrage/utility
-    // cast), everything else its current tier sprite — matching the board.
+    // Current icon + display name: a wizard shows its live spell (element/barrage/
+    // utility cast) — the actual spell it's throwing, e.g. "Fire Blast" / "Ice
+    // Barrage" — so the panel name matches the icon and the tower on the board,
+    // not the generic tier suffix ("Blast"). Everything else keeps its tier name
+    // and current tier sprite.
     const towerIcons = ASSETS.towers as Record<string, Record<number, string>>;
     let icon: string | undefined;
+    let name = t.name;
     if (t.type === 'wizard') {
       const sp = spellSpriteName(t);
-      icon = sp ? (ASSETS.spells as Record<string, string>)[sp] : undefined;
+      if (sp) {
+        icon = (ASSETS.spells as Record<string, string>)[sp];
+        name = sp.replace(/_/g, ' ');
+      }
     }
     icon ??= towerIcons[t.type]?.[t.level] ?? towerIcons[t.type]?.[1];
     return {
@@ -2434,7 +2451,7 @@ export class GameEngine {
       style: TOWER_STYLES[t.type]?.style ?? 'melee',
       subcategory,
       subLabel,
-      name: t.name,
+      name,
       color: t.color,
       icon,
       isUtility,
@@ -2932,6 +2949,7 @@ export class GameEngine {
       if (source.tag === 'burn') this.stats.recordEffect(owner, this.wave, { burnDmg: dealt });
       else if (source.tag === 'poison') this.stats.recordEffect(owner, this.wave, { poisonDmg: dealt });
       else if (source.tag === 'venom') this.stats.recordEffect(owner, this.wave, { venomDmg: dealt });
+      else if (source.tag === 'chain') this.stats.recordEffect(owner, this.wave, { chainDmg: dealt });
       else if (source.tag === 'splash') this.stats.recordEffect(owner, this.wave, { splashHits: 1 });
       if (source.towerId && onTask > 1) {
         this.stats.recordEffect(source.towerId, this.wave, { taskBonusDmg: dealt * (1 - 1 / onTask) });

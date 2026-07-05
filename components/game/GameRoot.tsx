@@ -26,7 +26,7 @@ import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 /** Which interface fills the bottom-right sidebar body (OSRS tabbed-sidebar
  *  model — one stone per interface). 'home' = wave control + tower shop. */
-type SideTab = 'home' | 'essence' | 'slayer';
+type SideTab = 'home' | 'essence' | 'slayer' | 'dps';
 const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
 const towerTierIcon = (type: TowerType, tier: number) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[tier];
@@ -384,9 +384,6 @@ export default function GameRoot() {
   const [tab, setTab] = useState<SideTab>('home');
   const [logOpen, setLogOpen] = useState(false);
   const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards'>('monsters');
-  // DPS meter window. The engine only serialises its stats snapshot while this is
-  // open (told via setDpsPanelOpen), so the effect below toggles that collection.
-  const [dpsOpen, setDpsOpen] = useState(false);
   // The title / mode-select screen gates the very first wave; it returns on
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
@@ -407,8 +404,6 @@ export default function GameRoot() {
   });
   useEffect(() => { try { localStorage.setItem('osrs_td_learn_seen', JSON.stringify(learnSeen)); } catch { /* ignore */ } }, [learnSeen]);
   const markTipSeen = useCallback((id: string) => setLearnSeen((s) => (s.includes(id) ? s : [...s, id])), []);
-  // Start/stop the engine's per-run damage-stats streaming with the DPS window.
-  useEffect(() => { engineRef.current?.setDpsPanelOpen(dpsOpen); }, [dpsOpen]);
   // "Skip tips" retires every remaining tip; "Replay tips" (from the ❓ guide)
   // wipes the seen set so they all surface again as you play.
   const skipAllTips = useCallback(() => setLearnSeen(LEARN_STEPS.map((s) => s.id)), []);
@@ -420,6 +415,12 @@ export default function GameRoot() {
   // minimises the body (OSRS-style), leaving only the tab strip + tower dock.
   const [sideBodyMin, setSideBodyMin] = useState(() => loadBool('ui_min_sidebody', false));
   useEffect(() => { try { localStorage.setItem('ui_min_sidebody', JSON.stringify(sideBodyMin)); } catch { /* ignore */ } }, [sideBodyMin]);
+  // Start/stop the engine's per-run damage-stats streaming — only while the DPS
+  // tab is the visible interface (the engine snapshots its stats just then).
+  const dpsVisible = tab === 'dps' && !sideBodyMin;
+  useEffect(() => { engineRef.current?.setDpsPanelOpen(dpsVisible); }, [dpsVisible]);
+  // Stable so DpsView's unmount-cleanup effect doesn't re-fire every stats tick.
+  const highlightTower = useCallback((id: string | null) => engineRef.current?.setHighlightTower(id), []);
   // Optionally hide the always-on Start Wave button (above the tower dock) and
   // drive waves with the spacebar only. Off by default — the button is shown.
   const [hideStartWave, setHideStartWave] = useState(() => loadBool('ui_hide_startwave', false));
@@ -1690,8 +1691,8 @@ export default function GameRoot() {
           <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
             <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
           </button>
-          <button onClick={() => setDpsOpen((o) => !o)} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab text-[1.15em] ${dpsOpen ? 'rs-tab-on' : ''}`}>
-            📊
+          <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
+            <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
           </button>
           <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
             🛠
@@ -1904,6 +1905,11 @@ export default function GameRoot() {
           </p>
         </>
         )}
+
+        {/* ── DPS: the damage meter, folded into the main panel as an interface
+            tab (was a floating window). The tab body already scrolls, so a long
+            tower list just scrolls in place. ── */}
+        {tab === 'dps' && <DpsView snap={ui.dpsStats ?? null} onHoverTower={highlightTower} />}
         </div>
         )}
 
@@ -2139,9 +2145,6 @@ export default function GameRoot() {
           globalLock={uiLocked}
         />
       )}
-
-      {/* DPS meter — per-tower damage dealt, by wave / total, with breakdowns. */}
-      {dpsOpen && <DpsPanel snap={ui.dpsStats ?? null} onClose={() => setDpsOpen(false)} globalLock={uiLocked} />}
 
       {/* Quick-prayers bar (bottom-center): all tower prayers shown; locked ones
           are previewed greyed-out with the wave they unlock (OSRS prayer-book
@@ -2977,6 +2980,7 @@ const DPS_EFFECT_META: { key: keyof EffectStat; label: string; kind: 'dmg' | 'in
   { key: 'burnDmg', label: 'Burn damage', kind: 'dmg' },
   { key: 'poisonDmg', label: 'Poison damage', kind: 'dmg' },
   { key: 'venomDmg', label: 'Venom damage', kind: 'dmg' },
+  { key: 'chainDmg', label: 'Chain damage', kind: 'dmg' },
   { key: 'taskBonusDmg', label: 'Slayer bonus dmg', kind: 'dmg' },
   { key: 'stunCount', label: 'Enemies stunned', kind: 'int' },
   { key: 'stunSeconds', label: 'Stun time', kind: 'sec' },
@@ -3047,13 +3051,12 @@ function buildDpsRow(t: DpsTowerStat, view: 'wave' | 'total', wave: number, wave
   };
 }
 
-/** DPS meter window: per-tower damage dealt, by wave or total, groupable by tower
- *  type / damage type, with a per-enemy + per-effect drill-down on each tower. */
-function DpsPanel({ snap, onClose, globalLock }: {
-  snap: DpsSnapshot | null;
-  onClose: () => void;
-  globalLock: boolean;
-}) {
+/** DPS meter: per-tower damage dealt, by wave or total, groupable by tower type /
+ *  damage type, with a per-enemy + per-effect drill-down on each tower. Rendered
+ *  as an interface tab inside the main side panel (the tab body owns the scroll). */
+function DpsView({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHoverTower: (id: string | null) => void }) {
+  // Clear the board highlight when the panel unmounts (tab switch / minimise).
+  useEffect(() => () => onHoverTower(null), [onHoverTower]);
   const [view, setView] = useState<'wave' | 'total'>('wave');
   const [wave, setWave] = useState<number | null>(null);
   const [group, setGroup] = useState<'none' | 'tower' | 'style'>('none');
@@ -3112,8 +3115,16 @@ function DpsPanel({ snap, onClose, globalLock }: {
   const renderRow = (r: DpsRow) => {
     const open = expanded === r.id;
     const enemyMax = r.byWave.reduce((m, g) => Math.max(m, ...g.entries.map((e) => e.damage)), 1);
+    // Run Effects has no single tower on the board — nothing to ring/range.
+    const boardId = r.style === 'run' ? null : r.id;
     return (
-      <div key={r.id} className="rs-panel-inset px-[0.4em] py-[0.3em]" style={{ borderRadius: 0 }}>
+      <div
+        key={r.id}
+        className="rs-panel-inset px-[0.4em] py-[0.3em]"
+        style={{ borderRadius: 0 }}
+        onMouseEnter={() => onHoverTower(boardId)}
+        onMouseLeave={() => onHoverTower(null)}
+      >
         <button
           onClick={() => setExpanded(open ? null : r.id)}
           title="Show per-enemy + effect breakdown"
@@ -3127,7 +3138,6 @@ function DpsPanel({ snap, onClose, globalLock }: {
             <span className="flex items-center justify-between gap-[0.4em]">
               <span className="truncate text-[0.8em]" style={{ color: r.isUtility ? '#c9a24a' : '#f0e6d2' }}>
                 {r.name}
-                {r.subLabel && <span className="text-[0.82em] text-[#9a8d70] ml-[0.3em]">{r.subLabel}</span>}
                 {r.isUtility && <span className="text-[0.72em] text-[#9a8d70] ml-[0.3em]">(extra)</span>}
               </span>
               <span className="shrink-0 flex items-baseline gap-[0.5em]">
@@ -3141,10 +3151,16 @@ function DpsPanel({ snap, onClose, globalLock }: {
           </span>
         </button>
 
-        {open && (
+        {open && (() => {
+          // Run Effects is a board-wide bucket, not a tower shooting specific
+          // monsters — so it drops the per-enemy list and shows only the values it
+          // generated (damage / CC / heals), by effect. Real towers keep both.
+          const isRun = r.style === 'run';
+          const shownEffects = DPS_EFFECT_META.filter((m) => (r.effects[m.key] ?? 0) > 0.05);
+          return (
           <div className="mt-[0.4em] pl-[1.6em] pr-[0.2em] flex flex-col gap-[0.5em]">
-            {/* Per-enemy breakdown (grouped by wave in Total view). */}
-            {r.byWave.length > 0 ? r.byWave.map((g) => (
+            {/* Per-enemy breakdown (grouped by wave in Total view) — towers only. */}
+            {!isRun && (r.byWave.length > 0 ? r.byWave.map((g) => (
               <div key={g.wave}>
                 {view === 'total' && <div className="text-[0.62em] text-[#b3a585] uppercase tracking-wide mb-[0.15em]">Wave {g.wave}</div>}
                 <div className="flex flex-col gap-[0.15em]">
@@ -3159,44 +3175,39 @@ function DpsPanel({ snap, onClose, globalLock }: {
                   ))}
                 </div>
               </div>
-            )) : <div className="text-[0.66em] text-[#8a7f68] italic">No damage this {view === 'wave' ? 'wave' : 'run'} yet.</div>}
+            )) : <div className="text-[0.66em] text-[#8a7f68] italic">No damage this {view === 'wave' ? 'wave' : 'run'} yet.</div>)}
 
-            {/* Effect-specific tallies (only the non-zero ones for this tower). */}
-            {(() => {
-              const shown = DPS_EFFECT_META.filter((m) => (r.effects[m.key] ?? 0) > 0.05);
-              if (!shown.length) return null;
-              return (
-                <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.15em] mt-[0.1em] pt-[0.35em]" style={{ borderTop: '1px solid #2b231a' }}>
-                  {shown.map((m) => (
-                    <div key={m.key} className="flex items-center justify-between gap-[0.4em]">
-                      <span className="text-[0.66em] text-[#b3a585]">{m.label}</span>
-                      <span className="text-[0.7em] text-[#e7d9b6] font-bold">{dpsEffectValue(r.effects[m.key] ?? 0, m.kind)}</span>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
+            {/* Effect-specific tallies (only the non-zero ones for this row). For a
+                run row these carry the whole drill-down; for towers they sit under
+                the per-enemy list (so the divider only shows when something's above). */}
+            {shownEffects.length > 0 ? (
+              <div
+                className={`grid grid-cols-2 gap-x-[0.6em] gap-y-[0.15em] ${isRun ? '' : 'mt-[0.1em] pt-[0.35em]'}`}
+                style={isRun ? undefined : { borderTop: '1px solid #2b231a' }}
+              >
+                {shownEffects.map((m) => (
+                  <div key={m.key} className="flex items-center justify-between gap-[0.4em]">
+                    <span className="text-[0.66em] text-[#b3a585]">{m.label}</span>
+                    <span className="text-[0.7em] text-[#e7d9b6] font-bold">{dpsEffectValue(r.effects[m.key] ?? 0, m.kind)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : isRun ? (
+              <div className="text-[0.66em] text-[#8a7f68] italic">No run effects this {view === 'wave' ? 'wave' : 'run'} yet.</div>
+            ) : null}
           </div>
-        )}
+          );
+        })()}
       </div>
     );
   };
 
   return (
-    <MovablePanel
-      id="dps-panel"
-      globalLock={globalLock}
-      className="rs-panel absolute top-3 right-3 bottom-3 z-30 w-[24em] max-w-[92vw] flex flex-col p-3"
-      style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}
-    >
-      <div className="rs-panel-title flex items-center justify-between">
-        <span className="flex items-center gap-2">📊 DPS Meter</span>
-        <button onClick={onClose} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
-      </div>
-
+    <div className="flex flex-col">
       {/* One calm toolbar for every control — view, wave nav, grouping, format,
-          empty-tower filter — so they read as a single strip, not scattered chips. */}
-      <div className="rs-panel-inset flex flex-col gap-[0.35em] p-[0.45em] mt-[0.4em] mb-[0.5em]" style={{ borderRadius: 0 }}>
+          empty-tower filter — so they read as a single strip, not scattered chips.
+          Sticky so it stays put while the tower list scrolls in the tab body. */}
+      <div className="rs-panel-inset flex flex-col gap-[0.35em] p-[0.45em] mb-[0.5em] sticky top-0 z-10" style={{ borderRadius: 0 }}>
         {/* View: by-wave (with a wave stepper) or the whole run. */}
         <div className="flex items-center justify-between gap-[0.4em] flex-wrap">
           <div className="flex gap-[0.3em]">
@@ -3236,7 +3247,7 @@ function DpsPanel({ snap, onClose, globalLock }: {
         </div>
       </div>
 
-      <div className="rs-tab-body flex-1 min-h-0 overflow-y-auto pr-[0.15em] flex flex-col gap-[0.3em]">
+      <div className="flex flex-col gap-[0.3em]">
         {!snap || rows.length === 0 ? (
           <div className="text-[0.78em] text-[#b3a585] text-center py-[2em] px-[1em] leading-relaxed">
             {snap && snap.waves.length > 0
@@ -3280,7 +3291,7 @@ function DpsPanel({ snap, onClose, globalLock }: {
         <span className="text-[#b3a585]">{view === 'wave' ? `Wave ${curWave}` : 'Whole run'} · {rows.length} tower{rows.length === 1 ? '' : 's'}</span>
         <span className="text-[#f0e6d2] font-bold">Total {dpsFmt(grandTotal)}</span>
       </div>
-    </MovablePanel>
+    </div>
   );
 }
 
