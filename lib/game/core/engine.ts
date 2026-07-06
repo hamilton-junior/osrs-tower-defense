@@ -304,6 +304,8 @@ export interface UIState {
   autoplaySecs: number;
   /** Player-facing name of the run's current biome (shown in the debug map tools). */
   biomeName: string;
+  /** Bumps once per Blood-barrage life steal — the UI keys its ❤ pop off it. */
+  lifestealSeq: number;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -584,6 +586,8 @@ export class GameEngine {
   autoplay = false;
   autoplaySecs = 3;
   private autoplayTimer = 0;
+  /** Bumps once per Blood-barrage life steal — the UI keys its ❤ pop off it. */
+  private lifestealSeq = 0;
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
@@ -816,6 +820,7 @@ export class GameEngine {
       autoplay: this.autoplay,
       autoplaySecs: this.autoplaySecs,
       biomeName: this.biome.name,
+      lifestealSeq: this.lifestealSeq,
     });
   }
 
@@ -2815,11 +2820,17 @@ export class GameEngine {
     }
   }
 
-  /** Blood barrage lifesteal: a level-scaled chance to restore one life. */
+  /** Blood barrage lifesteal: a level-scaled chance to restore one life. On a
+   *  success, ring the casting tower red and bump `lifestealSeq` so the UI can
+   *  celebrate it (lives-orb blip + floating heart). */
   private tryLifesteal(sourceTowerId?: string) {
     if (this.lives >= this.maxLives) return;
     const tower = sourceTowerId ? this.towers.find(t => t.id === sourceTowerId) : null;
-    if (Math.random() < lifestealChance(tower?.level ?? 1)) this.lives += 1;
+    if (Math.random() >= lifestealChance(tower?.level ?? 1)) return;
+    this.lives += 1;
+    this.lifestealSeq += 1;
+    if (tower) this.addRing(tower.x, tower.y, 4, 26, '#c81e1e', 0.5, 3);
+    this.emit();
   }
 
   /** Air gust: shove an enemy back toward the previous waypoint (clamped).

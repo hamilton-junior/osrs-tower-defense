@@ -181,6 +181,7 @@ const INITIAL: UIState = {
   pendingRelics: null, ownedRelics: [], draftRerolls: 0,
   autoplay: false, autoplaySecs: 3,
   biomeName: 'Misthalin Plains',
+  lifestealSeq: 0,
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
@@ -1306,14 +1307,23 @@ export default function GameRoot() {
 
       {/* Top-right data-orb cluster (OSRS minimap-orb style) */}
       <div data-tut="hud" className="absolute top-4 right-4 flex flex-col gap-2 z-10 items-end">
-        <Orb
-          icon={ASSETS.misc.orb_hitpoints}
-          title="Lives"
-          value={ui.lives}
-          valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
-          fill={ui.lives / ui.maxLives}
-          fillColor="linear-gradient(180deg, #e23a3a, #8a0000)"
-        />
+        <div className="relative">
+          <div key={ui.lifestealSeq} className={ui.lifestealSeq > 0 ? 'rs-orb-blip' : undefined}>
+            <Orb
+              icon={ASSETS.misc.orb_hitpoints}
+              title="Lives"
+              value={ui.lives}
+              valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
+              fill={ui.lives / ui.maxLives}
+              fillColor="linear-gradient(180deg, #e23a3a, #8a0000)"
+            />
+          </div>
+          {ui.lifestealSeq > 0 && (
+            <span key={`h${ui.lifestealSeq}`} className="rs-lifesteal-pop" aria-hidden>
+              ❤ +1
+            </span>
+          )}
+        </div>
         <Orb
           icon={ASSETS.misc.coins_icon}
           title="Gold"
