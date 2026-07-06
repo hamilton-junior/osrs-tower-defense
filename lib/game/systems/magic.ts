@@ -53,6 +53,16 @@ export function tzhaarKnockback(level: number): number {
   return TZHAAR_KNOCKBACK[i];
 }
 
+/** TzHaar on-hit stun seconds per weapon tier — every tier stuns (community
+ *  balance pass), the dagger tiers briefly and the mauls at the full crush 0.6s. */
+export const TZHAAR_STUN: readonly number[] = [0.3, 0.45, 0.6, 0.6];
+
+/** TzHaar stun seconds for a weapon tier (clamped to the table). */
+export function tzhaarStun(level: number): number {
+  const i = Math.max(0, Math.min(TZHAAR_STUN.length - 1, Math.floor(level) - 1));
+  return TZHAAR_STUN[i];
+}
+
 export interface AncientSpec {
   /** Status applied to every enemy caught in the barrage (Blood has none). */
   effect?: MagicEffect;

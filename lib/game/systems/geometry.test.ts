@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { distance, distanceSq, pointToSegmentDistance, isValidPlacement, squareRange, inSquareRange } from './geometry';
+import { distance, distanceSq, pointToSegmentDistance, isValidPlacement, squareRange, inSquareRange, knockbackStep } from './geometry';
 
 describe('distance', () => {
   it('computes Euclidean distance', () => {
@@ -78,5 +78,23 @@ describe('isValidPlacement', () => {
   });
   it('accepts positions far from an existing tower', () => {
     expect(isValidPlacement(50, 80, path, [{ x: 200, y: 200 }])).toBe(true);
+  });
+});
+
+describe('knockbackStep', () => {
+  it('moves the point toward the target by dist', () => {
+    const r = knockbackStep(100, 0, 0, 0, 28);
+    expect(r.x).toBeCloseTo(72);
+    expect(r.y).toBeCloseTo(0);
+    expect(r.moved).toBeCloseTo(28);
+  });
+  it('clamps at the target waypoint instead of overshooting', () => {
+    const r = knockbackStep(10, 0, 0, 0, 28);
+    expect(r.x).toBeCloseTo(0);
+    expect(r.moved).toBeCloseTo(10);
+  });
+  it('no-ops when already on the waypoint or dist <= 0', () => {
+    expect(knockbackStep(0.5, 0, 0, 0, 28).moved).toBe(0);
+    expect(knockbackStep(100, 0, 0, 0, 0).moved).toBe(0);
   });
 });

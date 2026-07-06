@@ -7,13 +7,13 @@ import { ENEMIES } from '../data/enemies';
 import { TOWERS, TOWER_STYLES } from '../data/towers';
 import { LANDMARK_WAVES, type WaveConfig } from '../data/waves';
 import { ASSETS } from '../assets';
-import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange } from '../systems/geometry';
+import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange, knockbackStep } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, synergyDamageMult, utilityAuraBonus, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
 import { CombatStatsSystem, RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity, type DpsSnapshot } from '../systems/combat-stats';
-import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp } from '../systems/tower-identity';
@@ -2771,6 +2771,16 @@ export class GameEngine {
         const moved = this.knockback(e, dist);
         this.noteDebuffHit(e);
         if (moved > 0) this.stats.recordEffect(fx, this.wave, { pushCount: 1, pushTiles: moved / GRID });
+        // TzHaar always stuns on hit now (0.3s/0.45s at the dagger tiers) so the
+        // shove reads as a real setback instead of an instant walk-back.
+        if (src?.type === 'tzhaar') {
+          if (moved > 0) this.addRing(e.x, e.y, 3, 16, '#ffb066', 0.28, 2);
+          const eff = tzhaarStun(src.level) * (1 - this.tenacity(e));
+          if (eff > 0) {
+            e.stunTimer = Math.max(e.stunTimer, eff);
+            this.stats.recordEffect(fx, this.wave, { stunCount: 1, stunSeconds: eff });
+          }
+        }
         break;
       }
       case 'crush': {
@@ -2778,7 +2788,8 @@ export class GameEngine {
         // a crushing blow.
         const src = p.sourceTowerId ? this.towers.find(t => t.id === p.sourceTowerId) : undefined;
         const moved = this.knockback(e, tzhaarKnockback(src?.level ?? 3) * (1 - this.tenacity(e)));
-        const eff = 0.6 * (1 - this.tenacity(e));
+        if (moved > 0) this.addRing(e.x, e.y, 3, 16, '#ffb066', 0.28, 2);
+        const eff = tzhaarStun(src?.level ?? 3) * (1 - this.tenacity(e));
         this.noteDebuffHit(e);
         if (eff > 0) e.stunTimer = Math.max(e.stunTimer, eff);
         this.stats.recordEffect(fx, this.wave, {
@@ -2816,14 +2827,10 @@ export class GameEngine {
   private knockback(e: Enemy, dist: number): number {
     const prev = this.path[e.pathIndex];
     if (!prev) return 0;
-    const dx = prev.x - e.x;
-    const dy = prev.y - e.y;
-    const d = Math.hypot(dx, dy);
-    if (d < 1) return 0;
-    const step = Math.min(dist, d);
-    e.x += (dx / d) * step;
-    e.y += (dy / d) * step;
-    return step;
+    const r = knockbackStep(e.x, e.y, prev.x, prev.y, dist);
+    e.x = r.x;
+    e.y = r.y;
+    return r.moved;
   }
 
   /** Per-hit size multiplier for a magic impact, derived from the struck model

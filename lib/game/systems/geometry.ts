@@ -74,6 +74,18 @@ export function inSquareRange(
   return Math.abs(ex - tx) <= half && Math.abs(ey - ty) <= half;
 }
 
+/** One knockback shove: move (x,y) toward the waypoint (tx,ty) by up to `dist`,
+ *  clamped at the waypoint. Returns the new position and the distance moved —
+ *  the pure core of the engine's knockback, extracted so the shove is testable. */
+export function knockbackStep(x: number, y: number, tx: number, ty: number, dist: number): { x: number; y: number; moved: number } {
+  const dx = tx - x;
+  const dy = ty - y;
+  const d = Math.hypot(dx, dy);
+  if (d < 1 || dist <= 0) return { x, y, moved: 0 };
+  const step = Math.min(dist, d);
+  return { x: x + (dx / d) * step, y: y + (dy / d) * step, moved: step };
+}
+
 /**
  * Whether `(x, y)` is far enough from every path segment and existing tower
  * to host a new tower. `towers` only needs `x`/`y`, so any placed entity works.

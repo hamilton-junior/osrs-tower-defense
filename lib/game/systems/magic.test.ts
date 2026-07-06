@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, bloodBonusCap, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName, AIR_KNOCKBACK, tzhaarKnockback } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, bloodBonusCap, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -90,6 +90,19 @@ describe('tzhaarKnockback', () => {
   it('clamps out-of-range levels to the table ends', () => {
     expect(tzhaarKnockback(0)).toBe(AIR_KNOCKBACK * 0.5);
     expect(tzhaarKnockback(9)).toBe(AIR_KNOCKBACK * 2);
+  });
+});
+
+describe('tzhaar stun from level 1', () => {
+  it('stuns at every tier, scaling into the maul values', () => {
+    expect(tzhaarStun(1)).toBeCloseTo(0.3);
+    expect(tzhaarStun(2)).toBeCloseTo(0.45);
+    expect(tzhaarStun(3)).toBeCloseTo(0.6);
+    expect(tzhaarStun(4)).toBeCloseTo(0.6);
+  });
+  it('clamps out-of-range levels like tzhaarKnockback', () => {
+    expect(tzhaarStun(0)).toBeCloseTo(0.3);
+    expect(tzhaarStun(9)).toBeCloseTo(0.6);
   });
 });
 

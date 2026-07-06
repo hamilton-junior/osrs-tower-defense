@@ -90,10 +90,11 @@ export const TOWERS: Record<string, TowerDef> = {
     // Obsidian melee: short range, heavy hits, and a knockback that shoves the
     // enemy back along the path — tempo control no wizard has. Every tier knocks
     // back, scaling with the weapon (½·=·+50%·×2 of the Air gust — see
-    // tzhaarKnockback); the maul tiers (Ket-Om / Inquisitor's) also crush for a
-    // brief stun ('crush') on top of the (bigger) shove.
+    // tzhaarKnockback), AND every tier now stuns on hit (tzhaarStun: 0.3s/0.45s
+    // at the dagger tiers); the maul tiers (Ket-Om / Inquisitor's) also crush for
+    // the full 0.6s stun on top of the (bigger) shove.
     tiers: [
-      { level: 1, name: 'TzHaar-Ket', damage: 12, cooldown: 4 * TICK * 1000, range: 3 * 25, color: '#8B0000', upgradeCost: 150, special: 'pushback' },
+      { level: 1, name: 'TzHaar-Ket', damage: 12, cooldown: 4 * TICK * 1000, range: 3 * 25, color: '#8B0000', upgradeCost: 125, special: 'pushback' },
       { level: 2, name: 'Toktz-xil-ak', damage: 22, cooldown: 4 * TICK * 1000, range: 4 * 25, color: '#ff4500', upgradeCost: 300, special: 'pushback' },
       { level: 3, name: 'TzHaar-Ket-Om', damage: 45, cooldown: 6 * TICK * 1000, range: 5 * 25, color: '#ff0000', upgradeCost: 600, special: 'crush' },
       { level: 4, name: "Inquisitor's Mace", damage: 85, cooldown: 4 * TICK * 1000, range: 5 * 25, color: '#ffd700', upgradeCost: 1000, special: 'crush' }
