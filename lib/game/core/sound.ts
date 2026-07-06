@@ -70,6 +70,14 @@ GAME_SOUNDS['cast_support'] = shoot.support[1];
 const spellHit = ASSETS.sounds.spellHit as Record<string, string>;
 for (const [key, url] of Object.entries(spellHit)) GAME_SOUNDS[`hit_${key}`] = url;
 
+/** Sound categories: `combat` rings out with the fight (and is faded/suppressed
+ *  between waves); `ui` (interface, prayers, GE, jingles) always plays. */
+export type SoundCategory = 'combat' | 'ui';
+export function soundCategory(key: string): SoundCategory {
+  if (/^(fire_|cast_|hit_|death_)/.test(key)) return 'combat';
+  return key === 'hit' || key === 'death' || key === 'base_hit' ? 'combat' : 'ui';
+}
+
 /**
  * Lightweight SFX player over HTMLAudioElement. Preloads each source once and
  * plays a clone per trigger so overlapping shots don't cut each other off.
@@ -93,6 +101,9 @@ export class SoundManager {
   /** User-facing volume on a 0..1 scale (what the UI shows as a %). Starts at
    *  75% so the default isn't too loud but there's headroom to raise it. */
   private volume = 0.75;
+  /** While set, combat-category plays are dropped (between waves — stragglers
+   *  landing after the clear stay silent). UI sounds are unaffected. */
+  private combatSuppressed = false;
 
   /** Real HTMLAudioElement gain for the current slider position. */
   private gain() {
@@ -132,6 +143,36 @@ export class SoundManager {
     this.volume = Math.max(0, Math.min(1, value));
   }
 
+  setCombatSuppressed(on: boolean) {
+    this.combatSuppressed = on;
+  }
+
+  /** Fade every currently-ringing combat clip to silence over `secs`, then stop
+   *  it and restore the node's volume for future plays. Also suppresses new
+   *  combat plays until {@link setCombatSuppressed}(false). */
+  fadeCombat(secs = 0.6) {
+    this.combatSuppressed = true;
+    if (typeof requestAnimationFrame === 'undefined') return; // SSR guard
+    for (const [key, pool] of this.pools) {
+      if (soundCategory(key) !== 'combat') continue;
+      for (const node of pool) {
+        if (node.paused || node.ended) continue;
+        const startVol = node.volume;
+        const t0 = performance.now();
+        const step = () => {
+          const k = Math.min(1, (performance.now() - t0) / (secs * 1000));
+          node.volume = startVol * (1 - k);
+          if (k < 1 && !node.paused) requestAnimationFrame(step);
+          else {
+            try { node.pause(); } catch { /* ignore */ }
+            node.volume = this.gain();
+          }
+        };
+        requestAnimationFrame(step);
+      }
+    }
+  }
+
   /** Loaded duration (seconds) of a clip, or NaN if unknown/not yet decoded.
    *  Prefers the value captured at `loadedmetadata`, falling back to the live
    *  element (covers clips already decoded before the listener attached). */
@@ -144,6 +185,7 @@ export class SoundManager {
 
   play(key: string, throttleMs = 50) {
     if (this.muted) return;
+    if (this.combatSuppressed && soundCategory(key) === 'combat') return;
     const base = this.cache.get(key);
     if (!base) return;
     const now = performance.now();

@@ -1664,6 +1664,7 @@ export class GameEngine {
     this.waveActive = true;
     this.sandboxWave = false; // a real wave: rewards/progression apply normally
     this.lastWaveSandbox = false; // a new wave started: clear the sandbox banner flag
+    this.sound.setCombatSuppressed(false);
     this.sound.play('wave');
     this.emit();
   }
@@ -3155,6 +3156,7 @@ export class GameEngine {
     if (!this.waveActive) return;
     if (this.spawnQueue.length > 0 || this.enemies.length > 0) return;
     this.waveActive = false;
+    this.sound.fadeCombat();
     this.activeEvent = null; // the event lasts exactly its wave — clear it on clear
     // A debug sandbox wave clears with no payout and no progression — it leaves
     // the run exactly as it was before spawning.
@@ -3372,6 +3374,7 @@ export class GameEngine {
   private endGame() {
     this.gameOver = true;
     this.waveActive = false;
+    this.sound.fadeCombat();
     this.sound.play('game_over');
   }
 
