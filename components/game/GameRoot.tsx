@@ -415,13 +415,15 @@ export default function GameRoot() {
   // Minimize state for the prayer bar (collapses to the best prayer per style).
   const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
   useEffect(() => { try { localStorage.setItem('ui_min_prayers', JSON.stringify(prayersMin)); } catch { /* ignore */ } }, [prayersMin]);
-  // Sidebar interface body collapse: clicking the already-selected tab stone
-  // minimises the body (OSRS-style), leaving only the tab strip + tower dock.
-  const [sideBodyMin, setSideBodyMin] = useState(() => loadBool('ui_min_sidebody', false));
-  useEffect(() => { try { localStorage.setItem('ui_min_sidebody', JSON.stringify(sideBodyMin)); } catch { /* ignore */ } }, [sideBodyMin]);
+  // Docked sidebar collapse: collapsed = a thin rail of tab stones (map grows).
+  const [sideCollapsed, setSideCollapsed] = useState(() =>
+    (typeof window !== 'undefined' && window.innerWidth < 900) || loadBool('ui_side_collapsed', false));
+  useEffect(() => { try { localStorage.setItem('ui_side_collapsed', JSON.stringify(sideCollapsed)); } catch { /* ignore */ } }, [sideCollapsed]);
+  // The canvas element resizes when the aside collapses/expands — re-measure.
+  useEffect(() => { engineRef.current?.resize(); }, [sideCollapsed]);
   // Start/stop the engine's per-run damage-stats streaming — only while the DPS
   // tab is the visible interface (the engine snapshots its stats just then).
-  const dpsVisible = tab === 'dps' && !sideBodyMin;
+  const dpsVisible = tab === 'dps' && !sideCollapsed;
   useEffect(() => { engineRef.current?.setDpsPanelOpen(dpsVisible); }, [dpsVisible]);
   // Stable so DpsView's unmount-cleanup effect doesn't re-fire every stats tick.
   const highlightTower = useCallback((id: string | null) => engineRef.current?.setHighlightTower(id), []);
@@ -438,12 +440,14 @@ export default function GameRoot() {
     try { localStorage.setItem('ui_scale', String(uiScale)); } catch { /* ignore */ }
     document.documentElement.style.setProperty('--ui-scale', String(uiScale));
   }, [uiScale]);
-  // Click a tab stone: switch to it (and expand) if it's another tab; toggle the
-  // body minimised if it's already the active one.
+  // Click a tab stone: from the collapsed rail, expand into that tab; when
+  // expanded, clicking the active stone collapses the sidebar (OSRS minimise
+  // gesture), any other stone just switches interface.
   const onSideTab = useCallback((t: SideTab) => {
-    setSideBodyMin((m) => (tab === t ? !m : false));
+    if (sideCollapsed) { setSideCollapsed(false); setTab(t); return; } // rail → expand into the tab
+    if (tab === t) { setSideCollapsed(true); return; } // active stone → collapse (old minimise gesture)
     setTab(t);
-  }, [tab]);
+  }, [tab, sideCollapsed]);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
@@ -939,7 +943,8 @@ export default function GameRoot() {
     .filter((p): p is (typeof TOWER_PRAYERS)[number] => p !== null);
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-black select-none font-osrs">
+    <div className="w-full h-full flex overflow-hidden bg-black select-none font-osrs">
+      <div className="relative flex-1 min-w-0 h-full overflow-hidden">
       <canvas
         ref={canvasRef}
         data-tut="map"
@@ -1669,395 +1674,6 @@ export default function GameRoot() {
         </MovablePanel>
       )}
 
-      {/* Bottom-right interface: an OSRS-style tabbed sidebar. The stone strip
-          selects which interface fills the body — Home (wave + tower shop), Grand
-          Exchange, Essence Shop, Slayer Rewards — while the Collection Log and
-          Debug stones pop out their own larger windows (as they do in-game). */}
-      <MovablePanel
-        id="shop"
-        globalLock={uiLocked}
-        className="rs-panel absolute bottom-4 right-4 p-3 z-10 w-[24em] flex flex-col"
-        style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)'), maxHeight: '92vh' }}
-      >
-        {/* OSRS sidebar tab strip: each stone selects an interface (or pops one
-            out). Icons + tooltips, with live badges for essence / Slayer points.
-            `order-2` pins it BELOW the tab body (order-1) and ABOVE the tower dock
-            (order-3): since the panel is bottom-anchored and grows upward, keeping
-            the strip low means the buttons hold a constant position no matter how
-            tall the open interface above them is. */}
-        <div
-          data-tut="sidebar"
-          className="order-2 shrink-0 flex items-center justify-center gap-[0.4em] pt-[0.55em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
-          style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
-        >
-          <button onClick={() => onSideTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
-            <img src={ASSETS.misc.multicombat_icon} alt="Towers &amp; Wave" onError={hideBrokenImg} />
-          </button>
-          <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
-            <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
-            <span className="rs-tab-badge">{fmt(ui.essence)}</span>
-          </button>
-          <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
-            <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
-            <span className="rs-tab-badge">{ui.slayerPoints}</span>
-          </button>
-          <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
-            <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
-          </button>
-          <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' && !sideBodyMin ? 'rs-tab-on' : ''}`}>
-            <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
-          </button>
-          <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
-            🛠
-          </button>
-          <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
-            ❓
-          </button>
-          {FEEDBACK_ENABLED && (
-            <button onClick={() => setFeedbackOpen(true)} title="Send feedback — report a bug or suggest an idea" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
-              💬
-            </button>
-          )}
-        </div>
-
-        {/* Tab body (top section): keyed by `tab` so switching re-mounts this
-            wrapper and retriggers the soft fade/slide-in (rs-tab-body). This is the
-            ONLY part the tab stones swap — the tower dock below stays mounted. flex-1
-            + overflow lets a long shop list scroll while the dock stays pinned.
-            Hidden when the active tab is clicked again (sideBodyMin), collapsing
-            the panel to just the tab strip + tower dock. */}
-        {!sideBodyMin && (
-        <div key={tab} className="order-1 rs-tab-body flex-1 min-h-0 overflow-y-auto pr-[0.1em]">
-        {/* ── HOME: wave control + Slayer task summary ── */}
-        {tab === 'home' && (
-        <>
-        {/* Slayer task interface (tasks are auto-assigned) */}
-        {ui.slayerTask && (
-          <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
-            <div className="flex items-center justify-between mb-[0.35em]">
-              <span className="flex items-center gap-[0.4em] text-[0.82em] text-osrs-orange uppercase tracking-wide">
-                <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
-                Slayer · {ui.slayerMaster}
-              </span>
-              <span className="flex items-center gap-[0.3em] text-[0.78em] text-[#7ce0ff] font-bold" title="Slayer points">
-                {ui.slayerHelmet && (
-                  <img src={geIcon('Slayer_helmet')} alt="Slayer Helmet active" title="Slayer Helmet active (+20% vs task)" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-                )}
-                {ui.slayerPoints} pts
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[0.85em] mb-[0.25em]">
-              <span className="capitalize text-[#e7d9b0]">{ui.slayerTask.name}</span>
-              <span className="text-osrs-yellow font-bold">{ui.slayerTask.count}/{ui.slayerTask.total} left</span>
-            </div>
-            <div className="rs-progress">
-              <div
-                className="rs-progress-fill"
-                style={{ width: `${ui.slayerTask.total ? Math.round(((ui.slayerTask.total - ui.slayerTask.count) / ui.slayerTask.total) * 100) : 0}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {!ui.gameOver && (
-          ui.waveActive ? (
-            <div className="mb-[0.6em]">
-              <div className="flex items-center justify-between text-[0.9em] text-osrs-orange mb-[0.25em]">
-                <span>⚔ Wave {ui.wave}{ui.bossWave ? ' — BOSS' : ''}</span>
-                <span className="text-[#cdbe91]">{ui.remaining} left</span>
-              </div>
-              <div className="rs-progress">
-                <div
-                  className={`rs-progress-fill ${ui.bossWave ? 'rs-progress-fill-boss' : ''}`}
-                  style={{ width: `${ui.waveTotal ? Math.round(((ui.waveTotal - ui.remaining) / ui.waveTotal) * 100) : 0}%` }}
-                />
-              </div>
-              {ui.activeEvent && <WaveEventBanner event={ui.activeEvent} />}
-            </div>
-          ) : (
-            <>
-              {/* Mode is chosen on the StartScreen; here we only show the current
-                  mode as a small badge before each wave starts. The Start Wave
-                  button itself lives just above the tower dock (always visible). */}
-              <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
-                Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
-              </div>
-            </>
-          )
-        )}
-
-        {/* Roguelite loadout-at-a-glance: the run's claimed relics (milestone
-            picks) above the rule-changing draft boons, so neither is forgotten. */}
-        {ui.gameMode === 'roguelite' && ui.ownedRelics.length > 0 && (
-          <OwnedRelicTray ids={ui.ownedRelics} />
-        )}
-        {ui.gameMode === 'roguelite' && ui.runCards.length > 0 && (
-          <RelicStrip
-            cards={ui.runCards}
-            highlight={hoverBoonGroup ? boonGroups[hoverBoonGroup].sources.map((s) => s.id) : null}
-          />
-        )}
-        </>
-        )}
-
-        {/* ── ESSENCE SHOP (permanent meta-progression upgrades) ── */}
-        {tab === 'essence' && (
-        <>
-          <div className="rs-panel-title flex items-center gap-2">
-            <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-            Essence Shop
-          </div>
-          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
-            <span className="text-[#cdbe91] uppercase tracking-wide">Rune Essence</span>
-            <span className="flex items-center gap-[0.3em] text-[#7ce0ff] font-bold">
-              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-              {fmt(ui.essence)}
-            </span>
-          </div>
-          <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
-            {GLOBAL_UPGRADE_DEFS.map((def) => {
-              const value = ui.upgrades[def.id];
-              const maxed = isMaxed(def, value);
-              const cost = nextCost(def, value);
-              const afford = ui.essence >= cost;
-              return (
-                <button
-                  key={def.id}
-                  onClick={() => engineRef.current?.buyEssenceUpgrade(def.id)}
-                  disabled={maxed || !afford}
-                  title={def.desc}
-                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${maxed || !afford ? 'rs-slot-unafford' : ''}`}
-                >
-                  <img src={geIcon(def.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-[0.4em]">
-                      <span className="text-[#e7d9b0] truncate">{def.name}</span>
-                      <span className="rs-ge-timer">{formatUpgradeValue(def, value)}</span>
-                    </span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{def.desc}</span>
-                  </span>
-                  {maxed ? (
-                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Max</span>
-                  ) : (
-                    <span className="flex items-center gap-[0.25em] font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
-                      {fmt(cost)}
-                      <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {(() => {
-            const refund = refundValue(ui.upgrades);
-            return (
-              <button
-                onClick={() => engineRef.current?.refundEssence()}
-                disabled={refund <= 0}
-                title="Reset every upgrade and reclaim 90% of the essence you've spent"
-                className={`rs-btn w-full mt-[0.6em] py-[0.4em] text-[0.78em] flex items-center justify-center gap-[0.35em] ${refund <= 0 ? 'rs-slot-unafford' : ''}`}
-              >
-                Refund all
-                {refund > 0 && (
-                  <span className="flex items-center gap-[0.2em] text-[#7ce0ff] font-bold">
-                    +{fmt(refund)}
-                    <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                  </span>
-                )}
-              </button>
-            );
-          })()}
-          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
-            Permanent upgrades · earn essence by clearing waves
-          </p>
-        </>
-        )}
-
-        {/* ── SLAYER REWARDS (sink for Slayer points) ── */}
-        {tab === 'slayer' && (
-        <>
-          <div className="rs-panel-title flex items-center gap-2">
-            <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-            Slayer Rewards
-          </div>
-          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
-            <span className="text-[#cdbe91] uppercase tracking-wide">Slayer Points</span>
-            <span className="text-[#7ce0ff] font-bold">{ui.slayerPoints}</span>
-          </div>
-          <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
-            {SLAYER_REWARDS.map((r) => {
-              const owned = !!r.once && r.id === 'helmet' && ui.slayerHelmet;
-              const afford = ui.slayerPoints >= r.cost;
-              const disabled = owned || !afford;
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => engineRef.current?.buySlayerReward(r.id)}
-                  disabled={disabled}
-                  title={r.desc}
-                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${disabled ? 'rs-slot-unafford' : ''}`}
-                >
-                  <img src={geIcon(r.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                  <span className="flex-1 min-w-0">
-                    <span className="text-[#e7d9b0] truncate block">{r.name}</span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{r.desc}</span>
-                  </span>
-                  {owned ? (
-                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Owned</span>
-                  ) : (
-                    <span className="font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
-                      {r.cost} pts
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
-            Earn points by completing Slayer tasks
-          </p>
-        </>
-        )}
-
-        {/* ── DPS: the damage meter, folded into the main panel as an interface
-            tab (was a floating window). The tab body already scrolls, so a long
-            tower list just scrolls in place. ── */}
-        {tab === 'dps' && <DpsView snap={ui.dpsStats ?? null} onHoverTower={highlightTower} />}
-        </div>
-        )}
-
-        {/* Start Wave — always one click above the tower dock, no matter which
-            interface tab is open. Only between waves (during a wave the Home tab
-            shows the progress bar instead). Can be hidden from the controls bar,
-            where the spacebar still sends waves. `order-3` sits it below the tab
-            strip and above the dock. */}
-        {!ui.gameOver && !ui.waveActive && !hideStartWave && (
-          <div
-            className="order-3 shrink-0 pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
-            style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
-          >
-            <div className="relative group">
-              <button
-                data-tut="startwave"
-                className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse"
-                onClick={() => engineRef.current?.startWave()}
-              >
-                ▶ Start Wave {ui.wave}
-              </button>
-              {/* Hover preview of the monsters the next wave will send — the exact,
-                  deterministic makeup the engine will spawn (wavePreview in UIState). */}
-              {ui.wavePreview.length > 0 && (
-                <div className="rs-panel absolute bottom-full right-0 mb-[0.5em] p-[0.5em] w-[15em] max-w-[92vw] hidden group-hover:block z-30 pointer-events-none">
-                  <div className="text-center text-[0.62em] text-[#d3c3a0] uppercase tracking-wide mb-[0.45em]">
-                    Wave {ui.wave} · {ui.wavePreview.reduce((s, m) => s + m.count, 0)} incoming
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.3em]">
-                    {ui.wavePreview.map((m) => {
-                      const style = enemySpriteStyle(m.type);
-                      return (
-                        <div
-                          key={m.type}
-                          className={`flex items-center gap-[0.4em] min-w-0 ${m.isBoss ? 'col-span-2 justify-center mt-[0.15em] pt-[0.3em] border-t border-[#3a2f1d]' : ''}`}
-                        >
-                          <span
-                            className="inline-block w-[1.5em] h-[1.5em] shrink-0"
-                            style={style ? { ...style, imageRendering: 'pixelated' } : undefined}
-                          />
-                          <span
-                            className={`text-[0.72em] truncate ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}
-                          >
-                            {m.isBoss ? `⚠ ${m.name}` : `${m.count}× ${m.name}`}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Tower shop — ALWAYS visible, regardless of the selected tab, so towers
-            stay one click away while browsing the Essence / Slayer interfaces.
-            The tab stones only swap the top section; this dock never unmounts.
-            `order-4` keeps it pinned at the very bottom, below the Start Wave slot. */}
-        <div
-          className="order-4 shrink-0 relative pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
-          style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
-        >
-          {/* Hover tooltip: tier-1 stats before buying (anchored above the dock) */}
-          {hoverShop && (() => {
-            const t0 = TOWERS[hoverShop].tiers[0];
-            const combat = TOWER_COMBAT[hoverShop];
-            const dmg = t0.maxDamage != null ? `${t0.minDamage ?? 0}–${t0.maxDamage}` : t0.damage;
-            const icon = towerIcon(hoverShop);
-            // What the tower *does* (its niche), not just its numbers — so a new
-            // player knows what they're buying before placing it. Tier-1 signature.
-            const sig = towerSignature(hoverShop, 1);
-            // The Wizard's tier-1 name is its spell ("Strike"), not a weapon like
-            // the other towers (Shortbow, Dwarf Multicannon…) — show "Staff" so the
-            // shop title reads as the tower, not the spell tier.
-            const title = hoverShop === 'wizard' ? 'Staff' : t0.name;
-            return (
-              <div
-                className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[16em] z-20 pointer-events-none"
-                style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}
-              >
-                <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
-                  {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
-                  <span className="truncate">{title}</span>
-                </div>
-                {sig && (
-                  <div className="mt-[0.35em] px-[0.1em]">
-                    <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{sig.label}</span>
-                    <p className="text-[0.76em] text-[#cdbe91] leading-snug mt-[0.1em]">{sig.desc}</p>
-                  </div>
-                )}
-                <div className="space-y-[0.3em] mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
-                  <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
-                  <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
-                  <Stat label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
-                </div>
-              </div>
-            );
-          })()}
-          <div className="rs-panel-title">Towers</div>
-          <div data-tut="dock" className="grid grid-cols-6 gap-2">
-            {TOWER_ORDER.map((type) => {
-              const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
-              const active = ui.selectedTowerType === type;
-              const afford = ui.money >= cost;
-              const icon = towerIcon(type);
-              return (
-                <button
-                  key={type}
-                  onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
-                  onMouseEnter={() => setHoverShop(type)}
-                  onMouseLeave={() => setHoverShop((h) => (h === type ? null : h))}
-                  className={`rs-slot ${active ? 'selected' : ''} ${afford ? '' : 'rs-slot-unafford'}`}
-                >
-                  {icon ? (
-                    <img src={icon} alt={TOWERS[type].baseName} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  ) : (
-                    <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>
-                  )}
-                  <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-center text-[0.7em] text-[#d3c3a0] mt-[0.5em]">
-            {ui.selectedTowerType === 'wizard'
-              ? 'Click a tile to choose its spellbook there · right‑click to cancel'
-              : 'Pick a tower, then click the map to place · right‑click to cancel'}
-          </p>
-          <p className="text-center text-[0.64em] text-[#b3a585] mt-[0.2em]">
-            <kbd>Space</kbd> next wave · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> pause/cancel · <kbd>M</kbd> mute
-          </p>
-        </div>
-      </MovablePanel>
-
       {/* Speed + sound control (bottom-left) */}
       <MovablePanel id="controls" tut="controls" globalLock={uiLocked} className="rs-panel absolute bottom-4 left-4 p-2 z-10 flex items-center gap-1">
         <button
@@ -2333,6 +1949,437 @@ export default function GameRoot() {
           onSkipAll={skipAllTips}
         />
       )}
+      </div>{/* game area — floating overlays anchor to the map, never the sidebar */}
+      {/* Docked main menu: an OSRS-style tabbed sidebar, now a right-hand column
+          that never covers the map. Collapses to a thin rail of tab stones (the
+          map grows into the reclaimed width — the canvas re-measures on toggle). */}
+      <aside
+        data-tut="sidebar"
+        className="relative shrink-0 h-full rs-panel flex flex-col"
+        style={sideCollapsed
+          ? { width: '3.4em', fontSize: fs('clamp(14px, 0.9vw, 19px)') }
+          : { width: 'clamp(300px, 22vw, 400px)', fontSize: fs('clamp(14px, 0.9vw, 19px)') }}
+      >
+        <button
+          onClick={() => setSideCollapsed((c) => !c)}
+          title={sideCollapsed ? 'Expand menu' : 'Collapse menu'}
+          className="rs-btn absolute top-1/2 -left-[0.9em] -translate-y-1/2 z-20 px-[0.15em] py-[0.7em] text-[0.8em]"
+        >
+          {sideCollapsed ? '◀' : '▶'}
+        </button>
+        {sideCollapsed ? (
+          /* Collapsed rail: the same tab stones stacked vertically. A real tab's
+             stone expands into that interface; the window-toggle stones (log /
+             debug / help / feedback) keep their own active-state — their windows
+             can stay open while the sidebar is collapsed. */
+          <div className="flex flex-col items-center gap-[0.4em] pt-[0.6em]">
+            <button onClick={() => onSideTab('home')} title="Towers &amp; Wave" className="rs-tab">
+              <img src={ASSETS.misc.multicombat_icon} alt="Towers &amp; Wave" onError={hideBrokenImg} />
+            </button>
+            <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className="rs-tab">
+              <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
+              <span className="rs-tab-badge">{fmt(ui.essence)}</span>
+            </button>
+            <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className="rs-tab">
+              <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
+              <span className="rs-tab-badge">{ui.slayerPoints}</span>
+            </button>
+            <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
+              <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
+            </button>
+            <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className="rs-tab">
+              <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
+            </button>
+            <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
+              🛠
+            </button>
+            <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
+              ❓
+            </button>
+            {FEEDBACK_ENABLED && (
+              <button onClick={() => setFeedbackOpen(true)} title="Send feedback — report a bug or suggest an idea" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
+                💬
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col flex-1 min-h-0 p-3">
+        {/* OSRS sidebar tab strip: each stone selects an interface (or pops one
+            out). Icons + tooltips, with live badges for essence / Slayer points.
+            `order-2` pins it BELOW the tab body (order-1) and ABOVE the tower dock
+            (order-3): since the panel is bottom-anchored and grows upward, keeping
+            the strip low means the buttons hold a constant position no matter how
+            tall the open interface above them is. */}
+        <div
+          className="order-2 shrink-0 flex items-center justify-center gap-[0.4em] pt-[0.55em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
+          style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
+        >
+          <button onClick={() => onSideTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
+            <img src={ASSETS.misc.multicombat_icon} alt="Towers &amp; Wave" onError={hideBrokenImg} />
+          </button>
+          <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
+            <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
+            <span className="rs-tab-badge">{fmt(ui.essence)}</span>
+          </button>
+          <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
+            <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
+            <span className="rs-tab-badge">{ui.slayerPoints}</span>
+          </button>
+          <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
+            <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
+          </button>
+          <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
+            <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
+          </button>
+          <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
+            🛠
+          </button>
+          <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
+            ❓
+          </button>
+          {FEEDBACK_ENABLED && (
+            <button onClick={() => setFeedbackOpen(true)} title="Send feedback — report a bug or suggest an idea" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
+              💬
+            </button>
+          )}
+        </div>
+
+        {/* Tab body (top section): keyed by `tab` so switching re-mounts this
+            wrapper and retriggers the soft fade/slide-in (rs-tab-body). This is the
+            ONLY part the tab stones swap — the tower dock below stays mounted. flex-1
+            + overflow lets a long shop list scroll while the dock stays pinned.
+            (The dock stays mounted below; the tab stones only swap this body.) */}
+        <div key={tab} className="order-1 rs-tab-body flex-1 min-h-0 overflow-y-auto pr-[0.1em]">
+        {/* ── HOME: wave control + Slayer task summary ── */}
+        {tab === 'home' && (
+        <>
+        {/* Slayer task interface (tasks are auto-assigned) */}
+        {ui.slayerTask && (
+          <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
+            <div className="flex items-center justify-between mb-[0.35em]">
+              <span className="flex items-center gap-[0.4em] text-[0.82em] text-osrs-orange uppercase tracking-wide">
+                <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+                Slayer · {ui.slayerMaster}
+              </span>
+              <span className="flex items-center gap-[0.3em] text-[0.78em] text-[#7ce0ff] font-bold" title="Slayer points">
+                {ui.slayerHelmet && (
+                  <img src={geIcon('Slayer_helmet')} alt="Slayer Helmet active" title="Slayer Helmet active (+20% vs task)" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                )}
+                {ui.slayerPoints} pts
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[0.85em] mb-[0.25em]">
+              <span className="capitalize text-[#e7d9b0]">{ui.slayerTask.name}</span>
+              <span className="text-osrs-yellow font-bold">{ui.slayerTask.count}/{ui.slayerTask.total} left</span>
+            </div>
+            <div className="rs-progress">
+              <div
+                className="rs-progress-fill"
+                style={{ width: `${ui.slayerTask.total ? Math.round(((ui.slayerTask.total - ui.slayerTask.count) / ui.slayerTask.total) * 100) : 0}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {!ui.gameOver && (
+          ui.waveActive ? (
+            <div className="mb-[0.6em]">
+              <div className="flex items-center justify-between text-[0.9em] text-osrs-orange mb-[0.25em]">
+                <span>⚔ Wave {ui.wave}{ui.bossWave ? ' — BOSS' : ''}</span>
+                <span className="text-[#cdbe91]">{ui.remaining} left</span>
+              </div>
+              <div className="rs-progress">
+                <div
+                  className={`rs-progress-fill ${ui.bossWave ? 'rs-progress-fill-boss' : ''}`}
+                  style={{ width: `${ui.waveTotal ? Math.round(((ui.waveTotal - ui.remaining) / ui.waveTotal) * 100) : 0}%` }}
+                />
+              </div>
+              {ui.activeEvent && <WaveEventBanner event={ui.activeEvent} />}
+            </div>
+          ) : (
+            <>
+              {/* Mode is chosen on the StartScreen; here we only show the current
+                  mode as a small badge before each wave starts. The Start Wave
+                  button itself lives just above the tower dock (always visible). */}
+              <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
+                Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
+              </div>
+            </>
+          )
+        )}
+
+        {/* Roguelite loadout-at-a-glance: the run's claimed relics (milestone
+            picks) above the rule-changing draft boons, so neither is forgotten. */}
+        {ui.gameMode === 'roguelite' && ui.ownedRelics.length > 0 && (
+          <OwnedRelicTray ids={ui.ownedRelics} />
+        )}
+        {ui.gameMode === 'roguelite' && ui.runCards.length > 0 && (
+          <RelicStrip
+            cards={ui.runCards}
+            highlight={hoverBoonGroup ? boonGroups[hoverBoonGroup].sources.map((s) => s.id) : null}
+          />
+        )}
+        </>
+        )}
+
+        {/* ── ESSENCE SHOP (permanent meta-progression upgrades) ── */}
+        {tab === 'essence' && (
+        <>
+          <div className="rs-panel-title flex items-center gap-2">
+            <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+            Essence Shop
+          </div>
+          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
+            <span className="text-[#cdbe91] uppercase tracking-wide">Rune Essence</span>
+            <span className="flex items-center gap-[0.3em] text-[#7ce0ff] font-bold">
+              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+              {fmt(ui.essence)}
+            </span>
+          </div>
+          <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
+            {GLOBAL_UPGRADE_DEFS.map((def) => {
+              const value = ui.upgrades[def.id];
+              const maxed = isMaxed(def, value);
+              const cost = nextCost(def, value);
+              const afford = ui.essence >= cost;
+              return (
+                <button
+                  key={def.id}
+                  onClick={() => engineRef.current?.buyEssenceUpgrade(def.id)}
+                  disabled={maxed || !afford}
+                  title={def.desc}
+                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${maxed || !afford ? 'rs-slot-unafford' : ''}`}
+                >
+                  <img src={geIcon(def.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-[0.4em]">
+                      <span className="text-[#e7d9b0] truncate">{def.name}</span>
+                      <span className="rs-ge-timer">{formatUpgradeValue(def, value)}</span>
+                    </span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{def.desc}</span>
+                  </span>
+                  {maxed ? (
+                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Max</span>
+                  ) : (
+                    <span className="flex items-center gap-[0.25em] font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
+                      {fmt(cost)}
+                      <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {(() => {
+            const refund = refundValue(ui.upgrades);
+            return (
+              <button
+                onClick={() => engineRef.current?.refundEssence()}
+                disabled={refund <= 0}
+                title="Reset every upgrade and reclaim 90% of the essence you've spent"
+                className={`rs-btn w-full mt-[0.6em] py-[0.4em] text-[0.78em] flex items-center justify-center gap-[0.35em] ${refund <= 0 ? 'rs-slot-unafford' : ''}`}
+              >
+                Refund all
+                {refund > 0 && (
+                  <span className="flex items-center gap-[0.2em] text-[#7ce0ff] font-bold">
+                    +{fmt(refund)}
+                    <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                  </span>
+                )}
+              </button>
+            );
+          })()}
+          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
+            Permanent upgrades · earn essence by clearing waves
+          </p>
+        </>
+        )}
+
+        {/* ── SLAYER REWARDS (sink for Slayer points) ── */}
+        {tab === 'slayer' && (
+        <>
+          <div className="rs-panel-title flex items-center gap-2">
+            <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+            Slayer Rewards
+          </div>
+          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
+            <span className="text-[#cdbe91] uppercase tracking-wide">Slayer Points</span>
+            <span className="text-[#7ce0ff] font-bold">{ui.slayerPoints}</span>
+          </div>
+          <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
+            {SLAYER_REWARDS.map((r) => {
+              const owned = !!r.once && r.id === 'helmet' && ui.slayerHelmet;
+              const afford = ui.slayerPoints >= r.cost;
+              const disabled = owned || !afford;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => engineRef.current?.buySlayerReward(r.id)}
+                  disabled={disabled}
+                  title={r.desc}
+                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${disabled ? 'rs-slot-unafford' : ''}`}
+                >
+                  <img src={geIcon(r.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <span className="flex-1 min-w-0">
+                    <span className="text-[#e7d9b0] truncate block">{r.name}</span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{r.desc}</span>
+                  </span>
+                  {owned ? (
+                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Owned</span>
+                  ) : (
+                    <span className="font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
+                      {r.cost} pts
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
+            Earn points by completing Slayer tasks
+          </p>
+        </>
+        )}
+
+        {/* ── DPS: the damage meter, folded into the main panel as an interface
+            tab (was a floating window). The tab body already scrolls, so a long
+            tower list just scrolls in place. ── */}
+        {tab === 'dps' && <DpsView snap={ui.dpsStats ?? null} onHoverTower={highlightTower} />}
+        </div>
+
+        {/* Start Wave — always one click above the tower dock, no matter which
+            interface tab is open. Only between waves (during a wave the Home tab
+            shows the progress bar instead). Can be hidden from the controls bar,
+            where the spacebar still sends waves. `order-3` sits it below the tab
+            strip and above the dock. */}
+        {!ui.gameOver && !ui.waveActive && !hideStartWave && (
+          <div
+            className="order-3 shrink-0 pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
+            style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
+          >
+            <div className="relative group">
+              <button
+                data-tut="startwave"
+                className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse"
+                onClick={() => engineRef.current?.startWave()}
+              >
+                ▶ Start Wave {ui.wave}
+              </button>
+              {/* Hover preview of the monsters the next wave will send — the exact,
+                  deterministic makeup the engine will spawn (wavePreview in UIState). */}
+              {ui.wavePreview.length > 0 && (
+                <div className="rs-panel absolute bottom-full right-0 mb-[0.5em] p-[0.5em] w-[15em] max-w-[92vw] hidden group-hover:block z-30 pointer-events-none">
+                  <div className="text-center text-[0.62em] text-[#d3c3a0] uppercase tracking-wide mb-[0.45em]">
+                    Wave {ui.wave} · {ui.wavePreview.reduce((s, m) => s + m.count, 0)} incoming
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.3em]">
+                    {ui.wavePreview.map((m) => {
+                      const style = enemySpriteStyle(m.type);
+                      return (
+                        <div
+                          key={m.type}
+                          className={`flex items-center gap-[0.4em] min-w-0 ${m.isBoss ? 'col-span-2 justify-center mt-[0.15em] pt-[0.3em] border-t border-[#3a2f1d]' : ''}`}
+                        >
+                          <span
+                            className="inline-block w-[1.5em] h-[1.5em] shrink-0"
+                            style={style ? { ...style, imageRendering: 'pixelated' } : undefined}
+                          />
+                          <span
+                            className={`text-[0.72em] truncate ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}
+                          >
+                            {m.isBoss ? `⚠ ${m.name}` : `${m.count}× ${m.name}`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tower shop — ALWAYS visible, regardless of the selected tab, so towers
+            stay one click away while browsing the Essence / Slayer interfaces.
+            The tab stones only swap the top section; this dock never unmounts.
+            `order-4` keeps it pinned at the very bottom, below the Start Wave slot. */}
+        <div
+          className="order-4 shrink-0 relative pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
+          style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
+        >
+          {/* Hover tooltip: tier-1 stats before buying (anchored above the dock) */}
+          {hoverShop && (() => {
+            const t0 = TOWERS[hoverShop].tiers[0];
+            const combat = TOWER_COMBAT[hoverShop];
+            const dmg = t0.maxDamage != null ? `${t0.minDamage ?? 0}–${t0.maxDamage}` : t0.damage;
+            const icon = towerIcon(hoverShop);
+            // What the tower *does* (its niche), not just its numbers — so a new
+            // player knows what they're buying before placing it. Tier-1 signature.
+            const sig = towerSignature(hoverShop, 1);
+            // The Wizard's tier-1 name is its spell ("Strike"), not a weapon like
+            // the other towers (Shortbow, Dwarf Multicannon…) — show "Staff" so the
+            // shop title reads as the tower, not the spell tier.
+            const title = hoverShop === 'wizard' ? 'Staff' : t0.name;
+            return (
+              <div
+                className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[16em] z-20 pointer-events-none"
+                style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}
+              >
+                <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
+                  {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
+                  <span className="truncate">{title}</span>
+                </div>
+                {sig && (
+                  <div className="mt-[0.35em] px-[0.1em]">
+                    <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{sig.label}</span>
+                    <p className="text-[0.76em] text-[#cdbe91] leading-snug mt-[0.1em]">{sig.desc}</p>
+                  </div>
+                )}
+                <div className="space-y-[0.3em] mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
+                  <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
+                  <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
+                  <Stat label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
+                </div>
+              </div>
+            );
+          })()}
+          <div className="rs-panel-title">Towers</div>
+          <div data-tut="dock" className="grid grid-cols-6 gap-2">
+            {TOWER_ORDER.map((type) => {
+              const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
+              const active = ui.selectedTowerType === type;
+              const afford = ui.money >= cost;
+              const icon = towerIcon(type);
+              return (
+                <button
+                  key={type}
+                  onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
+                  onMouseEnter={() => setHoverShop(type)}
+                  onMouseLeave={() => setHoverShop((h) => (h === type ? null : h))}
+                  className={`rs-slot ${active ? 'selected' : ''} ${afford ? '' : 'rs-slot-unafford'}`}
+                >
+                  {icon ? (
+                    <img src={icon} alt={TOWERS[type].baseName} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  ) : (
+                    <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>
+                  )}
+                  <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-center text-[0.7em] text-[#d3c3a0] mt-[0.5em]">
+            {ui.selectedTowerType === 'wizard'
+              ? 'Click a tile to choose its spellbook there · right‑click to cancel'
+              : 'Pick a tower, then click the map to place · right‑click to cancel'}
+          </p>
+          <p className="text-center text-[0.64em] text-[#b3a585] mt-[0.2em]">
+            <kbd>Space</kbd> next wave · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> pause/cancel · <kbd>M</kbd> mute
+          </p>
+        </div>
+          </div>
+        )}
+      </aside>
     </div>
   );
 }
