@@ -70,7 +70,7 @@ export interface AncientSpec {
 export const ANCIENT_ORDER: AncientType[] = ['ice', 'blood', 'shadow', 'smoke'];
 export const ANCIENTS: Record<AncientType, AncientSpec> = {
   ice: { effect: 'slow', color: '#7fe6ff', glow: '#dff4ff', label: 'Ice', desc: 'AoE barrage that slows' },
-  blood: { lifesteal: true, color: '#c81e1e', glow: '#c81e1e', label: 'Blood', desc: 'AoE barrage; bonus damage = (3 + 0.5·level)% of max HP, plus a chance to restore a life on a kill' },
+  blood: { lifesteal: true, color: '#c81e1e', glow: '#c81e1e', label: 'Blood', desc: 'AoE barrage; bonus damage = (0.75·level)% of max HP (capped), plus a chance to restore a life on a kill' },
   shadow: { effect: 'stun', color: '#6a3fb0', glow: '#1b1024', label: 'Shadow', desc: 'AoE barrage with a brief stun' },
   smoke: { effect: 'burn', color: '#9a9a9a', glow: '#8f8f8f', label: 'Smoke', desc: 'AoE barrage that poisons for the current wave number per second' },
 };
@@ -177,10 +177,17 @@ export function lifestealChance(towerLevel: number): number {
 }
 
 /**
- * Blood barrage bonus damage as a fraction of the target's max HP: `(3 + 0.5·level)%`
- * (3.5% at L1 → 5% at L4). Added on top of the flat barrage hit so Blood scales
- * against high-HP enemies — its niche beside the chance-to-heal lifesteal.
+ * Blood barrage bonus damage as a fraction of the target's max HP:
+ * `(0.75·level)%` (0.75% at L1 → 3% at L4) — deliberately weak early and 4×
+ * across the tiers, per the community balance pass. Each hit's bonus is also
+ * flat-capped by {@link bloodBonusCap} so it cannot scale into infinity
+ * against giant boss HP pools.
  */
 export function bloodBonusFrac(towerLevel: number): number {
-  return (3 + 0.5 * towerLevel) / 100;
+  return (0.75 * towerLevel) / 100;
+}
+
+/** Flat per-hit ceiling of the Blood %max-HP bonus: 30·level damage. */
+export function bloodBonusCap(towerLevel: number): number {
+  return 30 * towerLevel;
 }

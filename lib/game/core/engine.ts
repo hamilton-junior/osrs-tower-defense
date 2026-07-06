@@ -13,7 +13,7 @@ import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, synergyDamageMult, utilityAuraBonus, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
 import { CombatStatsSystem, RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity, type DpsSnapshot } from '../systems/combat-stats';
-import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp } from '../systems/tower-identity';
@@ -2244,6 +2244,7 @@ export class GameEngine {
       const projBlastRadius = tower.type === 'cannon' ? cannonBlastRadius(tower.level) : undefined;
       let projLifesteal = false;
       let projBonusMaxHpFrac = 0;
+      let projBonusMaxHpCap = 0;
       const projSpell = spellSpriteName(tower) ?? undefined;
 
       // Wizard spellbooks: Elemental (single-target status + weakness bonus),
@@ -2265,8 +2266,8 @@ export class GameEngine {
           projSpecial = spec.effect;
           projAoe = true;
           projLifesteal = !!spec.lifesteal;
-          // Blood barrage adds (3 + 0.5·level)% of each target's max HP on hit.
-          if (anc === 'blood') projBonusMaxHpFrac = bloodBonusFrac(tower.level);
+          // Blood barrage adds (0.75·level)% of each target's max HP, capped at 30·level.
+          if (anc === 'blood') { projBonusMaxHpFrac = bloodBonusFrac(tower.level); projBonusMaxHpCap = bloodBonusCap(tower.level); }
           // Ice applies its slow NOW (on the tower's attack cadence), not on contact:
           // the long sound-synced flight shouldn't delay the crowd-control. Damage
           // still lands with the bolt, so drop the on-hit slow. Slows every enemy in
@@ -2335,6 +2336,7 @@ export class GameEngine {
           blastRadius: projBlastRadius,
           lifesteal: projLifesteal || undefined,
           bonusMaxHpFrac: projBonusMaxHpFrac || undefined,
+          bonusMaxHpCap: projBonusMaxHpCap || undefined,
           spellIcon: projSpell,
           arrowIcon: tower.type === 'archer' ? 'dragon_arrow' : undefined,
           hitSound,
@@ -2597,8 +2599,10 @@ export class GameEngine {
           else this.spawnEffect(gfx, e.x, e.y, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), e);
         }
         else if (theme) this.spawnMagicImpact(e.x, e.y, theme, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), dx, dy);
-        // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled.
-        const bonus = p.bonusMaxHpFrac ? Math.floor(e.maxHp * p.bonusMaxHpFrac * scale) : 0;
+        // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled, capped per hit.
+        const bonus = p.bonusMaxHpFrac
+          ? Math.min(Math.floor(e.maxHp * p.bonusMaxHpFrac * scale), Math.floor((p.bonusMaxHpCap ?? Infinity) * scale))
+          : 0;
         const dmg = Math.floor(p.damage * scale) + bonus;
         const killed = this.damage(e, dmg, 'hit', false, silent, 0, style,
           { towerId: p.sourceTowerId, tag: isPrimary ? 'direct' : 'splash', aura: p.aura });
@@ -2608,7 +2612,9 @@ export class GameEngine {
     } else if (target) {
       // Single-target: only resolves if the target is still alive at impact;
       // otherwise the bolt just fizzles where the target was (particles only).
-      const bonus = p.bonusMaxHpFrac ? Math.floor(target.maxHp * p.bonusMaxHpFrac) : 0;
+      const bonus = p.bonusMaxHpFrac
+        ? Math.min(Math.floor(target.maxHp * p.bonusMaxHpFrac), Math.floor(p.bonusMaxHpCap ?? Infinity))
+        : 0;
       primaryKilled = this.damage(target, p.damage + bonus, 'hit', false, silent, 0, style,
         { towerId: p.sourceTowerId, tag: 'direct', aura: p.aura });
       if (!primaryKilled) { this.applyOnHit(target, p); this.applyVenomTips(target); }

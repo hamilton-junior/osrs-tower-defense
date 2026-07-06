@@ -338,6 +338,8 @@ export interface Projectile {
   /** Bonus damage as a fraction of each hit enemy's max HP (Blood barrage),
    *  added on top of the flat hit (splash-scaled for non-primary targets). */
   bonusMaxHpFrac?: number;
+  /** Flat per-hit ceiling of the %max-HP bonus (Blood barrage cap). */
+  bonusMaxHpCap?: number;
   /** Wiki spell-file name (e.g. `Fire_Wave`) used to draw the real spell sprite. */
   spellIcon?: string;
   /** Arrow style marker for archer shots (`'dragon_arrow'`): the renderer draws a

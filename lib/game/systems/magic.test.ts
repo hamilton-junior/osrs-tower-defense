@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName, AIR_KNOCKBACK, tzhaarKnockback } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, bloodBonusCap, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName, AIR_KNOCKBACK, tzhaarKnockback } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -36,10 +36,20 @@ describe('lifestealChance', () => {
   });
 });
 
-describe('bloodBonusFrac', () => {
-  it('is (3 + 0.5·level)% of max HP', () => {
-    expect(bloodBonusFrac(1)).toBeCloseTo(0.035);
-    expect(bloodBonusFrac(4)).toBeCloseTo(0.05);
+describe('blood barrage nerf', () => {
+  it('bonus frac is (0.75·level)% — steep level scaling', () => {
+    expect(bloodBonusFrac(1)).toBeCloseTo(0.0075);
+    expect(bloodBonusFrac(2)).toBeCloseTo(0.015);
+    expect(bloodBonusFrac(3)).toBeCloseTo(0.0225);
+    expect(bloodBonusFrac(4)).toBeCloseTo(0.03);
+  });
+  it('flat cap is 30·level', () => {
+    expect(bloodBonusCap(1)).toBe(30);
+    expect(bloodBonusCap(4)).toBe(120);
+  });
+  it('cap engages against giant max-HP pools', () => {
+    // 100k HP boss at L4: 3% would be 3000 — the cap holds it to 120.
+    expect(Math.min(Math.floor(100_000 * bloodBonusFrac(4)), bloodBonusCap(4))).toBe(120);
   });
 });
 
