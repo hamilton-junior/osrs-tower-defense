@@ -106,7 +106,10 @@ function towerSignature(
       return {
         label: 'Knockback',
         desc: 'Shoves enemies back down the path, stalling the rush — crowd control the wizard can’t match.',
-        notes: [{ text: 'Lv3 maul: the blow also briefly stuns (crush)', active: level >= 3 }],
+        notes: [
+          { text: 'Every hit also briefly stuns (daggers 0.3–0.45s)', active: true },
+          { text: 'Lv3 maul: crushes for the full 0.6s stun', active: level >= 3 },
+        ],
       };
     case 'slayer':
       return {
