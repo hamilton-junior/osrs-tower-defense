@@ -1290,23 +1290,68 @@ export default function GameRoot() {
         </div>
       )}
 
-      {/* Always-on top-center cluster: the active wave-event twist + buff infoboxes
-          (RuneLite-style icon + remaining seconds). Timers pause between waves, so the
-          infoboxes double as a "ready to pull" cue. The whole row drops below the boss
-          HP bar while a boss is alive, so the bar stays topmost. */}
-      {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0) && (
+      {/* Always-on top-center HUD cluster: (1) a wave strip showing live progress
+          while fighting or the always-visible next-wave monster preview while prepping,
+          and (2) the active wave-event twist chip + buff infoboxes (RuneLite-style icon
+          + remaining seconds) beneath it. Timers pause between waves, so the infoboxes
+          double as a "ready to pull" cue. The whole cluster drops below the boss HP bar
+          while a boss is alive, so the bar stays topmost. */}
+      {runStarted && !ui.gameOver && (
         <div
           data-tut="waveevent"
-          className="absolute left-1/2 -translate-x-1/2 z-10 flex items-start gap-[0.4em] transition-[top] duration-300"
-          style={{ top: ui.bossOnField ? '4.5rem' : '0.5rem' }}
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-[0.35em] transition-[top] duration-300"
+          style={{ top: ui.bossOnField ? '4.5rem' : '0.5rem', fontSize: fs('clamp(13px, 0.85vw, 18px)') }}
         >
-          {ui.waveActive && ui.activeEvent && <WaveEventChip event={ui.activeEvent} />}
-          {activeInfoboxes.map((o) => (
-            <div key={o.id} className="rs-infobox pointer-events-none" title={`${o.name} — ${o.desc} · ${o.activeSecs}s left`}>
-              <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              <span className="rs-infobox-time">{o.activeSecs}</span>
+          {/* Wave strip: progress while fighting, next-wave preview while prepping. */}
+          {(ui.waveActive || ui.wavePreview.length > 0) && (
+            <div className="rs-panel px-[0.7em] py-[0.35em] pointer-events-none min-w-[16em] max-w-[46em]">
+              {ui.waveActive ? (
+                <>
+                  <div className="flex items-center justify-between gap-[1em] text-[0.8em] text-osrs-orange mb-[0.2em]">
+                    <span>⚔ Wave {ui.wave}{ui.bossWave ? ' — BOSS' : ''}</span>
+                    <span className="text-[#cdbe91]">{ui.remaining} left</span>
+                  </div>
+                  <div className="rs-progress">
+                    <div
+                      className={`rs-progress-fill ${ui.bossWave ? 'rs-progress-fill-boss' : ''}`}
+                      style={{ width: `${ui.waveTotal ? Math.round(((ui.waveTotal - ui.remaining) / ui.waveTotal) * 100) : 0}%` }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center text-[0.62em] text-[#d3c3a0] uppercase tracking-wide mb-[0.25em]">
+                    Next: Wave {ui.wave} · {ui.wavePreview.reduce((s, m) => s + m.count, 0)} incoming
+                  </div>
+                  <div className="flex items-center justify-center gap-[0.7em] flex-wrap">
+                    {ui.wavePreview.map((m) => {
+                      const style = enemySpriteStyle(m.type);
+                      return (
+                        <span key={m.type} className="flex items-center gap-[0.3em]" title={m.name}>
+                          <span className="inline-block w-[1.5em] h-[1.5em] shrink-0" style={style ? { ...style, imageRendering: 'pixelated' } : undefined} />
+                          <span className={`text-[0.7em] ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}>
+                            {m.isBoss ? `⚠ ${m.name}` : `×${m.count}`}
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
-          ))}
+          )}
+          {/* Event chip + potion infoboxes (existing row, now BELOW the strip). */}
+          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0) && (
+            <div className="flex items-start gap-[0.4em]">
+              {ui.waveActive && ui.activeEvent && <WaveEventChip event={ui.activeEvent} />}
+              {activeInfoboxes.map((o) => (
+                <div key={o.id} className="rs-infobox pointer-events-none" title={`${o.name} — ${o.desc} · ${o.activeSecs}s left`}>
+                  <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  <span className="rs-infobox-time">{o.activeSecs}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -2083,19 +2128,7 @@ export default function GameRoot() {
 
         {!ui.gameOver && (
           ui.waveActive ? (
-            <div className="mb-[0.6em]">
-              <div className="flex items-center justify-between text-[0.9em] text-osrs-orange mb-[0.25em]">
-                <span>⚔ Wave {ui.wave}{ui.bossWave ? ' — BOSS' : ''}</span>
-                <span className="text-[#cdbe91]">{ui.remaining} left</span>
-              </div>
-              <div className="rs-progress">
-                <div
-                  className={`rs-progress-fill ${ui.bossWave ? 'rs-progress-fill-boss' : ''}`}
-                  style={{ width: `${ui.waveTotal ? Math.round(((ui.waveTotal - ui.remaining) / ui.waveTotal) * 100) : 0}%` }}
-                />
-              </div>
-              {ui.activeEvent && <WaveEventBanner event={ui.activeEvent} />}
-            </div>
+            ui.activeEvent ? <WaveEventBanner event={ui.activeEvent} /> : null
           ) : (
             <>
               {/* Mode is chosen on the StartScreen; here we only show the current
@@ -2257,45 +2290,13 @@ export default function GameRoot() {
             className="order-3 shrink-0 pt-[0.6em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
             style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}
           >
-            <div className="relative group">
-              <button
-                data-tut="startwave"
-                className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse"
-                onClick={() => engineRef.current?.startWave()}
-              >
-                ▶ Start Wave {ui.wave}
-              </button>
-              {/* Hover preview of the monsters the next wave will send — the exact,
-                  deterministic makeup the engine will spawn (wavePreview in UIState). */}
-              {ui.wavePreview.length > 0 && (
-                <div className="rs-panel absolute bottom-full right-0 mb-[0.5em] p-[0.5em] w-[15em] max-w-[92vw] hidden group-hover:block z-30 pointer-events-none">
-                  <div className="text-center text-[0.62em] text-[#d3c3a0] uppercase tracking-wide mb-[0.45em]">
-                    Wave {ui.wave} · {ui.wavePreview.reduce((s, m) => s + m.count, 0)} incoming
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.3em]">
-                    {ui.wavePreview.map((m) => {
-                      const style = enemySpriteStyle(m.type);
-                      return (
-                        <div
-                          key={m.type}
-                          className={`flex items-center gap-[0.4em] min-w-0 ${m.isBoss ? 'col-span-2 justify-center mt-[0.15em] pt-[0.3em] border-t border-[#3a2f1d]' : ''}`}
-                        >
-                          <span
-                            className="inline-block w-[1.5em] h-[1.5em] shrink-0"
-                            style={style ? { ...style, imageRendering: 'pixelated' } : undefined}
-                          />
-                          <span
-                            className={`text-[0.72em] truncate ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}
-                          >
-                            {m.isBoss ? `⚠ ${m.name}` : `${m.count}× ${m.name}`}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+            <button
+              data-tut="startwave"
+              className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse"
+              onClick={() => engineRef.current?.startWave()}
+            >
+              ▶ Start Wave {ui.wave}
+            </button>
           </div>
         )}
 
