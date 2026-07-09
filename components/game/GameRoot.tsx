@@ -502,6 +502,9 @@ export default function GameRoot() {
     engineRef.current = engine;
     engine.resize();
     engine.start();
+    // Auto-start now lives in the main menu (toggle under Start Wave); its choice
+    // persists across runs via localStorage (see the checkbox onChange below).
+    engine.setAutoplay(loadBool('ui_autostart', false));
     const onResize = () => engine.resize();
     window.addEventListener('resize', onResize);
     return () => {
@@ -2114,34 +2117,6 @@ export default function GameRoot() {
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
         <>
-        {/* Slayer task interface (tasks are auto-assigned) */}
-        {ui.slayerTask && (
-          <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
-            <div className="flex items-center justify-between mb-[0.35em]">
-              <span className="flex items-center gap-[0.4em] text-[0.82em] text-osrs-orange uppercase tracking-wide">
-                <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
-                Slayer · {ui.slayerMaster}
-              </span>
-              <span className="flex items-center gap-[0.3em] text-[0.78em] text-[#7ce0ff] font-bold" title="Slayer points">
-                {ui.slayerHelmet && (
-                  <img src={geIcon('Slayer_helmet')} alt="Slayer Helmet active" title="Slayer Helmet active (+20% vs task)" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-                )}
-                {ui.slayerPoints} pts
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[0.85em] mb-[0.25em]">
-              <span className="capitalize text-[#e7d9b0]">{ui.slayerTask.name}</span>
-              <span className="text-osrs-yellow font-bold">{ui.slayerTask.count}/{ui.slayerTask.total} left</span>
-            </div>
-            <div className="rs-progress">
-              <div
-                className="rs-progress-fill"
-                style={{ width: `${ui.slayerTask.total ? Math.round(((ui.slayerTask.total - ui.slayerTask.count) / ui.slayerTask.total) * 100) : 0}%` }}
-              />
-            </div>
-          </div>
-        )}
-
         {!ui.gameOver && (
           ui.waveActive ? (
             ui.activeEvent ? <WaveEventBanner event={ui.activeEvent} /> : null
@@ -2247,6 +2222,33 @@ export default function GameRoot() {
         {/* ── SLAYER REWARDS (sink for Slayer points) ── */}
         {tab === 'slayer' && (
         <>
+          {/* Slayer task interface (tasks are auto-assigned) */}
+          {ui.slayerTask && (
+            <div className="rs-panel-inset p-[0.5em] mb-[0.6em]">
+              <div className="flex items-center justify-between mb-[0.35em]">
+                <span className="flex items-center gap-[0.4em] text-[0.82em] text-osrs-orange uppercase tracking-wide">
+                  <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+                  Slayer · {ui.slayerMaster}
+                </span>
+                <span className="flex items-center gap-[0.3em] text-[0.78em] text-[#7ce0ff] font-bold" title="Slayer points">
+                  {ui.slayerHelmet && (
+                    <img src={geIcon('Slayer_helmet')} alt="Slayer Helmet active" title="Slayer Helmet active (+20% vs task)" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                  )}
+                  {ui.slayerPoints} pts
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[0.85em] mb-[0.25em]">
+                <span className="capitalize text-[#e7d9b0]">{ui.slayerTask.name}</span>
+                <span className="text-osrs-yellow font-bold">{ui.slayerTask.count}/{ui.slayerTask.total} left</span>
+              </div>
+              <div className="rs-progress">
+                <div
+                  className="rs-progress-fill"
+                  style={{ width: `${ui.slayerTask.total ? Math.round(((ui.slayerTask.total - ui.slayerTask.count) / ui.slayerTask.total) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
           <div className="rs-panel-title flex items-center gap-2">
             <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
             Slayer Rewards
@@ -2297,8 +2299,8 @@ export default function GameRoot() {
         </div>
 
         {/* Start Wave — always one click above the tower dock, no matter which
-            interface tab is open. Only between waves (during a wave the Home tab
-            shows the progress bar instead). Can be hidden from the controls bar,
+            interface tab is open. Only between waves (during a wave the top-centre
+            HUD shows wave progress instead). Can be hidden from the controls bar,
             where the spacebar still sends waves. `order-3` sits it below the tab
             strip and above the dock. */}
         {!ui.gameOver && !ui.waveActive && !hideStartWave && (
@@ -2313,6 +2315,20 @@ export default function GameRoot() {
             >
               ▶ Start Wave {ui.wave}
             </button>
+            <label
+              className="mt-[0.35em] flex items-center justify-center gap-[0.35em] text-[0.72em] text-[#cdbe91] cursor-pointer select-none"
+              title="Automatically start the next wave once the field is clear (waits on a pending draft)"
+            >
+              <input
+                type="checkbox"
+                checked={ui.autoplay}
+                onChange={(e) => {
+                  engineRef.current?.setAutoplay(e.target.checked);
+                  try { localStorage.setItem('ui_autostart', JSON.stringify(e.target.checked)); } catch { /* ignore */ }
+                }}
+              />
+              Auto-start next wave
+            </label>
           </div>
         )}
 
