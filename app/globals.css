@@ -969,3 +969,32 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
   15% { opacity: 1; }
   100% { opacity: 0; transform: translateY(-1.4em); }
 }
+
+/* OSRS-style checkbox. The native input is kept — label association, keyboard
+   focus and the :checked state all still work — only its paint is replaced with
+   a sunken chiselled box and an orange tick. */
+.rs-check {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  display: grid;
+  place-content: center;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  background: #2a2318;
+  border: 1px solid var(--rs-keyline);
+  box-shadow: var(--rs-sunken);
+  cursor: pointer;
+}
+.rs-check::after {
+  content: '';
+  width: 0.5em;
+  height: 0.28em;
+  border-left: 2px solid var(--osrs-orange);
+  border-bottom: 2px solid var(--osrs-orange);
+  transform: rotate(-45deg) translateY(-0.06em);
+  opacity: 0;
+}
+.rs-check:checked::after { opacity: 1; }
+.rs-check:focus-visible { outline: 1px solid var(--osrs-orange); outline-offset: 1px; }

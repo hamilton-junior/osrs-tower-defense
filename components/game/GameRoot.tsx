@@ -2321,6 +2321,7 @@ export default function GameRoot() {
             >
               <input
                 type="checkbox"
+                className="rs-check"
                 checked={ui.autoplay}
                 onChange={(e) => {
                   engineRef.current?.setAutoplay(e.target.checked);
@@ -3333,7 +3334,7 @@ function DpsView({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHoverTowe
               {format === 'number' ? '123' : '%'}
             </button>
             <label className="flex items-center gap-[0.25em] text-[0.66em] text-[#cdbe91] cursor-pointer select-none" title="Show towers that dealt no damage in this view">
-              <input type="checkbox" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />
+              <input type="checkbox" className="rs-check" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />
               Empty
             </label>
           </div>
