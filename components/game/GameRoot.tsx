@@ -2753,7 +2753,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Pick a tower from the dock, then click the grass to place it. It aims and fires on its own — you win by positioning, not aiming.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && !c.towersPlaced },
   { id: 'start', target: 'startwave', title: 'Send the wave',
-    body: 'Happy with your defences? Press Start Wave — or tap Space. Nothing spawns until you do, so the game waits while you build.',
+    body: 'Happy with your defences? Press Start Wave — or tap Space. Nothing spawns until you do, so the game waits while you build. The strip at the top of the screen shows what the next wave sends, then tracks its progress once it lands. Tick Auto-start to send every wave the moment the field is clear.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && c.towersPlaced },
   { id: 'hud', target: 'hud', title: 'Lives & gold',
     body: 'These orbs are your lives and gold. Every enemy that reaches the base costs a life; every kill pays gold for more towers and upgrades.',
@@ -2765,13 +2765,13 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Toggle a prayer to buff a tower style or shield your base. It drains a pool that refills between waves — flip the strong ones on for boss waves.',
     when: (ui) => !ui.waveActive && ui.wave === 3 },
   { id: 'sidebar', target: 'sidebar', title: 'Shops & guide',
-    body: 'These stones open the Essence Shop (permanent upgrades) and Slayer Rewards. The ❓ stone reopens the quick reference anytime.',
+    body: 'This is your menu, docked beside the map so it never covers the board. The stones open the Essence Shop (permanent upgrades) and Slayer Rewards, where your current task tracks its progress. ◀ collapses the whole thing to a rail; ▶ brings it back. The ❓ stone reopens this quick reference anytime.',
     when: (ui) => !ui.waveActive && ui.wave === 4 },
   { id: 'affix', title: 'Elite enemies',
-    body: 'Some enemies now arrive glowing with an affix that rewrites the rules — Shielded, Armored, Hasted and more. Read the aura colour and diversify your towers.',
+    body: 'Some enemies now arrive glowing with an affix that rewrites the rules — Shielded, Armored, Hasted and more. Read the aura colour and diversify your towers. One affix at first; deep runs can stack a second, never a third.',
     when: (ui) => ui.wave >= 5 && ui.waveActive },
   { id: 'event', target: 'waveevent', title: 'Wave event',
-    body: 'A board-wide twist just rolled for this wave only. Some hurt (less range, tougher enemies), some help (faster or longer-range towers) — adapt until the banner clears.',
+    body: 'A board-wide twist just rolled for this wave only. Some hurt (less range, tougher enemies), some help (faster or longer-range towers). Hover the chip for exactly what it does, and adapt until it clears.',
     when: (ui) => !!ui.activeEvent },
   { id: 'boss', title: 'Boss wave',
     body: 'A boss has its own health bar and a mechanic to answer — pile your strongest towers and buffs on it, and watch the caption under its bar.',
@@ -2814,9 +2814,9 @@ function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll }: {
 
   // Beside the target on whichever side has room; park on the mid-left when the
   // tip is targetless. The mid-left strip is the one region no live event uses —
-  // the top-centre carries the wave/event/boss banners, the top-right the orbs and
-  // the bottom the dock/prayers — so a targetless tip never sits over what's
-  // happening on the board.
+  // the top-centre carries the wave strip and boss bar, the top-right the orbs,
+  // the bottom the prayers/controls and the right edge the docked menu — so a
+  // targetless tip never sits over what's happening on the board.
   let bStyle: React.CSSProperties;
   if (rect) {
     const placeBelow = vh - rect.bottom > 200 || vh - rect.bottom >= rect.top;
@@ -2859,11 +2859,6 @@ function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll }: {
 }
 
 // ───────────────────────── How to Play (tutorial) ─────────────────────────
-// A layered, OSRS-styled guide. Sections run Basic → Advanced so a total
-// newcomer can read just the first pages and start, while everything (Prayer,
-// Slayer, GE, Magic, meta) is one tab away. Content is data so the copy stays
-// readable and easy to tweak without touching layout.
-
 // A short TL;DR reference for the How to Play window. The learn-as-you-go tips
 // (LEARN_STEPS) teach each system in context the first time it appears; this is
 // the terse cheat sheet a returning player skims to remember how something works.
@@ -2881,16 +2876,18 @@ const TLDR: TldrGroup[] = [
   ] },
   { h: 'Waves', lines: [
     'Nothing spawns until you Start Wave (button above the dock, or Space). Between waves is paused build time.',
-    'From wave 3 a wave can roll a board-wide event; from wave 5 enemies can turn elite (glowing affixes). Bosses have their own mechanic.',
+    'The strip at the top of the screen previews what the next wave sends, then tracks its progress once it lands. Tick Auto-start under the button to send each wave automatically.',
+    'From wave 3 a wave can roll a board-wide event — hover its chip for the effect. From wave 5 enemies can turn elite (glowing affixes), at most two at once. Bosses have their own mechanic.',
   ] },
   { h: 'Systems', lines: [
     'Prayer — toggle buffs or base protection; drains a pool that refills between waves.',
-    'Slayer — auto-assigned kill tasks pay points for the Slayer Rewards shop.',
+    'Slayer — auto-assigned kill tasks pay points for the Slayer Rewards shop; the task tracks in the Slayer tab.',
     'Essence — earned every wave and kept forever; spend it in the Essence Shop on permanent upgrades.',
     'Roguelite — keep one reward card per wave, with a Relic every 5th wave.',
   ] },
   { h: 'Controls', lines: [
     'Space start wave · Esc pause / cancel · 1 / 2 / 5 speed · M mute · Shift keep placing · drag a box to multi-select · Q/W/E/R swap a wizard’s spell.',
+    'The menu is docked to the right of the map and never covers it — ◀ collapses it to a rail of stones, ▶ brings it back.',
   ] },
 ];
 
