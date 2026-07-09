@@ -1347,7 +1347,12 @@ export default function GameRoot() {
             <div className="flex items-start gap-[0.4em]">
               {ui.waveActive && ui.activeEvent && <WaveEventChip event={ui.activeEvent} />}
               {activeInfoboxes.map((o) => (
-                <div key={o.id} className="rs-infobox relative group pointer-events-auto">
+                <div
+                  key={o.id}
+                  className="rs-infobox relative group pointer-events-auto"
+                  role="img"
+                  aria-label={`${o.name} — ${o.desc} · ${o.activeSecs}s left`}
+                >
                   <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   <span className="rs-infobox-time">{o.activeSecs}</span>
                   <span className="rs-panel absolute top-full left-1/2 -translate-x-1/2 mt-[0.4em] p-[0.5em] w-[17em] hidden group-hover:block z-40 pointer-events-none text-left">
@@ -3828,6 +3833,10 @@ function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }
     <div
       className="wave-event-chip rs-panel relative group flex items-center gap-[0.4em] pl-[0.3em] pr-[0.55em] py-[0.25em] pointer-events-auto"
       style={{ border: `1px solid ${event.color}`, boxShadow: `0 0 8px ${event.color}66` }}
+      /* The description only exists in the hover tooltip, which is display:none
+         until hover — so screen readers get it from the label instead. */
+      role="group"
+      aria-label={`${event.name} (${boon ? 'Boon' : 'Hazard'}) — ${event.desc}`}
     >
       {/* Icon box mirrors the potion infoboxes sitting to its right, tinted to the event. */}
       <span className="rs-infobox shrink-0" style={{ border: `1px solid ${event.color}`, boxShadow: `inset 0 0 6px ${event.color}55` }}>
@@ -3883,6 +3892,8 @@ function WaveEventBanner({ event }: { event: NonNullable<UIState['activeEvent']>
   );
 }
 
+/** Roguelite owned-relics tray: the run's claimed relics as tier-bordered icons
+ *  with a hover tooltip. Rendered in the HUD and the end-of-run summary. */
 function OwnedRelicTray({ ids, summary }: { ids: string[]; summary?: boolean }) {
   const [collapsed, toggle] = usePersistedCollapse('ui_min_relics');
   const relics = ids.map((id) => RELIC_BY_ID[id]).filter((r): r is Relic => !!r);
