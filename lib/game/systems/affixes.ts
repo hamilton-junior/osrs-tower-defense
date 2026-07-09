@@ -134,7 +134,11 @@ export function eliteChanceForWave(wave: number): number {
  * enemy. Returns 0 if the cap is reached. Otherwise ramps linearly from 0 at
  * {@link EXTRA_AFFIX_UNLOCK_WAVE} to {@link EXTRA_AFFIX_MAX} over
  * {@link EXTRA_AFFIX_RAMP_WAVES} waves, then halves for every affix already
- * granted ({@link EXTRA_AFFIX_DECAY}).
+ * granted beyond the first ({@link EXTRA_AFFIX_DECAY}).
+ *
+ * That decay term is dormant while {@link MAX_AFFIXES} is 2 — the only reachable
+ * call has `granted === 1`, so the exponent is 0. It is kept so raising the cap
+ * needs no formula change.
  */
 export function extraAffixChance(wave: number, granted: number): number {
   if (granted >= MAX_AFFIXES) return 0;
@@ -153,6 +157,8 @@ export interface AffixRoll {
   armoredStyle?: CombatStyle;
 }
 
+/** Draws 1..{@link MAX_AFFIXES} affixes, splicing each out of `pool` — this
+ *  **mutates `pool`**, so callers must hand it a throwaway array. */
 function drawAffixes(pool: EnemyAffix[], rng: () => number, extraChance: (granted: number) => number): AffixRoll {
   const take = () => pool.splice(Math.floor(rng() * pool.length), 1)[0];
   const affixes: EnemyAffix[] = [take()];

@@ -2070,10 +2070,9 @@ export default function GameRoot() {
           <div className="flex flex-col flex-1 min-h-0 p-3">
         {/* OSRS sidebar tab strip: each stone selects an interface (or pops one
             out). Icons + tooltips, with live badges for essence / Slayer points.
-            `order-2` pins it BELOW the tab body (order-1) and ABOVE the tower dock
-            (order-3): since the panel is bottom-anchored and grows upward, keeping
-            the strip low means the buttons hold a constant position no matter how
-            tall the open interface above them is. */}
+            `order-2` pins it BELOW the tab body (order-1) and ABOVE the Start Wave
+            slot (order-3) and the tower dock (order-4), so the stones hold a
+            constant position however tall the open interface above them grows. */}
         <div
           className="order-2 shrink-0 flex items-center justify-center gap-[0.4em] pt-[0.55em] mt-[0.6em] border-t border-[var(--rs-keyline)]"
           style={{ boxShadow: 'inset 0 1px 0 0 var(--rs-bevel-light)' }}

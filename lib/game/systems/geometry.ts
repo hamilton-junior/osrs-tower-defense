@@ -77,7 +77,11 @@ export function inSquareRange(
 /** One knockback shove: move (x,y) toward the waypoint (tx,ty) by up to `dist`,
  *  clamped at the waypoint. Returns the new position and the distance moved —
  *  the pure core of the engine's knockback, extracted so the shove is testable. */
-export function knockbackStep(x: number, y: number, tx: number, ty: number, dist: number): { x: number; y: number; moved: number } {
+export function knockbackStep(
+  x: number, y: number,
+  tx: number, ty: number,
+  dist: number,
+): { x: number; y: number; moved: number } {
   const dx = tx - x;
   const dy = ty - y;
   const d = Math.hypot(dx, dy);
