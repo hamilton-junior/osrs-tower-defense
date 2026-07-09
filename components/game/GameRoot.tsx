@@ -1347,9 +1347,18 @@ export default function GameRoot() {
             <div className="flex items-start gap-[0.4em]">
               {ui.waveActive && ui.activeEvent && <WaveEventChip event={ui.activeEvent} />}
               {activeInfoboxes.map((o) => (
-                <div key={o.id} className="rs-infobox pointer-events-none" title={`${o.name} — ${o.desc} · ${o.activeSecs}s left`}>
+                <div key={o.id} className="rs-infobox relative group pointer-events-auto">
                   <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   <span className="rs-infobox-time">{o.activeSecs}</span>
+                  <span className="rs-panel absolute top-full left-1/2 -translate-x-1/2 mt-[0.4em] p-[0.5em] w-[17em] hidden group-hover:block z-40 pointer-events-none text-left">
+                    <span className="flex items-center gap-[0.4em] leading-none">
+                      <span className="text-[0.85em] font-bold text-osrs-orange">{o.name}</span>
+                      <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">
+                        {o.activeSecs}s left
+                      </span>
+                    </span>
+                    <span className="block text-[0.68em] text-[#cdbe91] mt-[0.25em] leading-tight">{o.desc}</span>
+                  </span>
                 </div>
               ))}
             </div>
@@ -3810,18 +3819,15 @@ function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => voi
   );
 }
 
-/** Roguelite owned-relics tray: the run's claimed relics as tier-bordered icons
- *  with a hover tooltip. Rendered in the HUD and the end-of-run summary. */
-/** Compact, always-on-screen wave-event indicator, docked in the top-right HUD so
+/** Compact, always-on-screen wave-event indicator, docked in the top-centre HUD so
  *  the active twist stays visible even when the main panel is collapsed. Hover for
  *  the full description; the banner in the main panel carries it inline. */
 function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }) {
   const boon = event.tone === 'boon';
   return (
     <div
-      className="wave-event-chip rs-panel flex items-center gap-[0.4em] pl-[0.3em] pr-[0.55em] py-[0.25em] pointer-events-auto"
+      className="wave-event-chip rs-panel relative group flex items-center gap-[0.4em] pl-[0.3em] pr-[0.55em] py-[0.25em] pointer-events-auto"
       style={{ border: `1px solid ${event.color}`, boxShadow: `0 0 8px ${event.color}66` }}
-      title={`${event.name} — ${event.desc}`}
     >
       {/* Icon box mirrors the potion infoboxes sitting to its right, tinted to the event. */}
       <span className="rs-infobox shrink-0" style={{ border: `1px solid ${event.color}`, boxShadow: `inset 0 0 6px ${event.color}55` }}>
@@ -3833,6 +3839,15 @@ function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }
         </span>
         <span className="font-bold text-[0.82em] text-[#ffe8b0] whitespace-nowrap">{event.name}</span>
       </div>
+      <span className="rs-panel absolute top-full left-1/2 -translate-x-1/2 mt-[0.4em] p-[0.5em] w-[17em] hidden group-hover:block z-40 pointer-events-none text-left">
+        <span className="flex items-center gap-[0.4em] leading-none">
+          <span className="text-[0.85em] font-bold" style={{ color: event.color }}>{event.name}</span>
+          <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm" style={{ background: `${event.color}22`, color: event.color }}>
+            {boon ? 'Boon' : 'Hazard'}
+          </span>
+        </span>
+        <span className="block text-[0.68em] text-[#cdbe91] mt-[0.25em] leading-tight">{event.desc}</span>
+      </span>
     </div>
   );
 }
