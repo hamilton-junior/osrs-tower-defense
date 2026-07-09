@@ -1326,8 +1326,10 @@ export default function GameRoot() {
                   <div className="flex items-center justify-center gap-[0.7em] flex-wrap">
                     {ui.wavePreview.map((m) => {
                       const style = enemySpriteStyle(m.type);
+                      // The strip is click-through so it never blocks the map; each entry
+                      // opts pointer events back in, or its `title` tooltip never fires.
                       return (
-                        <span key={m.type} className="flex items-center gap-[0.3em]" title={m.name}>
+                        <span key={m.type} className="flex items-center gap-[0.3em] pointer-events-auto" title={m.name}>
                           <span className="inline-block w-[1.5em] h-[1.5em] shrink-0" style={style ? { ...style, imageRendering: 'pixelated' } : undefined} />
                           <span className={`text-[0.7em] ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}>
                             {m.isBoss ? `⚠ ${m.name}` : `×${m.count}`}
