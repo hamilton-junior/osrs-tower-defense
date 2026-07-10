@@ -95,7 +95,7 @@ describe('rollAffixes', () => {
   it('enforces the hard cap of MAX_AFFIXES even with every extra roll passing', () => {
     const wave = EXTRA_AFFIX_UNLOCK_WAVE + EXTRA_AFFIX_RAMP_WAVES;
     const roll = rollAffixes(wave, false, () => 0); // every roll passes
-    expect(roll.affixes.length).toBeLessThanOrEqual(MAX_AFFIXES); // capped at 2, not the pool size
+    expect(roll.affixes.length).toBe(MAX_AFFIXES); // stops exactly at the cap, not the pool size
   });
   it('attaches an armoredStyle whenever armored is rolled', () => {
     // Force index of "armored" within the pool for the pick; stop after one.

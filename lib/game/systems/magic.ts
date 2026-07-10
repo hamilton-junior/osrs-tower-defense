@@ -201,3 +201,13 @@ export function bloodBonusFrac(towerLevel: number): number {
 export function bloodBonusCap(towerLevel: number): number {
   return 30 * towerLevel;
 }
+
+/**
+ * One Blood-barrage hit's bonus damage: `frac` of the target's max HP, floored,
+ * then clamped to the flat per-hit `cap` (pass `Infinity` for an uncapped hit) —
+ * both terms scaled by `splash` (1 for the primary target, <1 for splash hits).
+ * Unifies the two engine impact sites so the clamp lives in one tested place.
+ */
+export function bloodBonus(maxHp: number, frac: number, cap: number, splash = 1): number {
+  return Math.min(Math.floor(maxHp * frac * splash), Math.floor(cap * splash));
+}

@@ -16,20 +16,25 @@ export const FEEDBACK: {
   /** Public NocoDB Form-View link for ideas / suggestions. */
   suggestionFormUrl: string;
   /**
-   * Optional. If your form has a text field whose **title** exactly matches this
-   * string, we pre-fill it with an auto-captured context blob (wave, mode, lives,
-   * gold, build, device, time) so a report arrives actionable. NocoDB pre-fills a
-   * form field from a query param whose key matches the field title. Leave '' to
-   * send the player to a blank form.
+   * Form fields to pre-fill from the live run context. NocoDB pre-fills a form
+   * field from a query param whose key exactly matches the field's **title**, so
+   * each key here must be a field title present on the form; a key with no matching
+   * field is silently ignored, so it is safe to list one only some forms have.
+   *
+   * The default pre-fills a **Wave** field with the current wave number (add a
+   * Number/Text field titled exactly "Wave" to the form). To attach the full
+   * run/device blob instead, add e.g. `Context: formatContext`.
    */
-  contextField: string;
+  prefill: Record<string, (ctx: FeedbackContext) => string>;
   /** Community Discord invite. Unlike the forms it takes no context — it is a
    *  plain link out. Empty string hides the button. */
   discordUrl: string;
 } = {
   bugFormUrl: 'https://app.nocodb.com/nc/form/86cb8d1f-883f-47b8-a9a2-0b6e27797c8b',
   suggestionFormUrl: 'https://app.nocodb.com/nc/form/9b6cb5a8-c74c-4c2b-ae8f-ffda0ec15aa4',
-  contextField: '',
+  prefill: {
+    Wave: (ctx) => String(ctx.wave),
+  },
   discordUrl: 'https://discord.gg/TdJQJXPkzF',
 };
 
@@ -62,13 +67,15 @@ export function formatContext(ctx: FeedbackContext): string {
   ].join(' · ');
 }
 
-/** Build the outgoing form URL, appending the context param when both a form
- *  link and a {@link FEEDBACK.contextField} title are configured. */
+/** Build the outgoing form URL, appending a query param for every field in
+ *  {@link FEEDBACK.prefill} so the matching form fields arrive pre-filled. */
 export function feedbackUrl(base: string, ctx: FeedbackContext): string {
-  if (!base || !FEEDBACK.contextField) return base;
+  if (!base) return base;
   try {
     const u = new URL(base);
-    u.searchParams.set(FEEDBACK.contextField, formatContext(ctx));
+    for (const [field, valueOf] of Object.entries(FEEDBACK.prefill)) {
+      u.searchParams.set(field, valueOf(ctx));
+    }
     return u.toString();
   } catch {
     return base; // malformed URL — fall back to the plain link

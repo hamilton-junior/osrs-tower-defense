@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, bloodBonusCap, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -49,7 +49,25 @@ describe('blood barrage nerf', () => {
   });
   it('cap engages against giant max-HP pools', () => {
     // 100k HP boss at L4: 3% would be 3000 — the cap holds it to 120.
-    expect(Math.min(Math.floor(100_000 * bloodBonusFrac(4)), bloodBonusCap(4))).toBe(120);
+    expect(bloodBonus(100_000, bloodBonusFrac(4), bloodBonusCap(4))).toBe(120);
+  });
+});
+
+describe('bloodBonus', () => {
+  const L4 = bloodBonusFrac(4); // 3%
+  it('is floor(maxHp · frac) while under the flat cap', () => {
+    expect(bloodBonus(1000, L4, bloodBonusCap(4))).toBe(30); // 3% of 1000, under the 120 cap
+    expect(bloodBonus(333, L4, bloodBonusCap(4))).toBe(9);   // 9.99 floored, not rounded
+  });
+  it('clamps to the flat cap against giant HP pools', () => {
+    expect(bloodBonus(100_000, L4, bloodBonusCap(4))).toBe(120); // 3000 held to 120
+  });
+  it('an Infinity cap never clamps', () => {
+    expect(bloodBonus(100_000, L4, Infinity)).toBe(3000);
+  });
+  it('splash scales both the bonus and the cap it clamps to', () => {
+    expect(bloodBonus(100_000, L4, bloodBonusCap(4), 0.5)).toBe(60); // capped: 120 → 60
+    expect(bloodBonus(1000, L4, bloodBonusCap(4), 0.5)).toBe(15);    // uncapped: 30 → 15
   });
 });
 

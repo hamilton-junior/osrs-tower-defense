@@ -1470,15 +1470,11 @@ export default function GameRoot() {
                 >
                   <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   <span className="rs-infobox-time">{o.activeSecs}</span>
-                  <span className="rs-panel absolute top-full left-1/2 -translate-x-1/2 mt-[0.4em] p-[0.5em] w-[17em] hidden group-hover:block z-40 pointer-events-none text-left">
-                    <span className="flex items-center gap-[0.4em] leading-none">
-                      <span className="text-[0.85em] font-bold text-osrs-orange">{o.name}</span>
-                      <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">
-                        {o.activeSecs}s left
-                      </span>
-                    </span>
-                    <span className="block text-[0.68em] text-[#cdbe91] mt-[0.25em] leading-tight">{o.desc}</span>
-                  </span>
+                  <HoverTip
+                    title={<span className="text-[0.85em] font-bold text-osrs-orange">{o.name}</span>}
+                    badge={<span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">{o.activeSecs}s left</span>}
+                    desc={o.desc}
+                  />
                 </div>
               ))}
             </div>
@@ -3028,15 +3024,15 @@ function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onResetTips:
 
 /** In-game feedback launcher — opens the configured NocoDB Form Views in a new
  *  tab. No API/token: these are public form pages the player fills externally.
- *  When a context field is configured, some run/device context rides along on the
- *  URL so a report arrives actionable (see lib/game/feedback.ts). */
+ *  The current wave (and any other field in FEEDBACK.prefill) rides along on the
+ *  URL so a report arrives pre-filled (see lib/game/feedback.ts). */
 function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
   const ctx: FeedbackContext = useMemo(() => ({
     wave: ui.wave,
     mode: ui.gameMode,
     lives: ui.lives,
     gold: ui.money,
-    build: process.env.NEXT_PUBLIC_BUILD_SHA || 'live',
+    build: (process.env.NEXT_PUBLIC_BUILD_SHA || 'live').slice(0, 7),
     screen: typeof window !== 'undefined' ? `${window.innerWidth}×${window.innerHeight}` : '',
     ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     when: new Date().toISOString(),
@@ -3100,9 +3096,9 @@ function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
             </>
           )}
         </div>
-        {FEEDBACK.contextField && (
+        {Object.keys(FEEDBACK.prefill).length > 0 && (
           <p className="text-[0.62em] text-[#9a8d70] mt-[0.7em] leading-snug">
-            Context (wave {ctx.wave}, {ctx.mode} mode, your screen size &amp; build) is attached automatically to speed up fixes.
+            Your current wave (wave {ctx.wave}) is filled into the form automatically to speed up fixes.
           </p>
         )}
       </div>
@@ -3957,6 +3953,29 @@ function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => voi
 /** Compact, always-on-screen wave-event indicator, docked in the top-centre HUD so
  *  the active twist stays visible even when the main panel is collapsed. Hover for
  *  the full description; the banner in the main panel carries it inline. */
+/** The shared hover popover used by the potion infoboxes and the wave-event chip:
+ *  an `rs-panel` card that fades in on hover of a `relative group` parent, with a
+ *  title + optional badge header over a description line. Anchors below the parent
+ *  (`side="bottom"`, the default) or above it (`side="top"`). `pointer-events-none`
+ *  so it never eats a click; the parent owns the `group` and positioning context. */
+function HoverTip({ title, badge, desc, side = 'bottom' }: {
+  title: React.ReactNode;
+  badge?: React.ReactNode;
+  desc: string;
+  side?: 'top' | 'bottom';
+}) {
+  const anchor = side === 'top' ? 'bottom-full mb-[0.4em]' : 'top-full mt-[0.4em]';
+  return (
+    <span className={`rs-panel absolute ${anchor} left-1/2 -translate-x-1/2 p-[0.5em] w-[17em] hidden group-hover:block z-40 pointer-events-none text-left`}>
+      <span className="flex items-center gap-[0.4em] leading-none">
+        {title}
+        {badge}
+      </span>
+      <span className="block text-[0.68em] text-[#cdbe91] mt-[0.25em] leading-tight">{desc}</span>
+    </span>
+  );
+}
+
 function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }) {
   const boon = event.tone === 'boon';
   return (
@@ -3978,15 +3997,15 @@ function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }
         </span>
         <span className="font-bold text-[0.82em] text-[#ffe8b0] whitespace-nowrap">{event.name}</span>
       </div>
-      <span className="rs-panel absolute top-full left-1/2 -translate-x-1/2 mt-[0.4em] p-[0.5em] w-[17em] hidden group-hover:block z-40 pointer-events-none text-left">
-        <span className="flex items-center gap-[0.4em] leading-none">
-          <span className="text-[0.85em] font-bold" style={{ color: event.color }}>{event.name}</span>
+      <HoverTip
+        title={<span className="text-[0.85em] font-bold" style={{ color: event.color }}>{event.name}</span>}
+        badge={
           <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm" style={{ background: `${event.color}22`, color: event.color }}>
             {boon ? 'Boon' : 'Hazard'}
           </span>
-        </span>
-        <span className="block text-[0.68em] text-[#cdbe91] mt-[0.25em] leading-tight">{event.desc}</span>
-      </span>
+        }
+        desc={event.desc}
+      />
     </div>
   );
 }

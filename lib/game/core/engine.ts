@@ -13,7 +13,7 @@ import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, synergyDamageMult, utilityAuraBonus, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
 import { CombatStatsSystem, RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity, type DpsSnapshot } from '../systems/combat-stats';
-import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp } from '../systems/tower-identity';
@@ -2582,7 +2582,7 @@ export class GameEngine {
         else if (theme) this.spawnMagicImpact(e.x, e.y, theme, this.impactScale(e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), dx, dy);
         // Blood barrage: bonus damage as a % of this enemy's max HP, splash-scaled, capped per hit.
         const bonus = p.bonusMaxHpFrac
-          ? Math.min(Math.floor(e.maxHp * p.bonusMaxHpFrac * scale), Math.floor((p.bonusMaxHpCap ?? Infinity) * scale))
+          ? bloodBonus(e.maxHp, p.bonusMaxHpFrac, p.bonusMaxHpCap ?? Infinity, scale)
           : 0;
         const dmg = Math.floor(p.damage * scale) + bonus;
         const killed = this.damage(e, dmg, 'hit', false, silent, 0, style,
@@ -2594,7 +2594,7 @@ export class GameEngine {
       // Single-target: only resolves if the target is still alive at impact;
       // otherwise the bolt just fizzles where the target was (particles only).
       const bonus = p.bonusMaxHpFrac
-        ? Math.min(Math.floor(target.maxHp * p.bonusMaxHpFrac), Math.floor(p.bonusMaxHpCap ?? Infinity))
+        ? bloodBonus(target.maxHp, p.bonusMaxHpFrac, p.bonusMaxHpCap ?? Infinity)
         : 0;
       const dmg = p.damage + bonus;
       primaryKilled = this.damage(target, dmg, 'hit', false, silent, 0, style,

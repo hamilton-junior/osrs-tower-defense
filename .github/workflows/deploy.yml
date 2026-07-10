@@ -30,6 +30,8 @@ jobs:
         env:
           # Serve under /<repo-name> on a project Pages site.
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+          # Bake the deployed commit SHA into the bundle (shown in feedback context).
+          NEXT_PUBLIC_BUILD_SHA: ${{ github.sha }}
         run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
