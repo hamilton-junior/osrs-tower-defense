@@ -508,7 +508,9 @@ body {
 /* Unaffordable: dimmed but still hoverable so stats can be previewed. */
 .rs-slot-unafford { opacity: 0.5; }
 .rs-slot-unafford img { filter: grayscale(0.6); }
-.rs-slot img { width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; }
+/* `em` (≈32px at the bar's default font) so slot icons grow with the UI size
+   control instead of staying fixed while the slot around them scales. */
+.rs-slot img { width: 1.85em; height: 1.85em; object-fit: contain; image-rendering: pixelated; }
 .rs-slot-cost {
   position: absolute;
   bottom: 0;
@@ -889,12 +891,13 @@ kbd {
 button.rs-log-entry { cursor: pointer; text-align: center; }
 button.rs-log-entry:hover { border-color: var(--osrs-orange); }
 
-/* OSRS-flavoured volume slider */
+/* OSRS-flavoured volume slider. Track and thumb in `em` so it follows the bar's
+   fs() font — the UI size control must resize it along with the buttons beside it. */
 .rs-volume {
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
-  border-radius: 3px;
+  height: 0.35em;
+  border-radius: 0.17em;
   background: linear-gradient(180deg, #2b2113, #161009);
   border: 1px solid #0c0905;
   cursor: pointer;
@@ -903,16 +906,16 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
 .rs-volume::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 14px;
-  border-radius: 2px;
+  width: 0.7em;
+  height: 0.8em;
+  border-radius: 0.12em;
   background: linear-gradient(180deg, #cba94f, #8a6d24);
   border: 1px solid #0c0905;
 }
 .rs-volume::-moz-range-thumb {
-  width: 12px;
-  height: 14px;
-  border-radius: 2px;
+  width: 0.7em;
+  height: 0.8em;
+  border-radius: 0.12em;
   background: linear-gradient(180deg, #cba94f, #8a6d24);
   border: 1px solid #0c0905;
 }

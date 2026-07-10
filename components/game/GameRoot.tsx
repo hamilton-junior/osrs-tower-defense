@@ -1062,24 +1062,33 @@ export default function GameRoot() {
         />
       )}
 
-      {/* Batch-upgrade panel for a marquee multi-selection. */}
+      {/* Batch-upgrade panel for a marquee multi-selection. Draggable like every
+          other panel — the outer div holds the centred anchor so MovablePanel's
+          own transform only carries the drag offset. */}
       {ui.multiSelectedIds.length > 0 && (() => {
         const info = engineRef.current?.multiUpgradeInfo ?? { count: 0, cost: 0 };
         const afford = ui.money >= info.cost;
         return (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 rs-panel p-2 flex items-center gap-[0.6em]" style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}>
-            <span className="text-osrs-orange font-bold whitespace-nowrap">{ui.multiSelectedIds.length} towers</span>
-            <button
-              className="rs-btn rs-btn-primary px-[0.7em] py-[0.3em] flex items-center gap-[0.3em] disabled:opacity-50"
-              disabled={info.count === 0}
-              title={info.count === 0 ? 'All selected towers are max level' : `Upgrade ${info.count} tower(s) one tier`}
-              onClick={() => engineRef.current?.upgradeMultiSelected()}
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
+            <MovablePanel
+              id="multiselect"
+              globalLock={uiLocked}
+              className="rs-panel relative p-2 flex items-center gap-[0.6em]"
+              style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}
             >
-              <span className="text-[#5bd75b] font-bold">⬆</span>
-              Upgrade {info.count > 0 ? `(${info.count})` : ''}
-              {info.count > 0 && <span style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{fmt(info.cost)} gp</span>}
-            </button>
-            <button className="rs-btn px-[0.6em] py-[0.3em]" title="Deselect all towers" onClick={() => engineRef.current?.clearMultiSelect()}>Clear</button>
+              <span className="text-osrs-orange font-bold whitespace-nowrap">{ui.multiSelectedIds.length} towers</span>
+              <button
+                className="rs-btn rs-btn-primary px-[0.7em] py-[0.3em] flex items-center gap-[0.3em] disabled:opacity-50"
+                disabled={info.count === 0}
+                title={info.count === 0 ? 'All selected towers are max level' : `Upgrade ${info.count} tower(s) one tier`}
+                onClick={() => engineRef.current?.upgradeMultiSelected()}
+              >
+                <span className="text-[#5bd75b] font-bold">⬆</span>
+                Upgrade {info.count > 0 ? `(${info.count})` : ''}
+                {info.count > 0 && <span style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{fmt(info.cost)} gp</span>}
+              </button>
+              <button className="rs-btn px-[0.6em] py-[0.3em]" title="Deselect all towers" onClick={() => engineRef.current?.clearMultiSelect()}>Clear</button>
+            </MovablePanel>
           </div>
         );
       })()}
@@ -2272,22 +2281,25 @@ export default function GameRoot() {
           {/* One row, four hairline-separated groups: the run controls (left), the
               tower dock and Start Wave (centre) and the interface stones (right).
               The outer groups both take `flex-1`, which centres the middle pair. */}
-            <div data-tut="controls" className="flex flex-1 min-w-0 items-center gap-1">
+            {/* Everything here is sized in `em` (no text-xs / px-2 rem classes) so
+                the whole cluster tracks the bar's fs() font — i.e. the UI − / +
+                control below actually resizes these buttons too. */}
+            <div data-tut="controls" className="flex flex-1 min-w-0 items-center gap-[0.25em]">
               <button
                 onClick={() => engineRef.current?.togglePause()}
                 title={ui.paused ? 'Resume' : 'Pause'}
                 disabled={ui.gameOver}
-                className={`rs-btn px-2 py-1 text-xs mr-1 ${ui.paused ? 'rs-btn-primary' : ''}`}
+                className={`rs-btn px-[0.66em] py-[0.33em] text-[0.7em] mr-[0.33em] ${ui.paused ? 'rs-btn-primary' : ''}`}
               >
                 {ui.paused ? '▶' : '⏸'}
               </button>
-              <span className="text-[10px] text-[#d3c3a0] mr-1 uppercase tracking-wide">Speed</span>
+              <span className="text-[0.6em] text-[#d3c3a0] mr-[0.4em] uppercase tracking-wide">Speed</span>
               {[1, 2, 5].map((s) => (
                 <button
                   key={s}
                   onClick={() => engineRef.current?.setGameSpeed(s)}
                   title={`Run the game at ${s}× speed`}
-                  className={`rs-btn px-2 py-1 text-xs ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
+                  className={`rs-btn px-[0.66em] py-[0.33em] text-[0.7em] ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
                 >
                   {s}×
                 </button>
@@ -2295,7 +2307,7 @@ export default function GameRoot() {
               <button
                 onClick={() => engineRef.current?.toggleMute()}
                 title={ui.muted ? 'Unmute' : 'Mute'}
-                className="rs-btn px-2 py-1 text-xs ml-1"
+                className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] ml-[0.33em]"
               >
                 {ui.muted ? '🔇' : '🔊'}
               </button>
@@ -2307,34 +2319,34 @@ export default function GameRoot() {
                 value={ui.muted ? 0 : ui.volume}
                 onChange={(e) => engineRef.current?.setVolume(Number(e.target.value))}
                 title={`Volume ${Math.round(ui.volume * 100)}%`}
-                className="rs-volume ml-1 w-20"
+                className="rs-volume ml-[0.25em] w-[4.6em]"
                 aria-label="Volume"
               />
               <span
-                className="ml-1 text-xs text-osrs-orange tabular-nums w-8 text-right select-none"
+                className="ml-[0.33em] text-[0.7em] text-osrs-orange tabular-nums w-[2.7em] text-right select-none"
                 title="Current volume"
               >
                 {ui.muted ? 'off' : `${Math.round(ui.volume * 100)}%`}
               </span>
               {/* Global UI text-size nudge, on top of the viewport-adaptive base size.
                   This is the only zoom the game offers — browser zoom is blocked. */}
-              <span className="text-[10px] text-[#d3c3a0] ml-2 mr-1 uppercase tracking-wide select-none">UI</span>
+              <span className="text-[0.6em] text-[#d3c3a0] ml-[0.8em] mr-[0.4em] uppercase tracking-wide select-none">UI</span>
               <button
                 onClick={() => setUiScale((v) => Math.max(0.7, +(v - 0.1).toFixed(2)))}
                 disabled={uiScale <= 0.7}
                 title="Smaller interface"
-                className="rs-btn px-2 py-1 text-xs disabled:opacity-40"
+                className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
               >
                 −
               </button>
-              <span className="text-xs text-osrs-orange tabular-nums w-9 text-center select-none" title="Interface size">
+              <span className="text-[0.7em] text-osrs-orange tabular-nums w-[3em] text-center select-none" title="Interface size">
                 {Math.round(uiScale * 100)}%
               </span>
               <button
                 onClick={() => setUiScale((v) => Math.min(1.6, +(v + 0.1).toFixed(2)))}
                 disabled={uiScale >= 1.6}
                 title="Larger interface"
-                className="rs-btn px-2 py-1 text-xs disabled:opacity-40"
+                className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
               >
                 +
               </button>
@@ -2398,7 +2410,7 @@ export default function GameRoot() {
                       {icon ? (
                         <img src={icon} alt={TOWERS[type].baseName} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                       ) : (
-                        <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>
+                        <span className="text-[0.6em] capitalize">{TOWERS[type].baseName}</span>
                       )}
                       <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
                     </button>
@@ -2420,17 +2432,17 @@ export default function GameRoot() {
                 onClick={() => engineRef.current?.startWave()}
                 disabled={ui.waveActive || ui.gameOver}
                 title={ui.waveActive ? 'A wave is already on the field' : 'Send the next wave (Space)'}
-                className={`rs-btn px-2 py-1 text-xs whitespace-nowrap disabled:opacity-40 ${ui.waveActive || ui.gameOver ? '' : 'rs-btn-primary animate-pulse'}`}
+                className={`rs-btn px-[0.66em] py-[0.33em] text-[0.7em] whitespace-nowrap disabled:opacity-40 ${ui.waveActive || ui.gameOver ? '' : 'rs-btn-primary animate-pulse'}`}
               >
                 ▶ Start Wave <span className="tabular-nums">{ui.wave}</span>
               </button>
               <label
-                className="flex items-center gap-[0.3em] text-[10px] text-[#d3c3a0] uppercase tracking-wide cursor-pointer select-none"
+                className="flex items-center gap-[0.3em] text-[0.6em] text-[#d3c3a0] uppercase tracking-wide cursor-pointer select-none"
                 title="Automatically start the next wave once the field is clear (waits on a pending draft)"
               >
                 <input
                   type="checkbox"
-                  className="rs-check text-xs"
+                  className="rs-check text-[1.15em]"
                   checked={ui.autoplay}
                   onChange={(e) => {
                     engineRef.current?.setAutoplay(e.target.checked);
@@ -2440,7 +2452,7 @@ export default function GameRoot() {
                 Auto
               </label>
               <span
-                className={`flex items-center gap-[0.25em] text-[10px] ${ui.autoplay ? 'text-[#d3c3a0]' : 'text-[#8b8069]'}`}
+                className={`flex items-center gap-[0.25em] text-[0.6em] ${ui.autoplay ? 'text-[#d3c3a0]' : 'text-[#8b8069]'}`}
                 title="Seconds to wait, once the field is clear, before the next wave starts"
               >
                 <input
@@ -2456,7 +2468,7 @@ export default function GameRoot() {
                     engineRef.current?.setAutoplaySecs(v);
                     try { localStorage.setItem('ui_autostart_secs', String(v)); } catch { /* ignore */ }
                   }}
-                  className="rs-num w-[2.6em] text-xs"
+                  className="rs-num w-[2.6em] text-[1.15em]"
                   aria-label="Auto-start delay in seconds"
                 />
                 s
