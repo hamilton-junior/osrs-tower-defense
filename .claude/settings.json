@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit *)",
+      "Bash(npx vitest run)",
+      "Bash(npx vitest run *)",
+      "Bash(npm run test)",
+      "Bash(npm run test *)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint *)",
+      "Bash(npm run build)",
+      "Bash(npm run build *)",
+      "Bash(node scripts/dev/tmp-*.mjs)",
+      "Bash(node scripts/screenshot-ui.mjs)",
+      "Bash(git check-ignore *)",
+      "Bash(cygpath *)",
+      "mcp__nocodb__getBaseInfo",
+      "mcp__nocodb__getTablesList",
+      "mcp__nocodb__queryRecords"
+    ]
+  }
+}
