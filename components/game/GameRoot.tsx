@@ -3177,22 +3177,24 @@ function LogEmpty() {
 
 // ============================ DPS meter ============================
 
-/** Effect tallies surfaced in a tower's drill-down, with how each is formatted. */
-const DPS_EFFECT_META: { key: keyof EffectStat; label: string; kind: 'dmg' | 'int' | 'sec' | 'tiles' }[] = [
-  { key: 'burnDmg', label: 'Burn damage', kind: 'dmg' },
-  { key: 'poisonDmg', label: 'Poison damage', kind: 'dmg' },
-  { key: 'venomDmg', label: 'Venom damage', kind: 'dmg' },
-  { key: 'chainDmg', label: 'Chain damage', kind: 'dmg' },
-  { key: 'bloodBonusDmg', label: 'Blood bonus dmg', kind: 'dmg' },
-  { key: 'taskBonusDmg', label: 'Slayer bonus dmg', kind: 'dmg' },
-  { key: 'stunCount', label: 'Enemies stunned', kind: 'int' },
-  { key: 'stunSeconds', label: 'Stun time', kind: 'sec' },
-  { key: 'pushCount', label: 'Knockbacks', kind: 'int' },
-  { key: 'pushTiles', label: 'Tiles pushed', kind: 'tiles' },
-  { key: 'slowCount', label: 'Slows applied', kind: 'int' },
-  { key: 'ampCount', label: 'Enemies marked', kind: 'int' },
-  { key: 'splashHits', label: 'Splash hits', kind: 'int' },
-  { key: 'lifeStealHeals', label: 'Lives stolen', kind: 'int' },
+/** Effect tallies surfaced in a tower's drill-down, with how each is formatted
+ *  and the OSRS icon that marks it. Icons are the game's own status/hitsplat
+ *  sprites (local cache) so a row reads at a glance; adding an effect is one line. */
+const DPS_EFFECT_META: { key: keyof EffectStat; label: string; kind: 'dmg' | 'int' | 'sec' | 'tiles'; icon: string }[] = [
+  { key: 'burnDmg', label: 'Burn damage', kind: 'dmg', icon: ASSETS.debuffs.burn },
+  { key: 'poisonDmg', label: 'Poison damage', kind: 'dmg', icon: ASSETS.debuffs.poison },
+  { key: 'venomDmg', label: 'Venom damage', kind: 'dmg', icon: ASSETS.debuffs.venom },
+  { key: 'chainDmg', label: 'Chain damage', kind: 'dmg', icon: ASSETS.misc.multicombat_icon },
+  { key: 'bloodBonusDmg', label: 'Blood bonus dmg', kind: 'dmg', icon: ASSETS.misc.hit_splat },
+  { key: 'taskBonusDmg', label: 'Slayer bonus dmg', kind: 'dmg', icon: ASSETS.misc.slayer_crossbow },
+  { key: 'stunCount', label: 'Enemies stunned', kind: 'int', icon: ASSETS.debuffs.stun },
+  { key: 'stunSeconds', label: 'Stun time', kind: 'sec', icon: ASSETS.debuffs.stun },
+  { key: 'pushCount', label: 'Knockbacks', kind: 'int', icon: ASSETS.misc.strength_icon },
+  { key: 'pushTiles', label: 'Tiles pushed', kind: 'tiles', icon: ASSETS.misc.strength_icon },
+  { key: 'slowCount', label: 'Slows applied', kind: 'int', icon: ASSETS.debuffs.slow },
+  { key: 'ampCount', label: 'Enemies marked', kind: 'int', icon: ASSETS.debuffs.vuln },
+  { key: 'splashHits', label: 'Splash hits', kind: 'int', icon: ASSETS.misc.magic_hit_splat },
+  { key: 'lifeStealHeals', label: 'Lives stolen', kind: 'int', icon: ASSETS.misc.hp_icon },
 ];
 
 const DPS_STYLE_LABEL: Record<CombatStyle | 'run', string> = { melee: 'Melee', ranged: 'Ranged', magic: 'Magic', run: 'Run Effects' };
@@ -3390,8 +3392,11 @@ function DpsView({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHoverTowe
               >
                 {shownEffects.map((m) => (
                   <div key={m.key} className="flex items-center justify-between gap-[0.4em]">
-                    <span className="text-[0.66em] text-[#b3a585]">{m.label}</span>
-                    <span className="text-[0.7em] text-[#e7d9b6] font-bold">{dpsEffectValue(r.effects[m.key] ?? 0, m.kind)}</span>
+                    <span className="flex items-center gap-[0.35em] min-w-0">
+                      <img src={m.icon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
+                      <span className="text-[0.66em] text-[#b3a585] truncate">{m.label}</span>
+                    </span>
+                    <span className="text-[0.7em] text-[#e7d9b6] font-bold shrink-0">{dpsEffectValue(r.effects[m.key] ?? 0, m.kind)}</span>
                   </div>
                 ))}
               </div>
