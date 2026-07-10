@@ -24,8 +24,9 @@ import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/g
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
-/** Which interface fills the body of the bottom bar (OSRS tabbed-sidebar model —
- *  one stone per interface). 'home' = the run's mode + roguelite loadout. */
+/** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
+ *  model — one stone per interface), or `null` for none. 'home' = the run's mode
+ *  + roguelite loadout. */
 type SideTab = 'home' | 'essence' | 'slayer' | 'dps';
 const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
@@ -382,10 +383,11 @@ export default function GameRoot() {
   const marqueeStart = useRef<{ cx: number; cy: number } | null>(null);
   const marqueeDragged = useRef(false);
   const [marqueeBox, setMarqueeBox] = useState<{ l: number; t: number; w: number; h: number } | null>(null);
-  // Bottom bar: which interface tab fills the bar's body. The compact shop-style
-  // interfaces (Home, Essence, Slayer Rewards, DPS) swap inline; Collection Log
-  // and Debug still pop out their own larger windows.
-  const [tab, setTab] = useState<SideTab>('home');
+  // Bottom bar: which interface a stone has popped open *above* the bar, or null
+  // for none — the default, so the map starts unobstructed. The shop-style
+  // interfaces (Home, Essence, Slayer Rewards, DPS) share that one popup;
+  // Collection Log and Debug still open their own larger windows.
+  const [tab, setTab] = useState<SideTab | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards'>('monsters');
   // The title / mode-select screen gates the very first wave; it returns on
@@ -421,7 +423,7 @@ export default function GameRoot() {
   useEffect(() => { engineRef.current?.setDpsPanelOpen(dpsVisible); }, [dpsVisible]);
   // Stable so DpsView's unmount-cleanup effect doesn't re-fire every stats tick.
   const highlightTower = useCallback((id: string | null) => engineRef.current?.setHighlightTower(id), []);
-  // Optionally hide the always-on Start Wave button (atop the tower column) and
+  // Optionally hide the always-on Start Wave button (beside the tower dock) and
   // drive waves with the spacebar only. Off by default — the button is shown.
   const [hideStartWave, setHideStartWave] = useState(() => loadBool('ui_hide_startwave', false));
   useEffect(() => { try { localStorage.setItem('ui_hide_startwave', JSON.stringify(hideStartWave)); } catch { /* ignore */ } }, [hideStartWave]);
@@ -434,9 +436,11 @@ export default function GameRoot() {
     try { localStorage.setItem('ui_scale', String(uiScale)); } catch { /* ignore */ }
     document.documentElement.style.setProperty('--ui-scale', String(uiScale));
   }, [uiScale]);
-  // A tab stone only swaps the interface in the bar's body. The bar's height is
-  // reserved by the layout, so this never resizes the canvas.
-  const onSideTab = setTab;
+  // A stone toggles its interface: clicking the lit one closes it, so no panel is
+  // ever stuck on-screen. The popup floats above the bar (absolutely positioned),
+  // so opening it never resizes the canvas — which would rebuild the path and
+  // re-anchor every tower mid-run.
+  const onSideTab = useCallback((t: SideTab) => setTab((cur) => (cur === t ? null : t)), []);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
@@ -1948,145 +1952,35 @@ export default function GameRoot() {
         />
       )}
       </div>{/* game area — floating overlays anchor to the map, never the dock bar */}
-      {/* Docked main menu: the OSRS tabbed interface and the speed/sound controls,
-          merged into one bar spanning the bottom of the screen. The flex column
-          reserves its height, so the map above is never covered — and because that
-          height is constant, switching tabs never re-fits the canvas (which would
-          rebuild the path and re-anchor every tower). Tall interfaces scroll in
-          the body instead. */}
-      <footer
-        data-tut="sidebar"
-        className="shrink-0 w-full rs-panel flex flex-col p-[0.6em] gap-[0.45em]"
-        style={{ height: 'clamp(220px, 27vh, 310px)', fontSize: fs('clamp(14px, 0.9vw, 19px)') }}
-      >
-        {/* Top strip: the OSRS tab stones (left) select an interface or pop out a
-            window; the run controls (right) are the old bottom-left panel, folded
-            in here so nothing floats over the map. */}
+
+      {/* The docked main menu, along the very bottom of the screen. It is `relative`
+          so its two pop-ups — the selected interface and the dock's hover tooltip —
+          rise *out of* it and over the map, and only while they're wanted. Nothing
+          but the bar itself is permanently on-screen.
+
+          The bar's own height is constant (`em`, so it tracks the UI-scale control
+          rather than its contents): a bar that grew or shrank would re-fit the
+          canvas, and engine.resize() rebuilds the path and re-anchors every tower
+          and enemy mid-run. */}
+      <div className="relative shrink-0 w-full" style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}>
+
+        {/* The interface a stone has popped open: expands upward over the map, and
+            closes when its stone (or the ✕) is clicked again. `key` re-mounts it on
+            a switch so the fade/slide-in replays. Right-aligned beneath the stones
+            that open it; scrolls internally when taller than the space allowed. */}
+        {tab && (
         <div
-          className="shrink-0 flex items-center justify-between gap-[0.8em] flex-wrap pb-[0.45em] border-b border-[var(--rs-keyline)]"
+          key={tab}
+          className="rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 w-[clamp(20em,34vw,30em)] max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]"
         >
-          <div className="flex items-center gap-[0.4em]">
-            <button onClick={() => onSideTab('home')} title="Towers &amp; Wave" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
-              <img src={ASSETS.misc.multicombat_icon} alt="Towers &amp; Wave" onError={hideBrokenImg} />
-            </button>
-            <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
-              <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
-              <span className="rs-tab-badge">{fmt(ui.essence)}</span>
-            </button>
-            <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
-              <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
-              <span className="rs-tab-badge">{ui.slayerPoints}</span>
-            </button>
-            <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
-              <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
-            </button>
-            <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
-              <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
-            </button>
-            <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
-              🛠
-            </button>
-            <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
-              ❓
-            </button>
-            {FEEDBACK_ENABLED && (
-              <button onClick={() => setFeedbackOpen(true)} title="Send feedback — report a bug or suggest an idea" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
-                💬
-              </button>
-            )}
-          </div>
-
-          <div data-tut="controls" className="flex items-center gap-1">
-            <button
-              onClick={() => engineRef.current?.togglePause()}
-              title={ui.paused ? 'Resume' : 'Pause'}
-              disabled={ui.gameOver}
-              className={`rs-btn px-2 py-1 text-xs mr-1 ${ui.paused ? 'rs-btn-primary' : ''}`}
-            >
-              {ui.paused ? '▶' : '⏸'}
-            </button>
-            <span className="text-[10px] text-[#d3c3a0] mr-1 uppercase tracking-wide">Speed</span>
-            {[1, 2, 5].map((s) => (
-              <button
-                key={s}
-                onClick={() => engineRef.current?.setGameSpeed(s)}
-                title={`Run the game at ${s}× speed`}
-                className={`rs-btn px-2 py-1 text-xs ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
-              >
-                {s}×
-              </button>
-            ))}
-            <button
-              onClick={() => engineRef.current?.toggleMute()}
-              title={ui.muted ? 'Unmute' : 'Mute'}
-              className="rs-btn px-2 py-1 text-xs ml-1"
-            >
-              {ui.muted ? '🔇' : '🔊'}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={ui.muted ? 0 : ui.volume}
-              onChange={(e) => engineRef.current?.setVolume(Number(e.target.value))}
-              title={`Volume ${Math.round(ui.volume * 100)}%`}
-              className="rs-volume ml-1 w-20"
-              aria-label="Volume"
-            />
-            <span
-              className="ml-1 text-xs text-osrs-orange tabular-nums w-8 text-right select-none"
-              title="Current volume"
-            >
-              {ui.muted ? 'off' : `${Math.round(ui.volume * 100)}%`}
-            </span>
-            {/* Show/hide the always-on Start Wave button (spacebar still sends waves). */}
-            <span className="text-[10px] text-[#d3c3a0] ml-2 mr-1 uppercase tracking-wide select-none">Start&nbsp;▶</span>
-            <button
-              onClick={() => setHideStartWave((v) => !v)}
-              aria-pressed={!hideStartWave}
-              title={hideStartWave
-                ? 'Start Wave button is hidden — press Space to send waves. Click to show it.'
-                : 'Hide the Start Wave button and send waves with Space instead.'}
-              className={`rs-btn px-2 py-1 text-xs ${hideStartWave ? '' : 'rs-btn-primary'}`}
-            >
-              {hideStartWave ? 'Off' : 'On'}
-            </button>
-            {/* Global UI text-size nudge, on top of the viewport-adaptive base size.
-                This is the only zoom the game offers — browser zoom is blocked. */}
-            <span className="text-[10px] text-[#d3c3a0] ml-2 mr-1 uppercase tracking-wide select-none">UI</span>
-            <button
-              onClick={() => setUiScale((v) => Math.max(0.7, +(v - 0.1).toFixed(2)))}
-              disabled={uiScale <= 0.7}
-              title="Smaller interface"
-              className="rs-btn px-2 py-1 text-xs disabled:opacity-40"
-            >
-              −
-            </button>
-            <span className="text-xs text-osrs-orange tabular-nums w-9 text-center select-none" title="Interface size">
-              {Math.round(uiScale * 100)}%
-            </span>
-            <button
-              onClick={() => setUiScale((v) => Math.min(1.6, +(v + 0.1).toFixed(2)))}
-              disabled={uiScale >= 1.6}
-              title="Larger interface"
-              className="rs-btn px-2 py-1 text-xs disabled:opacity-40"
-            >
-              +
-            </button>
-          </div>
-        </div>
-
-        {/* Bar body: the selected interface on the left, the wave + tower dock
-            pinned in a column on the right so both stay one click away whatever
-            tab is open. */}
-        <div className="flex-1 min-h-0 flex gap-[0.7em]">
-
-        {/* Selected interface: keyed by `tab` so switching re-mounts this wrapper
-            and retriggers the soft fade/slide-in (rs-tab-body). This is the ONLY
-            part the tab stones swap — the dock column beside it stays mounted.
-            Scrolls when the interface is taller than the bar. */}
-        <div key={tab} className="rs-tab-body flex-1 min-w-0 overflow-y-auto pr-[0.2em]">
+        <button
+          onClick={() => setTab(null)}
+          title="Close"
+          aria-label="Close interface"
+          className="rs-btn absolute top-[0.45em] right-[0.45em] z-10 px-[0.45em] py-0 text-xs leading-[1.6]"
+        >
+          ✕
+        </button>
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
         <>
@@ -2097,7 +1991,7 @@ export default function GameRoot() {
             <>
               {/* Mode is chosen on the StartScreen; here we only show the current
                   mode as a small badge before each wave starts. The Start Wave
-                  button itself lives atop the tower column (always visible). */}
+                  button itself lives in the bar, beside the dock. */}
               <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
                 Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
               </div>
@@ -2270,49 +2164,11 @@ export default function GameRoot() {
             tower list just scrolls in place. ── */}
         {tab === 'dps' && <DpsView snap={ui.dpsStats ?? null} onHoverTower={highlightTower} />}
         </div>
-
-        {/* Wave + tower column: never swapped by the tab stones, so both stay one
-            click away whatever interface is open. `relative` anchors the dock's
-            hover tooltip here rather than inside the scrolling dock, which would
-            clip it. */}
-        <div className="shrink-0 relative flex flex-col gap-[0.5em] w-[clamp(15em,24vw,20em)] pl-[0.7em] border-l border-[var(--rs-keyline)]">
-
-        {/* Start Wave only shows between waves — during one the top-centre HUD
-            tracks its progress instead — and can be hidden from the controls
-            strip, where the spacebar still sends waves. Auto-start outlives both:
-            it is the toggle's only home, so it must never unmount with the button. */}
-        {!ui.gameOver && (
-          <div className="shrink-0">
-            {!ui.waveActive && !hideStartWave && (
-              <button
-                data-tut="startwave"
-                className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse"
-                onClick={() => engineRef.current?.startWave()}
-              >
-                ▶ Start Wave {ui.wave}
-              </button>
-            )}
-            <label
-              className="mt-[0.35em] flex items-center justify-center gap-[0.35em] text-[0.72em] text-[#cdbe91] cursor-pointer select-none"
-              title="Automatically start the next wave once the field is clear (waits on a pending draft)"
-            >
-              <input
-                type="checkbox"
-                className="rs-check"
-                checked={ui.autoplay}
-                onChange={(e) => {
-                  engineRef.current?.setAutoplay(e.target.checked);
-                  try { localStorage.setItem('ui_autostart', JSON.stringify(e.target.checked)); } catch { /* ignore */ }
-                }}
-              />
-              Auto-start next wave
-            </label>
-          </div>
         )}
 
-        {/* Hover tooltip: tier-1 stats before buying. Anchored to the column, not
-            to the scrolling dock below, so it can rise clear of the bar and over
-            the map instead of being clipped. */}
+        {/* Hover tooltip: tier-1 stats before buying. Anchored to the bar, not to
+            the dock, so it rises clear of it and over the map. It shares this
+            corner with the interface pop-up, and outranks it while hovering. */}
         {hoverShop && (() => {
           const t0 = TOWERS[hoverShop].tiers[0];
           const combat = TOWER_COMBAT[hoverShop];
@@ -2327,7 +2183,7 @@ export default function GameRoot() {
           const title = hoverShop === 'wizard' ? 'Staff' : t0.name;
           return (
             <div
-              className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[16em] z-20 pointer-events-none"
+              className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[16em] z-30 pointer-events-none"
               style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}
             >
               <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
@@ -2349,54 +2205,208 @@ export default function GameRoot() {
           );
         })()}
 
-        {/* Tower shop — ALWAYS visible, regardless of the selected tab, so towers
-            stay one click away while browsing the Essence / Slayer interfaces.
-            The tab stones only swap the interface beside it; this dock never
-            unmounts, and `shrink-0` keeps the slots at full size on a short
-            viewport — the hints below are what give way. */}
-        <div className="shrink-0 pt-[0.5em] border-t border-[var(--rs-keyline)]">
-          <div className="rs-panel-title">Towers</div>
-          <div data-tut="dock" className="grid grid-cols-6 gap-2">
-            {TOWER_ORDER.map((type) => {
-              const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
-              const active = ui.selectedTowerType === type;
-              const afford = ui.money >= cost;
-              const icon = towerIcon(type);
-              return (
+        <footer
+          data-tut="sidebar"
+          className="w-full rs-panel flex flex-col gap-[0.4em] p-[0.5em]"
+          style={{ height: '8em' }}
+        >
+          {/* Top row: the run controls, back on the left where the old floating
+              panel used to sit; the interface stones on the right, over the dock
+              they share that corner with. */}
+          <div className="shrink-0 flex items-center justify-between gap-[0.8em]">
+            <div data-tut="controls" className="flex items-center gap-1 min-w-0 flex-wrap">
+              <button
+                onClick={() => engineRef.current?.togglePause()}
+                title={ui.paused ? 'Resume' : 'Pause'}
+                disabled={ui.gameOver}
+                className={`rs-btn px-2 py-1 text-xs mr-1 ${ui.paused ? 'rs-btn-primary' : ''}`}
+              >
+                {ui.paused ? '▶' : '⏸'}
+              </button>
+              <span className="text-[10px] text-[#d3c3a0] mr-1 uppercase tracking-wide">Speed</span>
+              {[1, 2, 5].map((s) => (
                 <button
-                  key={type}
-                  onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
-                  onMouseEnter={() => setHoverShop(type)}
-                  onMouseLeave={() => setHoverShop((h) => (h === type ? null : h))}
-                  className={`rs-slot ${active ? 'selected' : ''} ${afford ? '' : 'rs-slot-unafford'}`}
+                  key={s}
+                  onClick={() => engineRef.current?.setGameSpeed(s)}
+                  title={`Run the game at ${s}× speed`}
+                  className={`rs-btn px-2 py-1 text-xs ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
                 >
-                  {icon ? (
-                    <img src={icon} alt={TOWERS[type].baseName} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  ) : (
-                    <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>
-                  )}
-                  <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
+                  {s}×
                 </button>
-              );
-            })}
-          </div>
-        </div>{/* tower dock */}
+              ))}
+              <button
+                onClick={() => engineRef.current?.toggleMute()}
+                title={ui.muted ? 'Unmute' : 'Mute'}
+                className="rs-btn px-2 py-1 text-xs ml-1"
+              >
+                {ui.muted ? '🔇' : '🔊'}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={ui.muted ? 0 : ui.volume}
+                onChange={(e) => engineRef.current?.setVolume(Number(e.target.value))}
+                title={`Volume ${Math.round(ui.volume * 100)}%`}
+                className="rs-volume ml-1 w-20"
+                aria-label="Volume"
+              />
+              <span
+                className="ml-1 text-xs text-osrs-orange tabular-nums w-8 text-right select-none"
+                title="Current volume"
+              >
+                {ui.muted ? 'off' : `${Math.round(ui.volume * 100)}%`}
+              </span>
+              {/* Show/hide the always-on Start Wave button (spacebar still sends waves). */}
+              <span className="text-[10px] text-[#d3c3a0] ml-2 mr-1 uppercase tracking-wide select-none">Start&nbsp;▶</span>
+              <button
+                onClick={() => setHideStartWave((v) => !v)}
+                aria-pressed={!hideStartWave}
+                title={hideStartWave
+                  ? 'Start Wave button is hidden — press Space to send waves. Click to show it.'
+                  : 'Hide the Start Wave button and send waves with Space instead.'}
+                className={`rs-btn px-2 py-1 text-xs ${hideStartWave ? '' : 'rs-btn-primary'}`}
+              >
+                {hideStartWave ? 'Off' : 'On'}
+              </button>
+              {/* Global UI text-size nudge, on top of the viewport-adaptive base size.
+                  This is the only zoom the game offers — browser zoom is blocked. */}
+              <span className="text-[10px] text-[#d3c3a0] ml-2 mr-1 uppercase tracking-wide select-none">UI</span>
+              <button
+                onClick={() => setUiScale((v) => Math.max(0.7, +(v - 0.1).toFixed(2)))}
+                disabled={uiScale <= 0.7}
+                title="Smaller interface"
+                className="rs-btn px-2 py-1 text-xs disabled:opacity-40"
+              >
+                −
+              </button>
+              <span className="text-xs text-osrs-orange tabular-nums w-9 text-center select-none" title="Interface size">
+                {Math.round(uiScale * 100)}%
+              </span>
+              <button
+                onClick={() => setUiScale((v) => Math.min(1.6, +(v + 0.1).toFixed(2)))}
+                disabled={uiScale >= 1.6}
+                title="Larger interface"
+                className="rs-btn px-2 py-1 text-xs disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
 
-        {/* The dock's one hint, tracking what is selected. It takes the column's
-            leftover height and scrolls away first — it is the only thing here a
-            cramped viewport may safely swallow. The keyboard shortcuts it used to
-            list live in the ❓ guide; pause/speed/mute are buttons in the strip
-            right above, so repeating their keys here earned no room. */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <p className="text-center text-[0.7em] text-[#d3c3a0]">
-            {ui.selectedTowerType === 'wizard'
-              ? 'Click a tile to choose its spellbook there · right‑click to cancel'
-              : 'Pick a tower, then click the map to place · right‑click to cancel'}
-          </p>
-        </div>{/* dock hint */}
-        </div>{/* wave + tower column */}
-        </div>{/* bar body */}
-      </footer>
+            <div className="shrink-0 flex items-center gap-[0.4em]">
+              <button onClick={() => onSideTab('home')} title="Run loadout — mode, relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.multicombat_icon} alt="Run loadout" onError={hideBrokenImg} />
+              </button>
+              <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
+                <span className="rs-tab-badge">{fmt(ui.essence)}</span>
+              </button>
+              <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
+                <span className="rs-tab-badge">{ui.slayerPoints}</span>
+              </button>
+              <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
+                <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
+              </button>
+              <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
+              </button>
+              <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
+                🛠
+              </button>
+              <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
+                ❓
+              </button>
+              {FEEDBACK_ENABLED && (
+                <button onClick={() => setFeedbackOpen(true)} title="Send feedback — report a bug or suggest an idea" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
+                  💬
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom row: what your current selection does (left, beneath the
+              controls), and the two things reached for every wave — Start Wave
+              and the tower dock — parked at the right under the stones. Neither
+              is ever hidden by an interface; the pop-up rises above them. */}
+          <div className="flex-1 min-h-0 flex items-center justify-between gap-[0.8em] pt-[0.4em] border-t border-[var(--rs-keyline)]">
+            <div className="min-w-0 flex flex-col gap-[0.15em]">
+              <p className="text-[0.7em] text-[#d3c3a0] truncate">
+                {ui.selectedTowerType === 'wizard'
+                  ? 'Click a tile to choose its spellbook there · right‑click to cancel'
+                  : 'Pick a tower, then click the map to place · right‑click to cancel'}
+              </p>
+              <p className="text-[0.64em] text-[#b3a585] truncate">
+                <kbd>Space</kbd> next wave · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> pause/cancel · <kbd>M</kbd> mute
+              </p>
+            </div>
+
+            <div className="shrink-0 flex items-center gap-[0.7em]">
+              {/* Start Wave only shows between waves — during one the top-centre HUD
+                  tracks its progress instead — and can be hidden from the controls,
+                  where the spacebar still sends waves. Auto-start outlives both: it
+                  is the toggle's only home, so it must never unmount with the button.
+                  The fixed width stops the dock shifting as the button comes and goes. */}
+              {!ui.gameOver && (
+                <div className="flex flex-col items-center justify-center gap-[0.2em] w-[9.5em]">
+                  {!ui.waveActive && !hideStartWave && (
+                    <button
+                      data-tut="startwave"
+                      className="rs-btn rs-btn-primary w-full py-[0.35em] text-[0.95em] animate-pulse"
+                      onClick={() => engineRef.current?.startWave()}
+                    >
+                      ▶ Start Wave {ui.wave}
+                    </button>
+                  )}
+                  <label
+                    className="flex items-center justify-center gap-[0.35em] text-[0.68em] text-[#cdbe91] cursor-pointer select-none"
+                    title="Automatically start the next wave once the field is clear (waits on a pending draft)"
+                  >
+                    <input
+                      type="checkbox"
+                      className="rs-check"
+                      checked={ui.autoplay}
+                      onChange={(e) => {
+                        engineRef.current?.setAutoplay(e.target.checked);
+                        try { localStorage.setItem('ui_autostart', JSON.stringify(e.target.checked)); } catch { /* ignore */ }
+                      }}
+                    />
+                    Auto-start next wave
+                  </label>
+                </div>
+              )}
+
+              {/* Tower shop — the one interface that is never a pop-up: it is
+                  wanted on nearly every click, so it lives in the bar itself. */}
+              <div data-tut="dock" className="grid grid-cols-6 gap-[0.3em] w-[17.5em]">
+                {TOWER_ORDER.map((type) => {
+                  const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
+                  const active = ui.selectedTowerType === type;
+                  const afford = ui.money >= cost;
+                  const icon = towerIcon(type);
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => engineRef.current?.selectTowerType(active ? null : type)}
+                      onMouseEnter={() => setHoverShop(type)}
+                      onMouseLeave={() => setHoverShop((h) => (h === type ? null : h))}
+                      className={`rs-slot ${active ? 'selected' : ''} ${afford ? '' : 'rs-slot-unafford'}`}
+                    >
+                      {icon ? (
+                        <img src={icon} alt={TOWERS[type].baseName} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      ) : (
+                        <span className="text-[10px] capitalize">{TOWERS[type].baseName}</span>
+                      )}
+                      <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
+                    </button>
+                  );
+                })}
+              </div>{/* tower dock */}
+            </div>
+          </div>
+        </footer>
+      </div>{/* bottom bar */}
     </div>
   );
 }
@@ -2748,7 +2758,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Toggle a prayer to buff a tower style or shield your base. It drains a pool that refills between waves — flip the strong ones on for boss waves.',
     when: (ui) => !ui.waveActive && ui.wave === 3 },
   { id: 'sidebar', target: 'sidebar', title: 'Shops & guide',
-    body: 'This bar along the bottom is your menu, and the map is drawn entirely above it — nothing here ever covers the board. The stones on the left open the Essence Shop (permanent upgrades) and Slayer Rewards, where your current task tracks its progress; the run controls sit on the right, and the towers stay parked beside them whatever you have open. The ❓ stone reopens this quick reference anytime.',
+    body: 'The slim bar along the bottom is your menu. Speed, sound and the interface size sit on the left; the stones on the right open the Essence Shop (permanent upgrades) and Slayer Rewards, where your current task tracks its progress. A stone pops its interface open above the bar and closes it when clicked again, so nothing lingers over the board. Start Wave and the towers stay in the bar whatever you have open, and the ❓ stone reopens this quick reference anytime.',
     when: (ui) => !ui.waveActive && ui.wave === 4 },
   { id: 'affix', title: 'Elite enemies',
     body: 'Some enemies now arrive glowing with an affix that rewrites the rules — Shielded, Armored, Hasted and more. Read the aura colour and diversify your towers. One affix at first; deep runs can stack a second, never a third.',
@@ -2870,7 +2880,7 @@ const TLDR: TldrGroup[] = [
   ] },
   { h: 'Controls', lines: [
     'Space start wave · Esc pause / cancel · 1 / 2 / 5 speed · M mute · Shift keep placing · drag a box to multi-select · Q/W/E/R swap a wizard’s spell.',
-    'The menu, the run controls and the tower dock share one bar across the bottom; the map is drawn above it and is never covered.',
+    'One slim bar along the bottom holds the run controls (left) and the menu stones, Start Wave and the tower dock (right). A stone opens its shop upward over the map and closes on a second click — no interface stays on-screen.',
     'Browser zoom is disabled so it can’t warp the board — resize the interface with the UI − / + buttons in that bar instead.',
   ] },
 ];
