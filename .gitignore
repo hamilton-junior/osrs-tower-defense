@@ -24,6 +24,11 @@ scripts/dev/tmp-*
 # Claude Code: the skills, the agent and the shared allowlist are checked in.
 # settings.local.json is not — it accumulates absolute paths from this machine.
 .claude/settings.local.json
+# AionUi symlinks these in from %APPDATA%; committing them stores an absolute
+# path from one machine as the file's contents.
+.claude/skills/cron
+.claude/skills/officecli
+.claude/skills/skill-creator
 
 # editor
 .vscode/
