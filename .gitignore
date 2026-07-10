@@ -18,6 +18,15 @@ next-env.d.ts
 /tmp/
 # diagnostic image dumps from scripts (review-clip, probe-anim-block, screenshot-ui, …)
 scripts/tmp-*.png
+# throwaway headless probes written against scripts/dev/harness.mjs
+scripts/dev/tmp-*
+
+# Claude Code: the skills, the agent and the shared allowlist are checked in.
+# settings.local.json is not — it accumulates absolute paths from this machine.
+.claude/settings.local.json
+
+# editor
+.vscode/
 
 # env & local
 .env*.local
