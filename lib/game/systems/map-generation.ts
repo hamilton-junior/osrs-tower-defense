@@ -30,12 +30,17 @@ export interface MapLayout {
   columns: number;
 }
 
-// Play-field margins: keep every turn comfortably on-screen so the entry/exit
-// stubs and the base marker always have room.
-const X_MIN = 0.16;
-const X_MAX = 0.84;
-const Y_MIN = 0.14;
-const Y_MAX = 0.86;
+/**
+ * Play-field margins, as a fraction of the board: keep every turn comfortably
+ * on-screen so the entry/exit stubs and the base marker always have room. No road
+ * corner is ever laid outside them.
+ */
+const PLAY_MARGIN = { x: 0.16, y: 0.14 } as const;
+
+const X_MIN = PLAY_MARGIN.x;
+const X_MAX = 1 - PLAY_MARGIN.x;
+const Y_MIN = PLAY_MARGIN.y;
+const Y_MAX = 1 - PLAY_MARGIN.y;
 /** Minimum horizontal gap between columns (fraction of width). Keeps parallel
  *  vertical legs far enough apart to slot towers between them. */
 const MIN_COL_GAP = 0.15;

@@ -98,8 +98,8 @@ async function enterRun(page) {
 
 /**
  * The board's painted rectangle in client pixels. The canvas fills its container
- * but the *picture* does not fill the canvas: its resolution is fixed at birth
- * and `object-fit: contain` letterboxes it. Mirrors `paintedBox()` in GameRoot.
+ * but a client pixel is not a logic pixel: the board is a fixed 1728×768 that
+ * `object-fit: contain` scales into that box. Mirrors `paintedBox()` in GameRoot.
  */
 const boardBox = (page) => page.evaluate(() => {
   const el = document.querySelector('canvas');

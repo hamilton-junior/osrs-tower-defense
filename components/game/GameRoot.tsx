@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { GameEngine, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
+import { GameEngine, LOGIC_WIDTH, LOGIC_HEIGHT, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
 import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
 import { RELICS, type Relic, type RelicTier } from '@/lib/game/systems/relics';
 import { AFFIX_DEFS } from '@/lib/game/systems/affixes';
@@ -368,7 +368,15 @@ const fmtTime = (s: number) => {
 
 export default function GameRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const gameAreaRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  // The board is a fixed 1728×768 picture; the *UI* adapts to it, never the
+  // reverse. This holds the board box's size in client pixels — the largest
+  // LOGIC-aspect rectangle that fits the available game area — so the picture is
+  // never distorted and the bottom bar always keeps its room. It measures the
+  // container only to lay out the UI; the game's own resolution never changes.
+  const [boardSize, setBoardSize] = useState<{ w: number; h: number } | null>(null);
   const [ui, setUi] = useState<UIState>(INITIAL);
   const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' | 'boss' } | null>(null);
   const [toast, setToast] = useState<{ text: string; icon: string | null } | null>(null);
@@ -514,11 +522,6 @@ export default function GameRoot() {
     if (!canvasRef.current) return;
     const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })), loadSave());
     engineRef.current = engine;
-    // The board is measured exactly once, at native device pixels. There is no
-    // resize listener on purpose: re-fitting the canvas rebuilt the path and
-    // re-anchored every entity, which warped the map. A resized window now just
-    // letterboxes the finished board (see the canvas's `object-fit`).
-    engine.fitOnce();
     engine.start();
     // Auto-start lives beside Start Wave in the bottom bar; both the toggle and
     // its delay persist across runs via localStorage (see their onChange).
@@ -657,12 +660,14 @@ export default function GameRoot() {
   }, []);
 
   /**
-   * Where the board is actually painted inside the canvas element. Because the
-   * canvas keeps the resolution it was born with and is letterboxed to fit
-   * (`object-fit: contain`), the picture no longer fills its element whenever the
-   * window's aspect drifts from the board's. Anything converting between screen
-   * and logic coordinates must discount those bars. `dx`/`dy` are the bar widths,
-   * i.e. the painted origin relative to the element.
+   * Where the board is actually painted, in client pixels. Its container is sized
+   * to the board's aspect (see the fit effect), so `contain` leaves at most a
+   * rounding sliver — but the board is a fixed 1728×768 whatever size that
+   * container ends up, so a client pixel is never a logic pixel and every
+   * screen↔logic conversion starts here.
+   *
+   * `dx`/`dy` are the painted origin relative to the container, for the overlays
+   * positioned inside it.
    */
   const paintedBox = useCallback(() => {
     const el = canvasRef.current;
@@ -676,6 +681,26 @@ export default function GameRoot() {
     const dx = (r.width - width) / 2;
     const dy = (r.height - height) / 2;
     return { left: r.left + dx, top: r.top + dy, width, height, dx, dy };
+  }, []);
+
+  // Fit the board box to its container: the largest LOGIC-aspect rectangle that
+  // fits, recomputed whenever the window (and thus the game area) changes. This is
+  // the *only* place the layout reacts to size — and it sizes the presentation box,
+  // never the engine. The 1728×768 backing store and the road are untouched.
+  useLayoutEffect(() => {
+    const area = gameAreaRef.current;
+    if (!area) return;
+    const fit = () => {
+      const w = area.clientWidth;
+      const h = area.clientHeight;
+      if (w === 0 || h === 0) return;
+      const scale = Math.min(w / LOGIC_WIDTH, h / LOGIC_HEIGHT);
+      setBoardSize({ w: Math.round(LOGIC_WIDTH * scale), h: Math.round(LOGIC_HEIGHT * scale) });
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(area);
+    return () => ro.disconnect();
   }, []);
 
   const toLogic = useCallback((clientX: number, clientY: number) => {
@@ -694,7 +719,8 @@ export default function GameRoot() {
     // Marquee drag: once moved past a small threshold, draw the selection box.
     const start = marqueeStart.current;
     if (start && (e.buttons & 1)) {
-      const rect = canvasRef.current?.getBoundingClientRect();
+      // The container: the marquee is positioned inside it, in its pixels.
+      const rect = boardRef.current?.getBoundingClientRect();
       if (!rect) return;
       if (Math.hypot(e.clientX - start.cx, e.clientY - start.cy) > 6) marqueeDragged.current = true;
       if (marqueeDragged.current) {
@@ -937,8 +963,8 @@ export default function GameRoot() {
   const wizSpellIcon = wizSpell ? spellIconUrl(wizSpell) : undefined;
   const wizSpellLabel = wizSpell ? wizSpell.replace('_', ' ') : null;
   // Logic-space dims, so the on-map picker can be placed by percentage.
-  const engW = engineRef.current?.width || 1920;
-  const engH = engineRef.current?.height || 1080;
+  const engW = engineRef.current?.width || LOGIC_WIDTH;
+  const engH = engineRef.current?.height || LOGIC_HEIGHT;
 
   // Hovered spellbook preview: the 4 spell tiers (each cycling its elements),
   // or the 3 utility fields. Rendered above the options in a fixed-height row so
@@ -997,15 +1023,30 @@ export default function GameRoot() {
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-black select-none font-osrs">
-      <div className="relative flex-1 min-h-0 w-full overflow-hidden">
+      {/* Whatever space the board's aspect leaves over is dressed as OSRS chrome,
+          so it reads as the client's frame rather than as a black bar. */}
+      <div
+        ref={gameAreaRef}
+        className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
+        style={{ backgroundColor: 'var(--osrs-brown-dark)', backgroundImage: 'var(--rs-wood)' }}
+      >
+      {/* Sized (in JS) to the largest LOGIC-aspect rectangle that fits the area:
+          the largest the board can be drawn without distortion, and the same fixed
+          board on every machine. Nothing is letterboxed *inside* it — the leftover
+          space is beside it, dressed as wood chrome, and belongs to the page. */}
+      <div
+        ref={boardRef}
+        data-tut="map"
+        className="relative bg-black shrink-0"
+        style={boardSize ? { width: boardSize.w, height: boardSize.h } : { visibility: 'hidden' }}
+      >
       <canvas
         ref={canvasRef}
-        data-tut="map"
         className="absolute inset-0 w-full h-full block cursor-crosshair touch-none"
-        // The board's resolution is fixed at birth (engine.fitOnce). `contain`
-        // scales it as a whole to whatever box it ends up in, letterboxing rather
-        // than stretching — the map can never be redrawn at another size.
-        style={{ imageRendering: 'pixelated', objectFit: 'contain' }}
+        // A fixed 1728×768 backing store, scaled as a whole to fill its
+        // aspect-locked container: identical on every screen, never stretched,
+        // never redrawn at another size. `contain` guards the rounding sliver.
+        style={{ objectFit: 'contain' }}
         onMouseMove={onMove}
         onMouseDown={onMouseDown}
         onMouseUp={onMouseUp}
@@ -1055,10 +1096,10 @@ export default function GameRoot() {
         // a glance (▲ red = faster than normal, ▼ cyan = slower).
         const natSpeed = info.naturalSpeed ?? info.baseSpeed;
         const speedShift = info.baseSpeed > natSpeed ? 'up' : info.baseSpeed < natSpeed ? 'down' : null;
-        // Enemy position in container pixels. The canvas fills the container but
-        // the *board* may not fill the canvas (letterboxed), so offset by the bars.
+        // Enemy position in container pixels: logic → painted, offset by the
+        // painted origin (zero unless a rounding sliver is left over).
         const box = paintedBox();
-        const rect = canvasRef.current?.getBoundingClientRect();
+        const rect = boardRef.current?.getBoundingClientRect();
         const cw = rect?.width ?? window.innerWidth;
         const ch = rect?.height ?? window.innerHeight;
         const ex = box ? box.dx + (info.x / engW) * box.width : (info.x / engW) * cw;
@@ -1995,7 +2036,8 @@ export default function GameRoot() {
           onSkipAll={skipAllTips}
         />
       )}
-      </div>{/* game area — floating overlays anchor to the map, never the dock bar */}
+      </div>{/* board — floating overlays anchor to the map, never the dock bar */}
+      </div>{/* game area — the board, centred in whatever room it has */}
 
       {/* The docked main menu, along the very bottom of the screen. It is `relative`
           so its two pop-ups — the selected interface and the dock's hover tooltip —

@@ -49,10 +49,21 @@ import { generateMapLayout, type MapLayout } from '../systems/map-generation';
 import { BIOMES, pickBiome, nextBiome, type BiomeDef } from '../data/biomes';
 import type { SlayerReward } from '../data/slayer';
 
-/** Default logic dimensions, used until {@link GameEngine.fitOnce} measures the
- *  real canvas. The play area is sized to the user's screen, in whole tiles. */
-export const LOGIC_WIDTH = 1920;
-export const LOGIC_HEIGHT = 1080;
+/**
+ * The board's one and only resolution — 54×24 whole tiles. Every player gets this
+ * exact board, whatever their screen, window or `devicePixelRatio`: the map, the
+ * road, the tower ranges and the enemy speeds are all in these units, so a wider
+ * window must never mean a wider map or a proportionally shorter range. The page
+ * only scales the finished picture (see `GameRoot`'s board container).
+ *
+ * The 2.25:1 (9:4) aspect sits near a maximised browser's real play area — a
+ * landscape window minus its chrome and our fixed bottom bar — so little space is
+ * left over beside it. Piece sizes are fixed logic pixels (a 30px enemy, a 1-tile
+ * road), so keeping the tile count modest is what keeps them readable on screen:
+ * 24 rows means a tile is ~1/24 of the board's height, not ~1/32.
+ */
+export const LOGIC_WIDTH = 1728;
+export const LOGIC_HEIGHT = 768;
 const GRID = 32;
 const TOWER_RADIUS = 15;
 const START_MONEY = 200;
@@ -652,11 +663,9 @@ export class GameEngine {
    *  saved blob in the constructor and kept across {@link restart}. */
   readonly meta: MetaSystem;
 
-  /** Current logic dimensions (canvas internal resolution); whole tiles. */
-  width = LOGIC_WIDTH;
-  height = LOGIC_HEIGHT;
-  /** Set once {@link fitOnce} has measured the board. Nothing re-fits it after. */
-  private sized = false;
+  /** Logic dimensions (canvas internal resolution). Constant, on every machine. */
+  readonly width = LOGIC_WIDTH;
+  readonly height = LOGIC_HEIGHT;
 
   // --- spawn/loop bookkeeping ---
   private spawnQueue: Enemy[] = [];
@@ -695,34 +704,6 @@ export class GameEngine {
     this.preloadImages();
     this.slayer.assignTask(); // auto-assign the first Slayer task
     this.emit();
-  }
-
-  /**
-   * Fix the board's resolution, **once**, to the play area's native device pixels
-   * — one canvas pixel per screen pixel — floored to whole tiles so the grid (and
-   * therefore tower square-ranges) line up with the road.
-   *
-   * There is deliberately no counterpart that re-fits it. Re-fitting meant
-   * rebuilding the path and re-anchoring every tower, enemy and projectile onto
-   * it, which visibly warped the board; browser zoom, a dragged window edge or a
-   * changed `devicePixelRatio` could each trigger it mid-run. Instead the canvas
-   * keeps the resolution it was born with and the page letterboxes it
-   * (`object-fit: contain`), so the picture only ever scales as a whole.
-   *
-   * Called from an effect once the canvas has been laid out; a no-op afterwards,
-   * and until the element has a non-zero box.
-   */
-  fitOnce() {
-    if (this.sized) return;
-    const rect = this.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return; // not laid out yet
-    const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
-    this.sized = true;
-    this.width = Math.max(GRID * 12, Math.floor((rect.width * dpr) / GRID) * GRID);
-    this.height = Math.max(GRID * 8, Math.floor((rect.height * dpr) / GRID) * GRID);
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
-    this.buildPath();
   }
 
   // ---------------------------------------------------------------- lifecycle
