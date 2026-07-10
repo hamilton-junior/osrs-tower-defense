@@ -30,7 +30,7 @@ export const FEEDBACK: {
   bugFormUrl: 'https://app.nocodb.com/nc/form/86cb8d1f-883f-47b8-a9a2-0b6e27797c8b',
   suggestionFormUrl: 'https://app.nocodb.com/nc/form/9b6cb5a8-c74c-4c2b-ae8f-ffda0ec15aa4',
   contextField: '',
-  discordUrl: 'https://discord.gg/Kbgg86U3T',
+  discordUrl: 'https://discord.gg/TdJQJXPkzF',
 };
 
 /** Whether at least one destination is configured (drives showing the launcher). */
