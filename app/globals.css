@@ -998,3 +998,35 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
 }
 .rs-check:checked::after { opacity: 1; }
 .rs-check:focus-visible { outline: 1px solid var(--osrs-orange); outline-offset: 1px; }
+
+/* Small number field (the auto-start delay). Same sunken slot as .rs-check, sized
+   for two digits. The native spinners are dropped — they crowd a 2-3em field and
+   clash with the pixel chrome; the arrow keys still step the value. */
+.rs-num {
+  appearance: textfield;
+  -moz-appearance: textfield;
+  min-width: 0;
+  background: #2a2318;
+  border: 1px solid var(--rs-keyline);
+  box-shadow: var(--rs-sunken);
+  color: var(--osrs-yellow);
+  font-family: var(--font-osrs);
+  text-align: center;
+  padding: 0.05em 0.2em;
+}
+.rs-num::-webkit-inner-spin-button,
+.rs-num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.rs-num:focus-visible { outline: 1px solid var(--osrs-orange); outline-offset: 1px; }
+.rs-num:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Group divider for the bottom bar (config | towers | panels). Deliberately
+   near-invisible: a chiselled hairline — dark groove, faint highlight — so the
+   groups read as separate without drawing the eye away from the game. */
+.rs-bar-sep {
+  flex: none;
+  align-self: stretch;
+  width: 0;
+  margin: 0.55em 0.1em;
+  border-left: 1px solid rgba(0, 0, 0, 0.32);
+  border-right: 1px solid rgba(255, 255, 255, 0.045);
+}

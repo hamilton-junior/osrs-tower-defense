@@ -518,15 +518,17 @@ export default function GameRoot() {
     if (!canvasRef.current) return;
     const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })), loadSave());
     engineRef.current = engine;
-    engine.resize();
+    // The board is measured exactly once, at native device pixels. There is no
+    // resize listener on purpose: re-fitting the canvas rebuilt the path and
+    // re-anchored every entity, which warped the map. A resized window now just
+    // letterboxes the finished board (see the canvas's `object-fit`).
+    engine.fitOnce();
     engine.start();
-    // Auto-start now lives in the main menu (toggle under Start Wave); its choice
-    // persists across runs via localStorage (see the checkbox onChange below).
+    // Auto-start lives beside Start Wave in the next-wave panel; both the toggle
+    // and its delay persist across runs via localStorage (see their onChange).
     engine.setAutoplay(loadBool('ui_autostart', false));
-    const onResize = () => engine.resize();
-    window.addEventListener('resize', onResize);
+    engine.setAutoplaySecs(loadNum('ui_autostart_secs', 3));
     return () => {
-      window.removeEventListener('resize', onResize);
       engine.stop();
       engineRef.current = null;
     };
@@ -623,11 +625,23 @@ export default function GameRoot() {
 
   // Keyboard shortcuts: Esc = pause combat (or cancel a pending action), Space =
   // start next wave, 1/2/5 = speed, Q/W/E/R = swap the selected wizard's element/
-  // barrage/field, M = mute.
+  // barrage/field, M = mute, Ctrl+' = debug console.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const eng = engineRef.current;
       if (!eng) return;
+      // Typing a number into the auto-start field must not send a wave (Space) or
+      // change speed (1/2/5). `code` is layout-independent; `key` is not.
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      // The debug console has no button: it opens on the ~ / console chord games
+      // conventionally use. `code` so it works on layouts where ' is elsewhere.
+      if ((e.ctrlKey || e.metaKey) && e.code === 'Quote') {
+        e.preventDefault();
+        setDebugOpen((o) => !o);
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser chords alone
       switch (e.key) {
         case 'Escape': e.preventDefault(); eng.escape(); break;
         case ' ': e.preventDefault(); eng.startWave(); break;
@@ -646,15 +660,37 @@ export default function GameRoot() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const toLogic = useCallback((clientX: number, clientY: number) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
+  /**
+   * Where the board is actually painted inside the canvas element. Because the
+   * canvas keeps the resolution it was born with and is letterboxed to fit
+   * (`object-fit: contain`), the picture no longer fills its element whenever the
+   * window's aspect drifts from the board's. Anything converting between screen
+   * and logic coordinates must discount those bars. `dx`/`dy` are the bar widths,
+   * i.e. the painted origin relative to the element.
+   */
+  const paintedBox = useCallback(() => {
+    const el = canvasRef.current;
     const engine = engineRef.current;
-    if (!rect || rect.width === 0 || !engine) return { x: 0, y: 0 };
-    return {
-      x: ((clientX - rect.left) / rect.width) * engine.width,
-      y: ((clientY - rect.top) / rect.height) * engine.height,
-    };
+    if (!el || !engine) return null;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return null;
+    const scale = Math.min(r.width / engine.width, r.height / engine.height);
+    const width = engine.width * scale;
+    const height = engine.height * scale;
+    const dx = (r.width - width) / 2;
+    const dy = (r.height - height) / 2;
+    return { left: r.left + dx, top: r.top + dy, width, height, dx, dy };
   }, []);
+
+  const toLogic = useCallback((clientX: number, clientY: number) => {
+    const box = paintedBox();
+    const engine = engineRef.current;
+    if (!box || !engine) return { x: 0, y: 0 };
+    return {
+      x: ((clientX - box.left) / box.width) * engine.width,
+      y: ((clientY - box.top) / box.height) * engine.height,
+    };
+  }, [paintedBox]);
 
   const onMove = useCallback((e: React.MouseEvent) => {
     const { x, y } = toLogic(e.clientX, e.clientY);
@@ -970,7 +1006,10 @@ export default function GameRoot() {
         ref={canvasRef}
         data-tut="map"
         className="absolute inset-0 w-full h-full block cursor-crosshair touch-none"
-        style={{ imageRendering: 'pixelated' }}
+        // The board's resolution is fixed at birth (engine.fitOnce). `contain`
+        // scales it as a whole to whatever box it ends up in, letterboxing rather
+        // than stretching — the map can never be redrawn at another size.
+        style={{ imageRendering: 'pixelated', objectFit: 'contain' }}
         onMouseMove={onMove}
         onMouseDown={onMouseDown}
         onMouseUp={onMouseUp}
@@ -1020,12 +1059,14 @@ export default function GameRoot() {
         // a glance (▲ red = faster than normal, ▼ cyan = slower).
         const natSpeed = info.naturalSpeed ?? info.baseSpeed;
         const speedShift = info.baseSpeed > natSpeed ? 'up' : info.baseSpeed < natSpeed ? 'down' : null;
-        // Enemy position in container pixels (canvas fills the container).
+        // Enemy position in container pixels. The canvas fills the container but
+        // the *board* may not fill the canvas (letterboxed), so offset by the bars.
+        const box = paintedBox();
         const rect = canvasRef.current?.getBoundingClientRect();
         const cw = rect?.width ?? window.innerWidth;
         const ch = rect?.height ?? window.innerHeight;
-        const ex = (info.x / engW) * cw;
-        const ey = (info.y / engH) * ch;
+        const ex = box ? box.dx + (info.x / engW) * box.width : (info.x / engW) * cw;
+        const ey = box ? box.dy + (info.y / engH) * box.height : (info.y / engH) * ch;
         const m = 8;           // viewport margin
         const gap = 22;        // clearance between the enemy sprite and the panel
         const pw = enemyPanelSize.w, ph = enemyPanelSize.h;
@@ -1358,6 +1399,58 @@ export default function GameRoot() {
                         </span>
                       );
                     })}
+                  </div>
+                  {/* Pull the wave from the panel that tells you what's in it — the
+                      decision and the information sit together. Auto-start rides
+                      alongside so it keeps a home even when the button is hidden
+                      from the controls; its delay only matters while it's on. */}
+                  <div className="pointer-events-auto mt-[0.45em] pt-[0.4em] border-t border-[var(--rs-keyline)] flex items-center justify-center gap-[0.8em]">
+                    {!hideStartWave && (
+                      <button
+                        data-tut="startwave"
+                        className="rs-btn rs-btn-primary px-[1.1em] py-[0.3em] text-[0.85em] animate-pulse"
+                        onClick={() => engineRef.current?.startWave()}
+                      >
+                        ▶ Start Wave {ui.wave}
+                      </button>
+                    )}
+                    <label
+                      className="flex items-center gap-[0.35em] text-[0.68em] text-[#cdbe91] cursor-pointer select-none"
+                      title="Automatically start the next wave once the field is clear (waits on a pending draft)"
+                    >
+                      <input
+                        type="checkbox"
+                        className="rs-check"
+                        checked={ui.autoplay}
+                        onChange={(e) => {
+                          engineRef.current?.setAutoplay(e.target.checked);
+                          try { localStorage.setItem('ui_autostart', JSON.stringify(e.target.checked)); } catch { /* ignore */ }
+                        }}
+                      />
+                      Auto-start
+                    </label>
+                    <label
+                      className={`flex items-center gap-[0.3em] text-[0.68em] ${ui.autoplay ? 'text-[#cdbe91]' : 'text-[#8b8069]'}`}
+                      title="Seconds to wait, once the field is clear, before the next wave starts"
+                    >
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        step={1}
+                        value={ui.autoplaySecs}
+                        disabled={!ui.autoplay}
+                        onChange={(e) => {
+                          const v = Math.min(60, Math.max(1, Math.floor(Number(e.target.value))));
+                          if (!Number.isFinite(v)) return; // mid-edit empty field
+                          engineRef.current?.setAutoplaySecs(v);
+                          try { localStorage.setItem('ui_autostart_secs', String(v)); } catch { /* ignore */ }
+                        }}
+                        className="rs-num w-[2.8em]"
+                        aria-label="Auto-start delay in seconds"
+                      />
+                      s
+                    </label>
                   </div>
                 </>
               )}
@@ -1959,9 +2052,8 @@ export default function GameRoot() {
           but the bar itself is permanently on-screen.
 
           The bar's own height is constant (`em`, so it tracks the UI-scale control
-          rather than its contents): a bar that grew or shrank would re-fit the
-          canvas, and engine.resize() rebuilds the path and re-anchors every tower
-          and enemy mid-run. */}
+          rather than its contents): a bar that grew or shrank mid-run would shrink
+          the play area and letterbox the board. */}
       <div className="relative shrink-0 w-full" style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}>
 
         {/* The interface a stone has popped open: expands upward over the map, and
@@ -2166,55 +2258,28 @@ export default function GameRoot() {
         </div>
         )}
 
-        {/* Hover tooltip: tier-1 stats before buying. Anchored to the bar, not to
-            the dock, so it rises clear of it and over the map. It shares this
-            corner with the interface pop-up, and outranks it while hovering. */}
-        {hoverShop && (() => {
-          const t0 = TOWERS[hoverShop].tiers[0];
-          const combat = TOWER_COMBAT[hoverShop];
-          const dmg = t0.maxDamage != null ? `${t0.minDamage ?? 0}–${t0.maxDamage}` : t0.damage;
-          const icon = towerIcon(hoverShop);
-          // What the tower *does* (its niche), not just its numbers — so a new
-          // player knows what they're buying before placing it. Tier-1 signature.
-          const sig = towerSignature(hoverShop, 1);
-          // The Wizard's tier-1 name is its spell ("Strike"), not a weapon like
-          // the other towers (Shortbow, Dwarf Multicannon…) — show "Staff" so the
-          // shop title reads as the tower, not the spell tier.
-          const title = hoverShop === 'wizard' ? 'Staff' : t0.name;
-          return (
-            <div
-              className="rs-panel absolute bottom-full right-0 mb-3 p-2 w-[16em] z-30 pointer-events-none"
-              style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}
-            >
-              <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
-                {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
-                <span className="truncate">{title}</span>
-              </div>
-              {sig && (
-                <div className="mt-[0.35em] px-[0.1em]">
-                  <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{sig.label}</span>
-                  <p className="text-[0.76em] text-[#cdbe91] leading-snug mt-[0.1em]">{sig.desc}</p>
-                </div>
-              )}
-              <div className="space-y-[0.3em] mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
-                <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
-                <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
-                <Stat label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
-              </div>
-            </div>
-          );
-        })()}
+        {/* Placement hint, only while a tower is picked: it answers a question you
+            just asked, then leaves. Suppressed while the dock tooltip is up —
+            they'd stack in the same spot. */}
+        {ui.selectedTowerType && !hoverShop && (
+          <div className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-[0.4em] px-[0.8em] py-[0.25em] z-10 pointer-events-none">
+            <p className="text-[0.72em] text-[#d3c3a0] whitespace-nowrap">
+              {ui.selectedTowerType === 'wizard'
+                ? 'Click a tile to choose its spellbook there · right‑click to cancel'
+                : 'Click the map to place · right‑click to cancel'}
+            </p>
+          </div>
+        )}
 
         <footer
           data-tut="sidebar"
-          className="w-full rs-panel flex flex-col gap-[0.4em] p-[0.5em]"
-          style={{ height: '8em' }}
+          className="w-full rs-panel flex items-center gap-[0.6em] px-[0.6em]"
+          style={{ height: '4.3em' }}
         >
-          {/* Top row: the run controls, back on the left where the old floating
-              panel used to sit; the interface stones on the right, over the dock
-              they share that corner with. */}
-          <div className="shrink-0 flex items-center justify-between gap-[0.8em]">
-            <div data-tut="controls" className="flex items-center gap-1 min-w-0 flex-wrap">
+          {/* One row, three groups, hairline-separated: the run controls (left),
+              the tower dock (centre) and the interface stones (right). The outer
+              groups both take `flex-1`, which centres the dock between them. */}
+            <div data-tut="controls" className="flex flex-1 min-w-0 items-center gap-1">
               <button
                 onClick={() => engineRef.current?.togglePause()}
                 title={ui.paused ? 'Resume' : 'Pause'}
@@ -2294,91 +2359,47 @@ export default function GameRoot() {
               </button>
             </div>
 
-            <div className="shrink-0 flex items-center gap-[0.4em]">
-              <button onClick={() => onSideTab('home')} title="Run loadout — mode, relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.multicombat_icon} alt="Run loadout" onError={hideBrokenImg} />
-              </button>
-              <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
-                <span className="rs-tab-badge">{fmt(ui.essence)}</span>
-              </button>
-              <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
-                <span className="rs-tab-badge">{ui.slayerPoints}</span>
-              </button>
-              <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
-                <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
-              </button>
-              <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
-              </button>
-              <button onClick={() => setDebugOpen((o) => !o)} title="Debug &amp; bestiary" className={`rs-tab text-[1.15em] ${debugOpen ? 'rs-tab-on' : ''}`}>
-                🛠
-              </button>
-              <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
-                ❓
-              </button>
-              {FEEDBACK_ENABLED && (
-                <button onClick={() => setFeedbackOpen(true)} title="Send feedback — report a bug or suggest an idea" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
-                  💬
-                </button>
-              )}
-            </div>
-          </div>
+            <div className="rs-bar-sep" />
 
-          {/* Bottom row: what your current selection does (left, beneath the
-              controls), and the two things reached for every wave — Start Wave
-              and the tower dock — parked at the right under the stones. Neither
-              is ever hidden by an interface; the pop-up rises above them. */}
-          <div className="flex-1 min-h-0 flex items-center justify-between gap-[0.8em] pt-[0.4em] border-t border-[var(--rs-keyline)]">
-            <div className="min-w-0 flex flex-col gap-[0.15em]">
-              <p className="text-[0.7em] text-[#d3c3a0] truncate">
-                {ui.selectedTowerType === 'wizard'
-                  ? 'Click a tile to choose its spellbook there · right‑click to cancel'
-                  : 'Pick a tower, then click the map to place · right‑click to cancel'}
-              </p>
-              <p className="text-[0.64em] text-[#b3a585] truncate">
-                <kbd>Space</kbd> next wave · <kbd>1</kbd>/<kbd>2</kbd>/<kbd>5</kbd> speed · <kbd>Esc</kbd> pause/cancel · <kbd>M</kbd> mute
-              </p>
-            </div>
-
-            <div className="shrink-0 flex items-center gap-[0.7em]">
-              {/* Start Wave only shows between waves — during one the top-centre HUD
-                  tracks its progress instead — and can be hidden from the controls,
-                  where the spacebar still sends waves. Auto-start outlives both: it
-                  is the toggle's only home, so it must never unmount with the button.
-                  The fixed width stops the dock shifting as the button comes and goes. */}
-              {!ui.gameOver && (
-                <div className="flex flex-col items-center justify-center gap-[0.2em] w-[9.5em]">
-                  {!ui.waveActive && !hideStartWave && (
-                    <button
-                      data-tut="startwave"
-                      className="rs-btn rs-btn-primary w-full py-[0.35em] text-[0.95em] animate-pulse"
-                      onClick={() => engineRef.current?.startWave()}
-                    >
-                      ▶ Start Wave {ui.wave}
-                    </button>
-                  )}
-                  <label
-                    className="flex items-center justify-center gap-[0.35em] text-[0.68em] text-[#cdbe91] cursor-pointer select-none"
-                    title="Automatically start the next wave once the field is clear (waits on a pending draft)"
+            {/* Tower shop — the one interface that is never a pop-up: it is wanted
+                on nearly every click, so it lives in the bar itself. `relative`
+                anchors its hover tooltip, which rises out of the bar over the map. */}
+            <div className="relative shrink-0">
+              {hoverShop && (() => {
+                const t0 = TOWERS[hoverShop].tiers[0];
+                const combat = TOWER_COMBAT[hoverShop];
+                const dmg = t0.maxDamage != null ? `${t0.minDamage ?? 0}–${t0.maxDamage}` : t0.damage;
+                const icon = towerIcon(hoverShop);
+                // What the tower *does* (its niche), not just its numbers — so a new
+                // player knows what they're buying before placing it. Tier-1 signature.
+                const sig = towerSignature(hoverShop, 1);
+                // The Wizard's tier-1 name is its spell ("Strike"), not a weapon like
+                // the other towers (Shortbow, Dwarf Multicannon…) — show "Staff" so the
+                // shop title reads as the tower, not the spell tier.
+                const title = hoverShop === 'wizard' ? 'Staff' : t0.name;
+                return (
+                  <div
+                    className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-2 w-[16em] z-30 pointer-events-none"
+                    style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}
                   >
-                    <input
-                      type="checkbox"
-                      className="rs-check"
-                      checked={ui.autoplay}
-                      onChange={(e) => {
-                        engineRef.current?.setAutoplay(e.target.checked);
-                        try { localStorage.setItem('ui_autostart', JSON.stringify(e.target.checked)); } catch { /* ignore */ }
-                      }}
-                    />
-                    Auto-start next wave
-                  </label>
-                </div>
-              )}
-
-              {/* Tower shop — the one interface that is never a pop-up: it is
-                  wanted on nearly every click, so it lives in the bar itself. */}
+                    <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
+                      {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" />}
+                      <span className="truncate">{title}</span>
+                    </div>
+                    {sig && (
+                      <div className="mt-[0.35em] px-[0.1em]">
+                        <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{sig.label}</span>
+                        <p className="text-[0.76em] text-[#cdbe91] leading-snug mt-[0.1em]">{sig.desc}</p>
+                      </div>
+                    )}
+                    <div className="space-y-[0.3em] mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
+                      <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
+                      <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
+                      <Stat label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
+                    </div>
+                  </div>
+                );
+              })()}
               <div data-tut="dock" className="grid grid-cols-6 gap-[0.3em] w-[17.5em]">
                 {TOWER_ORDER.map((type) => {
                   const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
@@ -2404,7 +2425,39 @@ export default function GameRoot() {
                 })}
               </div>{/* tower dock */}
             </div>
-          </div>
+
+            <div className="rs-bar-sep" />
+
+            {/* Interface stones, ordered by how often a run reaches for them:
+                loadout and DPS (read mid-run), then the two shops, then the log
+                and the two links out. Debug has no stone — it is Ctrl+' only. */}
+            <div className="flex flex-1 items-center justify-end gap-[0.4em]">
+              <button onClick={() => onSideTab('home')} title="Run loadout — mode, relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.multicombat_icon} alt="Run loadout" onError={hideBrokenImg} />
+              </button>
+              <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
+              </button>
+              <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
+                <span className="rs-tab-badge">{ui.slayerPoints}</span>
+              </button>
+              <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
+                <span className="rs-tab-badge">{fmt(ui.essence)}</span>
+              </button>
+              <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
+                <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
+              </button>
+              {FEEDBACK_ENABLED && (
+                <button onClick={() => setFeedbackOpen(true)} title="Send feedback, or join the Discord" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
+                  💬
+                </button>
+              )}
+              <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
+                ❓
+              </button>
+            </div>
         </footer>
       </div>{/* bottom bar */}
     </div>
@@ -2758,7 +2811,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Toggle a prayer to buff a tower style or shield your base. It drains a pool that refills between waves — flip the strong ones on for boss waves.',
     when: (ui) => !ui.waveActive && ui.wave === 3 },
   { id: 'sidebar', target: 'sidebar', title: 'Shops & guide',
-    body: 'The slim bar along the bottom is your menu. Speed, sound and the interface size sit on the left; the stones on the right open the Essence Shop (permanent upgrades) and Slayer Rewards, where your current task tracks its progress. A stone pops its interface open above the bar and closes it when clicked again, so nothing lingers over the board. Start Wave and the towers stay in the bar whatever you have open, and the ❓ stone reopens this quick reference anytime.',
+    body: 'The bar along the bottom holds everything: speed, sound and interface size on the left, the towers in the middle, and the menu stones on the right. A stone pops its interface open above the bar and closes it when clicked again, so nothing lingers over the board — that is where the Essence Shop (permanent upgrades) and Slayer Rewards live, and the ❓ stone reopens this quick reference anytime.',
     when: (ui) => !ui.waveActive && ui.wave === 4 },
   { id: 'affix', title: 'Elite enemies',
     body: 'Some enemies now arrive glowing with an affix that rewrites the rules — Shielded, Armored, Hasted and more. Read the aura colour and diversify your towers. One affix at first; deep runs can stack a second, never a third.',
@@ -2879,8 +2932,9 @@ const TLDR: TldrGroup[] = [
     'Roguelite — keep one reward card per wave, with a Relic every 5th wave.',
   ] },
   { h: 'Controls', lines: [
-    'Space start wave · Esc pause / cancel · 1 / 2 / 5 speed · M mute · Shift keep placing · drag a box to multi-select · Q/W/E/R swap a wizard’s spell.',
-    'One slim bar along the bottom holds the run controls (left) and the menu stones, Start Wave and the tower dock (right). A stone opens its shop upward over the map and closes on a second click — no interface stays on-screen.',
+    'Space start wave · Esc pause / cancel · 1 / 2 / 5 speed · M mute · Shift keep placing · drag a box to multi-select · Q/W/E/R swap a wizard’s spell · Ctrl+′ debug console.',
+    'One slim bar along the bottom: run controls (left), tower dock (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click — no interface stays on-screen.',
+    'Start Wave sits under the next-wave panel at the top, with the auto-start toggle and its delay in seconds beside it.',
     'Browser zoom is disabled so it can’t warp the board — resize the interface with the UI − / + buttons in that bar instead.',
   ] },
 ];
@@ -2977,6 +3031,24 @@ function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
             >
               💡 Suggest an idea
             </button>
+          )}
+          {/* Discord is a plain link out — no run context rides along, and it is a
+              conversation rather than a report, so a rule separates it from the
+              forms above. */}
+          {FEEDBACK.discordUrl && (
+            <>
+              <div className="border-t border-[var(--rs-keyline)] mt-[0.2em]" />
+              <a
+                href={FEEDBACK.discordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rs-btn w-full py-[0.5em] text-[0.95em] flex items-center justify-center gap-[0.4em]"
+                title="Join the community Discord — opens in a new tab"
+                onClick={onClose}
+              >
+                🗨 Join the Discord
+              </a>
+            </>
           )}
         </div>
         {FEEDBACK.contextField && (

@@ -49,8 +49,8 @@ import { generateMapLayout, type MapLayout } from '../systems/map-generation';
 import { BIOMES, pickBiome, nextBiome, type BiomeDef } from '../data/biomes';
 import type { SlayerReward } from '../data/slayer';
 
-/** Default logic dimensions, used until {@link GameEngine.resize} measures the
- *  real canvas. The play area adapts to the user's screen, sized to whole tiles. */
+/** Default logic dimensions, used until {@link GameEngine.fitOnce} measures the
+ *  real canvas. The play area is sized to the user's screen, in whole tiles. */
 export const LOGIC_WIDTH = 1920;
 export const LOGIC_HEIGHT = 1080;
 const GRID = 32;
@@ -655,11 +655,8 @@ export class GameEngine {
   /** Current logic dimensions (canvas internal resolution); whole tiles. */
   width = LOGIC_WIDTH;
   height = LOGIC_HEIGHT;
-  /** devicePixelRatio at construction. The canvas resolution is measured against
-   *  this baseline so browser **page zoom** (which scales devicePixelRatio and
-   *  shrinks/grows CSS px in lock-step) leaves the logical resolution unchanged —
-   *  only genuine window resizes (which don't change DPR) re-fit the canvas. */
-  private readonly baselineDpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+  /** Set once {@link fitOnce} has measured the board. Nothing re-fits it after. */
+  private sized = false;
 
   // --- spawn/loop bookkeeping ---
   private spawnQueue: Enemy[] = [];
@@ -701,33 +698,30 @@ export class GameEngine {
   }
 
   /**
-   * Match the canvas resolution to its on-screen size, floored to whole tiles
-   * so the grid (and therefore tower square-ranges) line up with the path.
-   * Existing entities are re-anchored proportionally so nothing jumps off the
-   * road when the window is resized.
+   * Fix the board's resolution, **once**, to the play area's native device pixels
+   * — one canvas pixel per screen pixel — floored to whole tiles so the grid (and
+   * therefore tower square-ranges) line up with the road.
+   *
+   * There is deliberately no counterpart that re-fits it. Re-fitting meant
+   * rebuilding the path and re-anchoring every tower, enemy and projectile onto
+   * it, which visibly warped the board; browser zoom, a dragged window edge or a
+   * changed `devicePixelRatio` could each trigger it mid-run. Instead the canvas
+   * keeps the resolution it was born with and the page letterboxes it
+   * (`object-fit: contain`), so the picture only ever scales as a whole.
+   *
+   * Called from an effect once the canvas has been laid out; a no-op afterwards,
+   * and until the element has a non-zero box.
    */
-  resize() {
+  fitOnce() {
+    if (this.sized) return;
     const rect = this.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    // Counteract browser page zoom: as the user zooms, devicePixelRatio scales up
-    // and the element's CSS px scale down together, so `cssPx × dpr` is invariant.
-    // Measuring against the construction-time DPR keeps the logical resolution
-    // fixed under zoom while still adapting to real window resizes.
-    const zoom = (typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1) / this.baselineDpr;
-    const w = Math.max(GRID * 12, Math.floor((rect.width * zoom) / GRID) * GRID);
-    const h = Math.max(GRID * 8, Math.floor((rect.height * zoom) / GRID) * GRID);
-    if (w === this.width && h === this.height && this.canvas.width === w) return;
-    const sx = w / this.width;
-    const sy = h / this.height;
-    this.width = w;
-    this.height = h;
-    this.canvas.width = w;
-    this.canvas.height = h;
-    if (sx !== 1 || sy !== 1) {
-      for (const t of this.towers) { t.x = Math.round((t.x * sx) / GRID) * GRID; t.y = Math.round((t.y * sy) / GRID) * GRID; }
-      for (const en of this.enemies) { en.x *= sx; en.y *= sy; }
-      for (const p of this.projectiles) { p.x *= sx; p.y *= sy; }
-    }
+    if (rect.width === 0 || rect.height === 0) return; // not laid out yet
+    const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
+    this.sized = true;
+    this.width = Math.max(GRID * 12, Math.floor((rect.width * dpr) / GRID) * GRID);
+    this.height = Math.max(GRID * 8, Math.floor((rect.height * dpr) / GRID) * GRID);
+    this.canvas.width = this.width;
+    this.canvas.height = this.height;
     this.buildPath();
   }
 
@@ -1097,8 +1091,8 @@ export class GameEngine {
   /**
    * Roll a fresh procedural battlefield for a run: a new random-but-valid road
    * layout and a biome to skin it. Called on construction and every {@link restart}
-   * so no two runs share a map; {@link buildPath} then re-snaps this same layout on
-   * any resize without changing the run's shape.
+   * so no two runs share a map; {@link buildPath} snaps this normalized layout onto
+   * the board's fixed resolution.
    */
   private generateMap() {
     this.mapSeed = (Math.random() * 0x100000000) >>> 0;
@@ -1110,7 +1104,7 @@ export class GameEngine {
   private buildPath() {
     // Snap every vertex onto a grid line so the road runs along tile edges and
     // tower square-ranges align with it (no half-tiles through the road). The
-    // layout is normalized, so the same run keeps its shape across resizes.
+    // layout is normalized, so a restart re-snaps it onto the same board.
     const tx = Math.floor(this.width / GRID);
     const ty = Math.floor(this.height / GRID);
     const col = (f: number) => Math.round(tx * f) * GRID;

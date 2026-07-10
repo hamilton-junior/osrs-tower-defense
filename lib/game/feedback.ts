@@ -23,14 +23,18 @@ export const FEEDBACK: {
    * send the player to a blank form.
    */
   contextField: string;
+  /** Community Discord invite. Unlike the forms it takes no context — it is a
+   *  plain link out. Empty string hides the button. */
+  discordUrl: string;
 } = {
   bugFormUrl: 'https://app.nocodb.com/nc/form/86cb8d1f-883f-47b8-a9a2-0b6e27797c8b',
   suggestionFormUrl: 'https://app.nocodb.com/nc/form/9b6cb5a8-c74c-4c2b-ae8f-ffda0ec15aa4',
   contextField: '',
+  discordUrl: 'https://discord.gg/Kbgg86U3T',
 };
 
-/** Whether at least one form link is configured (drives showing the launcher). */
-export const FEEDBACK_ENABLED = !!(FEEDBACK.bugFormUrl || FEEDBACK.suggestionFormUrl);
+/** Whether at least one destination is configured (drives showing the launcher). */
+export const FEEDBACK_ENABLED = !!(FEEDBACK.bugFormUrl || FEEDBACK.suggestionFormUrl || FEEDBACK.discordUrl);
 
 /** Auto-captured run/device context attached to a report (best-effort). */
 export interface FeedbackContext {
