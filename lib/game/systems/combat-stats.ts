@@ -23,6 +23,10 @@ export interface DamageSource {
   /** Only on direct/splash projectile hits: the Utility damage-aura that boosted
    *  this hit, so the extra can be peeled off and credited to those wizards. */
   aura?: AuraAttribution;
+  /** Fraction of this hit's raw damage that came from Blood's %-max-HP bonus
+   *  (0..1). The hit still lands as a normal direct/splash — this only lets the
+   *  meter break the bonus out, since the bonus survives the same multipliers. */
+  bloodFrac?: number;
 }
 
 export interface AuraAttribution {
@@ -67,6 +71,9 @@ export interface EffectStat {
   splashHits: number;
   lifeStealHeals: number;
   taskBonusDmg: number;
+  /** Damage a Blood wizard added on top of its spell, as a % of the target's max
+   *  HP (capped per hit). The signature reason to run Blood against big enemies. */
+  bloodBonusDmg: number;
   /** Damage from chained board FX (ricochet / overkill cleave / kill-streak) —
    *  the Run-Effects damage that isn't a burn/poison/venom tick. */
   chainDmg: number;

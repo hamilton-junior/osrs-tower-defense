@@ -2605,7 +2605,7 @@ export class GameEngine {
           : 0;
         const dmg = Math.floor(p.damage * scale) + bonus;
         const killed = this.damage(e, dmg, 'hit', false, silent, 0, style,
-          { towerId: p.sourceTowerId, tag: isPrimary ? 'direct' : 'splash', aura: p.aura });
+          { towerId: p.sourceTowerId, tag: isPrimary ? 'direct' : 'splash', aura: p.aura, bloodFrac: dmg > 0 ? bonus / dmg : 0 });
         if (isPrimary) primaryKilled = killed;
         if (!killed) { this.applyOnHit(e, p); this.applyVenomTips(e); }
       }
@@ -2615,8 +2615,9 @@ export class GameEngine {
       const bonus = p.bonusMaxHpFrac
         ? Math.min(Math.floor(target.maxHp * p.bonusMaxHpFrac), Math.floor(p.bonusMaxHpCap ?? Infinity))
         : 0;
-      primaryKilled = this.damage(target, p.damage + bonus, 'hit', false, silent, 0, style,
-        { towerId: p.sourceTowerId, tag: 'direct', aura: p.aura });
+      const dmg = p.damage + bonus;
+      primaryKilled = this.damage(target, dmg, 'hit', false, silent, 0, style,
+        { towerId: p.sourceTowerId, tag: 'direct', aura: p.aura, bloodFrac: dmg > 0 ? bonus / dmg : 0 });
       if (!primaryKilled) { this.applyOnHit(target, p); this.applyVenomTips(target); }
       // Pierce (roguelite transform): the bolt punches through to the nearest
       // *other* enemy near the impact, landing a second full hit.
@@ -2973,6 +2974,9 @@ export class GameEngine {
       if (source.towerId && onTask > 1) {
         this.stats.recordEffect(source.towerId, this.wave, { taskBonusDmg: dealt * (1 - 1 / onTask) });
       }
+      // Blood's %-max-HP bonus rode into `amount` and through the same multipliers,
+      // so its share of what actually landed is its share of the raw hit.
+      if (source.bloodFrac) this.stats.recordEffect(owner, this.wave, { bloodBonusDmg: dealt * source.bloodFrac });
     }
     // Jad: remember damage that actually landed, for the Yt-HurKot heal window.
     if (dealt > 0 && enemy.bossState?.kind === 'jad') {

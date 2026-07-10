@@ -423,10 +423,6 @@ export default function GameRoot() {
   useEffect(() => { engineRef.current?.setDpsPanelOpen(dpsVisible); }, [dpsVisible]);
   // Stable so DpsView's unmount-cleanup effect doesn't re-fire every stats tick.
   const highlightTower = useCallback((id: string | null) => engineRef.current?.setHighlightTower(id), []);
-  // Optionally hide the always-on Start Wave button (beside the tower dock) and
-  // drive waves with the spacebar only. Off by default — the button is shown.
-  const [hideStartWave, setHideStartWave] = useState(() => loadBool('ui_hide_startwave', false));
-  useEffect(() => { try { localStorage.setItem('ui_hide_startwave', JSON.stringify(hideStartWave)); } catch { /* ignore */ } }, [hideStartWave]);
   // Global UI text scale — a manual multiplier on top of the viewport-adaptive
   // base font-size (globals.css), applied as the `--ui-scale` CSS var the body
   // reads. Lets the player dial the whole em-based interface up/down for their
@@ -524,8 +520,8 @@ export default function GameRoot() {
     // letterboxes the finished board (see the canvas's `object-fit`).
     engine.fitOnce();
     engine.start();
-    // Auto-start lives beside Start Wave in the next-wave panel; both the toggle
-    // and its delay persist across runs via localStorage (see their onChange).
+    // Auto-start lives beside Start Wave in the bottom bar; both the toggle and
+    // its delay persist across runs via localStorage (see their onChange).
     engine.setAutoplay(loadBool('ui_autostart', false));
     engine.setAutoplaySecs(loadNum('ui_autostart_secs', 3));
     return () => {
@@ -1364,9 +1360,18 @@ export default function GameRoot() {
           className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-[0.35em] transition-[top] duration-300"
           style={{ top: ui.bossOnField ? '4.5rem' : '0.5rem', fontSize: fs('clamp(13px, 0.85vw, 18px)') }}
         >
-          {/* Wave strip: progress while fighting, next-wave preview while prepping. */}
+          {/* Wave strip: progress while fighting, next-wave preview while prepping.
+              Draggable like the other interfaces — so it captures pointer events,
+              and a player who wants the ground under it just moves it aside
+              (right-click snaps it back). Reads a size up from the chips below it:
+              it is the one panel you check before every wave. */}
           {(ui.waveActive || ui.wavePreview.length > 0) && (
-            <div className="rs-panel px-[0.7em] py-[0.35em] pointer-events-none min-w-[16em] max-w-[46em]">
+            <MovablePanel
+              id="wavestrip"
+              globalLock={uiLocked}
+              className="rs-panel relative px-[0.7em] py-[0.35em] min-w-[16em] max-w-[46em]"
+              style={{ fontSize: fs('clamp(16px, 1.05vw, 23px)') }}
+            >
               {ui.waveActive ? (
                 <>
                   <div className="flex items-center justify-between gap-[1em] text-[0.8em] text-osrs-orange mb-[0.2em]">
@@ -1388,73 +1393,19 @@ export default function GameRoot() {
                   <div className="flex items-center justify-center gap-[0.7em] flex-wrap">
                     {ui.wavePreview.map((m) => {
                       const style = enemySpriteStyle(m.type);
-                      // The strip is click-through so it never blocks the map; each entry
-                      // opts pointer events back in, or its `title` tooltip never fires.
                       return (
-                        <span key={m.type} className="flex items-center gap-[0.3em] pointer-events-auto" title={m.name}>
-                          <span className="inline-block w-[1.5em] h-[1.5em] shrink-0" style={style ? { ...style, imageRendering: 'pixelated' } : undefined} />
-                          <span className={`text-[0.7em] ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}>
+                        <span key={m.type} className="flex items-center gap-[0.3em]" title={m.name}>
+                          <span className="inline-block w-[2.2em] h-[2.2em] shrink-0" style={style ? { ...style, imageRendering: 'pixelated' } : undefined} />
+                          <span className={`text-[0.8em] ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}>
                             {m.isBoss ? `⚠ ${m.name}` : `×${m.count}`}
                           </span>
                         </span>
                       );
                     })}
                   </div>
-                  {/* Pull the wave from the panel that tells you what's in it — the
-                      decision and the information sit together. Auto-start rides
-                      alongside so it keeps a home even when the button is hidden
-                      from the controls; its delay only matters while it's on. */}
-                  <div className="pointer-events-auto mt-[0.45em] pt-[0.4em] border-t border-[var(--rs-keyline)] flex items-center justify-center gap-[0.8em]">
-                    {!hideStartWave && (
-                      <button
-                        data-tut="startwave"
-                        className="rs-btn rs-btn-primary px-[1.1em] py-[0.3em] text-[0.85em] animate-pulse"
-                        onClick={() => engineRef.current?.startWave()}
-                      >
-                        ▶ Start Wave {ui.wave}
-                      </button>
-                    )}
-                    <label
-                      className="flex items-center gap-[0.35em] text-[0.68em] text-[#cdbe91] cursor-pointer select-none"
-                      title="Automatically start the next wave once the field is clear (waits on a pending draft)"
-                    >
-                      <input
-                        type="checkbox"
-                        className="rs-check"
-                        checked={ui.autoplay}
-                        onChange={(e) => {
-                          engineRef.current?.setAutoplay(e.target.checked);
-                          try { localStorage.setItem('ui_autostart', JSON.stringify(e.target.checked)); } catch { /* ignore */ }
-                        }}
-                      />
-                      Auto-start
-                    </label>
-                    <label
-                      className={`flex items-center gap-[0.3em] text-[0.68em] ${ui.autoplay ? 'text-[#cdbe91]' : 'text-[#8b8069]'}`}
-                      title="Seconds to wait, once the field is clear, before the next wave starts"
-                    >
-                      <input
-                        type="number"
-                        min={1}
-                        max={60}
-                        step={1}
-                        value={ui.autoplaySecs}
-                        disabled={!ui.autoplay}
-                        onChange={(e) => {
-                          const v = Math.min(60, Math.max(1, Math.floor(Number(e.target.value))));
-                          if (!Number.isFinite(v)) return; // mid-edit empty field
-                          engineRef.current?.setAutoplaySecs(v);
-                          try { localStorage.setItem('ui_autostart_secs', String(v)); } catch { /* ignore */ }
-                        }}
-                        className="rs-num w-[2.8em]"
-                        aria-label="Auto-start delay in seconds"
-                      />
-                      s
-                    </label>
-                  </div>
                 </>
               )}
-            </div>
+            </MovablePanel>
           )}
           {/* Event chip + potion infoboxes (existing row, now BELOW the strip). */}
           {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0) && (
@@ -2276,9 +2227,9 @@ export default function GameRoot() {
           className="w-full rs-panel flex items-center gap-[0.6em] px-[0.6em]"
           style={{ height: '4.3em' }}
         >
-          {/* One row, three groups, hairline-separated: the run controls (left),
-              the tower dock (centre) and the interface stones (right). The outer
-              groups both take `flex-1`, which centres the dock between them. */}
+          {/* One row, four hairline-separated groups: the run controls (left), the
+              tower dock and Start Wave (centre) and the interface stones (right).
+              The outer groups both take `flex-1`, which centres the middle pair. */}
             <div data-tut="controls" className="flex flex-1 min-w-0 items-center gap-1">
               <button
                 onClick={() => engineRef.current?.togglePause()}
@@ -2323,18 +2274,6 @@ export default function GameRoot() {
               >
                 {ui.muted ? 'off' : `${Math.round(ui.volume * 100)}%`}
               </span>
-              {/* Show/hide the always-on Start Wave button (spacebar still sends waves). */}
-              <span className="text-[10px] text-[#d3c3a0] ml-2 mr-1 uppercase tracking-wide select-none">Start&nbsp;▶</span>
-              <button
-                onClick={() => setHideStartWave((v) => !v)}
-                aria-pressed={!hideStartWave}
-                title={hideStartWave
-                  ? 'Start Wave button is hidden — press Space to send waves. Click to show it.'
-                  : 'Hide the Start Wave button and send waves with Space instead.'}
-                className={`rs-btn px-2 py-1 text-xs ${hideStartWave ? '' : 'rs-btn-primary'}`}
-              >
-                {hideStartWave ? 'Off' : 'On'}
-              </button>
               {/* Global UI text-size nudge, on top of the viewport-adaptive base size.
                   This is the only zoom the game offers — browser zoom is blocked. */}
               <span className="text-[10px] text-[#d3c3a0] ml-2 mr-1 uppercase tracking-wide select-none">UI</span>
@@ -2424,6 +2363,62 @@ export default function GameRoot() {
                   );
                 })}
               </div>{/* tower dock */}
+            </div>
+
+            <div className="rs-bar-sep" />
+
+            {/* Sending the wave sits next to the towers you spend the gap building.
+                Everything here keeps a fixed footprint — the button stays mounted
+                (disabled) mid-wave and the seconds field never wraps, because a
+                bar that changed height would shrink the board, whose resolution is
+                fixed at birth. */}
+            <div className="shrink-0 flex items-center gap-[0.45em]">
+              <button
+                data-tut="startwave"
+                onClick={() => engineRef.current?.startWave()}
+                disabled={ui.waveActive || ui.gameOver}
+                title={ui.waveActive ? 'A wave is already on the field' : 'Send the next wave (Space)'}
+                className={`rs-btn px-2 py-1 text-xs whitespace-nowrap disabled:opacity-40 ${ui.waveActive || ui.gameOver ? '' : 'rs-btn-primary animate-pulse'}`}
+              >
+                ▶ Start Wave <span className="tabular-nums">{ui.wave}</span>
+              </button>
+              <label
+                className="flex items-center gap-[0.3em] text-[10px] text-[#d3c3a0] uppercase tracking-wide cursor-pointer select-none"
+                title="Automatically start the next wave once the field is clear (waits on a pending draft)"
+              >
+                <input
+                  type="checkbox"
+                  className="rs-check text-xs"
+                  checked={ui.autoplay}
+                  onChange={(e) => {
+                    engineRef.current?.setAutoplay(e.target.checked);
+                    try { localStorage.setItem('ui_autostart', JSON.stringify(e.target.checked)); } catch { /* ignore */ }
+                  }}
+                />
+                Auto
+              </label>
+              <span
+                className={`flex items-center gap-[0.25em] text-[10px] ${ui.autoplay ? 'text-[#d3c3a0]' : 'text-[#8b8069]'}`}
+                title="Seconds to wait, once the field is clear, before the next wave starts"
+              >
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  step={1}
+                  value={ui.autoplaySecs}
+                  disabled={!ui.autoplay}
+                  onChange={(e) => {
+                    const v = Math.min(60, Math.max(1, Math.floor(Number(e.target.value))));
+                    if (!Number.isFinite(v)) return; // mid-edit empty field
+                    engineRef.current?.setAutoplaySecs(v);
+                    try { localStorage.setItem('ui_autostart_secs', String(v)); } catch { /* ignore */ }
+                  }}
+                  className="rs-num w-[2.6em] text-xs"
+                  aria-label="Auto-start delay in seconds"
+                />
+                s
+              </span>
             </div>
 
             <div className="rs-bar-sep" />
@@ -2799,7 +2794,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Pick a tower from the dock, then click the grass to place it. It aims and fires on its own — you win by positioning, not aiming.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && !c.towersPlaced },
   { id: 'start', target: 'startwave', title: 'Send the wave',
-    body: 'Happy with your defences? Press Start Wave — or tap Space. Nothing spawns until you do, so the game waits while you build. The strip at the top of the screen shows what the next wave sends, then tracks its progress once it lands. Tick Auto-start to send every wave the moment the field is clear.',
+    body: 'Happy with your defences? Press Start Wave, beside the tower dock — or tap Space. Nothing spawns until you do, so the game waits while you build. The panel at the top of the screen shows what the next wave sends, then tracks its progress once it lands; drag it anywhere you like. Tick Auto to send every wave the moment the field is clear, after the delay in seconds next to it.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && c.towersPlaced },
   { id: 'hud', target: 'hud', title: 'Lives & gold',
     body: 'These orbs are your lives and gold. Every enemy that reaches the base costs a life; every kill pays gold for more towers and upgrades.',
@@ -2811,7 +2806,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Toggle a prayer to buff a tower style or shield your base. It drains a pool that refills between waves — flip the strong ones on for boss waves.',
     when: (ui) => !ui.waveActive && ui.wave === 3 },
   { id: 'sidebar', target: 'sidebar', title: 'Shops & guide',
-    body: 'The bar along the bottom holds everything: speed, sound and interface size on the left, the towers in the middle, and the menu stones on the right. A stone pops its interface open above the bar and closes it when clicked again, so nothing lingers over the board — that is where the Essence Shop (permanent upgrades) and Slayer Rewards live, and the ❓ stone reopens this quick reference anytime.',
+    body: 'The bar along the bottom holds everything: speed, sound and interface size on the left, the towers and Start Wave in the middle, and the menu stones on the right. A stone pops its interface open above the bar and closes it when clicked again, so nothing lingers over the board — that is where the Essence Shop (permanent upgrades) and Slayer Rewards live, and the ❓ stone reopens this quick reference anytime.',
     when: (ui) => !ui.waveActive && ui.wave === 4 },
   { id: 'affix', title: 'Elite enemies',
     body: 'Some enemies now arrive glowing with an affix that rewrites the rules — Shielded, Armored, Hasted and more. Read the aura colour and diversify your towers. One affix at first; deep runs can stack a second, never a third.',
@@ -2921,8 +2916,8 @@ const TLDR: TldrGroup[] = [
     'Hold Shift to keep placing the same tower; drag a box to multi-select and batch-upgrade.',
   ] },
   { h: 'Waves', lines: [
-    'Nothing spawns until you Start Wave (button above the dock, or Space). Between waves is paused build time.',
-    'The strip at the top of the screen previews what the next wave sends, then tracks its progress once it lands. Tick Auto-start under the button to send each wave automatically.',
+    'Nothing spawns until you Start Wave (button beside the tower dock, or Space). Between waves is paused build time.',
+    'The panel at the top of the screen previews what the next wave sends, then tracks its progress once it lands — drag it wherever suits you. Tick Auto beside the button to send each wave automatically.',
     'From wave 3 a wave can roll a board-wide event — hover its chip for the effect. From wave 5 enemies can turn elite (glowing affixes), at most two at once. Bosses have their own mechanic.',
   ] },
   { h: 'Systems', lines: [
@@ -2933,8 +2928,8 @@ const TLDR: TldrGroup[] = [
   ] },
   { h: 'Controls', lines: [
     'Space start wave · Esc pause / cancel · 1 / 2 / 5 speed · M mute · Shift keep placing · drag a box to multi-select · Q/W/E/R swap a wizard’s spell · Ctrl+′ debug console.',
-    'One slim bar along the bottom: run controls (left), tower dock (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click — no interface stays on-screen.',
-    'Start Wave sits under the next-wave panel at the top, with the auto-start toggle and its delay in seconds beside it.',
+    'One slim bar along the bottom: run controls (left), tower dock and Start Wave (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click — no interface stays on-screen.',
+    'Auto sends each wave once the field is clear, after the delay in seconds beside it.',
     'Browser zoom is disabled so it can’t warp the board — resize the interface with the UI − / + buttons in that bar instead.',
   ] },
 ];
@@ -3138,6 +3133,7 @@ const DPS_EFFECT_META: { key: keyof EffectStat; label: string; kind: 'dmg' | 'in
   { key: 'poisonDmg', label: 'Poison damage', kind: 'dmg' },
   { key: 'venomDmg', label: 'Venom damage', kind: 'dmg' },
   { key: 'chainDmg', label: 'Chain damage', kind: 'dmg' },
+  { key: 'bloodBonusDmg', label: 'Blood bonus dmg', kind: 'dmg' },
   { key: 'taskBonusDmg', label: 'Slayer bonus dmg', kind: 'dmg' },
   { key: 'stunCount', label: 'Enemies stunned', kind: 'int' },
   { key: 'stunSeconds', label: 'Stun time', kind: 'sec' },
