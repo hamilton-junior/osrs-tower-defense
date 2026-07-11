@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { distance, distanceSq, pointToSegmentDistance, isValidPlacement, squareRange, inSquareRange, knockbackStep } from './geometry';
+import {
+  distance, distanceSq, pointToSegmentDistance, isValidPlacement, squareRange, inSquareRange, knockbackStep,
+  pathTotalLength, remainingPathDistance, advanceAlongPath,
+} from './geometry';
 
 describe('distance', () => {
   it('computes Euclidean distance', () => {
@@ -96,5 +99,45 @@ describe('knockbackStep', () => {
   it('no-ops when already on the waypoint or dist <= 0', () => {
     expect(knockbackStep(0.5, 0, 0, 0, 28).moved).toBe(0);
     expect(knockbackStep(100, 0, 0, 0, 0).moved).toBe(0);
+  });
+});
+
+describe('walking the road', () => {
+  // An L: 300px right, then 400px down. Total 700.
+  const road = [{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: 300, y: 400 }];
+
+  it('measures the whole road', () => {
+    expect(pathTotalLength(road)).toBe(700);
+    expect(pathTotalLength([{ x: 0, y: 0 }])).toBe(0);
+    expect(pathTotalLength([])).toBe(0);
+  });
+
+  it('measures what is left from a point part-way along a segment', () => {
+    expect(remainingPathDistance(road, 0, 0, 0)).toBe(700);
+    expect(remainingPathDistance(road, 0, 100, 0)).toBe(600); // 200 left in seg 0, + 400
+    expect(remainingPathDistance(road, 1, 300, 100)).toBe(300);
+    expect(remainingPathDistance(road, 2, 300, 400)).toBe(0); // at the end
+  });
+
+  it('advances within a segment without touching the waypoint index', () => {
+    expect(advanceAlongPath(road, 0, 0, 0, 100)).toEqual({ pathIndex: 0, x: 100, y: 0 });
+  });
+
+  it('carries the index forward when it steps over a waypoint, and turns the corner', () => {
+    // 350px from the start: 300 along the first leg, then 50 down the second.
+    const t = advanceAlongPath(road, 0, 0, 0, 350);
+    expect(t.pathIndex).toBe(1);
+    expect(t.x).toBeCloseTo(300);
+    expect(t.y).toBeCloseTo(50);
+  });
+
+  it('clamps at the end of the road instead of running off it', () => {
+    const t = advanceAlongPath(road, 0, 0, 0, 9999);
+    expect(t).toEqual({ pathIndex: 2, x: 300, y: 400 });
+  });
+
+  it('stands still for a zero or negative step', () => {
+    expect(advanceAlongPath(road, 0, 50, 0, 0)).toEqual({ pathIndex: 0, x: 50, y: 0 });
+    expect(advanceAlongPath(road, 0, 50, 0, -10)).toEqual({ pathIndex: 0, x: 50, y: 0 });
   });
 });

@@ -7,7 +7,10 @@ import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
-import { ZULRAH_PHASES, hydraPhase, hydraBreakTarget, HYDRA_VENT_SECS } from '../systems/boss-mechanics';
+import {
+  ZULRAH_PHASES, hydraPhase, hydraBreakTarget, HYDRA_VENT_SECS,
+  moleIsHidden, MOLE_DIG_SECS, MOLE_EMERGE_SECS, MOLE_UNDER_SECS,
+} from '../systems/boss-mechanics';
 
 const GRID = 32;
 
@@ -733,6 +736,12 @@ export class GameRenderer {
         caption = `${phase.name} phase`;
         capColor = phase.color;
       }
+    } else if (st?.kind === 'giant_mole') {
+      capColor = '#d9b184';
+      if (st.molePhase === 'dig') caption = 'DIGGING — it will surface ahead!';
+      else if (st.molePhase === 'under') caption = 'BURROWED — untouchable!';
+      else if (st.molePhase === 'emerge') caption = 'Surfacing — hit it now!';
+      else if (st.burrows) caption = `Burrows: ${st.burrows}`;
     }
     if (caption) {
       ctx.font = "bold 12px 'RuneScape', Arial";
@@ -985,6 +994,45 @@ export class GameRenderer {
     }
   }
 
+  /**
+   * The churning mound an underground Giant Mole pushes up — drawn where it will
+   * surface, not where it went down (the engine moves it on the way in). Earth heaves
+   * out of the ground and a crack of soil widens as the beat runs out, so the player
+   * can read both *where* and *when* it is coming back.
+   */
+  private drawMoleMound(ctx: CanvasRenderingContext2D, e: Enemy) {
+    // 0 → 1 across the underground beat: the heap swells as it comes up.
+    const t = 1 - Math.max(0, Math.min(1, (e.bossState?.moleTimer ?? 0) / MOLE_UNDER_SECS));
+    // Sized off the Mole itself, so it reads as *this boss* about to arrive rather than
+    // a decal. It sits on the road, which is also brown — hence the dark rim and the
+    // pale heaved crest, which carry the shape on grass and on dirt alike.
+    const r = (26 + 22 * t) * (e.renderScale ?? 1);
+    ctx.save();
+    // A dark ring of turned-up earth, then the heap itself, then a lit crest.
+    ctx.fillStyle = 'rgba(38, 27, 16, 0.75)';
+    ctx.beginPath();
+    ctx.ellipse(e.x, e.y + r * 0.12, r * 1.06, r * 0.62, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(104, 78, 50, 0.96)';
+    ctx.beginPath();
+    ctx.ellipse(e.x, e.y, r, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(160, 126, 86, 0.95)';
+    ctx.beginPath();
+    ctx.ellipse(e.x, e.y - r * 0.16, r * 0.62, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Clods thrown clear of the heap, further out the closer it is to breaking through.
+    ctx.fillStyle = 'rgba(150, 118, 80, 0.95)';
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + t * 3;
+      const d = r * (0.9 + 0.45 * ((i * 7) % 5) / 5) + t * 14;
+      ctx.beginPath();
+      ctx.arc(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d * 0.6, 2.5 + t * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   /** Draw an image centred at (cx,cy) fit inside a `box`-px square, preserving
    *  its aspect ratio (like CSS object-contain) so it never looks stretched. */
   private drawImageContain(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cx: number, cy: number, box: number) {
@@ -1006,6 +1054,11 @@ export class GameRenderer {
     const jad = this.e.enemies.find((en) => en.bossState?.kind === 'jad');
 
     for (const e of this.e.enemies) {
+      // The Giant Mole is underground: no body, no HP bar, no overlays — only the
+      // churning mound. The engine has already moved it to where it will surface, so
+      // the mound sits at the *destination*: it is the tell, and the player gets the
+      // whole underground beat to read the reposition before the Mole is back.
+      if (moleIsHidden(e.bossState)) { this.drawMoleMound(ctx, e); continue; }
       const isBoss = !!e.isBoss;
       // While still in the portal (materialising or not yet walked clear), hide
       // the HP bar / overlays so nothing pokes through the gateway.
@@ -1045,16 +1098,25 @@ export class GameRenderer {
       // once baked); fall back to `type`'s clip when the override isn't baked.
       const animSlug = e.animType && ENEMY_ANIMS[e.animType] ? e.animType : e.type;
       const animSet = ENEMY_ANIMS[animSlug];
-      const hurting = !!animSet?.clips.hurt && (e.hurtAnim ?? 0) > 0;
-      const animKey = animSet ? `enemyanim_${animSlug}_${hurting ? 'hurt' : 'walk'}` : '';
+      // The Giant Mole's dig and climb-out are the real OSRS clips, and they outrank
+      // both the hurt flinch and the walk loop: it is not walking, and a flinch that
+      // interrupted the dig would break the one animation the whole boss is built on.
+      const molePhase = e.bossState?.kind === 'giant_mole' ? e.bossState.molePhase : undefined;
+      const moleClipName = molePhase === 'dig' ? 'burrow' : molePhase === 'emerge' ? 'emerge' : null;
+      const moleClip = moleClipName ? animSet?.clips[moleClipName] : undefined;
+      const hurting = !moleClip && !!animSet?.clips.hurt && (e.hurtAnim ?? 0) > 0;
+      const clipName = moleClip ? moleClipName! : hurting ? 'hurt' : 'walk';
+      const animKey = animSet ? `enemyanim_${animSlug}_${clipName}` : '';
       if (animSet && this.e.imageOk(animKey)) {
-        // Animated enemy: loop `walk` on alive-time, or play the whole `hurt`
-        // flinch (priority over walk) when recently struck. The hurt window is
-        // sized to the clip's own duration in `damage`, so `elapsed` counts up
-        // from 0 across exactly that clip.
-        const clip = hurting ? animSet.clips.hurt! : animSet.clips.walk;
+        // Animated enemy: loop `walk` on alive-time, or play a one-shot (the Mole's
+        // dig/emerge, else the `hurt` flinch) over exactly that clip's window. The hurt
+        // window is sized to the clip's own duration in `damage`, and the Mole's phases
+        // are sized to theirs in `boss-mechanics`, so `elapsed` counts up from 0 in both.
+        const clip = moleClip ?? (hurting ? animSet.clips.hurt! : animSet.clips.walk);
         const img = this.e.images.get(animKey)!;
-        const elapsed = hurting ? clipDurationS(clip) - (e.hurtAnim ?? 0) : e.animTime ?? 0;
+        const elapsed = moleClip
+          ? (molePhase === 'dig' ? MOLE_DIG_SECS : MOLE_EMERGE_SECS) - (e.bossState?.moleTimer ?? 0)
+          : hurting ? clipDurationS(clip) - (e.hurtAnim ?? 0) : e.animTime ?? 0;
         const fi = clipFrame(clip, elapsed);
         const fw = animSet.frameW, fh = animSet.frameH;
         // The baked creature fills ~88% of its cell (6% margin/side); scale up to

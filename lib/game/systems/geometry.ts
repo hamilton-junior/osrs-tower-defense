@@ -90,6 +90,62 @@ export function knockbackStep(
   return { x: x + (dx / d) * step, y: y + (dy / d) * step, moved: step };
 }
 
+// ─────────────────────────── walking the road itself ───────────────────────
+// An enemy's position on the road is a waypoint index plus a point part-way along
+// the segment that leaves it. These three walk that polyline in *distance*, which is
+// the only unit that means anything across procedurally generated maps: a map may be
+// 7 waypoints or 20, so "three waypoints on" is a different journey on every board,
+// while "a tenth of the road" is the same one everywhere.
+
+/** Total length of the road, in logic pixels. */
+export function pathTotalLength(path: readonly Point[]): number {
+  let total = 0;
+  for (let i = 0; i < path.length - 1; i++) total += distance(path[i].x, path[i].y, path[i + 1].x, path[i + 1].y);
+  return total;
+}
+
+/** Road left to walk from `(x, y)` — which sits on the segment leaving `pathIndex` —
+ *  to the far end. */
+export function remainingPathDistance(path: readonly Point[], pathIndex: number, x: number, y: number): number {
+  const next = path[pathIndex + 1];
+  if (!next) return 0; // already at the end
+  let total = distance(x, y, next.x, next.y);
+  for (let i = pathIndex + 1; i < path.length - 1; i++) {
+    total += distance(path[i].x, path[i].y, path[i + 1].x, path[i + 1].y);
+  }
+  return total;
+}
+
+/**
+ * Slide `dist` pixels forward along the road from `(x, y)` on segment `pathIndex`,
+ * returning where that lands — a point *within* a segment, not snapped to a waypoint.
+ * Walking past the end clamps to the final waypoint.
+ */
+export function advanceAlongPath(
+  path: readonly Point[], pathIndex: number, x: number, y: number, dist: number,
+): { pathIndex: number; x: number; y: number } {
+  let i = pathIndex;
+  let cx = x;
+  let cy = y;
+  let left = Math.max(0, dist);
+  while (left > 0) {
+    const next = path[i + 1];
+    if (!next) break; // end of the road
+    const seg = distance(cx, cy, next.x, next.y);
+    if (seg > left) {
+      // The step ends inside this segment.
+      const t = left / seg;
+      return { pathIndex: i, x: cx + (next.x - cx) * t, y: cy + (next.y - cy) * t };
+    }
+    // Step over the waypoint and keep going from there.
+    left -= seg;
+    cx = next.x;
+    cy = next.y;
+    i += 1;
+  }
+  return { pathIndex: i, x: cx, y: cy };
+}
+
 /**
  * Whether `(x, y)` is far enough from every path segment and existing tower
  * to host a new tower. `towers` only needs `x`/`y`, so any placed entity works.

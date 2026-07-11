@@ -5,9 +5,9 @@
  *   node scripts/render-osrs-npc-anims.mjs --only <slug>   # re-bake the sheets
  *   node scripts/generate-enemy-anims-data.mjs             # regenerate the table
  *
- * Enemy order follows scripts/enemy-anims.config.json; clips emit in
- * walk/hurt/death order; each frameMs is capped at 400 (a long held death-pose
- * otherwise stalls the playback loop).
+ * Enemy order follows scripts/enemy-anims.config.json; clips emit in CLIP_ORDER;
+ * each frameMs is capped at 400 (a long held death-pose otherwise stalls the
+ * playback loop).
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +16,10 @@ import { dirname, join } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
 const config = JSON.parse(readFileSync(join(__dirname, 'enemy-anims.config.json'), 'utf8'));
-const CLIP_ORDER = ['walk', 'hurt', 'death'];
+// `burrow`/`emerge` are the Giant Mole's dig and surface clips (OSRS anims 3314
+// and 3315): boss-specific one-shots the renderer plays instead of the walk while
+// the Mole is going under or coming back up.
+const CLIP_ORDER = ['walk', 'hurt', 'death', 'burrow', 'emerge'];
 const CAP = 400;
 
 let clipCount = 0;

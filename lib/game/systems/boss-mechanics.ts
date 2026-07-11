@@ -1,4 +1,5 @@
-import type { CombatStyle } from '../types';
+import type { CombatStyle, Point } from '../types';
+import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geometry';
 
 /**
  * Boss mechanics (#4B): per-boss phase logic for the three signature bosses.
@@ -20,16 +21,32 @@ import type { CombatStyle } from '../types';
  *    advances its phase, arcs lightning through a line of towers, and leaves it
  *    briefly vulnerable. Below a tenth of its health it enrages.
  *
+ *  - **Giant Mole** burrows: it drops underground — untouchable, invisible — and
+ *    surfaces further along the path, skipping the stretch you fortified. It will not
+ *    dig on the final approach, so the last stretch is always fought honestly.
+ *
  * Each boss owns one idea: Zulrah tests style coverage, Vorkath tests patience, Jad
- * tests target priority, and the Hydra tests burst.
+ * tests target priority, the Hydra tests burst, and the Mole tests *where* you built.
  */
 
-export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra';
+export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole';
 
-/** The bosses that carry phase mechanics: they get a {@link BossState}, roll boss
- *  modifiers once seen, and can be force-spawned from the debug console. The one
- *  source of truth — the engine, the save sanitiser and the debug panel all read it. */
-export const MECHANIC_BOSSES: readonly BossId[] = ['jad', 'vorkath', 'zulrah', 'hydra'];
+/** The bosses that carry phase mechanics: they get a {@link BossState} on spawn and
+ *  roll boss modifiers once seen. The engine and the save sanitiser read this to decide
+ *  who has state. */
+export const MECHANIC_BOSSES: readonly BossId[] = ['jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole'];
+
+/**
+ * The bosses a wave may *draw* — what `rollWaveBosses` picks from and what the debug
+ * panel offers. **Order is the introduction order**: a fresh account meets one per boss
+ * wave in this sequence, so the ladder runs gentlest (the Mole) → hardest (the Hydra).
+ *
+ * Deliberately a separate list from {@link MECHANIC_BOSSES}, because the two answer
+ * different questions. Every schedulable boss has state, but not every boss with state
+ * may be scheduled: one that only ever arrives as another boss's companion needs a
+ * `BossState` and has no business being drawn on its own.
+ */
+export const SCHEDULABLE_BOSSES: readonly BossId[] = ['giant_mole', 'jad', 'vorkath', 'zulrah', 'hydra'];
 
 // ─────────────────────────────────── Zulrah ────────────────────────────────
 /** One Zulrah form: weak to `weak`, resistant to the other two, drawn in `color`. */
@@ -242,6 +259,89 @@ export function hydraZapChain<T extends { x: number; y: number }>(
   return chain;
 }
 
+// ────────────────────────────── Giant Mole ─────────────────────────────────
+/**
+ * The Mole's burrow cycle. `above` is the only phase it walks in; the other three
+ * hold it in place while the real OSRS dig/surface animations play.
+ *
+ *   above ──(interval elapses)──▶ dig ──▶ under ──▶ emerge ──▶ above
+ *                                         │
+ *                        untargetable, immune, and it moves down the path
+ */
+export type MolePhase = 'above' | 'dig' | 'under' | 'emerge';
+
+/** Seconds the Mole walks between digs. */
+export const MOLE_BURROW_INTERVAL = 9;
+/** HP fraction at or below which the Mole digs more often (its late-fight pressure). */
+export const MOLE_FRENZY_HP = 0.25;
+/** The interval's multiplier once frenzied. */
+export const MOLE_FRENZY_INTERVAL_MULT = 0.6;
+/** Seconds of the dig animation (OSRS anim 3314 runs ~1.94s) — still hittable. */
+export const MOLE_DIG_SECS = 1.9;
+/** Seconds underground: invisible, untargetable, immune. Short, because the churning
+ *  mound telegraphs where it will surface — the player gets this long to react. */
+export const MOLE_UNDER_SECS = 1;
+/** Seconds of the surfacing animation (OSRS anim 3315 runs ~0.9s) — hittable again. */
+export const MOLE_EMERGE_SECS = 0.9;
+/**
+ * How much road a burrow skips, as a fraction of the road's total length.
+ *
+ * Measured in *distance*, not waypoints, and that is not a detail: the maps are
+ * procedural and come out anywhere from ~7 to ~20 waypoints, so "skip three waypoints"
+ * is a shrug on one board and a third of the map on another. A tenth of the road is a
+ * tenth of the road everywhere.
+ */
+export const MOLE_BURROW_FRAC = 0.12;
+/**
+ * The final approach, as a fraction of the road: the Mole may never surface inside it.
+ * This is the guardrail that makes the mechanic fair rather than cheap — it cannot dig
+ * its way onto the doorstep, so the last stretch is always a fight, never a teleport.
+ */
+export const MOLE_MIN_TAIL_FRAC = 0.2;
+/** A burrow that would gain less than this fraction of the road isn't worth the dig —
+ *  the Mole would spend its whole cycle to shuffle forward, which reads as a bug. */
+export const MOLE_MIN_GAIN_FRAC = 0.03;
+
+/** How long the Mole stays above ground before its next dig, given its HP fraction. */
+export function moleBurrowInterval(hpFrac: number): number {
+  return hpFrac <= MOLE_FRENZY_HP
+    ? MOLE_BURROW_INTERVAL * MOLE_FRENZY_INTERVAL_MULT
+    : MOLE_BURROW_INTERVAL;
+}
+
+/**
+ * Where a Mole standing at `(x, y)` on segment `pathIndex` would surface — or `null`
+ * when it must not dig at all: it is already on the final approach, or the burrow would
+ * gain it too little to be worth the animation.
+ *
+ * The skip is clamped so the Mole never surfaces inside the final
+ * {@link MOLE_MIN_TAIL_FRAC} of the road, and it lands *between* waypoints rather than
+ * on one, so the reposition is a real slide up the road rather than a snap.
+ */
+export function moleBurrowTarget(
+  path: readonly Point[], pathIndex: number, x: number, y: number,
+): { pathIndex: number; x: number; y: number } | null {
+  const total = pathTotalLength(path);
+  if (total <= 0) return null;
+  const remaining = remainingPathDistance(path, pathIndex, x, y);
+  const tail = total * MOLE_MIN_TAIL_FRAC;
+  if (remaining <= tail) return null; // already inside the final approach
+  // Never dig past the tail: the burrow is capped by whatever room is left before it.
+  const dist = Math.min(total * MOLE_BURROW_FRAC, remaining - tail);
+  if (dist < total * MOLE_MIN_GAIN_FRAC) return null;
+  return advanceAlongPath(path, pathIndex, x, y, dist);
+}
+
+/** Underground: invisible, untargetable, damage-immune. */
+export function moleIsHidden(state: BossState | undefined): boolean {
+  return state?.kind === 'giant_mole' && state.molePhase === 'under';
+}
+
+/** Anywhere in the burrow cycle — the Mole holds still for all of it. */
+export function moleIsBurrowing(state: BossState | undefined): boolean {
+  return state?.kind === 'giant_mole' && !!state.molePhase && state.molePhase !== 'above';
+}
+
 // ───────────────────────────── shared boss state ───────────────────────────
 /** Mutable per-boss runtime state the engine stores on the boss enemy. */
 export interface BossState {
@@ -274,6 +374,13 @@ export interface BossState {
   enraged?: boolean;
   /** Hydra: counts down to the next chain lightning while enraged. */
   zapTimer?: number;
+  /** Giant Mole: where it is in the burrow cycle. */
+  molePhase?: MolePhase;
+  /** Giant Mole: seconds left in the current {@link molePhase} — above ground, this is
+   *  the countdown to the next dig. */
+  moleTimer?: number;
+  /** Giant Mole: burrows completed, read out on the boss bar. */
+  burrows?: number;
 }
 
 /** Build the initial state for a freshly-spawned boss of `kind`. */
@@ -282,14 +389,20 @@ export function freshBossState(kind: BossId): BossState {
   if (kind === 'vorkath') state.iceTimer = VORKATH_ICE_INTERVAL;
   if (kind === 'jad') { state.recentDamage = []; state.healTickTimer = 0; }
   if (kind === 'hydra') { state.shattered = 0; state.ventDamage = 0; }
+  if (kind === 'giant_mole') {
+    state.molePhase = 'above';
+    state.moleTimer = MOLE_BURROW_INTERVAL;
+    state.burrows = 0;
+  }
   return state;
 }
 
 /**
  * Damage multiplier from a boss's *phase mechanics* for an incoming `style`
- * (separate from affixes). Zulrah applies its rock-paper-scissors style bias; an
- * immune Vorkath returns 0; a venting Hydra hardens to a fraction; everything
- * else is neutral.
+ * (separate from affixes). Zulrah applies its rock-paper-scissors style bias; a
+ * venting Hydra hardens to a fraction; everything else is neutral. `immune` short-
+ * circuits to 0 and is shared: Vorkath raises it behind its ice shield, the Giant Mole
+ * while it is underground.
  */
 export function bossStyleMult(state: BossState | undefined, style: CombatStyle | undefined): number {
   if (!state) return 1;

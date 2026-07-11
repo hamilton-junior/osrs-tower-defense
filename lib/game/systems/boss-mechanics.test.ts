@@ -27,7 +27,19 @@ import {
   hydraVentHeal,
   hydraIsEnraged,
   hydraZapChain,
+  MECHANIC_BOSSES,
+  SCHEDULABLE_BOSSES,
+  MOLE_BURROW_INTERVAL,
+  MOLE_FRENZY_HP,
+  MOLE_FRENZY_INTERVAL_MULT,
+  MOLE_BURROW_FRAC,
+  MOLE_MIN_TAIL_FRAC,
+  moleBurrowInterval,
+  moleBurrowTarget,
+  moleIsHidden,
+  moleIsBurrowing,
 } from './boss-mechanics';
+import { pathTotalLength, remainingPathDistance } from './geometry';
 
 describe('Zulrah phases', () => {
   it('covers all three combat styles exactly once', () => {
@@ -201,5 +213,149 @@ describe('hydraZapChain', () => {
   it('returns what it can when the board holds fewer towers', () => {
     expect(hydraZapChain(towers.slice(0, 2), 0, 0, 3)).toHaveLength(2);
     expect(hydraZapChain([], 0, 0, 3)).toEqual([]);
+  });
+});
+
+describe('boss id lists', () => {
+  it('schedules every boss that has state, except the ones that only arrive as companions', () => {
+    // Every schedulable boss must have state (the engine gates `freshBossState` on
+    // MECHANIC_BOSSES) — the reverse need not hold.
+    for (const b of SCHEDULABLE_BOSSES) expect(MECHANIC_BOSSES).toContain(b);
+  });
+  it('introduces the Giant Mole first and the Hydra last', () => {
+    expect(SCHEDULABLE_BOSSES[0]).toBe('giant_mole');
+    expect(SCHEDULABLE_BOSSES.at(-1)).toBe('hydra');
+  });
+});
+
+describe('Giant Mole burrow', () => {
+  // A straight 1000px road. Deliberately few waypoints — the real maps are procedural
+  // and come out around 7–20, which is exactly why the burrow is measured in distance.
+  const road = [
+    { x: 0, y: 0 }, { x: 250, y: 0 }, { x: 500, y: 0 }, { x: 750, y: 0 }, { x: 1000, y: 0 },
+  ];
+  const TOTAL = 1000;
+
+  it('starts above ground with a full interval banked', () => {
+    const st = freshBossState('giant_mole');
+    expect(st.molePhase).toBe('above');
+    expect(st.moleTimer).toBe(MOLE_BURROW_INTERVAL);
+    expect(st.burrows).toBe(0);
+  });
+
+  it('digs more often once frenzied', () => {
+    expect(moleBurrowInterval(1)).toBe(MOLE_BURROW_INTERVAL);
+    expect(moleBurrowInterval(MOLE_FRENZY_HP + 0.01)).toBe(MOLE_BURROW_INTERVAL);
+    expect(moleBurrowInterval(MOLE_FRENZY_HP)).toBeCloseTo(MOLE_BURROW_INTERVAL * MOLE_FRENZY_INTERVAL_MULT);
+    expect(moleBurrowInterval(0.01)).toBeLessThan(MOLE_BURROW_INTERVAL);
+  });
+
+  it('skips a fixed fraction of the road, not a number of waypoints', () => {
+    const t = moleBurrowTarget(road, 0, 0, 0)!;
+    expect(t).not.toBeNull();
+    // It travelled MOLE_BURROW_FRAC of the whole road...
+    expect(t.x).toBeCloseTo(TOTAL * MOLE_BURROW_FRAC);
+    // ...which lands *inside* the first segment: no snapping to a waypoint.
+    expect(t.pathIndex).toBe(0);
+  });
+
+  it('lands part-way into a later segment, carrying the waypoint index with it', () => {
+    // Starting at 200px along, +120px = 320px, which is inside the second segment.
+    const t = moleBurrowTarget(road, 0, 200, 0)!;
+    expect(t.x).toBeCloseTo(200 + TOTAL * MOLE_BURROW_FRAC);
+    expect(t.pathIndex).toBe(1);
+  });
+
+  it('never surfaces inside the final approach', () => {
+    const tail = TOTAL * MOLE_MIN_TAIL_FRAC;
+    // Sweep the whole road: wherever it digs from, what is left to walk is never less
+    // than the tail. That guarantee is the whole reason the mechanic is fair.
+    for (let d = 0; d < TOTAL; d += 10) {
+      const idx = Math.min(road.length - 2, Math.floor(d / 250));
+      const t = moleBurrowTarget(road, idx, d, 0);
+      if (!t) continue; // it refused to dig — the other half of the guarantee
+      const left = remainingPathDistance(road, t.pathIndex, t.x, t.y);
+      expect(left).toBeGreaterThanOrEqual(tail - 0.001);
+    }
+  });
+
+  it('refuses to dig once it is on the final approach', () => {
+    // Standing exactly on the tail line, and past it.
+    const tailStart = TOTAL * (1 - MOLE_MIN_TAIL_FRAC);
+    expect(moleBurrowTarget(road, 3, tailStart, 0)).toBeNull();
+    expect(moleBurrowTarget(road, 3, 950, 0)).toBeNull();
+  });
+
+  it('refuses a dig that would barely move it', () => {
+    // Just before the tail: the room left is a sliver, not worth the whole animation.
+    const almost = TOTAL * (1 - MOLE_MIN_TAIL_FRAC) - 5;
+    expect(moleBurrowTarget(road, 3, almost, 0)).toBeNull();
+  });
+
+  it('never moves backwards, and never off the end', () => {
+    for (let d = 0; d < TOTAL; d += 25) {
+      const idx = Math.min(road.length - 2, Math.floor(d / 250));
+      const t = moleBurrowTarget(road, idx, d, 0);
+      if (!t) continue;
+      expect(t.x).toBeGreaterThan(d);
+      expect(t.x).toBeLessThanOrEqual(TOTAL);
+    }
+  });
+
+  it('handles a degenerate road without throwing', () => {
+    expect(moleBurrowTarget([], 0, 0, 0)).toBeNull();
+    expect(moleBurrowTarget([{ x: 0, y: 0 }], 0, 0, 0)).toBeNull();
+  });
+
+  it('is hidden only while underground, but frozen for the whole cycle', () => {
+    const st = freshBossState('giant_mole');
+    expect(moleIsHidden(st)).toBe(false);
+    expect(moleIsBurrowing(st)).toBe(false); // 'above' — it walks
+
+    st.molePhase = 'dig';
+    expect(moleIsHidden(st)).toBe(false);   // still visible and hittable
+    expect(moleIsBurrowing(st)).toBe(true); // but not walking
+
+    st.molePhase = 'under';
+    expect(moleIsHidden(st)).toBe(true);
+    expect(moleIsBurrowing(st)).toBe(true);
+
+    st.molePhase = 'emerge';
+    expect(moleIsHidden(st)).toBe(false);   // climbing out: hittable again
+    expect(moleIsBurrowing(st)).toBe(true);
+  });
+
+  it('does not mistake another boss (or nothing) for a burrowing Mole', () => {
+    expect(moleIsHidden(undefined)).toBe(false);
+    expect(moleIsBurrowing(undefined)).toBe(false);
+    expect(moleIsHidden(freshBossState('vorkath'))).toBe(false);
+    expect(moleIsBurrowing(freshBossState('jad'))).toBe(false);
+  });
+
+  it('takes no damage underground, and full damage everywhere else in the cycle', () => {
+    const st = freshBossState('giant_mole');
+    expect(bossStyleMult(st, 'melee')).toBe(1);
+    // The engine raises the shared `immune` flag when it goes under.
+    st.molePhase = 'under';
+    st.immune = true;
+    for (const style of ['melee', 'ranged', 'magic', undefined] as const) {
+      expect(bossStyleMult(st, style)).toBe(0);
+    }
+    st.molePhase = 'emerge';
+    st.immune = false;
+    expect(bossStyleMult(st, 'magic')).toBe(1);
+  });
+
+  it('works the same on a short procedural road as on a long one', () => {
+    // The bug this guards: waypoint-counting constants made the Mole unable to burrow
+    // at all on a 7-waypoint map, which is what the real generator produces.
+    const short = [{ x: 0, y: 0 }, { x: 500, y: 0 }, { x: 1000, y: 0 }];
+    const long = Array.from({ length: 21 }, (_, i) => ({ x: i * 50, y: 0 }));
+    expect(pathTotalLength(short)).toBe(pathTotalLength(long)); // same road, different waypoints
+    const a = moleBurrowTarget(short, 0, 0, 0)!;
+    const b = moleBurrowTarget(long, 0, 0, 0)!;
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    expect(a.x).toBeCloseTo(b.x); // it travels the same distance on both
   });
 });

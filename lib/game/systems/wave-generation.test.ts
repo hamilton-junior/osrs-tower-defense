@@ -8,7 +8,7 @@ import {
   BOSS_WAVE_INTERVAL,
   EXTRA_BOSS_MAX,
 } from './wave-generation';
-import { MECHANIC_BOSSES } from './boss-mechanics';
+import { SCHEDULABLE_BOSSES } from './boss-mechanics';
 
 /** An rng that plays back a script, then holds on the last value. */
 const seq = (...vals: number[]) => {
@@ -16,7 +16,7 @@ const seq = (...vals: number[]) => {
   return () => vals[Math.min(i++, vals.length - 1)];
 };
 /** Every boss met at least once. */
-const ALL_SEEN = Object.fromEntries(MECHANIC_BOSSES.map((b) => [b, 1]));
+const ALL_SEEN = Object.fromEntries(SCHEDULABLE_BOSSES.map((b) => [b, 1]));
 
 // A tiny enemy registry for deterministic tests.
 const def = (type: string, reward: number, waveUnlock: number, isBoss = false): EnemyDef =>
@@ -105,7 +105,7 @@ describe('buildWaveConfigs', () => {
 
   it('carries no bosses at all when bossesSeen is omitted (the legacy engine)', () => {
     const out = buildWaveConfigs(20, { enemies: registry, blockedEnemies: [], rng: () => 0 });
-    expect(out.some((c) => (MECHANIC_BOSSES as readonly string[]).includes(c.type))).toBe(false);
+    expect(out.some((c) => (SCHEDULABLE_BOSSES as readonly string[]).includes(c.type))).toBe(false);
   });
 
   it('schedules the boss onto a x10 wave and cuts the horde to make room', () => {
@@ -113,10 +113,12 @@ describe('buildWaveConfigs', () => {
     const withBoss = buildWaveConfigs(10, { ...base, bossesSeen: {} });
     const noBoss = buildWaveConfigs(10, base); // same wave, no boss scheduled
 
-    expect(withBoss.find((c) => (c.type as string) === 'jad')?.count).toBe(1);
+    // Wave 10 on a fresh account is due the *first* boss of the intro order — whichever
+    // that is. Naming one here would just re-break every time the ladder is re-ordered.
+    expect(withBoss.find((c) => (c.type as string) === SCHEDULABLE_BOSSES[0])?.count).toBe(1);
     // The rank-and-file are thinned: the boss is the act, not a surcharge on top.
     const rabble = (cs: { type: string; count: number }[]) =>
-      totalCount(cs.filter((c) => !(MECHANIC_BOSSES as readonly string[]).includes(c.type)));
+      totalCount(cs.filter((c) => !(SCHEDULABLE_BOSSES as readonly string[]).includes(c.type)));
     expect(rabble(withBoss)).toBeLessThan(rabble(noBoss));
   });
 });
@@ -131,8 +133,8 @@ describe('boss schedule', () => {
   });
 
   it('lists the unmet bosses in their intro order', () => {
-    expect(unseenBosses({})).toEqual([...MECHANIC_BOSSES]);
-    expect(unseenBosses({ [MECHANIC_BOSSES[0]]: 1 })).toEqual(MECHANIC_BOSSES.slice(1));
+    expect(unseenBosses({})).toEqual([...SCHEDULABLE_BOSSES]);
+    expect(unseenBosses({ [SCHEDULABLE_BOSSES[0]]: 1 })).toEqual(SCHEDULABLE_BOSSES.slice(1));
     expect(unseenBosses(ALL_SEEN)).toEqual([]);
   });
 
@@ -145,28 +147,28 @@ describe('boss schedule', () => {
 
   it('introduces the bosses in order to an account that has met none', () => {
     const seen: Record<string, number> = {};
-    for (let i = 0; i < MECHANIC_BOSSES.length; i++) {
+    for (let i = 0; i < SCHEDULABLE_BOSSES.length; i++) {
       const wave = BOSS_WAVE_INTERVAL * (i + 1);
-      expect(rollWaveBosses(wave, seen, () => 0)).toEqual([MECHANIC_BOSSES[i]]);
-      seen[MECHANIC_BOSSES[i]] = 1; // the player has now met it
+      expect(rollWaveBosses(wave, seen, () => 0)).toEqual([SCHEDULABLE_BOSSES[i]]);
+      seen[SCHEDULABLE_BOSSES[i]] = 1; // the player has now met it
     }
   });
 
   it('sends nothing on an off-schedule wave while a boss is still unmet', () => {
     // rng 0 would pass the extras chance — but extras are locked until all are met.
-    expect(rollWaveBosses(15, { [MECHANIC_BOSSES[0]]: 1 }, () => 0)).toEqual([]);
+    expect(rollWaveBosses(15, { [SCHEDULABLE_BOSSES[0]]: 1 }, () => 0)).toEqual([]);
   });
 
   it('adds no extras to a boss wave while a boss is still unmet', () => {
-    const seen = Object.fromEntries(MECHANIC_BOSSES.slice(0, -1).map((b) => [b, 1]));
+    const seen = Object.fromEntries(SCHEDULABLE_BOSSES.slice(0, -1).map((b) => [b, 1]));
     const out = rollWaveBosses(20, seen, () => 0);
-    expect(out).toEqual([MECHANIC_BOSSES.at(-1)]); // just the last unmet one
+    expect(out).toEqual([SCHEDULABLE_BOSSES.at(-1)]); // just the last unmet one
   });
 
   it('draws the scheduled boss at random once every boss has been met', () => {
     // rng 0 -> pool[0]; a high roll -> the last of the pool.
-    expect(rollWaveBosses(50, ALL_SEEN, seq(0, 0.99))).toEqual([MECHANIC_BOSSES[0]]);
-    expect(rollWaveBosses(50, ALL_SEEN, seq(0.99, 0.99))).toEqual([MECHANIC_BOSSES.at(-1)]);
+    expect(rollWaveBosses(50, ALL_SEEN, seq(0, 0.99))).toEqual([SCHEDULABLE_BOSSES[0]]);
+    expect(rollWaveBosses(50, ALL_SEEN, seq(0.99, 0.99))).toEqual([SCHEDULABLE_BOSSES.at(-1)]);
   });
 
   it('can bring extra bosses to a plain wave once every boss has been met', () => {
@@ -188,6 +190,6 @@ describe('boss schedule', () => {
     // Wave 20 is due one; the extras roll maxes out on top of it.
     const out = rollWaveBosses(20, ALL_SEEN, seq(0, 0, 0.99, 0, 0));
     expect(out.length).toBe(1 + EXTRA_BOSS_MAX);
-    expect(out.every((b) => (MECHANIC_BOSSES as readonly string[]).includes(b))).toBe(true);
+    expect(out.every((b) => (SCHEDULABLE_BOSSES as readonly string[]).includes(b))).toBe(true);
   });
 });

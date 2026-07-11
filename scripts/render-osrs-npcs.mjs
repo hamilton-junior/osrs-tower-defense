@@ -44,6 +44,7 @@ const TARGETS = {
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon
   superior_gargoyle: { npc: 7407, cullBelowGround: true }, // Marble gargoyle (drop red ground disc)
   superior_nechryael: { npc: 7411 },     // Nechryarch
+  giant_mole: { npc: 5779 },             // Giant Mole (boss)
   // NOTE: the spawn portal is no longer a model render — OSRS portals are mostly
   // animated spotanims, so a static render reads poorly. It's now drawn
   // procedurally as a swirling vortex in renderer.drawSpawnPortal.

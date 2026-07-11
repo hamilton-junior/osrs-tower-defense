@@ -1,6 +1,6 @@
 import type { EnemyDef, EnemyType } from '../types';
 import type { WaveConfig } from '../data/waves';
-import { MECHANIC_BOSSES } from './boss-mechanics';
+import { SCHEDULABLE_BOSSES } from './boss-mechanics';
 
 export interface BuildWaveOptions {
   /** Every enemy definition (e.g. `Object.values(ENEMIES)`). */
@@ -37,7 +37,7 @@ export function isBossWave(wave: number): boolean {
 
 /** Bosses never encountered, in the order they should be introduced. */
 export function unseenBosses(bossesSeen: Record<string, number>): EnemyType[] {
-  return MECHANIC_BOSSES.filter((b) => !bossesSeen[b]) as EnemyType[];
+  return SCHEDULABLE_BOSSES.filter((b) => !bossesSeen[b]) as EnemyType[];
 }
 
 /**
@@ -45,8 +45,8 @@ export function unseenBosses(bossesSeen: Record<string, number>): EnemyType[] {
  *
  * - Nothing before {@link BOSS_WAVE_INTERVAL}: the early game stays boss-free.
  * - Every 10th wave is due one boss. While any boss is still unmet it is the
- *   *next unmet* one, so a new account is introduced to them in order (Jad,
- *   Vorkath, Zulrah, Hydra on waves 10/20/30/40).
+ *   *next unmet* one, so a new account is introduced to them in `SCHEDULABLE_BOSSES`
+ *   order — which runs gentlest to hardest — one per boss wave.
  * - Once every boss has been met — `bossesSeen` is lifetime, so a veteran starts
  *   a fresh run already there — the scheduled boss is drawn at random instead,
  *   and *every* wave from wave 10 on rolls {@link EXTRA_BOSS_CHANCE} for
@@ -62,7 +62,7 @@ export function rollWaveBosses(
   rng: () => number,
 ): EnemyType[] {
   if (wave < BOSS_WAVE_INTERVAL) return [];
-  const pool = MECHANIC_BOSSES as readonly EnemyType[];
+  const pool = SCHEDULABLE_BOSSES as readonly EnemyType[];
   const unseen = unseenBosses(bossesSeen);
   const pick = () => pool[Math.floor(rng() * pool.length)];
   const out: EnemyType[] = [];

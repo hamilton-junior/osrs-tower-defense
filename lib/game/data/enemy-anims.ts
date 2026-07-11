@@ -16,8 +16,18 @@ export interface EnemyClip {
 export interface EnemyAnimSet {
   frameW: number;
   frameH: number;
-  /** `walk` is required (the default loop); `hurt`/`death` are optional. */
-  clips: { walk: EnemyClip; hurt?: EnemyClip; death?: EnemyClip };
+  /**
+   * `walk` is required (the default loop); the rest are optional one-shots.
+   * `burrow`/`emerge` are the Giant Mole's dig and surface clips — a boss whose
+   * mechanic *is* an animation, so it plays the real OSRS ones.
+   */
+  clips: {
+    walk: EnemyClip;
+    hurt?: EnemyClip;
+    death?: EnemyClip;
+    burrow?: EnemyClip;
+    emerge?: EnemyClip;
+  };
 }
 
 // The table itself is generated from the baked manifests (one entry per enemy);

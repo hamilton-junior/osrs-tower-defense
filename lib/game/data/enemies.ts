@@ -309,7 +309,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     // A mechanic boss (chemical vents / burst check): HP sits between Zulrah's
     // 1500 and Vorkath's 2250 so its vent windows have something to chew on.
     // `isBoss` also takes it out of the random spawn pool (wave-generation filters
-    // bosses out) — it now appears only on its landmark waves.
+    // bosses out) — bosses arrive on the schedule instead (see `rollWaveBosses`).
     hp: 1800,
     speed: 30,
     color: '#006400',
@@ -317,6 +317,24 @@ export const ENEMIES: Record<string, EnemyDef> = {
     deathSound: 'boss',
     isBoss: true,
     resistance: 0.45
+  },
+  giant_mole: {
+    type: 'giant_mole',
+    // The mole model is low and squat; scale up so it reads as a boss on the field.
+    renderScale: 1.4,
+    name: 'Giant Mole',
+    // The gentlest boss, and the one a fresh account meets first (wave 10). Its HP
+    // sits under Jad's 750 because the burrow already buys it survival: every cycle
+    // it spends ~1s untouchable and skips the stretch you fortified. It is quick —
+    // a mole that dawdled would never threaten anything — but each burrow also
+    // pins it in place for the dig and the climb out, so the speed is paid for.
+    hp: 700,
+    speed: 40,
+    color: '#6b4f36',
+    reward: 380,
+    deathSound: 'boss',
+    isBoss: true,
+    resistance: 0.3
   },
   superior_bloodveld: {
     type: 'superior_bloodveld',
@@ -379,7 +397,7 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   // Earth — giants, dragons, stone & reptiles
   goblin: 'earth', hill_giant: 'earth', gargoyle: 'earth', superior_gargoyle: 'earth',
   blue_dragon: 'earth', green_dragon: 'earth', vorkath: 'earth', hydra: 'earth',
-  bloodveld: 'earth', superior_bloodveld: 'earth',
+  bloodveld: 'earth', superior_bloodveld: 'earth', giant_mole: 'earth',
   // Air — agile, magical & ethereal
   rat: 'air', ghost: 'air', skeletal_mage: 'air', dark_beast: 'air', zulrah: 'air',
 };

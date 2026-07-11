@@ -44,6 +44,8 @@ import {
   hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraIsEnraged, hydraZapChain,
   HYDRA_VENT_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT,
   HYDRA_ZAP_CHAIN, HYDRA_ZAP_DISABLE_SECS, HYDRA_ENRAGE_ZAP_SECS,
+  moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
+  MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
   MECHANIC_BOSSES,
   type BossId,
 } from '../systems/boss-mechanics';
@@ -364,8 +366,11 @@ function sanitizeCardCounts(raw: unknown): Record<string, number> {
 const JAD_HEALER_ORBIT = 82;
 const HEALER_ORBIT_DRIFT = 0.5;
 
-/** Clean a persisted "bosses seen" blob: keep only the three mechanic bosses
- *  flagged true, so a corrupt/stale save can't gate modifiers on bad data. */
+/** Kicked-up earth: the Giant Mole's dig, mound and surfacing all read in this. */
+const MOLE_DUST = '#8a6b47';
+
+/** Clean a persisted "bosses seen" blob: keep only the mechanic bosses flagged true,
+ *  so a corrupt/stale save can't gate modifiers on bad data. */
 function sanitizeBossesSeen(raw: unknown): Record<string, number> {
   const out: Record<string, number> = {};
   if (raw && typeof raw === 'object') {
@@ -1797,7 +1802,76 @@ export class GameEngine {
         this.updateJad(e, dt);
       } else if (st.kind === 'hydra') {
         this.updateHydra(e, dt);
+      } else if (st.kind === 'giant_mole') {
+        this.updateMole(e, dt);
       }
+    }
+  }
+
+  /**
+   * Giant Mole: the mobility check. It walks for a while, then **burrows** — the real
+   * OSRS dig animation, a beat underground where it is invisible, untargetable and
+   * immune, and the surface animation several waypoints further along. It skips the
+   * stretch you fortified, so a board that funnels everything into one kill-box watches
+   * it reappear *past* the box.
+   *
+   * The fairness is in the guardrail and the tell: it will not dig once the final
+   * approach is all that is left (`moleCanBurrow`), and while it is under, the churning
+   * mound is drawn at the spot it will surface — so the player can see the reposition
+   * coming and has the dig, the climb-out and the mound to shoot at. Below a quarter of
+   * its health it digs more often. Cycle maths live in `systems/boss-mechanics`.
+   */
+  private updateMole(e: Enemy, dt: number) {
+    const st = e.bossState!;
+    st.moleTimer = (st.moleTimer ?? 0) - dt;
+    if (st.moleTimer > 0) return;
+
+    if (st.molePhase === 'above') {
+      // Nothing to gain (it's on the final approach, or the dig would barely move it) —
+      // it walks the rest out. Re-arm rather than special-case: it only ever gets
+      // closer to the base, so this simply keeps returning null.
+      const target = moleBurrowTarget(this.path, e.pathIndex, e.x, e.y);
+      if (!target) {
+        st.moleTimer = moleBurrowInterval(e.hp / e.maxHp);
+        return;
+      }
+      st.molePhase = 'dig';
+      st.moleTimer = MOLE_DIG_SECS;
+      this.addRing(e.x, e.y, 4, 42, MOLE_DUST, 0.6, 4);
+      this.sound.play('wave', 45);
+      this.notify('The Giant Mole starts digging!');
+    } else if (st.molePhase === 'dig') {
+      // Under it goes — and it comes up somewhere else. Moving it *now* (rather than on
+      // surfacing) is what keeps it un-hittable in transit, and it puts the mound
+      // telegraph at the destination for the whole underground beat. `null` can't
+      // happen here (the `above` branch already checked), but if the road ever changed
+      // mid-dig, standing still is the safe answer.
+      const target = moleBurrowTarget(this.path, e.pathIndex, e.x, e.y);
+      st.molePhase = 'under';
+      st.moleTimer = MOLE_UNDER_SECS;
+      st.immune = true; // `bossStyleMult` short-circuits to 0 (shared with Vorkath's ice)
+      // Drop it from every tower that had it locked. `fireTowers` would re-acquire on
+      // its next pass anyway (`inReach` rejects a hidden Mole), but it runs *before*
+      // this in the frame, so without the sweep a tower keeps its aim on a hole in the
+      // ground for a frame and burns a shot into it for zero damage.
+      for (const t of this.towers) if (t.targetId === e.id) t.targetId = null;
+      this.addRing(e.x, e.y, 6, 34, MOLE_DUST, 0.7, 5); // the hole it leaves behind
+      if (target) {
+        e.pathIndex = target.pathIndex;
+        e.x = target.x;
+        e.y = target.y;
+      }
+    } else if (st.molePhase === 'under') {
+      st.molePhase = 'emerge';
+      st.moleTimer = MOLE_EMERGE_SECS;
+      st.immune = false; // climbing out: hittable again, and it has not moved yet
+      st.burrows = (st.burrows ?? 0) + 1;
+      this.addRing(e.x, e.y, 4, 48, MOLE_DUST, 0.6, 5);
+      this.sound.play('wave', 55);
+      this.notify('The Giant Mole surfaces ahead!');
+    } else {
+      st.molePhase = 'above';
+      st.moleTimer = moleBurrowInterval(e.hp / e.maxHp);
     }
   }
 
@@ -2210,6 +2284,10 @@ export class GameEngine {
         e.stunTimer -= dt;
         continue; // Earth/Shadow stun: frozen in place this frame
       }
+      // The Giant Mole holds still for its whole burrow cycle — it digs in, travels
+      // underground (the jump is a teleport in `updateMole`, not a walk), and climbs
+      // back out. Walking through any of that would slide the animation across the map.
+      if (moleIsBurrowing(e.bossState)) continue;
       const target = this.path[e.pathIndex + 1];
       if (!target) {
         // reached the end → leak lives (debug/sandbox enemies leak harmlessly).
@@ -2277,8 +2355,11 @@ export class GameEngine {
       const half = squareRange(stats.range, GRID);
       // Test the enemy's body, not just its centre, so a tower fires as soon as
       // an enemy overlaps its range square (e.g. when the road clips the edge).
-      // Already-doomed enemies are excluded so the tower looks past them.
-      const inReach = (e: Enemy) => !doomed(e) && inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e));
+      // Already-doomed enemies are excluded so the tower looks past them, and so is a
+      // Giant Mole that is underground — it takes no damage there, and a tower emptying
+      // its cooldowns into a hole in the ground would be pure waste, not a mechanic.
+      const inReach = (e: Enemy) =>
+        !doomed(e) && !moleIsHidden(e.bossState) && inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e));
 
       // (re)acquire a target
       let target = tower.targetId ? this.enemies.find(e => e.id === tower.targetId) : undefined;

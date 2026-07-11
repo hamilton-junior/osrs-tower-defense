@@ -251,5 +251,15 @@
       "walk": 6372,
       "death": 6369
     }
+  },
+  "giant_mole": {
+    "npc": 5779,
+    "anims": {
+      "walk": 3313,
+      "hurt": 3311,
+      "death": 3322,
+      "burrow": 3314,
+      "emerge": 3315
+    }
   }
 }

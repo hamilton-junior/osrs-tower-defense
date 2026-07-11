@@ -8,7 +8,7 @@ import { MovablePanel } from './MovablePanel';
 import { EnemyModelViewer } from './EnemyModelViewer';
 import type { EnemyType } from '@/lib/game/types';
 import { ALL_AFFIXES, AFFIX_DEFS, type EnemyAffix } from '@/lib/game/systems/affixes';
-import { MECHANIC_BOSSES } from '@/lib/game/systems/boss-mechanics';
+import { SCHEDULABLE_BOSSES } from '@/lib/game/systems/boss-mechanics';
 
 const CLIP_NAMES = ['walk', 'hurt', 'death'] as const;
 type ClipName = (typeof CLIP_NAMES)[number];
@@ -327,7 +327,7 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
             </button>
             <div className="text-[0.66em] text-[#cdbe91] mb-[0.3em]">Spawn boss (with selected modifiers):</div>
             <div className="flex gap-[0.4em]">
-              {MECHANIC_BOSSES.map((b) => (
+              {SCHEDULABLE_BOSSES.map((b) => (
                 <button
                   key={b}
                   disabled={ui.waveActive}
