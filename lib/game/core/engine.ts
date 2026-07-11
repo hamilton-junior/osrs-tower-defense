@@ -1602,6 +1602,9 @@ export class GameEngine {
       // Seed the active Slayer-task target so its enemies keep spawning —
       // the fail-safe against a task whose monster has dropped out of waves.
       slayerTask: this.slayer.task,
+      // Drives the boss schedule: which boss is still unmet (so a new account meets
+      // them in order), and whether the random / extra-boss endgame has unlocked.
+      bossesSeen: this.bossesSeen,
     });
     this.previewCache = { wave: this.wave, task: taskType, configs };
     return configs;

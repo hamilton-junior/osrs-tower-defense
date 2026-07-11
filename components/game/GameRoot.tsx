@@ -1447,7 +1447,9 @@ export default function GameRoot() {
                         <span key={m.type} className="flex items-center gap-[0.3em]" title={m.name}>
                           <span className="inline-block w-[2.2em] h-[2.2em] shrink-0" style={style ? { ...style, imageRendering: 'pixelated' } : undefined} />
                           <span className={`text-[0.8em] ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}>
-                            {m.isBoss ? `⚠ ${m.name}` : `×${m.count}`}
+                            {/* A wave can now carry more than one of the same boss (the
+                                extra-boss roll), so a boss shows its count too once it stacks. */}
+                            {m.isBoss ? `⚠ ${m.name}${m.count > 1 ? ` ×${m.count}` : ''}` : `×${m.count}`}
                           </span>
                         </span>
                       );

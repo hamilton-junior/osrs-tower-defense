@@ -1,5 +1,6 @@
 import type { EnemyDef, EnemyType } from '../types';
 import type { WaveConfig } from '../data/waves';
+import { MECHANIC_BOSSES } from './boss-mechanics';
 
 export interface BuildWaveOptions {
   /** Every enemy definition (e.g. `Object.values(ENEMIES)`). */
@@ -10,8 +11,70 @@ export interface BuildWaveOptions {
   slayerTask?: { type: EnemyType; count: number } | null;
   /** Fixed config for a landmark wave; when present it is used verbatim. */
   landmark?: WaveConfig[];
+  /** Lifetime boss sightings (the engine's persisted `bossesSeen`). Omit it and the
+   *  wave carries no bosses at all — the legacy engine relies on that. */
+  bossesSeen?: Record<string, number>;
   /** Injectable RNG for deterministic tests. */
   rng?: () => number;
+}
+
+// ────────────────────────────── boss schedule ──────────────────────────────
+/** A boss headlines every Nth wave — and no boss ever appears before the first one. */
+export const BOSS_WAVE_INTERVAL = 10;
+/** Once every boss has been met, each wave rolls this chance to bring *extra*
+ *  bosses on top of the one it was already due (a plain wave is due none). */
+export const EXTRA_BOSS_CHANCE = 0.15;
+/** How many extras that roll can bring: uniformly 0..this, so it can come up dry. */
+export const EXTRA_BOSS_MAX = 2;
+/** The rank-and-file budget is cut on any wave carrying a boss — the boss is the
+ *  act, and the horde should not punish the player twice for the same wave. */
+export const BOSS_WAVE_HORDE_MULT = 0.6;
+
+/** Whether `wave` is due its scheduled boss. */
+export function isBossWave(wave: number): boolean {
+  return wave > 0 && wave % BOSS_WAVE_INTERVAL === 0;
+}
+
+/** Bosses never encountered, in the order they should be introduced. */
+export function unseenBosses(bossesSeen: Record<string, number>): EnemyType[] {
+  return MECHANIC_BOSSES.filter((b) => !bossesSeen[b]) as EnemyType[];
+}
+
+/**
+ * The bosses a wave brings.
+ *
+ * - Nothing before {@link BOSS_WAVE_INTERVAL}: the early game stays boss-free.
+ * - Every 10th wave is due one boss. While any boss is still unmet it is the
+ *   *next unmet* one, so a new account is introduced to them in order (Jad,
+ *   Vorkath, Zulrah, Hydra on waves 10/20/30/40).
+ * - Once every boss has been met — `bossesSeen` is lifetime, so a veteran starts
+ *   a fresh run already there — the scheduled boss is drawn at random instead,
+ *   and *every* wave from wave 10 on rolls {@link EXTRA_BOSS_CHANCE} for
+ *   0..{@link EXTRA_BOSS_MAX} extra bosses beyond what it was due. A plain wave
+ *   was due none, so that roll is how a boss shows up off-schedule.
+ *
+ * Pure: the same `rng` yields the same bosses, which is what lets the Start Wave
+ * preview promise exactly what will spawn.
+ */
+export function rollWaveBosses(
+  wave: number,
+  bossesSeen: Record<string, number>,
+  rng: () => number,
+): EnemyType[] {
+  if (wave < BOSS_WAVE_INTERVAL) return [];
+  const pool = MECHANIC_BOSSES as readonly EnemyType[];
+  const unseen = unseenBosses(bossesSeen);
+  const pick = () => pool[Math.floor(rng() * pool.length)];
+  const out: EnemyType[] = [];
+
+  if (isBossWave(wave)) out.push(unseen.length ? unseen[0] : pick());
+
+  // Extras are the endgame regime — they only unlock once nothing is left to meet.
+  if (!unseen.length && rng() < EXTRA_BOSS_CHANCE) {
+    const extra = Math.floor(rng() * (EXTRA_BOSS_MAX + 1)); // 0..MAX, so it can whiff
+    for (let i = 0; i < extra; i++) out.push(pick());
+  }
+  return out;
 }
 
 /**
@@ -52,10 +115,16 @@ export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveC
     }
   }
 
+  // Bosses are scheduled, not bought: they never come out of the threat budget
+  // (`spawnable` filters them out below), they *shrink* it.
+  const bosses = opts.bossesSeen ? rollWaveBosses(waveNum, opts.bossesSeen, rng) : [];
+  for (const b of bosses) addToConfig(b, 1);
+
   // Landmark waves: the fixed set plus the seed, nothing else.
   if (opts.landmark) return configs;
 
   let remainingBudget = 15 + waveNum * 12 - seedThreat;
+  if (bosses.length) remainingBudget = Math.round(remainingBudget * BOSS_WAVE_HORDE_MULT);
 
   const spawnable = opts.enemies.filter(
     e => !e.isBoss && (e.waveUnlock || 1) <= waveNum && !opts.blockedEnemies.includes(e.type),
