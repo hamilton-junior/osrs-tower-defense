@@ -305,13 +305,18 @@ export const ENEMIES: Record<string, EnemyDef> = {
   hydra: {
     type: 'hydra',
     renderScale: 1.5,
-    name: 'Hydra',
-    hp: 300,
+    name: 'Alchemical Hydra',
+    // A mechanic boss (chemical vents / burst check): HP sits between Zulrah's
+    // 1500 and Vorkath's 2250 so its vent windows have something to chew on.
+    // `isBoss` also takes it out of the random spawn pool (wave-generation filters
+    // bosses out) — it now appears only on its landmark waves.
+    hp: 1800,
     speed: 30,
     color: '#006400',
-    reward: 100,
-    deathSound: 'dragon',
-    waveUnlock: 15
+    reward: 750,
+    deathSound: 'boss',
+    isBoss: true,
+    resistance: 0.45
   },
   superior_bloodveld: {
     type: 'superior_bloodveld',

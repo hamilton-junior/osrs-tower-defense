@@ -7,7 +7,7 @@ import { TOWERS } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
-import { ZULRAH_PHASES } from '../systems/boss-mechanics';
+import { ZULRAH_PHASES, hydraPhase, hydraBreakTarget, HYDRA_VENT_SECS } from '../systems/boss-mechanics';
 
 const GRID = 32;
 
@@ -721,11 +721,39 @@ export class GameRenderer {
     } else if (st?.kind === 'jad' && boss.hp <= boss.maxHp * 0.5 && this.e.enemies.some(en => en.healer)) {
       caption = 'Healers active — kill them!';
       capColor = '#7dff9a';
+    } else if (st?.kind === 'hydra') {
+      const phase = hydraPhase(st.shattered ?? 0);
+      if (st.venting) {
+        caption = 'CHEMICAL VENT — break it!';
+        capColor = '#b6ff6a';
+      } else if (st.enraged) {
+        caption = 'ENRAGED!';
+        capColor = '#ff7a4c';
+      } else {
+        caption = `${phase.name} phase`;
+        capColor = phase.color;
+      }
     }
     if (caption) {
       ctx.font = "bold 12px 'RuneScape', Arial";
       ctx.fillStyle = capColor;
       ctx.fillText(caption, w / 2, y + barH + 11);
+    }
+    // The Hydra's break bar: how close the landed damage is to shattering the open
+    // vent. It sits right under the caption, so the player watches one thing.
+    if (st?.kind === 'hydra' && st.venting) {
+      const p = Math.min(1, (st.ventDamage ?? 0) / hydraBreakTarget(boss.maxHp));
+      const bh = 5;
+      const by2 = y + barH + 18;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(x - 1, by2 - 1, barW + 2, bh + 2);
+      ctx.fillStyle = '#1d2a12';
+      ctx.fillRect(x, by2, barW, bh);
+      ctx.fillStyle = '#b6ff6a';
+      ctx.fillRect(x, by2, barW * p, bh);
+      ctx.strokeStyle = '#c8a44a';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, by2, barW, bh);
     }
     ctx.textBaseline = 'alphabetic';
     ctx.restore();
@@ -1041,10 +1069,13 @@ export class GameRenderer {
         if (flash > 0) {
           this.drawFlashTint(ctx, img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds, flash);
         }
-        // Zulrah form tint: recolour the serpent to its current phase (green /
-        // blue / red) so the player reads which style it's weak to at a glance.
+        // Boss phase tint: recolour the body to its current phase. Zulrah's form
+        // says which style it's weak to; the Hydra's chemical colour says how many
+        // vents you've broken — both readable at a glance without the caption.
         const zc = e.bossState?.kind === 'zulrah'
-          ? ZULRAH_PHASES[e.bossState.phaseIndex % ZULRAH_PHASES.length].color : null;
+          ? ZULRAH_PHASES[e.bossState.phaseIndex % ZULRAH_PHASES.length].color
+          : e.bossState?.kind === 'hydra'
+            ? hydraPhase(e.bossState.shattered ?? 0).color : null;
         if (zc) this.drawFlashTint(ctx, img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds, 0.6, zc);
         ctx.restore();
       } else if (this.e.imageOk(e.type)) {
@@ -1122,6 +1153,27 @@ export class GameRenderer {
             ctx.lineTo(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r);
             ctx.stroke();
           }
+          ctx.restore();
+        } else if (st.kind === 'hydra' && st.venting) {
+          // Chemical vent: an acid-green haze with bubbling motes, and a ring that
+          // drains anticlockwise as the window runs out — the player's break timer.
+          const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
+          const r = size * 0.66;
+          ctx.save();
+          const g = ctx.createRadialGradient(e.x, e.y, r * 0.35, e.x, e.y, r);
+          g.addColorStop(0, 'rgba(150,255,90,0)');
+          g.addColorStop(1, `rgba(150,255,90,${0.2 + pulse * 0.18})`);
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+          ctx.fill();
+          // The window timer, drawn as the ring's remaining arc.
+          const left = Math.max(0, Math.min(1, (st.ventTimer ?? 0) / HYDRA_VENT_SECS));
+          ctx.strokeStyle = `rgba(182,255,106,${0.75 + pulse * 0.25})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, r, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
+          ctx.stroke();
           ctx.restore();
         }
       }

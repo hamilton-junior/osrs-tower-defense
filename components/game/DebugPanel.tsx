@@ -8,9 +8,7 @@ import { MovablePanel } from './MovablePanel';
 import { EnemyModelViewer } from './EnemyModelViewer';
 import type { EnemyType } from '@/lib/game/types';
 import { ALL_AFFIXES, AFFIX_DEFS, type EnemyAffix } from '@/lib/game/systems/affixes';
-
-/** Bosses that carry phase mechanics (and can be force-spawned with modifiers). */
-const MECHANIC_BOSSES: readonly EnemyType[] = ['jad', 'vorkath', 'zulrah'];
+import { MECHANIC_BOSSES } from '@/lib/game/systems/boss-mechanics';
 
 const CLIP_NAMES = ['walk', 'hurt', 'death'] as const;
 type ClipName = (typeof CLIP_NAMES)[number];

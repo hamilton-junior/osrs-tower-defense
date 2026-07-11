@@ -19,6 +19,10 @@ export const LANDMARK_WAVES: Record<number, WaveConfig[]> = {
   20: [{ type: 'vorkath', count: 1 }, { type: 'blue_dragon', count: 5 }],
   30: [{ type: 'zulrah', count: 1 }, { type: 'green_dragon', count: 10 }],
   40: [{ type: 'zulrah', count: 1 }, { type: 'nechryael', count: 10 }],
+  // The Hydra's debut. `bossesSeen` makes a first sighting vanilla (no affixes),
+  // so this is where the player learns to break its vents; it returns on 100 with
+  // modifiers rolled.
+  45: [{ type: 'hydra', count: 1 }, { type: 'hellhound', count: 12 }],
   50: [{ type: 'vorkath', count: 1 }, { type: 'abyssal_demon', count: 10 }],
   60: [{ type: 'jad', count: 1 }, { type: 'dark_beast', count: 10 }],
   100: [{ type: 'hydra', count: 1 }, { type: 'dark_beast', count: 20 }]

@@ -41,6 +41,10 @@ import {
   ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION,
   JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS,
   JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN,
+  hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraIsEnraged, hydraZapChain,
+  HYDRA_VENT_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT,
+  HYDRA_ZAP_CHAIN, HYDRA_ZAP_DISABLE_SECS, HYDRA_ENRAGE_ZAP_SECS,
+  MECHANIC_BOSSES,
   type BossId,
 } from '../systems/boss-mechanics';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
@@ -354,8 +358,6 @@ function sanitizeCardCounts(raw: unknown): Record<string, number> {
   return out;
 }
 
-/** Boss types that carry phase mechanics (and can roll modifiers once seen). */
-const MECHANIC_BOSSES: readonly BossId[] = ['jad', 'vorkath', 'zulrah'];
 
 /** Jad-healer follow: orbit radius (px) they hold around Jad, and how fast that
  *  orbit slot drifts (rad/s) so they circle him while trailing at a set distance. */
@@ -1790,8 +1792,106 @@ export class GameEngine {
         this.updateVorkath(e, dt);
       } else if (st.kind === 'jad') {
         this.updateJad(e, dt);
+      } else if (st.kind === 'hydra') {
+        this.updateHydra(e, dt);
       }
     }
+  }
+
+  /**
+   * Alchemical Hydra: the burst check. At each HP threshold it opens a chemical
+   * vent — hardened (x0.2 damage, see `bossStyleMult`) and regenerating — and the
+   * player has a short window to land enough damage to shatter it. Shattering
+   * advances the phase, arcs lightning through a line of towers, and leaves the
+   * Hydra briefly vulnerable. Failing lets the banked heal stand, and knocking it
+   * back down simply re-opens the vent: a stall, never a wipe. Below a tenth of
+   * its health it enrages. Vent/phase maths live in `systems/boss-mechanics`.
+   */
+  private updateHydra(e: Enemy, dt: number) {
+    const st = e.bossState!;
+    const frac = e.hp / e.maxHp;
+
+    if (st.venting) {
+      // Regenerate while the vent holds, and check the break target.
+      e.hp = Math.min(e.maxHp, e.hp + hydraVentHeal(e.maxHp, dt));
+      st.ventTimer = (st.ventTimer ?? 0) - dt;
+      if ((st.ventDamage ?? 0) >= hydraBreakTarget(e.maxHp)) this.shatterHydraVent(e);
+      else if (st.ventTimer <= 0) {
+        // Window closed unbroken: the heal it banked stands and the vent seals.
+        st.venting = false;
+        st.ventDamage = 0;
+        this.notify('The Hydra seals its vent — not enough damage!');
+        this.addRing(e.x, e.y, 40, 6, hydraPhase(st.shattered ?? 0).color, 0.45, 3);
+      }
+    } else if (hydraShouldVent(frac, st.shattered ?? 0, false)) {
+      st.venting = true;
+      st.ventTimer = HYDRA_VENT_SECS;
+      st.ventDamage = 0;
+      this.notify('The Hydra vents chemicals — break it!');
+      this.addRing(e.x, e.y, 8, 64, '#b6ff6a', 0.55, 4);
+      this.sound.play('hit', 65);
+    }
+
+    // Enrage: the final phase. Raise `baseSpeed` (not `speed`) so slows keep
+    // working — they recompute off it — and leave `naturalSpeed` alone so the UI
+    // correctly reads the Hydra as hastened.
+    if (!st.enraged && hydraIsEnraged(frac)) {
+      st.enraged = true;
+      st.zapTimer = HYDRA_ENRAGE_ZAP_SECS;
+      e.baseSpeed = Math.round(e.baseSpeed * HYDRA_ENRAGE_SPEED_MULT);
+      if (e.slowTimer <= 0) e.speed = e.baseSpeed;
+      this.notify('The Hydra enrages!');
+      this.addRing(e.x, e.y, 10, 84, '#d4452f', 0.6, 5);
+      this.sound.play('wave', 70);
+    }
+    // While enraged the lightning stops waiting for a shatter and fires on a cadence.
+    if (st.enraged) {
+      st.zapTimer = (st.zapTimer ?? HYDRA_ENRAGE_ZAP_SECS) - dt;
+      if (st.zapTimer <= 0) {
+        st.zapTimer = HYDRA_ENRAGE_ZAP_SECS;
+        const zapped = this.hydraZap(e);
+        if (zapped) this.notify(`Hydra lightning disables ${zapped} tower${zapped > 1 ? 's' : ''}!`);
+      }
+    }
+  }
+
+  /** A vent breaks: advance the phase, zap a line of towers, and open a short
+   *  vulnerability window as the reward for the burst. */
+  private shatterHydraVent(e: Enemy) {
+    const st = e.bossState!;
+    st.venting = false;
+    st.ventDamage = 0;
+    st.shattered = (st.shattered ?? 0) + 1;
+    e.vulnTimer = Math.max(e.vulnTimer ?? 0, HYDRA_SHATTER_VULN_SECS);
+    const phase = hydraPhase(st.shattered);
+    this.addRing(e.x, e.y, 6, 90, phase.color, 0.6, 5);
+    this.sound.play('wave', 60);
+    // One notice, not two: the zap fires in this same frame, and a second notify()
+    // would overwrite the first before the toast ever renders.
+    const zapped = this.hydraZap(e);
+    this.notify(zapped
+      ? `${phase.name} phase — lightning disables ${zapped} tower${zapped > 1 ? 's' : ''}!`
+      : `The Hydra's vent shatters — ${phase.name} phase!`);
+  }
+
+  /** Chain lightning: arc through the nearest towers, disabling each. Vorkath
+   *  freezes a single tower on a long timer; the Hydra takes out a *line* of
+   *  them — and it fires exactly when the player is winning. Returns how many it
+   *  hit; the caller owns the notice (see {@link shatterHydraVent}). */
+  private hydraZap(e: Enemy): number {
+    const chain = hydraZapChain(this.towers, e.x, e.y, HYDRA_ZAP_CHAIN);
+    if (!chain.length) return 0;
+    let fromX = e.x;
+    let fromY = e.y;
+    for (const t of chain) {
+      this.addBolt(fromX, fromY, t.x, t.y, '#9fd8ff', 0.3);
+      this.addRing(t.x, t.y, 3, 22, '#9fd8ff', 0.4, 3);
+      t.disabledTimer = Math.max(t.disabledTimer, HYDRA_ZAP_DISABLE_SECS);
+      fromX = t.x;
+      fromY = t.y;
+    }
+    this.sound.play('hit', 70);
+    return chain.length;
   }
 
   /** Vorkath: alternate a vulnerable window and a short ice shield. When the
@@ -2962,6 +3062,12 @@ export class GameEngine {
     // Jad: remember damage that actually landed, for the Yt-HurKot heal window.
     if (dealt > 0 && enemy.bossState?.kind === 'jad') {
       (enemy.bossState.recentDamage ??= []).push({ t: this.gameTime, amount: dealt });
+    }
+    // Hydra: damage landed during an open vent counts toward shattering it. It is
+    // the *landed* (already hardened) figure, so the break bar the player watches
+    // fill is the damage they actually see land.
+    if (dealt > 0 && enemy.bossState?.kind === 'hydra' && enemy.bossState.venting) {
+      enemy.bossState.ventDamage = (enemy.bossState.ventDamage ?? 0) + dealt;
     }
     // Executioner relic: a non-boss reduced to a sliver is slain outright (bosses,
     // their phases, and Jad's healers are immune).
