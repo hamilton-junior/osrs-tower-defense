@@ -45,6 +45,8 @@ const TARGETS = {
   superior_gargoyle: { npc: 7407, cullBelowGround: true }, // Marble gargoyle (drop red ground disc)
   superior_nechryael: { npc: 7411 },     // Nechryarch
   giant_mole: { npc: 5779 },             // Giant Mole (boss)
+  dusk: { npc: 7851 },                   // Grotesque Guardians — Dusk (boss)
+  dawn: { npc: 7852 },                   // Grotesque Guardians — Dawn (boss, arrives with Dusk)
   // NOTE: the spawn portal is no longer a model render — OSRS portals are mostly
   // animated spotanims, so a static render reads poorly. It's now drawn
   // procedurally as a swirling vortex in renderer.drawSpawnPortal.

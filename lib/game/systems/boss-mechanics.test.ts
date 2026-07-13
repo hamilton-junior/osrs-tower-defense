@@ -38,6 +38,12 @@ import {
   moleBurrowTarget,
   moleIsHidden,
   moleIsBurrowing,
+  isGuardian,
+  guardianTwin,
+  guardianReviveHp,
+  GUARDIAN_LINK_DAMAGE_MULT,
+  GUARDIAN_REVIVE_SECS,
+  GUARDIAN_REVIVE_HP_FRAC,
 } from './boss-mechanics';
 import { pathTotalLength, remainingPathDistance } from './geometry';
 
@@ -357,5 +363,66 @@ describe('Giant Mole burrow', () => {
     expect(a).not.toBeNull();
     expect(b).not.toBeNull();
     expect(a.x).toBeCloseTo(b.x); // it travels the same distance on both
+  });
+});
+
+describe('Grotesque Guardians', () => {
+  it('knows its own, and only its own', () => {
+    expect(isGuardian('dusk')).toBe(true);
+    expect(isGuardian('dawn')).toBe(true);
+    expect(isGuardian('jad')).toBe(false);
+    expect(isGuardian(undefined)).toBe(false);
+  });
+
+  it('pairs each twin with the other', () => {
+    expect(guardianTwin('dusk')).toBe('dawn');
+    expect(guardianTwin('dawn')).toBe('dusk');
+    expect(guardianTwin('hydra')).toBeUndefined();
+  });
+
+  it('seeds a fresh Guardian knowing who it arrives with', () => {
+    expect(freshBossState('dusk').twinType).toBe('dawn');
+    expect(freshBossState('dawn').twinType).toBe('dusk');
+    expect(freshBossState('dusk').linked).toBeFalsy(); // the engine links them on summon
+  });
+
+  it('only Dusk can be drawn by a wave — Dawn never arrives alone', () => {
+    expect(SCHEDULABLE_BOSSES).toContain('dusk');
+    expect(SCHEDULABLE_BOSSES).not.toContain('dawn');
+    // ...but she still carries phase state, which is exactly why the two lists differ.
+    expect(MECHANIC_BOSSES).toContain('dawn');
+  });
+
+  it('halves damage while the pair stands, and stops halving the moment one falls', () => {
+    const st = freshBossState('dusk');
+    st.linked = true;
+    for (const style of ['melee', 'ranged', 'magic'] as const) {
+      expect(bossStyleMult(st, style)).toBe(GUARDIAN_LINK_DAMAGE_MULT);
+    }
+    // Styleless DoT is halved too: the pair asks about kill order, and letting poison
+    // slip past the link would answer the question for free.
+    expect(bossStyleMult(st, undefined)).toBe(GUARDIAN_LINK_DAMAGE_MULT);
+
+    st.linked = false; // its twin is down — it takes everything now
+    expect(bossStyleMult(st, 'melee')).toBe(1);
+  });
+
+  it('applies the link to both halves, not just Dusk', () => {
+    const dawn = freshBossState('dawn');
+    dawn.linked = true;
+    expect(bossStyleMult(dawn, 'magic')).toBe(GUARDIAN_LINK_DAMAGE_MULT);
+  });
+
+  it('brings a twin back on half health, never on zero', () => {
+    expect(guardianReviveHp(1100)).toBe(Math.round(1100 * GUARDIAN_REVIVE_HP_FRAC));
+    expect(guardianReviveHp(1)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('makes splitting them a real trade: half damage, or a clock', () => {
+    // The design in one assertion — the link must be worth breaking (a real mitigation)
+    // and the punishment for breaking it badly must be a finite race, not a wipe.
+    expect(GUARDIAN_LINK_DAMAGE_MULT).toBeLessThan(1);
+    expect(GUARDIAN_REVIVE_SECS).toBeGreaterThan(0);
+    expect(GUARDIAN_REVIVE_HP_FRAC).toBeLessThan(1); // a revived twin comes back hurt
   });
 });

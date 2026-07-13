@@ -336,6 +336,37 @@ export const ENEMIES: Record<string, EnemyDef> = {
     isBoss: true,
     resistance: 0.3
   },
+  dusk: {
+    type: 'dusk',
+    renderScale: 1.35,
+    name: 'Dusk',
+    // Half of the Grotesque Guardians, and the half a wave actually draws — he brings
+    // Dawn with him. Their HP is set *per statue*, so the pair is ~2200 between them,
+    // in Vorkath's league. It has to be split-able: the whole fight is about bleeding
+    // both down together, which a single fat HP bar could never ask for.
+    hp: 1100,
+    speed: 22,
+    color: '#6d7a5e',
+    deathSound: 'boss',
+    isBoss: true,
+    reward: 480,
+    resistance: 0.4
+  },
+  dawn: {
+    type: 'dawn',
+    renderScale: 1.35,
+    name: 'Dawn',
+    // Never scheduled on her own (she is not in SCHEDULABLE_BOSSES) — Dusk summons her.
+    // She flies, so she is the faster of the two, and the one that runs away with the
+    // lead if you let the link stand.
+    hp: 1100,
+    speed: 28,
+    color: '#8f7fbf',
+    deathSound: 'boss',
+    isBoss: true,
+    reward: 480,
+    resistance: 0.4
+  },
   superior_bloodveld: {
     type: 'superior_bloodveld',
     renderScale: 1.3,
@@ -398,6 +429,9 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   goblin: 'earth', hill_giant: 'earth', gargoyle: 'earth', superior_gargoyle: 'earth',
   blue_dragon: 'earth', green_dragon: 'earth', vorkath: 'earth', hydra: 'earth',
   bloodveld: 'earth', superior_bloodveld: 'earth', giant_mole: 'earth',
+  // Living statues: stone answers to earth. Both halves read the same, so the pair
+  // never splits the player's answer — the fight is about order, not element.
+  dusk: 'earth', dawn: 'earth',
   // Air — agile, magical & ethereal
   rat: 'air', ghost: 'air', skeletal_mage: 'air', dark_beast: 'air', zulrah: 'air',
 };

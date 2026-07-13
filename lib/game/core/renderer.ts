@@ -10,7 +10,12 @@ import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
 import {
   ZULRAH_PHASES, hydraPhase, hydraBreakTarget, HYDRA_VENT_SECS,
   moleIsHidden, MOLE_DIG_SECS, MOLE_EMERGE_SECS, MOLE_UNDER_SECS,
+  isGuardian,
 } from '../systems/boss-mechanics';
+
+/** The Grotesque Guardians' shared stone: the tether, the bar caption and the revival
+ *  all read in the same gold, so the player learns one colour, not three. */
+const GUARDIAN_LINK_COLOR = '#c9a227';
 
 const GRID = 32;
 
@@ -709,9 +714,41 @@ export class GameRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(`${boss.name}   ${Math.ceil(boss.hp)} / ${boss.maxHp}`, w / 2, y + barH / 2 + 1);
-    // Phase caption under the bar: Zulrah's current form (weak style) or Vorkath's
-    // ice-shield warning — so the mechanic is legible without watching the tint.
     const st = boss.bossState;
+
+    // A Guardian's twin gets its own bar, butted right up against the first: one health
+    // bar could never ask the question the fight is built on — "are they going down
+    // *together*?" — and stacking them touching is what makes them read as one pair
+    // rather than two bosses who happen to share a wave. Everything below (the caption,
+    // the Hydra's break bar) is pushed down by however tall this came out.
+    const twin = isGuardian(st?.kind) && st!.partnerId
+      ? this.e.enemies.find((en) => en.id === st!.partnerId)
+      : undefined;
+    let below = y + barH; // where the next row starts
+    if (twin) {
+      const th = 13;
+      const ty = below + 2;
+      const tr = Math.max(0, twin.hp / twin.maxHp);
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(x - 4, ty - 2, barW + 8, th + 4);
+      ctx.fillStyle = '#2a0606';
+      ctx.fillRect(x, ty, barW, th);
+      const g2 = ctx.createLinearGradient(x, 0, x + barW, 0);
+      g2.addColorStop(0, '#e23a3a');
+      g2.addColorStop(1, '#8a0000');
+      ctx.fillStyle = g2;
+      ctx.fillRect(x, ty, barW * tr, th);
+      ctx.strokeStyle = '#c8a44a';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, ty, barW, th);
+      ctx.fillStyle = '#ffcb05';
+      ctx.font = "bold 12px 'RuneScape', Arial";
+      ctx.fillText(`${twin.name}   ${Math.ceil(twin.hp)} / ${twin.maxHp}`, w / 2, ty + th / 2 + 1);
+      below = ty + th;
+    }
+
+    // Phase caption under the bar(s): Zulrah's current form (weak style) or Vorkath's
+    // ice-shield warning — so the mechanic is legible without watching the tint.
     let caption: string | null = null;
     let capColor = '#cfe8ff';
     if (st?.kind === 'zulrah') {
@@ -742,18 +779,28 @@ export class GameRenderer {
       else if (st.molePhase === 'under') caption = 'BURROWED — untouchable!';
       else if (st.molePhase === 'emerge') caption = 'Surfacing — hit it now!';
       else if (st.burrows) caption = `Burrows: ${st.burrows}`;
+    } else if (isGuardian(st?.kind)) {
+      capColor = GUARDIAN_LINK_COLOR;
+      if (st!.linked) {
+        caption = 'SHARED STONE — both take half damage';
+      } else if (st!.reviveTimer !== undefined) {
+        // The number is the whole mechanic: it is the clock the player is racing.
+        caption = `ENRAGED — reviving its twin in ${Math.ceil(st!.reviveTimer)}s!`;
+        capColor = '#ff8b4c';
+      }
     }
     if (caption) {
       ctx.font = "bold 12px 'RuneScape', Arial";
       ctx.fillStyle = capColor;
-      ctx.fillText(caption, w / 2, y + barH + 11);
+      ctx.fillText(caption, w / 2, below + 11);
+      below += 18;
     }
     // The Hydra's break bar: how close the landed damage is to shattering the open
     // vent. It sits right under the caption, so the player watches one thing.
     if (st?.kind === 'hydra' && st.venting) {
       const p = Math.min(1, (st.ventDamage ?? 0) / hydraBreakTarget(boss.maxHp));
       const bh = 5;
-      const by2 = y + barH + 18;
+      const by2 = below;
       ctx.fillStyle = 'rgba(0,0,0,0.55)';
       ctx.fillRect(x - 1, by2 - 1, barW + 2, bh + 2);
       ctx.fillStyle = '#1d2a12';
@@ -1277,6 +1324,49 @@ export class GameRenderer {
 
       ctx.restore(); // end materialise alpha
     }
+
+    this.drawGuardianTether(ctx);
+  }
+
+  /**
+   * The Grotesque Guardians' shared stone: a live beam between the pair. It is the
+   * mitigation made visible — while this is up, both take half damage, and the only way
+   * to cut it is to drop one of them.
+   *
+   * Drawn *over* the bodies, deliberately. Under them it was invisible: the two statues
+   * are wider than the lane between them, so the beam was covered by the very things it
+   * connects.
+   */
+  private drawGuardianTether(ctx: CanvasRenderingContext2D) {
+    const dusk = this.e.enemies.find((en) => en.bossState?.kind === 'dusk');
+    if (!dusk?.bossState?.linked) return;
+    const dawn = this.e.enemies.find((en) => en.id === dusk.bossState!.partnerId);
+    if (!dawn) return;
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 220);
+    ctx.save();
+    ctx.strokeStyle = GUARDIAN_LINK_COLOR;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.25 + 0.2 * pulse;
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(dusk.x, dusk.y);
+    ctx.lineTo(dawn.x, dawn.y);
+    ctx.stroke();
+    ctx.globalAlpha = 0.85 + 0.15 * pulse;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    // Motes of stone travelling the beam, so it reads as *flowing* rather than a line
+    // someone drew between two sprites.
+    const t = (performance.now() / 900) % 1;
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = GUARDIAN_LINK_COLOR;
+    for (const off of [0, 0.33, 0.66]) {
+      const p = (t + off) % 1;
+      ctx.beginPath();
+      ctx.arc(dusk.x + (dawn.x - dusk.x) * p, dusk.y + (dawn.y - dusk.y) * p, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   /** Yt-HurKot healer flair over its rendered body: a pulsing green heal-beam back

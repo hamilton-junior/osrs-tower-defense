@@ -46,6 +46,8 @@ import {
   HYDRA_ZAP_CHAIN, HYDRA_ZAP_DISABLE_SECS, HYDRA_ENRAGE_ZAP_SECS,
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
+  isGuardian, guardianReviveHp,
+  GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
   MECHANIC_BOSSES,
   type BossId,
 } from '../systems/boss-mechanics';
@@ -368,6 +370,9 @@ const HEALER_ORBIT_DRIFT = 0.5;
 
 /** Kicked-up earth: the Giant Mole's dig, mound and surfacing all read in this. */
 const MOLE_DUST = '#8a6b47';
+
+/** The Grotesque Guardians' shared stone — the tether, the enrage and the revival. */
+const GUARDIAN_LINK_COLOR = '#c9a227';
 
 /** Clean a persisted "bosses seen" blob: keep only the mechanic bosses flagged true,
  *  so a corrupt/stale save can't gate modifiers on bad data. */
@@ -1804,8 +1809,127 @@ export class GameEngine {
         this.updateHydra(e, dt);
       } else if (st.kind === 'giant_mole') {
         this.updateMole(e, dt);
+      } else if (isGuardian(st.kind)) {
+        this.updateGuardian(e, dt);
       }
     }
+  }
+
+  /**
+   * Grotesque Guardians: the kill-order check. Dusk arrives with Dawn, and while both
+   * stand they share their stone — each takes halved damage (see `bossStyleMult`). Kill
+   * one and the survivor breaks the link: full damage taken, but faster, and it starts
+   * dragging its twin back up. Fail to finish it inside the window and the twin returns
+   * on half health with the mitigation restored.
+   *
+   * So splitting them badly is a trap, and the intended play — bleed both, converge at
+   * the end — is the one thing no other boss in the game asks for.
+   */
+  private updateGuardian(e: Enemy, dt: number) {
+    const st = e.bossState!;
+    // Dusk brings his twin. Dawn is not in SCHEDULABLE_BOSSES precisely so that she can
+    // never turn up without him; this is the only way she enters the field.
+    if (st.kind === 'dusk' && !st.summonedTwin) this.summonDawn(e);
+
+    // A failed lookup *is* the signal: the twin's id is still on the state after it
+    // dies, and not finding it in `enemies` is how the survivor learns it is alone.
+    const twin = st.partnerId ? this.enemies.find((x) => x.id === st.partnerId) : undefined;
+    const wasLinked = !!st.linked;
+    st.linked = !!twin;
+
+    if (twin) {
+      // Reunited (or never parted): the stone is shared again and the rage subsides.
+      if (st.enraged) {
+        st.enraged = false;
+        e.baseSpeed = Math.max(1, Math.round(e.baseSpeed / GUARDIAN_ENRAGE_SPEED_MULT));
+        if (e.slowTimer <= 0) e.speed = e.baseSpeed;
+      }
+      st.reviveTimer = undefined;
+      return;
+    }
+
+    // Alone. The moment it happens: enrage, and start hauling the twin back.
+    if (wasLinked || st.reviveTimer === undefined) {
+      st.reviveTimer = GUARDIAN_REVIVE_SECS;
+      if (!st.enraged) {
+        st.enraged = true;
+        e.baseSpeed = Math.round(e.baseSpeed * GUARDIAN_ENRAGE_SPEED_MULT);
+        if (e.slowTimer <= 0) e.speed = e.baseSpeed;
+      }
+      this.addRing(e.x, e.y, 8, 70, GUARDIAN_LINK_COLOR, 0.6, 5);
+      this.notify(`${e.name} enrages — kill it before it revives its twin!`);
+      this.sound.play('wave', 60);
+      return;
+    }
+
+    st.reviveTimer -= dt;
+    if (st.reviveTimer > 0) return;
+
+    // The window closed with the survivor still standing: the twin comes back.
+    this.reviveTwin(e);
+  }
+
+  /** Dusk's opening move: Dawn joins him on the road, and the two are linked. */
+  private summonDawn(dusk: Enemy) {
+    const st = dusk.bossState!;
+    st.summonedTwin = true;
+    const dawn = this.makeEnemy('dawn', this.wave);
+    if (!dawn) return;
+    dawn.debug = dusk.debug; // a sandbox Dusk brings a sandbox Dawn
+    dawn.pathIndex = dusk.pathIndex;
+    dawn.x = dusk.x;
+    dawn.y = dusk.y - GUARDIAN_PAIR_OFFSET;
+    dawn.laneOffset = -GUARDIAN_PAIR_OFFSET; // she flies a lane clear of him, the whole way
+    dawn.spawnAnim = SPAWN_ANIM_SECONDS;
+    this.linkGuardians(dusk, dawn);
+    this.enemies.push(dawn);
+    // She never comes through the wave queue, so count the sighting here or the
+    // Collection Log would never learn she exists.
+    if (!dawn.debug) {
+      this.bossesSeen = { ...this.bossesSeen, dawn: (this.bossesSeen.dawn ?? 0) + 1 };
+    }
+    this.addRing(dawn.x, dawn.y, 6, 60, GUARDIAN_LINK_COLOR, 0.7, 5);
+    this.notify('Dawn joins Dusk — they share their stone!');
+  }
+
+  /** Haul a fallen Guardian back up beside its twin, on half health, link restored. */
+  private reviveTwin(survivor: Enemy) {
+    const st = survivor.bossState!;
+    const type = st.twinType;
+    if (!type) return;
+    const twin = this.makeEnemy(type as EnemyType, this.wave);
+    if (!twin) return;
+    twin.debug = survivor.debug;
+    twin.pathIndex = survivor.pathIndex;
+    twin.x = survivor.x;
+    twin.y = survivor.y - GUARDIAN_PAIR_OFFSET;
+    // Dawn always flies the side lane; Dusk always walks the road. Whichever of them came
+    // back, it comes back into its own lane, so the pair never merges into one silhouette.
+    twin.laneOffset = type === 'dawn' ? -GUARDIAN_PAIR_OFFSET : 0;
+    twin.hp = guardianReviveHp(twin.maxHp);
+    twin.spawnAnim = SPAWN_ANIM_SECONDS;
+    this.linkGuardians(survivor, twin);
+    this.enemies.push(twin);
+    // The rage was for being alone; it isn't any more.
+    if (st.enraged) {
+      st.enraged = false;
+      survivor.baseSpeed = Math.max(1, Math.round(survivor.baseSpeed / GUARDIAN_ENRAGE_SPEED_MULT));
+      if (survivor.slowTimer <= 0) survivor.speed = survivor.baseSpeed;
+    }
+    st.reviveTimer = undefined;
+    this.addRing(twin.x, twin.y, 4, 80, GUARDIAN_LINK_COLOR, 0.8, 6);
+    this.sound.play('wave', 70);
+    this.notify(`${twin.name} rises again!`);
+  }
+
+  /** Point two Guardians at each other and switch the shared-stone mitigation on. */
+  private linkGuardians(a: Enemy, b: Enemy) {
+    const sa = a.bossState!;
+    const sb = b.bossState!;
+    sa.partnerId = b.id;
+    sb.partnerId = a.id;
+    sa.linked = true;
+    sb.linked = true;
   }
 
   /**
@@ -2312,8 +2436,22 @@ export class GameEngine {
         this.emit();
         continue;
       }
-      const dx = target.x - e.x;
-      const dy = target.y - e.y;
+      // An enemy with a lane offset aims at a point *beside* the waypoint, perpendicular
+      // to the segment it is on, so it walks a parallel track instead of the road's
+      // centreline. Dawn flies one lane over from Dusk; without it the pair would occupy
+      // the same waypoints and render as a single blob.
+      let tx = target.x;
+      let ty = target.y;
+      if (e.laneOffset) {
+        const from = this.path[e.pathIndex];
+        const sx = target.x - from.x;
+        const sy = target.y - from.y;
+        const sl = Math.hypot(sx, sy) || 1;
+        tx += (-sy / sl) * e.laneOffset;
+        ty += (sx / sl) * e.laneOffset;
+      }
+      const dx = tx - e.x;
+      const dy = ty - e.y;
       const d = Math.hypot(dx, dy);
       if (d < 4) {
         e.pathIndex += 1;

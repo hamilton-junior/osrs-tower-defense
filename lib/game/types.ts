@@ -56,7 +56,7 @@ export interface Achievement {
   completed: boolean;
 }
 
-export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole';
+export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn';
 
 export type Element = 'air' | 'water' | 'earth' | 'fire' | 'none';
 
@@ -166,6 +166,11 @@ export interface Enemy extends EnemyDef {
   /** Orbit phase (radians) of a Jad healer around Jad; advanced each frame so the
    *  healers drift around him while following at a limited distance. */
   orbit?: number;
+  /** Walk a lane parallel to the road, this many logic pixels to the side of it
+   *  (perpendicular to the current segment; negative = the other side). Dawn uses it to
+   *  fly beside Dusk instead of inside him — two bosses on the same waypoints stack into
+   *  one blob, and the pair has to read as a *pair*. */
+  laneOffset?: number;
   /** Overrides `type` for the baked-animation lookup only (sprite/clip slug),
    *  leaving combat/stats on `type`. Lets a Jad healer render the real Yt-HurKot
    *  model (`yt_hurkot`) once it's baked, falling back to `type`'s clip. */

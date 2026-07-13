@@ -25,16 +25,23 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geom
  *    surfaces further along the path, skipping the stretch you fortified. It will not
  *    dig on the final approach, so the last stretch is always fought honestly.
  *
+ *  - **Grotesque Guardians** arrive as a linked pair (Dawn & Dusk). While both stand
+ *    they share their stone and each takes halved damage; kill one and the survivor
+ *    enrages — and drags its twin back up unless it dies too, inside the window.
+ *
  * Each boss owns one idea: Zulrah tests style coverage, Vorkath tests patience, Jad
- * tests target priority, the Hydra tests burst, and the Mole tests *where* you built.
+ * tests target priority, the Hydra tests burst, the Mole tests *where* you built, and
+ * the Guardians test the *order* you kill in.
  */
 
-export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole';
+export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn';
 
 /** The bosses that carry phase mechanics: they get a {@link BossState} on spawn and
  *  roll boss modifiers once seen. The engine and the save sanitiser read this to decide
  *  who has state. */
-export const MECHANIC_BOSSES: readonly BossId[] = ['jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole'];
+export const MECHANIC_BOSSES: readonly BossId[] = [
+  'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn',
+];
 
 /**
  * The bosses a wave may *draw* — what `rollWaveBosses` picks from and what the debug
@@ -46,7 +53,9 @@ export const MECHANIC_BOSSES: readonly BossId[] = ['jad', 'vorkath', 'zulrah', '
  * may be scheduled: one that only ever arrives as another boss's companion needs a
  * `BossState` and has no business being drawn on its own.
  */
-export const SCHEDULABLE_BOSSES: readonly BossId[] = ['giant_mole', 'jad', 'vorkath', 'zulrah', 'hydra'];
+export const SCHEDULABLE_BOSSES: readonly BossId[] = [
+  'giant_mole', 'jad', 'vorkath', 'zulrah', 'dusk', 'hydra',
+];
 
 // ─────────────────────────────────── Zulrah ────────────────────────────────
 /** One Zulrah form: weak to `weak`, resistant to the other two, drawn in `color`. */
@@ -342,6 +351,47 @@ export function moleIsBurrowing(state: BossState | undefined): boolean {
   return state?.kind === 'giant_mole' && !!state.molePhase && state.molePhase !== 'above';
 }
 
+// ─────────────────────── Grotesque Guardians (Dawn & Dusk) ─────────────────
+/**
+ * The linked pair. Dusk is the one a wave draws; Dawn only ever arrives with him.
+ *
+ * While both live they share their stone: each takes {@link GUARDIAN_LINK_DAMAGE_MULT}
+ * damage. Kill one and the survivor breaks the link — it takes full damage and speeds
+ * up — but it also starts hauling its twin back, and if it is still standing when
+ * {@link GUARDIAN_REVIVE_SECS} runs out, the twin returns on
+ * {@link GUARDIAN_REVIVE_HP_FRAC} of its health and the mitigation comes back with it.
+ *
+ * So killing one early is a *trap*: it trades a halved-damage fight for a race. The
+ * intended play is to bleed both down together and converge at the end. No other boss
+ * cares about the **order** you kill things in.
+ */
+export const GUARDIAN_LINK_DAMAGE_MULT = 0.5;
+/** Seconds the survivor needs to drag its twin back up. */
+export const GUARDIAN_REVIVE_SECS = 12;
+/** The health a resurrected twin returns on, as a fraction of its max. */
+export const GUARDIAN_REVIVE_HP_FRAC = 0.5;
+/** Speed the survivor gains while enraged (applied to `baseSpeed`). */
+export const GUARDIAN_ENRAGE_SPEED_MULT = 1.4;
+/** How far apart the pair walk, in logic pixels — Dawn flies off to Dusk's side. */
+export const GUARDIAN_PAIR_OFFSET = 82;
+
+/** Is this one of the Grotesque Guardians? */
+export function isGuardian(kind: BossId | undefined): boolean {
+  return kind === 'dawn' || kind === 'dusk';
+}
+
+/** The twin of a Guardian — who it arrives with, and who it will drag back up. */
+export function guardianTwin(kind: BossId): BossId | undefined {
+  if (kind === 'dusk') return 'dawn';
+  if (kind === 'dawn') return 'dusk';
+  return undefined;
+}
+
+/** The health a twin comes back on. Never zero, however small the boss. */
+export function guardianReviveHp(maxHp: number): number {
+  return Math.max(1, Math.round(maxHp * GUARDIAN_REVIVE_HP_FRAC));
+}
+
 // ───────────────────────────── shared boss state ───────────────────────────
 /** Mutable per-boss runtime state the engine stores on the boss enemy. */
 export interface BossState {
@@ -381,6 +431,17 @@ export interface BossState {
   moleTimer?: number;
   /** Giant Mole: burrows completed, read out on the boss bar. */
   burrows?: number;
+  /** Guardians: the live twin's enemy id. Stale once the twin dies — the engine looks
+   *  it up each frame and a failed lookup *is* the "my twin is down" signal. */
+  partnerId?: string;
+  /** Guardians: which boss my twin is, so a survivor knows what to drag back up. */
+  twinType?: BossId;
+  /** Guardians: true while both stand — the shared-stone damage mitigation is on. */
+  linked?: boolean;
+  /** Guardians: counts down to the twin's resurrection while the survivor lives. */
+  reviveTimer?: number;
+  /** Guardians (Dusk only): he has already brought Dawn in, so he never does it twice. */
+  summonedTwin?: boolean;
 }
 
 /** Build the initial state for a freshly-spawned boss of `kind`. */
@@ -394,6 +455,7 @@ export function freshBossState(kind: BossId): BossState {
     state.moleTimer = MOLE_BURROW_INTERVAL;
     state.burrows = 0;
   }
+  if (isGuardian(kind)) state.twinType = guardianTwin(kind);
   return state;
 }
 
@@ -414,5 +476,8 @@ export function bossStyleMult(state: BossState | undefined, style: CombatStyle |
   // The Hydra's vent hardens it against *every* source, styleless DoT included —
   // it is a burst check, not a style check, so there is no way to chip around it.
   if (state.kind === 'hydra' && state.venting) return HYDRA_VENT_DAMAGE_MULT;
+  // A Guardian standing beside its twin shares its stone. Styleless too: the pair is a
+  // test of *kill order*, and letting DoT slip past the link would answer it for free.
+  if (isGuardian(state.kind) && state.linked) return GUARDIAN_LINK_DAMAGE_MULT;
   return 1;
 }

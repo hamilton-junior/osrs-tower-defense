@@ -261,5 +261,18 @@
       "burrow": 3314,
       "emerge": 3315
     }
+  },
+  "dusk": {
+    "npc": 7851,
+    "anims": {
+      "walk": 7782,
+      "hurt": 7784
+    }
+  },
+  "dawn": {
+    "npc": 7852,
+    "anims": {
+      "walk": 7768
+    }
   }
 }
