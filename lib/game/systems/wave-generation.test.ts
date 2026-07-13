@@ -9,6 +9,7 @@ import {
   EXTRA_BOSS_MAX,
 } from './wave-generation';
 import { SCHEDULABLE_BOSSES } from './boss-mechanics';
+import { ENEMIES } from '../data/enemies';
 
 /** An rng that plays back a script, then holds on the last value. */
 const seq = (...vals: number[]) => {
@@ -96,6 +97,35 @@ describe('buildWaveConfigs', () => {
       rng: () => 0,
     });
     expect(landmark).toEqual(before);
+  });
+
+  // The freeze. `summoned_soul` (Cerberus's escort) pays 0 and is not flagged `isBoss`,
+  // so it sat in the budget pool: always affordable, never spending. Once the leftover
+  // budget fell below the cheapest paying enemy it was the only pick left, the budget
+  // stopped moving, and the wave build spun forever — hanging the tab on the frame the
+  // last enemy died (wave end recomputes the next wave's preview).
+  it('never spends the budget on a free enemy — the wave build must always terminate', () => {
+    const withFreebie = [...registry, def('summoned_soul', 0, 1)];
+    // Budget 27 (wave 1), cheapest payer 5 → the budget lands on 2, which nothing but
+    // the free enemy can "afford". rng 0.99 biases the pick toward the last entry.
+    const out = buildWaveConfigs(1, {
+      enemies: withFreebie, blockedEnemies: [], rng: () => 0.99,
+    });
+    expect(out.some((c) => (c.type as string) === 'summoned_soul')).toBe(false);
+    expect(totalCount(out)).toBeGreaterThan(0);
+  });
+
+  it('keeps every real enemy out of the freeze: no zero-reward type is ever spawnable', () => {
+    // Guards the content table itself — a future 0-reward monster must not reopen this.
+    const free = Object.values(ENEMIES).filter((e) => !e.isBoss && e.reward <= 0);
+    for (let wave = 1; wave <= 60; wave++) {
+      const out = buildWaveConfigs(wave, {
+        enemies: Object.values(ENEMIES), blockedEnemies: [], bossesSeen: {}, rng: Math.random,
+      });
+      for (const f of free) {
+        expect(out.some((c) => c.type === f.type)).toBe(false);
+      }
+    }
   });
 
   it('is deterministic for a fixed rng', () => {

@@ -126,12 +126,22 @@ export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveC
   let remainingBudget = 15 + waveNum * 12 - seedThreat;
   if (bosses.length) remainingBudget = Math.round(remainingBudget * BOSS_WAVE_HORDE_MULT);
 
+  // `reward > 0` is load-bearing, not cosmetic: the loop below only terminates by
+  // *spending* the budget, so an enemy that costs nothing (a boss's summon-only
+  // escort, e.g. Cerberus's souls) is affordable forever and spends nothing —
+  // once the leftover budget drops below the cheapest paying enemy it would be
+  // picked every iteration, and the wave build would never return.
   const spawnable = opts.enemies.filter(
-    e => !e.isBoss && (e.waveUnlock || 1) <= waveNum && !opts.blockedEnemies.includes(e.type),
+    e => !e.isBoss && e.reward > 0
+      && (e.waveUnlock || 1) <= waveNum && !opts.blockedEnemies.includes(e.type),
   );
 
-  // Spend the remaining budget on weighted-random spawnable enemies.
-  while (remainingBudget > 0) {
+  // Spend the remaining budget on weighted-random spawnable enemies. Every pick costs
+  // at least 1, so this is bounded by `remainingBudget` — but bound it explicitly too:
+  // a single zero-cost enemy slipping into the pool is the difference between a wave
+  // and a frozen tab, and that is too sharp an edge to leave on a content table.
+  const maxPicks = remainingBudget + 1;
+  for (let picks = 0; remainingBudget > 0 && picks < maxPicks; picks++) {
     const affordable = spawnable.filter(e => e.reward <= remainingBudget);
     if (affordable.length === 0) break;
 
