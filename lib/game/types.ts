@@ -56,7 +56,7 @@ export interface Achievement {
   completed: boolean;
 }
 
-export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn';
+export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul';
 
 export type Element = 'air' | 'water' | 'earth' | 'fire' | 'none';
 
@@ -159,12 +159,20 @@ export interface Enemy extends EnemyDef {
   /** Per-boss phase/mechanic state (Zulrah forms, Vorkath ice, Jad heal window);
    *  set on boss spawn, driven by `GameEngine.handleBossMechanics`. */
   bossState?: BossState;
-  /** A Yt-HurKot healer summoned by Jad: trails Jad in a loose orbit (never walks
-   *  the path or leaks), heals Jad while alive, awards nothing — kill it to deny
-   *  the heal. */
+  /** A boss's companion: it orbits its {@link ownerId} instead of walking the path, so
+   *  it never leaks, and it awards nothing on death — the payoff for killing it is
+   *  whatever it was doing for its boss. Jad's Yt-HurKot healers and Cerberus's Summoned
+   *  Souls are both escorts; what they *do* is the flag below / {@link soulStyle}. */
+  escort?: boolean;
+  /** The boss this escort belongs to. Losing its owner is what marks it an orphan. */
+  ownerId?: string;
+  /** An escort that heals its owner (Jad's Yt-HurKot). Kill it to deny the heal. */
   healer?: boolean;
-  /** Orbit phase (radians) of a Jad healer around Jad; advanced each frame so the
-   *  healers drift around him while following at a limited distance. */
+  /** A Summoned Soul locks this combat style: while it lives, Cerberus takes almost
+   *  nothing from towers of that style. Which soul matters depends on *your* board. */
+  soulStyle?: CombatStyle;
+  /** Orbit phase (radians) of an escort around its owner; advanced each frame so the
+   *  companions drift around the boss while following at a limited distance. */
   orbit?: number;
   /** Walk a lane parallel to the road, this many logic pixels to the side of it
    *  (perpendicular to the current segment; negative = the other side). Dawn uses it to

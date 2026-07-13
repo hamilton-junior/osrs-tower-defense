@@ -48,6 +48,8 @@ import {
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
   isGuardian, guardianReviveHp,
   GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
+  cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
+  SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT,
   MECHANIC_BOSSES,
   type BossId,
 } from '../systems/boss-mechanics';
@@ -363,10 +365,10 @@ function sanitizeCardCounts(raw: unknown): Record<string, number> {
 }
 
 
-/** Jad-healer follow: orbit radius (px) they hold around Jad, and how fast that
- *  orbit slot drifts (rad/s) so they circle him while trailing at a set distance. */
+/** Escort follow: how fast an escort's orbit slot drifts (rad/s), so a boss's companions
+ *  circle it while trailing at a set distance, and the radius Jad's healers hold. */
+const ESCORT_ORBIT_DRIFT = 0.5;
 const JAD_HEALER_ORBIT = 82;
-const HEALER_ORBIT_DRIFT = 0.5;
 
 /** Kicked-up earth: the Giant Mole's dig, mound and surfacing all read in this. */
 const MOLE_DUST = '#8a6b47';
@@ -1781,12 +1783,12 @@ export class GameEngine {
    * the timers, the healer entities, and the telegraph VFX.
    */
   private handleBossMechanics(dt: number) {
-    // Orphaned Jad healers (their boss died/left) serve no purpose and would
-    // otherwise block the wave from ending — clear them.
-    if (!this.enemies.some(e => e.bossState?.kind === 'jad')) {
-      for (let i = this.enemies.length - 1; i >= 0; i--) {
-        if (this.enemies[i].healer) this.enemies.splice(i, 1);
-      }
+    // Orphaned escorts (their boss died or leaked) serve no purpose, and since they
+    // never walk the path they would otherwise sit there forever and block the wave
+    // from ending. Keyed on the owner, so it holds for every kind of companion.
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+      const e = this.enemies[i];
+      if (e.escort && !this.enemies.some(o => o.id === e.ownerId)) this.enemies.splice(i, 1);
     }
     for (const e of this.enemies) {
       const st = e.bossState;
@@ -1811,8 +1813,90 @@ export class GameEngine {
         this.updateMole(e, dt);
       } else if (isGuardian(st.kind)) {
         this.updateGuardian(e, dt);
+      } else if (st.kind === 'cerberus') {
+        this.updateCerberus(e, dt);
       }
     }
+  }
+
+  /**
+   * Cerberus: the style-lock check. At each HP threshold he summons his three Summoned
+   * Souls, and **each soul locks one combat style** — while the melee soul lives, melee
+   * towers barely scratch him (see `soulLockMult` via `bossStyleMult`). With all three
+   * standing he is armoured against everything.
+   *
+   * The decision that creates is *which soul to kill first*, and it depends on the board
+   * you actually built: a mono-style board has exactly one soul that matters, a spread
+   * board has to clear more of them. Jad's healers are interchangeable; these are not.
+   */
+  private updateCerberus(e: Enemy, dt: number) {
+    const st = e.bossState!;
+    const hpFrac = e.hp / e.maxHp;
+
+    // Rebuild the locks from the souls still standing, every frame. Killing one frees its
+    // style immediately — the reward has to be instant, or the player can't feel the
+    // trade they just made.
+    st.lockedStyles = this.enemies
+      .filter((s) => s.ownerId === e.id && s.soulStyle)
+      .map((s) => s.soulStyle!);
+
+    if (cerberusShouldSummon(hpFrac, st.soulSummons ?? 0)) {
+      st.soulSummons = (st.soulSummons ?? 0) + 1;
+      this.summonSouls(e);
+    }
+
+    if (!st.enraged && cerberusIsEnraged(hpFrac)) {
+      st.enraged = true;
+      e.baseSpeed = Math.round(e.baseSpeed * CERBERUS_ENRAGE_SPEED_MULT);
+      if (e.slowTimer <= 0) e.speed = e.baseSpeed;
+      this.addRing(e.x, e.y, 8, 90, '#ff6b3d', 0.7, 6);
+      this.notify('Cerberus enrages!');
+      this.sound.play('wave', 70);
+    }
+  }
+
+  /** Summon Cerberus's trio: one soul per combat style, orbiting him. Any that were
+   *  killed in the last batch come back — the threshold sends a *fresh* three. */
+  private summonSouls(cerb: Enemy) {
+    // Whatever survives from the previous batch is cleared out, so the trio is always a
+    // trio: three thresholds of one soul each would be a very different (and duller) fight.
+    this.enemies = this.enemies.filter((s) => !(s.ownerId === cerb.id && s.soulStyle));
+    const hp = Math.max(20, Math.round(cerb.maxHp * CERBERUS_SOUL_HP_FRAC));
+    SOUL_STYLES.forEach((style, i) => {
+      const ang = (i / SOUL_STYLES.length) * Math.PI * 2 - Math.PI / 2;
+      this.enemies.push({
+        ...ENEMIES.summoned_soul,
+        id: uid(),
+        type: 'summoned_soul',
+        // Each style is a different NPC in the cache, carrying that style's weapon — a
+        // bow, a staff, a blade. The player reads which soul is which from the weapon,
+        // not from a legend.
+        animType: soulAnimSlug(style),
+        name: `Summoned Soul (${style})`,
+        escort: true,
+        ownerId: cerb.id,
+        soulStyle: style,
+        orbit: ang,
+        debug: cerb.debug, // a sandbox Cerberus summons sandbox souls
+        x: cerb.x + Math.cos(ang) * CERBERUS_SOUL_ORBIT,
+        y: cerb.y + Math.sin(ang) * CERBERUS_SOUL_ORBIT,
+        hp,
+        maxHp: hp,
+        speed: 70,
+        baseSpeed: 70,
+        naturalSpeed: 70,
+        pathIndex: cerb.pathIndex,
+        slowTimer: 0,
+        stunTimer: 0,
+        tauntTimer: 0,
+        groundTimer: 0,
+        animTime: Math.random() * 2,
+        spawnAnim: SPAWN_ANIM_SECONDS,
+      });
+    });
+    this.addRing(cerb.x, cerb.y, 10, 110, '#b7c6dd', 0.6, 5);
+    this.sound.play('wave', 65);
+    this.notify('Cerberus summons his Souls — each locks a combat style!');
   }
 
   /**
@@ -2132,7 +2216,7 @@ export class GameEngine {
     const now = this.gameTime;
     st.recentDamage = pruneDamageEvents(st.recentDamage ?? [], now, JAD_HEAL_WINDOW_SECS);
 
-    const healersAlive = this.enemies.some(h => h.healer);
+    const healersAlive = this.enemies.some(h => h.healer && h.ownerId === e.id);
     if (!healersAlive && st.healSummoned) {
       // Batch wiped — start the re-summon cooldown (once).
       st.healSummoned = false;
@@ -2179,6 +2263,8 @@ export class GameEngine {
         // clip until then); stats/combat stay on `type: 'imp'`.
         animType: 'yt_hurkot',
         name: 'Yt-HurKot',
+        escort: true,
+        ownerId: jad.id,
         healer: true,
         orbit: ang,
         debug: jad.debug, // inherit sandbox flag so a debug Jad spawns debug healers
@@ -2204,21 +2290,22 @@ export class GameEngine {
     this.sound.play('wave', 60); // summon vwoop
   }
 
-  /** Move a Yt-HurKot healer toward its orbit slot around Jad, so it follows him
-   *  at a limited distance (the orbit radius) and drifts around him rather than
-   *  walking the path. Orphans (no Jad) hold still until `handleBossMechanics`
+  /** Move an escort (a Yt-HurKot healer, a Summoned Soul) toward its orbit slot around
+   *  its owner, so it follows the boss at a fixed radius and drifts around it rather
+   *  than walking the path. Orphans (owner gone) hold still until `handleBossMechanics`
    *  culls them. */
-  private updateHealerFollow(e: Enemy, dt: number) {
-    const jad = this.enemies.find(h => h.bossState?.kind === 'jad');
-    if (!jad) return;
-    e.orbit = (e.orbit ?? 0) + dt * HEALER_ORBIT_DRIFT; // slow circle around Jad
-    const tx = jad.x + Math.cos(e.orbit) * JAD_HEALER_ORBIT;
-    const ty = jad.y + Math.sin(e.orbit) * JAD_HEALER_ORBIT;
+  private updateEscortFollow(e: Enemy, dt: number) {
+    const owner = e.ownerId ? this.enemies.find(h => h.id === e.ownerId) : undefined;
+    if (!owner) return;
+    e.orbit = (e.orbit ?? 0) + dt * ESCORT_ORBIT_DRIFT; // slow circle around the boss
+    const radius = e.soulStyle ? CERBERUS_SOUL_ORBIT : JAD_HEALER_ORBIT;
+    const tx = owner.x + Math.cos(e.orbit) * radius;
+    const ty = owner.y + Math.sin(e.orbit) * radius;
     const dx = tx - e.x, dy = ty - e.y;
     const d = Math.hypot(dx, dy);
     if (d < 1) return;
-    // Keep pace with Jad even if he's faster than the healer's base follow speed.
-    const speed = Math.max(e.speed, (jad.speed || 0) * 1.4 + 40);
+    // Keep pace with the boss even if it's faster than the escort's base follow speed.
+    const speed = Math.max(e.speed, (owner.speed || 0) * 1.4 + 40);
     const step = Math.min(d, speed * dt);
     e.x += (dx / d) * step;
     e.y += (dy / d) * step;
@@ -2393,7 +2480,7 @@ export class GameEngine {
       if (e.hurtAnim && e.hurtAnim > 0) e.hurtAnim = Math.max(0, e.hurtAnim - dt);
       // Jad's healers don't walk the path or leak — they trail Jad in a loose
       // orbit; the only way they leave the field is by being killed.
-      if (e.healer) { this.updateHealerFollow(e, dt); continue; }
+      if (e.escort) { this.updateEscortFollow(e, dt); continue; }
       if (e.slowTimer > 0) {
         e.slowTimer -= dt;
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
@@ -2422,7 +2509,7 @@ export class GameEngine {
         // life-cost anyway so only the boss itself — never a healer — can cost a
         // life if that path is ever refactored.
         this.enemies.splice(i, 1);
-        if (!e.debug && !e.healer) {
+        if (!e.debug && !e.escort) {
           const cost = e.isBoss
             ? bossLeakCost((this.bossesSeen[e.type] ?? 1) - 1)
             : e.type.startsWith('superior_')
@@ -3293,7 +3380,7 @@ export class GameEngine {
     }
     // Executioner relic: a non-boss reduced to a sliver is slain outright (bosses,
     // their phases, and Jad's healers are immune).
-    if (dealt > 0 && !enemy.isBoss && !enemy.bossState && !enemy.healer &&
+    if (dealt > 0 && !enemy.isBoss && !enemy.bossState && !enemy.escort &&
         shouldExecute(this.relicFx.executeFrac, enemy.hp, enemy.maxHp)) {
       enemy.hp = 0;
     }
@@ -3359,7 +3446,7 @@ export class GameEngine {
     // Debug/sandbox enemies pay nothing and don't progress anything — they exist
     // only to test towers/enemies. Jad's healers likewise award nothing (their
     // payoff is denying Jad's heal). The death FX above still play.
-    if (!enemy.debug && !enemy.healer) {
+    if (!enemy.debug && !enemy.escort) {
       // Greed curse (×goldMult) and the active wave event (×event gold, e.g. Blood
       // Moon's harder-wave payout) both scale the drop; both default to 1.
       this.awardGold(this.killGoldPreReward(enemy.type));

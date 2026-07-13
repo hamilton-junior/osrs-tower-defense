@@ -352,6 +352,34 @@ export const ENEMIES: Record<string, EnemyDef> = {
     reward: 480,
     resistance: 0.4
   },
+  cerberus: {
+    type: 'cerberus',
+    renderScale: 1.5,
+    name: 'Cerberus',
+    // The style-lock check, and the last boss before the Hydra. His HP is high because
+    // most of the fight is spent *not* hitting him: with all three souls up he is
+    // armoured against everything, so the bar only really moves once the board has an
+    // answer. It has to be worth the detour.
+    hp: 2100,
+    speed: 26,
+    color: '#8b1a1a',
+    deathSound: 'boss',
+    isBoss: true,
+    reward: 820,
+    resistance: 0.45
+  },
+  summoned_soul: {
+    type: 'summoned_soul',
+    renderScale: 0.85,
+    name: 'Summoned Soul',
+    // An escort, not a wave enemy: Cerberus spawns it, it orbits him, it never walks the
+    // path and it pays nothing on death (the payoff is the style it gives you back).
+    // Its real HP is scaled off Cerberus at summon time; these are only the fallbacks.
+    hp: 160,
+    speed: 70,
+    color: '#cfd8e6',
+    reward: 0
+  },
   dawn: {
     type: 'dawn',
     renderScale: 1.35,
@@ -432,6 +460,8 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   // Living statues: stone answers to earth. Both halves read the same, so the pair
   // never splits the player's answer — the fight is about order, not element.
   dusk: 'earth', dawn: 'earth',
+  // A hellhound: water, like every other demon-kin in the table.
+  cerberus: 'water',
   // Air — agile, magical & ethereal
   rat: 'air', ghost: 'air', skeletal_mage: 'air', dark_beast: 'air', zulrah: 'air',
 };

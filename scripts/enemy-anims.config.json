@@ -274,5 +274,31 @@
     "anims": {
       "walk": 7768
     }
+  },
+  "cerberus": {
+    "npc": 5862,
+    "anims": {
+      "walk": 4488,
+      "hurt": 4497,
+      "death": 4495
+    }
+  },
+  "soul_ranged": {
+    "npc": 5867,
+    "anims": {
+      "walk": 8527
+    }
+  },
+  "soul_magic": {
+    "npc": 5868,
+    "anims": {
+      "walk": 8527
+    }
+  },
+  "soul_melee": {
+    "npc": 5869,
+    "anims": {
+      "walk": 8527
+    }
   }
 }

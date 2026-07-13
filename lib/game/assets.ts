@@ -186,6 +186,8 @@ export const ASSETS = {
     giant_mole: `${LOCAL}/models/giant_mole.png`,
     dusk: `${LOCAL}/models/dusk.png`,                   // Grotesque Guardians
     dawn: `${LOCAL}/models/dawn.png`,
+    cerberus: `${LOCAL}/models/cerberus.png`,
+    summoned_soul: `${LOCAL}/models/summoned_soul.png`,
     jad: `${LOCAL}/models/jad.png`,                     // TzTok-Jad
     vorkath: `${LOCAL}/models/vorkath.png`,
     zulrah: `${LOCAL}/models/zulrah.png`,               // serpentine

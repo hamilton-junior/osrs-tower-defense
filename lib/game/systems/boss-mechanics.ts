@@ -28,19 +28,22 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geom
  *  - **Grotesque Guardians** arrive as a linked pair (Dawn & Dusk). While both stand
  *    they share their stone and each takes halved damage; kill one and the survivor
  *    enrages — and drags its twin back up unless it dies too, inside the window.
+ *  - **Cerberus** summons three Summoned Souls, each locking one combat style against
+ *    him. Which soul you must kill first depends on the board you built.
  *
  * Each boss owns one idea: Zulrah tests style coverage, Vorkath tests patience, Jad
  * tests target priority, the Hydra tests burst, the Mole tests *where* you built, and
- * the Guardians test the *order* you kill in.
+ * the Guardians test the *order* you kill in, and Cerberus tests whether your board has
+ * an answer at all.
  */
 
-export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn';
+export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus';
 
 /** The bosses that carry phase mechanics: they get a {@link BossState} on spawn and
  *  roll boss modifiers once seen. The engine and the save sanitiser read this to decide
  *  who has state. */
 export const MECHANIC_BOSSES: readonly BossId[] = [
-  'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn',
+  'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus',
 ];
 
 /**
@@ -54,7 +57,7 @@ export const MECHANIC_BOSSES: readonly BossId[] = [
  * `BossState` and has no business being drawn on its own.
  */
 export const SCHEDULABLE_BOSSES: readonly BossId[] = [
-  'giant_mole', 'jad', 'vorkath', 'zulrah', 'dusk', 'hydra',
+  'giant_mole', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus', 'hydra',
 ];
 
 // ─────────────────────────────────── Zulrah ────────────────────────────────
@@ -392,6 +395,61 @@ export function guardianReviveHp(maxHp: number): number {
   return Math.max(1, Math.round(maxHp * GUARDIAN_REVIVE_HP_FRAC));
 }
 
+// ────────────────────────────────── Cerberus ───────────────────────────────
+/**
+ * The style lock. At each HP threshold Cerberus summons his three Summoned Souls, and
+ * **each soul locks one combat style**: while the melee soul lives, melee towers barely
+ * scratch him, and likewise ranged and magic. With all three up he is armoured against
+ * everything, and the only way forward is through them.
+ *
+ * The question that creates is *which soul to kill first*, and the answer depends on the
+ * board you actually built — a mono-style board has exactly one soul that matters. That
+ * is not Jad's "kill the adds" (his healers are interchangeable): these are not.
+ *
+ * Styleless damage (DoT) is deliberately **not** locked. A soul locks a *style*, and a
+ * burn has none — the same escape valve Zulrah's phases leave open, and a slow one: it
+ * chips, it does not carry the fight.
+ */
+export const SOUL_STYLES: readonly CombatStyle[] = ['melee', 'ranged', 'magic'];
+/** HP fractions at which the trio is (re)summoned. */
+export const CERBERUS_SOUL_THRESHOLDS: readonly number[] = [0.66, 0.33];
+/** Damage a locked style deals to Cerberus while its soul lives. Not zero: a board with
+ *  no answer still grinds, it just grinds badly. */
+export const CERBERUS_SOUL_LOCK_MULT = 0.15;
+/** Each soul's HP as a fraction of Cerberus's max — enough to need real focus, little
+ *  enough that focus is *enough*. */
+export const CERBERUS_SOUL_HP_FRAC = 0.08;
+/** Radius (px) the souls orbit him at. Wider than Jad's healers: three of them plus a
+ *  big dog needs room, and they must be clickable/targetable apart from him. */
+export const CERBERUS_SOUL_ORBIT = 104;
+/** HP fraction at or below which Cerberus enrages. */
+export const CERBERUS_ENRAGE_HP = 0.25;
+/** Speed multiplier applied to `baseSpeed` on enrage. */
+export const CERBERUS_ENRAGE_SPEED_MULT = 1.3;
+
+/** The baked clip slug for a soul of `style` (`soul_melee` / `soul_ranged` / …). Each is
+ *  a different NPC in the cache, carrying that style's weapon — bow, staff or blade. */
+export function soulAnimSlug(style: CombatStyle): string {
+  return `soul_${style}`;
+}
+
+/** Whether Cerberus should summon his trio now: HP has crossed the next threshold and he
+ *  has not already summoned for it. `summons` is how many batches he has sent. */
+export function cerberusShouldSummon(hpFrac: number, summons: number): boolean {
+  return summons < CERBERUS_SOUL_THRESHOLDS.length && hpFrac <= CERBERUS_SOUL_THRESHOLDS[summons];
+}
+
+/** Whether Cerberus is in his final, enraged phase. */
+export function cerberusIsEnraged(hpFrac: number): boolean {
+  return hpFrac <= CERBERUS_ENRAGE_HP;
+}
+
+/** Damage multiplier a `style` suffers against the styles the live souls have locked. */
+export function soulLockMult(locked: readonly CombatStyle[] | undefined, style: CombatStyle | undefined): number {
+  if (!style || !locked?.length) return 1;
+  return locked.includes(style) ? CERBERUS_SOUL_LOCK_MULT : 1;
+}
+
 // ───────────────────────────── shared boss state ───────────────────────────
 /** Mutable per-boss runtime state the engine stores on the boss enemy. */
 export interface BossState {
@@ -442,6 +500,12 @@ export interface BossState {
   reviveTimer?: number;
   /** Guardians (Dusk only): he has already brought Dawn in, so he never does it twice. */
   summonedTwin?: boolean;
+  /** Cerberus: the styles his live souls are currently locking. The engine rebuilds this
+   *  each frame from the souls that are still standing, so killing one frees its style
+   *  the moment it dies. */
+  lockedStyles?: CombatStyle[];
+  /** Cerberus: how many batches of souls he has summoned (one per threshold). */
+  soulSummons?: number;
 }
 
 /** Build the initial state for a freshly-spawned boss of `kind`. */
@@ -456,6 +520,7 @@ export function freshBossState(kind: BossId): BossState {
     state.burrows = 0;
   }
   if (isGuardian(kind)) state.twinType = guardianTwin(kind);
+  if (kind === 'cerberus') { state.soulSummons = 0; state.lockedStyles = []; }
   return state;
 }
 
@@ -479,5 +544,9 @@ export function bossStyleMult(state: BossState | undefined, style: CombatStyle |
   // A Guardian standing beside its twin shares its stone. Styleless too: the pair is a
   // test of *kill order*, and letting DoT slip past the link would answer it for free.
   if (isGuardian(state.kind) && state.linked) return GUARDIAN_LINK_DAMAGE_MULT;
+  // Cerberus is armoured against every style one of his live souls is holding. Unlike the
+  // two above this leaves styleless DoT alone — a soul locks a *style*, and a burn has
+  // none (the same seam Zulrah's phases leave).
+  if (state.kind === 'cerberus') return soulLockMult(state.lockedStyles, style);
   return 1;
 }

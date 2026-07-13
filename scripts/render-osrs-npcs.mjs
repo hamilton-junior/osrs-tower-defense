@@ -47,6 +47,8 @@ const TARGETS = {
   giant_mole: { npc: 5779 },             // Giant Mole (boss)
   dusk: { npc: 7851 },                   // Grotesque Guardians — Dusk (boss)
   dawn: { npc: 7852 },                   // Grotesque Guardians — Dawn (boss, arrives with Dusk)
+  cerberus: { npc: 5862 },               // Cerberus (boss)
+  summoned_soul: { npc: 5869 },          // Summoned Soul (Cerberus's add; the melee one stands for all three)
   // NOTE: the spawn portal is no longer a model render — OSRS portals are mostly
   // animated spotanims, so a static render reads poorly. It's now drawn
   // procedurally as a swirling vortex in renderer.drawSpawnPortal.

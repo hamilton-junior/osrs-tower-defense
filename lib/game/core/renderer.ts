@@ -1,6 +1,6 @@
 import type { GameEngine, HitsplatKind } from './engine';
 import { SPAWN_ANIM_SECONDS } from '../types';
-import type { Tower, TowerType, Enemy } from '../types';
+import type { Tower, TowerType, Enemy, CombatStyle } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMY_ANIMS, clipFrame, clipDurationS } from '../data/enemy-anims';
 import { TOWERS } from '../data/towers';
@@ -16,6 +16,15 @@ import {
 /** The Grotesque Guardians' shared stone: the tether, the bar caption and the revival
  *  all read in the same gold, so the player learns one colour, not three. */
 const GUARDIAN_LINK_COLOR = '#c9a227';
+
+/** Cerberus's Summoned Souls, one colour per style it locks — matching the OSRS models
+ *  the clips are baked from: the ranged soul carries a green bow, the magic one a blue
+ *  staff, the melee one a red blade. */
+const SOUL_COLORS: Record<CombatStyle, string> = {
+  melee: '#e05a3c',
+  ranged: '#4ec95a',
+  magic: '#54c9e8',
+};
 
 const GRID = 32;
 
@@ -779,6 +788,17 @@ export class GameRenderer {
       else if (st.molePhase === 'under') caption = 'BURROWED — untouchable!';
       else if (st.molePhase === 'emerge') caption = 'Surfacing — hit it now!';
       else if (st.burrows) caption = `Burrows: ${st.burrows}`;
+    } else if (st?.kind === 'cerberus') {
+      const locked = st.lockedStyles ?? [];
+      if (locked.length) {
+        // Name the styles that are locked, not the count: "2 souls" tells the player
+        // nothing they can act on, and which styles are dead is the whole decision.
+        caption = `SOULS — ${locked.join(', ')} locked!`;
+        capColor = '#b7c6dd';
+      } else if (st.enraged) {
+        caption = 'ENRAGED!';
+        capColor = '#ff7a4c';
+      }
     } else if (isGuardian(st?.kind)) {
       capColor = GUARDIAN_LINK_COLOR;
       if (st!.linked) {
@@ -1210,6 +1230,12 @@ export class GameRenderer {
       // badge, drawn over the (imp / real Yt-HurKot) body the normal path rendered.
       if (e.healer && !inPortal) this.drawHealerFx(ctx, e, jad, size);
 
+      // A Summoned Soul flies its style's colours: a beam back to Cerberus in that
+      // style's tint, and the style spelled out under it. The whole decision the fight
+      // asks — *which* soul do I kill? — is unanswerable if the player has to guess
+      // which one is which.
+      if (e.soulStyle && !inPortal) this.drawSoulFx(ctx, e, size);
+
       // Affix auras: a pulsing ring per affix in its themed colour, so an elite
       // enemy reads at a glance (concentric when it carries two).
       if (!inPortal && e.affixes && e.affixes.length) {
@@ -1366,6 +1392,42 @@ export class GameRenderer {
       ctx.arc(dusk.x + (dawn.x - dusk.x) * p, dusk.y + (dawn.y - dusk.y) * p, 3.5, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
+  }
+
+  /**
+   * A Summoned Soul's flair: a beam back to Cerberus in the colour of the style it is
+   * locking, plus that style's name under it. Cerberus's whole question is *which soul
+   * do I kill for my board*, and the player cannot answer it if the three read alike.
+   */
+  private drawSoulFx(ctx: CanvasRenderingContext2D, e: Enemy, size: number) {
+    const color = SOUL_COLORS[e.soulStyle!];
+    const owner = e.ownerId ? this.e.enemies.find((o) => o.id === e.ownerId) : undefined;
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
+    ctx.save();
+    if (owner) {
+      // The lock made visible: while this beam is up, that style barely touches him.
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = 0.3 + 0.25 * pulse;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([7, 6]);
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(owner.x, owner.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.globalAlpha = 0.55 + 0.3 * pulse;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, size * 0.62, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = color;
+    ctx.font = "bold 11px 'RuneScape', Arial";
+    ctx.textAlign = 'center';
+    ctx.fillText(e.soulStyle!.toUpperCase(), e.x, e.y + size * 0.62 + 12);
     ctx.restore();
   }
 

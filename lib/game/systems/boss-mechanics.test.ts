@@ -44,6 +44,14 @@ import {
   GUARDIAN_LINK_DAMAGE_MULT,
   GUARDIAN_REVIVE_SECS,
   GUARDIAN_REVIVE_HP_FRAC,
+  SOUL_STYLES,
+  CERBERUS_SOUL_THRESHOLDS,
+  CERBERUS_SOUL_LOCK_MULT,
+  CERBERUS_ENRAGE_HP,
+  cerberusShouldSummon,
+  cerberusIsEnraged,
+  soulLockMult,
+  soulAnimSlug,
 } from './boss-mechanics';
 import { pathTotalLength, remainingPathDistance } from './geometry';
 
@@ -424,5 +432,71 @@ describe('Grotesque Guardians', () => {
     expect(GUARDIAN_LINK_DAMAGE_MULT).toBeLessThan(1);
     expect(GUARDIAN_REVIVE_SECS).toBeGreaterThan(0);
     expect(GUARDIAN_REVIVE_HP_FRAC).toBeLessThan(1); // a revived twin comes back hurt
+  });
+});
+
+describe('Cerberus and the Summoned Souls', () => {
+  it('has one soul per combat style, and no style twice', () => {
+    expect([...SOUL_STYLES].sort()).toEqual(['magic', 'melee', 'ranged']);
+  });
+
+  it('names each clip after the style its soul locks', () => {
+    expect(soulAnimSlug('melee')).toBe('soul_melee');
+    expect(soulAnimSlug('ranged')).toBe('soul_ranged');
+    expect(soulAnimSlug('magic')).toBe('soul_magic');
+  });
+
+  it('seeds him with no souls out and nothing locked', () => {
+    const st = freshBossState('cerberus');
+    expect(st.soulSummons).toBe(0);
+    expect(st.lockedStyles).toEqual([]);
+    expect(bossStyleMult(st, 'melee')).toBe(1);
+  });
+
+  it('summons a batch at each threshold, and only once each', () => {
+    expect(cerberusShouldSummon(0.9, 0)).toBe(false);
+    expect(cerberusShouldSummon(CERBERUS_SOUL_THRESHOLDS[0], 0)).toBe(true);
+    // Already sent that batch: it won't re-send it just because HP is still low.
+    expect(cerberusShouldSummon(0.5, 1)).toBe(false);
+    expect(cerberusShouldSummon(CERBERUS_SOUL_THRESHOLDS[1], 1)).toBe(true);
+    // Out of thresholds: no third batch, however low he goes.
+    expect(cerberusShouldSummon(0.01, CERBERUS_SOUL_THRESHOLDS.length)).toBe(false);
+  });
+
+  it('locks exactly the styles whose souls are alive', () => {
+    const st = freshBossState('cerberus');
+    st.lockedStyles = ['melee', 'magic'];
+    expect(bossStyleMult(st, 'melee')).toBe(CERBERUS_SOUL_LOCK_MULT);
+    expect(bossStyleMult(st, 'magic')).toBe(CERBERUS_SOUL_LOCK_MULT);
+    // The ranged soul is dead, so ranged is back to full: that is the reward for
+    // picking the right one to kill.
+    expect(bossStyleMult(st, 'ranged')).toBe(1);
+  });
+
+  it('is armoured against everything with all three souls up', () => {
+    const st = freshBossState('cerberus');
+    st.lockedStyles = [...SOUL_STYLES];
+    for (const style of SOUL_STYLES) {
+      expect(bossStyleMult(st, style)).toBe(CERBERUS_SOUL_LOCK_MULT);
+    }
+    // But never to *zero*: a board with no answer grinds badly, it does not hard-lock.
+    expect(CERBERUS_SOUL_LOCK_MULT).toBeGreaterThan(0);
+  });
+
+  it('leaves styleless damage alone — a soul locks a style, and a burn has none', () => {
+    const st = freshBossState('cerberus');
+    st.lockedStyles = [...SOUL_STYLES];
+    expect(bossStyleMult(st, undefined)).toBe(1);
+    expect(soulLockMult(SOUL_STYLES, undefined)).toBe(1);
+  });
+
+  it('locks nothing when no soul stands', () => {
+    expect(soulLockMult([], 'melee')).toBe(1);
+    expect(soulLockMult(undefined, 'melee')).toBe(1);
+  });
+
+  it('enrages at its threshold', () => {
+    expect(cerberusIsEnraged(CERBERUS_ENRAGE_HP + 0.01)).toBe(false);
+    expect(cerberusIsEnraged(CERBERUS_ENRAGE_HP)).toBe(true);
   });
 });
