@@ -45,6 +45,8 @@ A cache is any folder holding `main_file_cache.dat2` + `main_file_cache.idx*` �
 
 The enemy pipeline exports each NPC as an animated glTF, bakes walk/hurt/death sprite sheets from it with three.js (a real z-buffer, not the old hand-rolled rasteriser), then regenerates `data/enemy-anims.data.ts` from the manifests. Use `--only <slug>` to rebake one enemy.
 
+**Choosing *which* sequence id is a clip is its own job — hand it to the `npc-anim-auditor` subagent.** Picking a hurt/death by reading the cache is a trap (an NPC's id block mixes its attacks, blocks and other rigs' anims; metrics can't tell an attack from a block), it takes dozens of probe images, and the agent already carries the method. Its anchor is `npm run anims:observed` — a cross-reference of the config against `scripts/data/openosrs-observed-anims.json` (the vendored OpenOSRS record of which sequences each NPC is actually *seen* playing in game), which flags configured ids the NPC never plays and lists the real candidates. Use the agent whenever an animation "looks wrong" or a new enemy needs clips.
+
 Spot-anims (GFX) are baked by `scripts/render-osrs-spotanims.mjs`, but the flat rasteriser only handles **geometry** spotanims — textured ones come out as white boxes, so those stay procedural. Check the output PNG before persisting it. Same for tower/weapon renders: they must face **side-on** (ideally right); sweep the yaw and look at the PNG before committing.
 
 ## Design direction

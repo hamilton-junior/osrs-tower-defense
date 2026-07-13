@@ -15,6 +15,7 @@
     "export:enemy-gltf": "node scripts/export-enemy-gltf.mjs",
     "bake:enemies": "node scripts/bake-enemy-sprites-from-gltf.mjs",
     "anims:data": "node scripts/generate-enemy-anims-data.mjs",
+    "anims:observed": "node scripts/observed-anims.mjs",
     "clean": "next clean"
   },
   "dependencies": {
