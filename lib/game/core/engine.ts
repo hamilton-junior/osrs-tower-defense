@@ -26,9 +26,10 @@ import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
 import { rollDraft, availableCards, DRAFT_POOL, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import {
-  rollRelicChoice, isRelicWave, shouldExecute, interestGain,
+  rollRelicChoice, isRelicWave, shouldExecute, interestGain, RELICS,
   type Relic, type RelicEffect,
 } from '../systems/relics';
+import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
 import {
   rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRenderScaleMult, shieldHpFor,
   regenPerSec, leakLifeCost, bossLeakCost, SUPERIOR_LEAK_COST, isCcImmune, styleDamageMult, absorbWithShield, rollArmoredStyle,
@@ -1090,8 +1091,8 @@ export class GameEngine {
    * so no two runs share a map; {@link buildPath} snaps this normalized layout onto
    * the board's fixed resolution.
    */
-  private generateMap() {
-    this.mapSeed = (Math.random() * 0x100000000) >>> 0;
+  private generateMap(seed?: number) {
+    this.mapSeed = seed !== undefined ? seed >>> 0 : (Math.random() * 0x100000000) >>> 0;
     this.mapLayout = generateMapLayout(this.mapSeed);
     this.biome = pickBiome(this.mapSeed);
     this.buildPath();
@@ -3823,6 +3824,139 @@ export class GameEngine {
     this.waveActive = false;
     this.sound.fadeCombat();
     this.sound.play('game_over');
+  }
+
+  // ------------------------------------------------------------- run save/load
+  /**
+   * Snapshot the run in progress, or `null` when there is nothing safe or worth
+   * saving. Two refusals, both deliberate:
+   *
+   * - **Mid-wave** (`waveActive`) and **after a loss** (`gameOver`) return null.
+   *   A snapshot is a between-waves checkpoint — enemies, projectiles and the
+   *   spawn queue are never serialized, so taking one mid-wave would silently
+   *   delete the wave the player is fighting. The caller keeps the last idle
+   *   checkpoint instead, and a player who quits mid-wave resumes at that wave's
+   *   start with the board exactly as they left it.
+   * - An **untouched wave-1 board** is not progress, so it never overwrites a
+   *   real save with an empty one.
+   */
+  snapshotRun(): RunSave | null {
+    if (this.gameOver || this.waveActive) return null;
+    if (this.wave <= 1 && this.towers.length === 0) return null;
+    return {
+      version: RUN_SAVE_VERSION,
+      savedAt: Date.now(),
+      mapSeed: this.mapSeed,
+      gameMode: this.gameMode,
+      wave: this.wave,
+      money: this.money,
+      lives: this.lives,
+      maxLives: this.maxLives,
+      kills: this.kills,
+      goldEarned: this.goldEarned,
+      towersBuilt: this.towersBuilt,
+      essenceEarnedThisRun: this.essenceEarnedThisRun,
+      // Tower cooldowns are stamped against this clock, so it travels with them.
+      gameTime: this.gameTime,
+      towers: structuredClone(this.towers),
+      runMods: cloneRunMods(this.runMods),
+      runFx: structuredClone(this.runFx),
+      relicFx: { ...this.relicFx },
+      runCards: this.runCards.map(c => ({ ...c })),
+      draftedUnique: [...this.draftedUnique],
+      // Cards and relics travel as ids and are re-resolved from the live pools.
+      pendingDraft: this.pendingDraft?.map(c => c.id) ?? null,
+      pendingRelics: this.pendingRelics?.map(r => r.id) ?? null,
+      ownedRelics: this.ownedRelics.map(r => r.id),
+      draftRerolls: this.draftRerollsLeft,
+      slayer: this.slayer.snapshot(),
+      prayer: { points: this.prayer.points, active: [...this.prayer.active] },
+    };
+  }
+
+  /**
+   * Resume a saved run: rebuild its map from the seed, put its towers back, and
+   * restore the roguelite build it had drafted. The board comes back idle and
+   * between waves, ready for Start Wave.
+   *
+   * Cards / relics are resolved by id against the live pools, so a card removed
+   * by a later patch simply drops out of the hand instead of breaking the load.
+   * Their accrued stat effects ride in `runMods` / `runFx` / `relicFx` and are
+   * merged onto fresh defaults, so a field added since the save was written still
+   * gets its default rather than `undefined`.
+   */
+  loadRun(save: RunSave) {
+    this.generateMap(save.mapSeed);
+    // Transient combat state is never saved — start the restored board clean.
+    this.enemies = [];
+    this.projectiles = [];
+    this.hitsplats = [];
+    this.particles = [];
+    this.deaths = [];
+    this.spotEffects = [];
+    this.fx = [];
+    this.spawnQueue = [];
+    this.spawnTimer = 0;
+    this.autoplayTimer = 0;
+    this.previewCache = null;
+
+    this.gameMode = save.gameMode;
+    this.towers = structuredClone(save.towers);
+    this.bumpTowerLayout();
+    this.money = save.money;
+    this.maxLives = save.maxLives;
+    this.lives = save.lives;
+    this.wave = save.wave;
+    this.kills = save.kills;
+    this.goldEarned = save.goldEarned;
+    this.towersBuilt = save.towersBuilt;
+    this.essenceEarnedThisRun = save.essenceEarnedThisRun;
+    this.gameTime = save.gameTime;
+
+    const mods = freshRunMods();
+    this.runMods = {
+      damage: { ...mods.damage, ...save.runMods?.damage },
+      range: { ...mods.range, ...save.runMods?.range },
+      fireRate: { ...mods.fireRate, ...save.runMods?.fireRate },
+    };
+    this.runFx = { ...freshRunEffects(), ...save.runFx };
+    this.relicFx = { ...freshRelicEffects(), ...save.relicFx };
+    this.runCards = save.runCards.map(c => ({ ...c }));
+    this.draftedUnique = new Set(save.draftedUnique);
+    this.ownedRelics = save.ownedRelics
+      .map(id => RELICS.find(r => r.id === id))
+      .filter((r): r is Relic => !!r);
+    const hand = save.pendingDraft?.map(id => DRAFT_POOL.find(c => c.id === id)).filter((c): c is DraftCard => !!c);
+    this.pendingDraft = hand?.length ? hand : null;
+    const relics = save.pendingRelics?.map(id => RELICS.find(r => r.id === id)).filter((r): r is Relic => !!r);
+    this.pendingRelics = relics?.length ? relics : null;
+    this.draftRerollsLeft = save.draftRerolls;
+
+    this.waveActive = false;
+    this.gameOver = false;
+    this.paused = false;
+    this.waveTotal = 0;
+    this.bossWave = false;
+    this.activeEvent = null;
+    this.sandboxWave = false;
+    this.lastWaveSandbox = false;
+    this.baseFlash = 0;
+    this.selectedTowerType = null;
+    this.selectedTowerId = null;
+    this.multiSelectedIds = [];
+    this.movingTowerId = null;
+    this.pendingPlacement = null;
+
+    this.slayer.load(save.slayer);
+    this.slayer.assignTask(); // no-op when the save already carried one
+    this.prayer.load(save.prayer);
+    // The Grand Exchange is priced per run and its potions are timed — a resumed
+    // run gets a fresh board rather than potions that expired while the tab was
+    // closed. Damage accounting likewise starts over (its numbers are per-session).
+    this.ge.reset();
+    this.stats.reset();
+    if (this.dpsPanelOpen) this.onState({ dpsStats: this.stats.snapshot() });
+    this.emit();
   }
 
   restart() {

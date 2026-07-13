@@ -1,0 +1,159 @@
+import type { Tower, SlayerTask, PrayerType, EnemyType } from '../types';
+import type { GameMode, RunModifiers, RunEffects, RelicEffects } from '../core/engine';
+
+/**
+ * The in-progress-run save: a snapshot of everything a player would lose by
+ * closing the tab mid-run (towers, gold, lives, the wave they reached, and the
+ * roguelite build they drafted).
+ *
+ * It is a **between-waves checkpoint**, not a frame-accurate freeze. Enemies,
+ * projectiles and other transient combat state are never serialized: a snapshot
+ * is only taken while the field is idle (see `GameEngine.snapshotRun`), so
+ * resuming always drops the player at the start of a wave with the board exactly
+ * as they left it. That keeps the format small, and keeps a stale save from
+ * resurrecting half a dead wave.
+ *
+ * Cards and relics are stored **by id** and re-resolved against the live pools on
+ * load, so a save survives a content patch that re-words a card. Their accrued
+ * effects (`runMods` / `runFx` / `relicFx`) are stored outright rather than
+ * replayed, because a draft's effect is applied once at pick time and some cards
+ * roll random values.
+ */
+export interface RunSave {
+  version: number;
+  /** Epoch ms of the snapshot — shown on the Continue button. */
+  savedAt: number;
+  /** Seed of the procedural map, so the road and biome come back identical. */
+  mapSeed: number;
+  gameMode: GameMode;
+  wave: number;
+  money: number;
+  lives: number;
+  maxLives: number;
+  kills: number;
+  goldEarned: number;
+  towersBuilt: number;
+  essenceEarnedThisRun: number;
+  /** Simulated seconds elapsed — feeds the run timer and every tower cooldown. */
+  gameTime: number;
+  towers: Tower[];
+  runMods: RunModifiers;
+  runFx: RunEffects;
+  relicFx: RelicEffects;
+  runCards: { id: string; count: number }[];
+  /** Ids of `unique` cards already drafted (excluded from later hands). */
+  draftedUnique: string[];
+  /** Card ids of a draft hand still awaiting a pick (it blocks the next wave). */
+  pendingDraft: string[] | null;
+  /** Relic ids of a relic choice still awaiting a pick. */
+  pendingRelics: string[] | null;
+  ownedRelics: string[];
+  draftRerolls: number;
+  slayer: {
+    task: SlayerTask | null;
+    points: number;
+    streak: number;
+    helmet: boolean;
+    lastTaskType: EnemyType | null;
+    masterId: string;
+  };
+  prayer: { points: number; active: PrayerType[] };
+}
+
+/** Bump when a field's meaning changes — an older save is then discarded rather
+ *  than half-read into a run that would misbehave. */
+export const RUN_SAVE_VERSION = 1;
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+const strList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
+/**
+ * Validate a blob read back from `localStorage` and return it as a `RunSave`, or
+ * `null` if it is unusable — wrong version, not an object, or missing the parts a
+ * run cannot be rebuilt without (a board of towers, a wave, the roguelite mod
+ * buckets). Anything merely *odd* is coerced to a sane value instead: a save is
+ * the player's own data, so the bar is "can the engine resume from this", not
+ * "is every byte pristine".
+ *
+ * Returning `null` is always safe — the caller drops the save and the player
+ * starts fresh.
+ */
+export function sanitizeRunSave(raw: unknown): RunSave | null {
+  if (!isObj(raw)) return null;
+  if (raw.version !== RUN_SAVE_VERSION) return null;
+
+  // The board is the point of the save. No towers array => nothing to restore.
+  const towers = Array.isArray(raw.towers)
+    ? raw.towers.filter((t): t is Tower => isObj(t) && typeof t.id === 'string' && typeof t.type === 'string'
+      && Number.isFinite(t.x) && Number.isFinite(t.y))
+    : null;
+  if (!towers) return null;
+
+  // The mod buckets are read every frame by the combat pipe; a missing one would
+  // crash the run rather than degrade it, so a save without them is unusable.
+  if (!isObj(raw.runMods) || !isObj(raw.runFx) || !isObj(raw.relicFx)) return null;
+
+  const wave = Math.max(1, Math.floor(num(raw.wave, 1)));
+  const maxLives = Math.max(1, Math.floor(num(raw.maxLives, 1)));
+  const slayerRaw = isObj(raw.slayer) ? raw.slayer : {};
+  const prayerRaw = isObj(raw.prayer) ? raw.prayer : {};
+  const taskRaw = isObj(slayerRaw.task) ? slayerRaw.task : null;
+
+  return {
+    version: RUN_SAVE_VERSION,
+    savedAt: num(raw.savedAt, 0),
+    mapSeed: num(raw.mapSeed, 0) >>> 0,
+    gameMode: raw.gameMode === 'classic' ? 'classic' : 'roguelite',
+    wave,
+    money: Math.max(0, Math.floor(num(raw.money, 0))),
+    // A save with 0 lives would resume straight into a game over.
+    lives: Math.min(maxLives, Math.max(1, Math.floor(num(raw.lives, maxLives)))),
+    maxLives,
+    kills: Math.max(0, Math.floor(num(raw.kills, 0))),
+    goldEarned: Math.max(0, Math.floor(num(raw.goldEarned, 0))),
+    towersBuilt: Math.max(0, Math.floor(num(raw.towersBuilt, 0))),
+    essenceEarnedThisRun: Math.max(0, Math.floor(num(raw.essenceEarnedThisRun, 0))),
+    gameTime: Math.max(0, num(raw.gameTime, 0)),
+    towers,
+    runMods: raw.runMods as unknown as RunModifiers,
+    runFx: raw.runFx as unknown as RunEffects,
+    relicFx: raw.relicFx as unknown as RelicEffects,
+    runCards: Array.isArray(raw.runCards)
+      ? raw.runCards
+        .filter((c): c is { id: string; count: number } => isObj(c) && typeof c.id === 'string')
+        .map((c) => ({ id: c.id, count: Math.max(1, Math.floor(num(c.count, 1))) }))
+      : [],
+    draftedUnique: strList(raw.draftedUnique),
+    pendingDraft: Array.isArray(raw.pendingDraft) ? strList(raw.pendingDraft) : null,
+    pendingRelics: Array.isArray(raw.pendingRelics) ? strList(raw.pendingRelics) : null,
+    ownedRelics: strList(raw.ownedRelics),
+    draftRerolls: Math.max(0, Math.floor(num(raw.draftRerolls, 0))),
+    slayer: {
+      task: taskRaw && typeof taskRaw.type === 'string'
+        ? {
+          type: taskRaw.type as EnemyType,
+          count: Math.max(0, Math.floor(num(taskRaw.count, 0))),
+          total: Math.max(1, Math.floor(num(taskRaw.total, 1))),
+          reward: Math.max(0, Math.floor(num(taskRaw.reward, 0))),
+        }
+        : null,
+      points: Math.max(0, Math.floor(num(slayerRaw.points, 0))),
+      streak: Math.max(0, Math.floor(num(slayerRaw.streak, 0))),
+      helmet: slayerRaw.helmet === true,
+      lastTaskType: (str(slayerRaw.lastTaskType) as EnemyType | null) ?? null,
+      masterId: str(slayerRaw.masterId) ?? '',
+    },
+    prayer: {
+      points: Math.max(0, num(prayerRaw.points, 0)),
+      active: strList(prayerRaw.active) as PrayerType[],
+    },
+  };
+}
+
+/** Whether a run is worth offering back to the player: an untouched wave-1 board
+ *  with nothing built on it is not progress, it is the title screen. */
+export function isResumable(save: RunSave): boolean {
+  return save.wave > 1 || save.towers.length > 0;
+}

@@ -150,6 +150,16 @@ export class PrayerSystem {
     this.lastShown = this.max;
   }
 
+  /** Restore a saved run's prayer state (see `systems/run-save`). Only prayers the
+   *  restored wave has actually unlocked are re-lit, so a save can never leave a
+   *  prayer burning that the run cannot afford or has not earned. */
+  load(state: { points: number; active: PrayerType[] }) {
+    this.active.clear();
+    for (const id of state.active) if (this.isUnlocked(id)) this.active.add(id);
+    this.points = Math.max(0, Math.min(this.max, state.points));
+    this.lastShown = Math.round(this.points);
+  }
+
   private emitNow() {
     this.lastShown = Math.round(this.points);
     this.e.requestEmit();

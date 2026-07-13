@@ -56,7 +56,7 @@ Follow OSRS interface conventions; where OSRS has no answer, follow RuneLite. In
 - **Keyboard handlers must ignore events from inputs.** Check `target.tagName === 'INPUT' | 'TEXTAREA'` and `isContentEditable` first, or typing in a number field sends a wave (Space) and changes speed (1/2/5). Use `e.code` (`'Quote'`) for chords — `e.key` is keyboard-layout dependent.
 - **`overflow-y-auto` clips `position: absolute` descendants.** Anchor tooltips to a non-scrolling `relative` ancestor.
 - Game speed and pause apply to `dt` only (`rawDt * gameSpeed`, zero when paused); real-world timers use `rawDt`. `TICK = 0.6` (`data/tower-stats.ts`) is the OSRS game tick and drives every cooldown.
-- Only meta-progression persists (`osrs_td_essence`, `osrs_td_upgrades`, `osrs_td_killcounts`, `osrs_td_cardcounts`, `osrs_td_bosses_seen`). Per-run state is never saved.
+- Meta-progression persists (`osrs_td_essence`, `osrs_td_upgrades`, `osrs_td_killcounts`, `osrs_td_cardcounts`, `osrs_td_bosses_seen`). The **run in progress** persists too, under `osrs_td_run`: `GameRoot` autosaves `engine.snapshotRun()` every 2s and on `pagehide`, and the start screen offers it back as **Continue**. It is a *between-waves checkpoint* — `snapshotRun()` returns null mid-wave and on game over, so enemies/projectiles are never serialized and quitting mid-fight resumes at that wave's start. The format is versioned and validated in `systems/run-save.ts` (`RUN_SAVE_VERSION`, `sanitizeRunSave`); bump the version when a field's meaning changes.
 
 ## Verify it
 

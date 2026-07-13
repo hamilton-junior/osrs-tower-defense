@@ -19,6 +19,7 @@ import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
+import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/run-save';
 import type { TowerType, PrayerType, MageMode, CombatStyle } from '@/lib/game/types';
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
@@ -188,7 +189,34 @@ const INITIAL: UIState = {
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = { prayer: 'Prayer Unlocked' };
 
-const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen' } as const;
+const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', run: 'osrs_td_run' } as const;
+
+/** Read the saved run in progress, or null when there is none / it is unusable.
+ *  `sanitizeRunSave` rejects a save from an older format outright, so a patch that
+ *  changes the shape can never resume a run into a broken state. */
+function loadRunSave(): RunSave | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const save = sanitizeRunSave(JSON.parse(localStorage.getItem(SAVE_KEYS.run) ?? 'null'));
+    return save && isResumable(save) ? save : null;
+  } catch { return null; }
+}
+
+function clearRunSave() {
+  try { localStorage.removeItem(SAVE_KEYS.run); } catch { /* ignore */ }
+}
+
+/** "2 hours ago" — how stale the saved run on the Continue button is. */
+function agoLabel(ms: number): string {
+  const secs = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (secs < 90) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
 
 /** Read the persisted account save (meta-progression + Collection Log) from
  *  localStorage, tolerating absent/corrupt data — the engine re-clamps it. */
@@ -401,6 +429,10 @@ export default function GameRoot() {
   // The title / mode-select screen gates the very first wave; it returns on
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
+  // A run left in progress on this browser, offered back on the start screen.
+  // Read once on mount (localStorage is not available during SSR).
+  const [savedRun, setSavedRun] = useState<RunSave | null>(null);
+  useEffect(() => { setSavedRun(loadRunSave()); }, []);
   const [debugOpen, setDebugOpen] = useState(false);
   // "How to Play" reference guide — reachable any time from the start screen or
   // the ❓ stone. (The FIRST-visit onboarding is the guided tour below, not this.)
@@ -568,6 +600,31 @@ export default function GameRoot() {
     if (!bsLoaded.current) { bsLoaded.current = true; return; }
     try { localStorage.setItem(SAVE_KEYS.bossesSeen, JSON.stringify(ui.bossesSeen)); } catch { /* ignore */ }
   }, [ui.bossesSeen]);
+
+  // Autosave the run in progress, so closing the tab (or a crash) doesn't cost the
+  // run. The engine only hands back a snapshot while the field is idle, so this
+  // writes a checkpoint whenever the board changes between waves and never mid-wave
+  // — quit mid-fight and you resume at the start of that wave with the board as it
+  // was. A game over clears the save: there is nothing left to come back to.
+  const lastSaved = useRef<string | null>(null);
+  useEffect(() => {
+    const write = () => {
+      const engine = engineRef.current;
+      if (!engine) return;
+      if (engine.gameOver) { clearRunSave(); lastSaved.current = null; return; }
+      const snap = engine.snapshotRun();
+      if (!snap) return; // mid-wave, or an untouched board — keep the last checkpoint
+      // `savedAt` moves every tick; diff the run itself so an idle board doesn't
+      // rewrite localStorage on every pass.
+      const body = JSON.stringify({ ...snap, savedAt: 0 });
+      if (body === lastSaved.current) return;
+      lastSaved.current = body;
+      try { localStorage.setItem(SAVE_KEYS.run, JSON.stringify(snap)); } catch { /* quota / private mode */ }
+    };
+    const id = window.setInterval(write, 2000);
+    window.addEventListener('pagehide', write); // last chance on a tab close
+    return () => { window.clearInterval(id); window.removeEventListener('pagehide', write); };
+  }, []);
 
   // Flash a banner when a wave begins, and a "complete" banner when it ends.
   useEffect(() => {
@@ -2010,7 +2067,7 @@ export default function GameRoot() {
             {ui.gameMode === 'roguelite' && ui.runCards.length > 0 && (
               <RunBuild cards={ui.runCards} />
             )}
-            <button className="rs-btn rs-btn-primary px-6 py-2 w-full" title="Start a fresh run" onClick={() => { engineRef.current?.restart(); setRunStarted(false); }}>
+            <button className="rs-btn rs-btn-primary px-6 py-2 w-full" title="Start a fresh run" onClick={() => { clearRunSave(); setSavedRun(null); engineRef.current?.restart(); setRunStarted(false); }}>
               ▶ Play Again
             </button>
           </div>
@@ -2021,8 +2078,15 @@ export default function GameRoot() {
       {!runStarted && !ui.gameOver && (
         <StartScreen
           mode={ui.gameMode}
+          saved={savedRun}
           onSelect={(m) => engineRef.current?.setMode(m)}
-          onStart={() => { setRunStarted(true); }}
+          onStart={() => { clearRunSave(); setSavedRun(null); setRunStarted(true); }}
+          onContinue={() => {
+            if (!savedRun) return;
+            engineRef.current?.loadRun(savedRun);
+            setRunStarted(true);
+          }}
+          onDiscard={() => { clearRunSave(); setSavedRun(null); }}
           onHelp={() => setHelpOpen(true)}
         />
       )}
@@ -3106,10 +3170,14 @@ function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
   );
 }
 
-function StartScreen({ mode, onSelect, onStart, onHelp }: {
+function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, onHelp }: {
   mode: GameMode;
+  /** A run left in progress on this browser, offered back before mode select. */
+  saved: RunSave | null;
   onSelect: (m: GameMode) => void;
   onStart: () => void;
+  onContinue: () => void;
+  onDiscard: () => void;
   onHelp: () => void;
 }) {
   const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string }[] = [
@@ -3129,8 +3197,31 @@ function StartScreen({ mode, onSelect, onStart, onHelp }: {
       <div className="rs-panel p-6 w-[34em] max-w-[94vw] flex flex-col">
         <div className="text-center mb-1">
           <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: fs('clamp(20px, 2.4vw, 32px)') }}>OSRS Tower Defense</div>
-          <div className="text-[#cdbe91] text-[0.85em] mt-[0.4em]">Choose your mode</div>
+          <div className="text-[#cdbe91] text-[0.85em] mt-[0.4em]">{saved ? 'Continue where you left off' : 'Choose your mode'}</div>
         </div>
+
+        {/* A run left in progress: resume it at the wave it was saved on, board intact. */}
+        {saved && (
+          <div className="rs-panel-inset p-[0.8em] mt-4 flex flex-col gap-[0.6em]">
+            <div className="flex items-center gap-[0.6em]">
+              <div className="flex flex-col">
+                <span className="text-osrs-yellow font-bold text-[1.05em]">Run in progress — Wave {saved.wave}</span>
+                <span className="text-[0.72em] text-[#cdbe91]">
+                  {saved.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'} · {saved.towers.length} tower{saved.towers.length === 1 ? '' : 's'} · {saved.lives} ♥ · {saved.money.toLocaleString()} gp · saved {agoLabel(saved.savedAt)}
+                </span>
+              </div>
+            </div>
+            <button className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse" title={`Resume the run at wave ${saved.wave}`} onClick={onContinue}>
+              ▶ Continue
+            </button>
+            <button className="rs-btn w-full py-[0.3em] text-[0.75em]" title="Throw the saved run away and start over" onClick={onDiscard}>
+              🗑 Discard saved run
+            </button>
+          </div>
+        )}
+
+        {saved && <div className="text-center text-[0.75em] text-[#cdbe91] mt-4 mb-1">— or start a new run —</div>}
+
         <div className="grid grid-cols-2 gap-[0.7em] my-4">
           {MODES.map((m) => {
             const on = mode === m.id;
@@ -3153,8 +3244,12 @@ function StartScreen({ mode, onSelect, onStart, onHelp }: {
             );
           })}
         </div>
-        <button className="rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] animate-pulse" title="Lock in this mode and start the run" onClick={onStart}>
-          ▶ Confirm
+        <button
+          className={`rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] ${saved ? '' : 'animate-pulse'}`}
+          title={saved ? 'Discard the saved run and start fresh in this mode' : 'Lock in this mode and start the run'}
+          onClick={onStart}
+        >
+          ▶ {saved ? 'New Run' : 'Confirm'}
         </button>
         <button className="rs-btn w-full py-[0.4em] text-[0.85em] mt-[0.5em]" title="Open the how-to-play guide" onClick={onHelp}>
           ❓ How to Play

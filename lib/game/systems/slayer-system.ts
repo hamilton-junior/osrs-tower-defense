@@ -127,4 +127,27 @@ export class SlayerSystem {
     this.lastTaskType = null;
     this.masterId = SLAYER_MASTERS[0].id;
   }
+
+  /** Snapshot for the in-progress-run save (see `systems/run-save`). */
+  snapshot() {
+    return {
+      task: this.task ? { ...this.task } : null,
+      points: this.points,
+      streak: this.streak,
+      helmet: this.helmet,
+      lastTaskType: this.lastTaskType,
+      masterId: this.masterId,
+    };
+  }
+
+  /** Restore a saved run's Slayer state. An unknown master id (a renamed master in
+   *  a later patch) falls back to the first one rather than breaking the run. */
+  load(state: ReturnType<SlayerSystem['snapshot']>) {
+    this.task = state.task ? { ...state.task } : null;
+    this.points = state.points;
+    this.streak = state.streak;
+    this.helmet = state.helmet;
+    this.lastTaskType = state.lastTaskType;
+    this.masterId = SLAYER_MASTERS.some(m => m.id === state.masterId) ? state.masterId : SLAYER_MASTERS[0].id;
+  }
 }
