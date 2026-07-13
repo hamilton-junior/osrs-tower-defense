@@ -23,7 +23,20 @@ describe('debuffTenacity', () => {
     expect(debuffTenacity({ wave: 200, isBoss: true })).toBeCloseTo(0.9);
   });
 
-  it('ignores debuffHits now that bosses have a wave-based curve', () => {
+  it('does not price in debuffHits — the stall-breaker covers that case', () => {
     expect(debuffTenacity({ wave: 10, isBoss: true, debuffHits: 999 })).toBeCloseTo(0.55);
+  });
+
+  it('tops a stalled boss up to outright immunity via the bonus', () => {
+    // The only route to a fully CC-immune boss, and it opens only for one that is taking
+    // no damage — which is precisely the fight where control stops buying time and starts
+    // holding the fight open forever.
+    expect(debuffTenacity({ wave: 80, isBoss: true, bonus: 0.6 })).toBe(1);
+    expect(debuffTenacity({ wave: 80, isBoss: true, bonus: 0 })).toBeCloseTo(0.9);
+  });
+
+  it('clamps the bonus into range rather than overshooting', () => {
+    expect(debuffTenacity({ wave: 10, bonus: 99 })).toBe(1);
+    expect(debuffTenacity({ wave: 10, bonus: -99 })).toBeCloseTo(0.05); // negatives ignored
   });
 });

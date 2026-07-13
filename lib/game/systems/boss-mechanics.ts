@@ -450,6 +450,80 @@ export function soulLockMult(locked: readonly CombatStyle[] | undefined, style: 
   return locked.includes(style) ? CERBERUS_SOUL_LOCK_MULT : 1;
 }
 
+// ───────────────────────────── the stall breaker ───────────────────────────
+/**
+ * Every boss fight needs a clock, because several of them can otherwise settle into a
+ * loop that never resolves: the Hydra's vent heals back more than a thin board can
+ * strip, Cerberus's souls cut a mono-style board to a fifth, the Regenerating affix
+ * claws HP back on its own. Pair any of those with enough crowd control to keep the
+ * boss off the base and the run reaches a state with **no terminal condition** — the
+ * player cannot kill it, it cannot kill them, the wave never ends, and (since gold
+ * only arrives on a kill or a wave clear) no income ever comes in to build out of it.
+ * Losing is a fine outcome; being stuck is not.
+ *
+ * So a boss that is *making no progress towards death* starts breaking free. The clock
+ * measures the only thing that matters — has it been driven to a new low HP? — so a
+ * player who is slowly winning never sees it, and one who is netting zero is escalated
+ * until the fight resolves one way or the other. Each stack hardens it against control
+ * (see `debuffTenacity`'s `bonus`) and dries up its self-healing; at full stacks it is
+ * CC-immune and simply walks, which costs lives and ends the wave.
+ */
+/** Seconds a boss may go without reaching a new low HP before it starts breaking free. */
+export const BOSS_STALL_GRACE = 20;
+/** Seconds between escalation stacks once it is stalling. */
+export const BOSS_STALL_STEP = 5;
+/** Fraction of max HP that counts as real progress — chip damage inside the noise of a
+ *  heal cycle must not reset the clock, or a healing boss would hold it at zero forever. */
+export const BOSS_STALL_PROGRESS = 0.01;
+/** Stacks the escalation tops out at. */
+export const BOSS_STALL_MAX_STACKS = 6;
+/** Tenacity added per stack, on top of what the boss has already built. */
+export const BOSS_STALL_TENACITY_PER_STACK = 0.1;
+/** Fraction of a boss's self-heal removed per stack (so it dries up entirely at 4). */
+export const BOSS_STALL_HEAL_PER_STACK = 0.25;
+
+/** The stall clock's persistent fields (a slice of {@link BossState}). */
+export interface StallState {
+  /** The lowest HP fraction the boss has been driven to — the bar it must beat. */
+  hpFloor: number;
+  /** Seconds since it last beat that bar. */
+  stallTimer: number;
+  /** Escalation stacks, derived from the timer. */
+  stallStacks: number;
+}
+
+/** Stacks a boss stalled for `stallTimer` seconds has earned. */
+export function bossStallStacks(stallTimer: number): number {
+  if (stallTimer <= BOSS_STALL_GRACE) return 0;
+  const over = stallTimer - BOSS_STALL_GRACE;
+  return Math.min(BOSS_STALL_MAX_STACKS, 1 + Math.floor(over / BOSS_STALL_STEP));
+}
+
+/**
+ * Advance the stall clock one frame. Reaching a new low HP (by at least
+ * {@link BOSS_STALL_PROGRESS}) is *progress*: it resets the clock and drops every stack,
+ * so a board that is genuinely grinding the boss down is never touched by any of this.
+ */
+export function stepBossStall(prev: StallState, hpFrac: number, dt: number): StallState {
+  if (hpFrac <= prev.hpFloor - BOSS_STALL_PROGRESS) {
+    return { hpFloor: hpFrac, stallTimer: 0, stallStacks: 0 };
+  }
+  const stallTimer = prev.stallTimer + dt;
+  return { hpFloor: prev.hpFloor, stallTimer, stallStacks: bossStallStacks(stallTimer) };
+}
+
+/** Extra tenacity from the escalation — pushes a stalled boss past the CC-built cap to
+ *  outright immunity, which is what guarantees it eventually walks. */
+export function stallTenacityBonus(stacks: number): number {
+  return Math.max(0, stacks) * BOSS_STALL_TENACITY_PER_STACK;
+}
+
+/** Multiplier on a stalled boss's self-healing — zero once it is thoroughly stuck, so a
+ *  board that is *nearly* strong enough is handed the fight rather than the stalemate. */
+export function stallHealMult(stacks: number): number {
+  return Math.max(0, 1 - Math.max(0, stacks) * BOSS_STALL_HEAL_PER_STACK);
+}
+
 // ───────────────────────────── shared boss state ───────────────────────────
 /** Mutable per-boss runtime state the engine stores on the boss enemy. */
 export interface BossState {
@@ -506,11 +580,20 @@ export interface BossState {
   lockedStyles?: CombatStyle[];
   /** Cerberus: how many batches of souls he has summoned (one per threshold). */
   soulSummons?: number;
+  /** Stall breaker: the lowest HP fraction this boss has been driven to. */
+  hpFloor?: number;
+  /** Stall breaker: seconds since it last reached a new low. */
+  stallTimer?: number;
+  /** Stall breaker: escalation stacks — 0 for any fight that is actually progressing. */
+  stallStacks?: number;
 }
 
 /** Build the initial state for a freshly-spawned boss of `kind`. */
 export function freshBossState(kind: BossId): BossState {
-  const state: BossState = { kind, timer: 0, phaseIndex: 0 };
+  const state: BossState = {
+    kind, timer: 0, phaseIndex: 0,
+    hpFloor: 1, stallTimer: 0, stallStacks: 0, // the stall clock, armed for every boss
+  };
   if (kind === 'vorkath') state.iceTimer = VORKATH_ICE_INTERVAL;
   if (kind === 'jad') { state.recentDamage = []; state.healTickTimer = 0; }
   if (kind === 'hydra') { state.shattered = 0; state.ventDamage = 0; }

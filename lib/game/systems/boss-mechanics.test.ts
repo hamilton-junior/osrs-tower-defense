@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
+  stepBossStall,
+  bossStallStacks,
+  stallTenacityBonus,
+  stallHealMult,
+  BOSS_STALL_GRACE,
+  BOSS_STALL_STEP,
+  BOSS_STALL_PROGRESS,
+  BOSS_STALL_MAX_STACKS,
+  BOSS_STALL_HEAL_PER_STACK,
   ZULRAH_PHASES,
   ZULRAH_PHASE_SECS,
   ZULRAH_WEAK_BONUS,
@@ -498,5 +507,76 @@ describe('Cerberus and the Summoned Souls', () => {
   it('enrages at its threshold', () => {
     expect(cerberusIsEnraged(CERBERUS_ENRAGE_HP + 0.01)).toBe(false);
     expect(cerberusIsEnraged(CERBERUS_ENRAGE_HP)).toBe(true);
+  });
+});
+
+describe('the stall breaker', () => {
+  const DT = 0.1;
+  /** Run the clock for `secs`, feeding it the HP fraction the boss is at each frame. */
+  const run = (secs: number, hpAt: (t: number) => number, from = { hpFloor: 1, stallTimer: 0, stallStacks: 0 }) => {
+    let s = from;
+    for (let t = 0; t < secs; t += DT) s = stepBossStall(s, hpAt(t), DT);
+    return s;
+  };
+
+  it('leaves a boss that is being ground down alone, however slowly', () => {
+    // 1% of max HP every 4s — a crawl, but it is *winning*, and a fight that is
+    // progressing must never be escalated.
+    const s = run(120, (t) => 1 - t * 0.0025);
+    expect(s.stallStacks).toBe(0);
+    expect(s.hpFloor).toBeLessThan(0.75);
+  });
+
+  it('escalates a boss whose HP is going nowhere', () => {
+    expect(run(BOSS_STALL_GRACE - 1, () => 1).stallStacks).toBe(0); // still in the grace period
+    expect(run(BOSS_STALL_GRACE + 1, () => 1).stallStacks).toBe(1);
+    expect(run(BOSS_STALL_GRACE + BOSS_STALL_STEP + 1, () => 1).stallStacks).toBe(2);
+  });
+
+  it('escalates the Hydra heal loop — the softlock this exists for', () => {
+    // The reported bug: control but no damage. The player strips the Hydra to its vent
+    // threshold, the vent heals it back above, and they strip it again — forever. HP
+    // oscillates and never reaches a new low, so no progress is ever made.
+    const s = run(90, (t) => 0.66 + 0.15 * Math.abs(Math.sin(t / 3)));
+    expect(s.stallStacks).toBe(BOSS_STALL_MAX_STACKS);
+    // At full stacks its self-heal is gone and it is CC-immune: the loop cannot continue.
+    expect(stallHealMult(s.stallStacks)).toBe(0);
+    expect(stallTenacityBonus(s.stallStacks)).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it('drops every stack the moment the boss takes a real step down', () => {
+    const stalled = run(BOSS_STALL_GRACE + BOSS_STALL_STEP * 3, () => 1);
+    expect(stalled.stallStacks).toBeGreaterThan(1);
+    const freed = stepBossStall(stalled, 1 - BOSS_STALL_PROGRESS, DT);
+    expect(freed.stallStacks).toBe(0);
+    expect(freed.stallTimer).toBe(0);
+    expect(freed.hpFloor).toBeCloseTo(1 - BOSS_STALL_PROGRESS);
+  });
+
+  it('does not accept chip damage inside the noise as progress', () => {
+    // Below the progress threshold the floor must hold, or a boss healing 15% a cycle
+    // could reset the clock forever on the 0.5% it loses in between.
+    const s = stepBossStall({ hpFloor: 0.5, stallTimer: 30, stallStacks: 3 }, 0.5 - BOSS_STALL_PROGRESS / 2, DT);
+    expect(s.hpFloor).toBe(0.5);
+    expect(s.stallStacks).toBe(3);
+  });
+
+  it('never lets the floor drift back up when the boss heals', () => {
+    const s = run(20, (t) => (t < 5 ? 0.4 : 0.9)); // driven to 40%, then heals to 90%
+    expect(s.hpFloor).toBeCloseTo(0.4);
+  });
+
+  it('caps the escalation', () => {
+    expect(bossStallStacks(BOSS_STALL_GRACE + BOSS_STALL_STEP * 99)).toBe(BOSS_STALL_MAX_STACKS);
+    expect(stallHealMult(BOSS_STALL_MAX_STACKS)).toBe(0); // floored, never negative
+    expect(stallHealMult(0)).toBe(1);
+    expect(stallHealMult(1)).toBeCloseTo(1 - BOSS_STALL_HEAL_PER_STACK);
+  });
+
+  it('arms the clock on every fresh boss', () => {
+    const st = freshBossState('hydra');
+    expect(st.hpFloor).toBe(1);
+    expect(st.stallTimer).toBe(0);
+    expect(st.stallStacks).toBe(0);
   });
 });

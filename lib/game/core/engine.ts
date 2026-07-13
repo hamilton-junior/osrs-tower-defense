@@ -46,6 +46,7 @@ import {
   HYDRA_ZAP_CHAIN, HYDRA_ZAP_DISABLE_SECS, HYDRA_ENRAGE_ZAP_SECS,
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
+  stepBossStall, stallTenacityBonus, stallHealMult, type BossState,
   isGuardian, guardianReviveHp,
   GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
   cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
@@ -1794,6 +1795,7 @@ export class GameEngine {
       const st = e.bossState;
       if (!st) continue;
       st.timer += dt;
+      this.stepStall(e, st, dt);
       if (st.kind === 'zulrah') {
         const idx = zulrahPhaseIndex(st.timer);
         if (idx !== st.phaseIndex) {
@@ -1817,6 +1819,40 @@ export class GameEngine {
         this.updateCerberus(e, dt);
       }
     }
+  }
+
+  /**
+   * Advance a boss's stall clock — the guarantee that every boss fight *ends*.
+   *
+   * A board with control but no damage can otherwise hold a boss in place forever: it
+   * never reaches the base (so the player never loses), it never dies (so they never
+   * win), the wave never ends, and no gold comes in to build out of it. That is a run
+   * with no exit, and a player who hits it has to reload and throw the run away.
+   *
+   * So the clock watches the one thing that decides the fight: is the boss being driven
+   * to a new low? While it is, nothing happens here — a slow grind is still a win and
+   * gets left alone. When it isn't, the boss starts shrugging off control and its
+   * healing dries up, until it is either dead or walking. Both are endings.
+   */
+  private stepStall(e: Enemy, st: BossState, dt: number) {
+    const before = st.stallStacks ?? 0;
+    const next = stepBossStall(
+      { hpFloor: st.hpFloor ?? 1, stallTimer: st.stallTimer ?? 0, stallStacks: before },
+      e.hp / e.maxHp,
+      dt,
+    );
+    st.hpFloor = next.hpFloor;
+    st.stallTimer = next.stallTimer;
+    st.stallStacks = next.stallStacks;
+
+    if (next.stallStacks <= before) return;
+    // Announce only the first stack — after that the boss bar carries the count, and a
+    // toast every five seconds would bury the mechanic it is trying to explain.
+    if (before === 0) {
+      this.notify(`${e.name} is breaking free of your control!`);
+      this.sound.play('wave', 60);
+    }
+    this.addRing(e.x, e.y, 8, 72, '#ffcb05', 0.4, 3);
   }
 
   /**
@@ -2097,8 +2133,12 @@ export class GameEngine {
     const frac = e.hp / e.maxHp;
 
     if (st.venting) {
-      // Regenerate while the vent holds, and check the break target.
-      e.hp = Math.min(e.maxHp, e.hp + hydraVentHeal(e.maxHp, dt));
+      // Regenerate while the vent holds, and check the break target. The stall-breaker
+      // throttles the heal: this regen is precisely what lets a vent undo a whole cycle
+      // of a thin board's damage, so a Hydra that has been going nowhere loses it and
+      // the board that was *nearly* enough finally gets through.
+      const heal = hydraVentHeal(e.maxHp, dt) * stallHealMult(st.stallStacks ?? 0);
+      e.hp = Math.min(e.maxHp, e.hp + heal);
       st.ventTimer = (st.ventTimer ?? 0) - dt;
       if ((st.ventDamage ?? 0) >= hydraBreakTarget(e.maxHp)) this.shatterHydraVent(e);
       else if (st.ventTimer <= 0) {
@@ -3028,9 +3068,9 @@ export class GameEngine {
    * Crowd-control resistance, 0..1. Reduces how long non-damaging debuffs (slow,
    * stun, vulnerability, knockback) last — damage-over-time (burn/poison) ignores
    * it. Normal monsters scale with the wave (wave/2 %, capped 50%); superiors cap
-   * at 75%. Bosses don't get a wave base — they BUILD tenacity from the
-   * non-damaging debuffs thrown at them (+1% each, capped at min(wave%, 90%)), so
-   * stun/slow spam can't perma-lock them.
+   * at 75%. Bosses start at 50% and climb to 90% by wave. A boss the stall-breaker
+   * has flagged is topped up on top of that, to the point of outright immunity —
+   * which is what stops control alone from holding a fight open forever.
    */
   tenacity(e: Enemy): number {
     return debuffTenacity({
@@ -3038,12 +3078,14 @@ export class GameEngine {
       superior: e.type.startsWith('superior_'),
       wave: this.wave,
       debuffHits: e.debuffHits,
+      bonus: stallTenacityBonus(e.bossState?.stallStacks ?? 0),
     });
   }
 
   /** Register a non-damaging debuff landing on an enemy: bosses build tenacity
    *  (+1% per hit) from it. No-op for non-bosses. Continuous auras shouldn't call
-   *  this (they'd inflate the counter every frame). */
+   *  this (they'd inflate the counter every frame). The counter decays each frame
+   *  (`decayDebuffHits`), so it measures the control *currently* being sustained. */
   private noteDebuffHit(e: Enemy) {
     if (e.isBoss) e.debuffHits = (e.debuffHits ?? 0) + 1;
   }
