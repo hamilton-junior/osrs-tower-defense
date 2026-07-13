@@ -10,8 +10,17 @@ import type { EnemyType } from '@/lib/game/types';
 import { ALL_AFFIXES, AFFIX_DEFS, type EnemyAffix } from '@/lib/game/systems/affixes';
 import { SCHEDULABLE_BOSSES } from '@/lib/game/systems/boss-mechanics';
 
-const CLIP_NAMES = ['walk', 'hurt', 'death'] as const;
+const CLIP_NAMES = ['walk', 'hurt', 'death', 'burrow', 'emerge'] as const;
 type ClipName = (typeof CLIP_NAMES)[number];
+
+/** Bestiary display names for baked slugs that aren't spawnable EnemyTypes
+ *  (boss adds that ride another type's stats via `animType`). */
+const EXTRA_BESTIARY_NAMES: Record<string, string> = {
+  yt_hurkot: 'Yt-HurKot',
+  soul_ranged: 'Summoned Soul (Ranged)',
+  soul_magic: 'Summoned Soul (Magic)',
+  soul_melee: 'Summoned Soul (Melee)',
+};
 
 /** Plays a single baked clip on a loop in a small canvas. One-shot clips
  *  (hurt/death) replay after a short pause so the preview never freezes. */
@@ -198,12 +207,15 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
     setAffixPick((prev) => { const n = new Set(prev); n.has(a) ? n.delete(a) : n.add(a); return n; });
 
   // --- bestiary state ---
-  const animated = useMemo(() => Object.keys(ENEMY_ANIMS) as EnemyType[], []);
-  const [viewing, setViewing] = useState<EnemyType>(animated[0]);
+  const animated = useMemo(() => Object.keys(ENEMY_ANIMS), []);
+  const [viewing, setViewing] = useState<string>(animated[0]);
   const [expanded, setExpanded] = useState<ClipName | null>(null);
   const [lightboxMode, setLightboxMode] = useState<'3d' | 'sprite'>('3d');
   const set = ENEMY_ANIMS[viewing];
-  const def = ENEMIES[viewing];
+  // Baked slugs that aren't spawnable EnemyTypes (yt_hurkot, souls) have no
+  // ENEMIES def — the bestiary still shows their clips, just without stats.
+  const def = (ENEMIES as Partial<Record<string, (typeof ENEMIES)[EnemyType]>>)[viewing];
+  const viewingName = def?.name ?? EXTRA_BESTIARY_NAMES[viewing] ?? viewing;
 
   return (
     <>
@@ -404,14 +416,14 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
                 onClick={() => setViewing(t)}
                 className={`px-[0.4em] py-[0.15em] rounded-[3px] border text-[0.66em] capitalize ${viewing === t ? 'border-osrs-orange bg-osrs-orange/20 text-osrs-yellow' : 'border-[#3a2f1d] text-[#cdbe91] hover:border-[#6b5836]'}`}
               >
-                {ENEMIES[t]?.name ?? t}
+                {(ENEMIES as Partial<Record<string, { name: string }>>)[t]?.name ?? EXTRA_BESTIARY_NAMES[t] ?? t}
               </button>
             ))}
           </div>
 
-          {set && def && (
+          {set && (
             <div className="rs-panel-inset p-[0.6em]">
-              <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.4em]">{def.name}</div>
+              <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.4em]">{viewingName}</div>
               <div className="flex gap-[0.6em] items-start">
                 <div className="flex flex-col gap-[0.4em]">
                   {CLIP_NAMES.filter((c) => set.clips[c]).map((c) => (
@@ -430,18 +442,27 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.2em] text-[0.74em] flex-1">
-                  <span className="text-[#d3c3a0]">HP</span>
-                  <span className="text-right text-white">{def.hp}</span>
-                  <span className="text-[#d3c3a0]">Speed</span>
-                  <span className="text-right text-white">{def.speed}</span>
-                  <span className="text-[#d3c3a0]">Weakness</span>
-                  <span className="text-right capitalize text-white">{def.weakness ?? 'None'}</span>
-                  <span className="text-[#d3c3a0]">Reward</span>
-                  <span className="text-right text-osrs-yellow">{def.reward}</span>
-                  {def.isBoss && (
+                  {def ? (
+                    <>
+                      <span className="text-[#d3c3a0]">HP</span>
+                      <span className="text-right text-white">{def.hp}</span>
+                      <span className="text-[#d3c3a0]">Speed</span>
+                      <span className="text-right text-white">{def.speed}</span>
+                      <span className="text-[#d3c3a0]">Weakness</span>
+                      <span className="text-right capitalize text-white">{def.weakness ?? 'None'}</span>
+                      <span className="text-[#d3c3a0]">Reward</span>
+                      <span className="text-right text-osrs-yellow">{def.reward}</span>
+                      {def.isBoss && (
+                        <>
+                          <span className="text-[#d3c3a0]">Type</span>
+                          <span className="text-right text-osrs-red uppercase">Boss</span>
+                        </>
+                      )}
+                    </>
+                  ) : (
                     <>
                       <span className="text-[#d3c3a0]">Type</span>
-                      <span className="text-right text-osrs-red uppercase">Boss</span>
+                      <span className="text-right text-white">Boss add</span>
                     </>
                   )}
                   <span className="text-[#d3c3a0]">Clips</span>
@@ -462,7 +483,7 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
       >
         <div className="rs-panel p-4 w-[24em]" onClick={(e) => e.stopPropagation()} style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}>
           <div className="rs-panel-title flex items-center justify-between mb-[0.6em]">
-            <span className="capitalize">{def?.name} — {expanded}</span>
+            <span className="capitalize">{viewingName} — {expanded}</span>
             <span className="flex items-center gap-[0.3em]">
               <button
                 onClick={() => setLightboxMode((m) => (m === '3d' ? 'sprite' : '3d'))}

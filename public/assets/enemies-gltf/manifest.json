@@ -1,322 +1,319 @@
 {
- "goblin": {
-  "npc": 3029,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "rat": {
-  "npc": 2510,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "cow": {
-  "npc": 2790,
-  "clips": [
-   "walk",
-   "death",
-   "hurt"
-  ]
- },
- "imp": {
-  "npc": 3134,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "spider": {
-  "npc": 626,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "skeleton": {
-  "npc": 70,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "zombie": {
-  "npc": 27,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "ghost": {
-  "npc": 85,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "hellhound": {
-  "npc": 104,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "scorpion": {
-  "npc": 2479,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "fire_giant": {
-  "npc": 2075,
-  "clips": [
-   "walk",
-   "death",
-   "hurt"
-  ]
- },
- "bloodveld": {
-  "npc": 484,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "hill_giant": {
-  "npc": 2098,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "black_demon": {
-  "npc": 240,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "gargoyle": {
-  "npc": 7407,
-  "clips": [
-   "walk",
-   "death",
-   "hurt"
-  ]
- },
- "blue_dragon": {
-  "npc": 265,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "nechryael": {
-  "npc": 8,
-  "clips": [
-   "walk",
-   "death",
-   "hurt"
-  ]
- },
- "abyssal_demon": {
-  "npc": 415,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "lesser_demon": {
-  "npc": 2005,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "dark_beast": {
-  "npc": 4005,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "green_dragon": {
-  "npc": 260,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "jad": {
-  "npc": 3127,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "yt_hurkot": {
-  "npc": 3128,
-  "clips": [
-   "walk",
-   "death"
-  ]
- },
- "vorkath": {
-  "npc": 8061,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "zulrah": {
-  "npc": 2042,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "barrow_wight": {
-  "npc": 1673,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "chaos_druid": {
-  "npc": 520,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "skeletal_mage": {
-  "npc": 84,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "hydra": {
-  "npc": 8609,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "superior_bloodveld": {
-  "npc": 7397,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "superior_abyssal_demon": {
-  "npc": 7410,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "superior_gargoyle": {
-  "npc": 7407,
-  "clips": [
-   "walk",
-   "death",
-   "hurt"
-  ]
- },
- "superior_nechryael": {
-  "npc": 7411,
-  "clips": [
-   "walk",
-   "death",
-   "hurt"
-  ]
- },
- "giant_mole": {
-  "npc": 5779,
-  "clips": [
-   "walk",
-   "hurt",
-   "death",
-   "burrow",
-   "emerge"
-  ]
- },
- "dusk": {
-  "npc": 7851,
-  "clips": [
-   "walk",
-   "hurt"
-  ]
- },
- "dawn": {
-  "npc": 7852,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "cerberus": {
-  "npc": 5862,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "soul_ranged": {
-  "npc": 5867,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "soul_magic": {
-  "npc": 5868,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- },
- "soul_melee": {
-  "npc": 5869,
-  "clips": [
-   "walk",
-   "hurt",
-   "death"
-  ]
- }
+  "goblin": {
+    "npc": 3029,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "rat": {
+    "npc": 2510,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "cow": {
+    "npc": 2790,
+    "clips": [
+      "walk",
+      "death",
+      "hurt"
+    ]
+  },
+  "imp": {
+    "npc": 3134,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "spider": {
+    "npc": 626,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "skeleton": {
+    "npc": 70,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "zombie": {
+    "npc": 27,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "ghost": {
+    "npc": 85,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "hellhound": {
+    "npc": 104,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "scorpion": {
+    "npc": 2479,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "fire_giant": {
+    "npc": 2075,
+    "clips": [
+      "walk",
+      "death",
+      "hurt"
+    ]
+  },
+  "bloodveld": {
+    "npc": 484,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "hill_giant": {
+    "npc": 2098,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "black_demon": {
+    "npc": 240,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "gargoyle": {
+    "npc": 7407,
+    "clips": [
+      "walk",
+      "death",
+      "hurt"
+    ]
+  },
+  "blue_dragon": {
+    "npc": 265,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "nechryael": {
+    "npc": 8,
+    "clips": [
+      "walk",
+      "death"
+    ]
+  },
+  "abyssal_demon": {
+    "npc": 415,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "lesser_demon": {
+    "npc": 2005,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "dark_beast": {
+    "npc": 4005,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "green_dragon": {
+    "npc": 260,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "jad": {
+    "npc": 3127,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "yt_hurkot": {
+    "npc": 3128,
+    "clips": [
+      "walk",
+      "death"
+    ]
+  },
+  "vorkath": {
+    "npc": 8061,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "zulrah": {
+    "npc": 2042,
+    "clips": [
+      "walk",
+      "death"
+    ]
+  },
+  "barrow_wight": {
+    "npc": 1673,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "chaos_druid": {
+    "npc": 520,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "skeletal_mage": {
+    "npc": 84,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "hydra": {
+    "npc": 8609,
+    "clips": [
+      "walk",
+      "death"
+    ]
+  },
+  "superior_bloodveld": {
+    "npc": 7397,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "superior_abyssal_demon": {
+    "npc": 7410,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "superior_gargoyle": {
+    "npc": 7407,
+    "clips": [
+      "walk",
+      "death",
+      "hurt"
+    ]
+  },
+  "superior_nechryael": {
+    "npc": 7411,
+    "clips": [
+      "walk",
+      "death",
+      "hurt"
+    ]
+  },
+  "giant_mole": {
+    "npc": 5779,
+    "clips": [
+      "walk",
+      "hurt",
+      "death",
+      "burrow",
+      "emerge"
+    ]
+  },
+  "dusk": {
+    "npc": 7851,
+    "clips": [
+      "walk",
+      "hurt"
+    ]
+  },
+  "dawn": {
+    "npc": 7852,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "cerberus": {
+    "npc": 5862,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "soul_ranged": {
+    "npc": 5867,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "soul_magic": {
+    "npc": 5868,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "soul_melee": {
+    "npc": 5869,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  }
 }

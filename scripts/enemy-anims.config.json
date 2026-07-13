@@ -11,7 +11,7 @@
     "npc": 2510,
     "anims": {
       "walk": 4931,
-      "hurt": 4933,
+      "hurt": 4934,
       "death": 4935
     }
   },
@@ -20,7 +20,7 @@
     "anims": {
       "walk": 5848,
       "death": 5851,
-      "hurt": 5849
+      "hurt": 5850
     }
   },
   "imp": {
@@ -35,7 +35,7 @@
     "npc": 626,
     "anims": {
       "walk": 5317,
-      "hurt": 5319,
+      "hurt": 5320,
       "death": 5321
     }
   },
@@ -43,7 +43,7 @@
     "npc": 70,
     "anims": {
       "walk": 5481,
-      "hurt": 5480,
+      "hurt": 5489,
       "death": 5491
     }
   },
@@ -51,7 +51,7 @@
     "npc": 27,
     "anims": {
       "walk": 5566,
-      "hurt": 5570,
+      "hurt": 5568,
       "death": 5569
     }
   },
@@ -67,7 +67,7 @@
     "npc": 104,
     "anims": {
       "walk": 6583,
-      "hurt": 6582,
+      "hurt": 6566,
       "death": 6576
     }
   },
@@ -84,7 +84,7 @@
     "anims": {
       "walk": 4660,
       "death": 4659,
-      "hurt": 4655
+      "hurt": 4654
     }
   },
   "bloodveld": {
@@ -99,7 +99,7 @@
     "npc": 2098,
     "anims": {
       "walk": 4649,
-      "hurt": 4655,
+      "hurt": 4654,
       "death": 4648
     }
   },
@@ -116,14 +116,14 @@
     "anims": {
       "walk": 7810,
       "death": 7815,
-      "hurt": 7811
+      "hurt": 7814
     }
   },
   "blue_dragon": {
     "npc": 265,
     "anims": {
       "walk": 79,
-      "hurt": 81,
+      "hurt": 89,
       "death": 92
     }
   },
@@ -131,8 +131,7 @@
     "npc": 8,
     "anims": {
       "walk": 1526,
-      "death": 1530,
-      "hurt": 1524
+      "death": 1530
     }
   },
   "abyssal_demon": {
@@ -155,7 +154,7 @@
     "npc": 4005,
     "anims": {
       "walk": 2729,
-      "hurt": 2728,
+      "hurt": 2732,
       "death": 2733
     }
   },
@@ -163,7 +162,7 @@
     "npc": 260,
     "anims": {
       "walk": 79,
-      "hurt": 81,
+      "hurt": 89,
       "death": 92
     }
   },
@@ -171,7 +170,7 @@
     "npc": 3127,
     "anims": {
       "walk": 2651,
-      "hurt": 2659,
+      "hurt": 2653,
       "death": 2660
     }
   },
@@ -179,7 +178,7 @@
     "npc": 3128,
     "anims": {
       "walk": 2634,
-      "death": 2630
+      "death": 2638
     }
   },
   "vorkath": {
@@ -194,7 +193,6 @@
     "npc": 2042,
     "anims": {
       "walk": 5070,
-      "hurt": 5068,
       "death": 5072
     }
   },
@@ -202,7 +200,7 @@
     "npc": 1673,
     "anims": {
       "walk": 2064,
-      "hurt": 2066,
+      "hurt": 424,
       "death": 836
     }
   },
@@ -218,7 +216,7 @@
     "npc": 84,
     "anims": {
       "walk": 5479,
-      "hurt": 5480,
+      "hurt": 5489,
       "death": 5491
     }
   },
@@ -226,7 +224,6 @@
     "npc": 8609,
     "anims": {
       "walk": 8259,
-      "hurt": 8265,
       "death": 8264
     }
   },
@@ -251,7 +248,7 @@
     "anims": {
       "walk": 7810,
       "death": 7815,
-      "hurt": 7811
+      "hurt": 7814
     }
   },
   "superior_nechryael": {
@@ -266,8 +263,8 @@
     "npc": 5779,
     "anims": {
       "walk": 3313,
-      "hurt": 3310,
-      "death": 3322,
+      "hurt": 3312,
+      "death": 3310,
       "burrow": 3314,
       "emerge": 3315
     }
@@ -276,14 +273,14 @@
     "npc": 7851,
     "anims": {
       "walk": 7782,
-      "hurt": 7784
+      "hurt": 7785
     }
   },
   "dawn": {
     "npc": 7852,
     "anims": {
       "walk": 7768,
-      "hurt": 7766,
+      "hurt": 7775,
       "death": 7767
     }
   },
