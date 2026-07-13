@@ -3,7 +3,7 @@
     "npc": 3029,
     "anims": {
       "walk": 6180,
-      "hurt": 6184,
+      "hurt": 6183,
       "death": 6182
     }
   },
@@ -19,14 +19,15 @@
     "npc": 2790,
     "anims": {
       "walk": 5848,
-      "death": 5851
+      "death": 5851,
+      "hurt": 5849
     }
   },
   "imp": {
     "npc": 3134,
     "anims": {
       "walk": 168,
-      "hurt": 171,
+      "hurt": 170,
       "death": 172
     }
   },
@@ -82,7 +83,8 @@
     "npc": 2075,
     "anims": {
       "walk": 4660,
-      "death": 4659
+      "death": 4659,
+      "hurt": 4655
     }
   },
   "bloodveld": {
@@ -97,7 +99,7 @@
     "npc": 2098,
     "anims": {
       "walk": 4649,
-      "hurt": 4650,
+      "hurt": 4655,
       "death": 4648
     }
   },
@@ -105,7 +107,7 @@
     "npc": 240,
     "anims": {
       "walk": 63,
-      "hurt": 66,
+      "hurt": 65,
       "death": 4677
     }
   },
@@ -113,14 +115,15 @@
     "npc": 7407,
     "anims": {
       "walk": 7810,
-      "death": 7815
+      "death": 7815,
+      "hurt": 7811
     }
   },
   "blue_dragon": {
     "npc": 265,
     "anims": {
       "walk": 79,
-      "hurt": 80,
+      "hurt": 81,
       "death": 92
     }
   },
@@ -128,21 +131,23 @@
     "npc": 8,
     "anims": {
       "walk": 1526,
-      "death": 1530
+      "death": 1530,
+      "hurt": 1524
     }
   },
   "abyssal_demon": {
     "npc": 415,
     "anims": {
       "walk": 1534,
-      "hurt": 1536
+      "hurt": 1537,
+      "death": 1538
     }
   },
   "lesser_demon": {
     "npc": 2005,
     "anims": {
       "walk": 63,
-      "hurt": 66,
+      "hurt": 65,
       "death": 4677
     }
   },
@@ -158,7 +163,7 @@
     "npc": 260,
     "anims": {
       "walk": 79,
-      "hurt": 80,
+      "hurt": 81,
       "death": 92
     }
   },
@@ -166,7 +171,8 @@
     "npc": 3127,
     "anims": {
       "walk": 2651,
-      "hurt": 2650
+      "hurt": 2659,
+      "death": 2660
     }
   },
   "yt_hurkot": {
@@ -180,7 +186,7 @@
     "npc": 8061,
     "anims": {
       "walk": 7947,
-      "hurt": 7951,
+      "hurt": 7953,
       "death": 7949
     }
   },
@@ -188,7 +194,7 @@
     "npc": 2042,
     "anims": {
       "walk": 5070,
-      "hurt": 5066,
+      "hurt": 5068,
       "death": 5072
     }
   },
@@ -196,14 +202,15 @@
     "npc": 1673,
     "anims": {
       "walk": 2064,
-      "hurt": 2065
+      "hurt": 2066,
+      "death": 836
     }
   },
   "chaos_druid": {
     "npc": 520,
     "anims": {
       "walk": 819,
-      "hurt": 427,
+      "hurt": 424,
       "death": 836
     }
   },
@@ -219,7 +226,7 @@
     "npc": 8609,
     "anims": {
       "walk": 8259,
-      "hurt": 8260,
+      "hurt": 8265,
       "death": 8264
     }
   },
@@ -235,28 +242,31 @@
     "npc": 7410,
     "anims": {
       "walk": 1534,
-      "hurt": 1536
+      "hurt": 1537,
+      "death": 1538
     }
   },
   "superior_gargoyle": {
     "npc": 7407,
     "anims": {
       "walk": 7810,
-      "death": 7815
+      "death": 7815,
+      "hurt": 7811
     }
   },
   "superior_nechryael": {
     "npc": 7411,
     "anims": {
       "walk": 6372,
-      "death": 6369
+      "death": 6369,
+      "hurt": 6370
     }
   },
   "giant_mole": {
     "npc": 5779,
     "anims": {
       "walk": 3313,
-      "hurt": 3311,
+      "hurt": 3310,
       "death": 3322,
       "burrow": 3314,
       "emerge": 3315
@@ -272,33 +282,41 @@
   "dawn": {
     "npc": 7852,
     "anims": {
-      "walk": 7768
+      "walk": 7768,
+      "hurt": 7766,
+      "death": 7767
     }
   },
   "cerberus": {
     "npc": 5862,
     "anims": {
       "walk": 4488,
-      "hurt": 4497,
+      "hurt": 4489,
       "death": 4495
     }
   },
   "soul_ranged": {
     "npc": 5867,
     "anims": {
-      "walk": 8527
+      "walk": 8527,
+      "hurt": 8531,
+      "death": 8524
     }
   },
   "soul_magic": {
     "npc": 5868,
     "anims": {
-      "walk": 8527
+      "walk": 8527,
+      "hurt": 8531,
+      "death": 8524
     }
   },
   "soul_melee": {
     "npc": 5869,
     "anims": {
-      "walk": 8527
+      "walk": 8527,
+      "hurt": 8531,
+      "death": 8524
     }
   }
 }

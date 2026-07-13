@@ -35,7 +35,7 @@
       "loop": true
     },
     "hurt": {
-      "anim": 8260,
+      "anim": 8265,
       "frames": 24,
       "frameMs": [
         80,
