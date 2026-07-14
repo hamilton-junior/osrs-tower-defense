@@ -80,7 +80,7 @@ export interface AncientSpec {
 export const ANCIENT_ORDER: AncientType[] = ['ice', 'blood', 'shadow', 'smoke'];
 export const ANCIENTS: Record<AncientType, AncientSpec> = {
   ice: { effect: 'slow', color: '#7fe6ff', glow: '#dff4ff', label: 'Ice', desc: 'AoE barrage that slows' },
-  blood: { lifesteal: true, color: '#c81e1e', glow: '#c81e1e', label: 'Blood', desc: 'AoE barrage; bonus damage = (0.75·level)% of max HP, capped per hit at 30·level +1% per wave, plus a chance to restore a life on a kill' },
+  blood: { lifesteal: true, color: '#c81e1e', glow: '#c81e1e', label: 'Blood', desc: 'AoE barrage; bonus damage = (0.75·level)% of max HP (capped), plus a chance to restore a life on a kill' },
   shadow: { effect: 'stun', color: '#6a3fb0', glow: '#1b1024', label: 'Shadow', desc: 'AoE barrage with a brief stun' },
   smoke: { effect: 'burn', color: '#9a9a9a', glow: '#8f8f8f', label: 'Smoke', desc: 'AoE barrage that poisons for the current wave number per second' },
 };
@@ -197,22 +197,9 @@ export function bloodBonusFrac(towerLevel: number): number {
   return (0.75 * towerLevel) / 100;
 }
 
-/** Growth of the Blood cap per wave survived: +1% of its base, so wave 100 doubles it. */
-export const BLOOD_CAP_WAVE_GROWTH = 0.01;
-
-/**
- * Per-hit ceiling of the Blood %max-HP bonus: `30·level`, grown by
- * {@link BLOOD_CAP_WAVE_GROWTH} per wave — +100% at wave 100, +200% at wave 200.
- *
- * The flat cap alone went dead in the late game: past ~4000 max HP the fraction
- * always overshoots it, so every boss hit paid exactly `30·level` no matter how big
- * the pool got, and Blood quietly stopped being a %-HP spell at all. Letting the
- * ceiling drift up with the wave keeps the clamp meaningful (it still holds the
- * spell to a *known* number, which is why it exists) without freezing it at a value
- * the enemies outgrow.
- */
-export function bloodBonusCap(towerLevel: number, wave = 0): number {
-  return 30 * towerLevel * (1 + Math.max(0, wave) * BLOOD_CAP_WAVE_GROWTH);
+/** Flat per-hit ceiling of the Blood %max-HP bonus: 30·level damage. */
+export function bloodBonusCap(towerLevel: number): number {
+  return 30 * towerLevel;
 }
 
 /**

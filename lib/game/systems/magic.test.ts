@@ -43,26 +43,13 @@ describe('blood barrage nerf', () => {
     expect(bloodBonusFrac(3)).toBeCloseTo(0.0225);
     expect(bloodBonusFrac(4)).toBeCloseTo(0.03);
   });
-  it('base cap (wave 0) is 30·level', () => {
+  it('flat cap is 30·level', () => {
     expect(bloodBonusCap(1)).toBe(30);
     expect(bloodBonusCap(4)).toBe(120);
-  });
-  it('grows 1% of the base per wave — doubled at wave 100', () => {
-    expect(bloodBonusCap(1, 100)).toBeCloseTo(60);   // +100%
-    expect(bloodBonusCap(4, 100)).toBeCloseTo(240);
-    expect(bloodBonusCap(4, 200)).toBeCloseTo(360);  // +200%
-    expect(bloodBonusCap(4, 50)).toBeCloseTo(180);   // +50%
-  });
-  it('a negative wave never shrinks the cap below its base', () => {
-    expect(bloodBonusCap(4, -20)).toBe(120);
   });
   it('cap engages against giant max-HP pools', () => {
     // 100k HP boss at L4: 3% would be 3000 — the cap holds it to 120.
     expect(bloodBonus(100_000, bloodBonusFrac(4), bloodBonusCap(4))).toBe(120);
-  });
-  it('the late-game cap lets more of the %-HP bonus through', () => {
-    // Same 100k boss, but met on wave 100: the ceiling has doubled, so does the hit.
-    expect(bloodBonus(100_000, bloodBonusFrac(4), bloodBonusCap(4, 100))).toBe(240);
   });
 });
 
