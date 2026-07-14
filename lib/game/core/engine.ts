@@ -2701,8 +2701,9 @@ export class GameEngine {
           projSpecial = spec.effect;
           projAoe = true;
           projLifesteal = !!spec.lifesteal;
-          // Blood barrage adds (0.75·level)% of each target's max HP, capped at 30·level.
-          if (anc === 'blood') { projBonusMaxHpFrac = bloodBonusFrac(tower.level); projBonusMaxHpCap = bloodBonusCap(tower.level); }
+          // Blood barrage adds (0.75·level)% of each target's max HP, capped at 30·level
+          // grown 1% per wave (the cap is snapshotted onto the shot at launch).
+          if (anc === 'blood') { projBonusMaxHpFrac = bloodBonusFrac(tower.level); projBonusMaxHpCap = bloodBonusCap(tower.level, this.wave); }
           // Ice applies its slow NOW (on the tower's attack cadence), not on contact:
           // the long sound-synced flight shouldn't delay the crowd-control. Damage
           // still lands with the bolt, so drop the on-hit slow. Slows every enemy in
