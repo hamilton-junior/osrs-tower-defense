@@ -29,7 +29,16 @@ const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slaye
  *  model — one stone per interface), or `null` for none. 'home' = the run's mode
  *  + roguelite loadout. */
 type SideTab = 'home' | 'essence' | 'slayer' | 'dps';
-const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near' } as const;
+const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near', unmarked: 'Clean' } as const;
+/** Spelled-out tooltips — the buttons are three-letter stubs. */
+const PRIORITY_TIPS: Record<keyof typeof PRIORITY_LABELS, string> = {
+  first: 'Furthest along the path',
+  last: 'Least far along the path',
+  strongest: 'Highest current HP',
+  weakest: 'Lowest current HP',
+  closest: 'Nearest to this tower',
+  unmarked: 'Carrying no status yet — spreads poison / burn / slow across the wave instead of re-applying it to one enemy',
+};
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
 const towerTierIcon = (type: TowerType, tier: number) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[tier];
 /** Wiki spell-icon URL for a spell-file name (e.g. `Fire_Wave`), if it exists. */
@@ -434,6 +443,14 @@ export default function GameRoot() {
   const [savedRun, setSavedRun] = useState<RunSave | null>(null);
   useEffect(() => { setSavedRun(loadRunSave()); }, []);
   const [debugOpen, setDebugOpen] = useState(false);
+  // The tower whose sale is awaiting an "are you sure" — a refund is not undoable,
+  // and players kept selling by fat-fingering a fast upgrade. The keyboard handler
+  // is mounted once with no deps, so it reads the pending id off a ref.
+  const [sellConfirm, setSellConfirm] = useState<string | null>(null);
+  const sellConfirmRef = useRef<string | null>(null);
+  useEffect(() => { sellConfirmRef.current = sellConfirm; }, [sellConfirm]);
+  // Clicking away drops the pending sell with the panel that asked for it.
+  useEffect(() => { setSellConfirm(null); }, [ui.selectedTowerId]);
   // "How to Play" reference guide — reachable any time from the start screen or
   // the ❓ stone. (The FIRST-visit onboarding is the guided tour below, not this.)
   const [helpOpen, setHelpOpen] = useState(false);
@@ -682,15 +699,28 @@ export default function GameRoot() {
     return () => clearTimeout(t);
   }, [unlockQueue]);
 
-  // Keyboard shortcuts: Esc = pause combat (or cancel a pending action), Space =
-  // start next wave, 1/2/5 = speed, Q/W/E/R = swap the selected wizard's element/
-  // barrage/field, M = mute, Ctrl+' = debug console.
+  /**
+   * Keyboard shortcuts.
+   *
+   * The number row picks a tower from the dock — the tower-defence idiom, and the
+   * answer to "let me re-buy the last tower without going back to the UI": tap its
+   * number again (hold Shift while placing to keep placing it). That cost the number
+   * row its old job, so game speed moved to , and . — the `<` / `>` keys, which read
+   * as slower/faster.
+   *
+   *   1-6 dock tower · Shift+click keep placing · Esc cancel / pause · Space wave
+   *   U upgrade selection · S sell (asks first) · , / . speed · Q/W/E/R wizard spell
+   *   M mute · Ctrl+' debug console
+   *
+   * The selection is read off the engine (not React state) so this effect can stay
+   * mounted once, with no deps.
+   */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const eng = engineRef.current;
       if (!eng) return;
       // Typing a number into the auto-start field must not send a wave (Space) or
-      // change speed (1/2/5). `code` is layout-independent; `key` is not.
+      // pick a tower (1-6). `code` is layout-independent; `key` is not.
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       // The debug console has no button: it opens on the ~ / console chord games
@@ -701,12 +731,35 @@ export default function GameRoot() {
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser chords alone
+
+      // 1-6: the dock, left to right. Unaffordable/locked towers are the engine's
+      // call — it refuses the placement exactly as a click on the dock would.
+      const slot = TOWER_ORDER[Number(e.key) - 1];
+      if (slot) { eng.selectTowerType(slot); setSellConfirm(null); return; }
+
       switch (e.key) {
-        case 'Escape': e.preventDefault(); eng.escape(); break;
+        case 'Escape':
+          e.preventDefault();
+          // A pending sell is the innermost thing Esc can back out of.
+          if (sellConfirmRef.current) setSellConfirm(null);
+          else eng.escape();
+          break;
         case ' ': e.preventDefault(); eng.startWave(); break;
-        case '1': eng.setGameSpeed(1); break;
-        case '2': eng.setGameSpeed(2); break;
-        case '3': case '5': eng.setGameSpeed(5); break;
+        case ',': eng.setGameSpeed(eng.gameSpeed >= 5 ? 2 : 1); break;
+        case '.': eng.setGameSpeed(eng.gameSpeed <= 1 ? 2 : 5); break;
+        // Upgrade whatever is selected — a marquee batch, or the one open tower.
+        case 'u': case 'U':
+          if (eng.multiSelectedIds.length > 0) eng.upgradeMultiSelected();
+          else if (eng.selectedTowerId) eng.upgradeTower(eng.selectedTowerId);
+          break;
+        // Sell never fires straight off a keypress: it arms the same confirmation
+        // the Sell button uses (players were selling by fat-fingering a fast upgrade).
+        case 's': case 'S':
+          if (eng.selectedTowerId) setSellConfirm(eng.selectedTowerId);
+          break;
+        case 'Enter':
+          if (sellConfirmRef.current) { eng.sellTower(sellConfirmRef.current); setSellConfirm(null); }
+          break;
         case 'q': case 'Q': eng.selectWizardSlot(0); break;
         case 'w': case 'W': eng.selectWizardSlot(1); break;
         case 'e': case 'E': eng.selectWizardSlot(2); break;
@@ -1711,11 +1764,11 @@ export default function GameRoot() {
           {!isUtility && (
             <div className="mt-[0.7em]">
               <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>
-              <div className="grid grid-cols-5 gap-[0.3em]">
-                {(['first', 'last', 'strongest', 'weakest', 'closest'] as const).map((p) => (
+              <div className="grid grid-cols-6 gap-[0.3em]">
+                {(['first', 'last', 'strongest', 'weakest', 'closest', 'unmarked'] as const).map((p) => (
                   <button
                     key={p}
-                    title={p}
+                    title={PRIORITY_TIPS[p]}
                     onClick={() => engineRef.current?.setTargetingPriority(selectedTower.id, p)}
                     className={`rs-btn px-0 py-[0.35em] text-[0.7em] ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
                   >
@@ -1893,23 +1946,46 @@ export default function GameRoot() {
                   </button>
                 </div>
               )}
-              <div className="flex gap-[0.4em]">
-                <button
-                  className="rs-btn flex-1 flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
-                  title={`Move this tower for ${moveCost} gp`}
-                  disabled={ui.money < moveCost}
-                  onClick={() => engineRef.current?.beginMoveTower(selectedTower.id)}
-                >
-                  <span className="text-[#cdbe91]">✥</span> Move ({moveCost} gp)
-                </button>
-                <button
-                  className="rs-btn flex-1 px-[0.4em] py-[0.45em]"
-                  title={`Sell this tower for ${sellValue} gp (75% refund)`}
-                  onClick={() => engineRef.current?.sellTower(selectedTower.id)}
-                >
-                  Sell ({sellValue} gp)
-                </button>
-              </div>
+              {/* Selling refunds a fraction and cannot be undone, and the button sits
+                  right under Upgrade — a fast upgrade click that overshoots used to
+                  sell the tower outright. So it asks once, in place. */}
+              {sellConfirm === selectedTower.id ? (
+                <div className="flex flex-col gap-[0.35em]">
+                  <span className="text-[0.75em] text-osrs-warn text-center">
+                    Sell this tower for {sellValue} gp? You lose its levels.
+                  </span>
+                  <div className="flex gap-[0.4em]">
+                    <button
+                      className="rs-btn flex-1 px-[0.4em] py-[0.45em] text-osrs-warn"
+                      title="Sell it — the tower and its levels are gone"
+                      onClick={() => { engineRef.current?.sellTower(selectedTower.id); setSellConfirm(null); }}
+                    >
+                      Yes, sell it
+                    </button>
+                    <button className="rs-btn flex-1 px-[0.4em] py-[0.45em]" onClick={() => setSellConfirm(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-[0.4em]">
+                  <button
+                    className="rs-btn flex-1 flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
+                    title={`Move this tower for ${moveCost} gp`}
+                    disabled={ui.money < moveCost}
+                    onClick={() => engineRef.current?.beginMoveTower(selectedTower.id)}
+                  >
+                    <span className="text-[#cdbe91]">✥</span> Move ({moveCost} gp)
+                  </button>
+                  <button
+                    className="rs-btn flex-1 px-[0.4em] py-[0.45em]"
+                    title={`Sell this tower for ${sellValue} gp (75% refund) — asks to confirm (S)`}
+                    onClick={() => setSellConfirm(selectedTower.id)}
+                  >
+                    Sell ({sellValue} gp)
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </MovablePanel>
@@ -2487,7 +2563,7 @@ export default function GameRoot() {
                 );
               })()}
               <div data-tut="dock" className="grid grid-cols-6 gap-[0.3em] w-[17.5em]">
-                {TOWER_ORDER.map((type) => {
+                {TOWER_ORDER.map((type, i) => {
                   const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
                   const active = ui.selectedTowerType === type;
                   const afford = ui.money >= cost;
@@ -2505,6 +2581,8 @@ export default function GameRoot() {
                       ) : (
                         <span className="text-[0.6em] capitalize">{TOWERS[type].baseName}</span>
                       )}
+                      {/* The slot's hotkey, so the number row is discoverable without the guide. */}
+                      <span className="rs-slot-key">{i + 1}</span>
                       <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
                     </button>
                   );
@@ -3089,7 +3167,7 @@ const TLDR: TldrGroup[] = [
     'Roguelite — keep one reward card per wave, with a Relic every 5th wave.',
   ] },
   { h: 'Controls', lines: [
-    'Space start wave · Esc pause / cancel · 1 / 2 / 5 speed · M mute · Shift keep placing · drag a box to multi-select · Q/W/E/R swap a wizard’s spell · Ctrl+′ debug console.',
+    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift keep placing · drag a box to multi-select · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
     'One slim bar along the bottom: run controls (left), tower dock and Start Wave (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click — no interface stays on-screen.',
     'Auto sends each wave once the field is clear, after the delay in seconds beside it.',
     'Browser zoom is disabled so it can’t warp the board — resize the interface with the UI − / + buttons in that bar instead.',

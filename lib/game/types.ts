@@ -288,7 +288,7 @@ export interface FarmingPatch {
   compost?: 'compost' | 'supercompost' | 'ultracompost';
 }
 
-export type TargetingPriority = 'first' | 'last' | 'strongest' | 'weakest' | 'closest';
+export type TargetingPriority = 'first' | 'last' | 'strongest' | 'weakest' | 'closest' | 'unmarked';
 
 export interface Tower {
   id: string;
