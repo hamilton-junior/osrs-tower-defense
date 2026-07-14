@@ -286,6 +286,9 @@ body {
 .text-osrs-yellow { color: var(--osrs-yellow); text-shadow: 1px 1px 0 #000; }
 .text-osrs-orange { color: var(--osrs-orange); text-shadow: 1px 1px 0 #000; }
 .text-osrs-red { color: var(--osrs-red); text-shadow: 1px 1px 0 #000; }
+/* Warning red — the maroon above is a fill colour and goes muddy as text on wood.
+   This is the brighter red OSRS uses for warnings you must actually read. */
+.text-osrs-warn { color: #ff4d4d; text-shadow: 1px 1px 0 #000; }
 .text-osrs-green { color: var(--osrs-green); text-shadow: 1px 1px 0 #000; }
 .text-osrs-cyan { color: var(--osrs-cyan); text-shadow: 1px 1px 0 #000; }
 

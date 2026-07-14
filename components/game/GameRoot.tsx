@@ -3294,12 +3294,12 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
             </button>
             {confirm === 'discard' ? (
               <div className="flex flex-col gap-[0.35em]">
-                <span className="text-[0.75em] text-osrs-red text-center">
+                <span className="text-[0.75em] text-osrs-warn text-center">
                   Discard the run at wave {saved.wave}? This cannot be undone.
                 </span>
                 <div className="flex gap-[0.4em]">
                   <button
-                    className="rs-btn flex-1 py-[0.3em] text-[0.75em] text-osrs-red"
+                    className="rs-btn flex-1 py-[0.3em] text-[0.75em] text-osrs-warn"
                     title="Delete the saved run for good"
                     onClick={() => { setConfirm(null); onDiscard(); }}
                   >
@@ -3349,7 +3349,7 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
         {/* A new run overwrites the saved one, so with a save on disk it asks first. */}
         {saved && confirm === 'new' ? (
           <div className="flex flex-col gap-[0.35em]">
-            <span className="text-[0.75em] text-osrs-red text-center">
+            <span className="text-[0.75em] text-osrs-warn text-center">
               Starting a new run discards the saved run at wave {saved.wave}.
             </span>
             <div className="flex gap-[0.4em]">
