@@ -477,6 +477,9 @@ export default function GameRoot() {
   // so opening it never resizes the canvas — which would rebuild the path and
   // re-anchor every tower mid-run.
   const onSideTab = useCallback((t: SideTab) => setTab((cur) => (cur === t ? null : t)), []);
+  // Classic has no loadout stone (nothing is drafted), so a 'home' tab left open
+  // from a roguelite run must not survive into a classic one.
+  useEffect(() => { if (ui.gameMode === 'classic') setTab((cur) => (cur === 'home' ? null : cur)); }, [ui.gameMode]);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
@@ -979,23 +982,27 @@ export default function GameRoot() {
     const cdMul = eff && selectedTower.cooldown ? eff.cooldown / selectedTower.cooldown : 1;
     const buffDmg = (n: number) => Math.floor((n + flat) * dmgMul);
     const dmgBuffed = dmgMul !== 1 || flat !== 0;
-    const rows: { label: string; from: string; to: string; buffed?: string }[] = [];
+    // Each row carries the same icon its live counterpart wears in the stats block
+    // above, so the preview reads as "this line, one tier up".
+    const rows: { label: string; icon: string; from: string; to: string; buffed?: string }[] = [];
+    const dmgIcon = TOWER_COMBAT[selectedTower.type].icon;
 
     // Utility wizard never attacks → no damage / attack-speed rows; only its aura range.
     if (!isUtility) {
       if (selectedTower.type === 'cannon' && selectedTower.maxDamage != null && next.maxDamage != null) {
         const fromLo = selectedTower.minDamage ?? 0, fromHi = selectedTower.maxDamage;
         const toLo = next.minDamage ?? 0, toHi = next.maxDamage;
-        rows.push({ label: 'Damage', from: `${fromLo}–${fromHi}`, to: `${toLo}–${toHi}`, buffed: dmgBuffed ? `${buffDmg(toLo)}–${buffDmg(toHi)}` : undefined });
+        rows.push({ label: 'Damage', icon: dmgIcon, from: `${fromLo}–${fromHi}`, to: `${toLo}–${toHi}`, buffed: dmgBuffed ? `${buffDmg(toLo)}–${buffDmg(toHi)}` : undefined });
       } else {
         const isAnc = selectedTower.type === 'wizard' && (selectedTower.mageMode ?? 'elemental') === 'ancients';
         const fromD = isAnc ? ancientHit(selectedTower.level) : selectedTower.damage;
         const toD = isAnc ? ancientHit(selectedTower.level + 1) : next.damage;
-        rows.push({ label: 'Damage', from: String(fromD), to: String(toD), buffed: dmgBuffed ? String(buffDmg(toD)) : undefined });
+        rows.push({ label: 'Damage', icon: dmgIcon, from: String(fromD), to: String(toD), buffed: dmgBuffed ? String(buffDmg(toD)) : undefined });
       }
     }
     rows.push({
       label: isUtility ? 'Aura range' : 'Range',
+      icon: ASSETS.misc.multicombat_icon,
       from: `${Math.round(selectedTower.range / TILE_PX)}`,
       to: `${Math.round(next.range / TILE_PX)} tiles`,
       buffed: rangeMul !== 1 ? `${Math.round((next.range * rangeMul) / TILE_PX)} tiles` : undefined,
@@ -1003,6 +1010,7 @@ export default function GameRoot() {
     if (!isUtility) {
       rows.push({
         label: 'Attack speed',
+        icon: ASSETS.misc.attack_icon,
         from: attackSpeed(selectedTower.cooldown),
         to: attackSpeed(next.cooldown),
         buffed: cdMul !== 1 ? attackSpeed(next.cooldown * cdMul) : undefined,
@@ -1235,11 +1243,13 @@ export default function GameRoot() {
                 <div className="rs-progress-fill" style={{ width: `${Math.round(ratio * 100)}%`, background: ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a' }} />
               </div>
               <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.15em] text-[0.74em]">
-                <span className="text-[#d3c3a0]">HP</span>
+                <StatLabel icon={ASSETS.misc.orb_hitpoints}>HP</StatLabel>
                 <span className="text-right text-white">{info.hp}/{info.maxHp}</span>
-                <span className="text-[#d3c3a0]">Weakness</span>
+                {/* The Weaken spell's own sprite — OSRS's symbol for "takes more,
+                    resists less". A plain Magic icon read as "this enemy IS magic". */}
+                <StatLabel icon={ASSETS.debuffs.vuln}>Weakness</StatLabel>
                 <span className="text-right capitalize" style={{ color: wk?.color ?? '#9a9a9a' }}>{wk ? wk.label : 'None'}</span>
-                <span className="text-[#d3c3a0]">Move speed</span>
+                <StatLabel icon={ASSETS.misc.orb_run}>Move speed</StatLabel>
                 <span className="text-right text-white flex items-center justify-end gap-[0.3em]">
                   <span>{info.speed}{info.speed !== info.baseSpeed ? ` (${info.baseSpeed})` : ''}</span>
                   {speedShift && (
@@ -1252,11 +1262,11 @@ export default function GameRoot() {
                     </span>
                   )}
                 </span>
-                <span className="text-[#d3c3a0]">Gold</span>
+                <StatLabel icon={ASSETS.misc.coins_icon}>Gold</StatLabel>
                 <span className="text-right text-osrs-yellow">{info.reward}</span>
                 {info.tenacity > 0 && (
                   <>
-                    <span className="text-[#d3c3a0]" title="Resistance to non-damaging debuffs (slow, stun, etc.)">Tenacity</span>
+                    <StatLabel icon={ASSETS.misc.defence_icon} title="Resistance to non-damaging debuffs (slow, stun, etc.)">Tenacity</StatLabel>
                     <span className="text-right text-osrs-cyan">{Math.round(info.tenacity * 100)}%</span>
                   </>
                 )}
@@ -1560,13 +1570,8 @@ export default function GameRoot() {
             </span>
           )}
         </div>
-        <Orb
-          icon={ASSETS.misc.coins_icon}
-          title="Gold"
-          value={fmt(ui.money)}
-          fill={1}
-          fillColor="linear-gradient(180deg, #ecc63c, #957a10)"
-        />
+        {/* Gold is NOT an orb: it is read while shopping, so it sits beside the
+            tower dock (where the prices are), not up here with the vitals. */}
         <Orb
           icon={ASSETS.misc.attack_icon}
           title="Wave"
@@ -1617,8 +1622,10 @@ export default function GameRoot() {
                 <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={speedNode} />
               </>
             )}
-            <Stat label={isUtility ? 'Aura range' : 'Range'} value={rangeNode} />
-            <Stat label="Level" value={`${selectedTower.level}/${selectedTower.maxLevel}`} />
+            {/* The multi-combat glyph stands in for the attack radius: a bow would
+                collide with the Damage row's own Ranged icon on archer towers. */}
+            <Stat icon={ASSETS.misc.multicombat_icon} label={isUtility ? 'Aura range' : 'Range'} value={rangeNode} />
+            <Stat icon={ASSETS.misc.stats_icon} label="Level" value={`${selectedTower.level}/${selectedTower.maxLevel}`} />
           </div>
 
           {/* Signature niche — what this tower does that the wizard can't, made
@@ -1850,7 +1857,10 @@ export default function GameRoot() {
                       <div className="space-y-[0.3em]">
                         {upgradePreview.rows.map((r) => (
                           <div key={r.label} className="flex items-center justify-between gap-[0.6em]">
-                            <span className="text-[#d3c3a0] whitespace-nowrap">{r.label}</span>
+                            <span className="text-[#d3c3a0] whitespace-nowrap flex items-center gap-[0.35em]">
+                              <img src={r.icon} alt="" className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />
+                              {r.label}
+                            </span>
                             <span className="flex items-center gap-[0.3em] text-right">
                               <span className="text-[#9a8d70]">{r.from}</span>
                               <span className="text-[#cdbe91]">→</span>
@@ -2053,7 +2063,7 @@ export default function GameRoot() {
               <GoStat icon={ASSETS.misc.attack_icon} label="Slain" value={fmt(engineRef.current?.kills ?? 0)} />
               <GoStat icon={ASSETS.misc.coins_icon} label="Earned" value={`${fmt(engineRef.current?.goldEarned ?? 0)} gp`} />
               <GoStat icon={ASSETS.misc.multicombat_icon} label="Towers built" value={fmt(engineRef.current?.towersBuilt ?? 0)} />
-              <GoStat label="Survived" value={fmtTime(engineRef.current?.runSeconds ?? 0)} />
+              <GoStat icon={ASSETS.misc.compass} label="Survived" value={fmtTime(engineRef.current?.runSeconds ?? 0)} />
             </div>
             {/* Essence is the meta reward — call it out so the player sees the run paid off. */}
             <div className="rs-panel-inset flex items-center justify-center gap-[0.5em] py-[0.5em] mb-4 text-[0.95em]">
@@ -2261,8 +2271,17 @@ export default function GameRoot() {
                 </span>
               </div>
               <div className="flex items-center justify-between text-[0.85em] mb-[0.25em]">
-                <span className="capitalize text-[#e7d9b0]">{ui.slayerTask.name}</span>
-                <span className="text-osrs-yellow font-bold">{ui.slayerTask.count}/{ui.slayerTask.total} left</span>
+                <span className="flex items-center gap-[0.4em] min-w-0">
+                  {/* The target's own baked sprite — the task reads as the monster
+                      you are hunting, not just its name. */}
+                  <span
+                    className="w-[1.6em] h-[1.6em] shrink-0"
+                    style={enemySpriteStyle(ui.slayerTask.type)}
+                    aria-hidden
+                  />
+                  <span className="capitalize text-[#e7d9b0] truncate">{ui.slayerTask.name}</span>
+                </span>
+                <span className="text-osrs-yellow font-bold whitespace-nowrap">{ui.slayerTask.count}/{ui.slayerTask.total} left</span>
               </div>
               <div className="rs-progress">
                 <div
@@ -2278,7 +2297,10 @@ export default function GameRoot() {
           </div>
           <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
             <span className="text-[#cdbe91] uppercase tracking-wide">Slayer Points</span>
-            <span className="text-[#7ce0ff] font-bold">{ui.slayerPoints}</span>
+            <span className="flex items-center gap-[0.3em] text-[#7ce0ff] font-bold">
+              <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+              {ui.slayerPoints}
+            </span>
           </div>
           <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
             {SLAYER_REWARDS.map((r) => {
@@ -2419,6 +2441,15 @@ export default function GameRoot() {
             {/* Tower shop — the one interface that is never a pop-up: it is wanted
                 on nearly every click, so it lives in the bar itself. `relative`
                 anchors its hover tooltip, which rises out of the bar over the map. */}
+            {/* Gold, right where it is spent: against the dock's tier-1 prices. */}
+            <div
+              className="shrink-0 flex items-center gap-[0.35em] pr-[0.5em]"
+              title="Gold — spent on towers and upgrades"
+            >
+              <img src={ASSETS.misc.coins_icon} alt="" className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
+              <span className="text-osrs-yellow font-bold tabular-nums text-[0.9em]">{fmt(ui.money)}</span>
+            </div>
+
             <div className="relative shrink-0">
               {hoverShop && (() => {
                 const t0 = TOWERS[hoverShop].tiers[0];
@@ -2450,7 +2481,7 @@ export default function GameRoot() {
                     <div className="space-y-[0.3em] mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
                       <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
                       <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
-                      <Stat label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
+                      <Stat icon={ASSETS.misc.multicombat_icon} label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
                     </div>
                   </div>
                 );
@@ -2543,9 +2574,13 @@ export default function GameRoot() {
                 loadout and DPS (read mid-run), then the two shops, then the log
                 and the two links out. Debug has no stone — it is Ctrl+' only. */}
             <div className="flex flex-1 items-center justify-end gap-[0.4em]">
-              <button onClick={() => onSideTab('home')} title="Run loadout — mode, relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.multicombat_icon} alt="Run loadout" onError={hideBrokenImg} />
-              </button>
+              {/* The loadout is the roguelite's relics + boons. Classic drafts
+                  nothing, so the stone would open an empty panel — it isn't shown. */}
+              {ui.gameMode === 'roguelite' && (
+                <button onClick={() => onSideTab('home')} title="Run loadout — relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
+                  <img src={ASSETS.misc.multicombat_icon} alt="Run loadout" onError={hideBrokenImg} />
+                </button>
+              )}
               <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
               </button>
@@ -2869,6 +2904,17 @@ function GoStat({ icon, label, value }: { icon?: string; label: string; value: R
   );
 }
 
+/** A stat's label cell in the enemy panel's two-column grid: its OSRS icon plus the
+ *  name. (The tower panel uses {@link Stat}, which lays label and value out itself.) */
+function StatLabel({ icon, title, children }: { icon: string; title?: string; children: React.ReactNode }) {
+  return (
+    <span className="text-[#d3c3a0] flex items-center gap-[0.35em]" title={title}>
+      <img src={icon} alt="" className="w-[1.05em] h-[1.05em] object-contain shrink-0" onError={hideBrokenImg} />
+      {children}
+    </span>
+  );
+}
+
 function Stat({ icon, label, value }: { icon?: string; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-2">
@@ -3170,6 +3216,16 @@ function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
   );
 }
 
+/** One icon + figure from the saved run's state, on the Continue card. */
+function SaveStat({ icon, title, value }: { icon: string; title: string; value: React.ReactNode }) {
+  return (
+    <span className="flex items-center gap-[0.3em]" title={title}>
+      <img src={icon} alt="" className="w-[1.15em] h-[1.15em] object-contain shrink-0" onError={hideBrokenImg} />
+      <span className="text-[#e7d9b0] font-bold tabular-nums">{value}</span>
+    </span>
+  );
+}
+
 function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, onHelp }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back before mode select. */
@@ -3192,6 +3248,10 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
       icon: iconUrl('Collection_log'),
     },
   ];
+  // Both paths out of the start screen destroy the saved run — throwing it away
+  // outright, or starting a fresh one over it. Neither is undoable, so each asks
+  // once, inline (an OSRS-style "are you sure" step rather than a browser dialog).
+  const [confirm, setConfirm] = useState<'discard' | 'new' | null>(null);
   return (
     <div className="absolute inset-0 bg-black/82 flex flex-col items-center justify-center z-40 p-4">
       <div className="rs-panel p-6 w-[34em] max-w-[94vw] flex flex-col">
@@ -3204,19 +3264,61 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
         {saved && (
           <div className="rs-panel-inset p-[0.8em] mt-4 flex flex-col gap-[0.6em]">
             <div className="flex items-center gap-[0.6em]">
-              <div className="flex flex-col">
-                <span className="text-osrs-yellow font-bold text-[1.05em]">Run in progress — Wave {saved.wave}</span>
-                <span className="text-[0.72em] text-[#cdbe91]">
-                  {saved.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'} · {saved.towers.length} tower{saved.towers.length === 1 ? '' : 's'} · {saved.lives} ♥ · {saved.money.toLocaleString()} gp · saved {agoLabel(saved.savedAt)}
+              {/* The saved run's own mode icon — the same one its mode panel wears. */}
+              <img
+                src={MODES.find((m) => m.id === saved.gameMode)?.icon}
+                alt=""
+                className="w-[1.7em] h-[1.7em] object-contain shrink-0"
+                onError={hideBrokenImg}
+              />
+              <div className="flex flex-col min-w-0">
+                <span className="text-osrs-yellow font-bold text-[1.05em]">Run in progress</span>
+                <span className="text-[0.72em] text-[#cdbe91] uppercase tracking-wide">
+                  {saved.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}
                 </span>
               </div>
+            </div>
+
+            {/* The run's state, read at a glance: each figure wears the same icon it
+                wears in-game (the wave's crossed swords, the hitpoints heart, the
+                coin stack), so the card reads without a legend. */}
+            <div className="flex flex-wrap items-center gap-x-[0.9em] gap-y-[0.3em] text-[0.8em]">
+              <SaveStat icon={ASSETS.misc.attack_icon} title="Wave reached" value={`Wave ${saved.wave}`} />
+              <SaveStat icon={ASSETS.misc.multicombat_icon} title="Towers on the board" value={saved.towers.length} />
+              <SaveStat icon={ASSETS.misc.orb_hitpoints} title="Lives left" value={saved.lives} />
+              <SaveStat icon={ASSETS.misc.coins_icon} title="Gold" value={fmt(saved.money)} />
+              <SaveStat icon={ASSETS.misc.compass} title="When this run was saved" value={agoLabel(saved.savedAt)} />
             </div>
             <button className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse" title={`Resume the run at wave ${saved.wave}`} onClick={onContinue}>
               ▶ Continue
             </button>
-            <button className="rs-btn w-full py-[0.3em] text-[0.75em]" title="Throw the saved run away and start over" onClick={onDiscard}>
-              🗑 Discard saved run
-            </button>
+            {confirm === 'discard' ? (
+              <div className="flex flex-col gap-[0.35em]">
+                <span className="text-[0.75em] text-osrs-red text-center">
+                  Discard the run at wave {saved.wave}? This cannot be undone.
+                </span>
+                <div className="flex gap-[0.4em]">
+                  <button
+                    className="rs-btn flex-1 py-[0.3em] text-[0.75em] text-osrs-red"
+                    title="Delete the saved run for good"
+                    onClick={() => { setConfirm(null); onDiscard(); }}
+                  >
+                    Yes, discard it
+                  </button>
+                  <button className="rs-btn flex-1 py-[0.3em] text-[0.75em]" title="Keep the saved run" onClick={() => setConfirm(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="rs-btn w-full py-[0.3em] text-[0.75em]"
+                title="Throw the saved run away"
+                onClick={() => setConfirm('discard')}
+              >
+                Discard saved run
+              </button>
+            )}
           </div>
         )}
 
@@ -3244,13 +3346,34 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
             );
           })}
         </div>
-        <button
-          className={`rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] ${saved ? '' : 'animate-pulse'}`}
-          title={saved ? 'Discard the saved run and start fresh in this mode' : 'Lock in this mode and start the run'}
-          onClick={onStart}
-        >
-          ▶ {saved ? 'New Run' : 'Confirm'}
-        </button>
+        {/* A new run overwrites the saved one, so with a save on disk it asks first. */}
+        {saved && confirm === 'new' ? (
+          <div className="flex flex-col gap-[0.35em]">
+            <span className="text-[0.75em] text-osrs-red text-center">
+              Starting a new run discards the saved run at wave {saved.wave}.
+            </span>
+            <div className="flex gap-[0.4em]">
+              <button
+                className="rs-btn rs-btn-primary flex-1 py-[0.5em] text-[0.9em]"
+                title="Discard the saved run and start fresh in this mode"
+                onClick={() => { setConfirm(null); onStart(); }}
+              >
+                ▶ Start a new run
+              </button>
+              <button className="rs-btn flex-1 py-[0.5em] text-[0.9em]" title="Keep the saved run" onClick={() => setConfirm(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            className={`rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] ${saved ? '' : 'animate-pulse'}`}
+            title={saved ? 'Discard the saved run and start fresh in this mode' : 'Lock in this mode and start the run'}
+            onClick={() => (saved ? setConfirm('new') : onStart())}
+          >
+            ▶ {saved ? 'New Run' : 'Confirm'}
+          </button>
+        )}
         <button className="rs-btn w-full py-[0.4em] text-[0.85em] mt-[0.5em]" title="Open the how-to-play guide" onClick={onHelp}>
           ❓ How to Play
         </button>

@@ -85,7 +85,7 @@ const ORB_IDS = {
 
 /** Skill / spellbook UI icons used across the HUD. */
 const MISC_IDS = {
-  attack_icon: 197, strength_icon: 198, ranged_icon: 200, prayer_icon: 201,
+  attack_icon: 197, strength_icon: 198, defence_icon: 199, ranged_icon: 200, prayer_icon: 201,
   magic_icon: 202, hp_icon: 203, skill_herblore: 205, skill_crafting: 207,
   skill_mining: 209, skill_woodcutting: 214, slayer_icon: 216, farming_icon: 217,
   // OSRS "Stats" (Skills) tab icon — the coloured bar-chart glyph. Used for the

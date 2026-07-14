@@ -323,6 +323,11 @@ export const ASSETS = {
     ranged_icon: `${LOCAL}/misc/ranged_icon.png`,
     strength_icon: `${LOCAL}/misc/strength_icon.png`,
     attack_icon: `${LOCAL}/misc/attack_icon.png`,
+    // The Defence shield — used for an enemy's Tenacity (its resistance stat).
+    defence_icon: `${LOCAL}/misc/defence_icon.png`,
+    // The clue-scroll compass, cache-rendered: a dial with a needle. It stands in
+    // for elapsed time in the run summary — OSRS has no clock sprite.
+    compass: itemIcon('compass'),
     bones_loot: itemIcon('bones'),
     skill_mining: `${LOCAL}/misc/skill_mining.png`,
     skill_woodcutting: `${LOCAL}/misc/skill_woodcutting.png`,

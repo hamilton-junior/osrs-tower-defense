@@ -218,6 +218,9 @@ const TARGETS = {
   volatile_orb: { name: 'Volatile nightmare staff' }, // orb itself is untradeable attachment; staff icon reads better
   wolf_mask: { name: 'Wolf mask' },
   zenyte: { name: 'Zenyte' },
+  // The clue-scroll compass — stands in for elapsed time / "survived" in the
+  // end-of-run summary (OSRS has no clock sprite in the cache).
+  compass: { name: 'Compass' },
 };
 
 // ------------------------------------------------------------------- helpers
