@@ -25,6 +25,7 @@ import {
   VORKATH_ICE_INTERVAL,
   HYDRA_PHASES,
   HYDRA_VENT_THRESHOLDS,
+  HYDRA_VENT_COOLDOWN_SECS,
   HYDRA_VENT_DAMAGE_MULT,
   HYDRA_VENT_BREAK_FRAC,
   HYDRA_VENT_HEAL_PER_SEC,
@@ -33,6 +34,7 @@ import {
   hydraNextThreshold,
   hydraShouldVent,
   hydraBreakTarget,
+  hydraVentCredit,
   hydraVentHeal,
   hydraIsEnraged,
   hydraZapChain,
@@ -193,6 +195,14 @@ describe('hydraShouldVent', () => {
   it('never opens again once every vent is shattered', () => {
     expect(hydraShouldVent(0.01, 2, false)).toBe(false);
   });
+  it('holds the vent shut while the post-failure cooldown runs', () => {
+    // The unkillable-Hydra regression: a failed vent left HP under the threshold, so
+    // the vent re-opened on the next frame and the boss was hardened forever. The
+    // cooldown is the board's full-damage window; only after it may the vent return.
+    expect(hydraShouldVent(0.5, 0, false, HYDRA_VENT_COOLDOWN_SECS)).toBe(false);
+    expect(hydraShouldVent(0.5, 0, false, 0.01)).toBe(false);
+    expect(hydraShouldVent(0.5, 0, false, 0)).toBe(true);
+  });
 });
 
 describe('vent break / heal maths', () => {
@@ -203,6 +213,21 @@ describe('vent break / heal maths', () => {
   it('regenerates a fixed fraction of max HP per second', () => {
     expect(hydraVentHeal(1000, 1)).toBeCloseTo(1000 * HYDRA_VENT_HEAL_PER_SEC);
     expect(hydraVentHeal(1000, 0.5)).toBeCloseTo(1000 * HYDRA_VENT_HEAL_PER_SEC * 0.5);
+  });
+  it('credits a landed hit at its pre-hardening value', () => {
+    // A 100-damage hit lands for 20 while the vent hardens the Hydra; the break bar
+    // must still see the 100 the towers put out.
+    expect(hydraVentCredit(100 * HYDRA_VENT_DAMAGE_MULT)).toBeCloseTo(100);
+    expect(hydraVentCredit(0)).toBe(0);
+  });
+  it('lets a board that deals the break target in raw damage actually break the vent', () => {
+    // The regression: crediting the landed figure demanded 1/HYDRA_VENT_DAMAGE_MULT
+    // times the advertised bar, so the vent never broke. Deal exactly the target in
+    // raw damage across the window and it must shatter.
+    const maxHp = 10_000;
+    const raw = hydraBreakTarget(maxHp);
+    const landed = raw * HYDRA_VENT_DAMAGE_MULT; // what the Hydra's HP bar loses
+    expect(hydraVentCredit(landed)).toBeGreaterThanOrEqual(hydraBreakTarget(maxHp));
   });
 });
 

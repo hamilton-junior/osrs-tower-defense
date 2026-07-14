@@ -42,8 +42,8 @@ import {
   ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION,
   JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS,
   JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN,
-  hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraIsEnraged, hydraZapChain,
-  HYDRA_VENT_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT,
+  hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentCredit, hydraVentHeal, hydraIsEnraged, hydraZapChain,
+  HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT,
   HYDRA_ZAP_CHAIN, HYDRA_ZAP_DISABLE_SECS, HYDRA_ENRAGE_ZAP_SECS,
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
@@ -2133,6 +2133,8 @@ export class GameEngine {
     const st = e.bossState!;
     const frac = e.hp / e.maxHp;
 
+    if (st.ventCooldown && st.ventCooldown > 0) st.ventCooldown -= dt;
+
     if (st.venting) {
       // Regenerate while the vent holds, and check the break target. The stall-breaker
       // throttles the heal: this regen is precisely what lets a vent undo a whole cycle
@@ -2143,13 +2145,15 @@ export class GameEngine {
       st.ventTimer = (st.ventTimer ?? 0) - dt;
       if ((st.ventDamage ?? 0) >= hydraBreakTarget(e.maxHp)) this.shatterHydraVent(e);
       else if (st.ventTimer <= 0) {
-        // Window closed unbroken: the heal it banked stands and the vent seals.
+        // Window closed unbroken: the heal it banked stands and the vent seals. It stays
+        // open — full damage — for the cooldown, so the board always gets its swing back.
         st.venting = false;
         st.ventDamage = 0;
+        st.ventCooldown = HYDRA_VENT_COOLDOWN_SECS;
         this.notify('The Hydra seals its vent — not enough damage!');
         this.addRing(e.x, e.y, 40, 6, hydraPhase(st.shattered ?? 0).color, 0.45, 3);
       }
-    } else if (hydraShouldVent(frac, st.shattered ?? 0, false)) {
+    } else if (hydraShouldVent(frac, st.shattered ?? 0, false, st.ventCooldown ?? 0)) {
       st.venting = true;
       st.ventTimer = HYDRA_VENT_SECS;
       st.ventDamage = 0;
@@ -3415,11 +3419,11 @@ export class GameEngine {
     if (dealt > 0 && enemy.bossState?.kind === 'jad') {
       (enemy.bossState.recentDamage ??= []).push({ t: this.gameTime, amount: dealt });
     }
-    // Hydra: damage landed during an open vent counts toward shattering it. It is
-    // the *landed* (already hardened) figure, so the break bar the player watches
-    // fill is the damage they actually see land.
+    // Hydra: damage dealt during an open vent counts toward shattering it — the
+    // figure *before* the vent's hardening cut, or the player would pay for that
+    // cut twice and the bar could never fill (see `hydraVentCredit`).
     if (dealt > 0 && enemy.bossState?.kind === 'hydra' && enemy.bossState.venting) {
-      enemy.bossState.ventDamage = (enemy.bossState.ventDamage ?? 0) + dealt;
+      enemy.bossState.ventDamage = (enemy.bossState.ventDamage ?? 0) + hydraVentCredit(dealt);
     }
     // Executioner relic: a non-boss reduced to a sliver is slain outright (bosses,
     // their phases, and Jad's healers are immune).

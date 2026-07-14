@@ -182,15 +182,27 @@ export const HYDRA_PHASES: readonly HydraPhase[] = [
 export const HYDRA_VENT_THRESHOLDS: readonly number[] = [0.66, 0.33];
 /** How long a vent stays open before it closes (and the heal it banked stands). */
 export const HYDRA_VENT_SECS = 5;
+/**
+ * Seconds the Hydra must stay open — unhardened, taking full damage — after a vent
+ * seals unbroken, before it may vent again.
+ *
+ * Without it a failed vent re-opens on the very next frame, because the re-open test
+ * is just "HP is under the threshold" and a failed vent leaves it there. Once the
+ * stall-breaker throttles the heal to nothing, HP can never climb back over the
+ * threshold either, so the Hydra sits permanently hardened at
+ * {@link HYDRA_VENT_DAMAGE_MULT} with no full-damage window — unkillable, which is
+ * exactly what players hit. The cooldown guarantees the board always gets its turn.
+ */
+export const HYDRA_VENT_COOLDOWN_SECS = 6;
 /** Damage taken while hardened — a vent cuts incoming damage to a fifth. Note it
  *  is not zero: a player who out-paces the heal still grinds through, so the
  *  fight can stall but never hard-locks. */
 export const HYDRA_VENT_DAMAGE_MULT = 0.2;
 /** Fraction of max HP regenerated per second while a vent is open. */
 export const HYDRA_VENT_HEAL_PER_SEC = 0.03;
-/** Damage that must *land* during the window, as a fraction of max HP, to shatter
- *  the vent. Landed (post-mitigation) damage is what counts, so the bar the player
- *  sees fill is the damage they actually see land. */
+/** Damage that must be dealt during the window, as a fraction of max HP, to shatter
+ *  the vent — counted *before* the hardening cut (see {@link hydraVentCredit}), so
+ *  this is the raw output the player's board has to muster in {@link HYDRA_VENT_SECS}. */
 export const HYDRA_VENT_BREAK_FRAC = 0.08;
 /** Seconds of ×1.25 vulnerability granted for shattering a vent — the burst reward. */
 export const HYDRA_SHATTER_VULN_SECS = 2;
@@ -217,18 +229,34 @@ export function hydraNextThreshold(shattered: number): number | null {
   return shattered < HYDRA_VENT_THRESHOLDS.length ? HYDRA_VENT_THRESHOLDS[shattered] : null;
 }
 
-/** Whether a vent should open now: HP has crossed the next threshold and no vent
- *  is already open. Re-crossing the same threshold re-opens it — that is the
- *  stall loop for a player who cannot yet muster the break. */
-export function hydraShouldVent(hpFrac: number, shattered: number, venting: boolean): boolean {
-  if (venting) return false;
+/** Whether a vent should open now: HP has crossed the next threshold, no vent is
+ *  already open, and the post-failure cooldown ({@link HYDRA_VENT_COOLDOWN_SECS}) has
+ *  run out. A failed vent re-opens once that window passes — a stall, not a wipe. */
+export function hydraShouldVent(hpFrac: number, shattered: number, venting: boolean, ventCooldown = 0): boolean {
+  if (venting || ventCooldown > 0) return false;
   const next = hydraNextThreshold(shattered);
   return next !== null && hpFrac <= next;
 }
 
-/** Landed damage needed to shatter an open vent. */
+/** Damage needed to shatter an open vent, measured before the hardening cut —
+ *  pair it with {@link hydraVentCredit}, never with a landed figure. */
 export function hydraBreakTarget(maxHp: number): number {
   return Math.max(1, Math.round(maxHp * HYDRA_VENT_BREAK_FRAC));
+}
+
+/**
+ * What a hit that *landed* for `dealt` is worth against the break target.
+ *
+ * The hardening ({@link HYDRA_VENT_DAMAGE_MULT}) is a cut to the Hydra's HP bar,
+ * not to the player's effort: it exists to stop the vent being chewed through
+ * incidentally, so counting the post-cut figure toward the break would charge the
+ * player for it twice and demand `1 / HYDRA_VENT_DAMAGE_MULT` times the advertised
+ * bar (8% of max HP became 40% of raw damage in five seconds, which no real board
+ * musters — the vent simply never broke). Undo the cut, so the break target is the
+ * damage the player's towers actually put out.
+ */
+export function hydraVentCredit(dealt: number): number {
+  return Math.max(0, dealt) / HYDRA_VENT_DAMAGE_MULT;
 }
 
 /** HP regenerated over `dt` seconds of an open vent. */
@@ -548,8 +576,11 @@ export interface BossState {
   venting?: boolean;
   /** Hydra: seconds left in the open vent window. */
   ventTimer?: number;
-  /** Hydra: damage landed since the vent opened, against {@link hydraBreakTarget}. */
+  /** Hydra: damage dealt since the vent opened (pre-hardening, via {@link hydraVentCredit}),
+   *  against {@link hydraBreakTarget}. */
   ventDamage?: number;
+  /** Hydra: seconds before a sealed vent may open again — the board's full-damage window. */
+  ventCooldown?: number;
   /** Hydra: vents shattered so far — this, not HP, drives the phase. */
   shattered?: number;
   /** Hydra: true once it has entered its final enraged phase. */
