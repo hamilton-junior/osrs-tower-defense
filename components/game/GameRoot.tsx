@@ -3330,17 +3330,29 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
   // outright, or starting a fresh one over it. Neither is undoable, so each asks
   // once, inline (an OSRS-style "are you sure" step rather than a browser dialog).
   const [confirm, setConfirm] = useState<'discard' | 'new' | null>(null);
+  // With a saved run the screen carries a whole extra card plus its separator, and
+  // the panel grew tall enough to run off the bottom of a laptop screen. So the
+  // resume path tightens everything it can afford to: less padding, a shorter title,
+  // no mode blurbs (the tag line still says what each mode is, and the hover title
+  // keeps the full text), no first-timer footnote — a returning player has read it.
+  // `max-h`/`overflow-y-auto` is the backstop for a very short viewport.
+  const compact = !!saved;
   return (
     <div className="absolute inset-0 bg-black/82 flex flex-col items-center justify-center z-40 p-4">
-      <div className="rs-panel p-6 w-[34em] max-w-[94vw] flex flex-col">
+      <div className={`rs-panel w-[34em] max-w-[94vw] max-h-[94vh] overflow-y-auto flex flex-col ${compact ? 'p-4' : 'p-6'}`}>
         <div className="text-center mb-1">
-          <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: fs('clamp(20px, 2.4vw, 32px)') }}>OSRS Tower Defense</div>
+          <div
+            className="text-osrs-orange font-bold leading-none"
+            style={{ fontSize: fs(compact ? 'clamp(17px, 1.9vw, 25px)' : 'clamp(20px, 2.4vw, 32px)') }}
+          >
+            OSRS Tower Defense
+          </div>
           <div className="text-[#cdbe91] text-[0.85em] mt-[0.4em]">{saved ? 'Continue where you left off' : 'Choose your mode'}</div>
         </div>
 
         {/* A run left in progress: resume it at the wave it was saved on, board intact. */}
         {saved && (
-          <div className="rs-panel-inset p-[0.8em] mt-4 flex flex-col gap-[0.6em]">
+          <div className="rs-panel-inset p-[0.7em] mt-[0.8em] flex flex-col gap-[0.5em]">
             <div className="flex items-center gap-[0.6em]">
               {/* The saved run's own mode icon — the same one its mode panel wears. */}
               <img
@@ -3400,9 +3412,9 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
           </div>
         )}
 
-        {saved && <div className="text-center text-[0.75em] text-[#cdbe91] mt-4 mb-1">— or start a new run —</div>}
+        {saved && <div className="text-center text-[0.75em] text-[#cdbe91] mt-[0.8em] mb-[0.3em]">— or start a new run —</div>}
 
-        <div className="grid grid-cols-2 gap-[0.7em] my-4">
+        <div className={`grid grid-cols-2 gap-[0.7em] ${compact ? 'mb-[0.8em]' : 'my-4'}`}>
           {MODES.map((m) => {
             const on = mode === m.id;
             return (
@@ -3410,7 +3422,7 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
                 key={m.id}
                 onClick={() => onSelect(m.id)}
                 title={`${m.name} — ${m.desc}`}
-                className="rs-panel-inset text-left p-[0.8em] flex flex-col gap-[0.35em]"
+                className={`rs-panel-inset text-left flex flex-col gap-[0.35em] ${compact ? 'p-[0.55em]' : 'p-[0.8em]'}`}
                 style={{ outline: `2px solid ${on ? 'var(--osrs-orange)' : 'transparent'}`, opacity: on ? 1 : 0.78 }}
               >
                 <div className="flex items-center gap-[0.5em]">
@@ -3419,7 +3431,7 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
                   {on && <span className="ml-auto text-osrs-orange text-[0.9em]">✓</span>}
                 </div>
                 <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{m.tag}</span>
-                <span className="text-[0.78em] text-[#d3c3a0] leading-snug">{m.desc}</span>
+                {!compact && <span className="text-[0.78em] text-[#d3c3a0] leading-snug">{m.desc}</span>}
               </button>
             );
           })}
@@ -3455,7 +3467,9 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
         <button className="rs-btn w-full py-[0.4em] text-[0.85em] mt-[0.5em]" title="Open the how-to-play guide" onClick={onHelp}>
           ❓ How to Play
         </button>
-        <div className="text-center text-[0.7em] text-[#cdbe91] mt-[0.5em]">First time? Read <span className="text-osrs-orange">How to Play</span>. Then press <span className="text-osrs-orange">Start Wave</span> when you&apos;re ready.</div>
+        {!compact && (
+          <div className="text-center text-[0.7em] text-[#cdbe91] mt-[0.5em]">First time? Read <span className="text-osrs-orange">How to Play</span>. Then press <span className="text-osrs-orange">Start Wave</span> when you&apos;re ready.</div>
+        )}
       </div>
     </div>
   );
