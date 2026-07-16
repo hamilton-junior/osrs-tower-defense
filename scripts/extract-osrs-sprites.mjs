@@ -112,7 +112,11 @@ const HITSPLAT_IDS = {
 /** Interface chrome / HUD sprites. */
 const UI_IDS = {
   multicombat_icon: 442, // MULTI_COMBAT_ZONE_CROSSED_SWORDS
-  compass: 1056, // MINIMAP_COMPASS — the game's own "where things are" glyph
+  // Four arrows converging on a point (an Arceuus-book glyph) — "pull in the
+  // nearest", which is what the `closest` targeting priority does. Picked off a
+  // --dump of 1255..1340: 1308/1309 are the same glyph in red and grey, which
+  // would collide with the HP hearts and with a disabled button.
+  converge: 1307,
   ge_logo: 1531, // MAP_ICON_GRAND_EXCHANGE (the gold-scales map icon)
   back_pattern: 452, // TEXTURE_WOOD_DARK — the tiling interface wood (wiki "Back_pattern")
   orb_background: 1059, // MINIMAP_ORB_EMPTY

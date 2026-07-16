@@ -347,10 +347,10 @@ export const ASSETS = {
     // Multi-combat (crossed-swords) indicator — used as the Home/Wave sidebar tab.
     // Cache-extracted (MULTI_COMBAT_ZONE_CROSSED_SWORDS 442), like the splats below.
     multicombat_icon: `${LOCAL}/ui/multicombat_icon.png`,
-    // Minimap compass (1056) — OSRS's own "where things are" glyph, so it reads as
-    // proximity on the "closest" targeting button (crossed swords means multicombat).
-    // Distinct from `compass` above, which is the clue-scroll item standing in for a clock.
-    minimap_compass: `${LOCAL}/ui/compass.png`,
+    // Four arrows converging on a point (1307, an Arceuus-book glyph) — "pull in
+    // the nearest", for the `closest` targeting button. Not to be confused with
+    // `compass` above, which is the clue-scroll item standing in for a clock.
+    converge: `${LOCAL}/ui/converge.png`,
     // Bare arrow glyphs (1185 / 1186) — the "most / least" markers the targeting
     // priority buttons pair with a dimension icon.
     arrow_up: `${LOCAL}/ui/arrow_up.png`,

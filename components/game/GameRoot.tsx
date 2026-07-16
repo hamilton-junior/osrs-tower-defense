@@ -40,14 +40,15 @@ type SideTab = 'home' | 'essence' | 'slayer' | 'dps';
  * in its two real states — the lit gold boot (1070) for the runner out in front, the
  * unlit brown one (1069) for the straggler at the back. `closest` is the odd one
  * out: distance from the tower has no "furthest" counterpart to contrast against,
- * so it stands alone as the compass — OSRS's own "where things are" glyph.
+ * so it carries no arrow and says it in the glyph itself — four arrows converging
+ * on a point (1307), "pull in the nearest".
  */
 const PRIORITY_ICONS: Record<TargetingPriority, { icon?: string; arrow?: 'up' | 'down'; alt: string }> = {
   first: { icon: ASSETS.misc.orb_run_on, arrow: 'up', alt: 'Front of the queue' },
   last: { icon: ASSETS.misc.orb_run, arrow: 'down', alt: 'Back of the queue' },
   strongest: { icon: ASSETS.misc.orb_hitpoints, arrow: 'up', alt: 'Most HP' },
   weakest: { icon: ASSETS.misc.orb_hitpoints, arrow: 'down', alt: 'Least HP' },
-  closest: { icon: ASSETS.misc.minimap_compass, alt: 'Nearest' },
+  closest: { icon: ASSETS.misc.converge, alt: 'Nearest' },
   unmarked: { icon: ASSETS.debuffs.vuln, arrow: 'down', alt: 'Fewest statuses' },
 };
 /** Spelled-out tooltips — the buttons are glyphs, so the words live here. */
