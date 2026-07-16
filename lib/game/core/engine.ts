@@ -13,7 +13,7 @@ import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
 import { calculateTowerStats, synergyDamageMult, utilityAuraBonus, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
 import { CombatStatsSystem, RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity, type DpsSnapshot } from '../systems/combat-stats';
-import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../systems/magic';
+import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, upgradeCostFor, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp } from '../systems/tower-identity';
@@ -745,6 +745,8 @@ export class GameEngine {
       // per-step dt, so speeding up never causes large-dt tunneling.
       if (!this.gameOver && !this.paused) {
         for (let s = 0; s < this.gameSpeed; s++) this.update(dt);
+        // Wall-clock, so it must sit outside the sub-step loop and take the raw dt.
+        this.tickAutoplay(dt);
       }
       this.renderer.draw();
       this.rafId = requestAnimationFrame(loop);
@@ -1274,7 +1276,10 @@ export class GameEngine {
   private investedValue(tower: Tower): number {
     const def = TOWERS[tower.type];
     if (!def) return 0;
-    return def.tiers.slice(0, tower.level).reduce((s, t) => s + t.upgradeCost, 0);
+    // Index 0 is the build cost (never surcharged); 1..level-1 are the upgrades
+    // actually paid for, so an Ancients wizard refunds what it really cost.
+    return def.tiers.slice(0, tower.level)
+      .reduce((s, t, i) => s + (i === 0 ? t.upgradeCost : upgradeCostFor(t.upgradeCost, tower.mageMode)), 0);
   }
 
   /** Cost to relocate a tower: 10% of its current invested value (min 1 gp). */
@@ -1434,7 +1439,7 @@ export class GameEngine {
       targetId: null,
       targetingPriority: 'first',
       name: tier.name,
-      upgradeCost: def.tiers[1]?.upgradeCost ?? 0,
+      upgradeCost: upgradeCostFor(def.tiers[1]?.upgradeCost ?? 0, type === 'wizard' ? this.pendingMageMode : undefined),
       special: tier.special,
       minDamage: tier.minDamage,
       maxDamage: tier.maxDamage,
@@ -1478,7 +1483,7 @@ export class GameEngine {
     tower.minDamage = tier.minDamage;
     tower.maxDamage = tier.maxDamage;
     tower.visualRadius += 2;
-    tower.upgradeCost = def.tiers[tower.level]?.upgradeCost ?? 0;
+    tower.upgradeCost = upgradeCostFor(def.tiers[tower.level]?.upgradeCost ?? 0, tower.mageMode);
     this.emit();
   }
 
@@ -1778,7 +1783,6 @@ export class GameEngine {
     this.handleBossMechanics(dt);
     this.updateEffects(dt);
     this.checkWaveEnd();
-    this.tickAutoplay(dt);
     this.pushDpsStats(dt);
   }
 
@@ -2378,7 +2382,8 @@ export class GameEngine {
   }
 
   /** Debug autoplay: count up while idle and auto-start the next wave once the
-   *  delay elapses. Waits on a pending roguelite draft (the pick stays manual). */
+   *  delay elapses. Waits on a pending roguelite draft (the pick stays manual).
+   *  Counts real seconds — the caller must pass the unscaled frame dt. */
   private tickAutoplay(dt: number) {
     if (!this.autoplay || this.gameOver || this.waveActive || this.pendingDraft || this.pendingRelics) {
       this.autoplayTimer = 0;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from './magic';
+import { weaknessMultiplier, WEAKNESS_BONUS, ELEMENTS, ANCIENTS, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, SUPPORT_SPELLS, SUPPORT_ORDER, ancientHit, ANCIENT_HITS, elementalSpellName, ancientSpellName, spellSpriteName, upgradeCostFor, ANCIENT_UPGRADE_COST_MULT, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from './magic';
 
 describe('weaknessMultiplier', () => {
   it('boosts damage when the element matches the enemy weakness', () => {
@@ -80,6 +80,22 @@ describe('ancient damage', () => {
   it('clamps out-of-range levels', () => {
     expect(ancientHit(0)).toBe(16);
     expect(ancientHit(9)).toBe(30);
+  });
+});
+
+describe('upgradeCostFor', () => {
+  it('charges Ancients double the listed tier price', () => {
+    expect(upgradeCostFor(200, 'ancients')).toBe(200 * ANCIENT_UPGRADE_COST_MULT);
+  });
+  it('leaves Elemental and Utility at the listed price', () => {
+    expect(upgradeCostFor(200, 'elemental')).toBe(200);
+    expect(upgradeCostFor(200, 'utility')).toBe(200);
+  });
+  it('leaves non-wizard towers (no mage mode) untouched', () => {
+    expect(upgradeCostFor(200, undefined)).toBe(200);
+  });
+  it('keeps a maxed tower (no next tier) free rather than doubling zero into a cost', () => {
+    expect(upgradeCostFor(0, 'ancients')).toBe(0);
   });
 });
 

@@ -1629,7 +1629,8 @@ export default function GameRoot() {
           {/* Event chip + potion infoboxes (existing row, now BELOW the strip). */}
           {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0) && (
             <div className="flex items-start gap-[0.4em]">
-              {ui.waveActive && ui.activeEvent && <WaveEventChip event={ui.activeEvent} />}
+              {/* Keyed by wave so each wave's event re-announces itself on mount. */}
+              {ui.waveActive && ui.activeEvent && <WaveEventChip key={ui.wave} event={ui.activeEvent} />}
               {activeInfoboxes.map((o) => (
                 <div
                   key={o.id}
@@ -3124,7 +3125,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Some enemies now arrive glowing with an affix that rewrites the rules — Shielded, Armored, Hasted and more. Read the aura colour and diversify your towers. One affix at first; deep runs can stack a second, never a third.',
     when: (ui) => ui.wave >= 5 && ui.waveActive },
   { id: 'event', target: 'waveevent', title: 'Wave event',
-    body: 'A board-wide twist just rolled for this wave only. Some hurt (less range, tougher enemies), some help (faster or longer-range towers). Hover the chip for exactly what it does, and adapt until it clears.',
+    body: 'A board-wide twist just rolled for this wave only. Some hurt (less range, tougher enemies), some help (faster or longer-range towers). It spells itself out for a few seconds when the wave starts — hover the chip any time to read it again.',
     when: (ui) => !!ui.activeEvent },
   { id: 'boss', title: 'Boss wave',
     body: 'A boss has its own health bar and a mechanic to answer — pile your strongest towers and buffs on it, and watch the caption under its bar.',
@@ -3230,7 +3231,7 @@ const TLDR: TldrGroup[] = [
   { h: 'Waves', lines: [
     'Nothing spawns until you Start Wave (button beside the tower dock, or Space). Between waves is paused build time.',
     'The panel at the top of the screen previews what the next wave sends, then tracks its progress once it lands — drag it wherever suits you. Hover a monster in that preview to scout its HP, weakness, speed and gold at this wave, before you commit to a build. Tick Auto beside the button to send each wave automatically.',
-    'From wave 3 a wave can roll a board-wide event — hover its chip for the effect. From wave 5 enemies can turn elite (glowing affixes), at most two at once. Bosses have their own mechanic.',
+    'From wave 3 a wave can roll a board-wide event — it announces what it does as the wave starts, and its chip re-reads on hover. From wave 5 enemies can turn elite (glowing affixes), at most two at once. Bosses have their own mechanic.',
   ] },
   { h: 'Systems', lines: [
     'Prayer — toggle buffs or base protection; drains a pool that refills between waves.',
@@ -4343,16 +4344,19 @@ function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => voi
  *  an `rs-panel` card that fades in on hover of a `relative group` parent, with a
  *  title + optional badge header over a description line. Anchors below the parent
  *  (`side="bottom"`, the default) or above it (`side="top"`). `pointer-events-none`
- *  so it never eats a click; the parent owns the `group` and positioning context. */
-function HoverTip({ title, badge, desc, side = 'bottom' }: {
+ *  so it never eats a click; the parent owns the `group` and positioning context.
+ *  `show` forces it open regardless of hover (the wave-event announcement). */
+function HoverTip({ title, badge, desc, side = 'bottom', show = false }: {
   title: React.ReactNode;
   badge?: React.ReactNode;
   desc: string;
   side?: 'top' | 'bottom';
+  show?: boolean;
 }) {
   const anchor = side === 'top' ? 'bottom-full mb-[0.4em]' : 'top-full mt-[0.4em]';
+  const vis = show ? 'block' : 'hidden group-hover:block';
   return (
-    <span className={`rs-panel absolute ${anchor} left-1/2 -translate-x-1/2 p-[0.5em] w-[17em] hidden group-hover:block z-40 pointer-events-none text-left`}>
+    <span className={`rs-panel absolute ${anchor} left-1/2 -translate-x-1/2 p-[0.5em] w-[17em] ${vis} z-40 pointer-events-none text-left`}>
       <span className="flex items-center gap-[0.4em] leading-none">
         {title}
         {badge}
@@ -4402,8 +4406,19 @@ function WavePreviewCard({ m }: { m: UIState['wavePreview'][number] }) {
   );
 }
 
+/** How long the event's description announces itself unprompted at the start of a
+ *  wave. Real seconds — an event you only discover by hovering is an event you play
+ *  the whole wave without knowing about. */
+const EVENT_ANNOUNCE_MS = 8000;
+
 function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }) {
   const boon = event.tone === 'boon';
+  // The chip mounts when the wave goes live, so mount *is* the wave start.
+  const [announcing, setAnnouncing] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setAnnouncing(false), EVENT_ANNOUNCE_MS);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <div
       className="wave-event-chip rs-panel relative group flex items-center gap-[0.4em] pl-[0.3em] pr-[0.55em] py-[0.25em] pointer-events-auto"
@@ -4431,6 +4446,7 @@ function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }
           </span>
         }
         desc={event.desc}
+        show={announcing}
       />
     </div>
   );

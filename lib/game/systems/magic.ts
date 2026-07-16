@@ -173,6 +173,20 @@ export function ancientHit(level: number): number {
 /** Fraction of a barrage's damage dealt to caught-but-not-primary targets. */
 export const BARRAGE_SPLASH_FALLOFF = 0.5;
 
+/**
+ * Ancients pay double per upgrade tier: a barrage is priced as roughly two extra
+ * bodies hit at {@link BARRAGE_SPLASH_FALLOFF} of the cast's damage (2 × 50% = one
+ * more Elemental cast's worth of output), so the Elemental line stays the cheap,
+ * honest single-target choice rather than a strictly worse one.
+ */
+export const ANCIENT_UPGRADE_COST_MULT = 2;
+
+/** The gold an upgrade to `baseCost` actually charges this wizard. Elemental and
+ *  Utility pay the tier's listed price; Ancients pay {@link ANCIENT_UPGRADE_COST_MULT}×. */
+export function upgradeCostFor(baseCost: number, mageMode: MageMode | undefined): number {
+  return mageMode === 'ancients' ? Math.round(baseCost * ANCIENT_UPGRADE_COST_MULT) : baseCost;
+}
+
 /** Extra damage an elemental cast deals to an enemy weak to that element. */
 export const WEAKNESS_BONUS = 1.5;
 
