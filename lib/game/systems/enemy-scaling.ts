@@ -4,10 +4,39 @@ export interface ScalableEnemyStats {
   reward: number;
 }
 
+/** The wave at which {@link progressionHpMult} reaches {@link PROGRESSION_ANCHOR_MULT}. */
+export const PROGRESSION_ANCHOR_WAVE = 70;
+/** How much tougher the anchor wave is than the base ramp alone would make it. */
+export const PROGRESSION_ANCHOR_MULT = 2;
+
+/**
+ * The base per-wave HP ramp: gentle for the first ten waves, steeper afterwards.
+ * On its own this is what the game shipped with — {@link progressionHpMult} is
+ * layered on top of it.
+ */
+function baseHpScale(wave: number): number {
+  return wave <= 10 ? 1 + (wave - 1) * 0.15 : 2.35 + (wave - 10) * 0.4;
+}
+
+/**
+ * The progression buff: a multiplier that itself climbs linearly with the wave —
+ * 1x on wave 1 (nothing changes at the start) up to {@link PROGRESSION_ANCHOR_MULT}
+ * on wave {@link PROGRESSION_ANCHOR_WAVE}, and onwards without a ceiling.
+ *
+ * The base ramp is linear, so a board that out-scales it once out-scales it forever
+ * — which is exactly what players reported (runs coasting to wave 100, 200, 1400).
+ * Making the *buff* linear makes the HP curve itself quadratic, so the difficulty
+ * keeps climbing away from a fixed board instead of settling into a straight line
+ * that towers eventually overtake.
+ */
+export function progressionHpMult(wave: number): number {
+  const perWave = (PROGRESSION_ANCHOR_MULT - 1) / (PROGRESSION_ANCHOR_WAVE - 1);
+  return 1 + Math.max(0, wave - 1) * perWave;
+}
+
 /** HP multiplier applied to an enemy's base HP for a given wave. */
 export function hpScaleForWave(wave: number): number {
-  // Gentler ramp for the first ten waves, steeper afterwards.
-  return wave <= 10 ? 1 + (wave - 1) * 0.15 : 2.35 + (wave - 10) * 0.4;
+  return baseHpScale(wave) * progressionHpMult(wave);
 }
 
 /**

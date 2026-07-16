@@ -47,7 +47,7 @@ import {
   HYDRA_ZAP_CHAIN, HYDRA_ZAP_DISABLE_SECS, HYDRA_ENRAGE_ZAP_SECS,
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
-  stepBossStall, stallTenacityBonus, stallHealMult, type BossState,
+  stepBossStall, stallTenacityBonus, stallHealMult, escortDamageMult, type BossState,
   isGuardian, guardianReviveHp,
   GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
   cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
@@ -3396,7 +3396,10 @@ export class GameEngine {
     // Boss phase bias: Zulrah's per-form style rock-paper-scissors, and a 0 while
     // Vorkath's ice shield is up (fully immune). Neutral for non-boss enemies.
     const bossMult = bossStyleMult(enemy.bossState, style);
-    let dealt = Math.max(0, Math.floor(amount * vuln * onTask * resist * bossMult));
+    // A boss's escort shrugs off splash aimed at the boss, so its mechanic has to be
+    // answered rather than incidentally deleted. Focused fire is unaffected.
+    const escortMult = escortDamageMult(!!enemy.escort, source?.tag);
+    let dealt = Math.max(0, Math.floor(amount * vuln * onTask * resist * bossMult * escortMult));
     // Shielded affix: damage is drained from the shield pool before HP is touched.
     if (enemy.shieldHp && enemy.shieldHp > 0 && dealt > 0) {
       const a = absorbWithShield(enemy.shieldHp, dealt);

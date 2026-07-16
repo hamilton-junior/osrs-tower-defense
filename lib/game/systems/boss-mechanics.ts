@@ -1,4 +1,5 @@
 import type { CombatStyle, Point } from '../types';
+import type { DamageTag } from './combat-stats';
 import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geometry';
 
 /**
@@ -117,6 +118,50 @@ export const VORKATH_ICE_INTERVAL = 11;
 export const VORKATH_ICE_DURATION = 3;
 
 // ──────────────────────────────────── Jad ──────────────────────────────────
+/**
+ * What a boss escort (a Yt-HurKot healer, a Summoned Soul) takes from an *area* hit —
+ * splash and chain — as a fraction. Focused single-target fire is untouched.
+ *
+ * Adds were dying to fire that was never aimed at them, which quietly deleted the
+ * mechanic they exist for: a barrage or a cannon shell aimed at the boss clears its
+ * whole escort as a side effect, so the player never has to answer the heal (Jad) or
+ * the style lock (Cerberus). Raising their HP would not fix that — it slows *focused*
+ * fire by the same factor, so spraying stays the correct answer, just later.
+ *
+ * The maths, in "how much of the boss's max HP must an area attack chew through to
+ * clear one add incidentally" (add HP fraction ÷ that source's splash falloff ÷ this
+ * multiplier). A cannon splashes at full damage; a barrage at
+ * {@link BARRAGE_SPLASH_FALLOFF} (0.5):
+ *
+ * | add (HP frac)          | source  | before | at 0.4 |
+ * |------------------------|---------|--------|--------|
+ * | Jad healer (0.12)      | cannon  |  12%   |  30%   |
+ * | Jad healer (0.12)      | barrage |  24%   |  60%   |
+ * | Cerberus soul (0.08)   | cannon  |   8%   |  20%   |
+ * | Cerberus soul (0.08)   | barrage |  16%   |  40%   |
+ *
+ * Healers arrive at half HP and souls hold a 33%-wide phase, so before this the adds
+ * evaporated inside their own window; at 0.4 they outlive it against a barrage and
+ * only just fall to a cannon — which is the Cannon's declared crowd-clear niche, kept
+ * intact. Focused fire still ends a healer inside 12% of Jad's HP, so "focus them"
+ * (or a `weakest` tower, which picks adds automatically) is now the fast answer and
+ * spraying is not. Relevant, not impossible.
+ */
+export const ESCORT_AOE_DAMAGE_MULT = 0.4;
+
+/** Area tags — hits that land on an escort without being aimed at it. */
+const AOE_TAGS: readonly DamageTag[] = ['splash', 'chain'];
+
+/**
+ * Damage multiplier for one hit landing on `isEscort`, by the hit's source tag.
+ * Area hits are cut to {@link ESCORT_AOE_DAMAGE_MULT}; everything else — direct fire
+ * and the DoTs already ticking on it — lands in full.
+ */
+export function escortDamageMult(isEscort: boolean, tag: DamageTag | undefined): number {
+  if (!isEscort || tag === undefined) return 1;
+  return AOE_TAGS.includes(tag) ? ESCORT_AOE_DAMAGE_MULT : 1;
+}
+
 /** Jad summons healers the first time he drops to/below this HP fraction. */
 export const JAD_HEAL_THRESHOLD = 0.5;
 /** Healers summoned per wave of adds. */

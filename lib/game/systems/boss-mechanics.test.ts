@@ -19,6 +19,8 @@ import {
   jadHealPerTick,
   freshBossState,
   bossStyleMult,
+  escortDamageMult,
+  ESCORT_AOE_DAMAGE_MULT,
   JAD_HEAL_FRAC,
   JAD_HEAL_WINDOW_SECS,
   JAD_HEAL_TICK_SECS,
@@ -156,6 +158,32 @@ describe('freshBossState / bossStyleMult', () => {
     expect(bossStyleMult(st, 'magic')).toBe(HYDRA_VENT_DAMAGE_MULT);
     expect(bossStyleMult(st, 'melee')).toBe(HYDRA_VENT_DAMAGE_MULT);
     expect(bossStyleMult(st, undefined)).toBe(HYDRA_VENT_DAMAGE_MULT); // burst check, not a style check
+  });
+});
+
+describe('escortDamageMult', () => {
+  it('leaves every hit on a non-escort alone', () => {
+    for (const tag of ['direct', 'splash', 'chain', 'burn', 'poison', 'venom'] as const) {
+      expect(escortDamageMult(false, tag)).toBe(1);
+    }
+  });
+  it('cuts area hits on an escort — the fire that was never aimed at it', () => {
+    expect(escortDamageMult(true, 'splash')).toBe(ESCORT_AOE_DAMAGE_MULT);
+    expect(escortDamageMult(true, 'chain')).toBe(ESCORT_AOE_DAMAGE_MULT);
+  });
+  it('leaves focused fire on an escort at full damage — focusing is the answer', () => {
+    expect(escortDamageMult(true, 'direct')).toBe(1);
+  });
+  it('leaves DoTs already ticking on an escort alone', () => {
+    for (const tag of ['burn', 'poison', 'venom'] as const) {
+      expect(escortDamageMult(true, tag)).toBe(1);
+    }
+  });
+  it('is neutral for an untagged hit (board FX with no source)', () => {
+    expect(escortDamageMult(true, undefined)).toBe(1);
+  });
+  it('leaves focused fire strictly faster than splash — the whole point', () => {
+    expect(escortDamageMult(true, 'direct')).toBeGreaterThan(escortDamageMult(true, 'splash'));
   });
 });
 
