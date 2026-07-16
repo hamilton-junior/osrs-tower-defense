@@ -3532,6 +3532,15 @@ export class GameEngine {
     // Debug/sandbox enemies pay nothing and don't progress anything — they exist
     // only to test towers/enemies. Jad's healers likewise award nothing (their
     // payoff is denying Jad's heal). The death FX above still play.
+    // An escort with its own Collection Log line (nested under the boss that
+    // summons it) still records the kill, even though it pays nothing — the entry
+    // would otherwise be permanently unobtainable. Gated on `summonedBy` rather
+    // than `escort`, because not every escort is its own monster: a Yt-HurKot
+    // carries `type: 'imp'` purely as its stat line (its name and model are its
+    // own), so counting escorts wholesale would file Jad's healers as Imp kills.
+    if (!enemy.debug && enemy.escort && ENEMIES[enemy.type]?.summonedBy) {
+      this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
+    }
     if (!enemy.debug && !enemy.escort) {
       // Greed curse (×goldMult) and the active wave event (×event gold, e.g. Blood
       // Moon's harder-wave payout) both scale the drop; both default to 1.

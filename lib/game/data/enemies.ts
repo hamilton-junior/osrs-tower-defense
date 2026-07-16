@@ -12,6 +12,16 @@ export interface EnemyDef {
   weakness?: any;
   isBoss?: boolean;
   waveUnlock?: number;
+  /** The boss that summons this enemy, if it is an escort rather than a monster
+   *  a wave can send. Escorts have no Collection Log entry of their own — like
+   *  OSRS, they live on their summoner's page (see `LogDetail` in GameRoot) — and
+   *  it is this field that puts them there, and keeps them out of the Monsters
+   *  tab's roster and its completion count. */
+  summonedBy?: string;
+  /** Baked-clip slug to draw this type with, when it differs from `type` (the
+   *  default). Cerberus's souls are three different NPCs in the cache sharing one
+   *  `type`, so the log entry that covers all three needs to name a face. */
+  animSlug?: string;
   /** Sprite size multiplier at draw time (default 1). Used to compensate sprites
    *  whose art has heavy transparent padding so they read at a consistent
    *  on-screen size (e.g. Zulrah's serpentine pose). */
@@ -378,7 +388,11 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hp: 160,
     speed: 70,
     color: '#cfd8e6',
-    reward: 0
+    reward: 0,
+    summonedBy: 'cerberus',
+    // The trio (melee/ranged/magic) shares one type and one log line; the melee
+    // soul stands in for it. On the field each gets its own clip via `animType`.
+    animSlug: 'soul_melee'
   },
   dawn: {
     type: 'dawn',

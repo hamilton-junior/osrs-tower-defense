@@ -301,13 +301,22 @@ const LOG_ENTRIES = Object.entries(ENEMIES).map(([type, def]) => ({
   type,
   name: def.name,
   isBoss: !!def.isBoss,
+  summonedBy: def.summonedBy,
   hp: def.hp,
   speed: def.speed,
   weakness: def.weakness ?? '',
   reward: def.reward,
 }));
 const BOSS_ENTRIES = LOG_ENTRIES.filter((e) => e.isBoss);
-const MONSTER_ENTRIES = LOG_ENTRIES.filter((e) => !e.isBoss);
+// A boss's escorts are not monsters a wave can send, so they get no line of their
+// own — like OSRS, they live on their summoner's page (see `SUMMONS_BY_BOSS`).
+// Listing them here would also park an unobtainable entry in the roster.
+const MONSTER_ENTRIES = LOG_ENTRIES.filter((e) => !e.isBoss && !e.summonedBy);
+/** Escorts grouped under the boss that summons them, for its detail page. */
+const SUMMONS_BY_BOSS = LOG_ENTRIES.reduce<Record<string, LogEntry[]>>((acc, e) => {
+  if (e.summonedBy) (acc[e.summonedBy] ??= []).push(e);
+  return acc;
+}, {});
 type LogEntry = (typeof LOG_ENTRIES)[number];
 
 /** Collection-log list controls: which entries to show, and how to order them. */
@@ -379,7 +388,10 @@ function sortedCards(cardCounts: Record<string, number>, filter: LogFilter, sort
  *  express it in `em` (3.4em = the `.rs-log-sprite` width) so it tracks the
  *  card's font-size. Returns undefined if nothing is baked. */
 function enemySpriteStyle(type: string, animate = false): React.CSSProperties | undefined {
-  const clip = ENEMY_ANIMS[type]?.clips.walk;
+  // Most types are their own clip slug; `animSlug` covers the ones that aren't
+  // (Cerberus's souls are three cache NPCs behind one type).
+  const slug = ENEMIES[type as keyof typeof ENEMIES]?.animSlug ?? type;
+  const clip = ENEMY_ANIMS[slug]?.clips.walk;
   if (!clip) return undefined;
   const base: React.CSSProperties = {
     backgroundImage: `url(${clip.url})`,
@@ -4128,6 +4140,7 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
               <LogDetail
                 type={selected}
                 kc={killCounts[selected] ?? 0}
+                killCounts={killCounts}
                 onBack={() => setSelected(null)}
                 onPrev={() => setSelected(prev.type)}
                 onNext={() => setSelected(next.type)}
@@ -4163,9 +4176,11 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
 }
 
 /** Detail card for one bestiary entry: an enlarged looping walk sprite + the
- *  enemy's combat stats and lifetime kill count. Opened by clicking a log card. */
-function LogDetail({ type, kc, onBack, onPrev, onNext, position }: {
-  type: string; kc: number; onBack: () => void;
+ *  enemy's combat stats and lifetime kill count. Opened by clicking a log card.
+ *  A boss's page also lists the escorts it summons — they have no line of their
+ *  own in the roster, so this is where they are collected. */
+function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, position }: {
+  type: string; kc: number; killCounts: Record<string, number>; onBack: () => void;
   onPrev: () => void; onNext: () => void;
   position: { index: number; total: number };
 }) {
@@ -4173,6 +4188,7 @@ function LogDetail({ type, kc, onBack, onPrev, onNext, position }: {
   if (!def) return null;
   const wk = def.weakness ? ELEMENTS[def.weakness as keyof typeof ELEMENTS] : null;
   const style = enemySpriteStyle(type, true);
+  const summons = SUMMONS_BY_BOSS[type] ?? [];
   return (
     <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
       <div className="flex items-center justify-between mb-[0.6em]">
@@ -4209,6 +4225,28 @@ function LogDetail({ type, kc, onBack, onPrev, onNext, position }: {
           </div>
         </div>
       </div>
+      {summons.length > 0 && (
+        <div className="rs-panel-inset p-[0.7em] mt-[0.5em]">
+          <div className="text-[0.7em] text-[#b3a585] uppercase tracking-wide mb-[0.5em]">Summons</div>
+          <div className="flex flex-col gap-[0.4em]">
+            {summons.map((s) => {
+              const n = killCounts[s.type] ?? 0;
+              return (
+                <div key={s.type} className={`flex items-center gap-[0.6em] ${n > 0 ? '' : 'rs-log-locked'}`}>
+                  <div className="rs-log-sprite shrink-0" style={{ ...enemySpriteStyle(s.type, true), fontSize: '0.75em' }} />
+                  <span className="flex-1 min-w-0 truncate text-[0.8em] text-[#e8dcc0]">{s.name}</span>
+                  <span className="text-[0.8em] tabular-nums" style={{ color: n > 0 ? 'var(--osrs-yellow)' : '#7a7060' }}>
+                    {n > 0 ? `× ${fmt(n)}` : '0'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[0.68em] text-[#9a8d70] mt-[0.5em] leading-snug">
+            Escorts, not wave monsters — they only appear alongside {def.name}, and pay no gold.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
