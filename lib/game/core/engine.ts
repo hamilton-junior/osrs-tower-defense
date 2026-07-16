@@ -59,7 +59,7 @@ import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import { generateMapLayout, type MapLayout } from '../systems/map-generation';
 import { BIOMES, pickBiome, nextBiome, type BiomeDef } from '../data/biomes';
-import type { SlayerReward } from '../data/slayer';
+import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 
 /**
  * The board's one and only resolution — 54×24 whole tiles. Every player gets this
@@ -271,6 +271,11 @@ export interface UIState {
   slayerMaster: string;
   /** Whether the Slayer Helmet (on-task damage bonus) is owned this run. */
   slayerHelmet: boolean;
+  /** Ids of the one-time Slayer-shop unlocks bought this run (helm, imbue,
+   *  Bigger and Badder) — the shop greys them out. */
+  slayerUnlocks: string[];
+  /** Monsters blocked out of the task rotation this run. */
+  slayerBlocked: EnemyType[];
   /** Current prayer points (rounded). */
   prayerPoints: number;
   /** Maximum prayer points. */
@@ -787,6 +792,8 @@ export class GameEngine {
       slayerStreak: this.slayer.streak,
       slayerMaster: this.slayer.masterName,
       slayerHelmet: this.slayer.helmet,
+      slayerUnlocks: SLAYER_REWARDS.filter(r => r.once && this.slayer.owns(r.id)).map(r => r.id),
+      slayerBlocked: [...this.slayer.blocked],
       prayerPoints: Math.round(this.prayer.points),
       prayerMax: this.prayer.max,
       activePrayers: [...this.prayer.active],
@@ -3500,13 +3507,38 @@ export class GameEngine {
       this.kills += 1;
       // New object each kill so the UI's persistence effect sees the change.
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
+      // Bigger and Badder (Slayer shop): the task monster can rise again, right
+      // where it fell, as its Superior form. Rolled BEFORE recordKill, so the kill
+      // that finishes a task can still spawn one — the superior is the send-off.
+      const superior = this.slayer.rollSuperior(enemy.type);
       this.slayer.recordKill(enemy.type);
+      if (superior) this.raiseSuperior(superior, enemy);
       this.onKillChains(killX, killY, dealt, overkillDmg, depth);
       // Volatile affix: a death blast briefly disables the nearest tower.
       if (enemy.affixes?.includes('volatile')) this.detonateVolatile(killX, killY);
     }
     this.emit();
     return true;
+  }
+
+  /**
+   * Bigger and Badder: raise `type` (a Superior) out of the corpse of `fallen`,
+   * carrying on from exactly where it stood — same point on the road, same progress
+   * along it. It is scaled for the current wave like any other spawn, so a superior
+   * met late is a late-game threat, and it is worth its own (much larger) gold and
+   * essence when it dies.
+   */
+  private raiseSuperior(type: EnemyType, fallen: Enemy) {
+    const e = this.makeEnemy(type, this.wave);
+    if (!e) return;
+    e.x = fallen.x;
+    e.y = fallen.y;
+    e.pathIndex = fallen.pathIndex;
+    this.enemies.push(e);
+    // A green shockwave out of the corpse — the moment reads as a rise, not a spawn.
+    this.addRing(e.x, e.y, 6, 60, '#9fe855', 0.55, 4);
+    this.sound.play('wave', 55);
+    this.notify(`${e.name} rises!`, ASSETS.misc.slayer_crossbow);
   }
 
   /** Volatile affix: on death, disable the nearest tower for a beat and pop a

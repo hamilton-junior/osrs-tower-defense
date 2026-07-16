@@ -53,7 +53,14 @@ export interface RunSave {
     task: SlayerTask | null;
     points: number;
     streak: number;
+    /** Shop unlocks. Absent in saves written before the rewards shop grew — they
+     *  restore as "not bought" rather than voiding the save. */
     helmet: boolean;
+    imbued: boolean;
+    biggerBadder: boolean;
+    /** Monsters bought out of the rotation / bought as doubled tasks. */
+    blocked: EnemyType[];
+    extended: EnemyType[];
     lastTaskType: EnemyType | null;
     masterId: string;
   };
@@ -142,6 +149,10 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
       points: Math.max(0, Math.floor(num(slayerRaw.points, 0))),
       streak: Math.max(0, Math.floor(num(slayerRaw.streak, 0))),
       helmet: slayerRaw.helmet === true,
+      imbued: slayerRaw.imbued === true,
+      biggerBadder: slayerRaw.biggerBadder === true,
+      blocked: strList(slayerRaw.blocked) as EnemyType[],
+      extended: strList(slayerRaw.extended) as EnemyType[],
       lastTaskType: (str(slayerRaw.lastTaskType) as EnemyType | null) ?? null,
       masterId: str(slayerRaw.masterId) ?? '',
     },

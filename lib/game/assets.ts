@@ -62,8 +62,15 @@ const LOCAL_BY_WIKI: Record<string, string> = {
   Willow_logs: itemIcon('willow_logs'),
   Yew_logs: itemIcon('yew_logs'),
   Magic_logs: itemIcon('magic_logs'),
-  // Slayer rewards (data/slayer.ts `icon` keys)
+  // Slayer rewards (data/slayer.ts `icon` keys) — each unlock wears the item it
+  // actually is in game (the imbued helm, the bracelet that extends tasks, the
+  // Eternal gem the superiors drop).
   Slayer_helmet: itemIcon('slayer_helmet'),
+  'Slayer_helmet_(i)': itemIcon('slayer_helmet_i'),
+  Bracelet_of_slaughter: itemIcon('bracelet_of_slaughter'),
+  Slayer_ring: itemIcon('slayer_ring'),
+  Giant_pouch: itemIcon('giant_pouch'),
+  Eternal_gem: itemIcon('eternal_gem'),
   Enchanted_gem: itemIcon('enchanted_gem'),
   Pure_essence: itemIcon('pure_essence'),
   // Meta-progression upgrades (systems/meta-progression.ts `icon` keys)

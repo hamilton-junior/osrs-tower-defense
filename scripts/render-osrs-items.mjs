@@ -204,6 +204,12 @@ const TARGETS = {
   seers_ring: { name: 'Seers ring' },
   shark: { name: 'Shark' },
   slayer_helmet: { name: 'Slayer helmet' },
+  // Slayer-rewards shop: each unlock wears the item it actually is in game.
+  slayer_helmet_i: { name: 'Slayer helmet (i)' },
+  bracelet_of_slaughter: { name: 'Bracelet of slaughter' },
+  slayer_ring: { name: 'Slayer ring (8)' },
+  giant_pouch: { name: 'Giant pouch' },
+  eternal_gem: { name: 'Eternal gem' },
   soul_rune: { name: 'Soul rune' },
   spirit_shield: { name: 'Spirit shield' },
   stamina_potion: { name: 'Stamina potion(4)' },

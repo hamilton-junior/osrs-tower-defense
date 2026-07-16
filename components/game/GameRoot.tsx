@@ -172,7 +172,7 @@ const INITIAL: UIState = {
   multiSelectedIds: [],
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
-  slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false,
+  slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false, slayerUnlocks: [], slayerBlocked: [],
   prayerPoints: 10, prayerMax: 10, activePrayers: [],
   geOffers: [],
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
@@ -2380,21 +2380,28 @@ export default function GameRoot() {
           </div>
           <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
             {SLAYER_REWARDS.map((r) => {
-              const owned = !!r.once && r.id === 'helmet' && ui.slayerHelmet;
+              const owned = !!r.once && ui.slayerUnlocks.includes(r.id);
+              // The imbue is dead until the helm is owned; the three task unlocks are
+              // dead with no task to act on. Say which, rather than greying out mutely.
+              const locked = r.requires && !ui.slayerUnlocks.includes(r.requires)
+                ? `Needs the ${SLAYER_REWARDS.find((x) => x.id === r.requires)?.name}`
+                : (r.id === 'skip' || r.id === 'block' || r.id === 'extend') && !ui.slayerTask
+                  ? 'No task yet'
+                  : null;
               const afford = ui.slayerPoints >= r.cost;
-              const disabled = owned || !afford;
+              const disabled = owned || !!locked || !afford;
               return (
                 <button
                   key={r.id}
                   onClick={() => engineRef.current?.buySlayerReward(r.id)}
                   disabled={disabled}
-                  title={r.desc}
+                  title={locked ?? r.desc}
                   className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${disabled ? 'rs-slot-unafford' : ''}`}
                 >
                   <img src={geIcon(r.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
                   <span className="flex-1 min-w-0">
                     <span className="text-[#e7d9b0] truncate block">{r.name}</span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{r.desc}</span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{locked ?? r.desc}</span>
                   </span>
                   {owned ? (
                     <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Owned</span>
@@ -2407,6 +2414,18 @@ export default function GameRoot() {
               );
             })}
           </div>
+          {/* Blocked monsters are invisible otherwise — the player paid to retire them
+              and would have no way to see, or remember, which. */}
+          {ui.slayerBlocked.length > 0 && (
+            <div className="mt-[0.6em] pt-[0.5em] border-t border-[var(--rs-keyline)] flex items-center gap-[0.4em] flex-wrap px-[0.2em]">
+              <span className="text-[0.66em] uppercase tracking-wide text-[#b3a585]">Blocked</span>
+              {ui.slayerBlocked.map((t) => (
+                <span key={t} className="text-[0.7em] text-[#d3c3a0]" title={`${ENEMIES[t]?.name ?? t} is never assigned again this run`}>
+                  {ENEMIES[t]?.name ?? t}
+                </span>
+              ))}
+            </div>
+          )}
           <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
             Earn points by completing Slayer tasks
           </p>
