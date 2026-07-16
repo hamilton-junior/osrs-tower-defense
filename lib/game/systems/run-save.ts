@@ -49,6 +49,11 @@ export interface RunSave {
   pendingRelics: string[] | null;
   ownedRelics: string[];
   draftRerolls: number;
+  /** Card rolls bought this run — restores the escalating roll price. Absent in
+   *  saves written before cards were bought rather than handed out. */
+  cardRollsBought?: number;
+  /** Whether a pending hand is a boss's boosted one (so a re-roll stays boosted). */
+  draftBoosted?: boolean;
   slayer: {
     task: SlayerTask | null;
     points: number;
@@ -137,6 +142,8 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     pendingRelics: Array.isArray(raw.pendingRelics) ? strList(raw.pendingRelics) : null,
     ownedRelics: strList(raw.ownedRelics),
     draftRerolls: Math.max(0, Math.floor(num(raw.draftRerolls, 0))),
+    cardRollsBought: Math.max(0, Math.floor(num(raw.cardRollsBought, 0))),
+    draftBoosted: raw.draftBoosted === true,
     slayer: {
       task: taskRaw && typeof taskRaw.type === 'string'
         ? {

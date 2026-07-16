@@ -24,9 +24,9 @@ import { PrayerSystem, MAX_PRAYER_WARDS } from '../systems/prayer-system';
 import { GeSystem, type GeListing } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
-import { rollDraft, availableCards, DRAFT_POOL, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
+import { rollDraft, availableCards, cardRollCost, DRAFT_POOL, RARITY_WEIGHT, BOOSTED_RARITY_WEIGHT, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import {
-  rollRelicChoice, isRelicWave, shouldExecute, interestGain, RELICS,
+  rollRelicChoice, shouldExecute, interestGain, RELICS,
   type Relic, type RelicEffect,
 } from '../systems/relics';
 import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
@@ -317,16 +317,20 @@ export interface UIState {
   lastWaveSandbox: boolean;
   /** Active game mode (`classic` / `roguelite`). */
   gameMode: GameMode;
-  /** Roguelite: the draft hand offered after the last wave clear, awaiting a pick
-   *  (null when no draft is pending). The next wave can't start until it's
-   *  resolved. */
+  /** Roguelite: the draft hand awaiting a pick — bought with gold, or a defeated
+   *  boss's boosted hand (null when none). Blocks the next wave until resolved. */
   pendingDraft: DraftCard[] | null;
+  /** Roguelite: whether the open hand rolled on the boss's boosted odds (the UI
+   *  bills it as the boss's prize rather than a shop roll). */
+  draftBoosted: boolean;
+  /** Roguelite: gold price of the next card roll (rises with each one bought). */
+  cardRollCost: number;
   /** Roguelite: the accumulated run-scoped buffs from drafts (for the UI). */
   runMods: RunModifiers;
   /** Roguelite: cards drafted this run (id + stack count, in pick order) — the
    *  active-relics / build panel resolves each id against the draft pool. */
   runCards: { id: string; count: number }[];
-  /** Roguelite: a relic choice offered at a milestone wave, awaiting a pick (null
+  /** Roguelite: a relic choice offered by a defeated boss, awaiting a pick (null
    *  when none). Like {@link pendingDraft} it blocks the next wave until resolved.
    *  A cloneable view (the engine holds the full {@link Relic}). */
   pendingRelics: { id: string; name: string; desc: string; tier: string; icon: string }[] | null;
@@ -612,7 +616,7 @@ export class GameEngine {
   /** Cards drafted this run, in pick order, with a stack count for repeatable
    *  ones — the source for the UI's active-relics / build panel. Resets per run. */
   runCards: { id: string; count: number }[] = [];
-  /** Roguelite: relic choice offered at a milestone wave, awaiting a pick. */
+  /** Roguelite: relic choice offered by a defeated boss, awaiting a pick. */
   pendingRelics: Relic[] | null = null;
   /** Relics owned this run, in pick order (each relic is unique). */
   ownedRelics: Relic[] = [];
@@ -620,6 +624,10 @@ export class GameEngine {
   relicFx: RelicEffects = freshRelicEffects();
   /** Re-rolls remaining on the current draft hand (refilled per draft). */
   private draftRerollsLeft = 0;
+  /** Card rolls bought this run — the exponent behind the next roll's price. */
+  private cardRollsBought = 0;
+  /** Whether the open hand is a boss's boosted one (kept across a re-roll). */
+  private draftBoosted = false;
   /** Debug autoplay: when on, auto-start the next wave `autoplaySecs` (min 1)
    *  after the field is idle (between waves, no pending draft). */
   autoplay = false;
@@ -817,6 +825,8 @@ export class GameEngine {
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
       pendingDraft: this.pendingDraft,
+      draftBoosted: this.draftBoosted,
+      cardRollCost: this.cardRollCost,
       runMods: cloneRunMods(this.runMods),
       runCards: this.runCards.map(c => ({ ...c })),
       pendingRelics: this.pendingRelics
@@ -3672,7 +3682,8 @@ export class GameEngine {
       this.emit();
       return;
     }
-    const clearedWave = this.wave;
+    // Read before `wave` advances: bossWave still describes the wave just cleared.
+    const bossCleared = this.bossWave;
     this.awardGold(Math.round(waveClearBonus(this.wave) * GENERAL_GOLD_FACTOR));
     const waveEssence = essenceForWave(this.wave);
     this.meta.award(waveEssence); // essence reward for the cleared wave
@@ -3693,17 +3704,17 @@ export class GameEngine {
     this.checkPrayerUnlocks(); // celebrate any tower prayers gating on the new wave
     this.prayer.refill(); // top up to the new wave's (possibly larger) pool
     this.ge.onWaveCleared(); // drift shop prices toward this wave's demand
-    // Roguelite: at a milestone wave offer a run-defining relic choice; otherwise
-    // the usual per-wave draft hand. Either blocks the next wave until resolved.
-    if (this.gameMode === 'roguelite' && !this.gameOver) {
-      const relicChoice = isRelicWave(clearedWave)
-        ? rollRelicChoice(Math.random, new Set(this.ownedRelics.map(r => r.id)))
-        : [];
+    // Roguelite: beating a boss is the run's reward beat — it offers a run-defining
+    // relic. Once every relic is owned the boss pays a *boosted* card hand instead,
+    // so a late boss is still worth something. Ordinary waves pay nothing: cards are
+    // bought with gold (see buyCardRoll), which is what makes the gold a choice.
+    if (this.gameMode === 'roguelite' && !this.gameOver && bossCleared) {
+      const relicChoice = rollRelicChoice(Math.random, new Set(this.ownedRelics.map(r => r.id)));
       if (relicChoice.length > 0) {
         this.pendingRelics = relicChoice;
         this.sound.play('interface_open');
       } else {
-        this.offerDraft();
+        this.offerDraft(true);
       }
     }
     // Roll the next Slayer task now (idempotent — only fires when the last task was
@@ -3716,11 +3727,42 @@ export class GameEngine {
   }
 
   /** Roll and offer a fresh draft hand (bigger if Production Prodigy is owned) and
-   *  refill the per-wave re-roll allowance (Trickster). */
-  private offerDraft() {
-    this.pendingDraft = rollDraft(Math.random, 3 + this.relicFx.handBonus, availableCards(this.draftedUnique));
+   *  refill the re-roll allowance (Trickster). `boosted` swaps in the boss-reward
+   *  rarity odds; it also latches so a Trickster re-roll of a boosted hand stays
+   *  boosted rather than quietly downgrading the boss's prize. */
+  private offerDraft(boosted = false) {
+    this.draftBoosted = boosted;
+    this.pendingDraft = rollDraft(
+      Math.random,
+      3 + this.relicFx.handBonus,
+      availableCards(this.draftedUnique),
+      boosted ? BOOSTED_RARITY_WEIGHT : RARITY_WEIGHT,
+    );
     this.draftRerollsLeft = this.relicFx.rerollsPerWave;
     this.sound.play('interface_open');
+  }
+
+  /** Gold price of the next bought card roll (geometric in rolls already bought). */
+  get cardRollCost(): number {
+    return cardRollCost(this.cardRollsBought);
+  }
+
+  /**
+   * Roguelite: buy a draft hand with gold. Cards are no longer a per-wave handout —
+   * this is the only routine way to get one, so every roll is weighed against a
+   * tower. Idle-only (the hand is a modal overlay, and a wave shouldn't be paused
+   * behind a shop), and each purchase raises the next price.
+   */
+  buyCardRoll() {
+    if (this.gameMode !== 'roguelite') return;
+    if (this.gameOver || this.waveActive) { this.notify('Only between waves'); return; }
+    if (this.pendingDraft || this.pendingRelics) return; // a choice is already open
+    const cost = this.cardRollCost;
+    if (this.money < cost) { this.notify('Not enough gold'); return; }
+    this.money -= cost;
+    this.cardRollsBought += 1;
+    this.offerDraft();
+    this.emit();
   }
 
   /** Resolve a would-be-lethal life total. Returns true if the run ended; false if
@@ -3774,7 +3816,12 @@ export class GameEngine {
   rerollDraft() {
     if (!this.pendingDraft || this.draftRerollsLeft <= 0) return;
     this.draftRerollsLeft -= 1;
-    this.pendingDraft = rollDraft(Math.random, 3 + this.relicFx.handBonus, availableCards(this.draftedUnique));
+    this.pendingDraft = rollDraft(
+      Math.random,
+      3 + this.relicFx.handBonus,
+      availableCards(this.draftedUnique),
+      this.draftBoosted ? BOOSTED_RARITY_WEIGHT : RARITY_WEIGHT,
+    );
     this.sound.play('interface_open');
     this.emit();
   }
@@ -3927,6 +3974,8 @@ export class GameEngine {
       pendingRelics: this.pendingRelics?.map(r => r.id) ?? null,
       ownedRelics: this.ownedRelics.map(r => r.id),
       draftRerolls: this.draftRerollsLeft,
+      cardRollsBought: this.cardRollsBought,
+      draftBoosted: this.draftBoosted,
       slayer: this.slayer.snapshot(),
       prayer: { points: this.prayer.points, active: [...this.prayer.active] },
     };
@@ -3989,6 +4038,8 @@ export class GameEngine {
     const relics = save.pendingRelics?.map(id => RELICS.find(r => r.id === id)).filter((r): r is Relic => !!r);
     this.pendingRelics = relics?.length ? relics : null;
     this.draftRerollsLeft = save.draftRerolls;
+    this.cardRollsBought = save.cardRollsBought ?? 0;
+    this.draftBoosted = save.draftBoosted ?? false;
 
     this.waveActive = false;
     this.gameOver = false;
@@ -4044,6 +4095,8 @@ export class GameEngine {
     this.ownedRelics = [];
     this.pendingRelics = null;
     this.draftRerollsLeft = 0;
+    this.cardRollsBought = 0;
+    this.draftBoosted = false;
     this.wave = 1;
     this.kills = 0;
     this.goldEarned = 0;

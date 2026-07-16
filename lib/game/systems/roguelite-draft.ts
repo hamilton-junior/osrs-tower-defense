@@ -110,6 +110,35 @@ export const RARITY_WEIGHT: Record<DraftRarity, number> = {
 };
 
 /**
+ * The weights a **boosted** hand rolls on: the boss reward once every relic is
+ * already owned. Commons collapse and the top end opens up (ultra 8 → 45), so a
+ * boosted hand is worth beating a boss for rather than being a bought roll with
+ * extra steps. Same pool and same one-per-resource-group rule — only the odds move.
+ */
+export const BOOSTED_RARITY_WEIGHT: Record<DraftRarity, number> = {
+  common: 20,
+  uncommon: 40,
+  rare: 55,
+  ultra: 45,
+};
+
+/**
+ * Buying a card roll: the price starts at {@link CARD_ROLL_BASE_COST} and multiplies
+ * by {@link CARD_ROLL_COST_GROWTH} per roll already bought this run (50 → 80 → 128
+ * → 205 → …). Geometric, not linear, so it keeps pace with an economy that also
+ * compounds — a roll stays a real "cards or towers?" decision at wave 60 instead of
+ * decaying into pocket change.
+ */
+export const CARD_ROLL_BASE_COST = 50;
+export const CARD_ROLL_COST_GROWTH = 1.6;
+
+/** Gold price of the next card roll, given how many were already bought this run. */
+export function cardRollCost(rollsBought: number): number {
+  const n = Math.max(0, Math.floor(rollsBought));
+  return Math.round(CARD_ROLL_BASE_COST * Math.pow(CARD_ROLL_COST_GROWTH, n));
+}
+
+/**
  * Per-rarity multiplier steps. Damage may step harder; range & fire-rate are the
  * game-changers, so their steps stay small and compound multiplicatively. Combo
  * (`multi`) cards reuse a *lower* tier's step per stat, so a two-stat card is
@@ -292,11 +321,15 @@ function resourceGroup(card: DraftCard): 'currency' | 'lives' | null {
  * two pure-currency (or two pure-life) cards are a false choice, so once one is
  * drawn the rest of that group is skipped — unless the pool has nothing else
  * left to offer (then the guard relaxes so the hand still fills).
+ *
+ * `weights` swaps the rarity odds: {@link BOOSTED_RARITY_WEIGHT} for a boss's
+ * boosted hand, the default {@link RARITY_WEIGHT} otherwise.
  */
 export function rollDraft(
   rng: () => number,
   count = 3,
   pool: readonly DraftCard[] = DRAFT_POOL,
+  weights: Record<DraftRarity, number> = RARITY_WEIGHT,
 ): DraftCard[] {
   const remaining = [...pool];
   const hand: DraftCard[] = [];
@@ -307,11 +340,11 @@ export function rollDraft(
     // the full remaining pool only if that leaves nothing to draw.
     const eligible = remaining.filter(c => { const g = resourceGroup(c); return !g || !usedGroups.has(g); });
     const pickFrom = eligible.length ? eligible : remaining;
-    const total = pickFrom.reduce((s, c) => s + RARITY_WEIGHT[c.rarity], 0);
+    const total = pickFrom.reduce((s, c) => s + weights[c.rarity], 0);
     let roll = rng() * total;
     let idx = 0;
     for (let j = 0; j < pickFrom.length; j++) {
-      roll -= RARITY_WEIGHT[pickFrom[j].rarity];
+      roll -= weights[pickFrom[j].rarity];
       if (roll < 0) { idx = j; break; }
       idx = j;
     }

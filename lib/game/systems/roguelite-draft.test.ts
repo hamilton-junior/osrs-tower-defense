@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   DRAFT_POOL,
   RARITY_WEIGHT,
+  BOOSTED_RARITY_WEIGHT,
+  CARD_ROLL_BASE_COST,
+  CARD_ROLL_COST_GROWTH,
+  cardRollCost,
   rollDraft,
   availableCards,
   type DraftCard,
@@ -209,5 +213,65 @@ describe('rollDraft', () => {
     }
     // Commons (weight 100 each) should massively outnumber ultras (weight 8 each).
     expect(commons).toBeGreaterThan(ultras * 3);
+  });
+});
+
+describe('cardRollCost', () => {
+  it('starts at the base price for the first roll of a run', () => {
+    expect(cardRollCost(0)).toBe(CARD_ROLL_BASE_COST);
+  });
+
+  it('compounds by the growth factor per roll already bought', () => {
+    expect(cardRollCost(1)).toBe(Math.round(CARD_ROLL_BASE_COST * CARD_ROLL_COST_GROWTH));
+    expect(cardRollCost(2)).toBe(Math.round(CARD_ROLL_BASE_COST * CARD_ROLL_COST_GROWTH ** 2));
+    // The documented curve: 50 -> 80 -> 128 -> 205.
+    expect([0, 1, 2, 3].map(cardRollCost)).toEqual([50, 80, 128, 205]);
+  });
+
+  it('never charges less than the base, however odd the count', () => {
+    expect(cardRollCost(-5)).toBe(CARD_ROLL_BASE_COST);
+    expect(cardRollCost(1.9)).toBe(cardRollCost(1)); // floored, not rounded up
+  });
+
+  it('stays finite and climbing deep into a long run', () => {
+    const late = cardRollCost(30);
+    expect(Number.isFinite(late)).toBe(true);
+    expect(late).toBeGreaterThan(cardRollCost(29));
+  });
+});
+
+describe('boosted draft odds', () => {
+  it('favours rare/ultra over common, inverting the normal weighting', () => {
+    // The whole point of a boss hand: the top end outweighs the backbone.
+    expect(BOOSTED_RARITY_WEIGHT.ultra).toBeGreaterThan(BOOSTED_RARITY_WEIGHT.common);
+    expect(BOOSTED_RARITY_WEIGHT.rare).toBeGreaterThan(BOOSTED_RARITY_WEIGHT.common);
+    expect(RARITY_WEIGHT.ultra).toBeLessThan(RARITY_WEIGHT.common); // the normal roll does not
+  });
+
+  it('lifts every above-common tier and cuts commons, versus the normal odds', () => {
+    expect(BOOSTED_RARITY_WEIGHT.common).toBeLessThan(RARITY_WEIGHT.common);
+    expect(BOOSTED_RARITY_WEIGHT.rare).toBeGreaterThan(RARITY_WEIGHT.rare);
+    expect(BOOSTED_RARITY_WEIGHT.ultra).toBeGreaterThan(RARITY_WEIGHT.ultra);
+  });
+
+  it('actually deals better hands than the default weights over many rolls', () => {
+    // Same RNG stream both ways, so only the weights differ.
+    const rng = () => Math.random();
+    const good = (w: Record<string, number>, boosted: boolean) => {
+      let n = 0;
+      for (let i = 0; i < 400; i++) {
+        for (const c of rollDraft(rng, 3, DRAFT_POOL, boosted ? BOOSTED_RARITY_WEIGHT : RARITY_WEIGHT)) {
+          if (c.rarity === 'rare' || c.rarity === 'ultra') n++;
+        }
+      }
+      return n;
+    };
+    expect(good(BOOSTED_RARITY_WEIGHT, true)).toBeGreaterThan(good(RARITY_WEIGHT, false));
+  });
+
+  it('still respects the pool and hand size', () => {
+    const hand = rollDraft(seq(0.1, 0.5, 0.9), 3, DRAFT_POOL, BOOSTED_RARITY_WEIGHT);
+    expect(hand).toHaveLength(3);
+    expect(new Set(hand.map(c => c.id)).size).toBe(3); // distinct
   });
 });

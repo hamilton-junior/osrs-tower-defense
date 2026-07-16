@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GameEngine, LOGIC_WIDTH, LOGIC_HEIGHT, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
-import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
+import { DRAFT_POOL, RARITY_WEIGHT, CARD_ROLL_BASE_COST, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
 import { RELICS, type Relic, type RelicTier } from '@/lib/game/systems/relics';
 import { AFFIX_DEFS } from '@/lib/game/systems/affixes';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
@@ -221,7 +221,8 @@ const INITIAL: UIState = {
   bossesSeen: {},
   dpsStats: null,
   lastWaveSandbox: false,
-  gameMode: 'roguelite', pendingDraft: null,
+  gameMode: 'roguelite', pendingDraft: null, draftBoosted: false,
+  cardRollCost: CARD_ROLL_BASE_COST,
   runMods: {
     damage: { melee: 1, ranged: 1, magic: 1 },
     range: { melee: 1, ranged: 1, magic: 1 },
@@ -924,6 +925,50 @@ export default function GameRoot() {
   // panel — drives its breakdown popover AND highlights the contributing cards
   // over in the Boons panel.
   const [hoverBoonGroup, setHoverBoonGroup] = useState<BoonGroupId | null>(null);
+
+  // ── Draft pick animation ──
+  // Picking a card used to be instant: the overlay blinked out and the card was
+  // simply *gone*, with nothing saying where it went or that the run had gained
+  // anything. Now the losing cards fade and the kept one flies to the Boons/Relics
+  // tab, which is where its effect lives from then on. The engine pick is deferred
+  // to the end of the flight, so the overlay stays mounted for the whole animation.
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const boonsTabRef = useRef<HTMLButtonElement>(null);
+  const [picking, setPicking] = useState<{ id: string; dx: number; dy: number; scale: number } | null>(null);
+  const pickTimer = useRef<number | null>(null);
+
+  const commitPick = useCallback((id: string) => {
+    engineRef.current?.pickDraftCard(id);
+    setPicking(null);
+    pickTimer.current = null;
+  }, []);
+
+  const pickCard = useCallback((id: string) => {
+    if (picking) return; // one flight at a time; ignore double-clicks
+    markTipSeen('draft');
+    const card = cardRefs.current.get(id);
+    const tab = boonsTabRef.current;
+    // No card/target on screen to fly between (or the user asked for no motion) —
+    // take the pick immediately rather than stalling behind an animation that
+    // isn't running.
+    if (!card || !tab || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      commitPick(id);
+      return;
+    }
+    const c = card.getBoundingClientRect();
+    const t = tab.getBoundingClientRect();
+    // Both rects are viewport-space, so their centre delta is a valid translate.
+    setPicking({
+      id,
+      dx: (t.left + t.width / 2) - (c.left + c.width / 2),
+      dy: (t.top + t.height / 2) - (c.top + c.height / 2),
+      scale: Math.min(1, t.width / Math.max(1, c.width)),
+    });
+    pickTimer.current = window.setTimeout(() => commitPick(id), DRAFT_FLY_MS);
+  }, [picking, commitPick, markTipSeen]);
+
+  // A run ending (or restarting) mid-flight must not fire a pick into the new run.
+  useEffect(() => () => { if (pickTimer.current !== null) clearTimeout(pickTimer.current); }, []);
 
   const selectedTower = ui.selectedTowerId
     ? engineRef.current?.towers.find((t) => t.id === ui.selectedTowerId) ?? null
@@ -2120,11 +2165,11 @@ export default function GameRoot() {
         </div>
       )}
 
-      {/* Roguelite relic choice — milestone-wave run-defining pick (over the draft) */}
+      {/* Roguelite relic choice — a defeated boss's run-defining pick */}
       {ui.pendingRelics && !ui.gameOver && (
         <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4">
           <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Choose a Relic</div>
-          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">A milestone reached — claim one run-long power</div>
+          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">The boss falls — claim one run-long power</div>
           <div className="flex gap-6 flex-wrap justify-center">
             {ui.pendingRelics.map((relic) => (
               <RelicCardView
@@ -2140,8 +2185,14 @@ export default function GameRoot() {
       {/* Roguelite draft — pick one card to keep before the next wave */}
       {ui.pendingDraft && !ui.gameOver && (
         <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30 p-4">
-          <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Draft a Reward</div>
-          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">Wave {ui.wave} cleared — keep one card</div>
+          <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">
+            {ui.draftBoosted ? 'Boss Spoils' : 'Draft a Reward'}
+          </div>
+          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">
+            {ui.draftBoosted
+              ? 'Every relic is yours — the boss pays in rare cards instead. Keep one.'
+              : 'Keep one card'}
+          </div>
           {/* First-time coaching, shown right here while the cards are on the table
               (never after the fact). The overlay is modal, so this can't overlap
               anything happening on the board. Dismiss it or just pick a card. */}
@@ -2149,25 +2200,38 @@ export default function GameRoot() {
             <div className="rs-panel-inset max-w-[36em] mb-4 px-[1.1em] py-[0.7em] text-center" style={{ fontSize: fs('clamp(12px, 0.8vw, 16px)') }}>
               <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.3em]">✦ How reward cards work</div>
               <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.55em]">
-                Each wave you keep <b>one</b> card to snowball your build — potions, weapons and rule-changing boons.
-                Hover a card to preview exactly what it does; duplicates stack, and a <b>Relic</b> is offered every 5th wave.
+                Keep <b>one</b> card to snowball your build — potions, weapons and rule-changing boons.
+                Hover a card to preview exactly what it does; duplicates stack. Rolls are bought with gold
+                and each one costs more, so spend against your towers. Beating a <b>boss</b> pays a <b>Relic</b>.
               </p>
               <button className="rs-btn px-[0.9em] py-[0.2em] text-[0.8em]" onClick={() => markTipSeen('draft')}>Got it ✓</button>
             </div>
           )}
           <div className="flex gap-6 flex-wrap justify-center">
-            {ui.pendingDraft.map((card) => (
-              <DraftCardView
-                key={card.id}
-                card={card}
-                large
-                onPick={() => { markTipSeen('draft'); engineRef.current?.pickDraftCard(card.id); }}
-                ctx={{ runMods: ui.runMods, gold: ui.money, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
-              />
-            ))}
+            {ui.pendingDraft.map((card) => {
+              const chosen = picking?.id === card.id;
+              return (
+                <div
+                  key={card.id}
+                  ref={(el) => { if (el) cardRefs.current.set(card.id, el); else cardRefs.current.delete(card.id); }}
+                  className={picking ? (chosen ? 'draft-card-fly' : 'draft-card-vanish') : undefined}
+                  style={chosen && picking
+                    ? ({ '--fly-x': `${picking.dx}px`, '--fly-y': `${picking.dy}px`, '--fly-s': picking.scale } as React.CSSProperties)
+                    : undefined}
+                >
+                  <DraftCardView
+                    card={card}
+                    large
+                    onPick={() => pickCard(card.id)}
+                    ctx={{ runMods: ui.runMods, gold: ui.money, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
+                  />
+                </div>
+              );
+            })}
           </div>
-          {/* Trickster relic: re-roll the hand while charges remain. */}
-          {ui.draftRerolls > 0 && (
+          {/* Trickster relic: re-roll the hand while charges remain. Hidden once a
+              pick is in flight — the hand is already on its way out. */}
+          {ui.draftRerolls > 0 && !picking && (
             <button
               className="rs-btn rs-btn-primary mt-4 px-[1.2em] py-[0.4em] text-[0.9em]"
               title="Discard this hand and draw a fresh set of cards"
@@ -2291,6 +2355,10 @@ export default function GameRoot() {
               <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
                 Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
               </div>
+              {/* Roguelite: cards are bought, not handed out — this is the only
+                  routine source, so it sits on the between-waves panel where the
+                  gold is being spent anyway. */}
+              {ui.gameMode === 'roguelite' && <BuyCardRoll ui={ui} onBuy={() => engineRef.current?.buyCardRoll()} />}
             </>
           )
         )}
@@ -2728,7 +2796,7 @@ export default function GameRoot() {
               {/* The loadout is the roguelite's relics + boons. Classic drafts
                   nothing, so the stone would open an empty panel — it isn't shown. */}
               {ui.gameMode === 'roguelite' && (
-                <button onClick={() => onSideTab('home')} title="Run loadout — relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
+                <button ref={boonsTabRef} onClick={() => onSideTab('home')} title="Run loadout — relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
                   <img src={ASSETS.misc.multicombat_icon} alt="Run loadout" onError={hideBrokenImg} />
                 </button>
               )}
@@ -3237,7 +3305,7 @@ const TLDR: TldrGroup[] = [
     'Prayer — toggle buffs or base protection; drains a pool that refills between waves.',
     'Slayer — auto-assigned kill tasks pay points for the Slayer Rewards shop; the task tracks in the Slayer tab.',
     'Essence — earned every wave and kept forever; spend it in the Essence Shop on permanent upgrades.',
-    'Roguelite — keep one reward card per wave, with a Relic every 5th wave.',
+    'Roguelite — buy card rolls with gold (each roll costs more than the last) and keep one card; beating a boss claims a Relic.',
   ] },
   { h: 'Controls', lines: [
     '1-6 pick a tower from the dock (tap the same number to buy another) · Shift keep placing · drag a box to multi-select · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
@@ -4289,7 +4357,34 @@ function RunBuild({ cards }: { cards: { id: string; count: number }[] }) {
  *  plain string across the boundary; resolved back to a {@link RelicTier} here). */
 type RelicView = { id: string; name: string; desc: string; tier: string; icon: string };
 
-/** A relic offered at a milestone wave, framed like a draft card but in the relic
+/**
+ * The roguelite's card shop: one button that buys a draft hand with gold.
+ *
+ * Cards used to be a free per-wave handout, which meant the mode's build was on
+ * rails — you got one every wave whatever you did. Buying them puts the run's
+ * cards in tension with its towers over the same purse, and the price climbing per
+ * roll (see `cardRollCost`) stops a rich late run from simply buying the whole pool.
+ */
+function BuyCardRoll({ ui, onBuy }: { ui: UIState; onBuy: () => void }) {
+  const cost = ui.cardRollCost;
+  const afford = ui.money >= cost;
+  return (
+    <button
+      onClick={onBuy}
+      disabled={!afford}
+      title={afford
+        ? `Buy a hand of reward cards for ${cost} gp — keep one. Each roll makes the next dearer.`
+        : `A card roll costs ${cost} gp — ${cost - ui.money} more needed.`}
+      className={`rs-btn w-full flex items-center justify-center gap-[0.4em] px-[0.6em] py-[0.3em] mb-[0.5em] ${afford ? '' : 'opacity-50 cursor-not-allowed'}`}
+    >
+      <img src={ASSETS.misc.coins_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+      <span className="text-[0.8em] font-bold">Buy Card Roll</span>
+      <span className={`text-[0.75em] tabular-nums ${afford ? 'text-osrs-yellow' : 'text-[#ff6b6b]'}`}>{fmt(cost)} gp</span>
+    </button>
+  );
+}
+
+/** A relic offered by a defeated boss, framed like a draft card but in the relic
  *  tier palette. Relics carry their own one-line examine, so there's no live stat
  *  preview band — the whole card is the pitch. */
 function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => void }) {
@@ -4405,6 +4500,11 @@ function WavePreviewCard({ m }: { m: UIState['wavePreview'][number] }) {
     </span>
   );
 }
+
+/** Flight time of a picked draft card, from the table to the Boons/Relics tab.
+ *  Must match the `draft-card-fly` animation in globals.css — the engine's pick is
+ *  committed when it lands. */
+const DRAFT_FLY_MS = 620;
 
 /** How long the event's description announces itself unprompted at the start of a
  *  wave. Real seconds — an event you only discover by hovering is an event you play

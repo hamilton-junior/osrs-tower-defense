@@ -116,13 +116,8 @@ export const RELICS: readonly Relic[] = [
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: 1.25 }, { kind: 'fireRate', mult: 0.9 }] } },
 ];
 
-/** Relics are offered after clearing every Nth wave (waves 5, 10, 15, …). */
-export const RELIC_OFFER_INTERVAL = 5;
-
-/** Whether clearing `wave` should offer a relic choice (a milestone wave). */
-export function isRelicWave(wave: number): boolean {
-  return wave > 0 && wave % RELIC_OFFER_INTERVAL === 0;
-}
+/* Relics are the reward for beating a boss — the engine offers a choice on a boss
+   wave clear (there is no fixed-interval offer; see GameEngine.checkWaveEnd). */
 
 /** The relics not yet owned this run — the only ones eligible to be offered. */
 export function availableRelics(ownedIds: ReadonlySet<string>, pool: readonly Relic[] = RELICS): Relic[] {

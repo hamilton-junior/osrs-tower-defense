@@ -944,6 +944,37 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
 .draft-card:active {
   transform: translateY(-2px) scale(1.0);
 }
+
+/* ===== Draft pick animation =====
+   Picking used to blink the whole overlay away, so the kept card just vanished and
+   nothing said the run had gained anything. Now the hand resolves on screen: the
+   cards you passed on drop away, and the one you kept flies to the Boons/Relics
+   tab, which is where it lives from then on. GameRoot sets --fly-x/--fly-y/--fly-s
+   from the measured card→tab delta and commits the pick when the flight lands
+   (DRAFT_FLY_MS must match the durations below). */
+@keyframes draft-vanish {
+  to { opacity: 0; transform: scale(0.82) translateY(0.6em); }
+}
+.draft-card-vanish {
+  animation: draft-vanish 200ms ease-in forwards;
+  pointer-events: none;
+}
+@keyframes draft-fly {
+  /* A beat of "this one's mine" before it goes, so the eye can follow it out. */
+  18% { transform: translate(0, -0.7em) scale(1.06); opacity: 1; }
+  100% { transform: translate(var(--fly-x), var(--fly-y)) scale(var(--fly-s, 0.2)); opacity: 0.1; }
+}
+.draft-card-fly {
+  animation: draft-fly 620ms cubic-bezier(0.5, -0.15, 0.75, 1) forwards;
+  pointer-events: none;
+  position: relative;
+  z-index: 50;
+}
+/* The pick is committed by a JS timer, so honouring this only drops the motion —
+   it can never strand the card mid-flight. */
+@media (prefers-reduced-motion: reduce) {
+  .draft-card-vanish, .draft-card-fly { animation: none; }
+}
 /* Moving gold sheen on epic (foil) cards — idle most of the cycle, then sweeps. */
 .draft-foil {
   position: absolute;

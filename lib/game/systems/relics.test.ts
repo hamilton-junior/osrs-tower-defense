@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   RELICS,
   TIER_WEIGHT,
-  RELIC_OFFER_INTERVAL,
-  isRelicWave,
   availableRelics,
   rollRelicChoice,
   shouldExecute,
@@ -26,15 +24,6 @@ describe('RELICS pool', () => {
       expect(r.icon).toMatch(/^(https?:\/\/|\/|\.\/)?\S+\.png$/); // baked local asset (or wiki fallback)
       expect(TIER_WEIGHT[r.tier]).toBeGreaterThan(0);
     }
-  });
-});
-
-describe('isRelicWave', () => {
-  it('is true only on multiples of the offer interval', () => {
-    expect(isRelicWave(RELIC_OFFER_INTERVAL)).toBe(true);
-    expect(isRelicWave(RELIC_OFFER_INTERVAL * 3)).toBe(true);
-    expect(isRelicWave(RELIC_OFFER_INTERVAL + 1)).toBe(false);
-    expect(isRelicWave(0)).toBe(false);
   });
 });
 
