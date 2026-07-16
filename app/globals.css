@@ -522,15 +522,30 @@ body {
   font-size: 0.5em;
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
 }
-/* The slot's number-row hotkey, tucked in the opposite corner from the cost. */
-.rs-slot-key {
+/* Hotkey badge: the key that fires a control, engraved in its top corner so the
+   shortcut is discoverable without the guide. `.rs-slot-key` sits top-left on
+   icon-only squares (the tower dock, the spell grids), tucked in the opposite
+   corner from the cost; `.rs-key` sits top-right on text buttons, where the
+   left corner is where the label starts. Both ride in the control's own padding
+   and are `pointer-events: none`, so no label runs under them and neither eats
+   a click. The parent must be positioned (`.rs-slot` already is; text buttons
+   need `relative`). */
+.rs-slot-key,
+.rs-key {
   position: absolute;
   top: 0;
-  left: 3px;
-  font-size: 0.5em;
+  /* One physical size everywhere, tracking only `--ui-scale` (the game's sole
+     zoom). Deliberately NOT `em`: a key cap is a fixed marker, not body text,
+     and the bottom bar's buttons shrink their label to 0.7em — an em-sized
+     badge inherited that and came out at 5px, unreadable next to the dock's 7. */
+  font-size: calc(7px * var(--ui-scale, 1));
+  line-height: 1.4;
   color: #a08c68;
   text-shadow: 1px 1px 0 #000;
+  pointer-events: none;
 }
+.rs-slot-key { left: 3px; }
+.rs-key { right: 3px; }
 
 /* OSRS sidebar "stone tab": a square icon button that opens an interface panel
    (Grand Exchange, Essence Shop, Slayer Rewards, Collection Log, Debug). Mirrors

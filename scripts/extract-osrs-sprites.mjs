@@ -80,7 +80,8 @@ const PRAYER_IDS = {
 const ORB_IDS = {
   hitpoints: 1067, // MINIMAP_ORB_HITPOINTS — red heart
   prayer: 1068, // MINIMAP_ORB_PRAYER — white/silver star
-  run_energy: 1069, // MINIMAP_ORB_RUN — run-energy boot
+  run_energy: 1069, // MINIMAP_ORB_RUN — run-energy boot (run OFF: brown)
+  run_energy_on: 1070, // MINIMAP_ORB_RUN_ACTIVATED — the same boot, gold (run ON)
 };
 
 /** Skill / spellbook UI icons used across the HUD. */
@@ -111,6 +112,7 @@ const HITSPLAT_IDS = {
 /** Interface chrome / HUD sprites. */
 const UI_IDS = {
   multicombat_icon: 442, // MULTI_COMBAT_ZONE_CROSSED_SWORDS
+  compass: 1056, // MINIMAP_COMPASS — the game's own "where things are" glyph
   ge_logo: 1531, // MAP_ICON_GRAND_EXCHANGE (the gold-scales map icon)
   back_pattern: 452, // TEXTURE_WOOD_DARK — the tiling interface wood (wiki "Back_pattern")
   orb_background: 1059, // MINIMAP_ORB_EMPTY

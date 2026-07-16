@@ -36,16 +36,18 @@ type SideTab = 'home' | 'essence' | 'slayer' | 'dps';
  *
  * They read as one system rather than six unrelated pictures: a **dimension** icon
  * (what is being compared) plus an **arrow** (which end of it — ⬆ most, ⬇ least).
- * `first`/`last` are the bare arrows: position in the queue *is* the direction.
- * `closest` is the odd one out — a single radius glyph, no arrow, because distance
- * has no "furthest" counterpart to contrast against.
+ * `first`/`last` compare *progress along the path*, so they take the run-energy orb
+ * in its two real states — the lit gold boot (1070) for the runner out in front, the
+ * unlit brown one (1069) for the straggler at the back. `closest` is the odd one
+ * out: distance from the tower has no "furthest" counterpart to contrast against,
+ * so it stands alone as the compass — OSRS's own "where things are" glyph.
  */
 const PRIORITY_ICONS: Record<TargetingPriority, { icon?: string; arrow?: 'up' | 'down'; alt: string }> = {
-  first: { arrow: 'up', alt: 'Front of the queue' },
-  last: { arrow: 'down', alt: 'Back of the queue' },
+  first: { icon: ASSETS.misc.orb_run_on, arrow: 'up', alt: 'Front of the queue' },
+  last: { icon: ASSETS.misc.orb_run, arrow: 'down', alt: 'Back of the queue' },
   strongest: { icon: ASSETS.misc.orb_hitpoints, arrow: 'up', alt: 'Most HP' },
   weakest: { icon: ASSETS.misc.orb_hitpoints, arrow: 'down', alt: 'Least HP' },
-  closest: { icon: ASSETS.misc.multicombat_icon, alt: 'Nearest' },
+  closest: { icon: ASSETS.misc.minimap_compass, alt: 'Nearest' },
   unmarked: { icon: ASSETS.debuffs.vuln, arrow: 'down', alt: 'Fewest statuses' },
 };
 /** Spelled-out tooltips — the buttons are glyphs, so the words live here. */
@@ -98,6 +100,10 @@ const WIZ_TOWER = ASSETS.towers.wizard as Record<string, string>;
 const WIZARD_STAVES = ['elemental_air', 'elemental_water', 'elemental_earth', 'elemental_fire'].map((k) => WIZ_TOWER[k]);
 const WIZARD_SCEPTRES = ['ancient_ice', 'ancient_blood', 'ancient_shadow', 'ancient_smoke'].map((k) => WIZ_TOWER[k]);
 const WIZARD_UTILITY_STAFF = WIZ_TOWER['utility'];
+/** Hotkeys for the selected wizard's spell grid, by slot — the badge on each
+ *  button and the keys `GameEngine.selectWizardSlot` answers to. Utility has
+ *  only three fields, so it never reaches R. */
+const WIZARD_SLOT_KEYS = ['Q', 'W', 'E', 'R'] as const;
 /** The staff sprite a placed wizard shows — matches its spellbook & element,
  *  the same image the board renders. */
 const wizardStaffUrl = (t: { mageMode?: MageMode; element?: string; ancientType?: string }): string | undefined => {
@@ -1285,14 +1291,15 @@ export default function GameRoot() {
             >
               <span className="text-osrs-orange font-bold whitespace-nowrap">{ui.multiSelectedIds.length} towers</span>
               <button
-                className="rs-btn rs-btn-primary px-[0.7em] py-[0.3em] flex items-center gap-[0.3em] disabled:opacity-50"
+                className="rs-btn rs-btn-primary relative px-[0.7em] py-[0.3em] flex items-center gap-[0.3em] disabled:opacity-50"
                 disabled={info.count === 0}
-                title={info.count === 0 ? 'All selected towers are max level' : `Upgrade ${info.count} tower(s) one tier`}
+                title={info.count === 0 ? 'All selected towers are max level' : `Upgrade ${info.count} tower(s) one tier (U)`}
                 onClick={() => engineRef.current?.upgradeMultiSelected()}
               >
                 <span className="text-[#5bd75b] font-bold">⬆</span>
                 Upgrade {info.count > 0 ? `(${info.count})` : ''}
                 {info.count > 0 && <span style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{fmt(info.cost)} gp</span>}
+                <span className="rs-key">U</span>
               </button>
               <button className="rs-btn px-[0.6em] py-[0.3em]" title="Deselect all towers" onClick={() => engineRef.current?.clearMultiSelect()}>Clear</button>
             </MovablePanel>
@@ -1892,22 +1899,23 @@ export default function GameRoot() {
 
               {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (
                 <div className="grid grid-cols-4 gap-[0.3em]">
-                  {ELEMENT_ORDER.map((el) => {
+                  {ELEMENT_ORDER.map((el, i) => {
                     const spell = elementalSpellName(el, selectedTower.level);
                     const icon = spellIconUrl(spell);
                     const active = (selectedTower.element ?? 'air') === el;
                     return (
                       <button
                         key={el}
-                        title={`${spell.replace('_', ' ')} — ${ELEMENTS[el].desc}; +50% vs weakness`}
+                        title={`${spell.replace('_', ' ')} — ${ELEMENTS[el].desc}; +50% vs weakness (${WIZARD_SLOT_KEYS[i]})`}
                         onClick={() => engineRef.current?.setWizardElement(selectedTower.id, el)}
-                        className={`rs-btn flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
+                        className={`rs-btn relative flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
                         style={{ borderBottom: `2px solid ${ELEMENTS[el].color}` }}
                       >
                         {icon
                           ? <img src={icon} alt={ELEMENTS[el].label} className="w-[1.6em] h-[1.6em] object-contain"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           : <span className="text-[0.66em]" style={{ color: ELEMENTS[el].color }}>{ELEMENTS[el].label}</span>}
+                        <span className="rs-slot-key">{WIZARD_SLOT_KEYS[i]}</span>
                       </button>
                     );
                   })}
@@ -1916,22 +1924,23 @@ export default function GameRoot() {
 
               {selectedTower.mageMode === 'ancients' && (
                 <div className="grid grid-cols-4 gap-[0.3em]">
-                  {ANCIENT_ORDER.map((a) => {
+                  {ANCIENT_ORDER.map((a, i) => {
                     const spell = ancientSpellName(a, selectedTower.level);
                     const icon = spellIconUrl(spell);
                     const active = (selectedTower.ancientType ?? 'ice') === a;
                     return (
                       <button
                         key={a}
-                        title={`${spell.replace('_', ' ')} — ${ANCIENTS[a].desc}`}
+                        title={`${spell.replace('_', ' ')} — ${ANCIENTS[a].desc} (${WIZARD_SLOT_KEYS[i]})`}
                         onClick={() => engineRef.current?.setAncientType(selectedTower.id, a)}
-                        className={`rs-btn flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
+                        className={`rs-btn relative flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
                         style={{ borderBottom: `2px solid ${ANCIENTS[a].color}` }}
                       >
                         {icon
                           ? <img src={icon} alt={ANCIENTS[a].label} className="w-[1.6em] h-[1.6em] object-contain"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           : <span className="text-[0.66em]" style={{ color: ANCIENTS[a].color }}>{ANCIENTS[a].label}</span>}
+                        <span className="rs-slot-key">{WIZARD_SLOT_KEYS[i]}</span>
                       </button>
                     );
                   })}
@@ -1941,7 +1950,7 @@ export default function GameRoot() {
               {selectedTower.mageMode === 'utility' && (
                 <>
                   <div className="grid grid-cols-3 gap-[0.3em]">
-                    {SUPPORT_ORDER.map((s) => {
+                    {SUPPORT_ORDER.map((s, i) => {
                       const icon = spellIconUrl(SUPPORT_SPELLS[s].spell);
                       const active = (selectedTower.supportSpell ?? 'curse') === s;
                       // Prayer Ward (sanctity) is capped on the field: block picking
@@ -1954,14 +1963,15 @@ export default function GameRoot() {
                           disabled={wardCapped}
                           title={wardCapped
                             ? `Max ${MAX_PRAYER_WARDS} Prayer Ward wizards on the field`
-                            : `${SUPPORT_SPELLS[s].label} — ${SUPPORT_SPELLS[s].desc}`}
+                            : `${SUPPORT_SPELLS[s].label} — ${SUPPORT_SPELLS[s].desc} (${WIZARD_SLOT_KEYS[i]})`}
                           onClick={() => engineRef.current?.setSupportSpell(selectedTower.id, s)}
-                          className={`rs-btn flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''} ${wardCapped ? 'opacity-40 cursor-not-allowed' : ''}`}
+                          className={`rs-btn relative flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''} ${wardCapped ? 'opacity-40 cursor-not-allowed' : ''}`}
                           style={{ borderBottom: `2px solid ${SUPPORT_SPELLS[s].color}` }}
                         >
                           {icon
                             ? <img src={icon} alt={SUPPORT_SPELLS[s].label} className="w-[1.6em] h-[1.6em] object-contain" onError={hideBrokenImg} />
                             : <span className="text-[0.62em]" style={{ color: SUPPORT_SPELLS[s].color }}>{SUPPORT_SPELLS[s].label}</span>}
+                          <span className="rs-slot-key">{WIZARD_SLOT_KEYS[i]}</span>
                         </button>
                       );
                     })}
@@ -2035,13 +2045,14 @@ export default function GameRoot() {
                     </div>
                   )}
                   <button
-                    className="rs-btn w-full flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
-                    title={`Upgrade to next tier for ${selectedTower.upgradeCost} gp`}
+                    className="rs-btn relative w-full flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
+                    title={`Upgrade to next tier for ${selectedTower.upgradeCost} gp (U)`}
                     disabled={ui.money < selectedTower.upgradeCost}
                     onClick={() => engineRef.current?.upgradeTower(selectedTower.id)}
                   >
                     <span className="text-[#5bd75b] font-bold">⬆</span>
                     Upgrade — {selectedTower.upgradeCost} gp
+                    <span className="rs-key">U</span>
                   </button>
                 </div>
               )}
@@ -2055,14 +2066,20 @@ export default function GameRoot() {
                   </span>
                   <div className="flex gap-[0.4em]">
                     <button
-                      className="rs-btn flex-1 px-[0.4em] py-[0.45em] text-osrs-warn"
-                      title="Sell it — the tower and its levels are gone"
+                      className="rs-btn relative flex-1 px-[0.4em] py-[0.45em] text-osrs-warn"
+                      title="Sell it — the tower and its levels are gone (Enter)"
                       onClick={() => { engineRef.current?.sellTower(selectedTower.id); setSellConfirm(null); }}
                     >
                       Yes, sell it
+                      <span className="rs-key">ENTER</span>
                     </button>
-                    <button className="rs-btn flex-1 px-[0.4em] py-[0.45em]" onClick={() => setSellConfirm(null)}>
+                    <button
+                      className="rs-btn relative flex-1 px-[0.4em] py-[0.45em]"
+                      title="Keep the tower (Esc)"
+                      onClick={() => setSellConfirm(null)}
+                    >
                       Cancel
+                      <span className="rs-key">ESC</span>
                     </button>
                   </div>
                 </div>
@@ -2077,11 +2094,12 @@ export default function GameRoot() {
                     <span className="text-[#cdbe91]">✥</span> Move ({moveCost} gp)
                   </button>
                   <button
-                    className="rs-btn flex-1 px-[0.4em] py-[0.45em]"
+                    className="rs-btn relative flex-1 px-[0.4em] py-[0.45em]"
                     title={`Sell this tower for ${sellValue} gp (75% refund) — asks to confirm (S)`}
                     onClick={() => setSellConfirm(selectedTower.id)}
                   >
                     Sell ({sellValue} gp)
+                    <span className="rs-key">S</span>
                   </button>
                 </div>
               )}
@@ -2363,8 +2381,8 @@ export default function GameRoot() {
           )
         )}
 
-        {/* Roguelite loadout-at-a-glance: the run's claimed relics (milestone
-            picks) above the rule-changing draft boons, so neither is forgotten. */}
+        {/* Roguelite loadout-at-a-glance: the run's claimed relics (one per boss
+            beaten) above the rule-changing draft boons, so neither is forgotten. */}
         {ui.gameMode === 'roguelite' && ui.ownedRelics.length > 0 && (
           <OwnedRelicTray ids={ui.ownedRelics} />
         )}
@@ -2600,17 +2618,19 @@ export default function GameRoot() {
                   key={s}
                   onClick={() => engineRef.current?.setGameSpeed(s)}
                   title={`Run the game at ${s}× speed (${key}, or step with < / >)`}
-                  className={`rs-btn px-[0.66em] py-[0.33em] text-[0.7em] ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
+                  className={`rs-btn relative px-[0.66em] py-[0.33em] text-[0.7em] ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
                 >
                   {s}×
+                  <span className="rs-key">{key}</span>
                 </button>
               ))}
               <button
                 onClick={() => engineRef.current?.toggleMute()}
-                title={ui.muted ? 'Unmute' : 'Mute'}
-                className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] ml-[0.33em]"
+                title={ui.muted ? 'Unmute (M)' : 'Mute (M)'}
+                className="rs-btn relative px-[0.66em] py-[0.33em] text-[0.7em] ml-[0.33em]"
               >
                 {ui.muted ? '🔇' : '🔊'}
+                <span className="rs-key">M</span>
               </button>
               <input
                 type="range"
@@ -2744,9 +2764,12 @@ export default function GameRoot() {
                 onClick={() => engineRef.current?.startWave()}
                 disabled={ui.waveActive || ui.gameOver}
                 title={ui.waveActive ? 'A wave is already on the field' : 'Send the next wave (Space)'}
-                className={`rs-btn px-[0.66em] py-[0.33em] text-[0.7em] whitespace-nowrap disabled:opacity-40 ${ui.waveActive || ui.gameOver ? '' : 'rs-btn-primary animate-pulse'}`}
+                className={`rs-btn relative px-[0.66em] pr-[2.4em] py-[0.33em] text-[0.7em] whitespace-nowrap disabled:opacity-40 ${ui.waveActive || ui.gameOver ? '' : 'rs-btn-primary animate-pulse'}`}
               >
                 ▶ Start Wave <span className="tabular-nums">{ui.wave}</span>
+                {/* The only multi-character key, so it needs the reserved right
+                    padding above — everything else fits in the default padding. */}
+                <span className="rs-key">SPACE</span>
               </button>
               <label
                 className="flex items-center gap-[0.3em] text-[0.6em] text-[#d3c3a0] uppercase tracking-wide cursor-pointer select-none"
@@ -3149,8 +3172,9 @@ function Stat({ icon, label, value }: { icon?: string; label: string; value: Rea
 }
 
 /** Title / mode-select screen shown before the first wave of a run (and again on
- *  restart). Two selectable mode panels — Classic (pure TD) vs Roguelite (per-wave
- *  draft) — plus a Start button that locks the choice and kicks off wave 1. Mode
+ *  restart). Two selectable mode panels — Classic (pure TD) vs Roguelite (bought
+ *  card rolls + boss relics) — plus a Start button that locks the choice and kicks
+ *  off wave 1. Mode
  *  can only change here, since the engine freezes it once a run begins. */
 // ───────────────────────── Learn-as-you-go coaching ───────────────────────
 // One contextual tip at a time, surfaced the first time each situation applies
@@ -3309,6 +3333,7 @@ const TLDR: TldrGroup[] = [
   ] },
   { h: 'Controls', lines: [
     '1-6 pick a tower from the dock (tap the same number to buy another) · Shift keep placing · drag a box to multi-select · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
+    'You never have to memorise these: every button that answers to a key wears it engraved in a top corner.',
     'One slim bar along the bottom: run controls (left), tower dock and Start Wave (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click — no interface stays on-screen.',
     'Auto sends each wave once the field is clear, after the delay in seconds beside it.',
     'Browser zoom is disabled so it can’t warp the board — resize the interface with the UI − / + buttons in that bar instead.',
@@ -3462,8 +3487,8 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
       icon: iconUrl('Dwarf_multicannon'),
     },
     {
-      id: 'roguelite', name: 'Roguelite', tag: 'Draft a card each wave',
-      desc: 'Clear a wave, then keep one OSRS reward card. Stack potions, weapons and combos into a build that snowballs.',
+      id: 'roguelite', name: 'Roguelite', tag: 'Buy reward cards with gold',
+      desc: 'Spend gold on a hand of OSRS reward cards and keep one — each roll costs more than the last, so cards compete with towers for the purse. Bosses pay Relics. Stack potions, weapons and combos into a build that snowballs.',
       icon: iconUrl('Collection_log'),
     },
   ];

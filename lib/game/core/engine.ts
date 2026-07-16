@@ -93,7 +93,7 @@ export interface UnlockItem {
 
 /** Flat, cloneable snapshot the engine pushes to React. */
 /** Which mode the run is played in. `classic` is plain tower-defense; `roguelite`
- *  adds a per-wave {@link DraftCard} choice that buffs the run. */
+ *  adds {@link DraftCard} hands bought with gold, plus a relic for each boss. */
 export type GameMode = 'classic' | 'roguelite';
 
 /** Per-combat-style multiplier (1 = no change). A "general" draft buff bumps all
@@ -602,7 +602,7 @@ export class GameEngine {
    *  "Custom Wave Complete!" banner). Cleared when any wave starts. */
   private lastWaveSandbox = false;
 
-  /** Active game mode. Roguelite layers a per-wave draft over classic TD. Chosen
+  /** Active game mode. Roguelite layers bought card rolls + boss relics over classic TD. Chosen
    *  before the first wave via {@link setMode}; persists across {@link restart}. */
   gameMode: GameMode = 'roguelite';
   /** Roguelite: the draft hand awaiting a pick after a wave clear (null = none). */
@@ -3826,7 +3826,7 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Roguelite: keep the chosen relic from the milestone offer, apply its effect,
+  /** Roguelite: keep the chosen relic from the boss's offer, apply its effect,
    *  and clear the offer so the next wave can start. No-op if the id isn't offered. */
   pickRelic(id: string) {
     const relic = this.pendingRelics?.find(r => r.id === id);

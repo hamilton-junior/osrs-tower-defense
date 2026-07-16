@@ -347,6 +347,10 @@ export const ASSETS = {
     // Multi-combat (crossed-swords) indicator — used as the Home/Wave sidebar tab.
     // Cache-extracted (MULTI_COMBAT_ZONE_CROSSED_SWORDS 442), like the splats below.
     multicombat_icon: `${LOCAL}/ui/multicombat_icon.png`,
+    // Minimap compass (1056) — OSRS's own "where things are" glyph, so it reads as
+    // proximity on the "closest" targeting button (crossed swords means multicombat).
+    // Distinct from `compass` above, which is the clue-scroll item standing in for a clock.
+    minimap_compass: `${LOCAL}/ui/compass.png`,
     // Bare arrow glyphs (1185 / 1186) — the "most / least" markers the targeting
     // priority buttons pair with a dimension icon.
     arrow_up: `${LOCAL}/ui/arrow_up.png`,
@@ -364,7 +368,8 @@ export const ASSETS = {
     // (extract-osrs-sprites.mjs). orb_run doubles as the Hasted affix icon.
     orb_hitpoints: `${LOCAL}/orbs/hitpoints.png`, // MINIMAP_ORB_HITPOINTS (1067)
     orb_prayer: `${LOCAL}/orbs/prayer.png`, // MINIMAP_ORB_PRAYER (1068)
-    orb_run: `${LOCAL}/orbs/run_energy.png`, // MINIMAP_ORB_RUN (1069)
+    orb_run: `${LOCAL}/orbs/run_energy.png`, // MINIMAP_ORB_RUN (1069) — run off (brown)
+    orb_run_on: `${LOCAL}/orbs/run_energy_on.png`, // MINIMAP_ORB_RUN_ACTIVATED (1070) — run on (gold)
     ge_logo: `${LOCAL}/ui/ge_logo.png`, // GE map icon, the gold scales (1531)
     essence_icon: itemIcon('pure_essence'),
     pets_tab_icon: `${LOCAL}/ui/follower_details.png`, // OPTIONS_FOLLOWER_RIGHT_CLICK_MENU (1166)

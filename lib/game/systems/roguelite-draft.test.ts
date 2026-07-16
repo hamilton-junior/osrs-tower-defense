@@ -224,8 +224,8 @@ describe('cardRollCost', () => {
   it('compounds by the growth factor per roll already bought', () => {
     expect(cardRollCost(1)).toBe(Math.round(CARD_ROLL_BASE_COST * CARD_ROLL_COST_GROWTH));
     expect(cardRollCost(2)).toBe(Math.round(CARD_ROLL_BASE_COST * CARD_ROLL_COST_GROWTH ** 2));
-    // The documented curve: 50 -> 80 -> 128 -> 205.
-    expect([0, 1, 2, 3].map(cardRollCost)).toEqual([50, 80, 128, 205]);
+    // The documented curve: 50 -> 75 -> 113 -> 169.
+    expect([0, 1, 2, 3].map(cardRollCost)).toEqual([50, 75, 113, 169]);
   });
 
   it('never charges less than the base, however odd the count', () => {

@@ -3,9 +3,9 @@ import type { CombatStyle } from '../types';
 
 /**
  * Relics: the roguelite's *run-defining* passives, modelled after OSRS **Leagues
- * relics** — a small curated set of powerful, always-unique modifiers chosen at
- * milestone waves (not the per-wave {@link import('./roguelite-draft').DraftCard}
- * shower). Where draft cards are mostly incremental stat sticks, a relic changes
+ * relics** — a small curated set of powerful, always-unique modifiers, one claimed
+ * for each boss beaten (not the gold-bought {@link import('./roguelite-draft').DraftCard}
+ * hands). Where draft cards are mostly incremental stat sticks, a relic changes
  * a *rule of the whole run* and you only ever hold one of each, so each pick is a
  * deliberate fork in the build.
  *

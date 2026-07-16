@@ -124,13 +124,13 @@ export const BOOSTED_RARITY_WEIGHT: Record<DraftRarity, number> = {
 
 /**
  * Buying a card roll: the price starts at {@link CARD_ROLL_BASE_COST} and multiplies
- * by {@link CARD_ROLL_COST_GROWTH} per roll already bought this run (50 → 80 → 128
- * → 205 → …). Geometric, not linear, so it keeps pace with an economy that also
+ * by {@link CARD_ROLL_COST_GROWTH} per roll already bought this run (50 → 75 → 113
+ * → 169 → …). Geometric, not linear, so it keeps pace with an economy that also
  * compounds — a roll stays a real "cards or towers?" decision at wave 60 instead of
  * decaying into pocket change.
  */
 export const CARD_ROLL_BASE_COST = 50;
-export const CARD_ROLL_COST_GROWTH = 1.6;
+export const CARD_ROLL_COST_GROWTH = 1.5;
 
 /** Gold price of the next card roll, given how many were already bought this run. */
 export function cardRollCost(rollsBought: number): number {
