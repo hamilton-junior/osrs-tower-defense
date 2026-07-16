@@ -51,6 +51,45 @@ const PRIORITY_ICONS: Record<TargetingPriority, { icon?: string; arrow?: 'up' | 
   closest: { icon: ASSETS.misc.converge, alt: 'Nearest' },
   unmarked: { icon: ASSETS.debuffs.vuln, arrow: 'down', alt: 'Fewest statuses' },
 };
+/** Sentinel `sellConfirm` value: the pending sell is the whole marquee selection,
+ *  not one tower id. Sharing the state keeps Esc/Enter routing in one place. */
+const MULTI_SELL = '__multi__';
+
+/** A labelled row of spell buttons in the multi-select panel (one per spellbook
+ *  present in the selection). */
+function MultiSpellRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[0.68em] text-[#d3c3a0] mb-[0.25em] px-[0.2em] uppercase tracking-wide">{label}</div>
+      <div className="flex gap-[0.25em]">{children}</div>
+    </div>
+  );
+}
+
+/** One spell button in a {@link MultiSpellRow}. Shows the spell's own icon, lit
+ *  when every wizard of that book already agrees on it. */
+function MultiSpellButton({ icon, label, color, active, title, onClick }: {
+  icon?: string; label: string; color: string; active: boolean; title: string; onClick: () => void;
+}) {
+  return (
+    <button
+      title={title}
+      aria-label={label}
+      onClick={onClick}
+      className={`rs-btn flex-1 flex items-center justify-center px-0 py-[0.25em] ${active ? 'rs-btn-primary' : ''}`}
+      style={{ borderBottom: `2px solid ${color}` }}
+    >
+      {icon
+        ? <img src={icon} alt={label} className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+        : <span className="text-[0.6em]" style={{ color }}>{label}</span>}
+    </button>
+  );
+}
+
+/** Button order, shared by the single-tower and multi-select panels. Three across,
+ *  two rows, so each ⬆/⬇ pair sits side by side (path on top, HP below) with the
+ *  two arrow-less oddities last in each row. */
+const PRIORITY_ORDER = ['first', 'last', 'closest', 'strongest', 'weakest', 'unmarked'] as const;
 /** Spelled-out tooltips — the buttons are glyphs, so the words live here. */
 const PRIORITY_TIPS: Record<TargetingPriority, string> = {
   first: 'First — the enemy furthest along the path',
@@ -508,8 +547,11 @@ export default function GameRoot() {
   const [sellConfirm, setSellConfirm] = useState<string | null>(null);
   const sellConfirmRef = useRef<string | null>(null);
   useEffect(() => { sellConfirmRef.current = sellConfirm; }, [sellConfirm]);
-  // Clicking away drops the pending sell with the panel that asked for it.
-  useEffect(() => { setSellConfirm(null); }, [ui.selectedTowerId]);
+  // Clicking away drops the pending sell with the panel that asked for it — for a
+  // marquee that means *any* change to the box, so a re-drag can never inherit a
+  // confirmation armed for a different set of towers.
+  const multiKey = ui.multiSelectedIds.join(',');
+  useEffect(() => { setSellConfirm(null); }, [ui.selectedTowerId, multiKey]);
   // "How to Play" reference guide — reachable any time from the start screen or
   // the ❓ stone. (The FIRST-visit onboarding is the guided tour below, not this.)
   const [helpOpen, setHelpOpen] = useState(false);
@@ -819,10 +861,12 @@ export default function GameRoot() {
         // Sell never fires straight off a keypress: it arms the same confirmation
         // the Sell button uses (players were selling by fat-fingering a fast upgrade).
         case 's': case 'S':
-          if (eng.selectedTowerId) setSellConfirm(eng.selectedTowerId);
+          if (eng.multiSelectedIds.length > 0) setSellConfirm(MULTI_SELL);
+          else if (eng.selectedTowerId) setSellConfirm(eng.selectedTowerId);
           break;
         case 'Enter':
-          if (sellConfirmRef.current) { eng.sellTower(sellConfirmRef.current); setSellConfirm(null); }
+          if (sellConfirmRef.current === MULTI_SELL) { eng.sellMultiSelected(); setSellConfirm(null); }
+          else if (sellConfirmRef.current) { eng.sellTower(sellConfirmRef.current); setSellConfirm(null); }
           break;
         case 'q': case 'Q': eng.selectWizardSlot(0); break;
         case 'w': case 'W': eng.selectWizardSlot(1); break;
@@ -1288,33 +1332,145 @@ export default function GameRoot() {
         />
       )}
 
-      {/* Batch-upgrade panel for a marquee multi-selection. Draggable like every
+      {/* Batch panel for a marquee multi-selection: everything the single-tower
+          panel offers, applied to the whole box at once. Draggable like every
           other panel — the outer div holds the centred anchor so MovablePanel's
           own transform only carries the drag offset. */}
       {ui.multiSelectedIds.length > 0 && (() => {
-        const info = engineRef.current?.multiUpgradeInfo ?? { count: 0, cost: 0 };
+        const eng = engineRef.current;
+        const info = eng?.multiUpgradeInfo ?? { count: 0, cost: 0 };
+        const sell = eng?.multiSellInfo ?? { count: 0, refund: 0 };
+        const mage = eng?.multiMageInfo
+          ?? { elemental: 0, ancients: 0, utility: 0, element: null, ancientType: null, supportSpell: null };
         const afford = ui.money >= info.cost;
+        const confirming = sellConfirm === MULTI_SELL;
         return (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
             <MovablePanel
               id="multiselect"
               globalLock={uiLocked}
-              className="rs-panel relative p-2 flex items-center gap-[0.6em]"
+              className="rs-panel relative p-2 w-[15em] flex flex-col gap-[0.45em]"
               style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}
             >
-              <span className="text-osrs-orange font-bold whitespace-nowrap">{ui.multiSelectedIds.length} towers</span>
+              <div className="flex items-center justify-between gap-[0.6em]">
+                <span className="text-osrs-orange font-bold whitespace-nowrap">{ui.multiSelectedIds.length} towers</span>
+                <button className="rs-btn px-[0.6em] py-[0.15em] text-[0.8em]" title="Deselect all towers" onClick={() => eng?.clearMultiSelect()}>Clear</button>
+              </div>
+
               <button
-                className="rs-btn rs-btn-primary relative px-[0.7em] py-[0.3em] flex items-center gap-[0.3em] disabled:opacity-50"
+                className="rs-btn rs-btn-primary relative px-[0.7em] py-[0.3em] flex items-center justify-center gap-[0.3em] disabled:opacity-50"
                 disabled={info.count === 0}
                 title={info.count === 0 ? 'All selected towers are max level' : `Upgrade ${info.count} tower(s) one tier (U)`}
-                onClick={() => engineRef.current?.upgradeMultiSelected()}
+                onClick={() => eng?.upgradeMultiSelected()}
               >
                 <span className="text-[#5bd75b] font-bold">⬆</span>
                 Upgrade {info.count > 0 ? `(${info.count})` : ''}
                 {info.count > 0 && <span style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{fmt(info.cost)} gp</span>}
                 <span className="rs-key">U</span>
               </button>
-              <button className="rs-btn px-[0.6em] py-[0.3em]" title="Deselect all towers" onClick={() => engineRef.current?.clearMultiSelect()}>Clear</button>
+
+              {/* Selling a whole box is the most destructive thing this panel can
+                  do, so it asks in place — the same rule as one tower's Sell. */}
+              {confirming ? (
+                <div className="flex flex-col gap-[0.3em]">
+                  <span className="text-[0.72em] text-osrs-warn text-center leading-snug">
+                    Sell all {sell.count} towers for {fmt(sell.refund)} gp? You lose their levels.
+                  </span>
+                  <div className="flex gap-[0.4em]">
+                    <button
+                      className="rs-btn relative flex-1 px-[0.4em] py-[0.3em] text-osrs-warn"
+                      title="Sell every selected tower — gone, with their levels (Enter)"
+                      onClick={() => { eng?.sellMultiSelected(); setSellConfirm(null); }}
+                    >
+                      Yes, sell all
+                      <span className="rs-key">ENTER</span>
+                    </button>
+                    <button
+                      className="rs-btn relative flex-1 px-[0.4em] py-[0.3em]"
+                      title="Keep them (Esc)"
+                      onClick={() => setSellConfirm(null)}
+                    >
+                      Cancel
+                      <span className="rs-key">ESC</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="rs-btn relative px-[0.7em] py-[0.3em] flex items-center justify-center gap-[0.3em]"
+                  title={`Sell all ${sell.count} selected towers for ${fmt(sell.refund)} gp (75% refund) — asks to confirm (S)`}
+                  onClick={() => setSellConfirm(MULTI_SELL)}
+                >
+                  Sell ({fmt(sell.refund)} gp)
+                  <span className="rs-key">S</span>
+                </button>
+              )}
+
+              <div>
+                <div className="text-[0.68em] text-[#d3c3a0] mb-[0.25em] px-[0.2em] uppercase tracking-wide">Target priority</div>
+                <div className="grid grid-cols-3 gap-[0.25em]">
+                  {PRIORITY_ORDER.map((p) => (
+                    <button
+                      key={p}
+                      title={`${PRIORITY_TIPS[p]} — for every selected tower`}
+                      aria-label={PRIORITY_TIPS[p]}
+                      onClick={() => eng?.setMultiTargetingPriority(p)}
+                      className="rs-btn px-0 py-[0.3em] flex items-center justify-center"
+                    >
+                      <PriorityGlyph spec={PRIORITY_ICONS[p]} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* One row per spellbook actually present in the box — a marquee that
+                  catches Elemental and Ancients wizards can re-aim both, and one
+                  that catches none shows nothing. */}
+              {mage.elemental > 0 && (
+                <MultiSpellRow label={`Elemental (${mage.elemental})`}>
+                  {ELEMENT_ORDER.map((el) => (
+                    <MultiSpellButton
+                      key={el}
+                      icon={spellIconUrl(elementalSpellName(el, 1))}
+                      label={ELEMENTS[el].label}
+                      color={ELEMENTS[el].color}
+                      active={mage.element === el}
+                      title={`${ELEMENTS[el].label} — every selected Elemental wizard`}
+                      onClick={() => eng?.setMultiWizardElement(el)}
+                    />
+                  ))}
+                </MultiSpellRow>
+              )}
+              {mage.ancients > 0 && (
+                <MultiSpellRow label={`Ancients (${mage.ancients})`}>
+                  {ANCIENT_ORDER.map((a) => (
+                    <MultiSpellButton
+                      key={a}
+                      icon={spellIconUrl(ancientSpellName(a, 1))}
+                      label={ANCIENTS[a].label}
+                      color={ANCIENTS[a].color}
+                      active={mage.ancientType === a}
+                      title={`${ANCIENTS[a].label} — every selected Ancients wizard`}
+                      onClick={() => eng?.setMultiAncientType(a)}
+                    />
+                  ))}
+                </MultiSpellRow>
+              )}
+              {mage.utility > 0 && (
+                <MultiSpellRow label={`Utility (${mage.utility})`}>
+                  {SUPPORT_ORDER.map((s) => (
+                    <MultiSpellButton
+                      key={s}
+                      icon={spellIconUrl(SUPPORT_SPELLS[s].spell)}
+                      label={SUPPORT_SPELLS[s].label}
+                      color={SUPPORT_SPELLS[s].color}
+                      active={mage.supportSpell === s}
+                      title={`${SUPPORT_SPELLS[s].label} — every selected Utility wizard (the Prayer Ward cap still applies)`}
+                      onClick={() => eng?.setMultiSupportSpell(s)}
+                    />
+                  ))}
+                </MultiSpellRow>
+              )}
             </MovablePanel>
           </div>
         );
@@ -1879,11 +2035,9 @@ export default function GameRoot() {
               <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>
               {/* Three across, two rows — six in a single row squeezed each button to
                   ~35px, which is what made the strip look wrong and left no room to
-                  read a glyph. Two rows give each button the width to be legible.
-                  Ordered so each ⬆/⬇ pair sits side by side: path on the top row,
-                  HP on the bottom, with the two arrow-less oddities last in each. */}
+                  read a glyph. Two rows give each button the width to be legible. */}
               <div className="grid grid-cols-3 gap-[0.3em]">
-                {(['first', 'last', 'closest', 'strongest', 'weakest', 'unmarked'] as const).map((p) => (
+                {PRIORITY_ORDER.map((p) => (
                   <button
                     key={p}
                     title={PRIORITY_TIPS[p]}
@@ -3331,7 +3485,7 @@ const TLDR: TldrGroup[] = [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
     'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks.',
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
-    'Hold Shift to keep placing the same tower; drag a box to multi-select and batch-upgrade.',
+    'Hold Shift to keep placing the same tower; drag a box to multi-select — the panel then upgrades, sells, re-aims or re-elements the whole box at once.',
   ] },
   { h: 'Waves', lines: [
     'Nothing spawns until you Start Wave (button beside the tower dock, or Space). Between waves is paused build time.',

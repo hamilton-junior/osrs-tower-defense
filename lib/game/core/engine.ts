@@ -1541,6 +1541,100 @@ export class GameEngine {
     if (!any) this.notify('Not enough gold');
   }
 
+  /** Count + gold back from selling the whole selection. */
+  get multiSellInfo(): { count: number; refund: number } {
+    let count = 0, refund = 0;
+    for (const id of this.multiSelectedIds) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (t) { count++; refund += this.sellValue(t); }
+    }
+    return { count, refund };
+  }
+
+  /** Sell every selected tower. Irreversible and easy to fat-finger, so the UI
+   *  confirms first — same rule as the single-tower Sell button. */
+  sellMultiSelected() {
+    const ids = [...this.multiSelectedIds];
+    if (ids.length === 0) return;
+    this.multiSelectedIds = []; // the panel closes with the towers it acted on
+    for (const id of ids) this.sellTower(id);
+    this.emit();
+  }
+
+  /** Point the whole selection at one priority. */
+  setMultiTargetingPriority(priority: TargetingPriority) {
+    let any = false;
+    for (const id of this.multiSelectedIds) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (!t) continue;
+      t.targetingPriority = priority;
+      t.targetId = null; // re-acquire under the new priority next frame
+      any = true;
+    }
+    if (!any) return;
+    this.sound.play('click');
+    this.emit();
+  }
+
+  /**
+   * The selected wizards grouped by spellbook, so the multi panel can offer the
+   * books it actually holds. `element`/`ancientType`/`supportSpell` report the
+   * shared pick when every wizard of that book agrees (for the active highlight),
+   * and null when the selection is split.
+   */
+  get multiMageInfo(): {
+    elemental: number; ancients: number; utility: number;
+    element: Element | null; ancientType: AncientType | null; supportSpell: SupportSpell | null;
+  } {
+    const wizards = this.multiSelectedIds
+      .map(id => this.towers.find(t => t.id === id))
+      .filter((t): t is Tower => !!t && t.type === 'wizard');
+    const of = (mode: MageMode) => wizards.filter(w => (w.mageMode ?? 'elemental') === mode);
+    const shared = <T,>(list: Tower[], read: (t: Tower) => T): T | null => {
+      if (list.length === 0) return null;
+      const first = read(list[0]);
+      return list.every(t => read(t) === first) ? first : null;
+    };
+    const el = of('elemental'), anc = of('ancients'), ut = of('utility');
+    return {
+      elemental: el.length, ancients: anc.length, utility: ut.length,
+      element: shared(el, t => t.element ?? 'air'),
+      ancientType: shared(anc, t => t.ancientType ?? 'ice'),
+      supportSpell: shared(ut, t => t.supportSpell ?? 'curse'),
+    };
+  }
+
+  /** Re-element every Elemental wizard in the selection at once. Non-wizards and
+   *  the other two spellbooks are left alone — a mixed marquee is normal. */
+  setMultiWizardElement(element: Element) {
+    for (const id of this.multiSelectedIds) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (t?.type === 'wizard' && (t.mageMode ?? 'elemental') === 'elemental') t.element = element;
+    }
+    this.sound.play('click');
+    this.emit();
+  }
+
+  /** As {@link setMultiWizardElement}, for the Ancients book's barrage. */
+  setMultiAncientType(ancient: AncientType) {
+    for (const id of this.multiSelectedIds) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (t?.type === 'wizard' && t.mageMode === 'ancients') t.ancientType = ancient;
+    }
+    this.sound.play('click');
+    this.emit();
+  }
+
+  /** As {@link setMultiWizardElement}, for the Utility book's field. Routed through
+   *  the single-tower setter so the Prayer Ward field cap still holds — a batch
+   *  must not be a way around it. */
+  setMultiSupportSpell(spell: SupportSpell) {
+    for (const id of this.multiSelectedIds) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (t?.type === 'wizard' && t.mageMode === 'utility') this.setSupportSpell(t.id, spell);
+    }
+  }
+
   setTargetingPriority(towerId: string, priority: TargetingPriority) {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower) return;
@@ -4155,6 +4249,13 @@ export class GameEngine {
   /** Set the persistent Rune Essence balance outright. */
   debugSetEssence(n: number) {
     this.meta.setEssence(n);
+  }
+
+  /** Set the Slayer point balance outright — the sink is the rewards shop, so
+   *  testing any of its unlocks otherwise means grinding tasks for them. */
+  debugSetSlayerPoints(n: number) {
+    this.slayer.points = Math.max(0, Math.floor(n) || 0);
+    this.emit();
   }
 
   /** Set remaining lives (clamped to the max). */

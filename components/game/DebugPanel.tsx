@@ -186,7 +186,7 @@ function NumberRow({ label, value, onCommit, min = 0 }: {
  *  plays each enemy's baked walk/hurt/death clips off-wave, with its stats). */
 export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   engineRef: React.RefObject<GameEngine | null>;
-  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; autoplaySecs: number; biomeName: string };
+  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; slayerPoints: number; autoplaySecs: number; biomeName: string };
   onClose: () => void;
   globalLock: boolean;
 }) {
@@ -263,6 +263,7 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
             <NumberRow label="Wave" value={ui.wave} min={1} onCommit={(n) => engineRef.current?.debugSetWave(n)} />
             <NumberRow label="Gold" value={ui.money} onCommit={(n) => engineRef.current?.debugSetGold(n)} />
             <NumberRow label="Essence" value={ui.essence} onCommit={(n) => engineRef.current?.debugSetEssence(n)} />
+            <NumberRow label="Slayer pts" value={ui.slayerPoints} onCommit={(n) => engineRef.current?.debugSetSlayerPoints(n)} />
             <NumberRow label="Lives" value={ui.lives} onCommit={(n) => engineRef.current?.debugSetLives(n)} />
             {ui.waveActive && <p className="text-[0.66em] text-[#b3a585]">Wave editing is locked mid-wave.</p>}
           </div>
@@ -338,13 +339,18 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
               ✦ Spawn affixed ({(picked.size || 1) * countEach})
             </button>
             <div className="text-[0.66em] text-[#cdbe91] mb-[0.3em]">Spawn boss (with selected modifiers):</div>
-            <div className="flex gap-[0.4em]">
+            {/* A grid, not a flex row: `flex-1` cannot shrink a button below its own
+                label (min-width: auto), so seven bosses — "Alchemical Hydra" among
+                them — pushed the row straight out of the panel. Fixed columns give
+                each a width to be truncated into. */}
+            <div className="grid grid-cols-3 gap-[0.4em]">
               {SCHEDULABLE_BOSSES.map((b) => (
                 <button
                   key={b}
                   disabled={ui.waveActive}
+                  title={ENEMIES[b]?.name ?? b}
                   onClick={() => engineRef.current?.debugSpawnBoss(b, [...affixPick])}
-                  className="rs-btn flex-1 py-[0.35em] text-[0.72em] capitalize disabled:opacity-50"
+                  className="rs-btn min-w-0 px-[0.3em] py-[0.35em] text-[0.72em] capitalize truncate disabled:opacity-50"
                 >
                   {ENEMIES[b]?.name ?? b}
                 </button>
