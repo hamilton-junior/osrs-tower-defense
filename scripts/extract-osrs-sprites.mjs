@@ -117,6 +117,12 @@ const UI_IDS = {
   inventory_background: 1031, // FIXED_MODE_SIDE_PANEL_BACKGROUND
   transportation_icon: 1504, // MAP_ICON_TRANSPORTATION (legacy portal fallback)
   follower_details: 1166, // OPTIONS_FOLLOWER_RIGHT_CLICK_MENU (pets tab)
+  // Bare white arrow glyphs (no button plate) — the "most / least" markers the
+  // targeting-priority buttons pair with a dimension icon. Verified by eye from a
+  // --dump: the neighbouring arrows (773/788/793/794) are scrollbar buttons and
+  // carry their own wood plate, which reads as a button inside a button.
+  arrow_up: 1185,
+  arrow_down: 1186,
 };
 
 /** Build flat targets from a {basename: id} group under a sub-folder. */

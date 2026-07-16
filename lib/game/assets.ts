@@ -347,6 +347,10 @@ export const ASSETS = {
     // Multi-combat (crossed-swords) indicator — used as the Home/Wave sidebar tab.
     // Cache-extracted (MULTI_COMBAT_ZONE_CROSSED_SWORDS 442), like the splats below.
     multicombat_icon: `${LOCAL}/ui/multicombat_icon.png`,
+    // Bare arrow glyphs (1185 / 1186) — the "most / least" markers the targeting
+    // priority buttons pair with a dimension icon.
+    arrow_up: `${LOCAL}/ui/arrow_up.png`,
+    arrow_down: `${LOCAL}/ui/arrow_down.png`,
     hit_splat: `${LOCAL}/hitsplats/hit.png`,          // red damage (1359)
     magic_hit_splat: `${LOCAL}/hitsplats/miss.png`,   // blue zero-splat (1358)
     poison_hit_splat: `${LOCAL}/hitsplats/poison.png`,// green (1360)

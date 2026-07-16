@@ -20,7 +20,7 @@ import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
 import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/run-save';
-import type { TowerType, PrayerType, MageMode, CombatStyle } from '@/lib/game/types';
+import type { TowerType, PrayerType, MageMode, CombatStyle, TargetingPriority } from '@/lib/game/types';
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 
@@ -29,16 +29,55 @@ const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slaye
  *  model — one stone per interface), or `null` for none. 'home' = the run's mode
  *  + roguelite loadout. */
 type SideTab = 'home' | 'essence' | 'slayer' | 'dps';
-const PRIORITY_LABELS = { first: '1st', last: 'Last', strongest: 'Str', weakest: 'Weak', closest: 'Near', unmarked: 'Clean' } as const;
-/** Spelled-out tooltips — the buttons are three-letter stubs. */
-const PRIORITY_TIPS: Record<keyof typeof PRIORITY_LABELS, string> = {
-  first: 'Furthest along the path',
-  last: 'Least far along the path',
-  strongest: 'Highest current HP',
-  weakest: 'Lowest current HP',
-  closest: 'Nearest to this tower',
-  unmarked: 'Carrying no status yet — spreads poison / burn / slow across the wave instead of re-applying it to one enemy',
+/**
+ * The targeting-priority buttons. Six of them across the panel left no room for
+ * words — the truncated stubs ("Str", "Weak", "Clean") were unreadable — so each
+ * button is a glyph instead, and the tooltip carries the sentence.
+ *
+ * They read as one system rather than six unrelated pictures: a **dimension** icon
+ * (what is being compared) plus an **arrow** (which end of it — ⬆ most, ⬇ least).
+ * `first`/`last` are the bare arrows: position in the queue *is* the direction.
+ * `closest` is the odd one out — a single radius glyph, no arrow, because distance
+ * has no "furthest" counterpart to contrast against.
+ */
+const PRIORITY_ICONS: Record<TargetingPriority, { icon?: string; arrow?: 'up' | 'down'; alt: string }> = {
+  first: { arrow: 'up', alt: 'Front of the queue' },
+  last: { arrow: 'down', alt: 'Back of the queue' },
+  strongest: { icon: ASSETS.misc.orb_hitpoints, arrow: 'up', alt: 'Most HP' },
+  weakest: { icon: ASSETS.misc.orb_hitpoints, arrow: 'down', alt: 'Least HP' },
+  closest: { icon: ASSETS.misc.multicombat_icon, alt: 'Nearest' },
+  unmarked: { icon: ASSETS.debuffs.vuln, arrow: 'down', alt: 'Fewest statuses' },
 };
+/** Spelled-out tooltips — the buttons are glyphs, so the words live here. */
+const PRIORITY_TIPS: Record<TargetingPriority, string> = {
+  first: 'First — the enemy furthest along the path',
+  last: 'Last — the enemy least far along the path',
+  strongest: 'Strongest — the highest current HP',
+  weakest: 'Weakest — the lowest current HP',
+  closest: 'Closest — the nearest to this tower',
+  unmarked: 'Unmarked — carrying no status yet, so poison / burn / slow spreads across the wave instead of re-applying to one enemy',
+};
+
+/** One targeting-priority glyph: the dimension icon, with the most/least arrow
+ *  tucked into its corner when the priority has one. */
+function PriorityGlyph({ spec }: { spec: (typeof PRIORITY_ICONS)[TargetingPriority] }) {
+  // Laid out side by side, not overlaid: at the size these buttons actually get,
+  // an arrow tucked into the icon's corner shrinks to an unreadable speck.
+  const arrow = spec.arrow && (
+    <img
+      src={spec.arrow === 'up' ? ASSETS.misc.arrow_up : ASSETS.misc.arrow_down}
+      alt=""
+      className="w-[0.85em] h-[0.85em] object-contain shrink-0"
+      onError={hideBrokenImg}
+    />
+  );
+  return (
+    <span className="inline-flex items-center justify-center gap-[0.1em]" aria-label={spec.alt}>
+      {spec.icon && <img src={spec.icon} alt="" className="w-[1.15em] h-[1.15em] object-contain shrink-0" onError={hideBrokenImg} />}
+      {arrow}
+    </span>
+  );
+}
 const towerIcon = (type: TowerType) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[1];
 const towerTierIcon = (type: TowerType, tier: number) => (ASSETS.towers as Record<string, Record<number, string>>)[type]?.[tier];
 /** Wiki spell-icon URL for a spell-file name (e.g. `Fire_Wave`), if it exists. */
@@ -705,12 +744,13 @@ export default function GameRoot() {
    * The number row picks a tower from the dock — the tower-defence idiom, and the
    * answer to "let me re-buy the last tower without going back to the UI": tap its
    * number again (hold Shift while placing to keep placing it). That cost the number
-   * row its old job, so game speed moved to , and . — the `<` / `>` keys, which read
-   * as slower/faster.
+   * row its old job, so game speed has two homes: , and . (the `<` / `>` keys, which
+   * read as slower/faster) step through the speeds, and Z/X/C jump straight to
+   * 1x/2x/5x — one key per speed, for when you know which one you want.
    *
    *   1-6 dock tower · Shift+click keep placing · Esc cancel / pause · Space wave
-   *   U upgrade selection · S sell (asks first) · , / . speed · Q/W/E/R wizard spell
-   *   M mute · Ctrl+' debug console
+   *   U upgrade selection · S sell (asks first) · , / . step speed · Z/X/C 1x/2x/5x
+   *   Q/W/E/R wizard spell · M mute · Ctrl+' debug console
    *
    * The selection is read off the engine (not React state) so this effect can stay
    * mounted once, with no deps.
@@ -745,8 +785,12 @@ export default function GameRoot() {
           else eng.escape();
           break;
         case ' ': e.preventDefault(); eng.startWave(); break;
+        // , / . step through the speeds; Z/X/C jump straight to one.
         case ',': eng.setGameSpeed(eng.gameSpeed >= 5 ? 2 : 1); break;
         case '.': eng.setGameSpeed(eng.gameSpeed <= 1 ? 2 : 5); break;
+        case 'z': case 'Z': eng.setGameSpeed(1); break;
+        case 'x': case 'X': eng.setGameSpeed(2); break;
+        case 'c': case 'C': eng.setGameSpeed(5); break;
         // Upgrade whatever is selected — a marquee batch, or the one open tower.
         case 'u': case 'U':
           if (eng.multiSelectedIds.length > 0) eng.upgradeMultiSelected();
@@ -1564,13 +1608,16 @@ export default function GameRoot() {
                     {ui.wavePreview.map((m) => {
                       const style = enemySpriteStyle(m.type);
                       return (
-                        <span key={m.type} className="flex items-center gap-[0.3em]" title={m.name}>
+                        // `group` + `relative` anchor the stat card; the strip itself
+                        // does not scroll, so an absolute child is safe here.
+                        <span key={m.type} className="group relative flex items-center gap-[0.3em] pointer-events-auto">
                           <span className="inline-block w-[2.2em] h-[2.2em] shrink-0" style={style ? { ...style, imageRendering: 'pixelated' } : undefined} />
                           <span className={`text-[0.8em] ${m.isBoss ? 'text-osrs-red font-bold uppercase tracking-wide' : 'text-[#e8dcc0]'}`}>
                             {/* A wave can now carry more than one of the same boss (the
                                 extra-boss roll), so a boss shows its count too once it stacks. */}
                             {m.isBoss ? `⚠ ${m.name}${m.count > 1 ? ` ×${m.count}` : ''}` : `×${m.count}`}
                           </span>
+                          <WavePreviewCard m={m} />
                         </span>
                       );
                     })}
@@ -1764,15 +1811,21 @@ export default function GameRoot() {
           {!isUtility && (
             <div className="mt-[0.7em]">
               <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>
-              <div className="grid grid-cols-6 gap-[0.3em]">
-                {(['first', 'last', 'strongest', 'weakest', 'closest', 'unmarked'] as const).map((p) => (
+              {/* Three across, two rows — six in a single row squeezed each button to
+                  ~35px, which is what made the strip look wrong and left no room to
+                  read a glyph. Two rows give each button the width to be legible.
+                  Ordered so each ⬆/⬇ pair sits side by side: path on the top row,
+                  HP on the bottom, with the two arrow-less oddities last in each. */}
+              <div className="grid grid-cols-3 gap-[0.3em]">
+                {(['first', 'last', 'closest', 'strongest', 'weakest', 'unmarked'] as const).map((p) => (
                   <button
                     key={p}
                     title={PRIORITY_TIPS[p]}
+                    aria-label={PRIORITY_TIPS[p]}
                     onClick={() => engineRef.current?.setTargetingPriority(selectedTower.id, p)}
-                    className={`rs-btn px-0 py-[0.35em] text-[0.7em] ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
+                    className={`rs-btn px-0 py-[0.35em] flex items-center justify-center ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
                   >
-                    {PRIORITY_LABELS[p]}
+                    <PriorityGlyph spec={PRIORITY_ICONS[p]} />
                   </button>
                 ))}
               </div>
@@ -2473,11 +2526,11 @@ export default function GameRoot() {
                 {ui.paused ? '▶' : '⏸'}
               </button>
               <span className="text-[0.6em] text-[#d3c3a0] mr-[0.4em] uppercase tracking-wide">Speed</span>
-              {[1, 2, 5].map((s) => (
+              {([[1, 'Z'], [2, 'X'], [5, 'C']] as const).map(([s, key]) => (
                 <button
                   key={s}
                   onClick={() => engineRef.current?.setGameSpeed(s)}
-                  title={`Run the game at ${s}× speed`}
+                  title={`Run the game at ${s}× speed (${key}, or step with < / >)`}
                   className={`rs-btn px-[0.66em] py-[0.33em] text-[0.7em] ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
                 >
                   {s}×
@@ -3053,7 +3106,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Pick a tower from the dock, then click the grass to place it. It aims and fires on its own — you win by positioning, not aiming.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && !c.towersPlaced },
   { id: 'start', target: 'startwave', title: 'Send the wave',
-    body: 'Happy with your defences? Press Start Wave, beside the tower dock — or tap Space. Nothing spawns until you do, so the game waits while you build. The panel at the top of the screen shows what the next wave sends, then tracks its progress once it lands; drag it anywhere you like. Tick Auto to send every wave the moment the field is clear, after the delay in seconds next to it.',
+    body: 'Happy with your defences? Press Start Wave, beside the tower dock — or tap Space. Nothing spawns until you do, so the game waits while you build. The panel at the top of the screen shows what the next wave sends — hover any monster in it to scout its HP, weakness, speed and gold — then tracks its progress once it lands; drag it anywhere you like. Tick Auto to send every wave the moment the field is clear, after the delay in seconds next to it.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && c.towersPlaced },
   { id: 'hud', target: 'hud', title: 'Lives & gold',
     body: 'These orbs are your lives and gold. Every enemy that reaches the base costs a life; every kill pays gold for more towers and upgrades.',
@@ -3170,13 +3223,13 @@ const TLDR: TldrGroup[] = [
   ] },
   { h: 'Towers', lines: [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
-    'Click a placed tower to Upgrade or Sell it, and set its target priority (First / Last / Strongest…).',
+    'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks.',
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
     'Hold Shift to keep placing the same tower; drag a box to multi-select and batch-upgrade.',
   ] },
   { h: 'Waves', lines: [
     'Nothing spawns until you Start Wave (button beside the tower dock, or Space). Between waves is paused build time.',
-    'The panel at the top of the screen previews what the next wave sends, then tracks its progress once it lands — drag it wherever suits you. Tick Auto beside the button to send each wave automatically.',
+    'The panel at the top of the screen previews what the next wave sends, then tracks its progress once it lands — drag it wherever suits you. Hover a monster in that preview to scout its HP, weakness, speed and gold at this wave, before you commit to a build. Tick Auto beside the button to send each wave automatically.',
     'From wave 3 a wave can roll a board-wide event — hover its chip for the effect. From wave 5 enemies can turn elite (glowing affixes), at most two at once. Bosses have their own mechanic.',
   ] },
   { h: 'Systems', lines: [
@@ -3186,7 +3239,7 @@ const TLDR: TldrGroup[] = [
     'Roguelite — keep one reward card per wave, with a Relic every 5th wave.',
   ] },
   { h: 'Controls', lines: [
-    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift keep placing · drag a box to multi-select · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
+    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift keep placing · drag a box to multi-select · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
     'One slim bar along the bottom: run controls (left), tower dock and Start Wave (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click — no interface stays on-screen.',
     'Auto sends each wave once the field is clear, after the delay in seconds beside it.',
     'Browser zoom is disabled so it can’t warp the board — resize the interface with the UI − / + buttons in that bar instead.',
@@ -4305,6 +4358,46 @@ function HoverTip({ title, badge, desc, side = 'bottom' }: {
         {badge}
       </span>
       <span className="block text-[0.68em] text-[#cdbe91] mt-[0.25em] leading-tight">{desc}</span>
+    </span>
+  );
+}
+
+/**
+ * The stat card behind each monster in the next-wave strip. Scouting the wave meant
+ * either remembering the bestiary or letting one through and reading the hover panel
+ * mid-fight — this shows what you're about to face while you can still build for it.
+ *
+ * The numbers are already wave-scaled by the engine, and it deliberately mirrors the
+ * live enemy panel's icons and ordering (HP / Weakness / Move speed / Gold), so the
+ * two read as the same card: what you scout is what you'll hover.
+ */
+function WavePreviewCard({ m }: { m: UIState['wavePreview'][number] }) {
+  const wk = m.weakness ? ELEMENTS[m.weakness as keyof typeof ELEMENTS] : null;
+  return (
+    // Anchored BELOW the strip, not above it: the strip lives at the top of the
+    // screen, so a card hanging off its top edge would be cut by the viewport.
+    <span
+      className="hidden group-hover:block absolute top-full left-1/2 -translate-x-1/2 mt-[0.5em] z-40 pointer-events-none rs-panel p-[0.5em] w-[11em]"
+      role="tooltip"
+    >
+      <span className="flex items-center gap-[0.35em] mb-[0.3em]">
+        <span className={`font-bold truncate ${m.isBoss ? 'text-osrs-red' : 'text-osrs-orange'}`}>{m.name}</span>
+        {m.isBoss && <span className="text-[0.55em] text-osrs-red uppercase tracking-wide shrink-0">Boss</span>}
+      </span>
+      <span className="grid grid-cols-2 gap-x-[0.5em] gap-y-[0.1em] text-[0.7em]">
+        <StatLabel icon={ASSETS.misc.orb_hitpoints}>HP</StatLabel>
+        <span className="text-right text-white tabular-nums">{fmt(m.hp)}</span>
+        <StatLabel icon={ASSETS.debuffs.vuln}>Weakness</StatLabel>
+        <span className="text-right capitalize" style={{ color: wk?.color ?? '#9a9a9a' }}>{wk ? wk.label : 'None'}</span>
+        <StatLabel icon={ASSETS.misc.orb_run}>Move speed</StatLabel>
+        <span className="text-right text-white tabular-nums">{m.speed}</span>
+        <StatLabel icon={ASSETS.misc.coins_icon}>Gold</StatLabel>
+        <span className="text-right text-osrs-yellow tabular-nums">{m.reward}</span>
+      </span>
+      {/* The count is the reason to care about the numbers above. */}
+      <span className="block mt-[0.35em] pt-[0.3em] border-t border-[var(--rs-keyline)] text-[0.65em] text-[#b3a585] text-center">
+        {m.count} incoming · {fmt(m.hp * m.count)} HP total
+      </span>
     </span>
   );
 }

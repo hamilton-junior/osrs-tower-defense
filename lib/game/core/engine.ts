@@ -217,6 +217,13 @@ export interface WavePreviewEntry {
   name: string;
   count: number;
   isBoss: boolean;
+  /** Stats as this wave will actually spawn them — the base def run through the
+   *  wave scaling, so the hover reads the numbers the player is about to face, not
+   *  the wave-1 ones. Affixes are rolled at spawn and deliberately not previewed. */
+  hp: number;
+  speed: number;
+  reward: number;
+  weakness?: Element;
 }
 
 export interface UIState {
@@ -1644,7 +1651,14 @@ export class GameEngine {
     const rows: WavePreviewEntry[] = [];
     for (const [type, count] of totals) {
       const def = ENEMIES[type];
-      rows.push({ type, name: def?.name ?? type, count, isBoss: !!def?.isBoss });
+      // Scale to the wave being previewed, exactly as makeEnemy will when it spawns.
+      const s = def
+        ? scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, this.wave)
+        : { hp: 0, speed: 0, reward: 0 };
+      rows.push({
+        type, name: def?.name ?? type, count, isBoss: !!def?.isBoss,
+        hp: s.hp, speed: s.speed, reward: s.reward, weakness: def?.weakness,
+      });
     }
     // Regular monsters first (largest packs first), any boss headlining at the end.
     rows.sort((a, b) => (a.isBoss ? 1 : 0) - (b.isBoss ? 1 : 0) || b.count - a.count);
