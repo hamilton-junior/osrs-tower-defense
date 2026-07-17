@@ -53,13 +53,38 @@ export function slayerWeaponBonus(enemyType: string, taskType: string | null, is
 }
 
 /**
+ * The venom cap's wave multiplier. Venom is single-target, so it must always
+ * out-damage the Ancient Smoke *poison* (AoE, `dps = wave`) — and, because
+ * single-target should out-scale AoE, the margin *grows* with the wave. This
+ * saturating curve rises from ~1.15× the wave number early to ~1.7× late:
+ *   mult(1) ≈ 1.15,  mult(22) ≈ 1.50,  mult(70) ≈ 1.68.
+ * Always > 1, so `ceil(wave * mult) > wave` on every wave — venom beats poison
+ * from the first wave and pulls further ahead the longer a run goes.
+ */
+export function venomWaveMult(wave: number): number {
+  return 1.7 - 0.55 * Math.exp(-wave / 22);
+}
+
+/**
+ * The venom DoT's damage-per-second ceiling. The larger of two floors wins:
+ *  - the tower's own hit (`hitDamage * 0.6`), which dominates in the early game
+ *    when a toxic hit is bigger than the wave number, and
+ *  - the wave-scaled track (`wave * mult(wave)`), which dominates late and keeps
+ *    venom strictly above the Smoke poison (see `venomWaveMult`).
+ */
+export function venomCap(wave: number, hitDamage: number): number {
+  return Math.max(Math.floor(hitDamage * 0.6), Math.ceil(wave * venomWaveMult(wave)));
+}
+
+/**
  * Venom ramp parameters derived from a single toxic hit's damage. Each reapply
  * adds `step` to the poison's damage-per-second up to `cap`, so sustained fire
  * makes the venom hurt more — the toxic tower's niche is a DoT that *climbs*,
- * unlike the wizard's flat burn/poison. `dur` keeps it ticking after the enemy
- * leaves range (set-and-forget chip damage).
+ * unlike the wizard's flat burn/poison. The cap scales with the wave (see
+ * `venomCap`) so late-game venom keeps its single-target edge over AoE poison.
+ * `dur` keeps it ticking after the enemy leaves range (set-and-forget chip).
  */
-export function venomRamp(hitDamage: number): { step: number; cap: number; dur: number } {
+export function venomRamp(hitDamage: number, wave: number): { step: number; cap: number; dur: number } {
   const step = Math.max(2, Math.floor(hitDamage * 0.15));
-  return { step, cap: Math.max(step, Math.floor(hitDamage * 0.6)), dur: 4 };
+  return { step, cap: Math.max(step, venomCap(wave, hitDamage)), dur: 4 };
 }

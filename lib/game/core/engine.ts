@@ -16,7 +16,7 @@ import { CombatStatsSystem, RUN_FX_ID, type DamageSource, type AuraAttribution, 
 import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, upgradeCostFor, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
-import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp } from '../systems/tower-identity';
+import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp, venomCap } from '../systems/tower-identity';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -3654,7 +3654,9 @@ export class GameEngine {
     if (!v) return;
     const dots = (e.dots ??= {});
     const cur = dots.venom;
-    const cap = v.dps * 3;
+    // Keep the card's own 3× headroom, but never below the shared wave-scaled
+    // ceiling so envenomed hits stay ahead of the Smoke poison late-game too.
+    const cap = Math.max(v.dps * 3, venomCap(this.wave, v.dps));
     if (cur) { cur.dps = Math.min(cap, cur.dps + v.dps); cur.timer = Math.max(cur.timer, v.dur); }
     else dots.venom = { timer: v.dur, dps: v.dps, accum: 0, tickTimer: 0 };
     // A couple of green venom motes flick off the target on each envenomed hit.
@@ -3768,7 +3770,7 @@ export class GameEngine {
         // Toxic venom: its OWN DoT (tracked apart from Smoke `poison`) that ramps
         // each reapply up to a damage-scaled cap and keeps ticking after the enemy
         // leaves range. DoT → tenacity-immune; splats a darker green than poison.
-        const { step, cap, dur } = venomRamp(p.damage);
+        const { step, cap, dur } = venomRamp(p.damage, this.wave);
         const dots = (e.dots ??= {});
         const cur = dots.venom;
         if (cur) { cur.dps = Math.min(cap, cur.dps + step); cur.timer = Math.max(cur.timer, dur); cur.style = style; cur.sourceTowerId = p.sourceTowerId; }

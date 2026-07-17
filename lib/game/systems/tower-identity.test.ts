@@ -5,6 +5,8 @@ import {
   cannonBlastRadius,
   slayerWeaponBonus,
   venomRamp,
+  venomCap,
+  venomWaveMult,
 } from './tower-identity';
 
 describe('archerArrowCount', () => {
@@ -54,16 +56,62 @@ describe('slayerWeaponBonus', () => {
 });
 
 describe('venomRamp', () => {
-  it('ramps in steps up to a damage-scaled cap', () => {
-    const { step, cap, dur } = venomRamp(40);
+  it('ramps in steps up to a damage-scaled cap (tower floor dominates early)', () => {
+    const { step, cap, dur } = venomRamp(40, 1);
     expect(step).toBe(6); // floor(40*0.15)
-    expect(cap).toBe(24); // floor(40*0.6)
+    expect(cap).toBe(24); // floor(40*0.6) beats the wave-1 track
     expect(dur).toBe(4);
     expect(cap).toBeGreaterThan(step);
   });
   it('keeps a floor so weak early hits still tick', () => {
-    const { step, cap } = venomRamp(3);
+    const { step, cap } = venomRamp(3, 1);
     expect(step).toBe(2); // floor would be 0 → clamped to 2
     expect(cap).toBe(2); // cap never below step
+  });
+  it('lets the wave-scaled track raise the cap late-game', () => {
+    // At wave 70 a 40-damage hit's own floor (24) is dwarfed by the wave track.
+    const { cap } = venomRamp(40, 70);
+    expect(cap).toBe(venomCap(70, 40));
+    expect(cap).toBeGreaterThan(24);
+  });
+});
+
+describe('venomWaveMult', () => {
+  it('always exceeds 1 (venom > poison) and stays under the 1.7 ceiling', () => {
+    for (let w = 1; w <= 100; w++) {
+      const m = venomWaveMult(w);
+      expect(m).toBeGreaterThan(1);
+      expect(m).toBeLessThan(1.7);
+    }
+  });
+  it('rises with the wave (single-target pulls ahead of AoE over a run)', () => {
+    expect(venomWaveMult(70)).toBeGreaterThan(venomWaveMult(1));
+  });
+});
+
+describe('venomCap', () => {
+  it('strictly beats the Smoke poison (dps = wave) on every wave', () => {
+    // Isolate the wave track with a zero-damage hit so only wave*mult counts.
+    for (let w = 1; w <= 100; w++) {
+      expect(venomCap(w, 0)).toBeGreaterThan(w);
+    }
+  });
+  it('is monotonic non-decreasing in the wave', () => {
+    let prev = -1;
+    for (let w = 1; w <= 100; w++) {
+      const c = venomCap(w, 0);
+      expect(c).toBeGreaterThanOrEqual(prev);
+      prev = c;
+    }
+  });
+  it('widens its lead over poison as the run goes (margin grows)', () => {
+    const early = venomCap(5, 0) - 5;
+    const late = venomCap(70, 0) - 70;
+    expect(late).toBeGreaterThan(early);
+  });
+  it('never runs away past a sane ceiling (≤ ceil(wave * 1.7))', () => {
+    for (let w = 1; w <= 100; w++) {
+      expect(venomCap(w, 0)).toBeLessThanOrEqual(Math.ceil(w * 1.7));
+    }
   });
 });

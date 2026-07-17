@@ -79,8 +79,8 @@ export const TOWERS: Record<string, TowerDef> = {
       // cannon → ship cannon → multicannon → ornament-kit multicannon.
       { level: 1, name: 'Hand Cannon', damage: 0, minDamage: 0, maxDamage: 8, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#cd5c5c', upgradeCost: 100, special: 'aoe' },
       { level: 2, name: 'Naval Cannon', damage: 0, minDamage: 5, maxDamage: 12, cooldown: 2 * TICK * 1000, range: 9 * 25, color: '#808080', upgradeCost: 200, special: 'aoe' },
-      { level: 3, name: 'Dwarf Multicannon', damage: 35, minDamage: 25, maxDamage: 45, cooldown: 6 * TICK * 1000, range: 11 * 25, color: '#d2b48c', upgradeCost: 400, special: 'aoe' },
-      { level: 4, name: 'Ornated Dwarf Multicannon', damage: 65, minDamage: 50, maxDamage: 80, cooldown: 6 * TICK * 1000, range: 12 * 25, color: '#ff4500', upgradeCost: 800, special: 'aoe' }
+      { level: 3, name: 'Dwarf Multicannon', damage: 35, minDamage: 25, maxDamage: 45, cooldown: 4 * TICK * 1000, range: 11 * 25, color: '#d2b48c', upgradeCost: 400, special: 'aoe' },
+      { level: 4, name: 'Ornated Dwarf Multicannon', damage: 65, minDamage: 50, maxDamage: 80, cooldown: 4 * TICK * 1000, range: 12 * 25, color: '#ff4500', upgradeCost: 800, special: 'aoe' }
     ]
   },
   tzhaar: {
