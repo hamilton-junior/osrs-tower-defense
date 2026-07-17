@@ -2746,22 +2746,16 @@ export default function GameRoot() {
       <div className="relative shrink-0 w-full" style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}>
 
         {/* The interface a stone has popped open: expands upward over the map, and
-            closes when its stone (or the ✕) is clicked again. `key` re-mounts it on
+            closes when its stone is clicked again — or on a right-click anywhere on
+            the panel (there is no ✕; the stone is the toggle). `key` re-mounts it on
             a switch so the fade/slide-in replays. Right-aligned beneath the stones
             that open it; scrolls internally when taller than the space allowed. */}
         {tab && (
         <div
           key={tab}
+          onContextMenu={(e) => { e.preventDefault(); setTab(null); }}
           className="rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 w-[clamp(20em,34vw,30em)] max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]"
         >
-        <button
-          onClick={() => setTab(null)}
-          title="Close"
-          aria-label="Close interface"
-          className="rs-btn absolute top-[0.45em] right-[0.45em] z-10 px-[0.45em] py-0 text-xs leading-[1.6]"
-        >
-          ✕
-        </button>
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
         <>
