@@ -334,6 +334,24 @@ export interface Tower {
   recoilAngle?: number;
 }
 
+/** A copied tower's build recipe. `dx`/`dy` are its offset from the copied
+ *  formation's centre, so a paste rebuilds the shape rather than a pile.
+ *
+ *  What it carries is only what a player *chose*: the tower's type and the
+ *  settings they'd otherwise have to re-pick one by one after building. Level,
+ *  XP, equipment and spec charge are deliberately absent — a paste builds base
+ *  towers, so copying can't launder a maxed tower into a cheap one. */
+export interface TowerBlueprint {
+  dx: number;
+  dy: number;
+  type: TowerType;
+  targetingPriority: TargetingPriority;
+  mageMode?: MageMode;
+  element?: Element;
+  ancientType?: AncientType;
+  supportSpell?: SupportSpell;
+}
+
 export interface Projectile {
   id: string;
   x: number;

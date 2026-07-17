@@ -517,6 +517,8 @@ export class GameRenderer {
 
     // A group move draws its own formation of ghosts and owns the frame.
     if (this.e.movingGroupIds.length) { this.drawGroupGhost(ctx); return; }
+    // So does a paste — same reason: the pointer is carrying a shape, not a tower.
+    if (this.e.pasting) { this.drawPasteGhost(ctx); return; }
 
     // A Shift-drag paints a line; the painted tiles are drawn as well as (not
     // instead of) the live ghost under the pointer, so the stroke reads as a line
@@ -609,6 +611,39 @@ export class GameRenderer {
       this.drawTowerSprite(
         ctx, t.tower.type, t.tower.level, t.x, t.y, t.tower.visualRadius,
         this.wizardStaffKey(t.tower),
+      );
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** The ghost for a paste: the copied formation previewed under the pointer.
+   *  Built at base tier, so the sprites are the level-1 ones — what you'd get,
+   *  not what was copied. A wizard still shows its own staff, since the paste
+   *  carries the spellbook.
+   *
+   *  Can't-pay reads red across the whole shape, like a group move: the paste is
+   *  all-or-nothing, so there's no such thing as a partly-affordable formation. */
+  private drawPasteGhost(ctx: CanvasRenderingContext2D) {
+    const plan = this.e.pastePlan(this.e.pointer.x, this.e.pointer.y);
+    if (!plan.length) return;
+    const affordable = this.e.money >= this.e.clipboardCost;
+
+    for (const t of plan) {
+      const ok = t.ok && affordable;
+      const range = this.e.previewStats(t.blueprint.type, t.x, t.y).range;
+      this.drawSquareRange(
+        ctx, t.x, t.y, squareRange(range, GRID),
+        ok ? 'rgba(0,255,0,0.5)' : 'rgba(255,0,0,0.5)',
+        ok ? 'rgba(0,255,0,0.06)' : 'rgba(255,0,0,0.06)',
+      );
+    }
+
+    // Sprites last, so no tower's range square is painted over its neighbour.
+    ctx.globalAlpha = 0.6;
+    for (const t of plan) {
+      this.drawTowerSprite(
+        ctx, t.blueprint.type, 1, t.x, t.y, 18,
+        this.wizardStaffKey(t.blueprint),
       );
     }
     ctx.globalAlpha = 1;

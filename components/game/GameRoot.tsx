@@ -254,7 +254,7 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, wavePreview: [], activeEvent: null, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
-  multiSelectedIds: [], movingGroupIds: [], placeQueue: [],
+  multiSelectedIds: [], movingGroupIds: [], placeQueue: [], clipboard: [], pasting: false,
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false, slayerUnlocks: [], slayerBlocked: [],
@@ -813,6 +813,7 @@ export default function GameRoot() {
    *   1-6 dock tower · Shift+drag paint a line (release Shift builds it)
    *   Esc cancel / pause · Space wave
    *   U upgrade selection · S sell (asks first) · , / . step speed · Z/X/C 1x/2x/5x
+   *   Ctrl+C copy selection · Ctrl+V paste it
    *   Q/W/E/R wizard spell · M mute · Ctrl+' debug console
    *
    * The selection is read off the engine (not React state) so this effect can stay
@@ -831,6 +832,15 @@ export default function GameRoot() {
       if ((e.ctrlKey || e.metaKey) && e.code === 'Quote') {
         e.preventDefault();
         setDebugOpen((o) => !o);
+        return;
+      }
+      // Copy/paste a tower layout on the keys every player already knows. Safe to
+      // claim: the board has no text to copy, and the guard above has already let
+      // anything typed into a field through untouched.
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.code === 'KeyC' || e.code === 'KeyV')) {
+        e.preventDefault();
+        if (e.code === 'KeyC') eng.copySelection();
+        else eng.beginPaste();
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser chords alone
@@ -982,7 +992,8 @@ export default function GameRoot() {
   // untouched). Left button only.
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     const eng = engineRef.current;
-    if (e.button !== 0 || !eng || eng.selectedTowerType || eng.movingTowerId || eng.movingGroupIds.length) return;
+    if (e.button !== 0 || !eng || eng.selectedTowerType || eng.movingTowerId
+        || eng.movingGroupIds.length || eng.pasting) return;
     marqueeStart.current = { cx: e.clientX, cy: e.clientY };
     marqueeDragged.current = false;
   }, []);
@@ -1817,6 +1828,21 @@ export default function GameRoot() {
             <span style={{ color: short ? 'var(--osrs-red)' : 'var(--osrs-yellow)' }}>{fmt(cost)} gp</span>
             {short && <span className="text-osrs-warn">(only {afford} affordable)</span>}
             <span className="text-[#d3c3a0]">· release Shift to build</span>
+          </div>
+        );
+      })()}
+
+      {/* Paste in flight: what the copied formation costs and how to land it.
+          Shares the queue caption's lane — the two modes are exclusive. */}
+      {ui.pasting && ui.clipboard.length > 0 && (() => {
+        const cost = engineRef.current?.clipboardCost ?? 0;
+        const short = ui.money < cost;
+        return (
+          <div className="rs-hint absolute left-1/2 bottom-[23%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap flex items-center gap-[0.4em] justify-center">
+            <span className="text-osrs-orange">▸</span>
+            Pasting {ui.clipboard.length} tower{ui.clipboard.length > 1 ? 's' : ''}
+            <span style={{ color: short ? 'var(--osrs-red)' : 'var(--osrs-yellow)' }}>{fmt(cost)} gp</span>
+            <span className="text-[#d3c3a0]">· click to build · Esc cancels</span>
           </div>
         );
       })()}
@@ -3562,6 +3588,7 @@ const TLDR: TldrGroup[] = [
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
     'With a tower picked, hold Shift and drag to paint a line of them — nothing is bought until you release Shift, so a stroke can be redrawn or thrown away (right-click / Esc). Tiles you can’t afford paint red and are skipped.',
     'Drag a box (no Shift) to multi-select — the panel then upgrades, sells, moves, re-aims or re-elements the whole box at once. A group Move carries the towers as one rigid formation: they keep the shape you arranged, and every tile must be legal or the drop is refused.',
+    'Ctrl+C copies what is selected, Ctrl+V puts that formation on your pointer and a click builds all of it — the shape, each tower’s target priority and each wizard’s spellbook and spell come along. Copies are built at base level and cost full price, so it saves the clicking, not the gold.',
   ] },
   { h: 'Waves', lines: [
     'Nothing spawns until you Start Wave (button beside the tower dock, or Space). Between waves is paused build time.',
@@ -3575,7 +3602,7 @@ const TLDR: TldrGroup[] = [
     'Roguelite — buy card rolls with gold (each roll costs more than the last) and keep one card; beating a boss claims a Relic.',
   ] },
   { h: 'Controls', lines: [
-    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift+drag paint a build line, release Shift to build it · drag a box to multi-select · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
+    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift+drag paint a build line, release Shift to build it · drag a box to multi-select · Ctrl+C copy the selection, Ctrl+V paste it · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
     'You never have to memorise these: every button that answers to a key wears it engraved in a top corner.',
     'One slim bar along the bottom: run controls (left), tower dock and Start Wave (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click — no interface stays on-screen.',
     'Auto sends each wave once the field is clear, after the delay in seconds beside it.',

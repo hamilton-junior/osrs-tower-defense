@@ -1,4 +1,4 @@
-import type { Enemy, Tower, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect, CombatStyle } from '../types';
+import type { Enemy, Tower, TowerBlueprint, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect, CombatStyle } from '../types';
 import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { resolveImpactTheme, IMPACT_RECIPES, type ImpactTheme } from '../systems/impact-fx';
@@ -259,6 +259,10 @@ export interface UIState {
   movingGroupIds: string[];
   /** Tiles painted by a Shift-drag, waiting for Shift to come up and build them. */
   placeQueue: { x: number; y: number }[];
+  /** Towers on the Ctrl+C clipboard (empty until something is copied). */
+  clipboard: TowerBlueprint[];
+  /** Whether the clipboard's formation is on the pointer waiting to be bought. */
+  pasting: boolean;
   /** Grid spot the player tapped to build on — drives the on-map tower picker. */
   pendingPlacement: { x: number; y: number } | null;
   /** Spellbook a freshly-placed wizard will use (pre-placement choice). */
@@ -659,6 +663,13 @@ export class GameEngine {
   /** Tiles a Shift-drag has painted. Holding Shift is the whole mode: the line is
    *  only gold once Shift comes up, so a stroke can be re-drawn or thrown away. */
   placeQueue: { x: number; y: number }[] = [];
+  /** Towers copied with Ctrl+C, as offsets from the formation's centre. Survives
+   *  pasting (paste as many times as you can pay for) and is only replaced by
+   *  another copy — but not a restart, where the towers it names are gone. */
+  clipboard: TowerBlueprint[] = [];
+  /** Whether a paste is in flight: the clipboard's formation is on the pointer,
+   *  waiting for a click to buy it. */
+  pasting = false;
   /** Enemy "pinned" by a click: its info panel stays open (tracking the enemy as
    *  it moves) until the player clicks elsewhere. Null = follow the hovered one. */
   inspectedEnemyId: string | null = null;
@@ -800,6 +811,8 @@ export class GameEngine {
       movingTowerId: this.movingTowerId,
       movingGroupIds: [...this.movingGroupIds],
       placeQueue: this.placeQueue.map(p => ({ ...p })),
+      clipboard: this.clipboard.map(b => ({ ...b })),
+      pasting: this.pasting,
       pendingPlacement: this.pendingPlacement ? { x: this.pendingPlacement.x, y: this.pendingPlacement.y } : null,
       pendingMageMode: this.pendingMageMode,
       gameSpeed: this.gameSpeed,
@@ -1062,7 +1075,7 @@ export class GameEngine {
    *  potion timers) — the player can still place, move, sell and pick spells. */
   escape() {
     if (this.pendingPlacement || this.movingTowerId || this.movingGroupIds.length
-        || this.placeQueue.length || this.selectedTowerType) {
+        || this.placeQueue.length || this.pasting || this.selectedTowerType) {
       this.cancelAction();
     } else {
       this.togglePause();
@@ -1339,6 +1352,7 @@ export class GameEngine {
     this.movingTowerId = null;
     this.movingGroupIds = []; // the selection itself survives — only the carry is dropped
     this.placeQueue = []; // a painted line is thrown away, not built
+    this.pasting = false; // the clipboard keeps its towers — only the aim is dropped
     this.pendingPlacement = null;
     this.emit();
   }
@@ -1485,6 +1499,124 @@ export class GameEngine {
     this.emit();
   }
 
+  /** Ctrl+C — remember the selected towers as a formation of blueprints.
+   *
+   *  Copies the marquee selection, or the single selected tower (a one-tower
+   *  formation is still a formation, and it's the obvious meaning of Ctrl+C with
+   *  one thing selected). The clipboard replaces whatever it held; there is no
+   *  "append", the same way no editor's copy appends. */
+  copySelection() {
+    let group = this.multiSelectedIds
+      .map(id => this.towers.find(t => t.id === id))
+      .filter((t): t is Tower => !!t);
+    if (!group.length) {
+      const one = this.towers.find(t => t.id === this.selectedTowerId);
+      if (one) group = [one];
+    }
+    if (!group.length) return;
+    const anchor = this.groupAnchor(group);
+    this.clipboard = group.map(t => ({
+      dx: t.x - anchor.x,
+      dy: t.y - anchor.y,
+      type: t.type,
+      targetingPriority: t.targetingPriority,
+      mageMode: t.mageMode,
+      element: t.element,
+      ancientType: t.ancientType,
+      supportSpell: t.supportSpell,
+    }));
+    this.sound.play('select');
+    this.notify(`Copied ${group.length} tower${group.length > 1 ? 's' : ''}`);
+    this.emit();
+  }
+
+  /** What one paste of the clipboard costs: every tower at its own base price.
+   *  Copying is a shortcut for re-buying the same layout, never a discount. */
+  get clipboardCost(): number {
+    return this.clipboard.reduce((s, b) => s + this.towerCost(b.type), 0);
+  }
+
+  /** Ctrl+V — put the copied formation on the pointer. It isn't bought until a
+   *  click lands it, so the paste can be aimed, or thrown away with Esc. */
+  beginPaste() {
+    if (!this.clipboard.length) return;
+    this.selectedTowerType = null;
+    this.selectedTowerId = null;
+    this.movingTowerId = null;
+    this.movingGroupIds = [];
+    this.placeQueue = [];
+    this.pendingPlacement = null;
+    this.pasting = true;
+    this.sound.play('click');
+    this.emit();
+  }
+
+  /** Where each copied tower lands if the formation's centre is dropped on
+   *  (x, y), each with its own verdict so the ghost can colour them one by one.
+   *
+   *  The blueprints can't block each other — they were a legal layout when they
+   *  were copied — so each is judged only against the towers already standing,
+   *  plus the board edges (same rim hazard as a group move). */
+  pastePlan(x: number, y: number): { blueprint: TowerBlueprint; x: number; y: number; ok: boolean }[] {
+    if (!this.clipboard.length) return [];
+    const ax = Math.round(x / GRID) * GRID;
+    const ay = Math.round(y / GRID) * GRID;
+    return this.clipboard.map(b => {
+      const tx = ax + b.dx;
+      const ty = ay + b.dy;
+      return {
+        blueprint: b,
+        x: tx,
+        y: ty,
+        ok: tx >= TOWER_RADIUS && tx <= this.width - TOWER_RADIUS &&
+            ty >= TOWER_RADIUS && ty <= this.height - TOWER_RADIUS &&
+            isValidPlacement(tx, ty, this.path, this.towers),
+      };
+    });
+  }
+
+  /** All-or-nothing, like a group move: a rigid formation can't bend around one
+   *  bad tile. Unlike the Shift-drag line — a stroke is an ordered list that can
+   *  stop halfway and still mean something; a shape half-built is just rubble. */
+  pasteValid(x: number, y: number): boolean {
+    const plan = this.pastePlan(x, y);
+    return plan.length > 0 && plan.every(t => t.ok) && this.money >= this.clipboardCost;
+  }
+
+  private tryPaste(x: number, y: number) {
+    const plan = this.pastePlan(x, y);
+    if (!plan.length) { this.pasting = false; this.emit(); return; } // clipboard emptied under it
+    // Both of these keep the paste alive and wait for a better click: the ghost is
+    // already red, and a player aiming a formation expects to be able to re-aim.
+    if (!plan.every(t => t.ok)) return;
+    if (this.money < this.clipboardCost) { this.notify('Not enough gold'); return; }
+    for (const t of plan) this.buildFromBlueprint(t.blueprint, t.x, t.y);
+    this.pasting = false;
+    this.bumpTowerLayout();
+    this.emit();
+  }
+
+  /** Build one blueprint: a base-tier tower of its type, then the settings the
+   *  copy carried. `placeTower` owns construction (including the wizard's whole
+   *  spellbook birth), so only the choices a player would otherwise re-pick by
+   *  hand are re-applied here. */
+  private buildFromBlueprint(b: TowerBlueprint, x: number, y: number) {
+    const tower = this.placeTower(b.type, x, y, true, b.mageMode ?? this.pendingMageMode);
+    if (!tower) return;
+    tower.targetingPriority = b.targetingPriority;
+    if (tower.type !== 'wizard') return;
+    if (b.element) tower.element = b.element;
+    if (b.ancientType) tower.ancientType = b.ancientType;
+    if (b.supportSpell) {
+      // Prayer Wards are capped on the field, and a paste must not be the way
+      // around it. Over the cap the ward reverts to the Utility default rather
+      // than refusing the tower — you get a wizard, just not a fourth ward.
+      const capped = b.supportSpell === 'sanctity' && this.prayerWardCount() >= MAX_PRAYER_WARDS;
+      tower.supportSpell = capped ? 'curse' : b.supportSpell;
+      if (capped) this.notify(`Max ${MAX_PRAYER_WARDS} Prayer Ward wizards`);
+    }
+  }
+
   /** Paint one tile into the Shift-drag build queue.
    *
    *  Deliberately silent when it refuses: this runs on every pointer sample of a
@@ -1555,6 +1687,13 @@ export class GameEngine {
       this.tryMoveGroup(x, y);
       return;
     }
+    // Same reason a paste claims the click early: it's aiming a formation, not
+    // picking towers, and the click that lands it must not also select whatever
+    // is underneath.
+    if (this.pasting) {
+      this.tryPaste(x, y);
+      return;
+    }
     this.multiSelectedIds = []; // any normal click drops a marquee selection
     if (this.movingTowerId) {
       this.tryMoveTower(x, y);
@@ -1620,18 +1759,25 @@ export class GameEngine {
     this.emit();
   }
 
-  placeTower(type: TowerType, x: number, y: number, keepPlacing = false) {
+  /** Build a tower, or return null if it couldn't be (no gold / bad tile).
+   *
+   *  `mageMode` defaults to the pending spellbook — the player's pre-placement
+   *  choice — and is overridden only by a paste, which rebuilds each wizard with
+   *  the spellbook its original had. Passing it in keeps this the single place
+   *  that knows how a wizard of a given book is born (its staff, its starting
+   *  spell, its upgrade cost all follow from it). */
+  placeTower(type: TowerType, x: number, y: number, keepPlacing = false, mageMode: MageMode = this.pendingMageMode): Tower | null {
     const def = TOWERS[type];
-    if (!def) return;
+    if (!def) return null;
     const cost = this.towerCost(type);
     const sx = Math.round(x / GRID) * GRID;
     const sy = Math.round(y / GRID) * GRID;
-    if (this.money < cost) { this.notify('Not enough gold'); return; }
-    if (!isValidPlacement(sx, sy, this.path, this.towers)) { this.notify("Can't build there"); return; }
+    if (this.money < cost) { this.notify('Not enough gold'); return null; }
+    if (!isValidPlacement(sx, sy, this.path, this.towers)) { this.notify("Can't build there"); return null; }
 
     const tier = def.tiers[0];
     this.money -= cost;
-    this.towers.push({
+    const tower: Tower = {
       id: uid(),
       x: sx,
       y: sy,
@@ -1646,7 +1792,7 @@ export class GameEngine {
       targetId: null,
       targetingPriority: 'first',
       name: tier.name,
-      upgradeCost: upgradeCostFor(def.tiers[1]?.upgradeCost ?? 0, type === 'wizard' ? this.pendingMageMode : undefined),
+      upgradeCost: upgradeCostFor(def.tiers[1]?.upgradeCost ?? 0, type === 'wizard' ? mageMode : undefined),
       special: tier.special,
       minDamage: tier.minDamage,
       maxDamage: tier.maxDamage,
@@ -1658,11 +1804,12 @@ export class GameEngine {
       equipment: { weapon: null, shield: null, accessory: null },
       // Wizard's spellbook is the pre-placement choice and is locked from here on;
       // only its element (Elemental) or barrage (Ancients) stays adjustable.
-      mageMode: type === 'wizard' ? this.pendingMageMode : undefined,
-      element: type === 'wizard' && this.pendingMageMode === 'elemental' ? 'air' : undefined,
-      ancientType: type === 'wizard' && this.pendingMageMode === 'ancients' ? 'ice' : undefined,
-      supportSpell: type === 'wizard' && this.pendingMageMode === 'utility' ? 'curse' : undefined,
-    });
+      mageMode: type === 'wizard' ? mageMode : undefined,
+      element: type === 'wizard' && mageMode === 'elemental' ? 'air' : undefined,
+      ancientType: type === 'wizard' && mageMode === 'ancients' ? 'ice' : undefined,
+      supportSpell: type === 'wizard' && mageMode === 'utility' ? 'curse' : undefined,
+    };
+    this.towers.push(tower);
     this.towersBuilt += 1;
     this.bumpTowerLayout();
     // No build SFX for now — the old fireworks read as a celebration; per-tower
@@ -1670,6 +1817,7 @@ export class GameEngine {
     // Shift-place keeps the type selected so the next click drops another.
     if (!keepPlacing) this.selectedTowerType = null;
     this.emit();
+    return tower;
   }
 
   upgradeTower(towerId: string) {
@@ -4360,6 +4508,8 @@ export class GameEngine {
     this.movingTowerId = null;
     this.movingGroupIds = [];
     this.placeQueue = [];
+    this.clipboard = [];
+    this.pasting = false;
     this.pendingPlacement = null;
 
     this.slayer.load(save.slayer);
@@ -4423,6 +4573,8 @@ export class GameEngine {
     this.movingTowerId = null;
     this.movingGroupIds = [];
     this.placeQueue = [];
+    this.clipboard = [];
+    this.pasting = false;
     this.pendingPlacement = null;
     this.gameTime = 0;
     this.slayer.reset();
