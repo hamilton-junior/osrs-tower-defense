@@ -4597,6 +4597,9 @@ export class GameEngine {
     this.fx = [];
     this.spawnQueue = [];
     this.spawnTimer = 0;
+    // A restored run starts hands-on: auto-wave is never carried in from the save
+    // (it isn't persisted) or left on from a previous run in this session.
+    this.autoplay = false;
     this.autoplayTimer = 0;
     this.previewCache = null;
 
@@ -4709,6 +4712,9 @@ export class GameEngine {
     this.baseFlash = 0;
     this.paused = false;
     this.waveActive = false;
+    // Auto-wave never carries into a new run — a fresh run always starts hands-on.
+    this.autoplay = false;
+    this.autoplayTimer = 0;
     this.gameOver = false;
     this.selectedTowerType = null;
     this.selectedTowerId = null;
