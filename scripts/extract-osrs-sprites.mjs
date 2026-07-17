@@ -112,11 +112,14 @@ const HITSPLAT_IDS = {
 /** Interface chrome / HUD sprites. */
 const UI_IDS = {
   multicombat_icon: 442, // MULTI_COMBAT_ZONE_CROSSED_SWORDS
-  // Four arrows converging on a point (an Arceuus-book glyph) — "pull in the
-  // nearest", which is what the `closest` targeting priority does. Picked off a
-  // --dump of 1255..1340: 1308/1309 are the same glyph in red and grey, which
-  // would collide with the HP hearts and with a disabled button.
-  converge: 1307,
+  // The four corner brackets of OSRS's own click marker (the yellow X that blooms
+  // where you tap the ground; 515-518 are its animation frames, 518 the last).
+  // Framing a point is the game's targeting language, which is what the `closest`
+  // priority needs. Picked over a full --dump of 0..2589: nothing in the cache
+  // means *distance*, since OSRS has no targeting-priority concept, so this is a
+  // metaphor either way — but it is the only clean one that collides with nothing
+  // else on the grid (yellow is unique there, and the shape is no one else's).
+  reticle: 518,
   ge_logo: 1531, // MAP_ICON_GRAND_EXCHANGE (the gold-scales map icon)
   back_pattern: 452, // TEXTURE_WOOD_DARK — the tiling interface wood (wiki "Back_pattern")
   orb_background: 1059, // MINIMAP_ORB_EMPTY
