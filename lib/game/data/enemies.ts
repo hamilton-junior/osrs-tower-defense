@@ -394,6 +394,21 @@ export const ENEMIES: Record<string, EnemyDef> = {
     // soul stands in for it. On the field each gets its own clip via `animType`.
     animSlug: 'soul_melee'
   },
+  yt_hurkot: {
+    type: 'yt_hurkot',
+    renderScale: 0.9,
+    name: 'Yt-HurKot',
+    // Jad's Fight-Cave healers: an escort, not a wave enemy. Below half HP Jad
+    // summons a ring of them and they claw his health back until cut down; they
+    // never walk the path and pay nothing (the payoff is denying Jad's heal).
+    // Real HP is scaled off Jad at summon time — this is only the log's fallback.
+    hp: 60,
+    speed: 70,
+    color: '#c94f2e',
+    reward: 0,
+    summonedBy: 'jad'
+    // Slug defaults to `yt_hurkot` (its own baked clip) — no animSlug needed.
+  },
   dawn: {
     type: 'dawn',
     renderScale: 1.35,

@@ -4553,10 +4553,15 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
           )
         : selected
         ? (() => {
-            // Navigate within the current filter+sort order; wrap around so
-            // prev/next are always live (continuous bestiary browsing). Fall back
-            // to the full tab list if the selected entry was filtered out.
-            const nav = dispEnemies.some((e) => e.type === selected) ? dispEnemies : entries;
+            // A summon (escort) has no line in the roster — it lives on its
+            // summoner's page. When one is opened, browse within that boss's
+            // escorts and let Back return to the boss; otherwise navigate the
+            // current filter+sort order (falling back to the full tab list if the
+            // selected entry was filtered out). Wrap around so prev/next stay live.
+            const summoner = ENEMIES[selected]?.summonedBy;
+            const nav = summoner
+              ? (SUMMONS_BY_BOSS[summoner] ?? [])
+              : dispEnemies.some((e) => e.type === selected) ? dispEnemies : entries;
             const idx = nav.findIndex((e) => e.type === selected);
             const prev = nav[(idx - 1 + nav.length) % nav.length];
             const next = nav[(idx + 1) % nav.length];
@@ -4565,9 +4570,10 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
                 type={selected}
                 kc={killCounts[selected] ?? 0}
                 killCounts={killCounts}
-                onBack={() => setSelected(null)}
+                onBack={() => setSelected(summoner ?? null)}
                 onPrev={() => setSelected(prev.type)}
                 onNext={() => setSelected(next.type)}
+                onSelect={setSelected}
                 position={{ index: idx + 1, total: nav.length }}
               />
             );
@@ -4603,9 +4609,9 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
  *  enemy's combat stats and lifetime kill count. Opened by clicking a log card.
  *  A boss's page also lists the escorts it summons — they have no line of their
  *  own in the roster, so this is where they are collected. */
-function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, position }: {
+function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, onSelect, position }: {
   type: string; kc: number; killCounts: Record<string, number>; onBack: () => void;
-  onPrev: () => void; onNext: () => void;
+  onPrev: () => void; onNext: () => void; onSelect: (type: string) => void;
   position: { index: number; total: number };
 }) {
   const def = ENEMIES[type as keyof typeof ENEMIES];
@@ -4656,13 +4662,18 @@ function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, position }: {
             {summons.map((s) => {
               const n = killCounts[s.type] ?? 0;
               return (
-                <div key={s.type} className={`flex items-center gap-[0.6em] ${n > 0 ? '' : 'rs-log-locked'}`}>
+                <button
+                  key={s.type}
+                  onClick={() => onSelect(s.type)}
+                  title={`${s.name} — ${n} kill${n === 1 ? '' : 's'} · click for stats`}
+                  className={`flex items-center gap-[0.6em] w-full text-left rounded px-[0.2em] py-[0.1em] transition-colors hover:bg-[#3a3327] ${n > 0 ? '' : 'rs-log-locked'}`}
+                >
                   <div className="rs-log-sprite shrink-0" style={{ ...enemySpriteStyle(s.type, true), fontSize: '0.75em' }} />
                   <span className="flex-1 min-w-0 truncate text-[0.8em] text-[#e8dcc0]">{s.name}</span>
                   <span className="text-[0.8em] tabular-nums" style={{ color: n > 0 ? 'var(--osrs-yellow)' : '#7a7060' }}>
                     {n > 0 ? `× ${fmt(n)}` : '0'}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>

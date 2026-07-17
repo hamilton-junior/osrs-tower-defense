@@ -212,8 +212,8 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   const [expanded, setExpanded] = useState<ClipName | null>(null);
   const [lightboxMode, setLightboxMode] = useState<'3d' | 'sprite'>('3d');
   const set = ENEMY_ANIMS[viewing];
-  // Baked slugs that aren't spawnable EnemyTypes (yt_hurkot, souls) have no
-  // ENEMIES def — the bestiary still shows their clips, just without stats.
+  // Some baked slugs (Cerberus's per-soul clips) aren't ENEMIES keys of their
+  // own — the bestiary still shows their clips, just without stats.
   const def = (ENEMIES as Partial<Record<string, (typeof ENEMIES)[EnemyType]>>)[viewing];
   const viewingName = def?.name ?? EXTRA_BESTIARY_NAMES[viewing] ?? viewing;
 

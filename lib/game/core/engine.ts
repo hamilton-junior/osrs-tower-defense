@@ -510,8 +510,9 @@ export interface DeathFx {
   x: number;
   y: number;
   type: string;
-  /** Baked-clip override (e.g. a Jad healer dies as `yt_hurkot`, not its `imp`
-   *  combat type); mirrors Enemy.animType. Falls back to `type` when unbaked. */
+  /** Baked-clip override (e.g. a Cerberus soul dies with its own melee/ranged/magic
+   *  clip, not the shared `summoned_soul` type); mirrors Enemy.animType. Falls back
+   *  to `type` when unbaked. */
   animType?: string;
   isBoss: boolean;
   renderScale?: number;
@@ -2855,12 +2856,9 @@ export class GameEngine {
     for (let i = 0; i < JAD_HEALER_COUNT; i++) {
       const ang = (i / JAD_HEALER_COUNT) * Math.PI * 2 - Math.PI / 2;
       this.enemies.push({
-        ...ENEMIES.imp,
+        ...ENEMIES.yt_hurkot,
         id: uid(),
-        type: 'imp',
-        // Render the real Yt-HurKot model once it's baked (falls back to the imp
-        // clip until then); stats/combat stay on `type: 'imp'`.
-        animType: 'yt_hurkot',
+        type: 'yt_hurkot', // its own type now → its own Collection Log line + kill count
         name: 'Yt-HurKot',
         escort: true,
         ownerId: jad.id,
@@ -4074,10 +4072,9 @@ export class GameEngine {
     // payoff is denying Jad's heal). The death FX above still play.
     // An escort with its own Collection Log line (nested under the boss that
     // summons it) still records the kill, even though it pays nothing — the entry
-    // would otherwise be permanently unobtainable. Gated on `summonedBy` rather
-    // than `escort`, because not every escort is its own monster: a Yt-HurKot
-    // carries `type: 'imp'` purely as its stat line (its name and model are its
-    // own), so counting escorts wholesale would file Jad's healers as Imp kills.
+    // would otherwise be permanently unobtainable. Gated on `summonedBy` so only
+    // escorts that are their own monster (Yt-HurKot, Summoned Soul) are counted,
+    // never a generic minion borrowing another type's stat line.
     if (!enemy.debug && enemy.escort && ENEMIES[enemy.type]?.summonedBy) {
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
     }
