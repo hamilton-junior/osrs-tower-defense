@@ -254,7 +254,7 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, wavePreview: [], activeEvent: null, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
-  multiSelectedIds: [], movingGroupIds: [],
+  multiSelectedIds: [], movingGroupIds: [], placeQueue: [],
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false, slayerUnlocks: [], slayerBlocked: [],
@@ -805,12 +805,13 @@ export default function GameRoot() {
    *
    * The number row picks a tower from the dock — the tower-defence idiom, and the
    * answer to "let me re-buy the last tower without going back to the UI": tap its
-   * number again (hold Shift while placing to keep placing it). That cost the number
+   * number again (or Shift-drag a whole line of them). That cost the number
    * row its old job, so game speed has two homes: , and . (the `<` / `>` keys, which
    * read as slower/faster) step through the speeds, and Z/X/C jump straight to
    * 1x/2x/5x — one key per speed, for when you know which one you want.
    *
-   *   1-6 dock tower · Shift+click keep placing · Esc cancel / pause · Space wave
+   *   1-6 dock tower · Shift+drag paint a line (release Shift builds it)
+   *   Esc cancel / pause · Space wave
    *   U upgrade selection · S sell (asks first) · , / . step speed · Z/X/C 1x/2x/5x
    *   Q/W/E/R wizard spell · M mute · Ctrl+' debug console
    *
@@ -880,8 +881,23 @@ export default function GameRoot() {
         default: break;
       }
     };
+    // Shift coming up IS the confirmation for a painted build line — holding it
+    // is the whole mode, so letting go is what buys the towers.
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') engineRef.current?.commitPlaceQueue();
+    };
+    // A keyup never arrives if focus leaves mid-stroke (alt-tab with Shift down),
+    // which would strand the ghosts with no way to finish. Throw the line away
+    // rather than build it: unpainting costs nothing, spending gold off-screen does.
+    const onBlur = () => engineRef.current?.clearPlaceQueue();
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
   }, []);
 
   /**
@@ -941,6 +957,12 @@ export default function GameRoot() {
   const onMove = useCallback((e: React.MouseEvent) => {
     const { x, y } = toLogic(e.clientX, e.clientY);
     engineRef.current?.setPointer(x, y);
+    // Shift-drag paints a line of towers to build. Held button only, so hovering
+    // with Shift down (e.g. on the way to a button) doesn't smear a queue.
+    if (e.shiftKey && (e.buttons & 1) && engineRef.current?.selectedTowerType) {
+      engineRef.current.queuePlacement(x, y);
+      return;
+    }
     // Marquee drag: once moved past a small threshold, draw the selection box.
     const start = marqueeStart.current;
     if (start && (e.buttons & 1)) {
@@ -980,6 +1002,13 @@ export default function GameRoot() {
     // A real marquee drag already handled selection on mouse-up; swallow the click.
     if (marqueeDragged.current) { marqueeDragged.current = false; return; }
     const { x, y } = toLogic(e.clientX, e.clientY);
+    // With a tower armed, Shift means "queue, don't build" — a plain Shift-click
+    // paints one tile, the same as the shortest possible drag. Releasing Shift
+    // builds the line.
+    if (e.shiftKey && engineRef.current?.selectedTowerType) {
+      engineRef.current.queuePlacement(x, y);
+      return;
+    }
     engineRef.current?.handleClick(x, y, e.shiftKey);
   }, [toLogic]);
 
@@ -1772,6 +1801,25 @@ export default function GameRoot() {
           {banner.text}
         </div>
       )}
+
+      {/* Shift-drag build line: what it costs and how to commit it, while the
+          stroke is still free to redraw. Sits above the toast lane so a refusal
+          can still speak over it. */}
+      {ui.placeQueue.length > 0 && (() => {
+        const eng = engineRef.current;
+        const cost = eng?.placeQueueCost ?? 0;
+        const afford = eng?.placeQueueAffordable ?? 0;
+        const short = afford < ui.placeQueue.length;
+        return (
+          <div className="rs-hint absolute left-1/2 bottom-[23%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap flex items-center gap-[0.4em] justify-center">
+            <span className="text-osrs-orange">▸</span>
+            {ui.placeQueue.length} queued
+            <span style={{ color: short ? 'var(--osrs-red)' : 'var(--osrs-yellow)' }}>{fmt(cost)} gp</span>
+            {short && <span className="text-osrs-warn">(only {afford} affordable)</span>}
+            <span className="text-[#d3c3a0]">· release Shift to build</span>
+          </div>
+        );
+      })()}
 
       {/* Blocked-action toast (e.g. not enough gold) */}
       {toast && (
@@ -3512,7 +3560,8 @@ const TLDR: TldrGroup[] = [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
     'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks.',
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
-    'Hold Shift to keep placing the same tower; drag a box to multi-select — the panel then upgrades, sells, moves, re-aims or re-elements the whole box at once. A group Move carries the towers as one rigid formation: they keep the shape you arranged, and every tile must be legal or the drop is refused.',
+    'With a tower picked, hold Shift and drag to paint a line of them — nothing is bought until you release Shift, so a stroke can be redrawn or thrown away (right-click / Esc). Tiles you can’t afford paint red and are skipped.',
+    'Drag a box (no Shift) to multi-select — the panel then upgrades, sells, moves, re-aims or re-elements the whole box at once. A group Move carries the towers as one rigid formation: they keep the shape you arranged, and every tile must be legal or the drop is refused.',
   ] },
   { h: 'Waves', lines: [
     'Nothing spawns until you Start Wave (button beside the tower dock, or Space). Between waves is paused build time.',
@@ -3526,7 +3575,7 @@ const TLDR: TldrGroup[] = [
     'Roguelite — buy card rolls with gold (each roll costs more than the last) and keep one card; beating a boss claims a Relic.',
   ] },
   { h: 'Controls', lines: [
-    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift keep placing · drag a box to multi-select · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
+    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift+drag paint a build line, release Shift to build it · drag a box to multi-select · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
     'You never have to memorise these: every button that answers to a key wears it engraved in a top corner.',
     'One slim bar along the bottom: run controls (left), tower dock and Start Wave (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click — no interface stays on-screen.',
     'Auto sends each wave once the field is clear, after the delay in seconds beside it.',

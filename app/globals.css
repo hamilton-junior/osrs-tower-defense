@@ -818,6 +818,23 @@ kbd {
   100% { opacity: 0; transform: translate(-50%, -6px); }
 }
 
+/* Persistent on-board caption for a mode that is still running (e.g. the tiles a
+   Shift-drag has painted, waiting to be bought). Same chrome as .rs-toast, but
+   neutral wood instead of alarm red and — the point — no animation: a toast is
+   built to fade itself out after 1.4s, which is exactly wrong for a caption that
+   must stay as long as the mode does. */
+.rs-hint {
+  font-family: var(--font-osrs);
+  font-size: clamp(15px, 1.5vw, 22px);
+  color: var(--osrs-yellow);
+  background: linear-gradient(180deg, rgba(38, 31, 20, 0.94), rgba(24, 19, 12, 0.96));
+  border: 2px solid var(--rs-keyline);
+  border-radius: 0;
+  padding: 0.35em 0.9em;
+  text-shadow: 1px 1px 0 #000;
+  box-shadow: var(--rs-raised), 0 3px 9px rgba(0, 0, 0, 0.6);
+}
+
 /* Collection-log "unlock" popup: an ornate gold frame over a dark panel, shown
    top-centre when something is unlocked. Reused for any UnlockItem kind. */
 .rs-unlock-popup {

@@ -518,6 +518,11 @@ export class GameRenderer {
     // A group move draws its own formation of ghosts and owns the frame.
     if (this.e.movingGroupIds.length) { this.drawGroupGhost(ctx); return; }
 
+    // A Shift-drag paints a line; the painted tiles are drawn as well as (not
+    // instead of) the live ghost under the pointer, so the stroke reads as a line
+    // being extended rather than a ghost that jumped.
+    this.drawQueueGhost(ctx);
+
     // Either placing a new tower (selectedTowerType) or relocating one (movingTower).
     const moving = this.e.movingTower;
     const type = moving ? moving.type : this.e.selectedTowerType;
@@ -550,6 +555,31 @@ export class GameRenderer {
     const preferredKey = moving ? this.wizardStaffKey(moving) : undefined;
     this.drawTowerSprite(ctx, type, level, sx, sy, moving ? moving.visualRadius : 18, preferredKey);
     ctx.globalAlpha = 1;
+  }
+
+  /** The tiles a Shift-drag has painted, waiting for Shift to come up and buy
+   *  them. Tiles past what the gold covers are drawn red and dimmer: they are in
+   *  the line but won't be built, and saying so now beats a toast afterwards.
+   *
+   *  No range squares here — a ten-tower line would carpet the board in green and
+   *  hide the very ground being painted on. The live ghost under the pointer still
+   *  shows the range of the tower about to be added. */
+  private drawQueueGhost(ctx: CanvasRenderingContext2D) {
+    const type = this.e.selectedTowerType;
+    if (!type || !this.e.placeQueue.length) return;
+    const affordable = this.e.placeQueueAffordable;
+
+    this.e.placeQueue.forEach((p, i) => {
+      const ok = i < affordable;
+      this.drawSquareRange(
+        ctx, p.x, p.y, GRID / 2,
+        ok ? 'rgba(0,255,0,0.5)' : 'rgba(255,0,0,0.5)',
+        ok ? 'rgba(0,255,0,0.10)' : 'rgba(255,0,0,0.10)',
+      );
+      ctx.globalAlpha = ok ? 0.6 : 0.3;
+      this.drawTowerSprite(ctx, type, 1, p.x, p.y, 18);
+      ctx.globalAlpha = 1;
+    });
   }
 
   /** The ghost for a group move: the whole formation previewed under the pointer,

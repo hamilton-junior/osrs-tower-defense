@@ -257,6 +257,8 @@ export interface UIState {
   /** Towers being relocated as one rigid formation (empty unless a group move is
    *  in flight). Mutually exclusive with `movingTowerId`. */
   movingGroupIds: string[];
+  /** Tiles painted by a Shift-drag, waiting for Shift to come up and build them. */
+  placeQueue: { x: number; y: number }[];
   /** Grid spot the player tapped to build on — drives the on-map tower picker. */
   pendingPlacement: { x: number; y: number } | null;
   /** Spellbook a freshly-placed wizard will use (pre-placement choice). */
@@ -654,6 +656,9 @@ export class GameEngine {
   /** Ids of the towers a group move is carrying. The selection they came from is
    *  kept alive underneath, so the multi panel stays put while the ghost flies. */
   movingGroupIds: string[] = [];
+  /** Tiles a Shift-drag has painted. Holding Shift is the whole mode: the line is
+   *  only gold once Shift comes up, so a stroke can be re-drawn or thrown away. */
+  placeQueue: { x: number; y: number }[] = [];
   /** Enemy "pinned" by a click: its info panel stays open (tracking the enemy as
    *  it moves) until the player clicks elsewhere. Null = follow the hovered one. */
   inspectedEnemyId: string | null = null;
@@ -794,6 +799,7 @@ export class GameEngine {
       multiSelectedIds: [...this.multiSelectedIds],
       movingTowerId: this.movingTowerId,
       movingGroupIds: [...this.movingGroupIds],
+      placeQueue: this.placeQueue.map(p => ({ ...p })),
       pendingPlacement: this.pendingPlacement ? { x: this.pendingPlacement.x, y: this.pendingPlacement.y } : null,
       pendingMageMode: this.pendingMageMode,
       gameSpeed: this.gameSpeed,
@@ -1055,7 +1061,8 @@ export class GameEngine {
    *  Pausing only freezes the sim (enemies, towers, projectiles, DoTs, prayer &
    *  potion timers) — the player can still place, move, sell and pick spells. */
   escape() {
-    if (this.pendingPlacement || this.movingTowerId || this.movingGroupIds.length || this.selectedTowerType) {
+    if (this.pendingPlacement || this.movingTowerId || this.movingGroupIds.length
+        || this.placeQueue.length || this.selectedTowerType) {
       this.cancelAction();
     } else {
       this.togglePause();
@@ -1331,6 +1338,7 @@ export class GameEngine {
     this.selectedTowerType = null;
     this.movingTowerId = null;
     this.movingGroupIds = []; // the selection itself survives — only the carry is dropped
+    this.placeQueue = []; // a painted line is thrown away, not built
     this.pendingPlacement = null;
     this.emit();
   }
@@ -1477,9 +1485,69 @@ export class GameEngine {
     this.emit();
   }
 
+  /** Paint one tile into the Shift-drag build queue.
+   *
+   *  Deliberately silent when it refuses: this runs on every pointer sample of a
+   *  drag, so a toast per bad tile would be a stream of noise. The ghost already
+   *  says what's in the line and what it costs. */
+  queuePlacement(x: number, y: number) {
+    const type = this.selectedTowerType;
+    if (!type || this.movingTowerId || this.movingGroupIds.length) return;
+    const sx = Math.round(x / GRID) * GRID;
+    const sy = Math.round(y / GRID) * GRID;
+    if (this.placeQueue.some(p => p.x === sx && p.y === sy)) return; // already painted
+    // Painted tiles block each other, or a stroke would stack towers on one spot.
+    const blockers = [...this.towers, ...this.placeQueue];
+    if (!isValidPlacement(sx, sy, this.path, blockers)) return;
+    this.placeQueue.push({ x: sx, y: sy });
+    this.emit();
+  }
+
+  /** What the painted line costs to build, all of it. */
+  get placeQueueCost(): number {
+    return this.selectedTowerType ? this.placeQueue.length * this.towerCost(this.selectedTowerType) : 0;
+  }
+
+  /** How many of the painted tiles the current gold actually covers — the ghost
+   *  greys the rest, so the line never promises a tower it can't pay for. */
+  get placeQueueAffordable(): number {
+    if (!this.selectedTowerType) return 0;
+    const each = this.towerCost(this.selectedTowerType);
+    return each > 0 ? Math.min(this.placeQueue.length, Math.floor(this.money / each)) : this.placeQueue.length;
+  }
+
+  clearPlaceQueue() {
+    if (!this.placeQueue.length) return;
+    this.placeQueue = [];
+    this.emit();
+  }
+
+  /** Shift came up — the confirmation. Build the painted line in paint order for
+   *  as long as the gold lasts, then end the mode (Shift held IS the mode). */
+  commitPlaceQueue() {
+    const type = this.selectedTowerType;
+    const queue = this.placeQueue;
+    this.placeQueue = [];
+    if (!type || !queue.length) { this.emit(); return; }
+    let built = 0;
+    for (const p of queue) {
+      // Checked here rather than letting placeTower refuse: it would fire one
+      // "Not enough gold" toast per unbuilt tile.
+      if (this.money < this.towerCost(type)) break;
+      const before = this.towers.length;
+      this.placeTower(type, p.x, p.y, true); // keepPlacing: the queue owns the selection
+      if (this.towers.length > before) built++;
+    }
+    this.selectedTowerType = null; // Shift is up: the mode is over
+    if (built < queue.length) this.notify(built ? `Built ${built} of ${queue.length} — out of gold` : 'Not enough gold');
+    this.emit();
+  }
+
   /** Handle a click in logic space: move/place a tower or select/deselect one.
-   *  `keepPlacing` (Shift-click) keeps the tower type selected after a successful
-   *  build so several can be dropped in a row. */
+   *  `keepPlacing` keeps the tower type selected after a successful build, so the
+   *  caller can drop several in a row — it is what {@link commitPlaceQueue} builds
+   *  a painted line with. (Shift no longer reaches here with a tower armed: the UI
+   *  routes it to {@link queuePlacement} instead.) */
   handleClick(x: number, y: number, keepPlacing = false) {
     // A group move claims the click before the line below can fire: the towers
     // being carried ARE the marquee selection, so dropping it would drop them.
@@ -4291,6 +4359,7 @@ export class GameEngine {
     this.multiSelectedIds = [];
     this.movingTowerId = null;
     this.movingGroupIds = [];
+    this.placeQueue = [];
     this.pendingPlacement = null;
 
     this.slayer.load(save.slayer);
@@ -4353,6 +4422,7 @@ export class GameEngine {
     this.multiSelectedIds = [];
     this.movingTowerId = null;
     this.movingGroupIds = [];
+    this.placeQueue = [];
     this.pendingPlacement = null;
     this.gameTime = 0;
     this.slayer.reset();
