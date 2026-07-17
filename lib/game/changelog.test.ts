@@ -17,10 +17,24 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('loadChangelog', () => {
   it('returns the valid entries from a well-formed file', async () => {
-    stubFetch(() => ({ generatedAt: '2026-07-17', entries: [entry(), entry({ kind: 'fix', fromFeedback: true })] }));
+    stubFetch(() => ({ generatedAt: '2026-07-17', entries: [entry(), entry({ kind: 'fixed', fromFeedback: true })] }));
     const out = await loadChangelog();
     expect(out).toHaveLength(2);
-    expect(out[1]).toMatchObject({ kind: 'fix', fromFeedback: true });
+    expect(out[1]).toMatchObject({ kind: 'fixed', fromFeedback: true });
+  });
+
+  it('accepts every expanded badge kind', async () => {
+    stubFetch(() => ({
+      entries: ['new', 'fixed', 'updated', 'balanced', 'faster'].map((kind) => entry({ kind })),
+    }));
+    expect(await loadChangelog()).toHaveLength(5);
+  });
+
+  it('carries a legacy "fix" kind forward to "fixed"', async () => {
+    stubFetch(() => ({ entries: [entry({ kind: 'fix' })] }));
+    const out = await loadChangelog();
+    expect(out).toHaveLength(1);
+    expect(out[0].kind).toBe('fixed');
   });
 
   it('drops malformed entries but keeps the good ones', async () => {

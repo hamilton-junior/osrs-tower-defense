@@ -17,13 +17,21 @@
  * file to serve. See the deploy workflow's `fetch-depth: 0`: a shallow clone only
  * has the tip commit, which would bake an empty changelog over the committed one.
  *
- * A line is included only if its subject is a `feat` or `fix` (the two types a
- * player can perceive); docs/chore/test/refactor/style are skipped as noise.
+ * Only commit types a player can perceive are published, each mapped to a badge
+ * (see TYPE_KIND); docs/chore/test are dropped as noise. A `Changelog: <label>`
+ * trailer can override the badge when the type doesn't reflect the content (e.g. a
+ * `feat` commit that only swapped icons — really an "Updated", not a "New").
+ *
+ * NOTE ON DUPLICATION: this script runs under plain `node` in `prebuild`, so it
+ * cannot import the TypeScript UI. The badge *kinds* here are the contract with
+ * `lib/game/changelog.ts` (which owns each kind's label + colour); keep the kind
+ * strings in the two files in sync. `classifyCommit` is exported and unit-tested
+ * (lib/game/changelog-classify.test.ts) so the mapping can't silently drift.
  */
 import { execFileSync } from 'node:child_process';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'public', 'data', 'changelog.json');
@@ -37,8 +45,56 @@ const MAX_ENTRIES = 40;
 const FS = '\x1f';
 const RS = '\x1e';
 
-/** Only these commit types are player-perceivable; everything else is plumbing. */
-const KIND = { feat: 'new', fix: 'fix' };
+/** Commit type → changelog badge kind. Types not listed are plumbing (docs, chore,
+ *  test, …) and dropped. Mirrors the kinds in lib/game/changelog.ts. */
+export const TYPE_KIND = {
+  feat: 'new',
+  fix: 'fixed',
+  refactor: 'updated',
+  style: 'updated',
+  balance: 'balanced',
+  tune: 'balanced',
+  perf: 'faster',
+};
+
+/** Kinds a `Changelog: <label>` trailer may name to override the type's badge. */
+export const KINDS = new Set(['new', 'fixed', 'updated', 'balanced', 'faster']);
+
+/**
+ * Classify one commit into a player-facing entry, or null if it isn't one.
+ * Pure (subject + body in, entry-minus-date out) so it can be unit-tested without
+ * a git repo. The caller supplies the date.
+ */
+export function classifyCommit(subject, body = '') {
+  if (!subject) return null;
+
+  // Conventional-commit prefix: type(scope): summary. Strip it for display but
+  // keep the type as the badge source.
+  const m = subject.match(/^(\w+)(?:\(([^)]+)\))?!?:\s*(.+)$/);
+  if (!m) return null;
+  const [, type, scope, summary] = m;
+
+  // A `Changelog: <label>` trailer overrides the type→badge mapping when the label
+  // names a known kind — for the commit whose type lies about its player impact.
+  const override = body.match(/^\s*Changelog:\s*(\S+)/im);
+  const forced = override && KINDS.has(override[1].toLowerCase()) ? override[1].toLowerCase() : null;
+
+  const kind = forced || TYPE_KIND[type];
+  if (!kind) return null; // docs/chore/test/… — not player-facing
+
+  // Optional trailer we add by hand to tie a change to the feedback that drove it:
+  //   Feedback: suggestion #12   |   Feedback: bug #4
+  // Its presence (not the id) is what the UI surfaces — a "you asked for this" mark.
+  const fromFeedback = /^\s*Feedback:\s*\S/im.test(body);
+
+  return {
+    kind,                                            // 'new' | 'fixed' | 'updated' | 'balanced' | 'faster'
+    scope: scope || null,                            // 'roguelite', 'boss', 'ui', …
+    // Sentence-case the summary's first letter; commit style is lower-case.
+    text: summary.charAt(0).toUpperCase() + summary.slice(1),
+    fromFeedback,
+  };
+}
 
 function readCommits() {
   let raw;
@@ -61,36 +117,22 @@ function readCommits() {
     const rec = chunk.trim();
     if (!rec) continue;
     const [, date, subject, body = ''] = rec.split(FS);
-    if (!subject) continue;
+    const entry = classifyCommit(subject, body);
+    if (!entry) continue;
 
-    // Conventional-commit prefix: type(scope): summary. Strip it for display but
-    // keep the type as a New/Fix badge.
-    const m = subject.match(/^(\w+)(?:\(([^)]+)\))?!?:\s*(.+)$/);
-    if (!m) continue;
-    const [, type, scope, summary] = m;
-    const kind = KIND[type];
-    if (!kind) continue; // docs/chore/test/refactor/style/… — not player-facing
-
-    // Optional trailer we add by hand to tie a change to the feedback that drove it:
-    //   Feedback: suggestion #12   |   Feedback: bug #4
-    // Its presence (not the id) is what the UI surfaces — a "you asked for this" mark.
-    const fromFeedback = /^\s*Feedback:\s*\S/im.test(body);
-
-    entries.push({
-      kind,                                  // 'new' | 'fix'
-      scope: scope || null,                  // 'roguelite', 'boss', 'ui', …
-      // Sentence-case the summary's first letter; commit style is lower-case.
-      text: summary.charAt(0).toUpperCase() + summary.slice(1),
-      date,                                  // YYYY-MM-DD
-      fromFeedback,
-    });
+    entries.push({ ...entry, date }); // date (YYYY-MM-DD) comes from git, not the subject
     if (entries.length >= MAX_ENTRIES) break;
   }
   return entries;
 }
 
-const changelog = { generatedAt: new Date().toISOString().slice(0, 10), entries: readCommits() };
+function main() {
+  const changelog = { generatedAt: new Date().toISOString().slice(0, 10), entries: readCommits() };
+  mkdirSync(dirname(OUT), { recursive: true });
+  writeFileSync(OUT, JSON.stringify(changelog, null, 2) + '\n');
+  console.log(`[changelog] wrote ${changelog.entries.length} entries to public/data/changelog.json`);
+}
 
-mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, JSON.stringify(changelog, null, 2) + '\n');
-console.log(`[changelog] wrote ${changelog.entries.length} entries to public/data/changelog.json`);
+// Only regenerate the file when run as a script (prebuild / by hand); importing this
+// module for its exports (the unit test) must have no side effects.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main();

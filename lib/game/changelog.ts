@@ -8,9 +8,25 @@
  * a player, so nothing third-party is ever surfaced here.
  */
 
+/** The badge each change wears. Baked by `scripts/build-changelog.mjs` from the
+ *  commit type (feat→new, fix→fixed, refactor/style→updated, balance/tune→balanced,
+ *  perf→faster) or a `Changelog: <label>` trailer override. Keep these kind strings
+ *  in sync with `TYPE_KIND`/`KINDS` in that script. */
+export type ChangelogKind = 'new' | 'fixed' | 'updated' | 'balanced' | 'faster';
+
+/** Each kind's label + colour, used to render the badge. One source of truth so the
+ *  script only ever emits the kind string. */
+export const CHANGELOG_KINDS: Record<ChangelogKind, { label: string; color: string }> = {
+  new: { label: 'New', color: 'var(--osrs-green)' },
+  fixed: { label: 'Fixed', color: 'var(--osrs-yellow)' },
+  updated: { label: 'Updated', color: '#7cc6ff' },
+  balanced: { label: 'Balanced', color: 'var(--osrs-orange)' },
+  faster: { label: 'Faster', color: '#c8a2ff' },
+};
+
 export interface ChangelogEntry {
-  /** 'new' for a feature, 'fix' for a fix — drives the badge. */
-  kind: 'new' | 'fix';
+  /** Which badge this change wears — see ChangelogKind. */
+  kind: ChangelogKind;
   /** Conventional-commit scope (roguelite, boss, ui, …), or null. */
   scope: string | null;
   /** The change, in a sentence. */
@@ -44,16 +60,27 @@ export async function loadChangelog(signal?: AbortSignal): Promise<ChangelogEntr
     const raw: unknown = await res.json();
     const entries = (raw as Changelog)?.entries;
     if (!Array.isArray(entries)) return [];
-    return entries.filter(isEntry);
+    return entries.map(normalizeLegacy).filter(isEntry);
   } catch {
     return []; // aborted, offline, 404, or bad JSON — all mean "show nothing"
   }
 }
 
+/** A JSON baked before the badge kinds were expanded used 'fix'; carry it forward
+ *  to 'fixed' so a stale/committed file still renders (prebuild regenerates it, but
+ *  `npm run dev` and shallow CI serve the committed copy). */
+function normalizeLegacy(e: unknown): unknown {
+  if (e && typeof e === 'object' && (e as Record<string, unknown>).kind === 'fix') {
+    return { ...e, kind: 'fixed' };
+  }
+  return e;
+}
+
 function isEntry(e: unknown): e is ChangelogEntry {
   if (!e || typeof e !== 'object') return false;
   const x = e as Record<string, unknown>;
-  return (x.kind === 'new' || x.kind === 'fix')
+  return typeof x.kind === 'string'
+    && Object.prototype.hasOwnProperty.call(CHANGELOG_KINDS, x.kind)
     && (x.scope === null || typeof x.scope === 'string')
     && typeof x.text === 'string'
     && typeof x.date === 'string'

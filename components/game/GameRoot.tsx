@@ -23,7 +23,7 @@ import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/r
 import type { TowerType, PrayerType, MageMode, CombatStyle, TargetingPriority } from '@/lib/game/types';
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
-import { loadChangelog, type ChangelogEntry } from '@/lib/game/changelog';
+import { loadChangelog, CHANGELOG_KINDS, type ChangelogEntry } from '@/lib/game/changelog';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 /** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
@@ -3775,6 +3775,27 @@ function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onResetTips:
   );
 }
 
+const CHANGE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** 'YYYY-MM-DD' → '17 Jul 2026' (parsed by hand to dodge timezone shifts). */
+function formatChangeDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const [, y, mo, d] = m;
+  return `${Number(d)} ${CHANGE_MONTHS[Number(mo) - 1] ?? mo} ${y}`;
+}
+
+/** Fold the (newest-first) changelog into consecutive same-day groups, order kept. */
+function groupChangesByDate(entries: ChangelogEntry[]): { date: string; items: ChangelogEntry[] }[] {
+  const groups: { date: string; items: ChangelogEntry[] }[] = [];
+  for (const e of entries) {
+    const last = groups[groups.length - 1];
+    if (last && last.date === e.date) last.items.push(e);
+    else groups.push({ date: e.date, items: [e] });
+  }
+  return groups;
+}
+
 /** In-game feedback launcher — opens the configured NocoDB Form Views in a new
  *  tab. No API/token: these are public form pages the player fills externally.
  *  The current wave (and any other field in FEEDBACK.prefill) rides along on the
@@ -3848,22 +3869,35 @@ function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
             <>
               <div className="border-t border-[var(--rs-keyline)] mt-[0.2em]" />
               <span className="text-osrs-orange font-bold text-[0.85em] mt-[0.1em]">🔨 Recent updates</span>
-              <div className="flex flex-col gap-[0.3em] max-h-[11em] overflow-y-auto custom-scrollbar pr-[0.2em] -mt-[0.1em]">
-                {changes.map((c, i) => (
-                  <div key={i} className="flex items-start gap-[0.4em] text-[0.72em] leading-snug">
-                    <span
-                      className="shrink-0 mt-[0.15em] px-[0.35em] py-[0.02em] rounded-sm font-bold uppercase tracking-wide text-[0.82em]"
-                      style={c.kind === 'new'
-                        ? { color: 'var(--osrs-green)', border: '1px solid var(--osrs-green)' }
-                        : { color: 'var(--osrs-yellow)', border: '1px solid var(--osrs-yellow)' }}
-                    >
-                      {c.kind === 'new' ? 'New' : 'Fix'}
+              <div className="flex flex-col gap-[0.55em] max-h-[13em] overflow-y-auto custom-scrollbar pr-[0.2em] -mt-[0.1em]">
+                {groupChangesByDate(changes).map((group) => (
+                  <div key={group.date} className="flex flex-col gap-[0.28em]">
+                    {/* Date header — one per day the history touched, so a run of commits
+                        reads as "here's what shipped on the 17th". */}
+                    <span className="text-[#a99a76] text-[0.6em] uppercase tracking-wider">
+                      {formatChangeDate(group.date)}
                     </span>
-                    <span className="text-[#e7d9b0] flex-1 min-w-0">
-                      {c.scope && <span className="text-[#a99a76]">{c.scope}: </span>}
-                      {c.text}
-                      {c.fromFeedback && <span title="Driven by player feedback" className="ml-[0.3em]">💬</span>}
-                    </span>
+                    {group.items.map((c, i) => {
+                      const badge = CHANGELOG_KINDS[c.kind];
+                      return (
+                        <div
+                          key={i}
+                          className={`flex items-start gap-[0.4em] text-[0.72em] leading-snug ${i > 0 ? 'border-t border-[var(--rs-bevel-dark)] pt-[0.28em]' : ''}`}
+                        >
+                          <span
+                            className="shrink-0 mt-[0.15em] px-[0.35em] py-[0.02em] rounded-sm font-bold uppercase tracking-wide text-[0.78em] text-center"
+                            style={{ color: badge.color, border: `1px solid ${badge.color}`, minWidth: '4.6em' }}
+                          >
+                            {badge.label}
+                          </span>
+                          <span className="text-[#e7d9b0] flex-1 min-w-0">
+                            {c.scope && <span className="text-[#a99a76]">{c.scope}: </span>}
+                            {c.text}
+                            {c.fromFeedback && <span title="Driven by player feedback" className="ml-[0.3em]">💬</span>}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
