@@ -38,18 +38,21 @@ type SideTab = 'home' | 'essence' | 'slayer' | 'dps';
  * (what is being compared) plus an **arrow** (which end of it — ⬆ most, ⬇ least).
  * `first`/`last` compare *progress along the path*, so they take the run-energy orb
  * in its two real states — the lit gold boot (1070) for the runner out in front, the
- * unlit brown one (1069) for the straggler at the back. `closest` has no "furthest"
- * counterpart to pair against, but it still takes ⬇ ("least distance") so all six
- * obey the same rule; its dimension is the corner-bracket reticle (518), OSRS's own
- * click marker framing a point.
+ * unlit brown one (1069) for the straggler at the back. Neither `closest` nor
+ * `unmarked` has an opposite to pair against, but both still take ⬇ ("least
+ * distance", "fewest statuses") so all six obey the same rule.
+ *
+ * `unmarked` wears the reticle (518, OSRS's click marker) and `closest` the
+ * vulnerability splat — swapped on request, and both are placeholders: neither
+ * picture argues for its meaning, so better ones are still wanted.
  */
 const PRIORITY_ICONS: Record<TargetingPriority, { icon?: string; arrow?: 'up' | 'down'; alt: string }> = {
   first: { icon: ASSETS.misc.orb_run_on, arrow: 'up', alt: 'Front of the queue' },
   last: { icon: ASSETS.misc.orb_run, arrow: 'down', alt: 'Back of the queue' },
   strongest: { icon: ASSETS.misc.orb_hitpoints, arrow: 'up', alt: 'Most HP' },
   weakest: { icon: ASSETS.misc.orb_hitpoints, arrow: 'down', alt: 'Least HP' },
-  closest: { icon: ASSETS.misc.reticle, arrow: 'down', alt: 'Nearest' },
-  unmarked: { icon: ASSETS.debuffs.vuln, arrow: 'down', alt: 'Fewest statuses' },
+  closest: { icon: ASSETS.debuffs.vuln, arrow: 'down', alt: 'Nearest' },
+  unmarked: { icon: ASSETS.misc.reticle, arrow: 'down', alt: 'Fewest statuses' },
 };
 /** Sentinel `sellConfirm` value: the pending sell is the whole marquee selection,
  *  not one tower id. Sharing the state keeps Esc/Enter routing in one place. */
@@ -489,11 +492,22 @@ function buffedDisplay(base: string, buffed: string, changed: boolean): React.Re
   );
 }
 
-const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
+/** OSRS's stack notation: a quantity reads in full up to 99,999, then in thousands
+ *  ("100k") up to 9999k, then in millions ("10M"). Abbreviating only past 100k is
+ *  the point — below it, exact digits are what tell you whether you can afford the
+ *  thing you're looking at.
+ *
+ *  `en-US` rather than the visitor's locale: the interface is English (a pt-BR
+ *  browser would otherwise punctuate this "12.000" while the rest of the chrome
+ *  says "gp"), and OSRS groups with commas. */
+const fmt = (n: number) =>
+  n >= 10_000_000 ? `${Math.floor(n / 1_000_000)}M`
+    : n >= 100_000 ? `${Math.floor(n / 1000)}k`
+      : n.toLocaleString('en-US');
 
-/** OSRS's stack colours, on the same rungs the game uses: yellow below 100k, white
- *  from 100k, green from 10m. It reads as wealth at a glance — the colour changes
- *  order of magnitude before you've read a single digit. */
+/** The colour half of the same convention, on the same rungs {@link fmt} steps at:
+ *  yellow below 100k, white from 100k, green from 10M. Shape and colour always
+ *  agree, so the tint reports an order of magnitude before you've read a digit. */
 const stackClass = (n: number) =>
   n >= 10_000_000 ? 'text-osrs-green' : n >= 100_000 ? 'text-osrs-white' : 'text-osrs-yellow';
 
@@ -2636,23 +2650,23 @@ export default function GameRoot() {
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
         <>
-        {!ui.gameOver && (
-          ui.waveActive ? (
-            ui.activeEvent ? <WaveEventBanner event={ui.activeEvent} /> : null
-          ) : (
-            <>
-              {/* Mode is chosen on the StartScreen; here we only show the current
-                  mode as a small badge before each wave starts. The Start Wave
-                  button itself lives in the bar, beside the dock. */}
-              <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
-                Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
-              </div>
-              {/* Roguelite: cards are bought, not handed out — this is the only
-                  routine source, so it sits on the between-waves panel where the
-                  gold is being spent anyway. */}
-              {ui.gameMode === 'roguelite' && <BuyCardRoll ui={ui} onBuy={() => engineRef.current?.buyCardRoll()} />}
-            </>
-          )
+        {/* The live wave's event is *not* repeated here: it already has a permanent
+            home on the map (`WaveEventChip`, by the wave-event anchor), where it is
+            visible without opening anything. This panel is the run's loadout — the
+            things you chose and keep — so a wave-long twist was only ever a visitor. */}
+        {!ui.gameOver && !ui.waveActive && (
+          <>
+            {/* Mode is chosen on the StartScreen; here we only show the current
+                mode as a small badge before each wave starts. The Start Wave
+                button itself lives in the bar, beside the dock. */}
+            <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
+              Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
+            </div>
+            {/* Roguelite: cards are bought, not handed out — this is the only
+                routine source, so it sits on the between-waves panel where the
+                gold is being spent anyway. */}
+            {ui.gameMode === 'roguelite' && <BuyCardRoll ui={ui} onBuy={() => engineRef.current?.buyCardRoll()} />}
+          </>
         )}
 
         {/* Roguelite loadout-at-a-glance: the run's claimed relics (one per boss
@@ -4875,37 +4889,6 @@ function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }
         desc={event.desc}
         show={announcing}
       />
-    </div>
-  );
-}
-
-/** Announces the wave's active event (#1): a board-wide rule-bender for this wave
- *  only. Tinted by the event's own colour; the tone word tells hazard from boon. */
-function WaveEventBanner({ event }: { event: NonNullable<UIState['activeEvent']> }) {
-  return (
-    <div
-      className="rs-panel-inset p-[0.5em] mb-[0.6em] flex items-center gap-[0.55em]"
-      style={{ border: `1px solid ${event.color}`, boxShadow: `inset 0 0 8px ${event.color}44` }}
-      title={event.desc}
-    >
-      <span
-        className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset shrink-0"
-        style={{ border: `1px solid ${event.color}` }}
-      >
-        <img src={event.icon} alt={event.name} className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
-      </span>
-      <div className="min-w-0">
-        <div className="flex items-center gap-[0.4em] leading-none">
-          <span className="text-[0.9em] font-bold truncate" style={{ color: event.color }}>{event.name}</span>
-          <span
-            className="text-[0.6em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm shrink-0"
-            style={{ background: `${event.color}22`, color: event.color }}
-          >
-            {event.tone === 'boon' ? 'Boon' : 'Hazard'}
-          </span>
-        </div>
-        <div className="text-[0.72em] text-[#cdbe91] mt-[0.2em] leading-tight">{event.desc}</div>
-      </div>
     </div>
   );
 }

@@ -348,7 +348,7 @@ export const ASSETS = {
     // Cache-extracted (MULTI_COMBAT_ZONE_CROSSED_SWORDS 442), like the splats below.
     multicombat_icon: `${LOCAL}/ui/multicombat_icon.png`,
     // The corner brackets of OSRS's click marker (518) — a reticle framing a point,
-    // for the `closest` targeting button. Not to be confused with `compass` above,
+    // for the `unmarked` targeting button. Not to be confused with `compass` above,
     // which is the clue-scroll item standing in for a clock.
     reticle: `${LOCAL}/ui/reticle.png`,
     // Bare arrow glyphs (1185 / 1186) — the "most / least" markers the targeting
