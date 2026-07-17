@@ -27,6 +27,18 @@ describe('RELICS pool', () => {
   });
 });
 
+describe('Soul Stealer', () => {
+  it('heals on a kill, not a schedule: guaranteed on bosses, a small chance on adds', () => {
+    const relic = RELICS.find(r => r.id === 'soul_stealer');
+    expect(relic?.effect.kind).toBe('soulSteal'); // reworked away from every-Nth-kill soulSplit
+    if (relic?.effect.kind === 'soulSteal') {
+      expect(relic.effect.bossHeal).toBe(1);
+      expect(relic.effect.addChance).toBeGreaterThan(0);
+      expect(relic.effect.addChance).toBeLessThanOrEqual(0.15); // a small chance, not a heal-farm
+    }
+  });
+});
+
 describe('availableRelics', () => {
   it('drops every owned relic', () => {
     const owned = new Set([RELICS[0].id, RELICS[1].id]);

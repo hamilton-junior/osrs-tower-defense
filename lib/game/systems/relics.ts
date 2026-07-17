@@ -46,6 +46,7 @@ export type RelicEffect =
   | { kind: 'range'; mult: number; style?: CombatStyle }
   | { kind: 'goldFind'; mult: number }
   | { kind: 'soulSplit'; every: number }
+  | { kind: 'soulSteal'; bossHeal: number; addChance: number }
   | { kind: 'maxLife'; amount: number }
   | { kind: 'multi'; effects: RelicEffect[] };
 
@@ -101,8 +102,8 @@ export const RELICS: readonly Relic[] = [
     desc: 'Slain enemies drop 30% more gold.',
     icon: itemIcon('reward_casket_elite'), effect: { kind: 'goldFind', mult: 1.3 } },
   { id: 'soul_stealer', name: 'Soul Stealer', tier: 'minor',
-    desc: 'Every 6th kill restores a life (up to your maximum).',
-    icon: itemIcon('soul_rune'), effect: { kind: 'soulSplit', every: 6 } },
+    desc: 'Every boss you slay restores a life; other kills have a 10% chance to. Leaks never heal.',
+    icon: itemIcon('soul_rune'), effect: { kind: 'soulSteal', bossHeal: 1, addChance: 0.1 } },
   { id: 'brawlers_resolve', name: "Brawler's Resolve", tier: 'minor',
     desc: '+2 maximum lives (and heal 2 now).',
     icon: itemIcon('justiciar_chestguard'), effect: { kind: 'maxLife', amount: 2 } },
