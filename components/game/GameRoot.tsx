@@ -12,7 +12,7 @@ import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
-import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, refundValue } from '@/lib/game/systems/meta-progression';
+import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, previewUpgradeValue, refundValue } from '@/lib/game/systems/meta-progression';
 import { SLAYER_REWARDS } from '@/lib/game/data/slayer';
 import { ENEMIES } from '@/lib/game/data/enemies';
 import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
@@ -2613,7 +2613,7 @@ export default function GameRoot() {
                     card={card}
                     large
                     onPick={() => pickCard(card.id)}
-                    ctx={{ runMods: ui.runMods, gold: ui.money, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
+                    ctx={{ runMods: ui.runMods, slayerPoints: ui.slayerPoints, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
                   />
                 </div>
               );
@@ -2787,12 +2787,13 @@ export default function GameRoot() {
               const maxed = isMaxed(def, value);
               const cost = nextCost(def, value);
               const afford = ui.essence >= cost;
+              const preview = previewUpgradeValue(def, value);
               return (
                 <button
                   key={def.id}
                   onClick={() => engineRef.current?.buyEssenceUpgrade(def.id)}
                   disabled={maxed || !afford}
-                  title={def.desc}
+                  title={preview ? `${def.desc}\n${formatUpgradeValue(def, value)} → ${preview}` : def.desc}
                   className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${maxed || !afford ? 'rs-slot-unafford' : ''}`}
                 >
                   <img src={geIcon(def.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
@@ -2800,6 +2801,15 @@ export default function GameRoot() {
                     <span className="flex items-center gap-[0.4em]">
                       <span className="text-[#e7d9b0] truncate">{def.name}</span>
                       <span className="rs-ge-timer">{formatUpgradeValue(def, value)}</span>
+                      {/* What the essence actually buys. Without it the row states a
+                          price and a present tense, and the player only learns the
+                          offer by accepting it. */}
+                      {preview && (
+                        <span className="flex items-center gap-[0.25em] whitespace-nowrap shrink-0">
+                          <span className="text-[#9d8f70]">→</span>
+                          <span className="rs-ge-timer">{preview}</span>
+                        </span>
+                      )}
                     </span>
                     <span className="block text-[0.7em] text-[#d3c3a0] truncate">{def.desc}</span>
                   </span>
@@ -3292,7 +3302,7 @@ const pctStr = (mult: number) => String(+((mult - 1) * 100).toFixed(1));
 /** Short stat tag for a single effect (collection-log / static use, no run). */
 function effectTag(e: DraftEffect): string {
   switch (e.kind) {
-    case 'gold': return `+${e.amount} gp`;
+    case 'slayerPoints': return `+${e.amount} slayer pts`;
     case 'essence': return `+${e.amount} ess`;
     case 'life': return `+${e.amount} lives`;
     case 'maxLife': return `+${e.amount} max life`;
@@ -3330,7 +3340,7 @@ function effectTag(e: DraftEffect): string {
 /** Run state a draft card needs to preview "current → new total" on pick. */
 interface PreviewCtx {
   runMods: UIState['runMods'];
-  gold: number;
+  slayerPoints: number;
   essence: number;
   lives: number;
   maxLives: number;
@@ -3363,7 +3373,7 @@ function previewRows(card: DraftCard, ctx: PreviewCtx): PreviewRow[] {
   const walk = (e: DraftEffect) => {
     switch (e.kind) {
       case 'multi': e.effects.forEach(walk); break;
-      case 'gold': rows.push({ label: 'gp', from: fmt(ctx.gold), to: fmt(ctx.gold + e.amount) }); break;
+      case 'slayerPoints': rows.push({ label: 'slayer pts', from: fmt(ctx.slayerPoints), to: fmt(ctx.slayerPoints + e.amount) }); break;
       case 'essence': rows.push({ label: 'ess', from: fmt(ctx.essence), to: fmt(ctx.essence + e.amount) }); break;
       case 'life': rows.push({ label: 'lives', from: String(ctx.lives), to: String(Math.min(ctx.maxLives, ctx.lives + e.amount)) }); break;
       case 'maxLife': rows.push({ label: 'max life', from: String(ctx.maxLives), to: String(ctx.maxLives + e.amount) }); break;

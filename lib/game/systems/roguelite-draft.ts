@@ -55,7 +55,7 @@ export type DraftRarity = 'common' | 'uncommon' | 'rare' | 'ultra';
  *  - `vanguard`  : ×`mult` damage for the tower nearest the portal.
  *  - `loneWolf`  : ×`mult` damage for a tower with no other tower in `radius`. */
 export type DraftEffect =
-  | { kind: 'gold'; amount: number }
+  | { kind: 'slayerPoints'; amount: number }
   | { kind: 'essence'; amount: number }
   | { kind: 'life'; amount: number }
   | { kind: 'maxLife'; amount: number }
@@ -205,30 +205,43 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'far_sight', name: 'Hunter Potion', desc: '+4% range for ALL towers, this run', rarity: 'ultra', icon: itemIcon('hunter_potion'), effect: { kind: 'range', mult: RNG.ultra } },
 
   // ─────────────────────────── resources (general) ────────────────────────
-  { id: 'coin_pouch', name: 'Coin Pouch', desc: '+100 gold to spend now', rarity: 'common', icon: itemIcon('coins'), effect: { kind: 'gold', amount: 100 } },
-  { id: 'looted_coins', name: 'Looting Bag', desc: '+140 gold scavenged from the fallen', rarity: 'common', icon: itemIcon('looting_bag'), effect: { kind: 'gold', amount: 140 } },
-  { id: 'slayer_bounty', name: 'Slayer Bounty', desc: '+250 gold contract reward', rarity: 'rare', icon: itemIcon('enchanted_gem'), effect: { kind: 'gold', amount: 250 } },
-  { id: 'dragonstone_hoard', name: 'Dragonstone', desc: '+450 gold to spend now', rarity: 'ultra', icon: itemIcon('dragonstone'), effect: { kind: 'gold', amount: 450 } },
-  { id: 'essence_shard', name: 'Rune Essence', desc: '+12 Rune Essence (kept after the run)', rarity: 'common', icon: itemIcon('rune_essence'), effect: { kind: 'essence', amount: 12 } },
-  { id: 'essence_cache', name: 'Pure Essence', desc: '+22 Rune Essence (kept after the run)', rarity: 'uncommon', icon: itemIcon('pure_essence'), effect: { kind: 'essence', amount: 22 } },
-  { id: 'essence_motherlode', name: 'Daeyalt Essence', desc: '+35 Rune Essence (kept after the run)', rarity: 'rare', icon: itemIcon('daeyalt_essence'), effect: { kind: 'essence', amount: 35 } },
+  // Slayer points, not gold. A pile of gold is the least interesting thing a hand
+  // can offer: it buys the same towers you were already going to buy, so the card
+  // is a stat buff with a delay. Points are spent on the Slayer rewards shop —
+  // helm, Bigger and Badder, block/extend/skip — where each purchase changes how
+  // the run plays, so a resource card is a real pick again.
+  //
+  // ⚠ SIZING THESE: the amounts look mean on purpose. The Essence Sack converts
+  // points to Rune Essence at a fixed 2.4:1, so a points card is ALSO an essence
+  // card at 2.4× its face value — a "+10 points" card would quietly hand over 24
+  // essence and undo the very reward-rarity it sits next to. The ceiling on a
+  // points card is therefore set by the essence cards below, not by the Slayer
+  // shop's prices. Raise these only alongside SLAYER_ESSENCE_SACK_YIELD.
+  { id: 'enchanted_gem', name: 'Enchanted Gem', desc: '+2 Slayer points', rarity: 'common', icon: itemIcon('enchanted_gem'), effect: { kind: 'slayerPoints', amount: 2 } },
+  { id: 'slayer_ring', name: 'Slayer Ring', desc: '+3 Slayer points', rarity: 'uncommon', icon: itemIcon('slayer_ring'), effect: { kind: 'slayerPoints', amount: 3 } },
+  { id: 'bracelet_of_slaughter', name: 'Bracelet of Slaughter', desc: '+4 Slayer points', rarity: 'rare', icon: itemIcon('bracelet_of_slaughter'), effect: { kind: 'slayerPoints', amount: 4 } },
+  { id: 'eternal_gem', name: 'Eternal Gem', desc: '+6 Slayer points', rarity: 'ultra', icon: itemIcon('eternal_gem'), effect: { kind: 'slayerPoints', amount: 6 } },
+  // Rune Essence is META currency — it outlives the run and buys permanent power,
+  // so a run that hands it out freely is a run that pays you to lose. Every essence
+  // card is rare or better, and worth roughly 40% of what it used to be.
+  { id: 'essence_shard', name: 'Rune Essence', desc: '+5 Rune Essence (kept after the run)', rarity: 'rare', icon: itemIcon('rune_essence'), effect: { kind: 'essence', amount: 5 } },
+  { id: 'gilded_altar', name: 'Blessed Bone Shards', desc: '+8 Rune Essence (kept after the run)', rarity: 'rare', icon: itemIcon('blessed_bone_shards'), effect: { kind: 'essence', amount: 8 } },
+  { id: 'essence_cache', name: 'Pure Essence', desc: '+10 Rune Essence (kept after the run)', rarity: 'rare', icon: itemIcon('pure_essence'), effect: { kind: 'essence', amount: 10 } },
+  { id: 'essence_motherlode', name: 'Daeyalt Essence', desc: '+15 Rune Essence (kept after the run)', rarity: 'ultra', icon: itemIcon('daeyalt_essence'), effect: { kind: 'essence', amount: 15 } },
   { id: 'bandages', name: 'Bandages', desc: 'Patch the gate for +2 lives', rarity: 'common', icon: itemIcon('bandages'), effect: { kind: 'life', amount: 2 } },
   { id: 'shark_supper', name: 'Shark', desc: 'A hearty meal restores +3 lives', rarity: 'uncommon', icon: itemIcon('shark'), effect: { kind: 'life', amount: 3 } },
   { id: 'saradomin_brew', name: 'Saradomin Brew', desc: 'A blessed brew restores +4 lives', rarity: 'rare', icon: itemIcon('saradomin_brew'), effect: { kind: 'life', amount: 4 } },
   { id: 'fortify_gate', name: 'Rune Kiteshield', desc: '+1 max life (and heal 1)', rarity: 'rare', icon: itemIcon('rune_kiteshield'), effect: { kind: 'maxLife', amount: 1 } },
   { id: 'greater_fortify', name: 'Dragon Kiteshield', desc: '+2 max life (and heal 2)', rarity: 'ultra', icon: itemIcon('dragon_kiteshield'), effect: { kind: 'maxLife', amount: 2 } },
-  { id: 'tokkul', name: 'Tokkul', desc: '+120 gold from the TzHaar', rarity: 'common', icon: itemIcon('tokkul'), effect: { kind: 'gold', amount: 120 } },
-  { id: 'reward_casket', name: 'Reward Casket', desc: '+300 gold from a master clue', rarity: 'rare', icon: itemIcon('reward_casket_master'), effect: { kind: 'gold', amount: 300 } },
   { id: 'anglerfish', name: 'Anglerfish', desc: 'An overheal restores +3 lives', rarity: 'uncommon', icon: itemIcon('anglerfish'), effect: { kind: 'life', amount: 3 } },
-  { id: 'gilded_altar', name: 'Blessed Bone Shards', desc: '+18 Rune Essence (kept after the run)', rarity: 'uncommon', icon: itemIcon('blessed_bone_shards'), effect: { kind: 'essence', amount: 18 } },
 
   // ───────────────────────────── combo cards ──────────────────────────────
   { id: 'berserker_ring', name: 'Berserker Ring', desc: '+3% damage & +1.5% attack speed for melee, this run', rarity: 'uncommon', icon: itemIcon('berserker_ring'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'fireRate', mult: SPD.common, style: 'melee' }] } },
   { id: 'pegasian_boots', name: 'Pegasian Boots', desc: '+1.5% range & +1.5% attack speed for ranged, this run', rarity: 'uncommon', icon: itemIcon('pegasian_boots'),
     effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.common, style: 'ranged' }, { kind: 'fireRate', mult: SPD.common, style: 'ranged' }] } },
-  { id: 'slayer_helmet', name: 'Slayer Helmet', desc: '+3% melee damage & +100 gold', rarity: 'uncommon', icon: itemIcon('slayer_helmet'),
-    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'gold', amount: 100 }] } },
+  { id: 'slayer_helmet', name: 'Slayer Helmet', desc: '+3% melee damage & +2 Slayer points', rarity: 'uncommon', icon: itemIcon('slayer_helmet'),
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'slayerPoints', amount: 2 }] } },
   { id: 'rangers_kit', name: 'Ranger Boots', desc: '+5% damage & +2% range for ranged, this run', rarity: 'rare', icon: itemIcon('ranger_boots'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'ranged' }, { kind: 'range', mult: RNG.uncommon, style: 'ranged' }] } },
   { id: 'occult_necklace', name: 'Occult Necklace', desc: '+5% damage & +2% attack speed for magic, this run', rarity: 'rare', icon: itemIcon('occult_necklace'),
@@ -301,12 +314,16 @@ export function availableCards(
  * Resource-reward group of a *pure* resource card (one whose whole effect is a
  * single resource grant), or null for anything else (stat buffs, behavioural
  * cards, `multi` bundles). Used to keep a hand from offering two interchangeable
- * "numbers go up" rewards — choosing between 100 and 150 gold is no choice at
- * all. `currency` = gold/essence, `lives` = current/max life.
+ * "numbers go up" rewards — choosing between 5 and 10 essence is no choice at
+ * all. `currency` = Slayer points/essence, `lives` = current/max life.
+ *
+ * Slayer points share the `currency` group with essence rather than getting their
+ * own: the Essence Sack converts one into the other, so a hand offering both would
+ * be offering the same reward at two exchange rates.
  */
 function resourceGroup(card: DraftCard): 'currency' | 'lives' | null {
   switch (card.effect.kind) {
-    case 'gold': case 'essence': return 'currency';
+    case 'slayerPoints': case 'essence': return 'currency';
     case 'life': case 'maxLife': return 'lives';
     default: return null;
   }

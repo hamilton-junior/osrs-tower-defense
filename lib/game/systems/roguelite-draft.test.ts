@@ -10,6 +10,7 @@ import {
   availableCards,
   type DraftCard,
 } from './roguelite-draft';
+import { SLAYER_ESSENCE_SACK_COST, SLAYER_ESSENCE_SACK_YIELD } from '../data/slayer';
 
 /** A deterministic RNG that replays a fixed sequence (looping). */
 const seq = (...xs: number[]) => {
@@ -46,6 +47,32 @@ describe('DRAFT_POOL integrity', () => {
     const rarities = new Set(DRAFT_POOL.map(c => c.rarity));
     expect(rarities).toEqual(new Set(['common', 'uncommon', 'rare', 'ultra']));
   });
+  it('keeps every Rune Essence card rare or better — it is meta currency', () => {
+    // Essence outlives the run, so a common essence card would pay the player for
+    // drafting rather than for playing.
+    for (const c of DRAFT_POOL) {
+      for (const e of leafEffects(c)) {
+        if (e.kind === 'essence') expect(['rare', 'ultra']).toContain(c.rarity);
+      }
+    }
+  });
+
+  it('no Slayer-point card is worth more essence than the best essence card', () => {
+    // The Essence Sack converts points to essence at a fixed rate, so EVERY points
+    // card is also an essence card at that rate. If a points card ever out-earns
+    // the essence cards it sits beside, the essence rarity tiers below become
+    // decorative and the meta currency leaks out through Slayer. This is the guard
+    // on that: it fails the moment someone raises a points amount (or the sack's
+    // yield) without re-checking the other side.
+    const perPoint = SLAYER_ESSENCE_SACK_YIELD / SLAYER_ESSENCE_SACK_COST;
+    const amounts = (kind: 'essence' | 'slayerPoints') =>
+      DRAFT_POOL.flatMap(leafEffects).filter(e => e.kind === kind).map(e => (e as { amount: number }).amount);
+    const bestEssence = Math.max(...amounts('essence'));
+    const points = amounts('slayerPoints');
+    expect(points.length).toBeGreaterThan(0);
+    for (const p of points) expect(p * perPoint).toBeLessThanOrEqual(bestEssence);
+  });
+
   it('styled stat buffs use a valid combat style; general buffs omit it', () => {
     for (const c of DRAFT_POOL) {
       for (const e of leafEffects(c)) {
@@ -186,17 +213,19 @@ describe('rollDraft', () => {
     expect(hand.map(c => c.id)).toEqual(DRAFT_POOL.slice(0, 3).map(c => c.id));
   });
   it('never offers two cards of the same resource group when alternatives exist', () => {
-    const gold1 = DRAFT_POOL.find(c => c.id === 'coin_pouch')!;     // gold (currency)
-    const gold2 = DRAFT_POOL.find(c => c.id === 'looted_coins')!;   // gold (currency)
+    // Slayer points and essence are ONE group: the Essence Sack trades between
+    // them, so offering both is offering the same reward twice.
+    const cur1 = DRAFT_POOL.find(c => c.id === 'enchanted_gem')!;   // points (currency)
+    const cur2 = DRAFT_POOL.find(c => c.id === 'essence_shard')!;   // essence (currency)
     const stat = DRAFT_POOL.find(c => c.id === 'strength_potion')!; // not a resource
-    const hand = rollDraft(seq(0), 2, [gold1, gold2, stat]);
-    const currency = hand.filter(c => c.effect.kind === 'gold' || c.effect.kind === 'essence');
-    expect(currency).toHaveLength(1); // the second gold card is skipped for the stat card
+    const hand = rollDraft(seq(0), 2, [cur1, cur2, stat]);
+    const currency = hand.filter(c => c.effect.kind === 'slayerPoints' || c.effect.kind === 'essence');
+    expect(currency).toHaveLength(1); // the second currency card is skipped for the stat card
   });
   it('a full 3-card hand never doubles up a currency or a lives reward', () => {
     for (let i = 0; i < 500; i++) {
       const hand = rollDraft(Math.random, 3);
-      const currency = hand.filter(c => c.effect.kind === 'gold' || c.effect.kind === 'essence').length;
+      const currency = hand.filter(c => c.effect.kind === 'slayerPoints' || c.effect.kind === 'essence').length;
       const lives = hand.filter(c => c.effect.kind === 'life' || c.effect.kind === 'maxLife').length;
       expect(currency).toBeLessThanOrEqual(1);
       expect(lives).toBeLessThanOrEqual(1);

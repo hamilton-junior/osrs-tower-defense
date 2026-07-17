@@ -8,6 +8,7 @@ import {
   isMaxed,
   steppedValue,
   formatUpgradeValue,
+  previewUpgradeValue,
   sanitizeUpgrades,
   spentOn,
   totalEssenceSpent,
@@ -111,6 +112,26 @@ describe('formatUpgradeValue', () => {
     expect(formatUpgradeValue(def('archerRange'), 1.3)).toBe('+30%');
     expect(formatUpgradeValue(def('towerCostReduction'), 0.85)).toBe('-15%');
     expect(formatUpgradeValue(def('prayerRegen'), 0.6)).toBe('+0.6/s');
+  });
+});
+
+describe('previewUpgradeValue', () => {
+  it('reads what the row will say once bought, in the row\'s own units', () => {
+    expect(previewUpgradeValue(def('startingMoney'), 250)).toBe('+300 gp');
+    expect(previewUpgradeValue(def('archerRange'), 1.3)).toBe('+40%');
+    // A reduction steps DOWN, and the preview must follow it down, not up.
+    expect(previewUpgradeValue(def('towerCostReduction'), 0.85)).toBe('-20%');
+  });
+
+  it('previews the clamped step at the cap, not the full one', () => {
+    // archerRange caps at 2.0 and steps by 0.1, so from 1.95 the buy is worth
+    // half a step. The player is told +100%, which is what they actually get.
+    expect(previewUpgradeValue(def('archerRange'), 1.95)).toBe('+100%');
+  });
+
+  it('has nothing to preview once the upgrade is maxed', () => {
+    expect(previewUpgradeValue(def('archerRange'), 2.0)).toBeNull();
+    expect(previewUpgradeValue(def('towerCostReduction'), 0.5)).toBeNull();
   });
 });
 

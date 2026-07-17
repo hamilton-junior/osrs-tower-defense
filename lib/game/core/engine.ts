@@ -4368,7 +4368,7 @@ export class GameEngine {
 
   private applyDraftEffectOne(e: DraftEffect) {
     switch (e.kind) {
-      case 'gold': this.awardGold(e.amount); break;
+      case 'slayerPoints': this.slayer.points += e.amount; break;
       case 'essence': this.meta.award(e.amount); this.essenceEarnedThisRun += e.amount; break;
       case 'life': this.lives = Math.min(this.maxLives, this.lives + e.amount); break;
       case 'maxLife': this.maxLives += e.amount; this.lives += e.amount; break;

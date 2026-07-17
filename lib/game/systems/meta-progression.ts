@@ -115,6 +115,23 @@ export function steppedValue(def: UpgradeDef, value: number): number {
   return def.inc > 0 ? Math.min(next, def.max) : Math.max(next, def.max);
 }
 
+/**
+ * What the shop row would read **after** one more purchase, or `null` if the
+ * upgrade is already saturated and there is nothing to preview.
+ *
+ * The catalog states a purchase as an `inc` on a raw field, which is not what a
+ * player is deciding about — `inc: 0.1` on a multiplier and `inc: 50` on a gold
+ * count are the same sentence in the data and completely different offers on the
+ * screen. Formatting the *stepped* value answers the actual question ("+30% → +40%")
+ * in the row's own units, and it reads the price honestly at the cap, where the
+ * step is clamped: buying the last {@link steppedValue} of an upgrade may hand over
+ * less than `inc`, and this shows that before the essence is spent, not after.
+ */
+export function previewUpgradeValue(def: UpgradeDef, value: number): string | null {
+  if (isMaxed(def, value)) return null;
+  return formatUpgradeValue(def, steppedValue(def, value));
+}
+
 /** Human-readable current value for a shop row (e.g. "+30%", "-15%", "+250 gp"). */
 export function formatUpgradeValue(def: UpgradeDef, value: number): string {
   switch (def.format) {
