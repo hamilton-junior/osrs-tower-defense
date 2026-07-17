@@ -16,14 +16,26 @@ export const FEEDBACK: {
   /** Public NocoDB Form-View link for ideas / suggestions. */
   suggestionFormUrl: string;
   /**
-   * Form fields to pre-fill from the live run context. NocoDB pre-fills a form
-   * field from a query param whose key exactly matches the field's **title**, so
-   * each key here must be a field title present on the form; a key with no matching
-   * field is silently ignored, so it is safe to list one only some forms have.
+   * Form fields to pre-fill from the live run context, keyed by the field's exact
+   * **title** on the form. A key with no matching field is silently ignored, so it
+   * is safe to list one only some forms have.
    *
-   * The default pre-fills a **Wave** field with the current wave number (add a
-   * Number/Text field titled exactly "Wave" to the form). To attach the full
-   * run/device blob instead, add e.g. `Context: formatContext`.
+   * ⚠ Three things must ALL be true or the value is dropped without a word — this
+   * was verified against the live forms (2026-07-17), where none of them held:
+   *   1. The field exists on the **table**.
+   *   2. The field has been added to the **Form view** itself. A field can exist on
+   *      the table and simply not be on the form — prefill has nothing to fill.
+   *   3. **Enable Prefill** is toggled on in that form's *Share* dialog. It is OFF
+   *      by default, and while it is off NO query param prefills anything, on any
+   *      URL shape. (Free feature, all plans — just off until asked for.)
+   *
+   * NocoDB's documented URL shape puts the params inside the hash route
+   * (`https://app.nocodb.com/#/nc/form/<id>?Wave=12`); {@link feedbackUrl} builds a
+   * plain query string instead. Which of the two the live forms honour can only be
+   * settled once (3) is on — re-test then and fix the builder if needed.
+   *
+   * The default pre-fills a **Wave** field with the current wave number. To attach
+   * the full run/device blob instead, add e.g. `Context: formatContext`.
    */
   prefill: Record<string, (ctx: FeedbackContext) => string>;
   /** Community Discord invite. Unlike the forms it takes no context — it is a
