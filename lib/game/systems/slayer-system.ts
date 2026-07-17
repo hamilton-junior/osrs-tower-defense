@@ -4,6 +4,7 @@ import { ENEMIES } from '../data/enemies';
 import {
   SLAYER_MASTERS, SLAYER_REWARDS, SLAYER_HELMET_BONUS, SLAYER_HELMET_IMBUED_BONUS,
   SLAYER_ESSENCE_YIELD, SLAYER_ESSENCE_SACK_YIELD, BIGGER_BADDER_CHANCE, SUPERIOR_OF,
+  taskMonsterType,
   type SlayerReward,
 } from '../data/slayer';
 import { ASSETS } from '../assets';
@@ -78,10 +79,11 @@ export class SlayerSystem {
     this.e.notify(`${master.name}: kill ${task.count} ${name}`, SLAYER_ICON);
   }
 
-  /** Tally a kill toward the active task; completes and rewards it at zero. */
+  /** Tally a kill toward the active task; completes and rewards it at zero. A
+   *  Superior monster counts toward its base form's task (see {@link taskMonsterType}). */
   recordKill(type: EnemyType) {
     const task = this.task;
-    if (!task || task.type !== type) return;
+    if (!task || taskMonsterType(type) !== task.type) return;
     task.count -= 1;
     if (task.count > 0) {
       this.e.requestEmit();
@@ -112,7 +114,9 @@ export class SlayerSystem {
    *  owned and `type` is the current task target, else 1 (no effect). The imbue
    *  raises that bonus — it replaces it rather than stacking. */
   onTaskBonus(type: EnemyType): number {
-    if (!this.helmet || this.task?.type !== type) return 1;
+    // A Superior of the task monster is still the task target, so the helm hits it
+    // harder too (it counts toward the task — see {@link taskMonsterType}).
+    if (!this.helmet || !this.task || taskMonsterType(type) !== this.task.type) return 1;
     return 1 + (this.imbued ? SLAYER_HELMET_IMBUED_BONUS : SLAYER_HELMET_BONUS);
   }
 

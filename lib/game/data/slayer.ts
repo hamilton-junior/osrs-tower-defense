@@ -49,6 +49,18 @@ export const SUPERIOR_OF: Partial<Record<EnemyType, EnemyType>> = {
   nechryael: 'superior_nechryael',
 };
 
+/** Reverse of {@link SUPERIOR_OF}: a Superior monster back to the base it counts as. */
+export const BASE_OF: Partial<Record<EnemyType, EnemyType>> = Object.fromEntries(
+  Object.entries(SUPERIOR_OF).map(([base, sup]) => [sup, base as EnemyType]),
+) as Partial<Record<EnemyType, EnemyType>>;
+
+/** The monster a Slayer task credits for a kill of `type`: a Superior counts toward
+ *  its base form's task, everything else counts as itself. So a `superior_bloodveld`
+ *  kill ticks a `bloodveld` task. */
+export function taskMonsterType(type: EnemyType): EnemyType {
+  return BASE_OF[type] ?? type;
+}
+
 /** The Slayer Rewards shop — the sink for Slayer points (a per-run currency).
  *  `once` unlocks are per-run; the rest are repeatable. */
 export interface SlayerReward {

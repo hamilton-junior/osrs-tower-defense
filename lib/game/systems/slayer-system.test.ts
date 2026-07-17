@@ -162,6 +162,33 @@ describe('SlayerSystem — Bigger and Badder', () => {
   });
 });
 
+describe('SlayerSystem — Superiors count toward the base task', () => {
+  it('a superior kill ticks its base form’s task', () => {
+    const sys = new SlayerSystem(stubEngine().e);
+    sys.task = { type: 'bloodveld', count: 3, total: 3, reward: 10 };
+    sys.recordKill('superior_bloodveld');
+    expect(sys.task!.count).toBe(2); // the superior counted
+    sys.recordKill('bloodveld');
+    expect(sys.task!.count).toBe(1); // and the base still counts too
+  });
+
+  it('the helm hits a superior of the task monster harder', () => {
+    const sys = new SlayerSystem(stubEngine().e);
+    sys.points = 100;
+    sys.task = { type: 'bloodveld', count: 5, total: 5, reward: 10 };
+    sys.buyReward('helmet');
+    expect(sys.onTaskBonus('superior_bloodveld')).toBeCloseTo(1 + SLAYER_HELMET_BONUS);
+  });
+
+  it('a superior of a different monster does not count', () => {
+    const sys = new SlayerSystem(stubEngine().e);
+    sys.task = { type: 'bloodveld', count: 3, total: 3, reward: 10 };
+    sys.recordKill('superior_gargoyle');
+    expect(sys.task!.count).toBe(3); // untouched
+    expect(sys.onTaskBonus('superior_gargoyle')).toBe(1);
+  });
+});
+
 describe('SlayerSystem — save round-trip', () => {
   it('carries the shop unlocks, the block list and the extend list through a save', () => {
     const env = stubEngine();
