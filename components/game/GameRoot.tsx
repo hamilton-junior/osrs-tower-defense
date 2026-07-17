@@ -1414,6 +1414,7 @@ export default function GameRoot() {
         const afford = ui.money >= info.cost;
         const confirming = sellConfirm === MULTI_SELL;
         const move = eng?.multiMoveInfo ?? { count: 0, cost: 0 };
+        const autoUp = eng?.multiAutoUpgradeInfo ?? { total: 0, on: 0 };
         // A group move keeps its selection alive, so this panel stays mounted for
         // the whole flight — it swaps its actions for the "drop it" hint.
         const groupMoving = ui.movingGroupIds.length > 0;
@@ -1447,6 +1448,23 @@ export default function GameRoot() {
                 {info.count > 0 && <span style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{fmt(info.cost)} gp</span>}
                 <span className="rs-key">U</span>
               </button>
+
+              {/* Batch auto-upgrade: flip the whole selection's opt-in flag at once.
+                  Mixed selections show the indeterminate tick; clicking then turns
+                  them all on. */}
+              <label
+                className="flex items-center gap-[0.4em] -mt-[0.05em] px-[0.1em] text-[0.72em] text-[#d3c3a0] cursor-pointer select-none"
+                title="Auto-upgrade: the game spends gold to level these towers on its own, cheapest auto-upgrade tower first"
+              >
+                <input
+                  type="checkbox"
+                  className="rs-check"
+                  ref={(el) => { if (el) el.indeterminate = autoUp.on > 0 && autoUp.on < autoUp.total; }}
+                  checked={autoUp.total > 0 && autoUp.on === autoUp.total}
+                  onChange={(e) => eng?.setMultiAutoUpgrade(e.target.checked)}
+                />
+                Auto‑upgrade {autoUp.on > 0 && autoUp.on < autoUp.total ? `(${autoUp.on}/${autoUp.total})` : 'all'}
+              </label>
 
               {/* Moves the whole box as one rigid formation — the layout the player
                   arranged is the point, so it travels with them. */}

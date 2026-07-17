@@ -1955,6 +1955,27 @@ export class GameEngine {
     this.emit();
   }
 
+  /** How many of the current selection have auto-upgrade on — drives the batch
+   *  toggle's checked / mixed state. */
+  get multiAutoUpgradeInfo(): { total: number; on: number } {
+    let total = 0, on = 0;
+    for (const id of this.multiSelectedIds) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (t) { total++; if (t.autoUpgrade) on++; }
+    }
+    return { total, on };
+  }
+
+  /** Set the opt-in auto-upgrade flag on every selected tower at once. */
+  setMultiAutoUpgrade(on: boolean) {
+    let changed = false;
+    for (const id of this.multiSelectedIds) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (t && !!t.autoUpgrade !== on) { t.autoUpgrade = on || undefined; changed = true; }
+    }
+    if (changed) this.emit();
+  }
+
   /** Auto-upgrade: for every tower the player flagged, keep buying the cheapest
    *  affordable pending upgrade (same cheapest-first rule as the batch upgrade)
    *  until none is affordable. Runs once per real frame, outside the sim sub-step,
