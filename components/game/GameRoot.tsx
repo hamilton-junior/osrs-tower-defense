@@ -2770,18 +2770,22 @@ export default function GameRoot() {
             visible without opening anything. This panel is the run's loadout — the
             things you chose and keep — so a wave-long twist was only ever a visitor. */}
         {!ui.gameOver && !ui.waveActive && (
-          <>
-            {/* Mode is chosen on the StartScreen; here we only show the current
-                mode as a small badge before each wave starts. The Start Wave
-                button itself lives in the bar, beside the dock. */}
-            <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
-              Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
-            </div>
-            {/* Roguelite: cards are bought, not handed out — this is the only
-                routine source, so it sits on the between-waves panel where the
-                gold is being spent anyway. */}
-            {ui.gameMode === 'roguelite' && <BuyCardRoll ui={ui} onBuy={() => engineRef.current?.buyCardRoll()} />}
-          </>
+          /* Mode is chosen on the StartScreen; here we only show the current
+             mode as a small badge before each wave starts. The Start Wave
+             button itself lives in the bar, beside the dock. */
+          <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.4em] text-center">
+            Mode: <span className="text-osrs-orange font-bold">{ui.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}</span>
+          </div>
+        )}
+        {/* Roguelite: cards are bought, not handed out — but only between waves. It
+            stays visible during a wave, disabled with the reason, rather than
+            vanishing (so its absence never reads as a bug). */}
+        {!ui.gameOver && ui.gameMode === 'roguelite' && (
+          <BuyCardRoll
+            ui={ui}
+            onBuy={() => engineRef.current?.buyCardRoll()}
+            disabledReason={ui.waveActive ? 'Only between waves' : null}
+          />
         )}
 
         {/* Roguelite loadout-at-a-glance: the run's claimed relics (one per boss
@@ -4915,21 +4919,31 @@ type RelicView = { id: string; name: string; desc: string; tier: string; icon: s
  * cards in tension with its towers over the same purse, and the price climbing per
  * roll (see `cardRollCost`) stops a rich late run from simply buying the whole pool.
  */
-function BuyCardRoll({ ui, onBuy }: { ui: UIState; onBuy: () => void }) {
+function BuyCardRoll({ ui, onBuy, disabledReason = null }: { ui: UIState; onBuy: () => void; disabledReason?: string | null }) {
   const cost = ui.cardRollCost;
   const afford = ui.money >= cost;
+  // A rule (e.g. a wave in progress) blocks the buy regardless of gold. Rather than
+  // vanish, the button stays put and disabled, saying why — so the player learns the
+  // rule instead of wondering where it went.
+  const blocked = !!disabledReason;
+  const disabled = blocked || !afford;
+  const title = blocked
+    ? disabledReason!
+    : afford
+      ? `Buy a hand of reward cards for ${cost} gp — keep one. Each roll makes the next dearer.`
+      : `A card roll costs ${cost} gp — ${cost - ui.money} more needed.`;
   return (
     <button
       onClick={onBuy}
-      disabled={!afford}
-      title={afford
-        ? `Buy a hand of reward cards for ${cost} gp — keep one. Each roll makes the next dearer.`
-        : `A card roll costs ${cost} gp — ${cost - ui.money} more needed.`}
-      className={`rs-btn w-full flex items-center justify-center gap-[0.4em] px-[0.6em] py-[0.3em] mb-[0.5em] ${afford ? '' : 'opacity-50 cursor-not-allowed'}`}
+      disabled={disabled}
+      title={title}
+      className={`rs-btn w-full flex items-center justify-center gap-[0.4em] px-[0.6em] py-[0.3em] mb-[0.5em] ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       <img src={ASSETS.misc.coins_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
       <span className="text-[0.8em] font-bold">Buy Card Roll</span>
-      <span className={`text-[0.75em] tabular-nums ${afford ? 'text-osrs-yellow' : 'text-[#ff6b6b]'}`}>{fmt(cost)} gp</span>
+      {blocked
+        ? <span className="text-[0.7em] text-[#cdbe91] italic">{disabledReason}</span>
+        : <span className={`text-[0.75em] tabular-nums ${afford ? 'text-osrs-yellow' : 'text-[#ff6b6b]'}`}>{fmt(cost)} gp</span>}
     </button>
   );
 }
