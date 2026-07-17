@@ -1880,7 +1880,7 @@ export default function GameRoot() {
             className="absolute left-1/2 bottom-[19%] -translate-x-1/2 z-30"
             style={{ fontSize: fs('clamp(14px, 0.95vw, 20px)') }}
           >
-            <div className="rs-panel p-[0.6em] whitespace-nowrap">
+            <MovablePanel id="build-confirm" globalLock={uiLocked} className="rs-panel relative p-[0.6em] whitespace-nowrap">
               <div className="flex items-center justify-center gap-[0.4em] text-[0.78em] mb-[0.45em]">
                 <img src={towerIcon(type)} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
                 <span className="text-[#e7d9b0]">Build {n} {name} tower{n > 1 ? 's' : ''}</span>
@@ -1930,9 +1930,9 @@ export default function GameRoot() {
               )}
 
               <div className="text-center text-[0.6em] text-[#b3a585] mt-[0.35em]">
-                Esc or right-click cancels · hold Shift to keep painting
+                Esc or right-click the map cancels · hold Shift to keep painting
               </div>
-            </div>
+            </MovablePanel>
           </div>
         );
       })()}

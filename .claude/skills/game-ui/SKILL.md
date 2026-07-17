@@ -46,6 +46,9 @@ Follow OSRS interface conventions; where OSRS has no answer, follow RuneLite. In
 
 `components/game/MovablePanel.tsx` makes an absolutely-positioned panel draggable, with a 📌 pin, right-click-to-reset, and a per-panel offset persisted under `ui_pos_<id>`.
 
+**Standing rule: every floating panel that overlays the board is a `MovablePanel`** — the only non-movable interface is the fixed bottom bar and its four stones' panels (build / dps / slayer / rune essence, which have their own open/close-by-clicking-the-stone behaviour). Anything else that floats over the map (tower panel, multiselect batch panel, wave strip, prayer bar, collection log, the shift-drag build-confirm panel) must be wrapped so a player can move it off whatever it's covering. When you add a new floating panel, wrap it — don't leave it pinned.
+
+- MovablePanel's own right-click resets the panel's position (it `stopPropagation`s). If the panel previously relied on right-click bubbling to the board (e.g. the build-confirm panel's "right-click cancels"), that no longer fires *over the panel* — update the panel's hint so the cancel gesture points at the map, where right-click still reaches the board's `onContextMenu`.
 - Wrap it in an outer element that carries the anchor position (`absolute bottom-4 left-1/2 -translate-x-1/2`), so the panel's own `transform` only carries the drag offset.
 - Give the panel `relative` in its `className`, or the pin escapes to the nearest positioned ancestor.
 - Drags never start from `button, input, select, a, [data-no-drag]`. Add `data-no-drag` to anything else that must stay clickable.
