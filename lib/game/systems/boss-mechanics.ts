@@ -442,8 +442,19 @@ export function moleIsBurrowing(state: BossState | undefined): boolean {
  * cares about the **order** you kill things in.
  */
 export const GUARDIAN_LINK_DAMAGE_MULT = 0.5;
-/** Seconds the survivor needs to drag its twin back up. */
-export const GUARDIAN_REVIVE_SECS = 12;
+/** Seconds the survivor needs to drag its twin back up. The pair is two-bosses-in-one,
+ *  so the revive is deliberately slow — bumped 10% (rounded up) over the old 12s so a
+ *  botched "kill one early" costs a little more of the clock. */
+export const GUARDIAN_REVIVE_SECS = Math.ceil(12 * 1.1); // 14
+/** A Grotesque Guardian leaks for this fraction of a normal boss's life cost. Each
+ *  twin is only "half" a boss, so an individual leak stings less — though both leaking
+ *  (2 × 0.75 = 1.5×) still out-costs a single boss, keeping the pair the bigger threat. */
+export const GUARDIAN_LEAK_MULT = 0.75;
+
+/** Apply the Guardian discount to a boss leak cost — never below 1 life. */
+export function guardianLeakCost(baseBossCost: number): number {
+  return Math.max(1, Math.round(baseBossCost * GUARDIAN_LEAK_MULT));
+}
 /** The health a resurrected twin returns on, as a fraction of its max. */
 export const GUARDIAN_REVIVE_HP_FRAC = 0.5;
 /** Speed the survivor gains while enraged (applied to `baseSpeed`). */

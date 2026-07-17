@@ -49,7 +49,7 @@ import {
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
   stepBossStall, stallTenacityBonus, stallHealMult, escortDamageMult, type BossState,
-  isGuardian, guardianReviveHp, linkGuardianStates, guardianShouldSummonTwin,
+  isGuardian, guardianReviveHp, guardianLeakCost, linkGuardianStates, guardianShouldSummonTwin,
   GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
   cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
   SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT,
@@ -3129,11 +3129,17 @@ export class GameEngine {
         // life if that path is ever refactored.
         this.enemies.splice(i, 1);
         if (!e.debug && !e.escort) {
-          const cost = e.isBoss
-            ? bossLeakCost((this.bossesSeen[e.type] ?? 1) - 1)
-            : e.type.startsWith('superior_')
-            ? SUPERIOR_LEAK_COST
-            : leakLifeCost(e.affixes ?? []);
+          let cost: number;
+          if (e.isBoss) {
+            const bossCost = bossLeakCost((this.bossesSeen[e.type] ?? 1) - 1);
+            // Grotesque Guardians are two-bosses-in-one — each leaks for a fraction
+            // of a normal boss (both leaking still out-costs one boss).
+            cost = isGuardian(e.type as BossId) ? guardianLeakCost(bossCost) : bossCost;
+          } else if (e.type.startsWith('superior_')) {
+            cost = SUPERIOR_LEAK_COST;
+          } else {
+            cost = leakLifeCost(e.affixes ?? []);
+          }
           this.lives -= cost;
           this.baseFlash = 1;
           this.sound.play('base_hit', 90); // player taking damage with no armour (OSRS take-damage splat)

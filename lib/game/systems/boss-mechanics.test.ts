@@ -54,11 +54,13 @@ import {
   isGuardian,
   guardianTwin,
   guardianReviveHp,
+  guardianLeakCost,
   linkGuardianStates,
   guardianShouldSummonTwin,
   GUARDIAN_LINK_DAMAGE_MULT,
   GUARDIAN_REVIVE_SECS,
   GUARDIAN_REVIVE_HP_FRAC,
+  GUARDIAN_LEAK_MULT,
   SOUL_STYLES,
   CERBERUS_SOUL_THRESHOLDS,
   CERBERUS_SOUL_LOCK_MULT,
@@ -525,6 +527,19 @@ describe('Grotesque Guardians', () => {
     expect(GUARDIAN_LINK_DAMAGE_MULT).toBeLessThan(1);
     expect(GUARDIAN_REVIVE_SECS).toBeGreaterThan(0);
     expect(GUARDIAN_REVIVE_HP_FRAC).toBeLessThan(1); // a revived twin comes back hurt
+  });
+
+  it('bumps the revive clock 10% (rounded up) over the old 12s', () => {
+    expect(GUARDIAN_REVIVE_SECS).toBe(Math.ceil(12 * 1.1)); // 14
+  });
+
+  it('each twin leaks for 75% of a normal boss, never below 1', () => {
+    expect(GUARDIAN_LEAK_MULT).toBe(0.75);
+    expect(guardianLeakCost(8)).toBe(6);            // 8 × 0.75 = 6
+    expect(guardianLeakCost(10)).toBe(8);           // 10 × 0.75 = 7.5 → 8
+    expect(guardianLeakCost(1)).toBe(1);            // floor is 1, never 0
+    // Both twins leaking still out-costs a single boss (2 × 0.75 = 1.5×).
+    expect(guardianLeakCost(8) * 2).toBeGreaterThan(8);
   });
 });
 
