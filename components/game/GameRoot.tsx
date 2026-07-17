@@ -491,6 +491,12 @@ function buffedDisplay(base: string, buffed: string, changed: boolean): React.Re
 
 const fmt = (n: number) => (n >= 10000 ? `${Math.floor(n / 1000)}k` : n.toLocaleString());
 
+/** OSRS's stack colours, on the same rungs the game uses: yellow below 100k, white
+ *  from 100k, green from 10m. It reads as wealth at a glance — the colour changes
+ *  order of magnitude before you've read a single digit. */
+const stackClass = (n: number) =>
+  n >= 10_000_000 ? 'text-osrs-green' : n >= 100_000 ? 'text-osrs-white' : 'text-osrs-yellow';
+
 /** Seconds → `m:ss` (or `h:mm:ss` past an hour) for the run-summary timer. */
 const fmtTime = (s: number) => {
   const t = Math.max(0, Math.floor(s));
@@ -2952,7 +2958,7 @@ export default function GameRoot() {
               title="Gold — spent on towers and upgrades"
             >
               <img src={ASSETS.misc.coins_icon} alt="" className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
-              <span className="text-osrs-yellow font-bold tabular-nums text-[0.9em]">{fmt(ui.money)}</span>
+              <span className={`${stackClass(ui.money)} font-bold tabular-nums text-[0.9em]`}>{fmt(ui.money)}</span>
             </div>
 
             <div className="relative shrink-0">
