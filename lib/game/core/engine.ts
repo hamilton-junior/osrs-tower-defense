@@ -697,9 +697,18 @@ export class GameEngine {
    *  show what the run earned. Reset on {@link restart}. */
   essenceEarnedThisRun = 0;
 
-  /** Elapsed simulated seconds of the current run (for the summary's timer). */
+  /**
+   * How long this run has taken **on a wall clock** — the summary's timer.
+   *
+   * Deliberately not `gameTime`. That one counts *simulated* seconds, so it is the
+   * same however fast you watch it: a wave that takes 60 game-seconds takes 60 at
+   * 5x too, it just arrives in 12 real ones. Correct for cooldowns, wrong for a
+   * player, who sat there for twelve seconds and was told the run took a minute.
+   * This clock reports the time they actually spent. Pause is excluded — a paused
+   * game isn't a run being played, it's a run being left alone.
+   */
   get runSeconds(): number {
-    return this.gameTime;
+    return this.realTime;
   }
   /** Lifetime kills per enemy type (the Collection Log). Account-wide: seeded
    *  from the save, persisted by the UI, and NOT cleared on restart. */
@@ -742,6 +751,7 @@ export class GameEngine {
   private rafId = 0;
   private lastTime = 0;
   private gameTime = 0; // accumulated simulated seconds (drives cooldowns)
+  private realTime = 0; // accumulated real seconds spent playing (drives the run timer)
 
   // --- assets ---
   readonly images = new Map<string, HTMLImageElement>();
@@ -780,7 +790,10 @@ export class GameEngine {
       // per-step dt, so speeding up never causes large-dt tunneling.
       if (!this.gameOver && !this.paused) {
         for (let s = 0; s < this.gameSpeed; s++) this.update(dt);
-        // Wall-clock, so it must sit outside the sub-step loop and take the raw dt.
+        // Wall-clock, so these must sit outside the sub-step loop and take the raw
+        // dt. Inside it, `dt` would be counted `gameSpeed` times and the run timer
+        // would measure simulated seconds again — the very thing it isn't.
+        this.realTime += dt;
         this.tickAutoplay(dt);
       }
       this.renderer.draw();
@@ -4451,6 +4464,7 @@ export class GameEngine {
       essenceEarnedThisRun: this.essenceEarnedThisRun,
       // Tower cooldowns are stamped against this clock, so it travels with them.
       gameTime: this.gameTime,
+      realTime: this.realTime,
       towers: structuredClone(this.towers),
       runMods: cloneRunMods(this.runMods),
       runFx: structuredClone(this.runFx),
@@ -4507,6 +4521,7 @@ export class GameEngine {
     this.towersBuilt = save.towersBuilt;
     this.essenceEarnedThisRun = save.essenceEarnedThisRun;
     this.gameTime = save.gameTime;
+    this.realTime = save.realTime;
 
     const mods = freshRunMods();
     this.runMods = {
@@ -4615,6 +4630,7 @@ export class GameEngine {
     this.pasting = false;
     this.pendingPlacement = null;
     this.gameTime = 0;
+    this.realTime = 0;
     this.slayer.reset();
     this.slayer.assignTask(); // fresh task for the new run
     this.prayer.reset();

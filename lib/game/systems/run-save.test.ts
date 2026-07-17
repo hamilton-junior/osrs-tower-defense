@@ -83,6 +83,18 @@ describe('sanitizeRunSave', () => {
     expect(save.kills).toBe(0);
   });
 
+  it('resumes a pre-wall-clock save at 0 rather than inheriting its simulated time', () => {
+    // The run timer used to be `gameTime` (simulated seconds), which runs ahead of
+    // the clock whenever a run is sped up. A save written back then has no
+    // `realTime`, and must NOT fall back to gameTime — a 5x run would resume
+    // claiming five times the hours it took.
+    const old = makeSave({ gameTime: 3600 });
+    delete (old as Record<string, unknown>).realTime;
+    const save = sanitizeRunSave(old)!;
+    expect(save.realTime).toBe(0);
+    expect(save.gameTime).toBe(3600); // the cooldown clock still travels intact
+  });
+
   it('defaults an unknown game mode to roguelite', () => {
     expect(sanitizeRunSave(makeSave({ gameMode: 'sandbox' }))!.gameMode).toBe('roguelite');
     expect(sanitizeRunSave(makeSave({ gameMode: 'classic' }))!.gameMode).toBe('classic');

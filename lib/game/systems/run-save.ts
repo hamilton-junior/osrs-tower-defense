@@ -34,8 +34,14 @@ export interface RunSave {
   goldEarned: number;
   towersBuilt: number;
   essenceEarnedThisRun: number;
-  /** Simulated seconds elapsed — feeds the run timer and every tower cooldown. */
+  /** Simulated seconds elapsed — every tower cooldown is stamped against this. */
   gameTime: number;
+  /** Real seconds spent playing — the run timer. Travels separately from
+   *  `gameTime` because the two diverge the moment the run is sped up, and a
+   *  resumed run must not restart its clock. Absent on saves written before the
+   *  timer switched to wall-clock; those resume at 0 rather than inheriting a
+   *  simulated figure that would read as hours. */
+  realTime: number;
   towers: Tower[];
   runMods: RunModifiers;
   runFx: RunEffects;
@@ -128,6 +134,7 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     towersBuilt: Math.max(0, Math.floor(num(raw.towersBuilt, 0))),
     essenceEarnedThisRun: Math.max(0, Math.floor(num(raw.essenceEarnedThisRun, 0))),
     gameTime: Math.max(0, num(raw.gameTime, 0)),
+    realTime: Math.max(0, num(raw.realTime, 0)),
     towers,
     runMods: raw.runMods as unknown as RunModifiers,
     runFx: raw.runFx as unknown as RunEffects,
