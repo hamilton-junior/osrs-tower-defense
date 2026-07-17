@@ -257,8 +257,10 @@ export interface UIState {
   /** Towers being relocated as one rigid formation (empty unless a group move is
    *  in flight). Mutually exclusive with `movingTowerId`. */
   movingGroupIds: string[];
-  /** Tiles painted by a Shift-drag, waiting for Shift to come up and build them. */
+  /** Tiles painted by a Shift-drag. Bought only once the player confirms. */
   placeQueue: { x: number; y: number }[];
+  /** Whether the painted line is finished (Shift is up) and awaiting its confirm. */
+  queueArmed: boolean;
   /** Towers on the Ctrl+C clipboard (empty until something is copied). */
   clipboard: TowerBlueprint[];
   /** Whether the clipboard's formation is on the pointer waiting to be bought. */
@@ -660,9 +662,12 @@ export class GameEngine {
   /** Ids of the towers a group move is carrying. The selection they came from is
    *  kept alive underneath, so the multi panel stays put while the ghost flies. */
   movingGroupIds: string[] = [];
-  /** Tiles a Shift-drag has painted. Holding Shift is the whole mode: the line is
-   *  only gold once Shift comes up, so a stroke can be re-drawn or thrown away. */
+  /** Tiles a Shift-drag has painted. Nothing here is gold until the player confirms,
+   *  so a stroke can be re-drawn, added to, or thrown away for free. */
   placeQueue: { x: number; y: number }[] = [];
+  /** Shift is up and the painted line is waiting to be bought — the confirm panel's
+   *  whole reason to exist. Pressing Shift again drops back to painting. */
+  queueArmed = false;
   /** Towers copied with Ctrl+C, as offsets from the formation's centre. Survives
    *  pasting (paste as many times as you can pay for) and is only replaced by
    *  another copy — but not a restart, where the towers it names are gone. */
@@ -811,6 +816,7 @@ export class GameEngine {
       movingTowerId: this.movingTowerId,
       movingGroupIds: [...this.movingGroupIds],
       placeQueue: this.placeQueue.map(p => ({ ...p })),
+      queueArmed: this.queueArmed,
       clipboard: this.clipboard.map(b => ({ ...b })),
       pasting: this.pasting,
       pendingPlacement: this.pendingPlacement ? { x: this.pendingPlacement.x, y: this.pendingPlacement.y } : null,
@@ -1352,6 +1358,7 @@ export class GameEngine {
     this.movingTowerId = null;
     this.movingGroupIds = []; // the selection itself survives — only the carry is dropped
     this.placeQueue = []; // a painted line is thrown away, not built
+    this.queueArmed = false;
     this.pasting = false; // the clipboard keeps its towers — only the aim is dropped
     this.pendingPlacement = null;
     this.emit();
@@ -1545,6 +1552,7 @@ export class GameEngine {
     this.movingTowerId = null;
     this.movingGroupIds = [];
     this.placeQueue = [];
+    this.queueArmed = false;
     this.pendingPlacement = null;
     this.pasting = true;
     this.sound.play('click');
@@ -1625,6 +1633,9 @@ export class GameEngine {
   queuePlacement(x: number, y: number) {
     const type = this.selectedTowerType;
     if (!type || this.movingTowerId || this.movingGroupIds.length) return;
+    // Shift went back down on an armed line: the player is adding to the stroke
+    // rather than answering the panel, so put the question away and keep painting.
+    this.queueArmed = false;
     const sx = Math.round(x / GRID) * GRID;
     const sy = Math.round(y / GRID) * GRID;
     if (this.placeQueue.some(p => p.x === sx && p.y === sy)) return; // already painted
@@ -1648,18 +1659,40 @@ export class GameEngine {
     return each > 0 ? Math.min(this.placeQueue.length, Math.floor(this.money / each)) : this.placeQueue.length;
   }
 
+  /** Throw the painted line away, armed or not, charging nothing. */
   clearPlaceQueue() {
-    if (!this.placeQueue.length) return;
+    if (!this.placeQueue.length && !this.queueArmed) return;
     this.placeQueue = [];
+    this.queueArmed = false;
     this.emit();
   }
 
-  /** Shift came up — the confirmation. Build the painted line in paint order for
-   *  as long as the gold lasts, then end the mode (Shift held IS the mode). */
-  commitPlaceQueue() {
+  /** Shift came up — the line is finished, but nothing is bought yet. It freezes
+   *  into an *armed* line and waits for {@link confirmPlaceQueue}.
+   *
+   *  Shift-up used to be the purchase itself, which made letting go of a key spend
+   *  gold — the one gesture a player makes without deciding to. Now the stroke and
+   *  the purchase are separate acts: paint freely, then say yes. */
+  armPlaceQueue() {
+    if (!this.placeQueue.length || !this.selectedTowerType) {
+      // Nothing painted: Shift was just held. Leave the armed tower as it was.
+      return;
+    }
+    this.queueArmed = true;
+    this.emit();
+  }
+
+  /** Buy the painted line, in paint order, for as long as the gold lasts.
+   *
+   *  `mageMode` is the answer to the question the confirm panel asks for a line of
+   *  wizards. It is passed in rather than read from `pendingMageMode` because the
+   *  whole point is that a line must not silently inherit the last wizard's
+   *  spellbook — the player picks one for this line, every time. */
+  confirmPlaceQueue(mageMode?: MageMode) {
     const type = this.selectedTowerType;
     const queue = this.placeQueue;
     this.placeQueue = [];
+    this.queueArmed = false;
     if (!type || !queue.length) { this.emit(); return; }
     let built = 0;
     for (const p of queue) {
@@ -1667,10 +1700,12 @@ export class GameEngine {
       // "Not enough gold" toast per unbuilt tile.
       if (this.money < this.towerCost(type)) break;
       const before = this.towers.length;
-      this.placeTower(type, p.x, p.y, true); // keepPlacing: the queue owns the selection
+      // keepPlacing: the queue owns the selection. A wizard skips its on-tile
+      // picker here — the line was answered once, up front, for all of it.
+      this.placeTower(type, p.x, p.y, true, mageMode ?? this.pendingMageMode);
       if (this.towers.length > before) built++;
     }
-    this.selectedTowerType = null; // Shift is up: the mode is over
+    this.selectedTowerType = null; // the line is spent: the mode is over
     if (built < queue.length) this.notify(built ? `Built ${built} of ${queue.length} — out of gold` : 'Not enough gold');
     this.emit();
   }
@@ -1694,6 +1729,12 @@ export class GameEngine {
       this.tryPaste(x, y);
       return;
     }
+    // An armed line owns the board. There is a yes/no sitting in front of the
+    // player, and a stray click must not answer it sideways by dropping a lone
+    // tower somewhere else (with the tower type still armed, this would otherwise
+    // fall through to a normal placement). The panel, Esc and right-click are the
+    // only ways out.
+    if (this.queueArmed) return;
     this.multiSelectedIds = []; // any normal click drops a marquee selection
     if (this.movingTowerId) {
       this.tryMoveTower(x, y);
@@ -4503,6 +4544,7 @@ export class GameEngine {
     this.movingTowerId = null;
     this.movingGroupIds = [];
     this.placeQueue = [];
+    this.queueArmed = false;
     this.clipboard = [];
     this.pasting = false;
     this.pendingPlacement = null;
@@ -4568,6 +4610,7 @@ export class GameEngine {
     this.movingTowerId = null;
     this.movingGroupIds = [];
     this.placeQueue = [];
+    this.queueArmed = false;
     this.clipboard = [];
     this.pasting = false;
     this.pendingPlacement = null;

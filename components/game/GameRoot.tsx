@@ -257,7 +257,7 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, wavePreview: [], activeEvent: null, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
-  multiSelectedIds: [], movingGroupIds: [], placeQueue: [], clipboard: [], pasting: false,
+  multiSelectedIds: [], movingGroupIds: [], placeQueue: [], queueArmed: false, clipboard: [], pasting: false,
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false, slayerUnlocks: [], slayerBlocked: [],
@@ -651,12 +651,15 @@ export default function GameRoot() {
     if (w !== enemyPanelSize.w || h !== enemyPanelSize.h) setEnemyPanelSize({ w, h });
   });
 
-  // Tick the picker animations on the OSRS cadence, only while it's open.
+  // Tick the picker animations on the OSRS cadence, only while a picker is open —
+  // the on-tile one for a single wizard, or the armed line's confirm panel, which
+  // offers the same cycling staves.
+  const wizardPickerOpen = !!ui.pendingPlacement || (ui.queueArmed && ui.selectedTowerType === 'wizard');
   useEffect(() => {
-    if (!ui.pendingPlacement) { setPickerHover(null); setSpellbookHover(null); return; }
+    if (!wizardPickerOpen) { setPickerHover(null); setSpellbookHover(null); return; }
     const id = setInterval(() => setAnimTick((t) => t + 1), 600);
     return () => clearInterval(id);
-  }, [ui.pendingPlacement]);
+  }, [wizardPickerOpen]);
 
   // ctx.font never triggers an @font-face download, so kick the OSRS faces off
   // now; the canvas redraws every frame and picks them up once loaded.
@@ -830,7 +833,7 @@ export default function GameRoot() {
    * read as slower/faster) step through the speeds, and Z/X/C jump straight to
    * 1x/2x/5x — one key per speed, for when you know which one you want.
    *
-   *   1-6 dock tower · Shift+drag paint a line (release Shift builds it)
+   *   1-6 dock tower · Shift+drag paint a line (release Shift prices it; confirm to buy)
    *   Esc cancel / pause · Space wave
    *   U upgrade selection · S sell (asks first) · , / . step speed · Z/X/C 1x/2x/5x
    *   Ctrl+C copy selection · Ctrl+V paste it
@@ -911,10 +914,11 @@ export default function GameRoot() {
         default: break;
       }
     };
-    // Shift coming up IS the confirmation for a painted build line — holding it
-    // is the whole mode, so letting go is what buys the towers.
+    // Shift coming up ends the stroke — it does not buy it. The line freezes and
+    // the confirm panel asks. Letting go of a key is a gesture a hand makes without
+    // deciding anything, so it must not be the thing that spends the gold.
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') engineRef.current?.commitPlaceQueue();
+      if (e.key === 'Shift') engineRef.current?.armPlaceQueue();
     };
     // A keyup never arrives if focus leaves mid-stroke (alt-tab with Shift down),
     // which would strand the ghosts with no way to finish. Throw the line away
@@ -1836,7 +1840,7 @@ export default function GameRoot() {
       {/* Shift-drag build line: what it costs and how to commit it, while the
           stroke is still free to redraw. Sits above the toast lane so a refusal
           can still speak over it. */}
-      {ui.placeQueue.length > 0 && (() => {
+      {ui.placeQueue.length > 0 && !ui.queueArmed && (() => {
         const eng = engineRef.current;
         const cost = eng?.placeQueueCost ?? 0;
         const afford = eng?.placeQueueAffordable ?? 0;
@@ -1847,7 +1851,87 @@ export default function GameRoot() {
             {ui.placeQueue.length} queued
             <span style={{ color: short ? 'var(--osrs-red)' : 'var(--osrs-yellow)' }}>{fmt(cost)} gp</span>
             {short && <span className="text-osrs-warn">(only {afford} affordable)</span>}
-            <span className="text-[#d3c3a0]">· release Shift to build</span>
+            <span className="text-[#d3c3a0]">· release Shift to price it up</span>
+          </div>
+        );
+      })()}
+
+      {/* The painted line, finished and waiting to be bought. Nothing has been
+          charged yet — this panel is the purchase.
+          It captures pointer events (it has buttons), so it sits in the toast lane
+          rather than over the board, clear of the tiles the line is standing on.
+          A line of wizards confirms *through* its spellbook choice: the question
+          has to be asked anyway, and answering it is the yes. */}
+      {ui.queueArmed && ui.placeQueue.length > 0 && ui.selectedTowerType && (() => {
+        const eng = engineRef.current;
+        const type = ui.selectedTowerType;
+        const n = ui.placeQueue.length;
+        const cost = eng?.placeQueueCost ?? 0;
+        const afford = eng?.placeQueueAffordable ?? 0;
+        const short = afford < n;
+        // `baseName` is what the dock calls the tower ("Ranged", "Magic"), so the
+        // panel names the thing being bought the same way the player picked it. Not
+        // the tier-1 name: that is the *weapon* ("Shortbow", "Strike"), which reads
+        // as nonsense pluralised and would go stale the moment a tier is renamed.
+        const name = TOWERS[type]?.baseName ?? type;
+        return (
+          <div
+            className="absolute left-1/2 bottom-[19%] -translate-x-1/2 z-30"
+            style={{ fontSize: fs('clamp(14px, 0.95vw, 20px)') }}
+          >
+            <div className="rs-panel p-[0.6em] whitespace-nowrap">
+              <div className="flex items-center justify-center gap-[0.4em] text-[0.78em] mb-[0.45em]">
+                <img src={towerIcon(type)} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+                <span className="text-[#e7d9b0]">Build {n} {name} tower{n > 1 ? 's' : ''}</span>
+                <span className={short ? 'text-osrs-warn' : 'text-osrs-yellow'}>{fmt(cost)} gp</span>
+              </div>
+              {short && (
+                <div className="text-center text-[0.62em] text-osrs-warn mb-[0.4em]">
+                  {afford > 0 ? `Only ${afford} affordable — the rest won't be built` : 'Not enough gold'}
+                </div>
+              )}
+
+              {type === 'wizard' ? (
+                <>
+                  <div className="text-center text-[0.62em] text-[#d3c3a0] uppercase tracking-wide mb-[0.35em]">
+                    Choose spellbook for the line
+                  </div>
+                  <div className="flex gap-[0.4em] justify-center">
+                    {([
+                      { mode: 'elemental', label: 'Elemental', icon: WIZARD_STAVES[animTick % WIZARD_STAVES.length] },
+                      { mode: 'ancients', label: 'Ancients', icon: WIZARD_SCEPTRES[animTick % WIZARD_SCEPTRES.length] },
+                      { mode: 'utility', label: 'Utility', icon: WIZARD_UTILITY_STAFF },
+                    ] as { mode: MageMode; label: string; icon?: string }[]).map(({ mode, label, icon }) => (
+                      <button
+                        key={mode}
+                        title={`Build the line as ${label} wizards`}
+                        disabled={afford < 1}
+                        onClick={() => engineRef.current?.confirmPlaceQueue(mode)}
+                        className="rs-slot flex flex-col items-center w-[3.6em] disabled:opacity-50"
+                      >
+                        {icon
+                          ? <img src={icon} alt={label} onError={hideBrokenImg} />
+                          : <span className="text-[0.6em]">{label}</span>}
+                        <span className="text-[0.58em] text-[#cdbb91] mt-[0.15em]">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <button
+                  className="rs-btn rs-btn-primary w-full py-[0.35em] text-[0.78em] disabled:opacity-50"
+                  disabled={afford < 1}
+                  title={`Build the painted line for ${fmt(cost)} gp`}
+                  onClick={() => engineRef.current?.confirmPlaceQueue()}
+                >
+                  Build ({fmt(cost)} gp)
+                </button>
+              )}
+
+              <div className="text-center text-[0.6em] text-[#b3a585] mt-[0.35em]">
+                Esc or right-click cancels · hold Shift to keep painting
+              </div>
+            </div>
           </div>
         );
       })()}
@@ -3606,7 +3690,7 @@ const TLDR: TldrGroup[] = [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
     'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks.',
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
-    'With a tower picked, hold Shift and drag to paint a line of them — nothing is bought until you release Shift, so a stroke can be redrawn or thrown away (right-click / Esc). Tiles you can’t afford paint red and are skipped.',
+    'With a tower picked, hold Shift and drag to paint a line of them. Releasing Shift only prices the line up — a panel then asks you to confirm before a coin is spent, and for a line of wizards it asks which spellbook they should all use. Until you confirm, the stroke can be added to (hold Shift again), redrawn, or thrown away (Esc / right-click). Tiles you can’t afford paint red and are skipped.',
     'Drag a box (no Shift) to multi-select — the panel then upgrades, sells, moves, re-aims or re-elements the whole box at once. A group Move carries the towers as one rigid formation: they keep the shape you arranged, and every tile must be legal or the drop is refused.',
     'Ctrl+C copies what is selected, Ctrl+V puts that formation on your pointer and a click builds all of it — the shape, each tower’s target priority and each wizard’s spellbook and spell come along. Copies are built at base level and cost full price, so it saves the clicking, not the gold.',
   ] },
@@ -3622,7 +3706,7 @@ const TLDR: TldrGroup[] = [
     'Roguelite — buy card rolls with gold (each roll costs more than the last) and keep one card; beating a boss claims a Relic.',
   ] },
   { h: 'Controls', lines: [
-    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift+drag paint a build line, release Shift to build it · drag a box to multi-select · Ctrl+C copy the selection, Ctrl+V paste it · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
+    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift+drag paint a build line, release Shift to price it up and confirm · drag a box to multi-select · Ctrl+C copy the selection, Ctrl+V paste it · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
     'You never have to memorise these: every button that answers to a key wears it engraved in a top corner.',
     'One slim bar along the bottom: run controls (left), tower dock and Start Wave (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click — no interface stays on-screen.',
     'Auto sends each wave once the field is clear, after the delay in seconds beside it.',
