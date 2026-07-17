@@ -16,7 +16,7 @@ import { CombatStatsSystem, RUN_FX_ID, type DamageSource, type AuraAttribution, 
 import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, upgradeCostFor, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../systems/magic';
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
-import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, venomRamp, venomCap } from '../systems/tower-identity';
+import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../systems/tower-identity';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -3159,11 +3159,30 @@ export class GameEngine {
       const inReach = (e: Enemy) =>
         !doomed(e) && !moleIsHidden(e.bossState) && inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e));
 
-      // (re)acquire a target
+      // (re)acquire a target. `markKind` is the status this tower spreads (for the
+      // `unmarked` priority — a tower only counts its OWN effect as a mark).
+      const markKind = towerMarkKind(tower);
+      const slayerFavored = (e: Enemy) => isSlayerFavoredTarget(e.type, this.slayer.task?.type ?? null, !!e.isBoss);
       let target = tower.targetId ? this.enemies.find(e => e.id === tower.targetId) : undefined;
+      // Slayer specialisation is sticky too: if it's chewing a non-favoured target
+      // while a favoured one (task / superior / boss) is in range, drop it so the
+      // reselect below prefers the specialised kill, regardless of set priority.
+      if (target && tower.type === 'slayer' && !slayerFavored(target) &&
+          this.enemies.some(e => inReach(e) && slayerFavored(e))) {
+        target = undefined;
+      }
       if (!target || !inReach(target)) {
         const inRange = this.enemies.filter(inReach);
-        target = selectTarget(inRange, tower.x, tower.y, this.path, tower.targetingPriority) ?? undefined;
+        // Slayer tower prioritises its specialised category over the raw priority:
+        // pick among the favoured enemies if any are in range, else target normally.
+        // Within the chosen pool the player's priority still decides. (Damage bonus
+        // is applied separately in slayerWeaponBonus.)
+        let pool = inRange;
+        if (tower.type === 'slayer') {
+          const favored = inRange.filter(slayerFavored);
+          if (favored.length > 0) pool = favored;
+        }
+        target = selectTarget(pool, tower.x, tower.y, this.path, tower.targetingPriority, markKind) ?? undefined;
         tower.targetId = target?.id ?? null;
       }
       if (!target) continue;
@@ -3321,7 +3340,7 @@ export class GameEngine {
       // best target in range, or the same one if it's alone (a focused burst).
       if (tower.type === 'archer' && archerArrowCount(tower.level) > 1) {
         const others = this.enemies.filter(e => e.id !== target.id && inReach(e));
-        const second = selectTarget(others, tower.x, tower.y, this.path, tower.targetingPriority) ?? target;
+        const second = selectTarget(others, tower.x, tower.y, this.path, tower.targetingPriority, markKind) ?? target;
         const fl2 = Math.max(0.05, distance(tower.x, tower.y, second.x, second.y) / 600);
         launch(second, arrowDmg(second), fl2);
       }

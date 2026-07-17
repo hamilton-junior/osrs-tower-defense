@@ -4,6 +4,8 @@ import {
   bowAntiTankMult,
   cannonBlastRadius,
   slayerWeaponBonus,
+  isSlayerFavoredTarget,
+  towerMarkKind,
   venomRamp,
   venomCap,
   venomWaveMult,
@@ -52,6 +54,50 @@ describe('slayerWeaponBonus', () => {
   });
   it('is neutral against anything uncategorised', () => {
     expect(slayerWeaponBonus('rat', 'goblin', false)).toBe(1);
+  });
+});
+
+describe('isSlayerFavoredTarget', () => {
+  it('favours the current task, superiors and bosses', () => {
+    expect(isSlayerFavoredTarget('goblin', 'goblin', false)).toBe(true);
+    expect(isSlayerFavoredTarget('superior_gargoyle', null, false)).toBe(true);
+    expect(isSlayerFavoredTarget('vorkath', null, true)).toBe(true);
+  });
+  it('does not favour an off-task, non-superior, non-boss enemy', () => {
+    expect(isSlayerFavoredTarget('rat', 'goblin', false)).toBe(false);
+  });
+  it('tracks slayerWeaponBonus exactly (favoured ⇔ bonus > 1)', () => {
+    for (const [type, task, boss] of [
+      ['goblin', 'goblin', false], ['rat', 'goblin', false],
+      ['superior_gargoyle', null, false], ['vorkath', null, true], ['cow', null, false],
+    ] as const) {
+      expect(isSlayerFavoredTarget(type, task, boss)).toBe(slayerWeaponBonus(type, task, boss) > 1);
+    }
+  });
+});
+
+describe('towerMarkKind', () => {
+  it('maps each tower to the status it spreads', () => {
+    expect(towerMarkKind({ type: 'toxic' })).toBe('venom');
+    expect(towerMarkKind({ type: 'tzhaar' })).toBe('stun');
+    expect(towerMarkKind({ type: 'archer' })).toBe('none');
+    expect(towerMarkKind({ type: 'cannon' })).toBe('none');
+    expect(towerMarkKind({ type: 'slayer' })).toBe('none');
+  });
+  it('reads an elemental wizard\'s element (air is a pure knockback → none)', () => {
+    expect(towerMarkKind({ type: 'wizard', mageMode: 'elemental', element: 'water' })).toBe('vuln');
+    expect(towerMarkKind({ type: 'wizard', mageMode: 'elemental', element: 'earth' })).toBe('stun');
+    expect(towerMarkKind({ type: 'wizard', mageMode: 'elemental', element: 'fire' })).toBe('burn');
+    expect(towerMarkKind({ type: 'wizard', mageMode: 'elemental', element: 'air' })).toBe('none');
+  });
+  it('reads an ancient wizard\'s barrage (blood lifesteal → none)', () => {
+    expect(towerMarkKind({ type: 'wizard', mageMode: 'ancients', ancientType: 'ice' })).toBe('slow');
+    expect(towerMarkKind({ type: 'wizard', mageMode: 'ancients', ancientType: 'shadow' })).toBe('stun');
+    expect(towerMarkKind({ type: 'wizard', mageMode: 'ancients', ancientType: 'smoke' })).toBe('poison');
+    expect(towerMarkKind({ type: 'wizard', mageMode: 'ancients', ancientType: 'blood' })).toBe('none');
+  });
+  it('treats a utility wizard as no-mark', () => {
+    expect(towerMarkKind({ type: 'wizard', mageMode: 'utility' })).toBe('none');
   });
 });
 

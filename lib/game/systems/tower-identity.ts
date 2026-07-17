@@ -13,6 +13,51 @@
  *  - Toxic   → venom: a damage-over-time that ramps the longer it's reapplied.
  */
 
+import type { MarkKind } from './targeting';
+
+/**
+ * The kind of lingering status a tower lays on hit, for the `unmarked` priority
+ * (it spreads *this* effect across the wave). Derived from the tower's identity
+ * at fire time — its type, and for a wizard its spellbook mode + element/ancient:
+ *  - toxic → venom · tzhaar → stun (pushback & crush both stun)
+ *  - elemental wizard: water → vuln, earth → stun, fire → burn, air → none (pure
+ *    knockback leaves no timer)
+ *  - ancient wizard: ice → slow, shadow → stun, smoke → poison, blood → none
+ *  - archer / cannon / slayer / utility → none
+ */
+export function towerMarkKind(tower: {
+  type: string;
+  mageMode?: string | null;
+  element?: string | null;
+  ancientType?: string | null;
+}): MarkKind {
+  switch (tower.type) {
+    case 'toxic': return 'venom';
+    case 'tzhaar': return 'stun';
+    case 'wizard': {
+      const mode = tower.mageMode ?? 'elemental';
+      if (mode === 'elemental') {
+        switch (tower.element ?? 'air') {
+          case 'water': return 'vuln';
+          case 'earth': return 'stun';
+          case 'fire': return 'burn';
+          default: return 'none'; // air: knockback only
+        }
+      }
+      if (mode === 'ancients') {
+        switch (tower.ancientType ?? 'ice') {
+          case 'ice': return 'slow';
+          case 'shadow': return 'stun';
+          case 'smoke': return 'poison';
+          default: return 'none'; // blood: lifesteal, no mark
+        }
+      }
+      return 'none'; // utility
+    }
+    default: return 'none'; // archer, cannon, slayer
+  }
+}
+
 /** Arrows loosed per attack. The Dark Bow (tier 3+) looses two. */
 export function archerArrowCount(level: number): number {
   return level >= 3 ? 2 : 1;
@@ -50,6 +95,18 @@ export function slayerWeaponBonus(enemyType: string, taskType: string | null, is
   if (enemyType.startsWith('superior_')) best = Math.max(best, 1.3);
   if (isBoss) best = Math.max(best, 1.25);
   return best;
+}
+
+/**
+ * Whether the Slayer tower *specialises* against this enemy — i.e. it's in one of
+ * the categories {@link slayerWeaponBonus} rewards (the current task, a superior,
+ * or a boss). The Slayer tower prioritises these regardless of the player's set
+ * priority, then applies the normal priority *within* the favoured group; with no
+ * favoured enemy in range it targets normally. Single source of truth with the
+ * damage bonus: favoured ⇔ bonus > 1.
+ */
+export function isSlayerFavoredTarget(enemyType: string, taskType: string | null, isBoss: boolean): boolean {
+  return slayerWeaponBonus(enemyType, taskType, isBoss) > 1;
 }
 
 /**
