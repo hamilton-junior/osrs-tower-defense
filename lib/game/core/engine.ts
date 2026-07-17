@@ -254,6 +254,9 @@ export interface UIState {
   /** Marquee multi-selection (tower ids) for the batch-upgrade panel. */
   multiSelectedIds: string[];
   movingTowerId: string | null;
+  /** Towers being relocated as one rigid formation (empty unless a group move is
+   *  in flight). Mutually exclusive with `movingTowerId`. */
+  movingGroupIds: string[];
   /** Grid spot the player tapped to build on — drives the on-map tower picker. */
   pendingPlacement: { x: number; y: number } | null;
   /** Spellbook a freshly-placed wizard will use (pre-placement choice). */
@@ -648,6 +651,9 @@ export class GameEngine {
    *  upgrade. Cleared by any normal click / placement. */
   multiSelectedIds: string[] = [];
   movingTowerId: string | null = null;
+  /** Ids of the towers a group move is carrying. The selection they came from is
+   *  kept alive underneath, so the multi panel stays put while the ghost flies. */
+  movingGroupIds: string[] = [];
   /** Enemy "pinned" by a click: its info panel stays open (tracking the enemy as
    *  it moves) until the player clicks elsewhere. Null = follow the hovered one. */
   inspectedEnemyId: string | null = null;
@@ -787,6 +793,7 @@ export class GameEngine {
       selectedTowerId: this.selectedTowerId,
       multiSelectedIds: [...this.multiSelectedIds],
       movingTowerId: this.movingTowerId,
+      movingGroupIds: [...this.movingGroupIds],
       pendingPlacement: this.pendingPlacement ? { x: this.pendingPlacement.x, y: this.pendingPlacement.y } : null,
       pendingMageMode: this.pendingMageMode,
       gameSpeed: this.gameSpeed,
@@ -1048,7 +1055,7 @@ export class GameEngine {
    *  Pausing only freezes the sim (enemies, towers, projectiles, DoTs, prayer &
    *  potion timers) — the player can still place, move, sell and pick spells. */
   escape() {
-    if (this.pendingPlacement || this.movingTowerId || this.selectedTowerType) {
+    if (this.pendingPlacement || this.movingTowerId || this.movingGroupIds.length || this.selectedTowerType) {
       this.cancelAction();
     } else {
       this.togglePause();
@@ -1323,6 +1330,7 @@ export class GameEngine {
   cancelAction() {
     this.selectedTowerType = null;
     this.movingTowerId = null;
+    this.movingGroupIds = []; // the selection itself survives — only the carry is dropped
     this.pendingPlacement = null;
     this.emit();
   }
@@ -1354,10 +1362,131 @@ export class GameEngine {
     this.emit();
   }
 
+  /** The towers a group move is carrying, in selection order. */
+  get movingGroup(): Tower[] {
+    return this.movingGroupIds
+      .map(id => this.towers.find(t => t.id === id))
+      .filter((t): t is Tower => !!t);
+  }
+
+  /** The formation's own centre, snapped to the grid. Every tower's offset from
+   *  it is therefore a whole number of tiles (they were snapped to begin with),
+   *  which is what lets the group translate and stay on-grid. */
+  private groupAnchor(group: Tower[]): { x: number; y: number } {
+    const cx = group.reduce((s, t) => s + t.x, 0) / group.length;
+    const cy = group.reduce((s, t) => s + t.y, 0) / group.length;
+    return { x: Math.round(cx / GRID) * GRID, y: Math.round(cy / GRID) * GRID };
+  }
+
+  /** Where each carried tower lands if the formation's centre is dropped on
+   *  (x, y). The move is a rigid translation — the shape the player selected is
+   *  the shape they get, so a laid-out cluster survives the trip. */
+  groupMoveTargets(x: number, y: number): { tower: Tower; x: number; y: number }[] {
+    const group = this.movingGroup;
+    if (!group.length) return [];
+    const anchor = this.groupAnchor(group);
+    const dx = Math.round(x / GRID) * GRID - anchor.x;
+    const dy = Math.round(y / GRID) * GRID - anchor.y;
+    return group.map(t => ({ tower: t, x: t.x + dx, y: t.y + dy }));
+  }
+
+  /** Summed relocation fee for the towers a group move is carrying. */
+  get movingGroupCost(): number {
+    return this.movingGroup.reduce((s, t) => s + this.moveTowerCost(t), 0);
+  }
+
+  /** Count + summed fee to move the whole marquee selection — what the panel's
+   *  Move button quotes before the ghost is picked up. */
+  get multiMoveInfo(): { count: number; cost: number } {
+    let count = 0, cost = 0;
+    for (const id of this.multiSelectedIds) {
+      const t = this.towers.find(tw => tw.id === id);
+      if (t) { count++; cost += this.moveTowerCost(t); }
+    }
+    return { count, cost };
+  }
+
+  /** Each landing spot with its own verdict, so the ghost can colour the towers
+   *  individually — a red one in a green formation says exactly which tile is the
+   *  problem, which "the drop is invalid" never would. Judged against the towers
+   *  that AREN'T moving, so the group ignores the footprint it's about to vacate.
+   *
+   *  Unlike a single move, this also has to check the board edges: a click is
+   *  always in-bounds, but translating a formation from a click near the rim
+   *  pushes its outer towers clean off the map. */
+  groupMovePlan(x: number, y: number): { tower: Tower; x: number; y: number; ok: boolean }[] {
+    const targets = this.groupMoveTargets(x, y);
+    const ids = new Set(this.movingGroupIds);
+    const others = this.towers.filter(t => !ids.has(t.id));
+    return targets.map(t => ({
+      ...t,
+      ok: t.x >= TOWER_RADIUS && t.x <= this.width - TOWER_RADIUS &&
+          t.y >= TOWER_RADIUS && t.y <= this.height - TOWER_RADIUS &&
+          isValidPlacement(t.x, t.y, this.path, others),
+    }));
+  }
+
+  /** All-or-nothing: a rigid translation can't bend around one bad tile, so one
+   *  red tower refuses the whole drop. */
+  groupMoveValid(x: number, y: number): boolean {
+    const plan = this.groupMovePlan(x, y);
+    return plan.length > 0 && plan.every(t => t.ok);
+  }
+
+  /** Enter "move" mode for the whole marquee selection: the next valid click
+   *  drops the formation for the summed fee. */
+  beginMoveGroup() {
+    const group = this.multiSelectedIds
+      .map(id => this.towers.find(t => t.id === id))
+      .filter((t): t is Tower => !!t);
+    if (!group.length) return;
+    const cost = group.reduce((s, t) => s + this.moveTowerCost(t), 0);
+    if (this.money < cost) { this.notify('Not enough gold'); return; } // failsafe: can't afford
+    this.selectedTowerType = null;
+    this.selectedTowerId = null;
+    this.movingTowerId = null;
+    this.movingGroupIds = group.map(t => t.id);
+    this.pendingPlacement = null;
+    this.sound.play('click');
+    this.emit();
+  }
+
+  private tryMoveGroup(x: number, y: number) {
+    const targets = this.groupMoveTargets(x, y);
+    if (!targets.length) { // the selection was sold/killed out from under the move
+      this.movingGroupIds = [];
+      this.emit();
+      return;
+    }
+    const cost = this.movingGroupCost;
+    if (this.money < cost) { // failsafe: lost the gp since entering move mode
+      this.movingGroupIds = [];
+      this.emit();
+      return;
+    }
+    if (targets.every(t => t.x === t.tower.x && t.y === t.tower.y)) return; // no-op, wait for a real spot
+    if (!this.groupMoveValid(x, y)) return; // invalid spot, keep waiting
+    this.money -= cost;
+    for (const t of targets) {
+      t.tower.x = t.x;
+      t.tower.y = t.y;
+      t.tower.targetId = null; // re-acquire from the new position
+    }
+    this.movingGroupIds = [];
+    this.bumpTowerLayout(); // positions changed → synergy auras may shift
+    this.emit();
+  }
+
   /** Handle a click in logic space: move/place a tower or select/deselect one.
    *  `keepPlacing` (Shift-click) keeps the tower type selected after a successful
    *  build so several can be dropped in a row. */
   handleClick(x: number, y: number, keepPlacing = false) {
+    // A group move claims the click before the line below can fire: the towers
+    // being carried ARE the marquee selection, so dropping it would drop them.
+    if (this.movingGroupIds.length) {
+      this.tryMoveGroup(x, y);
+      return;
+    }
     this.multiSelectedIds = []; // any normal click drops a marquee selection
     if (this.movingTowerId) {
       this.tryMoveTower(x, y);
@@ -1718,6 +1847,10 @@ export class GameEngine {
     this.bumpTowerLayout();
     if (this.selectedTowerId === towerId) this.selectedTowerId = null;
     if (this.movingTowerId === towerId) this.movingTowerId = null;
+    // A carried tower sold mid-move leaves the formation; the rest keep flying.
+    if (this.movingGroupIds.includes(towerId)) {
+      this.movingGroupIds = this.movingGroupIds.filter(id => id !== towerId);
+    }
     this.sound.play('sell');
     this.emit();
   }
@@ -4157,6 +4290,7 @@ export class GameEngine {
     this.selectedTowerId = null;
     this.multiSelectedIds = [];
     this.movingTowerId = null;
+    this.movingGroupIds = [];
     this.pendingPlacement = null;
 
     this.slayer.load(save.slayer);
@@ -4218,6 +4352,7 @@ export class GameEngine {
     this.selectedTowerId = null;
     this.multiSelectedIds = [];
     this.movingTowerId = null;
+    this.movingGroupIds = [];
     this.pendingPlacement = null;
     this.gameTime = 0;
     this.slayer.reset();

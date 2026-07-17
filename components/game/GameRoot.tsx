@@ -254,7 +254,7 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, wavePreview: [], activeEvent: null, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
-  multiSelectedIds: [],
+  multiSelectedIds: [], movingGroupIds: [],
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false, slayerUnlocks: [], slayerBlocked: [],
@@ -854,13 +854,17 @@ export default function GameRoot() {
         case 'x': case 'X': eng.setGameSpeed(2); break;
         case 'c': case 'C': eng.setGameSpeed(5); break;
         // Upgrade whatever is selected — a marquee batch, or the one open tower.
+        // A move in flight owns the selection: its panel hides these actions, so
+        // the keys that trigger them go quiet too.
         case 'u': case 'U':
+          if (eng.movingGroupIds.length > 0) break;
           if (eng.multiSelectedIds.length > 0) eng.upgradeMultiSelected();
           else if (eng.selectedTowerId) eng.upgradeTower(eng.selectedTowerId);
           break;
         // Sell never fires straight off a keypress: it arms the same confirmation
         // the Sell button uses (players were selling by fat-fingering a fast upgrade).
         case 's': case 'S':
+          if (eng.movingGroupIds.length > 0) break;
           if (eng.multiSelectedIds.length > 0) setSellConfirm(MULTI_SELL);
           else if (eng.selectedTowerId) setSellConfirm(eng.selectedTowerId);
           break;
@@ -956,7 +960,7 @@ export default function GameRoot() {
   // untouched). Left button only.
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     const eng = engineRef.current;
-    if (e.button !== 0 || !eng || eng.selectedTowerType || eng.movingTowerId) return;
+    if (e.button !== 0 || !eng || eng.selectedTowerType || eng.movingTowerId || eng.movingGroupIds.length) return;
     marqueeStart.current = { cx: e.clientX, cy: e.clientY };
     marqueeDragged.current = false;
   }, []);
@@ -1344,6 +1348,10 @@ export default function GameRoot() {
           ?? { elemental: 0, ancients: 0, utility: 0, element: null, ancientType: null, supportSpell: null };
         const afford = ui.money >= info.cost;
         const confirming = sellConfirm === MULTI_SELL;
+        const move = eng?.multiMoveInfo ?? { count: 0, cost: 0 };
+        // A group move keeps its selection alive, so this panel stays mounted for
+        // the whole flight — it swaps its actions for the "drop it" hint.
+        const groupMoving = ui.movingGroupIds.length > 0;
         return (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
             <MovablePanel
@@ -1357,6 +1365,12 @@ export default function GameRoot() {
                 <button className="rs-btn px-[0.6em] py-[0.15em] text-[0.8em]" title="Deselect all towers" onClick={() => eng?.clearMultiSelect()}>Clear</button>
               </div>
 
+              {groupMoving ? (
+                <div className="text-center text-[0.8em] text-osrs-orange leading-snug py-[0.15em]">
+                  ▸ Click a tile to drop all {ui.movingGroupIds.length} here ({fmt(move.cost)} gp)<br />
+                  <span className="text-[#d3c3a0]">they keep their shape · right‑click to cancel</span>
+                </div>
+              ) : (<>
               <button
                 className="rs-btn rs-btn-primary relative px-[0.7em] py-[0.3em] flex items-center justify-center gap-[0.3em] disabled:opacity-50"
                 disabled={info.count === 0}
@@ -1367,6 +1381,18 @@ export default function GameRoot() {
                 Upgrade {info.count > 0 ? `(${info.count})` : ''}
                 {info.count > 0 && <span style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{fmt(info.cost)} gp</span>}
                 <span className="rs-key">U</span>
+              </button>
+
+              {/* Moves the whole box as one rigid formation — the layout the player
+                  arranged is the point, so it travels with them. */}
+              <button
+                className="rs-btn px-[0.7em] py-[0.3em] flex items-center justify-center gap-[0.3em] disabled:opacity-50"
+                disabled={ui.money < move.cost}
+                title={`Move all ${move.count} selected towers for ${fmt(move.cost)} gp — they keep their formation`}
+                onClick={() => eng?.beginMoveGroup()}
+              >
+                <span className="text-[#cdbe91]">✥</span>
+                Move ({fmt(move.cost)} gp)
               </button>
 
               {/* Selling a whole box is the most destructive thing this panel can
@@ -1405,6 +1431,7 @@ export default function GameRoot() {
                   <span className="rs-key">S</span>
                 </button>
               )}
+              </>)}
 
               <div>
                 <div className="text-[0.68em] text-[#d3c3a0] mb-[0.25em] px-[0.2em] uppercase tracking-wide">Target priority</div>
@@ -3485,7 +3512,7 @@ const TLDR: TldrGroup[] = [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
     'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks.',
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
-    'Hold Shift to keep placing the same tower; drag a box to multi-select — the panel then upgrades, sells, re-aims or re-elements the whole box at once.',
+    'Hold Shift to keep placing the same tower; drag a box to multi-select — the panel then upgrades, sells, moves, re-aims or re-elements the whole box at once. A group Move carries the towers as one rigid formation: they keep the shape you arranged, and every tile must be legal or the drop is refused.',
   ] },
   { h: 'Waves', lines: [
     'Nothing spawns until you Start Wave (button beside the tower dock, or Space). Between waves is paused build time.',

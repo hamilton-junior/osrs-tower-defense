@@ -515,6 +515,9 @@ export class GameRenderer {
       );
     }
 
+    // A group move draws its own formation of ghosts and owns the frame.
+    if (this.e.movingGroupIds.length) { this.drawGroupGhost(ctx); return; }
+
     // Either placing a new tower (selectedTowerType) or relocating one (movingTower).
     const moving = this.e.movingTower;
     const type = moving ? moving.type : this.e.selectedTowerType;
@@ -546,6 +549,38 @@ export class GameRenderer {
     // not the default base sprite — match what the placed tower actually shows.
     const preferredKey = moving ? this.wizardStaffKey(moving) : undefined;
     this.drawTowerSprite(ctx, type, level, sx, sy, moving ? moving.visualRadius : 18, preferredKey);
+    ctx.globalAlpha = 1;
+  }
+
+  /** The ghost for a group move: the whole formation previewed under the pointer,
+   *  each tower coloured by its own verdict. Ranges are drawn for every tower but
+   *  the synergy overlay is not — a dozen circles of captions would bury the board
+   *  the move is trying to read. */
+  private drawGroupGhost(ctx: CanvasRenderingContext2D) {
+    const plan = this.e.groupMovePlan(this.e.pointer.x, this.e.pointer.y);
+    if (!plan.length) return;
+    // Can't pay = nothing lands, so the whole formation reads red regardless of
+    // where it sits — same signal the single-tower ghost gives.
+    const affordable = this.e.money >= this.e.movingGroupCost;
+
+    for (const t of plan) {
+      const ok = t.ok && affordable;
+      const range = this.e.effectiveStats(t.tower.id)?.range ?? t.tower.range;
+      this.drawSquareRange(
+        ctx, t.x, t.y, squareRange(range, GRID),
+        ok ? 'rgba(0,255,0,0.5)' : 'rgba(255,0,0,0.5)',
+        ok ? 'rgba(0,255,0,0.06)' : 'rgba(255,0,0,0.06)',
+      );
+    }
+
+    // Sprites last, so no tower's range square is painted over its neighbour.
+    ctx.globalAlpha = 0.6;
+    for (const t of plan) {
+      this.drawTowerSprite(
+        ctx, t.tower.type, t.tower.level, t.x, t.y, t.tower.visualRadius,
+        this.wizardStaffKey(t.tower),
+      );
+    }
     ctx.globalAlpha = 1;
   }
 
