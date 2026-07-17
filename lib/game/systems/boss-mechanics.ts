@@ -468,6 +468,36 @@ export function guardianReviveHp(maxHp: number): number {
   return Math.max(1, Math.round(maxHp * GUARDIAN_REVIVE_HP_FRAC));
 }
 
+/**
+ * Form a pair: point two Guardians' states at each other, switch the shared stone
+ * back on, and close the opening move on **both**.
+ *
+ * That last part is what stops the pair from multiplying. Only Dusk opens the fight
+ * (see {@link guardianShouldSummonTwin}) and he asks his own state whether he has
+ * done it yet — but a *revived* Dusk is a new enemy carrying a fresh {@link BossState},
+ * so without this he reads "not yet" on his first frame and summons a second Dawn,
+ * leaving the survivor, the revived Dusk and a brand-new Dawn standing at once. Recording
+ * it at the moment of pairing makes it true however the pair came to be: Dusk's opening
+ * summon, or a resurrection.
+ */
+export function linkGuardianStates(
+  a: { id: string; state: BossState },
+  b: { id: string; state: BossState },
+) {
+  a.state.partnerId = b.id;
+  b.state.partnerId = a.id;
+  a.state.linked = true;
+  b.state.linked = true;
+  a.state.summonedTwin = true;
+  b.state.summonedTwin = true;
+}
+
+/** Does this Guardian still owe the fight its twin? Only Dusk brings one in, and only
+ *  once — having been paired, by his own summon or by a revival, settles it for good. */
+export function guardianShouldSummonTwin(kind: BossId, state: BossState): boolean {
+  return kind === 'dusk' && !state.summonedTwin;
+}
+
 // ────────────────────────────────── Cerberus ───────────────────────────────
 /**
  * The style lock. At each HP threshold Cerberus summons his three Summoned Souls, and

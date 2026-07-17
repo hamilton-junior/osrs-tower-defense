@@ -54,6 +54,8 @@ import {
   isGuardian,
   guardianTwin,
   guardianReviveHp,
+  linkGuardianStates,
+  guardianShouldSummonTwin,
   GUARDIAN_LINK_DAMAGE_MULT,
   GUARDIAN_REVIVE_SECS,
   GUARDIAN_REVIVE_HP_FRAC,
@@ -454,6 +456,35 @@ describe('Grotesque Guardians', () => {
     expect(freshBossState('dusk').twinType).toBe('dawn');
     expect(freshBossState('dawn').twinType).toBe('dusk');
     expect(freshBossState('dusk').linked).toBeFalsy(); // the engine links them on summon
+  });
+
+  it('opens the fight with Dusk fetching Dawn, and only once', () => {
+    const dusk = freshBossState('dusk');
+    expect(guardianShouldSummonTwin('dusk', dusk)).toBe(true);
+    // Dawn is the one who gets fetched; she never fetches anyone.
+    expect(guardianShouldSummonTwin('dawn', freshBossState('dawn'))).toBe(false);
+
+    linkGuardianStates({ id: 'dusk-1', state: dusk }, { id: 'dawn-1', state: freshBossState('dawn') });
+    expect(guardianShouldSummonTwin('dusk', dusk)).toBe(false);
+  });
+
+  it('a revived Dusk arrives already paired, so the Guardians never multiply', () => {
+    // The player-reported bug: kill Dusk, let the revive window close, and a THIRD
+    // boss appeared. A revived Dusk is a new enemy with a fresh state, so he read
+    // "I haven't fetched Dawn yet" and fetched a second one — leaving the surviving
+    // Dawn, the revived Dusk and a brand-new Dawn on the board together.
+    const survivingDawn = freshBossState('dawn');
+    const revivedDusk = freshBossState('dusk');
+    expect(guardianShouldSummonTwin('dusk', revivedDusk)).toBe(true); // the trap, before pairing
+
+    linkGuardianStates({ id: 'dawn-1', state: survivingDawn }, { id: 'dusk-2', state: revivedDusk });
+
+    expect(guardianShouldSummonTwin('dusk', revivedDusk)).toBe(false);
+    // ...and he is paired with the survivor, not off hunting a fresh twin.
+    expect(revivedDusk.partnerId).toBe('dawn-1');
+    expect(survivingDawn.partnerId).toBe('dusk-2');
+    expect(revivedDusk.linked).toBe(true);
+    expect(survivingDawn.linked).toBe(true);
   });
 
   it('only Dusk can be drawn by a wave — Dawn never arrives alone', () => {

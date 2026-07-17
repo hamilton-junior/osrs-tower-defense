@@ -48,7 +48,7 @@ import {
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
   stepBossStall, stallTenacityBonus, stallHealMult, escortDamageMult, type BossState,
-  isGuardian, guardianReviveHp,
+  isGuardian, guardianReviveHp, linkGuardianStates, guardianShouldSummonTwin,
   GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
   cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
   SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT,
@@ -2428,7 +2428,7 @@ export class GameEngine {
     const st = e.bossState!;
     // Dusk brings his twin. Dawn is not in SCHEDULABLE_BOSSES precisely so that she can
     // never turn up without him; this is the only way she enters the field.
-    if (st.kind === 'dusk' && !st.summonedTwin) this.summonDawn(e);
+    if (guardianShouldSummonTwin(st.kind, st)) this.summonDawn(e);
 
     // A failed lookup *is* the signal: the twin's id is still on the state after it
     // dies, and not finding it in `enemies` is how the survivor learns it is alone.
@@ -2523,12 +2523,7 @@ export class GameEngine {
 
   /** Point two Guardians at each other and switch the shared-stone mitigation on. */
   private linkGuardians(a: Enemy, b: Enemy) {
-    const sa = a.bossState!;
-    const sb = b.bossState!;
-    sa.partnerId = b.id;
-    sb.partnerId = a.id;
-    sa.linked = true;
-    sb.linked = true;
+    linkGuardianStates({ id: a.id, state: a.bossState! }, { id: b.id, state: b.bossState! });
   }
 
   /**
