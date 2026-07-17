@@ -23,6 +23,7 @@ import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/r
 import type { TowerType, PrayerType, MageMode, CombatStyle, TargetingPriority } from '@/lib/game/types';
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
+import { loadChangelog, type ChangelogEntry } from '@/lib/game/changelog';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 /** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
@@ -3767,6 +3768,16 @@ function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onResetTips:
  *  The current wave (and any other field in FEEDBACK.prefill) rides along on the
  *  URL so a report arrives pre-filled (see lib/game/feedback.ts). */
 function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
+  // The baked changelog (git history → public/data/changelog.json). Loaded once
+  // when the panel opens; a failure just leaves the list empty (loadChangelog
+  // never throws), so the forms above always work even offline.
+  const [changes, setChanges] = useState<ChangelogEntry[] | null>(null);
+  useEffect(() => {
+    const ac = new AbortController();
+    loadChangelog(ac.signal).then(setChanges);
+    return () => ac.abort();
+  }, []);
+
   const ctx: FeedbackContext = useMemo(() => ({
     wave: ui.wave,
     mode: ui.gameMode,
@@ -3816,6 +3827,35 @@ function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => void }) {
             >
               💡 Suggest an idea
             </button>
+          )}
+          {/* Recent updates — proof the notes above get acted on. Every line is a
+              commit subject (never a player's words), and a 💬 marks the ones a
+              report drove. Hidden until at least one entry loads, so a failed or
+              empty fetch leaves no dead heading. */}
+          {changes && changes.length > 0 && (
+            <>
+              <div className="border-t border-[var(--rs-keyline)] mt-[0.2em]" />
+              <span className="text-osrs-orange font-bold text-[0.85em] mt-[0.1em]">🔨 Recent updates</span>
+              <div className="flex flex-col gap-[0.3em] max-h-[11em] overflow-y-auto custom-scrollbar pr-[0.2em] -mt-[0.1em]">
+                {changes.map((c, i) => (
+                  <div key={i} className="flex items-start gap-[0.4em] text-[0.72em] leading-snug">
+                    <span
+                      className="shrink-0 mt-[0.15em] px-[0.35em] py-[0.02em] rounded-sm font-bold uppercase tracking-wide text-[0.82em]"
+                      style={c.kind === 'new'
+                        ? { color: 'var(--osrs-green)', border: '1px solid var(--osrs-green)' }
+                        : { color: 'var(--osrs-yellow)', border: '1px solid var(--osrs-yellow)' }}
+                    >
+                      {c.kind === 'new' ? 'New' : 'Fix'}
+                    </span>
+                    <span className="text-[#e7d9b0] flex-1 min-w-0">
+                      {c.scope && <span className="text-[#a99a76]">{c.scope}: </span>}
+                      {c.text}
+                      {c.fromFeedback && <span title="Driven by player feedback" className="ml-[0.3em]">💬</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
           {/* Discord is a plain link out — no run context rides along, and it is a
               conversation rather than a report, so a rule separates it from the

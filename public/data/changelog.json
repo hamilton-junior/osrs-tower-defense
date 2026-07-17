@@ -1,0 +1,285 @@
+{
+  "generatedAt": "2026-07-17",
+  "entries": [
+    {
+      "kind": "new",
+      "scope": "roguelite",
+      "text": "Reward cards pay Slayer points, and the essence shop previews the buy",
+      "date": "2026-07-17",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "run",
+      "text": "The run timer measures the clock, not the simulation",
+      "date": "2026-07-17",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "A painted line is confirmed, not bought by letting go of Shift",
+      "date": "2026-07-17",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "OSRS stack notation, swapped priority icons, leaner loadout panel",
+      "date": "2026-07-17",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "boss",
+      "text": "A revived Dusk no longer summons a second Dawn",
+      "date": "2026-07-17",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Gold wears OSRS's stack colours",
+      "date": "2026-07-17",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Ctrl+C/Ctrl+V copies a tower layout and rebuilds it",
+      "date": "2026-07-17",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Shift+drag paints a line of towers, releasing Shift buys it",
+      "date": "2026-07-17",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "A marquee moves as one formation, not one tower at a time",
+      "date": "2026-07-17",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "The \"closest\" button gets a reticle, and an arrow like everyone else",
+      "date": "2026-07-16",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "The marquee panel does everything the tower panel does",
+      "date": "2026-07-16",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "\"closest\" targeting says it in the glyph, not a compass",
+      "date": "2026-07-16",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "log",
+      "text": "Cerberus's souls belong on his page, not the Monsters roster",
+      "date": "2026-07-16",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "The real run-energy boots, engraved hotkeys, cheaper card rolls",
+      "date": "2026-07-16",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "roguelite",
+      "text": "Cards are bought, bosses pay relics, and picks fly home",
+      "date": "2026-07-16",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "qol",
+      "text": "Real-time autoplay, self-announcing wave events, Ancients cost double",
+      "date": "2026-07-16",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Priority glyphs, Z/X/C speeds, and scoutable wave-preview stats",
+      "date": "2026-07-16",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "slayer",
+      "text": "Five new rewards — the points finally buy something",
+      "date": "2026-07-16",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "magic",
+      "text": "The Blood cap now grows 1% per wave",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "ui",
+      "text": "The start screen ran off the bottom when a saved run was offered",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "qol",
+      "text": "The number row builds towers, U upgrades, S sells (and asks), Unmarked targeting",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "boss",
+      "text": "The Hydra's vent could not be broken — and then never re-opened fairly",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "ui",
+      "text": "The discard warning was maroon-on-wood — unreadable",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Icons on every panel, gold beside the dock, a confirm before you lose a run",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "save",
+      "text": "The run survives a closed tab — Continue where you left off",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "anims",
+      "text": "Hurt re-pick from observed in-game data — 24 NPCs corrected",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "anims",
+      "text": "Full-roster animation audit — every clip re-verified from the cache",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "waves",
+      "text": "A zero-cost enemy froze the wave build forever",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "boss",
+      "text": "Stall breaker — a boss held at the same HP breaks free",
+      "date": "2026-07-13",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "boss",
+      "text": "Cerberus — the three Summoned Souls, and the style lock",
+      "date": "2026-07-12",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "boss",
+      "text": "Grotesque Guardians — Dawn & Dusk, the linked pair",
+      "date": "2026-07-12",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "boss",
+      "text": "Giant Mole — the burrow, and the fifth mechanic boss",
+      "date": "2026-07-11",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "waves",
+      "text": "Bosses every 10 waves, then a random endgame with extra bosses",
+      "date": "2026-07-11",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "boss",
+      "text": "Alchemical Hydra — the fourth mechanic boss",
+      "date": "2026-07-11",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "DPS 'Type' group ranks by damage; Discord logo; drop wave note",
+      "date": "2026-07-10",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "OSRS icons on the DPS effect-stat rows",
+      "date": "2026-07-10",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "ui",
+      "text": "Left controls track the UI-scale nudge; multi-select panel is movable",
+      "date": "2026-07-10",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Readable fixed board — 54x24 tiles (1728x768, 2.25:1), floating header",
+      "date": "2026-07-10",
+      "fromFeedback": false
+    },
+    {
+      "kind": "fix",
+      "scope": "feedback",
+      "text": "Update the Discord invite URL",
+      "date": "2026-07-10",
+      "fromFeedback": false
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Start Wave in the bar, draggable wave panel, Blood bonus in the DPS meter",
+      "date": "2026-07-10",
+      "fromFeedback": false
+    }
+  ]
+}
