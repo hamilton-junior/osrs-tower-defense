@@ -2,6 +2,69 @@
   "generatedAt": "2026-07-17",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "engine",
+      "text": "Auto-wave always starts off on a new or restored run",
+      "fromFeedback": false,
+      "date": "2026-07-17"
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Close the bottom-bar panels by right-click, drop the X",
+      "fromFeedback": false,
+      "date": "2026-07-17"
+    },
+    {
+      "kind": "new",
+      "scope": "slayer",
+      "text": "Halve Task reward + fold the helm imbue into one row",
+      "fromFeedback": false,
+      "date": "2026-07-17"
+    },
+    {
+      "kind": "fixed",
+      "scope": "slayer",
+      "text": "Superior monsters count toward the base task",
+      "fromFeedback": false,
+      "date": "2026-07-17"
+    },
+    {
+      "kind": "new",
+      "scope": "roguelite",
+      "text": "Keep the card-roll button visible-but-disabled mid-wave",
+      "fromFeedback": false,
+      "date": "2026-07-17"
+    },
+    {
+      "kind": "balanced",
+      "scope": "roguelite",
+      "text": "Rework Soul Stealer to reward kills, not the horde",
+      "fromFeedback": false,
+      "date": "2026-07-17"
+    },
+    {
+      "kind": "balanced",
+      "scope": "boss",
+      "text": "Grotesque Guardians leak for 75%, slower revive",
+      "fromFeedback": false,
+      "date": "2026-07-17"
+    },
+    {
+      "kind": "new",
+      "scope": "towers",
+      "text": "Batch auto-upgrade toggle for a multi-selection",
+      "fromFeedback": false,
+      "date": "2026-07-17"
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Changelog v2 — more badge kinds, date grouping, trailer override",
+      "fromFeedback": false,
+      "date": "2026-07-17"
+    },
+    {
       "kind": "new",
       "scope": "ui",
       "text": "Make the shift-drag build-confirm panel movable",
@@ -217,69 +280,6 @@
       "text": "Icons on every panel, gold beside the dock, a confirm before you lose a run",
       "fromFeedback": false,
       "date": "2026-07-13"
-    },
-    {
-      "kind": "new",
-      "scope": "save",
-      "text": "The run survives a closed tab — Continue where you left off",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "fixed",
-      "scope": "anims",
-      "text": "Hurt re-pick from observed in-game data — 24 NPCs corrected",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "fixed",
-      "scope": "anims",
-      "text": "Full-roster animation audit — every clip re-verified from the cache",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "fixed",
-      "scope": "waves",
-      "text": "A zero-cost enemy froze the wave build forever",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "new",
-      "scope": "boss",
-      "text": "Stall breaker — a boss held at the same HP breaks free",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "new",
-      "scope": "boss",
-      "text": "Cerberus — the three Summoned Souls, and the style lock",
-      "fromFeedback": false,
-      "date": "2026-07-12"
-    },
-    {
-      "kind": "new",
-      "scope": "boss",
-      "text": "Grotesque Guardians — Dawn & Dusk, the linked pair",
-      "fromFeedback": false,
-      "date": "2026-07-12"
-    },
-    {
-      "kind": "new",
-      "scope": "boss",
-      "text": "Giant Mole — the burrow, and the fifth mechanic boss",
-      "fromFeedback": false,
-      "date": "2026-07-11"
-    },
-    {
-      "kind": "new",
-      "scope": "waves",
-      "text": "Bosses every 10 waves, then a random endgame with extra bosses",
-      "fromFeedback": false,
-      "date": "2026-07-11"
     }
   ]
 }
