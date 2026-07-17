@@ -147,7 +147,7 @@ export class SlayerSystem {
       this.e.notify(`You need the ${need?.name ?? 'unlock'} first`, SLAYER_ICON);
       return;
     }
-    if ((id === 'skip' || id === 'block' || id === 'extend') && !this.task) {
+    if ((id === 'skip' || id === 'block' || id === 'extend' || id === 'halve') && !this.task) {
       this.e.notify('You have no task', SLAYER_ICON);
       return;
     }
@@ -188,6 +188,18 @@ export class SlayerSystem {
         task.reward *= 2;
         if (!this.extended.includes(task.type)) this.extended.push(task.type);
         this.e.notify(`Task extended — ${task.count} left`, SLAYER_ICON);
+        break;
+      }
+      case 'halve': {
+        // Mirror of Extend: halve what is *left* and the payout with it. Round the
+        // remaining count UP (a 1-kill task can't drop to 0), and shrink `total` by
+        // exactly what was removed so the progress bar keeps the kills already done.
+        const task = this.task!;
+        const removed = task.count - Math.ceil(task.count / 2);
+        task.count -= removed;
+        task.total = Math.max(task.count, task.total - removed);
+        task.reward = Math.max(1, Math.round(task.reward / 2));
+        this.e.notify(`Task halved — ${task.count} left`, SLAYER_ICON);
         break;
       }
       case 'skip':

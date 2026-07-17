@@ -13,7 +13,7 @@ import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, previewUpgradeValue, refundValue } from '@/lib/game/systems/meta-progression';
-import { SLAYER_REWARDS } from '@/lib/game/data/slayer';
+import { SLAYER_REWARDS, SLAYER_HELMET_BONUS, SLAYER_HELMET_IMBUED_BONUS } from '@/lib/game/data/slayer';
 import { ENEMIES } from '@/lib/game/data/enemies';
 import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
@@ -2937,34 +2937,53 @@ export default function GameRoot() {
           </div>
           <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
             {SLAYER_REWARDS.map((r) => {
-              const owned = !!r.once && ui.slayerUnlocks.includes(r.id);
-              // The imbue is dead until the helm is owned; the three task unlocks are
-              // dead with no task to act on. Say which, rather than greying out mutely.
-              const locked = r.requires && !ui.slayerUnlocks.includes(r.requires)
-                ? `Needs the ${SLAYER_REWARDS.find((x) => x.id === r.requires)?.name}`
-                : (r.id === 'skip' || r.id === 'block' || r.id === 'extend') && !ui.slayerTask
-                  ? 'No task yet'
-                  : null;
-              const afford = ui.slayerPoints >= r.cost;
+              // The Slayer Helmet + its imbue are one two-stage row: buy the helm,
+              // then the imbue opens in its place. So the (i) never renders on its own.
+              if (r.id === 'helmet_i') return null;
+              const isHelmet = r.id === 'helmet';
+              const hasHelmet = ui.slayerUnlocks.includes('helmet');
+              const hasImbue = ui.slayerUnlocks.includes('helmet_i');
+              // Once the helm is owned (but not imbued), this row becomes the imbue.
+              const imbueStage = isHelmet && hasHelmet && !hasImbue;
+              const eff = imbueStage ? SLAYER_REWARDS.find((x) => x.id === 'helmet_i')! : r;
+              // The helmet row is "owned" only when fully imbued (the final stage).
+              const owned = isHelmet ? hasImbue : (!!r.once && ui.slayerUnlocks.includes(r.id));
+              // The three task unlocks are dead with no task to act on. Say which,
+              // rather than greying out mutely. (The helm row is never task-gated.)
+              const locked = (eff.id === 'skip' || eff.id === 'block' || eff.id === 'extend' || eff.id === 'halve') && !ui.slayerTask
+                ? 'No task yet'
+                : null;
+              const afford = ui.slayerPoints >= eff.cost;
               const disabled = owned || !!locked || !afford;
               return (
                 <button
                   key={r.id}
-                  onClick={() => engineRef.current?.buySlayerReward(r.id)}
+                  onClick={() => engineRef.current?.buySlayerReward(eff.id)}
                   disabled={disabled}
-                  title={locked ?? r.desc}
+                  title={locked ?? eff.desc}
                   className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${disabled ? 'rs-slot-unafford' : ''}`}
                 >
-                  <img src={geIcon(r.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                  <img src={geIcon(eff.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
                   <span className="flex-1 min-w-0">
-                    <span className="text-[#e7d9b0] truncate block">{r.name}</span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{locked ?? r.desc}</span>
+                    <span className="flex items-center gap-[0.4em]">
+                      <span className="text-[#e7d9b0] truncate">{eff.name}</span>
+                      {/* Buying the helm opens the imbue in the same row, with a green
+                          before→after on the on-task bonus (the essence-shop pattern). */}
+                      {imbueStage && (
+                        <span className="flex items-center gap-[0.25em] whitespace-nowrap shrink-0 text-[0.82em]">
+                          <span className="text-[#cdbe91]">+{Math.round(SLAYER_HELMET_BONUS * 100)}%</span>
+                          <span className="text-[#9d8f70]">→</span>
+                          <span className="text-osrs-green font-bold">+{Math.round(SLAYER_HELMET_IMBUED_BONUS * 100)}%</span>
+                        </span>
+                      )}
+                    </span>
+                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{locked ?? eff.desc}</span>
                   </span>
                   {owned ? (
                     <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Owned</span>
                   ) : (
                     <span className="font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
-                      {r.cost} pts
+                      {eff.cost} pts
                     </span>
                   )}
                 </button>

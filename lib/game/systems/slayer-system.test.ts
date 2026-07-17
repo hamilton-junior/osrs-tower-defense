@@ -98,11 +98,27 @@ describe('SlayerSystem — the rewards shop', () => {
     expect(sys.extended).toContain('bloodveld');
   });
 
-  it('refuses block / extend / skip with no task', () => {
+  it('halve cuts what is LEFT and the payout, and keeps the kills already done', () => {
+    // Mirror of extend: 8 of 14 left (6 done). Halving leaves 4 left, 6 still done.
+    sys.task = { type: 'bloodveld', count: 8, total: 14, reward: 40 };
+    sys.buyReward('halve');
+    expect(sys.task!.count).toBe(4);   // ceil(8/2)
+    expect(sys.task!.total).toBe(10);  // removed 4 → total 14-4, so 6 kills stay done
+    expect(sys.task!.reward).toBe(20);
+  });
+
+  it('halve never drops a task to zero kills', () => {
+    sys.task = { type: 'bloodveld', count: 1, total: 5, reward: 10 };
+    sys.buyReward('halve');
+    expect(sys.task!.count).toBe(1); // ceil(1/2) = 1
+  });
+
+  it('refuses block / extend / halve / skip with no task', () => {
     sys.task = null;
     const before = sys.points;
     sys.buyReward('block');
     sys.buyReward('extend');
+    sys.buyReward('halve');
     expect(sys.points).toBe(before);
     expect(sys.blocked).toHaveLength(0);
   });

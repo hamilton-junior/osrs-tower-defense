@@ -64,7 +64,7 @@ export function taskMonsterType(type: EnemyType): EnemyType {
 /** The Slayer Rewards shop — the sink for Slayer points (a per-run currency).
  *  `once` unlocks are per-run; the rest are repeatable. */
 export interface SlayerReward {
-  id: 'helmet' | 'helmet_i' | 'bigger_badder' | 'block' | 'extend' | 'skip' | 'essence' | 'essence_sack';
+  id: 'helmet' | 'helmet_i' | 'bigger_badder' | 'block' | 'extend' | 'halve' | 'skip' | 'essence' | 'essence_sack';
   name: string;
   desc: string;
   /** Slayer-point cost. */
@@ -98,6 +98,11 @@ export const SLAYER_REWARDS: SlayerReward[] = [
     id: 'extend', name: 'Extend Task',
     desc: 'Double what is left of this task — and its payout. Future tasks on this monster come extended too.',
     cost: 10, icon: 'Bracelet_of_slaughter',
+  },
+  {
+    id: 'halve', name: 'Halve Task',
+    desc: 'Halve what is left of this task — and its payout. Less grind, less gold.',
+    cost: 8, icon: 'Expeditious_bracelet',
   },
   { id: 'skip', name: 'Skip Task', desc: 'Drop this task and roll a fresh one', cost: 8, icon: 'Enchanted_gem' },
   { id: 'essence', name: 'Essence Pouch', desc: `Convert 5 points into ${SLAYER_ESSENCE_YIELD} Rune Essence`, cost: 5, icon: 'Pure_essence' },
