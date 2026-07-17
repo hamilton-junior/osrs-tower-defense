@@ -309,6 +309,9 @@ export interface Tower {
   targetingPriority: TargetingPriority;
   name: string;
   upgradeCost: number;
+  /** Opt-in: the engine auto-spends gold to raise this tower a tier whenever it
+   *  can afford the cheapest pending auto-upgrade (see GameEngine.tickAutoUpgrade). */
+  autoUpgrade?: boolean;
   special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow';
   specCharge: number;
   specMax: number;

@@ -17,6 +17,7 @@ import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPOR
 import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../systems/tower-identity';
+import { upgradeOrder } from '../systems/upgrades';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -795,6 +796,7 @@ export class GameEngine {
         // would measure simulated seconds again — the very thing it isn't.
         this.realTime += dt;
         this.tickAutoplay(dt);
+        this.tickAutoUpgrade();
       }
       this.renderer.draw();
       this.rafId = requestAnimationFrame(loop);
@@ -1927,17 +1929,42 @@ export class GameEngine {
     return { count, cost };
   }
 
-  /** Upgrade each selected tower one tier, in selection order, spending gold until
-   *  it runs out (a partial batch still upgrades as many as affordable). */
+  /** Upgrade each selected tower one tier, cheapest-first (see {@link upgradeOrder}),
+   *  spending gold until it runs out — so a partial batch levels as many of the
+   *  cheap towers as possible instead of blowing the purse on the priciest one. */
   upgradeMultiSelected() {
+    const selected = this.multiSelectedIds
+      .map(id => this.towers.find(tw => tw.id === id))
+      .filter((t): t is Tower => !!t);
     let any = false;
-    for (const id of [...this.multiSelectedIds]) {
-      const t = this.towers.find(tw => tw.id === id);
-      if (!t || t.level >= t.maxLevel || this.money < t.upgradeCost) continue;
+    for (const id of upgradeOrder(selected)) {
+      const t = this.towers.find(tw => tw.id === id)!;
+      if (this.money < t.upgradeCost) continue;
       this.upgradeTower(id);
       any = true;
     }
     if (!any) this.notify('Not enough gold');
+  }
+
+  /** Toggle a tower's opt-in auto-upgrade flag (see {@link tickAutoUpgrade}). */
+  setAutoUpgrade(towerId: string, on: boolean) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower || !!tower.autoUpgrade === on) return;
+    tower.autoUpgrade = on || undefined;
+    this.emit();
+  }
+
+  /** Auto-upgrade: for every tower the player flagged, keep buying the cheapest
+   *  affordable pending upgrade (same cheapest-first rule as the batch upgrade)
+   *  until none is affordable. Runs once per real frame, outside the sim sub-step,
+   *  so fast-forward doesn't multiply the spend. */
+  private tickAutoUpgrade() {
+    for (;;) {
+      const affordable = this.towers.filter(t => t.autoUpgrade && t.level < t.maxLevel && t.upgradeCost <= this.money);
+      const [cheapestId] = upgradeOrder(affordable);
+      if (!cheapestId) break;
+      this.upgradeTower(cheapestId); // re-prices the tower and emits
+    }
   }
 
   /** Count + gold back from selling the whole selection. */

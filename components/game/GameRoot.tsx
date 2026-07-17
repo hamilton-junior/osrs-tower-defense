@@ -2427,6 +2427,18 @@ export default function GameRoot() {
                     Upgrade — {selectedTower.upgradeCost} gp
                     <span className="rs-key">U</span>
                   </button>
+                  <label
+                    className="flex items-center gap-[0.4em] mt-[0.4em] px-[0.1em] text-[0.78em] text-[#d3c3a0] cursor-pointer select-none"
+                    title="Auto-upgrade: the game spends gold to level this tower on its own, cheapest auto-upgrade tower first"
+                  >
+                    <input
+                      type="checkbox"
+                      className="rs-check"
+                      checked={!!selectedTower.autoUpgrade}
+                      onChange={(e) => engineRef.current?.setAutoUpgrade(selectedTower.id, e.target.checked)}
+                    />
+                    Auto‑upgrade
+                  </label>
                 </div>
               )}
               {/* Selling refunds a fraction and cannot be undone, and the button sits
