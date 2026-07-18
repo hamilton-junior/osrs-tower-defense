@@ -1,6 +1,20 @@
 {
-  "generatedAt": "2026-07-17",
+  "generatedAt": "2026-07-18",
   "entries": [
+    {
+      "kind": "updated",
+      "scope": "roguelite",
+      "text": "Rename Soul Stealer to Soul Eater and drop the redundant Soul Split card",
+      "fromFeedback": true,
+      "date": "2026-07-18"
+    },
+    {
+      "kind": "faster",
+      "scope": "engine",
+      "text": "A packed board with Clan Vexillum no longer tanks the frame rate",
+      "fromFeedback": true,
+      "date": "2026-07-18"
+    },
     {
       "kind": "fixed",
       "scope": "engine",
@@ -264,20 +278,6 @@
       "kind": "fixed",
       "scope": "boss",
       "text": "The Hydra's vent could not be broken — and then never re-opened fairly",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "The discard warning was maroon-on-wood — unreadable",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Icons on every panel, gold beside the dock, a confirm before you lose a run",
       "fromFeedback": false,
       "date": "2026-07-13"
     }
