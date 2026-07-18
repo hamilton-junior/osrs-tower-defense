@@ -190,4 +190,24 @@ describe('calculateTowerStats', () => {
     const s = calculateTowerStats(tower(), ctx({ allTowers: [tower(), support] }));
     expect(s).toEqual({ damageMultiplier: 1, flatDamageBonus: 0, range: 100, cooldown: 1000 });
   });
+
+  // The combat hot path passes a pre-computed, layout-cached `synergyMult` instead
+  // of re-scanning the field every frame (the fix for the FPS collapse with a
+  // synergy card active on a full board). It must fold in identically to the live
+  // `synergy` scan — and, when both are given, take precedence over it.
+  it('applies a pre-computed synergyMult identically to the live synergy scan', () => {
+    const self = tower({ id: 'self', type: 'archer', x: 0, y: 0 });
+    const field = [self, tower({ id: 'a', type: 'archer', x: 30, y: 0 }), tower({ id: 'b', type: 'archer', x: 0, y: 30 })];
+    const syn = { packTactics: { frac: 0.1, radius: 96, maxStacks: 5 } };
+    const live = calculateTowerStats(self, ctx({ allTowers: field, synergy: syn }));
+    const mult = synergyDamageMult(self, field, syn);
+    const cached = calculateTowerStats(self, ctx({ allTowers: field, synergyMult: mult }));
+    expect(cached.damageMultiplier).toBeCloseTo(live.damageMultiplier);
+    expect(mult).toBeCloseTo(1.2); // two same-type allies in range
+  });
+
+  it('synergyMult takes precedence over a passed-in synergy config', () => {
+    const s = calculateTowerStats(tower(), ctx({ synergyMult: 2, synergy: { packTactics: { frac: 0.1, radius: 96, maxStacks: 5 } } }));
+    expect(s.damageMultiplier).toBeCloseTo(2); // the cached value wins; the live scan is skipped
+  });
 });

@@ -20,6 +20,11 @@ export interface TowerStatsContext {
   /** Roguelite placement-synergy cards — a per-tower damage layer that depends
    *  on the field layout (nearby towers / position). All optional/null. */
   synergy?: TowerSynergy;
+  /** Pre-computed placement-synergy damage multiplier for this tower. The value is
+   *  layout-invariant, so the per-frame combat path passes it in (cached once per
+   *  layout change) instead of re-running the O(n) field scan every frame. When set
+   *  it replaces the live {@link synergyDamageMult} call below. */
+  synergyMult?: number;
   /** Enemy spawn point, for the `vanguard` synergy (frontmost tower). */
   portal?: { x: number; y: number };
   /** Roguelite magic-spellbook specialisations: per-wizard-subtype multipliers
@@ -214,7 +219,10 @@ export function calculateTowerStats(
   }
 
   // Placement-synergy cards: a final per-tower damage layer keyed off the layout.
-  if (ctx.synergy) damageMultiplier *= synergyDamageMult(tower, allTowers, ctx.synergy, ctx.portal);
+  // Prefer a pre-computed, layout-cached multiplier (the hot path); fall back to
+  // scanning the field live when a caller (preview / UI) hasn't cached one.
+  const synMult = ctx.synergyMult ?? (ctx.synergy ? synergyDamageMult(tower, allTowers, ctx.synergy, ctx.portal) : 1);
+  damageMultiplier *= synMult;
 
   // Magic spellbook specialisations: buff only one wizard subtype (elemental /
   // ancients / utility), so a card touches that spellbook's towers and no others.
