@@ -135,8 +135,7 @@ export interface RunEffects {
   // on-kill chain reactions
   ricochet: { frac: number; radius: number } | null;
   overkill: { radius: number } | null;
-  soulSplitEvery: number;                              // 0 = off (Soul Split card: every Nth kill)
-  soulSteal: { bossHeal: number; addChance: number } | null; // Soul Stealer relic: on-kill heal
+  soulSteal: { bossHeal: number; addChance: number } | null; // Soul Eater relic: on-kill heal
   killStreak: { every: number; damage: number } | null;
   killTally: number;                                   // lifetime kills, drives the two above
   // risk / reward curses
@@ -166,7 +165,6 @@ const SYNERGY_COLORS = {
 const freshRunEffects = (): RunEffects => ({
   ricochet: null,
   overkill: null,
-  soulSplitEvery: 0,
   soulSteal: null,
   killStreak: null,
   killTally: 0,
@@ -4187,7 +4185,7 @@ export class GameEngine {
     }
   }
 
-  /** Roguelite on-kill chain cards. Soul Split (heal) and the streak meter count
+  /** Roguelite on-kill chain cards. Soul Eater (heal) and the streak meter count
    *  every kill (chained ones too); the damaging follow-ups (ricochet, overkill
    *  cleave, streak smite) only fire from a direct kill (`depth===0`) and deal
    *  their damage at depth 1, so a cascade can advance the meter but never recurse
@@ -4195,12 +4193,7 @@ export class GameEngine {
   private onKillChains(x: number, y: number, dealt: number, overkillDmg: number, depth: number, isBoss: boolean) {
     const fx = this.runFx;
     fx.killTally += 1;
-    // Soul Split (card): every Nth kill restores a life (up to the cap).
-    if (fx.soulSplitEvery > 0 && fx.killTally % fx.soulSplitEvery === 0 && this.lives < this.maxLives) {
-      this.lives += 1;
-      this.spawnHealFx(x, y);
-    }
-    // Soul Stealer (relic): a boss kill always restores a life; an add kill has a
+    // Soul Eater (relic): a boss kill always restores a life; an add kill has a
     // small chance to. Only ever fires from a kill (this method), so leaking a boss
     // never heals — you have to actually put it down. The boss guarantee + rare add
     // roll rewards playing the mechanics instead of farming lives off the horde.
@@ -4232,8 +4225,8 @@ export class GameEngine {
     }
   }
 
-  /** Green heal ring + rising motes at a point — the shared "a life came back"
-   *  flourish for Soul Split and Soul Stealer, drawn where the kill happened. */
+  /** Green heal ring + rising motes at a point — the "a life came back" flourish
+   *  for Soul Eater, drawn where the kill happened. */
   private spawnHealFx(x: number, y: number) {
     this.addRing(x, y, 4, 36, '#7CFC6A', 0.6, 3);
     for (let i = 0; i < 8; i++) {
@@ -4459,7 +4452,6 @@ export class GameEngine {
       case 'range': this.applyStyleMult(this.runMods.range, e.mult, e.style); break;
       case 'fireRate': this.applyStyleMult(this.runMods.fireRate, e.mult, e.style); break;
       case 'goldFind': this.runFx.goldMult *= e.mult; break;
-      case 'soulSplit': this.runFx.soulSplitEvery = e.every; break;
       case 'soulSteal': this.runFx.soulSteal = { bossHeal: e.bossHeal, addChance: e.addChance }; break;
       case 'maxLife': this.maxLives += e.amount; this.lives += e.amount; break;
       case 'multi': for (const sub of e.effects) this.applyRelicEffect(sub); break;
@@ -4485,7 +4477,6 @@ export class GameEngine {
       // ── on-kill chain reactions ──
       case 'ricochet': this.runFx.ricochet = { frac: e.frac, radius: e.radius }; break;
       case 'overkill': this.runFx.overkill = { radius: e.radius }; break;
-      case 'soulSplit': this.runFx.soulSplitEvery = e.every; break;
       case 'killStreak': this.runFx.killStreak = { every: e.every, damage: e.damage }; break;
       // ── risk / reward curses ──
       case 'lastStand': this.runFx.lastStand = { belowLives: e.belowLives, mult: e.mult }; break;

@@ -37,7 +37,6 @@ export type DraftRarity = 'common' | 'uncommon' | 'rare' | 'ultra';
  *  On-kill chain reactions —
  *  - `ricochet`  : a kill arcs `frac` of the blow to the nearest enemy in `radius`.
  *  - `overkill`  : a kill's *excess* damage cleaves into the nearest enemy.
- *  - `soulSplit` : every `every`-th kill restores a life.
  *  - `killStreak`: every `every` kills, a shockwave hits ALL enemies for `damage`.
  *  Risk / reward curses —
  *  - `lastStand` : ×`mult` damage while at `belowLives` lives or fewer.
@@ -65,7 +64,6 @@ export type DraftEffect =
   // ── on-kill chain reactions ──
   | { kind: 'ricochet'; frac: number; radius: number }
   | { kind: 'overkill'; radius: number }
-  | { kind: 'soulSplit'; every: number }
   | { kind: 'killStreak'; every: number; damage: number }
   // ── risk / reward curses ──
   | { kind: 'lastStand'; belowLives: number; mult: number }
@@ -277,7 +275,6 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   // ── on-kill chain reactions ──────────────────────────────────────────────
   { id: 'dragon_claws', name: 'Dragon Claws', desc: 'On a kill, the strike rends the nearest enemy for 50% of the blow', rarity: 'rare', unique: true, icon: itemIcon('dragon_claws'), effect: { kind: 'ricochet', frac: 0.5, radius: 95 } },
   { id: 'scythe_of_vitur', name: 'Scythe of Vitur', desc: 'A kill’s excess damage cleaves into the nearest enemy', rarity: 'ultra', unique: true, icon: itemIcon('scythe_of_vitur'), effect: { kind: 'overkill', radius: 95 } },
-  { id: 'soul_split', name: 'Soul Split', desc: 'Every 8th kill restores 1 life', rarity: 'rare', unique: true, icon: itemIcon('soul_rune'), effect: { kind: 'soulSplit', every: 8 } },
   { id: 'dragon_warhammer', name: 'Dragon Warhammer', desc: 'Every 20 kills, a shockwave smashes ALL enemies for 40', rarity: 'ultra', unique: true, icon: itemIcon('dragon_warhammer'), effect: { kind: 'killStreak', every: 20, damage: 40 } },
   // ── risk / reward curses ─────────────────────────────────────────────────
   { id: 'phoenix_necklace', name: 'Phoenix Necklace', desc: 'While at 2 lives or fewer, ALL towers deal double damage', rarity: 'rare', unique: true, icon: itemIcon('phoenix_necklace'), effect: { kind: 'lastStand', belowLives: 2, mult: 2 } },

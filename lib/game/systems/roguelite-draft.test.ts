@@ -106,7 +106,6 @@ describe('DRAFT_POOL integrity', () => {
     // on-kill chains
     expect(kinds).toContain('ricochet');
     expect(kinds).toContain('overkill');
-    expect(kinds).toContain('soulSplit');
     expect(kinds).toContain('killStreak');
     // risk/reward curses
     expect(kinds).toContain('lastStand');
@@ -141,7 +140,7 @@ describe('DRAFT_POOL integrity', () => {
   });
   it('every behavioural-kind card is flagged unique', () => {
     const BEHAVIOURAL = new Set([
-      'ricochet', 'overkill', 'soulSplit', 'killStreak',
+      'ricochet', 'overkill', 'killStreak',
       'lastStand', 'berserker', 'bloodPact', 'greed',
       'doubleShot', 'venomTips', 'chainFreeze', 'pierce',
       'packTactics', 'trinity', 'vanguard', 'loneWolf',
@@ -155,7 +154,6 @@ describe('DRAFT_POOL integrity', () => {
       for (const e of leafEffects(c)) {
         if (e.kind === 'ricochet') { expect(e.frac).toBeGreaterThan(0); expect(e.frac).toBeLessThanOrEqual(1); expect(e.radius).toBeGreaterThan(0); }
         if (e.kind === 'overkill') expect(e.radius).toBeGreaterThan(0);
-        if (e.kind === 'soulSplit') expect(e.every).toBeGreaterThanOrEqual(2);
         if (e.kind === 'killStreak') { expect(e.every).toBeGreaterThanOrEqual(2); expect(e.damage).toBeGreaterThan(0); }
         if (e.kind === 'lastStand') { expect(e.belowLives).toBeGreaterThan(0); expect(e.mult).toBeGreaterThan(1); }
         if (e.kind === 'berserker') expect(e.perMissingLife).toBeGreaterThan(0);

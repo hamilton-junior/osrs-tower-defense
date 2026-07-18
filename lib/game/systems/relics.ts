@@ -22,7 +22,7 @@ export type RelicTier = 'minor' | 'major' | 'mythic';
 /**
  * What owning a relic does. Several kinds reuse the draft's proven run pipeline
  * (`damage`/`fireRate` fold into the run's stat mods, `goldFind` into the gold
- * multiplier, `soulSplit`/`maxLife` into their existing hooks) — relics just hand
+ * multiplier, `soulSteal`/`maxLife` into their existing hooks) — relics just hand
  * out *bigger, always-on* versions with no stacking dilemma. The rest are
  * **relic-only mechanics** with their own engine hooks:
  *
@@ -45,7 +45,6 @@ export type RelicEffect =
   | { kind: 'fireRate'; mult: number; style?: CombatStyle }
   | { kind: 'range'; mult: number; style?: CombatStyle }
   | { kind: 'goldFind'; mult: number }
-  | { kind: 'soulSplit'; every: number }
   | { kind: 'soulSteal'; bossHeal: number; addChance: number }
   | { kind: 'maxLife'; amount: number }
   | { kind: 'multi'; effects: RelicEffect[] };
@@ -101,8 +100,8 @@ export const RELICS: readonly Relic[] = [
   { id: 'treasure_hunter', name: 'Treasure Hunter', tier: 'minor',
     desc: 'Slain enemies drop 30% more gold.',
     icon: itemIcon('reward_casket_elite'), effect: { kind: 'goldFind', mult: 1.3 } },
-  { id: 'soul_stealer', name: 'Soul Stealer', tier: 'minor',
-    desc: 'Every boss you slay restores a life; other kills have a 10% chance to. Leaks never heal.',
+  { id: 'soul_stealer', name: 'Soul Eater', tier: 'minor',
+    desc: 'Every boss you slay restores a life — adds also have a 10% chance.',
     icon: itemIcon('soul_rune'), effect: { kind: 'soulSteal', bossHeal: 1, addChance: 0.1 } },
   { id: 'brawlers_resolve', name: "Brawler's Resolve", tier: 'minor',
     desc: '+2 maximum lives (and heal 2 now).',

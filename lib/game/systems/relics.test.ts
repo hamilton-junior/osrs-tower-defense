@@ -27,10 +27,10 @@ describe('RELICS pool', () => {
   });
 });
 
-describe('Soul Stealer', () => {
+describe('Soul Eater', () => {
   it('heals on a kill, not a schedule: guaranteed on bosses, a small chance on adds', () => {
     const relic = RELICS.find(r => r.id === 'soul_stealer');
-    expect(relic?.effect.kind).toBe('soulSteal'); // reworked away from every-Nth-kill soulSplit
+    expect(relic?.effect.kind).toBe('soulSteal'); // a boss-guaranteed on-kill heal, not an every-Nth-kill schedule
     if (relic?.effect.kind === 'soulSteal') {
       expect(relic.effect.bossHeal).toBe(1);
       expect(relic.effect.addChance).toBeGreaterThan(0);

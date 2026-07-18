@@ -3360,7 +3360,6 @@ function effectTag(e: DraftEffect): string {
     // behavioural cards — describe the rule, not a number
     case 'ricochet': return `kill arcs ${Math.round(e.frac * 100)}% to nearest`;
     case 'overkill': return 'overkill cleaves on';
-    case 'soulSplit': return `heal every ${e.every} kills`;
     case 'killStreak': return `smite all per ${e.every} kills`;
     case 'lastStand': return `×${e.mult} dmg at ≤${e.belowLives} lives`;
     case 'berserker': return `+${Math.round(e.perMissingLife * 100)}% dmg per lost life`;
