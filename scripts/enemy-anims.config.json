@@ -296,24 +296,21 @@
     "npc": 5867,
     "anims": {
       "walk": 8527,
-      "hurt": 8531,
-      "death": 8524
+      "hurt": 8531
     }
   },
   "soul_magic": {
     "npc": 5868,
     "anims": {
       "walk": 8527,
-      "hurt": 8531,
-      "death": 8524
+      "hurt": 8531
     }
   },
   "soul_melee": {
     "npc": 5869,
     "anims": {
       "walk": 8527,
-      "hurt": 8531,
-      "death": 8524
+      "hurt": 8531
     }
   }
 }
