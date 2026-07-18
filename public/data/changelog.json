@@ -2,6 +2,13 @@
   "generatedAt": "2026-07-18",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "anims",
+      "text": "Cerberus's summoned souls fade on death instead of a broken upright swing",
+      "fromFeedback": false,
+      "date": "2026-07-18"
+    },
+    {
       "kind": "updated",
       "scope": "roguelite",
       "text": "Rename Soul Stealer to Soul Eater and drop the redundant Soul Split card",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "qol",
       "text": "The number row builds towers, U upgrades, S sells (and asks), Unmarked targeting",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "fixed",
-      "scope": "boss",
-      "text": "The Hydra's vent could not be broken — and then never re-opened fairly",
       "fromFeedback": false,
       "date": "2026-07-13"
     }
