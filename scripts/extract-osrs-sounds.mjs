@@ -55,6 +55,11 @@ const TARGETS = {
   potion: 2401,                // liquid — drinking a potion
   death_human: 512,            // human_death — a life lost
   boss_attack: 1521,           // vorkath_attack — boss attack roar
+  // Zulrah's morph cry. The cache has no Zulrah-specific clip (its NPC def carries
+  // no sound ids and the wiki lists none), so it borrows the game's own snake voice
+  // — right for a giant serpent, and pointedly NOT a death clip, which would read
+  // as "the boss died" every time it changes form.
+  zulrah_hiss: 791,            // big_seasnake_attack — the heaviest serpent cry the cache has
   special_attack: 2537,        // puncture — the dragon dagger special
   fireworks: 2396,             // firework — relic-pickup celebration burst
   // --- prayer activations (OSRS has a unique clip for these) ---
@@ -106,10 +111,19 @@ const TARGETS = {
   death_bloodveld: 313, death_hill_giant: 450, death_black_demon: 398,
   death_gargoyle: 429, death_blue_dragon: 409, death_nechryael: 646,
   death_abyssal_demon: 277, death_lesser_demon: 403, death_dark_beast: 390,
-  death_green_dragon: 409, death_jad: 256, death_vorkath: 1523, death_zulrah: 409,
+  death_green_dragon: 409, death_jad: 256, death_vorkath: 1523,
   death_barrow_wight: 1338, death_chaos_druid: 512, death_skeletal_mage: 777,
   death_hydra: 4080, death_superior_bloodveld: 313, death_superior_abyssal_demon: 277,
   death_superior_gargoyle: 429, death_superior_nechryael: 646,
+  // Every boss dies with its OWN voice, never a stand-in: a boss that borrows
+  // another monster's death cry reads as the wrong thing dying.
+  death_giant_mole: 1645,      // mole_death
+  death_cerberus: 1188,        // skeletal_hellhound_death — the giant hound, not the common one (6952)
+  death_dusk: 429,             // gargoyle_death — the Grotesque Guardians are gargoyles
+  death_dawn: 429,             // gargoyle_death
+  death_zulrah: 792,           // big_seasnake_death — was dragon_death (409), which it is not
+  death_yt_hurkot: 252,        // tzhaar_hur_death — a Yt-HurKot is a TzHaar-Hur
+  death_summoned_soul: 438,    // ghost_death — Cerberus' souls
 };
 
 /**

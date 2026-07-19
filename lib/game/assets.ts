@@ -155,6 +155,8 @@ const DEATH_TYPES = [
   'dark_beast', 'green_dragon', 'jad', 'vorkath', 'zulrah', 'barrow_wight',
   'chaos_druid', 'skeletal_mage', 'hydra', 'superior_bloodveld',
   'superior_abyssal_demon', 'superior_gargoyle', 'superior_nechryael',
+  // Bosses and their adds — each with its own cry, never a borrowed one.
+  'giant_mole', 'cerberus', 'dusk', 'dawn', 'yt_hurkot', 'summoned_soul',
 ];
 const DEATH_SOUNDS: Record<string, string> = {};
 for (const t of DEATH_TYPES) DEATH_SOUNDS[t] = `${SND}/death_${t}.wav`;
@@ -229,6 +231,12 @@ export const ASSETS = {
     protect_from_magic: `${LOCAL}/prayers/protect_from_magic.png`,
     protect_from_missiles: `${LOCAL}/prayers/protect_from_missiles.png`,
     protect_from_melee: `${LOCAL}/prayers/protect_from_melee.png`,
+    // Overhead "headicons" — the same three prayers as OSRS draws them above a
+    // praying head, on the game's own gold disc. Use these over the board (the
+    // bare book icons above have no backdrop and vanish against the terrain).
+    overhead_melee: `${LOCAL}/prayers/overhead_melee.png`,
+    overhead_missiles: `${LOCAL}/prayers/overhead_missiles.png`,
+    overhead_magic: `${LOCAL}/prayers/overhead_magic.png`,
     eagle_eye: `${LOCAL}/prayers/eagle_eye.png`,
     piety: `${LOCAL}/prayers/piety.png`,
     rigour: `${LOCAL}/prayers/rigour.png`,
@@ -427,6 +435,7 @@ export const ASSETS = {
       fireworks: `${SND}/fireworks.wav`,                // firework (2396) — relic-pickup celebration burst
       sell: `${LOCAL}/sounds/ui_coins.wav`,             // coin tinkle (3924)
       boss_attack: `${SND}/boss_attack.wav`,            // vorkath_attack (1521)
+      zulrah_hiss: `${SND}/zulrah_hiss.wav`,            // snake_hiss (799) — Zulrah's morph cry
       prayer_on: `${LOCAL}/sounds/prayer_generic_on.wav`,  // thick-skin "vwoom" (2690)
       prayer_off: `${LOCAL}/sounds/prayer_off.wav`,        // deactivate vwoop (2663)
       potion: `${SND}/potion.wav`,                      // liquid (2401) — potion gulp
