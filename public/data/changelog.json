@@ -3,6 +3,13 @@
   "entries": [
     {
       "kind": "fixed",
+      "scope": "bosses",
+      "text": "A leak now tells you what it cost, and an escaped Guardian stays gone",
+      "fromFeedback": true,
+      "date": "2026-07-19"
+    },
+    {
+      "kind": "fixed",
       "scope": "ui",
       "text": "Dragging a panel's scrollbar now scrolls it instead of dragging the window",
       "fromFeedback": true,
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "ui",
       "text": "The marquee panel does everything the tower panel does",
-      "fromFeedback": false,
-      "date": "2026-07-16"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "\"closest\" targeting says it in the glyph, not a compass",
       "fromFeedback": false,
       "date": "2026-07-16"
     }

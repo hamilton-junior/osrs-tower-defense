@@ -66,7 +66,7 @@ not built · `recheck` — needs verification against current code before acting
 | 20 | Hotkeys | shipped |
 | 21 | Upgrade All Towers | shipped — group auto-upgrade, cheapest-first |
 | 22 | Boss Balance | part shipped — Regen decay `db42ad0`, Mole `52fb016`; **still open:** per-boss "how to kill" text, multi-boss floor above wave 11 |
-| 23 | Bosses again | **open** — leak cost is never shown to the player, and a Guardian that *leaked* can still be revived by its twin and leak again |
+| 23 | Bosses again | shipped — `29382f0` (leak cost quoted on the enemy panel / wave preview / on leak; an escaped Guardian is never revived) |
 
 **Rejected outright (roster is CLOSED):** splitting magic/melee/ranged into several
 towers · a chinchompa AoE tower · M10 utility/buff-support tower.
@@ -76,9 +76,9 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
 1. **M3** protection-prayer boss/elite affix — *shipped* `3b03906`.
 2. **M8** arrow-key grid placement — *shipped* `3b03906`.
 3. **B1** — verify last (bug #9 / suggestion #18).
-4. **Boss clarity & balance** (suggestions #22, #23, bug #10): per-boss "how to kill"
-   text, Dusk/Dawn revive loop, Mole dig frequency, multi-boss floor above wave 11,
-   visible HP-loss-on-leak.
+4. **Boss clarity & balance** (suggestions #22, #23, bug #10): Dusk/Dawn revive loop,
+   Mole dig frequency and visible HP-loss-on-leak are *shipped*; still open from #22
+   are the per-boss "how to kill" text and the multi-boss floor above wave 11.
 5. **M1** new bosses (KBD/Graardor/Corp/Nex/Zuk/Verzik/Olm) — later.
 6. **M2** combat achievements (`data/achievements.ts` exists, not wired into the new core) — later.
 7. **M4** roguelite reset-loop / meta rework — next to *plan*, not build.
