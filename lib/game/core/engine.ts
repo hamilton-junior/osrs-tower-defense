@@ -3122,9 +3122,13 @@ export class GameEngine {
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
       }
       if (e.vulnTimer && e.vulnTimer > 0) e.vulnTimer -= dt;
-      // Regenerating affix: claw back HP over time, capped at full health.
+      // Regenerating affix: claw back HP over time, capped at full health. A boss that
+      // has stalled dries this up through the stall breaker (`stallHealMult`) exactly as
+      // its own self-heals do — without it a Regenerating boss out-regens the board near
+      // 0 HP and "tick-eats" every hit, never dying (it only ever walks off). Non-boss
+      // enemies carry no stall state, so `stallHealMult(0)` leaves their regen untouched.
       if (e.affixes) {
-        const regen = regenPerSec(e.affixes, e.maxHp, this.wave);
+        const regen = regenPerSec(e.affixes, e.maxHp, this.wave) * stallHealMult(e.bossState?.stallStacks ?? 0);
         if (regen > 0 && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + regen * dt);
       }
       if (e.stunTimer > 0) {
