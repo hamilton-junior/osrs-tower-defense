@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   distance, distanceSq, pointToSegmentDistance, isValidPlacement, squareRange, inSquareRange, knockbackStep,
-  pathTotalLength, remainingPathDistance, advanceAlongPath,
+  pathTotalLength, remainingPathDistance, advanceAlongPath, clampCursorToBoard,
 } from './geometry';
 
 describe('distance', () => {
@@ -139,5 +139,24 @@ describe('walking the road', () => {
   it('stands still for a zero or negative step', () => {
     expect(advanceAlongPath(road, 0, 50, 0, 0)).toEqual({ pathIndex: 0, x: 50, y: 0 });
     expect(advanceAlongPath(road, 0, 50, 0, -10)).toEqual({ pathIndex: 0, x: 50, y: 0 });
+  });
+});
+
+describe('clampCursorToBoard', () => {
+  const G = 32, W = 1728, H = 768; // the fixed board, one tower tile = 32px
+
+  it('snaps a loose point to the nearest tile', () => {
+    expect(clampCursorToBoard(100, 100, G, W, H)).toEqual({ x: 96, y: 96 });   // 100 → 96
+    expect(clampCursorToBoard(112, 80, G, W, H)).toEqual({ x: 128, y: 96 });   // 112 → 128 (3.5 rounds up), 80 → 96
+  });
+
+  it('keeps a one-tile margin in from every edge', () => {
+    expect(clampCursorToBoard(0, 0, G, W, H)).toEqual({ x: G, y: G });         // top-left corner
+    expect(clampCursorToBoard(-500, -500, G, W, H)).toEqual({ x: G, y: G });   // way off top-left
+    expect(clampCursorToBoard(9999, 9999, G, W, H)).toEqual({ x: W - G, y: H - G }); // off bottom-right
+  });
+
+  it('leaves an already-valid interior tile where it is', () => {
+    expect(clampCursorToBoard(320, 320, G, W, H)).toEqual({ x: 320, y: 320 });
   });
 });

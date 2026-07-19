@@ -138,8 +138,22 @@ const UI_IDS = {
 const group = (ids, sub) =>
   Object.entries(ids).map(([slug, spriteId]) => ({ slug, spriteId, out: `public/assets/${sub}/${slug}.png` }));
 
+/**
+ * Overhead protection-prayer icons — the "headicons" OSRS draws above a praying
+ * character's head. These are NOT the prayer-book icons (which are bare symbols):
+ * they ship with the game's own gold-disc backdrop, which is what makes them read
+ * against the map. All three are frames of a single sprite archive (440), so they
+ * need the `frame` field rather than the plain {name: id} group helper.
+ */
+const OVERHEAD_HEADICONS = [
+  { slug: 'overhead_melee', spriteId: 440, frame: 0 },     // sword
+  { slug: 'overhead_missiles', spriteId: 440, frame: 1 },  // arrow
+  { slug: 'overhead_magic', spriteId: 440, frame: 2 },     // wand
+].map((t) => ({ ...t, out: `public/assets/prayers/${t.slug}.png` }));
+
 /** Named sprite targets → output PNG path. */
 const TARGETS = [
+  ...OVERHEAD_HEADICONS,
   ...group(DEBUFF_IDS, 'debuffs'),
   ...group(SPELL_IDS, 'spells'),
   ...group(PRAYER_IDS, 'prayers'),
@@ -200,12 +214,15 @@ async function main() {
 
   for (const t of TARGETS) {
     const def = await cache.getDef(IndexType.SPRITES, t.spriteId);
-    const sprite = def?.sprites?.[0];
-    if (!sprite) { console.warn(`! sprite ${t.spriteId} (${t.slug}) empty — skipped`); continue; }
+    // Most targets are single-sprite ids, but some are *archives* of many frames
+    // (the prayer headicons all live in one). `frame` picks which one; default 0.
+    const frame = t.frame ?? 0;
+    const sprite = def?.sprites?.[frame];
+    if (!sprite) { console.warn(`! sprite ${t.spriteId}[${frame}] (${t.slug}) empty — skipped`); continue; }
     const outPath = join(REPO, t.out);
     mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, spriteToPng(sprite));
-    console.log(`✓ ${t.slug}: sprite ${t.spriteId} → ${t.out} (${sprite.width}×${sprite.height})`);
+    console.log(`✓ ${t.slug}: sprite ${t.spriteId}[${frame}] → ${t.out} (${sprite.width}×${sprite.height})`);
   }
   process.exit(0);
 }

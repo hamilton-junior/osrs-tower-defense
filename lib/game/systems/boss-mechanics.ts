@@ -731,6 +731,30 @@ export function freshBossState(kind: BossId): BossState {
  * circuits to 0 and is shared: Vorkath raises it behind its ice shield, the Giant Mole
  * while it is underground.
  */
+/**
+ * The combat styles a boss is *actively praying against* this phase — the ones
+ * the renderer should show a protection-prayer overhead for. Only **per-style**
+ * resistance counts: a protection prayer tells the player "switch styles", which
+ * is only true advice when some styles still get through.
+ *
+ * - **Zulrah** resists the two styles its current form is *not* weak to.
+ * - **Cerberus** resists whatever styles his live souls have locked.
+ *
+ * All-*source* blocks are deliberately excluded (they are not per-style, so a
+ * prayer icon would mislead): Vorkath's ice shield and the Hydra's vent stop
+ * everything, styleless DoT included, and each has its own VFX identity.
+ */
+export function phaseResistedStyles(state: BossState | undefined): CombatStyle[] {
+  if (!state) return [];
+  const ALL: readonly CombatStyle[] = ['melee', 'ranged', 'magic'];
+  if (state.kind === 'zulrah') {
+    const phase = ZULRAH_PHASES[state.phaseIndex % ZULRAH_PHASES.length];
+    return ALL.filter((s) => s !== phase.weak);
+  }
+  if (state.kind === 'cerberus') return [...(state.lockedStyles ?? [])];
+  return [];
+}
+
 export function bossStyleMult(state: BossState | undefined, style: CombatStyle | undefined): number {
   if (!state) return 1;
   if (state.immune) return 0;

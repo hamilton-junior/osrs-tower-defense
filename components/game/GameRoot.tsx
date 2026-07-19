@@ -836,6 +836,7 @@ export default function GameRoot() {
    *
    *   1-6 dock tower · Shift+drag paint a line (release Shift prices it; confirm to buy)
    *   Esc cancel / pause · Space wave
+   *   Arrows move a placement cursor · Enter place at cursor
    *   U upgrade selection · S sell (asks first) · , / . step speed · Z/X/C 1x/2x/5x
    *   Ctrl+C copy selection · Ctrl+V paste it
    *   Q/W/E/R wizard spell · M mute · Ctrl+' debug console
@@ -903,9 +904,23 @@ export default function GameRoot() {
           if (eng.multiSelectedIds.length > 0) setSellConfirm(MULTI_SELL);
           else if (eng.selectedTowerId) setSellConfirm(eng.selectedTowerId);
           break;
+        // Arrow keys steer a keyboard placement cursor — but only while a tower is
+        // armed or being moved, so they stay free otherwise. The cursor mirrors onto
+        // the pointer, so the normal placement ghost shows where it will land.
+        case 'ArrowUp': case 'ArrowDown': case 'ArrowLeft': case 'ArrowRight': {
+          if (!eng.selectedTowerType && !eng.movingTowerId) break;
+          e.preventDefault();
+          const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+          const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+          eng.nudgeCursor(dx, dy);
+          break;
+        }
         case 'Enter':
+          // A pending sell owns Enter; otherwise Enter drops a tower at the keyboard
+          // cursor (the click-equivalent for arrow-key placement).
           if (sellConfirmRef.current === MULTI_SELL) { eng.sellMultiSelected(); setSellConfirm(null); }
           else if (sellConfirmRef.current) { eng.sellTower(sellConfirmRef.current); setSellConfirm(null); }
+          else if (eng.placeCursor) { e.preventDefault(); eng.placeAtCursor(); }
           break;
         case 'q': case 'Q': eng.selectWizardSlot(0); break;
         case 'w': case 'W': eng.selectWizardSlot(1); break;
@@ -1635,7 +1650,10 @@ export default function GameRoot() {
                     <span className="flex items-center gap-[0.2em] shrink-0 pointer-events-auto">
                       {info.affixes.map((a) => {
                         const def = AFFIX_DEFS[a];
-                        const desc = a === 'armored' && info.armoredStyle ? `${def.desc} (${info.armoredStyle})` : def.desc;
+                        const desc =
+                          a === 'armored' && info.armoredStyle ? `${def.desc} (${info.armoredStyle})`
+                          : a === 'protected' && info.protectedStyle ? `${def.desc} (${info.protectedStyle})`
+                          : def.desc;
                         return (
                           <span key={a} className="relative group flex">
                             <span
@@ -3763,7 +3781,7 @@ const TLDR: TldrGroup[] = [
     'Roguelite — between waves, buy card rolls with gold (each roll costs more than the last) and keep one card; beating a boss claims a Relic.',
   ] },
   { h: 'Controls', lines: [
-    '1-6 pick a tower from the dock (tap the same number to buy another) · Shift+drag paint a build line, release Shift to price it up and confirm · drag a box to multi-select · Ctrl+C copy the selection, Ctrl+V paste it · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
+    '1-6 pick a tower from the dock (tap the same number to buy another) · with a tower picked, the Arrow keys move a placement cursor and Enter drops it there · Shift+drag paint a build line, release Shift to price it up and confirm · drag a box to multi-select · Ctrl+C copy the selection, Ctrl+V paste it · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
     'You never have to memorise these: every button that answers to a key wears it engraved in a top corner.',
     'One slim bar along the bottom: run controls (left), tower dock and Start Wave (centre), menu stones (right). A stone opens its interface upward over the map and closes on a second click of the stone — or a right‑click on the panel — so no interface stays on-screen.',
     'Auto sends each wave once the field is clear, after the delay in seconds beside it; it always starts off when a run begins.',

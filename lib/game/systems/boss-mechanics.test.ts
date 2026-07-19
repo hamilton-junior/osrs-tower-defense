@@ -19,6 +19,7 @@ import {
   jadHealPerTick,
   freshBossState,
   bossStyleMult,
+  phaseResistedStyles,
   escortDamageMult,
   ESCORT_AOE_DAMAGE_MULT,
   JAD_HEAL_FRAC,
@@ -677,5 +678,45 @@ describe('the stall breaker', () => {
     expect(st.hpFloor).toBe(1);
     expect(st.stallTimer).toBe(0);
     expect(st.stallStacks).toBe(0);
+  });
+});
+
+describe('phaseResistedStyles (protection-prayer overheads)', () => {
+  it('is empty for no boss state', () => {
+    expect(phaseResistedStyles(undefined)).toEqual([]);
+  });
+
+  it('Zulrah prays against the two styles its form is NOT weak to', () => {
+    const st = freshBossState('zulrah'); // phase 0 = serpentine, weak to magic
+    expect(phaseResistedStyles(st).sort()).toEqual(['melee', 'ranged']);
+    st.phaseIndex = 1; // tanzanite, weak to ranged
+    expect(phaseResistedStyles(st).sort()).toEqual(['magic', 'melee']);
+    st.phaseIndex = 2; // magma, weak to melee
+    expect(phaseResistedStyles(st).sort()).toEqual(['magic', 'ranged']);
+  });
+
+  it('mirrors zulrahStyleMult — the resisted styles are exactly the cut ones', () => {
+    const st = freshBossState('zulrah');
+    const phase = ZULRAH_PHASES[st.phaseIndex];
+    for (const s of ['melee', 'ranged', 'magic'] as const) {
+      const cut = zulrahStyleMult(phase.weak, s) < 1;
+      expect(phaseResistedStyles(st).includes(s)).toBe(cut);
+    }
+  });
+
+  it('Cerberus prays against whatever styles his souls have locked', () => {
+    const st = freshBossState('cerberus');
+    expect(phaseResistedStyles(st)).toEqual([]); // no souls out yet
+    st.lockedStyles = ['melee', 'magic'];
+    expect(phaseResistedStyles(st).sort()).toEqual(['magic', 'melee']);
+  });
+
+  it('all-source blocks are NOT prayers — Vorkath ice / Hydra vent show none', () => {
+    const vork = freshBossState('vorkath');
+    vork.immune = true;
+    expect(phaseResistedStyles(vork)).toEqual([]);
+    const hydra = freshBossState('hydra');
+    hydra.venting = true;
+    expect(phaseResistedStyles(hydra)).toEqual([]);
   });
 });

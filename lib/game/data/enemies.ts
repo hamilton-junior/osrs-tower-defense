@@ -1,4 +1,4 @@
-import type { Element } from '../types';
+import type { CombatStyle, Element } from '../types';
 
 export interface EnemyDef {
   type: string | any; // Keep flexible for now or use EnemyType
@@ -12,6 +12,10 @@ export interface EnemyDef {
   weakness?: any;
   isBoss?: boolean;
   waveUnlock?: number;
+  /** An innate protection prayer: this monster always prays against this style
+   *  (the `protected` affix, but built into the species rather than rolled).
+   *  Reserved for future monsters — no current enemy declares it. */
+  protectedStyle?: CombatStyle;
   /** The boss that summons this enemy, if it is an escort rather than a monster
    *  a wave can send. Escorts have no Collection Log entry of their own — like
    *  OSRS, they live on their summoner's page (see `LogDetail` in GameRoot) — and

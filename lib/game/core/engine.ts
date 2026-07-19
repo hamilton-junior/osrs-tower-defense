@@ -7,7 +7,7 @@ import { ENEMIES } from '../data/enemies';
 import { TOWERS, TOWER_STYLES } from '../data/towers';
 import { LANDMARK_WAVES, type WaveConfig } from '../data/waves';
 import { ASSETS } from '../assets';
-import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange, knockbackStep } from '../systems/geometry';
+import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange, knockbackStep, clampCursorToBoard } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats } from '../systems/enemy-scaling';
 import { buildWaveConfigs } from '../systems/wave-generation';
@@ -33,7 +33,7 @@ import {
 import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
 import {
   rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRenderScaleMult, shieldHpFor,
-  regenPerSec, leakLifeCost, bossLeakCost, SUPERIOR_LEAK_COST, isCcImmune, styleDamageMult, absorbWithShield, rollArmoredStyle,
+  regenPerSec, leakLifeCost, bossLeakCost, SUPERIOR_LEAK_COST, isCcImmune, styleDamageMult, protectedDamageMult, absorbWithShield, rollArmoredStyle, rollProtectedStyle,
   ALL_AFFIXES, SWARM_COUNT, VOLATILE_STUN_SECS,
   type EnemyAffix, type AffixRoll,
 } from '../systems/affixes';
@@ -503,6 +503,8 @@ export interface EnemyHoverInfo {
   affixes: EnemyAffix[];
   /** Combat style the `armored` affix resists, if rolled (badge tooltip detail). */
   armoredStyle?: CombatStyle;
+  /** Combat style this enemy prays against (`protected`), if any (badge detail). */
+  protectedStyle?: CombatStyle;
 }
 
 /** A dying enemy's sprite, fading out where it fell. */
@@ -685,6 +687,11 @@ export class GameEngine {
   gameSpeed = 1;
   paused = false;
   pointer: Point = { x: 0, y: 0 };
+  /** Keyboard placement cursor: a grid tile driven by the arrow keys instead of
+   *  the mouse. Non-null only while the player is steering with the keyboard; a
+   *  mouse move clears it (the mouse takes back over). It mirrors itself onto
+   *  `pointer` so the existing placement ghost renders at the cursor for free. */
+  placeCursor: Point | null = null;
   /** Pulse (1 → 0) when the base takes a leak, for the renderer's hit flash. */
   baseFlash = 0;
 
@@ -1161,6 +1168,13 @@ export class GameEngine {
       ...Object.fromEntries(
         Object.entries(ASSETS.hitsplats).map(([kind, url]) => [`hitsplat_${kind}`, url]),
       ),
+      // Protection-prayer overheads, keyed by the STYLE they answer (`prayericon_<style>`),
+      // for enemies praying against a style (the `protected` affix + boss phases).
+      // These are OSRS's own headicons — they carry the game's gold-disc backdrop,
+      // so nothing extra is drawn behind them.
+      prayericon_melee: ASSETS.prayers.overhead_melee,
+      prayericon_ranged: ASSETS.prayers.overhead_missiles,
+      prayericon_magic: ASSETS.prayers.overhead_magic,
     };
     for (const [key, url] of Object.entries(urls)) {
       const img = new Image();
@@ -1226,6 +1240,31 @@ export class GameEngine {
   // ------------------------------------------------------------- input/actions
   setPointer(x: number, y: number) {
     this.pointer = { x, y };
+    // A real mouse move hands control back to the mouse — the keyboard cursor is
+    // only "live" while the player is steering with the arrow keys.
+    this.placeCursor = null;
+  }
+
+  /** Step the keyboard placement cursor by one tile (M8). Initialises it at the
+   *  last pointer position on the first press, then moves + clamps it, mirroring
+   *  onto `pointer` so the existing placement ghost draws at the cursor. */
+  nudgeCursor(dx: number, dy: number) {
+    const base = this.placeCursor ?? this.pointer;
+    const moved = clampCursorToBoard(base.x + dx * GRID, base.y + dy * GRID, GRID, this.width, this.height);
+    this.placeCursor = moved;
+    this.pointer = { ...moved };
+  }
+
+  /** Place/act at the keyboard cursor — the Enter-key equivalent of clicking the
+   *  tile it sits on (so it routes through the same {@link handleClick} logic). */
+  placeAtCursor() {
+    if (!this.placeCursor) return;
+    this.handleClick(this.placeCursor.x, this.placeCursor.y);
+  }
+
+  /** Drop the keyboard cursor (Esc, or when placement is cancelled). */
+  clearPlaceCursor() {
+    this.placeCursor = null;
   }
 
   /** Topmost enemy within click/hover range of a logic point, or null. */
@@ -1265,6 +1304,7 @@ export class GameEngine {
       tenacity: this.tenacity(e),
       affixes: e.affixes ?? [],
       armoredStyle: e.armoredStyle,
+      protectedStyle: e.protectedStyle,
     };
   }
 
@@ -1394,6 +1434,7 @@ export class GameEngine {
     this.queueArmed = false;
     this.pasting = false; // the clipboard keeps its towers — only the aim is dropped
     this.pendingPlacement = null;
+    this.placeCursor = null; // the keyboard cursor goes with the cancelled placement
     this.emit();
   }
 
@@ -2336,6 +2377,10 @@ export class GameEngine {
       animTime: 0,
       affixes: affixes.length ? affixes : undefined,
       armoredStyle: roll.armoredStyle,
+      // A rolled `protected` affix wins; otherwise the species' innate prayer (if
+      // any) carries through. `...def` already spread the innate value, but a
+      // forced/rolled affix must override it.
+      protectedStyle: roll.protectedStyle ?? def.protectedStyle,
       shieldHp: shieldHp > 0 ? shieldHp : undefined,
       bossState: bossKind ? freshBossState(bossKind) : undefined,
     };
@@ -2402,7 +2447,11 @@ export class GameEngine {
           // A coloured shockwave in the new form's tint as it morphs.
           const pc = ZULRAH_PHASES[idx % ZULRAH_PHASES.length].color;
           this.addRing(e.x, e.y, 8, 60, pc, 0.5, 4);
-          this.sound.play('wave', 55); // the teleport "vwoop" reads as a morph
+          // Morph cry: the boss's OWN voice (`bossphase_<kind>`), not the generic
+          // teleport whoosh — and never its death clip, which would read as "it died"
+          // on every form change. Falls back to the whoosh for a boss with no cry yet.
+          const voice = `bossphase_${st.kind}`;
+          this.sound.play(voice in GAME_SOUNDS ? voice : 'wave', 55);
         }
       } else if (st.kind === 'vorkath') {
         this.updateVorkath(e, dt);
@@ -4006,7 +4055,9 @@ export class GameEngine {
     // halves damage from its rolled style (DoT/no-style hits are unaffected).
     const vuln = enemy.vulnTimer && enemy.vulnTimer > 0 ? 1.25 : 1;
     const onTask = this.slayer.onTaskBonus(enemy.type);
-    const resist = styleDamageMult(enemy.armoredStyle, style);
+    // Armored halves one style; Protected (a prayer) all but negates one. Banned
+    // together, so at most one bites — a DoT/no-style hit is unaffected by either.
+    const resist = styleDamageMult(enemy.armoredStyle, style) * protectedDamageMult(enemy.protectedStyle, style);
     // Boss phase bias: Zulrah's per-form style rock-paper-scissors, and a 0 while
     // Vorkath's ice shield is up (fully immune). Neutral for non-boss enemies.
     const bossMult = bossStyleMult(enemy.bossState, style);
@@ -4820,6 +4871,7 @@ export class GameEngine {
     }
     const roll: AffixRoll = { affixes: list };
     if (list.includes('armored')) roll.armoredStyle = rollArmoredStyle(Math.random);
+    if (list.includes('protected')) roll.protectedStyle = rollProtectedStyle(Math.random);
     return roll;
   }
 

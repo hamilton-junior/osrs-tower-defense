@@ -147,6 +147,23 @@ export function advanceAlongPath(
 }
 
 /**
+ * Snap `(x, y)` to the tile grid and clamp it a tile in from each board edge —
+ * the landing tile for the keyboard placement cursor (M8). Keeping a one-tile
+ * margin stops the cursor from parking half-off the board where nothing can be
+ * built anyway. Pure so the arrow-key stepping stays testable.
+ */
+export function clampCursorToBoard(
+  x: number, y: number, grid: number, width: number, height: number,
+): Point {
+  const sx = Math.round(x / grid) * grid;
+  const sy = Math.round(y / grid) * grid;
+  return {
+    x: Math.max(grid, Math.min(width - grid, sx)),
+    y: Math.max(grid, Math.min(height - grid, sy)),
+  };
+}
+
+/**
  * Whether `(x, y)` is far enough from every path segment and existing tower
  * to host a new tower. `towers` only needs `x`/`y`, so any placed entity works.
  */

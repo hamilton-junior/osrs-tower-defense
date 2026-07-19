@@ -157,6 +157,9 @@ export interface Enemy extends EnemyDef {
   affixes?: EnemyAffix[];
   /** Combat style this enemy takes reduced damage from (the `armored` affix). */
   armoredStyle?: CombatStyle;
+  /** Combat style this enemy prays against (the `protected` affix, or an innate
+   *  protection declared on its `EnemyDef`): that style barely scratches it. */
+  protectedStyle?: CombatStyle;
   /** Remaining shield pool (the `shielded` affix): absorbed before HP is touched. */
   shieldHp?: number;
   /** Per-boss phase/mechanic state (Zulrah forms, Vorkath ice, Jad heal window);

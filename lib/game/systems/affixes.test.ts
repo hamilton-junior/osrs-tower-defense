@@ -40,6 +40,9 @@ import {
   COLOSSAL_HP_MULT,
   COLOSSAL_SPEED_MULT,
   SWARM_HP_MULT,
+  protectedDamageMult,
+  PROTECTED_MULT,
+  DORMANT_AFFIXES,
 } from './affixes';
 
 /** A deterministic RNG that yields the given sequence, then 0 forever. */
@@ -301,5 +304,45 @@ describe('AFFIX_DEFS', () => {
       expect(def.color).toMatch(/^#/);
       expect(def.icon).toMatch(/^(https?:\/\/|\/|\.\/)?\S+\.png$/); // baked local asset (or wiki fallback)
     }
+  });
+
+  it('defines the dormant affixes too (they exist, just never roll)', () => {
+    for (const a of DORMANT_AFFIXES) {
+      expect(AFFIX_DEFS[a]).toBeDefined();
+      expect(AFFIX_DEFS[a].name).toBeTruthy();
+    }
+  });
+});
+
+describe('the protected affix (prayer)', () => {
+  it('all but negates its prayed-against style, and leaves the others alone', () => {
+    expect(protectedDamageMult('magic', 'magic')).toBe(PROTECTED_MULT);
+    expect(protectedDamageMult('magic', 'ranged')).toBe(1);
+    expect(protectedDamageMult('magic', 'melee')).toBe(1);
+  });
+
+  it('never touches a styleless hit (a DoT tick prays through nothing)', () => {
+    expect(protectedDamageMult('magic', undefined)).toBe(1);
+    expect(protectedDamageMult(undefined, 'magic')).toBe(1);
+  });
+
+  it('is dormant — never handed out by a random roll (normal or boss)', () => {
+    // It exists as a def but is excluded from the rollable pool, so no amount of
+    // rolling can produce it — it is reserved for monsters that declare it innately.
+    expect(DORMANT_AFFIXES).toContain('protected');
+    expect(ALL_AFFIXES).not.toContain('protected');
+    expect(BOSS_AFFIX_POOL).not.toContain('protected');
+    const always = () => 0; // rolls under every chance, at wave 999
+    for (let i = 0; i < 200; i++) {
+      expect(rollAffixes(999, false, always).affixes).not.toContain('protected');
+      expect(rollBossAffixes(always, 999).affixes).not.toContain('protected');
+    }
+  });
+
+  it('is banned alongside armored — the two style-cuts never stack', () => {
+    const banned = BANNED_PAIRS.some(
+      ([a, b]) => (a === 'protected' && b === 'armored') || (a === 'armored' && b === 'protected'),
+    );
+    expect(banned).toBe(true);
   });
 });

@@ -10,7 +10,7 @@ import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
 import {
   ZULRAH_PHASES, hydraPhase, hydraBreakTarget, HYDRA_VENT_SECS,
   moleIsHidden, MOLE_DIG_SECS, MOLE_EMERGE_SECS, MOLE_UNDER_SECS,
-  isGuardian, BOSS_STALL_MAX_STACKS,
+  isGuardian, BOSS_STALL_MAX_STACKS, phaseResistedStyles,
 } from '../systems/boss-mechanics';
 
 /** The Grotesque Guardians' shared stone: the tether, the bar caption and the revival
@@ -1446,6 +1446,32 @@ export class GameRenderer {
           ctx.fillRect(e.x - bw / 2, by - 5, bw, 3);
           ctx.fillStyle = '#7fd0ff';
           ctx.fillRect(e.x - bw / 2, by - 5, bw * sratio, 3);
+        }
+      }
+
+      // Protection-prayer overheads: a small prayer icon per style the enemy is
+      // actively praying against — its own `protectedStyle` (the affix / an innate
+      // species prayer) plus any *per-style* boss phase (Zulrah's forms, Cerberus's
+      // soul locks). Drawn above the HP bar; the icon says "switch styles".
+      if (!inPortal) {
+        const prayed = new Set<string>();
+        if (e.protectedStyle) prayed.add(e.protectedStyle);
+        for (const s of phaseResistedStyles(e.bossState)) prayed.add(s);
+        if (prayed.size) {
+          const styles = [...prayed];
+          // Drawn at the headicon's native 25px (scaled down for rank-and-file), so
+          // the sprite's own gold disc stays crisp — no backdrop of ours is needed.
+          const isz = isBoss ? 20 : 14;
+          const gap = 2;
+          const totalW = styles.length * isz + (styles.length - 1) * gap;
+          const barY = e.y - (isBoss ? 40 : 22) - Math.max(0, ((e.renderScale ?? 1) - 1) * (isBoss ? 30 : 15));
+          const iy = barY - (e.shieldHp && e.shieldHp > 0 ? 9 : 6) - isz;
+          let ix = e.x - totalW / 2;
+          for (const s of styles) {
+            const img = this.e.images.get(`prayericon_${s}`);
+            if (img && img.complete && img.naturalWidth > 0) ctx.drawImage(img, ix, iy, isz, isz);
+            ix += isz + gap;
+          }
         }
       }
 

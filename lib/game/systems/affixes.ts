@@ -23,7 +23,8 @@ export type EnemyAffix =
   | 'hasted'        // moves faster — punishes thin coverage
   | 'warded'        // immune to slow / stun / freeze — punishes CC-reliant builds
   | 'volatile'      // on death, stuns the nearest tower — punishes tight clusters
-  | 'colossal';     // one big, slow, tanky leaker that costs an extra life
+  | 'colossal'      // one big, slow, tanky leaker that costs an extra life
+  | 'protected';    // prays against ONE style — near-immune to it (see PROTECTED_MULT)
 
 export interface AffixDef {
   id: EnemyAffix;
@@ -45,9 +46,19 @@ export const AFFIX_DEFS: Record<EnemyAffix, AffixDef> = {
   warded:       { id: 'warded',       name: 'Warded',       desc: 'Immune to slows, stuns and freezes.', color: '#b07cff', icon: itemIcon('spirit_shield') },
   volatile:     { id: 'volatile',     name: 'Volatile',     desc: 'Detonates on death, briefly disabling the nearest tower.', color: '#ff7a3c', icon: itemIcon('volatile_orb') },
   colossal:     { id: 'colossal',     name: 'Colossal',     desc: 'A hulking straggler — extra health, but costs two lives if it leaks.', color: '#d9a957', icon: itemIcon('granite_maul') },
+  protected:    { id: 'protected',    name: 'Protected',    desc: 'Prays against one combat style — attacks of that style barely scratch it.', color: '#e8d48a', icon: ASSETS.prayers.protect_from_melee },
 };
 
-export const ALL_AFFIXES: readonly EnemyAffix[] = Object.keys(AFFIX_DEFS) as EnemyAffix[];
+/**
+ * Affixes that never come up in a random roll — they exist as a mechanic
+ * (combat hooks + renderer aura) but are attached deliberately, not by chance.
+ * `protected` is dormant: the plumbing is ready, but no enemy rolls it — it is
+ * reserved for specific future monsters that declare it on their {@link EnemyDef}.
+ */
+export const DORMANT_AFFIXES: readonly EnemyAffix[] = ['protected'];
+
+export const ALL_AFFIXES: readonly EnemyAffix[] =
+  (Object.keys(AFFIX_DEFS) as EnemyAffix[]).filter((a) => !DORMANT_AFFIXES.includes(a));
 
 // ───────────────────────────── tuning constants ────────────────────────────
 /** No affixes before this wave — the early game stays a clean teaching ground. */
@@ -75,6 +86,9 @@ export const EXTRA_AFFIX_DECAY = 0.5;      // kept for tuning symmetry
 export const BANNED_PAIRS: readonly [EnemyAffix, EnemyAffix][] = [
   ['regenerating', 'warded'],
   ['regenerating', 'shielded'],
+  // Both cut damage from a combat style — stacking them just double-punishes one
+  // style rather than forcing variety, and reads as one wall on the enemy.
+  ['protected', 'armored'],
 ];
 
 /**
@@ -92,6 +106,11 @@ export const BOSS_EXTRA_AFFIX_CHANCE = 0.25;
 export const SHIELD_HP_FRAC = 0.12;
 /** Damage multiplier applied to the armored enemy's resisted style. */
 export const ARMORED_RESIST = 0.5;
+/** Damage multiplier applied to a `protected` enemy's prayed-against style. A
+ *  protection prayer in OSRS blocks a style outright; here it is left a sliver
+ *  (×0.15) so a mono-style build still chips it rather than hitting a hard wall,
+ *  while the message — "bring another style" — stays loud. */
+export const PROTECTED_MULT = 0.15;
 /** Regenerating never appears before this wave — early DPS can't outpace it. */
 export const REGEN_UNLOCK_WAVE = 12;
 /** Regen ramps from MIN %/s at its unlock wave to MAX %/s at the ramp end. */
@@ -151,10 +170,17 @@ export function rollArmoredStyle(rng: () => number): CombatStyle {
   return ARMOR_STYLES[Math.floor(rng() * ARMOR_STYLES.length)] ?? 'melee';
 }
 
+/** Pick the style a `protected` enemy prays against (shares the style set). */
+export function rollProtectedStyle(rng: () => number): CombatStyle {
+  return ARMOR_STYLES[Math.floor(rng() * ARMOR_STYLES.length)] ?? 'melee';
+}
+
 export interface AffixRoll {
   affixes: EnemyAffix[];
   /** Present only when `armored` is rolled — the style it takes reduced damage from. */
   armoredStyle?: CombatStyle;
+  /** Present only when `protected` is rolled — the style it prays against. */
+  protectedStyle?: CombatStyle;
 }
 
 /** Draws 1..{@link MAX_AFFIXES} affixes, splicing each out of `pool` — this
@@ -176,6 +202,7 @@ function drawAffixes(pool: EnemyAffix[], rng: () => number, extraChance: (grante
   }
   const roll: AffixRoll = { affixes };
   if (affixes.includes('armored')) roll.armoredStyle = rollArmoredStyle(rng);
+  if (affixes.includes('protected')) roll.protectedStyle = rollProtectedStyle(rng);
   return roll;
 }
 
@@ -271,6 +298,13 @@ export function isCcImmune(affixes: readonly EnemyAffix[]): boolean {
 /** Damage multiplier for an incoming `style` against an enemy's `armoredStyle`. */
 export function styleDamageMult(armoredStyle: CombatStyle | undefined, style: CombatStyle | undefined): number {
   return armoredStyle && style && armoredStyle === style ? ARMORED_RESIST : 1;
+}
+
+/** Damage multiplier for an incoming `style` against a `protected` enemy's
+ *  prayed-against style ({@link PROTECTED_MULT} when it matches, else 1). A hit
+ *  with no style (DoT ticks) is never prayed against. */
+export function protectedDamageMult(protectedStyle: CombatStyle | undefined, style: CombatStyle | undefined): number {
+  return protectedStyle && style && protectedStyle === style ? PROTECTED_MULT : 1;
 }
 
 /**
