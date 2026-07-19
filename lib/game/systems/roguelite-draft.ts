@@ -282,7 +282,7 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'blood_pact', name: 'Blood Pact', desc: '+40% damage to ALL towers, but each wave cleared costs 1 life', rarity: 'rare', unique: true, icon: itemIcon('blood_shard'), effect: { kind: 'bloodPact', mult: 1.4 } },
   { id: 'greedy_pact', name: 'Greedy Pact', desc: 'Enemies have +50% HP, but drop double gold', rarity: 'rare', unique: true, icon: itemIcon('zenyte'), effect: { kind: 'greed', hpMult: 1.5, goldMult: 2 } },
   // ── tower transformations ────────────────────────────────────────────────
-  { id: 'dragon_knife', name: 'Dragon Knife', desc: 'Ranged towers loose a second shot at another enemy in range', rarity: 'rare', unique: true, icon: itemIcon('dragon_knife'), effect: { kind: 'doubleShot' } },
+  { id: 'dragon_knife', name: 'Dragon Knife', desc: 'Ranged towers fire a second shot at another enemy in range', rarity: 'rare', unique: true, icon: itemIcon('dragon_knife'), effect: { kind: 'doubleShot' } },
   { id: 'toxic_blowpipe', name: 'Toxic Blowpipe', desc: 'Every tower’s hit also injects venom', rarity: 'rare', unique: true, icon: itemIcon('toxic_blowpipe'), effect: { kind: 'venomTips', dps: 6, dur: 4 } },
   { id: 'ice_barrage_card', name: 'Ice Barrage', desc: 'Any slow now spreads to nearby enemies', rarity: 'rare', unique: true, icon: ASSETS.spells['Ice_Barrage'], effect: { kind: 'chainFreeze', radius: 75 } },
   { id: 'heavy_ballista', name: 'Heavy Ballista', desc: 'Projectiles punch through to strike the enemy behind', rarity: 'rare', unique: true, icon: itemIcon('heavy_ballista'), effect: { kind: 'pierce', radius: 70 } },
