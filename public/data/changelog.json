@@ -2,6 +2,27 @@
   "generatedAt": "2026-07-19",
   "entries": [
     {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Bosses show the prayers they are protecting with",
+      "fromFeedback": true,
+      "date": "2026-07-19"
+    },
+    {
+      "kind": "fixed",
+      "scope": "audio",
+      "text": "A boss's death cry is no longer cut off the instant it starts",
+      "fromFeedback": false,
+      "date": "2026-07-19"
+    },
+    {
+      "kind": "new",
+      "scope": "audio",
+      "text": "Every boss now dies with its own voice",
+      "fromFeedback": false,
+      "date": "2026-07-19"
+    },
+    {
       "kind": "fixed",
       "scope": "ui",
       "text": "Moving a HUD panel aside now frees the board underneath — no ghost blocking tower placement",
@@ -257,27 +278,6 @@
       "kind": "new",
       "scope": "roguelite",
       "text": "Cards are bought, bosses pay relics, and picks fly home",
-      "fromFeedback": false,
-      "date": "2026-07-16"
-    },
-    {
-      "kind": "new",
-      "scope": "qol",
-      "text": "Real-time autoplay, self-announcing wave events, Ancients cost double",
-      "fromFeedback": false,
-      "date": "2026-07-16"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Priority glyphs, Z/X/C speeds, and scoutable wave-preview stats",
-      "fromFeedback": false,
-      "date": "2026-07-16"
-    },
-    {
-      "kind": "balanced",
-      "scope": "waves",
-      "text": "HP climbs with the run, and boss adds shrug off stray splash",
       "fromFeedback": false,
       "date": "2026-07-16"
     }
