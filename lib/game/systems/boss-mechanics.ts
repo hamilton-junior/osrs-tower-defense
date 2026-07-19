@@ -355,8 +355,10 @@ export function hydraZapChain<T extends { x: number; y: number }>(
  */
 export type MolePhase = 'above' | 'dig' | 'under' | 'emerge';
 
-/** Seconds the Mole walks between digs. */
-export const MOLE_BURROW_INTERVAL = 9;
+/** Seconds the Mole walks between digs. Loosened from 9s: back-to-back burrows read
+ *  as "it is never on the board", and the fight is more legible with longer windows
+ *  where the towers actually get to work. */
+export const MOLE_BURROW_INTERVAL = 11;
 /** HP fraction at or below which the Mole digs more often (its late-fight pressure). */
 export const MOLE_FRENZY_HP = 0.25;
 /** The interval's multiplier once frenzied. */
@@ -376,7 +378,7 @@ export const MOLE_EMERGE_SECS = 0.9;
  * is a shrug on one board and a third of the map on another. A tenth of the road is a
  * tenth of the road everywhere.
  */
-export const MOLE_BURROW_FRAC = 0.12;
+export const MOLE_BURROW_FRAC = 0.1;
 /**
  * The final approach, as a fraction of the road: the Mole may never surface inside it.
  * This is the guardrail that makes the mechanic fair rather than cheap — it cannot dig
