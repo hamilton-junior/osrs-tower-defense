@@ -1,6 +1,27 @@
 {
-  "generatedAt": "2026-07-18",
+  "generatedAt": "2026-07-19",
   "entries": [
+    {
+      "kind": "fixed",
+      "scope": "slayer",
+      "text": "Extending a task twice no longer multiplies its reward without end",
+      "fromFeedback": true,
+      "date": "2026-07-18"
+    },
+    {
+      "kind": "fixed",
+      "scope": "boss",
+      "text": "A stalled Regenerating boss's heal dries up so it can't tick-eat forever",
+      "fromFeedback": true,
+      "date": "2026-07-18"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "Dragon Knife's card no longer reads the confusable \"loose a second shot\"",
+      "fromFeedback": true,
+      "date": "2026-07-18"
+    },
     {
       "kind": "fixed",
       "scope": "anims",
@@ -259,27 +280,6 @@
       "text": "Five new rewards — the points finally buy something",
       "fromFeedback": false,
       "date": "2026-07-16"
-    },
-    {
-      "kind": "new",
-      "scope": "magic",
-      "text": "The Blood cap now grows 1% per wave",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "The start screen ran off the bottom when a saved run was offered",
-      "fromFeedback": false,
-      "date": "2026-07-13"
-    },
-    {
-      "kind": "new",
-      "scope": "qol",
-      "text": "The number row builds towers, U upgrades, S sells (and asks), Unmarked targeting",
-      "fromFeedback": false,
-      "date": "2026-07-13"
     }
   ]
 }
