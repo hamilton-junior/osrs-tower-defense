@@ -59,6 +59,22 @@ function clampOffset(
   };
 }
 
+/**
+ * Did this pointer land on an element's native scrollbar rather than its content?
+ *
+ * A scrollbar drag is reported against the *scrolling element itself*, so it looks
+ * exactly like a press on an ordinary panel background — nothing in the event says
+ * "scrollbar". The one thing that separates them is where it landed: `clientWidth`
+ * and `clientHeight` stop at the padding box, and the scrollbar gutter sits outside
+ * it. Without this check, dragging the Collection Log's scrollbar dragged the whole
+ * window instead of scrolling it.
+ */
+function onScrollbar(target: HTMLElement, clientX: number, clientY: number): boolean {
+  if (target.scrollWidth <= target.clientWidth && target.scrollHeight <= target.clientHeight) return false;
+  const r = target.getBoundingClientRect();
+  return clientX - r.left > target.clientWidth || clientY - r.top > target.clientHeight;
+}
+
 export function MovablePanel({ id, className, style, globalLock = false, tut, children }: Props) {
   const [offset, setOffset] = useState(() => load(`ui_pos_${id}`, { x: 0, y: 0 }));
   const [locked, setLocked] = useState(() => load(`ui_lock_${id}`, false));
@@ -88,6 +104,8 @@ export function MovablePanel({ id, className, style, globalLock = false, tut, ch
     if (!canDrag || e.button !== 0) return;
     // Don't start a drag from interactive controls inside the panel.
     if ((e.target as HTMLElement).closest('button, input, select, a, [data-no-drag]')) return;
+    // …nor from a scrollbar: that press belongs to the scroll area, not the panel.
+    if (onScrollbar(e.target as HTMLElement, e.clientX, e.clientY)) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     drag.current = {
       sx: e.clientX, sy: e.clientY, ox: offset.x, oy: offset.y,
