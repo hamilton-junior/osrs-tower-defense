@@ -3,6 +3,13 @@
   "entries": [
     {
       "kind": "fixed",
+      "scope": "ui",
+      "text": "Moving a HUD panel aside now frees the board underneath — no ghost blocking tower placement",
+      "fromFeedback": true,
+      "date": "2026-07-18"
+    },
+    {
+      "kind": "fixed",
       "scope": "slayer",
       "text": "Extending a task twice no longer multiplies its reward without end",
       "fromFeedback": true,
@@ -271,13 +278,6 @@
       "kind": "balanced",
       "scope": "waves",
       "text": "HP climbs with the run, and boss adds shrug off stray splash",
-      "fromFeedback": false,
-      "date": "2026-07-16"
-    },
-    {
-      "kind": "new",
-      "scope": "slayer",
-      "text": "Five new rewards — the points finally buy something",
       "fromFeedback": false,
       "date": "2026-07-16"
     }
