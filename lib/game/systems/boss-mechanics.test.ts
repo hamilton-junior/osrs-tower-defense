@@ -56,6 +56,7 @@ import {
   guardianTwin,
   guardianReviveHp,
   guardianLeakCost,
+  guardianCanRevive,
   linkGuardianStates,
   guardianShouldSummonTwin,
   GUARDIAN_LINK_DAMAGE_MULT,
@@ -541,6 +542,15 @@ describe('Grotesque Guardians', () => {
     expect(guardianLeakCost(1)).toBe(1);            // floor is 1, never 0
     // Both twins leaking still out-costs a single boss (2 × 0.75 = 1.5×).
     expect(guardianLeakCost(8) * 2).toBeGreaterThan(8);
+  });
+
+  // Players reported one Guardian charging them twice: it leaked, took its lives,
+  // and the survivor then dragged it back up to leak again.
+  it('only a killed twin is owed a resurrection — an escaped one is gone', () => {
+    const st = freshBossState('dusk');
+    expect(guardianCanRevive(st)).toBe(true);
+    st.twinEscaped = true;
+    expect(guardianCanRevive(st)).toBe(false);
   });
 });
 

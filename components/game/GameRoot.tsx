@@ -1710,6 +1710,11 @@ export default function GameRoot() {
                 </span>
                 <StatLabel icon={ASSETS.misc.coins_icon}>Gold</StatLabel>
                 <span className="text-right text-osrs-yellow">{info.reward}</span>
+                {/* What it costs to let this one through. A boss quietly took five
+                    lives and players had no way to see why — so the price is quoted
+                    on the enemy, before it is charged. */}
+                <StatLabel icon={ASSETS.misc.hp_icon} title="Lives lost if this enemy reaches the end">Leak cost</StatLabel>
+                <span className="text-right text-osrs-red">−{info.leakCost} {info.leakCost === 1 ? 'life' : 'lives'}</span>
                 {info.tenacity > 0 && (
                   <>
                     <StatLabel icon={ASSETS.misc.defence_icon} title="Resistance to non-damaging debuffs (slow, stun, etc.)">Tenacity</StatLabel>
@@ -5086,6 +5091,8 @@ function WavePreviewCard({ m }: { m: UIState['wavePreview'][number] }) {
         <span className="text-right text-white tabular-nums">{m.speed}</span>
         <StatLabel icon={ASSETS.misc.coins_icon}>Gold</StatLabel>
         <span className="text-right text-osrs-yellow tabular-nums">{m.reward}</span>
+        <StatLabel icon={ASSETS.misc.hp_icon} title="Lives lost if one of these reaches the end">Leak cost</StatLabel>
+        <span className="text-right text-osrs-red tabular-nums">−{m.leakCost}</span>
       </span>
       {/* The count is the reason to care about the numbers above. */}
       <span className="block mt-[0.35em] pt-[0.3em] border-t border-[var(--rs-keyline)] text-[0.65em] text-[#b3a585] text-center">

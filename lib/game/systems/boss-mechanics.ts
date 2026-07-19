@@ -505,6 +505,19 @@ export function linkGuardianStates(
   b.state.summonedTwin = true;
 }
 
+/**
+ * May the survivor drag its twin back up?
+ *
+ * The absence of the twin is the only signal the survivor gets, and absence has two
+ * causes that are not the same thing: the towers *killed* it, or it walked off the end
+ * of the road. Reviving in the second case charged the player twice for one Guardian —
+ * it leaked, took its lives, came back on half health and could leak again. A twin that
+ * escaped is gone; only a killed one is owed a resurrection.
+ */
+export function guardianCanRevive(state: BossState): boolean {
+  return !state.twinEscaped;
+}
+
 /** Does this Guardian still owe the fight its twin? Only Dusk brings one in, and only
  *  once — having been paired, by his own summon or by a revival, settles it for good. */
 export function guardianShouldSummonTwin(kind: BossId, state: BossState): boolean {
@@ -693,6 +706,8 @@ export interface BossState {
   reviveTimer?: number;
   /** Guardians (Dusk only): he has already brought Dawn in, so he never does it twice. */
   summonedTwin?: boolean;
+  /** Guardians: my twin left the field alive — see {@link guardianCanRevive}. */
+  twinEscaped?: boolean;
   /** Cerberus: the styles his live souls are currently locking. The engine rebuilds this
    *  each frame from the souls that are still standing, so killing one frees its style
    *  the moment it dies. */

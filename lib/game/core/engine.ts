@@ -33,11 +33,12 @@ import {
 import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
 import {
   rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRenderScaleMult, shieldHpFor,
-  regenPerSec, leakLifeCost, bossLeakCost, SUPERIOR_LEAK_COST, isCcImmune, styleDamageMult, protectedDamageMult, absorbWithShield, rollArmoredStyle, rollProtectedStyle,
+  regenPerSec, isCcImmune, styleDamageMult, protectedDamageMult, absorbWithShield, rollArmoredStyle, rollProtectedStyle,
   ALL_AFFIXES, SWARM_COUNT, VOLATILE_STUN_SECS,
   type EnemyAffix, type AffixRoll,
 } from '../systems/affixes';
 import { rollWaveEvent, resolveEventMods, type WaveEvent } from '../systems/wave-events';
+import { enemyLeakCost } from '../systems/leak-cost';
 import {
   freshBossState, bossStyleMult, zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick,
   ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION,
@@ -49,7 +50,7 @@ import {
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
   stepBossStall, stallTenacityBonus, stallHealMult, escortDamageMult, type BossState,
-  isGuardian, guardianReviveHp, guardianLeakCost, linkGuardianStates, guardianShouldSummonTwin,
+  isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin,
   GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
   cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
   SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT,
@@ -225,6 +226,10 @@ export interface WavePreviewEntry {
   speed: number;
   reward: number;
   weakness?: Element;
+  /** Lives one of these takes if it leaks (see `enemyLeakCost`). Affixes are rolled
+   *  at spawn, so a Colossal's doubled cost can't be previewed — bosses, the ones
+   *  that actually hurt, are exact. */
+  leakCost: number;
 }
 
 export interface UIState {
@@ -499,6 +504,8 @@ export interface EnemyHoverInfo {
   effects: DebuffId[];
   /** Crowd-control resistance, 0..1 (see `GameEngine.tenacity`). */
   tenacity: number;
+  /** Lives lost if this one reaches the end (see `enemyLeakCost`). */
+  leakCost: number;
   /** Rolled affixes/modifiers this enemy carries (for the info-panel badges). */
   affixes: EnemyAffix[];
   /** Combat style the `armored` affix resists, if rolled (badge tooltip detail). */
@@ -1302,10 +1309,21 @@ export class GameEngine {
       y: e.y,
       effects,
       tenacity: this.tenacity(e),
+      leakCost: this.leakCost(e),
       affixes: e.affixes ?? [],
       armoredStyle: e.armoredStyle,
       protectedStyle: e.protectedStyle,
     };
+  }
+
+  /** Lives this enemy takes if it walks off the road — see {@link enemyLeakCost}.
+   *  Quoted by the info panel and the wave preview so the cost is knowable *before*
+   *  it is charged; the leak path bills exactly this. */
+  private leakCost(e: { type: string; isBoss?: boolean; affixes?: EnemyAffix[] }): number {
+    return enemyLeakCost({
+      type: e.type, isBoss: e.isBoss, affixes: e.affixes,
+      sightings: this.bossesSeen[e.type] ?? 1,
+    });
   }
 
   /** Summary of the enemy under the pointer (for the hover info panel), or null.
@@ -2277,6 +2295,11 @@ export class GameEngine {
       rows.push({
         type, name: def?.name ?? type, count, isBoss: !!def?.isBoss,
         hp: s.hp, speed: s.speed, reward: s.reward, weakness: def?.weakness,
+        // Nothing has spawned yet, so the tally hasn't counted this appearance —
+        // add it, or the preview would quote one sighting's worth too little.
+        leakCost: enemyLeakCost({
+          type, isBoss: !!def?.isBoss, sightings: (this.bossesSeen[type] ?? 0) + 1,
+        }),
       });
     }
     // Regular monsters first (largest packs first), any boss headlining at the end.
@@ -2616,20 +2639,29 @@ export class GameEngine {
       return;
     }
 
-    // Alone. The moment it happens: enrage, and start hauling the twin back.
-    if (wasLinked || st.reviveTimer === undefined) {
-      st.reviveTimer = GUARDIAN_REVIVE_SECS;
+    // Alone. The moment it happens: enrage, and start hauling the twin back — unless
+    // the twin escaped down the road, which is not a death and buys no resurrection.
+    // `enraged` is the "I have already noticed I'm alone" flag: being reunited clears
+    // it above, so this fires exactly once per separation. (It can't key off
+    // `reviveTimer` any more — an escaped twin leaves that permanently unset.)
+    const canRevive = guardianCanRevive(st);
+    if (wasLinked || !st.enraged) {
+      st.reviveTimer = canRevive ? GUARDIAN_REVIVE_SECS : undefined;
       if (!st.enraged) {
         st.enraged = true;
         e.baseSpeed = Math.round(e.baseSpeed * GUARDIAN_ENRAGE_SPEED_MULT);
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
       }
       this.addRing(e.x, e.y, 8, 70, GUARDIAN_LINK_COLOR, 0.6, 5);
-      this.notify(`${e.name} enrages — kill it before it revives its twin!`);
+      this.notify(canRevive
+        ? `${e.name} enrages — kill it before it revives its twin!`
+        : `${e.name} enrages — its twin is gone for good.`);
       this.sound.play('wave', 60);
       return;
     }
 
+    // No countdown to run: the twin escaped rather than died, so it never comes back.
+    if (st.reviveTimer === undefined) return;
     st.reviveTimer -= dt;
     if (st.reviveTimer > 0) return;
 
@@ -3191,26 +3223,24 @@ export class GameEngine {
       const target = this.path[e.pathIndex + 1];
       if (!target) {
         // reached the end → leak lives (debug/sandbox enemies leak harmlessly).
-        // Bosses cost 5 + 1 per prior sighting (capped 10), elites/superiors
-        // cost 3, and normal monsters cost 1 (2 for a Colossal). The sighting
-        // tally already counts this appearance, so subtract it for "prior".
-        // Jad's healers never reach here (they `continue` above), but guard the
-        // life-cost anyway so only the boss itself — never a healer — can cost a
-        // life if that path is ever refactored.
+        // The price is `leakCost` — the same number the hover panel and the wave
+        // preview quoted beforehand. Jad's healers never reach here (they `continue`
+        // above), but guard the life-cost anyway so only the boss itself — never a
+        // healer — can cost a life if that path is ever refactored.
         this.enemies.splice(i, 1);
+        // A Guardian that walks off is *gone*, not dead. Tell its twin so, or the
+        // survivor reads the empty field as "my twin was killed" and hauls it back
+        // up — letting one Guardian charge the player for two leaks.
+        if (e.bossState?.partnerId) {
+          const partner = this.enemies.find((x) => x.id === e.bossState!.partnerId);
+          if (partner?.bossState) partner.bossState.twinEscaped = true;
+        }
         if (!e.debug && !e.escort) {
-          let cost: number;
-          if (e.isBoss) {
-            const bossCost = bossLeakCost((this.bossesSeen[e.type] ?? 1) - 1);
-            // Grotesque Guardians are two-bosses-in-one — each leaks for a fraction
-            // of a normal boss (both leaking still out-costs one boss).
-            cost = isGuardian(e.type as BossId) ? guardianLeakCost(bossCost) : bossCost;
-          } else if (e.type.startsWith('superior_')) {
-            cost = SUPERIOR_LEAK_COST;
-          } else {
-            cost = leakLifeCost(e.affixes ?? []);
-          }
+          const cost = this.leakCost(e);
           this.lives -= cost;
+          // Name the price out loud. The flash alone said "something got through";
+          // it never said a boss had just taken five lives off the total.
+          this.notify(`${e.name} escaped — ${cost} ${cost === 1 ? 'life' : 'lives'}`, ASSETS.misc.hp_icon);
           this.baseFlash = 1;
           this.sound.play('base_hit', 90); // player taking damage with no armour (OSRS take-damage splat)
           this.checkLethal();
