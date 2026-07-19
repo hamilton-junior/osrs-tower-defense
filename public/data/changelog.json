@@ -2,6 +2,27 @@
   "generatedAt": "2026-07-19",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "Dragging a panel's scrollbar now scrolls it instead of dragging the window",
+      "fromFeedback": true,
+      "date": "2026-07-19"
+    },
+    {
+      "kind": "balanced",
+      "scope": "bosses",
+      "text": "The Giant Mole digs less often and skips less road",
+      "fromFeedback": true,
+      "date": "2026-07-19"
+    },
+    {
+      "kind": "balanced",
+      "scope": "bosses",
+      "text": "A Regenerating boss loosens its grip the deeper the run goes",
+      "fromFeedback": true,
+      "date": "2026-07-19"
+    },
+    {
       "kind": "new",
       "scope": "bosses",
       "text": "Bosses show the prayers they are protecting with",
@@ -257,27 +278,6 @@
       "kind": "new",
       "scope": "ui",
       "text": "\"closest\" targeting says it in the glyph, not a compass",
-      "fromFeedback": false,
-      "date": "2026-07-16"
-    },
-    {
-      "kind": "fixed",
-      "scope": "log",
-      "text": "Cerberus's souls belong on his page, not the Monsters roster",
-      "fromFeedback": false,
-      "date": "2026-07-16"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "The real run-energy boots, engraved hotkeys, cheaper card rolls",
-      "fromFeedback": false,
-      "date": "2026-07-16"
-    },
-    {
-      "kind": "new",
-      "scope": "roguelite",
-      "text": "Cards are bought, bosses pay relics, and picks fly home",
       "fromFeedback": false,
       "date": "2026-07-16"
     }
