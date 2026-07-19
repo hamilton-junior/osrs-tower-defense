@@ -119,7 +119,12 @@ export function MovablePanel({ id, className, style, globalLock = false, tut, ch
   return (
     <div
       ref={el}
-      className={className}
+      // The panel itself always captures pointer events, wherever it is currently
+      // drawn (moved or not). Its anchor wrappers are `pointer-events-none`, so the
+      // empty box the wrapper keeps at the original spot never blocks the board —
+      // only the visible panel does. Without this the wrapper's ghost ate clicks at
+      // the anchor (couldn't place towers under a moved-away panel; worst at the top).
+      className={className ? `${className} pointer-events-auto` : 'pointer-events-auto'}
       data-tut={tut}
       style={{ ...style, transform: `translate(${offset.x}px, ${offset.y}px)`, cursor: canDrag ? 'move' : undefined }}
       onPointerDown={onPointerDown}

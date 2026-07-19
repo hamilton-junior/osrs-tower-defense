@@ -1419,7 +1419,7 @@ export default function GameRoot() {
         // the whole flight — it swaps its actions for the "drop it" hint.
         const groupMoving = ui.movingGroupIds.length > 0;
         return (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
             <MovablePanel
               id="multiselect"
               globalLock={uiLocked}
@@ -1895,7 +1895,7 @@ export default function GameRoot() {
         const name = TOWERS[type]?.baseName ?? type;
         return (
           <div
-            className="absolute left-1/2 bottom-[19%] -translate-x-1/2 z-30"
+            className="absolute left-1/2 bottom-[19%] -translate-x-1/2 z-30 pointer-events-none"
             style={{ fontSize: fs('clamp(14px, 0.95vw, 20px)') }}
           >
             <MovablePanel id="build-confirm" globalLock={uiLocked} className="rs-panel relative p-[0.6em] whitespace-nowrap">
@@ -2016,7 +2016,7 @@ export default function GameRoot() {
       {runStarted && !ui.gameOver && (
         <div
           data-tut="waveevent"
-          className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-[0.35em] transition-[top] duration-300"
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-[0.35em] transition-[top] duration-300 pointer-events-none"
           style={{ top: ui.bossOnField ? '4.5rem' : '0.5rem', fontSize: fs('clamp(13px, 0.85vw, 18px)') }}
         >
           {/* Wave strip: progress while fighting, next-wave preview while prepping.
@@ -2536,7 +2536,7 @@ export default function GameRoot() {
           are previewed greyed-out with the wave they unlock (OSRS prayer-book
           style). Draggable + minimizable — an outer wrapper holds the centred
           anchor so MovablePanel's own transform only carries the drag offset. */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
         <MovablePanel id="prayers" tut="prayers" globalLock={uiLocked} className="rs-panel p-2 flex items-center gap-[0.3em]">
           {prayersMin ? (
             <>
