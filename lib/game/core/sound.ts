@@ -21,6 +21,9 @@ export const GAME_SOUNDS: Record<string, string> = {
   game_over: ASSETS.sounds.misc.game_over, // the "You Are Dead!" jingle
   prayer_on: ASSETS.sounds.misc.prayer_on,
   prayer_off: ASSETS.sounds.misc.prayer_off,
+  // A phase-changing boss's own cry, keyed `bossphase_<kind>`. Deliberately not a
+  // death clip: hearing one every form change would read as "the boss died".
+  bossphase_zulrah: ASSETS.sounds.misc.zulrah_hiss,
   select: ASSETS.sounds.misc.select,
   interface_open: ASSETS.sounds.misc.interface_open,
   interface_close: ASSETS.sounds.misc.interface_close,
@@ -76,6 +79,11 @@ export type SoundCategory = 'combat' | 'ui';
 export function soundCategory(key: string): SoundCategory {
   if (/^(fire_|cast_|hit_|death_)/.test(key)) return 'combat';
   return key === 'hit' || key === 'death' || key === 'base_hit' ? 'combat' : 'ui';
+}
+
+/** A kill cry (`death`, or a per-type `death_<type>`) rather than a shot/impact. */
+export function isDeathSound(key: string): boolean {
+  return key === 'death' || key.startsWith('death_');
 }
 
 /**
@@ -149,12 +157,19 @@ export class SoundManager {
 
   /** Fade every currently-ringing combat clip to silence over `secs`, then stop
    *  it and restore the node's volume for future plays. Also suppresses new
-   *  combat plays until {@link setCombatSuppressed}(false). */
+   *  combat plays until {@link setCombatSuppressed}(false).
+   *
+   *  Death cries are exempt. The kill that ends a wave fires its `death_<type>`
+   *  clip in the same frame the wave clears, so fading combat here would mute the
+   *  very cry the player was waiting for — most audibly on a boss, whose clip is
+   *  over a second long and who is always the last thing alive. What this fade is
+   *  for is a shot or impact still ringing after the board is empty, not the kill
+   *  itself. */
   fadeCombat(secs = 0.6) {
     this.combatSuppressed = true;
     if (typeof requestAnimationFrame === 'undefined') return; // SSR guard
     for (const [key, pool] of this.pools) {
-      if (soundCategory(key) !== 'combat') continue;
+      if (soundCategory(key) !== 'combat' || isDeathSound(key)) continue;
       for (const node of pool) {
         if (node.paused || node.ended) continue;
         const startVol = node.volume;
