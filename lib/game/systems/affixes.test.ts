@@ -11,6 +11,9 @@ import {
   shieldHpFor,
   regenPerSec,
   regenFracForWave,
+  bossRegenWaveMult,
+  BOSS_REGEN_MIN_MULT,
+  BOSS_REGEN_DECAY_PER_WAVE,
   leakLifeCost,
   bossLeakCost,
   BOSS_LEAK_BASE,
@@ -286,6 +289,23 @@ describe('regenerating gating + ramp', () => {
     expect(regenPerSec(['regenerating'], 1000, REGEN_UNLOCK_WAVE)).toBeCloseTo(10);
     expect(regenPerSec(['regenerating'], 1000, 30)).toBeCloseTo(20);
     expect(regenPerSec(['hasted'], 1000, 30)).toBe(0);
+  });
+  // Players reported Regenerating bosses as unkillable walls late on: the affix ramps
+  // up by wave while the boss's own HP pool grows, so the two compounded.
+  it('bossRegenWaveMult sheds 1% per wave and never falls past half', () => {
+    expect(bossRegenWaveMult(0)).toBeCloseTo(1);
+    expect(bossRegenWaveMult(20)).toBeCloseTo(0.8);
+    expect(bossRegenWaveMult(BOSS_REGEN_MIN_MULT / BOSS_REGEN_DECAY_PER_WAVE)).toBeCloseTo(BOSS_REGEN_MIN_MULT);
+    expect(bossRegenWaveMult(500)).toBe(BOSS_REGEN_MIN_MULT);
+  });
+  it('regenPerSec decays for a boss but not for a normal enemy', () => {
+    for (const wave of [12, 30, 60, 120]) {
+      const normal = regenPerSec(['regenerating'], 1000, wave);
+      expect(regenPerSec(['regenerating'], 1000, wave, true)).toBeCloseTo(normal * bossRegenWaveMult(wave));
+      expect(regenPerSec(['regenerating'], 1000, wave, true)).toBeLessThan(normal);
+    }
+    // A boss deep in a run keeps exactly half, however far the run goes.
+    expect(regenPerSec(['regenerating'], 1000, 300, true)).toBeCloseTo(1000 * REGEN_FRAC_MAX * BOSS_REGEN_MIN_MULT);
   });
   it('boss rolls also exclude regenerating before the unlock wave', () => {
     for (let i = 0; i < 200; i++) {

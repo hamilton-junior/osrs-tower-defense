@@ -117,6 +117,18 @@ export const REGEN_UNLOCK_WAVE = 12;
 export const REGEN_FRAC_MIN = 0.01;
 export const REGEN_FRAC_MAX = 0.02;
 export const REGEN_RAMP_END_WAVE = 30;
+/**
+ * Regenerating reads very differently on a boss. A boss already has the deepest HP
+ * pool on the board and the mechanics to stall on it, so the same %/s that merely
+ * annoys on a normal enemy turns a boss into a wall — the complaint players filed.
+ *
+ * So a boss sheds {@link BOSS_REGEN_DECAY_PER_WAVE} of its regen for every wave
+ * reached, down to a floor of {@link BOSS_REGEN_MIN_MULT}. The affix keeps ramping
+ * up by wave for everything else; on a boss the two curves pull against each other,
+ * which is the point — later bosses are bigger, not more unkillable.
+ */
+export const BOSS_REGEN_DECAY_PER_WAVE = 0.01;
+export const BOSS_REGEN_MIN_MULT = 0.5;
 /** A swarm enemy spawns SWARM_COUNT copies, each at SWARM_HP_MULT health. */
 export const SWARM_COUNT = 3;
 export const SWARM_HP_MULT = 0.5;
@@ -263,9 +275,18 @@ export function shieldHpFor(affixes: readonly EnemyAffix[], maxHp: number): numb
   return has(affixes, 'shielded') ? Math.round(maxHp * SHIELD_HP_FRAC) : 0;
 }
 
-/** HP regenerated per second (0 when not regenerating). */
-export function regenPerSec(affixes: readonly EnemyAffix[], maxHp: number, wave: number): number {
-  return has(affixes, 'regenerating') ? maxHp * regenFracForWave(wave) : 0;
+/** The wave-decayed share of its regen a boss keeps (1 → {@link BOSS_REGEN_MIN_MULT}). */
+export function bossRegenWaveMult(wave: number): number {
+  return Math.max(BOSS_REGEN_MIN_MULT, 1 - BOSS_REGEN_DECAY_PER_WAVE * wave);
+}
+
+/** HP regenerated per second (0 when not regenerating). Bosses regen less the
+ *  deeper the run goes — see {@link bossRegenWaveMult}. */
+export function regenPerSec(
+  affixes: readonly EnemyAffix[], maxHp: number, wave: number, isBoss = false,
+): number {
+  if (!has(affixes, 'regenerating')) return 0;
+  return maxHp * regenFracForWave(wave) * (isBoss ? bossRegenWaveMult(wave) : 1);
 }
 
 /** Lives lost when this enemy leaks (colossals cost two). */

@@ -3177,7 +3177,7 @@ export class GameEngine {
       // 0 HP and "tick-eats" every hit, never dying (it only ever walks off). Non-boss
       // enemies carry no stall state, so `stallHealMult(0)` leaves their regen untouched.
       if (e.affixes) {
-        const regen = regenPerSec(e.affixes, e.maxHp, this.wave) * stallHealMult(e.bossState?.stallStacks ?? 0);
+        const regen = regenPerSec(e.affixes, e.maxHp, this.wave, e.isBoss) * stallHealMult(e.bossState?.stallStacks ?? 0);
         if (regen > 0 && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + regen * dt);
       }
       if (e.stunTimer > 0) {
