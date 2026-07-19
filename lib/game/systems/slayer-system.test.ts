@@ -98,6 +98,32 @@ describe('SlayerSystem — the rewards shop', () => {
     expect(sys.extended).toContain('bloodveld');
   });
 
+  it('refuses to extend the same task twice — no unbounded reward doubling (exploit)', () => {
+    // The exploit: extend a nearly-done task, kill the few extra kills, extend again —
+    // each extend doubles the payout for a fixed 10-pt cost, so the reward snowballs to
+    // millions. A monster type may carry the extension only once.
+    sys.task = { type: 'bloodveld', count: 4, total: 10, reward: 20 };
+    sys.buyReward('extend');
+    expect(sys.task!.reward).toBe(40);
+    const afterFirst = sys.points;
+
+    sys.buyReward('extend'); // second extend on the same task
+    expect(sys.task!.reward).toBe(40);   // NOT re-doubled to 80
+    expect(sys.points).toBe(afterFirst); // and NOT charged again
+  });
+
+  it('refuses to extend a fresh task whose type already rolls doubled', () => {
+    sys.task = { type: 'bloodveld', count: 4, total: 10, reward: 20 };
+    sys.buyReward('extend'); // registers bloodveld as extended
+    // A new bloodveld task arrives already doubled via rollSlayerTask; re-extending it
+    // would re-open the exploit across tasks.
+    sys.task = { type: 'bloodveld', count: 20, total: 20, reward: 40 };
+    const before = sys.points;
+    sys.buyReward('extend');
+    expect(sys.task!.reward).toBe(40);   // untouched
+    expect(sys.points).toBe(before);     // not charged
+  });
+
   it('halve cuts what is LEFT and the payout, and keeps the kills already done', () => {
     // Mirror of extend: 8 of 14 left (6 done). Halving leaves 4 left, 6 still done.
     sys.task = { type: 'bloodveld', count: 8, total: 14, reward: 40 };

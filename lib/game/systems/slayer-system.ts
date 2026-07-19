@@ -151,6 +151,14 @@ export class SlayerSystem {
       this.e.notify('You have no task', SLAYER_ICON);
       return;
     }
+    // A monster type may carry the extension only once. Re-extending the same task — or a
+    // fresh task of a type that already rolls doubled — would double the payout again for
+    // the same fixed cost, a geometric reward snowball off a linear spend (extend a
+    // near-done task, kill the few extra, repeat → millions of points). Refuse it.
+    if (id === 'extend' && this.task && this.extended.includes(this.task.type)) {
+      this.e.notify('This task is already extended', SLAYER_ICON);
+      return;
+    }
     if (this.points < def.cost) { this.e.notify('Not enough Slayer points', SLAYER_ICON); return; }
 
     this.points -= def.cost;
