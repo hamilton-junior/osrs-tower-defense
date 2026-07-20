@@ -4,6 +4,13 @@
     {
       "kind": "new",
       "scope": "bosses",
+      "text": "Scurrius stops to squeak, and his rats obey a stun",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "new",
+      "scope": "bosses",
       "text": "Scurrius takes the swarm axis",
       "fromFeedback": false,
       "date": "2026-07-20"
@@ -271,13 +278,6 @@
       "kind": "balanced",
       "scope": "roguelite",
       "text": "Rework Soul Stealer to reward kills, not the horde",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "balanced",
-      "scope": "boss",
-      "text": "Grotesque Guardians leak for 75%, slower revive",
       "fromFeedback": false,
       "date": "2026-07-17"
     }
