@@ -54,6 +54,12 @@ Follow OSRS interface conventions; where OSRS has no answer, follow RuneLite. In
 - Drags never start from `button, input, select, a, [data-no-drag]`. Add `data-no-drag` to anything else that must stay clickable.
 - A draggable panel necessarily captures pointer events — it cannot also be click-through.
 
+## A disabled tower always looks the same
+
+Anything that knocks a tower offline sets `Tower.disabledTimer` and gets the one standard look: the tower drawn at **40% opacity** with the **OSRS prohibited sign** (`assets/ui/blocked.png`, cache sprite 940) throbbing over it. It lives in exactly one place — `drawTowers` in `core/renderer.ts` — with a hand-drawn `--osrs-red` circle-slash fallback if the sprite fails to load. **Never give a new disable source its own indicator.**
+
+Two earlier disable mechanics (Vorkath's freeze, the Hydra's chain lightning) fired correctly but drew nothing, so they read as bugs and were both cut: a disable needs a visible *cause* and a visible *state*, or it doesn't belong in the game. The other half of the standard is **never refresh an already-disabled tower** — skip it — so overlapping sources (a volatile pack, a boss charging twice) can't chain one tower off the board.
+
 ## Smaller traps
 
 - **Keyboard handlers must ignore events from inputs.** Check `target.tagName === 'INPUT' | 'TEXTAREA'` and `isContentEditable` first, or typing in a number field sends a wave (Space) and changes speed (1/2/5). Use `e.code` (`'Quote'`) for chords — `e.key` is keyboard-layout dependent.

@@ -44,7 +44,7 @@ export const AFFIX_DEFS: Record<EnemyAffix, AffixDef> = {
   swarm:        { id: 'swarm',        name: 'Swarm',        desc: 'Arrives as a pack of weaker copies — bring area damage.', color: '#b6d957', icon: npcModel('kalphite_larva') },
   hasted:       { id: 'hasted',       name: 'Hasted',       desc: 'Moves much faster — your coverage gaps will show.', color: '#cfe8ff', icon: ASSETS.misc.orb_run },
   warded:       { id: 'warded',       name: 'Warded',       desc: 'Immune to slows, stuns and freezes.', color: '#b07cff', icon: itemIcon('spirit_shield') },
-  volatile:     { id: 'volatile',     name: 'Volatile',     desc: 'Detonates on death, briefly disabling the nearest tower.', color: '#ff7a3c', icon: itemIcon('volatile_orb') },
+  volatile:     { id: 'volatile',     name: 'Volatile',     desc: 'Detonates on death, knocking every tower in the blast offline for a few seconds.', color: '#ff7a3c', icon: itemIcon('volatile_orb') },
   colossal:     { id: 'colossal',     name: 'Colossal',     desc: 'A hulking straggler — extra health, but costs two lives if it leaks.', color: '#d9a957', icon: itemIcon('granite_maul') },
   protected:    { id: 'protected',    name: 'Protected',    desc: 'Prays against one combat style — attacks of that style barely scratch it.', color: '#e8d48a', icon: ASSETS.prayers.protect_from_melee },
 };
@@ -138,8 +138,27 @@ export const HASTE_SPEED_MULT = 1.35;
 export const COLOSSAL_HP_MULT = 1.6;
 export const COLOSSAL_SPEED_MULT = 0.8;
 export const COLOSSAL_RENDER_SCALE = 1.4;
-/** Seconds the nearest tower is disabled by a Volatile enemy's death. */
-export const VOLATILE_STUN_SECS = 1.5;
+/**
+ * Volatile's death blast: every tower **inside {@link VOLATILE_BLAST_RADIUS}** of the
+ * corpse goes offline for {@link VOLATILE_STUN_SECS}.
+ *
+ * It used to clip exactly one tower — the single nearest — for a beat and a half, which
+ * on a real board was indistinguishable from nothing: whatever killed it blinked once
+ * and carried on. An affix nobody notices is an affix that isn't there.
+ *
+ * The radius is what makes it a *positioning* threat rather than a die roll: it is wide
+ * enough (three tiles) to swallow a stacked killbox and narrow enough that a spread line
+ * loses one tower, so where you built decides what it costs you. The blast is drawn at
+ * exactly this radius, so the shape is learnable from one detonation.
+ *
+ * **The anti-frustration rule lives at the call site, not here:** a tower that is already
+ * down is skipped rather than refreshed. Volatile rolls on ordinary enemies, so a pack of
+ * them can die on the same spot in a second — refreshing would let them chain a tower off
+ * the board indefinitely. Skipping means a disabled tower always comes back after these
+ * seconds, no matter how many blasts land on it, and the cost stays legible.
+ */
+export const VOLATILE_STUN_SECS = 2.5;
+export const VOLATILE_BLAST_RADIUS = 96;
 
 const ARMOR_STYLES: readonly CombatStyle[] = ['ranged', 'magic', 'melee'];
 
@@ -309,6 +328,28 @@ export const BOSS_LEAK_MAX = 10;
  */
 export function bossLeakCost(priorSightings: number): number {
   return Math.min(BOSS_LEAK_MAX, BOSS_LEAK_BASE + Math.max(0, Math.floor(priorSightings)));
+}
+
+/**
+ * The towers caught in a Volatile death blast: everything whose centre is within
+ * {@link VOLATILE_BLAST_RADIUS} of the corpse, *excluding any that are already offline*.
+ *
+ * The exclusion is the anti-frustration guarantee, and it belongs here rather than at the
+ * call site so it cannot be forgotten by the next caller: a tower knocked out by one
+ * blast is never re-timed by the next, so it always recovers on schedule however many
+ * volatiles die on top of it. Measured centre-to-centre, so the drawn ring is the
+ * literal blast — a player can read the threat off one detonation.
+ */
+export function volatileBlastTowers<T extends { x: number; y: number; disabledTimer: number }>(
+  towers: readonly T[], x: number, y: number,
+): T[] {
+  const r2 = VOLATILE_BLAST_RADIUS * VOLATILE_BLAST_RADIUS;
+  return towers.filter((t) => {
+    if (t.disabledTimer > 0) return false;
+    const dx = t.x - x;
+    const dy = t.y - y;
+    return dx * dx + dy * dy <= r2;
+  });
 }
 
 /** Whether this enemy ignores slow / stun / freeze. */

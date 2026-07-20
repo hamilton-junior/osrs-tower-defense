@@ -46,6 +46,8 @@ import {
   protectedDamageMult,
   PROTECTED_MULT,
   DORMANT_AFFIXES,
+  volatileBlastTowers,
+  VOLATILE_BLAST_RADIUS,
 } from './affixes';
 
 /** A deterministic RNG that yields the given sequence, then 0 forever. */
@@ -364,5 +366,39 @@ describe('the protected affix (prayer)', () => {
       ([a, b]) => (a === 'protected' && b === 'armored') || (a === 'armored' && b === 'protected'),
     );
     expect(banned).toBe(true);
+  });
+});
+
+describe('volatileBlastTowers', () => {
+  const t = (id: string, x: number, y: number, disabledTimer = 0) => ({ id, x, y, disabledTimer });
+
+  it('catches every tower inside the radius, boundary included', () => {
+    const towers = [
+      t('centre', 0, 0),
+      t('edge', VOLATILE_BLAST_RADIUS, 0),
+      t('just-out', VOLATILE_BLAST_RADIUS + 1, 0),
+      t('far', 900, 900),
+    ];
+    expect(volatileBlastTowers(towers, 0, 0).map((x) => x.id)).toEqual(['centre', 'edge']);
+  });
+
+  it('measures the blast as a circle, not as a box', () => {
+    // Both axes at the radius: inside a square of that half-width, outside the circle.
+    const corner = [t('corner', VOLATILE_BLAST_RADIUS, VOLATILE_BLAST_RADIUS)];
+    expect(volatileBlastTowers(corner, 0, 0)).toEqual([]);
+  });
+
+  it('skips a tower that is already down, so blasts cannot chain it off the board', () => {
+    // The anti-frustration guarantee: a pack of volatiles dying on the same spot must
+    // not keep re-timing the same tower — it recovers on schedule regardless.
+    const towers = [t('already-down', 10, 0, 0.4), t('live', 20, 0)];
+    expect(volatileBlastTowers(towers, 0, 0).map((x) => x.id)).toEqual(['live']);
+  });
+
+  it('is wide enough to swallow a stacked killbox', () => {
+    // Four towers packed into two adjacent tiles (GRID = 32) all go down together —
+    // that is the positioning lesson the affix exists to teach.
+    const box = [t('a', 0, 0), t('b', 32, 0), t('c', 0, 32), t('d', 32, 32)];
+    expect(volatileBlastTowers(box, 16, 16)).toHaveLength(4);
   });
 });
