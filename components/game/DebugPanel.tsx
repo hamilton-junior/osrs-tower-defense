@@ -195,7 +195,15 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   const [cheatTab, setCheatTab] = useState<'run' | 'spawn' | 'tools'>('run');
 
   // --- custom-wave builder state ---
-  const allEnemies = useMemo(() => Object.keys(ENEMIES) as EnemyType[], []);
+  // Declaration order in `ENEMIES` is meaningless to anyone hunting for one name in a
+  // wrapped grid of forty. Sort by displayed name, and sink the bosses to the end so the
+  // ordinary roster stays a contiguous block instead of being interleaved with them.
+  const allEnemies = useMemo(() => {
+    const rank = (t: EnemyType) => (ENEMIES[t].isBoss ? 1 : 0);
+    return (Object.keys(ENEMIES) as EnemyType[]).sort(
+      (a, b) => rank(a) - rank(b) || ENEMIES[a].name.localeCompare(ENEMIES[b].name),
+    );
+  }, []);
   const [picked, setPicked] = useState<Set<EnemyType>>(new Set());
   const [countEach, setCountEach] = useState(5);
   const togglePick = (t: EnemyType) =>
