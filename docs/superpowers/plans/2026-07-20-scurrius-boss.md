@@ -888,10 +888,13 @@ EOF
 - Modify: `docs/boss-design.md`
 - Verify only (no edit expected): `lib/game/data/waves.ts`
 
-- [ ] **Step 1: Write the kill tip**
+- [ ] **Step 1: Verify the kill tip — it already landed**
 
-`BOSS_TIPS` is typed `Record<BossId, string>`, so the typecheck already demands this entry.
-Add to `lib/game/systems/boss-tips.ts`:
+> **Already done.** `BOSS_TIPS` is typed `Record<BossId, string>`, so adding `'scurrius'` to
+> `BossId` in Task 2 made the typecheck demand this entry immediately — it could not wait for
+> Task 6. The entry exists as of commit `9009f77`. **Do not add it again**: a second
+> `scurrius:` key in the same object literal is a silent duplicate (last one wins), not an
+> error. Confirm the text below is what is in the file and move on.
 
 ```ts
   scurrius:
