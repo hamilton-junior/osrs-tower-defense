@@ -2504,17 +2504,21 @@ export class GameEngine {
    * to a new low? While it is, nothing happens here — a slow grind is still a win and
    * gets left alone. When it isn't, the boss starts shrugging off control and its
    * healing dries up, until it is either dead or walking. Both are endings.
+   *
+   * It only counts while the boss is under fire (`sinceHit`). A boss nobody is shooting
+   * isn't stuck — it is on its way to the base — so the clock never starts at the portal.
    */
   private stepStall(e: Enemy, st: BossState, dt: number) {
     const before = st.stallStacks ?? 0;
     const next = stepBossStall(
-      { hpFloor: st.hpFloor ?? 1, stallTimer: st.stallTimer ?? 0, stallStacks: before },
+      { hpFloor: st.hpFloor ?? 1, stallTimer: st.stallTimer ?? 0, stallStacks: before, sinceHit: st.sinceHit },
       e.hp / e.maxHp,
       dt,
     );
     st.hpFloor = next.hpFloor;
     st.stallTimer = next.stallTimer;
     st.stallStacks = next.stallStacks;
+    st.sinceHit = next.sinceHit;
 
     if (next.stallStacks <= before) return;
     // Announce only the first stack — after that the boss bar carries the count, and a
@@ -4120,6 +4124,10 @@ export class GameEngine {
       // so its share of what actually landed is its share of the raw hit.
       if (source.bloodFrac) this.stats.recordEffect(owner, this.wave, { bloodBonusDmg: dealt * source.bloodFrac });
     }
+    // Stall breaker: a hit that lands is what marks a boss as *being fought*. Without
+    // this the clock would run from the moment it spawned, and a boss that simply walked
+    // in unopposed would arrive at the base already hardened against control.
+    if (dealt > 0 && enemy.bossState) enemy.bossState.sinceHit = 0;
     // Jad: remember damage that actually landed, for the Yt-HurKot heal window.
     if (dealt > 0 && enemy.bossState?.kind === 'jad') {
       (enemy.bossState.recentDamage ??= []).push({ t: this.gameTime, amount: dealt });

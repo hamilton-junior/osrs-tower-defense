@@ -610,6 +610,10 @@ export const BOSS_STALL_MAX_STACKS = 6;
 export const BOSS_STALL_TENACITY_PER_STACK = 0.1;
 /** Fraction of a boss's self-heal removed per stack (so it dries up entirely at 4). */
 export const BOSS_STALL_HEAL_PER_STACK = 0.25;
+/** Seconds since the last hit within which a boss still counts as *being fought*. The
+ *  clock only runs while it is engaged, so it cannot start ticking at the spawn portal
+ *  while the boss is still walking into range of anything. */
+export const BOSS_STALL_ENGAGE_WINDOW = 5;
 
 /** The stall clock's persistent fields (a slice of {@link BossState}). */
 export interface StallState {
@@ -619,6 +623,14 @@ export interface StallState {
   stallTimer: number;
   /** Escalation stacks, derived from the timer. */
   stallStacks: number;
+  /** Seconds since the boss last took damage. `Infinity` until it is hit at all, which is
+   *  what keeps a boss that has only just spawned off the clock entirely. */
+  sinceHit?: number;
+}
+
+/** Is the boss actually being fought right now? Only then does the stall clock run. */
+export function bossIsEngaged(sinceHit: number | undefined): boolean {
+  return (sinceHit ?? Infinity) <= BOSS_STALL_ENGAGE_WINDOW;
 }
 
 /** Stacks a boss stalled for `stallTimer` seconds has earned. */
@@ -632,13 +644,21 @@ export function bossStallStacks(stallTimer: number): number {
  * Advance the stall clock one frame. Reaching a new low HP (by at least
  * {@link BOSS_STALL_PROGRESS}) is *progress*: it resets the clock and drops every stack,
  * so a board that is genuinely grinding the boss down is never touched by any of this.
+ *
+ * The clock only runs while the boss is **engaged** — hit inside the last
+ * {@link BOSS_STALL_ENGAGE_WINDOW} seconds. A boss nobody is shooting is not in a
+ * stalemate, it is just walking, and it will reach the base on its own; starting the
+ * countdown at its spawn only meant it arrived pre-hardened. While disengaged the timer
+ * *freezes* rather than resetting, so the escalation cannot be wiped by holding fire.
  */
 export function stepBossStall(prev: StallState, hpFrac: number, dt: number): StallState {
+  const sinceHit = (prev.sinceHit ?? Infinity) + dt;
   if (hpFrac <= prev.hpFloor - BOSS_STALL_PROGRESS) {
-    return { hpFloor: hpFrac, stallTimer: 0, stallStacks: 0 };
+    return { hpFloor: hpFrac, stallTimer: 0, stallStacks: 0, sinceHit };
   }
+  if (!bossIsEngaged(sinceHit)) return { ...prev, sinceHit };
   const stallTimer = prev.stallTimer + dt;
-  return { hpFloor: prev.hpFloor, stallTimer, stallStacks: bossStallStacks(stallTimer) };
+  return { hpFloor: prev.hpFloor, stallTimer, stallStacks: bossStallStacks(stallTimer), sinceHit };
 }
 
 /** Extra tenacity from the escalation — pushes a stalled boss past the CC-built cap to
@@ -720,13 +740,18 @@ export interface BossState {
   stallTimer?: number;
   /** Stall breaker: escalation stacks — 0 for any fight that is actually progressing. */
   stallStacks?: number;
+  /** Stall breaker: seconds since it last took damage. The engine zeroes this on every
+   *  hit that lands; the clock only advances while it is inside the engage window. */
+  sinceHit?: number;
 }
 
 /** Build the initial state for a freshly-spawned boss of `kind`. */
 export function freshBossState(kind: BossId): BossState {
   const state: BossState = {
     kind, timer: 0, phaseIndex: 0,
-    hpFloor: 1, stallTimer: 0, stallStacks: 0, // the stall clock, armed for every boss
+    // The stall clock, armed for every boss but not yet *running*: `sinceHit` starts at
+    // Infinity, so an untouched boss is never counted as stalling.
+    hpFloor: 1, stallTimer: 0, stallStacks: 0, sinceHit: Infinity,
   };
   if (kind === 'vorkath') state.iceTimer = VORKATH_ICE_INTERVAL;
   if (kind === 'jad') { state.recentDamage = []; state.healTickTimer = 0; }

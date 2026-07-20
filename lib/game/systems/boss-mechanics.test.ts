@@ -9,6 +9,9 @@ import {
   BOSS_STALL_PROGRESS,
   BOSS_STALL_MAX_STACKS,
   BOSS_STALL_HEAL_PER_STACK,
+  BOSS_STALL_ENGAGE_WINDOW,
+  bossIsEngaged,
+  type StallState,
   ZULRAH_PHASES,
   ZULRAH_PHASE_SECS,
   ZULRAH_WEAK_BONUS,
@@ -622,10 +625,20 @@ describe('Cerberus and the Summoned Souls', () => {
 
 describe('the stall breaker', () => {
   const DT = 0.1;
-  /** Run the clock for `secs`, feeding it the HP fraction the boss is at each frame. */
-  const run = (secs: number, hpAt: (t: number) => number, from = { hpFloor: 1, stallTimer: 0, stallStacks: 0 }) => {
+  /** Run the clock for `secs`, feeding it the HP fraction the boss is at each frame.
+   *  The boss is under continuous fire unless `engaged` says otherwise — the clock only
+   *  runs while it is being fought, so every stall scenario is a *fight* by definition. */
+  const run = (
+    secs: number,
+    hpAt: (t: number) => number,
+    from: StallState = { hpFloor: 1, stallTimer: 0, stallStacks: 0 },
+    engaged = true,
+  ) => {
     let s = from;
-    for (let t = 0; t < secs; t += DT) s = stepBossStall(s, hpAt(t), DT);
+    for (let t = 0; t < secs; t += DT) {
+      if (engaged) s = { ...s, sinceHit: 0 };
+      s = stepBossStall(s, hpAt(t), DT);
+    }
     return s;
   };
 
@@ -669,6 +682,38 @@ describe('the stall breaker', () => {
     const s = stepBossStall({ hpFloor: 0.5, stallTimer: 30, stallStacks: 3 }, 0.5 - BOSS_STALL_PROGRESS / 2, DT);
     expect(s.hpFloor).toBe(0.5);
     expect(s.stallStacks).toBe(3);
+  });
+
+  it('never starts the clock on a boss nobody has hit yet', () => {
+    // The report: the countdown began at the spawn portal, so a boss walking in
+    // unopposed arrived already hardened against control. An untouched boss is not in
+    // a stalemate — it is winning — and must be off the clock entirely.
+    const s = run(BOSS_STALL_GRACE * 4, () => 1, { hpFloor: 1, stallTimer: 0, stallStacks: 0 }, false);
+    expect(s.stallTimer).toBe(0);
+    expect(s.stallStacks).toBe(0);
+    expect(bossIsEngaged(s.sinceHit)).toBe(false);
+  });
+
+  it('keeps counting through a brief lull, and stops once the fire really stops', () => {
+    const fighting = run(BOSS_STALL_GRACE + BOSS_STALL_STEP + 1, () => 1);
+    expect(fighting.stallStacks).toBe(2);
+    // A gap shorter than the engage window is still the same fight.
+    const blink = stepBossStall({ ...fighting, sinceHit: BOSS_STALL_ENGAGE_WINDOW - 1 }, 1, DT);
+    expect(blink.stallStacks).toBe(2);
+    expect(blink.stallTimer).toBeGreaterThan(fighting.stallTimer);
+  });
+
+  it('freezes the escalation when fire stops instead of refunding it', () => {
+    // Freezing, not resetting: if disengaging wiped the stacks, a stalemated player could
+    // hold fire for a moment and put the boss back to zero forever.
+    const stalled = run(BOSS_STALL_GRACE + BOSS_STALL_STEP * 3, () => 1);
+    const idle = run(60, () => 1, stalled, false);
+    // A minute of silence buys at most the engage window, then the clock stops dead.
+    expect(idle.stallTimer).toBeGreaterThanOrEqual(stalled.stallTimer);
+    expect(idle.stallTimer).toBeLessThanOrEqual(stalled.stallTimer + BOSS_STALL_ENGAGE_WINDOW);
+    // …and it resumes from there rather than from zero when the shooting starts again.
+    expect(run(BOSS_STALL_STEP * 2, () => 1, idle).stallStacks)
+      .toBeGreaterThan(stalled.stallStacks);
   });
 
   it('never lets the floor drift back up when the boss heals', () => {
