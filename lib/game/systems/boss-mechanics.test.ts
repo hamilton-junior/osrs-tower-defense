@@ -24,6 +24,7 @@ import {
   brutusShouldRage,
   brutusDashDirection,
   brutusIsRampaging,
+  brutusTrampled,
   bossAnimVariant,
   bossPhaseClip,
   BRUTUS_RAGE_DAMAGE_FRAC,
@@ -54,7 +55,6 @@ import {
   hydraVentCredit,
   hydraVentHeal,
   hydraIsEnraged,
-  hydraZapChain,
   MECHANIC_BOSSES,
   SCHEDULABLE_BOSSES,
   MOLE_BURROW_INTERVAL,
@@ -287,31 +287,6 @@ describe('hydraIsEnraged', () => {
   });
 });
 
-describe('hydraZapChain', () => {
-  const towers = [
-    { id: 'a', x: 10, y: 0 },
-    { id: 'b', x: 20, y: 0 },
-    { id: 'c', x: 400, y: 0 },
-    { id: 'd', x: 30, y: 0 },
-  ];
-  it('strikes the nearest tower, then hops to the nearest unhit one', () => {
-    // From the origin: a (10) is nearest; from a the nearest unhit is b (20); from b, d (30).
-    expect(hydraZapChain(towers, 0, 0, 3).map((t) => t.id)).toEqual(['a', 'b', 'd']);
-  });
-  it('hops from the last tower, not from the Hydra', () => {
-    // Standing right on c, the chain must walk back down the cluster: c → d → b.
-    expect(hydraZapChain(towers, 400, 0, 3).map((t) => t.id)).toEqual(['c', 'd', 'b']);
-  });
-  it('never hits the same tower twice', () => {
-    const ids = hydraZapChain(towers, 0, 0, 4).map((t) => t.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-  it('returns what it can when the board holds fewer towers', () => {
-    expect(hydraZapChain(towers.slice(0, 2), 0, 0, 3)).toHaveLength(2);
-    expect(hydraZapChain([], 0, 0, 3)).toEqual([]);
-  });
-});
-
 describe('boss id lists', () => {
   it('schedules every boss that has state, except the ones that only arrive as companions', () => {
     // Every schedulable boss must have state (the engine gates `freshBossState` on
@@ -366,6 +341,28 @@ describe('Brutus rampage', () => {
     const dir = brutusDashDirection({ x: 10, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 10 });
     expect(Number.isFinite(dir.x)).toBe(true);
     expect(Number.isFinite(dir.y)).toBe(true);
+  });
+
+  it('flattens the towers his body overlaps, and only those', () => {
+    // Boss radius 28 + tower radius 16 = 44px of reach from his centre.
+    const towers = [
+      { id: 'touching', x: 40, y: 0 },
+      { id: 'exactly-on-the-edge', x: 44, y: 0 },
+      { id: 'clear', x: 45, y: 0 },
+      { id: 'far', x: 500, y: 500 },
+    ];
+    const hit = brutusTrampled(towers, 0, 0, 28, 16).map((t) => t.id);
+    expect(hit).toEqual(['touching', 'exactly-on-the-edge']);
+  });
+
+  it('measures contact in both axes, not just along the dash', () => {
+    const towers = [{ id: 'diagonal', x: 30, y: 30 }]; // 42.4px away — inside 44
+    expect(brutusTrampled(towers, 0, 0, 28, 16)).toHaveLength(1);
+    expect(brutusTrampled(towers, 0, 0, 10, 16)).toHaveLength(0);
+  });
+
+  it('flattens an empty board without complaint', () => {
+    expect(brutusTrampled([], 0, 0, 28, 16)).toEqual([]);
   });
 
   it('suspends path movement for every phase except calm', () => {

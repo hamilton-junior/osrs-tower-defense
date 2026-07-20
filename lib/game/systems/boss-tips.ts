@@ -14,13 +14,13 @@ import type { BossId } from './boss-mechanics';
  */
 export const BOSS_TIPS: Record<BossId, string> = {
   brutus:
-    'Hurt him enough and he growls, turns demonic and charges off the road before trotting back to the spot he left. He never skips ground — he only breaks your firing lines, so spread your coverage a little wider than his charge instead of stacking one tight box.',
+    'Hurt him enough and he growls, turns demonic and charges off the road before trotting back to the spot he left. He never skips ground, but any tower he ploughs through is knocked offline for five seconds — so keep your line a little wider than his charge instead of stacking one tight box he can flatten in a single run.',
   giant_mole:
     'Burrows and resurfaces further down the road, skipping whatever you fortified. Spread your damage along the path instead of stacking one killzone — and note it never digs on the final approach.',
   jad:
     'Below half health he calls three Yt-HurKot healers, and while they live he heals back a share of the damage you just dealt. Kill the healers first; damage on Jad is wasted until they are down.',
   vorkath:
-    'Periodically raises an ice shield: immune to everything while it holds, and it freezes your nearest tower. Do not feed it — hold your burst for the window between shields.',
+    'Periodically raises an ice shield: immune to everything while it holds. Do not feed it — hold your burst for the window between shields.',
   zulrah:
     'Rotates through three forms, each weak to one combat style and heavily resistant to the other two. You need all three styles covering the same stretch of road, not one perfect tower.',
   dusk:

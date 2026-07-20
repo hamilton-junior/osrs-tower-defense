@@ -364,6 +364,10 @@ export const ASSETS = {
     // priority buttons pair with a dimension icon.
     arrow_up: `${LOCAL}/ui/arrow_up.png`,
     arrow_down: `${LOCAL}/ui/arrow_down.png`,
+    // The game's red circle-slash (940), stamped over a tower that has been knocked
+    // offline. The other cache circle-slashes are world-map key icons and carry the
+    // thing being prohibited baked in; this one is the bare sign.
+    blocked: `${LOCAL}/ui/blocked.png`,
     hit_splat: `${LOCAL}/hitsplats/hit.png`,          // red damage (1359)
     magic_hit_splat: `${LOCAL}/hitsplats/miss.png`,   // blue zero-splat (1358)
     poison_hit_splat: `${LOCAL}/hitsplats/poison.png`,// green (1360)

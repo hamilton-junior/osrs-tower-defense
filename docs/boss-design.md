@@ -51,8 +51,17 @@ Bosses that do not simply walk the road. The Mole already *skips* road; Brutus i
 
 ### B. Attacking the towers, not the base
 
-The boss damages or disables the defence itself. Vorkath freezes one tower as a side
-effect; these bosses make it the point.
+The boss damages or disables the defence itself. Brutus already does it incidentally —
+towers standing in his charge are knocked offline for five seconds — and that is the
+model: it is a *consequence of positioning*, and it is legible, because a disabled tower
+wears the game's prohibited sign. These bosses make disabling the point rather than a
+by-product.
+
+The lesson from the two attempts that were cut (Vorkath freezing the nearest tower,
+the Hydra arcing lightning through three): a disable the player cannot see and cannot
+attribute to anything reads as a bug, not a mechanic. Both fired correctly and were
+indistinguishable from nothing happening. A tower-disable needs a visible cause (you
+watched him run through it) and a visible state, or it does not belong in the game.
 
 - **King Black Dragon** — dragonfire scorches a **stretch of road**; towers whose range
   covers the burning stretch lose damage while it burns. Punishes tight clustering,

@@ -44,9 +44,8 @@ import {
   ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION,
   JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS,
   JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN,
-  hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentCredit, hydraVentHeal, hydraIsEnraged, hydraZapChain,
+  hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentCredit, hydraVentHeal, hydraIsEnraged,
   HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT,
-  HYDRA_ZAP_CHAIN, HYDRA_ZAP_DISABLE_SECS, HYDRA_ENRAGE_ZAP_SECS,
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
   stepBossStall, stallTenacityBonus, stallHealMult, escortDamageMult, type BossState,
@@ -58,6 +57,7 @@ import {
   brutusShouldRage, brutusDashDirection, brutusIsRampaging, bossAnimVariant,
   BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN,
   BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY,
+  BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled,
   type BossId,
 } from '../systems/boss-mechanics';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
@@ -376,6 +376,11 @@ const GENERAL_GOLD_FACTOR = 0.5;
 
 /** Approximate body radius (px) used for range/hit tests, matching the sprite size. */
 const enemyRadius = (e: { isBoss?: boolean }) => (e.isBoss ? 28 : 13);
+
+/** A tower's body footprint (px) for physical contact — half a tile, so the circle
+ *  matches the square it occupies on the grid. Not `visualRadius`, which is the
+ *  drawn sprite and runs larger on upgraded tiers. */
+const TOWER_BODY_RADIUS = GRID / 2;
 
 /** Clean a persisted Collection-Log blob: keep only known enemy types with a
  *  positive finite integer count, so a corrupt/stale save can't poison the log. */
@@ -1187,6 +1192,8 @@ export class GameEngine {
       prayericon_melee: ASSETS.prayers.overhead_melee,
       prayericon_ranged: ASSETS.prayers.overhead_missiles,
       prayericon_magic: ASSETS.prayers.overhead_magic,
+      // The prohibited sign stamped on a tower knocked offline (Brutus's trample).
+      blocked: ASSETS.misc.blocked,
     };
     for (const [key, url] of Object.entries(urls)) {
       const img = new Image();
@@ -2882,6 +2889,14 @@ export class GameEngine {
       const step = e.speed * BRUTUS_DASH_SPEED_MULT * dt;
       e.x = Math.max(BRUTUS_EDGE_MARGIN, Math.min(this.width - BRUTUS_EDGE_MARGIN, e.x + (st.dashX ?? 0) * step));
       e.y = Math.max(BRUTUS_EDGE_MARGIN, Math.min(this.height - BRUTUS_EDGE_MARGIN, e.y + (st.dashY ?? 0) * step));
+      // Anything standing in the charge gets flattened. Tested every frame of the dash,
+      // not once at the end, because at 3.6× speed he crosses a tower between two frames.
+      for (const tower of brutusTrampled(this.towers, e.x, e.y, enemyRadius(e), TOWER_BODY_RADIUS)) {
+        if (tower.disabledTimer > 0) continue; // already down — don't refresh it mid-charge
+        tower.disabledTimer = BRUTUS_TRAMPLE_DISABLE_SECS;
+        this.addRing(tower.x, tower.y, 6, 34, '#d4452f', 0.4, 3);
+        this.sound.play('combat_block', 55);
+      }
     }
 
     st.brutusTimer = (st.brutusTimer ?? 0) - dt;
@@ -2963,26 +2978,16 @@ export class GameEngine {
     // correctly reads the Hydra as hastened.
     if (!st.enraged && hydraIsEnraged(frac)) {
       st.enraged = true;
-      st.zapTimer = HYDRA_ENRAGE_ZAP_SECS;
       e.baseSpeed = Math.round(e.baseSpeed * HYDRA_ENRAGE_SPEED_MULT);
       if (e.slowTimer <= 0) e.speed = e.baseSpeed;
       this.notify('The Hydra enrages!');
       this.addRing(e.x, e.y, 10, 84, '#d4452f', 0.6, 5);
       this.sound.play('wave', 70);
     }
-    // While enraged the lightning stops waiting for a shatter and fires on a cadence.
-    if (st.enraged) {
-      st.zapTimer = (st.zapTimer ?? HYDRA_ENRAGE_ZAP_SECS) - dt;
-      if (st.zapTimer <= 0) {
-        st.zapTimer = HYDRA_ENRAGE_ZAP_SECS;
-        const zapped = this.hydraZap(e);
-        if (zapped) this.notify(`Hydra lightning disables ${zapped} tower${zapped > 1 ? 's' : ''}!`);
-      }
-    }
   }
 
-  /** A vent breaks: advance the phase, zap a line of towers, and open a short
-   *  vulnerability window as the reward for the burst. */
+  /** A vent breaks: advance the phase and open a short vulnerability window as the
+   *  reward for the burst. */
   private shatterHydraVent(e: Enemy) {
     const st = e.bossState!;
     st.venting = false;
@@ -2992,37 +2997,11 @@ export class GameEngine {
     const phase = hydraPhase(st.shattered);
     this.addRing(e.x, e.y, 6, 90, phase.color, 0.6, 5);
     this.sound.play('wave', 60);
-    // One notice, not two: the zap fires in this same frame, and a second notify()
-    // would overwrite the first before the toast ever renders.
-    const zapped = this.hydraZap(e);
-    this.notify(zapped
-      ? `${phase.name} phase — lightning disables ${zapped} tower${zapped > 1 ? 's' : ''}!`
-      : `The Hydra's vent shatters — ${phase.name} phase!`);
+    this.notify(`The Hydra's vent shatters — ${phase.name} phase!`);
   }
 
-  /** Chain lightning: arc through the nearest towers, disabling each. Vorkath
-   *  freezes a single tower on a long timer; the Hydra takes out a *line* of
-   *  them — and it fires exactly when the player is winning. Returns how many it
-   *  hit; the caller owns the notice (see {@link shatterHydraVent}). */
-  private hydraZap(e: Enemy): number {
-    const chain = hydraZapChain(this.towers, e.x, e.y, HYDRA_ZAP_CHAIN);
-    if (!chain.length) return 0;
-    let fromX = e.x;
-    let fromY = e.y;
-    for (const t of chain) {
-      this.addBolt(fromX, fromY, t.x, t.y, '#9fd8ff', 0.3);
-      this.addRing(t.x, t.y, 3, 22, '#9fd8ff', 0.4, 3);
-      t.disabledTimer = Math.max(t.disabledTimer, HYDRA_ZAP_DISABLE_SECS);
-      fromX = t.x;
-      fromY = t.y;
-    }
-    this.sound.play('hit', 70);
-    return chain.length;
-  }
-
-  /** Vorkath: alternate a vulnerable window and a short ice shield. When the
-   *  shield raises, Vorkath is immune and the nearest tower freezes for its
-   *  duration — the player must weather it, not out-DPS it. */
+  /** Vorkath: alternate a vulnerable window and a short ice shield. While the
+   *  shield is up Vorkath is immune — the player must weather it, not out-DPS it. */
   private updateVorkath(e: Enemy, dt: number) {
     const st = e.bossState!;
     st.iceTimer = (st.iceTimer ?? VORKATH_ICE_INTERVAL) - dt;
@@ -3032,16 +3011,9 @@ export class GameEngine {
       st.immune = false;
       st.iceTimer = VORKATH_ICE_INTERVAL;
     } else {
-      // Raise the shield: immune + freeze the nearest tower for the duration.
+      // Raise the shield: immune for the duration.
       st.immune = true;
       st.iceTimer = VORKATH_ICE_DURATION;
-      let best: Tower | null = null;
-      let bestD = Infinity;
-      for (const t of this.towers) {
-        const d = distanceSq(t.x, t.y, e.x, e.y);
-        if (d < bestD) { bestD = d; best = t; }
-      }
-      if (best) best.disabledTimer = Math.max(best.disabledTimer, VORKATH_ICE_DURATION);
       this.addRing(e.x, e.y, 10, 70, '#bfe9ff', 0.5, 4); // a frost burst as the shield raises
       this.notify('Vorkath raises an ice shield!');
       this.sound.play('bossshield_vorkath', 70);

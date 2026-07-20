@@ -132,6 +132,12 @@ const UI_IDS = {
   // carry their own wood plate, which reads as a button inside a button.
   arrow_up: 1185,
   arrow_down: 1186,
+  // The game's own red circle-slash "prohibited" glyph, stamped on a tower Brutus
+  // has knocked offline. Picked out of a --dump of 0..2589: the other circle-slashes
+  // (666/667/674) are world-map key icons and carry the thing being prohibited
+  // (rocks, a blob) baked into the sprite; 940 is the bare sign on transparency, so
+  // it overlays a tower without dragging a second subject onto the board.
+  blocked: 940,
 };
 
 /** Build flat targets from a {basename: id} group under a sub-folder. */

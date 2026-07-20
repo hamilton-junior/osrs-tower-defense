@@ -1,7 +1,15 @@
 # Alchemical Hydra — the fourth mechanic boss
 
 **Date:** 2026-07-11
-**Status:** approved
+**Status:** approved, **partly superseded 2026-07-20**
+
+> **Superseded:** the **chain lightning** section below was built and then removed. It
+> disabled towers with no visible cause and no visible state, so in play it was
+> indistinguishable from nothing happening. Vorkath's tower-freeze went with it for the
+> same reason. Tower-disabling now lives on Brutus, where the player watches him plough
+> through the tower and the tower wears the game's prohibited sign for the five seconds
+> it is down. Everything else here — the vents, the phases, the enrage — still describes
+> the shipped Hydra. See `docs/boss-design.md` § B.
 
 ## Problem
 

@@ -13,18 +13,19 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geom
  *  - **Zulrah** rotates through three phases, each *weak* to one combat style and
  *    *equally resistant* to the other two (a clean rock-paper-scissors), themed
  *    with the OSRS form colours so the player reads the tint and switches styles.
- *  - **Vorkath** periodically raises an ice shield: immune to all damage for a
- *    short window while it freezes (disables) the nearest tower.
+ *  - **Vorkath** periodically raises an ice shield: immune to all damage for a short
+ *    window. It has to be weathered, not out-damaged.
  *  - **Jad** summons Yt-HurKot healers below half health; while they live he
  *    regenerates a fraction of the damage dealt to him over the last few seconds.
  *  - **Alchemical Hydra** opens a chemical vent at each HP threshold: it hardens and
  *    regenerates until the player bursts through a break target. Shattering a vent
- *    advances its phase, arcs lightning through a line of towers, and leaves it
- *    briefly vulnerable. Below a tenth of its health it enrages.
+ *    advances its phase and leaves it briefly vulnerable. Below a tenth of its health
+ *    it enrages.
  *
  *  - **Brutus** charges: provoked by damage, he plants his feet, turns into Demonic
  *    Brutus, runs *off* the road, then walks back to the exact spot he left. He gains no
- *    ground — he only costs you the damage window.
+ *    ground — but any tower he ploughs through on the way out is knocked offline for a
+ *    few seconds, so the charge costs you a damage window *and* a hole in your board.
  *
  *  - **Giant Mole** burrows: it drops underground — untouchable, invisible — and
  *    surfaces further along the path, skipping the stretch you fortified. It will not
@@ -261,12 +262,6 @@ export const HYDRA_SHATTER_VULN_SECS = 2;
 export const HYDRA_ENRAGE_HP = 0.1;
 /** Speed multiplier applied to `baseSpeed` on enrage. */
 export const HYDRA_ENRAGE_SPEED_MULT = 1.35;
-/** Towers the chain lightning arcs through (the first is the one nearest the Hydra). */
-export const HYDRA_ZAP_CHAIN = 3;
-/** Seconds each zapped tower is disabled. */
-export const HYDRA_ZAP_DISABLE_SECS = 2.5;
-/** Cadence of the chain lightning while enraged (outside enrage it only fires on a shatter). */
-export const HYDRA_ENRAGE_ZAP_SECS = 6;
 
 /** The phase a Hydra that has shattered `shattered` vents is in. Clamped, so a
  *  boss that somehow over-shatters still reads as the last phase. */
@@ -318,36 +313,6 @@ export function hydraVentHeal(maxHp: number, dt: number): number {
 /** Whether the Hydra is in its final, enraged phase. */
 export function hydraIsEnraged(hpFrac: number): boolean {
   return hpFrac <= HYDRA_ENRAGE_HP;
-}
-
-/**
- * The towers the chain lightning arcs through: it strikes the tower nearest the
- * Hydra, then hops greedily to the nearest tower it has not hit yet, `count`
- * times. Returns fewer when the board holds fewer towers. Pure so the hop order
- * is testable without a board.
- */
-export function hydraZapChain<T extends { x: number; y: number }>(
-  towers: readonly T[], x: number, y: number, count: number,
-): T[] {
-  const remaining = [...towers];
-  const chain: T[] = [];
-  let fromX = x;
-  let fromY = y;
-  while (chain.length < count && remaining.length > 0) {
-    let best = 0;
-    let bestD = Infinity;
-    for (let i = 0; i < remaining.length; i++) {
-      const dx = remaining[i].x - fromX;
-      const dy = remaining[i].y - fromY;
-      const d = dx * dx + dy * dy;
-      if (d < bestD) { bestD = d; best = i; }
-    }
-    const [hop] = remaining.splice(best, 1);
-    chain.push(hop);
-    fromX = hop.x;
-    fromY = hop.y;
-  }
-  return chain;
 }
 
 // ────────────────────────────── Giant Mole ─────────────────────────────────
@@ -504,6 +469,32 @@ export const BRUTUS_DEMONIC_SLUG = 'brutus_demonic';
 /** Logic pixels of board kept clear on a lunge. A dash at the edge must not park him
  *  outside the board, where no tower could reach him and he could never walk back. */
 export const BRUTUS_EDGE_MARGIN = 26;
+/**
+ * Seconds a tower he ploughs into is knocked offline. Long enough that losing it is felt
+ * — a killbox missing a tower for five seconds leaks — but short enough that it reads as
+ * being *knocked over and getting back up*, not as the tower being destroyed.
+ */
+export const BRUTUS_TRAMPLE_DISABLE_SECS = 5;
+
+/**
+ * The towers his charge ploughs through: every tower whose body overlaps his, tested as
+ * two circles.
+ *
+ * Only ever called for the `dash` phase. The walk home crosses the same ground, and
+ * disabling on the way back would silently double the advertised five seconds (the tower
+ * would be re-touched and its timer refreshed just as it recovered) — so contact is the
+ * *charge*, not mere proximity to Brutus. Pure, so the geometry is testable without a board.
+ */
+export function brutusTrampled<T extends { x: number; y: number }>(
+  towers: readonly T[], x: number, y: number, bossRadius: number, towerRadius: number,
+): T[] {
+  const reach = bossRadius + towerRadius;
+  return towers.filter((t) => {
+    const dx = t.x - x;
+    const dy = t.y - y;
+    return dx * dx + dy * dy <= reach * reach;
+  });
+}
 
 /**
  * Has he been hurt enough, recently enough, to rampage? Both conditions matter: the
@@ -869,7 +860,6 @@ export interface BossState {
   /** Hydra: true once it has entered its final enraged phase. */
   enraged?: boolean;
   /** Hydra: counts down to the next chain lightning while enraged. */
-  zapTimer?: number;
   /** Giant Mole: where it is in the burrow cycle. */
   molePhase?: MolePhase;
   /** Giant Mole: seconds left in the current {@link molePhase} — above ground, this is

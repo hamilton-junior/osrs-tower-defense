@@ -1044,7 +1044,13 @@ export class GameRenderer {
       const back = recoil * 4;
       const pulse = 1 + recoil * 0.12;
       const flip = Math.cos(angle) < 0 ? -1 : 1;
+      // Knocked offline (Brutus ploughed through it): fade the tower out so a dead
+      // gap in the board is visible at a glance, then stamp the game's own
+      // prohibited sign on it below. Silence alone was indistinguishable from a
+      // tower that simply had nothing in range.
+      const disabled = tower.disabledTimer > 0;
       ctx.save();
+      if (disabled) ctx.globalAlpha = 0.4;
       ctx.translate(tower.x - Math.cos(angle) * back, tower.y - Math.sin(angle) * back);
       ctx.scale(flip * pulse, pulse);
       if (aura && auraEntry) {
@@ -1074,10 +1080,40 @@ export class GameRenderer {
       const badgeKey = spell ? `spell_${spell}` : null;
       if (badgeKey && this.e.imageOk(badgeKey)) {
         ctx.save();
+        if (disabled) ctx.globalAlpha = 0.4;
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
         ctx.shadowBlur = 3;
         this.drawImageContain(ctx, this.e.images.get(badgeKey)!, tower.x, tower.y, tower.visualRadius * 1.05);
         ctx.restore();
+      }
+
+      // The prohibited sign itself, at full opacity over the faded tower. It pulses
+      // as the timer runs out so the player can see the tower is about to come back,
+      // and it is drawn last so nothing (aura, spell badge, level pip) covers it.
+      if (disabled) {
+        const blocked = this.e.imageOk('blocked') ? this.e.images.get('blocked')! : null;
+        const throb = 0.78 + 0.22 * Math.sin(performance.now() / 180);
+        if (blocked) {
+          ctx.save();
+          ctx.globalAlpha = throb;
+          ctx.shadowColor = 'rgba(0,0,0,0.75)';
+          ctx.shadowBlur = 4;
+          this.drawImageContain(ctx, blocked, tower.x, tower.y, tower.visualRadius * 1.15);
+          ctx.restore();
+        } else {
+          // The sprite failed to load — never leave the state invisible.
+          ctx.save();
+          ctx.globalAlpha = throb;
+          ctx.strokeStyle = '#ff4d4d';
+          ctx.lineWidth = 3;
+          const r = tower.visualRadius * 0.8;
+          ctx.beginPath();
+          ctx.arc(tower.x, tower.y, r, 0, Math.PI * 2);
+          ctx.moveTo(tower.x - r * 0.7, tower.y + r * 0.7);
+          ctx.lineTo(tower.x + r * 0.7, tower.y - r * 0.7);
+          ctx.stroke();
+          ctx.restore();
+        }
       }
 
       // level pip
