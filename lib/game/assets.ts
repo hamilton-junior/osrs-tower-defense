@@ -14,6 +14,31 @@ export const itemIcon = (slug: string) => `${LOCAL}/items/${slug}.png`;
 export const npcModel = (slug: string) => `${LOCAL}/models/${slug}.png`;
 
 /**
+ * The coin pile the client would draw for a stack of `n`.
+ *
+ * OSRS swaps the Coins icon at fixed sizes — 1, 2, 3, 4, 5, 25, 100, 250, 1000,
+ * 10000 — so a purse reads as an amount before the number is parsed. Those
+ * thresholds and the item ids behind them are not invented here: item 995
+ * carries them as `countObj`/`countCo` pairs in the cache, and each id is baked
+ * to `coins_<threshold>.png` by scripts/render-osrs-items.mjs.
+ *
+ * Descending, so the first match wins. A stack of 0 falls through to the single
+ * coin: the HUD does show 0 gold, and a coin pile that vanishes would make the
+ * bar jump — in game a 0 stack simply does not exist, so there is nothing to be
+ * faithful to.
+ */
+const COIN_STACKS: ReadonlyArray<readonly [number, string]> = [
+  [10_000, 'coins_10000'], [1_000, 'coins_1000'], [250, 'coins_250'],
+  [100, 'coins_100'], [25, 'coins_25'], [5, 'coins_5'],
+  [4, 'coins_4'], [3, 'coins_3'], [2, 'coins_2'],
+];
+
+export const coinsIcon = (n: number): string => {
+  for (const [min, slug] of COIN_STACKS) if (n >= min) return itemIcon(slug);
+  return itemIcon('coins_1');
+};
+
+/**
  * Wiki-filename → locally-baked icon. Data tables (GE shop, slayer rewards,
  * meta upgrades) key icons by wiki filename; `iconUrl` resolves them to the
  * cache-baked local asset, hot-linking only names with no bake yet.

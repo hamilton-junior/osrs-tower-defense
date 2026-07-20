@@ -8,6 +8,7 @@
  *
  *   node scripts/render-osrs-items.mjs                    # bake every TARGET
  *   node scripts/render-osrs-items.mjs --only coins       # bake one TARGET
+ *   node scripts/render-osrs-items.mjs --only coins_1,coins_2   # …or a few
  *   node scripts/render-osrs-items.mjs --find scimitar    # search cache names
  *
  * Targets resolve by exact cache item NAME (case-insensitive; first non-noted,
@@ -88,6 +89,20 @@ const TARGETS = {
   ranarr_weed: { name: 'Ranarr weed' },
   bones: { name: 'Bones' },
   coins: { name: 'Coins', id: 617 }, // fixed id: many "Coins" defs; 617 is the stack the client shows
+  // The client's own coin-pile ladder. Item 995 ("Coins") carries countObj/countCo
+  // pairs — the id it swaps to at each stack size — and these are those ids, read
+  // out of the cache rather than off the wiki. The slug is the threshold, so the
+  // UI can pick a pile by comparing numbers. 995 itself is the single coin.
+  coins_1: { name: 'Coins', id: 995 },
+  coins_2: { name: 'Coins', id: 996 },
+  coins_3: { name: 'Coins', id: 997 },
+  coins_4: { name: 'Coins', id: 998 },
+  coins_5: { name: 'Coins', id: 999 },
+  coins_25: { name: 'Coins', id: 1000 },
+  coins_100: { name: 'Coins', id: 1001 },
+  coins_250: { name: 'Coins', id: 1002 },
+  coins_1000: { name: 'Coins', id: 1003 },
+  coins_10000: { name: 'Coins', id: 1004 },
   adamantite_ore: { name: 'Adamantite ore' },
   pure_essence: { name: 'Pure essence' },
   rune_essence: { name: 'Rune essence' },
@@ -413,7 +428,10 @@ async function main() {
   const argv = process.argv;
   const findIdx = argv.indexOf('--find');
   const onlyIdx = argv.indexOf('--only');
-  const only = onlyIdx !== -1 ? argv[onlyIdx + 1] : null;
+  // Comma-separated, because indexing the item archive is the slow part and it
+  // happens once per run: baking a related set (the coin piles) one slug at a
+  // time would pay that cost over again for each.
+  const only = onlyIdx !== -1 ? new Set(argv[onlyIdx + 1].split(',').map((s) => s.trim())) : null;
 
   // One pass over the item configs: name → first real (non-noted/placeholder)
   // def. Parsed by parseItemDef (see above) — the packaged loader desyncs.
@@ -449,7 +467,7 @@ async function main() {
     process.exit(0);
   }
 
-  const entries = Object.entries(TARGETS).filter(([slug]) => !only || slug === only);
+  const entries = Object.entries(TARGETS).filter(([slug]) => !only || only.has(slug));
   const outDir = join(REPO, 'public', 'assets', 'items');
   mkdirSync(outDir, { recursive: true });
 

@@ -12,7 +12,7 @@ import { utilityAuraBonus, diminishingSum, synergyDamageMult } from '@/lib/game/
 import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
-import { ASSETS, iconUrl } from '@/lib/game/assets';
+import { ASSETS, iconUrl, coinsIcon } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, previewUpgradeValue, refundValue } from '@/lib/game/systems/meta-progression';
 import { SLAYER_REWARDS, SLAYER_HELMET_BONUS, SLAYER_HELMET_IMBUED_BONUS } from '@/lib/game/data/slayer';
@@ -3168,12 +3168,15 @@ export default function GameRoot() {
             {/* Tower shop — the one interface that is never a pop-up: it is wanted
                 on nearly every click, so it lives in the bar itself. `relative`
                 anchors its hover tooltip, which rises out of the bar over the map. */}
-            {/* Gold, right where it is spent: against the dock's tier-1 prices. */}
+            {/* Gold, right where it is spent: against the dock's tier-1 prices.
+                The pile grows with the purse the way it does in an OSRS inventory,
+                so the amount reads at a glance — the same job `stackClass` does
+                for the number's colour. */}
             <div
               className="shrink-0 flex items-center gap-[0.35em] pr-[0.5em]"
               title="Gold — spent on towers and upgrades"
             >
-              <img src={ASSETS.misc.coins_icon} alt="" className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
+              <img src={coinsIcon(ui.money)} alt="" className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
               <span className={`${stackClass(ui.money)} font-bold tabular-nums text-[0.9em]`}>{fmt(ui.money)}</span>
             </div>
 
