@@ -1,6 +1,27 @@
 {
-  "generatedAt": "2026-07-19",
+  "generatedAt": "2026-07-20",
   "entries": [
+    {
+      "kind": "updated",
+      "scope": "debug",
+      "text": "Sort the custom-wave roster by name, bosses last",
+      "fromFeedback": false,
+      "date": "2026-07-19"
+    },
+    {
+      "kind": "fixed",
+      "scope": "bosses",
+      "text": "Vorkath's ice shield sounds like ice going up, not a melee thud",
+      "fromFeedback": false,
+      "date": "2026-07-19"
+    },
+    {
+      "kind": "fixed",
+      "scope": "bosses",
+      "text": "A boss only starts breaking free once you are actually fighting it",
+      "fromFeedback": false,
+      "date": "2026-07-19"
+    },
     {
       "kind": "fixed",
       "scope": "bosses",
@@ -259,27 +280,6 @@
       "text": "Shift+drag paints a line of towers, releasing Shift buys it",
       "fromFeedback": false,
       "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "A marquee moves as one formation, not one tower at a time",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "The \"closest\" button gets a reticle, and an arrow like everyone else",
-      "fromFeedback": false,
-      "date": "2026-07-16"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "The marquee panel does everything the tower panel does",
-      "fromFeedback": false,
-      "date": "2026-07-16"
     }
   ]
 }
