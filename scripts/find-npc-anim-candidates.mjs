@@ -39,9 +39,19 @@ const framemapOf = async (frameId) => {
   }
 };
 
+let maya = 0;
 for (let id = from; id <= to; id++) {
   const def = await cache.getDef(IndexType.CONFIGS, ConfigType.SEQUENCE, id).catch(() => null);
-  if (!def || !def.frameIDs?.length) continue;
+  if (!def) continue;
+  // Post-2023 NPCs are rigged in Maya: the sequence carries an `animMayaID` and
+  // no frames at all, so it has no framemap to fingerprint and this whole script
+  // has nothing to say about it. Counting them matters — staying silent would
+  // render an entirely maya-rigged block (Scurrius, 10686-10708) as an empty
+  // result, which reads as "no candidates here" rather than "wrong tool".
+  if (!def.frameIDs?.length) {
+    if (def.animMayaID != null && def.animMayaID !== -1) maya++;
+    continue;
+  }
   const maps = new Set();
   for (const f of def.frameIDs.slice(0, 4)) {
     const m = await framemapOf(f);
@@ -51,6 +61,15 @@ for (let id = from; id <= to; id++) {
   console.log(
     `${id}\tframes=${String(def.frameIDs.length).padStart(3)}\tticks=${String(ticks).padStart(4)}` +
     `\tarch=${def.frameIDs[0] >>> 16}\tSKEL=${[...maps].join(',')}`
+  );
+}
+if (maya) {
+  console.error(
+    `\n${maya} of the ids in ${from}-${to} are maya-rigged and were skipped — they carry an ` +
+    `animMayaID and no frames, so there is no framemap to match them by.\n` +
+    `For those, the block boundary is the separator instead: maya ids run in an unbroken ` +
+    `run, so the nearest classic id on each side bounds the NPC's own set. Render the ` +
+    `candidates inside that run and pick by eye.`,
   );
 }
 process.exit(0);
