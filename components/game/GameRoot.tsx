@@ -6,6 +6,7 @@ import { DRAFT_POOL, RARITY_WEIGHT, CARD_ROLL_BASE_COST, type DraftCard, type Dr
 import { RELICS, type Relic, type RelicTier } from '@/lib/game/systems/relics';
 import { AFFIX_DEFS } from '@/lib/game/systems/affixes';
 import { bossTip } from '@/lib/game/systems/boss-tips';
+import { capWavePreview } from '@/lib/game/systems/wave-preview';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum, synergyDamageMult } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
@@ -539,6 +540,11 @@ export default function GameRoot() {
   const [toast, setToast] = useState<{ text: string; icon: string | null } | null>(null);
   // Collection-log unlock popups, shown one at a time from a queue.
   const [unlockQueue, setUnlockQueue] = useState<{ id: number; item: UnlockItem }[]>([]);
+  // Whether the next-wave strip is showing its full roster. Collapsed by default
+  // (and re-collapsed each wave) so the panel's footprint over the board stays
+  // the same in wave 500 as in wave 5 — see `capWavePreview`.
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  useEffect(() => { setPreviewExpanded(false); }, [ui.wave]);
   const unlockIdRef = useRef(0);
   const lastUnlockSeq = useRef(0);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
@@ -2083,7 +2089,7 @@ export default function GameRoot() {
                     Next: Wave {ui.wave} · {ui.wavePreview.reduce((s, m) => s + m.count, 0)} incoming
                   </div>
                   <div className="flex items-center justify-center gap-[0.7em] flex-wrap">
-                    {ui.wavePreview.map((m) => {
+                    {(previewExpanded ? ui.wavePreview : capWavePreview(ui.wavePreview)).map((m) => {
                       const style = enemySpriteStyle(m.type);
                       return (
                         // `group` + `relative` anchor the stat card; the strip itself
@@ -2099,6 +2105,27 @@ export default function GameRoot() {
                         </span>
                       );
                     })}
+                    {/* The overflow toggle. Collapsed, the strip is a fixed two rows
+                        whatever the wave holds — a deep run used to grow it into a
+                        wall across the top of the board that swallowed every click
+                        aimed at the ground beneath it, so towers could not be placed
+                        up there at all. Expanding is a deliberate act, and the next
+                        wave collapses it again. */}
+                    {(() => {
+                      const hidden = ui.wavePreview.length - capWavePreview(ui.wavePreview).length;
+                      if (hidden <= 0) return null;
+                      return (
+                        <button
+                          type="button"
+                          data-no-drag
+                          className="rs-btn pointer-events-auto text-[0.7em] px-[0.5em] py-[0.1em]"
+                          onClick={() => setPreviewExpanded((v) => !v)}
+                          title={previewExpanded ? 'Collapse the wave preview' : 'Show every monster in this wave'}
+                        >
+                          {previewExpanded ? 'Show less' : `+${hidden} more`}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </>
               )}
