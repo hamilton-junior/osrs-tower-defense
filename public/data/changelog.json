@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "ui",
+      "text": "The work-in-progress notice wears the Redemption heart",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
       "text": "A winged heart marks the work-in-progress notice",
       "fromFeedback": false,
       "date": "2026-07-20"
@@ -273,13 +280,6 @@
       "text": "A packed board with Clan Vexillum no longer tanks the frame rate",
       "fromFeedback": true,
       "date": "2026-07-18"
-    },
-    {
-      "kind": "fixed",
-      "scope": "engine",
-      "text": "Auto-wave always starts off on a new or restored run",
-      "fromFeedback": false,
-      "date": "2026-07-17"
     }
   ]
 }
