@@ -58,6 +58,9 @@ import {
   BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN,
   BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY,
   BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled,
+  SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT,
+  SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS,
+  scurriusShouldShear, scurriusRatHp, ratWanderTarget, ratRefund,
   type BossId,
 } from '../systems/boss-mechanics';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
@@ -2471,6 +2474,10 @@ export class GameEngine {
       const e = this.enemies[i];
       if (e.escort && !this.enemies.some(o => o.id === e.ownerId)) this.enemies.splice(i, 1);
     }
+    // Scurrius's rats are the opposite case: not escorts, so nothing above culls them,
+    // and they drive themselves. Stepped over a snapshot because an absorbed rat splices
+    // itself out — mutating the live array mid-walk would skip the enemy after it.
+    for (const e of [...this.enemies]) if (e.type === 'giant_rat') this.updateRat(e, dt);
     for (const e of this.enemies) {
       const st = e.bossState;
       if (!st) continue;
@@ -2503,6 +2510,8 @@ export class GameEngine {
         this.updateCerberus(e, dt);
       } else if (st.kind === 'brutus') {
         this.updateBrutus(e, dt);
+      } else if (st.kind === 'scurrius') {
+        this.updateScurrius(e, dt);
       }
       // The visual-state rule: a boss's current mechanic phase decides which model it is
       // drawn with. `animType` overrides the sprite/clip slug only, so stats, drops and
@@ -3112,6 +3121,155 @@ export class GameEngine {
     this.sound.play('wave', 60); // summon vwoop
   }
 
+  /** Rats currently alive that belong to this king. */
+  private liveRatsOf(kingId: string): number {
+    let n = 0;
+    for (const e of this.enemies) if (e.type === 'giant_rat' && e.ownerId === kingId) n++;
+    return n;
+  }
+
+  /**
+   * Split a Giant rat off Scurrius: the rat's HP comes **out of his bar in the same
+   * frame**, which is the whole mechanic made visible in one beat — a creature appears
+   * and his health drops by exactly what it carries.
+   *
+   * The rat is a plain enemy, never an `escort`: it has to outlive him. See the note in
+   * the plan — an escort would be culled the moment he dies, and the HP that left his
+   * bar would vanish with it.
+   */
+  private shearRat(king: Enemy) {
+    const st = king.bossState!;
+    const hp = scurriusRatHp(king.maxHp, king.hp);
+    if (hp <= 0) return;
+    king.hp -= hp;
+    st.scurriusShearCooldown = SCURRIUS_SHEAR_COOLDOWN;
+    st.ratsShorn = (st.ratsShorn ?? 0) + 1;
+    const speed = king.speed * SCURRIUS_RAT_SPEED_MULT;
+    const target = ratWanderTarget(king.x, king.y, Math.random, this.width, this.height);
+    this.enemies.push({
+      ...ENEMIES.giant_rat,
+      id: uid(),
+      type: 'giant_rat',
+      name: 'Giant Rat',
+      ownerId: king.id,
+      // The field renderer resolves clips off `animType`, never the data table's
+      // `animSlug` (that names the Collection Log's face). Carry the table's slug
+      // across explicitly or the rat falls back to a static sprite and the baked
+      // `rat` clips it deliberately points at go unused — same move as a Cerberus soul.
+      animType: ENEMIES.giant_rat.animSlug,
+      debug: king.debug,
+      x: king.x,
+      y: king.y,
+      hp,
+      maxHp: hp,
+      speed,
+      baseSpeed: speed,
+      naturalSpeed: speed,
+      pathIndex: king.pathIndex,
+      ratPhase: 'wander',
+      ratTimer: SCURRIUS_WANDER_SECS,
+      ratTargetX: target.x,
+      ratTargetY: target.y,
+      slowTimer: 0,
+      stunTimer: 0,
+      tauntTimer: 0,
+      groundTimer: 0,
+      animTime: Math.random() * 2,
+      spawnAnim: SPAWN_ANIM_SECONDS,
+    });
+    this.addRing(king.x, king.y, 6, 40, '#c9b28a', 0.45, 3);
+    this.sound.play('combat_hit', 45);
+  }
+
+  /**
+   * Scurrius: the swarm axis. The shear itself is driven from `damageEnemy` — it is a
+   * *reaction*, which is what makes it the player's doing — so all this owns is the
+   * cooldown and the guaranteed squeak.
+   *
+   * The squeak is the floor, not the mechanic. A board that only chips never lands a hit
+   * big enough to shear, and a boss whose idea never fires teaches nothing; the squeak
+   * guarantees he still gets to make his point. It respects the same live-rat cap, so it
+   * can never be the thing that buries the board.
+   */
+  private updateScurrius(e: Enemy, dt: number) {
+    const st = e.bossState!;
+    st.scurriusShearCooldown = Math.max(0, (st.scurriusShearCooldown ?? 0) - dt);
+    st.squeakTimer = (st.squeakTimer ?? SCURRIUS_SQUEAK_INTERVAL) - dt;
+    if (st.squeakTimer > 0) return;
+    st.squeakTimer = SCURRIUS_SQUEAK_INTERVAL;
+    if (this.liveRatsOf(e.id) >= SCURRIUS_MAX_RATS) return;
+    e.say = SCURRIUS_SAY;
+    e.sayTimer = 1.4;
+    this.shearRat(e);
+  }
+
+  /**
+   * A sheared rat drives itself: it skitters to random points **off the road and across
+   * towers**, then turns and runs the HP it carries back into the king.
+   *
+   * The wandering is the point rather than flavour. A rat drifting through a tower's range
+   * pulls that tower's fire off Scurrius, which is at once the right play (killing it denies
+   * the refund) and the wrong one (the king is not dying). It never *disables* what it walks
+   * over — that is Brutus's job, and it has a visible cause there.
+   *
+   * With the king gone there is nothing to run back to, so the rat stops driving itself and
+   * the ordinary path walk takes over from wherever it stands. It aims at its next waypoint,
+   * so an off-road rat simply angles back onto the road — no special rejoin leg needed.
+   */
+  private updateRat(e: Enemy, dt: number) {
+    const king = e.ownerId ? this.enemies.find((o) => o.id === e.ownerId) : undefined;
+    if (!king) {
+      // Spec edge case 1 & 2: the HP left his bar and is still on the board. It becomes an
+      // ordinary enemy that walks, leaks and costs a life like any other.
+      e.ratPhase = undefined;
+      return;
+    }
+    if (e.ratPhase === 'wander') {
+      e.ratTimer = (e.ratTimer ?? 0) - dt;
+      const tx = e.ratTargetX ?? e.x;
+      const ty = e.ratTargetY ?? e.y;
+      const dx = tx - e.x, dy = ty - e.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 6) {
+        const next = ratWanderTarget(e.x, e.y, Math.random, this.width, this.height);
+        e.ratTargetX = next.x;
+        e.ratTargetY = next.y;
+      } else {
+        const step = Math.min(d, e.speed * dt);
+        e.x += (dx / d) * step;
+        e.y += (dy / d) * step;
+      }
+      if ((e.ratTimer ?? 0) <= 0) e.ratPhase = 'return';
+      return;
+    }
+    // Heading home. Arrival is by distance, not by clock — the king keeps moving.
+    const dx = king.x - e.x, dy = king.y - e.y;
+    const d = Math.hypot(dx, dy);
+    if (d <= SCURRIUS_REFUND_RADIUS) {
+      const healed = ratRefund(e.hp, king.hp, king.maxHp);
+      king.hp += healed;
+      // Say it out loud: the refund is the one moment of this fight that would otherwise
+      // be invisible, and an unexplained rising boss bar reads as a bug. A green `heal`
+      // splat is the same language Jad's Yt-HurKot regen already speaks.
+      if (healed > 0) {
+        this.hitsplats.push({
+          x: king.x + (Math.random() - 0.5) * 16,
+          y: king.y - 18,
+          value: Math.round(healed),
+          kind: 'heal',
+          life: HITSPLAT_LIFE,
+        });
+      }
+      this.addRing(king.x, king.y, 5, 34, '#48d04a', 0.4, 3);
+      const idx = this.enemies.indexOf(e);
+      if (idx >= 0) this.enemies.splice(idx, 1);
+      return;
+    }
+    const step = e.speed * dt;
+    e.x += (dx / d) * step;
+    e.y += (dy / d) * step;
+  }
+
   /** Move an escort (a Yt-HurKot healer, a Summoned Soul) toward its orbit slot around
    *  its owner, so it follows the boss at a fixed radius and drifts around it rather
    *  than walking the path. Orphans (owner gone) hold still until `handleBossMechanics`
@@ -3333,6 +3491,9 @@ export class GameEngine {
       // Brutus drives himself for the whole rampage — the lunge goes where the road does
       // not, and the walk back is aimed at the point he left, not at the next waypoint.
       if (brutusIsRampaging(e.bossState)) continue;
+      // A sheared rat drives itself (wander, then the run home). Walking it as well would
+      // slide it along the road while it is meant to be off it.
+      if (e.ratPhase) continue;
       const target = this.path[e.pathIndex + 1];
       if (!target) {
         // reached the end → leak lives (debug/sandbox enemies leak harmlessly).
@@ -4252,6 +4413,16 @@ export class GameEngine {
     // cut twice and the bar could never fill (see `hydraVentCredit`).
     if (dealt > 0 && enemy.bossState?.kind === 'hydra' && enemy.bossState.venting) {
       enemy.bossState.ventDamage = (enemy.bossState.ventDamage ?? 0) + hydraVentCredit(dealt);
+    }
+    // Scurrius: a heavy hit shears a rat off his own bar. Placed with the other
+    // per-boss damage hooks so it reads against Brutus's rage accumulator and Jad's
+    // damage ring — same shape, same place.
+    if (dealt > 0 && enemy.bossState?.kind === 'scurrius') {
+      const st = enemy.bossState;
+      if (scurriusShouldShear(dealt, enemy.maxHp, enemy.hp / enemy.maxHp,
+                              st.scurriusShearCooldown ?? 0, this.liveRatsOf(enemy.id))) {
+        this.shearRat(enemy);
+      }
     }
     // Executioner relic: a non-boss reduced to a sliver is slain outright (bosses,
     // their phases, and Jad's healers are immune).
