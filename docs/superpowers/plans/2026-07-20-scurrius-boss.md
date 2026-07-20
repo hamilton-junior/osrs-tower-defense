@@ -430,24 +430,11 @@ And to `freshBossState`, beside the other per-kind blocks:
   }
 ```
 
-- [ ] **Step 5: Add his pet**
+- [ ] **Step 5: Drops and pets are out of scope**
 
-There is **no per-monster loot table** in this codebase — `drops.ts` holds generic tiered
-tables (`WEAPON_DROP_TIERS`, `RUNE_DROPS`, …) rolled by wave, and Brutus has no entry of his
-own. The only per-enemy table is `PET_DROP_TABLE`, a `Partial<Record<EnemyType, PetDrop>>`
-(so it applies no exhaustiveness pressure — nothing forces this entry, it is a design choice).
-
-Scurrius's real OSRS pet is **Scurry**. Rewards should not inflate gold, so his bonus is a
-capability, not currency. Add to `PET_DROP_TABLE` in `lib/game/data/drops.ts`:
-
-```ts
-  scurrius: { name: 'Scurry', type: 'scurry', bonus: 'Pack Rat: +12% DMG vs summoned adds' },
-```
-
-Add `'scurry'` to the pet type union in `lib/game/types.ts` if pet types are a closed union
-(the typecheck will say so), and give it a sprite in `lib/game/assets.ts` **only if one can be
-sourced from the cache** — otherwise leave the pet out entirely rather than shipping a
-placeholder. Give `giant_rat` no pet.
+**Do not touch `lib/game/data/drops.ts`.** There is no per-monster loot table to fill
+(`drops.ts` holds generic tiered tables rolled by wave, and Brutus has no entry of his own),
+and neither the spec nor the user asked for a pet. Skip straight to Step 6.
 
 - [ ] **Step 6: Clear the typecheck**
 
