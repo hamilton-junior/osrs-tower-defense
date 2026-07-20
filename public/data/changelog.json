@@ -2,6 +2,13 @@
   "generatedAt": "2026-07-20",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "A winged heart marks the work-in-progress notice",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
       "kind": "new",
       "scope": "ui",
       "text": "The start screen says the game is still being built",
@@ -271,13 +278,6 @@
       "kind": "fixed",
       "scope": "engine",
       "text": "Auto-wave always starts off on a new or restored run",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Close the bottom-bar panels by right-click, drop the X",
       "fromFeedback": false,
       "date": "2026-07-17"
     }
