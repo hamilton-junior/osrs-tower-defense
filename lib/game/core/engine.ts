@@ -3178,7 +3178,7 @@ export class GameEngine {
       spawnAnim: SPAWN_ANIM_SECONDS,
     });
     this.addRing(king.x, king.y, 6, 40, '#c9b28a', 0.45, 3);
-    this.sound.play('combat_hit', 45);
+    this.sound.play('hit', 45);
   }
 
   /**
