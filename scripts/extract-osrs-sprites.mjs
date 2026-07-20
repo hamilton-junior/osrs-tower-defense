@@ -157,9 +157,18 @@ const OVERHEAD_HEADICONS = [
   { slug: 'overhead_magic', spriteId: 440, frame: 2 },     // wand
 ].map((t) => ({ ...t, out: `public/assets/prayers/${t.slug}.png` }));
 
+/**
+ * Redemption's headicon (frame 5 of the same 440 archive) — a heart on the gold
+ * disc. The game never casts Redemption, so this one is not a prayer asset: it is
+ * borrowed as the mark on the start screen's "passion project" notice, and lands
+ * in ui/ so nobody hunts for the prayer behind it.
+ */
+const REDEMPTION_HEART = { slug: 'redemption_heart', spriteId: 440, frame: 5, out: 'public/assets/ui/redemption_heart.png' };
+
 /** Named sprite targets → output PNG path. */
 const TARGETS = [
   ...OVERHEAD_HEADICONS,
+  REDEMPTION_HEART,
   ...group(DEBUFF_IDS, 'debuffs'),
   ...group(SPELL_IDS, 'spells'),
   ...group(PRAYER_IDS, 'prayers'),
