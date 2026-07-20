@@ -179,7 +179,7 @@ announced by an overhead emote:
 |---|---|---|---|
 | `calm` | until provoked | Brutus, walking | normal path movement |
 | `brace` | **3 ticks** | **Demonic Brutus**, stopped, `*growls*` overhead | the real OSRS tell and the real window |
-| `dash` | 1 tick | Demonic Brutus, moving fast | charges perpendicular to the road, *off* the path |
+| `dash` | 1 tick | Demonic Brutus, moving fast | charges *off* the path, straight at a tower |
 | `settle` | 1 tick | **Brutus** again, stopped | the rage drops |
 | `return` | until home | Brutus, walking back | walks to the exact point he left from, then resumes |
 
@@ -203,5 +203,13 @@ evasion: the towers that were hitting him lose him for a few seconds. He costs y
 damage window, not your defensive line — which is what makes him the right first boss,
 and what distinguishes him from the Mole.
 
-**Dash direction:** away from whatever hurt him. He flinches out of the densest fire,
-which makes a killbox leakier without ever letting him bypass it.
+**Dash direction:** straight at the nearest tower — preferring one that isn't already
+knocked offline, so he spreads the damage around instead of hammering the same unlucky
+tower at every bend.
+
+He originally flinched *away* from whatever hurt him, which read well as an animal
+recoiling but aimed the charge at empty ground. The trample it exists to deliver almost
+never landed, so the mechanic was invisible for a second time — not because it was
+undrawn, but because it never fired. Charging the tower makes the threat concrete
+without letting him bypass anything: he still loses the time, and the player still
+chooses their exposure by choosing how tightly to build against the road.

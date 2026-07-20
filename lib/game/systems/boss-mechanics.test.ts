@@ -314,26 +314,36 @@ describe('Brutus rampage', () => {
     expect(brutusShouldRage(0, maxHp * BRUTUS_RAGE_DAMAGE_FRAC, maxHp)).toBe(true);
   });
 
-  it('lunges perpendicular to the road, not along it', () => {
-    // A road running due east; the lunge must have no eastward component at all, or he
-    // would be gaining (or losing) ground rather than stepping off the path.
+  it('charges straight at the tower, whichever side of the road it is on', () => {
+    const from = { x: 0, y: 0 };
+    const to = { x: 100, y: 0 };
+    const self = { x: 50, y: 0 };
+    // Tower due south → he runs south; due north → north. The road is irrelevant now.
+    expect(brutusDashDirection(from, to, self, { x: 50, y: 200 })).toEqual({ x: 0, y: 1 });
+    expect(brutusDashDirection(from, to, self, { x: 50, y: -200 })).toEqual({ x: 0, y: -1 });
+  });
+
+  it('aims off-axis rather than snapping to the nearest side', () => {
+    // A tower ahead-and-to-the-right: the charge keeps its forward component instead of
+    // being flattened onto the road's normal.
+    const dir = brutusDashDirection({ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 0, y: 0 }, { x: 30, y: 40 });
+    expect(dir.x).toBeCloseTo(0.6);
+    expect(dir.y).toBeCloseTo(0.8);
+  });
+
+  it('steps off the road perpendicular when there is no tower to charge', () => {
+    // Empty board: a road running due east, so the fallback must have no eastward
+    // component — he leaves the path rather than gaining (or losing) ground on it.
     const dir = brutusDashDirection({ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 50, y: 0 });
     expect(dir.x).toBeCloseTo(0);
     expect(Math.abs(dir.y)).toBeCloseTo(1);
   });
 
-  it('flinches away from the tower that is hurting him', () => {
-    const from = { x: 0, y: 0 };
-    const to = { x: 100, y: 0 };
-    const self = { x: 50, y: 0 };
-    // Tower to the south → he breaks north, and vice versa.
-    expect(brutusDashDirection(from, to, self, { x: 50, y: 200 }).y).toBeLessThan(0);
-    expect(brutusDashDirection(from, to, self, { x: 50, y: -200 }).y).toBeGreaterThan(0);
-  });
-
   it('returns a unit vector, so the dash distance is set by speed alone', () => {
-    const dir = brutusDashDirection({ x: 0, y: 0 }, { x: 30, y: 40 }, { x: 15, y: 20 });
-    expect(Math.hypot(dir.x, dir.y)).toBeCloseTo(1);
+    const aimed = brutusDashDirection({ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 0, y: 0 }, { x: 300, y: -400 });
+    expect(Math.hypot(aimed.x, aimed.y)).toBeCloseTo(1);
+    const fallback = brutusDashDirection({ x: 0, y: 0 }, { x: 30, y: 40 }, { x: 15, y: 20 });
+    expect(Math.hypot(fallback.x, fallback.y)).toBeCloseTo(1);
   });
 
   it('picks a defined side on a zero-length segment', () => {
@@ -341,6 +351,12 @@ describe('Brutus rampage', () => {
     const dir = brutusDashDirection({ x: 10, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 10 });
     expect(Number.isFinite(dir.x)).toBe(true);
     expect(Number.isFinite(dir.y)).toBe(true);
+  });
+
+  it('falls back to the road normal for a tower standing on top of him', () => {
+    // Zero distance gives no direction to normalise; he must not emit NaN.
+    const dir = brutusDashDirection({ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 50, y: 0 }, { x: 50, y: 0 });
+    expect(Math.hypot(dir.x, dir.y)).toBeCloseTo(1);
   });
 
   it('flattens the towers his body overlaps, and only those', () => {

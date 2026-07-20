@@ -23,9 +23,10 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geom
  *    it enrages.
  *
  *  - **Brutus** charges: provoked by damage, he plants his feet, turns into Demonic
- *    Brutus, runs *off* the road, then walks back to the exact spot he left. He gains no
- *    ground — but any tower he ploughs through on the way out is knocked offline for a
- *    few seconds, so the charge costs you a damage window *and* a hole in your board.
+ *    Brutus, runs *off* the road straight at the nearest tower, then walks back to the
+ *    exact spot he left. He gains no ground — but whatever he ploughs through on the way
+ *    out is knocked offline for a few seconds, so the charge costs you a damage window
+ *    *and* a hole in your board.
  *
  *  - **Giant Mole** burrows: it drops underground — untouchable, invisible — and
  *    surfaces further along the path, skipping the stretch you fortified. It will not
@@ -506,28 +507,36 @@ export function brutusShouldRage(cooldown: number, rageDamage: number, maxHp: nu
 }
 
 /**
- * Which way he lunges: perpendicular to the stretch of road he is on, on the side
- * *away* from `threat` (the tower that has been hurting him). Flinching out of the
- * densest fire is what makes a tight killbox leakier, and it reads as an animal
- * recoiling rather than as a random jitter.
+ * Which way he lunges: **straight at `target`**, the tower he has picked out.
  *
- * With no threat to flinch from he picks the segment's left-hand normal — a stable
- * default, so a Brutus nobody is shooting still behaves deterministically.
+ * He used to flinch *away* from whatever was hurting him, which was legible as an animal
+ * recoiling but left the charge aimed at empty ground most of the time — the trample it
+ * exists to deliver almost never landed, and a mechanic that rarely fires is a mechanic
+ * the player never learns. Charging the tower makes the threat concrete: the bull picks
+ * something on your board and runs at it, and you either built with room to spare or you
+ * watch a tower go down.
+ *
+ * `from`/`to` are the stretch of road he is standing on, used only for the fallback: with
+ * no tower on the board he lunges along the segment's left-hand normal, so a Brutus
+ * nobody has built against still steps off the road deterministically instead of nowhere.
  */
 export function brutusDashDirection(
   from: Point,
   to: Point,
   self: Point,
-  threat?: Point | null,
+  target?: Point | null,
 ): Point {
+  if (target) {
+    const dx = target.x - self.x;
+    const dy = target.y - self.y;
+    const d = Math.hypot(dx, dy);
+    // A tower directly under him has no direction to offer; fall through to the normal.
+    if (d > 0) return { x: dx / d, y: dy / d };
+  }
   const sx = to.x - from.x;
   const sy = to.y - from.y;
   const len = Math.hypot(sx, sy) || 1;
-  const nx = -sy / len;
-  const ny = sx / len;
-  // The threat sits on the +n side → lunge to −n, and vice versa.
-  const flip = threat ? (threat.x - self.x) * nx + (threat.y - self.y) * ny > 0 : false;
-  return flip ? { x: -nx, y: -ny } : { x: nx, y: ny };
+  return { x: -sy / len, y: sx / len };
 }
 
 /** Anywhere in the rampage — normal path movement is suspended for all of it, because

@@ -14,7 +14,7 @@ import type { BossId } from './boss-mechanics';
  */
 export const BOSS_TIPS: Record<BossId, string> = {
   brutus:
-    'Hurt him enough and he growls, turns demonic and charges off the road before trotting back to the spot he left. He never skips ground, but any tower he ploughs through is knocked offline for five seconds — so keep your line a little wider than his charge instead of stacking one tight box he can flatten in a single run.',
+    'Hurt him enough and he growls, turns demonic and charges off the road straight at your nearest tower before trotting back to the spot he left. He never skips ground, but whatever he ploughs through is knocked offline for five seconds — so give the towers hugging the road some space, or he picks one off every time you make him angry.',
   giant_mole:
     'Burrows and resurfaces further down the road, skipping whatever you fortified. Spread your damage along the path instead of stacking one killzone — and note it never digs on the final approach.',
   jad:

@@ -34,7 +34,7 @@ import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
 import {
   rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRenderScaleMult, shieldHpFor,
   regenPerSec, isCcImmune, styleDamageMult, protectedDamageMult, absorbWithShield, rollArmoredStyle, rollProtectedStyle,
-  ALL_AFFIXES, SWARM_COUNT, VOLATILE_STUN_SECS,
+  ALL_AFFIXES, SWARM_COUNT, VOLATILE_STUN_SECS, VOLATILE_BLAST_RADIUS, volatileBlastTowers,
   type EnemyAffix, type AffixRoll,
 } from '../systems/affixes';
 import { rollWaveEvent, resolveEventMods, type WaveEvent } from '../systems/wave-events';
@@ -2824,14 +2824,15 @@ export class GameEngine {
    *
    * Hurt him past {@link BRUTUS_RAGE_DAMAGE_FRAC} of his health while he is off cooldown
    * and he **rampages**: stops dead and turns into Demonic Brutus (the telegraph, with an
-   * overhead shout), lunges sideways *off* the road, calms back into a plain bull, then
-   * walks back to the exact point he left the path from and carries on.
+   * overhead shout), picks the nearest tower and charges *off* the road straight at it,
+   * calms back into a plain bull, then walks back to the exact point he left the path
+   * from and carries on.
    *
-   * He never gains ground — the lunge is perpendicular and the walk back is mandatory —
-   * so unlike the Mole he cannot bypass anything. What he takes is the *damage window*:
-   * every tower that had him locked loses him for a few seconds, and he flinches away
-   * from whatever is hurting him most, so a tight killbox leaks a little more of him than
-   * a spread one. Cycle maths and the phase→model mapping live in `systems/boss-mechanics`.
+   * He never gains ground — the charge leaves the road and the walk back is mandatory —
+   * so unlike the Mole he cannot bypass anything. What he takes is the *damage window*
+   * and, if you built tight against the road, a tower: anything his body ploughs through
+   * is knocked offline for {@link BRUTUS_TRAMPLE_DISABLE_SECS} seconds. Cycle maths and
+   * the phase→model mapping live in `systems/boss-mechanics`.
    */
   private updateBrutus(e: Enemy, dt: number) {
     const st = e.bossState!;
@@ -2847,10 +2848,10 @@ export class GameEngine {
       // point he legitimately walked to along the path.
       st.homeX = e.x;
       st.homeY = e.y;
-      // Flinch away from whatever has been hurting him. `from`/`to` describe the stretch
-      // of road he is on, so the lunge is perpendicular to the road rather than to the
-      // screen; on the last segment there is no `to`, and the fallback keeps the maths
-      // defined (a zero-length segment yields the default side).
+      // He picks a tower and runs at it. `from`/`to` describe the stretch of road he is
+      // on and are only the empty-board fallback (step off the road perpendicular to it,
+      // not to the screen); on the last segment there is no `to`, and a zero-length
+      // segment still yields a defined side.
       const from = this.path[e.pathIndex] ?? { x: e.x, y: e.y };
       const to = this.path[e.pathIndex + 1] ?? { x: e.x, y: e.y };
       const dir = brutusDashDirection(from, to, e, this.nearestTower(e));
@@ -2918,17 +2919,28 @@ export class GameEngine {
     }
   }
 
-  /** The tower nearest an enemy, or null on an empty board — Brutus flinches away from
-   *  it. Distance to the tower, not to its range edge: what he recoils from is the thing
-   *  shooting him, and the nearest tower is the one most likely to be doing it. */
+  /**
+   * The tower Brutus charges: the nearest one, measured to the tower itself rather than
+   * to its range edge, because what he is running at is the building.
+   *
+   * Towers already knocked offline are passed over while any live tower remains. His
+   * cooldown is longer than the disable, but not by much, and without this the same
+   * unlucky tower nearest a bend would eat every charge in a row while the rest of the
+   * board never learned the mechanic exists. If everything standing is already down he
+   * charges the nearest anyway — refusing to charge would be the stranger reading.
+   */
   private nearestTower(e: Enemy): Point | null {
     let best: Point | null = null;
     let bestD = Infinity;
+    let fallback: Point | null = null;
+    let fallbackD = Infinity;
     for (const t of this.towers) {
       const d = distanceSq(t.x, t.y, e.x, e.y);
+      if (d < fallbackD) { fallbackD = d; fallback = { x: t.x, y: t.y }; }
+      if (t.disabledTimer > 0) continue;
       if (d < bestD) { bestD = d; best = { x: t.x, y: t.y }; }
     }
-    return best;
+    return best ?? fallback;
   }
 
   /**
@@ -4358,27 +4370,28 @@ export class GameEngine {
     this.notify(`${e.name} rises!`, ASSETS.misc.slayer_crossbow);
   }
 
-  /** Volatile affix: on death, disable the nearest tower for a beat and pop a
-   *  warning spotanim at the blast so the threat reads clearly. */
+  /**
+   * Volatile affix: on death it detonates, knocking **every tower inside the blast**
+   * offline for {@link VOLATILE_STUN_SECS}.
+   *
+   * The shockwave is drawn at the true blast radius rather than a decorative one, so the
+   * ring the player sees is the area that was actually hit — that is the only way the
+   * affix teaches its own shape, and the reason it can be answered by spacing towers out
+   * instead of by luck. Which towers fall (and the guarantee that an already-downed one
+   * is never re-timed) is `volatileBlastTowers`.
+   */
   private detonateVolatile(x: number, y: number) {
-    let best: Tower | null = null;
-    let bestD = Infinity;
-    for (const t of this.towers) {
-      const d = distanceSq(t.x, t.y, x, y);
-      if (d < bestD) { bestD = d; best = t; }
-    }
     // An orange shockwave + sparks for the detonation (NOT the spawn-portal
     // spotanim, which read as a gateway opening on the corpse).
-    this.addRing(x, y, 6, 46, '#ff7a3c', 0.45, 4);
+    this.addRing(x, y, 6, VOLATILE_BLAST_RADIUS, '#ff7a3c', 0.45, 4);
     for (let i = 0; i < 10; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = 60 + Math.random() * 120;
       this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.35, maxLife: 0.35, color: '#ff8a3c', size: 2 });
     }
-    if (best) {
-      best.disabledTimer = Math.max(best.disabledTimer, VOLATILE_STUN_SECS);
-      this.sound.play('hit', 80);
-    }
+    const hit = volatileBlastTowers(this.towers, x, y);
+    for (const tower of hit) tower.disabledTimer = VOLATILE_STUN_SECS;
+    if (hit.length) this.sound.play('hit', 80);
   }
 
   /** Roguelite on-kill chain cards. Soul Eater (heal) and the streak meter count
