@@ -60,6 +60,7 @@ import {
   BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled,
   SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT,
   SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS,
+  SCURRIUS_SQUEAK_STOP, scurriusIsSqueaking,
   scurriusShouldShear, scurriusRatHp, ratWanderTarget, ratRefund,
   type BossId,
 } from '../systems/boss-mechanics';
@@ -3170,6 +3171,8 @@ export class GameEngine {
       ratTimer: SCURRIUS_WANDER_SECS,
       ratTargetX: target.x,
       ratTargetY: target.y,
+      ratOriginX: king.x,
+      ratOriginY: king.y,
       slowTimer: 0,
       stunTimer: 0,
       tauntTimer: 0,
@@ -3194,12 +3197,17 @@ export class GameEngine {
   private updateScurrius(e: Enemy, dt: number) {
     const st = e.bossState!;
     st.scurriusShearCooldown = Math.max(0, (st.scurriusShearCooldown ?? 0) - dt);
+    st.squeakStop = Math.max(0, (st.squeakStop ?? 0) - dt);
     st.squeakTimer = (st.squeakTimer ?? SCURRIUS_SQUEAK_INTERVAL) - dt;
     if (st.squeakTimer > 0) return;
     st.squeakTimer = SCURRIUS_SQUEAK_INTERVAL;
-    if (this.liveRatsOf(e.id) >= SCURRIUS_MAX_RATS) return;
+    // He halts even when the cap denies him the rat: the stop is what he pays for the
+    // mechanic, not a wind-up for the shear, and a squeak that sometimes costs nothing
+    // would make the tell unreadable.
+    st.squeakStop = SCURRIUS_SQUEAK_STOP;
     e.say = SCURRIUS_SAY;
-    e.sayTimer = 1.4;
+    e.sayTimer = SCURRIUS_SQUEAK_STOP;
+    if (this.liveRatsOf(e.id) >= SCURRIUS_MAX_RATS) return;
     this.shearRat(e);
   }
 
@@ -3217,6 +3225,12 @@ export class GameEngine {
    * so an off-road rat simply angles back onto the road — no special rejoin leg needed.
    */
   private updateRat(e: Enemy, dt: number) {
+    // A rat drives its own movement, so it sits downstream of `moveEnemies`' stun guard and
+    // would otherwise sprint home while rooted — with the stun icon showing and the panel
+    // promising "cannot move". Denying the refund with a freeze is exactly what the mechanic
+    // asks the player to do, so it has to actually work. (`moveEnemies` runs first and owns
+    // the countdown; this only reads it.)
+    if (e.stunTimer > 0) return;
     const king = e.ownerId ? this.enemies.find((o) => o.id === e.ownerId) : undefined;
     if (!king) {
       // Spec edge case 1 & 2: the HP left his bar and is still on the board. It becomes an
@@ -3231,7 +3245,12 @@ export class GameEngine {
       const dx = tx - e.x, dy = ty - e.y;
       const d = Math.hypot(dx, dy);
       if (d < 6) {
-        const next = ratWanderTarget(e.x, e.y, Math.random, this.width, this.height);
+        // From the shear point, never from where the rat now stands: rerolling off its
+        // own position compounds hop after hop into a random walk that can carry it a
+        // third of the board away, which is the opposite of a distraction near the fight.
+        const next = ratWanderTarget(
+          e.ratOriginX ?? e.x, e.ratOriginY ?? e.y, Math.random, this.width, this.height,
+        );
         e.ratTargetX = next.x;
         e.ratTargetY = next.y;
       } else {
@@ -3491,6 +3510,11 @@ export class GameEngine {
       // Brutus drives himself for the whole rampage — the lunge goes where the road does
       // not, and the walk back is aimed at the point he left, not at the next waypoint.
       if (brutusIsRampaging(e.bossState)) continue;
+      // Scurrius stands still to squeak. It is the one thing his mechanic costs him —
+      // the shear only redistributes HP he already had — so the ground he gives up here
+      // is the price, and a halted boss is a far louder tell than an overhead on a
+      // moving sprite.
+      if (scurriusIsSqueaking(e.bossState)) continue;
       // A sheared rat drives itself (wander, then the run home). Walking it as well would
       // slide it along the road while it is meant to be off it.
       if (e.ratPhase) continue;

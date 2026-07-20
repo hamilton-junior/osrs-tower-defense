@@ -37,6 +37,8 @@ import {
   SCURRIUS_MAX_RATS,
   SCURRIUS_SHEAR_FLOOR,
   SCURRIUS_SQUEAK_INTERVAL,
+  SCURRIUS_SQUEAK_STOP,
+  scurriusIsSqueaking,
   SCURRIUS_RAT_SPEED_MULT,
   SCURRIUS_WANDER_SECS,
   SCURRIUS_WANDER_LEASH,
@@ -1015,5 +1017,26 @@ describe('Scurrius — rat wandering', () => {
     const a = ratWanderTarget(800, 400, rand, 1728, 768);
     const b = ratWanderTarget(800, 400, rand, 1728, 768);
     expect(a.x !== b.x || a.y !== b.y).toBe(true);
+  });
+});
+
+describe('Scurrius — the squeak is what he pays', () => {
+  it('starts walking, and halts only while the stop is running', () => {
+    const st = freshBossState('scurrius');
+    expect(scurriusIsSqueaking(st)).toBe(false);
+    expect(scurriusIsSqueaking({ ...st, squeakStop: SCURRIUS_SQUEAK_STOP })).toBe(true);
+    // The tail of the countdown still halts him; only reaching zero releases him.
+    expect(scurriusIsSqueaking({ ...st, squeakStop: 0.01 })).toBe(true);
+    expect(scurriusIsSqueaking({ ...st, squeakStop: 0 })).toBe(false);
+  });
+
+  it('leaves every other boss walking', () => {
+    expect(scurriusIsSqueaking(freshBossState('brutus'))).toBe(false);
+    expect(scurriusIsSqueaking({ ...freshBossState('giant_mole'), squeakStop: 5 })).toBe(false);
+    expect(scurriusIsSqueaking(undefined)).toBe(false);
+  });
+
+  it('costs him less time than it buys him rats — the stop is a price, not a stun', () => {
+    expect(SCURRIUS_SQUEAK_STOP).toBeLessThan(SCURRIUS_SQUEAK_INTERVAL);
   });
 });

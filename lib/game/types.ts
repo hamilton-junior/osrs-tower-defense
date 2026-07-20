@@ -197,6 +197,12 @@ export interface Enemy extends EnemyDef {
   /** The point this rat is currently skittering toward while wandering. */
   ratTargetX?: number;
   ratTargetY?: number;
+  /** Where it was sheared off. Every wander target is drawn within the leash of *this*,
+   *  not of wherever the rat currently stands — rerolling from its own position would
+   *  compound into a random walk that drifts off the stretch of board it is meant to be
+   *  distracting, which is the whole job. */
+  ratOriginX?: number;
+  ratOriginY?: number;
   /** Overrides `type` for the baked-animation lookup only (sprite/clip slug),
    *  leaving combat/stats on `type`. Lets a Jad healer render the real Yt-HurKot
    *  model (`yt_hurkot`) once it's baked, falling back to `type`'s clip. */

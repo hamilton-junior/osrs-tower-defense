@@ -545,6 +545,11 @@ export function brutusIsRampaging(state: BossState | undefined): boolean {
   return state?.kind === 'brutus' && !!state.brutusPhase && state.brutusPhase !== 'calm';
 }
 
+/** Scurrius: is he standing still to squeak? See {@link SCURRIUS_SQUEAK_STOP}. */
+export function scurriusIsSqueaking(state: BossState | undefined): boolean {
+  return state?.kind === 'scurrius' && (state.squeakStop ?? 0) > 0;
+}
+
 /**
  * The **visual-state rule**, generalised: the anim slug a boss's *current mechanic phase*
  * should be drawn with, or `undefined` to use its own. The engine assigns this to
@@ -636,6 +641,17 @@ export const SCURRIUS_WANDER_LEASH = 128;
 export const SCURRIUS_REFUND_RADIUS = 26;
 /** His overhead on the guaranteed squeak — the OSRS convention of announcing it. */
 export const SCURRIUS_SAY = '*squeaks*';
+/**
+ * Seconds he stands still to squeak — **the price he pays.**
+ *
+ * Every other boss here gives something up for its mechanic (the Mole loses the ground it
+ * skipped, Brutus spends the walk back). His shear costs him nothing on its own — it only
+ * redistributes HP he already had — so the guaranteed squeak is where he pays, in the one
+ * currency a tower-defense enemy has: distance not travelled. It doubles as the mechanic's
+ * loudest tell, since a boss that halts reads from anywhere on the board while an overhead
+ * on a moving sprite does not.
+ */
+export const SCURRIUS_SQUEAK_STOP = 1.4;
 
 /** Where a sheared rat is in its short life. */
 export type RatPhase = 'wander' | 'return';
@@ -1027,6 +1043,8 @@ export interface BossState {
   scurriusShearCooldown?: number;
   /** Scurrius: counts down to the next guaranteed squeak. */
   squeakTimer?: number;
+  /** Scurrius: seconds left of the halt he takes to squeak. */
+  squeakStop?: number;
   /** Scurrius: rats shorn so far, read out on the boss bar. */
   ratsShorn?: number;
   /** Stall breaker: the lowest HP fraction this boss has been driven to. */
@@ -1068,6 +1086,7 @@ export function freshBossState(kind: BossId): BossState {
   if (kind === 'scurrius') {
     state.scurriusShearCooldown = 0;
     state.squeakTimer = SCURRIUS_SQUEAK_INTERVAL;
+    state.squeakStop = 0;
     state.ratsShorn = 0;
   }
   return state;
