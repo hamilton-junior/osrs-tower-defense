@@ -60,6 +60,10 @@ const TARGETS = {
   // — right for a giant serpent, and pointedly NOT a death clip, which would read
   // as "the boss died" every time it changes form.
   zulrah_hiss: 791,            // big_seasnake_attack — the heaviest serpent cry the cache has
+  // Vorkath raising his ice shield. Picked from Vorkath's OWN sound block (1510-1535) —
+  // the brightest, most crystalline clip in it — rather than the Ice spells' clips, which
+  // would make the shield read as "someone cast Ice Barrage at it".
+  vorkath_shield: 1511,
   special_attack: 2537,        // puncture — the dragon dagger special
   fireworks: 2396,             // firework — relic-pickup celebration burst
   // --- prayer activations (OSRS has a unique clip for these) ---

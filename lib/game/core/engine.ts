@@ -2926,7 +2926,7 @@ export class GameEngine {
       if (best) best.disabledTimer = Math.max(best.disabledTimer, VORKATH_ICE_DURATION);
       this.addRing(e.x, e.y, 10, 70, '#bfe9ff', 0.5, 4); // a frost burst as the shield raises
       this.notify('Vorkath raises an ice shield!');
-      this.sound.play('hit', 70);
+      this.sound.play('bossshield_vorkath', 70);
     }
   }
 

@@ -24,6 +24,10 @@ export const GAME_SOUNDS: Record<string, string> = {
   // A phase-changing boss's own cry, keyed `bossphase_<kind>`. Deliberately not a
   // death clip: hearing one every form change would read as "the boss died".
   bossphase_zulrah: ASSETS.sounds.misc.zulrah_hiss,
+  // Vorkath's ice shield. Was the generic melee thud, which said nothing about ice; this
+  // is Vorkath's own cry, kept clear of the Ice spellbook's clips so the shield reads as
+  // the boss doing something rather than as a spell being cast at it.
+  bossshield_vorkath: ASSETS.sounds.misc.vorkath_shield,
   select: ASSETS.sounds.misc.select,
   interface_open: ASSETS.sounds.misc.interface_open,
   interface_close: ASSETS.sounds.misc.interface_close,

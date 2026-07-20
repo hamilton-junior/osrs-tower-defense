@@ -436,6 +436,7 @@ export const ASSETS = {
       sell: `${LOCAL}/sounds/ui_coins.wav`,             // coin tinkle (3924)
       boss_attack: `${SND}/boss_attack.wav`,            // vorkath_attack (1521)
       zulrah_hiss: `${SND}/zulrah_hiss.wav`,            // snake_hiss (799) — Zulrah's morph cry
+      vorkath_shield: `${SND}/vorkath_shield.wav`,      // vorkath (1511) — his ice shield going up
       prayer_on: `${LOCAL}/sounds/prayer_generic_on.wav`,  // thick-skin "vwoom" (2690)
       prayer_off: `${LOCAL}/sounds/prayer_off.wav`,        // deactivate vwoop (2663)
       potion: `${SND}/potion.wav`,                      // liquid (2401) — potion gulp
