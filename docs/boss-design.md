@@ -101,7 +101,7 @@ watched him run through it) and a visible state, or it does not belong in the ga
   genuinely hijack a `first`/`closest` tower, before turning and **running the health
   back into him** (a tether warns; a green splat closes the loop). Kill it before it
   arrives. Floors and caps keep it honest: no shearing below 12% HP, at most 5 live rats,
-  a 1.2s cooldown so one AoE volley cannot make five, and a 12s squeak that guarantees
+  a 0.8s cooldown so one AoE volley cannot make five, and an 8s squeak that guarantees
   the lesson lands even against pure chip damage. Rats are **not escorts** — they outlive
   him, and one still alive when he dies walks the road and costs a life like anything else.
   **Elemental weakness: Air** — a deviation, unlike Brutus's. OSRS gives him none; the

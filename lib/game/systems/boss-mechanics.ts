@@ -619,7 +619,7 @@ export const SCURRIUS_SHEAR_FRAC = 0.05;
 export const SCURRIUS_RAT_HP_FRAC = 0.06;
 /** Seconds before he may shear again. Without it a single AoE volley landing on him
  *  in one frame would produce the whole litter at once. */
-export const SCURRIUS_SHEAR_COOLDOWN = 1.2;
+export const SCURRIUS_SHEAR_COOLDOWN = 0.8;
 /** Live rats at once. The anti-frustration cap — it binds the squeak as well as the
  *  shear, so no combination of triggers can bury the board. */
 export const SCURRIUS_MAX_RATS = 5;
@@ -629,7 +629,7 @@ export const SCURRIUS_SHEAR_FLOOR = 0.12;
 /** Seconds between guaranteed squeaks. The floor: a pure chip-damage board never
  *  triggers a shear, and a boss whose mechanic never fires teaches nothing (the exact
  *  failure that made the first two tower-disables read as bugs). */
-export const SCURRIUS_SQUEAK_INTERVAL = 12;
+export const SCURRIUS_SQUEAK_INTERVAL = 8;
 /** Rat speed as a multiple of his. Rats are quick; they get clear of him at once. */
 export const SCURRIUS_RAT_SPEED_MULT = 1.6;
 /** Seconds a rat wanders before it turns and heads home. */

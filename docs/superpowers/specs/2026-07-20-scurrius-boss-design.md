@@ -100,10 +100,10 @@ All tunable; these are starting values.
 |---|---|---|
 | Shear threshold | 5% of max HP in one hit | big hits shear, chip damage does not |
 | Rat HP | 6% of his max HP | taken from him, not added |
-| Shear cooldown | 1.2s | stops one AoE volley producing five rats in a frame |
+| Shear cooldown | 0.8s | stops one AoE volley producing five rats in a frame |
 | Max live rats | 5 | the anti-frustration cap — it binds the squeak as well as the shear |
 | Shear floor | **12%** HP | below this he stops shearing; the endgame is a clean fight |
-| Squeak interval | 12s | the guaranteed floor |
+| Squeak interval | 8s | the guaranteed floor |
 | Rat speed | 1.6× his | rats are fast; they get clear of him quickly |
 | Wander duration | ~5s | then it turns and heads back |
 | Wander leash | ~4 tiles from the shear point | keeps the distraction near the action |
@@ -116,7 +116,7 @@ All tunable; these are starting values.
    and "HP is conserved" would be a lie.
 2. **A rat is off-road when the king dies** → it paths back to the nearest point on the
    road and resumes walking to the base, the same way Brutus returns from a dash.
-3. **A large AoE hits him** → the 1.2s shear cooldown and the cap of 5 mean the answer is
+3. **A large AoE hits him** → the 0.8s shear cooldown and the cap of 5 mean the answer is
    never an avalanche.
 4. **A chip-damage board** → never triggers a shear; the squeak floor guarantees the boss
    still teaches AoE.
