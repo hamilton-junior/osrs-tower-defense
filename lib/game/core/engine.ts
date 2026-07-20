@@ -55,6 +55,9 @@ import {
   cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
   SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT,
   MECHANIC_BOSSES,
+  brutusShouldRage, brutusDashDirection, brutusIsRampaging, bossAnimVariant,
+  BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN,
+  BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY,
   type BossId,
 } from '../systems/boss-mechanics';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
@@ -2491,7 +2494,15 @@ export class GameEngine {
         this.updateGuardian(e, dt);
       } else if (st.kind === 'cerberus') {
         this.updateCerberus(e, dt);
+      } else if (st.kind === 'brutus') {
+        this.updateBrutus(e, dt);
       }
+      // The visual-state rule: a boss's current mechanic phase decides which model it is
+      // drawn with. `animType` overrides the sprite/clip slug only, so stats, drops and
+      // the Collection Log entry all stay on `type`. Assigned every frame (rather than
+      // toggled at the phase edges) so there is exactly one place a phase→model mapping
+      // can live, and no way for a boss to get stuck wearing the wrong one.
+      e.animType = bossAnimVariant(st);
     }
   }
 
@@ -2799,6 +2810,110 @@ export class GameEngine {
       st.molePhase = 'above';
       st.moleTimer = moleBurrowInterval(e.hp / e.maxHp);
     }
+  }
+
+  /**
+   * Brutus: the first boss on the ladder, and the gentlest thing a boss can do.
+   *
+   * Hurt him past {@link BRUTUS_RAGE_DAMAGE_FRAC} of his health while he is off cooldown
+   * and he **rampages**: stops dead and turns into Demonic Brutus (the telegraph, with an
+   * overhead shout), lunges sideways *off* the road, calms back into a plain bull, then
+   * walks back to the exact point he left the path from and carries on.
+   *
+   * He never gains ground — the lunge is perpendicular and the walk back is mandatory —
+   * so unlike the Mole he cannot bypass anything. What he takes is the *damage window*:
+   * every tower that had him locked loses him for a few seconds, and he flinches away
+   * from whatever is hurting him most, so a tight killbox leaks a little more of him than
+   * a spread one. Cycle maths and the phase→model mapping live in `systems/boss-mechanics`.
+   */
+  private updateBrutus(e: Enemy, dt: number) {
+    const st = e.bossState!;
+    st.brutusCooldown = Math.max(0, (st.brutusCooldown ?? 0) - dt);
+
+    // Calm: walking the road normally, waiting to be provoked.
+    if (!st.brutusPhase || st.brutusPhase === 'calm') {
+      if (!brutusShouldRage(st.brutusCooldown, st.rageDamage ?? 0, e.maxHp)) return;
+      st.brutusPhase = 'brace';
+      st.brutusTimer = BRUTUS_BRACE_SECS;
+      st.rageDamage = 0;
+      // The spot he must come back to. Captured *before* he moves, so it is always a
+      // point he legitimately walked to along the path.
+      st.homeX = e.x;
+      st.homeY = e.y;
+      // Flinch away from whatever has been hurting him. `from`/`to` describe the stretch
+      // of road he is on, so the lunge is perpendicular to the road rather than to the
+      // screen; on the last segment there is no `to`, and the fallback keeps the maths
+      // defined (a zero-length segment yields the default side).
+      const from = this.path[e.pathIndex] ?? { x: e.x, y: e.y };
+      const to = this.path[e.pathIndex + 1] ?? { x: e.x, y: e.y };
+      const dir = brutusDashDirection(from, to, e, this.nearestTower(e));
+      st.dashX = dir.x;
+      st.dashY = dir.y;
+      e.say = BRUTUS_SAY;
+      e.sayTimer = BRUTUS_BRACE_SECS + BRUTUS_DASH_SECS;
+      this.addRing(e.x, e.y, 6, 46, '#d4452f', 0.5, 4);
+      this.sound.play('wave', 55);
+      return;
+    }
+
+    // The walk home ends on arrival, not on a clock — the point is that he returns to
+    // *exactly* where he left, however far the lunge carried him.
+    if (st.brutusPhase === 'return') {
+      const dx = (st.homeX ?? e.x) - e.x;
+      const dy = (st.homeY ?? e.y) - e.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 4) {
+        e.x = st.homeX ?? e.x;
+        e.y = st.homeY ?? e.y;
+        st.brutusPhase = 'calm';
+        st.brutusCooldown = BRUTUS_RAGE_COOLDOWN;
+        st.rampages = (st.rampages ?? 0) + 1;
+      } else {
+        const step = e.speed * BRUTUS_RETURN_SPEED_MULT * dt;
+        e.x += (dx / d) * step;
+        e.y += (dy / d) * step;
+      }
+      return;
+    }
+
+    if (st.brutusPhase === 'dash') {
+      // Off the road he goes. Clamped to the board so a lunge at the edge cannot park
+      // him outside it, where nothing could reach him and he could never walk back.
+      const step = e.speed * BRUTUS_DASH_SPEED_MULT * dt;
+      e.x = Math.max(BRUTUS_EDGE_MARGIN, Math.min(this.width - BRUTUS_EDGE_MARGIN, e.x + (st.dashX ?? 0) * step));
+      e.y = Math.max(BRUTUS_EDGE_MARGIN, Math.min(this.height - BRUTUS_EDGE_MARGIN, e.y + (st.dashY ?? 0) * step));
+    }
+
+    st.brutusTimer = (st.brutusTimer ?? 0) - dt;
+    if (st.brutusTimer > 0) return;
+
+    if (st.brutusPhase === 'brace') {
+      st.brutusPhase = 'dash';
+      st.brutusTimer = BRUTUS_DASH_SECS;
+    } else if (st.brutusPhase === 'dash') {
+      st.brutusPhase = 'settle';
+      st.brutusTimer = BRUTUS_SETTLE_SECS;
+      // The rage drops here: `bossAnimVariant` puts the plain bull back for `settle`, and
+      // the shout goes with it. He stands still for a beat looking sheepish.
+      e.say = undefined;
+      e.sayTimer = 0;
+      this.addRing(e.x, e.y, 4, 30, '#8a5a3b', 0.4, 3);
+    } else {
+      st.brutusPhase = 'return';
+    }
+  }
+
+  /** The tower nearest an enemy, or null on an empty board — Brutus flinches away from
+   *  it. Distance to the tower, not to its range edge: what he recoils from is the thing
+   *  shooting him, and the nearest tower is the one most likely to be doing it. */
+  private nearestTower(e: Enemy): Point | null {
+    let best: Point | null = null;
+    let bestD = Infinity;
+    for (const t of this.towers) {
+      const d = distanceSq(t.x, t.y, e.x, e.y);
+      if (d < bestD) { bestD = d; best = { x: t.x, y: t.y }; }
+    }
+    return best;
   }
 
   /**
@@ -3202,6 +3317,10 @@ export class GameEngine {
       if (e.flashTimer && e.flashTimer > 0) e.flashTimer -= dt;
       e.animTime = (e.animTime ?? 0) + dt; // drives the looping walk-cycle
       if (e.hurtAnim && e.hurtAnim > 0) e.hurtAnim = Math.max(0, e.hurtAnim - dt);
+      if (e.sayTimer && e.sayTimer > 0) {
+        e.sayTimer -= dt;
+        if (e.sayTimer <= 0) { e.sayTimer = 0; e.say = undefined; }
+      }
       // Jad's healers don't walk the path or leak — they trail Jad in a loose
       // orbit; the only way they leave the field is by being killed.
       if (e.escort) { this.updateEscortFollow(e, dt); continue; }
@@ -3227,6 +3346,9 @@ export class GameEngine {
       // underground (the jump is a teleport in `updateMole`, not a walk), and climbs
       // back out. Walking through any of that would slide the animation across the map.
       if (moleIsBurrowing(e.bossState)) continue;
+      // Brutus drives himself for the whole rampage — the lunge goes where the road does
+      // not, and the walk back is aimed at the point he left, not at the next waypoint.
+      if (brutusIsRampaging(e.bossState)) continue;
       const target = this.path[e.pathIndex + 1];
       if (!target) {
         // reached the end → leak lives (debug/sandbox enemies leak harmlessly).
@@ -4131,6 +4253,12 @@ export class GameEngine {
     // this the clock would run from the moment it spawned, and a boss that simply walked
     // in unopposed would arrive at the base already hardened against control.
     if (dealt > 0 && enemy.bossState) enemy.bossState.sinceHit = 0;
+    // Brutus: damage is what provokes him. Banked here rather than sampled from his HP so
+    // that healing (a Regenerating affix, a Guardian revive) cannot un-anger him — what he
+    // reacts to is being hit, not what his health bar currently reads.
+    if (dealt > 0 && enemy.bossState?.kind === 'brutus') {
+      enemy.bossState.rageDamage = (enemy.bossState.rageDamage ?? 0) + dealt;
+    }
     // Jad: remember damage that actually landed, for the Yt-HurKot heal window.
     if (dealt > 0 && enemy.bossState?.kind === 'jad') {
       (enemy.bossState.recentDamage ??= []).push({ t: this.gameTime, amount: dealt });

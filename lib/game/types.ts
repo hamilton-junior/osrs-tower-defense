@@ -56,7 +56,7 @@ export interface Achievement {
   completed: boolean;
 }
 
-export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot'
+export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot' | 'brutus'
   // Superior Slayer monsters — in ENEMIES all along (waves can roll them), but they
   // were missing from this union, so nothing could name one in typed code.
   | 'superior_bloodveld' | 'superior_abyssal_demon' | 'superior_gargoyle' | 'superior_nechryael';
@@ -192,6 +192,13 @@ export interface Enemy extends EnemyDef {
   /** Counts down while a hit-flinch (`hurt`) clip plays; set on each direct hit,
    *  decremented in `moveEnemies`. Visual only. */
   hurtAnim?: number;
+  /** Overhead speech — the OSRS convention of a monster announcing a mechanic one beat
+   *  before it happens, drawn above its head while {@link sayTimer} lasts. This is the
+   *  *telegraph* half of the visual-state rule (the model swap is the other half); use
+   *  it for the moment a mechanic fires, never for ambient chatter. */
+  say?: string;
+  /** Seconds left on {@link say}. */
+  sayTimer?: number;
   /** Spawned by the debug "custom wave" (a sandbox): killing or leaking it has no
    *  effect on the run — no gold/essence/Slayer points, no life lost, no wave
    *  advance. Purely for testing enemies/towers. */

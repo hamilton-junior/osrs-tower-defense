@@ -22,6 +22,10 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geom
  *    advances its phase, arcs lightning through a line of towers, and leaves it
  *    briefly vulnerable. Below a tenth of its health it enrages.
  *
+ *  - **Brutus** charges: provoked by damage, he plants his feet, turns into Demonic
+ *    Brutus, runs *off* the road, then walks back to the exact spot he left. He gains no
+ *    ground — he only costs you the damage window.
+ *
  *  - **Giant Mole** burrows: it drops underground — untouchable, invisible — and
  *    surfaces further along the path, skipping the stretch you fortified. It will not
  *    dig on the final approach, so the last stretch is always fought honestly.
@@ -33,24 +37,26 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geom
  *    him. Which soul you must kill first depends on the board you built.
  *
  * Each boss owns one idea: Zulrah tests style coverage, Vorkath tests patience, Jad
- * tests target priority, the Hydra tests burst, the Mole tests *where* you built, and
- * the Guardians test the *order* you kill in, and Cerberus tests whether your board has
- * an answer at all.
+ * tests target priority, the Hydra tests burst, the Mole tests *where* you built, Brutus
+ * tests whether your damage survives the target stepping out of it, the Guardians test
+ * the *order* you kill in, and Cerberus tests whether your board has an answer at all.
+ * A boss whose idea duplicates another's is a reskin — see `docs/boss-design.md` for the
+ * ledger of which ideas are taken and which are still open.
  */
 
-export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus';
+export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus';
 
 /** The bosses that carry phase mechanics: they get a {@link BossState} on spawn and
  *  roll boss modifiers once seen. The engine and the save sanitiser read this to decide
  *  who has state. */
 export const MECHANIC_BOSSES: readonly BossId[] = [
-  'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus',
+  'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus', 'brutus',
 ];
 
 /**
  * The bosses a wave may *draw* — what `rollWaveBosses` picks from and what the debug
  * panel offers. **Order is the introduction order**: a fresh account meets one per boss
- * wave in this sequence, so the ladder runs gentlest (the Mole) → hardest (the Hydra).
+ * wave in this sequence, so the ladder runs gentlest (Brutus) → hardest (the Hydra).
  *
  * Deliberately a separate list from {@link MECHANIC_BOSSES}, because the two answer
  * different questions. Every schedulable boss has state, but not every boss with state
@@ -58,7 +64,7 @@ export const MECHANIC_BOSSES: readonly BossId[] = [
  * `BossState` and has no business being drawn on its own.
  */
 export const SCHEDULABLE_BOSSES: readonly BossId[] = [
-  'giant_mole', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus', 'hydra',
+  'brutus', 'giant_mole', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus', 'hydra',
 ];
 
 // ─────────────────────────────────── Zulrah ────────────────────────────────
@@ -429,6 +435,162 @@ export function moleIsBurrowing(state: BossState | undefined): boolean {
   return state?.kind === 'giant_mole' && !!state.molePhase && state.molePhase !== 'above';
 }
 
+// ─────────────────────────────────── Brutus ────────────────────────────────
+/**
+ * Brutus: the mobility check from the *other* direction. Where the Mole skips road you
+ * fortified, Brutus refuses to stay on it.
+ *
+ * He is a bull. Hurt him enough and he plants his feet, turns into **Demonic Brutus**,
+ * charges sideways off the road, calms back into livestock, and walks back to the exact
+ * spot he left. He never gains ground — the rampage costs him time — so what he actually
+ * takes from the player is the *damage window*: every tower that had him locked loses him
+ * for a few seconds.
+ *
+ * That is deliberately the gentlest thing a boss can do, which is why he is the first
+ * one a fresh account meets. He teaches "bosses do things" without ever bypassing the
+ * defence.
+ *
+ * He is also the reference implementation of the **visual-state rule**: every phase of
+ * this cycle is legible from the model itself (see {@link bossAnimVariant}). A mechanic
+ * the player cannot see is a bug.
+ *
+ * **Fidelity to the real fight.** In OSRS, Brutus is the Lumbridge cow-field boss from
+ * *The Ides of Milk* — the deliberately-accessible one that teaches new players to dodge
+ * telegraphed attacks. His Charge is exactly this: he exclaims `*growls*`, gives a **3
+ * tick** window, then runs *through* where the player was standing. That tell, that
+ * window and that overhead are reproduced verbatim here. What is ours, not OSRS's, is the
+ * Demonic Brutus skin: in game that is the post-DT2 hard-mode variant, not a rage form —
+ * we borrow the model because a boss needs its mechanic to be visible, and Brutus happens
+ * to ship with a perfect angry version of himself.
+ *
+ * His other OSRS special, the ground **Slam** (`*snorts*`, 4-tick window, three times),
+ * is left unbuilt: it is an attack on tiles, and the natural way to translate it is as an
+ * attack on *towers* — which is a different boss's idea (see `docs/boss-design.md`).
+ *
+ * NPC ids in the cache: 15626 (Brutus) and 15628 (Demonic Brutus).
+ */
+export type BrutusPhase = 'calm' | 'brace' | 'dash' | 'settle' | 'return';
+
+/** Seconds after a rampage before he can be provoked into another one. */
+export const BRUTUS_RAGE_COOLDOWN = 8;
+/**
+ * How much damage (as a fraction of max HP) he must have taken since the last rampage
+ * before he flinches. Pairing this with the cooldown is what makes the cycle something
+ * the *player* causes: a Brutus nobody is shooting simply walks the road.
+ */
+export const BRUTUS_RAGE_DAMAGE_FRAC = 0.08;
+/**
+ * The telegraph: feet planted, enraged model, overhead growl. **Three game ticks (1.8s)**
+ * — the exact window OSRS gives a player to step out of his charge, kept so the tell
+ * feels like the real fight rather than an approximation of it.
+ */
+export const BRUTUS_BRACE_SECS = 1.8;
+/** The charge itself — one tick, which is what keeps it a *mini* dash. */
+export const BRUTUS_DASH_SECS = 0.6;
+/** He stops and the rage drains: one tick back as plain Brutus before he turns around. */
+export const BRUTUS_SETTLE_SECS = 0.6;
+/** Charge speed, relative to his walk. At 3.6× for 0.6s he covers ~2–3 tiles. */
+export const BRUTUS_DASH_SPEED_MULT = 3.6;
+/** He trots back a little quicker than he walks — sheepish, not punishing. */
+export const BRUTUS_RETURN_SPEED_MULT = 1.15;
+/**
+ * What he says while bracing — **his real OSRS overhead for the charge**, verbatim.
+ * (`*snorts*` is the other special's tell and `*huff*` is him pathing around an obstacle;
+ * neither is this mechanic.) In-game strings are English.
+ */
+export const BRUTUS_SAY = '*growls*';
+/** The enraged model swapped in for the brace + dash. */
+export const BRUTUS_DEMONIC_SLUG = 'brutus_demonic';
+/** Logic pixels of board kept clear on a lunge. A dash at the edge must not park him
+ *  outside the board, where no tower could reach him and he could never walk back. */
+export const BRUTUS_EDGE_MARGIN = 26;
+
+/**
+ * Has he been hurt enough, recently enough, to rampage? Both conditions matter: the
+ * cooldown stops a burst tower from locking him in a permanent tantrum, and the damage
+ * floor stops an unattended Brutus from rampaging at nobody.
+ */
+export function brutusShouldRage(cooldown: number, rageDamage: number, maxHp: number): boolean {
+  return cooldown <= 0 && rageDamage >= maxHp * BRUTUS_RAGE_DAMAGE_FRAC;
+}
+
+/**
+ * Which way he lunges: perpendicular to the stretch of road he is on, on the side
+ * *away* from `threat` (the tower that has been hurting him). Flinching out of the
+ * densest fire is what makes a tight killbox leakier, and it reads as an animal
+ * recoiling rather than as a random jitter.
+ *
+ * With no threat to flinch from he picks the segment's left-hand normal — a stable
+ * default, so a Brutus nobody is shooting still behaves deterministically.
+ */
+export function brutusDashDirection(
+  from: Point,
+  to: Point,
+  self: Point,
+  threat?: Point | null,
+): Point {
+  const sx = to.x - from.x;
+  const sy = to.y - from.y;
+  const len = Math.hypot(sx, sy) || 1;
+  const nx = -sy / len;
+  const ny = sx / len;
+  // The threat sits on the +n side → lunge to −n, and vice versa.
+  const flip = threat ? (threat.x - self.x) * nx + (threat.y - self.y) * ny > 0 : false;
+  return flip ? { x: -nx, y: -ny } : { x: nx, y: ny };
+}
+
+/** Anywhere in the rampage — normal path movement is suspended for all of it, because
+ *  every phase either holds him still or drives him somewhere the road does not go. */
+export function brutusIsRampaging(state: BossState | undefined): boolean {
+  return state?.kind === 'brutus' && !!state.brutusPhase && state.brutusPhase !== 'calm';
+}
+
+/**
+ * The **visual-state rule**, generalised: the anim slug a boss's *current mechanic phase*
+ * should be drawn with, or `undefined` to use its own. The engine assigns this to
+ * `Enemy.animType` each frame, which overrides the sprite lookup without touching `type`
+ * — so stats, drops and the Collection Log entry are all unaffected.
+ *
+ * Brutus is the first user (calm bull ↔ enraged demon) and the template: any boss state
+ * that changes how the boss must be fought should be readable off the model. Add a case
+ * here rather than reaching into the renderer.
+ */
+export function bossAnimVariant(state: BossState | undefined): string | undefined {
+  if (state?.kind !== 'brutus') return undefined;
+  const phase = state.brutusPhase;
+  return phase === 'brace' || phase === 'dash' ? BRUTUS_DEMONIC_SLUG : undefined;
+}
+
+/**
+ * The other half of the visual-state rule: the **mechanic clip** a boss's current phase
+ * should be playing instead of its walk loop, plus how far into that clip it is.
+ *
+ * Some mechanics *are* an animation — the Mole's dig is not "the Mole, stationary", it is
+ * the real OSRS burrow; Brutus bracing is him pawing the ground. Those clips outrank both
+ * the walk loop and the hurt flinch, because a flinch that interrupted the telegraph
+ * would break the one thing the mechanic is trying to communicate.
+ *
+ * `elapsed` counts up from 0 across the phase, which is why each phase's duration and its
+ * clip are declared together here: the clip is sized to the phase, not the other way
+ * round. Returns `null` for a boss that is simply walking.
+ */
+export function bossPhaseClip(state: BossState | undefined): { name: string; elapsed: number } | null {
+  if (!state) return null;
+  if (state.kind === 'giant_mole') {
+    const left = state.moleTimer ?? 0;
+    if (state.molePhase === 'dig') return { name: 'burrow', elapsed: MOLE_DIG_SECS - left };
+    if (state.molePhase === 'emerge') return { name: 'emerge', elapsed: MOLE_EMERGE_SECS - left };
+    return null;
+  }
+  if (state.kind === 'brutus') {
+    const left = state.brutusTimer ?? 0;
+    if (state.brutusPhase === 'brace') return { name: 'rage', elapsed: BRUTUS_BRACE_SECS - left };
+    if (state.brutusPhase === 'dash') return { name: 'charge', elapsed: BRUTUS_DASH_SECS - left };
+    return null;
+  }
+  return null;
+}
+
 // ─────────────────────── Grotesque Guardians (Dawn & Dusk) ─────────────────
 /**
  * The linked pair. Dusk is the one a wave draws; Dawn only ever arrives with him.
@@ -734,6 +896,24 @@ export interface BossState {
   lockedStyles?: CombatStyle[];
   /** Cerberus: how many batches of souls he has summoned (one per threshold). */
   soulSummons?: number;
+  /** Brutus: where he is in the rampage cycle. */
+  brutusPhase?: BrutusPhase;
+  /** Brutus: seconds left in the current {@link brutusPhase} (the `return` leg ends on
+   *  arrival, not on a clock). */
+  brutusTimer?: number;
+  /** Brutus: seconds before he can be provoked again. */
+  brutusCooldown?: number;
+  /** Brutus: damage taken since the last rampage, against {@link BRUTUS_RAGE_DAMAGE_FRAC}. */
+  rageDamage?: number;
+  /** Brutus: the last valid point on the road he stood on — he must walk back to exactly
+   *  this spot, which is what stops the dash from ever being a shortcut. */
+  homeX?: number;
+  homeY?: number;
+  /** Brutus: the unit vector of the current lunge. */
+  dashX?: number;
+  dashY?: number;
+  /** Brutus: rampages completed, read out on the boss bar. */
+  rampages?: number;
   /** Stall breaker: the lowest HP fraction this boss has been driven to. */
   hpFloor?: number;
   /** Stall breaker: seconds since it last reached a new low. */
@@ -760,6 +940,13 @@ export function freshBossState(kind: BossId): BossState {
     state.molePhase = 'above';
     state.moleTimer = MOLE_BURROW_INTERVAL;
     state.burrows = 0;
+  }
+  if (kind === 'brutus') {
+    state.brutusPhase = 'calm';
+    // Armed, not running: he arrives able to be provoked the moment he is hurt enough.
+    state.brutusCooldown = 0;
+    state.rageDamage = 0;
+    state.rampages = 0;
   }
   if (isGuardian(kind)) state.twinType = guardianTwin(kind);
   if (kind === 'cerberus') { state.soulSummons = 0; state.lockedStyles = []; }

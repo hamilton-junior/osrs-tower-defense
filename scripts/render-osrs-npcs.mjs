@@ -44,6 +44,7 @@ const TARGETS = {
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon
   superior_gargoyle: { npc: 7407, cullBelowGround: true }, // Marble gargoyle (drop red ground disc)
   superior_nechryael: { npc: 7411 },     // Nechryarch
+  brutus: { npc: 15626 },                // Brutus (boss) — the calm form the log shows
   giant_mole: { npc: 5779 },             // Giant Mole (boss)
   dusk: { npc: 7851 },                   // Grotesque Guardians — Dusk (boss)
   dawn: { npc: 7852 },                   // Grotesque Guardians — Dawn (boss, arrives with Dusk)

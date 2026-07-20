@@ -192,6 +192,7 @@ export const ASSETS = {
     nechryael: `${LOCAL}/models/nechryael.png`,
     dark_beast: `${LOCAL}/models/dark_beast.png`,
     hydra: `${LOCAL}/models/hydra.png`,
+    brutus: `${LOCAL}/models/brutus.png`,
     giant_mole: `${LOCAL}/models/giant_mole.png`,
     dusk: `${LOCAL}/models/dusk.png`,                   // Grotesque Guardians
     dawn: `${LOCAL}/models/dawn.png`,

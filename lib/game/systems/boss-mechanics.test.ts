@@ -21,6 +21,17 @@ import {
   pruneDamageEvents,
   jadHealPerTick,
   freshBossState,
+  brutusShouldRage,
+  brutusDashDirection,
+  brutusIsRampaging,
+  bossAnimVariant,
+  bossPhaseClip,
+  BRUTUS_RAGE_DAMAGE_FRAC,
+  BRUTUS_DEMONIC_SLUG,
+  BRUTUS_BRACE_SECS,
+  BRUTUS_DASH_SECS,
+  MOLE_DIG_SECS,
+  MOLE_EMERGE_SECS,
   bossStyleMult,
   phaseResistedStyles,
   escortDamageMult,
@@ -307,9 +318,125 @@ describe('boss id lists', () => {
     // MECHANIC_BOSSES) — the reverse need not hold.
     for (const b of SCHEDULABLE_BOSSES) expect(MECHANIC_BOSSES).toContain(b);
   });
-  it('introduces the Giant Mole first and the Hydra last', () => {
-    expect(SCHEDULABLE_BOSSES[0]).toBe('giant_mole');
+  it('introduces Brutus first and the Hydra last', () => {
+    // The ladder runs gentlest → hardest. Brutus opens it because his rampage costs the
+    // player a damage window and nothing else — he cannot bypass a defence the way the
+    // Mole can, which makes him the only boss safe to meet before you know what a boss is.
+    expect(SCHEDULABLE_BOSSES[0]).toBe('brutus');
     expect(SCHEDULABLE_BOSSES.at(-1)).toBe('hydra');
+  });
+});
+
+describe('Brutus rampage', () => {
+  it('will not rage while the cooldown is running, however hard he is hit', () => {
+    expect(brutusShouldRage(2, 1000, 1000)).toBe(false);
+  });
+
+  it('will not rage off cooldown until he has actually been hurt enough', () => {
+    const maxHp = 1000;
+    const justUnder = maxHp * BRUTUS_RAGE_DAMAGE_FRAC - 1;
+    expect(brutusShouldRage(0, justUnder, maxHp)).toBe(false);
+    expect(brutusShouldRage(0, maxHp * BRUTUS_RAGE_DAMAGE_FRAC, maxHp)).toBe(true);
+  });
+
+  it('lunges perpendicular to the road, not along it', () => {
+    // A road running due east; the lunge must have no eastward component at all, or he
+    // would be gaining (or losing) ground rather than stepping off the path.
+    const dir = brutusDashDirection({ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 50, y: 0 });
+    expect(dir.x).toBeCloseTo(0);
+    expect(Math.abs(dir.y)).toBeCloseTo(1);
+  });
+
+  it('flinches away from the tower that is hurting him', () => {
+    const from = { x: 0, y: 0 };
+    const to = { x: 100, y: 0 };
+    const self = { x: 50, y: 0 };
+    // Tower to the south → he breaks north, and vice versa.
+    expect(brutusDashDirection(from, to, self, { x: 50, y: 200 }).y).toBeLessThan(0);
+    expect(brutusDashDirection(from, to, self, { x: 50, y: -200 }).y).toBeGreaterThan(0);
+  });
+
+  it('returns a unit vector, so the dash distance is set by speed alone', () => {
+    const dir = brutusDashDirection({ x: 0, y: 0 }, { x: 30, y: 40 }, { x: 15, y: 20 });
+    expect(Math.hypot(dir.x, dir.y)).toBeCloseTo(1);
+  });
+
+  it('picks a defined side on a zero-length segment', () => {
+    // The last waypoint has no `to`; the engine passes the boss's own position for both.
+    const dir = brutusDashDirection({ x: 10, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 10 });
+    expect(Number.isFinite(dir.x)).toBe(true);
+    expect(Number.isFinite(dir.y)).toBe(true);
+  });
+
+  it('suspends path movement for every phase except calm', () => {
+    const st = freshBossState('brutus');
+    expect(brutusIsRampaging(st)).toBe(false);
+    for (const phase of ['brace', 'dash', 'settle', 'return'] as const) {
+      expect(brutusIsRampaging({ ...st, brutusPhase: phase })).toBe(true);
+    }
+  });
+
+  it('leaves other bosses walking normally', () => {
+    expect(brutusIsRampaging(freshBossState('giant_mole'))).toBe(false);
+    expect(brutusIsRampaging(undefined)).toBe(false);
+  });
+
+  it('wears the demonic model for the telegraph and the lunge, and only then', () => {
+    const st = freshBossState('brutus');
+    expect(bossAnimVariant({ ...st, brutusPhase: 'brace' })).toBe(BRUTUS_DEMONIC_SLUG);
+    expect(bossAnimVariant({ ...st, brutusPhase: 'dash' })).toBe(BRUTUS_DEMONIC_SLUG);
+    // He calms down *before* he walks back — the player should see a plain dog trotting
+    // home, not a demon, or the telegraph stops meaning "something is about to happen".
+    expect(bossAnimVariant({ ...st, brutusPhase: 'settle' })).toBeUndefined();
+    expect(bossAnimVariant({ ...st, brutusPhase: 'return' })).toBeUndefined();
+    expect(bossAnimVariant({ ...st, brutusPhase: 'calm' })).toBeUndefined();
+  });
+
+  it('leaves every other boss on its own model', () => {
+    for (const kind of MECHANIC_BOSSES) {
+      if (kind === 'brutus') continue;
+      expect(bossAnimVariant(freshBossState(kind))).toBeUndefined();
+    }
+    expect(bossAnimVariant(undefined)).toBeUndefined();
+  });
+
+  it('plays the paw-the-ground clip for the telegraph and the gallop for the charge', () => {
+    const st = freshBossState('brutus');
+    // `elapsed` counts up from 0 across the phase, so a full-timer brace is frame zero.
+    expect(bossPhaseClip({ ...st, brutusPhase: 'brace', brutusTimer: BRUTUS_BRACE_SECS }))
+      .toEqual({ name: 'rage', elapsed: 0 });
+    expect(bossPhaseClip({ ...st, brutusPhase: 'dash', brutusTimer: 0 }))
+      .toEqual({ name: 'charge', elapsed: BRUTUS_DASH_SECS });
+    // Calming down and walking home are ordinary movement — the walk loop, not a clip.
+    for (const phase of ['calm', 'settle', 'return'] as const) {
+      expect(bossPhaseClip({ ...st, brutusPhase: phase })).toBeNull();
+    }
+  });
+
+  it('still hands the Giant Mole its dig and surface clips', () => {
+    // bossPhaseClip replaced a Mole-specific branch in the renderer; this is the
+    // regression guard that generalising it did not drop the boss it came from.
+    const st = freshBossState('giant_mole');
+    expect(bossPhaseClip({ ...st, molePhase: 'dig', moleTimer: MOLE_DIG_SECS })?.name).toBe('burrow');
+    expect(bossPhaseClip({ ...st, molePhase: 'emerge', moleTimer: MOLE_EMERGE_SECS })?.name).toBe('emerge');
+    expect(bossPhaseClip({ ...st, molePhase: 'above' })).toBeNull();
+  });
+
+  it('leaves bosses with no mechanic clip on their walk loop', () => {
+    for (const kind of MECHANIC_BOSSES) {
+      if (kind === 'brutus' || kind === 'giant_mole') continue;
+      expect(bossPhaseClip(freshBossState(kind))).toBeNull();
+    }
+    expect(bossPhaseClip(undefined)).toBeNull();
+  });
+
+  it('starts armed but not raging', () => {
+    const st = freshBossState('brutus');
+    expect(st.brutusPhase).toBe('calm');
+    expect(st.brutusCooldown).toBe(0);
+    expect(st.rageDamage).toBe(0);
+    // Armed, but a Brutus nobody shoots never rampages.
+    expect(brutusShouldRage(st.brutusCooldown!, st.rageDamage!, 1000)).toBe(false);
   });
 });
 

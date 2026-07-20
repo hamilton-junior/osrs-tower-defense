@@ -296,20 +296,33 @@
     "npc": 5867,
     "clips": [
       "walk",
-      "hurt",
-      "death"
+      "hurt"
     ]
   },
   "soul_magic": {
     "npc": 5868,
     "clips": [
       "walk",
-      "hurt",
-      "death"
+      "hurt"
     ]
   },
   "soul_melee": {
     "npc": 5869,
+    "clips": [
+      "walk",
+      "hurt"
+    ]
+  },
+  "brutus": {
+    "npc": 15626,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "brutus_demonic": {
+    "npc": 15628,
     "clips": [
       "walk",
       "hurt",

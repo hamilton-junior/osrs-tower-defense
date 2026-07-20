@@ -312,5 +312,28 @@
       "walk": 8527,
       "hurt": 8531
     }
+  },
+  "brutus": {
+    "npc": 15626,
+    "anims": {
+      "walk": 13782,
+      "hurt": 13788,
+      "death": 13784
+    }
+  },
+  "brutus_demonic": {
+    "npc": 15628,
+    "anims": {
+      "walk": 13782,
+      "hurt": 13788,
+      "death": 13784,
+      "rage": 13780,
+      "charge": 13793
+    },
+    "loop": {
+      "walk": true,
+      "rage": true,
+      "charge": true
+    }
   }
 }

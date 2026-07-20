@@ -332,6 +332,22 @@ export const ENEMIES: Record<string, EnemyDef> = {
     isBoss: true,
     resistance: 0.45
   },
+  brutus: {
+    type: 'brutus',
+    name: 'Brutus',
+    // The first boss a fresh account meets, and the lightest on the ladder. His charge
+    // buys him nothing but a few seconds out of your towers' reach — he never skips road
+    // the way the Mole does — so he needs less health than the Mole to stay honest. A
+    // bull that ambled would read as a joke, so he is quick, but every charge costs him
+    // the walk back: the speed is paid for twice over.
+    hp: 520,
+    speed: 46,
+    color: '#8a5a3b',
+    reward: 320,
+    deathSound: 'boss',
+    isBoss: true,
+    resistance: 0.25
+  },
   giant_mole: {
     type: 'giant_mole',
     // The mole model is low and squat; scale up so it reads as a boss on the field.
@@ -495,6 +511,8 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   dusk: 'earth', dawn: 'earth',
   // A hellhound: water, like every other demon-kin in the table.
   cerberus: 'water',
+  // Earth, straight off the wiki: Brutus carries a 25% elemental weakness to it.
+  brutus: 'earth',
   // Air — agile, magical & ethereal
   rat: 'air', ghost: 'air', skeletal_mage: 'air', dark_beast: 'air', zulrah: 'air',
 };

@@ -13,6 +13,8 @@ import type { BossId } from './boss-mechanics';
  * In-game strings are English regardless of the conversation's language.
  */
 export const BOSS_TIPS: Record<BossId, string> = {
+  brutus:
+    'Hurt him enough and he growls, turns demonic and charges off the road before trotting back to the spot he left. He never skips ground — he only breaks your firing lines, so spread your coverage a little wider than his charge instead of stacking one tight box.',
   giant_mole:
     'Burrows and resurfaces further down the road, skipping whatever you fortified. Spread your damage along the path instead of stacking one killzone — and note it never digs on the final approach.',
   jad:

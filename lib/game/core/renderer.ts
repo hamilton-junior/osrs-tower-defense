@@ -9,7 +9,7 @@ import { ELEMENTS, spellSpriteName } from '../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
 import {
   ZULRAH_PHASES, hydraPhase, hydraBreakTarget, HYDRA_VENT_SECS,
-  moleIsHidden, MOLE_DIG_SECS, MOLE_EMERGE_SECS, MOLE_UNDER_SECS,
+  moleIsHidden, MOLE_UNDER_SECS, bossPhaseClip,
   isGuardian, BOSS_STALL_MAX_STACKS, phaseResistedStyles,
 } from '../systems/boss-mechanics';
 
@@ -1278,24 +1278,26 @@ export class GameRenderer {
       // once baked); fall back to `type`'s clip when the override isn't baked.
       const animSlug = e.animType && ENEMY_ANIMS[e.animType] ? e.animType : e.type;
       const animSet = ENEMY_ANIMS[animSlug];
-      // The Giant Mole's dig and climb-out are the real OSRS clips, and they outrank
-      // both the hurt flinch and the walk loop: it is not walking, and a flinch that
-      // interrupted the dig would break the one animation the whole boss is built on.
-      const molePhase = e.bossState?.kind === 'giant_mole' ? e.bossState.molePhase : undefined;
-      const moleClipName = molePhase === 'dig' ? 'burrow' : molePhase === 'emerge' ? 'emerge' : null;
-      const moleClip = moleClipName ? animSet?.clips[moleClipName] : undefined;
-      const hurting = !moleClip && !!animSet?.clips.hurt && (e.hurtAnim ?? 0) > 0;
-      const clipName = moleClip ? moleClipName! : hurting ? 'hurt' : 'walk';
+      // A mechanic clip — the Mole's dig and climb-out, Brutus pawing the ground and
+      // charging — is the real OSRS animation for a phase whose mechanic *is* that
+      // animation. It outranks both the hurt flinch and the walk loop: the boss is not
+      // walking, and a flinch that interrupted the telegraph would break the one thing
+      // the mechanic is trying to say. Which clip belongs to which phase lives in
+      // `bossPhaseClip`, beside the phase durations that size it.
+      const phaseClip = bossPhaseClip(e.bossState);
+      const mechClip = phaseClip ? animSet?.clips[phaseClip.name as keyof typeof animSet.clips] : undefined;
+      const hurting = !mechClip && !!animSet?.clips.hurt && (e.hurtAnim ?? 0) > 0;
+      const clipName = mechClip ? phaseClip!.name : hurting ? 'hurt' : 'walk';
       const animKey = animSet ? `enemyanim_${animSlug}_${clipName}` : '';
       if (animSet && this.e.imageOk(animKey)) {
         // Animated enemy: loop `walk` on alive-time, or play a one-shot (the Mole's
         // dig/emerge, else the `hurt` flinch) over exactly that clip's window. The hurt
         // window is sized to the clip's own duration in `damage`, and the Mole's phases
         // are sized to theirs in `boss-mechanics`, so `elapsed` counts up from 0 in both.
-        const clip = moleClip ?? (hurting ? animSet.clips.hurt! : animSet.clips.walk);
+        const clip = mechClip ?? (hurting ? animSet.clips.hurt! : animSet.clips.walk);
         const img = this.e.images.get(animKey)!;
-        const elapsed = moleClip
-          ? (molePhase === 'dig' ? MOLE_DIG_SECS : MOLE_EMERGE_SECS) - (e.bossState?.moleTimer ?? 0)
+        const elapsed = mechClip
+          ? phaseClip!.elapsed
           : hurting ? clipDurationS(clip) - (e.hurtAnim ?? 0) : e.animTime ?? 0;
         const fi = clipFrame(clip, elapsed);
         const fw = animSet.frameW, fh = animSet.frameH;
@@ -1473,6 +1475,22 @@ export class GameRenderer {
             ix += isz + gap;
           }
         }
+      }
+
+      // Overhead speech — a boss announcing a mechanic one beat before it fires, drawn
+      // the way OSRS draws NPC chat: yellow, centred over the head, hard black shadow and
+      // no bubble. It sits above everything else on the enemy (prayer icons, HP bar), so
+      // the telegraph is never the thing that gets covered up.
+      if (!inPortal && e.say) {
+        ctx.save();
+        ctx.font = "bold 13px 'RuneScape', Arial";
+        ctx.textAlign = 'center';
+        const ty = e.y - (isBoss ? 62 : 42) - Math.max(0, ((e.renderScale ?? 1) - 1) * (isBoss ? 30 : 15));
+        ctx.fillStyle = '#000';
+        ctx.fillText(e.say, e.x + 1, ty + 1);
+        ctx.fillStyle = '#ffff00';
+        ctx.fillText(e.say, e.x, ty);
+        ctx.restore();
       }
 
       // Weakness highlight: a pulsing ring in the selected wizard's element.

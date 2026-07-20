@@ -16,10 +16,12 @@ import { dirname, join } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
 const config = JSON.parse(readFileSync(join(__dirname, 'enemy-anims.config.json'), 'utf8'));
-// `burrow`/`emerge` are the Giant Mole's dig and surface clips (OSRS anims 3314
-// and 3315): boss-specific one-shots the renderer plays instead of the walk while
-// the Mole is going under or coming back up.
-const CLIP_ORDER = ['walk', 'hurt', 'death', 'burrow', 'emerge'];
+// Beyond walk/hurt/death these are **mechanic clips**: a boss phase whose animation is
+// the mechanic, played instead of the walk for the duration of that phase (see
+// `bossPhaseClip`). `burrow`/`emerge` are the Giant Mole going under and coming back up
+// (OSRS anims 3314/3315); `rage`/`charge` are Brutus pawing the ground and galloping
+// (13780/13793). A new one here also needs a slot in `EnemyClips` in data/enemy-anims.ts.
+const CLIP_ORDER = ['walk', 'hurt', 'death', 'burrow', 'emerge', 'rage', 'charge'];
 const CAP = 400;
 
 let clipCount = 0;

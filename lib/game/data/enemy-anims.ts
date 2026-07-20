@@ -17,9 +17,12 @@ export interface EnemyAnimSet {
   frameW: number;
   frameH: number;
   /**
-   * `walk` is required (the default loop); the rest are optional one-shots.
-   * `burrow`/`emerge` are the Giant Mole's dig and surface clips — a boss whose
-   * mechanic *is* an animation, so it plays the real OSRS ones.
+   * `walk` is required (the default loop); the rest are optional.
+   *
+   * `hurt`/`death` are the generic one-shots. The others are **mechanic clips** — a boss
+   * whose mechanic *is* an animation plays the real OSRS one for the duration of that
+   * phase, chosen by `bossPhaseClip`: `burrow`/`emerge` are the Giant Mole's dig and
+   * surface, `rage`/`charge` are Brutus pawing the ground and galloping.
    */
   clips: {
     walk: EnemyClip;
@@ -27,6 +30,8 @@ export interface EnemyAnimSet {
     death?: EnemyClip;
     burrow?: EnemyClip;
     emerge?: EnemyClip;
+    rage?: EnemyClip;
+    charge?: EnemyClip;
   };
 }
 
