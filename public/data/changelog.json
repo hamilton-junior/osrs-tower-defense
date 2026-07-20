@@ -2,6 +2,20 @@
   "generatedAt": "2026-07-20",
   "entries": [
     {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Brutus flattens the towers he charges through, and a downed tower now shows it",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Brutus charges off the road, and the boss ladder now starts with him",
+      "fromFeedback": false,
+      "date": "2026-07-19"
+    },
+    {
       "kind": "fixed",
       "scope": "ui",
       "text": "The wave preview no longer grows into a wall you can't build under",
@@ -264,20 +278,6 @@
       "kind": "new",
       "scope": "run",
       "text": "The run timer measures the clock, not the simulation",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "A painted line is confirmed, not bought by letting go of Shift",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "OSRS stack notation, swapped priority icons, leaner loadout panel",
       "fromFeedback": false,
       "date": "2026-07-17"
     }
