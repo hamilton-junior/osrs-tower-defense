@@ -4,6 +4,13 @@
     {
       "kind": "balanced",
       "scope": "bosses",
+      "text": "Scurrius sheds rats 50% more often",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "balanced",
+      "scope": "bosses",
       "text": "Scurrius shares his rats' weakness to Air",
       "fromFeedback": false,
       "date": "2026-07-20"
@@ -271,13 +278,6 @@
       "kind": "fixed",
       "scope": "slayer",
       "text": "Superior monsters count toward the base task",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "roguelite",
-      "text": "Keep the card-roll button visible-but-disabled mid-wave",
       "fromFeedback": false,
       "date": "2026-07-17"
     }
