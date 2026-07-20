@@ -2,6 +2,13 @@
   "generatedAt": "2026-07-20",
   "entries": [
     {
+      "kind": "balanced",
+      "scope": "bosses",
+      "text": "Scurrius shares his rats' weakness to Air",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
       "kind": "new",
       "scope": "bosses",
       "text": "Scurrius stops to squeak, and his rats obey a stun",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "roguelite",
       "text": "Keep the card-roll button visible-but-disabled mid-wave",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "balanced",
-      "scope": "roguelite",
-      "text": "Rework Soul Stealer to reward kills, not the horde",
       "fromFeedback": false,
       "date": "2026-07-17"
     }
