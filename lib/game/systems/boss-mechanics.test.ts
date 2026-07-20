@@ -31,6 +31,21 @@ import {
   BRUTUS_DEMONIC_SLUG,
   BRUTUS_BRACE_SECS,
   BRUTUS_DASH_SECS,
+  SCURRIUS_SHEAR_FRAC,
+  SCURRIUS_RAT_HP_FRAC,
+  SCURRIUS_SHEAR_COOLDOWN,
+  SCURRIUS_MAX_RATS,
+  SCURRIUS_SHEAR_FLOOR,
+  SCURRIUS_SQUEAK_INTERVAL,
+  SCURRIUS_RAT_SPEED_MULT,
+  SCURRIUS_WANDER_SECS,
+  SCURRIUS_WANDER_LEASH,
+  SCURRIUS_REFUND_RADIUS,
+  SCURRIUS_SAY,
+  scurriusShouldShear,
+  scurriusRatHp,
+  ratWanderTarget,
+  ratRefund,
   MOLE_DIG_SECS,
   MOLE_EMERGE_SECS,
   bossStyleMult,
@@ -913,5 +928,92 @@ describe('phaseResistedStyles (protection-prayer overheads)', () => {
     const hydra = freshBossState('hydra');
     hydra.venting = true;
     expect(phaseResistedStyles(hydra)).toEqual([]);
+  });
+});
+
+describe('Scurrius — shearing', () => {
+  const MAX = 1000;
+
+  it('shears on a hit at or above the threshold', () => {
+    expect(scurriusShouldShear(50, MAX, 1, 0, 0)).toBe(true);
+    expect(scurriusShouldShear(49, MAX, 1, 0, 0)).toBe(false);
+  });
+
+  it('ignores chip damage however often it lands', () => {
+    for (let i = 0; i < 50; i++) expect(scurriusShouldShear(5, MAX, 1, 0, 0)).toBe(false);
+  });
+
+  it('is blocked by the cooldown, so one AoE volley cannot produce a litter', () => {
+    expect(scurriusShouldShear(200, MAX, 1, 0.4, 0)).toBe(false);
+  });
+
+  it('is blocked by the live-rat cap', () => {
+    expect(scurriusShouldShear(200, MAX, 1, 0, SCURRIUS_MAX_RATS)).toBe(false);
+    expect(scurriusShouldShear(200, MAX, 1, 0, SCURRIUS_MAX_RATS - 1)).toBe(true);
+  });
+
+  it('stops shearing below the floor, so the endgame is a clean fight', () => {
+    expect(scurriusShouldShear(200, MAX, SCURRIUS_SHEAR_FLOOR, 0, 0)).toBe(false);
+    expect(scurriusShouldShear(200, MAX, SCURRIUS_SHEAR_FLOOR + 0.01, 0, 0)).toBe(true);
+  });
+});
+
+describe('Scurrius — HP is conserved, never created', () => {
+  const MAX = 1000;
+
+  it('a rat carries the designed share of his max HP', () => {
+    expect(scurriusRatHp(MAX, MAX)).toBe(Math.round(MAX * SCURRIUS_RAT_HP_FRAC));
+  });
+
+  it('never takes him below the shear floor', () => {
+    const justAbove = MAX * SCURRIUS_SHEAR_FLOOR + 5;
+    expect(scurriusRatHp(MAX, justAbove)).toBe(5);
+  });
+
+  it('never returns a negative amount at or under the floor', () => {
+    expect(scurriusRatHp(MAX, MAX * SCURRIUS_SHEAR_FLOOR)).toBe(0);
+    expect(scurriusRatHp(MAX, 0)).toBe(0);
+  });
+
+  it('shear then full refund is a round trip — the total never grows', () => {
+    let king = MAX;
+    const rat = scurriusRatHp(MAX, king);
+    king -= rat;
+    king += ratRefund(rat, king, MAX);
+    expect(king).toBe(MAX);
+  });
+
+  it('a refund never overheals him past full', () => {
+    expect(ratRefund(500, MAX - 10, MAX)).toBe(10);
+  });
+
+  it('a dead rat refunds nothing', () => {
+    expect(ratRefund(0, 500, MAX)).toBe(0);
+    expect(ratRefund(-3, 500, MAX)).toBe(0);
+  });
+});
+
+describe('Scurrius — rat wandering', () => {
+  it('stays inside the leash', () => {
+    let n = 0;
+    const rand = () => [0.1, 0.9, 0.5, 0.3][n++ % 4];
+    for (let i = 0; i < 20; i++) {
+      const p = ratWanderTarget(800, 400, rand, 1728, 768);
+      expect(Math.hypot(p.x - 800, p.y - 400)).toBeLessThanOrEqual(SCURRIUS_WANDER_LEASH + 0.001);
+    }
+  });
+
+  it('is clamped to the board, so a rat sheared at the edge cannot leave it', () => {
+    const p = ratWanderTarget(5, 5, () => 0.99, 1728, 768, 26);
+    expect(p.x).toBeGreaterThanOrEqual(26);
+    expect(p.y).toBeGreaterThanOrEqual(26);
+  });
+
+  it('leaves the road — successive targets are not the same point', () => {
+    let n = 0;
+    const rand = () => [0.2, 0.8, 0.7, 0.4][n++ % 4];
+    const a = ratWanderTarget(800, 400, rand, 1728, 768);
+    const b = ratWanderTarget(800, 400, rand, 1728, 768);
+    expect(a.x !== b.x || a.y !== b.y).toBe(true);
   });
 });

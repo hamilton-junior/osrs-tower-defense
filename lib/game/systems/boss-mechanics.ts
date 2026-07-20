@@ -591,6 +591,116 @@ export function bossPhaseClip(state: BossState | undefined): { name: string; ela
   return null;
 }
 
+// ─────────────────────────────────── Scurrius ──────────────────────────────
+/**
+ * The swarm axis. A heavy hit **shears a Giant rat off his own health bar**: the rat
+ * carries HP taken *from him*, so the encounter total never grows — it only changes
+ * shape, from one fat target into several small moving ones.
+ *
+ * That is the whole fairness argument. Burst is not punished, it is *redistributed*:
+ * a board with AoE takes the shape change for free, a pure single-target board
+ * manufactures its own problem, and it does so by a visible choice rather than a roll.
+ *
+ * The question he asks: **does your board handle HP that has been redistributed, or
+ * only HP that is stacked?** The Mole asks about space, Cerberus about composition;
+ * this is the third axis and nobody else owns it.
+ */
+
+/** A single hit must be this fraction of his max HP to shear a rat. Big hits shear;
+ *  chip damage never does, which is what makes the mechanic a consequence of how the
+ *  player built rather than a tax on time. */
+export const SCURRIUS_SHEAR_FRAC = 0.05;
+/** HP a sheared rat carries, as a fraction of his max — taken from him, never added. */
+export const SCURRIUS_RAT_HP_FRAC = 0.06;
+/** Seconds before he may shear again. Without it a single AoE volley landing on him
+ *  in one frame would produce the whole litter at once. */
+export const SCURRIUS_SHEAR_COOLDOWN = 1.2;
+/** Live rats at once. The anti-frustration cap — it binds the squeak as well as the
+ *  shear, so no combination of triggers can bury the board. */
+export const SCURRIUS_MAX_RATS = 5;
+/** He stops shearing at or below this HP fraction, so the end of the fight is a clean
+ *  kill rather than an endless stream of adds off a boss that will not die. */
+export const SCURRIUS_SHEAR_FLOOR = 0.12;
+/** Seconds between guaranteed squeaks. The floor: a pure chip-damage board never
+ *  triggers a shear, and a boss whose mechanic never fires teaches nothing (the exact
+ *  failure that made the first two tower-disables read as bugs). */
+export const SCURRIUS_SQUEAK_INTERVAL = 12;
+/** Rat speed as a multiple of his. Rats are quick; they get clear of him at once. */
+export const SCURRIUS_RAT_SPEED_MULT = 1.6;
+/** Seconds a rat wanders before it turns and heads home. */
+export const SCURRIUS_WANDER_SECS = 5;
+/** How far from the shear point a rat may roam (≈4 tiles). Keeps the distraction in
+ *  the same stretch of board as the fight it came out of. */
+export const SCURRIUS_WANDER_LEASH = 128;
+/** How close a returning rat must get to be absorbed. */
+export const SCURRIUS_REFUND_RADIUS = 26;
+/** His overhead on the guaranteed squeak — the OSRS convention of announcing it. */
+export const SCURRIUS_SAY = '*squeaks*';
+
+/** Where a sheared rat is in its short life. */
+export type RatPhase = 'wander' | 'return';
+
+/**
+ * Does this hit shear a rat off him?
+ *
+ * Every guard that keeps the mechanic from becoming an avalanche lives here rather
+ * than at the call site, so a future caller cannot forget one: the cooldown, the live
+ * cap and the HP floor are all part of the answer.
+ */
+export function scurriusShouldShear(
+  hit: number, maxHp: number, hpFrac: number, cooldown: number, liveRats: number,
+): boolean {
+  if (cooldown > 0) return false;
+  if (liveRats >= SCURRIUS_MAX_RATS) return false;
+  if (hpFrac <= SCURRIUS_SHEAR_FLOOR) return false;
+  return hit >= maxHp * SCURRIUS_SHEAR_FRAC;
+}
+
+/**
+ * HP the rat takes with it — and therefore the HP he loses in the same frame.
+ *
+ * Clamped so the shear can never carry him below {@link SCURRIUS_SHEAR_FLOOR}. Without
+ * that clamp a shear at low health could kill him, and "HP is conserved" would stop
+ * being true at the exact moment the player is watching the bar.
+ */
+export function scurriusRatHp(maxHp: number, currentHp: number): number {
+  const want = Math.max(1, Math.round(maxHp * SCURRIUS_RAT_HP_FRAC));
+  const spare = Math.max(0, Math.floor(currentHp - maxHp * SCURRIUS_SHEAR_FLOOR));
+  return Math.min(want, spare);
+}
+
+/**
+ * The next point a wandering rat skitters to: **uniform random inside the leash**, and
+ * deliberately unbiased.
+ *
+ * A rat that homed in on towers would read as a guided missile; an aimless one reads as
+ * vermin, which is what makes it a *distraction*. Towers get visited plenty anyway,
+ * because towers sit near the road and the road is where the rat was born.
+ *
+ * `rand` is injected so the walk is testable; the engine passes `Math.random`.
+ */
+export function ratWanderTarget(
+  originX: number, originY: number, rand: () => number,
+  width: number, height: number, margin = 26,
+): Point {
+  const ang = rand() * Math.PI * 2;
+  const dist = SCURRIUS_WANDER_LEASH * (0.35 + 0.65 * rand());
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  return {
+    x: clamp(originX + Math.cos(ang) * dist, margin, width - margin),
+    y: clamp(originY + Math.sin(ang) * dist, margin, height - margin),
+  };
+}
+
+/**
+ * HP the king actually regains when a rat makes it home — whatever the rat still holds,
+ * capped at full. Ignoring the rats therefore *undoes* the burst that created them,
+ * which is the price of ignoring them, and it is a price paid in time rather than lives.
+ */
+export function ratRefund(ratHp: number, kingHp: number, kingMaxHp: number): number {
+  return Math.min(kingMaxHp, kingHp + Math.max(0, ratHp)) - kingHp;
+}
+
 // ─────────────────────── Grotesque Guardians (Dawn & Dusk) ─────────────────
 /**
  * The linked pair. Dusk is the one a wave draws; Dawn only ever arrives with him.
