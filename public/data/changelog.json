@@ -2,6 +2,20 @@
   "generatedAt": "2026-07-20",
   "entries": [
     {
+      "kind": "balanced",
+      "scope": "affixes",
+      "text": "Volatile now blows a hole in your board instead of blinking one tower",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "balanced",
+      "scope": "bosses",
+      "text": "Brutus now charges at a tower instead of at empty ground",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
       "kind": "new",
       "scope": "bosses",
       "text": "Brutus flattens the towers he charges through, and a downed tower now shows it",
@@ -264,20 +278,6 @@
       "kind": "new",
       "scope": "ui",
       "text": "An in-game changelog, baked from the git history",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "roguelite",
-      "text": "Reward cards pay Slayer points, and the essence shop previews the buy",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "run",
-      "text": "The run timer measures the clock, not the simulation",
       "fromFeedback": false,
       "date": "2026-07-17"
     }
