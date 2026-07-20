@@ -5,6 +5,7 @@ import { GameEngine, LOGIC_WIDTH, LOGIC_HEIGHT, type UIState, type EnemyHoverInf
 import { DRAFT_POOL, RARITY_WEIGHT, CARD_ROLL_BASE_COST, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
 import { RELICS, type Relic, type RelicTier } from '@/lib/game/systems/relics';
 import { AFFIX_DEFS } from '@/lib/game/systems/affixes';
+import { bossTip } from '@/lib/game/systems/boss-tips';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum, synergyDamageMult } from '@/lib/game/systems/tower-combat';
 import { MovablePanel } from './MovablePanel';
@@ -1748,6 +1749,15 @@ export default function GameRoot() {
                     );
                   })}
                 </div>
+              )}
+              {/* How to kill it. A boss mechanic the player can't name reads as an
+                  unfair one, so the counterplay is stated on the boss itself rather
+                  than left to be inferred from a wipe. */}
+              {bossTip(info.type) && (
+                <p className="mt-[0.4em] pt-[0.35em] border-t border-[#3a2f1d] text-[0.68em] leading-snug text-[#cdbb91]">
+                  <span className="text-osrs-orange font-bold">How to kill: </span>
+                  {bossTip(info.type)}
+                </p>
               )}
             </div>
           </div>
@@ -4746,6 +4756,12 @@ function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, onSelect, pos
           </div>
         </div>
       </div>
+      {bossTip(type) && (
+        <div className="rs-panel-inset p-[0.7em] mt-[0.5em]">
+          <div className="text-[0.7em] text-[#b3a585] uppercase tracking-wide mb-[0.4em]">How to kill</div>
+          <p className="text-[0.75em] text-[#cdbb91] leading-snug">{bossTip(type)}</p>
+        </div>
+      )}
       {summons.length > 0 && (
         <div className="rs-panel-inset p-[0.7em] mt-[0.5em]">
           <div className="text-[0.7em] text-[#b3a585] uppercase tracking-wide mb-[0.5em]">Summons</div>

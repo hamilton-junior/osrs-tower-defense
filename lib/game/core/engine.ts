@@ -488,6 +488,8 @@ export interface Hitsplat {
 export type DebuffId = 'slow' | 'stun' | 'burn' | 'poison' | 'venom' | 'vuln';
 
 export interface EnemyHoverInfo {
+  /** The enemy's type id — the panel keys its "how to kill" line off this. */
+  type: EnemyType;
   name: string;
   hp: number;
   maxHp: number;
@@ -1296,6 +1298,7 @@ export class GameEngine {
     if ((e.dots?.venom?.timer ?? 0) > 0) effects.push('venom');
     if (e.vulnTimer && e.vulnTimer > 0) effects.push('vuln');
     return {
+      type: e.type,
       name: e.name,
       hp: Math.max(0, Math.ceil(e.hp)),
       maxHp: e.maxHp,
