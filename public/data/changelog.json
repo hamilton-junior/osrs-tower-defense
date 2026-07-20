@@ -2,6 +2,62 @@
   "generatedAt": "2026-07-20",
   "entries": [
     {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Scurrius takes the swarm axis",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "fixed",
+      "scope": "waves",
+      "text": "Stop ordinary waves sending a boss's adds as trash",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Bake Scurrius's animation clips from the cache",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Leash a returning rat to Scurrius so the refund is visible",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Scurrius sheds rats that wander the board and run his HP back",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "fixed",
+      "scope": "bosses",
+      "text": "Keep balance numbers out of Scurrius's kill tip",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Scurrius and his Giant rats join the roster",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Scurrius shear maths — HP changes shape, never grows",
+      "fromFeedback": false,
+      "date": "2026-07-20"
+    },
+    {
       "kind": "balanced",
       "scope": "affixes",
       "text": "Volatile now blows a hole in your board instead of blinking one tower",
@@ -222,62 +278,6 @@
       "kind": "balanced",
       "scope": "boss",
       "text": "Grotesque Guardians leak for 75%, slower revive",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "towers",
-      "text": "Batch auto-upgrade toggle for a multi-selection",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Changelog v2 — more badge kinds, date grouping, trailer override",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Make the shift-drag build-confirm panel movable",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "log",
-      "text": "Yt-HurKot is a real Collection Log entry; summons are clickable",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "towers",
-      "text": "Per-tower auto-upgrade + cheapest-first batch upgrade",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "targeting",
-      "text": "Per-tower \"unmarked\" + Slayer specialisation priority",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "balanced",
-      "scope": "towers",
-      "text": "Faster late cannon + venom that out-scales AoE poison",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "An in-game changelog, baked from the git history",
       "fromFeedback": false,
       "date": "2026-07-17"
     }
