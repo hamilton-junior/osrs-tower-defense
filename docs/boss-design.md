@@ -26,7 +26,7 @@ The pattern is deliberately generic: `bossAnimVariant(state)` in `systems/boss-m
 maps a boss's current phase to an optional slug, and the engine assigns it to `animType`
 each frame. Any boss can opt in by returning a slug. **New mechanics are expected to.**
 
-## Taken ideas (the eight shipped bosses)
+## Taken ideas (the nine shipped bosses)
 
 | Boss | The question it asks | Axis |
 |---|---|---|
@@ -38,6 +38,7 @@ each frame. Any boss can opt in by returning a slug. **New mechanics are expecte
 | Cerberus | What is your damage actually made of? | adds — style locks |
 | Alchemical Hydra | Can you burst on demand? | breakpoints |
 | Brutus | *(new — see below)* | movement irregularity |
+| Scurrius | Does your board handle HP that has been redistributed? | adds — splitting |
 
 ## Open axes, and who should carry them
 
@@ -88,11 +89,21 @@ watched him run through it) and a visible state, or it does not belong in the ga
   onto a tower and drains its output into Corp's healing. Two-part answer: own the right
   tower at all, then kill the core. The most faithful translation on this list.
 
-### E. Splitting / swarm
+### E. Splitting / swarm — **Scurrius** ✅ shipped
 
-- **Scurrius** — a **rat generator**: a low-tier boss that continuously spits trash. The
-  natural companion to Brutus at the bottom of the ladder, and an early lesson that AoE
-  exists.
+- **Scurrius** — not the rat generator this entry originally described. A boss that spits
+  trash on a timer fails the rule that *the player causes the mechanic*, so the trigger
+  became the player's own damage: **a single hit worth ≥5% of his max HP shears a Giant
+  rat off him**, and the rat carries 6% of his max HP **taken out of his own bar**. HP is
+  never created, only redistributed — which is what makes it fair rather than punitive.
+  Burst does not lose, it just stops being sufficient by itself. The rat then **wanders
+  the board at random, off-road and across towers**, which makes it aggro bait that can
+  genuinely hijack a `first`/`closest` tower, before turning and **running the health
+  back into him** (a tether warns; a green splat closes the loop). Kill it before it
+  arrives. Floors and caps keep it honest: no shearing below 12% HP, at most 5 live rats,
+  a 1.2s cooldown so one AoE volley cannot make five, and a 12s squeak that guarantees
+  the lesson lands even against pure chip damage. Rats are **not escorts** — they outlive
+  him, and one still alive when he dies walks the road and costs a life like anything else.
 - **Verzik Vitur** — at a threshold she **breaks into her Nylocas swarm** and becomes
   untargetable until the swarm is cleared. Same family as Scurrius but inverted: the adds
   are not a distraction, they are the boss.
@@ -134,7 +145,7 @@ watched him run through it) and a visible state, or it does not belong in the ga
 ## Suggested build order
 
 1. **Brutus** — tier 0, gentlest rung, teaches that bosses do things. ✅
-2. **Scurrius** — tier 0 companion, teaches AoE.
+2. **Scurrius** — tier 0 companion, teaches AoE. ✅
 3. **King Black Dragon** — mid, opens axis B (the board itself is attackable).
 4. **Corporeal Beast** — late, opens axis D.
 5. **TzKal-Zuk** — endgame, opens axis C.
