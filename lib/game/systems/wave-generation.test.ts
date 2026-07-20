@@ -129,6 +129,23 @@ describe('buildWaveConfigs', () => {
     }
   });
 
+  // Adds used to be kept out by accident: every one paid 0, so the freeze guard above
+  // caught them on its way past. Scurrius' Giant rats broke that — they are not escorts
+  // and they do pay (killing one denies his refund), so nothing but `summonedBy` stops
+  // the allocator sending kingless rats as wave-1 trash.
+  it('never sends a boss add as ordinary trash, even one that pays', () => {
+    const adds = Object.values(ENEMIES).filter((e) => e.summonedBy);
+    expect(adds.some((e) => e.reward > 0)).toBe(true); // else this guards nothing
+    for (let wave = 1; wave <= 60; wave++) {
+      const out = buildWaveConfigs(wave, {
+        enemies: Object.values(ENEMIES), blockedEnemies: [], bossesSeen: {}, rng: Math.random,
+      });
+      for (const a of adds) {
+        expect(out.some((c) => c.type === a.type)).toBe(false);
+      }
+    }
+  });
+
   it('is deterministic for a fixed rng', () => {
     const opts = { enemies: registry, blockedEnemies: [], rng: () => 0.5 };
     expect(buildWaveConfigs(7, opts)).toEqual(buildWaveConfigs(7, opts));

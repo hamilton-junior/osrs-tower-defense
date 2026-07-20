@@ -141,8 +141,14 @@ export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveC
   // escort, e.g. Cerberus's souls) is affordable forever and spends nothing —
   // once the leftover budget drops below the cheapest paying enemy it would be
   // picked every iteration, and the wave build would never return.
+  // `summonedBy` is the real rule the `reward > 0` clause was standing in for: a
+  // boss's add is not something a wave can send, whatever it pays. That held by
+  // luck while every add paid nothing, and stopped holding with Scurrius's Giant
+  // rats — they are not escorts and do pay gold (killing one denies his refund,
+  // so it is a kill worth rewarding), which made them ordinary trash the allocator
+  // could roll from wave 1, kingless, before Scurrius had ever been met.
   const spawnable = opts.enemies.filter(
-    e => !e.isBoss && e.reward > 0
+    e => !e.isBoss && !e.summonedBy && e.reward > 0
       && (e.waveUnlock || 1) <= waveNum && !opts.blockedEnemies.includes(e.type),
   );
 

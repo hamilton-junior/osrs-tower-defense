@@ -75,6 +75,10 @@ export interface EnemyDef {
   weakness?: Element;
   isBoss?: boolean;
   waveUnlock?: number;
+  /** The boss that spawns this enemy, if it is an add rather than something a
+   *  wave can send. Its presence is what keeps the wave allocator from rolling
+   *  a boss's summon as ordinary trash (see systems/wave-generation.ts). */
+  summonedBy?: string;
   /** Sprite size multiplier at draw time (default 1); compensates for sprites
    *  with heavy transparent padding (see data/enemies.ts). */
   renderScale?: number;
