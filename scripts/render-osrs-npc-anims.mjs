@@ -185,10 +185,27 @@ export async function buildNpcModel(cache, npcId) {
   //    fallback with the ALREADY-INCREMENTED `vertexCount`, then concatenates
   //    the real per-vertex data on top — leaving the arrays longer than the
   //    mesh and every vertex skinned to the wrong bone (geometry explodes).
-  //    The real data is the tail, so trim from the front.
-  model.rev229 = true;
+  //    The excess is exactly the placeholder block and it sits at the FRONT
+  //    (mergeWith concatenates `[...this, ...other]` into a blank model), so
+  //    trimming to the tail is the right end — asserted below rather than
+  //    assumed, since the dependency is a caret range and a reversed concat
+  //    order upstream would mis-skin silently instead of throwing.
+  //
+  // `rev229` is cache-global (`indexRevision >= 969` on MODELS), so propagate
+  // it off the source models rather than hard-coding `true`: forcing it would
+  // send a pre-rev-229 cache's maya keyframes to index 22 and crash a bake
+  // that should have worked.
+  model.rev229 = used.some((m) => m.rev229);
   for (const k of ['animayaGroups', 'animayaScales']) {
-    if (model[k]?.length > model.vertexCount) model[k] = model[k].slice(model[k].length - model.vertexCount);
+    const excess = (model[k]?.length ?? 0) - model.vertexCount;
+    if (excess <= 0) continue;
+    if (excess !== used[0].vertexCount) {
+      throw new Error(
+        `${k}: expected ${used[0].vertexCount} placeholder entries at the front, found ${excess}. ` +
+        `osrscachereader's mergeWith() has changed shape — re-check which end holds the real data.`,
+      );
+    }
+    model[k] = model[k].slice(excess);
   }
 
   if (def.recolorToFind?.length) {
