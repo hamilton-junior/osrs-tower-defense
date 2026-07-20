@@ -39,7 +39,12 @@
   --osrs-brown-dark: #2b231a;
   --osrs-yellow: #ffff00;
   --osrs-orange: #ff981f;
-  --osrs-red: #800000;
+  /* The bright red OSRS uses for text you must actually read (leak cost, a price you
+     can't afford, a warning). Every use of this variable in the app is a *text*
+     colour on wood, where the old maroon #800000 went muddy and disappeared — so
+     this is the default red, and the maroon below is only for fills that need it. */
+  --osrs-red: #ff4d4d;
+  --osrs-red-deep: #800000;
   --osrs-green: #00ff00;
   --osrs-cyan: #00ffff;
   --osrs-border-light: #6d6150;
@@ -286,9 +291,10 @@ body {
 .text-osrs-yellow { color: var(--osrs-yellow); text-shadow: 1px 1px 0 #000; }
 .text-osrs-orange { color: var(--osrs-orange); text-shadow: 1px 1px 0 #000; }
 .text-osrs-red { color: var(--osrs-red); text-shadow: 1px 1px 0 #000; }
-/* Warning red — the maroon above is a fill colour and goes muddy as text on wood.
-   This is the brighter red OSRS uses for warnings you must actually read. */
-.text-osrs-warn { color: #ff4d4d; text-shadow: 1px 1px 0 #000; }
+/* Kept as an alias of the red above, which now *is* the bright warning red. Callers
+   that spell out "warn" still read well at the call site; both must stay the same
+   colour, or the same alarm shows up in two shades depending on which class was used. */
+.text-osrs-warn { color: var(--osrs-red); text-shadow: 1px 1px 0 #000; }
 .text-osrs-green { color: var(--osrs-green); text-shadow: 1px 1px 0 #000; }
 .text-osrs-cyan { color: var(--osrs-cyan); text-shadow: 1px 1px 0 #000; }
 /* The middle rung of OSRS's stack colours (see `stackClass` in GameRoot). */
