@@ -7,6 +7,7 @@ import {
   isBossWave,
   BOSS_WAVE_INTERVAL,
   EXTRA_BOSS_MAX,
+  EXTRA_BOSS_MIN_WAVE,
 } from './wave-generation';
 import { SCHEDULABLE_BOSSES } from './boss-mechanics';
 import { ENEMIES } from '../data/enemies';
@@ -202,18 +203,30 @@ describe('boss schedule', () => {
   });
 
   it('can bring extra bosses to a plain wave once every boss has been met', () => {
-    // Wave 15 is due none. rng: chance hit (0), count 0.99 -> EXTRA_BOSS_MAX, then picks.
-    const out = rollWaveBosses(15, ALL_SEEN, seq(0, 0.99, 0, 0));
+    // Wave 25 is due none. rng: chance hit (0), count 0.99 -> EXTRA_BOSS_MAX, then picks.
+    const out = rollWaveBosses(25, ALL_SEEN, seq(0, 0.99, 0, 0));
     expect(out).toHaveLength(EXTRA_BOSS_MAX);
   });
 
   it('brings nothing extra when the chance roll misses', () => {
-    expect(rollWaveBosses(15, ALL_SEEN, () => 0.99)).toEqual([]);
+    expect(rollWaveBosses(25, ALL_SEEN, () => 0.99)).toEqual([]);
   });
 
   it('can whiff: the chance can hit and still roll zero extras', () => {
     // chance hit (0), then a count roll of 0 -> floor(0 * (MAX+1)) = 0 extras.
-    expect(rollWaveBosses(15, ALL_SEEN, seq(0, 0))).toEqual([]);
+    expect(rollWaveBosses(25, ALL_SEEN, seq(0, 0))).toEqual([]);
+  });
+
+  it('never stacks bosses before EXTRA_BOSS_MIN_WAVE, even for a veteran', () => {
+    // rng 0 passes every extras roll; the floor is what holds them back. The first
+    // boss wave must stay a single boss, and the waves around it must stay empty.
+    for (let w = BOSS_WAVE_INTERVAL; w < EXTRA_BOSS_MIN_WAVE; w++) {
+      const out = rollWaveBosses(w, ALL_SEEN, () => 0);
+      expect(out).toHaveLength(isBossWave(w) ? 1 : 0);
+    }
+    // …and the floor itself is where stacking becomes possible again.
+    expect(rollWaveBosses(EXTRA_BOSS_MIN_WAVE, ALL_SEEN, seq(0, 0, 0.99, 0, 0)).length)
+      .toBe(1 + EXTRA_BOSS_MAX);
   });
 
   it('stacks extras on top of the scheduled boss, never past the cap', () => {

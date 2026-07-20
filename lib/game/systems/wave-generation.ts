@@ -26,6 +26,14 @@ export const BOSS_WAVE_INTERVAL = 10;
 export const EXTRA_BOSS_CHANCE = 0.15;
 /** How many extras that roll can bring: uniformly 0..this, so it can come up dry. */
 export const EXTRA_BOSS_MAX = 2;
+/**
+ * The earliest wave that may carry *extra* bosses. A veteran starts with every boss
+ * already met, so without this floor the very first boss wave could open with three
+ * of them at once — on a board that has had ten waves' worth of gold to build. The
+ * scheduled boss still lands on wave 10; stacking only becomes a possibility a full
+ * boss cycle later, once there is a board worth testing.
+ */
+export const EXTRA_BOSS_MIN_WAVE = 20;
 /** The rank-and-file budget is cut on any wave carrying a boss — the boss is the
  *  act, and the horde should not punish the player twice for the same wave. */
 export const BOSS_WAVE_HORDE_MULT = 0.6;
@@ -49,9 +57,10 @@ export function unseenBosses(bossesSeen: Record<string, number>): EnemyType[] {
  *   order — which runs gentlest to hardest — one per boss wave.
  * - Once every boss has been met — `bossesSeen` is lifetime, so a veteran starts
  *   a fresh run already there — the scheduled boss is drawn at random instead,
- *   and *every* wave from wave 10 on rolls {@link EXTRA_BOSS_CHANCE} for
- *   0..{@link EXTRA_BOSS_MAX} extra bosses beyond what it was due. A plain wave
- *   was due none, so that roll is how a boss shows up off-schedule.
+ *   and every wave from {@link EXTRA_BOSS_MIN_WAVE} on rolls {@link EXTRA_BOSS_CHANCE}
+ *   for 0..{@link EXTRA_BOSS_MAX} extra bosses beyond what it was due. A plain wave
+ *   was due none, so that roll is how a boss shows up off-schedule. Waves 10–19 are
+ *   capped at their one scheduled boss, veteran or not.
  *
  * Pure: the same `rng` yields the same bosses, which is what lets the Start Wave
  * preview promise exactly what will spawn.
@@ -69,8 +78,9 @@ export function rollWaveBosses(
 
   if (isBossWave(wave)) out.push(unseen.length ? unseen[0] : pick());
 
-  // Extras are the endgame regime — they only unlock once nothing is left to meet.
-  if (!unseen.length && rng() < EXTRA_BOSS_CHANCE) {
+  // Extras are the endgame regime — they only unlock once nothing is left to meet,
+  // and not before EXTRA_BOSS_MIN_WAVE, so the first boss wave is never a pile-up.
+  if (!unseen.length && wave >= EXTRA_BOSS_MIN_WAVE && rng() < EXTRA_BOSS_CHANCE) {
     const extra = Math.floor(rng() * (EXTRA_BOSS_MAX + 1)); // 0..MAX, so it can whiff
     for (let i = 0; i < extra; i++) out.push(pick());
   }
