@@ -326,6 +326,15 @@
     "clips": [
       "walk",
       "hurt",
+      "death",
+      "rage",
+      "charge"
+    ]
+  },
+  "scurrius": {
+    "npc": 7222,
+    "clips": [
+      "walk",
       "death"
     ]
   }

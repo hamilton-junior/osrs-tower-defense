@@ -160,6 +160,12 @@ const DEATH_TYPES = [
 ];
 const DEATH_SOUNDS: Record<string, string> = {};
 for (const t of DEATH_TYPES) DEATH_SOUNDS[t] = `${SND}/death_${t}.wav`;
+// Scurrius' Giant rats are not borrowing a stand-in: `rat` in this game *is* the
+// cache's Giant rat (NPC 2510), and Scurrius' own rat (7223) shares that rig and
+// that voice. One clip, two enemy types — so no second copy of the same bytes.
+// Scurrius himself has no entry: his sound id is not in the curated map (he
+// post-dates it), and the generic `death` fallback stands rather than a borrowed cry.
+DEATH_SOUNDS.giant_rat = DEATH_SOUNDS.rat;
 
 export const ASSETS = {
   spells: SPELL_ICONS,

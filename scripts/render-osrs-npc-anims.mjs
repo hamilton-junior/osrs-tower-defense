@@ -171,6 +171,26 @@ export async function buildNpcModel(cache, npcId) {
   const solid = models.filter(m => !isFlatPlane(m));
   const used = solid.length ? solid : models;
   const model = used.length === 1 ? used[0] : new ModelGroup(used).getMergedModel();
+
+  // --- Maya-rigged NPCs (post-2023 content: Scurrius, …) -------------------
+  // Both fixes below are read ONLY inside loadAnimation's `animMayaID != -1`
+  // branch, so classic frame-animated NPCs are provably unaffected.
+  //
+  // 1) `rev229` decides whether maya keyframes are read from index 22
+  //    (KEYFRAMES) or index 0 (FRAMES). ModelLoader stamps it onto each model
+  //    it loads, but ModelGroup.getMergedModel() builds a *fresh*
+  //    ModelDefinition and never copies it — so a multi-part NPC ends up
+  //    undefined, reads index 0, and dies on "Archive N does not exist".
+  // 2) ModelDefinition.mergeWith() sizes its `animayaGroups`/`animayaScales`
+  //    fallback with the ALREADY-INCREMENTED `vertexCount`, then concatenates
+  //    the real per-vertex data on top — leaving the arrays longer than the
+  //    mesh and every vertex skinned to the wrong bone (geometry explodes).
+  //    The real data is the tail, so trim from the front.
+  model.rev229 = true;
+  for (const k of ['animayaGroups', 'animayaScales']) {
+    if (model[k]?.length > model.vertexCount) model[k] = model[k].slice(model[k].length - model.vertexCount);
+  }
+
   if (def.recolorToFind?.length) {
     const map = new Map();
     def.recolorToFind.forEach((f, i) => map.set(f & 0xffff, def.recolorToReplace[i] & 0xffff));

@@ -335,5 +335,12 @@
       "rage": true,
       "charge": true
     }
+  },
+  "scurrius": {
+    "npc": 7222,
+    "anims": {
+      "walk": 10690,
+      "death": 10705
+    }
   }
 }
