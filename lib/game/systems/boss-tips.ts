@@ -31,6 +31,8 @@ export const BOSS_TIPS: Record<BossId, string> = {
     'Summons Summoned Souls, each locking one combat style out against him. Which soul you must kill first depends on the board you built — check what your damage is made of.',
   hydra:
     'Opens a chemical vent at each health threshold: it hardens and regenerates until you burst through the vent. Sustained chip damage loses this fight; saved burst wins it.',
+  scurrius:
+    'A hit worth 5% of his max HP shears a rat off him and his own bar visibly drops by what it carries — and every 12 seconds he squeaks one loose even against chip damage. The rat wanders the board as aggro bait, then turns and runs home to refund whatever HP it still holds. Kill it before it gets back, or the shear bought you nothing; AoE that catches several at once turns the mechanic into free damage.',
 };
 
 /** The "how to kill" line for an enemy type, or undefined if it isn't a boss with one. */

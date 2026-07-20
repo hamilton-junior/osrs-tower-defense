@@ -1,5 +1,5 @@
 import type { EnemyAffix } from './systems/affixes';
-import type { BossState } from './systems/boss-mechanics';
+import type { BossState, RatPhase } from './systems/boss-mechanics';
 
 export type HitsplatType = 'melee' | 'ranged' | 'magic' | 'poison' | 'miss';
 
@@ -56,7 +56,7 @@ export interface Achievement {
   completed: boolean;
 }
 
-export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot' | 'brutus'
+export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot' | 'brutus' | 'scurrius' | 'giant_rat'
   // Superior Slayer monsters — in ENEMIES all along (waves can roll them), but they
   // were missing from this union, so nothing could name one in typed code.
   | 'superior_bloodveld' | 'superior_abyssal_demon' | 'superior_gargoyle' | 'superior_nechryael';
@@ -185,6 +185,14 @@ export interface Enemy extends EnemyDef {
    *  fly beside Dusk instead of inside him — two bosses on the same waypoints stack into
    *  one blob, and the pair has to read as a *pair*. */
   laneOffset?: number;
+  /** Scurrius's sheared rat: where it is in its short life. Absent on everything else.
+   *  A rat with a phase drives itself and does not walk the path. */
+  ratPhase?: RatPhase;
+  /** Seconds left in the current {@link ratPhase} (the `return` leg ends on arrival). */
+  ratTimer?: number;
+  /** The point this rat is currently skittering toward while wandering. */
+  ratTargetX?: number;
+  ratTargetY?: number;
   /** Overrides `type` for the baked-animation lookup only (sprite/clip slug),
    *  leaving combat/stats on `type`. Lets a Jad healer render the real Yt-HurKot
    *  model (`yt_hurkot`) once it's baked, falling back to `type`'s clip. */

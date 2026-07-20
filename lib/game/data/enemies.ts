@@ -348,6 +348,39 @@ export const ENEMIES: Record<string, EnemyDef> = {
     isBoss: true,
     resistance: 0.25
   },
+  scurrius: {
+    type: 'scurrius',
+    name: 'Scurrius',
+    // The tier-0 companion to Brutus. He needs a *deep* bar rather than a tough one:
+    // the fight is about the bar being split up, so it has to have enough in it to
+    // split. His real OSRS hitpoints are 500 (cache NPC 7222, stats[3]); the extra
+    // here buys the shear enough room to fire several times before the floor.
+    hp: 900,
+    speed: 40,
+    color: '#7d6b58',
+    reward: 340,
+    deathSound: 'boss',
+    isBoss: true,
+    resistance: 0.2
+  },
+  giant_rat: {
+    type: 'giant_rat',
+    // Sheared off Scurrius, so it lives on his Collection Log page rather than in the
+    // Monsters roster — it is not something a wave can send.
+    summonedBy: 'scurrius',
+    // The cache's Giant rat (NPC 7223) shares its rig with NPC 2510, which the game
+    // already ships baked as `rat`. Pointing at that slug costs no new asset work.
+    animSlug: 'rat',
+    renderScale: 0.9,
+    name: 'Giant Rat',
+    // Overwritten per-spawn from `scurriusRatHp` — this is only the table default.
+    hp: 54,
+    speed: 64,
+    color: '#8b8b8b',
+    // Deliberately small: the payoff for killing a rat is denying the refund, not gold.
+    // Inflating gold here would pay the player for the boss's own mechanic firing.
+    reward: 4
+  },
   giant_mole: {
     type: 'giant_mole',
     // The mole model is low and squat; scale up so it reads as a boss on the field.
@@ -514,7 +547,7 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   // Earth, straight off the wiki: Brutus carries a 25% elemental weakness to it.
   brutus: 'earth',
   // Air — agile, magical & ethereal
-  rat: 'air', ghost: 'air', skeletal_mage: 'air', dark_beast: 'air', zulrah: 'air',
+  rat: 'air', giant_rat: 'air', ghost: 'air', skeletal_mage: 'air', dark_beast: 'air', zulrah: 'air',
 };
 
 for (const [type, weakness] of Object.entries(WEAKNESSES)) {

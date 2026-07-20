@@ -46,13 +46,13 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geom
  * ledger of which ideas are taken and which are still open.
  */
 
-export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus';
+export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus' | 'scurrius';
 
 /** The bosses that carry phase mechanics: they get a {@link BossState} on spawn and
  *  roll boss modifiers once seen. The engine and the save sanitiser read this to decide
  *  who has state. */
 export const MECHANIC_BOSSES: readonly BossId[] = [
-  'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus', 'brutus',
+  'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus', 'brutus', 'scurrius',
 ];
 
 /**
@@ -66,7 +66,7 @@ export const MECHANIC_BOSSES: readonly BossId[] = [
  * `BossState` and has no business being drawn on its own.
  */
 export const SCHEDULABLE_BOSSES: readonly BossId[] = [
-  'brutus', 'giant_mole', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus', 'hydra',
+  'brutus', 'scurrius', 'giant_mole', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus', 'hydra',
 ];
 
 // ─────────────────────────────────── Zulrah ────────────────────────────────
@@ -1023,6 +1023,12 @@ export interface BossState {
   dashY?: number;
   /** Brutus: rampages completed, read out on the boss bar. */
   rampages?: number;
+  /** Scurrius: seconds before he may shear another rat. */
+  scurriusShearCooldown?: number;
+  /** Scurrius: counts down to the next guaranteed squeak. */
+  squeakTimer?: number;
+  /** Scurrius: rats shorn so far, read out on the boss bar. */
+  ratsShorn?: number;
   /** Stall breaker: the lowest HP fraction this boss has been driven to. */
   hpFloor?: number;
   /** Stall breaker: seconds since it last reached a new low. */
@@ -1059,6 +1065,11 @@ export function freshBossState(kind: BossId): BossState {
   }
   if (isGuardian(kind)) state.twinType = guardianTwin(kind);
   if (kind === 'cerberus') { state.soulSummons = 0; state.lockedStyles = []; }
+  if (kind === 'scurrius') {
+    state.scurriusShearCooldown = 0;
+    state.squeakTimer = SCURRIUS_SQUEAK_INTERVAL;
+    state.ratsShorn = 0;
+  }
   return state;
 }
 
