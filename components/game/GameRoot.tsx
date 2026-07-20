@@ -4089,6 +4089,12 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
             to hold for as long as the game is unfinished. Kept to one line under
             `compact` for the same height reason the blurbs are dropped there. */}
         <div className="rs-panel-inset p-[0.55em] mt-[0.8em] text-[0.72em] text-[#d3c3a0] leading-snug text-center">
+          <img
+            src={ASSETS.misc.winged_heart}
+            alt=""
+            className="w-[1.8em] h-[1.8em] object-contain inline-block align-middle mr-[0.4em]"
+            onError={hideBrokenImg}
+          />
           <span className="text-osrs-orange font-bold">Work in progress</span> — a passion project, still being
           built. Nothing here is final.
           {!compact && (

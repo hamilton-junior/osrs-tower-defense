@@ -399,6 +399,12 @@ export const ASSETS = {
     // offline. The other cache circle-slashes are world-map key icons and carry the
     // thing being prohibited baked in; this one is the bare sign.
     blocked: `${LOCAL}/ui/blocked.png`,
+    // A winged heart on a plum disc — frame 21 of the overhead-prayer headicon
+    // archive (440), the same archive the three protection overheads come from.
+    // Nothing prays it here; it is borrowed purely as a mark for the start
+    // screen's "passion project" notice, which is why it sits in ui/ and not
+    // prayers/ (a file in there is expected to be a prayer the game can cast).
+    winged_heart: `${LOCAL}/ui/winged_heart.png`,
     hit_splat: `${LOCAL}/hitsplats/hit.png`,          // red damage (1359)
     magic_hit_splat: `${LOCAL}/hitsplats/miss.png`,   // blue zero-splat (1358)
     poison_hit_splat: `${LOCAL}/hitsplats/poison.png`,// green (1360)
