@@ -121,16 +121,34 @@ All tunable; these are starting values.
 4. **A chip-damage board** → never triggers a shear; the squeak floor guarantees the boss
    still teaches AoE.
 
-## Fidelity risk (verify before writing code)
+## Cache verification — done 2026-07-20
 
-The local OSRS cache must be confirmed to hold **Scurrius** and **Giant rat** with usable
-walk / hurt / death sequences, plus his real elemental weakness from the infobox. Brutus is
-honest only because those came verified rather than remembered. **If Scurrius is not in the
-cache, the boss is not viable under the assets rule** and the roster falls back to General
-Graardor (axis G — his slam disables the towers that hurt him most recently, which reuses
-Jad's damage-event ring buffer keyed per tower).
+Checked against the local cache before committing to the design. **The boss is viable**;
+the Graardor fallback is not needed.
 
-Sequence ids are picked by the `npc-anim-auditor` agent, never by eye.
+| Finding | Detail |
+|---|---|
+| Scurrius exists | NPC **7221** (lvl 250) · **7222** (lvl 200, `stats[3] = 500` HP — the real fight) · 15548 · 15695. All `size = 3`. |
+| His rig | `standingAnimation 10687` · `walkingAnimation 10690` · `runAnimation 10691` |
+| The rat is **already in the tree** | The game's existing `rat` enemy *is* the cache's Giant rat (NPC **2510**), already baked to `public/assets/enemies/rat/` with walk 4931 / hurt 4934 / death 4935. Scurrius's own Giant rat (**7223**) shares the same rig (`walkingAnimation 4931`). |
+| `models = []` is not a problem | The Goblin (3029), baked and shipping, reads the same way. It is an artefact of `getDef`, not a missing model. |
+
+**Consequence for the plan: the swarm costs no asset work at all.** Only Scurrius himself
+needs baking.
+
+### One open asset item
+
+Scurrius has **no entry in the observed-anims oracle** (`scripts/data/openosrs-observed-anims.json`
+holds 3374 sparse entries up to id 9297; 7221 is not among them — he post-dates the dump).
+So his hurt/death ids need the **framemap-candidate** method used for Brutus:
+`scripts/find-npc-anim-candidates.mjs` across the block around 10687–10691, keeping only ids
+that share his framemap. This is the `npc-anim-auditor` agent's job — sequence ids are never
+picked by eye.
+
+### Not sourceable from the cache
+
+His **elemental weakness** comes from the wiki infobox, not the cache (Brutus's Earth 25%
+did too). It is unresolved and must not be guessed — confirm it before the stat block lands.
 
 ## What it touches
 
