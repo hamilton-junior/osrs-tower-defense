@@ -4083,6 +4083,21 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
           <div className="text-[#cdbe91] text-[0.85em] mt-[0.4em]">{saved ? 'Continue where you left off' : 'Choose your mode'}</div>
         </div>
 
+        {/* Says out loud what the game is: a hobby project that is still moving. It
+            is not a first-run tip and never gets dismissed — a returning player is
+            exactly who the "check the updates" half is for, and the disclaimer has
+            to hold for as long as the game is unfinished. Kept to one line under
+            `compact` for the same height reason the blurbs are dropped there. */}
+        <div className="rs-panel-inset p-[0.55em] mt-[0.8em] text-[0.72em] text-[#d3c3a0] leading-snug text-center">
+          <span className="text-osrs-orange font-bold">Work in progress</span> — a passion project, still being
+          built. Nothing here is final.
+          {!compact && (
+            <> Towers, bosses and balance change between visits, so keep an eye on{' '}
+              {FEEDBACK_ENABLED ? <span className="text-osrs-yellow">💬 Recent updates</span> : <span className="text-osrs-yellow">the updates list</span>}.
+            </>
+          )}
+        </div>
+
         {/* A run left in progress: resume it at the wave it was saved on, board intact. */}
         {saved && (
           <div className="rs-panel-inset p-[0.7em] mt-[0.8em] flex flex-col gap-[0.5em]">
