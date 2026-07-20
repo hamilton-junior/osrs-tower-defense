@@ -32,7 +32,7 @@ export const BOSS_TIPS: Record<BossId, string> = {
   hydra:
     'Opens a chemical vent at each health threshold: it hardens and regenerates until you burst through the vent. Sustained chip damage loses this fight; saved burst wins it.',
   scurrius:
-    'A hit worth 5% of his max HP shears a rat off him and his own bar visibly drops by what it carries — and every 12 seconds he squeaks one loose even against chip damage. The rat wanders the board as aggro bait, then turns and runs home to refund whatever HP it still holds. Kill it before it gets back, or the shear bought you nothing; AoE that catches several at once turns the mechanic into free damage.',
+    'Every heavy hit splits a Giant rat off him, carrying health out of his own bar — so burst alone just turns one big target into several small ones. The rats scatter across the board and then run back to him, handing the health straight back, so kill them before they arrive. Bring something that hits more than one thing at a time.',
 };
 
 /** The "how to kill" line for an enemy type, or undefined if it isn't a boss with one. */
