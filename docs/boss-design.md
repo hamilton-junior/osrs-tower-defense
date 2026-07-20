@@ -104,6 +104,9 @@ watched him run through it) and a visible state, or it does not belong in the ga
   a 1.2s cooldown so one AoE volley cannot make five, and a 12s squeak that guarantees
   the lesson lands even against pure chip damage. Rats are **not escorts** — they outlive
   him, and one still alive when he dies walks the road and costs a life like anything else.
+  **Elemental weakness: Air** — a deviation, unlike Brutus's. OSRS gives him none; the
+  table gives him his own species' element so he is not the one boss it skips. It means
+  an Air wizard is paid on both halves of the fight, and shearing hands it more targets.
 - **Verzik Vitur** — at a threshold she **breaks into her Nylocas swarm** and becomes
   untargetable until the swarm is cleared. Same family as Scurrius but inverted: the adds
   are not a distraction, they are the boss.

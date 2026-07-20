@@ -548,6 +548,12 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   brutus: 'earth',
   // Air — agile, magical & ethereal
   rat: 'air', giant_rat: 'air', ghost: 'air', skeletal_mage: 'air', dark_beast: 'air', zulrah: 'air',
+  // A deviation: OSRS gives Scurrius no elemental weakness at all. Leaving him blank
+  // would make him the one boss the table skips, and it would read as an oversight
+  // rather than a decision — every rat in the game is Air, including the ones he
+  // shears off himself. Note the consequence: an Air wizard is paid the bonus on
+  // both halves of the encounter, so shearing hands it *more* favoured targets.
+  scurrius: 'air',
 };
 
 for (const [type, weakness] of Object.entries(WEAKNESSES)) {
