@@ -2,6 +2,20 @@
   "generatedAt": "2026-07-20",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "The wave preview no longer grows into a wall you can't build under",
+      "fromFeedback": true,
+      "date": "2026-07-19"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The red that warns you is the bright one everywhere, not the maroon",
+      "fromFeedback": false,
+      "date": "2026-07-19"
+    },
+    {
       "kind": "balanced",
       "scope": "bosses",
       "text": "Waves 10-19 stay a single boss, so a veteran run cannot open with a pile-up",
@@ -264,20 +278,6 @@
       "kind": "new",
       "scope": "ui",
       "text": "OSRS stack notation, swapped priority icons, leaner loadout panel",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "fixed",
-      "scope": "boss",
-      "text": "A revived Dusk no longer summons a second Dawn",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Gold wears OSRS's stack colours",
       "fromFeedback": false,
       "date": "2026-07-17"
     }

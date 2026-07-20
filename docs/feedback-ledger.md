@@ -36,7 +36,7 @@ not built · `recheck` — needs verification against current code before acting
 | 6 | Unable to break hydra vent | shipped |
 | 7 | Hydra too hard in classic mode | shipped |
 | 8 | Typo "loose" → "lose" (dragon knife card) | shipped |
-| 9 | Cannot place towers at top of map | shipped — panel-ghost fix (`5b744bc`); **recheck** B1 (report #18 "can't place past column ~13/14") |
+| 9 | Cannot place towers at top of map | shipped — panel-ghost fix (`5b744bc`) + the wave strip capped so it stops growing into a wall over the board (`d815c10`, closes B1) |
 | 10 | Dawn/Dusk revive into three bosses | shipped — revive loop closed (`29382f0`, an escaped Guardian stays gone); the pair's kill order is now spelled out on the boss itself (`a0aff14`) |
 | 11 | Vorkath tick-eating with Regenerating affix | shipped — `2c73dd2` (stalled regen heal dries up) |
 | 12 | Infinite slayer points via task extend | shipped — `a1a9f1b` |
@@ -61,7 +61,7 @@ not built · `recheck` — needs verification against current code before acting
 | 14 | Wave 300+ clear feedback | shipped |
 | 16 | Accidentally selling towers | shipped — confirm step |
 | 17 | Alongar mapa (Bruno) | queued → **M7** map selection / bigger map |
-| 18 | Big TD fan, long list | mostly shipped; leftover **B1** placement recheck (bug #9 row) |
+| 18 | Big TD fan, long list | complaints shipped (movable panels, tower niches, placement `d815c10`); **stays Planned** in NocoDB — two of its asks are still backlog: tower fusion (**M6**) and a gold sink (**M5**) |
 | 19 | Improvements to balancing | shipped |
 | 20 | Hotkeys | shipped |
 | 21 | Upgrade All Towers | shipped — group auto-upgrade, cheapest-first |
@@ -75,7 +75,9 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
 
 1. **M3** protection-prayer boss/elite affix — *shipped* `3b03906`.
 2. **M8** arrow-key grid placement — *shipped* `3b03906`.
-3. **B1** — verify last (bug #9 / suggestion #18).
+3. **B1** — *shipped* `d815c10`: the next-wave strip grew one entry per enemy type, so a
+   deep run turned it into a panel spanning the top of the board that ate the clicks
+   meant for the ground under it. Capped at twelve entries + "+N more".
 4. **Boss clarity & balance** (suggestions #22, #23, bug #10) — *shipped in full*:
    Dusk/Dawn revive loop, Mole dig frequency, visible HP-loss-on-leak, the per-boss
    "how to kill" text and the multi-boss floor (now wave 20).
