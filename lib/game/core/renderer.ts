@@ -1269,6 +1269,28 @@ export class GameRenderer {
     // Jad (if present) — its healers draw a heal-beam back to it.
     const jad = this.e.enemies.find((en) => en.bossState?.kind === 'jad');
 
+    // Scurrius: a rat on its way home is about to hand his health back. Nothing else in
+    // the fight would show that, and a boss bar that rises for no visible reason reads as
+    // a bug rather than as a mechanic — so the rat is leashed to him while it returns.
+    for (const e of this.e.enemies) {
+      if (e.ratPhase !== 'return' || !e.ownerId) continue;
+      const king = this.e.enemies.find((o) => o.id === e.ownerId);
+      if (!king) continue;
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = '#48d04a';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      // gameTime is private to GameEngine; performance.now() gives the same crawl
+      // (unpaused, like every other pulse/animation timer in this file) without it.
+      ctx.lineDashOffset = -((performance.now() / 1000) * 30) % 12;
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(king.x, king.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     for (const e of this.e.enemies) {
       // The Giant Mole is underground: no body, no HP bar, no overlays — only the
       // churning mound. The engine has already moved it to where it will surface, so
