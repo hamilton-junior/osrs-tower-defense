@@ -2,6 +2,20 @@
   "generatedAt": "2026-07-20",
   "entries": [
     {
+      "kind": "balanced",
+      "scope": "bosses",
+      "text": "Waves 10-19 stay a single boss, so a veteran run cannot open with a pile-up",
+      "fromFeedback": true,
+      "date": "2026-07-19"
+    },
+    {
+      "kind": "new",
+      "scope": "bosses",
+      "text": "Every boss now tells you how it is meant to be killed",
+      "fromFeedback": true,
+      "date": "2026-07-19"
+    },
+    {
       "kind": "updated",
       "scope": "debug",
       "text": "Sort the custom-wave roster by name, bosses last",
@@ -264,20 +278,6 @@
       "kind": "new",
       "scope": "ui",
       "text": "Gold wears OSRS's stack colours",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Ctrl+C/Ctrl+V copies a tower layout and rebuilds it",
-      "fromFeedback": false,
-      "date": "2026-07-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Shift+drag paints a line of towers, releasing Shift buys it",
       "fromFeedback": false,
       "date": "2026-07-17"
     }
