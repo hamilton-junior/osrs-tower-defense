@@ -2682,7 +2682,8 @@ export default function GameRoot() {
               <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.3em]">✦ How reward cards work</div>
               <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.55em]">
                 Keep <b>one</b> card to snowball your build — potions, weapons and rule-changing boons.
-                Hover a card to preview exactly what it does; duplicates stack. Rolls are bought with gold
+                Hover a card to preview exactly what it does; duplicates stack. A card badged <b>NEW</b> is one
+                you have never kept — it is missing from your Collection Log. Rolls are bought with gold
                 and each one costs more, so spend against your towers. Beating a <b>boss</b> pays a <b>Relic</b>.
               </p>
               <button className="rs-btn px-[0.9em] py-[0.2em] text-[0.8em]" onClick={() => markTipSeen('draft')}>Got it ✓</button>
@@ -2703,6 +2704,7 @@ export default function GameRoot() {
                   <DraftCardView
                     card={card}
                     large
+                    unseen={!(ui.cardCounts[card.id] > 0)}
                     onPick={() => pickCard(card.id)}
                     ctx={{ runMods: ui.runMods, slayerPoints: ui.slayerPoints, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
                   />
@@ -3521,7 +3523,7 @@ function bandStyle(base: string, grow: number): React.CSSProperties {
  * `locked`/`count` drive the collection-log silhouette + lifetime pick tally;
  * `fill` makes the card stretch to its grid cell instead of a fixed width.
  */
-function DraftCardView({ card, onPick, ctx, locked, count, fill, large }: {
+function DraftCardView({ card, onPick, ctx, locked, count, fill, large, unseen }: {
   card: DraftCard;
   onPick?: () => void;
   ctx?: PreviewCtx;
@@ -3530,6 +3532,9 @@ function DraftCardView({ card, onPick, ctx, locked, count, fill, large }: {
   fill?: boolean;
   /** Enlarge the whole card (the draft-selection overlay) so it reads at a glance. */
   large?: boolean;
+  /** This card has never been drafted on this account — badge it, so a collection-log
+   *  gap is visible at the one moment the player can actually close it. */
+  unseen?: boolean;
 }) {
   const color = RARITY_COLOR[card.rarity];
   const foil = card.rarity === 'ultra' && !locked;
@@ -3598,6 +3603,16 @@ function DraftCardView({ card, onPick, ctx, locked, count, fill, large }: {
           style={{ fontSize: fs('clamp(8px,0.66vw,11px)'), textShadow: '0 1px 2px #000', background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '0 0.3em' }}
         >
           × {fmt(count)}
+        </span>
+      )}
+      {/* Mirrors the ×count badge on the right: that one says "you have this", this one
+          says "you don't". Sits opposite it so a card can carry either, never both. */}
+      {unseen && (
+        <span
+          className="absolute top-[2px] left-[2px] font-osrs text-osrs-yellow"
+          style={{ fontSize: fs('clamp(8px,0.66vw,11px)'), textShadow: '0 1px 2px #000', background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '0 0.3em' }}
+        >
+          NEW
         </span>
       )}
       {foil && <span className="draft-foil" aria-hidden />}
@@ -3823,7 +3838,7 @@ const TLDR: TldrGroup[] = [
     'Prayer — toggle buffs or base protection; drains a pool that refills between waves.',
     'Slayer — auto-assigned kill tasks pay points for the Slayer Rewards shop, where you can extend, halve, skip or block the task, or buy the Slayer Helmet (imbue it in the same slot). Superior monsters count toward their base task. It tracks in the Slayer tab.',
     'Essence — earned every wave and kept forever; spend it in the Essence Shop on permanent upgrades.',
-    'Roguelite — between waves, buy card rolls with gold (each roll costs more than the last) and keep one card; beating a boss claims a Relic.',
+    'Roguelite — between waves, buy card rolls with gold (each roll costs more than the last) and keep one card; beating a boss claims a Relic. A card you have never kept is badged NEW, so you can see a Collection Log gap while you can still close it.',
   ] },
   { h: 'Controls', lines: [
     '1-6 pick a tower from the dock (tap the same number to buy another) · with a tower picked, the Arrow keys move a placement cursor and Enter drops it there · Shift+drag paint a build line, release Shift to price it up and confirm · drag a box to multi-select · Ctrl+C copy the selection, Ctrl+V paste it · U upgrade what is selected · S sell it (asks first) · Space start wave · Esc pause / cancel · , / . slower / faster · Z/X/C jump to 1× / 2× / 5× · Q/W/E/R swap a wizard’s spell · M mute · Ctrl+′ debug console.',
