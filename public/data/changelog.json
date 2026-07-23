@@ -1,6 +1,13 @@
 {
-  "generatedAt": "2026-07-20",
+  "generatedAt": "2026-07-23",
   "entries": [
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The work-in-progress notice uses the dimmed Redemption heart",
+      "fromFeedback": false,
+      "date": "2026-07-23"
+    },
     {
       "kind": "updated",
       "scope": "ui",
@@ -271,13 +278,6 @@
       "kind": "updated",
       "scope": "roguelite",
       "text": "Rename Soul Stealer to Soul Eater and drop the redundant Soul Split card",
-      "fromFeedback": true,
-      "date": "2026-07-18"
-    },
-    {
-      "kind": "faster",
-      "scope": "engine",
-      "text": "A packed board with Clan Vexillum no longer tanks the frame rate",
       "fromFeedback": true,
       "date": "2026-07-18"
     }
