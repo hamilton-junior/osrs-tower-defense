@@ -6,6 +6,9 @@ import {
   rollRelicChoice,
   shouldExecute,
   interestGain,
+  soulStealKills,
+  soulStealAddChance,
+  SOUL_STEAL_BASE_KILLS,
 } from './relics';
 
 /** A deterministic RNG that yields the given sequence, then 0 forever. */
@@ -28,14 +31,32 @@ describe('RELICS pool', () => {
 });
 
 describe('Soul Eater', () => {
-  it('heals on a kill, not a schedule: guaranteed on bosses, a small chance on adds', () => {
+  it('heals on a kill, not a schedule: guaranteed on bosses, hundreds of kills otherwise', () => {
     const relic = RELICS.find(r => r.id === 'soul_stealer');
     expect(relic?.effect.kind).toBe('soulSteal'); // a boss-guaranteed on-kill heal, not an every-Nth-kill schedule
     if (relic?.effect.kind === 'soulSteal') {
       expect(relic.effect.bossHeal).toBe(1);
-      expect(relic.effect.addChance).toBeGreaterThan(0);
-      expect(relic.effect.addChance).toBeLessThanOrEqual(0.15); // a small chance, not a heal-farm
+      expect(relic.effect.addKills).toBeGreaterThanOrEqual(100);
     }
+  });
+
+  it('is a mythic — it rewrites the run, and used to make every healing card pointless', () => {
+    expect(RELICS.find(r => r.id === 'soul_stealer')?.tier).toBe('mythic');
+  });
+
+  it('gets hungrier as the waves climb, so bigger hordes do not refund the rarity', () => {
+    expect(soulStealKills(SOUL_STEAL_BASE_KILLS, 1)).toBe(SOUL_STEAL_BASE_KILLS);
+    expect(soulStealKills(SOUL_STEAL_BASE_KILLS, 100))
+      .toBeGreaterThan(soulStealKills(SOUL_STEAL_BASE_KILLS, 20));
+    // The old flat 10% is the thing this must never be again.
+    expect(soulStealAddChance(SOUL_STEAL_BASE_KILLS, 1)).toBeLessThanOrEqual(0.01);
+    expect(soulStealAddChance(SOUL_STEAL_BASE_KILLS, 300))
+      .toBeLessThan(soulStealAddChance(SOUL_STEAL_BASE_KILLS, 1));
+  });
+
+  it('never divides by zero, however the base is configured', () => {
+    expect(soulStealKills(0, 1)).toBeGreaterThan(0);
+    expect(Number.isFinite(soulStealAddChance(0, 1))).toBe(true);
   });
 });
 

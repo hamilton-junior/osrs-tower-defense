@@ -28,7 +28,7 @@ import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { essenceForWave } from '../systems/meta-progression';
 import { rollDraft, availableCards, cardRollCost, DRAFT_POOL, RARITY_WEIGHT, BOOSTED_RARITY_WEIGHT, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import {
-  rollRelicChoice, shouldExecute, interestGain, RELICS,
+  rollRelicChoice, shouldExecute, interestGain, soulStealAddChance, RELICS,
   type Relic, type RelicEffect,
 } from '../systems/relics';
 import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
@@ -144,7 +144,7 @@ export interface RunEffects {
   // on-kill chain reactions
   ricochet: { frac: number; radius: number } | null;
   overkill: { radius: number } | null;
-  soulSteal: { bossHeal: number; addChance: number } | null; // Soul Eater relic: on-kill heal
+  soulSteal: { bossHeal: number; addKills: number } | null; // Soul Eater relic: on-kill heal
   killStreak: { every: number; damage: number } | null;
   killTally: number;                                   // lifetime kills, drives the two above
   // risk / reward curses
@@ -4658,12 +4658,15 @@ export class GameEngine {
   private onKillChains(x: number, y: number, dealt: number, overkillDmg: number, depth: number, isBoss: boolean) {
     const fx = this.runFx;
     fx.killTally += 1;
-    // Soul Eater (relic): a boss kill always restores a life; an add kill has a
-    // small chance to. Only ever fires from a kill (this method), so leaking a boss
-    // never heals — you have to actually put it down. The boss guarantee + rare add
-    // roll rewards playing the mechanics instead of farming lives off the horde.
+    // Soul Eater (relic): a boss kill always restores a life; a lesser kill pays into
+    // it at a price of hundreds, climbing with the wave (`soulStealAddChance`). Only
+    // ever fires from a kill (this method), so leaking a boss never heals — you have to
+    // actually put it down. The boss guarantee is the relic; the horde is a rounding
+    // error, which is what keeps the healing cards in the draft pool worth taking.
     if (fx.soulSteal && this.lives < this.maxLives) {
-      const heal = isBoss ? fx.soulSteal.bossHeal : (Math.random() < fx.soulSteal.addChance ? 1 : 0);
+      const heal = isBoss
+        ? fx.soulSteal.bossHeal
+        : (Math.random() < soulStealAddChance(fx.soulSteal.addKills, this.wave) ? 1 : 0);
       if (heal > 0) {
         this.lives = Math.min(this.maxLives, this.lives + heal);
         this.spawnHealFx(x, y);
@@ -4917,7 +4920,7 @@ export class GameEngine {
       case 'range': this.applyStyleMult(this.runMods.range, e.mult, e.style); break;
       case 'fireRate': this.applyStyleMult(this.runMods.fireRate, e.mult, e.style); break;
       case 'goldFind': this.runFx.goldMult *= e.mult; break;
-      case 'soulSteal': this.runFx.soulSteal = { bossHeal: e.bossHeal, addChance: e.addChance }; break;
+      case 'soulSteal': this.runFx.soulSteal = { bossHeal: e.bossHeal, addKills: e.addKills }; break;
       case 'maxLife': this.maxLives += e.amount; this.lives += e.amount; break;
       case 'multi': for (const sub of e.effects) this.applyRelicEffect(sub); break;
     }

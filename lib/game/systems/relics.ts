@@ -45,7 +45,7 @@ export type RelicEffect =
   | { kind: 'fireRate'; mult: number; style?: CombatStyle }
   | { kind: 'range'; mult: number; style?: CombatStyle }
   | { kind: 'goldFind'; mult: number }
-  | { kind: 'soulSteal'; bossHeal: number; addChance: number }
+  | { kind: 'soulSteal'; bossHeal: number; addKills: number }
   | { kind: 'maxLife'; amount: number }
   | { kind: 'multi'; effects: RelicEffect[] };
 
@@ -58,6 +58,31 @@ export interface Relic {
   /** Icon URL (real in-game item art, hot-linked like the draft cards). */
   icon: string;
   effect: RelicEffect;
+}
+
+// ───────────────────────────── Soul Eater's appetite ────────────────────────
+/**
+ * Soul Eater used to roll a flat 10% on every non-boss kill, which at a horde's
+ * kill rate meant lives simply never went down — and that quietly deleted every
+ * healing card in the draft pool, because nothing in it could compete with
+ * "infinite lives". It is a *mythic* now, and its appetite is measured in
+ * hundreds of kills rather than tens, growing with the wave so the late game's
+ * far larger hordes don't hand it back what the rarity took away.
+ */
+/** Lesser kills a life costs on wave 1. */
+export const SOUL_STEAL_BASE_KILLS = 100;
+/** Extra kills it demands per wave — the late game kills far more per wave, so a
+ *  fixed price would drift back into the old free-lives problem. */
+export const SOUL_STEAL_KILLS_PER_WAVE = 2;
+
+/** Lesser kills Soul Eater charges for one life at `wave`. */
+export function soulStealKills(baseKills: number, wave: number): number {
+  return Math.max(1, baseKills + Math.max(0, wave - 1) * SOUL_STEAL_KILLS_PER_WAVE);
+}
+
+/** The per-kill roll that averages out to {@link soulStealKills}. */
+export function soulStealAddChance(baseKills: number, wave: number): number {
+  return 1 / soulStealKills(baseKills, wave);
 }
 
 /** Selection weight per tier — minors are the backbone, a mythic is a rare clutch. */
@@ -100,9 +125,9 @@ export const RELICS: readonly Relic[] = [
   { id: 'treasure_hunter', name: 'Treasure Hunter', tier: 'minor',
     desc: 'Slain enemies drop 30% more gold.',
     icon: itemIcon('reward_casket_elite'), effect: { kind: 'goldFind', mult: 1.3 } },
-  { id: 'soul_stealer', name: 'Soul Eater', tier: 'minor',
-    desc: 'Every boss you slay restores a life — adds also have a 10% chance.',
-    icon: itemIcon('soul_rune'), effect: { kind: 'soulSteal', bossHeal: 1, addChance: 0.1 } },
+  { id: 'soul_stealer', name: 'Soul Eater', tier: 'mythic',
+    desc: 'Every boss you slay restores a life. Lesser kills feed it too, but it takes hundreds — and more as the waves climb.',
+    icon: itemIcon('soul_rune'), effect: { kind: 'soulSteal', bossHeal: 1, addKills: SOUL_STEAL_BASE_KILLS } },
   { id: 'brawlers_resolve', name: "Brawler's Resolve", tier: 'minor',
     desc: '+2 maximum lives (and heal 2 now).',
     icon: itemIcon('justiciar_chestguard'), effect: { kind: 'maxLife', amount: 2 } },

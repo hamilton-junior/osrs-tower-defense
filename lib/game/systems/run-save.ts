@@ -80,7 +80,7 @@ export interface RunSave {
 
 /** Bump when a field's meaning changes — an older save is then discarded rather
  *  than half-read into a run that would misbehave. */
-export const RUN_SAVE_VERSION = 1;
+export const RUN_SAVE_VERSION = 2;
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
