@@ -10,7 +10,7 @@ import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
 import {
   ZULRAH_PHASES, hydraPhase, hydraBreakTarget, HYDRA_VENT_SECS,
   moleIsHidden, MOLE_UNDER_SECS, bossPhaseClip,
-  isGuardian, BOSS_STALL_MAX_STACKS, phaseResistedStyles,
+  isGuardian, STALL_MAX_STACKS, phaseResistedStyles,
 } from '../systems/boss-mechanics';
 
 /** The Grotesque Guardians' shared stone: the tether, the bar caption and the revival
@@ -923,7 +923,7 @@ export class GameRenderer {
       ctx.font = "bold 12px 'RuneScape', Arial";
       ctx.fillStyle = '#ffcb05';
       ctx.fillText(
-        `BREAKING FREE ${stacks}/${BOSS_STALL_MAX_STACKS} — it is shrugging off your control!`,
+        `BREAKING FREE ${stacks}/${STALL_MAX_STACKS} — it is shrugging off your control!`,
         w / 2, below + 11,
       );
       below += 18;

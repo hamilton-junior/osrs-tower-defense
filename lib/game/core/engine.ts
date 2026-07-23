@@ -49,7 +49,7 @@ import {
   HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT,
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
-  stepBossStall, stallTenacityBonus, stallHealMult, escortDamageMult, type BossState,
+  stepStall, stallTenacityBonus, stallHealMult, escortDamageMult, type BossState,
   isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin,
   GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
   cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
@@ -2521,7 +2521,7 @@ export class GameEngine {
       const st = e.bossState;
       if (!st) continue;
       st.timer += dt;
-      this.stepStall(e, st, dt);
+      this.stepStallClock(e, dt);
       if (st.kind === 'zulrah') {
         const idx = zulrahPhaseIndex(st.timer);
         if (idx !== st.phaseIndex) {
@@ -2574,12 +2574,20 @@ export class GameEngine {
    * gets left alone. When it isn't, the boss starts shrugging off control and its
    * healing dries up, until it is either dead or walking. Both are endings.
    *
-   * It only counts while the boss is under fire (`sinceHit`). A boss nobody is shooting
+   * It only counts while the enemy is under fire (`sinceHit`). One nobody is shooting
    * isn't stuck — it is on its way to the base — so the clock never starts at the portal.
+   *
+   * **This is not a boss-only guarantee.** It was written for bosses, but the deadlock it
+   * prevents needs neither a boss nor a healer: any enemy whose regeneration matches the
+   * board's damage sits at a fixed HP forever, and a stun tower chain keeps it from
+   * walking off, so the wave never ends. Every enemy runs the clock; a boss just keeps it
+   * inside its {@link BossState} (which it needs for its phases anyway) while everything
+   * else gets a bare {@link StallState} the first time this runs.
    */
-  private stepStall(e: Enemy, st: BossState, dt: number) {
+  private stepStallClock(e: Enemy, dt: number) {
+    const st = e.bossState ?? (e.stall ??= { hpFloor: 1, stallTimer: 0, stallStacks: 0, sinceHit: Infinity });
     const before = st.stallStacks ?? 0;
-    const next = stepBossStall(
+    const next = stepStall(
       { hpFloor: st.hpFloor ?? 1, stallTimer: st.stallTimer ?? 0, stallStacks: before, sinceHit: st.sinceHit },
       e.hp / e.maxHp,
       dt,
@@ -2590,13 +2598,20 @@ export class GameEngine {
     st.sinceHit = next.sinceHit;
 
     if (next.stallStacks <= before) return;
-    // Announce only the first stack — after that the boss bar carries the count, and a
-    // toast every five seconds would bury the mechanic it is trying to explain.
-    if (before === 0) {
+    // Announce only the first stack, and only for a boss — after that the boss bar carries
+    // the count, and a toast per stalled imp would bury the mechanic it is explaining.
+    // The ring still fires for anything, so a rank-and-file enemy shrugging off a stun
+    // reads as a thing that happened rather than as the tower breaking.
+    if (before === 0 && e.isBoss) {
       this.notify(`${e.name} is breaking free of your control!`);
       this.sound.play('wave', 60);
     }
     this.addRing(e.x, e.y, 8, 72, '#ffcb05', 0.4, 3);
+  }
+
+  /** The enemy's stall-breaker escalation, wherever it keeps it. */
+  private stallStacksOf(e: Enemy): number {
+    return e.bossState?.stallStacks ?? e.stall?.stallStacks ?? 0;
   }
 
   /**
@@ -3515,6 +3530,10 @@ export class GameEngine {
       if (e.spawnAnim && e.spawnAnim > 0) e.spawnAnim = Math.max(0, e.spawnAnim - dt);
       if (e.flashTimer && e.flashTimer > 0) e.flashTimer -= dt;
       e.animTime = (e.animTime ?? 0) + dt; // drives the looping walk-cycle
+      // Bosses are stepped by `handleBossMechanics` (they keep the clock in their own
+      // state); everything else is stepped here, before any of the `continue`s below,
+      // so a stunned or escorting enemy still escalates out of a stalemate.
+      if (!e.bossState) this.stepStallClock(e, dt);
       if (e.hurtAnim && e.hurtAnim > 0) e.hurtAnim = Math.max(0, e.hurtAnim - dt);
       if (e.sayTimer && e.sayTimer > 0) {
         e.sayTimer -= dt;
@@ -3528,13 +3547,14 @@ export class GameEngine {
         if (e.slowTimer <= 0) e.speed = e.baseSpeed;
       }
       if (e.vulnTimer && e.vulnTimer > 0) e.vulnTimer -= dt;
-      // Regenerating affix: claw back HP over time, capped at full health. A boss that
-      // has stalled dries this up through the stall breaker (`stallHealMult`) exactly as
-      // its own self-heals do — without it a Regenerating boss out-regens the board near
-      // 0 HP and "tick-eats" every hit, never dying (it only ever walks off). Non-boss
-      // enemies carry no stall state, so `stallHealMult(0)` leaves their regen untouched.
+      // Regenerating affix: claw back HP over time, capped at full health. An enemy that
+      // has stalled dries this up through the stall breaker (`stallHealMult`) exactly as a
+      // boss's own self-heals do — without it, anything whose regen matches the board's
+      // damage sits at a fixed HP and "tick-eats" every hit forever. That is not a
+      // boss-sized problem: a rank-and-file Regenerating enemy held by a stun tower does
+      // it too, and then the wave has no way to end at all.
       if (e.affixes) {
-        const regen = regenPerSec(e.affixes, e.maxHp, this.wave, e.isBoss) * stallHealMult(e.bossState?.stallStacks ?? 0);
+        const regen = regenPerSec(e.affixes, e.maxHp, this.wave, e.isBoss) * stallHealMult(this.stallStacksOf(e));
         if (regen > 0 && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + regen * dt);
       }
       if (e.stunTimer > 0) {
@@ -4117,7 +4137,7 @@ export class GameEngine {
       superior: e.type.startsWith('superior_'),
       wave: this.wave,
       debuffHits: e.debuffHits,
-      bonus: stallTenacityBonus(e.bossState?.stallStacks ?? 0),
+      bonus: stallTenacityBonus(this.stallStacksOf(e)),
     });
   }
 
@@ -4456,10 +4476,13 @@ export class GameEngine {
       // so its share of what actually landed is its share of the raw hit.
       if (source.bloodFrac) this.stats.recordEffect(owner, this.wave, { bloodBonusDmg: dealt * source.bloodFrac });
     }
-    // Stall breaker: a hit that lands is what marks a boss as *being fought*. Without
-    // this the clock would run from the moment it spawned, and a boss that simply walked
+    // Stall breaker: a hit that lands is what marks an enemy as *being fought*. Without
+    // this the clock would run from the moment it spawned, and anything that simply walked
     // in unopposed would arrive at the base already hardened against control.
-    if (dealt > 0 && enemy.bossState) enemy.bossState.sinceHit = 0;
+    if (dealt > 0) {
+      const stall = enemy.bossState ?? enemy.stall;
+      if (stall) stall.sinceHit = 0;
+    }
     // Brutus: damage is what provokes him. Banked here rather than sampled from his HP so
     // that healing (a Regenerating affix, a Guardian revive) cannot un-anger him — what he
     // reacts to is being hit, not what his health bar currently reads.

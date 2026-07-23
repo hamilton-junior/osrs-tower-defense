@@ -1,16 +1,17 @@
 import { describe, it, expect } from 'vitest';
+import { debuffTenacity } from './tenacity';
 import {
-  stepBossStall,
-  bossStallStacks,
+  stepStall,
+  stallStacksFor,
   stallTenacityBonus,
   stallHealMult,
-  BOSS_STALL_GRACE,
-  BOSS_STALL_STEP,
-  BOSS_STALL_PROGRESS,
-  BOSS_STALL_MAX_STACKS,
-  BOSS_STALL_HEAL_PER_STACK,
-  BOSS_STALL_ENGAGE_WINDOW,
-  bossIsEngaged,
+  STALL_GRACE,
+  STALL_STEP,
+  STALL_PROGRESS,
+  STALL_MAX_STACKS,
+  STALL_HEAL_PER_STACK,
+  STALL_ENGAGE_WINDOW,
+  stallIsEngaged,
   type StallState,
   ZULRAH_PHASES,
   ZULRAH_PHASE_SECS,
@@ -794,7 +795,7 @@ describe('the stall breaker', () => {
     let s = from;
     for (let t = 0; t < secs; t += DT) {
       if (engaged) s = { ...s, sinceHit: 0 };
-      s = stepBossStall(s, hpAt(t), DT);
+      s = stepStall(s, hpAt(t), DT);
     }
     return s;
   };
@@ -808,9 +809,9 @@ describe('the stall breaker', () => {
   });
 
   it('escalates a boss whose HP is going nowhere', () => {
-    expect(run(BOSS_STALL_GRACE - 1, () => 1).stallStacks).toBe(0); // still in the grace period
-    expect(run(BOSS_STALL_GRACE + 1, () => 1).stallStacks).toBe(1);
-    expect(run(BOSS_STALL_GRACE + BOSS_STALL_STEP + 1, () => 1).stallStacks).toBe(2);
+    expect(run(STALL_GRACE - 1, () => 1).stallStacks).toBe(0); // still in the grace period
+    expect(run(STALL_GRACE + 1, () => 1).stallStacks).toBe(1);
+    expect(run(STALL_GRACE + STALL_STEP + 1, () => 1).stallStacks).toBe(2);
   });
 
   it('escalates the Hydra heal loop — the softlock this exists for', () => {
@@ -818,25 +819,25 @@ describe('the stall breaker', () => {
     // threshold, the vent heals it back above, and they strip it again — forever. HP
     // oscillates and never reaches a new low, so no progress is ever made.
     const s = run(90, (t) => 0.66 + 0.15 * Math.abs(Math.sin(t / 3)));
-    expect(s.stallStacks).toBe(BOSS_STALL_MAX_STACKS);
+    expect(s.stallStacks).toBe(STALL_MAX_STACKS);
     // At full stacks its self-heal is gone and it is CC-immune: the loop cannot continue.
     expect(stallHealMult(s.stallStacks)).toBe(0);
     expect(stallTenacityBonus(s.stallStacks)).toBeGreaterThanOrEqual(0.5);
   });
 
   it('drops every stack the moment the boss takes a real step down', () => {
-    const stalled = run(BOSS_STALL_GRACE + BOSS_STALL_STEP * 3, () => 1);
+    const stalled = run(STALL_GRACE + STALL_STEP * 3, () => 1);
     expect(stalled.stallStacks).toBeGreaterThan(1);
-    const freed = stepBossStall(stalled, 1 - BOSS_STALL_PROGRESS, DT);
+    const freed = stepStall(stalled, 1 - STALL_PROGRESS, DT);
     expect(freed.stallStacks).toBe(0);
     expect(freed.stallTimer).toBe(0);
-    expect(freed.hpFloor).toBeCloseTo(1 - BOSS_STALL_PROGRESS);
+    expect(freed.hpFloor).toBeCloseTo(1 - STALL_PROGRESS);
   });
 
   it('does not accept chip damage inside the noise as progress', () => {
     // Below the progress threshold the floor must hold, or a boss healing 15% a cycle
     // could reset the clock forever on the 0.5% it loses in between.
-    const s = stepBossStall({ hpFloor: 0.5, stallTimer: 30, stallStacks: 3 }, 0.5 - BOSS_STALL_PROGRESS / 2, DT);
+    const s = stepStall({ hpFloor: 0.5, stallTimer: 30, stallStacks: 3 }, 0.5 - STALL_PROGRESS / 2, DT);
     expect(s.hpFloor).toBe(0.5);
     expect(s.stallStacks).toBe(3);
   });
@@ -845,17 +846,17 @@ describe('the stall breaker', () => {
     // The report: the countdown began at the spawn portal, so a boss walking in
     // unopposed arrived already hardened against control. An untouched boss is not in
     // a stalemate — it is winning — and must be off the clock entirely.
-    const s = run(BOSS_STALL_GRACE * 4, () => 1, { hpFloor: 1, stallTimer: 0, stallStacks: 0 }, false);
+    const s = run(STALL_GRACE * 4, () => 1, { hpFloor: 1, stallTimer: 0, stallStacks: 0 }, false);
     expect(s.stallTimer).toBe(0);
     expect(s.stallStacks).toBe(0);
-    expect(bossIsEngaged(s.sinceHit)).toBe(false);
+    expect(stallIsEngaged(s.sinceHit)).toBe(false);
   });
 
   it('keeps counting through a brief lull, and stops once the fire really stops', () => {
-    const fighting = run(BOSS_STALL_GRACE + BOSS_STALL_STEP + 1, () => 1);
+    const fighting = run(STALL_GRACE + STALL_STEP + 1, () => 1);
     expect(fighting.stallStacks).toBe(2);
     // A gap shorter than the engage window is still the same fight.
-    const blink = stepBossStall({ ...fighting, sinceHit: BOSS_STALL_ENGAGE_WINDOW - 1 }, 1, DT);
+    const blink = stepStall({ ...fighting, sinceHit: STALL_ENGAGE_WINDOW - 1 }, 1, DT);
     expect(blink.stallStacks).toBe(2);
     expect(blink.stallTimer).toBeGreaterThan(fighting.stallTimer);
   });
@@ -863,13 +864,13 @@ describe('the stall breaker', () => {
   it('freezes the escalation when fire stops instead of refunding it', () => {
     // Freezing, not resetting: if disengaging wiped the stacks, a stalemated player could
     // hold fire for a moment and put the boss back to zero forever.
-    const stalled = run(BOSS_STALL_GRACE + BOSS_STALL_STEP * 3, () => 1);
+    const stalled = run(STALL_GRACE + STALL_STEP * 3, () => 1);
     const idle = run(60, () => 1, stalled, false);
     // A minute of silence buys at most the engage window, then the clock stops dead.
     expect(idle.stallTimer).toBeGreaterThanOrEqual(stalled.stallTimer);
-    expect(idle.stallTimer).toBeLessThanOrEqual(stalled.stallTimer + BOSS_STALL_ENGAGE_WINDOW);
+    expect(idle.stallTimer).toBeLessThanOrEqual(stalled.stallTimer + STALL_ENGAGE_WINDOW);
     // …and it resumes from there rather than from zero when the shooting starts again.
-    expect(run(BOSS_STALL_STEP * 2, () => 1, idle).stallStacks)
+    expect(run(STALL_STEP * 2, () => 1, idle).stallStacks)
       .toBeGreaterThan(stalled.stallStacks);
   });
 
@@ -879,10 +880,27 @@ describe('the stall breaker', () => {
   });
 
   it('caps the escalation', () => {
-    expect(bossStallStacks(BOSS_STALL_GRACE + BOSS_STALL_STEP * 99)).toBe(BOSS_STALL_MAX_STACKS);
-    expect(stallHealMult(BOSS_STALL_MAX_STACKS)).toBe(0); // floored, never negative
+    expect(stallStacksFor(STALL_GRACE + STALL_STEP * 99)).toBe(STALL_MAX_STACKS);
+    expect(stallHealMult(STALL_MAX_STACKS)).toBe(0); // floored, never negative
     expect(stallHealMult(0)).toBe(1);
-    expect(stallHealMult(1)).toBeCloseTo(1 - BOSS_STALL_HEAL_PER_STACK);
+    expect(stallHealMult(1)).toBeCloseTo(1 - STALL_HEAL_PER_STACK);
+  });
+
+  it('breaks the regen stalemate of a rank-and-file enemy, not just a boss', () => {
+    // Bugs #14/#17: the clock used to read a boss-only field, so a *normal* Regenerating
+    // enemy whose healing matched the board's damage never escalated. Held in place by a
+    // stun tower it could neither die nor walk off, and the wave never ended.
+    // Its HP oscillates around an equilibrium and never reaches a new low.
+    const s = run(90, (t) => 0.5 + 0.02 * Math.sin(t));
+    expect(s.stallStacks).toBe(STALL_MAX_STACKS);
+    // Both halves of the deadlock are answered. The regeneration is gone outright…
+    expect(stallHealMult(s.stallStacks)).toBe(0);
+    // …and the control that pinned it is cut hard, to outright immunity once the wave
+    // scaling has anything to add (a normal enemy's own tenacity climbs with the wave).
+    const stalled = (wave: number) =>
+      debuffTenacity({ wave, bonus: stallTenacityBonus(s.stallStacks) });
+    expect(stalled(20)).toBeGreaterThan(debuffTenacity({ wave: 20 }) + 0.5);
+    expect(stalled(100)).toBe(1); // late game: it shrugs off the stun entirely and walks
   });
 
   it('arms the clock on every fresh boss', () => {

@@ -1,5 +1,5 @@
 import type { EnemyAffix } from './systems/affixes';
-import type { BossState, RatPhase } from './systems/boss-mechanics';
+import type { BossState, RatPhase, StallState } from './systems/boss-mechanics';
 
 export type HitsplatType = 'melee' | 'ranged' | 'magic' | 'poison' | 'miss';
 
@@ -169,6 +169,11 @@ export interface Enemy extends EnemyDef {
   /** Per-boss phase/mechanic state (Zulrah forms, Vorkath ice, Jad heal window);
    *  set on boss spawn, driven by `GameEngine.handleBossMechanics`. */
   bossState?: BossState;
+  /** The stall-breaker clock for an enemy that is *not* a boss — a boss folds the same
+   *  fields into its {@link bossState}. Created on the enemy's first frame. Without it,
+   *  anything whose regeneration matches the board's damage can never die, and a stun
+   *  chain means it never walks off either, so the wave has no way to end. */
+  stall?: StallState;
   /** A boss's companion: it orbits its {@link ownerId} instead of walking the path, so
    *  it never leaks, and it awards nothing on death — the payoff for killing it is
    *  whatever it was doing for its boss. Jad's Yt-HurKot healers and Cerberus's Summoned
