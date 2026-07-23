@@ -399,11 +399,11 @@ export const ASSETS = {
     // offline. The other cache circle-slashes are world-map key icons and carry the
     // thing being prohibited baked in; this one is the bare sign.
     blocked: `${LOCAL}/ui/blocked.png`,
-    // Redemption's headicon — a heart on the game's gold disc, frame 5 of the same
-    // 440 archive the three protection overheads come from, so it carries the same
-    // backdrop they do. Nothing prays it here; it is borrowed as the mark on the
-    // start screen's "passion project" notice, which is why it sits in ui/ and not
-    // prayers/ (a file in there is expected to be a prayer the game can cast).
+    // Redemption's heart as the prayer book draws it un-activated: the bare symbol,
+    // dimmed, with none of the gold disc the overhead headicons carry. Nothing prays
+    // it here; it is borrowed as the mark on the start screen's "passion project"
+    // notice, which is why it sits in ui/ and not prayers/ (a file in there is
+    // expected to be a prayer the game can cast).
     redemption_heart: `${LOCAL}/ui/redemption_heart.png`,
     hit_splat: `${LOCAL}/hitsplats/hit.png`,          // red damage (1359)
     magic_hit_splat: `${LOCAL}/hitsplats/miss.png`,   // blue zero-splat (1358)
