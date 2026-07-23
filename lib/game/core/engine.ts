@@ -18,6 +18,7 @@ import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../systems/tower-identity';
 import { upgradeOrder } from '../systems/upgrades';
+import { changedState } from '../systems/ui-diff';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -780,6 +781,10 @@ export class GameEngine {
   private readonly spawnInterval = 0.7; // seconds between spawns
   private rafId = 0;
   private lastTime = 0;
+  /** Something asked for a UI push; the next frame's {@link flush} will serve it. */
+  private uiDirty = false;
+  /** The last snapshot handed to React, kept so {@link flush} can send only what moved. */
+  private lastSnapshot: UIState | null = null;
   private gameTime = 0; // accumulated simulated seconds (drives cooldowns)
   private realTime = 0; // accumulated real seconds spent playing (drives the run timer)
 
@@ -828,6 +833,8 @@ export class GameEngine {
         this.tickAutoUpgrade();
       }
       this.renderer.draw();
+      // One UI push per frame, after the sim has settled — see `emit`/`flush`.
+      this.flush();
       this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);
@@ -837,8 +844,39 @@ export class GameEngine {
     cancelAnimationFrame(this.rafId);
   }
 
+  /**
+   * Mark the UI snapshot stale. This does **not** talk to React: the real push
+   * happens once per frame in {@link flush}.
+   *
+   * It is called from the hot path — `damage()` fires it on every hit, and the
+   * rAF loop sub-steps `update()` `gameSpeed` times, so at 5× a busy frame used
+   * to build and hand React hundreds of ~60-key snapshots. Coalescing to one
+   * push per frame is what keeps the fast-forward speeds playable.
+   */
   private emit() {
-    this.onState({
+    this.uiDirty = true;
+  }
+
+  /**
+   * Push the UI snapshot, if anything marked it stale and anything in it moved.
+   *
+   * Two gates, and both matter: `uiDirty` skips the (small but non-zero) cost of
+   * rebuilding the snapshot on quiet frames, and {@link changedState} skips the
+   * far larger cost of a React render on frames where the engine changed only
+   * things the UI can't see — an enemy losing HP changes no key here until the
+   * kill actually lands.
+   */
+  private flush() {
+    if (!this.uiDirty) return;
+    this.uiDirty = false;
+    const snapshot = this.snapshot();
+    const patch = changedState(this.lastSnapshot, snapshot);
+    this.lastSnapshot = snapshot;
+    if (Object.keys(patch).length > 0) this.onState(patch);
+  }
+
+  private snapshot(): UIState {
+    return {
       money: this.money,
       lives: this.lives,
       maxLives: this.maxLives,
@@ -914,7 +952,7 @@ export class GameEngine {
       autoplaySecs: this.autoplaySecs,
       biomeName: this.biome.name,
       lifestealSeq: this.lifestealSeq,
-    });
+    };
   }
 
   /** Fire a collection-log-style unlock popup batch. Generic on purpose: any
