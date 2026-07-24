@@ -2463,7 +2463,9 @@ export default function GameRoot() {
                   </div>
                   <p className="text-[0.72em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
                     {SUPPORT_SPELLS[selectedTower.supportSpell ?? 'curse'].desc}.
-                    Always-on aura boosts nearby towers' range, speed &amp; damage too.
+                    Always-on aura boosts nearby towers' range, speed &amp; damage too — with
+                    diminishing returns, so the second wizard covering a tower is worth half
+                    the first, the third a quarter, and so on.
                   </p>
                 </>
               )}
@@ -4468,7 +4470,19 @@ function DpsView({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHoverTowe
             <span className="flex items-center justify-between gap-[0.4em]">
               <span className="truncate text-[0.8em]" style={{ color: r.isUtility ? '#c9a24a' : '#f0e6d2' }}>
                 {r.name}
-                {r.isUtility && <span className="text-[0.72em] text-[#9a8d70] ml-[0.3em]">(extra)</span>}
+                {/* A Utility wizard never fires, so this row is not damage it dealt —
+                    it is the extra its aura added to other towers' hits, peeled off
+                    their totals rather than added on top. Unlabelled, it read as
+                    "support is the top damage dealer" and invited spamming it, which
+                    the aura's diminishing returns silently punish. */}
+                {r.isUtility && (
+                  <span
+                    className="text-[0.72em] text-[#9a8d70] ml-[0.3em]"
+                    title="Extra damage this aura added to other towers' hits — not damage it dealt, and already deducted from their totals. The board total is unchanged."
+                  >
+                    (extra)
+                  </span>
+                )}
               </span>
               <span className="shrink-0 flex items-baseline gap-[0.5em]">
                 <span className="text-[0.82em] font-bold" style={{ color: '#ffd257' }}>{valLabel(r.damage)}</span>

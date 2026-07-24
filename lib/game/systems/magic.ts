@@ -107,7 +107,10 @@ export interface SupportSpec {
 
 export const SUPPORT_ORDER: SupportSpellId[] = ['curse', 'enfeeble', 'sanctity'];
 export const SUPPORT_SPELLS: Record<SupportSpellId, SupportSpec> = {
-  curse: { color: '#c77dff', label: 'Vulnerability', desc: 'Enemies in range take +25% damage', spell: 'Death_Charge' },
+  // "does not stack" is stated because players read the DPS panel and concluded the
+  // opposite: it is one timer on the enemy, so a second wizard casting it adds
+  // nothing at all. `sanctity` says "stacks per wizard" for the same reason.
+  curse: { color: '#c77dff', label: 'Vulnerability', desc: 'Enemies in range take +25% damage (does not stack — one wizard is enough)', spell: 'Death_Charge' },
   enfeeble: { color: '#7fe6ff', label: 'Enfeeble', desc: 'Enemies in range are slowed', spell: 'Undead_Grasp' },
   sanctity: { color: '#ffd24a', label: 'Prayer Ward', desc: 'Cuts your active Prayer drain (stacks per wizard)', spell: 'Vile_Vigour' },
 };
