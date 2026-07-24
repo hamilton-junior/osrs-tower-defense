@@ -495,6 +495,14 @@ function loadNum(key: string, fallback: number): number {
  *  prayer bar) would scale. Panels then scale as one via their `em` children. */
 const fs = (base: string) => `calc(${base} * var(--ui-scale, 1))`;
 
+/** Bounds of that nudge. The ceiling is what the bottom bar can hold: past it the
+ *  bar's fixed-em controls no longer fit the row, so the group that may shrink
+ *  clips (see `data-tut="controls"`) rather than growing the bar or spilling over
+ *  the gold. Anything stored outside these bounds is clamped back on load. */
+const UI_SCALE_MIN = 0.7;
+const UI_SCALE_MAX = 1.6;
+const UI_SCALE_STEP = 0.1;
+
 /** Collapse state for a tray, persisted under `key` so it survives the bar body
  *  unmounting when another tab is selected — the tray remounts and its local
  *  state would otherwise reset to expanded every time. */
@@ -635,7 +643,11 @@ export default function GameRoot() {
   // base font-size (globals.css), applied as the `--ui-scale` CSS var the body
   // reads. Lets the player dial the whole em-based interface up/down for their
   // display without touching the browser zoom. Persisted; default 1.0 (100%).
-  const [uiScale, setUiScale] = useState(() => loadNum('ui_scale', 1));
+  // Clamped on read as well as on click: a value saved before these bounds existed
+  // (or hand-edited in localStorage) would otherwise restore a layout the bar cannot
+  // hold, with no way to see the control that fixes it.
+  const [uiScale, setUiScale] = useState(() =>
+    Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, loadNum('ui_scale', 1))));
   useEffect(() => {
     try { localStorage.setItem('ui_scale', String(uiScale)); } catch { /* ignore */ }
     document.documentElement.style.setProperty('--ui-scale', String(uiScale));
@@ -3117,7 +3129,14 @@ export default function GameRoot() {
             {/* Everything here is sized in `em` (no text-xs / px-2 rem classes) so
                 the whole cluster tracks the bar's fs() font — i.e. the UI − / +
                 control below actually resizes these buttons too. */}
-            <div data-tut="controls" className="flex flex-1 min-w-0 items-center gap-[0.25em]">
+            {/* `overflow-hidden` is load-bearing, not tidiness. This group is the only
+                one in the bar that may shrink (`min-w-0`), and its children are all
+                fixed-em: past ~120% interface size they used to spill out of it and
+                paint straight over the gold pile. Clipping keeps the bar legible, and
+                the one control you need to undo an over-large interface — the UI − / +
+                below — is deliberately a sibling of this group rather than a child, so
+                it is never the thing that gets cut off. */}
+            <div data-tut="controls" className="flex flex-1 min-w-0 items-center gap-[0.25em] overflow-hidden">
               <button
                 onClick={() => engineRef.current?.togglePause()}
                 title={ui.paused ? 'Resume' : 'Pause'}
@@ -3163,12 +3182,18 @@ export default function GameRoot() {
               >
                 {ui.muted ? 'off' : `${Math.round(ui.volume * 100)}%`}
               </span>
-              {/* Global UI text-size nudge, on top of the viewport-adaptive base size.
-                  This is the only zoom the game offers — browser zoom is blocked. */}
-              <span className="text-[0.6em] text-[#d3c3a0] ml-[0.8em] mr-[0.4em] uppercase tracking-wide select-none">UI</span>
+            </div>
+
+            {/* Global UI text-size nudge, on top of the viewport-adaptive base size.
+                This is the only zoom the game offers — browser zoom is blocked. It sits
+                OUTSIDE the clipping group above and never shrinks, because it is the way
+                back from an interface scaled too large to fit: clipping the escape hatch
+                would strand the player at 160%. */}
+            <div className="shrink-0 flex items-center gap-[0.25em]">
+              <span className="text-[0.6em] text-[#d3c3a0] ml-[0.4em] mr-[0.4em] uppercase tracking-wide select-none">UI</span>
               <button
-                onClick={() => setUiScale((v) => Math.max(0.7, +(v - 0.1).toFixed(2)))}
-                disabled={uiScale <= 0.7}
+                onClick={() => setUiScale((v) => Math.max(UI_SCALE_MIN, +(v - UI_SCALE_STEP).toFixed(2)))}
+                disabled={uiScale <= UI_SCALE_MIN}
                 title="Smaller interface"
                 className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
               >
@@ -3178,8 +3203,8 @@ export default function GameRoot() {
                 {Math.round(uiScale * 100)}%
               </span>
               <button
-                onClick={() => setUiScale((v) => Math.min(1.6, +(v + 0.1).toFixed(2)))}
-                disabled={uiScale >= 1.6}
+                onClick={() => setUiScale((v) => Math.min(UI_SCALE_MAX, +(v + UI_SCALE_STEP).toFixed(2)))}
+                disabled={uiScale >= UI_SCALE_MAX}
                 title="Larger interface"
                 className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
               >
