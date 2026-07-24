@@ -399,8 +399,8 @@ export const ASSETS = {
     // offline. The other cache circle-slashes are world-map key icons and carry the
     // thing being prohibited baked in; this one is the bare sign.
     blocked: `${LOCAL}/ui/blocked.png`,
-    // Redemption's heart as the prayer book draws it un-activated: the bare symbol,
-    // dimmed, with none of the gold disc the overhead headicons carry. Nothing prays
+    // Redemption's heart as the prayer book draws it unlocked/usable: the bright teal
+    // symbol, with none of the gold disc the overhead headicons carry. Nothing prays
     // it here; it is borrowed as the mark on the start screen's "passion project"
     // notice, which is why it sits in ui/ and not prayers/ (a file in there is
     // expected to be a prayer the game can cast).
