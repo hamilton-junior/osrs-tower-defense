@@ -1,6 +1,111 @@
 {
-  "generatedAt": "2026-07-23",
+  "generatedAt": "2026-07-24",
   "entries": [
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "The start screen shows Redemption unlocked, not the greyed-out symbol",
+      "fromFeedback": false,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "updated",
+      "scope": null,
+      "text": "Richer terrain art and a spawn portal that faces the road it opens onto",
+      "fromFeedback": false,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "A single run's road can now mix two shapes, like a serpentine into a staircase",
+      "fromFeedback": false,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Each run now rolls a unique road shape and a field of obstacles to build around",
+      "fromFeedback": false,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "The interface now scales as far as the screen can actually hold, and no further",
+      "fromFeedback": true,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "balanced",
+      "scope": null,
+      "text": "Each tower of the same type costs 15% more than the last",
+      "fromFeedback": true,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "updated",
+      "scope": null,
+      "text": "The road is a worn dirt track now, not a lane-marked highway",
+      "fromFeedback": true,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "The DPS panel no longer reads as if support towers were the top damage dealer",
+      "fromFeedback": true,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "A large interface size no longer overlaps the gold in the bottom bar",
+      "fromFeedback": true,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Monsters can now be weak to melee or ranged, not only to a spell",
+      "fromFeedback": true,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "balanced",
+      "scope": null,
+      "text": "Draft card rarities now match how strong the card actually is",
+      "fromFeedback": true,
+      "date": "2026-07-24"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Draft cards you have never kept are badged NEW",
+      "fromFeedback": true,
+      "date": "2026-07-23"
+    },
+    {
+      "kind": "balanced",
+      "scope": null,
+      "text": "Soul Eater is a mythic relic with a real appetite",
+      "fromFeedback": true,
+      "date": "2026-07-23"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "Regenerating enemies can no longer get stuck alive forever",
+      "fromFeedback": true,
+      "date": "2026-07-23"
+    },
+    {
+      "kind": "faster",
+      "scope": null,
+      "text": "The interface only refreshes when something on it actually changed",
+      "fromFeedback": true,
+      "date": "2026-07-23"
+    },
     {
       "kind": "updated",
       "scope": "ui",
@@ -175,111 +280,6 @@
       "text": "Sort the custom-wave roster by name, bosses last",
       "fromFeedback": false,
       "date": "2026-07-19"
-    },
-    {
-      "kind": "fixed",
-      "scope": "bosses",
-      "text": "Vorkath's ice shield sounds like ice going up, not a melee thud",
-      "fromFeedback": false,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "fixed",
-      "scope": "bosses",
-      "text": "A boss only starts breaking free once you are actually fighting it",
-      "fromFeedback": false,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "fixed",
-      "scope": "bosses",
-      "text": "A leak now tells you what it cost, and an escaped Guardian stays gone",
-      "fromFeedback": true,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "Dragging a panel's scrollbar now scrolls it instead of dragging the window",
-      "fromFeedback": true,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "balanced",
-      "scope": "bosses",
-      "text": "The Giant Mole digs less often and skips less road",
-      "fromFeedback": true,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "balanced",
-      "scope": "bosses",
-      "text": "A Regenerating boss loosens its grip the deeper the run goes",
-      "fromFeedback": true,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Bosses show the prayers they are protecting with",
-      "fromFeedback": true,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "fixed",
-      "scope": "audio",
-      "text": "A boss's death cry is no longer cut off the instant it starts",
-      "fromFeedback": false,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "new",
-      "scope": "audio",
-      "text": "Every boss now dies with its own voice",
-      "fromFeedback": false,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "Moving a HUD panel aside now frees the board underneath — no ghost blocking tower placement",
-      "fromFeedback": true,
-      "date": "2026-07-18"
-    },
-    {
-      "kind": "fixed",
-      "scope": "slayer",
-      "text": "Extending a task twice no longer multiplies its reward without end",
-      "fromFeedback": true,
-      "date": "2026-07-18"
-    },
-    {
-      "kind": "fixed",
-      "scope": "boss",
-      "text": "A stalled Regenerating boss's heal dries up so it can't tick-eat forever",
-      "fromFeedback": true,
-      "date": "2026-07-18"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "Dragon Knife's card no longer reads the confusable \"loose a second shot\"",
-      "fromFeedback": true,
-      "date": "2026-07-18"
-    },
-    {
-      "kind": "fixed",
-      "scope": "anims",
-      "text": "Cerberus's summoned souls fade on death instead of a broken upright swing",
-      "fromFeedback": false,
-      "date": "2026-07-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "roguelite",
-      "text": "Rename Soul Stealer to Soul Eater and drop the redundant Soul Split card",
-      "fromFeedback": true,
-      "date": "2026-07-18"
     }
   ]
 }
