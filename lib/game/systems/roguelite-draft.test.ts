@@ -47,6 +47,18 @@ describe('DRAFT_POOL integrity', () => {
     const rarities = new Set(DRAFT_POOL.map(c => c.rarity));
     expect(rarities).toEqual(new Set(['common', 'uncommon', 'rare', 'ultra']));
   });
+  it('never offers the same effect twice under two names', () => {
+    // Two cards with identical effects are a dead draw dressed up as a choice: the
+    // hand looks like it has options and doesn't. Occult Necklace / Eternal Boots and
+    // Void Knight / Amulet of Fury were exactly this pair of mistakes.
+    const seen = new Map<string, string>();
+    for (const c of DRAFT_POOL) {
+      const sig = JSON.stringify(c.effect);
+      const twin = seen.get(sig);
+      expect(twin, `${c.id} has the same effect as ${twin}`).toBeUndefined();
+      seen.set(sig, c.id);
+    }
+  });
   it('keeps every Rune Essence card rare or better — it is meta currency', () => {
     // Essence outlives the run, so a common essence card would pay the player for
     // drafting rather than for playing.

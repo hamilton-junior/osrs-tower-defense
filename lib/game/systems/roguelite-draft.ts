@@ -155,6 +155,26 @@ const SPD: Record<DraftRarity, number> = { common: 1.015, uncommon: 1.02, rare: 
  * universal potion as each stat's general (ultra) top tier; resources stay
  * general. Grow it by adding cards here (and, later, tower / prayer / debuff
  * kinds + their `applyDraftEffect` cases).
+ *
+ * **Two rules decide a card's rarity, and both are load-bearing.**
+ *
+ * 1. *Power follows the tier.* A stat card takes its tier's multiplier from
+ *    {@link DMG}/{@link RNG}/{@link SPD}; a combo card at tier T is built from
+ *    parts one tier below (an uncommon combo is two commons, a rare is two
+ *    uncommons, an ultra is three rares). That is what makes the tiers mean
+ *    something without hand-tuning fifty numbers.
+ * 2. *Rarity must not contradict the item.* The art and the name are a real OSRS
+ *    item, so a player reads the card's rarity as a claim about that item. A
+ *    Kodai Wand as the entry-level magic card, or Pegasian Boots ranking below
+ *    Ranger Boots, reads as a mistake however the maths works out — pick an item
+ *    whose standing in the game matches the tier you need.
+ *
+ * Behavioural cards (the `unique` ones below) are rated by their **effect**, not
+ * their item: a Clan Vexillum is worthless in game and ultra here, because what it
+ * does rewrites the run.
+ *
+ * No two cards may share an effect. Two identical cards under different art is a
+ * dead draw dressed up as a choice — `roguelite-draft.test.ts` enforces it.
  */
 export const DRAFT_POOL: readonly DraftCard[] = [
   // ───────────────────────── melee damage (potions) ───────────────────────
@@ -167,8 +187,8 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'bastion_potion', name: 'Bastion Potion', desc: '+7.5% damage for ranged towers, this run', rarity: 'rare', icon: itemIcon('bastion_potion'), effect: { kind: 'damage', mult: DMG.rare, style: 'ranged' } },
   // ───────────────────────── magic damage (potions) ───────────────────────
   { id: 'magic_potion', name: 'Magic Potion', desc: '+3% damage for magic towers, this run', rarity: 'common', icon: itemIcon('magic_potion'), effect: { kind: 'damage', mult: DMG.common, style: 'magic' } },
-  { id: 'imbued_heart', name: 'Imbued Heart', desc: '+5% damage for magic towers, this run', rarity: 'uncommon', icon: itemIcon('imbued_heart'), effect: { kind: 'damage', mult: DMG.uncommon, style: 'magic' } },
-  { id: 'battlemage_potion', name: 'Battlemage Potion', desc: '+7.5% damage for magic towers, this run', rarity: 'rare', icon: itemIcon('battlemage_potion'), effect: { kind: 'damage', mult: DMG.rare, style: 'magic' } },
+  { id: 'battlemage_potion', name: 'Battlemage Potion', desc: '+5% damage for magic towers, this run', rarity: 'uncommon', icon: itemIcon('battlemage_potion'), effect: { kind: 'damage', mult: DMG.uncommon, style: 'magic' } },
+  { id: 'imbued_heart', name: 'Imbued Heart', desc: '+7.5% damage for magic towers, this run', rarity: 'rare', icon: itemIcon('imbued_heart'), effect: { kind: 'damage', mult: DMG.rare, style: 'magic' } },
   // ──────────────────────── general damage (Overload) ─────────────────────
   { id: 'overload', name: 'Overload', desc: '+11% damage for ALL towers, this run', rarity: 'ultra', icon: itemIcon('overload_4'), effect: { kind: 'damage', mult: DMG.ultra } },
 
@@ -181,7 +201,7 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'magic_shortbow', name: 'Magic Shortbow', desc: '+2% attack speed for ranged towers, this run', rarity: 'uncommon', icon: itemIcon('magic_shortbow'), effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'ranged' } },
   { id: 'dragon_darts', name: 'Dragon Darts', desc: '+3% attack speed for ranged towers, this run', rarity: 'rare', icon: itemIcon('dragon_dart'), effect: { kind: 'fireRate', mult: SPD.rare, style: 'ranged' } },
   // ───────────────────────── magic speed (weapons) ────────────────────────
-  { id: 'swift_glyphs', name: 'Kodai Wand', desc: '+1.5% attack speed for magic towers, this run', rarity: 'common', icon: itemIcon('kodai_wand'), effect: { kind: 'fireRate', mult: SPD.common, style: 'magic' } },
+  { id: 'swift_glyphs', name: 'Staff of Air', desc: '+1.5% attack speed for magic towers, this run', rarity: 'common', icon: itemIcon('staff_of_air'), effect: { kind: 'fireRate', mult: SPD.common, style: 'magic' } },
   { id: 'trident_seas', name: 'Trident of the Seas', desc: '+2% attack speed for magic towers, this run', rarity: 'uncommon', icon: itemIcon('trident_of_the_seas'), effect: { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' } },
   { id: 'harmonised_staff', name: 'Harmonised Staff', desc: '+3% attack speed for magic towers, this run', rarity: 'rare', icon: itemIcon('harmonised_nightmare_staff'), effect: { kind: 'fireRate', mult: SPD.rare, style: 'magic' } },
   // ──────────────────── general speed (Stamina, top tier) ──────────────────
@@ -231,17 +251,20 @@ export const DRAFT_POOL: readonly DraftCard[] = [
   { id: 'saradomin_brew', name: 'Saradomin Brew', desc: 'A blessed brew restores +4 lives', rarity: 'rare', icon: itemIcon('saradomin_brew'), effect: { kind: 'life', amount: 4 } },
   { id: 'fortify_gate', name: 'Rune Kiteshield', desc: '+1 max life (and heal 1)', rarity: 'rare', icon: itemIcon('rune_kiteshield'), effect: { kind: 'maxLife', amount: 1 } },
   { id: 'greater_fortify', name: 'Dragon Kiteshield', desc: '+2 max life (and heal 2)', rarity: 'ultra', icon: itemIcon('dragon_kiteshield'), effect: { kind: 'maxLife', amount: 2 } },
-  { id: 'anglerfish', name: 'Anglerfish', desc: 'An overheal restores +3 lives', rarity: 'uncommon', icon: itemIcon('anglerfish'), effect: { kind: 'life', amount: 3 } },
+  // Top of the food ladder (bandages → shark → brew → this), as it is in game: the
+  // one food that heals past what you could hold. It used to sit at uncommon with the
+  // shark's exact effect, which made one of the two a dead card whenever both showed.
+  { id: 'anglerfish', name: 'Anglerfish', desc: 'An overheal restores +6 lives', rarity: 'ultra', icon: itemIcon('anglerfish'), effect: { kind: 'life', amount: 6 } },
 
   // ───────────────────────────── combo cards ──────────────────────────────
   { id: 'berserker_ring', name: 'Berserker Ring', desc: '+3% damage & +1.5% attack speed for melee, this run', rarity: 'uncommon', icon: itemIcon('berserker_ring'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'fireRate', mult: SPD.common, style: 'melee' }] } },
-  { id: 'pegasian_boots', name: 'Pegasian Boots', desc: '+1.5% range & +1.5% attack speed for ranged, this run', rarity: 'uncommon', icon: itemIcon('pegasian_boots'),
-    effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.common, style: 'ranged' }, { kind: 'fireRate', mult: SPD.common, style: 'ranged' }] } },
+  { id: 'pegasian_boots', name: 'Pegasian Boots', desc: '+2% range & +2% attack speed for ranged, this run', rarity: 'rare', icon: itemIcon('pegasian_boots'),
+    effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.uncommon, style: 'ranged' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'ranged' }] } },
   { id: 'slayer_helmet', name: 'Slayer Helmet', desc: '+3% melee damage & +2 Slayer points', rarity: 'uncommon', icon: itemIcon('slayer_helmet'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common, style: 'melee' }, { kind: 'slayerPoints', amount: 2 }] } },
-  { id: 'rangers_kit', name: 'Ranger Boots', desc: '+5% damage & +2% range for ranged, this run', rarity: 'rare', icon: itemIcon('ranger_boots'),
-    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'ranged' }, { kind: 'range', mult: RNG.uncommon, style: 'ranged' }] } },
+  { id: 'rangers_kit', name: 'Ranger Boots', desc: '+1.5% range & +1.5% attack speed for ranged, this run', rarity: 'uncommon', icon: itemIcon('ranger_boots'),
+    effect: { kind: 'multi', effects: [{ kind: 'range', mult: RNG.common, style: 'ranged' }, { kind: 'fireRate', mult: SPD.common, style: 'ranged' }] } },
   { id: 'occult_necklace', name: 'Occult Necklace', desc: '+5% damage & +2% attack speed for magic, this run', rarity: 'rare', icon: itemIcon('occult_necklace'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'magic' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' }] } },
   { id: 'void_knight', name: 'Void Knight', desc: '+3% damage & +1.5% attack speed for ALL towers, this run', rarity: 'rare', icon: itemIcon('void_knight_top'),
@@ -260,10 +283,10 @@ export const DRAFT_POOL: readonly DraftCard[] = [
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'melee' }, { kind: 'range', mult: RNG.uncommon, style: 'melee' }] } },
   { id: 'avas_assembler', name: "Ava's Assembler", desc: '+5% damage & +2% attack speed for ranged, this run', rarity: 'rare', icon: itemIcon('avas_assembler'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'ranged' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'ranged' }] } },
-  { id: 'eternal_boots', name: 'Eternal Boots', desc: '+5% damage & +2% attack speed for magic, this run', rarity: 'rare', icon: itemIcon('eternal_boots'),
-    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'magic' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'magic' }] } },
-  { id: 'amulet_of_fury', name: 'Amulet of Fury', desc: '+3% damage & +1.5% attack speed for ALL towers, this run', rarity: 'rare', icon: itemIcon('amulet_of_fury'),
-    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.common }, { kind: 'fireRate', mult: SPD.common }] } },
+  { id: 'eternal_boots', name: 'Eternal Boots', desc: '+5% damage & +2% range for magic, this run', rarity: 'rare', icon: itemIcon('eternal_boots'),
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'magic' }, { kind: 'range', mult: RNG.uncommon, style: 'magic' }] } },
+  { id: 'amulet_of_fury', name: 'Amulet of Fury', desc: '+5% damage & +2% attack speed for melee, this run', rarity: 'rare', icon: itemIcon('amulet_of_fury'),
+    effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.uncommon, style: 'melee' }, { kind: 'fireRate', mult: SPD.uncommon, style: 'melee' }] } },
   { id: 'masori_set', name: 'Masori Armour', desc: '+7.5% damage, +3% range & +3% attack speed for ranged, this run', rarity: 'ultra', icon: itemIcon('masori_body'),
     effect: { kind: 'multi', effects: [{ kind: 'damage', mult: DMG.rare, style: 'ranged' }, { kind: 'range', mult: RNG.rare, style: 'ranged' }, { kind: 'fireRate', mult: SPD.rare, style: 'ranged' }] } },
   { id: 'ancestral_set', name: 'Ancestral Robes', desc: '+7.5% damage, +3% range & +3% attack speed for magic, this run', rarity: 'ultra', icon: itemIcon('ancestral_robe_top'),
