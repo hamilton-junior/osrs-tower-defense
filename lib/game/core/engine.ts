@@ -18,6 +18,7 @@ import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../systems/tower-identity';
 import { upgradeOrder } from '../systems/upgrades';
+import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
@@ -267,6 +268,10 @@ export interface UIState {
   bossOnField: boolean;
   gameOver: boolean;
   selectedTowerType: TowerType | null;
+  /** What the NEXT tower of each type costs right now, meta discount and same-type
+   *  escalation included. Emitted rather than recomputed in the UI: the price moves
+   *  with the board, so a dock quoting a fixed tier-1 price would be lying. */
+  towerPrices: Record<TowerType, number>;
   selectedTowerId: string | null;
   /** Marquee multi-selection (tower ids) for the batch-upgrade panel. */
   multiSelectedIds: string[];
@@ -899,6 +904,7 @@ export class GameEngine {
       bossOnField: this.enemies.some(e => e.isBoss),
       gameOver: this.gameOver,
       selectedTowerType: this.selectedTowerType,
+      towerPrices: this.towerPrices(),
       selectedTowerId: this.selectedTowerId,
       multiSelectedIds: [...this.multiSelectedIds],
       movingTowerId: this.movingTowerId,
@@ -1432,9 +1438,32 @@ export class GameEngine {
     this.emit();
   }
 
+  /** How many towers of a type are already on the board — the escalation counter
+   *  behind {@link towerCost}. Counted live, so selling one makes the next cheaper
+   *  again. */
+  private ownedOf(type: TowerType): number {
+    let n = 0;
+    for (const t of this.towers) if (t.type === type) n++;
+    return n;
+  }
+
+  /** A type's base price after the meta shop's discount, before escalation. */
+  private towerBasePrice(type: TowerType): number {
+    return Math.ceil((TOWERS[type]?.tiers[0].upgradeCost ?? 0) * this.meta.upgrades.towerCostReduction);
+  }
+
+  /** What the NEXT tower of this type costs: the base price escalated by how many
+   *  the player already owns (see `towerSpamCost`). Diversifying resets it — a
+   *  first tower of a second type is always base price. */
   towerCost(type: TowerType): number {
-    const base = TOWERS[type]?.tiers[0].upgradeCost ?? 0;
-    return Math.ceil(base * this.meta.upgrades.towerCostReduction);
+    return towerSpamCost(this.towerBasePrice(type), this.ownedOf(type));
+  }
+
+  /** Every type's current price, for the dock. */
+  private towerPrices(): Record<TowerType, number> {
+    const out = {} as Record<TowerType, number>;
+    for (const type of Object.keys(TOWERS) as TowerType[]) out[type] = this.towerCost(type);
+    return out;
   }
 
   /** Fixed gold a kill of this enemy type pays — a flat function of its BASE HP
@@ -1694,7 +1723,16 @@ export class GameEngine {
   /** What one paste of the clipboard costs: every tower at its own base price.
    *  Copying is a shortcut for re-buying the same layout, never a discount. */
   get clipboardCost(): number {
-    return this.clipboard.reduce((s, b) => s + this.towerCost(b.type), 0);
+    // Priced as if placed one at a time: each tower in the paste is charged after
+    // the ones before it, so a paste can't dodge the same-type escalation.
+    const pending = new Map<TowerType, number>();
+    let total = 0;
+    for (const b of this.clipboard) {
+      const extra = pending.get(b.type) ?? 0;
+      total += towerSpamCost(this.towerBasePrice(b.type), this.ownedOf(b.type) + extra);
+      pending.set(b.type, extra + 1);
+    }
+    return total;
   }
 
   /** Ctrl+V — put the copied formation on the pointer. It isn't bought until a
@@ -1802,15 +1840,31 @@ export class GameEngine {
 
   /** What the painted line costs to build, all of it. */
   get placeQueueCost(): number {
-    return this.selectedTowerType ? this.placeQueue.length * this.towerCost(this.selectedTowerType) : 0;
+    if (!this.selectedTowerType) return 0;
+    return towerSpamBatchCost(
+      this.towerBasePrice(this.selectedTowerType),
+      this.ownedOf(this.selectedTowerType),
+      this.placeQueue.length,
+    );
   }
 
   /** How many of the painted tiles the current gold actually covers — the ghost
    *  greys the rest, so the line never promises a tower it can't pay for. */
   get placeQueueAffordable(): number {
     if (!this.selectedTowerType) return 0;
-    const each = this.towerCost(this.selectedTowerType);
-    return each > 0 ? Math.min(this.placeQueue.length, Math.floor(this.money / each)) : this.placeQueue.length;
+    // Each tile in the line is dearer than the last, so this walks the line rather
+    // than dividing by a flat price — the ghost must grey exactly the tiles the
+    // purse cannot reach.
+    const base = this.towerBasePrice(this.selectedTowerType);
+    const owned = this.ownedOf(this.selectedTowerType);
+    let spent = 0;
+    for (let i = 0; i < this.placeQueue.length; i++) {
+      const next = towerSpamCost(base, owned + i);
+      if (next <= 0) return this.placeQueue.length;
+      if (spent + next > this.money) return i;
+      spent += next;
+    }
+    return this.placeQueue.length;
   }
 
   /** Throw the painted line away, armed or not, charging nothing. */

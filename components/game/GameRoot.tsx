@@ -260,6 +260,10 @@ const attackSpeed = (cooldownMs: number) => {
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
   remaining: 0, waveTotal: 0, bossWave: false, wavePreview: [], activeEvent: null, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
+  // Base prices, until the engine's first emit replaces them with the live ones.
+  towerPrices: Object.fromEntries(
+    Object.entries(TOWERS).map(([type, def]) => [type, def.tiers[0].upgradeCost]),
+  ) as UIState['towerPrices'],
   multiSelectedIds: [], movingGroupIds: [], placeQueue: [], queueArmed: false, clipboard: [], pasting: false,
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
@@ -1873,7 +1877,7 @@ export default function GameRoot() {
           <div className="rs-panel p-2" style={{ fontSize: fs('clamp(13px, 0.85vw, 18px)') }}>
             <div className="flex gap-[0.3em]">
               {TOWER_ORDER.map((type) => {
-                const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
+                const cost = ui.towerPrices[type];
                 const afford = ui.money >= cost;
                 const base = type === 'wizard' ? WIZARD_STAVES[animTick % WIZARD_STAVES.length] : towerIcon(type);
                 return (
@@ -3263,13 +3267,24 @@ export default function GameRoot() {
                       <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
                       <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
                       <Stat icon={ASSETS.misc.multicombat_icon} label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
+                      <Stat icon={ASSETS.misc.coins_icon} label="Cost" value={`${fmt(ui.towerPrices[hoverShop])} gp`} />
                     </div>
+                    {/* The price is only worth explaining once it has moved: a dock that
+                        quotes a number the player has watched climb, without saying why,
+                        reads as a bug. Shown only when this type is dearer than its base. */}
+                    {ui.towerPrices[hoverShop] > TOWERS[hoverShop].tiers[0].upgradeCost * ui.upgrades.towerCostReduction && (
+                      <p className="text-[0.7em] text-[#b3a585] leading-snug mt-[0.4em] pt-[0.35em] px-[0.1em] border-t border-[var(--rs-keyline)]">
+                        Each one of a type costs 15% more than the last. Another kind of
+                        tower starts back at its base price — and selling one brings this
+                        one down again.
+                      </p>
+                    )}
                   </div>
                 );
               })()}
               <div data-tut="dock" className="grid grid-cols-6 gap-[0.3em] w-[17.5em]">
                 {TOWER_ORDER.map((type, i) => {
-                  const cost = Math.ceil(TOWERS[type].tiers[0].upgradeCost * ui.upgrades.towerCostReduction);
+                  const cost = ui.towerPrices[type];
                   const active = ui.selectedTowerType === type;
                   const afford = ui.money >= cost;
                   const icon = towerIcon(type);
