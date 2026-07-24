@@ -5,6 +5,7 @@ import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMY_ANIMS, clipFrame, clipDurationS } from '../data/enemy-anims';
 import { TOWERS, TOWER_STYLES } from '../data/towers';
 import { isValidPlacement, squareRange, distance } from '../systems/geometry';
+import type { TerrainField } from '../systems/terrain-generation';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
 import {
@@ -27,6 +28,20 @@ const SOUL_COLORS: Record<CombatStyle, string> = {
 };
 
 const GRID = 32;
+
+/** Scale a `#rrggbb` colour's channels by `f` (clamped), for cheap procedural
+ *  shading (`f < 1` darkens, `f > 1` lightens). Alpha-suffix is ignored. */
+function shade(hex: string, f: number): string {
+  const n = parseInt(hex.slice(1, 7), 16);
+  const c = (sh: number) => Math.max(0, Math.min(255, Math.round(((n >> sh) & 0xff) * f)));
+  return `rgb(${c(16)},${c(8)},${c(0)})`;
+}
+
+/** Deterministic 2D hash → [0,1), for stable per-tile terrain variation. */
+function hash2(a: number, b: number): number {
+  const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
 
 /** Radius (logic px) around the spawn portal within which an enemy is still
  *  "inside" it — its HP bar / overlays stay hidden until it walks clear, so
@@ -120,9 +135,41 @@ export class GameRenderer {
     ctx.restore();
   }
 
+  // The ground, ground texture, terrain (obstacles / zones / decorations) and grid
+  // are all static for a run, so they're rendered once to an offscreen buffer and
+  // blitted each frame. This keeps the detailed terrain art off the hot path — it's
+  // rebuilt only when the run's terrain, biome or the board size changes.
+  private bgCache: HTMLCanvasElement | null = null;
+  private bgCtx: CanvasRenderingContext2D | null = null;
+  private bgTerrain: TerrainField | null = null;
+  private bgBiome = '';
+  private bgW = 0;
+  private bgH = 0;
+
   private drawBackground(ctx: CanvasRenderingContext2D) {
     const w = this.e.width;
     const h = this.e.height;
+    if (
+      this.bgCache === null || this.bgCtx === null ||
+      this.bgTerrain !== this.e.terrain || this.bgBiome !== this.e.biome.id ||
+      this.bgW !== w || this.bgH !== h
+    ) {
+      if (!this.bgCache) {
+        this.bgCache = document.createElement('canvas');
+        this.bgCtx = this.bgCache.getContext('2d');
+      }
+      this.bgCache.width = w;
+      this.bgCache.height = h;
+      if (this.bgCtx) this.renderStaticBackground(this.bgCtx, w, h);
+      this.bgTerrain = this.e.terrain;
+      this.bgBiome = this.e.biome.id;
+      this.bgW = w;
+      this.bgH = h;
+    }
+    ctx.drawImage(this.bgCache, 0, 0);
+  }
+
+  private renderStaticBackground(ctx: CanvasRenderingContext2D, w: number, h: number) {
     const biome = this.e.biome;
 
     // Ground base with a soft vertical gradient (biome-themed).
@@ -161,76 +208,180 @@ export class GameRenderer {
   }
 
   /**
-   * Draw the run's terrain field (from the engine): non-buildable zones as a soft
-   * biome-tinted wash, hard obstacles as opaque rock mounds, and cosmetic scenery
-   * (bushes / rocks / flowers) on open ground — all in the active biome's palette,
-   * so obstacles read as impassable while the field re-skins per region.
+   * Draw the run's terrain field (from the engine): non-buildable zones as textured
+   * rough ground, hard obstacles as shaded boulders, and cosmetic scenery (bushes /
+   * rocks / flowers / grass) on open ground — all derived from the active biome's
+   * palette, so obstacles read as impassable while the field re-skins per region.
+   * Rendered once per run into the background cache, so it can afford the detail.
    */
   private drawTerrain(ctx: CanvasRenderingContext2D) {
     const t = this.e.terrain;
     if (t.cols === 0) return;
     const { bush, rock, rockHi, flowers } = this.e.biome.decor;
+    const rockDark = shade(rock, 0.6);
+    const rockCrack = shade(rock, 0.45);
+    const bushDark = shade(bush, 0.62);
+    const bushLight = shade(bush, 1.28);
     const cols = t.cols;
 
-    // Non-buildable zones: a soft biome-tinted wash so the ground reads as rough.
-    ctx.save();
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle = bush;
+    // ── Non-buildable zones: rough ground — a soft tint plus scattered grass blades,
+    // so it reads as marshy/overgrown terrain you can't build on (not a flat wash). ──
     for (let i = 0; i < t.tiles.length; i++) {
       if (t.tiles[i] !== 'unbuildable') continue;
       const c = i % cols;
       const r = (i / cols) | 0;
-      ctx.fillRect(c * GRID, r * GRID, GRID, GRID);
+      const x0 = c * GRID;
+      const y0 = r * GRID;
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = bush;
+      ctx.fillRect(x0, y0, GRID, GRID);
+      ctx.globalAlpha = 0.5;
+      for (let b = 0; b < 5; b++) {
+        const bx = x0 + hash2(c * 7.1 + b, r * 3.3) * GRID;
+        const by = y0 + 6 + hash2(c * 2.7, r * 9.4 + b) * (GRID - 8);
+        const len = 4 + hash2(c + b, r) * 4;
+        const lean = (hash2(c * 5.5, r * 4.2 + b) - 0.5) * 3;
+        ctx.strokeStyle = b % 2 === 0 ? bushDark : bushLight;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(bx + lean, by - len);
+        ctx.stroke();
+      }
     }
-    ctx.restore();
+    ctx.globalAlpha = 1;
 
-    // Hard obstacles: opaque rock mounds that fill the tile (impassable).
+    // ── Hard obstacles: shaded boulders that fill the tile (impassable). Per-tile
+    // variation keeps a cluster of tiles reading as one lumpy rock formation. ──
     for (let i = 0; i < t.tiles.length; i++) {
       if (t.tiles[i] !== 'blocked') continue;
       const c = i % cols;
       const r = (i / cols) | 0;
       const cx = c * GRID + GRID / 2;
       const cy = r * GRID + GRID / 2;
+      const s = 0.82 + hash2(c * 1.7, r * 2.3) * 0.24; // per-boulder size
+      const rx = GRID * 0.46 * s;
+      const ry = GRID * 0.4 * s;
+
+      // cast shadow, offset down-right
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.beginPath();
+      ctx.ellipse(cx + 2.5, cy + 3.5, rx, ry * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // dark base
+      ctx.fillStyle = rockDark;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 1.5, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // main body, faceted with a couple of lumps
       ctx.fillStyle = rock;
       ctx.beginPath();
-      ctx.ellipse(cx, cy, GRID * 0.44, GRID * 0.38, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
       ctx.fill();
+      const lumps = 1 + ((c + r) % 2);
+      for (let l = 0; l < lumps; l++) {
+        const lx = cx + (hash2(c * 3.1 + l, r) - 0.5) * rx;
+        const ly = cy - ry * 0.15 + (hash2(c, r * 3.7 + l) - 0.5) * ry * 0.5;
+        ctx.beginPath();
+        ctx.ellipse(lx, ly, rx * 0.42, ry * 0.42, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // top-left highlight facet
       ctx.fillStyle = rockHi;
       ctx.beginPath();
-      ctx.ellipse(cx - GRID * 0.12, cy - GRID * 0.14, GRID * 0.16, GRID * 0.12, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx - rx * 0.3, cy - ry * 0.35, rx * 0.34, ry * 0.26, -0.5, 0, Math.PI * 2);
       ctx.fill();
+      // a dark crack and a fleck of moss
+      ctx.strokeStyle = rockCrack;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx + rx * 0.1, cy - ry * 0.2);
+      ctx.lineTo(cx + rx * 0.25, cy + ry * 0.45);
+      ctx.stroke();
+      if (hash2(c * 8.1, r * 6.3) > 0.55) {
+        ctx.fillStyle = bushDark;
+        ctx.beginPath();
+        ctx.arc(cx - rx * 0.4, cy + ry * 0.35, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
-    // Cosmetic decorations on open ground, jittered off the grid so they don't line up.
-    const hash = (n: number) => {
-      const v = Math.sin(n) * 43758.5453;
-      return v - Math.floor(v);
-    };
+    // ── Cosmetic decorations on open ground, jittered off the grid. ──
     for (const d of t.decorations) {
-      const jx = (hash(d.col * 12.9 + d.row * 7.1) - 0.5) * GRID * 0.5;
-      const jy = (hash(d.col * 3.7 + d.row * 19.3) - 0.5) * GRID * 0.5;
+      const jx = (hash2(d.col * 12.9, d.row * 7.1) - 0.5) * GRID * 0.5;
+      const jy = (hash2(d.col * 3.7, d.row * 19.3) - 0.5) * GRID * 0.5;
       const x = d.col * GRID + GRID / 2 + jx;
       const y = d.row * GRID + GRID / 2 + jy;
       if (d.kind === 0 || d.kind === 1) {
+        // leafy bush: shaded underside, body, top highlight, a couple of berries
+        ctx.fillStyle = bushDark;
+        ctx.beginPath();
+        ctx.arc(x, y + 2, 7, 0, Math.PI * 2);
+        ctx.arc(x + 6, y + 3, 5, 0, Math.PI * 2);
+        ctx.arc(x - 5, y + 3, 5, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = bush;
         ctx.beginPath();
-        ctx.arc(x, y, 7, 0, Math.PI * 2);
-        ctx.arc(x + 6, y + 2, 5, 0, Math.PI * 2);
-        ctx.arc(x - 5, y + 2, 5, 0, Math.PI * 2);
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.arc(x + 5, y + 1, 4, 0, Math.PI * 2);
+        ctx.arc(x - 4, y + 1, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = bushLight;
+        ctx.beginPath();
+        ctx.arc(x - 2, y - 3, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = flowers[(d.col + d.row) % flowers.length];
+        ctx.beginPath();
+        ctx.arc(x + 3, y - 1, 1.3, 0, Math.PI * 2);
+        ctx.arc(x - 3, y + 2, 1.3, 0, Math.PI * 2);
         ctx.fill();
       } else if (d.kind === 2) {
+        // small boulder with shadow + highlight
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.beginPath();
+        ctx.ellipse(x + 1.5, y + 2.5, 7, 4.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = rockDark;
+        ctx.beginPath();
+        ctx.ellipse(x, y + 1, 7, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = rock;
         ctx.beginPath();
         ctx.ellipse(x, y, 6, 4, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = rockHi;
-        ctx.fillRect(x - 3, y - 3, 3, 2);
-      } else {
+        ctx.beginPath();
+        ctx.ellipse(x - 2, y - 1.5, 2.4, 1.6, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (d.kind === 3) {
+        // flower: stem + petals + centre
+        ctx.strokeStyle = bushDark;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y + 6);
+        ctx.lineTo(x, y);
+        ctx.stroke();
         ctx.fillStyle = flowers[(d.col + d.row) % flowers.length];
-        for (let f = 0; f < 3; f++) {
+        for (let p = 0; p < 5; p++) {
+          const a = (p / 5) * Math.PI * 2;
           ctx.beginPath();
-          ctx.arc(x + (f - 1) * 4, y + (f % 2) * 3, 1.8, 0, Math.PI * 2);
+          ctx.arc(x + Math.cos(a) * 2.6, y + Math.sin(a) * 2.6, 1.8, 0, Math.PI * 2);
           ctx.fill();
+        }
+        ctx.fillStyle = bushLight;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // grass tuft: a fan of blades
+        for (let b = 0; b < 5; b++) {
+          const lean = (b - 2) * 2.2;
+          ctx.strokeStyle = b % 2 === 0 ? bush : bushLight;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, y + 4);
+          ctx.lineTo(x + lean, y - 5 - (b % 2));
+          ctx.stroke();
         }
       }
     }
@@ -321,14 +472,23 @@ export class GameRenderer {
     if (path.length < 2) return;
     const t = performance.now() / 1000;
     const pp = this.e.portalPoint; // on-screen point where enemies materialise
-    const x = pp.x;
-    const y = Math.max(56, Math.min(this.e.height - 56, pp.y));
+    // The road can now enter from any edge, so face the portal along the road's
+    // heading (path[0] → path[1]) instead of always standing it upright. Keep the
+    // half-crop on the entry edge (the axis the road crosses) and clamp along the
+    // edge so the disc never slides off a corner.
+    const a = path[0];
+    const b = path[1];
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    const horizontal = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y);
+    const x = horizontal ? pp.x : Math.max(56, Math.min(this.e.width - 56, pp.x));
+    const y = horizontal ? Math.max(56, Math.min(this.e.height - 56, pp.y)) : pp.y;
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
 
     ctx.save();
     ctx.translate(x, y);
 
-    // Soft otherworldly halo behind the disc, breathing with the pulse.
+    // Soft otherworldly halo behind the disc, breathing with the pulse (drawn before
+    // the rotation — it's a radial gradient, so orientation doesn't matter).
     const haloR = 64 + pulse * 6;
     const halo = ctx.createRadialGradient(0, 0, 6, 0, 0, haloR);
     halo.addColorStop(0, `rgba(170,90,235,${0.34 + pulse * 0.16})`);
@@ -338,6 +498,11 @@ export class GameRenderer {
     ctx.beginPath();
     ctx.arc(0, 0, haloR, 0, Math.PI * 2);
     ctx.fill();
+
+    // Orient the disc/vortex to the road heading. The sprite's default (unrotated)
+    // face points along +x, which is the classic left→right entry, so ang=0 leaves
+    // those maps exactly as before.
+    ctx.rotate(ang);
 
     const portal = SPOTANIMS.portal;
     if (this.e.imageOk('spotanim_portal')) {
