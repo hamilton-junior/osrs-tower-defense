@@ -1,5 +1,5 @@
 import { ASSETS, itemIcon, npcModel } from '../assets';
-import type { CombatStyle } from '../types';
+import type { CombatStyle, StyleWeakness } from '../types';
 
 /**
  * Enemy affixes: per-instance modifiers that change how a *normal* enemy behaves
@@ -111,6 +111,12 @@ export const ARMORED_RESIST = 0.5;
  *  (×0.15) so a mono-style build still chips it rather than hitting a hard wall,
  *  while the message — "bring another style" — stays loud. */
 export const PROTECTED_MULT = 0.15;
+/** Damage multiplier when a hit's style matches the monster's innate
+ *  {@link StyleWeakness}. Deliberately the same 1.5 as the elemental
+ *  `WEAKNESS_BONUS` in systems/magic: the two are the same promise ("you brought
+ *  the right answer") on two different axes, and a species carries only one of
+ *  them, so one number is the honest way to say it. */
+export const STYLE_WEAKNESS_BONUS = 1.5;
 /** Regenerating never appears before this wave — early DPS can't outpace it. */
 export const REGEN_UNLOCK_WAVE = 12;
 /** Regen ramps from MIN %/s at its unlock wave to MAX %/s at the ramp end. */
@@ -367,6 +373,20 @@ export function styleDamageMult(armoredStyle: CombatStyle | undefined, style: Co
  *  with no style (DoT ticks) is never prayed against. */
 export function protectedDamageMult(protectedStyle: CombatStyle | undefined, style: CombatStyle | undefined): number {
   return protectedStyle && style && protectedStyle === style ? PROTECTED_MULT : 1;
+}
+
+/**
+ * Damage multiplier for an incoming `style` against a monster's innate
+ * {@link StyleWeakness} ({@link STYLE_WEAKNESS_BONUS} when it matches, else 1).
+ *
+ * Styleless damage (a DoT tick, an unattributed hit) never earns the bonus, for
+ * the same reason `armored` never bites it: the bonus is a reward for *aiming* the
+ * right weapon at the thing, and a poison cloud aims nothing. This is the
+ * melee/ranged mirror of `weaknessMultiplier` in systems/magic — a species has one
+ * axis or the other, never both.
+ */
+export function styleWeaknessMult(weak: StyleWeakness | undefined, style: CombatStyle | undefined): number {
+  return weak && style && weak === style ? STYLE_WEAKNESS_BONUS : 1;
 }
 
 /**

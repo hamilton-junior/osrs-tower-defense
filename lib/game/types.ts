@@ -73,6 +73,9 @@ export interface EnemyDef {
   resistance?: number;
   deathSound?: string;
   weakness?: Element;
+  /** The combat style this monster takes extra damage from. Mutually exclusive
+   *  with {@link weakness} — see {@link StyleWeakness}. */
+  styleWeakness?: StyleWeakness;
   isBoss?: boolean;
   waveUnlock?: number;
   /** The boss that spawns this enemy, if it is an add rather than something a
@@ -249,6 +252,16 @@ export interface Effect {
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
+/**
+ * The half of the combat triangle a monster is *vulnerable* to — the melee/ranged
+ * counterpart of an {@link Element} weakness.
+ *
+ * Magic is deliberately absent. A magic answer is always spelled as an elemental
+ * weakness (the wizard's own axis, four choices deep), so no monster carries both
+ * kinds of "bring the right damage" bonus and the player always has exactly one
+ * answer to find. See `STYLE_WEAKNESSES` in data/enemies.ts.
+ */
+export type StyleWeakness = Exclude<CombatStyle, 'magic'>;
 export type MageMode = 'elemental' | 'ancients' | 'utility';
 export type AncientType = 'ice' | 'blood' | 'shadow' | 'smoke';
 export type SupportSpell = 'curse' | 'enfeeble' | 'sanctity';

@@ -1,4 +1,4 @@
-import type { Enemy, Tower, TowerBlueprint, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect, CombatStyle } from '../types';
+import type { Enemy, Tower, TowerBlueprint, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect, CombatStyle, StyleWeakness } from '../types';
 import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { resolveImpactTheme, IMPACT_RECIPES, type ImpactTheme } from '../systems/impact-fx';
@@ -34,7 +34,7 @@ import {
 import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
 import {
   rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRenderScaleMult, shieldHpFor,
-  regenPerSec, isCcImmune, styleDamageMult, protectedDamageMult, absorbWithShield, rollArmoredStyle, rollProtectedStyle,
+  regenPerSec, isCcImmune, styleDamageMult, protectedDamageMult, styleWeaknessMult, absorbWithShield, rollArmoredStyle, rollProtectedStyle,
   ALL_AFFIXES, SWARM_COUNT, VOLATILE_STUN_SECS, VOLATILE_BLAST_RADIUS, volatileBlastTowers,
   type EnemyAffix, type AffixRoll,
 } from '../systems/affixes';
@@ -234,6 +234,9 @@ export interface WavePreviewEntry {
   speed: number;
   reward: number;
   weakness?: Element;
+  /** Its combat-triangle weakness, when it answers to a bow or a blade rather than
+   *  to an element. A monster never carries both (see data/enemies.ts). */
+  styleWeakness?: StyleWeakness;
   /** Lives one of these takes if it leaks (see `enemyLeakCost`). Affixes are rolled
    *  at spawn, so a Colossal's doubled cost can't be previewed — bosses, the ones
    *  that actually hurt, are exact. */
@@ -512,6 +515,9 @@ export interface EnemyHoverInfo {
    *  hastened/slowed enemy when {@link baseSpeed} differs from this. */
   naturalSpeed: number;
   weakness: Element | null;
+  /** Set instead of {@link weakness} when this monster answers to a style rather
+   *  than an element — the panel shows whichever of the two is present. */
+  styleWeakness: StyleWeakness | null;
   reward: number;
   isBoss: boolean;
   x: number;
@@ -1358,6 +1364,7 @@ export class GameEngine {
       baseSpeed: Math.round(e.baseSpeed),
       naturalSpeed: Math.round(e.naturalSpeed ?? e.baseSpeed),
       weakness: e.weakness && e.weakness !== 'none' ? e.weakness : null,
+      styleWeakness: e.styleWeakness ?? null,
       reward: this.effectiveKillGold(e.type),
       isBoss: !!e.isBoss,
       x: e.x,
@@ -2349,7 +2356,8 @@ export class GameEngine {
         : { hp: 0, speed: 0, reward: 0 };
       rows.push({
         type, name: def?.name ?? type, count, isBoss: !!def?.isBoss,
-        hp: s.hp, speed: s.speed, reward: s.reward, weakness: def?.weakness,
+        hp: s.hp, speed: s.speed, reward: s.reward,
+        weakness: def?.weakness, styleWeakness: def?.styleWeakness,
         // Nothing has spawned yet, so the tally hasn't counted this appearance —
         // add it, or the preview would quote one sighting's worth too little.
         leakCost: enemyLeakCost({
@@ -4011,10 +4019,14 @@ export class GameEngine {
     const t = p.sourceTowerId ? this.towers.find(tw => tw.id === p.sourceTowerId) : undefined;
     if (t) return TOWER_STYLES[t.type]?.style;
     switch (p.type) {
-      case 'arrow': case 'dart': case 'bolt': case 'chinchompa': return 'ranged';
+      // A cannonball is Ranged, as it is in OSRS and as TOWER_STYLES says — this
+      // fallback used to call it melee, which only ever mattered for a shot already
+      // in the air when its cannon was sold. It matters now: styleWeaknessMult reads
+      // this, so the wrong answer here would quietly void a ranged monster's weakness.
+      case 'arrow': case 'dart': case 'bolt': case 'chinchompa': case 'cannonball': return 'ranged';
       case 'spell': case 'magic_projectile':
       case 'ancient_ice': case 'ancient_blood': case 'ancient_shadow': case 'ancient_smoke': return 'magic';
-      case 'cannonball': case 'godsword': return 'melee';
+      case 'godsword': return 'melee';
       default: return undefined;
     }
   }
@@ -4444,13 +4456,17 @@ export class GameEngine {
     // Armored halves one style; Protected (a prayer) all but negates one. Banned
     // together, so at most one bites — a DoT/no-style hit is unaffected by either.
     const resist = styleDamageMult(enemy.armoredStyle, style) * protectedDamageMult(enemy.protectedStyle, style);
+    // The species' own combat-triangle weakness — the melee/ranged mirror of the
+    // Elemental wizard's bonus, which is applied at fire time instead (a spell's
+    // element is fixed per shot, a tower's style is fixed per tower).
+    const weak = styleWeaknessMult(enemy.styleWeakness, style);
     // Boss phase bias: Zulrah's per-form style rock-paper-scissors, and a 0 while
     // Vorkath's ice shield is up (fully immune). Neutral for non-boss enemies.
     const bossMult = bossStyleMult(enemy.bossState, style);
     // A boss's escort shrugs off splash aimed at the boss, so its mechanic has to be
     // answered rather than incidentally deleted. Focused fire is unaffected.
     const escortMult = escortDamageMult(!!enemy.escort, source?.tag);
-    let dealt = Math.max(0, Math.floor(amount * vuln * onTask * resist * bossMult * escortMult));
+    let dealt = Math.max(0, Math.floor(amount * vuln * onTask * resist * weak * bossMult * escortMult));
     // Shielded affix: damage is drained from the shield pool before HP is touched.
     if (enemy.shieldHp && enemy.shieldHp > 0 && dealt > 0) {
       const a = absorbWithShield(enemy.shieldHp, dealt);

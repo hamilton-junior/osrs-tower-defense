@@ -22,7 +22,7 @@ import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
 import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/run-save';
-import type { TowerType, PrayerType, MageMode, CombatStyle, TargetingPriority } from '@/lib/game/types';
+import type { TowerType, PrayerType, MageMode, CombatStyle, StyleWeakness, TargetingPriority } from '@/lib/game/types';
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 import { loadChangelog, CHANGELOG_KINDS, type ChangelogEntry } from '@/lib/game/changelog';
@@ -341,6 +341,26 @@ const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>
  *  wiki filename to the cache-baked local asset (wiki hot-link as fallback). */
 const geIcon = (wiki: string) => iconUrl(wiki);
 
+/** How a combat-style weakness reads in a stat row — the combat-triangle colours
+ *  (melee red, ranged green), so it sits beside the elemental labels without
+ *  looking like one of them. */
+const STYLE_WEAKNESS_TAG: Record<StyleWeakness, { label: string; color: string }> = {
+  melee: { label: 'Melee', color: 'var(--osrs-red)' },
+  ranged: { label: 'Ranged', color: '#7fd14a' },
+};
+
+/**
+ * Resolve a monster's single weakness — elemental *or* combat-style — to the
+ * `{ label, color }` every "Weakness" row renders. A monster carries one axis or
+ * the other (see data/enemies.ts), so one row is enough and the style axis is
+ * checked first.
+ */
+function weaknessTag(weakness?: string | null, styleWeakness?: StyleWeakness | null) {
+  if (styleWeakness) return STYLE_WEAKNESS_TAG[styleWeakness];
+  const el = weakness ? ELEMENTS[weakness as keyof typeof ELEMENTS] : null;
+  return el ? { label: el.label, color: el.color } : null;
+}
+
 /** Collection Log roster, split into the Bosses / Monsters tabs (computed once).
  *  Carries the stat fields the log can sort by (hp / speed / weakness / gold). */
 const LOG_ENTRIES = Object.entries(ENEMIES).map(([type, def]) => ({
@@ -350,7 +370,9 @@ const LOG_ENTRIES = Object.entries(ENEMIES).map(([type, def]) => ({
   summonedBy: def.summonedBy,
   hp: def.hp,
   speed: def.speed,
-  weakness: def.weakness ?? '',
+  // The sort key, so "by Weakness" groups melee/ranged monsters together the same
+  // way it groups the elements — not by which axis they happen to use.
+  weakness: weaknessTag(def.weakness, def.styleWeakness)?.label ?? '',
   reward: def.reward,
 }));
 const BOSS_ENTRIES = LOG_ENTRIES.filter((e) => e.isBoss);
@@ -1614,7 +1636,7 @@ export default function GameRoot() {
       {enemyPanel && (() => {
         const { info, pinned } = enemyPanel;
         const ratio = Math.max(0, info.hp / info.maxHp);
-        const wk = info.weakness ? ELEMENTS[info.weakness as keyof typeof ELEMENTS] : null;
+        const wk = weaknessTag(info.weakness, info.styleWeakness);
         // A wave event (Frenzy/Blood Moon) or a speed affix bakes into baseSpeed but
         // not naturalSpeed — flag the difference so a hastened/slowed enemy reads at
         // a glance (▲ red = faster than normal, ▼ cyan = slower).
@@ -3706,7 +3728,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Pick a tower from the dock, then click the grass to place it. It aims and fires on its own — you win by positioning, not aiming.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && !c.towersPlaced },
   { id: 'start', target: 'startwave', title: 'Send the wave',
-    body: 'Happy with your defences? Press Start Wave, beside the tower dock — or tap Space. Nothing spawns until you do, so the game waits while you build. The panel at the top of the screen shows what the next wave sends — hover any monster in it to scout its HP, weakness, speed and gold — then tracks its progress once it lands; drag it anywhere you like. Tick Auto to send every wave the moment the field is clear, after the delay in seconds next to it.',
+    body: 'Happy with your defences? Press Start Wave, beside the tower dock — or tap Space. Nothing spawns until you do, so the game waits while you build. The panel at the top of the screen shows what the next wave sends — hover any monster in it to scout its HP, weakness, speed and gold — then tracks its progress once it lands; drag it anywhere you like. Every monster answers to exactly one thing: a wizard element, or a combat style (Melee or Ranged). Select a tower and the monsters it hits for +50% get a pulsing ring. Tick Auto to send every wave the moment the field is clear, after the delay in seconds next to it.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && c.towersPlaced },
   { id: 'hud', target: 'hud', title: 'Lives & gold',
     body: 'These orbs are your lives and gold. Every enemy that reaches the base costs a life; every kill pays gold for more towers and upgrades.',
@@ -3831,7 +3853,7 @@ const TLDR: TldrGroup[] = [
   ] },
   { h: 'Waves', lines: [
     'Nothing spawns until you Start Wave (button beside the tower dock, or Space). Between waves is paused build time.',
-    'The panel at the top of the screen previews what the next wave sends, then tracks its progress once it lands — drag it wherever suits you. Hover a monster in that preview to scout its HP, weakness, speed and gold at this wave, before you commit to a build. Tick Auto beside the button to send each wave automatically.',
+    'The panel at the top of the screen previews what the next wave sends, then tracks its progress once it lands — drag it wherever suits you. Hover a monster in that preview to scout its HP, weakness, speed and gold at this wave, before you commit to a build. A weakness is either a wizard element or a combat style — Melee or Ranged, never both — and the right one deals +50%; select a tower and every monster it is paid extra to kill gets a pulsing ring. Tick Auto beside the button to send each wave automatically.',
     'From wave 3 a wave can roll a board-wide event — it announces what it does as the wave starts, and its chip re-reads on hover. From wave 5 enemies can turn elite (glowing affixes), at most two at once. Bosses have their own mechanic.',
   ] },
   { h: 'Systems', lines: [
@@ -4783,7 +4805,7 @@ function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, onSelect, pos
 }) {
   const def = ENEMIES[type as keyof typeof ENEMIES];
   if (!def) return null;
-  const wk = def.weakness ? ELEMENTS[def.weakness as keyof typeof ELEMENTS] : null;
+  const wk = weaknessTag(def.weakness, def.styleWeakness);
   const style = enemySpriteStyle(type, true);
   const summons = SUMMONS_BY_BOSS[type] ?? [];
   return (
@@ -5152,7 +5174,7 @@ function HoverTip({ title, badge, desc, side = 'bottom', show = false }: {
  * two read as the same card: what you scout is what you'll hover.
  */
 function WavePreviewCard({ m }: { m: UIState['wavePreview'][number] }) {
-  const wk = m.weakness ? ELEMENTS[m.weakness as keyof typeof ELEMENTS] : null;
+  const wk = weaknessTag(m.weakness, m.styleWeakness);
   return (
     // Anchored BELOW the strip, not above it: the strip lives at the top of the
     // screen, so a card hanging off its top edge would be cut by the viewport.

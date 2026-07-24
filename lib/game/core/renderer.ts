@@ -3,7 +3,7 @@ import { SPAWN_ANIM_SECONDS } from '../types';
 import type { Tower, TowerType, Enemy, CombatStyle } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMY_ANIMS, clipFrame, clipDurationS } from '../data/enemy-anims';
-import { TOWERS } from '../data/towers';
+import { TOWERS, TOWER_STYLES } from '../data/towers';
 import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
@@ -1259,11 +1259,17 @@ export class GameRenderer {
   }
 
   private drawEnemies(ctx: CanvasRenderingContext2D) {
-    // When an Elemental wizard is selected, mark enemies weak to its element
-    // (in that element's colour) so the player can see good targets.
+    // Selecting a tower marks the enemies it is *paid extra* to kill: an Elemental
+    // wizard rings the ones weak to its element, and any other tower rings the ones
+    // weak to its combat style. Same ring, same promise — the style answer is not a
+    // second-class one, it just reads in the combat-triangle colour instead.
     const sel = this.e.selectedTowerId ? this.e.towers.find(t => t.id === this.e.selectedTowerId) : null;
     const markEl = sel && sel.type === 'wizard' && (sel.mageMode ?? 'elemental') === 'elemental' ? (sel.element ?? 'air') : null;
-    const markColor = markEl && markEl !== 'none' ? ELEMENTS[markEl].color : null;
+    const markStyle = sel && !markEl ? TOWER_STYLES[sel.type]?.style : null;
+    const markColor = markEl && markEl !== 'none' ? ELEMENTS[markEl].color
+      : markStyle === 'melee' ? '#ff4d4d'
+        : markStyle === 'ranged' ? '#7fd14a'
+          : null;
     const markPulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
     const pp = this.e.portalPoint;
     // Jad (if present) — its healers draw a heal-beam back to it.
@@ -1551,8 +1557,8 @@ export class GameRenderer {
         ctx.restore();
       }
 
-      // Weakness highlight: a pulsing ring in the selected wizard's element.
-      if (!inPortal && markColor && e.weakness === markEl) {
+      // Weakness highlight: a pulsing ring in the selected tower's element or style.
+      if (!inPortal && markColor && (markEl ? e.weakness === markEl : e.styleWeakness === markStyle)) {
         ctx.save();
         ctx.strokeStyle = markColor;
         ctx.globalAlpha = 0.45 + markPulse * 0.4;

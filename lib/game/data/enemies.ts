@@ -1,4 +1,4 @@
-import type { CombatStyle, Element } from '../types';
+import type { CombatStyle, Element, StyleWeakness } from '../types';
 
 export interface EnemyDef {
   type: string | any; // Keep flexible for now or use EnemyType
@@ -10,6 +10,9 @@ export interface EnemyDef {
   resistance?: number;
   deathSound?: string;
   weakness?: any;
+  /** The combat style this monster takes {@link STYLE_WEAKNESS_BONUS} extra damage
+   *  from. Mutually exclusive with {@link weakness} — see the weakness block below. */
+  styleWeakness?: StyleWeakness;
   isBoss?: boolean;
   waveUnlock?: number;
   /** An innate protection prayer: this monster always prays against this style
@@ -521,33 +524,50 @@ export const ENEMIES: Record<string, EnemyDef> = {
 };
 
 /**
- * Elemental weaknesses, themed so each element has worthwhile targets across
- * the whole roster: Water counters fire creatures & demons, Fire counters the
- * undead/nature/insects, Earth grounds giants/dragons/stone/reptiles, and Air
- * preys on the agile/magical/ethereal. An Elemental wizard deals +50% to an
- * enemy matching its element (see systems/magic `weaknessMultiplier`).
+ * ── Weaknesses ──────────────────────────────────────────────────────────────
+ *
+ * Every monster gets **exactly one answer**, on exactly one of two axes:
+ *
+ * - an {@link Element} — the wizard's axis, four choices deep, +50% for the
+ *   matching Elemental spell (systems/magic `weaknessMultiplier`);
+ * - a {@link StyleWeakness} — melee or ranged, +50% for any tower of that style
+ *   (systems/affixes `styleWeaknessMult`).
+ *
+ * The two never appear on the same species, and `styleWeakness` is never `magic`:
+ * a magic answer is *always* spelled as an element, so the wizard's four-way choice
+ * stays its own puzzle instead of collapsing into "wizard, any element". A test in
+ * enemies.test.ts holds both rules.
+ *
+ * Why the split exists at all: before it, all 39 typed monsters carried an
+ * elemental weakness and nothing else, so magic was the only style with favoured
+ * targets and there was never a reason to answer a wave with a bow or a blade.
+ *
+ * Sourcing. The picks below come from each monster's real OSRS defence table
+ * (`dstab`/`dslash`/`dcrush`, `dlight`/`dstandard`/`dheavy`, `dmagic` on the wiki
+ * infobox): the style whose lowest defence sits clearly under the others. Where
+ * OSRS ties all three — which is most of the low-level roster, and is why almost
+ * nothing in OSRS is *genuinely* ranged-weak — the pick is ours, flagged inline.
  */
+
+/** Elemental answers: Water counters fire creatures & demons, Fire the
+ *  undead/nature/insects, Earth the dragons/stone/burrowers, Air the
+ *  agile/magical/ethereal. */
 const WEAKNESSES: Partial<Record<string, Element>> = {
   // Water — fire creatures & demons
-  imp: 'water', hellhound: 'water', fire_giant: 'water', lesser_demon: 'water',
+  hellhound: 'water', fire_giant: 'water', lesser_demon: 'water',
   black_demon: 'water', abyssal_demon: 'water', superior_abyssal_demon: 'water',
-  nechryael: 'water', superior_nechryael: 'water', jad: 'water',
+  nechryael: 'water', superior_nechryael: 'water',
   // Fire — undead, nature & insects
-  skeleton: 'fire', zombie: 'fire', barrow_wight: 'fire', spider: 'fire',
-  scorpion: 'fire', chaos_druid: 'fire', cow: 'fire',
-  // Earth — giants, dragons, stone & reptiles
-  goblin: 'earth', hill_giant: 'earth', gargoyle: 'earth', superior_gargoyle: 'earth',
-  blue_dragon: 'earth', green_dragon: 'earth', vorkath: 'earth', hydra: 'earth',
-  bloodveld: 'earth', superior_bloodveld: 'earth', giant_mole: 'earth',
+  zombie: 'fire', barrow_wight: 'fire', scorpion: 'fire', cow: 'fire',
+  // Earth — dragons, stone & burrowers
+  blue_dragon: 'earth', green_dragon: 'earth', giant_mole: 'earth',
   // Living statues: stone answers to earth. Both halves read the same, so the pair
   // never splits the player's answer — the fight is about order, not element.
   dusk: 'earth', dawn: 'earth',
-  // A hellhound: water, like every other demon-kin in the table.
-  cerberus: 'water',
   // Earth, straight off the wiki: Brutus carries a 25% elemental weakness to it.
   brutus: 'earth',
   // Air — agile, magical & ethereal
-  rat: 'air', giant_rat: 'air', ghost: 'air', skeletal_mage: 'air', dark_beast: 'air', zulrah: 'air',
+  rat: 'air', giant_rat: 'air', ghost: 'air', zulrah: 'air',
   // A deviation: OSRS gives Scurrius no elemental weakness at all. Leaving him blank
   // would make him the one boss the table skips, and it would read as an oversight
   // rather than a decision — every rat in the game is Air, including the ones he
@@ -556,6 +576,43 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   scurrius: 'air',
 };
 
+/** Combat-triangle answers: the monsters a bow or a blade is the right tool for. */
+const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
+  // ── Melee ──
+  // Crush is the lowest melee defence on every undead and every statue in OSRS,
+  // and the gargoyles are the textbook case (dcrush −20 against dmagic +20 — the
+  // rock-hammer monster). Their 40% Earth weakness is real too; the one-answer
+  // rule picks the more iconic of the two.
+  skeleton: 'melee', gargoyle: 'melee', superior_gargoyle: 'melee',
+  // dstab 30 against dranged 100 / dmagic 90: a dark beast is armoured against
+  // everything you'd rather use.
+  dark_beast: 'melee',
+  // Ours: OSRS gives goblins, hill giants and bloodvelds a flat defence across all
+  // three styles and no element. They are also the three monsters an OSRS player
+  // has meleed more than any other, so melee is where they read.
+  goblin: 'melee', hill_giant: 'melee', bloodveld: 'melee', superior_bloodveld: 'melee',
+  // dcrush 25 against dranged 100; and Vorkath's dmagic 240 is the highest defence
+  // stat in this roster, so a lance is the answer to both.
+  cerberus: 'melee', vorkath: 'melee',
+  // The healers are 0 melee defence and 100 to everything else — reach them or
+  // watch Jad drink. It is the mechanic, stated as a stat.
+  yt_hurkot: 'melee',
+  // ── Ranged ──
+  // The only monster in the roster OSRS itself makes ranged-weak: dranged 45
+  // against dstab 75 / dmagic 150.
+  hydra: 'ranged',
+  // Ours, and the reason this axis needed inventing at all: OSRS almost never
+  // writes a ranged weakness down. Each of these is something you would rather
+  // shoot than approach — a spider, a darting imp, an unarmoured druid, a mystic
+  // behind its own magic defence (dmagic 140), and the fight every OSRS player
+  // learns to range: Jad.
+  spider: 'ranged', imp: 'ranged', chaos_druid: 'ranged', skeletal_mage: 'ranged',
+  jad: 'ranged',
+};
+
 for (const [type, weakness] of Object.entries(WEAKNESSES)) {
   if (ENEMIES[type]) ENEMIES[type].weakness = weakness;
+}
+for (const [type, styleWeakness] of Object.entries(STYLE_WEAKNESSES)) {
+  if (ENEMIES[type]) ENEMIES[type].styleWeakness = styleWeakness;
 }

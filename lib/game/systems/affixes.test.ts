@@ -20,6 +20,8 @@ import {
   BOSS_LEAK_MAX,
   isCcImmune,
   styleDamageMult,
+  styleWeaknessMult,
+  STYLE_WEAKNESS_BONUS,
   absorbWithShield,
   ALL_AFFIXES,
   AFFIX_DEFS,
@@ -215,6 +217,15 @@ describe('stat helpers', () => {
     expect(styleDamageMult('ranged', 'magic')).toBe(1);
     expect(styleDamageMult(undefined, 'magic')).toBe(1);
     expect(styleDamageMult('melee', undefined)).toBe(1);
+  });
+  it('styleWeaknessMult pays only the matching style, and never a styleless hit', () => {
+    expect(styleWeaknessMult('melee', 'melee')).toBe(STYLE_WEAKNESS_BONUS);
+    expect(styleWeaknessMult('ranged', 'ranged')).toBe(STYLE_WEAKNESS_BONUS);
+    expect(styleWeaknessMult('melee', 'ranged')).toBe(1);
+    expect(styleWeaknessMult('ranged', 'magic')).toBe(1);
+    expect(styleWeaknessMult(undefined, 'melee')).toBe(1);
+    // A DoT tick aims nothing, so it earns nothing — same rule as `armored`.
+    expect(styleWeaknessMult('melee', undefined)).toBe(1);
   });
 });
 
