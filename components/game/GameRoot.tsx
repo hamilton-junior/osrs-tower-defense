@@ -656,6 +656,61 @@ export default function GameRoot() {
     try { localStorage.setItem('ui_scale', String(uiScale)); } catch { /* ignore */ }
     document.documentElement.style.setProperty('--ui-scale', String(uiScale));
   }, [uiScale]);
+  // How far the interface can actually grow is a property of the SCREEN, not a
+  // constant: measured, the bar's run-controls start clipping at 110% on a 1366px
+  // display, 130% at 1600, 140% at 1920, and never below 160% at 2560. A single
+  // hard-coded ceiling is therefore wrong for somebody no matter which one is
+  // picked — which is exactly the bug that got reported, on a small display.
+  //
+  // So measure instead: `maxUiScale` is the largest scale this window can hold, solved
+  // from the bar's own natural width. "+" stops there, and a scale inherited from a
+  // bigger window is pulled down to it. It re-measures on resize, so widening the
+  // window re-opens the larger sizes.
+  const barRef = useRef<HTMLElement | null>(null);
+  const [maxUiScale, setMaxUiScale] = useState(UI_SCALE_MAX);
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const measure = () => {
+      const cs = getComputedStyle(bar);
+      const s = parseFloat(cs.getPropertyValue('--ui-scale')) || 1;
+      const gap = parseFloat(cs.columnGap) || 0;
+      const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+      // Natural width of each group. Two of them are `flex-1`, so their own
+      // offsetWidth is whatever slack the row handed them and says nothing about what
+      // they need — measuring that is what capped every screen at 100%. Use the sum of
+      // a group's children (plus its own gaps and padding); only a leaf with no element
+      // children falls back to its own width.
+      const kids = [...bar.children] as HTMLElement[];
+      const natural = kids.reduce((sum, k) => {
+        const inner = [...k.children] as HTMLElement[];
+        if (!inner.length) return sum + k.offsetWidth;
+        const ks = getComputedStyle(k);
+        const innerGap = parseFloat(ks.columnGap) || 0;
+        const innerPad = (parseFloat(ks.paddingLeft) || 0) + (parseFloat(ks.paddingRight) || 0);
+        return sum + inner.reduce((a, c) => a + c.offsetWidth, 0)
+          + innerGap * (inner.length - 1) + innerPad;
+      }, 0) + gap * Math.max(0, kids.length - 1);
+      // Everything above is em-based, so it all scales linearly with s: the row needs
+      // (natural + pad)/s per unit of scale, and has `bar.offsetWidth` to spend. Solve
+      // once for the largest scale that still fits, instead of stepping down until it
+      // does — a step-down loop only ever shrinks, so a single reading taken mid-relayout
+      // costs a size permanently, and that is what pinned the bar at its minimum.
+      const perUnit = (natural + pad) / Math.max(0.01, s);
+      const fits = perUnit > 0 ? bar.offsetWidth / perUnit : UI_SCALE_MAX;
+      const stepped = Math.floor((fits + 1e-6) / UI_SCALE_STEP) * UI_SCALE_STEP;
+      setMaxUiScale(Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, +stepped.toFixed(2))));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, [uiScale]);
+  // Pull an inherited-too-large scale (a smaller window, or a value saved on another
+  // machine) down to what this screen can actually hold.
+  useEffect(() => {
+    if (uiScale > maxUiScale) setUiScale(maxUiScale);
+  }, [uiScale, maxUiScale]);
   // A stone toggles its interface: clicking the lit one closes it, so no panel is
   // ever stuck on-screen. The popup floats above the bar (absolutely positioned),
   // so opening it never resizes the canvas — which would rebuild the path and
@@ -3125,6 +3180,7 @@ export default function GameRoot() {
         )}
 
         <footer
+          ref={barRef}
           data-tut="sidebar"
           className="w-full rs-panel flex items-center gap-[0.6em] px-[0.6em]"
           style={{ height: '4.3em' }}
@@ -3209,9 +3265,11 @@ export default function GameRoot() {
                 {Math.round(uiScale * 100)}%
               </span>
               <button
-                onClick={() => setUiScale((v) => Math.min(UI_SCALE_MAX, +(v + UI_SCALE_STEP).toFixed(2)))}
-                disabled={uiScale >= UI_SCALE_MAX}
-                title="Larger interface"
+                onClick={() => setUiScale((v) => Math.min(maxUiScale, +(v + UI_SCALE_STEP).toFixed(2)))}
+                disabled={uiScale >= maxUiScale}
+                title={uiScale >= maxUiScale && maxUiScale < UI_SCALE_MAX
+                  ? 'This screen has no room for a larger interface — widen the window for more'
+                  : 'Larger interface'}
                 className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
               >
                 +
