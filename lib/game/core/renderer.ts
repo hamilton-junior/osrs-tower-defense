@@ -4,7 +4,7 @@ import type { Tower, TowerType, Enemy, CombatStyle } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMY_ANIMS, clipFrame, clipDurationS } from '../data/enemy-anims';
 import { TOWERS, TOWER_STYLES } from '../data/towers';
-import { isValidPlacement, squareRange, pointToSegmentDistance } from '../systems/geometry';
+import { isValidPlacement, squareRange, pointToSegmentDistance, distance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
 import {
@@ -235,15 +235,54 @@ export class GameRenderer {
       ctx.lineWidth = width;
       trace();
     }
-    // Lighter packed centre with a dashed track line.
+    // Lighter packed centre where the traffic wears the surface thin.
     ctx.strokeStyle = road.centre;
     ctx.lineWidth = 18;
     trace();
-    ctx.setLineDash([10, 16]);
-    ctx.strokeStyle = road.dash;
-    ctx.lineWidth = 3;
-    trace();
-    ctx.setLineDash([]);
+    this.drawRoadGravel(ctx);
+  }
+
+  /**
+   * Grit scattered across the road surface.
+   *
+   * This used to be a dashed line straight down the centre — which is a *car*
+   * road's lane marking, and read as one: nothing in RuneScape paints a stripe on
+   * a dirt track. A worn track is scattered gravel instead, spread across the full
+   * width rather than lined up along the middle.
+   *
+   * Placement is hashed off the stone's index, not `Math.random`, so the same road
+   * draws identically every frame — grit that danced between frames would be worse
+   * than the stripe. Spacing is measured in real arc length, so a corner gets the
+   * same stone density as a straight, and the biome's own `road.dash` colour keeps
+   * each region's palette.
+   */
+  private drawRoadGravel(ctx: CanvasRenderingContext2D) {
+    const path = this.e.path;
+    const hash = (n: number) => {
+      const v = Math.sin(n) * 43758.5453;
+      return v - Math.floor(v);
+    };
+    ctx.fillStyle = this.e.biome.road.dash;
+    const STEP = 13;      // arc-length between stones
+    const HALF_WIDTH = 15; // keep them on the packed surface, off the border
+    let carried = 0;      // leftover distance from the previous segment
+    let i = 0;            // stone index — the hash seed, so it never repeats a pattern
+    for (let s = 1; s < path.length; s++) {
+      const ax = path[s - 1].x, ay = path[s - 1].y;
+      const len = distance(ax, ay, path[s].x, path[s].y);
+      if (len <= 0) continue;
+      const ux = (path[s].x - ax) / len, uy = (path[s].y - ay) / len;
+      for (let d = STEP - carried; d < len; d += STEP, i++) {
+        // Lateral offset across the road, and a size that varies stone to stone.
+        const off = (hash(i * 12.9898) * 2 - 1) * HALF_WIDTH;
+        const r = 1 + hash(i * 78.233) * 1.8;
+        ctx.beginPath();
+        ctx.arc(ax + ux * d - uy * off, ay + uy * d + ux * off, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Carry the remainder so spacing doesn't reset at every path vertex.
+      carried = (len + carried) % STEP;
+    }
   }
 
   /**
