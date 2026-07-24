@@ -68,7 +68,8 @@ import {
 } from '../systems/boss-mechanics';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
-import { generateMapLayout, type MapLayout } from '../systems/map-generation';
+import { generateMapLayout, type MapLayout, type MapEdge } from '../systems/map-generation';
+import { generateTerrain, type TerrainField } from '../systems/terrain-generation';
 import { BIOMES, pickBiome, nextBiome, type BiomeDef } from '../data/biomes';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 
@@ -610,7 +611,26 @@ export class GameEngine {
   /** Seed for this run's procedural map (path + biome); re-rolled on restart. */
   private mapSeed = 0;
   /** Normalized ([0,1]) road layout for this run; `buildPath` snaps it to the grid. */
-  private mapLayout: MapLayout = { points: [], columns: 0 };
+  private mapLayout: MapLayout = { points: [], entry: 'left', exit: 'right', archetype: 'serpentine', orientation: 0 };
+  /** Per-run terrain: obstacle / non-buildable / decoration flags over the tile grid.
+   *  Rebuilt with the map each run; the renderer draws it and placement consults it. */
+  terrain: TerrainField = { cols: 0, rows: 0, tiles: [], decorations: [] };
+
+  /** Does the terrain forbid building on the tile at `(x, y)` (obstacle or
+   *  non-buildable zone)? Public so the renderer's placement ghost can turn red
+   *  over obstacles. Out-of-range tiles are not blocked (the path/edge checks
+   *  handle those). */
+  isTerrainBlocked(x: number, y: number): boolean {
+    const t = this.terrain;
+    if (t.cols === 0) return false;
+    const c = Math.floor(x / GRID);
+    const r = Math.floor(y / GRID);
+    if (c < 0 || c >= t.cols || r < 0 || r >= t.rows) return false;
+    return t.tiles[r * t.cols + c] !== 'open';
+  }
+
+  /** Bound form of {@link isTerrainBlocked} for handing to {@link isValidPlacement}. */
+  private readonly blockedTile = (x: number, y: number): boolean => this.isTerrainBlocked(x, y);
   /** The active battlefield theme (OSRS region palette) — read by the renderer. */
   biome: BiomeDef = BIOMES.lumbridge;
   enemies: Enemy[] = [];
@@ -1275,6 +1295,9 @@ export class GameEngine {
     this.mapLayout = generateMapLayout(this.mapSeed);
     this.biome = pickBiome(this.mapSeed);
     this.buildPath();
+    this.terrain = generateTerrain(
+      this.mapSeed, this.path, Math.floor(this.width / GRID), Math.floor(this.height / GRID), GRID,
+    );
   }
 
   private buildPath() {
@@ -1287,10 +1310,21 @@ export class GameEngine {
     const row = (f: number) => Math.round(ty * f) * GRID;
     const pts = this.mapLayout.points.map(p => ({ x: col(p.fx), y: row(p.fy) }));
     if (pts.length === 0) return; // pre-generation guard (never hit in normal flow)
+    // Extend the off-screen entry/exit stubs perpendicular to whichever board edge
+    // the archetype's orientation put them on (not always left→right anymore).
+    const stub = (p: Point, edge: MapEdge): Point => {
+      switch (edge) {
+        case 'right': return { x: this.width + GRID, y: p.y };
+        case 'top': return { x: p.x, y: -GRID };
+        case 'bottom': return { x: p.x, y: this.height + GRID };
+        case 'left':
+        default: return { x: -GRID, y: p.y };
+      }
+    };
     this.path = [
-      { x: -GRID, y: pts[0].y }, // off-screen entry stub at the first turn's row
+      stub(pts[0], this.mapLayout.entry),
       ...pts,
-      { x: this.width + GRID, y: pts[pts.length - 1].y }, // off-screen exit stub
+      stub(pts[pts.length - 1], this.mapLayout.exit),
     ];
   }
 
@@ -1564,7 +1598,7 @@ export class GameEngine {
     const sy = Math.round(y / GRID) * GRID;
     if (sx === tower.x && sy === tower.y) return; // no-op, wait for a real spot
     const others = this.towers.filter(t => t.id !== tower.id); // ignore self
-    if (!isValidPlacement(sx, sy, this.path, others)) return; // invalid spot, keep waiting
+    if (!isValidPlacement(sx, sy, this.path, others, 40, 30, this.blockedTile)) return; // invalid spot, keep waiting
     this.money -= cost;
     tower.x = sx;
     tower.y = sy;
@@ -1634,7 +1668,7 @@ export class GameEngine {
       ...t,
       ok: t.x >= TOWER_RADIUS && t.x <= this.width - TOWER_RADIUS &&
           t.y >= TOWER_RADIUS && t.y <= this.height - TOWER_RADIUS &&
-          isValidPlacement(t.x, t.y, this.path, others),
+          isValidPlacement(t.x, t.y, this.path, others, 40, 30, this.blockedTile),
     }));
   }
 
@@ -1770,7 +1804,7 @@ export class GameEngine {
         y: ty,
         ok: tx >= TOWER_RADIUS && tx <= this.width - TOWER_RADIUS &&
             ty >= TOWER_RADIUS && ty <= this.height - TOWER_RADIUS &&
-            isValidPlacement(tx, ty, this.path, this.towers),
+            isValidPlacement(tx, ty, this.path, this.towers, 40, 30, this.blockedTile),
       };
     });
   }
@@ -1833,7 +1867,7 @@ export class GameEngine {
     if (this.placeQueue.some(p => p.x === sx && p.y === sy)) return; // already painted
     // Painted tiles block each other, or a stroke would stack towers on one spot.
     const blockers = [...this.towers, ...this.placeQueue];
-    if (!isValidPlacement(sx, sy, this.path, blockers)) return;
+    if (!isValidPlacement(sx, sy, this.path, blockers, 40, 30, this.blockedTile)) return;
     this.placeQueue.push({ x: sx, y: sy });
     this.emit();
   }
@@ -1954,7 +1988,7 @@ export class GameEngine {
       if (this.selectedTowerType === 'wizard') {
         const sx = Math.round(x / GRID) * GRID;
         const sy = Math.round(y / GRID) * GRID;
-        if (isValidPlacement(sx, sy, this.path, this.towers)) {
+        if (isValidPlacement(sx, sy, this.path, this.towers, 40, 30, this.blockedTile)) {
           this.pendingKeepPlacing = keepPlacing; // remembered for confirmWizardSpellbook
           this.pendingPlacement = { x: sx, y: sy };
           this.emit();
@@ -2022,7 +2056,7 @@ export class GameEngine {
     const sx = Math.round(x / GRID) * GRID;
     const sy = Math.round(y / GRID) * GRID;
     if (this.money < cost) { this.notify('Not enough gold'); return null; }
-    if (!isValidPlacement(sx, sy, this.path, this.towers)) { this.notify("Can't build there"); return null; }
+    if (!isValidPlacement(sx, sy, this.path, this.towers, 40, 30, this.blockedTile)) { this.notify("Can't build there"); return null; }
 
     const tier = def.tiers[0];
     this.money -= cost;

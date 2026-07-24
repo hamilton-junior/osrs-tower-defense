@@ -4,7 +4,7 @@ import type { Tower, TowerType, Enemy, CombatStyle } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { ENEMY_ANIMS, clipFrame, clipDurationS } from '../data/enemy-anims';
 import { TOWERS, TOWER_STYLES } from '../data/towers';
-import { isValidPlacement, squareRange, pointToSegmentDistance, distance } from '../systems/geometry';
+import { isValidPlacement, squareRange, distance } from '../systems/geometry';
 import { ELEMENTS, spellSpriteName } from '../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../systems/affixes';
 import {
@@ -141,7 +141,7 @@ export class GameRenderer {
       ctx.fillRect(x + 2, y + 2, 2, 4);
     }
 
-    this.drawDecorations(ctx, w, h);
+    this.drawTerrain(ctx);
 
     // Faint tile grid (biome-tinted).
     ctx.strokeStyle = biome.grid;
@@ -160,40 +160,65 @@ export class GameRenderer {
     }
   }
 
-  /** Shortest distance from a point to the path polyline. */
-  private distToPath(x: number, y: number): number {
-    const path = this.e.path;
-    let min = Infinity;
-    for (let i = 0; i < path.length - 1; i++) {
-      min = Math.min(min, pointToSegmentDistance(x, y, path[i], path[i + 1]));
-    }
-    return min;
-  }
-
-  /** Scatter deterministic off-path scenery (bushes, rocks, flowers) in the
-   *  active biome's palette. */
-  private drawDecorations(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  /**
+   * Draw the run's terrain field (from the engine): non-buildable zones as a soft
+   * biome-tinted wash, hard obstacles as opaque rock mounds, and cosmetic scenery
+   * (bushes / rocks / flowers) on open ground — all in the active biome's palette,
+   * so obstacles read as impassable while the field re-skins per region.
+   */
+  private drawTerrain(ctx: CanvasRenderingContext2D) {
+    const t = this.e.terrain;
+    if (t.cols === 0) return;
     const { bush, rock, rockHi, flowers } = this.e.biome.decor;
+    const cols = t.cols;
+
+    // Non-buildable zones: a soft biome-tinted wash so the ground reads as rough.
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = bush;
+    for (let i = 0; i < t.tiles.length; i++) {
+      if (t.tiles[i] !== 'unbuildable') continue;
+      const c = i % cols;
+      const r = (i / cols) | 0;
+      ctx.fillRect(c * GRID, r * GRID, GRID, GRID);
+    }
+    ctx.restore();
+
+    // Hard obstacles: opaque rock mounds that fill the tile (impassable).
+    for (let i = 0; i < t.tiles.length; i++) {
+      if (t.tiles[i] !== 'blocked') continue;
+      const c = i % cols;
+      const r = (i / cols) | 0;
+      const cx = c * GRID + GRID / 2;
+      const cy = r * GRID + GRID / 2;
+      ctx.fillStyle = rock;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, GRID * 0.44, GRID * 0.38, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = rockHi;
+      ctx.beginPath();
+      ctx.ellipse(cx - GRID * 0.12, cy - GRID * 0.14, GRID * 0.16, GRID * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Cosmetic decorations on open ground, jittered off the grid so they don't line up.
     const hash = (n: number) => {
       const v = Math.sin(n) * 43758.5453;
-      return v - Math.floor(v); // fractional part in [0,1)
+      return v - Math.floor(v);
     };
-    for (let i = 0; i < 70; i++) {
-      // Hashed pseudo-random placement, stable across frames.
-      const x = hash(i * 12.9898) * w;
-      const y = hash(i * 78.233) * h;
-      if (this.distToPath(x, y) < 48) continue; // keep the road clear
-      const kind = i % 5;
-      if (kind === 0 || kind === 1) {
-        // bush
+    for (const d of t.decorations) {
+      const jx = (hash(d.col * 12.9 + d.row * 7.1) - 0.5) * GRID * 0.5;
+      const jy = (hash(d.col * 3.7 + d.row * 19.3) - 0.5) * GRID * 0.5;
+      const x = d.col * GRID + GRID / 2 + jx;
+      const y = d.row * GRID + GRID / 2 + jy;
+      if (d.kind === 0 || d.kind === 1) {
         ctx.fillStyle = bush;
         ctx.beginPath();
         ctx.arc(x, y, 7, 0, Math.PI * 2);
         ctx.arc(x + 6, y + 2, 5, 0, Math.PI * 2);
         ctx.arc(x - 5, y + 2, 5, 0, Math.PI * 2);
         ctx.fill();
-      } else if (kind === 2) {
-        // rock
+      } else if (d.kind === 2) {
         ctx.fillStyle = rock;
         ctx.beginPath();
         ctx.ellipse(x, y, 6, 4, 0, 0, Math.PI * 2);
@@ -201,8 +226,7 @@ export class GameRenderer {
         ctx.fillStyle = rockHi;
         ctx.fillRect(x - 3, y - 3, 3, 2);
       } else {
-        // flower cluster
-        ctx.fillStyle = flowers[i % flowers.length];
+        ctx.fillStyle = flowers[(d.col + d.row) % flowers.length];
         for (let f = 0; f < 3; f++) {
           ctx.beginPath();
           ctx.arc(x + (f - 1) * 4, y + (f % 2) * 3, 1.8, 0, Math.PI * 2);
@@ -572,7 +596,7 @@ export class GameRenderer {
     const sy = Math.round(this.e.pointer.y / GRID) * GRID;
     const others = moving ? this.e.towers.filter(t => t.id !== moving.id) : this.e.towers;
     const affordable = moving ? this.e.money >= this.e.moveTowerCost(moving) : this.e.money >= this.e.towerCost(type);
-    const valid = affordable && isValidPlacement(sx, sy, this.e.path, others);
+    const valid = affordable && isValidPlacement(sx, sy, this.e.path, others, 40, 30, (x, y) => this.e.isTerrainBlocked(x, y));
     const level = moving ? moving.level : 1;
     // Show the *effective* range (run mods, global upgrades, nearby Utility auras),
     // so what the preview circle promises is what the placed tower actually gets.

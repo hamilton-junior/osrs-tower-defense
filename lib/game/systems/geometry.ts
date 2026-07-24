@@ -166,6 +166,8 @@ export function clampCursorToBoard(
 /**
  * Whether `(x, y)` is far enough from every path segment and existing tower
  * to host a new tower. `towers` only needs `x`/`y`, so any placed entity works.
+ * `isBlockedTile`, when given, additionally rejects spots on terrain the run's
+ * field marks unbuildable (obstacles / non-buildable zones).
  */
 export function isValidPlacement(
   x: number,
@@ -174,7 +176,9 @@ export function isValidPlacement(
   towers: ReadonlyArray<{ x: number; y: number }>,
   pathClearance = 40, // pathWidth (25) + tower radius (15)
   towerClearance = 30, // two tower radii
+  isBlockedTile?: (x: number, y: number) => boolean,
 ): boolean {
+  if (isBlockedTile?.(x, y)) return false;
   for (let i = 0; i < path.length - 1; i++) {
     if (pointToSegmentDistance(x, y, path[i], path[i + 1]) < pathClearance) {
       return false;

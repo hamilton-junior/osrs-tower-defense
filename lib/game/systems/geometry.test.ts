@@ -82,6 +82,12 @@ describe('isValidPlacement', () => {
   it('accepts positions far from an existing tower', () => {
     expect(isValidPlacement(50, 80, path, [{ x: 200, y: 200 }])).toBe(true);
   });
+  it('rejects an otherwise-valid spot the terrain marks blocked', () => {
+    const blocked = (x: number, y: number) => x === 50 && y === 80;
+    expect(isValidPlacement(50, 80, path, [], 40, 30, blocked)).toBe(false);
+    // a clear tile with the same predicate still passes
+    expect(isValidPlacement(50, 200, path, [], 40, 30, blocked)).toBe(true);
+  });
 });
 
 describe('knockbackStep', () => {
