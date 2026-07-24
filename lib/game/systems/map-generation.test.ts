@@ -106,7 +106,7 @@ describe('generateMapLayout', () => {
     expect(shapes.size).toBeGreaterThan(5);
   });
 
-  it('exercises every archetype and multiple orientations across seeds', () => {
+  it('exercises every archetype, mixed maps, and all orientations across seeds', () => {
     const archetypes = new Set<string>();
     const orientations = new Set<number>();
     for (const s of SWEEP) {
@@ -114,7 +114,17 @@ describe('generateMapLayout', () => {
       archetypes.add(l.archetype);
       orientations.add(l.orientation);
     }
-    expect([...archetypes].sort()).toEqual(['detour', 'loop', 'serpentine', 'staircase']);
+    // standalone shapes
+    expect(archetypes.has('loop')).toBe(true);
+    expect(archetypes.has('detour')).toBe(true);
+    // pure single-chunk composites
+    expect(archetypes.has('serpentine')).toBe(true);
+    expect(archetypes.has('staircase')).toBe(true);
+    // at least one *mixed* map (two shapes in one road)
+    expect([...archetypes].some(a => a.includes('+'))).toBe(true);
+    // specifically a serpentine chained with a staircase (the user's example), in
+    // either order
+    expect([...archetypes].some(a => a.includes('serpentine') && a.includes('staircase'))).toBe(true);
     expect(orientations.size).toBe(8);
   });
 
