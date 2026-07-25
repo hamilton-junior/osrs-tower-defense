@@ -259,7 +259,7 @@ const attackSpeed = (cooldownMs: number) => {
 
 const INITIAL: UIState = {
   money: 200, lives: 20, maxLives: 20, wave: 1, waveActive: false,
-  remaining: 0, waveTotal: 0, bossWave: false, wavePreview: [], activeEvent: null, bossOnField: false, gameOver: false, selectedTowerType: null, selectedTowerId: null,
+  remaining: 0, waveTotal: 0, bossWave: false, wavePreview: [], activeEvent: null, bossOnField: false, gameOver: false, won: false, runPhase: 'normal', victory: null, selectedTowerType: null, selectedTowerId: null,
   // Base prices, until the engine's first emit replaces them with the live ones.
   towerPrices: Object.fromEntries(
     Object.entries(TOWERS).map(([type, def]) => [type, def.tiers[0].upgradeCost]),

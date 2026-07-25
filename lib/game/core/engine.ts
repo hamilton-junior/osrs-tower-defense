@@ -9,8 +9,8 @@ import { LANDMARK_WAVES, type WaveConfig } from '../data/waves';
 import { ASSETS } from '../assets';
 import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange, knockbackStep, clampCursorToBoard } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
-import { scaleEnemyStats } from '../systems/enemy-scaling';
-import { buildWaveConfigs } from '../systems/wave-generation';
+import { scaleEnemyStats, endlessHpMult } from '../systems/enemy-scaling';
+import { buildWaveConfigs, allSchedulableBossesCleared } from '../systems/wave-generation';
 import { calculateTowerStats, synergyDamageMult, utilityAuraBonus, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
 import { CombatStatsSystem, RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity, type DpsSnapshot } from '../systems/combat-stats';
 import { ELEMENTS, ANCIENTS, ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, upgradeCostFor, BARRAGE_SPLASH_FALLOFF, TICK_SECONDS, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../systems/magic';
@@ -55,7 +55,7 @@ import {
   GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
   cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
   SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT,
-  MECHANIC_BOSSES,
+  MECHANIC_BOSSES, SCHEDULABLE_BOSSES,
   brutusShouldRage, brutusDashDirection, brutusIsRampaging, bossAnimVariant,
   BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN,
   BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY,
@@ -268,6 +268,12 @@ export interface UIState {
   /** Whether a boss is currently alive on the field (its HP bar is showing). */
   bossOnField: boolean;
   gameOver: boolean;
+  /** Latched once every schedulable boss has fallen this run — shows the victory screen. */
+  won: boolean;
+  /** `'normal'` until victory; `'endless'` after the player continues past it. */
+  runPhase: 'normal' | 'endless';
+  /** Run summary for the victory stop-screen (null until `won`). */
+  victory: { wave: number; seconds: number; bosses: number; mode: GameMode } | null;
   selectedTowerType: TowerType | null;
   /** What the NEXT tower of each type costs right now, meta discount and same-type
    *  escalation included. Emitted rather than recomputed in the UI: the price moves
@@ -677,6 +683,15 @@ export class GameEngine {
   pendingDraft: DraftCard[] | null = null;
   /** Roguelite: run-scoped buff multipliers accumulated from drafts. */
   runMods: RunModifiers = freshRunMods();
+  /** Schedulable bosses killed *this run* (reset each run). Drives the ordered boss
+   *  march and the victory trigger — distinct from lifetime `bossesSeen`. */
+  bossesKilledThisRun: Record<string, number> = {};
+  /** True once every schedulable boss has fallen this run. Latches the victory screen. */
+  won = false;
+  /** `'normal'` until victory; `'endless'` after the player chooses to continue. */
+  runPhase: 'normal' | 'endless' = 'normal';
+  /** The wave victory fired on — the anchor for the Endless HP acceleration. */
+  private victoryWave = 0;
   /** Behavioural roguelite effects (chain-on-kill / curses / transforms). */
   runFx: RunEffects = freshRunEffects();
   /** Ids of `unique` cards drafted this run — excluded from later hands. */
@@ -923,6 +938,16 @@ export class GameEngine {
         : null,
       bossOnField: this.enemies.some(e => e.isBoss),
       gameOver: this.gameOver,
+      won: this.won,
+      runPhase: this.runPhase,
+      victory: this.won
+        ? {
+            wave: this.victoryWave,
+            seconds: this.runSeconds,
+            bosses: Object.keys(this.bossesKilledThisRun).length,
+            mode: this.gameMode,
+          }
+        : null,
       selectedTowerType: this.selectedTowerType,
       towerPrices: this.towerPrices(),
       selectedTowerId: this.selectedTowerId,
@@ -2420,6 +2445,8 @@ export class GameEngine {
       // Drives the boss schedule: which boss is still unmet (so a new account meets
       // them in order), and whether the random / extra-boss endgame has unlocked.
       bossesSeen: this.bossesSeen,
+      // Per-run march: every run meets bosses gentle→hard and has a real "last boss".
+      bossKillsThisRun: this.bossesKilledThisRun,
     });
     this.previewCache = { wave: this.wave, task: taskType, configs };
     return configs;
@@ -2439,8 +2466,9 @@ export class GameEngine {
     for (const [type, count] of totals) {
       const def = ENEMIES[type];
       // Scale to the wave being previewed, exactly as makeEnemy will when it spawns.
+      const endless = this.runPhase === 'endless' ? endlessHpMult(this.wave, this.victoryWave) : 1;
       const s = def
-        ? scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, this.wave)
+        ? scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, this.wave, endless)
         : { hp: 0, speed: 0, reward: 0 };
       rows.push({
         type, name: def?.name ?? type, count, isBoss: !!def?.isBoss,
@@ -2510,7 +2538,8 @@ export class GameEngine {
   private makeEnemy(type: EnemyType, wave: number, forced?: AffixRoll): Enemy | null {
     const def = ENEMIES[type];
     if (!def) return null;
-    const scaled = scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, wave);
+    const endless = this.runPhase === 'endless' ? endlessHpMult(wave, this.victoryWave) : 1;
+    const scaled = scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, wave, endless);
     const start = this.portalPoint;
     // `forced` (debug cheats) wins outright — it bypasses the seen-gate and the
     // elite roll so a tester can dial in exact modifiers. Otherwise: bosses roll
@@ -4696,6 +4725,13 @@ export class GameEngine {
       this.kills += 1;
       // New object each kill so the UI's persistence effect sees the change.
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
+      // Per-run boss tally: drives the ordered march and the victory trigger.
+      if (enemy.isBoss && (SCHEDULABLE_BOSSES as readonly string[]).includes(enemy.type)) {
+        this.bossesKilledThisRun = {
+          ...this.bossesKilledThisRun,
+          [enemy.type]: (this.bossesKilledThisRun[enemy.type] ?? 0) + 1,
+        };
+      }
       // Bigger and Badder (Slayer shop): the task monster can rise again, right
       // where it fell, as its Superior form. Rolled BEFORE recordKill, so the kill
       // that finishes a task can still spawn one — the superior is the send-off.
@@ -4895,6 +4931,16 @@ export class GameEngine {
     // startWave reuses the same memoised makeup. The player also sees their task
     // while placing towers.
     if (!this.gameOver) this.slayer.assignTask();
+    // Victory: the wave that clears the last still-unmet schedulable boss ends the
+    // run (mid-combat is too abrupt — this is the wave-clear beat). It latches once;
+    // Endless play past it never re-triggers because `won` stays true.
+    if (!this.won && this.runPhase === 'normal' && !this.gameOver
+        && allSchedulableBossesCleared(this.bossesKilledThisRun)) {
+      this.won = true;
+      this.victoryWave = this.wave - 1; // the wave just cleared (wave already advanced)
+      this.paused = true;
+      this.sound.play('interface_open');
+    }
     this.emit();
   }
 
@@ -5249,6 +5295,16 @@ export class GameEngine {
     this.emit();
   }
 
+  /** Dismiss the victory screen and play on. The run keeps its board and progress;
+   *  only the difficulty curve changes (Endless HP acceleration from `victoryWave`). */
+  continueEndless() {
+    if (!this.won) return;
+    this.runPhase = 'endless';
+    this.paused = false;
+    this.previewCache = null; // force the next preview to reflect the Endless HP term
+    this.emit();
+  }
+
   restart() {
     this.generateMap(); // fresh procedural map + biome for the new run
     this.enemies = [];
@@ -5267,6 +5323,10 @@ export class GameEngine {
     this.lives = START_LIVES;
     this.maxLives = START_LIVES;
     // Roguelite run-scoped state resets; the chosen game mode itself persists.
+    this.bossesKilledThisRun = {};
+    this.won = false;
+    this.runPhase = 'normal';
+    this.victoryWave = 0;
     this.runMods = freshRunMods();
     this.runFx = freshRunEffects();
     this.draftedUnique.clear();
