@@ -294,7 +294,29 @@ const INITIAL: UIState = {
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = { prayer: 'Prayer Unlocked' };
 
-const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', run: 'osrs_td_run' } as const;
+const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', victories: 'osrs_td_victories', run: 'osrs_td_run' } as const;
+
+/** The champion's record — a non-monetary meta reward (no power, no gold), persisted
+ *  like the rest of meta-progression. Total wins, best clear time, furthest Endless
+ *  wave, and per-mode counts. */
+type Victories = {
+  total: number;
+  fastestSeconds: number | null;
+  highestEndlessWave: number;
+  byMode: { classic: number; roguelite: number };
+};
+const EMPTY_VICTORIES: Victories = { total: 0, fastestSeconds: null, highestEndlessWave: 0, byMode: { classic: 0, roguelite: 0 } };
+
+function loadVictories(): Victories {
+  if (typeof window === 'undefined') return EMPTY_VICTORIES;
+  try {
+    const raw = JSON.parse(localStorage.getItem(SAVE_KEYS.victories) ?? 'null');
+    if (raw && typeof raw === 'object') {
+      return { ...EMPTY_VICTORIES, ...raw, byMode: { ...EMPTY_VICTORIES.byMode, ...(raw.byMode ?? {}) } };
+    }
+  } catch { /* ignore */ }
+  return EMPTY_VICTORIES;
+}
 
 /** Read the saved run in progress, or null when there is none / it is unusable.
  *  `sanitizeRunSave` rejects a save from an older format outright, so a patch that
@@ -594,7 +616,10 @@ export default function GameRoot() {
   // Collection Log and Debug still open their own larger windows.
   const [tab, setTab] = useState<SideTab | null>(null);
   const [logOpen, setLogOpen] = useState(false);
-  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards'>('monsters');
+  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards' | 'victories'>('monsters');
+  // The champion's win record (non-monetary meta reward). Read once on mount.
+  const [victories, setVictories] = useState<Victories>(EMPTY_VICTORIES);
+  useEffect(() => { setVictories(loadVictories()); }, []);
   // The title / mode-select screen gates the very first wave; it returns on
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
@@ -845,6 +870,39 @@ export default function GameRoot() {
     if (!bsLoaded.current) { bsLoaded.current = true; return; }
     try { localStorage.setItem(SAVE_KEYS.bossesSeen, JSON.stringify(ui.bossesSeen)); } catch { /* ignore */ }
   }, [ui.bossesSeen]);
+
+  // Record a victory exactly once per win. `won` latches true for the whole victory
+  // screen (and stays true through Endless), so a ref guards against re-counting; it
+  // re-arms when `won` clears on the next run.
+  const recordedWin = useRef(false);
+  useEffect(() => {
+    if (!ui.won || !ui.victory) { recordedWin.current = false; return; }
+    if (recordedWin.current) return;
+    recordedWin.current = true;
+    const { seconds, mode } = ui.victory;
+    setVictories((v) => {
+      const next: Victories = {
+        total: v.total + 1,
+        fastestSeconds: v.fastestSeconds == null ? seconds : Math.min(v.fastestSeconds, seconds),
+        highestEndlessWave: v.highestEndlessWave,
+        byMode: { ...v.byMode, [mode]: v.byMode[mode] + 1 },
+      };
+      try { localStorage.setItem(SAVE_KEYS.victories, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, [ui.won, ui.victory]);
+
+  // Endless is the only place a *loss* still writes the record: fold the furthest
+  // wave reached into the champion's log when an Endless run finally ends.
+  useEffect(() => {
+    if (!ui.gameOver || ui.runPhase !== 'endless') return;
+    setVictories((v) => {
+      if (ui.wave <= v.highestEndlessWave) return v;
+      const next = { ...v, highestEndlessWave: ui.wave };
+      try { localStorage.setItem(SAVE_KEYS.victories, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, [ui.gameOver, ui.runPhase, ui.wave]);
 
   // Autosave the run in progress, so closing the tab (or a crash) doesn't cost the
   // run. The engine only hands back a snapshot while the field is idle, so this
@@ -2684,6 +2742,7 @@ export default function GameRoot() {
         <CollectionLog
           killCounts={ui.killCounts}
           cardCounts={ui.cardCounts}
+          victories={victories}
           tab={logTab}
           setTab={setLogTab}
           onClose={() => setLogOpen(false)}
@@ -2904,6 +2963,8 @@ export default function GameRoot() {
         <StartScreen
           mode={ui.gameMode}
           saved={savedRun}
+          champion={victories.total > 0}
+          wins={victories.total}
           onSelect={(m) => engineRef.current?.setMode(m)}
           onStart={() => { clearRunSave(); setSavedRun(null); setRunStarted(true); }}
           onContinue={() => {
@@ -4217,10 +4278,14 @@ function SaveStat({ icon, title, value }: { icon: string; title: string; value: 
   );
 }
 
-function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, onHelp }: {
+function StartScreen({ mode, saved, champion, wins, onSelect, onStart, onContinue, onDiscard, onHelp }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back before mode select. */
   saved: RunSave | null;
+  /** True once the player has won at least one run — lights the champion mark. */
+  champion: boolean;
+  /** Total victories, for the champion mark's hover title. */
+  wins: number;
   onSelect: (m: GameMode) => void;
   onStart: () => void;
   onContinue: () => void;
@@ -4261,6 +4326,14 @@ function StartScreen({ mode, saved, onSelect, onStart, onContinue, onDiscard, on
             OSRS Tower Defense
           </div>
           <div className="text-[#cdbe91] text-[0.85em] mt-[0.4em]">{saved ? 'Continue where you left off' : 'Choose your mode'}</div>
+          {champion && (
+            <div
+              className="text-osrs-yellow text-[0.8em] font-bold mt-[0.3em] uppercase tracking-wider"
+              title={`Champion — ${wins} run${wins === 1 ? '' : 's'} won`}
+            >
+              ★ Champion
+            </div>
+          )}
         </div>
 
         {/* Says out loud what the game is: a hobby project that is still moving. It
@@ -4762,15 +4835,17 @@ function DpsView({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHoverTowe
  *  tabs. Enemies show their baked sprite + lifetime kill count; the Cards tab shows
  *  every draft card with its lifetime pick count. Unobtained entries are darkened
  *  silhouettes (collection-log style). A completion counter per tab. */
-function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLock }: {
+function CollectionLog({ killCounts, cardCounts, victories, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
-  tab: 'bosses' | 'monsters' | 'cards';
-  setTab: (t: 'bosses' | 'monsters' | 'cards') => void;
+  victories: Victories;
+  tab: 'bosses' | 'monsters' | 'cards' | 'victories';
+  setTab: (t: 'bosses' | 'monsters' | 'cards' | 'victories') => void;
   onClose: () => void;
   globalLock: boolean;
 }) {
   const isCards = tab === 'cards';
+  const isVictories = tab === 'victories';
   const entries = tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : [];
   const total = isCards ? DRAFT_POOL.length : entries.length;
   const obtained = isCards
@@ -4804,25 +4879,32 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
       </div>
       <div className="flex items-center justify-between mt-[0.4em] mb-[0.5em]">
         <div className="flex gap-[0.3em]">
-          {(['bosses', 'monsters', 'cards'] as const).map((t) => (
+          {(['bosses', 'monsters', 'cards', 'victories'] as const).map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setSelected(null); setSort('name'); }}
-              title={t === 'cards' ? 'Reward cards collected' : `${t === 'bosses' ? 'Bosses' : 'Monsters'} slain`}
+              title={
+                t === 'cards' ? 'Reward cards collected'
+                  : t === 'victories' ? 'Runs won'
+                  : `${t === 'bosses' ? 'Bosses' : 'Monsters'} slain`
+              }
               className={`rs-btn px-[0.8em] py-[0.15em] text-[0.78em] capitalize ${tab === t ? 'rs-btn-primary' : ''}`}
             >
               {t}
             </button>
           ))}
         </div>
-        <span className="text-[0.78em] font-bold" style={{ color: complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}>
-          {obtained}/{total} found
-        </span>
+        {!isVictories && (
+          <span className="text-[0.78em] font-bold" style={{ color: complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}>
+            {obtained}/{total} found
+          </span>
+        )}
       </div>
 
       {/* List controls (grid view only): filter by collection status, and choose
-          the sort key + direction. Hidden in the drill-down detail view. */}
-      {!selected && (
+          the sort key + direction. Hidden in the drill-down detail view and the
+          Victories record (which has no list to filter). */}
+      {!selected && !isVictories && (
         <div className="flex items-center justify-between gap-[0.4em] mb-[0.5em] flex-wrap">
           <div className="flex gap-[0.2em]">
             {LOG_FILTERS.map((f) => (
@@ -4858,7 +4940,32 @@ function CollectionLog({ killCounts, cardCounts, tab, setTab, onClose, globalLoc
           </div>
         </div>
       )}
-      {isCards
+      {isVictories
+        ? (
+          <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0 py-[0.1em]">
+            {victories.total === 0 ? (
+              <div className="text-center text-[#b3a585] text-[0.82em] py-[2em] leading-relaxed">
+                No runs won yet.<br />Defeat every boss in a single run to claim victory.
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2 text-[0.9em]">
+                  <GoStat icon={ASSETS.misc.multicombat_icon} label="Victories" value={fmt(victories.total)} />
+                  <GoStat icon={ASSETS.misc.compass} label="Fastest clear" value={victories.fastestSeconds == null ? '—' : fmtTime(victories.fastestSeconds)} />
+                  <GoStat icon={ASSETS.misc.stats_icon} label="Highest Endless" value={victories.highestEndlessWave > 0 ? `Wave ${fmt(victories.highestEndlessWave)}` : '—'} />
+                  <GoStat icon={iconUrl('Collection_log')} label="Roguelite wins" value={fmt(victories.byMode.roguelite)} />
+                </div>
+                <div className="rs-panel-inset flex items-center justify-center gap-[0.5em] py-[0.5em] mt-3 text-[0.82em] text-[#d3c3a0]">
+                  <span className="text-osrs-yellow font-bold">★ Champion</span>
+                  <span className="uppercase tracking-wide">
+                    {victories.byMode.classic} classic · {victories.byMode.roguelite} roguelite
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        )
+        : isCards
         ? selected
           ? (() => {
               // Inspect one card enlarged; wrap-around prev/next follow the
