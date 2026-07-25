@@ -17,7 +17,7 @@ audit date, or its row here says `recheck`. Append a row when you triage somethi
 and bump the watermark. The `Status` column in NocoDB is **not** authoritative — it lags
 behind what actually shipped; this file is the truth.
 
-**Watermark (2026-07-19):** Suggestions ≤ **23**, Bug Reports ≤ **13**.
+**Watermark (2026-07-25):** Suggestions ≤ **33**, Bug Reports ≤ **13**.
 
 ## Verdict vocabulary
 
@@ -67,6 +67,16 @@ not built · `recheck` — needs verification against current code before acting
 | 21 | Upgrade All Towers | shipped — group auto-upgrade, cheapest-first |
 | 22 | Boss Balance | shipped — Regen decay `db42ad0`, Mole `52fb016`, per-boss "how to kill" text `a0aff14`, multi-boss floor moved to wave 20 `6fdebeb` |
 | 23 | Bosses again | shipped — `29382f0` (leak cost quoted on the enemy panel / wave preview / on leak; an escaped Guardian is never revived) |
+| 24 | Too Easy not enough content | queued — scaling/Scurrius/weakness shipped, but the asks (more bosses/mobs, "levels", a GP store) are content backlog (→ M1 bosses, M5 gold sink) |
+| 25 | See collection log when in card select | shipped — the offered alternative ("mark the cards I have not collected yet") is the NEW badge on never-kept draft cards (`08f9d6a`); the full in-draft log is not built, but the suggestion was an OR and the alt satisfies it |
+| 26 | Game ideas (11-item list) | queued — one point landed (road no longer reads as a car lane, `8fd8f66`); the rest (tower-spam curb, branching upgrades, tower XP, hand-drawn maps, win condition, campaign, monster drops, resources, traps, melee-spawning towers) is a long design backlog spanning M4/M6/M7 |
+| 27 | Ease of Late Game | queued — a real late-game break report (death-charge/vigor stacking dominates DPS; gold & slayer cost scale past card price; cards scale base faster than monster HP). Balance backlog, not yet resolved |
+| 28 | Card Balance, and Suggestions | queued — rarity-by-strength (`d3ccf3c`) and Soul Eater as a mythic appetite (`bf84a88`) touch it, but the core (essence/slayer/range cards meaningless late, Soul Eater outclassing food, an equipment/foil-card layer) is open |
+| 29 | Monster, Tower, and Prayer Balance | queued — headline ask shipped (mobs now weak to melee/ranged, `5f2014c`); the extras (slash/crush/stab & bolt/arrow tower types, a player special-energy bar) are backlog |
+| 30 | Clue Scrolls | queued — net-new content (draggable clue map, dig spots, golden-tower rewards, 3rd-age gear). Ambitious, unbuilt |
+| 31 | Local Login/Save | queued — only localStorage persists today; a portable/cross-device save is unbuilt (no backend) |
+| 32 | Zoom In/Out | queued → map zoom was **explicitly deferred** during the map-uniqueness work; also overlaps **M7** |
+| 33 | Card Categories | queued — `d3ccf3c` reworked card rarity by *power*, but this asks for consistency with OSRS item hierarchy (Pegasian vs Ranger, Kodai, twisted bow); the two framings can conflict, so it is not closed |
 
 **Rejected outright (roster is CLOSED):** splitting magic/melee/ranged into several
 towers · a chinchompa AoE tower · M10 utility/buff-support tower.
@@ -87,3 +97,10 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
 8. **M6** tower fusion (must respect the closed roster) — think about soon.
 9. **M7** map selection at start — queued.
 10. **M5** a gold sink for **normal** mode — idea still wanted.
+11. **A1** late-game victory + Endless + a curve that overtakes — *design approved*
+    (`docs/superpowers/specs/2026-07-25-late-game-victory-endless-design.md`), next to plan.
+    Covers #27/#24/#29/#26.6. Siblings queued: **A2** cards & economy meaning (#28/#33),
+    **A3** tower spam / 5×-lag (#26.1).
+12. **A4** New Game+ / harder difficulty tier — winning unlocks an escalating
+    difficulty modifier for the next run. **Near-future**, user-requested; deferred out
+    of A1 so the win/curve spine ships first.
