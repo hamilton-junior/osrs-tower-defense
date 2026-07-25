@@ -3955,6 +3955,9 @@ const LEARN_STEPS: LearnStep[] = [
   { id: 'boss', title: 'Boss wave',
     body: 'A boss has its own health bar and a mechanic to answer — pile your strongest towers and buffs on it, and watch the caption under its bar.',
     when: (ui) => ui.bossWave },
+  { id: 'victory', target: 'hud', title: 'A run can be won',
+    body: 'Defeat every boss in the roster — around wave 90 — and the run is won. A Victory screen then lets you push on into Endless, where enemies keep pulling ahead, or start fresh. Your wins are kept in the Collection Log’s Victories tab.',
+    when: (ui) => ui.wave >= 60 && !ui.waveActive },
   // The 'draft' tip is taught *inside* the draft overlay itself (see the roguelite
   // draft block) so it explains the cards while you are choosing, not after — it is
   // not a floating coach step.
@@ -4046,6 +4049,7 @@ interface TldrGroup { h: string; lines: string[] }
 const TLDR: TldrGroup[] = [
   { h: 'Goal', lines: [
     'Enemies walk the path to your base. Every leak costs a life; at zero lives the run ends.',
+    'Defeat every boss in the roster — about wave 90 — to win the run. A Victory screen then lets you carry on into Endless, where the threat keeps accelerating, or start fresh. Wins are recorded in the Collection Log’s Victories tab, and a ★ Champion mark lights on the title screen after your first.',
   ] },
   { h: 'Towers', lines: [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
