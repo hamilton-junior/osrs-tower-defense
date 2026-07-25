@@ -2166,7 +2166,10 @@ export default function GameRoot() {
               {ui.waveActive ? (
                 <>
                   <div className="flex items-center justify-between gap-[1em] text-[0.8em] text-osrs-orange mb-[0.2em]">
-                    <span>⚔ Wave {ui.wave}{ui.bossWave ? ' — BOSS' : ''}</span>
+                    <span>
+                      ⚔ Wave {ui.wave}{ui.bossWave ? ' — BOSS' : ''}
+                      {ui.runPhase === 'endless' && <span className="ml-[0.4em] text-[0.85em] uppercase tracking-wider">· Endless</span>}
+                    </span>
                     <span className="text-[#cdbe91]">{ui.remaining} left</span>
                   </div>
                   <div className="rs-progress">
@@ -2179,6 +2182,7 @@ export default function GameRoot() {
               ) : (
                 <>
                   <div className="text-center text-[0.62em] text-[#d3c3a0] uppercase tracking-wide mb-[0.25em]">
+                    {ui.runPhase === 'endless' && <span className="text-osrs-orange">Endless · </span>}
                     Next: Wave {ui.wave} · {ui.wavePreview.reduce((s, m) => s + m.count, 0)} incoming
                   </div>
                   <div className="flex items-center justify-center gap-[0.7em] flex-wrap">
@@ -2732,7 +2736,7 @@ export default function GameRoot() {
           projectiles, DoTs, prayer & potion timers) is frozen, but the player can
           still place, move, sell towers and pick spells — so it doesn't capture
           pointer events. Resume with Esc or the ⏸ button. */}
-      {ui.paused && !ui.gameOver && (
+      {ui.paused && !ui.gameOver && !ui.won && (
         <div className="absolute inset-x-0 top-0 mt-2 flex justify-center z-20 pointer-events-none">
           <div className="rs-panel px-[1.1em] py-[0.4em] text-center" style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}>
             <div className="text-osrs-orange font-bold">❚❚ COMBAT PAUSED</div>
@@ -2851,6 +2855,45 @@ export default function GameRoot() {
             )}
             <button className="rs-btn rs-btn-primary px-6 py-2 w-full" title="Start a fresh run" onClick={() => { clearRunSave(); setSavedRun(null); engineRef.current?.restart(); setRunStarted(false); }}>
               ▶ Play Again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Victory — every scheduled boss felled. A full-stop screen (like game-over),
+          not a MovablePanel: Continue pushes into Endless, New Run starts fresh. */}
+      {ui.won && ui.victory && (
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-30 p-4 overflow-auto">
+          <div className="rs-panel p-6 text-center w-[26em] max-w-full">
+            <div className="rs-panel-title text-base">Victory</div>
+            <p className="text-[0.78em] text-[#d3c3a0] mt-2 uppercase tracking-wider">
+              {ui.victory.mode === 'roguelite' ? 'Roguelite run' : 'Classic run'}
+            </p>
+            <p className="text-osrs-yellow mt-1 mb-0 text-[1.7em] font-bold leading-none">
+              Every boss felled
+            </p>
+            <p className="text-[0.8em] text-[#d3c3a0] mb-4 uppercase tracking-wide">
+              cleared on wave {ui.victory.wave}
+            </p>
+            <div className="grid grid-cols-2 gap-2 mb-4 text-[0.95em]">
+              <GoStat icon={ASSETS.misc.multicombat_icon} label="Bosses" value={fmt(ui.victory.bosses)} />
+              <GoStat icon={ASSETS.misc.compass} label="Cleared in" value={fmtTime(ui.victory.seconds)} />
+              <GoStat icon={ASSETS.misc.attack_icon} label="Slain" value={fmt(engineRef.current?.kills ?? 0)} />
+              <GoStat icon={ASSETS.misc.coins_icon} label="Earned" value={`${fmt(engineRef.current?.goldEarned ?? 0)} gp`} />
+            </div>
+            <button
+              className="rs-btn rs-btn-primary px-6 py-2 w-full mb-2"
+              title="Play on — the threat now accelerates"
+              onClick={() => engineRef.current?.continueEndless()}
+            >
+              ▶ Continue (Endless)
+            </button>
+            <button
+              className="rs-btn px-6 py-2 w-full"
+              title="Start a fresh run"
+              onClick={() => { clearRunSave(); setSavedRun(null); engineRef.current?.restart(); setRunStarted(false); }}
+            >
+              New Run
             </button>
           </div>
         </div>
