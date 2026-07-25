@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   hpScaleForWave, progressionHpMult, scaleEnemyStats,
   PROGRESSION_ANCHOR_WAVE, PROGRESSION_ANCHOR_MULT,
+  endlessHpMult, ENDLESS_HP_BASE,
 } from './enemy-scaling';
 
 /** The ramp as it shipped, before the progression buff was layered on. */
@@ -73,5 +74,41 @@ describe('scaleEnemyStats', () => {
     const r = scaleEnemyStats(base, PROGRESSION_ANCHOR_WAVE);
     expect(r.speed).toBe(Math.floor(50 * (1 + 69 * 0.01)));
     expect(r.reward).toBe(Math.floor(10 * (1 + 69 * 0.15)));
+  });
+});
+
+describe('endlessHpMult', () => {
+  it('is exactly 1 up to and at the victory wave', () => {
+    expect(endlessHpMult(50, 90)).toBe(1);
+    expect(endlessHpMult(90, 90)).toBe(1);
+  });
+
+  it('strictly increases after the victory wave', () => {
+    expect(endlessHpMult(91, 90)).toBeGreaterThan(1);
+    expect(endlessHpMult(92, 90)).toBeGreaterThan(endlessHpMult(91, 90));
+  });
+
+  it('grows as ENDLESS_HP_BASE^(wavesPastVictory)', () => {
+    expect(endlessHpMult(93, 90)).toBeCloseTo(ENDLESS_HP_BASE ** 3, 6);
+  });
+
+  it('eventually exceeds any constant', () => {
+    expect(endlessHpMult(90 + 500, 90)).toBeGreaterThan(1000);
+  });
+});
+
+describe('scaleEnemyStats endless term', () => {
+  const base = { hp: 100, speed: 50, reward: 10 };
+
+  it('defaults to no endless bonus', () => {
+    expect(scaleEnemyStats(base, 30)).toEqual(scaleEnemyStats(base, 30, 1));
+  });
+
+  it('multiplies hp only, leaving speed and reward untouched', () => {
+    const plain = scaleEnemyStats(base, 30, 1);
+    const endless = scaleEnemyStats(base, 30, 2);
+    expect(endless.hp).toBe(Math.floor(100 * hpScaleForWave(30) * 2));
+    expect(endless.speed).toBe(plain.speed);
+    expect(endless.reward).toBe(plain.reward);
   });
 });

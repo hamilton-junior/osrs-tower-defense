@@ -10,6 +10,20 @@ export const PROGRESSION_ANCHOR_WAVE = 70;
 export const PROGRESSION_ANCHOR_MULT = 2;
 
 /**
+ * Endless-only HP acceleration. The normal run to victory is untouched — this is
+ * exactly 1 up to and including the victory wave — then it climbs *exponentially*
+ * in waves-past-victory. Paired with the bounded player-damage ceiling
+ * (`softCapMult`), an exponential enemy term overtakes any fixed board with
+ * certainty. `ENDLESS_HP_BASE` is a tuning knob (numbers are the user's to tune).
+ */
+export const ENDLESS_HP_BASE = 1.03;
+
+export function endlessHpMult(wave: number, victoryWave: number): number {
+  const past = wave - victoryWave;
+  return past <= 0 ? 1 : ENDLESS_HP_BASE ** past;
+}
+
+/**
  * The base per-wave HP ramp: gentle for the first ten waves, steeper afterwards.
  * On its own this is what the game shipped with — {@link progressionHpMult} is
  * layered on top of it.
@@ -46,9 +60,10 @@ export function hpScaleForWave(wave: number): number {
 export function scaleEnemyStats(
   base: ScalableEnemyStats,
   wave: number,
+  endlessMult = 1,
 ): ScalableEnemyStats {
   return {
-    hp: Math.floor(base.hp * hpScaleForWave(wave)),
+    hp: Math.floor(base.hp * hpScaleForWave(wave) * endlessMult),
     speed: Math.floor(base.speed * (1 + (wave - 1) * 0.01)),
     reward: Math.floor(base.reward * (1 + (wave - 1) * 0.15)),
   };
