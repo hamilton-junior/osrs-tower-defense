@@ -14,6 +14,10 @@ export interface BuildWaveOptions {
   /** Lifetime boss sightings (the engine's persisted `bossesSeen`). Omit it and the
    *  wave carries no bosses at all — the legacy engine relies on that. */
   bossesSeen?: Record<string, number>;
+  /** Per-run boss kills (the engine's `bossesKilledThisRun`). Drives the ordered
+   *  march so every run meets bosses gentle→hard; falls back to `bossesSeen` when
+   *  omitted. */
+  bossKillsThisRun?: Record<string, number>;
   /** Injectable RNG for deterministic tests. */
   rng?: () => number;
 }
@@ -48,6 +52,11 @@ export function unseenBosses(bossesSeen: Record<string, number>): EnemyType[] {
   return SCHEDULABLE_BOSSES.filter((b) => !bossesSeen[b]) as EnemyType[];
 }
 
+/** Whether every schedulable boss has been killed *this run* — the victory trigger. */
+export function allSchedulableBossesCleared(killedThisRun: Record<string, number>): boolean {
+  return SCHEDULABLE_BOSSES.every((b) => killedThisRun[b]);
+}
+
 /**
  * The bosses a wave brings.
  *
@@ -69,18 +78,22 @@ export function rollWaveBosses(
   wave: number,
   bossesSeen: Record<string, number>,
   rng: () => number,
+  killedThisRun?: Record<string, number>,
 ): EnemyType[] {
   if (wave < BOSS_WAVE_INTERVAL) return [];
   const pool = SCHEDULABLE_BOSSES as readonly EnemyType[];
-  const unseen = unseenBosses(bossesSeen);
+  // Per-run march when provided (every run, veteran or not, meets bosses gentle→hard);
+  // otherwise fall back to the lifetime schedule the legacy engine relies on.
+  const marchSet = killedThisRun ?? bossesSeen;
+  const unmet = pool.filter((b) => !marchSet[b]);
   const pick = () => pool[Math.floor(rng() * pool.length)];
   const out: EnemyType[] = [];
 
-  if (isBossWave(wave)) out.push(unseen.length ? unseen[0] : pick());
+  if (isBossWave(wave)) out.push(unmet.length ? unmet[0] : pick());
 
-  // Extras are the endgame regime — they only unlock once nothing is left to meet,
-  // and not before EXTRA_BOSS_MIN_WAVE, so the first boss wave is never a pile-up.
-  if (!unseen.length && wave >= EXTRA_BOSS_MIN_WAVE && rng() < EXTRA_BOSS_CHANCE) {
+  // Extras are the endgame regime — they only unlock once nothing is left to meet
+  // this run, and not before EXTRA_BOSS_MIN_WAVE, so the first boss wave is never a pile-up.
+  if (!unmet.length && wave >= EXTRA_BOSS_MIN_WAVE && rng() < EXTRA_BOSS_CHANCE) {
     const extra = Math.floor(rng() * (EXTRA_BOSS_MAX + 1)); // 0..MAX, so it can whiff
     for (let i = 0; i < extra; i++) out.push(pick());
   }
@@ -127,7 +140,9 @@ export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveC
 
   // Bosses are scheduled, not bought: they never come out of the threat budget
   // (`spawnable` filters them out below), they *shrink* it.
-  const bosses = opts.bossesSeen ? rollWaveBosses(waveNum, opts.bossesSeen, rng) : [];
+  const bosses = opts.bossesSeen
+    ? rollWaveBosses(waveNum, opts.bossesSeen, rng, opts.bossKillsThisRun)
+    : [];
   for (const b of bosses) addToConfig(b, 1);
 
   // Landmark waves: the fixed set plus the seed, nothing else.

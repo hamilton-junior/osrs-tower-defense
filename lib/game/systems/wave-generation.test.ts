@@ -3,6 +3,7 @@ import type { EnemyDef } from '../types';
 import {
   buildWaveConfigs,
   rollWaveBosses,
+  allSchedulableBossesCleared,
   unseenBosses,
   isBossWave,
   BOSS_WAVE_INTERVAL,
@@ -251,5 +252,37 @@ describe('boss schedule', () => {
     const out = rollWaveBosses(20, ALL_SEEN, seq(0, 0, 0.99, 0, 0));
     expect(out.length).toBe(1 + EXTRA_BOSS_MAX);
     expect(out.every((b) => (SCHEDULABLE_BOSSES as readonly string[]).includes(b))).toBe(true);
+  });
+});
+
+describe('per-run boss march', () => {
+  const rng = () => 0; // deterministic
+
+  it('marches a veteran through every boss in SCHEDULABLE_BOSSES order regardless of lifetime bossesSeen', () => {
+    // Veteran: every boss lifetime-seen, so the *lifetime* schedule would go random.
+    const seen: Record<string, number> = { ...ALL_SEEN };
+    const killedThisRun: Record<string, number> = {};
+    const got: string[] = [];
+    for (let i = 0; i < SCHEDULABLE_BOSSES.length; i++) {
+      const wave = (i + 1) * 10;
+      const [boss] = rollWaveBosses(wave, seen, rng, killedThisRun);
+      got.push(boss);
+      killedThisRun[boss] = 1; // the engine records the kill before the next boss wave
+    }
+    expect(got).toEqual([...SCHEDULABLE_BOSSES]);
+  });
+
+  it('allSchedulableBossesCleared is true exactly when the last is met', () => {
+    const killed: Record<string, number> = {};
+    for (const b of SCHEDULABLE_BOSSES.slice(0, -1)) killed[b] = 1;
+    expect(allSchedulableBossesCleared(killed)).toBe(false);
+    killed[SCHEDULABLE_BOSSES[SCHEDULABLE_BOSSES.length - 1]] = 1;
+    expect(allSchedulableBossesCleared(killed)).toBe(true);
+  });
+
+  it('falls back to lifetime bossesSeen when no per-run set is passed (legacy)', () => {
+    const seen: Record<string, number> = {}; // new account, nothing seen
+    const [boss] = rollWaveBosses(10, seen, rng);
+    expect(boss).toBe(SCHEDULABLE_BOSSES[0]); // still the gentlest first
   });
 });
