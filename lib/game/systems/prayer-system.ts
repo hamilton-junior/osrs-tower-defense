@@ -117,6 +117,7 @@ export class PrayerSystem {
       this.points = Math.max(0, this.points - drain * dt);
       if (this.points <= 0) {
         this.active.clear();
+        this.e.bumpCombatEpoch(); // prayers just went dark — tower stats changed
         this.e.notify('Prayer points depleted');
         this.lastShown = 0;
         return;

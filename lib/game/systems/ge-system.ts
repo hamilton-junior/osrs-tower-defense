@@ -76,6 +76,7 @@ export class GeSystem {
       const existing = this.active.find(p => p.type === offer.id);
       if (existing) existing.timer += GE_POTION_DURATION; // re-buying extends the buff
       else this.active.push({ type: offer.id, timer: GE_POTION_DURATION });
+      this.e.bumpCombatEpoch(); // a new/extended buff changes tower stats
     }
 
     this.e.money -= cost;
@@ -95,6 +96,7 @@ export class GeSystem {
       p.timer -= dt;
       if (p.timer <= 0) { this.active.splice(i, 1); changed = true; }
     }
+    if (changed) this.e.bumpCombatEpoch(); // an expired buff changes tower stats
     // Re-emit when a buff expires, and otherwise about once a second so the
     // countdown ticks down without a setState every frame.
     this.emitClock += dt;

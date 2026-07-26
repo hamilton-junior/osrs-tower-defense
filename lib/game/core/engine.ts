@@ -673,6 +673,12 @@ export class GameEngine {
    *  every frame (the glow depends only on positions/types/synergy, not time). */
   private towerLayoutVersion = 0;
   private synergyCache: { version: number; entries: Map<string, { mult: number; color: string | null }> } | null = null;
+  /** Bumped on every stat-affecting mutation; a tower recomputes its combat
+   *  stats only when its cached epoch no longer matches. See bumpCombatEpoch. */
+  private combatEpoch = 0;
+  /** Per-tower memo of calculateTowerStats, valid while epoch matches. Cleared on
+   *  layout change (which also covers tower removal). */
+  private statsCache = new Map<string, { epoch: number; stats: ComputedTowerStats }>();
   /** The current wave is a debug "custom wave" sandbox — its enemies don't affect
    *  the run (no rewards, no life loss, no wave advance). Set by
    *  {@link debugStartCustomWave}, cleared when the sandbox wave ends. */
@@ -1103,6 +1109,7 @@ export class GameEngine {
   /** Toggle a prayer on/off (UI button). */
   togglePrayer(id: PrayerType) {
     this.prayer.toggle(id);
+    this.bumpCombatEpoch();
   }
 
   /** Buy a Grand Exchange consumable (UI button). */
@@ -1151,7 +1158,16 @@ export class GameEngine {
 
   /** Invalidate the cached synergy-aura glows — call whenever the tower layout or
    *  synergy config changes (place / sell / move / synergy draft / restart). */
-  private bumpTowerLayout() { this.towerLayoutVersion++; this.synergyCache = null; }
+  private bumpTowerLayout() {
+    this.towerLayoutVersion++;
+    this.synergyCache = null;
+    this.bumpCombatEpoch();   // layout changes tower stats (auras, tiers, count)
+    this.statsCache.clear();  // and reclaim removed towers' entries
+  }
+
+  /** Invalidate every tower's cached combat stats (next tick recomputes). Public
+   *  so the GE and Prayer subsystems can call it when a buff starts or lapses. */
+  bumpCombatEpoch() { this.combatEpoch++; }
 
   /** The placement-synergy buff a tower is enjoying right now, for the renderer's
    *  aura: the total damage multiplier (>1) and the colour of the *dominant*
@@ -2516,6 +2532,7 @@ export class GameEngine {
     // A boss wave stays the headline act — no event rolls on it (see wave-events).
     const bossWave = configs.some(c => ENEMIES[c.type]?.isBoss);
     this.activeEvent = rollWaveEvent(this.wave, bossWave, Math.random);
+    this.bumpCombatEpoch(); // event tower mods change every tower's stats
     this.spawnQueue = this.buildWaveEnemies(configs, this.wave);
     this.waveTotal = this.spawnQueue.length;
     this.bossWave = bossWave;
@@ -3790,16 +3807,24 @@ export class GameEngine {
       if (tower.disabledTimer > 0) { tower.disabledTimer = Math.max(0, tower.disabledTimer - dt); continue; }
       // Utility wizards don't fire — they project a field (see updateUtilityTowers).
       if (tower.type === 'wizard' && tower.mageMode === 'utility') continue;
-      const stats = calculateTowerStats(tower, {
-        upgrades: this.meta.upgrades,
-        activePrayers: this.prayer.active,
-        activePotions: this.ge.active,
-        allTowers: this.towers,
-        runMods: this.runMods,
-        synergyMult: this.synergyMultFor(tower.id),
-        mageBuff: this.runFx.mageBuff,
-        globalMods: this.eventTowerMods(),
-      });
+      let cached = this.statsCache.get(tower.id);
+      if (!cached || cached.epoch !== this.combatEpoch) {
+        cached = {
+          epoch: this.combatEpoch,
+          stats: calculateTowerStats(tower, {
+            upgrades: this.meta.upgrades,
+            activePrayers: this.prayer.active,
+            activePotions: this.ge.active,
+            allTowers: this.towers,
+            runMods: this.runMods,
+            synergyMult: this.synergyMultFor(tower.id),
+            mageBuff: this.runFx.mageBuff,
+            globalMods: this.eventTowerMods(),
+          }),
+        };
+        this.statsCache.set(tower.id, cached);
+      }
+      const stats = cached.stats;
       const half = squareRange(stats.range, GRID);
       // Test the enemy's body, not just its centre, so a tower fires as soon as
       // an enemy overlaps its range square (e.g. when the road clips the edge).
@@ -4900,6 +4925,7 @@ export class GameEngine {
     this.waveActive = false;
     this.sound.fadeCombat();
     this.activeEvent = null; // the event lasts exactly its wave — clear it on clear
+    this.bumpCombatEpoch();
     // A debug sandbox wave clears with no payout and no progression — it leaves
     // the run exactly as it was before spawning.
     if (this.sandboxWave) {
@@ -5070,6 +5096,7 @@ export class GameEngine {
     const relic = this.pendingRelics?.find(r => r.id === id);
     if (!relic) return;
     this.applyRelicEffect(relic.effect);
+    this.bumpCombatEpoch(); // a relic can raise runMods (damage/range/fireRate)
     this.ownedRelics.push(relic);
     this.pendingRelics = null;
     this.sound.play('fireworks'); // a relic is the run's celebration moment
@@ -5289,6 +5316,7 @@ export class GameEngine {
     this.waveTotal = 0;
     this.bossWave = false;
     this.activeEvent = null;
+    this.bumpCombatEpoch();
     this.sandboxWave = false;
     this.lastWaveSandbox = false;
     this.baseFlash = 0;
@@ -5366,6 +5394,7 @@ export class GameEngine {
     this.waveTotal = 0;
     this.bossWave = false;
     this.activeEvent = null;
+    this.bumpCombatEpoch();
     this.sandboxWave = false;
     this.lastWaveSandbox = false;
     this.baseFlash = 0;
