@@ -2,6 +2,48 @@
   "generatedAt": "2026-07-26",
   "entries": [
     {
+      "kind": "faster",
+      "scope": null,
+      "text": "Crowded boards stay smooth — tower combat stats are cached between changes",
+      "fromFeedback": false,
+      "date": "2026-07-26"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "Changing a tower's target priority updates the panel immediately",
+      "fromFeedback": true,
+      "date": "2026-07-26"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "Snap towers to tile centres so they sit inside the grid squares",
+      "fromFeedback": false,
+      "date": "2026-07-26"
+    },
+    {
+      "kind": "balanced",
+      "scope": null,
+      "text": "Draft odds shift toward cap-escaping cards as a run climbs",
+      "fromFeedback": false,
+      "date": "2026-07-26"
+    },
+    {
+      "kind": "balanced",
+      "scope": null,
+      "text": "Late-game draft re-weighting classifier",
+      "fromFeedback": false,
+      "date": "2026-07-25"
+    },
+    {
+      "kind": "balanced",
+      "scope": null,
+      "text": "Soft-cap stacked fireRate and range like damage",
+      "fromFeedback": false,
+      "date": "2026-07-25"
+    },
+    {
       "kind": "fixed",
       "scope": null,
       "text": "The Continue button now leaves the victory screen and plays on into Endless",
@@ -236,48 +278,6 @@
       "kind": "new",
       "scope": "bosses",
       "text": "Leash a returning rat to Scurrius so the refund is visible",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Scurrius sheds rats that wander the board and run his HP back",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "fixed",
-      "scope": "bosses",
-      "text": "Keep balance numbers out of Scurrius's kill tip",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Scurrius and his Giant rats join the roster",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Scurrius shear maths — HP changes shape, never grows",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "balanced",
-      "scope": "affixes",
-      "text": "Volatile now blows a hole in your board instead of blinking one tower",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "balanced",
-      "scope": "bosses",
-      "text": "Brutus now charges at a tower instead of at empty ground",
       "fromFeedback": false,
       "date": "2026-07-20"
     }
