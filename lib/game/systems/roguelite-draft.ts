@@ -121,6 +121,84 @@ export const BOOSTED_RARITY_WEIGHT: Record<DraftRarity, number> = {
 };
 
 /**
+ * Late-game re-weighting knobs. Below {@link RAMP_START} the draft is exactly
+ * today's; between RAMP_START and {@link RAMP_FULL} the pool smoothly shifts its
+ * character; past RAMP_FULL it holds. Tuning constants — retune here, in one place.
+ */
+export const RAMP_START = 20;
+export const RAMP_FULL = 60;
+/** A faded kind's weight floor (never zero — a damage/resource card can still appear). */
+export const FADE_FLOOR = 0.25;
+/** A risen kind's weight ceiling. */
+export const RISE_CEIL = 3;
+
+/**
+ * A card's **late affinity**, derived purely from its {@link DraftEffect} kind (no
+ * per-card annotation). As the run climbs, `fade` kinds lose draft weight and `rise`
+ * kinds gain it, so the pool converts late gold into cards that still matter:
+ *
+ * - **fade**: `damage` (the soft-capped stat) and the late-dead resource cards
+ *   (`essence`, `slayerPoints`).
+ * - **rise**: `range`/`fireRate` (repeatable, and now capped only gently) plus every
+ *   run-changing behavioural / placement-synergy / mage kind.
+ * - **neutral**: `life`/`maxLife` (always situationally useful) and `multi` (a bundle
+ *   whose affinity is deliberately left flat until playtest says otherwise).
+ *
+ * The `never` default makes a newly-added effect kind a compile error until it is
+ * classified here.
+ */
+export function lateAffinity(effect: DraftEffect): 'fade' | 'rise' | 'neutral' {
+  switch (effect.kind) {
+    case 'damage':
+    case 'essence':
+    case 'slayerPoints':
+      return 'fade';
+    case 'range':
+    case 'fireRate':
+    case 'ricochet':
+    case 'overkill':
+    case 'killStreak':
+    case 'lastStand':
+    case 'berserker':
+    case 'bloodPact':
+    case 'greed':
+    case 'doubleShot':
+    case 'venomTips':
+    case 'chainFreeze':
+    case 'pierce':
+    case 'packTactics':
+    case 'trinity':
+    case 'vanguard':
+    case 'loneWolf':
+    case 'mageBuff':
+      return 'rise';
+    case 'life':
+    case 'maxLife':
+    case 'multi':
+      return 'neutral';
+    default: {
+      const _exhaustive: never = effect;
+      return _exhaustive;
+    }
+  }
+}
+
+/**
+ * The per-card late multiplier applied on top of {@link RARITY_WEIGHT}. Ramps from
+ * ×1 at {@link RAMP_START} to the affinity's floor/ceiling at {@link RAMP_FULL},
+ * linearly, then holds. Below RAMP_START it is exactly 1 (early/mid draft untouched).
+ * Pure.
+ */
+export function lateWeightMult(card: DraftCard, wave: number): number {
+  const t = Math.max(0, Math.min(1, (wave - RAMP_START) / (RAMP_FULL - RAMP_START)));
+  switch (lateAffinity(card.effect)) {
+    case 'fade': return 1 + (FADE_FLOOR - 1) * t;
+    case 'rise': return 1 + (RISE_CEIL - 1) * t;
+    default: return 1;
+  }
+}
+
+/**
  * Buying a card roll: the price starts at {@link CARD_ROLL_BASE_COST} and multiplies
  * by {@link CARD_ROLL_COST_GROWTH} per roll already bought this run (50 → 75 → 113
  * → 169 → …). Geometric, not linear, so it keeps pace with an economy that also

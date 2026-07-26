@@ -8,6 +8,12 @@ import {
   cardRollCost,
   rollDraft,
   availableCards,
+  lateAffinity,
+  lateWeightMult,
+  RAMP_START,
+  RAMP_FULL,
+  FADE_FLOOR,
+  RISE_CEIL,
   type DraftCard,
 } from './roguelite-draft';
 import { SLAYER_ESSENCE_SACK_COST, SLAYER_ESSENCE_SACK_YIELD } from '../data/slayer';
@@ -17,6 +23,9 @@ const seq = (...xs: number[]) => {
   let i = 0;
   return () => xs[i++ % xs.length];
 };
+
+const card = (kind: DraftCard['effect']['kind'], rarity: DraftCard['rarity'] = 'common'): DraftCard =>
+  ({ id: `t_${kind}`, name: kind, desc: '', rarity, icon: '', effect: { kind } as DraftCard['effect'] });
 
 /** All leaf effects of a card, flattening `multi` bundles. */
 const leafEffects = (card: DraftCard): Exclude<DraftCard['effect'], { kind: 'multi' }>[] => {
@@ -312,5 +321,69 @@ describe('boosted draft odds', () => {
     const hand = rollDraft(seq(0.1, 0.5, 0.9), 3, DRAFT_POOL, BOOSTED_RARITY_WEIGHT);
     expect(hand).toHaveLength(3);
     expect(new Set(hand.map(c => c.id)).size).toBe(3); // distinct
+  });
+});
+
+describe('lateAffinity', () => {
+  it('fades the capped/late-dead kinds', () => {
+    for (const k of ['damage', 'essence', 'slayerPoints'] as const)
+      expect(lateAffinity({ kind: k } as DraftCard['effect'])).toBe('fade');
+  });
+  it('rises range/fireRate and every behavioural/synergy/mage kind', () => {
+    for (const k of ['range', 'fireRate', 'ricochet', 'overkill', 'killStreak',
+      'lastStand', 'berserker', 'bloodPact', 'greed', 'doubleShot', 'venomTips',
+      'chainFreeze', 'pierce', 'packTactics', 'trinity', 'vanguard', 'loneWolf',
+      'mageBuff'] as const)
+      expect(lateAffinity({ kind: k } as DraftCard['effect'])).toBe('rise');
+  });
+  it('keeps life/maxLife/multi neutral', () => {
+    for (const k of ['life', 'maxLife', 'multi'] as const)
+      expect(lateAffinity({ kind: k } as DraftCard['effect'])).toBe('neutral');
+  });
+  it('classifies every effect kind present in the pool', () => {
+    // exhaustiveness in practice: no pool card throws / returns undefined
+    for (const c of DRAFT_POOL)
+      expect(['fade', 'rise', 'neutral']).toContain(lateAffinity(c.effect));
+  });
+});
+
+describe('lateWeightMult', () => {
+  it('is exactly 1 for every affinity at and below RAMP_START', () => {
+    expect(lateWeightMult(card('damage'), RAMP_START)).toBe(1);
+    expect(lateWeightMult(card('fireRate'), RAMP_START - 5)).toBe(1);
+    expect(lateWeightMult(card('life'), 0)).toBe(1);
+  });
+  it('slides fade down toward the floor, never reaching zero', () => {
+    const mid = lateWeightMult(card('damage'), (RAMP_START + RAMP_FULL) / 2);
+    const full = lateWeightMult(card('damage'), RAMP_FULL);
+    expect(mid).toBeLessThan(1);
+    expect(mid).toBeGreaterThan(full);
+    expect(full).toBeGreaterThan(0);
+    expect(full).toBeCloseTo(FADE_FLOOR, 5);
+  });
+  it('slides rise up toward the ceiling', () => {
+    const mid = lateWeightMult(card('fireRate'), (RAMP_START + RAMP_FULL) / 2);
+    const full = lateWeightMult(card('range'), RAMP_FULL);
+    expect(mid).toBeGreaterThan(1);
+    expect(mid).toBeLessThan(full);
+    expect(full).toBeCloseTo(RISE_CEIL, 5);
+  });
+  it('clamps past RAMP_FULL (no overshoot beyond floor/ceiling)', () => {
+    expect(lateWeightMult(card('damage'), RAMP_FULL + 999)).toBeCloseTo(FADE_FLOOR, 5);
+    expect(lateWeightMult(card('range'), RAMP_FULL + 999)).toBeCloseTo(RISE_CEIL, 5);
+  });
+  it('holds neutral at exactly 1 at every wave', () => {
+    for (const w of [0, RAMP_START, (RAMP_START + RAMP_FULL) / 2, RAMP_FULL, RAMP_FULL + 50])
+      expect(lateWeightMult(card('multi'), w)).toBe(1);
+  });
+  it('is monotone in wave for fade (down) and rise (up)', () => {
+    let prevFade = Infinity, prevRise = -Infinity;
+    for (let w = RAMP_START; w <= RAMP_FULL; w += 5) {
+      const f = lateWeightMult(card('essence'), w);
+      const r = lateWeightMult(card('overkill'), w);
+      expect(f).toBeLessThanOrEqual(prevFade);
+      expect(r).toBeGreaterThanOrEqual(prevRise);
+      prevFade = f; prevRise = r;
+    }
   });
 });
