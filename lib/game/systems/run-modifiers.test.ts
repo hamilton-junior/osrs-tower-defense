@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { softCapMult, DAMAGE_MULT_CEILING } from './run-modifiers';
+import { softCapMult, DAMAGE_MULT_CEILING, FIRE_RATE_MULT_CEILING, RANGE_MULT_CEILING } from './run-modifiers';
 
 describe('softCapMult', () => {
   it('is identity at 1 (no cards → no change)', () => {
@@ -38,5 +38,33 @@ describe('softCapMult', () => {
     expect(softCapMult(50)).toBeGreaterThan(DAMAGE_MULT_CEILING - 0.01);
     // Even a colossal stack never exceeds the ceiling.
     expect(softCapMult(1e9)).toBeLessThanOrEqual(DAMAGE_MULT_CEILING);
+  });
+});
+
+describe('softCapMult with the range/fireRate ceilings', () => {
+  it('exposes distinct, sensible ceilings below the damage ceiling', () => {
+    expect(FIRE_RATE_MULT_CEILING).toBeGreaterThan(1);
+    expect(RANGE_MULT_CEILING).toBeGreaterThan(1);
+    // both are tighter than the damage cap (these stats are more game-changing)
+    expect(FIRE_RATE_MULT_CEILING).toBeLessThan(DAMAGE_MULT_CEILING);
+    expect(RANGE_MULT_CEILING).toBeLessThan(DAMAGE_MULT_CEILING);
+  });
+
+  it('leaves raw <= 1 untouched for either ceiling', () => {
+    expect(softCapMult(1, FIRE_RATE_MULT_CEILING)).toBe(1);
+    expect(softCapMult(0.8, RANGE_MULT_CEILING)).toBe(0.8);
+  });
+
+  it('approaches but never reaches each ceiling', () => {
+    expect(softCapMult(50, FIRE_RATE_MULT_CEILING)).toBeLessThan(FIRE_RATE_MULT_CEILING);
+    expect(softCapMult(50, RANGE_MULT_CEILING)).toBeLessThan(RANGE_MULT_CEILING);
+    // and gets close for a big raw stack
+    expect(softCapMult(50, FIRE_RATE_MULT_CEILING)).toBeGreaterThan(FIRE_RATE_MULT_CEILING - 0.05);
+  });
+
+  it('gives an early single card nearly full value (slope ~1 at raw=1)', () => {
+    // a +4% fireRate card lands within a whisker of raw
+    expect(softCapMult(1.04, FIRE_RATE_MULT_CEILING)).toBeGreaterThan(1.039);
+    expect(softCapMult(1.04, FIRE_RATE_MULT_CEILING)).toBeLessThanOrEqual(1.04);
   });
 });

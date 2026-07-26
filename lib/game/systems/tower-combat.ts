@@ -1,6 +1,6 @@
 import type { Tower, GlobalUpgrades, PrayerType, ActivePotion, MageMode } from '../types';
 import { distance } from './geometry';
-import { softCapMult } from './run-modifiers';
+import { softCapMult, RANGE_MULT_CEILING, FIRE_RATE_MULT_CEILING } from './run-modifiers';
 import { TOWER_STYLES } from '../data/towers';
 import { TOWER_PRAYERS } from '../data/prayers';
 import { GE_OFFERS } from '../data/ge';
@@ -206,11 +206,12 @@ export function calculateTowerStats(
   // touches melee towers (a "general" card buffs all three styles equally).
   if (ctx.runMods) {
     const s = TOWER_STYLES[tower.type]?.style ?? 'melee';
-    // Stacked card damage folds through a concave ceiling (softCapMult) so a long
-    // run's board can't compound past the enemy HP curve. Range/fireRate stay raw.
+    // All three stacked multipliers fold through concave ceilings so a long run's
+    // board can't compound past the enemy HP / coverage curves. Each has its own
+    // asymptote: damage is tightest, range and fireRate cap sooner (more game-changing).
     damageMultiplier *= softCapMult(ctx.runMods.damage[s]);
-    rangeMultiplier *= ctx.runMods.range[s];
-    speedMultiplier *= ctx.runMods.fireRate[s];
+    rangeMultiplier *= softCapMult(ctx.runMods.range[s], RANGE_MULT_CEILING);
+    speedMultiplier *= softCapMult(ctx.runMods.fireRate[s], FIRE_RATE_MULT_CEILING);
   }
 
   // Wave-event board-wide multipliers — a transient, this-wave-only layer over
