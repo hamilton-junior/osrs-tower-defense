@@ -2920,8 +2920,11 @@ export default function GameRoot() {
       )}
 
       {/* Victory — every scheduled boss felled. A full-stop screen (like game-over),
-          not a MovablePanel: Continue pushes into Endless, New Run starts fresh. */}
-      {ui.won && ui.victory && (
+          not a MovablePanel: Continue pushes into Endless, New Run starts fresh.
+          `won` latches true for the champion record and the Endless HP curve, so the
+          screen is gated on `runPhase === 'normal'` too — Continue flips the phase to
+          'endless', which dismisses this overlay and reveals the board playing on. */}
+      {ui.won && ui.runPhase === 'normal' && ui.victory && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-30 p-4 overflow-auto">
           <div className="rs-panel p-6 text-center w-[26em] max-w-full">
             <div className="rs-panel-title text-base">Victory</div>
