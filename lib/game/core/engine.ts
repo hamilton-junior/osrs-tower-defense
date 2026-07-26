@@ -385,6 +385,11 @@ export interface UIState {
   biomeName: string;
   /** Bumps once per Blood-barrage life steal — the UI keys its ❤ pop off it. */
   lifestealSeq: number;
+  /** Bumps whenever a placed tower's displayed config changes (target priority,
+   *  a wizard's element/barrage/field). The selected-/multi-tower panels read
+   *  those fields straight off the live engine object, so this counter is what
+   *  makes the change re-render instead of waiting for the next unrelated patch. */
+  towerConfigSeq: number;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -718,6 +723,9 @@ export class GameEngine {
   private autoplayTimer = 0;
   /** Bumps once per Blood-barrage life steal — the UI keys its ❤ pop off it. */
   private lifestealSeq = 0;
+  /** Bumps on any placed-tower config change the panels display but that isn't
+   *  otherwise in the snapshot (target priority, wizard element/barrage/field). */
+  private towerConfigSeq = 0;
 
   selectedTowerType: TowerType | null = null;
   pendingPlacement: Point | null = null;
@@ -1009,7 +1017,17 @@ export class GameEngine {
       autoplaySecs: this.autoplaySecs,
       biomeName: this.biome.name,
       lifestealSeq: this.lifestealSeq,
+      towerConfigSeq: this.towerConfigSeq,
     };
+  }
+
+  /** Mark a placed tower's displayed config as changed and push the UI. The
+   *  selected-/multi-tower panels read priority/element/barrage/field off the
+   *  live tower object, none of which are snapshot keys — bumping this counter
+   *  is what forces the re-render so the change shows at once, board idle or not. */
+  private bumpTowerConfig() {
+    this.towerConfigSeq++;
+    this.emit();
   }
 
   /** Fire a collection-log-style unlock popup batch. Generic on purpose: any
@@ -2272,7 +2290,7 @@ export class GameEngine {
     }
     if (!any) return;
     this.sound.play('click');
-    this.emit();
+    this.bumpTowerConfig();
   }
 
   /**
@@ -2311,7 +2329,7 @@ export class GameEngine {
       if (t?.type === 'wizard' && (t.mageMode ?? 'elemental') === 'elemental') t.element = element;
     }
     this.sound.play('click');
-    this.emit();
+    this.bumpTowerConfig();
   }
 
   /** As {@link setMultiWizardElement}, for the Ancients book's barrage. */
@@ -2321,7 +2339,7 @@ export class GameEngine {
       if (t?.type === 'wizard' && t.mageMode === 'ancients') t.ancientType = ancient;
     }
     this.sound.play('click');
-    this.emit();
+    this.bumpTowerConfig();
   }
 
   /** As {@link setMultiWizardElement}, for the Utility book's field. Routed through
@@ -2339,7 +2357,7 @@ export class GameEngine {
     if (!tower) return;
     tower.targetingPriority = priority;
     tower.targetId = null; // re-acquire under the new priority next frame
-    this.emit();
+    this.bumpTowerConfig();
   }
 
   /** Choose the spellbook the next wizard will be built with. A wizard's
@@ -2356,7 +2374,7 @@ export class GameEngine {
     if (!tower || tower.type !== 'wizard') return;
     tower.element = element;
     this.sound.play('click');
-    this.emit();
+    this.bumpTowerConfig();
   }
 
   /** Pick the barrage an Ancients-spellbook wizard casts. */
@@ -2365,7 +2383,7 @@ export class GameEngine {
     if (!tower || tower.type !== 'wizard') return;
     tower.ancientType = ancient;
     this.sound.play('click');
-    this.emit();
+    this.bumpTowerConfig();
   }
 
   /** Count of Prayer Ward (utility + sanctity) wizards currently fielded. */
@@ -2386,7 +2404,7 @@ export class GameEngine {
     }
     tower.supportSpell = spell;
     this.sound.play('click');
-    this.emit();
+    this.bumpTowerConfig();
   }
 
   /** Keyboard Q/W/E/R (slots 0..3): switch the *selected* wizard's element /

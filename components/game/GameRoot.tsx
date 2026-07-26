@@ -289,6 +289,7 @@ const INITIAL: UIState = {
   autoplay: false, autoplaySecs: 3,
   biomeName: 'Misthalin Plains',
   lifestealSeq: 0,
+  towerConfigSeq: 0,
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
