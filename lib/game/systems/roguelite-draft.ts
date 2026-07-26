@@ -439,27 +439,32 @@ function resourceGroup(card: DraftCard): 'currency' | 'lives' | null {
  *
  * `weights` swaps the rarity odds: {@link BOOSTED_RARITY_WEIGHT} for a boss's
  * boosted hand, the default {@link RARITY_WEIGHT} otherwise.
+ * `wave` applies the late re-weighting: {@link lateWeightMult} is applied to every card's weight
+ * based on its effect affinity. It defaults to 0 (below RAMP_START), so all cards get ×1
+ * multiplier — today's odds.
  */
 export function rollDraft(
   rng: () => number,
   count = 3,
   pool: readonly DraftCard[] = DRAFT_POOL,
   weights: Record<DraftRarity, number> = RARITY_WEIGHT,
+  wave = 0,
 ): DraftCard[] {
   const remaining = [...pool];
   const hand: DraftCard[] = [];
   const usedGroups = new Set<'currency' | 'lives'>();
+  const weightOf = (c: DraftCard) => weights[c.rarity] * lateWeightMult(c, wave);
   const n = Math.min(count, remaining.length);
   for (let i = 0; i < n; i++) {
     // Prefer cards whose resource group isn't already represented; fall back to
     // the full remaining pool only if that leaves nothing to draw.
     const eligible = remaining.filter(c => { const g = resourceGroup(c); return !g || !usedGroups.has(g); });
     const pickFrom = eligible.length ? eligible : remaining;
-    const total = pickFrom.reduce((s, c) => s + weights[c.rarity], 0);
+    const total = pickFrom.reduce((s, c) => s + weightOf(c), 0);
     let roll = rng() * total;
     let idx = 0;
     for (let j = 0; j < pickFrom.length; j++) {
-      roll -= weights[pickFrom[j].rarity];
+      roll -= weightOf(pickFrom[j]);
       if (roll < 0) { idx = j; break; }
       idx = j;
     }

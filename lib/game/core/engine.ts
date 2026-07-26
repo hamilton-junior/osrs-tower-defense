@@ -4955,6 +4955,7 @@ export class GameEngine {
       3 + this.relicFx.handBonus,
       availableCards(this.draftedUnique),
       boosted ? BOOSTED_RARITY_WEIGHT : RARITY_WEIGHT,
+      this.wave,
     );
     this.draftRerollsLeft = this.relicFx.rerollsPerWave;
     this.sound.play('interface_open');
@@ -5039,6 +5040,7 @@ export class GameEngine {
       3 + this.relicFx.handBonus,
       availableCards(this.draftedUnique),
       this.draftBoosted ? BOOSTED_RARITY_WEIGHT : RARITY_WEIGHT,
+      this.wave,
     );
     this.sound.play('interface_open');
     this.emit();

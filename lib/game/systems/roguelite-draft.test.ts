@@ -387,3 +387,30 @@ describe('lateWeightMult', () => {
     }
   });
 });
+
+describe('rollDraft late re-weighting', () => {
+  // Count how often a full hand of many draws lands on a rise-affinity card,
+  // early (wave 0 → all ×1) vs deep-late (>= RAMP_FULL → full skew), same RNG.
+  const riseShare = (wave: number): number => {
+    const rng = seq(0.05, 0.37, 0.61, 0.83, 0.12, 0.49, 0.71, 0.93, 0.28, 0.55);
+    let rise = 0, total = 0;
+    for (let i = 0; i < 200; i++) {
+      const hand = rollDraft(rng, 3, DRAFT_POOL, RARITY_WEIGHT, wave);
+      for (const c of hand) { total++; if (lateAffinity(c.effect) === 'rise') rise++; }
+    }
+    return rise / total;
+  };
+
+  it('draws rise-affinity cards materially more often deep in a run', () => {
+    expect(riseShare(RAMP_FULL + 20)).toBeGreaterThan(riseShare(0) + 0.1);
+  });
+
+  it("defaults to today's distribution when no wave is passed", () => {
+    // Same RNG, same pool: omitting wave must equal passing wave 0 (t = 0, all ×1).
+    const rng1 = seq(0.05, 0.37, 0.61, 0.83, 0.12);
+    const rng2 = seq(0.05, 0.37, 0.61, 0.83, 0.12);
+    const a = rollDraft(rng1, 3, DRAFT_POOL, RARITY_WEIGHT);
+    const b = rollDraft(rng2, 3, DRAFT_POOL, RARITY_WEIGHT, 0);
+    expect(a.map(c => c.id)).toEqual(b.map(c => c.id));
+  });
+});
