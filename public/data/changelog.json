@@ -1,6 +1,55 @@
 {
-  "generatedAt": "2026-07-24",
+  "generatedAt": "2026-07-26",
   "entries": [
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "The Continue button now leaves the victory screen and plays on into Endless",
+      "fromFeedback": true,
+      "date": "2026-07-25"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "A champion's record of wins, fastest clears and furthest Endless",
+      "fromFeedback": false,
+      "date": "2026-07-25"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "A victory screen to claim the run, then carry on into Endless",
+      "fromFeedback": false,
+      "date": "2026-07-25"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Winning a run is now a real state — beat every boss to claim victory",
+      "fromFeedback": false,
+      "date": "2026-07-25"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Every run marches through the whole boss roster, gentlest to hardest",
+      "fromFeedback": false,
+      "date": "2026-07-25"
+    },
+    {
+      "kind": "balanced",
+      "scope": null,
+      "text": "Stacked damage cards taper toward a ceiling instead of compounding forever",
+      "fromFeedback": false,
+      "date": "2026-07-25"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "An Endless phase where enemy HP finally outruns the board",
+      "fromFeedback": false,
+      "date": "2026-07-25"
+    },
     {
       "kind": "fixed",
       "scope": null,
@@ -231,55 +280,6 @@
       "text": "Brutus now charges at a tower instead of at empty ground",
       "fromFeedback": false,
       "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Brutus flattens the towers he charges through, and a downed tower now shows it",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Brutus charges off the road, and the boss ladder now starts with him",
-      "fromFeedback": false,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "The wave preview no longer grows into a wall you can't build under",
-      "fromFeedback": true,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The red that warns you is the bright one everywhere, not the maroon",
-      "fromFeedback": false,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "balanced",
-      "scope": "bosses",
-      "text": "Waves 10-19 stay a single boss, so a veteran run cannot open with a pile-up",
-      "fromFeedback": true,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Every boss now tells you how it is meant to be killed",
-      "fromFeedback": true,
-      "date": "2026-07-19"
-    },
-    {
-      "kind": "updated",
-      "scope": "debug",
-      "text": "Sort the custom-wave roster by name, bosses last",
-      "fromFeedback": false,
-      "date": "2026-07-19"
     }
   ]
 }
