@@ -61,6 +61,18 @@ export function squareRange(range: number, grid: number): number {
 }
 
 /**
+ * Snap a logic coordinate to the CENTRE of the tile it falls in. This is the
+ * lattice towers occupy, so a placed tower sits *inside* a square — aligned with
+ * the map's tile-centred scenery (bushes, rocks, obstacles) — rather than on the
+ * intersection between four tiles. Snapped values sit on a `grid`-spaced lattice,
+ * so any two of them differ by a whole number of tiles (what group move / paste
+ * translations rely on to stay on-grid).
+ */
+export function snapToTileCenter(v: number, grid: number): number {
+  return (Math.floor(v / grid) + 0.5) * grid;
+}
+
+/**
  * Chebyshev (square) range test: is `(ex, ey)` within `half` px of `(tx, ty)`
  * on *both* axes? Pairs with {@link squareRange}.
  */

@@ -1,8 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import {
   distance, distanceSq, pointToSegmentDistance, isValidPlacement, squareRange, inSquareRange, knockbackStep,
-  pathTotalLength, remainingPathDistance, advanceAlongPath, clampCursorToBoard,
+  pathTotalLength, remainingPathDistance, advanceAlongPath, clampCursorToBoard, snapToTileCenter,
 } from './geometry';
+
+describe('snapToTileCenter', () => {
+  const GRID = 32;
+  it('snaps to the centre of the tile the point falls in', () => {
+    expect(snapToTileCenter(0, GRID)).toBe(16);
+    expect(snapToTileCenter(31, GRID)).toBe(16);
+    expect(snapToTileCenter(32, GRID)).toBe(48);
+    expect(snapToTileCenter(50, GRID)).toBe(48);
+  });
+  it('lands on a grid-spaced lattice, so any two snaps differ by whole tiles', () => {
+    const a = snapToTileCenter(10, GRID);
+    const b = snapToTileCenter(200, GRID);
+    expect((b - a) % GRID).toBe(0);
+  });
+  it('never lands on a grid intersection (always a half-tile offset)', () => {
+    for (const v of [0, 5, 33, 100, 517]) {
+      expect(snapToTileCenter(v, GRID) % GRID).toBe(GRID / 2);
+    }
+  });
+});
 
 describe('distance', () => {
   it('computes Euclidean distance', () => {

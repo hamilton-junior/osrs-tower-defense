@@ -7,7 +7,7 @@ import { ENEMIES } from '../data/enemies';
 import { TOWERS, TOWER_STYLES } from '../data/towers';
 import { LANDMARK_WAVES, type WaveConfig } from '../data/waves';
 import { ASSETS } from '../assets';
-import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange, knockbackStep, clampCursorToBoard } from '../systems/geometry';
+import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange, knockbackStep, clampCursorToBoard, snapToTileCenter } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats, endlessHpMult } from '../systems/enemy-scaling';
 import { buildWaveConfigs, allSchedulableBossesCleared } from '../systems/wave-generation';
@@ -1619,8 +1619,8 @@ export class GameEngine {
       this.emit();
       return;
     }
-    const sx = Math.round(x / GRID) * GRID;
-    const sy = Math.round(y / GRID) * GRID;
+    const sx = snapToTileCenter(x, GRID);
+    const sy = snapToTileCenter(y, GRID);
     if (sx === tower.x && sy === tower.y) return; // no-op, wait for a real spot
     const others = this.towers.filter(t => t.id !== tower.id); // ignore self
     if (!isValidPlacement(sx, sy, this.path, others, 40, 30, this.blockedTile)) return; // invalid spot, keep waiting
@@ -1646,7 +1646,7 @@ export class GameEngine {
   private groupAnchor(group: Tower[]): { x: number; y: number } {
     const cx = group.reduce((s, t) => s + t.x, 0) / group.length;
     const cy = group.reduce((s, t) => s + t.y, 0) / group.length;
-    return { x: Math.round(cx / GRID) * GRID, y: Math.round(cy / GRID) * GRID };
+    return { x: snapToTileCenter(cx, GRID), y: snapToTileCenter(cy, GRID) };
   }
 
   /** Where each carried tower lands if the formation's centre is dropped on
@@ -1656,8 +1656,8 @@ export class GameEngine {
     const group = this.movingGroup;
     if (!group.length) return [];
     const anchor = this.groupAnchor(group);
-    const dx = Math.round(x / GRID) * GRID - anchor.x;
-    const dy = Math.round(y / GRID) * GRID - anchor.y;
+    const dx = snapToTileCenter(x, GRID) - anchor.x;
+    const dy = snapToTileCenter(y, GRID) - anchor.y;
     return group.map(t => ({ tower: t, x: t.x + dx, y: t.y + dy }));
   }
 
@@ -1818,8 +1818,8 @@ export class GameEngine {
    *  plus the board edges (same rim hazard as a group move). */
   pastePlan(x: number, y: number): { blueprint: TowerBlueprint; x: number; y: number; ok: boolean }[] {
     if (!this.clipboard.length) return [];
-    const ax = Math.round(x / GRID) * GRID;
-    const ay = Math.round(y / GRID) * GRID;
+    const ax = snapToTileCenter(x, GRID);
+    const ay = snapToTileCenter(y, GRID);
     return this.clipboard.map(b => {
       const tx = ax + b.dx;
       const ty = ay + b.dy;
@@ -1887,8 +1887,8 @@ export class GameEngine {
     // Shift went back down on an armed line: the player is adding to the stroke
     // rather than answering the panel, so put the question away and keep painting.
     this.queueArmed = false;
-    const sx = Math.round(x / GRID) * GRID;
-    const sy = Math.round(y / GRID) * GRID;
+    const sx = snapToTileCenter(x, GRID);
+    const sy = snapToTileCenter(y, GRID);
     if (this.placeQueue.some(p => p.x === sx && p.y === sy)) return; // already painted
     // Painted tiles block each other, or a stroke would stack towers on one spot.
     const blockers = [...this.towers, ...this.placeQueue];
@@ -2011,8 +2011,8 @@ export class GameEngine {
       // The wizard opens an on-tile spellbook picker (Elemental/Ancients/Utility)
       // before it's built; every other tower places immediately.
       if (this.selectedTowerType === 'wizard') {
-        const sx = Math.round(x / GRID) * GRID;
-        const sy = Math.round(y / GRID) * GRID;
+        const sx = snapToTileCenter(x, GRID);
+        const sy = snapToTileCenter(y, GRID);
         if (isValidPlacement(sx, sy, this.path, this.towers, 40, 30, this.blockedTile)) {
           this.pendingKeepPlacing = keepPlacing; // remembered for confirmWizardSpellbook
           this.pendingPlacement = { x: sx, y: sy };
@@ -2078,8 +2078,8 @@ export class GameEngine {
     const def = TOWERS[type];
     if (!def) return null;
     const cost = this.towerCost(type);
-    const sx = Math.round(x / GRID) * GRID;
-    const sy = Math.round(y / GRID) * GRID;
+    const sx = snapToTileCenter(x, GRID);
+    const sy = snapToTileCenter(y, GRID);
     if (this.money < cost) { this.notify('Not enough gold'); return null; }
     if (!isValidPlacement(sx, sy, this.path, this.towers, 40, 30, this.blockedTile)) { this.notify("Can't build there"); return null; }
 
