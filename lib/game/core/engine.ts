@@ -18,7 +18,7 @@ import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../systems/tower-identity';
 import { upgradeOrder } from '../systems/upgrades';
-import { styleSkillKey, xpFromHit, trainSkill } from '../systems/tower-xp';
+import { styleSkillKey, xpFromHit, trainSkill, tierGateFor } from '../systems/tower-xp';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
 import { GameRenderer } from './renderer';
@@ -2192,7 +2192,7 @@ export class GameEngine {
 
   upgradeTower(towerId: string) {
     const tower = this.towers.find(t => t.id === towerId);
-    if (!tower || tower.level >= tower.maxLevel) return;
+    if (!tower || !tierGateFor(tower).ok) return; // maxed OR below the tier's level gate
     const cost = tower.upgradeCost;
     if (this.money < cost) { this.notify('Not enough gold'); return; }
     const def = TOWERS[tower.type];
@@ -2238,7 +2238,7 @@ export class GameEngine {
     let count = 0, cost = 0;
     for (const id of this.multiSelectedIds) {
       const t = this.towers.find(tw => tw.id === id);
-      if (t && t.level < t.maxLevel) { count++; cost += t.upgradeCost; }
+      if (t && tierGateFor(t).ok) { count++; cost += t.upgradeCost; }
     }
     return { count, cost };
   }
@@ -2249,7 +2249,7 @@ export class GameEngine {
   upgradeMultiSelected() {
     const selected = this.multiSelectedIds
       .map(id => this.towers.find(tw => tw.id === id))
-      .filter((t): t is Tower => !!t);
+      .filter((t): t is Tower => !!t && tierGateFor(t).ok);
     let any = false;
     for (const id of upgradeOrder(selected)) {
       const t = this.towers.find(tw => tw.id === id)!;
@@ -2295,7 +2295,7 @@ export class GameEngine {
    *  so fast-forward doesn't multiply the spend. */
   private tickAutoUpgrade() {
     for (;;) {
-      const affordable = this.towers.filter(t => t.autoUpgrade && t.level < t.maxLevel && t.upgradeCost <= this.money);
+      const affordable = this.towers.filter(t => t.autoUpgrade && tierGateFor(t).ok && t.upgradeCost <= this.money);
       const [cheapestId] = upgradeOrder(affordable);
       if (!cheapestId) break;
       this.upgradeTower(cheapestId); // re-prices the tower and emits
