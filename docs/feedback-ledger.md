@@ -17,7 +17,7 @@ audit date, or its row here says `recheck`. Append a row when you triage somethi
 and bump the watermark. The `Status` column in NocoDB is **not** authoritative — it lags
 behind what actually shipped; this file is the truth.
 
-**Watermark (2026-07-25):** Suggestions ≤ **33**, Bug Reports ≤ **13**.
+**Watermark (2026-07-31):** Suggestions ≤ **35**, Bug Reports ≤ **20**.
 
 ## Verdict vocabulary
 
@@ -41,6 +41,13 @@ not built · `recheck` — needs verification against current code before acting
 | 11 | Vorkath tick-eating with Regenerating affix | shipped — `2c73dd2` (stalled regen heal dries up) |
 | 12 | Infinite slayer points via task extend | shipped — `a1a9f1b` |
 | 13 | Collection-log scrollbar drag moves the panel | shipped — `bad53ff` (all movable panels) |
+| 14 | Delayed wave end — dead enemy keeps walking, HP spasms at a value | shipped — `3b775b8` (stall-breaker now runs on every enemy, not just bosses; same fix as #17) |
+| 15 | UI scale >120% breaks layout (gold pile overlap) | shipped — `a3e3a58` + `1c41c4e` (scale capped to what the screen can actually hold) |
+| 16 | FPS plummets at 5× with any panel open (wave 100+, many towers) | shipped — `0739532` (DPS meter refreshes on the wall-clock not the sim-clock, so 5× no longer forces ~5× the renders; `DpsView` memoised off gold/lives churn). The general single-`ui` full re-render for *other* panels is not speed-amplified and was left as-is |
+| 17 | Regen fire giant targeting / softlock (dmg = regen, rooted by stuns) | shipped — `3b775b8` (same stall-breaker; the "only 5 towers can target it" was a symptom, not a cap) |
+| 18 | Wizard staff-type picker draws *above* the tile, off-screen on the top 2 rows | queued — confirmed, open bug (Minor). Fix: flip the picker below the tile near the top edge |
+| 19 | "Pricing bug" — tower cost rising above base | wontfix — intended: each same-type tower costs +15% than the last (`5d24d7d`, `economy.ts`) |
+| 20 | Endless button does nothing after clearing the boss roster | shipped — `c0a328f` (`continueEndless()` flips `runPhase` to endless and closes the victory screen, resuming play) |
 
 ## Suggestions
 
@@ -77,6 +84,8 @@ not built · `recheck` — needs verification against current code before acting
 | 31 | Local Login/Save | queued — only localStorage persists today; a portable/cross-device save is unbuilt (no backend) |
 | 32 | Zoom In/Out | queued → map zoom was **explicitly deferred** during the map-uniqueness work; also overlaps **M7** |
 | 33 | Card Categories | queued — `d3ccf3c` reworked card rarity by *power*, but this asks for consistency with OSRS item hierarchy (Pegasian vs Ranger, Kodai, twisted bow); the two framings can conflict, so it is not closed |
+| 34 | Mega rares (scythe/shadow/tbow) + pick your own map + periodic level-swap w/ full refund | queued — top-tier weapon content + map selection (map picking overlaps **M7**); unbuilt |
+| 35 | Construction (Mazing) mode | queued — a new mode parallel to Classic/Roguelite: waypoint routing + place-anywhere towers to build a maze, plus a cheap non-attacking wall tower. Design-first; a new pure-TD/roguelite-sibling mode. Unbuilt |
 
 **Rejected outright (roster is CLOSED):** splitting magic/melee/ranged into several
 towers · a chinchompa AoE tower · M10 utility/buff-support tower.
