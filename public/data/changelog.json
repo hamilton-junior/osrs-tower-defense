@@ -2,6 +2,13 @@
   "generatedAt": "2026-07-31",
   "entries": [
     {
+      "kind": "faster",
+      "scope": null,
+      "text": "The DPS panel no longer stutters fast-forward on a crowded board",
+      "fromFeedback": true,
+      "date": "2026-07-31"
+    },
+    {
       "kind": "fixed",
       "scope": null,
       "text": "The end-of-road danger marker follows the real exit edge, not always the right",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "bosses",
       "text": "Scurrius stops to squeak, and his rats obey a stun",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Scurrius takes the swarm axis",
       "fromFeedback": false,
       "date": "2026-07-20"
     }
