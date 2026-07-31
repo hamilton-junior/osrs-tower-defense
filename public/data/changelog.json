@@ -2,6 +2,13 @@
   "generatedAt": "2026-07-31",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": null,
+      "text": "The end-of-road danger marker follows the real exit edge, not always the right",
+      "fromFeedback": false,
+      "date": "2026-07-30"
+    },
+    {
       "kind": "updated",
       "scope": null,
       "text": "Bring the board closer — a coarser 45x20 grid so towers and enemies read bigger",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "bosses",
       "text": "Scurrius takes the swarm axis",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "fixed",
-      "scope": "waves",
-      "text": "Stop ordinary waves sending a boss's adds as trash",
       "fromFeedback": false,
       "date": "2026-07-20"
     }
