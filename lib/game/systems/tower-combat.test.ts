@@ -211,3 +211,15 @@ describe('calculateTowerStats', () => {
     expect(s.damageMultiplier).toBeCloseTo(2); // the cached value wins; the live scan is skipped
   });
 });
+
+describe('calculateTowerStats — combat-level nudge', () => {
+  it('a level-1 tower is unchanged', () => {
+    const s = calculateTowerStats(tower(), ctx());
+    expect(s.damageMultiplier).toBeCloseTo(1);
+  });
+  it('a higher combat level adds a capped damage bonus', () => {
+    const leveled = tower({ skills: { strength: { level: 1, xp: 0 }, ranged: { level: 11, xp: 0 }, magic: { level: 1, xp: 0 } } });
+    const s = calculateTowerStats(leveled, ctx());
+    expect(s.damageMultiplier).toBeCloseTo(1.1); // +1% * 10 levels
+  });
+});

@@ -4,6 +4,7 @@ import { softCapMult, RANGE_MULT_CEILING, FIRE_RATE_MULT_CEILING } from './run-m
 import { TOWER_STYLES } from '../data/towers';
 import { TOWER_PRAYERS } from '../data/prayers';
 import { GE_OFFERS } from '../data/ge';
+import { levelStatBonus, styleSkillKey } from './tower-xp';
 
 export interface TowerStatsContext {
   upgrades: GlobalUpgrades;
@@ -150,6 +151,10 @@ export function calculateTowerStats(
   } else if (tower.type === 'cannon') {
     speedMultiplier *= upgrades.cannonSpeed;
   }
+
+  // Combat-level nudge: the tower's own XP-earned level adds a small, capped
+  // damage bump so growth is felt between tier upgrades. Level 1 = ×1.
+  damageMultiplier *= levelStatBonus(tower.skills[styleSkillKey(TOWER_STYLES[tower.type].style)].level);
 
   // Prayer + potion boosts key off the weapon's combat style, and only apply to
   // boostable weapons — the Dwarf Cannon deals Ranged damage but has fixed
