@@ -98,7 +98,7 @@ async function enterRun(page) {
 
 /**
  * The board's painted rectangle in client pixels. The canvas fills its container
- * but a client pixel is not a logic pixel: the board is a fixed 1728×768 that
+ * but a client pixel is not a logic pixel: the board is a fixed 1440×640 that
  * `object-fit: contain` scales into that box. Mirrors `paintedBox()` in GameRoot.
  */
 const boardBox = (page) => page.evaluate(() => {

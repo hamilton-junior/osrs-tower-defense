@@ -586,7 +586,7 @@ export default function GameRoot() {
   const boardRef = useRef<HTMLDivElement>(null);
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  // The board is a fixed 1728×768 picture; the *UI* adapts to it, never the
+  // The board is a fixed 1440×640 picture; the *UI* adapts to it, never the
   // reverse. This holds the board box's size in client pixels — the largest
   // LOGIC-aspect rectangle that fits the available game area — so the picture is
   // never distorted and the bottom bar always keeps its room. It measures the
@@ -1112,7 +1112,7 @@ export default function GameRoot() {
   /**
    * Where the board is actually painted, in client pixels. Its container is sized
    * to the board's aspect (see the fit effect), so `contain` leaves at most a
-   * rounding sliver — but the board is a fixed 1728×768 whatever size that
+   * rounding sliver — but the board is a fixed 1440×640 whatever size that
    * container ends up, so a client pixel is never a logic pixel and every
    * screen↔logic conversion starts here.
    *
@@ -1136,7 +1136,7 @@ export default function GameRoot() {
   // Fit the board box to its container: the largest LOGIC-aspect rectangle that
   // fits, recomputed whenever the window (and thus the game area) changes. This is
   // the *only* place the layout reacts to size — and it sizes the presentation box,
-  // never the engine. The 1728×768 backing store and the road are untouched.
+  // never the engine. The 1440×640 backing store and the road are untouched.
   useLayoutEffect(() => {
     const area = gameAreaRef.current;
     if (!area) return;
@@ -1556,7 +1556,7 @@ export default function GameRoot() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full block cursor-crosshair touch-none"
-        // A fixed 1728×768 backing store, scaled as a whole to fill its
+        // A fixed 1440×640 backing store, scaled as a whole to fill its
         // aspect-locked container: identical on every screen, never stretched,
         // never redrawn at another size. `contain` guards the rounding sliver.
         style={{ objectFit: 'contain' }}

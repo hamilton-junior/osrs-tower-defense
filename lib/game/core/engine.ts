@@ -74,7 +74,7 @@ import { BIOMES, pickBiome, nextBiome, type BiomeDef } from '../data/biomes';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 
 /**
- * The board's one and only resolution — 54×24 whole tiles. Every player gets this
+ * The board's one and only resolution — 45×20 whole tiles. Every player gets this
  * exact board, whatever their screen, window or `devicePixelRatio`: the map, the
  * road, the tower ranges and the enemy speeds are all in these units, so a wider
  * window must never mean a wider map or a proportionally shorter range. The page
@@ -83,11 +83,15 @@ import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
  * The 2.25:1 (9:4) aspect sits near a maximised browser's real play area — a
  * landscape window minus its chrome and our fixed bottom bar — so little space is
  * left over beside it. Piece sizes are fixed logic pixels (a 30px enemy, a 1-tile
- * road), so keeping the tile count modest is what keeps them readable on screen:
- * 24 rows means a tile is ~1/24 of the board's height, not ~1/32.
+ * road), and the tile count is kept deliberately low so those fixed pieces read
+ * BIG once the board is scaled to a screen: at 45×20 a tile is ~1/20 of the board's
+ * height, so the picture sits "close" — fewer, larger tiles, less idle grass — and
+ * every enemy/tower/road is a bigger fraction of the view than a finer grid gives.
+ * (Trimmed from the old 54×24 for exactly this reason; the same 2.25:1 aspect keeps
+ * the fit/letterbox identical, and the shorter road just means less dead walking.)
  */
-export const LOGIC_WIDTH = 1728;
-export const LOGIC_HEIGHT = 768;
+export const LOGIC_WIDTH = 1440;
+export const LOGIC_HEIGHT = 640;
 const GRID = 32;
 const TOWER_RADIUS = 15;
 const START_MONEY = 200;

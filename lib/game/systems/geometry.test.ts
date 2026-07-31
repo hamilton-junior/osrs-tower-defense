@@ -169,7 +169,7 @@ describe('walking the road', () => {
 });
 
 describe('clampCursorToBoard', () => {
-  const G = 32, W = 1728, H = 768; // the fixed board, one tower tile = 32px
+  const G = 32, W = 1440, H = 640; // the fixed board, one tower tile = 32px
 
   it('snaps a loose point to the nearest tile', () => {
     expect(clampCursorToBoard(100, 100, G, W, H)).toEqual({ x: 96, y: 96 });   // 100 → 96
