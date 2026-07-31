@@ -653,13 +653,27 @@ export class GameRenderer {
     if (path.length < 2) return;
     const t = performance.now() / 1000;
     const bf = this.e.baseFlash;
-    const y = Math.max(24, Math.min(this.e.height - 24, path[path.length - 1].y));
-    const x = this.e.width; // right edge
+    const W = this.e.width, H = this.e.height;
+    // The last path point is the off-board exit stub; the one before it is the
+    // last on-board vertex. The road crosses whichever border the map's dihedral
+    // orientation put the exit on, so derive the crossing point and the outward
+    // direction from the stub — a hardcoded right edge detached this marker from
+    // the road end on every top/left/bottom exit.
+    const stub = path[path.length - 1];
+    const last = path[path.length - 2];
+    const clampX = (v: number) => Math.max(24, Math.min(W - 24, v));
+    const clampY = (v: number) => Math.max(24, Math.min(H - 24, v));
+    let x: number, y: number, ang: number;
+    if (stub.x > W) { ang = 0; x = W; y = clampY(last.y); }               // right
+    else if (stub.x < 0) { ang = Math.PI; x = 0; y = clampY(last.y); }    // left
+    else if (stub.y < 0) { ang = -Math.PI / 2; y = 0; x = clampX(last.x); } // top
+    else { ang = Math.PI / 2; y = H; x = clampX(last.x); }                // bottom
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.5);
     const intensity = Math.min(0.9, 0.16 + pulse * 0.12 + bf * 0.7);
 
     ctx.save();
     ctx.translate(x, y);
+    ctx.rotate(ang); // local +x now points off the exit border
     // Red danger glow bleeding in from the edge.
     const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 50);
     glow.addColorStop(0, `rgba(220,30,30,${intensity})`);
