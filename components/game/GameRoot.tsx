@@ -14,7 +14,7 @@ import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl, coinsIcon } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
-import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, previewUpgradeValue, refundValue } from '@/lib/game/systems/meta-progression';
+import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, previewUpgradeValue, refundValue, essenceRateLabel } from '@/lib/game/systems/meta-progression';
 import { SLAYER_REWARDS, SLAYER_HELMET_BONUS, SLAYER_HELMET_IMBUED_BONUS } from '@/lib/game/data/slayer';
 import { ENEMIES } from '@/lib/game/data/enemies';
 import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
@@ -2944,9 +2944,16 @@ export default function GameRoot() {
               <GoStat icon={ASSETS.misc.attack_icon} label="Slain" value={fmt(engineRef.current?.kills ?? 0)} />
               <GoStat icon={ASSETS.misc.coins_icon} label="Earned" value={`${fmt(engineRef.current?.goldEarned ?? 0)} gp`} />
             </div>
+            {/* Endless is a victory lap: the threat accelerates and the essence
+                faucet drops to a tenth (see essenceMultiplier). Say so before the
+                player commits, so the smaller reward isn't a surprise. */}
+            <div className="flex items-center justify-center gap-[0.35em] text-[0.75em] text-[#d3c3a0] mb-2">
+              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+              Endless earns <span className="text-osrs-yellow font-bold">{essenceRateLabel(ui.victory.mode, 'endless')}</span> Rune Essence per wave
+            </div>
             <button
               className="rs-btn rs-btn-primary px-6 py-2 w-full mb-2"
-              title="Play on — the threat now accelerates"
+              title="Play on — the threat now accelerates, and essence drops to 10%"
               onClick={() => engineRef.current?.continueEndless()}
             >
               ▶ Continue (Endless)
@@ -3960,7 +3967,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'A boss has its own health bar and a mechanic to answer — pile your strongest towers and buffs on it, and watch the caption under its bar.',
     when: (ui) => ui.bossWave },
   { id: 'victory', target: 'hud', title: 'A run can be won',
-    body: 'Defeat every boss in the roster — around wave 90 — and the run is won. A Victory screen then lets you push on into Endless, where enemies keep pulling ahead, or start fresh. Your wins are kept in the Collection Log’s Victories tab.',
+    body: 'Defeat every boss in the roster — around wave 90 — and the run is won. A Victory screen then lets you push on into Endless, where enemies keep pulling ahead and Rune Essence drops to a tenth, or start fresh. Your wins are kept in the Collection Log’s Victories tab.',
     when: (ui) => ui.wave >= 60 && !ui.waveActive },
   // The 'draft' tip is taught *inside* the draft overlay itself (see the roguelite
   // draft block) so it explains the cards while you are choosing, not after — it is
@@ -4053,7 +4060,7 @@ interface TldrGroup { h: string; lines: string[] }
 const TLDR: TldrGroup[] = [
   { h: 'Goal', lines: [
     'Enemies walk the path to your base. Every leak costs a life; at zero lives the run ends.',
-    'Defeat every boss in the roster — about wave 90 — to win the run. A Victory screen then lets you carry on into Endless, where the threat keeps accelerating, or start fresh. Wins are recorded in the Collection Log’s Victories tab, and a ★ Champion mark lights on the title screen after your first.',
+    'Defeat every boss in the roster — about wave 90 — to win the run. A Victory screen then lets you carry on into Endless, where the threat keeps accelerating and Rune Essence drops to a tenth, or start fresh. Wins are recorded in the Collection Log’s Victories tab, and a ★ Champion mark lights on the title screen after your first.',
   ] },
   { h: 'Towers', lines: [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
@@ -4071,7 +4078,7 @@ const TLDR: TldrGroup[] = [
   { h: 'Systems', lines: [
     'Prayer — toggle buffs or base protection; drains a pool that refills between waves.',
     'Slayer — auto-assigned kill tasks pay points for the Slayer Rewards shop, where you can extend, halve, skip or block the task, or buy the Slayer Helmet (imbue it in the same slot). Superior monsters count toward their base task. It tracks in the Slayer tab.',
-    'Essence — earned every wave and kept forever; spend it in the Essence Shop on permanent upgrades.',
+    'Essence — earned every wave and kept forever; spend it in the Essence Shop on permanent upgrades. The rate is shown on each mode at the start: Classic pays full, Roguelite half, and Endless a tenth.',
     'Roguelite — between waves, buy card rolls with gold (each roll costs more than the last) and keep one card; beating a boss claims a Relic. A card you have never kept is badged NEW, so you can see a Collection Log gap while you can still close it.',
   ] },
   { h: 'Controls', lines: [
@@ -4446,6 +4453,15 @@ function StartScreen({ mode, saved, champion, wins, onSelect, onStart, onContinu
                   {on && <span className="ml-auto text-osrs-orange text-[0.9em]">✓</span>}
                 </div>
                 <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{m.tag}</span>
+                {/* Rune Essence rate for this mode — roguelite's in-run power is paid
+                    for with half the meta-currency (see essenceMultiplier). */}
+                <span
+                  className="flex items-center gap-[0.3em] text-[0.72em] text-[#d3c3a0]"
+                  title="Rune Essence earned per wave cleared, relative to Classic"
+                >
+                  <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                  Essence <span className="text-osrs-yellow font-bold">{essenceRateLabel(m.id, 'normal')}</span>
+                </span>
                 {!compact && <span className="text-[0.78em] text-[#d3c3a0] leading-snug">{m.desc}</span>}
               </button>
             );

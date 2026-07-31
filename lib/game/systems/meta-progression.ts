@@ -73,6 +73,30 @@ export function essenceForWave(wave: number): number {
   return Math.floor((5 + Math.max(0, wave) * 1.5) * 0.25);
 }
 
+/**
+ * Per-wave Rune Essence multiplier by mode and phase — the single source of truth
+ * for both the award ({@link essenceForWave} at the wave-clear site) and the labels
+ * shown on the mode-select and Victory screens. Classic pays full; the roguelite's
+ * card-and-relic power is bought back with half essence; Endless — the post-victory
+ * victory lap — pays a tenth, in any mode. The phase check wins over the mode.
+ */
+export function essenceMultiplier(
+  mode: 'classic' | 'roguelite',
+  phase: 'normal' | 'endless',
+): number {
+  if (phase === 'endless') return 0.1;
+  if (mode === 'roguelite') return 0.5;
+  return 1;
+}
+
+/** The essence multiplier rendered as a whole-percent label, e.g. `"50%"`. */
+export function essenceRateLabel(
+  mode: 'classic' | 'roguelite',
+  phase: 'normal' | 'endless',
+): string {
+  return `${Math.round(essenceMultiplier(mode, phase) * 100)}%`;
+}
+
 const EPS = 1e-6;
 
 /** Times this upgrade has been bought, derived from its current value. */

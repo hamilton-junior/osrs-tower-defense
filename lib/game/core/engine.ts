@@ -26,7 +26,7 @@ import { SlayerSystem } from '../systems/slayer-system';
 import { PrayerSystem, MAX_PRAYER_WARDS } from '../systems/prayer-system';
 import { GeSystem, type GeListing } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
-import { essenceForWave } from '../systems/meta-progression';
+import { essenceForWave, essenceMultiplier } from '../systems/meta-progression';
 import { rollDraft, availableCards, cardRollCost, DRAFT_POOL, RARITY_WEIGHT, BOOSTED_RARITY_WEIGHT, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import {
   rollRelicChoice, shouldExecute, interestGain, soulStealAddChance, RELICS,
@@ -4937,7 +4937,11 @@ export class GameEngine {
     // Read before `wave` advances: bossWave still describes the wave just cleared.
     const bossCleared = this.bossWave;
     this.awardGold(Math.round(waveClearBonus(this.wave) * GENERAL_GOLD_FACTOR));
-    const waveEssence = essenceForWave(this.wave);
+    // Mode/phase scales the essence faucet: roguelite pays half, Endless a tenth
+    // (see essenceMultiplier). Classic-normal is the 100% baseline.
+    const waveEssence = Math.round(
+      essenceForWave(this.wave) * essenceMultiplier(this.gameMode, this.runPhase),
+    );
     this.meta.award(waveEssence); // essence reward for the cleared wave
     this.essenceEarnedThisRun += waveEssence;
     // Banker's Note relic: pay interest on the gold on hand (capped, full value —

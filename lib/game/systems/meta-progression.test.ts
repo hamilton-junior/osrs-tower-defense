@@ -3,6 +3,8 @@ import {
   DEFAULT_UPGRADES,
   GLOBAL_UPGRADE_DEFS,
   essenceForWave,
+  essenceMultiplier,
+  essenceRateLabel,
   purchaseCount,
   nextCost,
   isMaxed,
@@ -27,6 +29,24 @@ describe('essenceForWave', () => {
     expect(essenceForWave(0)).toBe(1); // floor(5 * 0.25)
     expect(essenceForWave(-3)).toBe(1); // clamped
     expect(essenceForWave(20)).toBeGreaterThan(essenceForWave(10));
+  });
+});
+
+describe('essenceMultiplier', () => {
+  it('pays full essence in classic normal', () => {
+    expect(essenceMultiplier('classic', 'normal')).toBe(1);
+  });
+  it('halves essence in roguelite normal', () => {
+    expect(essenceMultiplier('roguelite', 'normal')).toBe(0.5);
+  });
+  it('drops to a tenth in Endless, in any mode (phase wins over mode)', () => {
+    expect(essenceMultiplier('classic', 'endless')).toBe(0.1);
+    expect(essenceMultiplier('roguelite', 'endless')).toBe(0.1);
+  });
+  it('renders a whole-percent label', () => {
+    expect(essenceRateLabel('classic', 'normal')).toBe('100%');
+    expect(essenceRateLabel('roguelite', 'normal')).toBe('50%');
+    expect(essenceRateLabel('roguelite', 'endless')).toBe('10%');
   });
 });
 
