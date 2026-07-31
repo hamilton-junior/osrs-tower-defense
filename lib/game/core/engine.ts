@@ -18,6 +18,7 @@ import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../systems/tower-identity';
 import { upgradeOrder } from '../systems/upgrades';
+import { styleSkillKey, xpFromHit, trainSkill } from '../systems/tower-xp';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
 import { GameRenderer } from './renderer';
@@ -1180,6 +1181,21 @@ export class GameEngine {
   /** Invalidate every tower's cached combat stats (next tick recomputes). Public
    *  so the GE and Prayer subsystems can call it when a buff starts or lapses. */
   bumpCombatEpoch() { this.combatEpoch++; }
+
+  /** Credit a tower for a hit that landed: XP proportional to the damage it
+   *  dealt, ×bonus when the hit exploited the enemy's style weakness. Feeds the
+   *  one skill matching the tower's style. A level-up invalidates the tower's
+   *  cached stats (so the per-level nudge applies) and refreshes the UI. */
+  private grantTowerXp(towerId: string, dealt: number, exploitedWeakness: boolean) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower || dealt <= 0) return;
+    const gain = xpFromHit(dealt, exploitedWeakness);
+    if (gain <= 0) return;
+    const key = styleSkillKey(TOWER_STYLES[tower.type].style);
+    const r = trainSkill(tower.skills[key], gain);
+    tower.skills[key] = { level: r.level, xp: r.xp };
+    if (r.leveledUp) { this.bumpCombatEpoch(); this.emit(); }
+  }
 
   /** The placement-synergy buff a tower is enjoying right now, for the renderer's
    *  aura: the total damage multiplier (>1) and the colour of the *dominant*
@@ -4663,6 +4679,10 @@ export class GameEngine {
       // so its share of what actually landed is its share of the raw hit.
       if (source.bloodFrac) this.stats.recordEffect(owner, this.wave, { bloodBonusDmg: dealt * source.bloodFrac });
     }
+    // Towers grow by fighting: credit the source tower for the damage it landed.
+    // `weak > 1` means the hit exploited the enemy's melee/ranged weakness (magic
+    // never triggers it — StyleWeakness excludes magic, an intended counterweight).
+    if (source?.towerId && dealt > 0) this.grantTowerXp(source.towerId, dealt, weak > 1);
     // Stall breaker: a hit that lands is what marks an enemy as *being fought*. Without
     // this the clock would run from the moment it spawned, and anything that simply walked
     // in unopposed would arrive at the base already hardened against control.
