@@ -4599,7 +4599,13 @@ function buildDpsRow(t: DpsTowerStat, view: 'wave' | 'total', wave: number, wave
 /** DPS meter: per-tower damage dealt, by wave or total, groupable by tower type /
  *  damage type, with a per-enemy + per-effect drill-down on each tower. Rendered
  *  as an interface tab inside the main side panel (the tab body owns the scroll). */
-function DpsView({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHoverTower: (id: string | null) => void }) {
+// Memoised: the parent GameRoot re-renders on every UIState push (money/lives
+// tick constantly during a wave), but this 1-row-per-tower panel only depends on
+// `snap` (refreshed at ~4 Hz) and a stable `onHoverTower`. Without memo it re-ran
+// the whole table on every gold tick — the fast-forward stutter behind bug #16.
+const DpsView = React.memo(DpsViewBase);
+
+function DpsViewBase({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHoverTower: (id: string | null) => void }) {
   // Clear the board highlight when the panel unmounts (tab switch / minimise).
   useEffect(() => () => onHoverTower(null), [onHoverTower]);
   const [view, setView] = useState<'wave' | 'total'>('wave');

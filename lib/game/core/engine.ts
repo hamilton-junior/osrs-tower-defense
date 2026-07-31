@@ -895,6 +895,11 @@ export class GameEngine {
         this.realTime += dt;
         this.tickAutoplay(dt);
         this.tickAutoUpgrade();
+        // Wall-clock, outside the sub-step loop: the DPS meter refreshes at a fixed
+        // ~4 Hz regardless of game speed. Inside the loop it took the simulated dt
+        // `gameSpeed` times, so at 5× it fired ~5× as often, and each push forces a
+        // React render — the fast-forward stutter players hit with the panel open.
+        this.pushDpsStats(dt);
       }
       this.renderer.draw();
       // One UI push per frame, after the sim has settled — see `emit`/`flush`.
@@ -1097,10 +1102,13 @@ export class GameEngine {
     this.onState({ dpsStats: open ? this.stats.snapshot() : null });
   }
 
+  /** Refresh the open DPS panel at ~4 Hz. Fed the loop's raw per-frame dt (real
+   *  seconds), so the rate is wall-clock and independent of game speed — see the
+   *  call site in {@link start}. */
   private pushDpsStats(dt: number) {
     if (!this.dpsPanelOpen) return;
     this.dpsPushTimer += dt;
-    if (this.dpsPushTimer < 0.25) return; // ~4 Hz
+    if (this.dpsPushTimer < 0.25) return; // ~4 Hz, wall-clock
     this.dpsPushTimer = 0;
     this.onState({ dpsStats: this.stats.snapshot() });
   }
@@ -2643,7 +2651,6 @@ export class GameEngine {
     this.handleBossMechanics(dt);
     this.updateEffects(dt);
     this.checkWaveEnd();
-    this.pushDpsStats(dt);
   }
 
   /** DPS meter: bank engagement time. A tower's own combat seconds tick while it
