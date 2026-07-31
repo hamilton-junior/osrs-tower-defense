@@ -1,6 +1,13 @@
 {
-  "generatedAt": "2026-07-26",
+  "generatedAt": "2026-07-31",
   "entries": [
+    {
+      "kind": "balanced",
+      "scope": null,
+      "text": "Roguelite banks half the Rune Essence, Endless a tenth — shown on every mode",
+      "fromFeedback": false,
+      "date": "2026-07-30"
+    },
     {
       "kind": "faster",
       "scope": null,
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "bosses",
       "text": "Bake Scurrius's animation clips from the cache",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Leash a returning rat to Scurrius so the refund is visible",
       "fromFeedback": false,
       "date": "2026-07-20"
     }
