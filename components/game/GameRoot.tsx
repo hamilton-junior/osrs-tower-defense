@@ -9,6 +9,8 @@ import { bossTip } from '@/lib/game/systems/boss-tips';
 import { capWavePreview } from '@/lib/game/systems/wave-preview';
 import { TOWERS, TOWER_STYLES } from '@/lib/game/data/towers';
 import { utilityAuraBonus, diminishingSum, synergyDamageMult } from '@/lib/game/systems/tower-combat';
+import { styleSkillKey, tierGateFor } from '@/lib/game/systems/tower-xp';
+import { towerXpForLevel } from '@/lib/game/systems/leveling';
 import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
@@ -1279,6 +1281,7 @@ export default function GameRoot() {
   const selectedTower = ui.selectedTowerId
     ? engineRef.current?.towers.find((t) => t.id === ui.selectedTowerId) ?? null
     : null;
+  const towerGate = selectedTower ? tierGateFor(selectedTower) : null;
   // Effective (buffed) stats for the selected tower, plus the active potions and
   // prayers boosting it — so the panel can show the bonus and its origin. Boosts
   // key off the tower's combat style and skip unboostable weapons (the cannon).
@@ -2606,6 +2609,21 @@ export default function GameRoot() {
             </div>
           )}
 
+          {(() => {
+            const sk = selectedTower.skills[styleSkillKey(TOWER_STYLES[selectedTower.type].style)];
+            const need = towerXpForLevel(sk.level);
+            const pct = Math.min(100, Math.round((sk.xp / need) * 100));
+            return (
+              <div className="mt-[0.5em] px-[0.1em]">
+                <div className="flex items-center justify-between text-[0.72em] text-[#d3c3a0] mb-[0.2em]">
+                  <span>Combat level {sk.level}</span>
+                  <span className="text-[#9a8d70]">{Math.floor(sk.xp)} / {need} XP</span>
+                </div>
+                <div className="rs-progress"><div className="rs-progress-fill" style={{ width: `${pct}%` }} /></div>
+              </div>
+            );
+          })()}
+
           {moving ? (
             <div className="mt-[0.7em] text-center text-[0.8em] text-osrs-orange leading-snug">
               ▸ Click a tile to move here ({moveCost} gp)<br />
@@ -2655,12 +2673,16 @@ export default function GameRoot() {
                   )}
                   <button
                     className="rs-btn relative w-full flex items-center justify-center gap-[0.3em] px-[0.4em] py-[0.45em]"
-                    title={`Upgrade to next tier for ${selectedTower.upgradeCost} gp (U)`}
-                    disabled={ui.money < selectedTower.upgradeCost}
+                    title={towerGate?.ok
+                      ? `Upgrade to next tier for ${selectedTower.upgradeCost} gp (U)`
+                      : `Reach combat level ${towerGate?.neededLevel} to upgrade this tier`}
+                    disabled={!towerGate?.ok || ui.money < selectedTower.upgradeCost}
                     onClick={() => engineRef.current?.upgradeTower(selectedTower.id)}
                   >
                     <span className="text-[#5bd75b] font-bold">⬆</span>
-                    Upgrade — {selectedTower.upgradeCost} gp
+                    {towerGate?.ok
+                      ? <>Upgrade — {selectedTower.upgradeCost} gp</>
+                      : <>Needs Lv {towerGate?.neededLevel}</>}
                     <span className="rs-key">U</span>
                   </button>
                   <label
@@ -3949,7 +3971,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'These orbs are your lives and gold. Every enemy that reaches the base costs a life; every kill pays gold for more towers and upgrades.',
     when: (ui) => ui.waveActive && ui.wave === 1 },
   { id: 'upgrade', target: 'dock', title: 'Spend between waves',
-    body: 'Click a tower you built to upgrade or sell it, and buy more from the dock. Tick its Auto‑upgrade box to let it level itself from your gold whenever it can — cheapest tower first; the same box on a multi‑selection arms the whole group. Build mode is paused, so take your time before the next wave.',
+    body: 'Click a tower you built to upgrade or sell it, and buy more from the dock. Towers earn XP by fighting — landing hits, and extra when they hit an enemy weak to their style — and level up, which nudges their damage. A tier upgrade needs both gold and a minimum combat level; until the tower is high enough its Upgrade button reads “Needs Lv X”. Tick its Auto‑upgrade box to let it level itself from your gold whenever it can (cheapest tower first, gate permitting); the same box on a multi‑selection arms the whole group. Build mode is paused, so take your time before the next wave.',
     when: (ui) => !ui.waveActive && ui.wave === 2 },
   { id: 'prayer', target: 'prayers', title: 'Prayer',
     body: 'Toggle a prayer to buff a tower style or shield your base. It drains a pool that refills between waves — flip the strong ones on for boss waves.',
@@ -4064,7 +4086,7 @@ const TLDR: TldrGroup[] = [
   ] },
   { h: 'Towers', lines: [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
-    'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks. Tick Auto‑upgrade to let it level itself from your gold (cheapest tower first).',
+    'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks. Towers earn XP by fighting (bonus vs a style weakness) and level up for more damage; a tier upgrade needs a minimum level as well as gold — the button shows “Needs Lv X” until then. Tick Auto‑upgrade to let it level itself from your gold (cheapest tower first).',
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
     'With a tower picked, hold Shift and drag to paint a line of them. Releasing Shift only prices the line up — a panel then asks you to confirm before a coin is spent, and for a line of wizards it asks which spellbook they should all use. Until you confirm, the stroke can be added to (hold Shift again), redrawn, or thrown away (Esc / right-click). Tiles you can’t afford paint red and are skipped.',
     'Drag a box (no Shift) to multi-select — the panel then upgrades, sells, moves, re-aims, re-elements or arms Auto‑upgrade on the whole box at once. A group Move carries the towers as one rigid formation: they keep the shape you arranged, and every tile must be legal or the drop is refused.',
