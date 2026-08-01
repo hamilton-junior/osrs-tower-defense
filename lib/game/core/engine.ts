@@ -18,7 +18,7 @@ import { goldForKill, waveClearBonus } from '../systems/rewards';
 import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../systems/tower-identity';
 import { upgradeOrder } from '../systems/upgrades';
-import { styleSkillKey, xpFromHit, trainSkill, tierGateFor } from '../systems/tower-xp';
+import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor } from '../systems/tower-xp';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
 import { GameRenderer } from './renderer';
@@ -1189,12 +1189,33 @@ export class GameEngine {
   private grantTowerXp(towerId: string, dealt: number, exploitedWeakness: boolean) {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower || dealt <= 0) return;
-    const gain = xpFromHit(dealt, exploitedWeakness);
+    this.addTowerXp(tower, xpFromHit(dealt, exploitedWeakness));
+    // A support wizard grows by the damage it enables: any Utility tower whose
+    // aura covers this attacker earns a share of the hit it just landed.
+    this.grantSupportXp(tower, dealt);
+  }
+
+  /** Add an XP gain to a tower's one style skill; a level-up invalidates the
+   *  cached stats (so the per-level nudge applies) and refreshes the UI. */
+  private addTowerXp(tower: Tower, gain: number) {
     if (gain <= 0) return;
     const key = styleSkillKey(TOWER_STYLES[tower.type].style);
     const r = trainSkill(tower.skills[key], gain);
     tower.skills[key] = { level: r.level, xp: r.xp };
     if (r.leveledUp) { this.bumpCombatEpoch(); this.emit(); }
+  }
+
+  /** Credit every in-range Utility support tower a share of a buffed tower's hit.
+   *  The Utility wizard never attacks, so this is its only XP source — it levels
+   *  by the damage its auras help nearby towers deal. */
+  private grantSupportXp(source: Tower, dealt: number) {
+    const gain = supportXpFromDamage(dealt);
+    if (gain <= 0) return;
+    for (const t of this.towers) {
+      if (t === source || t.type !== 'wizard' || t.mageMode !== 'utility') continue;
+      if (distance(t.x, t.y, source.x, source.y) > t.range) continue;
+      this.addTowerXp(t, gain);
+    }
   }
 
   /** The placement-synergy buff a tower is enjoying right now, for the renderer's
@@ -4682,7 +4703,12 @@ export class GameEngine {
     // Towers grow by fighting: credit the source tower for the damage it landed.
     // `weak > 1` means the hit exploited the enemy's melee/ranged weakness (magic
     // never triggers it — StyleWeakness excludes magic, an intended counterweight).
-    if (source?.towerId && dealt > 0) this.grantTowerXp(source.towerId, dealt, weak > 1);
+    // DoT ticks (burn/poison/venom) carry a stamped style for boss resistance but
+    // are weakness-neutral for XP (spec §4.2/§6) — they must not double-dip ×1.5.
+    if (source?.towerId && dealt > 0) {
+      const isDot = source.tag === 'burn' || source.tag === 'poison' || source.tag === 'venom';
+      this.grantTowerXp(source.towerId, dealt, weak > 1 && !isDot);
+    }
     // Stall breaker: a hit that lands is what marks an enemy as *being fought*. Without
     // this the clock would run from the moment it spawned, and anything that simply walked
     // in unopposed would arrive at the base already hardened against control.

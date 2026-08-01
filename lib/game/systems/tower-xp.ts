@@ -6,6 +6,9 @@ import { TOWER_STYLES } from '../data/towers';
 export const XP_PER_DAMAGE = 1;
 /** XP multiplier when the hit exploited the enemy's combat-triangle weakness. */
 export const XP_WEAKNESS_BONUS = 1.5;
+/** Share of a buffed tower's damage that an in-range Utility support wizard earns
+ *  as XP. The Utility tower never attacks, so it grows by the damage it enables. */
+export const SUPPORT_XP_SHARE = 0.2;
 /** Damage bump per combat level above 1. */
 export const PER_LEVEL_DMG = 0.01;
 /** Ceiling on the per-level damage nudge (1.5 = +50% at level 51). */
@@ -24,6 +27,16 @@ export function styleSkillKey(style: CombatStyle): keyof TowerSkills {
 export function xpFromHit(dealt: number, exploitedWeakness: boolean): number {
   if (dealt <= 0) return 0;
   return dealt * XP_PER_DAMAGE * (exploitedWeakness ? XP_WEAKNESS_BONUS : 1);
+}
+
+/**
+ * XP a Utility support tower earns from a buffed neighbour's landed hit: a flat
+ * {@link SUPPORT_XP_SHARE} of the damage, never a weakness bonus (its style is
+ * magic, which never triggers the combat-triangle bonus).
+ */
+export function supportXpFromDamage(dealt: number): number {
+  if (dealt <= 0) return 0;
+  return dealt * XP_PER_DAMAGE * SUPPORT_XP_SHARE;
 }
 
 /**

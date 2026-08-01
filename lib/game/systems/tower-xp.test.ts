@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  styleSkillKey, xpFromHit, trainSkill, levelStatBonus,
+  styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, levelStatBonus,
   tierUnlockLevel, towerCombatLevel, tierGateFor,
-  XP_WEAKNESS_BONUS, PER_LEVEL_CAP, MAX_TOWER_LEVEL,
+  XP_WEAKNESS_BONUS, SUPPORT_XP_SHARE, PER_LEVEL_CAP, MAX_TOWER_LEVEL,
 } from './tower-xp';
 import { towerXpForLevel } from './leveling';
 import type { Tower, TowerSkill } from '../types';
@@ -34,6 +34,19 @@ describe('xpFromHit', () => {
   it('grants nothing for a zero/absorbed hit', () => {
     expect(xpFromHit(0, true)).toBe(0);
     expect(xpFromHit(-5, false)).toBe(0);
+  });
+});
+
+describe('supportXpFromDamage', () => {
+  it('earns a flat share of the buffed hit, no weakness bonus', () => {
+    expect(supportXpFromDamage(100)).toBe(100 * SUPPORT_XP_SHARE);
+  });
+  it('is always less than what the attacker itself earns', () => {
+    expect(supportXpFromDamage(100)).toBeLessThan(xpFromHit(100, false));
+  });
+  it('grants nothing for a zero/absorbed hit', () => {
+    expect(supportXpFromDamage(0)).toBe(0);
+    expect(supportXpFromDamage(-5)).toBe(0);
   });
 });
 

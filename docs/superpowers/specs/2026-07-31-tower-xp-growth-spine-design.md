@@ -224,3 +224,22 @@ unlocks; multi-upgrade skips gated towers. Balance itself is the user's to playt
   design. The `equipment` field and `Item.bonus` stay dormant here.
 - **Auto-upgrade level-cap selector** (todo #3) — plugs into §4.4 as an upper bound; own change.
 - Structural placement features (chokepoints / mazing / tile quality) — a later design.
+
+## 9. Addendum — Utility (support) tower XP (post-ship, user-requested)
+
+The original spine credits XP only at the `damage()` hook, so a tower that never attacks
+never levels. The **Utility wizard** (`type: 'wizard'`, `mageMode: 'utility'`) is pure
+support — it grants range/speed/damage auras to nearby towers and deals no damage — so it
+was permanently stuck at combat Lv 1 and thus permanently blocked by its own tier gate.
+
+Fix: a support tower **grows by the damage it enables.** When any tower lands a hit, every
+Utility tower whose aura covers that attacker earns `SUPPORT_XP_SHARE` (0.2) of the damage
+as XP (`supportXpFromDamage`, pure + tested). This feeds its `magic` skill, so — consistent
+with §4.2 — it never receives the ×1.5 weakness bonus. The share is a flat 20%, always less
+than what the attacker itself earns, and it scales naturally: more buffed neighbours landing
+more damage ⇒ faster growth.
+
+Also corrected here (final-review finding): DoT ticks (burn/poison/venom) carry a stamped
+style for boss resistance, so the weakness check `weak > 1` was wrongly granting the ×1.5
+XP bonus on every venom/poison/burn tick. Per §4.2/§6 damage-over-time is weakness-neutral
+for XP, so the hook now suppresses the bonus for DoT-tagged sources.
