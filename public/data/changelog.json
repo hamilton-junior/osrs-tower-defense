@@ -1,6 +1,48 @@
 {
-  "generatedAt": "2026-07-31",
+  "generatedAt": "2026-08-01",
   "entries": [
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Utility towers earn support XP from the damage they enable",
+      "fromFeedback": false,
+      "date": "2026-08-01"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Tower panel shows combat XP and gates the Upgrade button",
+      "fromFeedback": false,
+      "date": "2026-07-31"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Tier upgrades require a minimum combat level",
+      "fromFeedback": false,
+      "date": "2026-07-31"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Towers earn combat XP from the damage they deal",
+      "fromFeedback": false,
+      "date": "2026-07-31"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Tower combat level nudges its damage (capped)",
+      "fromFeedback": false,
+      "date": "2026-07-31"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Pure tower-xp module (earn/level/gate maths)",
+      "fromFeedback": false,
+      "date": "2026-07-31"
+    },
     {
       "kind": "faster",
       "scope": null,
@@ -236,48 +278,6 @@
       "kind": "updated",
       "scope": "ui",
       "text": "The work-in-progress notice wears the Redemption heart",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "A winged heart marks the work-in-progress notice",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "The start screen says the game is still being built",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "The gold pile grows with the purse",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "balanced",
-      "scope": "bosses",
-      "text": "Scurrius sheds rats 50% more often",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "balanced",
-      "scope": "bosses",
-      "text": "Scurrius shares his rats' weakness to Air",
-      "fromFeedback": false,
-      "date": "2026-07-20"
-    },
-    {
-      "kind": "new",
-      "scope": "bosses",
-      "text": "Scurrius stops to squeak, and his rats obey a stun",
       "fromFeedback": false,
       "date": "2026-07-20"
     }

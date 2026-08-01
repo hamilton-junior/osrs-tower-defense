@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Bake a player-facing changelog from the git history into
  * `public/data/changelog.json`, so the game can show "here's what changed" without
