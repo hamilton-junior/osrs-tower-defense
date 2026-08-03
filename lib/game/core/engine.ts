@@ -19,8 +19,7 @@ import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../systems/tower-identity';
 import { upgradeOrder } from '../systems/upgrades';
 import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor } from '../systems/tower-xp';
-import { canEquip, rollGearDrops } from '../systems/tower-gear';
-import { GEAR } from '../data/gear';
+import { canEquip, rollGearDrops, gearDamageMult } from '../systems/tower-gear';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
 import { GameRenderer } from './renderer';
@@ -4005,6 +4004,11 @@ export class GameEngine {
       if (tower.type === 'slayer') {
         damage = Math.floor(damage * slayerWeaponBonus(target.type, this.slayer.task?.type ?? null, !!target.isBoss));
       }
+
+      // Signature gear (Twisted bow / Darklight): a per-target multiplier the flat
+      // Item.bonus can't express. 1.0 for every non-signature weapon (and outside
+      // Classic, where towers carry no equipment).
+      damage = Math.floor(damage * gearDamageMult(tower, target, this.slayer.task?.type ?? null));
 
       // Base projectile flavour; the cannon splashes (radius grows by tier), toxic
       // venoms, tzhaar crushes.
