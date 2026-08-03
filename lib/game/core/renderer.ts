@@ -67,6 +67,47 @@ export class GameRenderer {
   private flashCtx?: CanvasRenderingContext2D | null;
 
   /**
+   * Where a splat sprite's *painted* blob sits relative to the image's
+   * geometric centre, as a fraction of the image box. The OSRS hitsplat
+   * sprites carry a couple of transparent rows below the lozenge (its tail),
+   * so the coloured blob is top-biased; centring the raw image box would leave
+   * the value sitting low in the visible splat. Measured once per sprite key
+   * (six of them) from the decoded pixels and memoised — survives a sprite
+   * re-extraction without a magic constant.
+   */
+  private splatAnchorCache = new Map<string, { ox: number; oy: number }>();
+
+  private splatAnchor(key: string, img: HTMLImageElement): { ox: number; oy: number } {
+    const cached = this.splatAnchorCache.get(key);
+    if (cached) return cached;
+    const w = img.naturalWidth, h = img.naturalHeight;
+    let anchor = { ox: 0, oy: 0 };
+    try {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const g = c.getContext('2d', { willReadFrequently: true });
+      if (g) {
+        g.drawImage(img, 0, 0);
+        const d = g.getImageData(0, 0, w, h).data;
+        let minX = w, maxX = -1, minY = h, maxY = -1;
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+          if (d[(y * w + x) * 4 + 3] > 16) {
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+          }
+        }
+        if (maxX >= 0) {
+          // Offset that, added to the -dw/2/-dh/2 corner, lands the blob's
+          // centre (not the image's) on the origin.
+          anchor = { ox: (w / 2 - (minX + maxX + 1) / 2) / w, oy: (h / 2 - (minY + maxY + 1) / 2) / h };
+        }
+      }
+    } catch { /* tainted or unreadable — leave the splat image-centred */ }
+    this.splatAnchorCache.set(key, anchor);
+    return anchor;
+  }
+
+  /**
    * Draw `img` (a source region) to `ctx` at the current transform, with a red
    * hit-flash that is **clipped to the sprite's own silhouette**.
    *
@@ -2146,8 +2187,11 @@ export class GameRenderer {
       // The sprites are ~24px; draw at 1.25× so values stay legible at game zoom.
       const dw = img.naturalWidth * 1.25 * s;
       const dh = img.naturalHeight * 1.25 * s;
+      // Centre the painted blob (not the image box) on the origin so the value,
+      // which is drawn at the origin below, sits in the middle of the splat.
+      const a = this.splatAnchor(`hitsplat_${kind}`, img);
       ctx.imageSmoothingEnabled = false; // keep the pixel art crisp
-      ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+      ctx.drawImage(img, -dw / 2 + a.ox * dw, -dh / 2 + a.oy * dh, dw, dh);
       ctx.imageSmoothingEnabled = true;
     } else {
       const hw = 14 * s; // half width
