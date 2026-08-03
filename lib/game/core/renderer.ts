@@ -159,6 +159,7 @@ export class GameRenderer {
     this.drawPath(ctx);
     this.drawDangerZone(ctx);
     this.drawHoverRange(ctx);
+    this.drawBuildOverlay(ctx);
     this.drawPlacementGhost(ctx);
     this.drawTowers(ctx);
     this.drawDeaths(ctx);
@@ -784,6 +785,46 @@ export class GameRenderer {
     ctx.strokeStyle = stroke;
     ctx.strokeRect(x, y, size, size);
     ctx.setLineDash([]);
+  }
+
+  /**
+   * While the player is placing (or relocating) a tower, flag every
+   * non-buildable terrain tile with a soft red tint + diagonal hatch. The rough
+   * ground baked into the terrain cache is deliberately subtle so it doesn't
+   * shout during combat; this overlay only appears in build mode, when knowing
+   * exactly where a tower *won't* go is what the player needs. Steady, not
+   * pulsing — it's a map, not an alarm.
+   */
+  private drawBuildOverlay(ctx: CanvasRenderingContext2D) {
+    if (!this.e.selectedTowerType && !this.e.movingTower) return;
+    const t = this.e.terrain;
+    if (t.cols === 0) return;
+    const cols = t.cols;
+    // Clip to the union of non-buildable tiles, then paint tint + hatch across
+    // the clip in one pass (cheaper and more continuous than per-tile strokes).
+    ctx.save();
+    ctx.beginPath();
+    let any = false;
+    for (let i = 0; i < t.tiles.length; i++) {
+      const kind = t.tiles[i];
+      if (kind !== 'unbuildable' && kind !== 'blocked') continue;
+      ctx.rect((i % cols) * GRID, ((i / cols) | 0) * GRID, GRID, GRID);
+      any = true;
+    }
+    if (!any) { ctx.restore(); return; }
+    ctx.clip();
+    ctx.fillStyle = 'rgba(196,40,40,0.16)';
+    ctx.fillRect(0, 0, this.e.width, this.e.height);
+    ctx.strokeStyle = 'rgba(255,80,80,0.28)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const step = 8;
+    for (let d = -this.e.height; d < this.e.width; d += step) {
+      ctx.moveTo(d, 0);
+      ctx.lineTo(d + this.e.height, this.e.height); // 45° diagonals
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   private drawPlacementGhost(ctx: CanvasRenderingContext2D) {
