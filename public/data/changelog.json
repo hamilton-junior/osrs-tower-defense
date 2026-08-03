@@ -1,6 +1,34 @@
 {
-  "generatedAt": "2026-08-01",
+  "generatedAt": "2026-08-03",
   "entries": [
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Flag non-buildable tiles while you place a tower",
+      "fromFeedback": false,
+      "date": "2026-08-02"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "Centre the damage number inside the hitsplat",
+      "fromFeedback": false,
+      "date": "2026-08-02"
+    },
+    {
+      "kind": "new",
+      "scope": "towers",
+      "text": "Cap how far auto-upgrade levels a tower",
+      "fromFeedback": false,
+      "date": "2026-08-02"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "UI actions reflect in the same click, not a frame later",
+      "fromFeedback": false,
+      "date": "2026-08-02"
+    },
     {
       "kind": "new",
       "scope": null,
@@ -252,34 +280,6 @@
       "text": "Soul Eater is a mythic relic with a real appetite",
       "fromFeedback": true,
       "date": "2026-07-23"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "Regenerating enemies can no longer get stuck alive forever",
-      "fromFeedback": true,
-      "date": "2026-07-23"
-    },
-    {
-      "kind": "faster",
-      "scope": null,
-      "text": "The interface only refreshes when something on it actually changed",
-      "fromFeedback": true,
-      "date": "2026-07-23"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The work-in-progress notice uses the dimmed Redemption heart",
-      "fromFeedback": false,
-      "date": "2026-07-23"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The work-in-progress notice wears the Redemption heart",
-      "fromFeedback": false,
-      "date": "2026-07-20"
     }
   ]
 }
