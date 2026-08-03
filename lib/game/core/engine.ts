@@ -848,6 +848,11 @@ export class GameEngine {
   private lastTime = 0;
   /** Something asked for a UI push; the next frame's {@link flush} will serve it. */
   private uiDirty = false;
+  /** True only while the rAF loop body is running. An {@link emit} fired from a UI
+   *  action (a click, outside the loop) flushes synchronously so the result lands
+   *  in the same tick; emits from the hot path inside the loop stay coalesced to
+   *  one push per frame. */
+  private inLoop = false;
   /** The last snapshot handed to React, kept so {@link flush} can send only what moved. */
   private lastSnapshot: UIState | null = null;
   private gameTime = 0; // accumulated simulated seconds (drives cooldowns)
@@ -883,6 +888,7 @@ export class GameEngine {
   start() {
     this.lastTime = performance.now();
     const loop = () => {
+      this.inLoop = true;
       const now = performance.now();
       const dt = Math.min((now - this.lastTime) / 1000, 0.1); // clamp big gaps
       this.lastTime = now;
@@ -905,6 +911,7 @@ export class GameEngine {
       this.renderer.draw();
       // One UI push per frame, after the sim has settled — see `emit`/`flush`.
       this.flush();
+      this.inLoop = false;
       this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);
@@ -915,16 +922,24 @@ export class GameEngine {
   }
 
   /**
-   * Mark the UI snapshot stale. This does **not** talk to React: the real push
-   * happens once per frame in {@link flush}.
+   * Mark the UI snapshot stale.
    *
-   * It is called from the hot path — `damage()` fires it on every hit, and the
-   * rAF loop sub-steps `update()` `gameSpeed` times, so at 5× a busy frame used
-   * to build and hand React hundreds of ~60-key snapshots. Coalescing to one
-   * push per frame is what keeps the fast-forward speeds playable.
+   * Inside the rAF loop this does **not** talk to React: the real push happens
+   * once per frame in {@link flush}. It is called from the hot path — `damage()`
+   * fires it on every hit, and the loop sub-steps `update()` `gameSpeed` times,
+   * so at 5× a busy frame would otherwise build and hand React hundreds of
+   * ~60-key snapshots. Coalescing to one push per frame keeps fast-forward
+   * playable.
+   *
+   * Fired from a UI action instead (a click, outside the loop), it flushes
+   * **synchronously**: the visible result lands in the same tick as the click,
+   * not a frame later — the fix for the Upgrade button (and every other control)
+   * feeling a beat behind. One `flush` per click is cheap; the loop's coalescing
+   * still governs the hot path.
    */
   private emit() {
     this.uiDirty = true;
+    if (!this.inLoop) this.flush();
   }
 
   /**
@@ -1123,6 +1138,7 @@ export class GameEngine {
   togglePrayer(id: PrayerType) {
     this.prayer.toggle(id);
     this.bumpCombatEpoch();
+    this.emit(); // activePrayers changed — push it now (don't wait for an incidental frame)
   }
 
   /** Buy a Grand Exchange consumable (UI button). */
