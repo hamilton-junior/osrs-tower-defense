@@ -1,4 +1,4 @@
-import type { Enemy, Tower, TowerBlueprint, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect, CombatStyle, StyleWeakness } from '../types';
+import type { Enemy, Tower, TowerBlueprint, Projectile, Point, EnemyType, TowerType, TargetingPriority, GlobalUpgrades, PrayerType, Element, AncientType, MageMode, SupportSpell, DotKind, Effect, CombatStyle, StyleWeakness, Item } from '../types';
 import { SPAWN_ANIM_SECONDS } from '../types';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { resolveImpactTheme, IMPACT_RECIPES, type ImpactTheme } from '../systems/impact-fx';
@@ -19,6 +19,8 @@ import { debuffTenacity } from '../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../systems/tower-identity';
 import { upgradeOrder } from '../systems/upgrades';
 import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor } from '../systems/tower-xp';
+import { canEquip, rollGearDrops } from '../systems/tower-gear';
+import { GEAR } from '../data/gear';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
 import { GameRenderer } from './renderer';
@@ -395,6 +397,9 @@ export interface UIState {
    *  those fields straight off the live engine object, so this counter is what
    *  makes the change re-render instead of waiting for the next unrelated patch. */
   towerConfigSeq: number;
+  /** Classic-mode loot bag: gear dropped this run, awaiting a tower. Empty/omitted
+   *  in roguelite. Cloneable (plain `Item`s). */
+  lootBag: Item[];
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -715,6 +720,9 @@ export class GameEngine {
   /** Cards drafted this run, in pick order, with a stack count for repeatable
    *  ones — the source for the UI's active-relics / build panel. Resets per run. */
   runCards: { id: string; count: number }[] = [];
+  /** Classic-mode gear dropped this run and not yet equipped. Per-run: cleared in
+   *  restart(), never persisted. Empty in roguelite (gear never drops there). */
+  lootBag: Item[] = [];
   /** Roguelite: relic choice offered by a defeated boss, awaiting a pick. */
   pendingRelics: Relic[] | null = null;
   /** Relics owned this run, in pick order (each relic is unique). */
@@ -1049,6 +1057,7 @@ export class GameEngine {
       biomeName: this.biome.name,
       lifestealSeq: this.lifestealSeq,
       towerConfigSeq: this.towerConfigSeq,
+      lootBag: this.lootBag.map(g => ({ ...g })),
     };
   }
 
@@ -2339,6 +2348,36 @@ export class GameEngine {
       if (t && !!t.autoUpgrade !== on) { t.autoUpgrade = on || undefined; changed = true; }
     }
     if (changed) this.bumpTowerConfig(); // idle-safe re-render (see setAutoUpgrade)
+  }
+
+  /** Equip a gear piece from the loot bag onto a tower (Classic). Validates style /
+   *  class / level via canEquip; the slot is the item's own type. Any piece already
+   *  in that slot returns to the bag. No-op outside Classic or on a failed check. */
+  equipGear(towerId: string, gearId: string) {
+    if (this.gameMode !== 'classic') return;
+    const tower = this.towers.find(t => t.id === towerId);
+    const idx = this.lootBag.findIndex(g => g.id === gearId);
+    if (!tower || idx < 0) return;
+    const gear = this.lootBag[idx];
+    const slot: 'weapon' | 'accessory' = gear.type === 'accessory' ? 'accessory' : 'weapon';
+    if (!canEquip(tower, gear).ok) return;
+    const prev = tower.equipment[slot];
+    this.lootBag = this.lootBag.filter((_, i) => i !== idx);
+    tower.equipment[slot] = { ...gear };
+    if (prev) this.lootBag = [...this.lootBag, prev];
+    this.bumpTowerConfig();
+  }
+
+  /** Unequip a tower's slot back into the loot bag (Classic). */
+  unequipGear(towerId: string, slot: 'weapon' | 'accessory') {
+    if (this.gameMode !== 'classic') return;
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower) return;
+    const prev = tower.equipment[slot];
+    if (!prev) return;
+    tower.equipment[slot] = null;
+    this.lootBag = [...this.lootBag, prev];
+    this.bumpTowerConfig();
   }
 
   /** Auto-upgrade: for every tower the player flagged, keep buying the cheapest
@@ -4864,6 +4903,12 @@ export class GameEngine {
           [enemy.type]: (this.bossesKilledThisRun[enemy.type] ?? 0) + 1,
         };
       }
+      // Classic gear drops fall straight into the run's loot bag (no ground loot in
+      // the new core). Gated to Classic — roguelite gears its towers via drafts.
+      if (this.gameMode === 'classic') {
+        const gear = rollGearDrops({ wave: this.wave, isBoss: !!enemy.isBoss });
+        if (gear.length) this.lootBag = [...this.lootBag, ...gear];
+      }
       // Bigger and Badder (Slayer shop): the task monster can rise again, right
       // where it fell, as its Superior form. Rolled BEFORE recordKill, so the kill
       // that finishes a task can still spawn one — the superior is the send-off.
@@ -5472,6 +5517,7 @@ export class GameEngine {
     this.runFx = freshRunEffects();
     this.draftedUnique.clear();
     this.runCards = [];
+    this.lootBag = [];
     this.pendingDraft = null;
     this.relicFx = freshRelicEffects();
     this.ownedRelics = [];

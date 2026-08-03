@@ -292,6 +292,7 @@ const INITIAL: UIState = {
   biomeName: 'Misthalin Plains',
   lifestealSeq: 0,
   towerConfigSeq: 0,
+  lootBag: [],
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
