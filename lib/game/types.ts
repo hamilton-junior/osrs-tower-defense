@@ -252,6 +252,16 @@ export interface Effect {
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
+
+/** Which weapon family a tower wields. Gear in the weapon slot must match the
+ *  tower's class (so a bow only fits an archer, cannonballs only a cannon), even
+ *  when two towers share a combat style. See `weaponClassFor` in systems/tower-gear. */
+export type WeaponClass = 'scimitar' | 'maul' | 'bow' | 'blowpipe' | 'cannonball' | 'staff';
+
+/** A rare gear piece's signature effect — a per-target conditional the flat
+ *  `Item.bonus` can't express. Handled in the firing block; see systems/tower-gear. */
+export type GearEffectId = 'twisted_bow' | 'darklight';
+
 /**
  * The half of the combat triangle a monster is *vulnerable* to — the melee/ranged
  * counterpart of an {@link Element} weakness.
@@ -319,6 +329,17 @@ export interface Item {
   sellPrice?: number;
   quantity?: number;
   stackable?: boolean;
+  /** Classic gear: the combat style this weapon belongs to. Weapons set it;
+   *  accessories leave it undefined (they fit any tower). */
+  style?: CombatStyle;
+  /** Classic gear: the weapon family (weapon slot only). */
+  weaponClass?: WeaponClass;
+  /** Classic gear: minimum tower combat level (in its style skill) to equip. */
+  levelReq?: number;
+  /** Classic gear: a rare's signature effect id. Undefined = common (stats only). */
+  gearEffect?: GearEffectId;
+  /** Classic gear rarity — weights the drop; `signature` drops only from bosses. */
+  rarity?: 'common' | 'signature';
 }
 
 export type Region = 'misthalin' | 'karamja' | 'wilderness' | 'morytania';
