@@ -2685,18 +2685,39 @@ export default function GameRoot() {
                       : <>Needs Lv {towerGate?.neededLevel}</>}
                     <span className="rs-key">U</span>
                   </button>
-                  <label
-                    className="flex items-center gap-[0.4em] mt-[0.4em] px-[0.1em] text-[0.78em] text-[#d3c3a0] cursor-pointer select-none"
-                    title="Auto-upgrade: the game spends gold to level this tower on its own, cheapest auto-upgrade tower first"
-                  >
-                    <input
-                      type="checkbox"
-                      className="rs-check"
-                      checked={!!selectedTower.autoUpgrade}
-                      onChange={(e) => engineRef.current?.setAutoUpgrade(selectedTower.id, e.target.checked)}
-                    />
-                    Auto‑upgrade
-                  </label>
+                  <div className="flex items-center gap-[0.6em] mt-[0.4em] px-[0.1em]">
+                    <label
+                      className="flex items-center gap-[0.4em] text-[0.78em] text-[#d3c3a0] cursor-pointer select-none"
+                      title="Auto-upgrade: the game spends gold to level this tower on its own, cheapest auto-upgrade tower first"
+                    >
+                      <input
+                        type="checkbox"
+                        className="rs-check"
+                        checked={!!selectedTower.autoUpgrade}
+                        onChange={(e) => engineRef.current?.setAutoUpgrade(selectedTower.id, e.target.checked)}
+                      />
+                      Auto‑upgrade
+                    </label>
+                    {selectedTower.autoUpgrade && selectedTower.maxLevel > 2 && (
+                      <label
+                        className="flex items-center gap-[0.3em] text-[0.72em] text-[#b9a97f] select-none"
+                        title="Auto-upgrade stops once the tower reaches this tier"
+                      >
+                        up to
+                        <select
+                          className="rs-select text-[0.9em] px-[0.3em] py-[0.05em]"
+                          value={selectedTower.autoUpgradeCap ?? selectedTower.maxLevel}
+                          onChange={(e) => engineRef.current?.setAutoUpgradeCap(selectedTower.id, Number(e.target.value))}
+                        >
+                          {Array.from({ length: selectedTower.maxLevel - 1 }, (_, i) => i + 2).map((tier) => (
+                            <option key={tier} value={tier}>
+                              {tier === selectedTower.maxLevel ? `T${tier} (max)` : `T${tier}`}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </div>
                 </div>
               )}
               {/* Selling refunds a fraction and cannot be undone, and the button sits

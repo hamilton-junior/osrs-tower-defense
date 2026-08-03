@@ -2302,7 +2302,22 @@ export class GameEngine {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower || !!tower.autoUpgrade === on) return;
     tower.autoUpgrade = on || undefined;
-    this.emit();
+    // bump (not plain emit): the flag isn't a snapshot field, so on an idle
+    // pre-wave board a plain emit diffs to nothing and the panel — including the
+    // tier-cap selector gated on this flag — wouldn't re-render.
+    this.bumpTowerConfig();
+  }
+
+  /** Set the ceiling tier the auto-upgrade may raise a tower to. `cap>=maxLevel`
+   *  clears it (no cap). Bumps towerConfigSeq so the selector reflects at once,
+   *  board idle or not (the cap isn't a snapshot field). */
+  setAutoUpgradeCap(towerId: string, cap: number) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower) return;
+    const next = cap >= tower.maxLevel ? undefined : Math.max(1, Math.trunc(cap));
+    if (tower.autoUpgradeCap === next) return;
+    tower.autoUpgradeCap = next;
+    this.bumpTowerConfig();
   }
 
   /** How many of the current selection have auto-upgrade on — drives the batch
@@ -2323,7 +2338,7 @@ export class GameEngine {
       const t = this.towers.find(tw => tw.id === id);
       if (t && !!t.autoUpgrade !== on) { t.autoUpgrade = on || undefined; changed = true; }
     }
-    if (changed) this.emit();
+    if (changed) this.bumpTowerConfig(); // idle-safe re-render (see setAutoUpgrade)
   }
 
   /** Auto-upgrade: for every tower the player flagged, keep buying the cheapest
@@ -2332,7 +2347,8 @@ export class GameEngine {
    *  so fast-forward doesn't multiply the spend. */
   private tickAutoUpgrade() {
     for (;;) {
-      const affordable = this.towers.filter(t => t.autoUpgrade && tierGateFor(t).ok && t.upgradeCost <= this.money);
+      const affordable = this.towers.filter(t =>
+        t.autoUpgrade && t.level < (t.autoUpgradeCap ?? t.maxLevel) && tierGateFor(t).ok && t.upgradeCost <= this.money);
       const [cheapestId] = upgradeOrder(affordable);
       if (!cheapestId) break;
       this.upgradeTower(cheapestId); // re-prices the tower and emits

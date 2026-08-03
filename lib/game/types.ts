@@ -358,6 +358,10 @@ export interface Tower {
   /** Opt-in: the engine auto-spends gold to raise this tower a tier whenever it
    *  can afford the cheapest pending auto-upgrade (see GameEngine.tickAutoUpgrade). */
   autoUpgrade?: boolean;
+  /** Ceiling tier for auto-upgrade: it stops raising this tower once `level`
+   *  reaches this (1..maxLevel). Undefined = no cap (auto-upgrade to max). Only
+   *  the auto tick honours it; manual/batch Upgrade ignore the cap. */
+  autoUpgradeCap?: number;
   special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow';
   specCharge: number;
   specMax: number;
