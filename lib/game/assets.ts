@@ -115,6 +115,34 @@ const LOCAL_BY_WIKI: Record<string, string> = {
 export const iconUrl = (wiki: string) => LOCAL_BY_WIKI[wiki] ?? `${WIKI}${wiki}.png`;
 
 /**
+ * Classic-mode tower gear icons (data/gear.ts `GEAR`), keyed by gear id.
+ * Slugs are the gear id with the trailing `_g` stripped (13 shared with the
+ * tower-tier icons above; 6 baked fresh for this pool — see
+ * scripts/render-osrs-items.mjs "Classic-mode gear" group).
+ */
+export const GEAR_ICONS: Record<string, string> = {
+  iron_scimitar_g: itemIcon('iron_scimitar'),
+  rune_scimitar_g: itemIcon('rune_scimitar'),
+  dragon_scimitar_g: itemIcon('dragon_scimitar'),
+  warhammer_g: itemIcon('warhammer'),
+  granite_maul_g: itemIcon('granite_maul'),
+  tzhaar_ket_om: itemIcon('tzhaar_ket_om'),
+  shortbow_g: itemIcon('shortbow'),
+  magic_shortbow_g: itemIcon('magic_shortbow'),
+  dark_bow_g: itemIcon('dark_bow'),
+  toxic_blowpipe_g: itemIcon('toxic_blowpipe'),
+  cannonball_g: itemIcon('cannonball'),
+  granite_cannonball_g: itemIcon('granite_cannonball'),
+  battlestaff_g: itemIcon('battlestaff'),
+  mystic_staff_g: itemIcon('mystic_staff'),
+  ancient_staff_g: itemIcon('ancient_staff'),
+  amulet_of_power_g: itemIcon('amulet_of_power'),
+  combat_bracelet_g: itemIcon('combat_bracelet'),
+  twisted_bow_g: itemIcon('twisted_bow'),
+  darklight_g: itemIcon('darklight'),
+};
+
+/**
  * Spell-icon URLs keyed by wiki file name (e.g. `Fire_Wave`, `Ice_Barrage`),
  * generated from the elemental (Wind/Water/Earth/Fire × Strike/Bolt/Blast/Wave)
  * and ancient (Ice/Blood/Shadow/Smoke × Rush/Burst/Blitz/Barrage) lines. Used as

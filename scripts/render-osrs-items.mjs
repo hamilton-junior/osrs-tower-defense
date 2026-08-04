@@ -242,6 +242,13 @@ const TARGETS = {
   // The clue-scroll compass — stands in for elapsed time / "survived" in the
   // end-of-run summary (OSRS has no clock sprite in the cache).
   compass: { name: 'Compass' },
+  // ---- Classic-mode gear (data/gear.ts) ----
+  iron_scimitar: { name: 'Iron scimitar' },
+  warhammer: { name: 'Warhammer' },
+  tzhaar_ket_om: { name: 'Tzhaar-ket-om' },
+  granite_cannonball: { name: 'Granite cannonball' },
+  cannonball: { name: 'Steel cannonball', id: 2 }, // no plain "Cannonball" def; id 2 is THE classic cannonball
+  mystic_staff: { name: 'Mystic air staff' }, // stand-in: no plain "Mystic staff" def exists
 };
 
 // ------------------------------------------------------------------- helpers
