@@ -2652,7 +2652,7 @@ export default function GameRoot() {
               combat level (hence sitting right under the XP bar above). Roguelite
               towers carry no equipment, so the whole section is hidden there. */}
           {ui.gameMode === 'classic' && (
-            <div className="mt-[0.7em]">
+            <div className="mt-[0.7em]" data-tut="gear">
               <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Equipment</div>
               <div className="flex gap-[0.6em] px-[0.2em]">
                 {(['weapon', 'accessory'] as const).map((slotType) => {
@@ -4157,6 +4157,9 @@ const LEARN_STEPS: LearnStep[] = [
   { id: 'upgrade', target: 'dock', title: 'Spend between waves',
     body: 'Click a tower you built to upgrade or sell it, and buy more from the dock. Towers earn XP by fighting — landing hits, and extra when they hit an enemy weak to their style — and level up, which nudges their damage. A tier upgrade needs both gold and a minimum combat level; until the tower is high enough its Upgrade button reads “Needs Lv X”. Tick its Auto‑upgrade box to let it level itself from your gold whenever it can (cheapest tower first, gate permitting); the same box on a multi‑selection arms the whole group. Build mode is paused, so take your time before the next wave.',
     when: (ui) => !ui.waveActive && ui.wave === 2 },
+  { id: 'gear', target: 'gear', title: 'Equip dropped gear',
+    body: 'Monsters — bosses especially — drop gear into your loot bag; click a tower\'s weapon or accessory slot to equip a piece. Weapons must match the tower\'s combat style and weapon family, and every piece needs the tower\'s combat level to meet its requirement. Signature pieces (boss drops) add a special effect on top of their stats.',
+    when: (ui) => ui.gameMode === 'classic' && !!ui.selectedTowerId && ui.wave >= 2 },
   { id: 'prayer', target: 'prayers', title: 'Prayer',
     body: 'Toggle a prayer to buff a tower style or shield your base. It drains a pool that refills between waves — flip the strong ones on for boss waves.',
     when: (ui) => !ui.waveActive && ui.wave === 3 },
@@ -4272,6 +4275,7 @@ const TLDR: TldrGroup[] = [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
     'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks. Towers earn XP by fighting (bonus vs a style weakness) and level up for more damage; a tier upgrade needs a minimum level as well as gold — the button shows “Needs Lv X” until then. Tick Auto‑upgrade to let it level itself from your gold (cheapest tower first).',
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
+    'Classic gear — monsters drop equipment into a loot bag (bosses drop signature pieces with a bonus effect); click a tower\'s weapon or accessory slot to equip one from the bag. A weapon needs the tower\'s combat style and weapon family, and every piece needs the tower\'s combat level.',
     'With a tower picked, hold Shift and drag to paint a line of them. Releasing Shift only prices the line up — a panel then asks you to confirm before a coin is spent, and for a line of wizards it asks which spellbook they should all use. Until you confirm, the stroke can be added to (hold Shift again), redrawn, or thrown away (Esc / right-click). Tiles you can’t afford paint red and are skipped.',
     'Drag a box (no Shift) to multi-select — the panel then upgrades, sells, moves, re-aims, re-elements or arms Auto‑upgrade on the whole box at once. A group Move carries the towers as one rigid formation: they keep the shape you arranged, and every tile must be legal or the drop is refused.',
     'Ctrl+C copies what is selected, Ctrl+V puts that formation on your pointer and a click builds all of it — the shape, each tower’s target priority and each wizard’s spellbook and spell come along. Copies are built at base level and cost full price, so it saves the clicking, not the gold.',
