@@ -14,7 +14,7 @@ import { towerXpForLevel } from '@/lib/game/systems/leveling';
 import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
-import { ASSETS, iconUrl, coinsIcon } from '@/lib/game/assets';
+import { ASSETS, iconUrl, coinsIcon, GEAR_ICONS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
 import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, previewUpgradeValue, refundValue, essenceRateLabel } from '@/lib/game/systems/meta-progression';
 import { SLAYER_REWARDS, SLAYER_HELMET_BONUS, SLAYER_HELMET_IMBUED_BONUS } from '@/lib/game/data/slayer';
@@ -24,7 +24,8 @@ import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
 import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/run-save';
-import type { TowerType, PrayerType, MageMode, CombatStyle, StyleWeakness, TargetingPriority } from '@/lib/game/types';
+import { canEquip } from '@/lib/game/systems/tower-gear';
+import type { TowerType, PrayerType, MageMode, CombatStyle, StyleWeakness, TargetingPriority, Item } from '@/lib/game/types';
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 import { loadChangelog, CHANGELOG_KINDS, type ChangelogEntry } from '@/lib/game/changelog';
@@ -170,6 +171,23 @@ const spellbookIcon = (mode?: MageMode): string =>
  *  now gets a spellbook picker on its tile instead. Flip to re-enable it. */
 const SHOW_TOWER_PICKER = false;
 const hideBrokenImg = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).style.display = 'none'; };
+
+/** Classic gear: a `title=` summary of a piece's bonus + level requirement, for the
+ *  equipment slots, the equip picker and the loot-bag panel. Signature pieces (a
+ *  boss-drop `gearEffect`) lead with their own description instead of raw stats. */
+function gearTooltip(item: Item): string {
+  const parts: string[] = [];
+  if (item.bonus.damage) parts.push(`+${item.bonus.damage} dmg`);
+  if (item.bonus.range) parts.push(`+${item.bonus.range}% range`);
+  if (item.bonus.cooldown) parts.push(`+${item.bonus.cooldown}% speed`);
+  if (item.bonus.xpBonus) parts.push(`+${item.bonus.xpBonus}% XP`);
+  const stats = parts.length ? parts.join(', ') : 'No stat bonus';
+  const req = `Requires Lvl ${item.levelReq ?? 1}`;
+  if (item.rarity === 'signature') {
+    return `${item.name} (Signature) — ${item.description} · ${stats} · ${req}`;
+  }
+  return `${item.name} — ${stats} · ${req}`;
+}
 
 /** Attack type per tower, for the damage icon/label in the stats panel. */
 const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = {
@@ -643,6 +661,11 @@ export default function GameRoot() {
   // confirmation armed for a different set of towers.
   const multiKey = ui.multiSelectedIds.join(',');
   useEffect(() => { setSellConfirm(null); }, [ui.selectedTowerId, multiKey]);
+  // Classic-mode gear picker: which slot's popup (if any) is open on the selected
+  // tower's Equipment section. Closes with the same triggers as the sell-confirm
+  // above, so it never lingers on a tower that's no longer selected.
+  const [gearPicker, setGearPicker] = useState<'weapon' | 'accessory' | null>(null);
+  useEffect(() => { setGearPicker(null); }, [ui.selectedTowerId, multiKey]);
   // "How to Play" reference guide — reachable any time from the start screen or
   // the ❓ stone. (The FIRST-visit onboarding is the guided tour below, not this.)
   const [helpOpen, setHelpOpen] = useState(false);
@@ -2625,6 +2648,108 @@ export default function GameRoot() {
             );
           })()}
 
+          {/* Classic-mode gear: two equippable slots, level-gated by this tower's
+              combat level (hence sitting right under the XP bar above). Roguelite
+              towers carry no equipment, so the whole section is hidden there. */}
+          {ui.gameMode === 'classic' && (
+            <div className="mt-[0.7em]">
+              <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Equipment</div>
+              <div className="flex gap-[0.6em] px-[0.2em]">
+                {(['weapon', 'accessory'] as const).map((slotType) => {
+                  const equipped = selectedTower.equipment[slotType];
+                  const icon = equipped ? GEAR_ICONS[equipped.id] : undefined;
+                  const options = ui.lootBag.filter((g) => g.type === slotType);
+                  const listed = options.filter((g) => {
+                    const check = canEquip(selectedTower, g);
+                    return check.ok || check.reason === 'level';
+                  });
+                  return (
+                    <div key={slotType} className="relative flex flex-col items-center" style={{ width: '3.4em' }}>
+                      <button
+                        type="button"
+                        className="rs-slot w-[3.4em] relative"
+                        style={equipped?.rarity === 'signature' ? { borderColor: 'var(--osrs-yellow)' } : undefined}
+                        title={equipped ? gearTooltip(equipped) : `Empty ${slotType} slot — click to equip from your loot bag`}
+                        onClick={() => setGearPicker((p) => (p === slotType ? null : slotType))}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          if (equipped) engineRef.current?.unequipGear(selectedTower.id, slotType);
+                        }}
+                      >
+                        {icon
+                          ? <img src={icon} alt={equipped?.name ?? ''} onError={hideBrokenImg} />
+                          : <span className="text-[0.5em] text-[#5a5138] uppercase tracking-wide">{slotType}</span>}
+                        {equipped && (
+                          <span
+                            role="button"
+                            aria-label={`Unequip ${equipped.name}`}
+                            title="Unequip"
+                            className="absolute -top-[0.35em] -right-[0.35em] w-[1.15em] h-[1.15em] flex items-center justify-center rounded-full bg-[#241c12] border border-[var(--rs-keyline)] text-[0.6em] text-osrs-red leading-none hover:text-white hover:bg-[#3a3122]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              engineRef.current?.unequipGear(selectedTower.id, slotType);
+                            }}
+                          >
+                            ✕
+                          </span>
+                        )}
+                      </button>
+                      <span
+                        className={`text-[0.6em] leading-tight text-center truncate w-full mt-[0.2em] ${equipped?.rarity === 'signature' ? 'text-osrs-yellow font-semibold' : 'text-[#b3a585]'}`}
+                        title={equipped ? gearTooltip(equipped) : undefined}
+                      >
+                        {equipped ? equipped.name : slotType === 'weapon' ? 'Weapon' : 'Accessory'}
+                      </span>
+
+                      {gearPicker === slotType && (
+                        <div className="absolute top-full left-0 mt-[0.3em] z-30 rs-panel-inset p-[0.35em] w-[13em] max-h-[14em] overflow-y-auto shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+                          {listed.length === 0 ? (
+                            <div className="text-[0.68em] text-[#8a7c5c] p-[0.2em] leading-snug">
+                              No compatible {slotType} in bag
+                            </div>
+                          ) : (
+                            listed.map((g) => {
+                              const check = canEquip(selectedTower, g);
+                              const disabled = !check.ok;
+                              return (
+                                <button
+                                  type="button"
+                                  key={g.id}
+                                  disabled={disabled}
+                                  title={gearTooltip(g)}
+                                  onClick={() => {
+                                    engineRef.current?.equipGear(selectedTower.id, g.id);
+                                    setGearPicker(null);
+                                  }}
+                                  className={`w-full flex items-center gap-[0.4em] px-[0.3em] py-[0.25em] text-left text-[0.7em] ${
+                                    disabled ? 'opacity-45 cursor-not-allowed' : 'hover:bg-[#3a3122]'
+                                  } ${g.rarity === 'signature' ? 'text-osrs-yellow' : 'text-[#d3c3a0]'}`}
+                                >
+                                  <img
+                                    src={GEAR_ICONS[g.id]}
+                                    alt=""
+                                    className="w-[1.3em] h-[1.3em] object-contain shrink-0"
+                                    onError={hideBrokenImg}
+                                  />
+                                  <span className="flex-1 truncate">{g.name}</span>
+                                  {disabled && (
+                                    <span className="text-[0.85em] text-osrs-red whitespace-nowrap">
+                                      Requires Lvl {g.levelReq}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {moving ? (
             <div className="mt-[0.7em] text-center text-[0.8em] text-osrs-orange leading-snug">
               ▸ Click a tile to move here ({moveCost} gp)<br />
@@ -2771,6 +2896,42 @@ export default function GameRoot() {
             </div>
           )}
         </MovablePanel>
+      )}
+
+      {/* Classic-mode loot bag (top-right, below the data orbs): every gear piece
+          collected this run. Browse-only — equipping happens through the tower's
+          own slot picker above, so there is exactly one equip path. An outer
+          wrapper carries the anchor, same pattern as the prayer bar below. */}
+      {ui.gameMode === 'classic' && ui.lootBag.length > 0 && (
+        <div className="absolute top-40 right-4 z-10">
+          <MovablePanel
+            id="lootbag"
+            globalLock={uiLocked}
+            className="rs-panel relative p-2 w-[13em]"
+            style={{ fontSize: fs('clamp(13px, 0.85vw, 18px)') }}
+          >
+            <div className="rs-panel-title" style={{ fontSize: '1em' }}>Loot bag</div>
+            <div className="mt-[0.4em] max-h-[16em] overflow-y-auto space-y-[0.25em] pr-[0.1em]">
+              {ui.lootBag.map((g) => (
+                <div
+                  key={g.id}
+                  title={gearTooltip(g)}
+                  className={`flex items-center gap-[0.4em] px-[0.2em] py-[0.15em] text-[0.72em] ${
+                    g.rarity === 'signature' ? 'text-osrs-yellow' : 'text-[#d3c3a0]'
+                  }`}
+                >
+                  <img
+                    src={GEAR_ICONS[g.id]}
+                    alt=""
+                    className="w-[1.5em] h-[1.5em] object-contain shrink-0"
+                    onError={hideBrokenImg}
+                  />
+                  <span className="flex-1 truncate">{g.name}</span>
+                </div>
+              ))}
+            </div>
+          </MovablePanel>
+        </div>
       )}
 
       {debugOpen && (
