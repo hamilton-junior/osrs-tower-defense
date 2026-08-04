@@ -2673,6 +2673,7 @@ export default function GameRoot() {
                         onClick={() => setGearPicker((p) => (p === slotType ? null : slotType))}
                         onContextMenu={(e) => {
                           e.preventDefault();
+                          e.stopPropagation();
                           if (equipped) engineRef.current?.unequipGear(selectedTower.id, slotType);
                         }}
                       >
