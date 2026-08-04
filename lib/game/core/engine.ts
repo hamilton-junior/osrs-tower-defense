@@ -2365,6 +2365,7 @@ export class GameEngine {
     tower.equipment[slot] = { ...gear };
     if (prev) this.lootBag = [...this.lootBag, prev];
     this.bumpTowerConfig();
+    this.bumpCombatEpoch();
   }
 
   /** Unequip a tower's slot back into the loot bag (Classic). */
@@ -2377,6 +2378,7 @@ export class GameEngine {
     tower.equipment[slot] = null;
     this.lootBag = [...this.lootBag, prev];
     this.bumpTowerConfig();
+    this.bumpCombatEpoch();
   }
 
   /** Auto-upgrade: for every tower the player flagged, keep buying the cheapest
@@ -2566,6 +2568,11 @@ export class GameEngine {
     if (i < 0) return;
     const tower = this.towers[i];
     this.money += this.sellValue(tower);
+    // Classic gear on a sold tower returns to the loot bag, not the void.
+    if (this.gameMode === 'classic') {
+      if (tower.equipment.weapon) this.lootBag = [...this.lootBag, tower.equipment.weapon];
+      if (tower.equipment.accessory) this.lootBag = [...this.lootBag, tower.equipment.accessory];
+    }
     this.towers.splice(i, 1);
     this.bumpTowerLayout();
     if (this.selectedTowerId === towerId) this.selectedTowerId = null;
@@ -4005,11 +4012,6 @@ export class GameEngine {
         damage = Math.floor(damage * slayerWeaponBonus(target.type, this.slayer.task?.type ?? null, !!target.isBoss));
       }
 
-      // Signature gear (Twisted bow / Darklight): a per-target multiplier the flat
-      // Item.bonus can't express. 1.0 for every non-signature weapon (and outside
-      // Classic, where towers carry no equipment).
-      damage = Math.floor(damage * gearDamageMult(tower, target, this.slayer.task?.type ?? null));
-
       // Base projectile flavour; the cannon splashes (radius grows by tier), toxic
       // venoms, tzhaar crushes.
       let projColor = tower.color;
@@ -4128,9 +4130,15 @@ export class GameEngine {
         incoming.set(tgt.id, (incoming.get(tgt.id) ?? 0) + dmg);
       };
 
-      // The tier-4 bow gets a modest, capped anti-tank nudge per target.
-      const arrowDmg = (tgt: Enemy) =>
-        tower.type === 'archer' && tower.level >= 4 ? Math.floor(damage * bowAntiTankMult(tgt.maxHp)) : damage;
+      // Per-target multipliers keyed off the ENEMY: the signature gear mult
+      // (Twisted bow scales with the target's max HP, Darklight with its category)
+      // and the tier-4 bow's anti-tank nudge. Computed per shot so twin-shot / Double
+      // Shot arrows against other enemies get their own value, not the primary's.
+      const arrowDmg = (tgt: Enemy) => {
+        let d = Math.floor(damage * gearDamageMult(tower, tgt, this.slayer.task?.type ?? null));
+        if (tower.type === 'archer' && tower.level >= 4) d = Math.floor(d * bowAntiTankMult(tgt.maxHp));
+        return d;
+      };
 
       launch(target, arrowDmg(target), flight);
 
@@ -5371,6 +5379,7 @@ export class GameEngine {
       gameTime: this.gameTime,
       realTime: this.realTime,
       towers: structuredClone(this.towers),
+      lootBag: structuredClone(this.lootBag),
       runMods: cloneRunMods(this.runMods),
       runFx: structuredClone(this.runFx),
       relicFx: { ...this.relicFx },
@@ -5419,6 +5428,7 @@ export class GameEngine {
 
     this.gameMode = save.gameMode;
     this.towers = structuredClone(save.towers);
+    this.lootBag = save.lootBag ? structuredClone(save.lootBag) : [];
     this.bumpTowerLayout();
     this.money = save.money;
     this.maxLives = save.maxLives;

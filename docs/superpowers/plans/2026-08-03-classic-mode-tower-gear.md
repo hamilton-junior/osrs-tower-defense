@@ -25,8 +25,10 @@ local OSRS cache via `scripts/render-osrs-items.mjs`.
   never hot-link an external host, never distort a sprite, always show a thing's own
   live icon (a slot shows the equipped item's real icon).
 - Rewards are **non-monetary**; gear must **not inflate gold**.
-- **Only meta-progression persists.** Gear (`lootBag` + `tower.equipment`) is
-  **per-run** and is cleared in `restart()`; it is never written to `localStorage`.
+- **Gear is per-run, not meta.** Equipped gear (`tower.equipment`) and the
+  loot bag (`lootBag`) ride in the per-run **Continue autosave** so a resumed run
+  keeps them, but they **never survive a new run** — `restart()` clears both and
+  every new-game path calls `clearRunSave()`. Gear is not cross-run meta-progression.
 - The whole feature is **gated to `gameMode === 'classic'`** (mirror how the draft /
   `runFx` guard on `gameMode === 'roguelite'`). In roguelite, gear never drops, the
   loot bag is hidden, and towers carry no equipment.

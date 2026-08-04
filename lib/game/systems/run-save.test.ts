@@ -117,6 +117,17 @@ describe('sanitizeRunSave', () => {
     expect(save.slayer.points).toBe(0);
     expect(save.prayer.active).toEqual([]);
   });
+
+  it('round-trips a lootBag of Classic gear', () => {
+    const gear = { id: 'twisted_bow', name: 'Twisted bow', description: '', bonus: { damage: 10 }, type: 'weapon' };
+    const save = sanitizeRunSave(makeSave({ lootBag: [gear] }))!;
+    expect(save.lootBag).toEqual([gear]);
+  });
+
+  it('defaults a missing lootBag to empty — saves written before gear existed', () => {
+    const save = sanitizeRunSave(makeSave({ lootBag: undefined }))!;
+    expect(save.lootBag).toEqual([]);
+  });
 });
 
 describe('isResumable', () => {

@@ -1,4 +1,4 @@
-import type { Tower, SlayerTask, PrayerType, EnemyType } from '../types';
+import type { Tower, Item, SlayerTask, PrayerType, EnemyType } from '../types';
 import type { GameMode, RunModifiers, RunEffects, RelicEffects } from '../core/engine';
 
 /**
@@ -43,6 +43,10 @@ export interface RunSave {
    *  simulated figure that would read as hours. */
   realTime: number;
   towers: Tower[];
+  /** Unequipped Classic gear in the loot bag. Optional: saves written before
+   *  gear existed lack it and resume with an empty bag. Equipped gear rides in
+   *  `towers`. Cleared on a new run (never survives restart / clearRunSave). */
+  lootBag?: Item[];
   runMods: RunModifiers;
   runFx: RunEffects;
   relicFx: RelicEffects;
@@ -136,6 +140,9 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     gameTime: Math.max(0, num(raw.gameTime, 0)),
     realTime: Math.max(0, num(raw.realTime, 0)),
     towers,
+    lootBag: Array.isArray(raw.lootBag)
+      ? raw.lootBag.filter((g): g is Item => isObj(g) && typeof g.id === 'string' && typeof g.type === 'string')
+      : [],
     runMods: raw.runMods as unknown as RunModifiers,
     runFx: raw.runFx as unknown as RunEffects,
     relicFx: raw.relicFx as unknown as RelicEffects,

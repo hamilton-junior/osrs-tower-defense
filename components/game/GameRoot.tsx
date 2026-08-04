@@ -2709,13 +2709,13 @@ export default function GameRoot() {
                               No compatible {slotType} in bag
                             </div>
                           ) : (
-                            listed.map((g) => {
+                            listed.map((g, i) => {
                               const check = canEquip(selectedTower, g);
                               const disabled = !check.ok;
                               return (
                                 <button
                                   type="button"
-                                  key={g.id}
+                                  key={i}
                                   disabled={disabled}
                                   title={gearTooltip(g)}
                                   onClick={() => {
@@ -2913,9 +2913,9 @@ export default function GameRoot() {
           >
             <div className="rs-panel-title" style={{ fontSize: '1em' }}>Loot bag</div>
             <div className="mt-[0.4em] max-h-[16em] overflow-y-auto space-y-[0.25em] pr-[0.1em]">
-              {ui.lootBag.map((g) => (
+              {ui.lootBag.map((g, i) => (
                 <div
-                  key={g.id}
+                  key={i}
                   title={gearTooltip(g)}
                   className={`flex items-center gap-[0.4em] px-[0.2em] py-[0.15em] text-[0.72em] ${
                     g.rarity === 'signature' ? 'text-osrs-yellow' : 'text-[#d3c3a0]'

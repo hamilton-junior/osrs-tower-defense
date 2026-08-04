@@ -48,9 +48,12 @@ inglês**. Assets só do cache OSRS.
    universal. **2 slots no MVP** (arma + acessório); **escudo fica pra depois**.
 4. **Híbrido:** comum = bônus plano (`Item.bonus`); raro de boss = **efeito-
    assinatura** (keyword).
-5. **Aquisição:** drop **dentro do run** → bolsa de loot do run → equipar. **Só
-   dura o run** (consistente com "estado de run não persiste"). **Craft de alguns
-   gears fica pra depois**, com as skills novas.
+5. **Aquisição:** drop **dentro do run** → bolsa de loot do run → equipar. **Dura
+   o run e é salvo no autosave do "Continue"** (equipada em `towers`, bolsa em
+   `lootBag`), mas **é limpo ao começar um run novo** (`restart()` limpa
+   `lootBag`+`towers`; todo caminho de jogo-novo chama `clearRunSave()`). Não é
+   meta-progressão cross-run. **Craft de alguns gears fica pra depois**, com as
+   skills novas.
 6. **Requisito de nível:** cada tier de gear pede um nível de combate mínimo (na
    skill do estilo da torre) pra equipar, reusando `towerCombatLevel`.
 
@@ -127,7 +130,10 @@ abaixo/no limite, acessório universal), e soma de `gearStatBonus` (vazio, 1 pe�
 ### 3. Engine — estado + métodos (gated ao Classic)
 
 - **Bolsa de loot do run:** `lootBag: Item[]` (gear dropado ainda não equipado),
-  run-scoped, **não persiste** (limpa no restart, como o resto do estado de run).
+  run-scoped, **dura o run e é salvo no autosave do "Continue"** (equipada em
+  `towers`, bolsa em `lootBag`), mas **é limpo ao começar um run novo**
+  (`restart()` limpa `lootBag`+`towers`; todo caminho de jogo-novo chama
+  `clearRunSave()`). Não é meta-progressão cross-run.
 - **Drops:** no roll de loot (systems/loot `rollItemDrops`), **só em classic**,
   gear rolado entra na `lootBag` (comum de kills normais em chance baixa;
   assinatura só de boss). Fora do classic o roll de gear é no-op.
