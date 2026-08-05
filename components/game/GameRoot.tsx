@@ -1174,7 +1174,7 @@ export default function GameRoot() {
   // Fit the board box to its container: the largest LOGIC-aspect rectangle that
   // fits, recomputed whenever the window (and thus the game area) changes. This is
   // the *only* place the layout reacts to size — and it sizes the presentation box,
-  // never the engine. The 1440×640 backing store and the road are untouched.
+  // never the engine. The 1440×640 logic space and the road are untouched.
   useLayoutEffect(() => {
     const area = gameAreaRef.current;
     if (!area) return;
@@ -1190,6 +1190,15 @@ export default function GameRoot() {
     ro.observe(area);
     return () => ro.disconnect();
   }, []);
+
+  // Report the board's on-screen size to the engine so it can back the canvas at
+  // the display's native resolution (see engine `setDisplaySize`/`deviceScale`) —
+  // the board renders at exactly the pixels it occupies, sharp on any screen, with
+  // no CSS upscale from 1440. Render-only: the fixed 1440×640 logic space (and thus
+  // gameplay and pointer mapping) is untouched. Fires on mount and every resize.
+  useEffect(() => {
+    if (boardSize) engineRef.current?.setDisplaySize(boardSize.w, boardSize.h);
+  }, [boardSize]);
 
   const toLogic = useCallback((clientX: number, clientY: number) => {
     const box = paintedBox();
@@ -1595,9 +1604,10 @@ export default function GameRoot() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full block cursor-crosshair touch-none"
-        // A fixed 1440×640 backing store, scaled as a whole to fill its
-        // aspect-locked container: identical on every screen, never stretched,
-        // never redrawn at another size. `contain` guards the rounding sliver.
+        // A fixed 1440×640 logic space, backed at the display's device-pixel ratio
+        // (see engine `dpr`), scaled as a whole to fill its aspect-locked container:
+        // identical shape on every screen, never stretched. `contain` guards the
+        // rounding sliver.
         style={{ objectFit: 'contain' }}
         onMouseMove={onMove}
         onMouseDown={onMouseDown}

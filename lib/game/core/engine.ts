@@ -842,6 +842,28 @@ export class GameEngine {
   readonly width = LOGIC_WIDTH;
   readonly height = LOGIC_HEIGHT;
 
+  /**
+   * Logic→backing pixel multiplier for the board canvas. The *logic* space above
+   * stays a fixed 1440×640 on every machine — the game (map, road, ranges, speeds)
+   * never depends on it. This only decides how many *physical* pixels back that
+   * space: the backing store is sized to the board's on-screen size × the device
+   * pixel ratio, so the board is rasterised at exactly its displayed resolution —
+   * sharp on any screen, with no CSS upscale from 1440 (the "assets look zoomed /
+   * pixelated" artefact, worst on a large display where 1440 is stretched wide).
+   * The renderer scales its context by this each frame, so every draw call still
+   * works in logic units. Capped so a 4K panel doesn't blow up the backing store.
+   */
+  deviceScale = 1;
+  /** The board's current on-screen (CSS) size, reported by the fit effect in the
+   *  React layer. Until it reports, assume 1:1 with the logic space. Presentation
+   *  only — never feeds back into the logic space. */
+  private displayW = LOGIC_WIDTH;
+  private displayH = LOGIC_HEIGHT;
+  /** Raw device-pixel ratio (uncapped); the cap lives on {@link deviceScale}. */
+  dpr = 1;
+  private dprMedia: MediaQueryList | null = null;
+  private static readonly MAX_DEVICE_SCALE = 2;
+
   // --- spawn/loop bookkeeping ---
   private spawnQueue: Enemy[] = [];
   /** Memoised makeup of the upcoming wave, keyed by (wave, current Slayer task)
@@ -883,8 +905,9 @@ export class GameEngine {
     this.bossesSeen = sanitizeBossesSeen(save?.bossesSeen);
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.renderer = new GameRenderer(this);
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
+    this.dpr = this.computeDpr();
+    this.applyCanvasSize();
+    this.watchDpr();
     this.generateMap();
     this.preloadImages();
     this.slayer.assignTask(); // auto-assign the first Slayer task
@@ -926,7 +949,67 @@ export class GameEngine {
 
   stop() {
     cancelAnimationFrame(this.rafId);
+    this.dprMedia?.removeEventListener('change', this.onDprChange);
   }
+
+  private computeDpr(): number {
+    return typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  }
+
+  /**
+   * Report the board's on-screen size (CSS px), from the fit effect in the React
+   * layer. Presentation only: it re-sizes the backing store so the board renders at
+   * its native resolution — it never touches the logic space. Called on mount and on
+   * every window resize / monitor move.
+   */
+  setDisplaySize(cssW: number, cssH: number) {
+    if (cssW <= 0 || cssH <= 0) return;
+    if (cssW === this.displayW && cssH === this.displayH) return;
+    this.displayW = cssW;
+    this.displayH = cssH;
+    this.applyCanvasSize();
+  }
+
+  /**
+   * Size the canvas backing store to the board's *displayed* pixels: the on-screen
+   * size × the device-pixel ratio, capped. The board box is aspect-locked to the
+   * logic space, so width and height scale by the same factor — derive it from the
+   * width. Floor of 1 so we never render below logic resolution.
+   *
+   * Writing `width`/`height` also clears the canvas and resets context state, but
+   * the renderer re-applies its transform and smoothing every frame, so that's
+   * benign. The element's *CSS* size is driven by the layout (100% of the
+   * aspect-locked board box), independent of these attributes — so this never
+   * touches layout or pointer mapping, both of which go through the display rect
+   * and the logic constants, not the backing store.
+   */
+  private applyCanvasSize() {
+    const raw = (this.displayW / this.width) * this.dpr;
+    this.deviceScale = Math.min(Math.max(raw, 1), GameEngine.MAX_DEVICE_SCALE);
+    this.canvas.width = Math.round(this.width * this.deviceScale);
+    this.canvas.height = Math.round(this.height * this.deviceScale);
+  }
+
+  /**
+   * Re-rasterise the board when the window moves to a monitor with a different
+   * device-pixel ratio. Browser zoom is blocked, so a monitor move is the only
+   * trigger. Presentation only — the logic space is never resized.
+   */
+  private watchDpr() {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    this.dprMedia?.removeEventListener('change', this.onDprChange);
+    this.dprMedia = window.matchMedia(`(resolution: ${this.dpr}dppx)`);
+    this.dprMedia.addEventListener('change', this.onDprChange);
+  }
+
+  private onDprChange = () => {
+    const next = this.computeDpr();
+    if (next !== this.dpr) {
+      this.dpr = next;
+      this.applyCanvasSize();
+    }
+    this.watchDpr(); // the media query is pinned to the old ratio — re-arm it
+  };
 
   /**
    * Mark the UI snapshot stale.

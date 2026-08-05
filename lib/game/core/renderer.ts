@@ -154,6 +154,11 @@ export class GameRenderer {
     if (!ctx || this.e.canvas.width === 0) return;
 
     ctx.save();
+    // Scale the whole frame by the board's logic→backing multiplier: the backing
+    // store is the fixed 1440×640 logic space sized to the board's displayed pixels
+    // (`deviceScale`), so every draw call below still works in logic units while the
+    // board is rasterised at the screen's real resolution — no CSS upscale from 1440.
+    ctx.setTransform(this.e.deviceScale, 0, 0, this.e.deviceScale, 0, 0);
     ctx.imageSmoothingEnabled = false;
     this.drawBackground(ctx);
     this.drawPath(ctx);
@@ -187,28 +192,38 @@ export class GameRenderer {
   private bgBiome = '';
   private bgW = 0;
   private bgH = 0;
+  private bgScale = 0;
 
   private drawBackground(ctx: CanvasRenderingContext2D) {
     const w = this.e.width;
     const h = this.e.height;
+    const scale = this.e.deviceScale;
     if (
       this.bgCache === null || this.bgCtx === null ||
       this.bgTerrain !== this.e.terrain || this.bgBiome !== this.e.biome.id ||
-      this.bgW !== w || this.bgH !== h
+      this.bgW !== w || this.bgH !== h || this.bgScale !== scale
     ) {
       if (!this.bgCache) {
         this.bgCache = document.createElement('canvas');
         this.bgCtx = this.bgCache.getContext('2d');
       }
-      this.bgCache.width = w;
-      this.bgCache.height = h;
-      if (this.bgCtx) this.renderStaticBackground(this.bgCtx, w, h);
+      // Cache at the board's displayed resolution so the static terrain/grid is
+      // crisp too, then scale the buffer's context so it still draws in logic units.
+      this.bgCache.width = Math.round(w * scale);
+      this.bgCache.height = Math.round(h * scale);
+      if (this.bgCtx) {
+        this.bgCtx.setTransform(scale, 0, 0, scale, 0, 0);
+        this.renderStaticBackground(this.bgCtx, w, h);
+      }
       this.bgTerrain = this.e.terrain;
       this.bgBiome = this.e.biome.id;
       this.bgW = w;
       this.bgH = h;
+      this.bgScale = scale;
     }
-    ctx.drawImage(this.bgCache, 0, 0);
+    // The parent ctx is already scaled by `deviceScale`; draw the buffer back into
+    // the logic rect so it lands 1:1 on the backing store.
+    ctx.drawImage(this.bgCache, 0, 0, w, h);
   }
 
   private renderStaticBackground(ctx: CanvasRenderingContext2D, w: number, h: number) {
