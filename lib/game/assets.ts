@@ -116,30 +116,72 @@ export const iconUrl = (wiki: string) => LOCAL_BY_WIKI[wiki] ?? `${WIKI}${wiki}.
 
 /**
  * Classic-mode tower gear icons (data/gear.ts `GEAR`), keyed by gear id.
- * Slugs are the gear id with the trailing `_g` stripped (13 shared with the
- * tower-tier icons above; 6 baked fresh for this pool — see
- * scripts/render-osrs-items.mjs "Classic-mode gear" group).
+ * The icon slug IS the gear id (see gear.ts's header comment) — baked from
+ * the OSRS cache by scripts/render-osrs-items.mjs's "ammo/jewellery rework"
+ * TARGETS group. Ammo/rune/kit ladders use `AmmoClass`-keyed comments below;
+ * jewellery + the two boss-drop signatures follow.
  */
 export const GEAR_ICONS: Record<string, string> = {
-  iron_scimitar_g: itemIcon('iron_scimitar'),
-  rune_scimitar_g: itemIcon('rune_scimitar'),
-  dragon_scimitar_g: itemIcon('dragon_scimitar'),
-  warhammer_g: itemIcon('warhammer'),
-  granite_maul_g: itemIcon('granite_maul'),
-  tzhaar_ket_om: itemIcon('tzhaar_ket_om'),
-  shortbow_g: itemIcon('shortbow'),
-  magic_shortbow_g: itemIcon('magic_shortbow'),
-  dark_bow_g: itemIcon('dark_bow'),
-  toxic_blowpipe_g: itemIcon('toxic_blowpipe'),
-  cannonball_g: itemIcon('cannonball'),
-  granite_cannonball_g: itemIcon('granite_cannonball'),
-  battlestaff_g: itemIcon('battlestaff'),
-  mystic_staff_g: itemIcon('mystic_staff'),
-  ancient_staff_g: itemIcon('ancient_staff'),
-  amulet_of_power_g: itemIcon('amulet_of_power'),
-  combat_bracelet_g: itemIcon('combat_bracelet'),
-  twisted_bow_g: itemIcon('twisted_bow'),
-  darklight_g: itemIcon('darklight'),
+  // arrows
+  bronze_arrow: itemIcon('bronze_arrow'),
+  iron_arrow: itemIcon('iron_arrow'),
+  steel_arrow: itemIcon('steel_arrow'),
+  mithril_arrow: itemIcon('mithril_arrow'),
+  adamant_arrow: itemIcon('adamant_arrow'),
+  rune_arrow: itemIcon('rune_arrow'),
+  amethyst_arrow: itemIcon('amethyst_arrow'),
+  dragon_arrow: itemIcon('dragon_arrow'),
+  // darts
+  bronze_dart: itemIcon('bronze_dart'),
+  iron_dart: itemIcon('iron_dart'),
+  steel_dart: itemIcon('steel_dart'),
+  black_dart: itemIcon('black_dart'),
+  mithril_dart: itemIcon('mithril_dart'),
+  adamant_dart: itemIcon('adamant_dart'),
+  rune_dart: itemIcon('rune_dart'),
+  dragon_dart: itemIcon('dragon_dart'),
+  // cannonballs
+  cannonball: itemIcon('cannonball'),
+  granite_cannonball: itemIcon('granite_cannonball'),
+  // runes
+  mind_rune: itemIcon('mind_rune'),
+  chaos_rune: itemIcon('chaos_rune'),
+  tome_of_water: itemIcon('tome_of_water'),
+  tome_of_earth: itemIcon('tome_of_earth'),
+  death_rune: itemIcon('death_rune'),
+  tome_of_fire: itemIcon('tome_of_fire'),
+  blood_rune: itemIcon('blood_rune'),
+  mages_book: itemIcon('mages_book'),
+  wrath_rune: itemIcon('wrath_rune'),
+  // melee_kit: gloves
+  bronze_gloves: itemIcon('bronze_gloves'),
+  iron_gloves: itemIcon('iron_gloves'),
+  steel_gloves: itemIcon('steel_gloves'),
+  black_gloves: itemIcon('black_gloves'),
+  mithril_gloves: itemIcon('mithril_gloves'),
+  adamant_gloves: itemIcon('adamant_gloves'),
+  rune_gloves: itemIcon('rune_gloves'),
+  dragon_gloves: itemIcon('dragon_gloves'),
+  barrows_gloves: itemIcon('barrows_gloves'),
+  // melee_kit: defenders
+  bronze_defender: itemIcon('bronze_defender'),
+  iron_defender: itemIcon('iron_defender'),
+  steel_defender: itemIcon('steel_defender'),
+  black_defender: itemIcon('black_defender'),
+  mithril_defender: itemIcon('mithril_defender'),
+  adamant_defender: itemIcon('adamant_defender'),
+  rune_defender: itemIcon('rune_defender'),
+  dragon_defender: itemIcon('dragon_defender'),
+  avernic_defender: itemIcon('avernic_defender'),
+  // universal jewellery
+  amulet_of_strength: itemIcon('amulet_of_strength'),
+  amulet_of_power: itemIcon('amulet_of_power'),
+  amulet_of_glory: itemIcon('amulet_of_glory'),
+  amulet_of_fury: itemIcon('amulet_of_fury'),
+  amulet_of_torture: itemIcon('amulet_of_torture'),
+  // boss-drop signatures
+  amulet_of_blood_fury: itemIcon('amulet_of_blood_fury'),
+  salve_amulet_ei: itemIcon('salve_amulet_ei'),
 };
 
 /**

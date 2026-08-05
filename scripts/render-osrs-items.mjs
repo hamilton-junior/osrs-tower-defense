@@ -242,13 +242,66 @@ const TARGETS = {
   // The clue-scroll compass — stands in for elapsed time / "survived" in the
   // end-of-run summary (OSRS has no clock sprite in the cache).
   compass: { name: 'Compass' },
-  // ---- Classic-mode gear (data/gear.ts) ----
+  // ---- Classic-mode gear (data/gear.ts) — legacy weapon pool (superseded by
+  // the ammo/jewellery rework below; left baked since other slugs still share
+  // these keys, e.g. granite_cannonball/cannonball are reused by AMMO_TIERS) ----
   iron_scimitar: { name: 'Iron scimitar' },
   warhammer: { name: 'Warhammer' },
   tzhaar_ket_om: { name: 'Tzhaar-ket-om' },
   granite_cannonball: { name: 'Granite cannonball' },
   cannonball: { name: 'Steel cannonball', id: 2 }, // no plain "Cannonball" def; id 2 is THE classic cannonball
   mystic_staff: { name: 'Mystic air staff' }, // stand-in: no plain "Mystic staff" def exists
+  // ---- Classic-mode gear: ammo/jewellery rework (data/gear.ts AMMO_TIERS /
+  // JEWELLERY_TIERS / SIGNATURES) — slug === gear id, matched by exact cache
+  // item name (confirmed via --find before baking; see task-3-report.md). ----
+  bronze_arrow: { name: 'Bronze arrow' },
+  iron_arrow: { name: 'Iron arrow' },
+  steel_arrow: { name: 'Steel arrow' },
+  mithril_arrow: { name: 'Mithril arrow' },
+  adamant_arrow: { name: 'Adamant arrow' },
+  rune_arrow: { name: 'Rune arrow' },
+  amethyst_arrow: { name: 'Amethyst arrow' },
+  dragon_arrow: { name: 'Dragon arrow' },
+  bronze_dart: { name: 'Bronze dart' },
+  iron_dart: { name: 'Iron dart' },
+  steel_dart: { name: 'Steel dart' },
+  black_dart: { name: 'Black dart' },
+  mithril_dart: { name: 'Mithril dart' },
+  adamant_dart: { name: 'Adamant dart' },
+  rune_dart: { name: 'Rune dart' },
+  // dragon_dart already baked above (relics group).
+  mind_rune: { name: 'Mind rune' },
+  chaos_rune: { name: 'Chaos rune' },
+  death_rune: { name: 'Death rune' },
+  wrath_rune: { name: 'Wrath rune' },
+  tome_of_water: { name: 'Tome of water' },
+  tome_of_earth: { name: 'Tome of earth' },
+  mages_book: { name: "Mage's book" },
+  // blood_rune / tome_of_fire already baked above (relics group).
+  bronze_gloves: { name: 'Bronze gloves' },
+  iron_gloves: { name: 'Iron gloves' },
+  steel_gloves: { name: 'Steel gloves' },
+  black_gloves: { name: 'Black gloves' },
+  mithril_gloves: { name: 'Mithril gloves' },
+  adamant_gloves: { name: 'Adamant gloves' },
+  rune_gloves: { name: 'Rune gloves' },
+  dragon_gloves: { name: 'Dragon gloves' },
+  barrows_gloves: { name: 'Barrows gloves' },
+  bronze_defender: { name: 'Bronze defender' },
+  iron_defender: { name: 'Iron defender' },
+  steel_defender: { name: 'Steel defender' },
+  black_defender: { name: 'Black defender' },
+  mithril_defender: { name: 'Mithril defender' },
+  adamant_defender: { name: 'Adamant defender' },
+  rune_defender: { name: 'Rune defender' },
+  dragon_defender: { name: 'Dragon defender' },
+  avernic_defender: { name: 'Avernic defender' },
+  amulet_of_strength: { name: 'Amulet of strength' },
+  amulet_of_glory: { name: 'Amulet of glory' },
+  amulet_of_torture: { name: 'Amulet of torture' },
+  // amulet_of_power / amulet_of_fury already baked above (relics group).
+  amulet_of_blood_fury: { name: 'Amulet of blood fury' },
+  salve_amulet_ei: { name: 'Salve amulet(ei)' }, // cache name has no space before "(ei)"
 };
 
 // ------------------------------------------------------------------- helpers
