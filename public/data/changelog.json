@@ -1,6 +1,125 @@
 {
-  "generatedAt": "2026-08-03",
+  "generatedAt": "2026-08-05",
   "entries": [
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "Render the board at native display resolution (sharp on any screen)",
+      "fromFeedback": false,
+      "date": "2026-08-05"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Tutorial covers the ammo/jewellery gear model",
+      "fromFeedback": false,
+      "date": "2026-08-05"
+    },
+    {
+      "kind": "updated",
+      "scope": null,
+      "text": "Slimmer tower panel (tighter layout + shorter effect copy)",
+      "fromFeedback": false,
+      "date": "2026-08-05"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Shared OSRS hover tooltip for informational hovers",
+      "fromFeedback": false,
+      "date": "2026-08-05"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Ammo/jewellery equipment slots with per-style labels",
+      "fromFeedback": false,
+      "date": "2026-08-05"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Bake ammo/kit/jewellery gear icons from the OSRS cache",
+      "fromFeedback": false,
+      "date": "2026-08-05"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Full OSRS ammo/kit/jewellery ladders (generated pool)",
+      "fromFeedback": false,
+      "date": "2026-08-05"
+    },
+    {
+      "kind": "updated",
+      "scope": null,
+      "text": "Gear model → ammo/jewellery slots + ammo-class foundation",
+      "fromFeedback": false,
+      "date": "2026-08-05"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "Gear stat epoch, sell-return, per-target signature, save the loot bag",
+      "fromFeedback": false,
+      "date": "2026-08-04"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Tutorial covers Classic gear (LEARN_STEPS + TLDR)",
+      "fromFeedback": false,
+      "date": "2026-08-03"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "Right-click unequip no longer resets the tower panel position",
+      "fromFeedback": false,
+      "date": "2026-08-03"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Classic gear slots on the tower panel + loot-bag panel",
+      "fromFeedback": false,
+      "date": "2026-08-03"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Bake Classic gear icons from the OSRS cache",
+      "fromFeedback": false,
+      "date": "2026-08-03"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Signature gear (Twisted bow, Darklight) changes per-hit damage",
+      "fromFeedback": false,
+      "date": "2026-08-03"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Engine loot bag + equip/unequip + Classic gear drops",
+      "fromFeedback": false,
+      "date": "2026-08-03"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Pure Classic-gear logic (equip check, drops, signature maths)",
+      "fromFeedback": false,
+      "date": "2026-08-03"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Classic gear data model + starter pool",
+      "fromFeedback": false,
+      "date": "2026-08-03"
+    },
     {
       "kind": "new",
       "scope": "ui",
@@ -161,125 +280,6 @@
       "text": "A victory screen to claim the run, then carry on into Endless",
       "fromFeedback": false,
       "date": "2026-07-25"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Winning a run is now a real state — beat every boss to claim victory",
-      "fromFeedback": false,
-      "date": "2026-07-25"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Every run marches through the whole boss roster, gentlest to hardest",
-      "fromFeedback": false,
-      "date": "2026-07-25"
-    },
-    {
-      "kind": "balanced",
-      "scope": null,
-      "text": "Stacked damage cards taper toward a ceiling instead of compounding forever",
-      "fromFeedback": false,
-      "date": "2026-07-25"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "An Endless phase where enemy HP finally outruns the board",
-      "fromFeedback": false,
-      "date": "2026-07-25"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "The start screen shows Redemption unlocked, not the greyed-out symbol",
-      "fromFeedback": false,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "updated",
-      "scope": null,
-      "text": "Richer terrain art and a spawn portal that faces the road it opens onto",
-      "fromFeedback": false,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "A single run's road can now mix two shapes, like a serpentine into a staircase",
-      "fromFeedback": false,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Each run now rolls a unique road shape and a field of obstacles to build around",
-      "fromFeedback": false,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "The interface now scales as far as the screen can actually hold, and no further",
-      "fromFeedback": true,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "balanced",
-      "scope": null,
-      "text": "Each tower of the same type costs 15% more than the last",
-      "fromFeedback": true,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "updated",
-      "scope": null,
-      "text": "The road is a worn dirt track now, not a lane-marked highway",
-      "fromFeedback": true,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "The DPS panel no longer reads as if support towers were the top damage dealer",
-      "fromFeedback": true,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "A large interface size no longer overlaps the gold in the bottom bar",
-      "fromFeedback": true,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Monsters can now be weak to melee or ranged, not only to a spell",
-      "fromFeedback": true,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "balanced",
-      "scope": null,
-      "text": "Draft card rarities now match how strong the card actually is",
-      "fromFeedback": true,
-      "date": "2026-07-24"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Draft cards you have never kept are badged NEW",
-      "fromFeedback": true,
-      "date": "2026-07-23"
-    },
-    {
-      "kind": "balanced",
-      "scope": null,
-      "text": "Soul Eater is a mythic relic with a real appetite",
-      "fromFeedback": true,
-      "date": "2026-07-23"
     }
   ]
 }
