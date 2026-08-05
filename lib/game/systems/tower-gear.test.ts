@@ -29,22 +29,22 @@ describe('TOWER_AMMO_CLASS / towerAmmoClassFor', () => {
 
 describe('canEquip', () => {
   it('accepts matching ammo at sufficient level', () => {
-    expect(canEquip(tower({ type: 'slayer' }), GEAR.whetstone_kit_g)).toEqual({ ok: true });
+    expect(canEquip(tower({ type: 'slayer' }), GEAR.bronze_gloves)).toEqual({ ok: true });
   });
   it('rejects ammo of the wrong class', () => {
-    // whetstone_kit_g is melee_kit; an archer needs arrows
-    expect(canEquip(tower({ type: 'archer' }), GEAR.whetstone_kit_g)).toEqual({ ok: false, reason: 'class' });
+    // bronze_gloves is melee_kit; an archer needs arrows
+    expect(canEquip(tower({ type: 'archer' }), GEAR.bronze_gloves)).toEqual({ ok: false, reason: 'class' });
   });
   it('rejects below the level requirement', () => {
     const t = tower({ type: 'archer', skills: { strength: skill(5), ranged: skill(5), magic: skill(5) } });
-    expect(canEquip(t, GEAR.twisted_arrows_g)).toEqual({ ok: false, reason: 'level' }); // needs 40
+    expect(canEquip(t, GEAR.dragon_arrow)).toEqual({ ok: false, reason: 'level' }); // needs 44
   });
   it('accepts a universal jewellery piece on any tower at level', () => {
-    expect(canEquip(tower({ type: 'wizard' }), GEAR.amulet_of_power_g)).toEqual({ ok: true });
+    expect(canEquip(tower({ type: 'wizard' }), GEAR.amulet_of_strength)).toEqual({ ok: true });
   });
   it('rejects jewellery below its level requirement', () => {
     const t = tower({ type: 'archer', skills: { strength: skill(5), ranged: skill(5), magic: skill(5) } });
-    expect(canEquip(t, GEAR.bane_amulet_g)).toEqual({ ok: false, reason: 'level' }); // needs 30
+    expect(canEquip(t, GEAR.salve_amulet_ei)).toEqual({ ok: false, reason: 'level' }); // needs 30
   });
 });
 
@@ -72,19 +72,25 @@ describe('gearDamageMult', () => {
     expect(gearDamageMult(tower({ type: 'archer' }), enemy(), null)).toBe(1);
   });
   it('anti_tank scales up against high-maxHp targets', () => {
-    const t = tower({ type: 'archer', equipment: { ammo: GEAR.twisted_arrows_g, jewellery: null } });
+    // both signatures ship as jewellery-only content (see gear.ts), so anti_tank
+    // is exercised via the jewellery slot here.
+    const t = tower({ type: 'archer', equipment: { ammo: null, jewellery: GEAR.amulet_of_blood_fury } });
     expect(gearDamageMult(t, enemy({ maxHp: 40 }), null)).toBeCloseTo(1, 5);
     expect(gearDamageMult(t, enemy({ maxHp: 4000 }), null)).toBeGreaterThan(1.3);
   });
   it('slayer_bane rewards the active slayer task / superior / boss', () => {
-    const t = tower({ type: 'slayer', equipment: { ammo: null, jewellery: GEAR.bane_amulet_g } });
+    const t = tower({ type: 'slayer', equipment: { ammo: null, jewellery: GEAR.salve_amulet_ei } });
     expect(gearDamageMult(t, enemy({ type: 'goblin' }), 'goblin')).toBeGreaterThan(1);
     expect(gearDamageMult(t, enemy({ type: 'goblin' }), 'zombie')).toBe(1);
     expect(gearDamageMult(t, enemy({ isBoss: true }), null)).toBeGreaterThan(1);
   });
   it('folds both equipped slots multiplicatively', () => {
-    const both = tower({ type: 'archer', equipment: { ammo: GEAR.twisted_arrows_g, jewellery: GEAR.bane_amulet_g } });
-    const ammoOnly = tower({ type: 'archer', equipment: { ammo: GEAR.twisted_arrows_g, jewellery: null } });
+    // Real content only ships jewellery signatures (one slot), so this exercises
+    // the generic per-slot fold with a synthetic ammo piece carrying a gearEffect
+    // — gearDamageMult itself is slot-agnostic and should still multiply both.
+    const antiTankAmmo = { ...GEAR.amulet_of_blood_fury, id: 'test_anti_tank_ammo', type: 'ammo' as const };
+    const both = tower({ type: 'archer', equipment: { ammo: antiTankAmmo, jewellery: GEAR.salve_amulet_ei } });
+    const ammoOnly = tower({ type: 'archer', equipment: { ammo: antiTankAmmo, jewellery: null } });
     const e = enemy({ maxHp: 4000, type: 'goblin' });
     expect(gearDamageMult(both, e, 'goblin')).toBeGreaterThan(gearDamageMult(ammoOnly, e, 'goblin'));
   });

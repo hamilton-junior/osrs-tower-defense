@@ -1,26 +1,199 @@
-import type { Item } from '../types';
+import type { AmmoClass, CombatStyle, GearEffectId, Item } from '../types';
 
 /**
- * The Classic-mode gear pool. TEMPORARY minimal set (Task 2 replaces this with
- * the full per-class ammo ladders): one arrow (archer), one melee kit (slayer /
- * tzhaar), one universal jewellery piece, and the two signature effects. Ammo is
- * class-gated to the tower's `ammoClass` (see `TOWER_AMMO_CLASS`); jewellery is
- * universal. Common pieces carry only `bonus` (folded by calculateTowerStats);
- * signatures also carry a `gearEffect`. Icons are baked from the OSRS cache (see
- * assets.ts / render-osrs-items.mjs). Numbers are a starting point; balance is
- * the user's.
+ * Classic-mode gear content: real OSRS tier ladders (ammo/runes/kit, one per
+ * `AmmoClass`) plus a universal jewellery ladder and two boss-drop signature
+ * amulets. `AMMO_TIERS` / `JEWELLERY_TIERS` / `SIGNATURES` are the source-of-truth
+ * tables (id/name/levelReq); the generator below turns each entry into an `Item`
+ * via the per-class bonus rule so the numbers live in one place. Icons are baked
+ * from the OSRS cache (see assets.ts `GEAR_ICONS` / scripts/render-osrs-items.mjs) —
+ * `id` here IS the baked-icon slug.
  */
-export const GEAR: Record<string, Item> = {
-  // --- ammo: arrows (archer) ---
-  bronze_arrows_g: { id: 'bronze_arrows_g', name: 'Bronze arrows', description: 'Basic ammunition for the archer tower.', type: 'ammo', ammoClass: 'arrows', levelReq: 1, rarity: 'common', bonus: { damage: 10 } },
-  // --- ammo: melee kit (slayer, tzhaar) ---
-  whetstone_kit_g: { id: 'whetstone_kit_g', name: 'Whetstone kit', description: "Keeps a melee tower's edge sharp.", type: 'ammo', ammoClass: 'melee_kit', levelReq: 1, rarity: 'common', bonus: { damage: 8 } },
-  // --- jewellery (universal) ---
-  amulet_of_power_g: { id: 'amulet_of_power_g', name: 'Amulet of power', description: 'Balanced power for any tower.', type: 'jewellery', levelReq: 1, rarity: 'common', bonus: { damage: 5, xpBonus: 10 } },
-  // --- signatures (boss drops; carry a gearEffect) ---
-  twisted_arrows_g: { id: 'twisted_arrows_g', name: 'Twisted arrows', description: 'Damage climbs against tougher foes.', type: 'ammo', ammoClass: 'arrows', levelReq: 40, rarity: 'signature', gearEffect: 'anti_tank', bonus: { damage: 30, range: 20 } },
-  bane_amulet_g: { id: 'bane_amulet_g', name: 'Bane amulet', description: 'Bane of task monsters, superiors and bosses.', type: 'jewellery', levelReq: 30, rarity: 'signature', gearEffect: 'slayer_bane', bonus: { damage: 25 } },
+
+interface TierEntry {
+  id: string;
+  name: string;
+  levelReq: number;
+}
+
+/** The style each `AmmoClass` fires as, for `Item.style` (used by legacy code
+ *  paths; the new ammo/jewellery gate keys off `ammoClass` instead). */
+const AMMO_CLASS_STYLE: Record<AmmoClass, CombatStyle> = {
+  arrows: 'ranged',
+  darts: 'ranged',
+  cannonballs: 'ranged',
+  runes: 'magic',
+  melee_kit: 'melee',
 };
+
+/**
+ * Per-class tier ladders (validated OSRS progressions — never invent a tier).
+ * `melee_kit` is shared by both melee towers (slayer, tzhaar) and is really two
+ * RFD reward sub-lines — gloves and defenders — merged into one progression:
+ * interleaved by `levelReq` (gloves first on a tie) so a defender and its
+ * paired glove sit at *consecutive* tiers of one shared ladder rather than two
+ * parallel ladders. This keeps the bonus-rule index `i` a single running count
+ * across the merged list, which is both simple and trivially monotonic.
+ */
+export const AMMO_TIERS: Record<AmmoClass, TierEntry[]> = {
+  arrows: [
+    { id: 'bronze_arrow', name: 'Bronze arrow', levelReq: 1 },
+    { id: 'iron_arrow', name: 'Iron arrow', levelReq: 4 },
+    { id: 'steel_arrow', name: 'Steel arrow', levelReq: 8 },
+    { id: 'mithril_arrow', name: 'Mithril arrow', levelReq: 13 },
+    { id: 'adamant_arrow', name: 'Adamant arrow', levelReq: 19 },
+    { id: 'rune_arrow', name: 'Rune arrow', levelReq: 26 },
+    { id: 'amethyst_arrow', name: 'Amethyst arrow', levelReq: 34 },
+    { id: 'dragon_arrow', name: 'Dragon arrow', levelReq: 44 },
+  ],
+  darts: [
+    { id: 'bronze_dart', name: 'Bronze dart', levelReq: 1 },
+    { id: 'iron_dart', name: 'Iron dart', levelReq: 4 },
+    { id: 'steel_dart', name: 'Steel dart', levelReq: 8 },
+    { id: 'black_dart', name: 'Black dart', levelReq: 11 },
+    { id: 'mithril_dart', name: 'Mithril dart', levelReq: 14 },
+    { id: 'adamant_dart', name: 'Adamant dart', levelReq: 19 },
+    { id: 'rune_dart', name: 'Rune dart', levelReq: 26 },
+    { id: 'dragon_dart', name: 'Dragon dart', levelReq: 40 },
+  ],
+  cannonballs: [
+    { id: 'cannonball', name: 'Cannonball', levelReq: 1 },
+    { id: 'granite_cannonball', name: 'Granite cannonball', levelReq: 15 },
+  ],
+  runes: [
+    { id: 'mind_rune', name: 'Mind rune', levelReq: 1 },
+    { id: 'chaos_rune', name: 'Chaos rune', levelReq: 8 },
+    { id: 'tome_of_water', name: 'Tome of water', levelReq: 12 },
+    { id: 'tome_of_earth', name: 'Tome of earth', levelReq: 16 },
+    { id: 'death_rune', name: 'Death rune', levelReq: 18 },
+    { id: 'tome_of_fire', name: 'Tome of fire', levelReq: 22 },
+    { id: 'blood_rune', name: 'Blood rune', levelReq: 28 },
+    { id: 'mages_book', name: "Mage's book", levelReq: 30 },
+    { id: 'wrath_rune', name: 'Wrath rune', levelReq: 38 },
+  ],
+  melee_kit: [
+    { id: 'bronze_gloves', name: 'Bronze gloves', levelReq: 1 },
+    { id: 'bronze_defender', name: 'Bronze defender', levelReq: 1 },
+    { id: 'iron_gloves', name: 'Iron gloves', levelReq: 4 },
+    { id: 'iron_defender', name: 'Iron defender', levelReq: 4 },
+    { id: 'steel_gloves', name: 'Steel gloves', levelReq: 7 },
+    { id: 'steel_defender', name: 'Steel defender', levelReq: 7 },
+    { id: 'black_gloves', name: 'Black gloves', levelReq: 10 },
+    { id: 'black_defender', name: 'Black defender', levelReq: 10 },
+    { id: 'mithril_gloves', name: 'Mithril gloves', levelReq: 13 },
+    { id: 'mithril_defender', name: 'Mithril defender', levelReq: 13 },
+    { id: 'adamant_gloves', name: 'Adamant gloves', levelReq: 18 },
+    { id: 'adamant_defender', name: 'Adamant defender', levelReq: 18 },
+    { id: 'rune_gloves', name: 'Rune gloves', levelReq: 24 },
+    { id: 'rune_defender', name: 'Rune defender', levelReq: 24 },
+    { id: 'dragon_gloves', name: 'Dragon gloves', levelReq: 32 },
+    { id: 'dragon_defender', name: 'Dragon defender', levelReq: 32 },
+    { id: 'barrows_gloves', name: 'Barrows gloves', levelReq: 42 },
+    { id: 'avernic_defender', name: 'Avernic defender', levelReq: 44 },
+  ],
+};
+
+/** Universal jewellery ladder — fits any tower (no `ammoClass`). */
+export const JEWELLERY_TIERS: TierEntry[] = [
+  { id: 'amulet_of_strength', name: 'Amulet of strength', levelReq: 1 },
+  { id: 'amulet_of_power', name: 'Amulet of power', levelReq: 8 },
+  { id: 'amulet_of_glory', name: 'Amulet of glory', levelReq: 16 },
+  { id: 'amulet_of_fury', name: 'Amulet of fury', levelReq: 28 },
+  { id: 'amulet_of_torture', name: 'Amulet of torture', levelReq: 40 },
+];
+
+/** Universal jewellery signatures — boss-only drops, each carrying a `gearEffect`
+ *  on top of a modest flat bonus. */
+export const SIGNATURES: (TierEntry & { gearEffect: GearEffectId })[] = [
+  { id: 'amulet_of_blood_fury', name: 'Amulet of blood fury', levelReq: 40, gearEffect: 'anti_tank' },
+  { id: 'salve_amulet_ei', name: 'Salve amulet (ei)', levelReq: 30, gearEffect: 'slayer_bane' },
+];
+
+const GROWTH = 1.35;
+const BASE_DMG: Record<AmmoClass | 'jewellery', number> = {
+  arrows: 5,
+  darts: 4,
+  cannonballs: 6,
+  runes: 6,
+  melee_kit: 5,
+  jewellery: 5,
+};
+
+/** damage = round(baseDmg[class] * growth^i), the shared bonus-rule curve. */
+function tierDamage(cls: AmmoClass | 'jewellery', i: number): number {
+  return Math.round(BASE_DMG[cls] * Math.pow(GROWTH, i));
+}
+
+function ammoDescription(cls: AmmoClass, name: string): string {
+  const noun = cls === 'runes' ? 'runes' : cls === 'melee_kit' ? 'melee kit' : cls;
+  return `${name} — ${noun} tier for the matching tower's ammo slot.`;
+}
+
+/** Build the full `AmmoClass` ladders into `Item`s via the bonus rule: damage
+ *  from the shared curve, arrows add `range: 6 + 2*i`, darts add `cooldown: 5 + i`
+ *  (both folded as +%/100 by `calculateTowerStats` — untouched here). */
+function buildAmmoItems(): Item[] {
+  const items: Item[] = [];
+  for (const cls of Object.keys(AMMO_TIERS) as AmmoClass[]) {
+    const tiers = AMMO_TIERS[cls];
+    tiers.forEach((tier, i) => {
+      const bonus: Item['bonus'] = { damage: tierDamage(cls, i) };
+      if (cls === 'arrows') bonus.range = 6 + 2 * i;
+      if (cls === 'darts') bonus.cooldown = 5 + i;
+      items.push({
+        id: tier.id,
+        name: tier.name,
+        description: ammoDescription(cls, tier.name),
+        type: 'ammo',
+        ammoClass: cls,
+        style: AMMO_CLASS_STYLE[cls],
+        levelReq: tier.levelReq,
+        rarity: 'common',
+        bonus,
+      });
+    });
+  }
+  return items;
+}
+
+/** Universal jewellery ladder. The two lowest tiers add `xpBonus` (indexed by
+ *  id, not position, since only `amulet_of_power`/`amulet_of_glory` carry it). */
+function buildJewelleryItems(): Item[] {
+  const XP_BONUS: Record<string, number> = { amulet_of_power: 10, amulet_of_glory: 15 };
+  return JEWELLERY_TIERS.map((tier, i) => {
+    const bonus: Item['bonus'] = { damage: tierDamage('jewellery', i) };
+    if (XP_BONUS[tier.id] !== undefined) bonus.xpBonus = XP_BONUS[tier.id];
+    return {
+      id: tier.id,
+      name: tier.name,
+      description: `${tier.name} — universal jewellery, fits any tower.`,
+      type: 'jewellery',
+      levelReq: tier.levelReq,
+      rarity: 'common',
+      bonus,
+    } as Item;
+  });
+}
+
+/** Boss-drop signature jewellery: a modest flat bonus plus the effect id the
+ *  firing pipeline reads via `gearDamageMult` (systems/tower-gear.ts). */
+function buildSignatureItems(): Item[] {
+  return SIGNATURES.map(sig => ({
+    id: sig.id,
+    name: sig.name,
+    description: `${sig.name} — a boss-drop signature.`,
+    type: 'jewellery',
+    levelReq: sig.levelReq,
+    rarity: 'signature',
+    gearEffect: sig.gearEffect,
+    bonus: { damage: 25 },
+  } as Item));
+}
+
+/** The full Classic-mode gear pool, keyed by id (== the baked-icon slug). */
+export const GEAR: Record<string, Item> = Object.fromEntries(
+  [...buildAmmoItems(), ...buildJewelleryItems(), ...buildSignatureItems()].map(item => [item.id, item]),
+);
 
 /** Flat list, handy for the drop roll and the equip picker. */
 export const GEAR_POOL: Item[] = Object.values(GEAR);
