@@ -198,7 +198,7 @@ export function calculateTowerStats(
   damageMultiplier *= 1 + diminishingSum(auraDamage);
 
   // Equipment bonuses
-  for (const slot of ['weapon', 'shield', 'accessory'] as const) {
+  for (const slot of ['ammo', 'jewellery'] as const) {
     const item = tower.equipment[slot];
     if (!item) continue;
     if (item.bonus.damage) flatDamageBonus += item.bonus.damage;

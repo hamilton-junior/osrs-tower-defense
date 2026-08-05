@@ -14,7 +14,7 @@ function tower(over: Partial<Tower> = {}): Tower {
     cooldown: 1000, lastFired: 0, color: '#fff', targetId: null, targetingPriority: 'first',
     name: 'Bow', upgradeCost: 0, specCharge: 0, specMax: 100, visualRadius: 18, disabledTimer: 0,
     skills: { strength: { level: 1, xp: 0 }, ranged: { level: 1, xp: 0 }, magic: { level: 1, xp: 0 } },
-    equipment: { weapon: null, shield: null, accessory: null },
+    equipment: { ammo: null, jewellery: null },
     ...over,
   } as Tower;
 }
@@ -152,8 +152,8 @@ describe('calculateTowerStats', () => {
   });
 
   it('adds equipment bonuses (flat damage, range %, cooldown %)', () => {
-    const weapon = { id: 'w', name: 'W', description: '', type: 'weapon' as const, bonus: { damage: 5, range: 10, cooldown: 20 } };
-    const s = calculateTowerStats(tower({ equipment: { weapon, shield: null, accessory: null } }), ctx());
+    const ammo = { id: 'w', name: 'W', description: '', type: 'ammo' as const, bonus: { damage: 5, range: 10, cooldown: 20 } };
+    const s = calculateTowerStats(tower({ equipment: { ammo, jewellery: null } }), ctx());
     expect(s.flatDamageBonus).toBe(5);
     expect(s.range).toBeCloseTo(110);
     expect(s.cooldown).toBeCloseTo(1000 / 1.2);

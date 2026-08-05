@@ -253,14 +253,15 @@ export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | '
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
 
-/** Which weapon family a tower wields. Gear in the weapon slot must match the
- *  tower's class (so a bow only fits an archer, cannonballs only a cannon), even
- *  when two towers share a combat style. See `weaponClassFor` in systems/tower-gear. */
-export type WeaponClass = 'scimitar' | 'maul' | 'bow' | 'blowpipe' | 'cannonball' | 'staff';
+/** Which ammo/rune/kit family a tower consumes in its Classic ammo slot (so
+ *  arrows only fit an archer, cannonballs only a cannon), even when two towers
+ *  share a combat style — the two melee towers both burn `melee_kit`. See
+ *  `TOWER_AMMO_CLASS` / `towerAmmoClassFor` in systems/tower-gear. */
+export type AmmoClass = 'arrows' | 'darts' | 'cannonballs' | 'runes' | 'melee_kit';
 
 /** A rare gear piece's signature effect — a per-target conditional the flat
  *  `Item.bonus` can't express. Handled in the firing block; see systems/tower-gear. */
-export type GearEffectId = 'twisted_bow' | 'darklight';
+export type GearEffectId = 'anti_tank' | 'slayer_bane';
 
 /**
  * The half of the combat triangle a monster is *vulnerable* to — the melee/ranged
@@ -320,7 +321,10 @@ export interface Item {
     cooldown?: number;
     xpBonus?: number;
   };
-  type: 'weapon' | 'shield' | 'accessory' | 'seed' | 'herb' | 'potion' | 'material' | 'bone';
+  /** `'weapon' | 'shield' | 'accessory'` are legacy-only (kept so the phased-out
+   *  `lib/game/engine.ts` still type-checks); new Classic gear uses only
+   *  `'ammo' | 'jewellery'`. */
+  type: 'weapon' | 'shield' | 'accessory' | 'ammo' | 'jewellery' | 'seed' | 'herb' | 'potion' | 'material' | 'bone';
   seedType?: 'herb' | 'flower' | 'allotment';
   growthTime?: number;
   harvestItem?: string;
@@ -329,11 +333,13 @@ export interface Item {
   sellPrice?: number;
   quantity?: number;
   stackable?: boolean;
-  /** Classic gear: the combat style this weapon belongs to. Weapons set it;
-   *  accessories leave it undefined (they fit any tower). */
+  /** Classic gear: the combat style this piece belongs to (unused by the new
+   *  ammo/jewellery gate, which keys off `ammoClass` instead; kept for legacy
+   *  `'weapon'`-typed items). */
   style?: CombatStyle;
-  /** Classic gear: the weapon family (weapon slot only). */
-  weaponClass?: WeaponClass;
+  /** Classic gear: the ammo/rune/kit family (ammo slot only; jewellery leaves
+   *  this undefined — it fits any tower). */
+  ammoClass?: AmmoClass;
   /** Classic gear: minimum tower combat level (in its style skill) to equip. */
   levelReq?: number;
   /** Classic gear: a rare's signature effect id. Undefined = common (stats only). */
@@ -391,9 +397,8 @@ export interface Tower {
   disabledTimer: number;
   skills: TowerSkills;
   equipment: {
-    weapon: Item | null;
-    shield: Item | null;
-    accessory: Item | null;
+    ammo: Item | null;
+    jewellery: Item | null;
   };
   showRange?: boolean;
   fireSound?: string;

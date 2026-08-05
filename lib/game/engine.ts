@@ -702,9 +702,8 @@ export class GameEngine {
             magic: { level: 1, xp: 0 }
           },
           equipment: {
-            weapon: null,
-            shield: null,
-            accessory: null
+            ammo: null,
+            jewellery: null
           }
         });
         this.upgradeTowerStats(this.towers[this.towers.length - 1]);
@@ -770,7 +769,7 @@ export class GameEngine {
     }
   }
 
-  unequipItem(towerId: string, slot: 'weapon' | 'shield' | 'accessory') {
+  unequipItem(towerId: string, slot: 'ammo' | 'jewellery') {
     const tower = this.towers.find(t => t.id === towerId);
     if (tower && tower.equipment[slot]) {
       const item = tower.equipment[slot];
@@ -2799,7 +2798,7 @@ export class GameEngine {
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower) return;
 
-    if (item.type !== 'weapon' && item.type !== 'shield' && item.type !== 'accessory') {
+    if (item.type !== 'ammo' && item.type !== 'jewellery') {
       this.addMessage("You can't equip this item.");
       return;
     }

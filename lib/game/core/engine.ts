@@ -1312,7 +1312,7 @@ export class GameEngine {
       minDamage: tier.minDamage, maxDamage: tier.maxDamage,
       visualRadius: 18, disabledTimer: 0, specCharge: 0, specMax: 100,
       skills: { strength: { level: 1, xp: 0 }, ranged: { level: 1, xp: 0 }, magic: { level: 1, xp: 0 } },
-      equipment: { weapon: null, shield: null, accessory: null },
+      equipment: { ammo: null, jewellery: null },
       mageMode: type === 'wizard' ? this.pendingMageMode : undefined,
     };
     return calculateTowerStats(ghost, {
@@ -2216,7 +2216,7 @@ export class GameEngine {
       specCharge: 0,
       specMax: 100,
       skills: { strength: { level: 1, xp: 0 }, ranged: { level: 1, xp: 0 }, magic: { level: 1, xp: 0 } },
-      equipment: { weapon: null, shield: null, accessory: null },
+      equipment: { ammo: null, jewellery: null },
       // Wizard's spellbook is the pre-placement choice and is locked from here on;
       // only its element (Elemental) or barrage (Ancients) stays adjustable.
       mageMode: type === 'wizard' ? mageMode : undefined,
@@ -2349,7 +2349,7 @@ export class GameEngine {
     if (changed) this.bumpTowerConfig(); // idle-safe re-render (see setAutoUpgrade)
   }
 
-  /** Equip a gear piece from the loot bag onto a tower (Classic). Validates style /
+  /** Equip a gear piece from the loot bag onto a tower (Classic). Validates ammo
    *  class / level via canEquip; the slot is the item's own type. Any piece already
    *  in that slot returns to the bag. No-op outside Classic or on a failed check. */
   equipGear(towerId: string, gearId: string) {
@@ -2358,7 +2358,7 @@ export class GameEngine {
     const idx = this.lootBag.findIndex(g => g.id === gearId);
     if (!tower || idx < 0) return;
     const gear = this.lootBag[idx];
-    const slot: 'weapon' | 'accessory' = gear.type === 'accessory' ? 'accessory' : 'weapon';
+    const slot: 'ammo' | 'jewellery' = gear.type === 'jewellery' ? 'jewellery' : 'ammo';
     if (!canEquip(tower, gear).ok) return;
     const prev = tower.equipment[slot];
     this.lootBag = this.lootBag.filter((_, i) => i !== idx);
@@ -2369,7 +2369,7 @@ export class GameEngine {
   }
 
   /** Unequip a tower's slot back into the loot bag (Classic). */
-  unequipGear(towerId: string, slot: 'weapon' | 'accessory') {
+  unequipGear(towerId: string, slot: 'ammo' | 'jewellery') {
     if (this.gameMode !== 'classic') return;
     const tower = this.towers.find(t => t.id === towerId);
     if (!tower) return;
@@ -2570,8 +2570,8 @@ export class GameEngine {
     this.money += this.sellValue(tower);
     // Classic gear on a sold tower returns to the loot bag, not the void.
     if (this.gameMode === 'classic') {
-      if (tower.equipment.weapon) this.lootBag = [...this.lootBag, tower.equipment.weapon];
-      if (tower.equipment.accessory) this.lootBag = [...this.lootBag, tower.equipment.accessory];
+      if (tower.equipment.ammo) this.lootBag = [...this.lootBag, tower.equipment.ammo];
+      if (tower.equipment.jewellery) this.lootBag = [...this.lootBag, tower.equipment.jewellery];
     }
     this.towers.splice(i, 1);
     this.bumpTowerLayout();

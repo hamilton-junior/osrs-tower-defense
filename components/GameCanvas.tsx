@@ -317,7 +317,7 @@ export default function GameCanvas() {
 
   const handleClaimQuest = useCallback((questId: string) => engineRef.current?.claimQuestReward(questId), []);
 
-  const handleUnequipItem = useCallback((slot: 'weapon' | 'shield' | 'accessory') => {
+  const handleUnequipItem = useCallback((slot: 'ammo' | 'jewellery') => {
     if (engineRef.current && gameState.selectedPlacedTower) {
       engineRef.current.unequipItem(gameState.selectedPlacedTower.id, slot);
       const updatedTower = engineRef.current.towers.find((t: any) => t.id === gameState.selectedPlacedTower!.id);
