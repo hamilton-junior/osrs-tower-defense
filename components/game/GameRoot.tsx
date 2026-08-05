@@ -24,8 +24,8 @@ import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
 import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/run-save';
-import { canEquip } from '@/lib/game/systems/tower-gear';
-import type { TowerType, PrayerType, MageMode, CombatStyle, StyleWeakness, TargetingPriority, Item } from '@/lib/game/types';
+import { canEquip, towerAmmoClassFor } from '@/lib/game/systems/tower-gear';
+import type { TowerType, PrayerType, MageMode, CombatStyle, StyleWeakness, TargetingPriority, Item, AmmoClass } from '@/lib/game/types';
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 import { loadChangelog, CHANGELOG_KINDS, type ChangelogEntry } from '@/lib/game/changelog';
@@ -188,6 +188,17 @@ function gearTooltip(item: Item): string {
   }
   return `${item.name} — ${stats} · ${req}`;
 }
+
+/** Slot-1 label per the tower's ammo class — arrows/darts/cannonballs feed off
+ *  "Ammo", casters read "Runes", melee towers read "Kit" (mirrors the OSRS
+ *  ammo-slot naming per combat style). Slot-2 (jewellery) is always "Jewellery". */
+const AMMO_CLASS_LABEL: Record<AmmoClass, string> = {
+  arrows: 'Ammo',
+  darts: 'Ammo',
+  cannonballs: 'Ammo',
+  runes: 'Runes',
+  melee_kit: 'Kit',
+};
 
 /** Attack type per tower, for the damage icon/label in the stats panel. */
 const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = {
@@ -2658,6 +2669,9 @@ export default function GameRoot() {
                 {(['ammo', 'jewellery'] as const).map((slotType) => {
                   const equipped = selectedTower.equipment[slotType];
                   const icon = equipped ? GEAR_ICONS[equipped.id] : undefined;
+                  // Slot-1 label follows the tower's ammo class (Ammo/Runes/Kit);
+                  // slot-2 (jewellery) is always "Jewellery" — universal, no class gate.
+                  const slotLabel = slotType === 'ammo' ? AMMO_CLASS_LABEL[towerAmmoClassFor(selectedTower.type)] : 'Jewellery';
                   const options = ui.lootBag.filter((g) => g.type === slotType);
                   const listed = options.filter((g) => {
                     const check = canEquip(selectedTower, g);
@@ -2669,7 +2683,7 @@ export default function GameRoot() {
                         type="button"
                         className="rs-slot w-[3.4em] relative"
                         style={equipped?.rarity === 'signature' ? { borderColor: 'var(--osrs-yellow)' } : undefined}
-                        title={equipped ? gearTooltip(equipped) : `Empty ${slotType} slot — click to equip from your loot bag`}
+                        title={equipped ? gearTooltip(equipped) : `Empty ${slotLabel} slot — click to equip from your loot bag`}
                         onClick={() => setGearPicker((p) => (p === slotType ? null : slotType))}
                         onContextMenu={(e) => {
                           e.preventDefault();
@@ -2679,7 +2693,7 @@ export default function GameRoot() {
                       >
                         {icon
                           ? <img src={icon} alt={equipped?.name ?? ''} onError={hideBrokenImg} />
-                          : <span className="text-[0.5em] text-[#5a5138] uppercase tracking-wide">{slotType}</span>}
+                          : <span className="text-[0.5em] text-[#5a5138] uppercase tracking-wide">{slotLabel}</span>}
                         {equipped && (
                           <span
                             role="button"
@@ -2699,14 +2713,14 @@ export default function GameRoot() {
                         className={`text-[0.6em] leading-tight text-center truncate w-full mt-[0.2em] ${equipped?.rarity === 'signature' ? 'text-osrs-yellow font-semibold' : 'text-[#b3a585]'}`}
                         title={equipped ? gearTooltip(equipped) : undefined}
                       >
-                        {equipped ? equipped.name : slotType === 'ammo' ? 'Ammo' : 'Jewellery'}
+                        {equipped ? equipped.name : slotLabel}
                       </span>
 
                       {gearPicker === slotType && (
                         <div className="absolute top-full left-0 mt-[0.3em] z-30 rs-panel-inset p-[0.35em] w-[13em] max-h-[14em] overflow-y-auto shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
                           {listed.length === 0 ? (
                             <div className="text-[0.68em] text-[#8a7c5c] p-[0.2em] leading-snug">
-                              No compatible {slotType} in bag
+                              No compatible {slotLabel.toLowerCase()} in bag
                             </div>
                           ) : (
                             listed.map((g, i) => {
