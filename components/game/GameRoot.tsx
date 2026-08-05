@@ -13,6 +13,7 @@ import { styleSkillKey, tierGateFor } from '@/lib/game/systems/tower-xp';
 import { towerXpForLevel } from '@/lib/game/systems/leveling';
 import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
+import { HoverTip } from './HoverTip';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl, coinsIcon, GEAR_ICONS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
@@ -2331,20 +2332,20 @@ export default function GameRoot() {
               {/* Keyed by wave so each wave's event re-announces itself on mount. */}
               {ui.waveActive && ui.activeEvent && <WaveEventChip key={ui.wave} event={ui.activeEvent} />}
               {activeInfoboxes.map((o) => (
-                <div
+                <HoverTip
                   key={o.id}
-                  className="rs-infobox relative group pointer-events-auto"
-                  role="img"
-                  aria-label={`${o.name} — ${o.desc} · ${o.activeSecs}s left`}
+                  side="bottom"
+                  content={tipHeader(
+                    <span className="text-[0.85em] font-bold text-osrs-orange">{o.name}</span>,
+                    o.desc,
+                    <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">{o.activeSecs}s left</span>,
+                  )}
                 >
-                  <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  <span className="rs-infobox-time">{o.activeSecs}</span>
-                  <HoverTip
-                    title={<span className="text-[0.85em] font-bold text-osrs-orange">{o.name}</span>}
-                    badge={<span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">{o.activeSecs}s left</span>}
-                    desc={o.desc}
-                  />
-                </div>
+                  <div className="rs-infobox pointer-events-auto">
+                    <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <span className="rs-infobox-time">{o.activeSecs}</span>
+                  </div>
+                </HoverTip>
               ))}
             </div>
           )}
@@ -2679,42 +2680,44 @@ export default function GameRoot() {
                   });
                   return (
                     <div key={slotType} className="relative flex flex-col items-center" style={{ width: '3.4em' }}>
-                      <button
-                        type="button"
-                        className="rs-slot w-[3.4em] relative"
-                        style={equipped?.rarity === 'signature' ? { borderColor: 'var(--osrs-yellow)' } : undefined}
-                        title={equipped ? gearTooltip(equipped) : `Empty ${slotLabel} slot — click to equip from your loot bag`}
-                        onClick={() => setGearPicker((p) => (p === slotType ? null : slotType))}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (equipped) engineRef.current?.unequipGear(selectedTower.id, slotType);
-                        }}
-                      >
-                        {icon
-                          ? <img src={icon} alt={equipped?.name ?? ''} onError={hideBrokenImg} />
-                          : <span className="text-[0.5em] text-[#5a5138] uppercase tracking-wide">{slotLabel}</span>}
-                        {equipped && (
-                          <span
-                            role="button"
-                            aria-label={`Unequip ${equipped.name}`}
-                            title="Unequip"
-                            className="absolute -top-[0.35em] -right-[0.35em] w-[1.15em] h-[1.15em] flex items-center justify-center rounded-full bg-[#241c12] border border-[var(--rs-keyline)] text-[0.6em] text-osrs-red leading-none hover:text-white hover:bg-[#3a3122]"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              engineRef.current?.unequipGear(selectedTower.id, slotType);
-                            }}
-                          >
-                            ✕
-                          </span>
-                        )}
-                      </button>
-                      <span
-                        className={`text-[0.6em] leading-tight text-center truncate w-full mt-[0.2em] ${equipped?.rarity === 'signature' ? 'text-osrs-yellow font-semibold' : 'text-[#b3a585]'}`}
-                        title={equipped ? gearTooltip(equipped) : undefined}
-                      >
-                        {equipped ? equipped.name : slotLabel}
-                      </span>
+                      <HoverTip content={equipped ? gearTooltip(equipped) : `Empty ${slotLabel} slot — click to equip from your loot bag`}>
+                        <button
+                          type="button"
+                          className="rs-slot w-[3.4em] relative"
+                          style={equipped?.rarity === 'signature' ? { borderColor: 'var(--osrs-yellow)' } : undefined}
+                          onClick={() => setGearPicker((p) => (p === slotType ? null : slotType))}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (equipped) engineRef.current?.unequipGear(selectedTower.id, slotType);
+                          }}
+                        >
+                          {icon
+                            ? <img src={icon} alt={equipped?.name ?? ''} onError={hideBrokenImg} />
+                            : <span className="text-[0.5em] text-[#5a5138] uppercase tracking-wide">{slotLabel}</span>}
+                          {equipped && (
+                            <span
+                              role="button"
+                              aria-label={`Unequip ${equipped.name}`}
+                              title="Unequip"
+                              className="absolute -top-[0.35em] -right-[0.35em] w-[1.15em] h-[1.15em] flex items-center justify-center rounded-full bg-[#241c12] border border-[var(--rs-keyline)] text-[0.6em] text-osrs-red leading-none hover:text-white hover:bg-[#3a3122]"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                engineRef.current?.unequipGear(selectedTower.id, slotType);
+                              }}
+                            >
+                              ✕
+                            </span>
+                          )}
+                        </button>
+                      </HoverTip>
+                      <HoverTip content={equipped ? gearTooltip(equipped) : undefined}>
+                        <span
+                          className={`text-[0.6em] leading-tight text-center truncate w-full mt-[0.2em] ${equipped?.rarity === 'signature' ? 'text-osrs-yellow font-semibold' : 'text-[#b3a585]'}`}
+                        >
+                          {equipped ? equipped.name : slotLabel}
+                        </span>
+                      </HoverTip>
 
                       {gearPicker === slotType && (
                         <div className="absolute top-full left-0 mt-[0.3em] z-30 rs-panel-inset p-[0.35em] w-[13em] max-h-[14em] overflow-y-auto shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
@@ -2727,32 +2730,32 @@ export default function GameRoot() {
                               const check = canEquip(selectedTower, g);
                               const disabled = !check.ok;
                               return (
-                                <button
-                                  type="button"
-                                  key={i}
-                                  disabled={disabled}
-                                  title={gearTooltip(g)}
-                                  onClick={() => {
-                                    engineRef.current?.equipGear(selectedTower.id, g.id);
-                                    setGearPicker(null);
-                                  }}
-                                  className={`w-full flex items-center gap-[0.4em] px-[0.3em] py-[0.25em] text-left text-[0.7em] ${
-                                    disabled ? 'opacity-45 cursor-not-allowed' : 'hover:bg-[#3a3122]'
-                                  } ${g.rarity === 'signature' ? 'text-osrs-yellow' : 'text-[#d3c3a0]'}`}
-                                >
-                                  <img
-                                    src={GEAR_ICONS[g.id]}
-                                    alt=""
-                                    className="w-[1.3em] h-[1.3em] object-contain shrink-0"
-                                    onError={hideBrokenImg}
-                                  />
-                                  <span className="flex-1 truncate">{g.name}</span>
-                                  {disabled && (
-                                    <span className="text-[0.85em] text-osrs-red whitespace-nowrap">
-                                      Requires Lvl {g.levelReq}
-                                    </span>
-                                  )}
-                                </button>
+                                <HoverTip key={i} content={gearTooltip(g)}>
+                                  <button
+                                    type="button"
+                                    disabled={disabled}
+                                    onClick={() => {
+                                      engineRef.current?.equipGear(selectedTower.id, g.id);
+                                      setGearPicker(null);
+                                    }}
+                                    className={`w-full flex items-center gap-[0.4em] px-[0.3em] py-[0.25em] text-left text-[0.7em] ${
+                                      disabled ? 'opacity-45 cursor-not-allowed' : 'hover:bg-[#3a3122]'
+                                    } ${g.rarity === 'signature' ? 'text-osrs-yellow' : 'text-[#d3c3a0]'}`}
+                                  >
+                                    <img
+                                      src={GEAR_ICONS[g.id]}
+                                      alt=""
+                                      className="w-[1.3em] h-[1.3em] object-contain shrink-0"
+                                      onError={hideBrokenImg}
+                                    />
+                                    <span className="flex-1 truncate">{g.name}</span>
+                                    {disabled && (
+                                      <span className="text-[0.85em] text-osrs-red whitespace-nowrap">
+                                        Requires Lvl {g.levelReq}
+                                      </span>
+                                    )}
+                                  </button>
+                                </HoverTip>
                               );
                             })
                           )}
@@ -2928,21 +2931,21 @@ export default function GameRoot() {
             <div className="rs-panel-title" style={{ fontSize: '1em' }}>Loot bag</div>
             <div className="mt-[0.4em] max-h-[16em] overflow-y-auto space-y-[0.25em] pr-[0.1em]">
               {ui.lootBag.map((g, i) => (
-                <div
-                  key={i}
-                  title={gearTooltip(g)}
-                  className={`flex items-center gap-[0.4em] px-[0.2em] py-[0.15em] text-[0.72em] ${
-                    g.rarity === 'signature' ? 'text-osrs-yellow' : 'text-[#d3c3a0]'
-                  }`}
-                >
-                  <img
-                    src={GEAR_ICONS[g.id]}
-                    alt=""
-                    className="w-[1.5em] h-[1.5em] object-contain shrink-0"
-                    onError={hideBrokenImg}
-                  />
-                  <span className="flex-1 truncate">{g.name}</span>
-                </div>
+                <HoverTip key={i} content={gearTooltip(g)}>
+                  <div
+                    className={`flex items-center gap-[0.4em] px-[0.2em] py-[0.15em] text-[0.72em] ${
+                      g.rarity === 'signature' ? 'text-osrs-yellow' : 'text-[#d3c3a0]'
+                    }`}
+                  >
+                    <img
+                      src={GEAR_ICONS[g.id]}
+                      alt=""
+                      className="w-[1.5em] h-[1.5em] object-contain shrink-0"
+                      onError={hideBrokenImg}
+                    />
+                    <span className="flex-1 truncate">{g.name}</span>
+                  </div>
+                </HoverTip>
               ))}
             </div>
           </MovablePanel>
@@ -3310,39 +3313,51 @@ export default function GameRoot() {
               const afford = ui.essence >= cost;
               const preview = previewUpgradeValue(def, value);
               return (
-                <button
+                <HoverTip
                   key={def.id}
-                  onClick={() => engineRef.current?.buyEssenceUpgrade(def.id)}
-                  disabled={maxed || !afford}
-                  title={preview ? `${def.desc}\n${formatUpgradeValue(def, value)} → ${preview}` : def.desc}
-                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${maxed || !afford ? 'rs-slot-unafford' : ''}`}
-                >
-                  <img src={geIcon(def.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-[0.4em]">
-                      <span className="text-[#e7d9b0] truncate">{def.name}</span>
-                      <span className="rs-ge-timer">{formatUpgradeValue(def, value)}</span>
-                      {/* What the essence actually buys. Without it the row states a
-                          price and a present tense, and the player only learns the
-                          offer by accepting it. */}
+                  content={
+                    <>
+                      <span className="block">{def.desc}</span>
                       {preview && (
-                        <span className="flex items-center gap-[0.25em] whitespace-nowrap shrink-0">
-                          <span className="text-[#9d8f70]">→</span>
-                          <span className="rs-ge-timer">{preview}</span>
+                        <span className="block text-[0.85em] text-[#7ce0ff] mt-[0.2em]">
+                          {formatUpgradeValue(def, value)} → {preview}
                         </span>
                       )}
+                    </>
+                  }
+                >
+                  <button
+                    onClick={() => engineRef.current?.buyEssenceUpgrade(def.id)}
+                    disabled={maxed || !afford}
+                    className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${maxed || !afford ? 'rs-slot-unafford' : ''}`}
+                  >
+                    <img src={geIcon(def.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-[0.4em]">
+                        <span className="text-[#e7d9b0] truncate">{def.name}</span>
+                        <span className="rs-ge-timer">{formatUpgradeValue(def, value)}</span>
+                        {/* What the essence actually buys. Without it the row states a
+                            price and a present tense, and the player only learns the
+                            offer by accepting it. */}
+                        {preview && (
+                          <span className="flex items-center gap-[0.25em] whitespace-nowrap shrink-0">
+                            <span className="text-[#9d8f70]">→</span>
+                            <span className="rs-ge-timer">{preview}</span>
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-[0.7em] text-[#d3c3a0] truncate">{def.desc}</span>
                     </span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{def.desc}</span>
-                  </span>
-                  {maxed ? (
-                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Max</span>
-                  ) : (
-                    <span className="flex items-center gap-[0.25em] font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
-                      {fmt(cost)}
-                      <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                    </span>
-                  )}
-                </button>
+                    {maxed ? (
+                      <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Max</span>
+                    ) : (
+                      <span className="flex items-center gap-[0.25em] font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
+                        {fmt(cost)}
+                        <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                      </span>
+                    )}
+                  </button>
+                </HoverTip>
               );
             })}
           </div>
@@ -3442,37 +3457,37 @@ export default function GameRoot() {
               const afford = ui.slayerPoints >= eff.cost;
               const disabled = owned || !!locked || !afford;
               return (
-                <button
-                  key={r.id}
-                  onClick={() => engineRef.current?.buySlayerReward(eff.id)}
-                  disabled={disabled}
-                  title={locked ?? eff.desc}
-                  className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${disabled ? 'rs-slot-unafford' : ''}`}
-                >
-                  <img src={geIcon(eff.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                  <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-[0.4em]">
-                      <span className="text-[#e7d9b0] truncate">{eff.name}</span>
-                      {/* Buying the helm opens the imbue in the same row, with a green
-                          before→after on the on-task bonus (the essence-shop pattern). */}
-                      {imbueStage && (
-                        <span className="flex items-center gap-[0.25em] whitespace-nowrap shrink-0 text-[0.82em]">
-                          <span className="text-[#cdbe91]">+{Math.round(SLAYER_HELMET_BONUS * 100)}%</span>
-                          <span className="text-[#9d8f70]">→</span>
-                          <span className="text-osrs-green font-bold">+{Math.round(SLAYER_HELMET_IMBUED_BONUS * 100)}%</span>
-                        </span>
-                      )}
+                <HoverTip key={r.id} content={locked ?? eff.desc}>
+                  <button
+                    onClick={() => engineRef.current?.buySlayerReward(eff.id)}
+                    disabled={disabled}
+                    className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${disabled ? 'rs-slot-unafford' : ''}`}
+                  >
+                    <img src={geIcon(eff.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
+                    <span className="flex-1 min-w-0">
+                      <span className="flex items-center gap-[0.4em]">
+                        <span className="text-[#e7d9b0] truncate">{eff.name}</span>
+                        {/* Buying the helm opens the imbue in the same row, with a green
+                            before→after on the on-task bonus (the essence-shop pattern). */}
+                        {imbueStage && (
+                          <span className="flex items-center gap-[0.25em] whitespace-nowrap shrink-0 text-[0.82em]">
+                            <span className="text-[#cdbe91]">+{Math.round(SLAYER_HELMET_BONUS * 100)}%</span>
+                            <span className="text-[#9d8f70]">→</span>
+                            <span className="text-osrs-green font-bold">+{Math.round(SLAYER_HELMET_IMBUED_BONUS * 100)}%</span>
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-[0.7em] text-[#d3c3a0] truncate">{locked ?? eff.desc}</span>
                     </span>
-                    <span className="block text-[0.7em] text-[#d3c3a0] truncate">{locked ?? eff.desc}</span>
-                  </span>
-                  {owned ? (
-                    <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Owned</span>
-                  ) : (
-                    <span className="font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
-                      {eff.cost} pts
-                    </span>
-                  )}
-                </button>
+                    {owned ? (
+                      <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Owned</span>
+                    ) : (
+                      <span className="font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
+                        {eff.cost} pts
+                      </span>
+                    )}
+                  </button>
+                </HoverTip>
               );
             })}
           </div>
@@ -4919,12 +4934,11 @@ function DpsViewBase({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHover
                     "support is the top damage dealer" and invited spamming it, which
                     the aura's diminishing returns silently punish. */}
                 {r.isUtility && (
-                  <span
-                    className="text-[0.72em] text-[#9a8d70] ml-[0.3em]"
-                    title="Extra damage this aura added to other towers' hits — not damage it dealt, and already deducted from their totals. The board total is unchanged."
-                  >
-                    (extra)
-                  </span>
+                  <HoverTip content="Extra damage this aura added to other towers' hits — not damage it dealt, and already deducted from their totals. The board total is unchanged.">
+                    <span className="text-[0.72em] text-[#9a8d70] ml-[0.3em]">
+                      (extra)
+                    </span>
+                  </HoverTip>
                 )}
               </span>
               <span className="shrink-0 flex items-baseline gap-[0.5em]">
@@ -5654,29 +5668,18 @@ function RelicCardView({ relic, onPick }: { relic: RelicView; onPick?: () => voi
 /** Compact, always-on-screen wave-event indicator, docked in the top-centre HUD so
  *  the active twist stays visible even when the main panel is collapsed. Hover for
  *  the full description; the banner in the main panel carries it inline. */
-/** The shared hover popover used by the potion infoboxes and the wave-event chip:
- *  an `rs-panel` card that fades in on hover of a `relative group` parent, with a
- *  title + optional badge header over a description line. Anchors below the parent
- *  (`side="bottom"`, the default) or above it (`side="top"`). `pointer-events-none`
- *  so it never eats a click; the parent owns the `group` and positioning context.
- *  `show` forces it open regardless of hover (the wave-event announcement). */
-function HoverTip({ title, badge, desc, side = 'bottom', show = false }: {
-  title: React.ReactNode;
-  badge?: React.ReactNode;
-  desc: string;
-  side?: 'top' | 'bottom';
-  show?: boolean;
-}) {
-  const anchor = side === 'top' ? 'bottom-full mb-[0.4em]' : 'top-full mt-[0.4em]';
-  const vis = show ? 'block' : 'hidden group-hover:block';
+/** Composes a `HoverTip` body for the potion infoboxes + the wave-event chip: a
+ *  title + optional badge header row over a description line, in the shared
+ *  `HoverTip` component's own text styling. */
+function tipHeader(title: React.ReactNode, desc: string, badge?: React.ReactNode): React.ReactNode {
   return (
-    <span className={`rs-panel absolute ${anchor} left-1/2 -translate-x-1/2 p-[0.5em] w-[17em] ${vis} z-40 pointer-events-none text-left`}>
+    <>
       <span className="flex items-center gap-[0.4em] leading-none">
         {title}
         {badge}
       </span>
       <span className="block text-[0.68em] text-[#cdbe91] mt-[0.25em] leading-tight">{desc}</span>
-    </span>
+    </>
   );
 }
 
@@ -5741,35 +5744,33 @@ function WaveEventChip({ event }: { event: NonNullable<UIState['activeEvent']> }
     return () => clearTimeout(t);
   }, []);
   return (
-    <div
-      className="wave-event-chip rs-panel relative group flex items-center gap-[0.4em] pl-[0.3em] pr-[0.55em] py-[0.25em] pointer-events-auto"
-      style={{ border: `1px solid ${event.color}`, boxShadow: `0 0 8px ${event.color}66` }}
-      /* The description only exists in the hover tooltip, which is display:none
-         until hover — so screen readers get it from the label instead. */
-      role="group"
-      aria-label={`${event.name} (${boon ? 'Boon' : 'Hazard'}) — ${event.desc}`}
-    >
-      {/* Icon box mirrors the potion infoboxes sitting to its right, tinted to the event. */}
-      <span className="rs-infobox shrink-0" style={{ border: `1px solid ${event.color}`, boxShadow: `inset 0 0 6px ${event.color}55` }}>
-        <img src={event.icon} alt={event.name} onError={hideBrokenImg} />
-      </span>
-      <div className="flex flex-col leading-none">
-        <span className="text-[0.6em] uppercase tracking-wide font-bold" style={{ color: event.color }}>
+    <HoverTip
+      side="bottom"
+      show={announcing}
+      content={tipHeader(
+        <span className="text-[0.85em] font-bold" style={{ color: event.color }}>{event.name}</span>,
+        event.desc,
+        <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm" style={{ background: `${event.color}22`, color: event.color }}>
           {boon ? 'Boon' : 'Hazard'}
+        </span>,
+      )}
+    >
+      <div
+        className="wave-event-chip rs-panel flex items-center gap-[0.4em] pl-[0.3em] pr-[0.55em] py-[0.25em] pointer-events-auto"
+        style={{ border: `1px solid ${event.color}`, boxShadow: `0 0 8px ${event.color}66` }}
+      >
+        {/* Icon box mirrors the potion infoboxes sitting to its right, tinted to the event. */}
+        <span className="rs-infobox shrink-0" style={{ border: `1px solid ${event.color}`, boxShadow: `inset 0 0 6px ${event.color}55` }}>
+          <img src={event.icon} alt={event.name} onError={hideBrokenImg} />
         </span>
-        <span className="font-bold text-[0.82em] text-[#ffe8b0] whitespace-nowrap">{event.name}</span>
-      </div>
-      <HoverTip
-        title={<span className="text-[0.85em] font-bold" style={{ color: event.color }}>{event.name}</span>}
-        badge={
-          <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm" style={{ background: `${event.color}22`, color: event.color }}>
+        <div className="flex flex-col leading-none">
+          <span className="text-[0.6em] uppercase tracking-wide font-bold" style={{ color: event.color }}>
             {boon ? 'Boon' : 'Hazard'}
           </span>
-        }
-        desc={event.desc}
-        show={announcing}
-      />
-    </div>
+          <span className="font-bold text-[0.82em] text-[#ffe8b0] whitespace-nowrap">{event.name}</span>
+        </div>
+      </div>
+    </HoverTip>
   );
 }
 
