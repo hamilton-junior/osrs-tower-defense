@@ -233,13 +233,13 @@ function towerSignature(
     case 'cannon':
       return {
         label: 'Full Splash',
-        desc: 'Every shell detonates for FULL damage on all caught in the blast — no AoE falloff like the Ancients barrage.',
+        desc: 'Full-damage blast — no AoE falloff, unlike Ancients.',
         notes: [{ text: 'Blast radius widens with each tier', active: true }],
       };
     case 'tzhaar':
       return {
         label: 'Knockback',
-        desc: 'Shoves enemies back down the path, stalling the rush — crowd control the wizard can’t match.',
+        desc: 'Shoves enemies back — crowd control the wizard can’t match.',
         notes: [
           { text: 'Every hit also briefly stuns (daggers 0.3–0.45s)', active: true },
           { text: 'Lv3 maul: crushes for the full 0.6s stun', active: level >= 3 },
@@ -248,7 +248,7 @@ function towerSignature(
     case 'slayer':
       return {
         label: 'Slayer Mark',
-        desc: 'Bonus damage by monster category — your answer to tasks, Superiors and bosses.',
+        desc: 'Bonus damage vs your task, Superiors and bosses.',
         notes: [
           { text: '+50% vs your current Slayer task', active: true },
           { text: '+30% vs Superiors · +25% vs bosses', active: true },
@@ -257,7 +257,7 @@ function towerSignature(
     case 'toxic':
       return {
         label: 'Venom',
-        desc: 'Drips venom — its own dark-green DoT, apart from poison.',
+        desc: 'A separate dark-green venom DoT, apart from poison.',
         notes: [
           { text: 'Each hit ramps the venom up to a damage-scaled cap', active: true },
           { text: 'Keeps ticking after foes leave its range', active: true },
@@ -267,7 +267,7 @@ function towerSignature(
     case 'wizard':
       return {
         label: 'Arcane Mastery',
-        desc: 'The complete caster — pick a spellbook below to specialise.',
+        desc: 'The complete caster — pick a spellbook to specialise.',
         notes: [
           { text: 'Elemental: raw single-target + weakness bonus', active: true },
           { text: 'Ancients: true AoE barrages with a status', active: true },
@@ -2394,10 +2394,10 @@ export default function GameRoot() {
         <MovablePanel
           id="tower"
           globalLock={uiLocked}
-          className="rs-panel absolute top-4 left-4 p-3 z-10 w-[17em]"
+          className="rs-panel absolute top-4 left-4 p-2 z-10 w-[17em]"
           style={{ fontSize: fs('clamp(14px, 0.92vw, 20px)') }}
         >
-          <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1.05em' }}>
+          <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
             {(() => {
               // The wizard shows its actual staff (matching the board), not the
               // generic tier-1 icon — so it changes with element/spellbook.
@@ -2410,7 +2410,7 @@ export default function GameRoot() {
             <span className="truncate">{wizSpellLabel ?? selectedTower.name}</span>
           </div>
 
-          <div className="space-y-[0.4em] px-[0.2em] mt-[0.5em]">
+          <div className="space-y-[0.2em] px-[0.2em] mt-[0.3em]">
             {/* The Utility wizard is a pure support aura — it never attacks, so it
                 has no Damage / Attack-speed line; its "range" is the aura radius. */}
             {!isUtility && (
@@ -2435,14 +2435,14 @@ export default function GameRoot() {
             const sig = towerSignature(selectedTower.type, selectedTower.level);
             if (!sig) return null;
             return (
-              <div className="mt-[0.6em] px-[0.2em]">
-                <div className="flex items-center gap-[0.4em] mb-[0.25em]">
+              <div className="mt-[0.4em] px-[0.2em]">
+                <div className="flex items-center gap-[0.4em] mb-[0.15em]">
                   <span className="text-[0.72em] text-[#d3c3a0] uppercase tracking-wide">Signature</span>
                   <span className="text-[0.74em] text-osrs-yellow font-semibold">{sig.label}</span>
                 </div>
                 <p className="text-[0.72em] text-[#b3a585] leading-snug">{sig.desc}</p>
                 {sig.notes.length > 0 && (
-                  <ul className="mt-[0.3em] space-y-[0.15em]">
+                  <ul className="mt-[0.2em] space-y-[0.1em]">
                     {sig.notes.map((n, i) => (
                       <li
                         key={i}
@@ -2464,8 +2464,8 @@ export default function GameRoot() {
               speed); hovering a group opens the per-card breakdown and lights
               those cards up in the Boons panel. */}
           {(towerBoosts.length > 0 || BOON_GROUP_META.some((g) => boonGroups[g.id].total > 1)) && (
-            <div className="mt-[0.6em] px-[0.2em]">
-              <div className="text-[0.68em] text-[#5bd75b] uppercase tracking-wide mb-[0.3em]">Active boosts</div>
+            <div className="mt-[0.4em] px-[0.2em]">
+              <div className="text-[0.68em] text-[#5bd75b] uppercase tracking-wide mb-[0.2em]">Active boosts</div>
               <div className="flex flex-wrap gap-[0.3em]">
                 {towerBoosts.map((b) => (
                   <span key={b.key} className="rs-buff-chip" title={b.title}>
@@ -2510,19 +2510,19 @@ export default function GameRoot() {
           {/* Utility wizards project an aura instead of firing, so target priority
               is meaningless for them — hide it. */}
           {!isUtility && (
-            <div className="mt-[0.7em]">
-              <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Target priority</div>
+            <div className="mt-[0.4em]">
+              <div className="text-[0.72em] text-[#d3c3a0] mb-[0.15em] px-[0.2em] uppercase tracking-wide">Target priority</div>
               {/* Three across, two rows — six in a single row squeezed each button to
                   ~35px, which is what made the strip look wrong and left no room to
                   read a glyph. Two rows give each button the width to be legible. */}
-              <div className="grid grid-cols-3 gap-[0.3em]">
+              <div className="grid grid-cols-3 gap-[0.2em]">
                 {PRIORITY_ORDER.map((p) => (
                   <button
                     key={p}
                     title={PRIORITY_TIPS[p]}
                     aria-label={PRIORITY_TIPS[p]}
                     onClick={() => engineRef.current?.setTargetingPriority(selectedTower.id, p)}
-                    className={`rs-btn px-0 py-[0.35em] flex items-center justify-center ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
+                    className={`rs-btn px-0 py-[0.3em] flex items-center justify-center ${selectedTower.targetingPriority === p ? 'rs-btn-primary' : ''}`}
                   >
                     <PriorityGlyph spec={PRIORITY_ICONS[p]} />
                   </button>
@@ -2534,8 +2534,8 @@ export default function GameRoot() {
           {/* Wizard spellbook is locked at purchase; only the element/barrage
               (its variant) can be retuned here. */}
           {selectedTower.type === 'wizard' && (
-            <div className="mt-[0.7em]">
-              <div className="flex items-center justify-between mb-[0.3em] px-[0.2em]">
+            <div className="mt-[0.45em]">
+              <div className="flex items-center justify-between mb-[0.2em] px-[0.2em]">
                 <span className="text-[0.72em] text-[#d3c3a0] uppercase tracking-wide">Spellbook</span>
                 <span className="flex items-center gap-[0.3em] text-[0.72em] text-osrs-yellow capitalize">
                   <img src={spellbookIcon(selectedTower.mageMode)} alt="" className="w-[1.2em] h-[1.2em]" onError={hideBrokenImg} />
@@ -2622,7 +2622,7 @@ export default function GameRoot() {
                       );
                     })}
                   </div>
-                  <p className="text-[0.72em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
+                  <p className="text-[0.72em] text-[#b3a585] mt-[0.25em] px-[0.2em] leading-snug">
                     {SUPPORT_SPELLS[selectedTower.supportSpell ?? 'curse'].desc}.
                     Always-on aura boosts nearby towers' range, speed &amp; damage too — with
                     diminishing returns, so the second wizard covering a tower is worth half
@@ -2632,13 +2632,13 @@ export default function GameRoot() {
               )}
 
               {(selectedTower.mageMode ?? 'elemental') === 'elemental' && (
-                <p className="text-[0.72em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
+                <p className="text-[0.72em] text-[#b3a585] mt-[0.25em] px-[0.2em] leading-snug">
                   {ELEMENTS[(selectedTower.element ?? 'air') as keyof typeof ELEMENTS].desc}
                 </p>
               )}
 
               {selectedTower.mageMode === 'ancients' && (
-                <p className="text-[0.72em] text-[#b3a585] mt-[0.35em] px-[0.2em] leading-snug">
+                <p className="text-[0.72em] text-[#b3a585] mt-[0.25em] px-[0.2em] leading-snug">
                   {ANCIENTS[selectedTower.ancientType ?? 'ice'].desc}
                 </p>
               )}
@@ -2650,8 +2650,8 @@ export default function GameRoot() {
             const need = towerXpForLevel(sk.level);
             const pct = Math.min(100, Math.round((sk.xp / need) * 100));
             return (
-              <div className="mt-[0.5em] px-[0.1em]">
-                <div className="flex items-center justify-between text-[0.72em] text-[#d3c3a0] mb-[0.2em]">
+              <div className="mt-[0.35em] px-[0.1em]">
+                <div className="flex items-center justify-between text-[0.72em] text-[#d3c3a0] mb-[0.15em]">
                   <span>Combat level {sk.level}</span>
                   <span className="text-[#9a8d70]">{Math.floor(sk.xp)} / {need} XP</span>
                 </div>
@@ -2664,9 +2664,9 @@ export default function GameRoot() {
               combat level (hence sitting right under the XP bar above). Roguelite
               towers carry no equipment, so the whole section is hidden there. */}
           {ui.gameMode === 'classic' && (
-            <div className="mt-[0.7em]" data-tut="gear">
-              <div className="text-[0.72em] text-[#d3c3a0] mb-[0.3em] px-[0.2em] uppercase tracking-wide">Equipment</div>
-              <div className="flex gap-[0.6em] px-[0.2em]">
+            <div className="mt-[0.45em]" data-tut="gear">
+              <div className="text-[0.72em] text-[#d3c3a0] mb-[0.2em] px-[0.2em] uppercase tracking-wide">Equipment</div>
+              <div className="flex gap-[0.5em] px-[0.2em]">
                 {(['ammo', 'jewellery'] as const).map((slotType) => {
                   const equipped = selectedTower.equipment[slotType];
                   const icon = equipped ? GEAR_ICONS[equipped.id] : undefined;
@@ -2679,11 +2679,11 @@ export default function GameRoot() {
                     return check.ok || check.reason === 'level';
                   });
                   return (
-                    <div key={slotType} className="relative flex flex-col items-center" style={{ width: '3.4em' }}>
+                    <div key={slotType} className="relative flex flex-col items-center" style={{ width: '3em' }}>
                       <HoverTip content={equipped ? gearTooltip(equipped) : `Empty ${slotLabel} slot — click to equip from your loot bag`}>
                         <button
                           type="button"
-                          className="rs-slot w-[3.4em] relative"
+                          className="rs-slot w-[3em] relative"
                           style={equipped?.rarity === 'signature' ? { borderColor: 'var(--osrs-yellow)' } : undefined}
                           onClick={() => setGearPicker((p) => (p === slotType ? null : slotType))}
                           onContextMenu={(e) => {
@@ -2769,12 +2769,12 @@ export default function GameRoot() {
           )}
 
           {moving ? (
-            <div className="mt-[0.7em] text-center text-[0.8em] text-osrs-orange leading-snug">
+            <div className="mt-[0.45em] text-center text-[0.8em] text-osrs-orange leading-snug">
               ▸ Click a tile to move here ({moveCost} gp)<br />
               <span className="text-[#d3c3a0]">right‑click to cancel</span>
             </div>
           ) : (
-            <div className="mt-[0.7em] space-y-[0.4em] text-[0.95em]">
+            <div className="mt-[0.45em] space-y-[0.3em] text-[0.95em]">
               {selectedTower.level < selectedTower.maxLevel && (
                 <div
                   className="relative"
@@ -2829,7 +2829,7 @@ export default function GameRoot() {
                       : <>Needs Lv {towerGate?.neededLevel}</>}
                     <span className="rs-key">U</span>
                   </button>
-                  <div className="flex items-center gap-[0.6em] mt-[0.4em] px-[0.1em]">
+                  <div className="flex items-center gap-[0.6em] mt-[0.3em] px-[0.1em]">
                     <label
                       className="flex items-center gap-[0.4em] text-[0.78em] text-[#d3c3a0] cursor-pointer select-none"
                       title="Auto-upgrade: the game spends gold to level this tower on its own, cheapest auto-upgrade tower first"
