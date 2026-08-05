@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { GEAR, GEAR_POOL, AMMO_TIERS, JEWELLERY_TIERS, SIGNATURES } from './gear';
+import { GEAR_ICONS } from '../assets';
 import { TOWER_AMMO_CLASS } from '../systems/tower-gear';
 import type { AmmoClass } from '../types';
 
@@ -58,5 +61,35 @@ describe('gear pool', () => {
       const common = GEAR_POOL.filter(g => g.type === 'ammo' && g.ammoClass === cls && g.rarity !== 'signature');
       expect(common.length).toBeGreaterThanOrEqual(1);
     }
+  });
+
+  // The regression net for the "extensible for future towers" mandate: add a tier
+  // to a ladder and forget its icon → this fails, instead of the slot silently
+  // rendering the text fallback. Slug === id, so the baked file is items/<id>.png.
+  it('every gear id has a GEAR_ICONS entry and a baked PNG on disk', () => {
+    for (const id of Object.keys(GEAR)) {
+      expect(GEAR_ICONS[id], `GEAR_ICONS missing "${id}"`).toBeTruthy();
+      const file = join(process.cwd(), 'public', 'assets', 'items', `${id}.png`);
+      expect(existsSync(file), `missing baked icon ${id}.png`).toBe(true);
+    }
+  });
+
+  it('GEAR_ICONS has no orphan keys (every icon key is a real gear id)', () => {
+    for (const key of Object.keys(GEAR_ICONS)) {
+      expect(GEAR[key], `orphan GEAR_ICONS key "${key}"`).toBeDefined();
+    }
+  });
+
+  // Makes the monotonic-damage tests above meaningful: damage grows with tier
+  // INDEX by construction, so those tests can't catch a ladder authored out of
+  // levelReq order (a low-level tier hitting harder than a high-level one). Assert
+  // each ladder is already sorted by levelReq, so index order === level order.
+  it('each ladder is authored in non-decreasing levelReq order', () => {
+    const sortedIds = (tiers: { id: string; levelReq: number }[]) =>
+      [...tiers].sort((a, b) => a.levelReq - b.levelReq).map(t => t.id);
+    for (const cls of Object.keys(AMMO_TIERS) as AmmoClass[]) {
+      expect(AMMO_TIERS[cls].map(t => t.id)).toEqual(sortedIds(AMMO_TIERS[cls]));
+    }
+    expect(JEWELLERY_TIERS.map(t => t.id)).toEqual(sortedIds(JEWELLERY_TIERS));
   });
 });
