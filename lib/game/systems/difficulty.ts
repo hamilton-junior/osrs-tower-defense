@@ -35,7 +35,7 @@ export const DIFFICULTY_TIERS: readonly { id: DifficultyTier; name: string; mods
   { id: 3, name: 'Hard',        mods: { enemyHp: 1.60, enemySpeed: 1.05, gold: 0.85, livesDelta: -5 } },
   { id: 4, name: 'Elite',       mods: { enemyHp: 1.90, enemySpeed: 1.08, gold: 0.80, livesDelta: -10 } },
   { id: 5, name: 'Master',      mods: { enemyHp: 2.30, enemySpeed: 1.10, gold: 0.75, livesDelta: -15 } },
-  { id: 6, name: 'Grandmaster', mods: { enemyHp: 2.80, enemySpeed: 1.12, gold: 0.70, livesDelta: -15 } },
+  { id: 6, name: 'Grandmaster', mods: { enemyHp: 2.80, enemySpeed: 1.12, gold: 0.70, livesDelta: -20 } },
 ] as const;
 
 /** Coerce any number to a valid tier id (defence for stored / injected values). */
@@ -58,4 +58,12 @@ export function highestUnlockedTier(highestCleared: number): DifficultyTier {
 /** Guard: is `tier` selectable given `highestCleared`? */
 export function isTierUnlocked(tier: DifficultyTier, highestCleared: number): boolean {
   return tier <= highestUnlockedTier(highestCleared);
+}
+
+/** Starting lives for a run at `tier`, given the game's base START_LIVES. The
+ *  floor lives here (one tested place) so the raw table can cut aggressively
+ *  without ever making a tier unwinnable by construction. The engine calls this
+ *  rather than inlining the clamp. */
+export function effectiveStartLives(baseLives: number, tier: DifficultyTier): number {
+  return Math.max(MIN_LIVES, baseLives + tierMods(tier).livesDelta);
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DIFFICULTY_TIERS, MIN_LIVES, MAX_TIER,
-  tierMods, highestUnlockedTier, isTierUnlocked, clampTier,
+  tierMods, highestUnlockedTier, isTierUnlocked, clampTier, effectiveStartLives,
   type DifficultyTier,
 } from './difficulty';
 
@@ -30,12 +30,16 @@ describe('difficulty tiers', () => {
     }
   });
 
-  it('never removes so many lives that a tier is unwinnable by construction', () => {
-    // START_LIVES is 20 in the engine; the floor must survive the deepest cut.
+  it('effectiveStartLives floors the raw table so no tier is unwinnable', () => {
+    // START_LIVES is 20 in the engine. The raw table may cut aggressively
+    // (Grandmaster −20 → 0), but the clamp keeps effective lives ≥ MIN_LIVES.
     const START_LIVES = 20;
     for (const t of TIERS) {
-      expect(START_LIVES + tierMods(t).livesDelta).toBeGreaterThanOrEqual(MIN_LIVES);
+      expect(effectiveStartLives(START_LIVES, t)).toBeGreaterThanOrEqual(MIN_LIVES);
     }
+    expect(effectiveStartLives(20, 0)).toBe(20);  // Normal: no cut
+    expect(effectiveStartLives(20, 3)).toBe(15);  // Hard: −5, above the floor
+    expect(effectiveStartLives(20, 6)).toBe(5);   // Grandmaster: −20 clamped up to 5
   });
 
   it('unlock math: nothing cleared exposes only Normal + Easy', () => {
