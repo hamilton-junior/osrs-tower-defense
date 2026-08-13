@@ -41,6 +41,7 @@
   - `function highestUnlockedTier(highestCleared: number): DifficultyTier` — `clamp(highestCleared + 1, 0, 6)`
   - `function isTierUnlocked(tier: DifficultyTier, highestCleared: number): boolean`
   - `function clampTier(n: number): DifficultyTier` — coerce any number to a valid tier id (defence for stored/injected values)
+  - `function effectiveStartLives(baseLives: number, tier: DifficultyTier): number` — `Math.max(MIN_LIVES, baseLives + tierMods(tier).livesDelta)`; the run-start lives floor lives here (one tested place), and Task 4's engine calls it instead of inlining the clamp. The raw table may hold aggressive `livesDelta` values (e.g. Grandmaster −20 with START_LIVES 20 → clamped to 5); the floor, not the table, guarantees winnability.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -50,7 +51,7 @@ Create `lib/game/systems/difficulty.test.ts`:
 import { describe, it, expect } from 'vitest';
 import {
   DIFFICULTY_TIERS, MIN_LIVES, MAX_TIER,
-  tierMods, highestUnlockedTier, isTierUnlocked, clampTier,
+  tierMods, highestUnlockedTier, isTierUnlocked, clampTier, effectiveStartLives,
   type DifficultyTier,
 } from './difficulty';
 
@@ -79,12 +80,16 @@ describe('difficulty tiers', () => {
     }
   });
 
-  it('never removes so many lives that a tier is unwinnable by construction', () => {
-    // START_LIVES is 20 in the engine; the floor must survive the deepest cut.
+  it('effectiveStartLives floors the raw table so no tier is unwinnable', () => {
+    // START_LIVES is 20 in the engine. The raw table may cut aggressively
+    // (Grandmaster −20 → 0), but the clamp keeps effective lives ≥ MIN_LIVES.
     const START_LIVES = 20;
     for (const t of TIERS) {
-      expect(START_LIVES + tierMods(t).livesDelta).toBeGreaterThanOrEqual(MIN_LIVES);
+      expect(effectiveStartLives(START_LIVES, t)).toBeGreaterThanOrEqual(MIN_LIVES);
     }
+    expect(effectiveStartLives(20, 0)).toBe(20);  // Normal: no cut
+    expect(effectiveStartLives(20, 3)).toBe(15);  // Hard: −5, above the floor
+    expect(effectiveStartLives(20, 6)).toBe(5);   // Grandmaster: −20 clamped up to 5
   });
 
   it('unlock math: nothing cleared exposes only Normal + Easy', () => {
@@ -183,6 +188,14 @@ export function highestUnlockedTier(highestCleared: number): DifficultyTier {
 /** Guard: is `tier` selectable given `highestCleared`? */
 export function isTierUnlocked(tier: DifficultyTier, highestCleared: number): boolean {
   return tier <= highestUnlockedTier(highestCleared);
+}
+
+/** Starting lives for a run at `tier`, given the game's base START_LIVES. The
+ *  floor lives here (one tested place) so the raw table can cut aggressively
+ *  without ever making a tier unwinnable by construction. The engine calls this
+ *  rather than inlining the clamp. */
+export function effectiveStartLives(baseLives: number, tier: DifficultyTier): number {
+  return Math.max(MIN_LIVES, baseLives + tierMods(tier).livesDelta);
 }
 ```
 
@@ -414,7 +427,7 @@ At `lib/game/core/engine.ts:12`, alongside the enemy-scaling import, add:
 
 ```ts
 import { scaleEnemyStats, endlessHpMult } from '../systems/enemy-scaling';
-import { tierMods, clampTier, highestUnlockedTier, type DifficultyTier } from '../systems/difficulty';
+import { tierMods, clampTier, highestUnlockedTier, effectiveStartLives, type DifficultyTier } from '../systems/difficulty';
 ```
 
 - [ ] **Step 2: The field**
@@ -470,18 +483,14 @@ with:
 
 ```ts
     // The difficulty tier is a run-wide lever set before wave 1; it persists
-    // across restart (like gameMode). Its lives delta is floored so a tier is
-    // hard, never structurally unwinnable.
-    const startLives = Math.max(MIN_LIVES, START_LIVES + tierMods(this.difficultyTier).livesDelta);
+    // across restart (like gameMode). effectiveStartLives applies its lives
+    // delta and floors it, so a tier is hard, never structurally unwinnable.
+    const startLives = effectiveStartLives(START_LIVES, this.difficultyTier);
     this.lives = startLives;
     this.maxLives = startLives;
 ```
 
-Add `MIN_LIVES` to the difficulty import in Step 1:
-
-```ts
-import { tierMods, clampTier, highestUnlockedTier, MIN_LIVES, type DifficultyTier } from '../systems/difficulty';
-```
+(`effectiveStartLives` is already imported in Step 1 — no `MIN_LIVES` import needed in the engine; the floor is encapsulated in the helper.)
 
 - [ ] **Step 6: `setDifficultyTier` (mirror of `setMode`)**
 
