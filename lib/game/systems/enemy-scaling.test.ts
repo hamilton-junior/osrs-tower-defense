@@ -112,3 +112,29 @@ describe('scaleEnemyStats endless term', () => {
     expect(endless.reward).toBe(plain.reward);
   });
 });
+
+describe('scaleEnemyStats — difficulty multipliers', () => {
+  const base = { hp: 100, speed: 40, reward: 10 };
+
+  it('omitting diff is identical to today (default arg = identity)', () => {
+    const withDefault = scaleEnemyStats(base, 5);
+    const withIdentity = scaleEnemyStats(base, 5, 1, { hp: 1, speed: 1, reward: 1 });
+    expect(withDefault).toEqual(withIdentity);
+  });
+
+  it('applies hp / speed / reward diff multipliers, floored', () => {
+    const plain = scaleEnemyStats(base, 5);
+    const diffed = scaleEnemyStats(base, 5, 1, { hp: 2, speed: 1.5, reward: 0.5 });
+    // hp scales up, reward scales down, speed scales up — each floored independently.
+    expect(diffed.hp).toBe(Math.floor(base.hp * hpScaleForWave(5) * 1 * 2));
+    expect(diffed.hp).toBeGreaterThan(plain.hp);
+    expect(diffed.reward).toBeLessThan(plain.reward);
+    expect(diffed.speed).toBeGreaterThan(plain.speed);
+  });
+
+  it('diff.hp stacks multiplicatively with the endless term', () => {
+    const a = scaleEnemyStats(base, 20, 1.5, { hp: 2, speed: 1, reward: 1 });
+    const b = scaleEnemyStats(base, 20, 1.5, { hp: 1, speed: 1, reward: 1 });
+    expect(a.hp).toBeGreaterThan(b.hp);
+  });
+});

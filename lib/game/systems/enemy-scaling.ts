@@ -61,10 +61,11 @@ export function scaleEnemyStats(
   base: ScalableEnemyStats,
   wave: number,
   endlessMult = 1,
+  diff: { hp: number; speed: number; reward: number } = { hp: 1, speed: 1, reward: 1 },
 ): ScalableEnemyStats {
   return {
-    hp: Math.floor(base.hp * hpScaleForWave(wave) * endlessMult),
-    speed: Math.floor(base.speed * (1 + (wave - 1) * 0.01)),
-    reward: Math.floor(base.reward * (1 + (wave - 1) * 0.15)),
+    hp: Math.floor(base.hp * hpScaleForWave(wave) * endlessMult * diff.hp),
+    speed: Math.floor(base.speed * (1 + (wave - 1) * 0.01) * diff.speed),
+    reward: Math.floor(base.reward * (1 + (wave - 1) * 0.15) * diff.reward),
   };
 }
