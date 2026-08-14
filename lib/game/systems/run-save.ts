@@ -132,6 +132,9 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     savedAt: num(raw.savedAt, 0),
     mapSeed: num(raw.mapSeed, 0) >>> 0,
     gameMode: raw.gameMode === 'classic' ? 'classic' : 'roguelite',
+    // difficultyTier is itself back-compatible (missing => 0). The v2->v3 bump
+    // above discards old saves by the repo's every-shape-change convention, not
+    // out of necessity — this default would have migrated a v2 save cleanly.
     difficultyTier: clampTier(num(raw.difficultyTier, 0)),
     wave,
     money: Math.max(0, Math.floor(num(raw.money, 0))),

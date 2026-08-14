@@ -42,7 +42,7 @@ describe('difficulty tiers', () => {
     expect(effectiveStartLives(20, 6)).toBe(5);   // Grandmaster: −20 clamped up to 5
   });
 
-  it('unlock math: nothing cleared exposes only Normal + Easy', () => {
+  it('unlock math: nothing cleared exposes only Normal', () => {
     expect(highestUnlockedTier(-1)).toBe(0);
     expect(isTierUnlocked(0, -1)).toBe(true);
     expect(isTierUnlocked(1, -1)).toBe(false);
