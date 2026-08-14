@@ -142,3 +142,30 @@ describe('isResumable', () => {
     expect(isResumable({ ...base, wave: 1, towers: [] })).toBe(false);
   });
 });
+
+function validRaw(over: Record<string, unknown> = {}) {
+  return {
+    version: RUN_SAVE_VERSION,
+    towers: [{ id: 't1', type: 'archer', x: 10, y: 10 }],
+    runMods: {}, runFx: {}, relicFx: {},
+    gameMode: 'classic', wave: 5, money: 100, maxLives: 20, lives: 20,
+    ...over,
+  };
+}
+
+describe('run-save — difficultyTier', () => {
+  it('round-trips a valid difficultyTier', () => {
+    const save = sanitizeRunSave(validRaw({ difficultyTier: 3 }));
+    expect(save?.difficultyTier).toBe(3);
+  });
+
+  it('defaults a missing difficultyTier to 0 (old save = Normal)', () => {
+    const save = sanitizeRunSave(validRaw({}));
+    expect(save?.difficultyTier).toBe(0);
+  });
+
+  it('clamps an out-of-range difficultyTier', () => {
+    expect(sanitizeRunSave(validRaw({ difficultyTier: 99 }))?.difficultyTier).toBe(6);
+    expect(sanitizeRunSave(validRaw({ difficultyTier: -4 }))?.difficultyTier).toBe(0);
+  });
+});

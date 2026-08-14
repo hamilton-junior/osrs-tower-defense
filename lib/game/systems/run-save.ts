@@ -1,5 +1,6 @@
 import type { Tower, Item, SlayerTask, PrayerType, EnemyType } from '../types';
 import type { GameMode, RunModifiers, RunEffects, RelicEffects } from '../core/engine';
+import { clampTier, type DifficultyTier } from './difficulty';
 
 /**
  * The in-progress-run save: a snapshot of everything a player would lose by
@@ -26,6 +27,9 @@ export interface RunSave {
   /** Seed of the procedural map, so the road and biome come back identical. */
   mapSeed: number;
   gameMode: GameMode;
+  /** The New Game+ tier this run is being played at. Absent on saves written
+   *  before the ladder shipped → they resume at tier 0 (Normal). */
+  difficultyTier: DifficultyTier;
   wave: number;
   money: number;
   lives: number;
@@ -84,7 +88,7 @@ export interface RunSave {
 
 /** Bump when a field's meaning changes — an older save is then discarded rather
  *  than half-read into a run that would misbehave. */
-export const RUN_SAVE_VERSION = 2;
+export const RUN_SAVE_VERSION = 3;
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
@@ -128,6 +132,7 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     savedAt: num(raw.savedAt, 0),
     mapSeed: num(raw.mapSeed, 0) >>> 0,
     gameMode: raw.gameMode === 'classic' ? 'classic' : 'roguelite',
+    difficultyTier: clampTier(num(raw.difficultyTier, 0)),
     wave,
     money: Math.max(0, Math.floor(num(raw.money, 0))),
     // A save with 0 lives would resume straight into a game over.
