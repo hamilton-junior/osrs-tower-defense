@@ -537,7 +537,7 @@ And extend the `victory` object (~1072-1078) to carry the tier:
 
 In the `UIState` interface, near `gameMode: GameMode;` (~365), add `difficultyTier: DifficultyTier;` and add `tier: DifficultyTier;` to the inline `victory` object's type (find the `victory:` field on `UIState` and add the property to match the emitted shape).
 
-Also seed the initial UIState constant (`INITIAL`/default UIState around line 294 in `GameRoot.tsx` is separate — that is Task 5; here only the engine-side `UIState` type changes).
+**Ruling 1 — this task must also update GameRoot's default UIState literal** so this task typechecks standalone. Making `UIState.difficultyTier` a required key breaks any `UIState` object literal that omits it — including the default UIState constant fed to `useState<UIState>` in `GameRoot.tsx` (~line 294, the object beginning `remaining: 0, waveTotal: 0, …`). In `components/game/GameRoot.tsx`, add `difficultyTier: 0,` to that default literal (next to its `gameMode` / `runPhase` keys). The `victory: null` default already satisfies the extended `victory` type (no change needed there). This is the ONLY GameRoot edit in Task 4; everything else GameRoot is Task 5. If `npx tsc --noEmit` still flags another UIState literal missing the key, add `difficultyTier: 0` there too.
 
 In `snapshotRun()` (~5452), next to `gameMode: this.gameMode,` add:
 
@@ -623,7 +623,7 @@ function loadDifficulty(): DifficultyProgress {
 
 - [ ] **Step 2: Default UIState + state hook**
 
-In the default UIState literal (~294), add `difficultyTier: 0,` (matching the engine `UIState` type).
+The default UIState literal (~294) already has `difficultyTier: 0,` (added in Task 4 under Ruling 1). Do NOT add it again — if it is missing, add it; otherwise leave it.
 
 Near the `victories` state (~655), add:
 
