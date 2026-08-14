@@ -10,6 +10,7 @@ import { ASSETS } from '../assets';
 import { distance, distanceSq, isValidPlacement, squareRange, inSquareRange, knockbackStep, clampCursorToBoard, snapToTileCenter } from '../systems/geometry';
 import { selectTarget } from '../systems/targeting';
 import { scaleEnemyStats, endlessHpMult } from '../systems/enemy-scaling';
+import { tierMods, clampTier, highestUnlockedTier, effectiveStartLives, type DifficultyTier } from '../systems/difficulty';
 import { buildWaveConfigs, allSchedulableBossesCleared } from '../systems/wave-generation';
 import { calculateTowerStats, synergyDamageMult, utilityAuraBonus, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
 import { CombatStatsSystem, RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity, type DpsSnapshot } from '../systems/combat-stats';
@@ -279,7 +280,7 @@ export interface UIState {
   /** `'normal'` until victory; `'endless'` after the player continues past it. */
   runPhase: 'normal' | 'endless';
   /** Run summary for the victory stop-screen (null until `won`). */
-  victory: { wave: number; seconds: number; bosses: number; mode: GameMode } | null;
+  victory: { wave: number; seconds: number; bosses: number; mode: GameMode; tier: DifficultyTier } | null;
   selectedTowerType: TowerType | null;
   /** What the NEXT tower of each type costs right now, meta discount and same-type
    *  escalation included. Emitted rather than recomputed in the UI: the price moves
@@ -363,6 +364,8 @@ export interface UIState {
   lastWaveSandbox: boolean;
   /** Active game mode (`classic` / `roguelite`). */
   gameMode: GameMode;
+  /** The New Game+ tier this run is played at (0 = Normal, today's game). */
+  difficultyTier: DifficultyTier;
   /** Roguelite: the draft hand awaiting a pick — bought with gold, or a defeated
    *  boss's boosted hand (null when none). Blocks the next wave until resolved. */
   pendingDraft: DraftCard[] | null;
@@ -699,6 +702,10 @@ export class GameEngine {
   /** Active game mode. Roguelite layers bought card rolls + boss relics over classic TD. Chosen
    *  before the first wave via {@link setMode}; persists across {@link restart}. */
   gameMode: GameMode = 'roguelite';
+  /** The New Game+ tier this run is played at. Like {@link gameMode}, it belongs
+   *  to the whole run: set before wave 1 via {@link setDifficultyTier} and it
+   *  persists across {@link restart}. Tier 0 (Normal) is today's game exactly. */
+  difficultyTier: DifficultyTier = 0;
   /** Roguelite: the draft hand awaiting a pick after a wave clear (null = none). */
   pendingDraft: DraftCard[] | null = null;
   /** Roguelite: run-scoped buff multipliers accumulated from drafts. */
@@ -1075,6 +1082,7 @@ export class GameEngine {
             seconds: this.runSeconds,
             bosses: Object.keys(this.bossesKilledThisRun).length,
             mode: this.gameMode,
+            tier: this.difficultyTier,
           }
         : null,
       selectedTowerType: this.selectedTowerType,
@@ -1124,6 +1132,7 @@ export class GameEngine {
       bossesSeen: this.bossesSeen,
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
+      difficultyTier: this.difficultyTier,
       pendingDraft: this.pendingDraft,
       draftBoosted: this.draftBoosted,
       cardRollCost: this.cardRollCost,
@@ -2711,7 +2720,7 @@ export class GameEngine {
       // Scale to the wave being previewed, exactly as makeEnemy will when it spawns.
       const endless = this.runPhase === 'endless' ? endlessHpMult(this.wave, this.victoryWave) : 1;
       const s = def
-        ? scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, this.wave, endless)
+        ? scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, this.wave, endless, this.diffEnemyMults)
         : { hp: 0, speed: 0, reward: 0 };
       rows.push({
         type, name: def?.name ?? type, count, isBoss: !!def?.isBoss,
@@ -2783,7 +2792,7 @@ export class GameEngine {
     const def = ENEMIES[type];
     if (!def) return null;
     const endless = this.runPhase === 'endless' ? endlessHpMult(wave, this.victoryWave) : 1;
-    const scaled = scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, wave, endless);
+    const scaled = scaleEnemyStats({ hp: def.hp, speed: def.speed, reward: def.reward }, wave, endless, this.diffEnemyMults);
     const start = this.portalPoint;
     // `forced` (debug cheats) wins outright — it bypasses the seen-gate and the
     // elite roll so a tester can dial in exact modifiers. Otherwise: bosses roll
@@ -5287,6 +5296,18 @@ export class GameEngine {
     this.restart();
   }
 
+  /** Choose the New Game+ tier for the next run. Like {@link setMode}, only
+   *  honoured before wave 1 begins. Clamps against what the mode has unlocked as
+   *  defence-in-depth, then restarts so the run boots at the chosen difficulty. */
+  setDifficultyTier(tier: DifficultyTier, highestCleared: number) {
+    const wanted = clampTier(tier);
+    const allowed = Math.min(wanted, highestUnlockedTier(highestCleared)) as DifficultyTier;
+    if (allowed === this.difficultyTier) return;
+    if (this.wave !== 1 || this.waveActive) { this.notify('Finish the run to change difficulty'); return; }
+    this.difficultyTier = allowed;
+    this.restart();
+  }
+
   /** Roguelite: keep one drafted card, apply its effect, and clear the hand so the
    *  next wave can start. No-op if the id isn't in the current hand. */
   pickDraftCard(id: string) {
@@ -5428,6 +5449,13 @@ export class GameEngine {
     this.sound.play('game_over');
   }
 
+  /** Enemy stat multipliers for the current run's difficulty tier — passed into
+   *  scaleEnemyStats at every spawn / preview. Tier 0 returns all-ones. */
+  private get diffEnemyMults(): { hp: number; speed: number; reward: number } {
+    const m = tierMods(this.difficultyTier);
+    return { hp: m.enemyHp, speed: m.enemySpeed, reward: m.gold };
+  }
+
   // ------------------------------------------------------------- run save/load
   /**
    * Snapshot the run in progress, or `null` when there is nothing safe or worth
@@ -5450,6 +5478,7 @@ export class GameEngine {
       savedAt: Date.now(),
       mapSeed: this.mapSeed,
       gameMode: this.gameMode,
+      difficultyTier: this.difficultyTier,
       wave: this.wave,
       money: this.money,
       lives: this.lives,
@@ -5510,6 +5539,7 @@ export class GameEngine {
     this.previewCache = null;
 
     this.gameMode = save.gameMode;
+    this.difficultyTier = save.difficultyTier;
     this.towers = structuredClone(save.towers);
     this.lootBag = save.lootBag ? structuredClone(save.lootBag) : [];
     this.bumpTowerLayout();
@@ -5603,8 +5633,12 @@ export class GameEngine {
     // Meta-progression (essence + upgrades) persists across runs — only re-apply
     // the starting-gold bonus to the fresh balance.
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
-    this.lives = START_LIVES;
-    this.maxLives = START_LIVES;
+    // The difficulty tier is a run-wide lever set before wave 1; it persists
+    // across restart (like gameMode). effectiveStartLives applies its lives
+    // delta and floors it, so a tier is hard, never structurally unwinnable.
+    const startLives = effectiveStartLives(START_LIVES, this.difficultyTier);
+    this.lives = startLives;
+    this.maxLives = startLives;
     // Roguelite run-scoped state resets; the chosen game mode itself persists.
     this.bossesKilledThisRun = {};
     this.won = false;

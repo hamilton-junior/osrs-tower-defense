@@ -309,7 +309,7 @@ const INITIAL: UIState = {
   bossesSeen: {},
   dpsStats: null,
   lastWaveSandbox: false,
-  gameMode: 'roguelite', pendingDraft: null, draftBoosted: false,
+  gameMode: 'roguelite', difficultyTier: 0, pendingDraft: null, draftBoosted: false,
   cardRollCost: CARD_ROLL_BASE_COST,
   runMods: {
     damage: { melee: 1, ranged: 1, magic: 1 },
