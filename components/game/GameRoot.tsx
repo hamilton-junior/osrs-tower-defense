@@ -679,7 +679,7 @@ export default function GameRoot() {
   // Collection Log and Debug still open their own larger windows.
   const [tab, setTab] = useState<SideTab | null>(null);
   const [logOpen, setLogOpen] = useState(false);
-  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards' | 'victories'>('monsters');
+  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty'>('monsters');
   // The champion's win record (non-monetary meta reward). Read once on mount.
   const [victories, setVictories] = useState<Victories>(EMPTY_VICTORIES);
   useEffect(() => { setVictories(loadVictories()); }, []);
@@ -3056,6 +3056,7 @@ export default function GameRoot() {
           killCounts={ui.killCounts}
           cardCounts={ui.cardCounts}
           victories={victories}
+          difficulty={difficulty}
           tab={logTab}
           setTab={setLogTab}
           onClose={() => setLogOpen(false)}
@@ -4297,7 +4298,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'A boss has its own health bar and a mechanic to answer — pile your strongest towers and buffs on it, and watch the caption under its bar.',
     when: (ui) => ui.bossWave },
   { id: 'victory', target: 'hud', title: 'A run can be won',
-    body: 'Defeat every boss in the roster — around wave 90 — and the run is won. A Victory screen then lets you push on into Endless, where enemies keep pulling ahead and Rune Essence drops to a tenth, or start fresh. Your wins are kept in the Collection Log’s Victories tab.',
+    body: 'Defeat every boss in the roster — around wave 90 — and the run is won. A Victory screen then lets you push on into Endless, where enemies keep pulling ahead and Rune Essence drops to a tenth, or start fresh. Your wins are kept in the Collection Log’s Victories tab. Clearing a difficulty tier unlocks the next harder one for that mode, with the record — not extra power — tracked in the Collection Log’s Difficulty tab.',
     when: (ui) => ui.wave >= 60 && !ui.waveActive },
   // The 'draft' tip is taught *inside* the draft overlay itself (see the roguelite
   // draft block) so it explains the cards while you are choosing, not after — it is
@@ -4390,7 +4391,7 @@ interface TldrGroup { h: string; lines: string[] }
 const TLDR: TldrGroup[] = [
   { h: 'Goal', lines: [
     'Enemies walk the path to your base. Every leak costs a life; at zero lives the run ends.',
-    'Defeat every boss in the roster — about wave 90 — to win the run. A Victory screen then lets you carry on into Endless, where the threat keeps accelerating and Rune Essence drops to a tenth, or start fresh. Wins are recorded in the Collection Log’s Victories tab, and a ★ Champion mark lights on the title screen after your first.',
+    'Defeat every boss in the roster — about wave 90 — to win the run. A Victory screen then lets you carry on into Endless, where the threat keeps accelerating and Rune Essence drops to a tenth, or start fresh. Wins are recorded in the Collection Log’s Victories tab, and a ★ Champion mark lights on the title screen after your first. Clearing a difficulty tier unlocks the next harder one for that mode; the Collection Log’s Difficulty tab keeps that record — no extra power, just the mark.',
   ] },
   { h: 'Towers', lines: [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
@@ -5230,17 +5231,19 @@ function DpsViewBase({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHover
  *  tabs. Enemies show their baked sprite + lifetime kill count; the Cards tab shows
  *  every draft card with its lifetime pick count. Unobtained entries are darkened
  *  silhouettes (collection-log style). A completion counter per tab. */
-function CollectionLog({ killCounts, cardCounts, victories, tab, setTab, onClose, globalLock }: {
+function CollectionLog({ killCounts, cardCounts, victories, difficulty, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
   victories: Victories;
-  tab: 'bosses' | 'monsters' | 'cards' | 'victories';
-  setTab: (t: 'bosses' | 'monsters' | 'cards' | 'victories') => void;
+  difficulty: DifficultyProgress;
+  tab: 'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty';
+  setTab: (t: 'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty') => void;
   onClose: () => void;
   globalLock: boolean;
 }) {
   const isCards = tab === 'cards';
   const isVictories = tab === 'victories';
+  const isDifficulty = tab === 'difficulty';
   const entries = tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : [];
   const total = isCards ? DRAFT_POOL.length : entries.length;
   const obtained = isCards
@@ -5274,13 +5277,14 @@ function CollectionLog({ killCounts, cardCounts, victories, tab, setTab, onClose
       </div>
       <div className="flex items-center justify-between mt-[0.4em] mb-[0.5em]">
         <div className="flex gap-[0.3em]">
-          {(['bosses', 'monsters', 'cards', 'victories'] as const).map((t) => (
+          {(['bosses', 'monsters', 'cards', 'victories', 'difficulty'] as const).map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setSelected(null); setSort('name'); }}
               title={
                 t === 'cards' ? 'Reward cards collected'
                   : t === 'victories' ? 'Runs won'
+                  : t === 'difficulty' ? 'New Game+ progress'
                   : `${t === 'bosses' ? 'Bosses' : 'Monsters'} slain`
               }
               className={`rs-btn px-[0.8em] py-[0.15em] text-[0.78em] capitalize ${tab === t ? 'rs-btn-primary' : ''}`}
@@ -5289,7 +5293,7 @@ function CollectionLog({ killCounts, cardCounts, victories, tab, setTab, onClose
             </button>
           ))}
         </div>
-        {!isVictories && (
+        {!isVictories && !isDifficulty && (
           <span className="text-[0.78em] font-bold" style={{ color: complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}>
             {obtained}/{total} found
           </span>
@@ -5298,8 +5302,8 @@ function CollectionLog({ killCounts, cardCounts, victories, tab, setTab, onClose
 
       {/* List controls (grid view only): filter by collection status, and choose
           the sort key + direction. Hidden in the drill-down detail view and the
-          Victories record (which has no list to filter). */}
-      {!selected && !isVictories && (
+          Victories record and Difficulty view (neither has a list to filter). */}
+      {!selected && !isVictories && !isDifficulty && (
         <div className="flex items-center justify-between gap-[0.4em] mb-[0.5em] flex-wrap">
           <div className="flex gap-[0.2em]">
             {LOG_FILTERS.map((f) => (
@@ -5335,7 +5339,34 @@ function CollectionLog({ killCounts, cardCounts, victories, tab, setTab, onClose
           </div>
         </div>
       )}
-      {isVictories
+      {isDifficulty
+        ? (
+          <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0 py-[0.1em]">
+            {(['classic', 'roguelite'] as const).map((mode) => (
+              <div key={mode} className="mb-3 last:mb-0">
+                <div className="text-[0.66em] text-[#b3a585] uppercase tracking-wide mb-[0.2em]">
+                  {mode === 'classic' ? 'Classic' : 'Roguelite'}
+                </div>
+                {DIFFICULTY_TIERS.map((t) => {
+                  const rec = difficulty.records[`${mode}:${t.id}`];
+                  const cleared = t.id <= difficulty.highestCleared[mode];
+                  return (
+                    <div key={t.id} className="flex items-center justify-between py-[0.3em]">
+                      <span className={cleared ? 'text-osrs-yellow font-bold' : 'text-[#8a7d5c]'}>
+                        {cleared ? '★ ' : ''}{t.name}
+                      </span>
+                      <span className="text-[0.8em] text-[#cdbe91]">
+                        {rec?.fastestSeconds != null ? fmtTime(rec.fastestSeconds) : '—'}
+                        {rec && rec.highestEndlessWave > 0 ? ` · Endless ${rec.highestEndlessWave}` : ''}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )
+        : isVictories
         ? (
           <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0 py-[0.1em]">
             {victories.total === 0 ? (
