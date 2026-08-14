@@ -30,6 +30,7 @@ import type { TowerType, PrayerType, MageMode, CombatStyle, StyleWeakness, Targe
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 import { loadChangelog, CHANGELOG_KINDS, type ChangelogEntry } from '@/lib/game/changelog';
+import { DIFFICULTY_TIERS, highestUnlockedTier, isTierUnlocked, type DifficultyTier } from '@/lib/game/systems/difficulty';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 /** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
@@ -328,7 +329,7 @@ const INITIAL: UIState = {
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = { prayer: 'Prayer Unlocked' };
 
-const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', victories: 'osrs_td_victories', run: 'osrs_td_run' } as const;
+const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty' } as const;
 
 /** The champion's record — a non-monetary meta reward (no power, no gold), persisted
  *  like the rest of meta-progression. Total wins, best clear time, furthest Endless
@@ -350,6 +351,34 @@ function loadVictories(): Victories {
     }
   } catch { /* ignore */ }
   return EMPTY_VICTORIES;
+}
+
+/** New Game+ progress — a non-monetary meta record kept separate from Victories
+ *  so the already-validated Victories store is untouched. Highest tier cleared
+ *  per mode (-1 = nothing cleared → only Normal selectable), plus best records. */
+type DifficultyProgress = {
+  highestCleared: { classic: number; roguelite: number };
+  records: Record<string /* `${mode}:${tier}` */, { fastestSeconds: number | null; highestEndlessWave: number }>;
+};
+const EMPTY_DIFFICULTY: DifficultyProgress = {
+  highestCleared: { classic: -1, roguelite: -1 },
+  records: {},
+};
+
+function loadDifficulty(): DifficultyProgress {
+  if (typeof window === 'undefined') return EMPTY_DIFFICULTY;
+  try {
+    const raw = JSON.parse(localStorage.getItem(SAVE_KEYS.difficulty) ?? 'null');
+    if (raw && typeof raw === 'object') {
+      return {
+        ...EMPTY_DIFFICULTY,
+        ...raw,
+        highestCleared: { ...EMPTY_DIFFICULTY.highestCleared, ...(raw.highestCleared ?? {}) },
+        records: { ...(raw.records ?? {}) },
+      };
+    }
+  } catch { /* ignore */ }
+  return EMPTY_DIFFICULTY;
 }
 
 /** Read the saved run in progress, or null when there is none / it is unusable.
@@ -654,9 +683,28 @@ export default function GameRoot() {
   // The champion's win record (non-monetary meta reward). Read once on mount.
   const [victories, setVictories] = useState<Victories>(EMPTY_VICTORIES);
   useEffect(() => { setVictories(loadVictories()); }, []);
+  // New Game+ progress (separate store from Victories — see DifficultyProgress).
+  const [difficulty, setDifficulty] = useState<DifficultyProgress>(EMPTY_DIFFICULTY);
+  useEffect(() => { setDifficulty(loadDifficulty()); }, []);
+  // The tier the player has selected on the start screen for the current mode.
+  const [selectedTier, setSelectedTier] = useState<DifficultyTier>(0);
   // The title / mode-select screen gates the very first wave; it returns on
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
+  // Returning players resume at the tier they've earned (freely lowerable); a
+  // fresh mode switch re-seeds to that mode's own highest unlocked tier. Only
+  // applies pre-run — the selector is start-screen-only.
+  useEffect(() => {
+    if (runStarted) return;
+    const cleared = difficulty.highestCleared[ui.gameMode];
+    setSelectedTier(highestUnlockedTier(cleared));
+  }, [ui.gameMode, difficulty, runStarted]);
+  // The start-screen tier selector calls this; wave-1-only, guarded/clamped by
+  // the engine itself (see setDifficultyTier).
+  const chooseTier = (t: DifficultyTier) => {
+    setSelectedTier(t);
+    engineRef.current?.setDifficultyTier(t, difficulty.highestCleared[ui.gameMode]);
+  };
   // A run left in progress on this browser, offered back on the start screen.
   // Read once on mount (localStorage is not available during SSR).
   const [savedRun, setSavedRun] = useState<RunSave | null>(null);
@@ -918,7 +966,7 @@ export default function GameRoot() {
     if (!ui.won || !ui.victory) { recordedWin.current = false; return; }
     if (recordedWin.current) return;
     recordedWin.current = true;
-    const { seconds, mode } = ui.victory;
+    const { seconds, mode, tier } = ui.victory;
     setVictories((v) => {
       const next: Victories = {
         total: v.total + 1,
@@ -927,6 +975,22 @@ export default function GameRoot() {
         byMode: { ...v.byMode, [mode]: v.byMode[mode] + 1 },
       };
       try { localStorage.setItem(SAVE_KEYS.victories, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+    setDifficulty((d) => {
+      const key = `${mode}:${tier}`;
+      const prev = d.records[key] ?? { fastestSeconds: null, highestEndlessWave: 0 };
+      const next: DifficultyProgress = {
+        highestCleared: { ...d.highestCleared, [mode]: Math.max(d.highestCleared[mode], tier) },
+        records: {
+          ...d.records,
+          [key]: {
+            fastestSeconds: prev.fastestSeconds == null ? seconds : Math.min(prev.fastestSeconds, seconds),
+            highestEndlessWave: prev.highestEndlessWave,
+          },
+        },
+      };
+      try { localStorage.setItem(SAVE_KEYS.difficulty, JSON.stringify(next)); } catch { /* ignore */ }
       return next;
     });
   }, [ui.won, ui.victory]);
@@ -942,6 +1006,21 @@ export default function GameRoot() {
       return next;
     });
   }, [ui.gameOver, ui.runPhase, ui.wave]);
+
+  // Same Endless fold, but keyed by (mode, tier) into the New Game+ store — kept
+  // as its own store/effect (see DifficultyProgress) rather than merged into
+  // Victories, which stays untouched.
+  useEffect(() => {
+    if (!ui.gameOver || ui.runPhase !== 'endless') return;
+    const key = `${ui.gameMode}:${ui.difficultyTier}`;
+    setDifficulty((d) => {
+      const prev = d.records[key] ?? { fastestSeconds: null, highestEndlessWave: 0 };
+      if (ui.wave <= prev.highestEndlessWave) return d;
+      const next = { ...d, records: { ...d.records, [key]: { ...prev, highestEndlessWave: ui.wave } } };
+      try { localStorage.setItem(SAVE_KEYS.difficulty, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, [ui.gameOver, ui.runPhase, ui.wave, ui.gameMode, ui.difficultyTier]);
 
   // Autosave the run in progress, so closing the tab (or a crash) doesn't cost the
   // run. The engine only hands back a snapshot while the field is idle, so this
@@ -3209,7 +3288,10 @@ export default function GameRoot() {
           saved={savedRun}
           champion={victories.total > 0}
           wins={victories.total}
+          difficulty={difficulty}
+          selectedTier={selectedTier}
           onSelect={(m) => engineRef.current?.setMode(m)}
+          onSelectTier={chooseTier}
           onStart={() => { clearRunSave(); setSavedRun(null); setRunStarted(true); }}
           onContinue={() => {
             if (!savedRun) return;
@@ -4542,7 +4624,7 @@ function SaveStat({ icon, title, value }: { icon: string; title: string; value: 
   );
 }
 
-function StartScreen({ mode, saved, champion, wins, onSelect, onStart, onContinue, onDiscard, onHelp }: {
+function StartScreen({ mode, saved, champion, wins, difficulty, selectedTier, onSelect, onSelectTier, onStart, onContinue, onDiscard, onHelp }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back before mode select. */
   saved: RunSave | null;
@@ -4550,7 +4632,12 @@ function StartScreen({ mode, saved, champion, wins, onSelect, onStart, onContinu
   champion: boolean;
   /** Total victories, for the champion mark's hover title. */
   wins: number;
+  /** New Game+ progress — which tier is unlocked per mode. */
+  difficulty: DifficultyProgress;
+  /** The tier currently armed for the next run. */
+  selectedTier: DifficultyTier;
   onSelect: (m: GameMode) => void;
+  onSelectTier: (t: DifficultyTier) => void;
   onStart: () => void;
   onContinue: () => void;
   onDiscard: () => void;
@@ -4716,6 +4803,36 @@ function StartScreen({ mode, saved, champion, wins, onSelect, onStart, onContinu
             );
           })}
         </div>
+        {/* New Game+ difficulty ladder — hidden in resume mode like the mode blurbs
+            above (a returning player picked their tier when they saved the run).
+            Unlocked tiers are selectable; locked ones show a 🔒 and stay disabled. */}
+        {!compact && (
+          <div className="rs-panel-inset p-[0.6em] mt-[0.8em]">
+            <div className="text-[0.72em] text-[#cdbe91] uppercase tracking-wide mb-[0.5em]">Difficulty</div>
+            <div className="flex flex-wrap gap-[0.35em]">
+              {DIFFICULTY_TIERS.map((t) => {
+                const cleared = difficulty.highestCleared[mode];
+                const unlocked = isTierUnlocked(t.id, cleared);
+                const on = t.id === selectedTier;
+                return (
+                  <button
+                    key={t.id}
+                    disabled={!unlocked}
+                    className={`rs-btn px-[0.7em] py-[0.3em] text-[0.8em] ${on ? 'rs-btn-primary' : ''}`}
+                    title={unlocked ? `Play at ${t.name}` : `Locked — win the tier below to unlock ${t.name}`}
+                    onClick={() => unlocked && onSelectTier(t.id)}
+                  >
+                    {!unlocked && '🔒 '}{t.name}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="text-[0.68em] text-[#a89870] mt-[0.5em] leading-snug">
+              Win a tier to unlock the next. Higher tiers give tougher enemies and a
+              tighter economy — the reward is the record, not power.
+            </div>
+          </div>
+        )}
         {/* A new run overwrites the saved one, so with a save on disk it asks first. */}
         {saved && confirm === 'new' ? (
           <div className="flex flex-col gap-[0.35em]">
