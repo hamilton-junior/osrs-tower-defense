@@ -45,7 +45,7 @@ not built · `recheck` — needs verification against current code before acting
 | 15 | UI scale >120% breaks layout (gold pile overlap) | shipped — `a3e3a58` + `1c41c4e` (scale capped to what the screen can actually hold) |
 | 16 | FPS plummets at 5× with any panel open (wave 100+, many towers) | shipped — `0739532` (DPS meter refreshes on the wall-clock not the sim-clock, so 5× no longer forces ~5× the renders; `DpsView` memoised off gold/lives churn). The general single-`ui` full re-render for *other* panels is not speed-amplified and was left as-is |
 | 17 | Regen fire giant targeting / softlock (dmg = regen, rooted by stuns) | shipped — `3b775b8` (same stall-breaker; the "only 5 towers can target it" was a symptom, not a cap) |
-| 18 | Wizard staff-type picker draws *above* the tile, off-screen on the top 2 rows | queued — confirmed, open bug (Minor). Fix: flip the picker below the tile near the top edge |
+| 18 | Wizard staff-type picker draws *above* the tile, off-screen on the top 2 rows | shipped — `4b36706` (the picker measures itself and is clamped inside the board like the enemy panel, flipping below the tile near the top edge) |
 | 19 | "Pricing bug" — tower cost rising above base | wontfix — intended: each same-type tower costs +15% than the last (`5d24d7d`, `economy.ts`) |
 | 20 | Endless button does nothing after clearing the boss roster | shipped — `c0a328f` (`continueEndless()` flips `runPhase` to endless and closes the victory screen, resuming play) |
 
