@@ -3,7 +3,7 @@ import {
   emptyRunStats, evaluate, tierProgress, earnedTitles, highestTitle,
   CA_TIERS, type RunStats,
 } from './combat-achievements';
-import { CA_TASKS } from '../data/combat-achievements';
+import { CA_TASKS, CA_BOSS_ROSTER } from '../data/combat-achievements';
 
 /** A RunStats with the given fields overridden — every test starts from empty. */
 const stats = (over: Partial<RunStats> = {}): RunStats => ({ ...emptyRunStats('classic', 0), ...over });
@@ -237,6 +237,66 @@ describe('master tier', () => {
   it('endless-endurance needs Endless wave 200', () => {
     expect(evaluate(stats({ maxWaveReached: 200, runPhase: 'normal' }), none)).not.toContain('endless-endurance');
     expect(evaluate(stats({ maxWaveReached: 200, runPhase: 'endless' }), none)).toContain('endless-endurance');
+  });
+});
+
+describe('grandmaster tier', () => {
+  const win = (over: Partial<RunStats> = {}) => stats({ won: true, ...over });
+
+  it('has exactly 40 tasks in total', () => {
+    expect(CA_TASKS.length).toBe(40);
+  });
+
+  it('grandmaster needs a tier-6 win', () => {
+    expect(evaluate(win({ tier: 5 }), none)).not.toContain('grandmaster');
+    expect(evaluate(win({ tier: 6 }), none)).toContain('grandmaster');
+  });
+
+  it('untouchable-champion needs a flawless win', () => {
+    expect(evaluate(win({ livesLostRun: 1 }), none)).not.toContain('untouchable-champion');
+    expect(evaluate(win({ livesLostRun: 0 }), none)).toContain('untouchable-champion');
+  });
+
+  it('perfect-roster needs all ten bosses, none costing a life', () => {
+    type Kills = RunStats['bossKillSeconds'];
+    const all: Kills = Object.fromEntries(CA_BOSS_ROSTER.map((b) => [b, 30])) as Kills;
+    expect(evaluate(win({ bossKillSeconds: all, livesLostDuringBoss: { jad: 1 } }), none))
+      .not.toContain('perfect-roster');
+    const missingOne: Kills = { ...all };
+    delete missingOne[CA_BOSS_ROSTER[0]];
+    expect(evaluate(win({ bossKillSeconds: missingOne }), none)).not.toContain('perfect-roster');
+    expect(evaluate(win({ bossKillSeconds: all }), none)).toContain('perfect-roster');
+  });
+
+  it('speed-grandmaster needs Master+ under an hour', () => {
+    expect(evaluate(win({ tier: 4, runSeconds: 100 }), none)).not.toContain('speed-grandmaster');
+    expect(evaluate(win({ tier: 5, runSeconds: 60 * 60 }), none)).not.toContain('speed-grandmaster');
+    expect(evaluate(win({ tier: 5, runSeconds: 60 * 60 - 1 }), none)).toContain('speed-grandmaster');
+  });
+
+  it('ascetic-grandmaster needs Elite+, nothing sold, at most 12 built', () => {
+    expect(evaluate(win({ tier: 4, towersSold: 1, towersBuilt: 12 }), none)).not.toContain('ascetic-grandmaster');
+    expect(evaluate(win({ tier: 4, towersSold: 0, towersBuilt: 13 }), none)).not.toContain('ascetic-grandmaster');
+    expect(evaluate(win({ tier: 3, towersSold: 0, towersBuilt: 12 }), none)).not.toContain('ascetic-grandmaster');
+    expect(evaluate(win({ tier: 4, towersSold: 0, towersBuilt: 12 }), none)).toContain('ascetic-grandmaster');
+  });
+
+  it('the-whole-log never counts itself and fires on the last task', () => {
+    const others = CA_TASKS.filter((t) => t.id !== 'the-whole-log').map((t) => t.id);
+    // All but one already done: the capstone must not fire yet.
+    const allButOne = new Set(others.slice(0, -1));
+    expect(evaluate(stats(), { completed: allButOne })).not.toContain('the-whole-log');
+    // Everything else done: it fires.
+    expect(evaluate(stats(), { completed: new Set(others) })).toContain('the-whole-log');
+  });
+
+  it('the-whole-log fires in the same evaluate that completes the 39th task', () => {
+    const others = CA_TASKS.filter((t) => t.id !== 'the-whole-log').map((t) => t.id);
+    // Everything except ledger-opened, which this very RunStats satisfies.
+    const completed = new Set(others.filter((id) => id !== 'ledger-opened'));
+    const gained = evaluate(stats({ maxWaveReached: 20 }), { completed });
+    expect(gained).toContain('ledger-opened');
+    expect(gained).toContain('the-whole-log');
   });
 });
 

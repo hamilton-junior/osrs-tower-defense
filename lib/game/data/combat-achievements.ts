@@ -203,4 +203,38 @@ export const CA_TASKS: readonly CaTask[] = [
     desc: 'Reach wave 200 in Endless.',
     check: (s) => s.runPhase === 'endless' && s.maxWaveReached >= 200,
   },
+
+  // --- Grandmaster ---
+  {
+    id: 'grandmaster', tier: 'grandmaster', name: 'Grandmaster',
+    desc: 'Win a run on Grandmaster difficulty.',
+    check: (s) => s.won && s.tier >= 6,
+  },
+  {
+    id: 'untouchable-champion', tier: 'grandmaster', name: 'Untouchable Champion',
+    desc: 'Win a run without losing a single life.',
+    check: (s) => s.won && s.livesLostRun === 0,
+  },
+  {
+    id: 'perfect-roster', tier: 'grandmaster', name: 'Perfect Roster',
+    desc: 'Defeat all ten bosses in one run, losing no life to any of them.',
+    check: (s) => s.won && CA_BOSS_ROSTER.every(
+      (b) => s.bossKillSeconds[b] !== undefined && (s.livesLostDuringBoss[b] ?? 0) === 0,
+    ),
+  },
+  {
+    id: 'speed-grandmaster', tier: 'grandmaster', name: 'Speed Grandmaster',
+    desc: 'Win on Master difficulty or above in under 60 minutes.',
+    check: (s) => s.won && s.tier >= 5 && s.runSeconds < 60 * 60,
+  },
+  {
+    id: 'ascetic-grandmaster', tier: 'grandmaster', name: 'Ascetic Grandmaster',
+    desc: 'Win on Elite difficulty or above without selling a tower, having built no more than 12.',
+    check: (s) => s.won && s.tier >= 4 && s.towersSold === 0 && s.towersBuilt <= 12,
+  },
+  {
+    id: 'the-whole-log', tier: 'grandmaster', name: 'The Whole Log',
+    desc: 'Complete every other Combat Achievement.',
+    check: (_s, a) => CA_TASKS.every((t) => t.id === 'the-whole-log' || a.completed.has(t.id)),
+  },
 ];
