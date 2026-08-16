@@ -70,6 +70,93 @@ describe('evaluate', () => {
   });
 });
 
+describe('medium tier', () => {
+  it('bodyguard needs Brutus dead with no life lost to him', () => {
+    expect(evaluate(stats({ bossKillSeconds: { brutus: 40 }, livesLostDuringBoss: { brutus: 1 } }), none))
+      .not.toContain('bodyguard');
+    expect(evaluate(stats({ bossKillSeconds: { brutus: 40 } }), none)).toContain('bodyguard');
+  });
+
+  it('molehill needs the Giant Mole dead', () => {
+    expect(evaluate(stats(), none)).not.toContain('molehill');
+    expect(evaluate(stats({ bossKillSeconds: { giant_mole: 55 } }), none)).toContain('molehill');
+  });
+
+  it('sun-and-moon needs both Guardians dead with no revive', () => {
+    const both = { dusk: 30, dawn: 35 };
+    expect(evaluate(stats({ bossKillSeconds: both, bossFlags: { ...emptyRunStats('classic', 0).bossFlags, duskDawnClean: false } }), none))
+      .not.toContain('sun-and-moon');
+    expect(evaluate(stats({ bossKillSeconds: { dusk: 30 } }), none)).not.toContain('sun-and-moon');
+    expect(evaluate(stats({ bossKillSeconds: both }), none)).toContain('sun-and-moon');
+  });
+
+  it('thrifty needs wave 30 with at most 8 towers built', () => {
+    expect(evaluate(stats({ maxWaveReached: 30, towersBuilt: 9 }), none)).not.toContain('thrifty');
+    expect(evaluate(stats({ maxWaveReached: 29, towersBuilt: 8 }), none)).not.toContain('thrifty');
+    expect(evaluate(stats({ maxWaveReached: 30, towersBuilt: 8 }), none)).toContain('thrifty');
+  });
+
+  it('specialist needs 100 kills on one tower', () => {
+    expect(evaluate(stats({ killsByTower: { a: 99, b: 99 } }), none)).not.toContain('specialist');
+    expect(evaluate(stats({ killsByTower: { a: 100 } }), none)).toContain('specialist');
+  });
+
+  it('taskmaster needs 5 Slayer tasks', () => {
+    expect(evaluate(stats({ slayerTasksDone: 4 }), none)).not.toContain('taskmaster');
+    expect(evaluate(stats({ slayerTasksDone: 5 }), none)).toContain('taskmaster');
+  });
+
+  it('untouchable needs a 5-wave clean streak', () => {
+    expect(evaluate(stats({ cleanWaveStreak: 4 }), none)).not.toContain('untouchable');
+    expect(evaluate(stats({ cleanWaveStreak: 5 }), none)).toContain('untouchable');
+  });
+});
+
+describe('hard tier', () => {
+  const flags = (over: Partial<RunStats['bossFlags']>) => ({
+    ...emptyRunStats('classic', 0).bossFlags, ...over,
+  });
+
+  it('fire-cape needs Jad dead and never healed', () => {
+    expect(evaluate(stats({ bossKillSeconds: { jad: 120 }, bossFlags: flags({ jadHealed: true }) }), none))
+      .not.toContain('fire-cape');
+    expect(evaluate(stats({ bossKillSeconds: { jad: 120 } }), none)).toContain('fire-cape');
+  });
+
+  it('vent-breaker needs both Hydra vents broken', () => {
+    expect(evaluate(stats({ bossFlags: flags({ hydraVentsBroken: 1 }) }), none)).not.toContain('vent-breaker');
+    expect(evaluate(stats({ bossFlags: flags({ hydraVentsBroken: 2 }) }), none)).toContain('vent-breaker');
+  });
+
+  it('hellhounds-master needs Cerberus dead with no soul escaping', () => {
+    expect(evaluate(stats({ bossKillSeconds: { cerberus: 70 }, bossFlags: flags({ cerberusSoulLeaked: true }) }), none))
+      .not.toContain('hellhounds-master');
+    expect(evaluate(stats({ bossKillSeconds: { cerberus: 70 } }), none)).toContain('hellhounds-master');
+  });
+
+  it('snake-charmer needs Zulrah under 90 seconds', () => {
+    expect(evaluate(stats(), none)).not.toContain('snake-charmer');
+    expect(evaluate(stats({ bossKillSeconds: { zulrah: 90 } }), none)).not.toContain('snake-charmer');
+    expect(evaluate(stats({ bossKillSeconds: { zulrah: 89 } }), none)).toContain('snake-charmer');
+  });
+
+  it('dragonfire-drill needs Vorkath dead with no life lost to him', () => {
+    expect(evaluate(stats({ bossKillSeconds: { vorkath: 80 }, livesLostDuringBoss: { vorkath: 1 } }), none))
+      .not.toContain('dragonfire-drill');
+    expect(evaluate(stats({ bossKillSeconds: { vorkath: 80 } }), none)).toContain('dragonfire-drill');
+  });
+
+  it('minimalist needs wave 50 with at most 6 towers on the field', () => {
+    expect(evaluate(stats({ maxWaveReached: 50, maxTowersOnField: 7 }), none)).not.toContain('minimalist');
+    expect(evaluate(stats({ maxWaveReached: 50, maxTowersOnField: 6 }), none)).toContain('minimalist');
+  });
+
+  it('purist needs wave 40 with nothing sold', () => {
+    expect(evaluate(stats({ maxWaveReached: 40, towersSold: 1 }), none)).not.toContain('purist');
+    expect(evaluate(stats({ maxWaveReached: 40, towersSold: 0 }), none)).toContain('purist');
+  });
+});
+
 describe('tier helpers', () => {
   it('counts progress per tier', () => {
     const p = tierProgress(new Set(['ledger-opened']));
