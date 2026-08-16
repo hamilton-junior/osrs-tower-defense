@@ -157,6 +157,89 @@ describe('hard tier', () => {
   });
 });
 
+describe('elite tier', () => {
+  const win = (over: Partial<RunStats> = {}) => stats({ won: true, ...over });
+
+  it('champion needs a win', () => {
+    expect(evaluate(stats(), none)).not.toContain('champion');
+    expect(evaluate(win(), none)).toContain('champion');
+  });
+
+  it('old-school and gambler are mode-locked', () => {
+    const classicWin = evaluate({ ...win(), mode: 'classic' }, none);
+    expect(classicWin).toContain('old-school');
+    expect(classicWin).not.toContain('gambler');
+
+    const rogueWin = evaluate({ ...win(), mode: 'roguelite' }, none);
+    expect(rogueWin).toContain('gambler');
+    expect(rogueWin).not.toContain('old-school');
+  });
+
+  it('speed-runner needs a win under 45 minutes', () => {
+    expect(evaluate(win({ runSeconds: 45 * 60 }), none)).not.toContain('speed-runner');
+    expect(evaluate(win({ runSeconds: 45 * 60 - 1 }), none)).toContain('speed-runner');
+  });
+
+  it('iron-wall allows at most 5 lives lost', () => {
+    expect(evaluate(win({ livesLostRun: 6 }), none)).not.toContain('iron-wall');
+    expect(evaluate(win({ livesLostRun: 5 }), none)).toContain('iron-wall');
+  });
+
+  it('one-true-style needs exactly one style', () => {
+    expect(evaluate(win({ stylesUsed: ['ranged', 'magic'] }), none)).not.toContain('one-true-style');
+    expect(evaluate(win({ stylesUsed: [] }), none)).not.toContain('one-true-style');
+    expect(evaluate(win({ stylesUsed: ['ranged'] }), none)).toContain('one-true-style');
+  });
+
+  it('deep-cut needs Endless wave 120', () => {
+    expect(evaluate(stats({ maxWaveReached: 120, runPhase: 'normal' }), none)).not.toContain('deep-cut');
+    expect(evaluate(stats({ maxWaveReached: 119, runPhase: 'endless' }), none)).not.toContain('deep-cut');
+    expect(evaluate(stats({ maxWaveReached: 120, runPhase: 'endless' }), none)).toContain('deep-cut');
+  });
+});
+
+describe('master tier', () => {
+  const win = (over: Partial<RunStats> = {}) => stats({ won: true, ...over });
+
+  it('hard-mode and elite-company gate on the difficulty tier', () => {
+    expect(evaluate(win({ tier: 2 }), none)).not.toContain('hard-mode');
+    expect(evaluate(win({ tier: 3 }), none)).toContain('hard-mode');
+    expect(evaluate(win({ tier: 3 }), none)).not.toContain('elite-company');
+    expect(evaluate(win({ tier: 4 }), none)).toContain('elite-company');
+  });
+
+  it('flawless-fight-caves needs a clean Jad on Hard or above', () => {
+    expect(evaluate(stats({ tier: 2, bossKillSeconds: { jad: 100 } }), none))
+      .not.toContain('flawless-fight-caves');
+    expect(evaluate(stats({ tier: 3, bossKillSeconds: { jad: 100 }, livesLostDuringBoss: { jad: 1 } }), none))
+      .not.toContain('flawless-fight-caves');
+    expect(evaluate(stats({ tier: 3, bossKillSeconds: { jad: 100 } }), none))
+      .toContain('flawless-fight-caves');
+  });
+
+  it('perfect-hydra needs the Hydra dead having never healed at a vent', () => {
+    const healed = { ...emptyRunStats('classic', 0).bossFlags, hydraVentHealed: true };
+    expect(evaluate(stats({ bossKillSeconds: { hydra: 150 }, bossFlags: healed }), none))
+      .not.toContain('perfect-hydra');
+    expect(evaluate(stats({ bossKillSeconds: { hydra: 150 } }), none)).toContain('perfect-hydra');
+  });
+
+  it('bare-bones allows at most 10 towers built', () => {
+    expect(evaluate(win({ towersBuilt: 11 }), none)).not.toContain('bare-bones');
+    expect(evaluate(win({ towersBuilt: 10 }), none)).toContain('bare-bones');
+  });
+
+  it('no-gods-no-prayers needs a prayerless win', () => {
+    expect(evaluate(win({ prayerEverUsed: true }), none)).not.toContain('no-gods-no-prayers');
+    expect(evaluate(win({ prayerEverUsed: false }), none)).toContain('no-gods-no-prayers');
+  });
+
+  it('endless-endurance needs Endless wave 200', () => {
+    expect(evaluate(stats({ maxWaveReached: 200, runPhase: 'normal' }), none)).not.toContain('endless-endurance');
+    expect(evaluate(stats({ maxWaveReached: 200, runPhase: 'endless' }), none)).toContain('endless-endurance');
+  });
+});
+
 describe('tier helpers', () => {
   it('counts progress per tier', () => {
     const p = tierProgress(new Set(['ledger-opened']));

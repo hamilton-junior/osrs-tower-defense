@@ -125,4 +125,82 @@ export const CA_TASKS: readonly CaTask[] = [
     desc: 'Reach wave 40 without selling a tower.',
     check: (s) => s.maxWaveReached >= 40 && s.towersSold === 0,
   },
+
+  // --- Elite ---
+  {
+    id: 'champion', tier: 'elite', name: 'Champion',
+    desc: 'Win a run.',
+    check: (s) => s.won,
+  },
+  {
+    id: 'old-school', tier: 'elite', name: 'Old School',
+    desc: 'Win a run in Classic mode.',
+    mode: 'classic',
+    check: (s) => s.won,
+  },
+  {
+    id: 'gambler', tier: 'elite', name: 'Gambler',
+    desc: 'Win a run in Roguelite mode.',
+    mode: 'roguelite',
+    check: (s) => s.won,
+  },
+  {
+    id: 'speed-runner', tier: 'elite', name: 'Speed Runner',
+    desc: 'Win a run in under 45 minutes.',
+    check: (s) => s.won && s.runSeconds < 45 * 60,
+  },
+  {
+    id: 'iron-wall', tier: 'elite', name: 'Iron Wall',
+    desc: 'Win a run losing no more than 5 lives.',
+    check: (s) => s.won && s.livesLostRun <= 5,
+  },
+  {
+    id: 'one-true-style', tier: 'elite', name: 'One True Style',
+    desc: 'Win a run using towers of a single combat style.',
+    check: (s) => s.won && s.stylesUsed.length === 1,
+  },
+  {
+    id: 'deep-cut', tier: 'elite', name: 'Deep Cut',
+    desc: 'Reach wave 120 in Endless.',
+    check: (s) => s.runPhase === 'endless' && s.maxWaveReached >= 120,
+  },
+
+  // --- Master ---
+  {
+    id: 'hard-mode', tier: 'master', name: 'Hard Mode',
+    desc: 'Win a run on Hard difficulty or above.',
+    check: (s) => s.won && s.tier >= 3,
+  },
+  {
+    id: 'elite-company', tier: 'master', name: 'Elite Company',
+    desc: 'Win a run on Elite difficulty or above.',
+    check: (s) => s.won && s.tier >= 4,
+  },
+  {
+    id: 'flawless-fight-caves', tier: 'master', name: 'Flawless Fight Caves',
+    desc: 'Defeat TzTok-Jad without losing a life, on Hard difficulty or above.',
+    check: (s) => s.tier >= 3
+      && s.bossKillSeconds.jad !== undefined
+      && (s.livesLostDuringBoss.jad ?? 0) === 0,
+  },
+  {
+    id: 'perfect-hydra', tier: 'master', name: 'Perfect Hydra',
+    desc: 'Defeat the Alchemical Hydra without it healing at a vent.',
+    check: (s) => s.bossKillSeconds.hydra !== undefined && !s.bossFlags.hydraVentHealed,
+  },
+  {
+    id: 'bare-bones', tier: 'master', name: 'Bare Bones',
+    desc: 'Win a run having built no more than 10 towers.',
+    check: (s) => s.won && s.towersBuilt <= 10,
+  },
+  {
+    id: 'no-gods-no-prayers', tier: 'master', name: 'No Gods, No Prayers',
+    desc: 'Win a run without activating a single prayer.',
+    check: (s) => s.won && !s.prayerEverUsed,
+  },
+  {
+    id: 'endless-endurance', tier: 'master', name: 'Endless Endurance',
+    desc: 'Reach wave 200 in Endless.',
+    check: (s) => s.runPhase === 'endless' && s.maxWaveReached >= 200,
+  },
 ];
