@@ -835,6 +835,11 @@ export default function GameRoot() {
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
   const [animTick, setAnimTick] = useState(0);
+  // Measured size of the on-tile wizard picker, so it can be clamped fully inside
+  // the board the same way the enemy panel is (it used to sit at a fixed -118%,
+  // which put it off the top edge for tiles on the first rows).
+  const wizardPickerRef = useRef<HTMLDivElement>(null);
+  const [wizardPickerSize, setWizardPickerSize] = useState({ w: 0, h: 0 });
   // The enemy info panel: the clicked/pinned enemy, or whichever is hovered.
   const [enemyPanel, setEnemyPanel] = useState<{ info: EnemyHoverInfo; pinned: boolean } | null>(null);
   // Measured pixel size of the enemy panel, so we can clamp it fully on-screen
@@ -862,6 +867,15 @@ export default function GameRoot() {
     if (!el) return;
     const w = el.offsetWidth, h = el.offsetHeight;
     if (w !== enemyPanelSize.w || h !== enemyPanelSize.h) setEnemyPanelSize({ w, h });
+  });
+
+  // Same measurement for the wizard picker — its height varies with the UI scale
+  // and the hover preview, so only the real one can tell whether it fits above.
+  useLayoutEffect(() => {
+    const el = wizardPickerRef.current;
+    if (!el) return;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    if (w !== wizardPickerSize.w || h !== wizardPickerSize.h) setWizardPickerSize({ w, h });
   });
 
   // Tick the picker animations on the OSRS cadence, only while a picker is open —
@@ -2054,14 +2068,29 @@ export default function GameRoot() {
           Each option's icon cycles its staves (Elemental → 4 elemental staves,
           Ancients → 4 sceptres, Utility → Lunar staff); hovering one previews its
           spells cycling. Picking a spellbook builds the wizard there. */}
-      {ui.pendingPlacement && ui.selectedTowerType === 'wizard' && (
+      {ui.pendingPlacement && ui.selectedTowerType === 'wizard' && (() => {
+        // Tile position in container pixels, then the same clamp the enemy panel
+        // uses: above the tile by default, below it when the measured picker would
+        // clip the top edge, and never outside the board either way.
+        const place = ui.pendingPlacement;
+        const box = paintedBox();
+        const rect = boardRef.current?.getBoundingClientRect();
+        const cw = rect?.width ?? window.innerWidth;
+        const ch = rect?.height ?? window.innerHeight;
+        const tx = box ? box.dx + (place.x / engW) * box.width : (place.x / engW) * cw;
+        const ty = box ? box.dy + (place.y / engH) * box.height : (place.y / engH) * ch;
+        const m = 8;                                          // board margin
+        const gap = (box ? box.height / engH : 1) * 24 + 6;   // clears the tile itself
+        const pw = wizardPickerSize.w, ph = wizardPickerSize.h;
+        const left = Math.max(m, Math.min(cw - pw - m, tx - pw / 2));
+        let top = ty - gap - ph;
+        if (top < m) top = ty + gap;
+        top = Math.max(m, Math.min(ch - ph - m, top));
+        return (
         <div
+          ref={wizardPickerRef}
           className="absolute z-30"
-          style={{
-            left: `${(ui.pendingPlacement.x / engW) * 100}%`,
-            top: `${(ui.pendingPlacement.y / engH) * 100}%`,
-            transform: 'translate(-50%, -118%)',
-          }}
+          style={{ left: `${left}px`, top: `${top}px`, visibility: pw === 0 ? 'hidden' : 'visible' }}
         >
           <div className="rs-panel p-[0.7em]" style={{ fontSize: fs('clamp(15px, 1vw, 21px)') }}>
             <div className="text-center text-[0.66em] text-[#d3c3a0] uppercase tracking-wide mb-[0.4em]">Choose spellbook</div>
@@ -2104,7 +2133,8 @@ export default function GameRoot() {
             <div className="text-center text-[0.62em] text-[#b3a585] mt-[0.3em]">right‑click to cancel</div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Legacy general 6-tower picker — disabled (SHOW_TOWER_PICKER) but kept. */}
       {SHOW_TOWER_PICKER && ui.pendingPlacement && (

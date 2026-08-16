@@ -1,6 +1,55 @@
 {
-  "generatedAt": "2026-08-05",
+  "generatedAt": "2026-08-16",
   "entries": [
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Difficulty collection-log entry + tutorial mirror line",
+      "fromFeedback": false,
+      "date": "2026-08-14"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "New Game+ tier selector + per-mode difficulty progress store",
+      "fromFeedback": false,
+      "date": "2026-08-14"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Engine holds/applies/emits the difficulty tier (lives, enemy mults, save)",
+      "fromFeedback": false,
+      "date": "2026-08-13"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Persist difficultyTier in the run save (version 3, defaults to 0)",
+      "fromFeedback": false,
+      "date": "2026-08-13"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Optional difficulty multipliers on scaleEnemyStats (identity default)",
+      "fromFeedback": false,
+      "date": "2026-08-13"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "Restore Grandmaster -20 lives; add effectiveStartLives floor helper",
+      "fromFeedback": false,
+      "date": "2026-08-13"
+    },
+    {
+      "kind": "new",
+      "scope": null,
+      "text": "Pure difficulty-ladder module (tiers, mods, unlock math)",
+      "fromFeedback": false,
+      "date": "2026-08-13"
+    },
     {
       "kind": "fixed",
       "scope": null,
@@ -231,55 +280,6 @@
       "text": "Changing a tower's target priority updates the panel immediately",
       "fromFeedback": true,
       "date": "2026-07-26"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "Snap towers to tile centres so they sit inside the grid squares",
-      "fromFeedback": false,
-      "date": "2026-07-26"
-    },
-    {
-      "kind": "balanced",
-      "scope": null,
-      "text": "Draft odds shift toward cap-escaping cards as a run climbs",
-      "fromFeedback": false,
-      "date": "2026-07-26"
-    },
-    {
-      "kind": "balanced",
-      "scope": null,
-      "text": "Late-game draft re-weighting classifier",
-      "fromFeedback": false,
-      "date": "2026-07-25"
-    },
-    {
-      "kind": "balanced",
-      "scope": null,
-      "text": "Soft-cap stacked fireRate and range like damage",
-      "fromFeedback": false,
-      "date": "2026-07-25"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "The Continue button now leaves the victory screen and plays on into Endless",
-      "fromFeedback": true,
-      "date": "2026-07-25"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "A champion's record of wins, fastest clears and furthest Endless",
-      "fromFeedback": false,
-      "date": "2026-07-25"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "A victory screen to claim the run, then carry on into Endless",
-      "fromFeedback": false,
-      "date": "2026-07-25"
     }
   ]
 }
