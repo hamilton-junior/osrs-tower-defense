@@ -63,7 +63,7 @@ export const CA_TASKS: readonly CaTask[] = [
   },
   {
     id: 'sun-and-moon', tier: 'medium', name: 'Sun and Moon',
-    desc: 'Defeat Dusk and Dawn in the correct order, with neither reviving.',
+    desc: 'Defeat both Dusk and Dawn without either one reviving.',
     check: (s) => s.bossKillSeconds.dusk !== undefined
       && s.bossKillSeconds.dawn !== undefined
       && s.bossFlags.duskDawnClean,
