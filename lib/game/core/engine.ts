@@ -23,6 +23,7 @@ import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor 
 import { canEquip, rollGearDrops, gearDamageMult } from '../systems/tower-gear';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
+import { emptyRunStats, type RunStats } from '../systems/combat-achievements';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -806,6 +807,9 @@ export class GameEngine {
    *  separate from the persistent {@link MetaSystem} balance so the summary can
    *  show what the run earned. Reset on {@link restart}. */
   essenceEarnedThisRun = 0;
+  /** Combat Achievement facts for this run. Recorded here, evaluated by the pure
+   *  `systems/combat-achievements` module at the three checkpoints. */
+  caStats: RunStats = emptyRunStats('roguelite', 0);
 
   /**
    * How long this run has taken **on a wall clock** — the summary's timer.
@@ -1237,6 +1241,9 @@ export class GameEngine {
   /** Toggle a prayer on/off (UI button). */
   togglePrayer(id: PrayerType) {
     this.prayer.toggle(id);
+    // `toggle` never leaves a prayer active if it was already active (that branch
+    // deactivates it), so finding it active here means this call just turned it on.
+    if (this.prayer.active.has(id)) this.caStats.prayerEverUsed = true;
     this.bumpCombatEpoch();
     this.emit(); // activePrayers changed — push it now (don't wait for an incidental frame)
   }
@@ -2318,6 +2325,11 @@ export class GameEngine {
     };
     this.towers.push(tower);
     this.towersBuilt += 1;
+    this.caStats.towersBuilt = this.towersBuilt;
+    this.caStats.maxTowersOnField = Math.max(this.caStats.maxTowersOnField, this.towers.length);
+    if (new Set(this.towers.map((t) => t.type)).size >= 6) this.caStats.hadAllSixAtOnce = true;
+    const style = TOWER_STYLES[tower.type]?.style;
+    if (style && !this.caStats.stylesUsed.includes(style)) this.caStats.stylesUsed.push(style);
     this.bumpTowerLayout();
     // No build SFX for now — the old fireworks read as a celebration; per-tower
     // construction sounds are a future pick.
@@ -2666,6 +2678,7 @@ export class GameEngine {
       if (tower.equipment.jewellery) this.lootBag = [...this.lootBag, tower.equipment.jewellery];
     }
     this.towers.splice(i, 1);
+    this.caStats.towersSold += 1;
     this.bumpTowerLayout();
     if (this.selectedTowerId === towerId) this.selectedTowerId = null;
     if (this.movingTowerId === towerId) this.movingTowerId = null;
@@ -3159,6 +3172,7 @@ export class GameEngine {
 
   /** Haul a fallen Guardian back up beside its twin, on half health, link restored. */
   private reviveTwin(survivor: Enemy) {
+    this.caStats.bossFlags.duskDawnClean = false;
     const st = survivor.bossState!;
     const type = st.twinType;
     if (!type) return;
@@ -3405,6 +3419,7 @@ export class GameEngine {
       // the board that was *nearly* enough finally gets through.
       const heal = hydraVentHeal(e.maxHp, dt) * stallHealMult(st.stallStacks ?? 0);
       e.hp = Math.min(e.maxHp, e.hp + heal);
+      if (heal > 0) this.caStats.bossFlags.hydraVentHealed = true;
       st.ventTimer = (st.ventTimer ?? 0) - dt;
       if ((st.ventDamage ?? 0) >= hydraBreakTarget(e.maxHp)) this.shatterHydraVent(e);
       else if (st.ventTimer <= 0) {
@@ -3445,6 +3460,7 @@ export class GameEngine {
     st.venting = false;
     st.ventDamage = 0;
     st.shattered = (st.shattered ?? 0) + 1;
+    this.caStats.bossFlags.hydraVentsBroken += 1;
     e.vulnTimer = Math.max(e.vulnTimer ?? 0, HYDRA_SHATTER_VULN_SECS);
     const phase = hydraPhase(st.shattered);
     this.addRing(e.x, e.y, 6, 90, phase.color, 0.6, 5);
@@ -3504,6 +3520,7 @@ export class GameEngine {
         const heal = jadHealPerTick(recentDamageSum(st.recentDamage, now, JAD_HEAL_WINDOW_SECS));
         if (heal > 0) {
           e.hp = Math.min(e.maxHp, e.hp + heal);
+          this.caStats.bossFlags.jadHealed = true;
           // A green "heal" splat floats off Jad so the regen reads clearly.
           this.hitsplats.push({ x: e.x + (Math.random() - 0.5) * 16, y: e.y - 18, value: heal, kind: 'heal', life: HITSPLAT_LIFE });
           for (let i = 0; i < 3; i++) {
@@ -3904,6 +3921,9 @@ export class GameEngine {
   private moveEnemies(dt: number) {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
+      if (e.isBoss && this.caStats.bossSpawnSeconds[e.type] === undefined) {
+        this.caStats.bossSpawnSeconds[e.type] = this.runSeconds;
+      }
       if (e.spawnAnim && e.spawnAnim > 0) e.spawnAnim = Math.max(0, e.spawnAnim - dt);
       if (e.flashTimer && e.flashTimer > 0) e.flashTimer -= dt;
       e.animTime = (e.animTime ?? 0) + dt; // drives the looping walk-cycle
@@ -3961,6 +3981,7 @@ export class GameEngine {
         // above), but guard the life-cost anyway so only the boss itself — never a
         // healer — can cost a life if that path is ever refactored.
         this.enemies.splice(i, 1);
+        if (e.type === 'summoned_soul') this.caStats.bossFlags.cerberusSoulLeaked = true;
         // A Guardian that walks off is *gone*, not dead. Tell its twin so, or the
         // survivor reads the empty field as "my twin was killed" and hauls it back
         // up — letting one Guardian charge the player for two leaks.
@@ -3971,6 +3992,14 @@ export class GameEngine {
         if (!e.debug && !e.escort) {
           const cost = this.leakCost(e);
           this.lives -= cost;
+          this.caStats.livesLostRun += cost;
+          this.caStats.livesLostThisWave += cost;
+          this.caStats.cleanWaveStreak = 0;
+          for (const boss of this.enemies) {
+            if (!boss.isBoss) continue;
+            this.caStats.livesLostDuringBoss[boss.type] =
+              (this.caStats.livesLostDuringBoss[boss.type] ?? 0) + cost;
+          }
           // Name the price out loud. The flash alone said "something got through";
           // it never said a boss had just taken five lives off the total.
           this.notify(`${e.name} escaped — ${cost} ${cost === 1 ? 'life' : 'lives'}`, ASSETS.misc.hp_icon);
@@ -4998,6 +5027,15 @@ export class GameEngine {
       // Moon's harder-wave payout) both scale the drop; both default to 1.
       this.awardGold(this.killGoldPreReward(enemy.type));
       this.kills += 1;
+      if (source?.towerId) {
+        this.caStats.killsByTower[source.towerId] = (this.caStats.killsByTower[source.towerId] ?? 0) + 1;
+      }
+      if (enemy.isBoss) {
+        const spawned = this.caStats.bossSpawnSeconds[enemy.type];
+        this.caStats.bossKillSeconds[enemy.type] =
+          spawned === undefined ? this.runSeconds : this.runSeconds - spawned;
+        delete this.caStats.bossSpawnSeconds[enemy.type];
+      }
       // New object each kill so the UI's persistence effect sees the change.
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };
       // Per-run boss tally: drives the ordered march and the victory trigger.
@@ -5191,10 +5229,21 @@ export class GameEngine {
     // Blood Pact curse: clearing a wave costs a life (the price of its +damage).
     if (this.runFx.bloodPact) {
       this.lives -= 1;
+      this.caStats.livesLostRun += 1;
+      this.caStats.livesLostThisWave += 1;
+      this.caStats.cleanWaveStreak = 0;
       this.baseFlash = 1;
       if (this.checkLethal()) { this.emit(); return; }
     }
     this.wave += 1;
+    this.caStats.maxWaveReached = Math.max(this.caStats.maxWaveReached, this.wave);
+    this.caStats.runPhase = this.runPhase;
+    this.caStats.runSeconds = this.runSeconds;
+    this.caStats.prayerActiveAtWaveEnd = this.prayer.active.size > 0;
+    this.caStats.slayerTasksDone = this.slayer.streak;
+    if (this.caStats.livesLostThisWave === 0) this.caStats.cleanWaveStreak += 1;
+    else this.caStats.cleanWaveStreak = 0;
+    this.caStats.livesLostThisWave = 0;
     this.checkPrayerUnlocks(); // celebrate any tower prayers gating on the new wave
     this.prayer.refill(); // top up to the new wave's (possibly larger) pool
     this.ge.onWaveCleared(); // drift shop prices toward this wave's demand
@@ -5223,6 +5272,8 @@ export class GameEngine {
     if (!this.won && this.runPhase === 'normal' && !this.gameOver
         && allSchedulableBossesCleared(this.bossesKilledThisRun)) {
       this.won = true;
+      this.caStats.won = true;
+      this.caStats.runSeconds = this.runSeconds;
       this.victoryWave = this.wave - 1; // the wave just cleared (wave already advanced)
       this.paused = true;
       this.sound.play('interface_open');
@@ -5661,6 +5712,7 @@ export class GameEngine {
     this.goldEarned = 0;
     this.towersBuilt = 0;
     this.essenceEarnedThisRun = 0;
+    this.caStats = emptyRunStats(this.gameMode, this.difficultyTier);
     this.waveTotal = 0;
     this.bossWave = false;
     this.activeEvent = null;
