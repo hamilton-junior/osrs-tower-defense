@@ -30,7 +30,7 @@ import type { TowerType, PrayerType, MageMode, CombatStyle, StyleWeakness, Targe
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 import { loadChangelog, CHANGELOG_KINDS, type ChangelogEntry } from '@/lib/game/changelog';
-import { DIFFICULTY_TIERS, highestUnlockedTier, isTierUnlocked, type DifficultyTier } from '@/lib/game/systems/difficulty';
+import { DIFFICULTY_TIERS, highestUnlockedTier, isTierUnlocked, tierLabel, type DifficultyTier } from '@/lib/game/systems/difficulty';
 
 const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slayer', 'toxic'];
 /** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
@@ -4850,10 +4850,10 @@ function StartScreen({ mode, saved, champion, wins, difficulty, selectedTier, on
                     key={t.id}
                     disabled={!unlocked}
                     className={`rs-btn px-[0.7em] py-[0.3em] text-[0.8em] ${on ? 'rs-btn-primary' : ''}`}
-                    title={unlocked ? `Play at ${t.name}` : `Locked — win the tier below to unlock ${t.name}`}
+                    title={unlocked ? `Play at ${tierLabel(t.id)}` : `Locked — win the tier below to unlock ${tierLabel(t.id)}`}
                     onClick={() => unlocked && onSelectTier(t.id)}
                   >
-                    {!unlocked && '🔒 '}{t.name}
+                    {!unlocked && '🔒 '}{tierLabel(t.id)}
                   </button>
                 );
               })}
@@ -5383,7 +5383,7 @@ function CollectionLog({ killCounts, cardCounts, victories, difficulty, tab, set
                   return (
                     <div key={t.id} className="flex items-center justify-between py-[0.3em]">
                       <span className={cleared ? 'text-osrs-yellow font-bold' : 'text-[#8a7d5c]'}>
-                        {cleared ? '★ ' : ''}{t.name}
+                        {cleared ? '★ ' : ''}{tierLabel(t.id)}
                       </span>
                       <span className="text-[0.8em] text-[#cdbe91]">
                         {rec?.fastestSeconds != null ? fmtTime(rec.fastestSeconds) : '—'}

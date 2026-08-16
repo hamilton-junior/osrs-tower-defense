@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DIFFICULTY_TIERS, MIN_LIVES, MAX_TIER,
-  tierMods, highestUnlockedTier, isTierUnlocked, clampTier, effectiveStartLives,
+  tierMods, tierLabel, highestUnlockedTier, isTierUnlocked, clampTier, effectiveStartLives,
   type DifficultyTier,
 } from './difficulty';
 
@@ -13,6 +13,14 @@ describe('difficulty tiers', () => {
     expect(DIFFICULTY_TIERS.map((t) => t.name)).toEqual([
       'Normal', 'Easy', 'Medium', 'Hard', 'Elite', 'Master', 'Grandmaster',
     ]);
+  });
+
+  it('labels every tier above Normal as a New Game+ step', () => {
+    // The ladder climbs, so "Easy" must never read as the gentler setting.
+    expect(tierLabel(0)).toBe('Normal');
+    expect(tierLabel(1)).toBe('NG+ Easy');
+    expect(tierLabel(6)).toBe('NG+ Grandmaster');
+    expect(tierLabel(clampTier(99))).toBe('NG+ Grandmaster');
   });
 
   it('tier 0 is the identity (today\'s game, unchanged)', () => {

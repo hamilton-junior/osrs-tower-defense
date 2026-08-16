@@ -38,6 +38,15 @@ export const DIFFICULTY_TIERS: readonly { id: DifficultyTier; name: string; mods
   { id: 6, name: 'Grandmaster', mods: { enemyHp: 2.80, enemySpeed: 1.12, gold: 0.70, livesDelta: -20 } },
 ] as const;
 
+/** How a tier is written in the UI. The table's names are the real OSRS CA tier
+ *  names, where "Easy" is the first *challenge* tier — so a bare "Normal, Easy,
+ *  Medium…" row reads backwards, as if Easy were the gentler setting. Every tier
+ *  above 0 is a New Game+ step, so the label says so. */
+export function tierLabel(tier: DifficultyTier): string {
+  const t = DIFFICULTY_TIERS[clampTier(tier)];
+  return t.id === 0 ? t.name : `NG+ ${t.name}`;
+}
+
 /** Coerce any number to a valid tier id (defence for stored / injected values). */
 export function clampTier(n: number): DifficultyTier {
   const i = Math.max(0, Math.min(MAX_TIER, Math.floor(n)));
