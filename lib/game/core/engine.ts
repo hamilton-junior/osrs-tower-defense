@@ -3043,6 +3043,11 @@ export class GameEngine {
   /** Summon Cerberus's trio: one soul per combat style, orbiting him. Any that were
    *  killed in the last batch come back — the threshold sends a *fresh* three. */
   private summonSouls(cerb: Enemy) {
+    // A soul still standing when the next trio is raised is one the player failed to
+    // clear in time — read it before the filter below wipes the evidence.
+    if (!cerb.debug && this.enemies.some((s) => s.ownerId === cerb.id && s.soulStyle)) {
+      this.caStats.bossFlags.cerberusSoulSurvived = true;
+    }
     // Whatever survives from the previous batch is cleared out, so the trio is always a
     // trio: three thresholds of one soul each would be a very different (and duller) fight.
     this.enemies = this.enemies.filter((s) => !(s.ownerId === cerb.id && s.soulStyle));
@@ -3981,7 +3986,6 @@ export class GameEngine {
         // above), but guard the life-cost anyway so only the boss itself — never a
         // healer — can cost a life if that path is ever refactored.
         this.enemies.splice(i, 1);
-        if (e.type === 'summoned_soul') this.caStats.bossFlags.cerberusSoulLeaked = true;
         // A Guardian that walks off is *gone*, not dead. Tell its twin so, or the
         // survivor reads the empty field as "my twin was killed" and hauls it back
         // up — letting one Guardian charge the player for two leaks.
@@ -5035,6 +5039,12 @@ export class GameEngine {
         this.caStats.bossKillSeconds[enemy.type] =
           spawned === undefined ? this.runSeconds : this.runSeconds - spawned;
         delete this.caStats.bossSpawnSeconds[enemy.type];
+        // Cerberus down with a soul still orbiting him: recorded now, synchronously,
+        // because the orphan-escort cull that would otherwise clean up that soul runs
+        // on a later frame — after this kill's checkpoint has already been evaluated.
+        if (enemy.type === 'cerberus' && this.enemies.some((s) => s.ownerId === enemy.id && s.soulStyle)) {
+          this.caStats.bossFlags.cerberusSoulSurvived = true;
+        }
       }
       // New object each kill so the UI's persistence effect sees the change.
       this.killCounts = { ...this.killCounts, [enemy.type]: (this.killCounts[enemy.type] ?? 0) + 1 };

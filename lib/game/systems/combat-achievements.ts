@@ -82,8 +82,9 @@ export interface RunStats {
     hydraVentHealed: boolean;
     /** No Guardian was ever revived this run. Starts true. */
     duskDawnClean: boolean;
-    /** A Summoned Soul reached the exit. */
-    cerberusSoulLeaked: boolean;
+    /** A Summoned Soul was still alive when Cerberus raised the next trio, or when
+     *  Cerberus himself died. */
+    cerberusSoulSurvived: boolean;
   };
 }
 
@@ -101,7 +102,7 @@ export function emptyRunStats(mode: GameMode, tier: DifficultyTier): RunStats {
     bossKillSeconds: {}, bossSpawnSeconds: {}, livesLostDuringBoss: {},
     bossFlags: {
       jadHealed: false, hydraVentsBroken: 0, hydraVentHealed: false,
-      duskDawnClean: true, cerberusSoulLeaked: false,
+      duskDawnClean: true, cerberusSoulSurvived: false,
     },
   };
 }

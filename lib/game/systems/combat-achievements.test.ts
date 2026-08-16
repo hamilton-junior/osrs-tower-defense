@@ -128,8 +128,8 @@ describe('hard tier', () => {
     expect(evaluate(stats({ bossFlags: flags({ hydraVentsBroken: 2 }) }), none)).toContain('vent-breaker');
   });
 
-  it('hellhounds-master needs Cerberus dead with no soul escaping', () => {
-    expect(evaluate(stats({ bossKillSeconds: { cerberus: 70 }, bossFlags: flags({ cerberusSoulLeaked: true }) }), none))
+  it('hellhounds-master needs Cerberus dead with every soul killed', () => {
+    expect(evaluate(stats({ bossKillSeconds: { cerberus: 70 }, bossFlags: flags({ cerberusSoulSurvived: true }) }), none))
       .not.toContain('hellhounds-master');
     expect(evaluate(stats({ bossKillSeconds: { cerberus: 70 } }), none)).toContain('hellhounds-master');
   });

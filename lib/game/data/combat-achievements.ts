@@ -102,8 +102,8 @@ export const CA_TASKS: readonly CaTask[] = [
   },
   {
     id: 'hellhounds-master', tier: 'hard', name: "Hellhound's Master",
-    desc: 'Defeat Cerberus without a Summoned Soul escaping.',
-    check: (s) => s.bossKillSeconds.cerberus !== undefined && !s.bossFlags.cerberusSoulLeaked,
+    desc: 'Defeat Cerberus having killed every Summoned Soul he raises.',
+    check: (s) => s.bossKillSeconds.cerberus !== undefined && !s.bossFlags.cerberusSoulSurvived,
   },
   {
     id: 'snake-charmer', tier: 'hard', name: 'Snake Charmer',
