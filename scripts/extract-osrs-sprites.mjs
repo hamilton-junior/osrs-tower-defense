@@ -140,6 +140,16 @@ const UI_IDS = {
   blocked: 940,
 };
 
+/**
+ * Combat Achievement tier icons — the game's own `CaTierSwords` set (RuneLite
+ * gameval SpriteID), one sword per tier in ladder order: bronze for Easy up to
+ * the last blade for Grandmaster. 3399-3404 are the same six at a smaller size,
+ * left alone — the unlock popup draws at icon size.
+ */
+const CA_TIER_IDS = {
+  easy: 3393, medium: 3394, hard: 3395, elite: 3396, master: 3397, grandmaster: 3398,
+};
+
 /** Build flat targets from a {basename: id} group under a sub-folder. */
 const group = (ids, sub) =>
   Object.entries(ids).map(([slug, spriteId]) => ({ slug, spriteId, out: `public/assets/${sub}/${slug}.png` }));
@@ -181,6 +191,7 @@ const TARGETS = [
   ...group(ORB_IDS, 'orbs'),
   ...group(HITSPLAT_IDS, 'hitsplats'),
   ...group(UI_IDS, 'ui'),
+  ...group(CA_TIER_IDS, 'achievements'),
 ];
 
 /** Encode one Sprite (ARGB pixels on a maxWidth×maxHeight canvas) to a PNG buffer. */

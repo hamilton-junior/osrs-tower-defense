@@ -10,6 +10,7 @@ import type { GameMode } from '../core/engine';
 import type { DifficultyTier } from './difficulty';
 import type { EnemyType, CombatStyle } from '../types';
 import { CA_TASKS } from '../data/combat-achievements';
+import { ASSETS } from '../assets';
 
 export type CaTier = 'easy' | 'medium' | 'hard' | 'elite' | 'master' | 'grandmaster';
 
@@ -22,11 +23,9 @@ export const CA_TIER_NAMES: Record<CaTier, string> = {
   elite: 'Elite', master: 'Master', grandmaster: 'Grandmaster',
 };
 
-/** Per-tier popup icon. An empty string renders no icon, which the unlock popup
- *  already tolerates — assets must come from the OSRS cache, never a substitute. */
-export const CA_TIER_ICON: Record<CaTier, string> = {
-  easy: '', medium: '', hard: '', elite: '', master: '', grandmaster: '',
-};
+/** Per-tier popup icon: the game's own CaTierSwords blades, extracted from the
+ *  cache (see scripts/extract-osrs-sprites.mjs). */
+export const CA_TIER_ICON: Record<CaTier, string> = ASSETS.achievements;
 
 export interface CaTask {
   /** Stable id — this is the persisted key. Never rename one in place. */

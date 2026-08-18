@@ -321,6 +321,16 @@ export const ASSETS = {
     tzrek_jad: `${LOCAL}/models/tzrek_jad.png`,
     ikkle_hydra: `${LOCAL}/models/ikkle_hydra.png`,     // serpentine
   },
+  // Combat Achievement tier icons — the game's own CaTierSwords sprites (3393-3398),
+  // one blade per tier, bronze for Easy up to the last for Grandmaster.
+  achievements: {
+    easy: `${LOCAL}/achievements/easy.png`,
+    medium: `${LOCAL}/achievements/medium.png`,
+    hard: `${LOCAL}/achievements/hard.png`,
+    elite: `${LOCAL}/achievements/elite.png`,
+    master: `${LOCAL}/achievements/master.png`,
+    grandmaster: `${LOCAL}/achievements/grandmaster.png`,
+  },
   // Prayer icons — cache-extracted sprites served locally (PRAYER_* sprite ids).
   prayers: {
     burst_of_strength: `${LOCAL}/prayers/burst_of_strength.png`,
