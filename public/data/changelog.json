@@ -1,6 +1,69 @@
 {
-  "generatedAt": "2026-08-16",
+  "generatedAt": "2026-08-18",
   "entries": [
+    {
+      "kind": "fixed",
+      "scope": "achievements",
+      "text": "Make Hellhound's Master track survivable souls",
+      "fromFeedback": false,
+      "date": "2026-08-16"
+    },
+    {
+      "kind": "new",
+      "scope": "achievements",
+      "text": "Record Combat Achievement run facts in the engine",
+      "fromFeedback": false,
+      "date": "2026-08-16"
+    },
+    {
+      "kind": "new",
+      "scope": "achievements",
+      "text": "Grandmaster tier and The Whole Log capstone",
+      "fromFeedback": false,
+      "date": "2026-08-16"
+    },
+    {
+      "kind": "new",
+      "scope": "achievements",
+      "text": "Elite and Master tiers",
+      "fromFeedback": false,
+      "date": "2026-08-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "achievements",
+      "text": "Describe Sun and Moon by what it actually checks",
+      "fromFeedback": false,
+      "date": "2026-08-16"
+    },
+    {
+      "kind": "new",
+      "scope": "achievements",
+      "text": "Medium and Hard tiers",
+      "fromFeedback": false,
+      "date": "2026-08-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "Label New Game+ tiers so the ladder reads as it climbs",
+      "fromFeedback": false,
+      "date": "2026-08-16"
+    },
+    {
+      "kind": "new",
+      "scope": "achievements",
+      "text": "Pure Combat Achievements ruleset + Easy tier",
+      "fromFeedback": false,
+      "date": "2026-08-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": null,
+      "text": "Keep the wizard spellbook picker inside the board",
+      "fromFeedback": false,
+      "date": "2026-08-16"
+    },
     {
       "kind": "new",
       "scope": null,
@@ -217,69 +280,6 @@
       "text": "Tier upgrades require a minimum combat level",
       "fromFeedback": false,
       "date": "2026-07-31"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Towers earn combat XP from the damage they deal",
-      "fromFeedback": false,
-      "date": "2026-07-31"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Tower combat level nudges its damage (capped)",
-      "fromFeedback": false,
-      "date": "2026-07-31"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Pure tower-xp module (earn/level/gate maths)",
-      "fromFeedback": false,
-      "date": "2026-07-31"
-    },
-    {
-      "kind": "faster",
-      "scope": null,
-      "text": "The DPS panel no longer stutters fast-forward on a crowded board",
-      "fromFeedback": true,
-      "date": "2026-07-31"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "The end-of-road danger marker follows the real exit edge, not always the right",
-      "fromFeedback": false,
-      "date": "2026-07-30"
-    },
-    {
-      "kind": "updated",
-      "scope": null,
-      "text": "Bring the board closer — a coarser 45x20 grid so towers and enemies read bigger",
-      "fromFeedback": false,
-      "date": "2026-07-30"
-    },
-    {
-      "kind": "balanced",
-      "scope": null,
-      "text": "Roguelite banks half the Rune Essence, Endless a tenth — shown on every mode",
-      "fromFeedback": false,
-      "date": "2026-07-30"
-    },
-    {
-      "kind": "faster",
-      "scope": null,
-      "text": "Crowded boards stay smooth — tower combat stats are cached between changes",
-      "fromFeedback": false,
-      "date": "2026-07-26"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "Changing a tower's target priority updates the panel immediately",
-      "fromFeedback": true,
-      "date": "2026-07-26"
     }
   ]
 }

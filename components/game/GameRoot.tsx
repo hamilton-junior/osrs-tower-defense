@@ -306,6 +306,7 @@ const INITIAL: UIState = {
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
   unlocks: [], unlockSeq: 0,
   killCounts: {},
+  achievements: [],
   cardCounts: {},
   bossesSeen: {},
   dpsStats: null,
@@ -327,7 +328,10 @@ const INITIAL: UIState = {
 };
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
-const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = { prayer: 'Prayer Unlocked' };
+const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = {
+  prayer: 'Prayer Unlocked',
+  achievement: 'Combat Achievement',
+};
 
 const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty' } as const;
 

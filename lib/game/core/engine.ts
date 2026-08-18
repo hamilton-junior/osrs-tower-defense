@@ -23,7 +23,8 @@ import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor 
 import { canEquip, rollGearDrops, gearDamageMult } from '../systems/tower-gear';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
-import { emptyRunStats, type RunStats } from '../systems/combat-achievements';
+import { emptyRunStats, evaluate as evaluateAchievements, CA_TIER_ICON, type RunStats } from '../systems/combat-achievements';
+import { CA_TASKS } from '../data/combat-achievements';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -105,7 +106,7 @@ const START_LIVES = 20;
  *  extension point — prayers fire today; towers/spells/achievements can reuse
  *  the same popup by adding a kind + a producer that calls `announceUnlocks`. */
 export interface UnlockItem {
-  kind: 'prayer';
+  kind: 'prayer' | 'achievement';
   name: string;
   desc: string;
   icon: string;
@@ -353,6 +354,9 @@ export interface UIState {
   dpsStats?: DpsSnapshot | null;
   /** Lifetime kills per enemy type (the Collection Log). */
   killCounts: Record<string, number>;
+  /** Completed Combat Achievement ids, account-wide. Plain array: the snapshot
+   *  crosses the boundary structuredClone'd. */
+  achievements: string[];
   /** Lifetime sighting count per boss type. A boss only rolls modifiers once it
    *  has appeared at least once, so a first encounter is always the "vanilla"
    *  fight; the count also ramps the lives a boss costs when it leaks. */
@@ -827,16 +831,31 @@ export class GameEngine {
   /** Lifetime kills per enemy type (the Collection Log). Account-wide: seeded
    *  from the save, persisted by the UI, and NOT cleared on restart. */
   killCounts: Record<string, number> = {};
+  /** Completed Combat Achievements. Account-wide: seeded from the save, persisted
+   *  by the UI, and NOT cleared on restart. */
+  achievements = new Set<string>();
   cardCounts: Record<string, number> = {};
   /** Bosses encountered at least once (lifetime, persisted like killCounts).
    *  Gates boss modifiers — a boss is only "vanilla" on its first-ever sighting. */
   bossesSeen: Record<string, number> = {};
+
+  /** Hydrate the account's completed achievements from storage. Called by the UI
+   *  once the localStorage blob is read; the constructor can't take it because the
+   *  store is loaded after mount. */
+  seedAchievements(ids: string[]) {
+    this.achievements = new Set(ids);
+    this.emit();
+  }
+
   private notice: string | null = null;
   private noticeIcon: string | null = null;
   private noticeSeq = 0;
   /** Latest unlock batch + a bump counter, drained into a popup queue by the UI. */
   private unlocks: UnlockItem[] = [];
   private unlockSeq = 0;
+  /** True once the current batch has been pushed to the UI, so the next producer
+   *  starts a fresh batch instead of appending to one already on screen. */
+  private unlocksDrained = true;
 
   // --- composed subsystems ---
   readonly slayer = new SlayerSystem(this);
@@ -1058,7 +1077,10 @@ export class GameEngine {
     const snapshot = this.snapshot();
     const patch = changedState(this.lastSnapshot, snapshot);
     this.lastSnapshot = snapshot;
-    if (Object.keys(patch).length > 0) this.onState(patch);
+    if (Object.keys(patch).length > 0) {
+      this.onState(patch);
+      this.unlocksDrained = true;
+    }
   }
 
   private snapshot(): UIState {
@@ -1132,6 +1154,7 @@ export class GameEngine {
       unlocks: this.unlocks,
       unlockSeq: this.unlockSeq,
       killCounts: this.killCounts,
+      achievements: [...this.achievements],
       cardCounts: this.cardCounts,
       bossesSeen: this.bossesSeen,
       lastWaveSandbox: this.lastWaveSandbox,
@@ -1170,9 +1193,28 @@ export class GameEngine {
    *  {@link UnlockItem}s. Caller is responsible for the follow-up `emit`. */
   private announceUnlocks(items: UnlockItem[]) {
     if (items.length === 0) return;
-    this.unlocks = items;
+    // Two producers can fire between two flushes — a prayer coming online and a
+    // Combat Achievement completing both land at the same wave end. Append until
+    // the batch is actually pushed, or the first producer's items are replaced
+    // before the UI ever sees them.
+    this.unlocks = this.unlocksDrained ? items : [...this.unlocks, ...items];
+    this.unlocksDrained = false;
     this.unlockSeq++;
     this.sound.play('interface_open');
+  }
+
+  /** Combat Achievements checkpoint: evaluate the ruleset against this run's
+   *  recorded facts and celebrate whatever just completed. Cheap enough to call
+   *  at every wave end and boss death — `evaluate` is pure and the table is 40
+   *  entries. Caller is responsible for the follow-up `emit`. */
+  private checkAchievements() {
+    const gained = evaluateAchievements(this.caStats, { completed: this.achievements });
+    if (gained.length === 0) return;
+    for (const id of gained) this.achievements.add(id);
+    this.announceUnlocks(gained.map((id) => {
+      const task = CA_TASKS.find((t) => t.id === id)!;
+      return { kind: 'achievement' as const, name: task.name, desc: task.desc, icon: CA_TIER_ICON[task.tier] };
+    }));
   }
 
   /** Tower prayers that just came online at the current wave — the popup
@@ -5055,6 +5097,9 @@ export class GameEngine {
           [enemy.type]: (this.bossesKilledThisRun[enemy.type] ?? 0) + 1,
         };
       }
+      // Combat Achievements checkpoint: boss-kill tasks (speed/no-leak/mechanic)
+      // are only ever true for the instant after the boss dies.
+      if (enemy.isBoss) this.checkAchievements();
       // Classic gear drops fall straight into the run's loot bag (no ground loot in
       // the new core). Gated to Classic — roguelite gears its towers via drafts.
       if (this.gameMode === 'classic') {
@@ -5288,6 +5333,10 @@ export class GameEngine {
       this.paused = true;
       this.sound.play('interface_open');
     }
+    // Combat Achievements checkpoint — after the victory latch on purpose: a win
+    // recorded on this wave has to be visible to `evaluate` in the same checkpoint,
+    // or every win-gated task would wait a wave.
+    this.checkAchievements();
     this.emit();
   }
 
