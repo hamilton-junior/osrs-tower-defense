@@ -222,6 +222,7 @@ const TARGETS = {
   // Slayer-rewards shop: each unlock wears the item it actually is in game.
   slayer_helmet_i: { name: 'Slayer helmet (i)' },
   bracelet_of_slaughter: { name: 'Bracelet of slaughter' },
+  expeditious_bracelet: { name: 'Expeditious bracelet' },
   slayer_ring: { name: 'Slayer ring (8)' },
   giant_pouch: { name: 'Giant pouch' },
   eternal_gem: { name: 'Eternal gem' },

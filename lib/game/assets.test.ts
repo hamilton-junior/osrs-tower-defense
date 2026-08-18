@@ -1,5 +1,17 @@
+/**
+ * Icon assets.
+ *
+ * `coinsIcon` picks the client's own coin pile for a stack size; the coverage
+ * block below guards the rule that assets come from the game cache and never
+ * from an external host.
+ */
 import { describe, it, expect } from 'vitest';
-import { coinsIcon } from './assets';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { coinsIcon, localIconNames } from './assets';
+import { GE_CONSUMABLES } from './data/shop';
+import { SLAYER_REWARDS } from './data/slayer';
+import { GLOBAL_UPGRADE_DEFS } from './systems/meta-progression';
 
 /** `…/items/coins_25.png` → `coins_25`. */
 const slug = (n: number) => coinsIcon(n).split('/').pop()!.replace('.png', '');
@@ -38,5 +50,28 @@ describe('coinsIcon', () => {
   // state; it must still resolve to an icon rather than a broken image.
   it('falls back to the single coin at zero', () => {
     expect(slug(0)).toBe('coins_1');
+  });
+});
+
+const baked = new Set(localIconNames());
+
+/** Names the UI passes as literals, rather than reading off a data table. */
+function literalIconNames(): string[] {
+  const src = readFileSync(join(__dirname, '../../components/game/GameRoot.tsx'), 'utf8');
+  return [...src.matchAll(/(?:iconUrl|geIcon)\('([^']+)'\)/g)].map((m) => m[1]);
+}
+
+describe('icon coverage', () => {
+  it.each([
+    ['GE consumables', GE_CONSUMABLES.map((i) => i.wiki)],
+    ['slayer rewards', SLAYER_REWARDS.map((r) => r.icon)],
+    ['meta upgrades', GLOBAL_UPGRADE_DEFS.map((d) => d.icon)],
+    ['GameRoot literals', literalIconNames()],
+  ])('%s all resolve to a local bake', (_label, names) => {
+    expect(names.filter((n) => !baked.has(n))).toEqual([]);
+  });
+
+  it('finds the literals it means to check', () => {
+    expect(literalIconNames().length).toBeGreaterThan(0);
   });
 });

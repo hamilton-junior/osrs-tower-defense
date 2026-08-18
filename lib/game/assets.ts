@@ -1,5 +1,3 @@
-const WIKI = 'https://oldschool.runescape.wiki/images/';
-
 // Locally-bundled assets extracted from the game cache (see
 // scripts/extract-osrs-sprites.mjs). Served from `public/`, base-path aware so
 // they resolve under a GitHub Pages project subpath too.
@@ -41,7 +39,11 @@ export const coinsIcon = (n: number): string => {
 /**
  * Wiki-filename → locally-baked icon. Data tables (GE shop, slayer rewards,
  * meta upgrades) key icons by wiki filename; `iconUrl` resolves them to the
- * cache-baked local asset, hot-linking only names with no bake yet.
+ * cache-baked local asset.
+ *
+ * Every name a data table uses must have an entry here — assets come from the
+ * game cache, never from an external host. `assets.test.ts` fails the build if
+ * a table grows a name with no bake behind it.
  */
 const LOCAL_BY_WIKI: Record<string, string> = {
   // GE consumables (data/shop.ts `wiki` keys)
@@ -93,6 +95,7 @@ const LOCAL_BY_WIKI: Record<string, string> = {
   Slayer_helmet: itemIcon('slayer_helmet'),
   'Slayer_helmet_(i)': itemIcon('slayer_helmet_i'),
   Bracelet_of_slaughter: itemIcon('bracelet_of_slaughter'),
+  Expeditious_bracelet: itemIcon('expeditious_bracelet'),
   Slayer_ring: itemIcon('slayer_ring'),
   Giant_pouch: itemIcon('giant_pouch'),
   Eternal_gem: itemIcon('eternal_gem'),
@@ -111,8 +114,16 @@ const LOCAL_BY_WIKI: Record<string, string> = {
   Dwarf_multicannon: `${LOCAL}/objects/dwarf_multicannon.png`,
 };
 
-/** Resolve a wiki icon filename (no extension) to its best URL. */
-export const iconUrl = (wiki: string) => LOCAL_BY_WIKI[wiki] ?? `${WIKI}${wiki}.png`;
+/** A transparent 1x1 — what an unmapped icon renders as. Self-contained, so a
+ *  missing bake shows nothing instead of reaching for an external host. */
+const NO_ICON =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+/** Resolve a wiki icon filename (no extension) to its locally-baked asset. */
+export const iconUrl = (wiki: string) => LOCAL_BY_WIKI[wiki] ?? NO_ICON;
+
+/** The bakes `iconUrl` knows about — read by the asset-coverage test. */
+export const localIconNames = (): string[] => Object.keys(LOCAL_BY_WIKI);
 
 /**
  * Classic-mode tower gear icons (data/gear.ts `GEAR`), keyed by gear id.
