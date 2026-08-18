@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TOWER_AMMO_CLASS, towerAmmoClassFor, canEquip, rollGearDrops, gearDamageMult } from './tower-gear';
+import { TOWER_AMMO_CLASS, towerAmmoClassFor, canEquip, rollGearDrops, gearDamageMult, isUpgradeFor, isUpgradeForAny } from './tower-gear';
 import { GEAR } from '../data/gear';
 import type { Tower, TowerSkill, Enemy, TowerType } from '../types';
 
@@ -45,6 +45,45 @@ describe('canEquip', () => {
   it('rejects jewellery below its level requirement', () => {
     const t = tower({ type: 'archer', skills: { strength: skill(5), ranged: skill(5), magic: skill(5) } });
     expect(canEquip(t, GEAR.salve_amulet_ei)).toEqual({ ok: false, reason: 'level' }); // needs 30
+  });
+  // The Utility wizard is support-only: runes would buy damage it never deals.
+  it('rejects runes on a Utility wizard but keeps them on the other spellbooks', () => {
+    expect(canEquip(tower({ type: 'wizard', mageMode: 'utility' }), GEAR.mind_rune)).toEqual({ ok: false, reason: 'class' });
+    expect(canEquip(tower({ type: 'wizard', mageMode: 'elemental' }), GEAR.mind_rune)).toEqual({ ok: true });
+    expect(canEquip(tower({ type: 'wizard', mageMode: 'ancients' }), GEAR.mind_rune)).toEqual({ ok: true });
+  });
+  it('still lets a Utility wizard wear jewellery', () => {
+    expect(canEquip(tower({ type: 'wizard', mageMode: 'utility' }), GEAR.amulet_of_strength)).toEqual({ ok: true });
+  });
+});
+
+describe('isUpgradeFor', () => {
+  it('is true for an empty slot the tower can use', () => {
+    expect(isUpgradeFor(tower({ type: 'slayer' }), GEAR.bronze_gloves)).toBe(true);
+  });
+  it('is false when the tower cannot equip it at all', () => {
+    expect(isUpgradeFor(tower({ type: 'archer' }), GEAR.bronze_gloves)).toBe(false);
+    const lowLevel = tower({ type: 'archer', skills: { strength: skill(5), ranged: skill(5), magic: skill(5) } });
+    expect(isUpgradeFor(lowLevel, GEAR.dragon_arrow)).toBe(false);
+  });
+  it('is false when what is worn beats it on every stat', () => {
+    const t = tower({ type: 'slayer', equipment: { ammo: GEAR.rune_gloves, jewellery: null } });
+    expect(isUpgradeFor(t, GEAR.bronze_gloves)).toBe(false);
+  });
+  it('is true when it beats the worn piece on any stat', () => {
+    const t = tower({ type: 'slayer', equipment: { ammo: GEAR.bronze_gloves, jewellery: null } });
+    expect(isUpgradeFor(t, GEAR.rune_gloves)).toBe(true);
+  });
+  it('routes jewellery against the jewellery slot, not the ammo one', () => {
+    const t = tower({ type: 'slayer', equipment: { ammo: GEAR.rune_gloves, jewellery: null } });
+    expect(isUpgradeFor(t, GEAR.amulet_of_strength)).toBe(true);
+  });
+  it('asks the whole board, and is false with no towers at all', () => {
+    const archer = tower({ type: 'archer' });
+    const melee = tower({ type: 'slayer' });
+    expect(isUpgradeForAny([archer], GEAR.bronze_gloves)).toBe(false);
+    expect(isUpgradeForAny([archer, melee], GEAR.bronze_gloves)).toBe(true);
+    expect(isUpgradeForAny([], GEAR.bronze_gloves)).toBe(false);
   });
 });
 

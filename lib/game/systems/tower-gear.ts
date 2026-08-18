@@ -1,4 +1,4 @@
-import type { Item, Tower, TowerType, AmmoClass, Enemy } from '../types';
+import type { Item, Tower, TowerType, AmmoClass, Enemy, MageMode } from '../types';
 import { towerCombatLevel } from './tower-xp';
 import { slayerWeaponBonus } from './tower-identity';
 import { GEAR_POOL } from '../data/gear';
@@ -26,13 +26,43 @@ export type EquipCheck = { ok: true } | { ok: false; reason: 'class' | 'level' }
 /** Whether `tower` may equip `gear`. Ammo must match the tower's ammo class
  *  (see `TOWER_AMMO_CLASS`); jewellery is universal. Both require the tower's
  *  combat level (in its style skill) to meet `levelReq`. Slot routing (ammo vs
- *  jewellery) is the caller's job — this checks compatibility only. */
-export function canEquip(tower: Pick<Tower, 'type' | 'skills'>, gear: Item): EquipCheck {
+ *  jewellery) is the caller's job — this checks compatibility only.
+ *
+ *  One exception rides on the wizard's spellbook: the Utility wizard never
+ *  attacks, so runes would buy it damage it cannot deal. It takes jewellery
+ *  only, which is where its XP/utility bonuses live anyway. */
+export function canEquip(tower: Pick<Tower, 'type' | 'skills'> & { mageMode?: MageMode }, gear: Item): EquipCheck {
+  if (gear.type === 'ammo' && tower.type === 'wizard' && tower.mageMode === 'utility') {
+    return { ok: false, reason: 'class' };
+  }
   if (gear.type === 'ammo' && gear.ammoClass !== towerAmmoClassFor(tower.type)) {
     return { ok: false, reason: 'class' };
   }
   if (towerCombatLevel(tower) < (gear.levelReq ?? 1)) return { ok: false, reason: 'level' };
   return { ok: true };
+}
+
+/** The stat keys a piece can carry — the whole of `Item.bonus`. */
+const GEAR_STAT_KEYS = ['damage', 'range', 'cooldown', 'xpBonus'] as const;
+
+/**
+ * Would `item` improve `tower`? True when the tower can equip it at all *and*
+ * either the matching slot is empty or the piece beats what is worn on at least
+ * one stat. Deliberately generous on mixed trades (more damage but less range
+ * still counts): the player decides, this only hides pieces that improve
+ * nothing anywhere.
+ */
+export function isUpgradeFor(tower: Pick<Tower, 'type' | 'skills' | 'equipment'> & { mageMode?: MageMode }, item: Item): boolean {
+  if (!canEquip(tower, item).ok) return false;
+  const worn = tower.equipment?.[item.type === 'ammo' ? 'ammo' : 'jewellery'];
+  if (!worn) return true;
+  return GEAR_STAT_KEYS.some((k) => (item.bonus[k] ?? 0) > (worn.bonus[k] ?? 0));
+}
+
+/** Whether any tower on the board would be improved by `item` — what the loot
+ *  bag's "hide non-upgrades" filter asks of every piece. */
+export function isUpgradeForAny(towers: readonly (Pick<Tower, 'type' | 'skills' | 'equipment'> & { mageMode?: MageMode })[], item: Item): boolean {
+  return towers.some((t) => isUpgradeFor(t, item));
 }
 
 export interface GearDropContext {
