@@ -23,6 +23,7 @@ import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor 
 import { canEquip, rollGearDrops, gearDamageMult } from '../systems/tower-gear';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
+import { mergeUnlockBatch } from '../systems/unlock-queue';
 import { emptyRunStats, evaluate as evaluateAchievements, CA_TIER_ICON, type RunStats } from '../systems/combat-achievements';
 import { CA_TASKS } from '../data/combat-achievements';
 import { GameRenderer } from './renderer';
@@ -1193,11 +1194,11 @@ export class GameEngine {
    *  {@link UnlockItem}s. Caller is responsible for the follow-up `emit`. */
   private announceUnlocks(items: UnlockItem[]) {
     if (items.length === 0) return;
-    // Two producers can fire between two flushes — a prayer coming online and a
-    // Combat Achievement completing both land at the same wave end. Append until
-    // the batch is actually pushed, or the first producer's items are replaced
-    // before the UI ever sees them.
-    this.unlocks = this.unlocksDrained ? items : [...this.unlocks, ...items];
+    // Queueing is a contract, not this method's private business: see
+    // systems/unlock-queue. Any number of producers may fire between two flushes
+    // (a prayer coming online and an achievement completing both land at the same
+    // wave end), and every one of them survives to the UI.
+    this.unlocks = mergeUnlockBatch(this.unlocks, items, this.unlocksDrained);
     this.unlocksDrained = false;
     this.unlockSeq++;
     this.sound.play('interface_open');

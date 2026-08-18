@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GameEngine, LOGIC_WIDTH, LOGIC_HEIGHT, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
 import { DRAFT_POOL, RARITY_WEIGHT, CARD_ROLL_BASE_COST, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
+import { unlockDwellMs } from '@/lib/game/systems/unlock-queue';
 import { RELICS, type Relic, type RelicTier } from '@/lib/game/systems/relics';
 import { AFFIX_DEFS } from '@/lib/game/systems/affixes';
 import { bossTip } from '@/lib/game/systems/boss-tips';
@@ -1138,10 +1139,12 @@ export default function GameRoot() {
     setUnlockQueue((q) => [...q, ...ui.unlocks.map((item) => ({ id: ++unlockIdRef.current, item }))]);
   }, [ui.unlockSeq, ui.unlocks]);
 
-  // Advance the popup queue; each popup holds ~4.2s (matches the CSS animation).
+  // Advance the popup queue. A lone popup holds the full ~4.2s (the CSS animation);
+  // a longer queue holds each one for less, so a batch of unlocks stays one
+  // celebration instead of a minute of popups. See systems/unlock-queue.
   useEffect(() => {
     if (unlockQueue.length === 0) return;
-    const t = setTimeout(() => setUnlockQueue((q) => q.slice(1)), 4200);
+    const t = setTimeout(() => setUnlockQueue((q) => q.slice(1)), unlockDwellMs(unlockQueue.length));
     return () => clearTimeout(t);
   }, [unlockQueue]);
 
