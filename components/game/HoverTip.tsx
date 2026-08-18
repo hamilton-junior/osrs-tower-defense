@@ -95,7 +95,24 @@ export function HoverTip({ content, children, side = 'top', show = false, widthE
     reposition();
     window.addEventListener('scroll', reposition, true);
     window.addEventListener('resize', reposition);
+    // The trigger can also move with nothing scrolling or resizing: a MovablePanel
+    // dragged under the pointer, a panel that grew a section, the UI-scale control.
+    // Follow it — one rAF while a bubble is open, doing nothing until the rect
+    // actually changes, is cheaper than the bubble sitting somewhere stale.
+    let raf = 0;
+    let last = '';
+    const follow = () => {
+      const t = triggerRef.current;
+      if (t) {
+        const r = t.getBoundingClientRect();
+        const key = `${r.top}|${r.left}|${r.width}|${r.height}`;
+        if (key !== last) { last = key; reposition(); }
+      }
+      raf = requestAnimationFrame(follow);
+    };
+    raf = requestAnimationFrame(follow);
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener('scroll', reposition, true);
       window.removeEventListener('resize', reposition);
     };
@@ -104,6 +121,7 @@ export function HoverTip({ content, children, side = 'top', show = false, widthE
   const childProps = children.props as Record<string, unknown>;
   const prevEnter = childProps.onMouseEnter as ((e: React.MouseEvent) => void) | undefined;
   const prevLeave = childProps.onMouseLeave as ((e: React.MouseEvent) => void) | undefined;
+  const prevMove = childProps.onMouseMove as ((e: React.MouseEvent) => void) | undefined;
   const prevFocus = childProps.onFocus as ((e: React.FocusEvent) => void) | undefined;
   const prevBlur = childProps.onBlur as ((e: React.FocusEvent) => void) | undefined;
 
@@ -112,8 +130,24 @@ export function HoverTip({ content, children, side = 'top', show = false, widthE
     tabIndex: (childProps.tabIndex as number | undefined) ?? 0,
     'aria-describedby': open ? idRef.current : (childProps['aria-describedby'] as string | undefined),
     onMouseEnter: (e: React.MouseEvent) => { prevEnter?.(e); setHover(true); },
+    // A trigger can appear *under* a pointer that never moves — the wave-event
+    // chip mounts when a wave starts, right where the cursor already is. No
+    // mouseenter fires for that, so the bubble would refuse to open until the
+    // pointer left and came back. Any movement over the trigger recovers it.
+    onMouseMove: (e: React.MouseEvent) => { prevMove?.(e); setHover(true); },
     onMouseLeave: (e: React.MouseEvent) => { prevLeave?.(e); setHover(false); },
-    onFocus: (e: React.FocusEvent) => { prevFocus?.(e); setFocus(true); },
+    // Focus opens the bubble for *keyboard* users only. A plain click also focuses
+    // the trigger, and treating that as intent pinned the bubble open until you
+    // clicked somewhere else — exactly what happens when a slot in the loot bag is
+    // clicked to open its picker. `:focus-visible` is the browser's own answer to
+    // "was this focus keyboard-driven"; older engines that don't know the selector
+    // throw, and fall back to the old behaviour.
+    onFocus: (e: React.FocusEvent) => {
+      prevFocus?.(e);
+      let keyboard = true;
+      try { keyboard = (e.target as HTMLElement).matches(':focus-visible'); } catch { /* older engine */ }
+      if (keyboard) setFocus(true);
+    },
     onBlur: (e: React.FocusEvent) => { prevBlur?.(e); setFocus(false); },
   });
 
