@@ -2,6 +2,13 @@
   "generatedAt": "2026-08-18",
   "entries": [
     {
+      "kind": "new",
+      "scope": "achievements",
+      "text": "Collection Log tab, tier titles and the tutorial entry",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
+    {
       "kind": "updated",
       "scope": "ui",
       "text": "Make unlock-popup queueing a tested contract",
@@ -271,13 +278,6 @@
       "kind": "fixed",
       "scope": "ui",
       "text": "Centre the damage number inside the hitsplat",
-      "fromFeedback": false,
-      "date": "2026-08-02"
-    },
-    {
-      "kind": "new",
-      "scope": "towers",
-      "text": "Cap how far auto-upgrade levels a tower",
       "fromFeedback": false,
       "date": "2026-08-02"
     }
