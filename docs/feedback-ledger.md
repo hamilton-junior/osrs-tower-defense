@@ -111,10 +111,13 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
 8. **M6** tower fusion (must respect the closed roster) — think about soon.
 9. **M7** map selection at start — queued.
 10. **M5** a gold sink for **normal** mode — idea still wanted.
-11. **A1** late-game victory + Endless + a curve that overtakes — *design approved*
-    (`docs/superpowers/specs/2026-07-25-late-game-victory-endless-design.md`), next to plan.
-    Covers #27/#24/#29/#26.6. Siblings queued: **A2** cards & economy meaning (#28/#33),
-    **A3** tower spam / 5×-lag (#26.1).
-12. **A4** New Game+ / harder difficulty tier — winning unlocks an escalating
-    difficulty modifier for the next run. **Near-future**, user-requested; deferred out
-    of A1 so the win/curve spine ships first.
+11. **A1** late-game victory + Endless + a curve that overtakes — *shipped*: the run is
+    won by clearing the boss roster, Endless carries on past it (`c0a328f`), and the
+    Victories tab keeps the record. Covers #27/#24/#29/#26.6. Siblings also shipped:
+    **A2** cards & economy meaning — the draft re-weights toward cards that escape the
+    damage soft-cap, and fireRate/range are capped alongside it (`systems/roguelite-draft.ts`,
+    `systems/run-modifiers.ts`); **A3** tower spam / 5×-lag — the per-tower stat cache
+    landed, the spatial grid was rejected (a fixed board makes it a regression).
+12. **A4** New Game+ / harder difficulty tier — *shipped* (`eca2936`..`04e1a1b`): winning a
+    tier unlocks the next, with tougher enemies and a tighter economy. The reward is the
+    record, not power.
