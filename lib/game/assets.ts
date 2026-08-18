@@ -517,6 +517,7 @@ export const ASSETS = {
     prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
     coins_icon: itemIcon('coins'),
     loot_bag: itemIcon('looting_bag'), // the classic-mode loot-bag stone
+    xp_icon: itemIcon('antique_lamp'), // XP-gain stat rows (OSRS's experience lamp)
     rune_essence_icon: itemIcon('rune_essence'),
     herblore_icon: `${LOCAL}/misc/skill_herblore.png`,
     farming_icon: `${LOCAL}/misc/farming_icon.png`,

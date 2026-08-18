@@ -225,6 +225,8 @@ const TARGETS = {
   expeditious_bracelet: { name: 'Expeditious bracelet' },
   // Classic-mode loot bag: the bar stone that opens the gear you have found.
   looting_bag: { name: 'Looting bag' },
+  // The XP-gain stat's icon: OSRS's own experience lamp.
+  antique_lamp: { name: 'Antique lamp' },
   slayer_ring: { name: 'Slayer ring (8)' },
   giant_pouch: { name: 'Giant pouch' },
   eternal_gem: { name: 'Eternal gem' },

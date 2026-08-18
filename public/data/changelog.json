@@ -3,6 +3,13 @@
   "entries": [
     {
       "kind": "updated",
+      "scope": "ui",
+      "text": "Move the loot bag onto its own bar stone",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
+    {
+      "kind": "updated",
       "scope": "assets",
       "text": "Bake the last wiki-linked icon from the game cache",
       "fromFeedback": false,
@@ -273,13 +280,6 @@
       "text": "Classic gear data model + starter pool",
       "fromFeedback": false,
       "date": "2026-08-03"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Flag non-buildable tiles while you place a tower",
-      "fromFeedback": false,
-      "date": "2026-08-02"
     }
   ]
 }

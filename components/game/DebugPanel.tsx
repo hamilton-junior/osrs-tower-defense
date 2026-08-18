@@ -416,6 +416,14 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
           >
             📖 Seed Collection Log
           </button>
+
+          <button
+            onClick={() => engineRef.current?.debugGiveGear()}
+            className="rs-btn w-full py-[0.35em] text-[0.8em]"
+            title="Drop one of every Classic gear piece into the loot bag"
+          >
+            🎒 Give every gear piece
+          </button>
           </>
           )}
         </div>

@@ -21,6 +21,7 @@ import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus
 import { upgradeOrder } from '../systems/upgrades';
 import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor } from '../systems/tower-xp';
 import { canEquip, rollGearDrops, gearDamageMult } from '../systems/tower-gear';
+import { GEAR } from '../data/gear';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
 import { mergeUnlockBatch } from '../systems/unlock-queue';
@@ -408,6 +409,12 @@ export interface UIState {
   /** Classic-mode loot bag: gear dropped this run, awaiting a tower. Empty/omitted
    *  in roguelite. Cloneable (plain `Item`s). */
   lootBag: Item[];
+  /** The gear that fell since the UI last read this — what the corner toast
+   *  announces. Batched like `unlocks`: two pieces off one kill arrive together. */
+  gearDrops: Item[];
+  /** Bumps on every real drop, so a run *loaded* from a save (which fills the bag
+   *  in one go) never replays a run's worth of toasts. */
+  gearDropSeq: number;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 11);
@@ -857,6 +864,12 @@ export class GameEngine {
   /** True once the current batch has been pushed to the UI, so the next producer
    *  starts a fresh batch instead of appending to one already on screen. */
   private unlocksDrained = true;
+  /** Same contract for the loot-bag toast: gear that dropped since the last flush,
+   *  a bump counter the UI keys off, and the drained flag that keeps a second kill
+   *  in the same frame from clobbering the first one's pieces. */
+  private gearDrops: Item[] = [];
+  private gearDropSeq = 0;
+  private gearDropsDrained = true;
 
   // --- composed subsystems ---
   readonly slayer = new SlayerSystem(this);
@@ -1081,6 +1094,7 @@ export class GameEngine {
     if (Object.keys(patch).length > 0) {
       this.onState(patch);
       this.unlocksDrained = true;
+      this.gearDropsDrained = true;
     }
   }
 
@@ -1154,6 +1168,8 @@ export class GameEngine {
       upgrades: this.meta.upgrades,
       unlocks: this.unlocks,
       unlockSeq: this.unlockSeq,
+      gearDrops: this.gearDrops,
+      gearDropSeq: this.gearDropSeq,
       killCounts: this.killCounts,
       achievements: [...this.achievements],
       cardCounts: this.cardCounts,
@@ -5105,7 +5121,12 @@ export class GameEngine {
       // the new core). Gated to Classic — roguelite gears its towers via drafts.
       if (this.gameMode === 'classic') {
         const gear = rollGearDrops({ wave: this.wave, isBoss: !!enemy.isBoss });
-        if (gear.length) this.lootBag = [...this.lootBag, ...gear];
+        if (gear.length) {
+          this.lootBag = [...this.lootBag, ...gear];
+          this.gearDrops = mergeUnlockBatch(this.gearDrops, gear, this.gearDropsDrained);
+          this.gearDropsDrained = false;
+          this.gearDropSeq++;
+        }
       }
       // Bigger and Badder (Slayer shop): the task monster can rise again, right
       // where it fell, as its Superior form. Rolled BEFORE recordKill, so the kill
@@ -5970,6 +5991,20 @@ export class GameEngine {
 
   /** Fire a sample unlock popup so the collection-log popup can be eyeballed
    *  without clearing all the way to a prayer's unlock wave. */
+  /** Drop one of every Classic gear piece straight into the loot bag, so the bag
+   *  and its equip picker can be exercised without farming a boss for an hour.
+   *  The whole pool rather than a random handful: a random draw makes "does the
+   *  swap comparison render" a coin flip. */
+  debugGiveGear() {
+    const gear = Object.values(GEAR);
+    if (gear.length === 0) return;
+    this.lootBag = [...this.lootBag, ...gear];
+    this.gearDrops = mergeUnlockBatch(this.gearDrops, gear, this.gearDropsDrained);
+    this.gearDropsDrained = false;
+    this.gearDropSeq++;
+    this.emit();
+  }
+
   debugTestUnlock() {
     const def = PRAYERS.find(p => p.id === 'rigour') ?? PRAYERS[0];
     this.announceUnlocks([{

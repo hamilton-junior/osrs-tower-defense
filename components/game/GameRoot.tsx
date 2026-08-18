@@ -28,8 +28,8 @@ import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
 import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/run-save';
-import { canEquip, towerAmmoClassFor } from '@/lib/game/systems/tower-gear';
-import type { TowerType, PrayerType, MageMode, CombatStyle, StyleWeakness, TargetingPriority, Item, AmmoClass } from '@/lib/game/types';
+import { canEquip, towerAmmoClassFor, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/tower-gear';
+import type { TowerType, PrayerType, MageMode, CombatStyle, StyleWeakness, TargetingPriority, Item, AmmoClass, Tower } from '@/lib/game/types';
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { FEEDBACK, FEEDBACK_ENABLED, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 import { loadChangelog, CHANGELOG_KINDS, type ChangelogEntry } from '@/lib/game/changelog';
@@ -177,21 +177,132 @@ const spellbookIcon = (mode?: MageMode): string =>
 const SHOW_TOWER_PICKER = false;
 const hideBrokenImg = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).style.display = 'none'; };
 
-/** Classic gear: a `title=` summary of a piece's bonus + level requirement, for the
- *  equipment slots, the equip picker and the loot-bag panel. Signature pieces (a
- *  boss-drop `gearEffect`) lead with their own description instead of raw stats. */
-function gearTooltip(item: Item): string {
-  const parts: string[] = [];
-  if (item.bonus.damage) parts.push(`+${item.bonus.damage} dmg`);
-  if (item.bonus.range) parts.push(`+${item.bonus.range}% range`);
-  if (item.bonus.cooldown) parts.push(`+${item.bonus.cooldown}% speed`);
-  if (item.bonus.xpBonus) parts.push(`+${item.bonus.xpBonus}% XP`);
-  const stats = parts.length ? parts.join(', ') : 'No stat bonus';
-  const req = `Requires Lvl ${item.levelReq ?? 1}`;
-  if (item.rarity === 'signature') {
-    return `${item.name} (Signature) — ${item.description} · ${stats} · ${req}`;
-  }
-  return `${item.name} — ${stats} · ${req}`;
+/**
+ * The stat lines a gear piece can carry, in a fixed order with the icon each one
+ * is read by. One table so the hover card, the loot bag's always-on stat block
+ * and the swap comparison can never drift apart or list them in a different
+ * order. `unit` is what follows the number.
+ */
+const GEAR_STAT_DEFS: { key: 'damage' | 'range' | 'cooldown' | 'xpBonus'; icon: string; label: string; unit: string }[] = [
+  { key: 'damage', icon: ASSETS.misc.strength_icon, label: 'Damage', unit: '' },
+  { key: 'range', icon: ASSETS.misc.multicombat_icon, label: 'Range', unit: '%' },
+  { key: 'cooldown', icon: ASSETS.misc.attack_icon, label: 'Attack speed', unit: '%' },
+  { key: 'xpBonus', icon: ASSETS.misc.xp_icon, label: 'XP gain', unit: '%' },
+];
+
+/**
+ * How a tower reads in a list. Non-wizards use their tier name; a wizard's tier
+ * name is shared by all three spellbooks, so it would call an Ancient tower
+ * "Elemental". Name it by the book it is on and the element it casts — the two
+ * things that actually tell two wizard towers apart.
+ */
+function towerListName(t: Tower): string {
+  if (t.type !== 'wizard') return t.name;
+  const mode = t.mageMode ?? 'elemental';
+  const book = mode === 'ancients' ? 'Ancient' : mode === 'utility' ? 'Utility' : 'Elemental';
+  const pick = mode === 'ancients' ? (t.ancientType ?? 'ice')
+    : mode === 'utility' ? (t.supportSpell ?? 'curse')
+      : (t.element ?? 'air');
+  return `${book} Wizard · ${pick.charAt(0).toUpperCase()}${pick.slice(1)}`;
+}
+
+/** `Kit`/`Ammo`/`Runes`/`Jewellery` — which slot a piece goes in, as the UI says it. */
+function gearSlotLabel(item: Item): string {
+  return item.type === 'ammo'
+    ? (item.ammoClass ? AMMO_CLASS_LABEL[item.ammoClass] : 'Ammo')
+    : 'Jewellery';
+}
+
+/** Icon + name + slot·rarity — the header every gear surface leads with. */
+function GearHeader({ item, note }: { item: Item; note?: string }) {
+  const signature = item.rarity === 'signature';
+  return (
+    <div className="flex items-center gap-[0.45em]">
+      <img src={GEAR_ICONS[item.id]} alt="" className="w-[1.9em] h-[1.9em] object-contain shrink-0" onError={hideBrokenImg} />
+      <span className="flex flex-col leading-tight min-w-0">
+        <span className={`truncate ${signature ? 'text-osrs-yellow' : 'text-white'}`}>{item.name}</span>
+        <span className="text-[0.66em] uppercase tracking-wide text-[#9d8f6a] truncate">
+          {note ?? `${gearSlotLabel(item)}${signature ? ' · Signature' : ''}`}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/** A piece's own stats: one `Stat` row per bonus it carries, then its level gate
+ *  (the same Level icon the tower panel uses). */
+function GearStats({ item }: { item: Item }) {
+  const rows = GEAR_STAT_DEFS.filter((d) => item.bonus[d.key]);
+  return (
+    <div className="space-y-[0.15em] text-[0.8em]">
+      {rows.length === 0 ? (
+        <div className="text-[#8a7c5c]">No stat bonus</div>
+      ) : (
+        rows.map((d) => (
+          <Stat key={d.key} icon={d.icon} label={d.label} value={`+${item.bonus[d.key]}${d.unit}`} />
+        ))
+      )}
+      <Stat icon={ASSETS.misc.stats_icon} label="Requires" value={`Lvl ${item.levelReq ?? 1}`} />
+    </div>
+  );
+}
+
+/**
+ * What a swap actually costs or buys: every stat either piece carries, as
+ * `worn → incoming` with the difference. A drop that looks like an upgrade
+ * because it is shinier can easily be a downgrade on the stat that matters, so
+ * the delta is the point — green for better, red for worse.
+ */
+function GearCompare({ from, to }: { from: Item; to: Item }) {
+  const rows = GEAR_STAT_DEFS.filter((d) => from.bonus[d.key] || to.bonus[d.key]);
+  return (
+    <div className="space-y-[0.15em] text-[0.8em]">
+      {rows.map((d) => {
+        const a = from.bonus[d.key] ?? 0;
+        const b = to.bonus[d.key] ?? 0;
+        const diff = b - a;
+        return (
+          <Stat
+            key={d.key}
+            icon={d.icon}
+            label={d.label}
+            value={
+              <span className="flex items-center gap-[0.35em]">
+                <span className="text-[#9d8f6a]">{a}{d.unit}</span>
+                <span className="text-[#6f6449]">→</span>
+                <span>{b}{d.unit}</span>
+                {diff !== 0 && (
+                  <span className={diff > 0 ? 'text-osrs-green' : 'text-osrs-red'}>
+                    ({diff > 0 ? '+' : ''}{diff}{d.unit})
+                  </span>
+                )}
+              </span>
+            }
+          />
+        );
+      })}
+      <Stat icon={ASSETS.misc.stats_icon} label="Requires" value={`Lvl ${to.levelReq ?? 1}`} />
+    </div>
+  );
+}
+
+/**
+ * Classic gear: the hover card for a piece, shown from the equipment slots, the
+ * equip picker, the tower picker and the loot bag. Reads like the tower panel —
+ * an icon + name header, then one stat row each (icon, what it is, how much) —
+ * so a bow's stats and an arrow's stats are read the same way. Signature pieces
+ * (a boss-drop `gearEffect`) lead with what the effect does.
+ */
+function gearTooltip(item: Item): React.ReactNode {
+  return (
+    <div className="flex flex-col gap-[0.4em]">
+      <GearHeader item={item} />
+      {item.rarity === 'signature' && item.description && (
+        <p className="text-[0.74em] text-[#c9b78c] leading-snug">{item.description}</p>
+      )}
+      <GearStats item={item} />
+    </div>
+  );
 }
 
 /** Slot-1 label per the tower's ammo class — arrows/darts/cannonballs feed off
@@ -328,7 +439,12 @@ const INITIAL: UIState = {
   lifestealSeq: 0,
   towerConfigSeq: 0,
   lootBag: [],
+  gearDrops: [], gearDropSeq: 0,
 };
+
+/** How long a loot-drop toast stays in the corner. Matches the CSS animation in
+ *  `.rs-loot-toast` — change both together or a toast pops out mid-fade. */
+const LOOT_TOAST_MS = 2600;
 
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = {
@@ -687,6 +803,27 @@ export default function GameRoot() {
   useEffect(() => { setPreviewExpanded(false); }, [ui.wave]);
   const unlockIdRef = useRef(0);
   const lastUnlockSeq = useRef(0);
+  // Loot-bag drop toasts: a small stack in the corner over the bag's own stone,
+  // each fading itself out. Separate from the unlock popup on purpose — a piece of
+  // gear is a "you picked something up", not a celebration that owns the screen.
+  const [lootToasts, setLootToasts] = useState<{ id: number; item: Item }[]>([]);
+  const lootToastIdRef = useRef(0);
+  const lastGearSeq = useRef(0);
+  // Which loot-bag piece has its tower picker open, by bag index.
+  const [bagPick, setBagPick] = useState<number | null>(null);
+  // Both loot-bag filters default ON: the bag and the tower list are only worth
+  // reading when they are down to what would actually change something.
+  const [hideJunkGear, setHideJunkGear] = useState(() => loadBool('ui_bag_hide_junk', true));
+  const [hideDowngrades, setHideDowngrades] = useState(() => loadBool('ui_bag_hide_downgrades', true));
+  useEffect(() => { try { localStorage.setItem('ui_bag_hide_junk', JSON.stringify(hideJunkGear)); } catch { /* ignore */ } }, [hideJunkGear]);
+  useEffect(() => { try { localStorage.setItem('ui_bag_hide_downgrades', JSON.stringify(hideDowngrades)); } catch { /* ignore */ } }, [hideDowngrades]);
+  // The tower row the pointer is on, so the picker's stat card can show what the
+  // swap would actually change.
+  const [hoverTowerId, setHoverTowerId] = useState<string | null>(null);
+  // True while the hovered tower sits *behind* the open panel — the panel fades so
+  // the highlight it would otherwise hide is actually visible.
+  const [duckPanel, setDuckPanel] = useState(false);
+  const tabBodyRef = useRef<HTMLDivElement | null>(null);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
   // Marquee drag-box multi-select (for batch tower upgrades). Start is kept in
   // client coords; the rendered box is in container pixels. `dragged` suppresses
@@ -1149,6 +1286,21 @@ export default function GameRoot() {
     setUnlockQueue((q) => [...q, ...ui.unlocks.map((item) => ({ id: ++unlockIdRef.current, item }))]);
   }, [ui.unlockSeq, ui.unlocks]);
 
+  // Loot toasts: one per piece, keyed off the engine's drop counter so a run
+  // *loaded* from a save (which fills the bag in a single patch) stays silent.
+  useEffect(() => {
+    if (!ui.gearDropSeq || ui.gearDropSeq === lastGearSeq.current) return;
+    lastGearSeq.current = ui.gearDropSeq;
+    if (ui.gearDrops.length === 0) return;
+    const added = ui.gearDrops.map((item) => ({ id: ++lootToastIdRef.current, item }));
+    // Cap the stack: a boss can drop several at once, and a column that grows past
+    // the bar would cover the board it is reporting on.
+    setLootToasts((q) => [...q, ...added].slice(-4));
+    const ids = new Set(added.map((a) => a.id));
+    const t = setTimeout(() => setLootToasts((q) => q.filter((x) => !ids.has(x.id))), LOOT_TOAST_MS);
+    return () => clearTimeout(t);
+  }, [ui.gearDropSeq, ui.gearDrops]);
+
   // Advance the popup queue. A lone popup holds the full ~4.2s (the CSS animation);
   // a longer queue holds each one for less, so a batch of unlocks stays one
   // celebration instead of a minute of popups. See systems/unlock-queue.
@@ -1307,6 +1459,39 @@ export default function GameRoot() {
     const dy = (r.height - height) / 2;
     return { left: r.left + dx, top: r.top + dy, width, height, dx, dy };
   }, []);
+
+  /**
+   * Hovering a tower row in the loot bag's picker rings that tower on the board.
+   * The docked panel sits *over* the board's bottom-right, so a tower under it
+   * would be highlighted where nobody can see it — when the ring would land
+   * inside the panel's own rect, the panel fades out of the way until the pointer
+   * leaves the row. Cheap enough to do per hover: two getBoundingClientRects.
+   */
+  const hoverTowerRow = useCallback((t: Tower | null) => {
+    highlightTower(t ? t.id : null);
+    setHoverTowerId(t ? t.id : null);
+    const box = paintedBox();
+    const panel = tabBodyRef.current?.getBoundingClientRect();
+    const eng = engineRef.current;
+    if (!t || !box || !panel || !eng) { setDuckPanel(false); return; }
+    const scale = box.width / eng.width;
+    const cx = box.left + t.x * scale;
+    const cy = box.top + t.y * (box.height / eng.height);
+    const r = (t.visualRadius + 10) * scale;
+    setDuckPanel(cx + r > panel.left && cx - r < panel.right && cy + r > panel.top && cy - r < panel.bottom);
+  }, [highlightTower, paintedBox]);
+  // Closing the interface (or switching stones) must not leave a tower ringed or
+  // the panel faded — the pointer never gets a chance to leave the row.
+  useEffect(() => {
+    if (tab === 'lootbag') return;
+    setBagPick(null);
+    setDuckPanel(false);
+    setHoverTowerId(null);
+    highlightTower(null);
+  }, [tab, highlightTower]);
+  // The bag re-indexes when a piece is equipped (and grows on a drop), so an open
+  // picker would end up pointing at a different item. Close it instead.
+  useEffect(() => { setBagPick(null); }, [ui.lootBag.length]);
 
   // Fit the board box to its container: the largest LOGIC-aspect rectangle that
   // fits, recomputed whenever the window (and thus the game area) changes. This is
@@ -2378,6 +2563,33 @@ export default function GameRoot() {
         </div>
       )}
 
+      {/* Loot-drop toasts (bottom-right, over the bag's own stone): each piece that
+          falls slides in, holds, and leaves. It points at where the gear went, so
+          the stone's badge and the toast tell one story. Click-through. */}
+      {lootToasts.length > 0 && (
+        <div className="absolute right-3 bottom-3 z-40 pointer-events-none flex flex-col items-end gap-[0.3em]"
+             style={{ fontSize: fs('clamp(13px, 0.85vw, 18px)') }}>
+          {lootToasts.map((t) => (
+            <div key={t.id} className="rs-loot-toast">
+              <img
+                src={GEAR_ICONS[t.item.id]}
+                alt=""
+                className="rs-loot-toast-icon"
+                onError={hideBrokenImg}
+              />
+              <span className="flex flex-col leading-tight">
+                <span className="rs-loot-toast-label">
+                  {t.item.rarity === 'signature' ? 'Signature drop' : 'Gear drop'}
+                </span>
+                <span className={t.item.rarity === 'signature' ? 'text-osrs-yellow' : 'text-[#e6dcc0]'}>
+                  {t.item.name}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Collection-log unlock popup (top-centre): celebrates prayers (and, later,
           other unlock kinds) as they come online with the wave. */}
       {unlockQueue[0] && (
@@ -2830,7 +3042,10 @@ export default function GameRoot() {
             <div className="mt-[0.45em]" data-tut="gear">
               <div className="text-[0.72em] text-[#d3c3a0] mb-[0.2em] px-[0.2em] uppercase tracking-wide">Equipment</div>
               <div className="flex gap-[0.5em] px-[0.2em]">
-                {(['ammo', 'jewellery'] as const).map((slotType) => {
+                {/* Utility wizards take jewellery only — they never attack, so a
+                    rune slot would sell them damage they cannot deal (canEquip
+                    enforces it; this keeps the dead slot off the panel too). */}
+                {(isUtility ? (['jewellery'] as const) : (['ammo', 'jewellery'] as const)).map((slotType) => {
                   const equipped = selectedTower.equipment[slotType];
                   const icon = equipped ? GEAR_ICONS[equipped.id] : undefined;
                   // Slot-1 label follows the tower's ammo class (Ammo/Runes/Kit);
@@ -3390,8 +3605,9 @@ export default function GameRoot() {
         {tab && (
         <div
           key={tab}
+          ref={tabBodyRef}
           onContextMenu={(e) => { e.preventDefault(); setTab(null); }}
-          className="rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 w-[clamp(20em,34vw,30em)] max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]"
+          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 w-[clamp(20em,34vw,30em)] max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${duckPanel ? ' rs-duck' : ''}`}
         >
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
@@ -3651,11 +3867,21 @@ export default function GameRoot() {
         </>
         )}
 
-        {/* ── LOOT BAG (classic): every gear piece dropped this run. Browse-only —
-            equipping happens through the tower's own slot picker, so there is
-            exactly one equip path. It lives on the first stone, the slot the
-            roguelite gives its loadout: the same question, per mode. ── */}
-        {tab === 'lootbag' && (
+        {/* ── LOOT BAG (classic): every gear piece dropped this run, and the other
+            half of the equip flow. The tower's own slot asks "which piece?"; a
+            piece here asks "which tower?" — same picker, read from the other end,
+            so neither question forces you to walk to the other panel. It lives on
+            the first stone, the slot the roguelite gives its loadout. ── */}
+        {tab === 'lootbag' && (() => {
+          const towersOnBoard = engineRef.current?.towers ?? [];
+          // Both filters default on: a deep run's bag fills with pieces nothing
+          // wants, and every tower is listed for every piece. The useful answer is
+          // the short list — the long one stays a click away.
+          const shown = ui.lootBag
+            .map((g, i) => ({ g, i }))
+            .filter(({ g }) => !hideJunkGear || isUpgradeForAny(towersOnBoard, g));
+          const hiddenCount = ui.lootBag.length - shown.length;
+          return (
         <>
           <div className="rs-panel-title flex items-center gap-2">
             <img src={ASSETS.misc.loot_bag} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
@@ -3664,34 +3890,163 @@ export default function GameRoot() {
           {ui.lootBag.length === 0 ? (
             <div className="mt-[0.6em] px-[0.2em] text-[0.75em] text-[#8f8158] leading-relaxed">
               Empty. Monsters drop gear as they die — bosses drop the signature
-              jewellery. Equip a piece from the tower&apos;s own slots.
+              jewellery. Click a piece here, or a tower&apos;s own slot, to equip it.
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
+              <div className="flex items-center justify-between gap-2 mt-[0.5em] px-[0.2em] text-[0.8em]">
                 <span className="text-[#cdbe91] uppercase tracking-wide">Unequipped gear</span>
-                <span className="text-osrs-yellow font-bold">{ui.lootBag.length}</span>
+                <span className="text-osrs-yellow font-bold">
+                  {hiddenCount > 0 ? `${shown.length}/${ui.lootBag.length}` : ui.lootBag.length}
+                </span>
               </div>
-              <div className="mt-[0.5em] flex flex-wrap gap-[0.3em]">
-                {/* `.rs-slot` is `width: 100%; aspect-ratio: 1`, so the size has to
-                    come from a wrapper — same as the tower panel's gear slots. */}
-                {ui.lootBag.map((g, i) => (
-                  <div key={i} className="w-[3em]">
-                    <HoverTip content={gearTooltip(g)}>
-                      <div
-                        className="rs-slot"
-                        style={g.rarity === 'signature' ? { borderColor: 'var(--osrs-yellow)' } : undefined}
+              <label
+                className="flex items-center gap-[0.4em] mt-[0.3em] px-[0.2em] text-[0.72em] text-[#d3c3a0] cursor-pointer select-none"
+                title="Hide pieces that would not improve any tower on the board — either nothing can wear them, or what those towers already wear is better"
+              >
+                <input
+                  type="checkbox"
+                  className="rs-check"
+                  checked={hideJunkGear}
+                  onChange={(e) => setHideJunkGear(e.target.checked)}
+                />
+                Hide non-upgrades
+                {hiddenCount > 0 && <span className="text-[#8a7c5c]">({hiddenCount} hidden)</span>}
+              </label>
+              {shown.length === 0 ? (
+                <div className="mt-[0.5em] px-[0.2em] text-[0.72em] text-[#8f8158] leading-snug">
+                  Nothing here would improve a tower on the board — wrong style, too
+                  high a level, or beaten by what is already worn. Untick to see it all.
+                </div>
+              ) : (
+                <div className="mt-[0.5em] flex flex-wrap gap-[0.3em]">
+                  {/* `.rs-slot` is `width: 100%; aspect-ratio: 1`, so the size has to
+                      come from a wrapper — same as the tower panel's gear slots. */}
+                  {shown.map(({ g, i }) => (
+                    <div key={i} className="w-[3em]">
+                      <HoverTip content={gearTooltip(g)}>
+                        <button
+                          type="button"
+                          aria-label={`Equip ${g.name}`}
+                          onClick={() => setBagPick((cur) => (cur === i ? null : i))}
+                          className={`rs-slot ${bagPick === i ? 'selected' : ''}`}
+                          style={g.rarity === 'signature' && bagPick !== i
+                            ? { borderColor: 'var(--osrs-yellow)' } : undefined}
+                        >
+                          <img src={GEAR_ICONS[g.id]} alt={g.name} onError={hideBrokenImg} />
+                        </button>
+                      </HoverTip>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Which tower takes this piece. A tower whose level is too low is
+                  listed but disabled, and one whose slot is full says what it
+                  would replace (equipping swaps — the old piece falls back into
+                  this bag). Hovering a row rings that tower on the board. Inline
+                  rather than a floating dropdown: this panel scrolls, and
+                  `overflow-y-auto` would clip one. */}
+              {bagPick !== null && ui.lootBag[bagPick] && (() => {
+                const g = ui.lootBag[bagPick]!;
+                const slot: 'ammo' | 'jewellery' = g.type === 'ammo' ? 'ammo' : 'jewellery';
+                const all = towersOnBoard
+                  .map((t) => ({ t, check: canEquip(t, g), upgrade: isUpgradeFor(t, g) }))
+                  .filter(({ check }) => check.ok || check.reason === 'level');
+                // Best first: a free slot, then a real gain, then the ones listed
+                // only so you can see why they are not worth it.
+                const ordered = [...all].sort((a, b) => {
+                  const rank = (x: typeof a) => (x.upgrade ? (x.t.equipment[slot] ? 1 : 0) : 2);
+                  return rank(a) - rank(b) || towerListName(a.t).localeCompare(towerListName(b.t));
+                });
+                const towers = hideDowngrades ? ordered.filter((x) => x.upgrade) : ordered;
+                const buried = ordered.length - towers.length;
+                const hovered = towers.find(({ t }) => t.id === hoverTowerId)?.t;
+                const worn = hovered?.equipment[slot];
+                return (
+                  <div className="mt-[0.5em] rs-panel-inset p-[0.5em]">
+                    {/* The picked piece's stats stay on screen for as long as the
+                        picker is open — the decision is "is this worth a slot?",
+                        and you cannot answer it from a tooltip you have to keep
+                        summoning. Hovering a tower that already wears something
+                        turns the same block into the before/after of that swap. */}
+                    <GearHeader item={g} note={worn ? `Replacing ${worn.name}` : undefined} />
+                    {g.rarity === 'signature' && g.description && (
+                      <p className="mt-[0.3em] text-[0.72em] text-[#c9b78c] leading-snug">{g.description}</p>
+                    )}
+                    <div className="mt-[0.35em]">
+                      {worn ? <GearCompare from={worn} to={g} /> : <GearStats item={g} />}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 mt-[0.45em] pt-[0.35em] border-t border-[var(--rs-keyline)]">
+                      <span className="text-[0.68em] uppercase tracking-wide text-[#9d8f6a]">Equip on</span>
+                      <label
+                        className="flex items-center gap-[0.35em] text-[0.7em] text-[#d3c3a0] cursor-pointer select-none"
+                        title="Hide towers this piece would not improve — a full slot with something better in it, or a level you have not reached"
                       >
-                        <img src={GEAR_ICONS[g.id]} alt={g.name} onError={hideBrokenImg} />
+                        <input
+                          type="checkbox"
+                          className="rs-check"
+                          checked={hideDowngrades}
+                          onChange={(e) => setHideDowngrades(e.target.checked)}
+                        />
+                        Hide downgrades
+                        {buried > 0 && <span className="text-[#8a7c5c]">({buried})</span>}
+                      </label>
+                    </div>
+                    {towers.length === 0 ? (
+                      <div className="text-[0.7em] text-[#8a7c5c] px-[0.2em] py-[0.15em] leading-snug">
+                        {ordered.length === 0
+                          ? 'No tower on the board can take this piece.'
+                          : 'No tower would gain from it. Untick the filter to equip it anyway.'}
                       </div>
-                    </HoverTip>
+                    ) : (
+                      <div className="max-h-[12em] overflow-y-auto space-y-[0.1em] pr-[0.1em] mt-[0.25em]">
+                        {towers.map(({ t, check, upgrade }) => {
+                          const wornHere = t.equipment[slot];
+                          const icon = t.type === 'wizard' ? wizardStaffUrl(t) : towerIcon(t.type);
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              disabled={!check.ok}
+                              onMouseEnter={() => hoverTowerRow(t)}
+                              onMouseLeave={() => hoverTowerRow(null)}
+                              onFocus={() => hoverTowerRow(t)}
+                              onBlur={() => hoverTowerRow(null)}
+                              onClick={() => {
+                                engineRef.current?.equipGear(t.id, g.id);
+                                hoverTowerRow(null);
+                                setBagPick(null);
+                              }}
+                              className={`w-full flex items-center gap-[0.4em] px-[0.3em] py-[0.25em] text-left text-[0.72em] ${
+                                check.ok ? 'hover:bg-[#3a3122] text-[#d3c3a0]' : 'opacity-45 cursor-not-allowed text-[#d3c3a0]'
+                              }`}
+                            >
+                              {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />}
+                              <span className="flex-1 truncate">{towerListName(t)}</span>
+                              {!check.ok ? (
+                                <span className="text-[0.9em] text-osrs-red whitespace-nowrap">Requires Lv {g.levelReq}</span>
+                              ) : wornHere ? (
+                                <span className={`flex items-center gap-[0.25em] text-[0.9em] whitespace-nowrap ${upgrade ? 'text-[#9d8f6a]' : 'text-[#6f6449]'}`}>
+                                  {upgrade ? 'swaps' : 'worse'}
+                                  <img src={GEAR_ICONS[wornHere.id]} alt={wornHere.name} title={wornHere.name} className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                                </span>
+                              ) : (
+                                <span className="text-[0.9em] text-osrs-green whitespace-nowrap">empty</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </>
           )}
         </>
-        )}
+          );
+        })()}
 
         {/* ── DPS: the damage meter, folded into the main panel as an interface
             tab (was a floating window). The tab body already scrolls, so a long
@@ -4377,7 +4732,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Click a tower you built to upgrade or sell it, and buy more from the dock. Towers earn XP by fighting — landing hits, and extra when they hit an enemy weak to their style — and level up, which nudges their damage. A tier upgrade needs both gold and a minimum combat level; until the tower is high enough its Upgrade button reads “Needs Lv X”. Tick its Auto‑upgrade box to let it level itself from your gold whenever it can (cheapest tower first, gate permitting); the same box on a multi‑selection arms the whole group. Build mode is paused, so take your time before the next wave.',
     when: (ui) => !ui.waveActive && ui.wave === 2 },
   { id: 'gear', target: 'gear', title: 'Equip dropped gear',
-    body: 'Monsters — bosses especially — drop gear into your loot bag, on the first stone in the bar. A tower\'s first slot takes its own style of ammunition: Ammo for Ranged towers, Runes for the wizard, Kit for Melee — and only accepts a matching piece. The second slot is Jewellery, which fits any tower. Every piece needs the tower\'s combat level to equip. Signature jewellery (boss drops) adds a special effect on top of its stats.',
+    body: 'Monsters — bosses especially — drop gear into your loot bag, on the first stone in the bar, and each drop announces itself in the corner. A tower\'s first slot takes its own style of ammunition: Ammo for Ranged towers, Runes for the wizard, Kit for Melee — and only accepts a matching piece. The second slot is Jewellery, which fits any tower. Every piece needs the tower\'s combat level to equip. Equip from either end: click a tower slot to pick a piece, or click a piece in the bag to pick the tower — hovering a tower in that list rings it on the board. Signature jewellery (boss drops) adds a special effect on top of its stats.',
     when: (ui) => ui.gameMode === 'classic' && !!ui.selectedTowerId && ui.wave >= 2 },
   { id: 'prayer', target: 'prayers', title: 'Prayer',
     body: 'Toggle a prayer to buff a tower style or shield your base. It drains a pool that refills between waves — flip the strong ones on for boss waves.',
@@ -4495,7 +4850,7 @@ const TLDR: TldrGroup[] = [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
     'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks. Towers earn XP by fighting (bonus vs a style weakness) and level up for more damage; a tier upgrade needs a minimum level as well as gold — the button shows “Needs Lv X” until then. Tick Auto‑upgrade to let it level itself from your gold (cheapest tower first).',
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
-    'Classic gear — monsters drop gear into a loot bag (first stone in the bar). A tower\'s first slot is its own style (Ammo for Ranged, Runes for the wizard, Kit for Melee) and only takes a match; the second slot is Jewellery, which fits any tower. Every piece needs the tower\'s combat level, and bosses drop signature jewellery with a bonus effect.',
+    'Classic gear — monsters drop gear into a loot bag (first stone in the bar; each drop toasts in the corner). A tower\'s first slot is its own style (Ammo for Ranged, Runes for the wizard, Kit for Melee) and only takes a match; the second slot is Jewellery, which fits any tower. Every piece needs the tower\'s combat level, and bosses drop signature jewellery with a bonus effect. Equip from either end — a tower slot picks the piece, a piece in the bag picks the tower (hover a tower in that list to ring it on the board).',
     'With a tower picked, hold Shift and drag to paint a line of them. Releasing Shift only prices the line up — a panel then asks you to confirm before a coin is spent, and for a line of wizards it asks which spellbook they should all use. Until you confirm, the stroke can be added to (hold Shift again), redrawn, or thrown away (Esc / right-click). Tiles you can’t afford paint red and are skipped.',
     'Drag a box (no Shift) to multi-select — the panel then upgrades, sells, moves, re-aims, re-elements or arms Auto‑upgrade on the whole box at once. A group Move carries the towers as one rigid formation: they keep the shape you arranged, and every tile must be legal or the drop is refused.',
     'Ctrl+C copies what is selected, Ctrl+V puts that formation on your pointer and a click builds all of it — the shape, each tower’s target priority and each wizard’s spellbook and spell come along. Copies are built at base level and cost full price, so it saves the clicking, not the gold.',
