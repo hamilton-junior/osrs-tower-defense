@@ -3,6 +3,20 @@
   "entries": [
     {
       "kind": "updated",
+      "scope": "ui",
+      "text": "Make unlock-popup queueing a tested contract",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
+    {
+      "kind": "new",
+      "scope": "achievements",
+      "text": "Keep completed achievements and run facts across sessions",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
+    {
+      "kind": "updated",
       "scope": "achievements",
       "text": "Tier icons from the game cache",
       "fromFeedback": false,
@@ -266,20 +280,6 @@
       "text": "Cap how far auto-upgrade levels a tower",
       "fromFeedback": false,
       "date": "2026-08-02"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "UI actions reflect in the same click, not a frame later",
-      "fromFeedback": false,
-      "date": "2026-08-02"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Utility towers earn support XP from the damage they enable",
-      "fromFeedback": false,
-      "date": "2026-08-01"
     }
   ]
 }

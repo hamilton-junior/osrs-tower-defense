@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { GameEngine, LOGIC_WIDTH, LOGIC_HEIGHT, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem, type GameMode } from '@/lib/game/core/engine';
 import { DRAFT_POOL, RARITY_WEIGHT, CARD_ROLL_BASE_COST, type DraftCard, type DraftRarity, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
 import { unlockDwellMs } from '@/lib/game/systems/unlock-queue';
+import { CA_TIERS, CA_TIER_NAMES, tierProgress, highestTitle, type CaTier } from '@/lib/game/systems/combat-achievements';
+import { CA_TASKS } from '@/lib/game/data/combat-achievements';
 import { RELICS, type Relic, type RelicTier } from '@/lib/game/systems/relics';
 import { AFFIX_DEFS } from '@/lib/game/systems/affixes';
 import { bossTip } from '@/lib/game/systems/boss-tips';
@@ -698,7 +700,10 @@ export default function GameRoot() {
   // Collection Log and Debug still open their own larger windows.
   const [tab, setTab] = useState<SideTab | null>(null);
   const [logOpen, setLogOpen] = useState(false);
-  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty'>('monsters');
+  // Highest Combat Achievement tier cleared in full — a cosmetic title and nothing
+  // more: it gates no control, mode or difficulty tier.
+  const caTitle = useMemo(() => highestTitle(new Set(ui.achievements)), [ui.achievements]);
+  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty' | 'achievements'>('monsters');
   // The champion's win record (non-monetary meta reward). Read once on mount.
   const [victories, setVictories] = useState<Victories>(EMPTY_VICTORIES);
   useEffect(() => { setVictories(loadVictories()); }, []);
@@ -3119,6 +3124,7 @@ export default function GameRoot() {
         <CollectionLog
           killCounts={ui.killCounts}
           cardCounts={ui.cardCounts}
+          achievements={ui.achievements}
           victories={victories}
           difficulty={difficulty}
           tab={logTab}
@@ -3315,6 +3321,15 @@ export default function GameRoot() {
             <p className="text-[0.8em] text-[#d3c3a0] mb-4 uppercase tracking-wide">
               cleared on wave {ui.victory.wave}
             </p>
+            {caTitle && (
+              <div
+                className="flex items-center justify-center gap-[0.35em] text-[0.8em] text-osrs-yellow font-bold uppercase tracking-wide mb-3"
+                title={`Combat Achievements — the ${CA_TIER_NAMES[caTitle]} tier cleared in full`}
+              >
+                <img src={ASSETS.achievements[caTitle]} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                {CA_TIER_NAMES[caTitle]}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2 mb-4 text-[0.95em]">
               <GoStat icon={ASSETS.misc.multicombat_icon} label="Bosses" value={fmt(ui.victory.bosses)} />
               <GoStat icon={ASSETS.misc.compass} label="Cleared in" value={fmtTime(ui.victory.seconds)} />
@@ -3353,6 +3368,7 @@ export default function GameRoot() {
           saved={savedRun}
           champion={victories.total > 0}
           wins={victories.total}
+          caTitle={caTitle}
           difficulty={difficulty}
           selectedTier={selectedTier}
           onSelect={(m) => engineRef.current?.setMode(m)}
@@ -4362,7 +4378,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'A boss has its own health bar and a mechanic to answer — pile your strongest towers and buffs on it, and watch the caption under its bar.',
     when: (ui) => ui.bossWave },
   { id: 'victory', target: 'hud', title: 'A run can be won',
-    body: 'Defeat every boss in the roster — around wave 90 — and the run is won. A Victory screen then lets you push on into Endless, where enemies keep pulling ahead and Rune Essence drops to a tenth, or start fresh. Your wins are kept in the Collection Log’s Victories tab. Clearing a difficulty tier unlocks the next harder one for that mode, with the record — not extra power — tracked in the Collection Log’s Difficulty tab.',
+    body: 'Defeat every boss in the roster — around wave 90 — and the run is won. A Victory screen then lets you push on into Endless, where enemies keep pulling ahead and Rune Essence drops to a tenth, or start fresh. Your wins are kept in the Collection Log’s Victories tab. Clearing a difficulty tier unlocks the next harder one for that mode, with the record — not extra power — tracked in the Collection Log’s Difficulty tab. Combat Achievements run alongside all of it: 40 tasks in the Collection Log’s Achievements tab, earned by how you play rather than bought, and clearing a whole tier grants its title — a mark, never a power.',
     when: (ui) => ui.wave >= 60 && !ui.waveActive },
   // The 'draft' tip is taught *inside* the draft overlay itself (see the roguelite
   // draft block) so it explains the cards while you are choosing, not after — it is
@@ -4456,6 +4472,7 @@ const TLDR: TldrGroup[] = [
   { h: 'Goal', lines: [
     'Enemies walk the path to your base. Every leak costs a life; at zero lives the run ends.',
     'Defeat every boss in the roster — about wave 90 — to win the run. A Victory screen then lets you carry on into Endless, where the threat keeps accelerating and Rune Essence drops to a tenth, or start fresh. Wins are recorded in the Collection Log’s Victories tab, and a ★ Champion mark lights on the title screen after your first. Clearing a difficulty tier unlocks the next harder one for that mode; the Collection Log’s Difficulty tab keeps that record — no extra power, just the mark.',
+    'Combat Achievements are a parallel ladder of 40 tasks — reach a wave, fell a boss a certain way, hold a wave clean — tracked account-wide in the Collection Log’s Achievements tab and celebrated as they land. Clear every task in a tier and you earn its title (Easy through Grandmaster), shown on the title and Victory screens. Cosmetic only: no task unlocks a mode, a tier or a tower.',
   ] },
   { h: 'Towers', lines: [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
@@ -4689,7 +4706,7 @@ function SaveStat({ icon, title, value }: { icon: string; title: string; value: 
   );
 }
 
-function StartScreen({ mode, saved, champion, wins, difficulty, selectedTier, onSelect, onSelectTier, onStart, onContinue, onDiscard, onHelp }: {
+function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, selectedTier, onSelect, onSelectTier, onStart, onContinue, onDiscard, onHelp }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back before mode select. */
   saved: RunSave | null;
@@ -4697,6 +4714,8 @@ function StartScreen({ mode, saved, champion, wins, difficulty, selectedTier, on
   champion: boolean;
   /** Total victories, for the champion mark's hover title. */
   wins: number;
+  /** Highest Combat Achievement tier cleared in full, or null. Cosmetic only. */
+  caTitle: CaTier | null;
   /** New Game+ progress — which tier is unlocked per mode. */
   difficulty: DifficultyProgress;
   /** The tier currently armed for the next run. */
@@ -4748,6 +4767,15 @@ function StartScreen({ mode, saved, champion, wins, difficulty, selectedTier, on
               title={`Champion — ${wins} run${wins === 1 ? '' : 's'} won`}
             >
               ★ Champion
+            </div>
+          )}
+          {caTitle && (
+            <div
+              className="flex items-center justify-center gap-[0.3em] text-osrs-yellow text-[0.8em] font-bold mt-[0.3em] uppercase tracking-wider"
+              title={`Combat Achievements — the ${CA_TIER_NAMES[caTitle]} tier cleared in full`}
+            >
+              <img src={ASSETS.achievements[caTitle]} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+              {CA_TIER_NAMES[caTitle]}
             </div>
           )}
         </div>
@@ -5295,22 +5323,31 @@ function DpsViewBase({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHover
  *  tabs. Enemies show their baked sprite + lifetime kill count; the Cards tab shows
  *  every draft card with its lifetime pick count. Unobtained entries are darkened
  *  silhouettes (collection-log style). A completion counter per tab. */
-function CollectionLog({ killCounts, cardCounts, victories, difficulty, tab, setTab, onClose, globalLock }: {
+function CollectionLog({ killCounts, cardCounts, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
+  /** Completed Combat Achievement ids, account-wide. */
+  achievements: string[];
   victories: Victories;
   difficulty: DifficultyProgress;
-  tab: 'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty';
-  setTab: (t: 'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty') => void;
+  tab: 'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty' | 'achievements';
+  setTab: (t: 'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty' | 'achievements') => void;
   onClose: () => void;
   globalLock: boolean;
 }) {
   const isCards = tab === 'cards';
   const isVictories = tab === 'victories';
   const isDifficulty = tab === 'difficulty';
+  const isAchievements = tab === 'achievements';
+  // Unknown stored ids (a task retired in a later patch) are kept in the store but
+  // never counted here — the ladder only knows the tasks that exist today.
+  const caDone = useMemo(() => new Set(achievements), [achievements]);
+  const caProgress = useMemo(() => tierProgress(caDone), [caDone]);
   const entries = tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : [];
-  const total = isCards ? DRAFT_POOL.length : entries.length;
-  const obtained = isCards
+  const total = isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : entries.length;
+  const obtained = isAchievements
+    ? CA_TASKS.filter((t) => caDone.has(t.id)).length
+    : isCards
     ? DRAFT_POOL.filter((c) => (cardCounts[c.id] ?? 0) > 0).length
     : entries.filter((e) => (killCounts[e.type] ?? 0) > 0).length;
   const complete = total > 0 && obtained === total;
@@ -5339,9 +5376,11 @@ function CollectionLog({ killCounts, cardCounts, victories, difficulty, tab, set
         </span>
         <button onClick={onClose} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
       </div>
-      <div className="flex items-center justify-between mt-[0.4em] mb-[0.5em]">
-        <div className="flex gap-[0.3em]">
-          {(['bosses', 'monsters', 'cards', 'victories', 'difficulty'] as const).map((t) => (
+      <div className="flex items-center justify-between gap-[0.4em] mt-[0.4em] mb-[0.5em]">
+        {/* Six tabs no longer fit one row beside the counter at every UI scale, so the
+            strip wraps and the counter keeps its corner rather than spilling out. */}
+        <div className="flex flex-wrap gap-[0.3em] min-w-0">
+          {(['bosses', 'monsters', 'cards', 'victories', 'difficulty', 'achievements'] as const).map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setSelected(null); setSort('name'); }}
@@ -5349,6 +5388,7 @@ function CollectionLog({ killCounts, cardCounts, victories, difficulty, tab, set
                 t === 'cards' ? 'Reward cards collected'
                   : t === 'victories' ? 'Runs won'
                   : t === 'difficulty' ? 'New Game+ progress'
+                  : t === 'achievements' ? 'Combat Achievements — clear a tier for its title'
                   : `${t === 'bosses' ? 'Bosses' : 'Monsters'} slain`
               }
               className={`rs-btn px-[0.8em] py-[0.15em] text-[0.78em] capitalize ${tab === t ? 'rs-btn-primary' : ''}`}
@@ -5358,8 +5398,8 @@ function CollectionLog({ killCounts, cardCounts, victories, difficulty, tab, set
           ))}
         </div>
         {!isVictories && !isDifficulty && (
-          <span className="text-[0.78em] font-bold" style={{ color: complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}>
-            {obtained}/{total} found
+          <span className="text-[0.78em] font-bold shrink-0 whitespace-nowrap self-start" style={{ color: complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}>
+            {obtained}/{total} {isAchievements ? 'done' : 'found'}
           </span>
         )}
       </div>
@@ -5367,7 +5407,7 @@ function CollectionLog({ killCounts, cardCounts, victories, difficulty, tab, set
       {/* List controls (grid view only): filter by collection status, and choose
           the sort key + direction. Hidden in the drill-down detail view and the
           Victories record and Difficulty view (neither has a list to filter). */}
-      {!selected && !isVictories && !isDifficulty && (
+      {!selected && !isVictories && !isDifficulty && !isAchievements && (
         <div className="flex items-center justify-between gap-[0.4em] mb-[0.5em] flex-wrap">
           <div className="flex gap-[0.2em]">
             {LOG_FILTERS.map((f) => (
@@ -5403,7 +5443,44 @@ function CollectionLog({ killCounts, cardCounts, victories, difficulty, tab, set
           </div>
         </div>
       )}
-      {isDifficulty
+      {isAchievements
+        ? (
+          <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0 py-[0.1em]">
+            {CA_TIERS.map((tier) => {
+              const p = caProgress[tier];
+              const cleared = p.total > 0 && p.done === p.total;
+              return (
+                <div key={tier} className="mb-3 last:mb-0">
+                  <div className="flex items-center justify-between mb-[0.2em]">
+                    <span className="flex items-center gap-[0.35em]">
+                      <img src={ASSETS.achievements[tier]} alt="" className="w-[1.45em] h-[1.45em] object-contain" onError={hideBrokenImg} />
+                      <span className="text-[0.66em] uppercase tracking-wide text-[#b3a585]">{CA_TIER_NAMES[tier]}</span>
+                    </span>
+                    <span className={`text-[0.72em] ${cleared ? 'text-osrs-yellow font-bold' : 'text-[#cdbe91]'}`}>
+                      {p.done}/{p.total}{cleared ? ' · Title earned' : ''}
+                    </span>
+                  </div>
+                  <div className="rs-progress"><div className="rs-progress-fill" style={{ width: `${p.total > 0 ? (p.done / p.total) * 100 : 0}%` }} /></div>
+                  {CA_TASKS.filter((t) => t.tier === tier).map((t) => {
+                    const done = caDone.has(t.id);
+                    return (
+                      <div key={t.id} className="py-[0.25em]">
+                        <div className={done ? 'text-osrs-yellow font-bold' : 'text-[#8a7d5c]'}>
+                          {done ? '★ ' : ''}{t.name}
+                          {t.mode ? <span className="text-[0.72em] text-[#b3a585]"> ({t.mode === 'classic' ? 'Classic' : 'Roguelite'} only)</span> : null}
+                        </div>
+                        {/* The description is what tells a player how to earn it, so it
+                            stays legible on an unearned task rather than dimming with it. */}
+                        <div className="text-[0.72em] text-[#b3a585] leading-snug">{t.desc}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )
+        : isDifficulty
         ? (
           <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0 py-[0.1em]">
             {(['classic', 'roguelite'] as const).map((mode) => (
