@@ -5614,6 +5614,9 @@ export class GameEngine {
       draftRerolls: this.draftRerollsLeft,
       cardRollsBought: this.cardRollsBought,
       draftBoosted: this.draftBoosted,
+      // The run's Combat Achievement facts travel with the run: resuming must not
+      // hand the player a fresh "no life lost yet" slate for tasks they already spent.
+      caStats: structuredClone(this.caStats),
       slayer: this.slayer.snapshot(),
       prayer: { points: this.prayer.points, active: [...this.prayer.active] },
     };
@@ -5684,6 +5687,8 @@ export class GameEngine {
     this.draftRerollsLeft = save.draftRerolls;
     this.cardRollsBought = save.cardRollsBought ?? 0;
     this.draftBoosted = save.draftBoosted ?? false;
+    // A save written before Combat Achievements existed simply restarts its facts.
+    this.caStats = save.caStats ?? emptyRunStats(this.gameMode, this.difficultyTier);
 
     this.waveActive = false;
     this.gameOver = false;

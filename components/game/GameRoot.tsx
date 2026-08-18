@@ -333,7 +333,7 @@ const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = {
   achievement: 'Combat Achievement',
 };
 
-const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty' } as const;
+const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty', achievements: 'osrs_td_achievements' } as const;
 
 /** The champion's record — a non-monetary meta reward (no power, no gold), persisted
  *  like the rest of meta-progression. Total wins, best clear time, furthest Endless
@@ -383,6 +383,20 @@ function loadDifficulty(): DifficultyProgress {
     }
   } catch { /* ignore */ }
   return EMPTY_DIFFICULTY;
+}
+
+/** Completed Combat Achievement ids. Unknown ids are kept as-is and simply never
+ *  match a task — a retired task must not break the log, and an id the player
+ *  earned before it was renamed is not ours to throw away. */
+function loadAchievements(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(SAVE_KEYS.achievements) ?? 'null');
+    if (raw && Array.isArray(raw.completed)) {
+      return raw.completed.filter((id: unknown): id is string => typeof id === 'string');
+    }
+  } catch { /* ignore */ }
+  return [];
 }
 
 /** Read the saved run in progress, or null when there is none / it is unusable.
@@ -932,6 +946,10 @@ export default function GameRoot() {
     engine.start();
     // Auto-start lives beside Start Wave in the bottom bar; both the toggle and
     // its delay persist across runs via localStorage (see their onChange).
+    // Account-wide Combat Achievements: seeded here rather than through the
+    // constructor blob, because the store is read after mount like the rest of
+    // the UI-owned saves.
+    engine.seedAchievements(loadAchievements());
     engine.setAutoplay(loadBool('ui_autostart', false));
     engine.setAutoplaySecs(loadNum('ui_autostart_secs', 3));
     return () => {
@@ -959,6 +977,15 @@ export default function GameRoot() {
     if (!kcLoaded.current) { kcLoaded.current = true; return; }
     try { localStorage.setItem(SAVE_KEYS.killCounts, JSON.stringify(ui.killCounts)); } catch { /* ignore */ }
   }, [ui.killCounts]);
+
+  // Persist completed Combat Achievements. Account-wide like the logs above, and
+  // append-only in practice: the engine never removes an id, so an empty list is
+  // "nothing earned yet" and must not overwrite a store that has entries.
+  useEffect(() => {
+    if (ui.achievements.length === 0) return;
+    try { localStorage.setItem(SAVE_KEYS.achievements, JSON.stringify({ completed: ui.achievements })); }
+    catch { /* ignore */ }
+  }, [ui.achievements]);
 
   // Persist the Cards collection log (lifetime draft-card picks) — like killCounts,
   // it changes mid-run (on each draft pick) so it gets its own effect.

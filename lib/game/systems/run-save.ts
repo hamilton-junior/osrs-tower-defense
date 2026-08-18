@@ -1,6 +1,7 @@
 import type { Tower, Item, SlayerTask, PrayerType, EnemyType } from '../types';
 import type { GameMode, RunModifiers, RunEffects, RelicEffects } from '../core/engine';
 import { clampTier, type DifficultyTier } from './difficulty';
+import type { RunStats } from './combat-achievements';
 
 /**
  * The in-progress-run save: a snapshot of everything a player would lose by
@@ -68,6 +69,11 @@ export interface RunSave {
   cardRollsBought?: number;
   /** Whether a pending hand is a boss's boosted one (so a re-roll stays boosted). */
   draftBoosted?: boolean;
+  /** Combat Achievement facts for the run in progress. Optional on purpose:
+   *  RUN_SAVE_VERSION stays 3, so a run saved before this feature still resumes —
+   *  it simply restarts its CA counters. Bumping the version would invalidate
+   *  every save currently sitting in a player's browser. */
+  caStats?: RunStats;
   slayer: {
     task: SlayerTask | null;
     points: number;
@@ -166,6 +172,9 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     draftRerolls: Math.max(0, Math.floor(num(raw.draftRerolls, 0))),
     cardRollsBought: Math.max(0, Math.floor(num(raw.cardRollsBought, 0))),
     draftBoosted: raw.draftBoosted === true,
+    // Cast, not rebuilt, like the mod buckets above: every CA predicate reads it
+    // defensively and a missing field only ever costs the player a task.
+    caStats: isObj(raw.caStats) ? (raw.caStats as unknown as RunStats) : undefined,
     slayer: {
       task: taskRaw && typeof taskRaw.type === 'string'
         ? {

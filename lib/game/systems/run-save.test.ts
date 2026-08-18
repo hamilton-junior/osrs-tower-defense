@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sanitizeRunSave, isResumable, RUN_SAVE_VERSION, type RunSave } from './run-save';
+import { emptyRunStats } from './combat-achievements';
 
 /** A minimal, valid save — the tests below bend one field at a time from this. */
 function makeSave(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -167,5 +168,26 @@ describe('run-save — difficultyTier', () => {
   it('clamps an out-of-range difficultyTier', () => {
     expect(sanitizeRunSave(validRaw({ difficultyTier: 99 }))?.difficultyTier).toBe(6);
     expect(sanitizeRunSave(validRaw({ difficultyTier: -4 }))?.difficultyTier).toBe(0);
+  });
+});
+
+describe('caStats', () => {
+  it('survives a round trip', () => {
+    const save = makeSave();
+    save.caStats = { ...emptyRunStats('classic', 0), maxWaveReached: 42 };
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.caStats?.maxWaveReached).toBe(42);
+  });
+
+  it('accepts a save with no caStats at all', () => {
+    const save = makeSave();
+    delete (save as { caStats?: unknown }).caStats;
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back).not.toBeNull();
+    expect(back?.caStats).toBeUndefined();
+  });
+
+  it('keeps the version at 3 — the field is optional, so old saves still resume', () => {
+    expect(RUN_SAVE_VERSION).toBe(3);
   });
 });

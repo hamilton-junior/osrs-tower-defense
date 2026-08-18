@@ -2,6 +2,20 @@
   "generatedAt": "2026-08-18",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "achievements",
+      "text": "Tier icons from the game cache",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
+    {
+      "kind": "new",
+      "scope": "achievements",
+      "text": "Evaluate Combat Achievements at the run checkpoints",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
+    {
       "kind": "fixed",
       "scope": "achievements",
       "text": "Make Hellhound's Master track survivable souls",
@@ -266,20 +280,6 @@
       "text": "Utility towers earn support XP from the damage they enable",
       "fromFeedback": false,
       "date": "2026-08-01"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Tower panel shows combat XP and gates the Upgrade button",
-      "fromFeedback": false,
-      "date": "2026-07-31"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Tier upgrades require a minimum combat level",
-      "fromFeedback": false,
-      "date": "2026-07-31"
     }
   ]
 }
