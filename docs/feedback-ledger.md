@@ -101,7 +101,12 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
    Dusk/Dawn revive loop, Mole dig frequency, visible HP-loss-on-leak, the per-boss
    "how to kill" text and the multi-boss floor (now wave 20).
 5. **M1** new bosses (KBD/Graardor/Corp/Nex/Zuk/Verzik/Olm) — later.
-6. **M2** combat achievements (`data/achievements.ts` exists, not wired into the new core) — later.
+6. **M2** combat achievements — *shipped in full* (`2c65334`..`2da53b4`): 40 tasks across the six
+   real OSRS tiers (Easy…Grandmaster) as pure predicates over facts the engine records per run,
+   evaluated at wave end and boss death, celebrated with the collection-log unlock popup and
+   listed in a Collection Log **Achievements** tab. Clearing a tier grants its title — cosmetic
+   only, it unlocks nothing. The new table is `lib/game/data/combat-achievements.ts`; the legacy
+   `data/achievements.ts` (8 entries, legacy engine only) was deliberately left untouched.
 7. **M4** roguelite reset-loop / meta rework — next to *plan*, not build.
 8. **M6** tower fusion (must respect the closed roster) — think about soon.
 9. **M7** map selection at start — queued.
