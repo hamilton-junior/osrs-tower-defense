@@ -516,6 +516,7 @@ export const ASSETS = {
     pets_tab_icon: `${LOCAL}/ui/follower_details.png`, // OPTIONS_FOLLOWER_RIGHT_CLICK_MENU (1166)
     prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
     coins_icon: itemIcon('coins'),
+    loot_bag: itemIcon('looting_bag'), // the classic-mode loot-bag stone
     rune_essence_icon: itemIcon('rune_essence'),
     herblore_icon: `${LOCAL}/misc/skill_herblore.png`,
     farming_icon: `${LOCAL}/misc/farming_icon.png`,

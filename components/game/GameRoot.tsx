@@ -39,7 +39,7 @@ const TOWER_ORDER: TowerType[] = ['archer', 'wizard', 'cannon', 'tzhaar', 'slaye
 /** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
  *  model — one stone per interface), or `null` for none. 'home' = the run's mode
  *  + roguelite loadout. */
-type SideTab = 'home' | 'essence' | 'slayer' | 'dps';
+type SideTab = 'home' | 'essence' | 'slayer' | 'dps' | 'lootbag';
 /**
  * The targeting-priority buttons. Six of them across the panel left no room for
  * words — the truncated stubs ("Str", "Weak", "Clean") were unreadable — so each
@@ -854,7 +854,12 @@ export default function GameRoot() {
   const onSideTab = useCallback((t: SideTab) => setTab((cur) => (cur === t ? null : t)), []);
   // Classic has no loadout stone (nothing is drafted), so a 'home' tab left open
   // from a roguelite run must not survive into a classic one.
-  useEffect(() => { if (ui.gameMode === 'classic') setTab((cur) => (cur === 'home' ? null : cur)); }, [ui.gameMode]);
+  // 'home' (roguelite loadout) and 'lootbag' (classic gear) share the first stone,
+  // one per mode — so a mode change must close whichever no longer has a stone.
+  useEffect(() => {
+    const gone: SideTab = ui.gameMode === 'classic' ? 'home' : 'lootbag';
+    setTab((cur) => (cur === gone ? null : cur));
+  }, [ui.gameMode]);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
   const [spellbookHover, setSpellbookHover] = useState<MageMode | null>(null);
@@ -3074,42 +3079,6 @@ export default function GameRoot() {
         </MovablePanel>
       )}
 
-      {/* Classic-mode loot bag (top-right, below the data orbs): every gear piece
-          collected this run. Browse-only — equipping happens through the tower's
-          own slot picker above, so there is exactly one equip path. An outer
-          wrapper carries the anchor, same pattern as the prayer bar below. */}
-      {ui.gameMode === 'classic' && ui.lootBag.length > 0 && (
-        <div className="absolute top-40 right-4 z-10">
-          <MovablePanel
-            id="lootbag"
-            globalLock={uiLocked}
-            className="rs-panel relative p-2 w-[13em]"
-            style={{ fontSize: fs('clamp(13px, 0.85vw, 18px)') }}
-          >
-            <div className="rs-panel-title" style={{ fontSize: '1em' }}>Loot bag</div>
-            <div className="mt-[0.4em] max-h-[16em] overflow-y-auto space-y-[0.25em] pr-[0.1em]">
-              {ui.lootBag.map((g, i) => (
-                <HoverTip key={i} content={gearTooltip(g)}>
-                  <div
-                    className={`flex items-center gap-[0.4em] px-[0.2em] py-[0.15em] text-[0.72em] ${
-                      g.rarity === 'signature' ? 'text-osrs-yellow' : 'text-[#d3c3a0]'
-                    }`}
-                  >
-                    <img
-                      src={GEAR_ICONS[g.id]}
-                      alt=""
-                      className="w-[1.5em] h-[1.5em] object-contain shrink-0"
-                      onError={hideBrokenImg}
-                    />
-                    <span className="flex-1 truncate">{g.name}</span>
-                  </div>
-                </HoverTip>
-              ))}
-            </div>
-          </MovablePanel>
-        </div>
-      )}
-
       {debugOpen && (
         <DebugPanel
           engineRef={engineRef}
@@ -3682,6 +3651,48 @@ export default function GameRoot() {
         </>
         )}
 
+        {/* ── LOOT BAG (classic): every gear piece dropped this run. Browse-only —
+            equipping happens through the tower's own slot picker, so there is
+            exactly one equip path. It lives on the first stone, the slot the
+            roguelite gives its loadout: the same question, per mode. ── */}
+        {tab === 'lootbag' && (
+        <>
+          <div className="rs-panel-title flex items-center gap-2">
+            <img src={ASSETS.misc.loot_bag} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+            Loot bag
+          </div>
+          {ui.lootBag.length === 0 ? (
+            <div className="mt-[0.6em] px-[0.2em] text-[0.75em] text-[#8f8158] leading-relaxed">
+              Empty. Monsters drop gear as they die — bosses drop the signature
+              jewellery. Equip a piece from the tower&apos;s own slots.
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
+                <span className="text-[#cdbe91] uppercase tracking-wide">Unequipped gear</span>
+                <span className="text-osrs-yellow font-bold">{ui.lootBag.length}</span>
+              </div>
+              <div className="mt-[0.5em] flex flex-wrap gap-[0.3em]">
+                {/* `.rs-slot` is `width: 100%; aspect-ratio: 1`, so the size has to
+                    come from a wrapper — same as the tower panel's gear slots. */}
+                {ui.lootBag.map((g, i) => (
+                  <div key={i} className="w-[3em]">
+                    <HoverTip content={gearTooltip(g)}>
+                      <div
+                        className="rs-slot"
+                        style={g.rarity === 'signature' ? { borderColor: 'var(--osrs-yellow)' } : undefined}
+                      >
+                        <img src={GEAR_ICONS[g.id]} alt={g.name} onError={hideBrokenImg} />
+                      </div>
+                    </HoverTip>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+        )}
+
         {/* ── DPS: the damage meter, folded into the main panel as an interface
             tab (was a floating window). The tab body already scrolls, so a long
             tower list just scrolls in place. ── */}
@@ -3956,11 +3967,17 @@ export default function GameRoot() {
                 loadout and DPS (read mid-run), then the two shops, then the log
                 and the two links out. Debug has no stone — it is Ctrl+' only. */}
             <div className="flex flex-1 items-center justify-end gap-[0.4em]">
-              {/* The loadout is the roguelite's relics + boons. Classic drafts
-                  nothing, so the stone would open an empty panel — it isn't shown. */}
-              {ui.gameMode === 'roguelite' && (
+              {/* First stone, one per mode: the roguelite's loadout (relics + boons)
+                  or classic's loot bag. Classic drafts nothing and the roguelite
+                  drops no gear, so neither stone is ever shown over an empty panel. */}
+              {ui.gameMode === 'roguelite' ? (
                 <button ref={boonsTabRef} onClick={() => onSideTab('home')} title="Run loadout — relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
                   <img src={ASSETS.misc.multicombat_icon} alt="Run loadout" onError={hideBrokenImg} />
+                </button>
+              ) : (
+                <button onClick={() => onSideTab('lootbag')} title="Loot bag — gear dropped this run" className={`rs-tab ${tab === 'lootbag' ? 'rs-tab-on' : ''}`}>
+                  <img src={ASSETS.misc.loot_bag} alt="Loot bag" onError={hideBrokenImg} />
+                  {ui.lootBag.length > 0 && <span className="rs-tab-badge">{ui.lootBag.length}</span>}
                 </button>
               )}
               <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
@@ -4360,7 +4377,7 @@ const LEARN_STEPS: LearnStep[] = [
     body: 'Click a tower you built to upgrade or sell it, and buy more from the dock. Towers earn XP by fighting — landing hits, and extra when they hit an enemy weak to their style — and level up, which nudges their damage. A tier upgrade needs both gold and a minimum combat level; until the tower is high enough its Upgrade button reads “Needs Lv X”. Tick its Auto‑upgrade box to let it level itself from your gold whenever it can (cheapest tower first, gate permitting); the same box on a multi‑selection arms the whole group. Build mode is paused, so take your time before the next wave.',
     when: (ui) => !ui.waveActive && ui.wave === 2 },
   { id: 'gear', target: 'gear', title: 'Equip dropped gear',
-    body: 'Monsters — bosses especially — drop gear into your loot bag. A tower\'s first slot takes its own style of ammunition: Ammo for Ranged towers, Runes for the wizard, Kit for Melee — and only accepts a matching piece. The second slot is Jewellery, which fits any tower. Every piece needs the tower\'s combat level to equip. Signature jewellery (boss drops) adds a special effect on top of its stats.',
+    body: 'Monsters — bosses especially — drop gear into your loot bag, on the first stone in the bar. A tower\'s first slot takes its own style of ammunition: Ammo for Ranged towers, Runes for the wizard, Kit for Melee — and only accepts a matching piece. The second slot is Jewellery, which fits any tower. Every piece needs the tower\'s combat level to equip. Signature jewellery (boss drops) adds a special effect on top of its stats.',
     when: (ui) => ui.gameMode === 'classic' && !!ui.selectedTowerId && ui.wave >= 2 },
   { id: 'prayer', target: 'prayers', title: 'Prayer',
     body: 'Toggle a prayer to buff a tower style or shield your base. It drains a pool that refills between waves — flip the strong ones on for boss waves.',
@@ -4478,7 +4495,7 @@ const TLDR: TldrGroup[] = [
     'Pick one from the dock, then click the grass — it aims and fires on its own.',
     'Click a placed tower to Upgrade or Sell it, and set its target priority — the six glyphs pair a stat with an arrow (⬆ most, ⬇ least): hover any of them for what it picks. Towers earn XP by fighting (bonus vs a style weakness) and level up for more damage; a tier upgrade needs a minimum level as well as gold — the button shows “Needs Lv X” until then. Tick Auto‑upgrade to let it level itself from your gold (cheapest tower first).',
     'Niches: Archer = volume, Wizard = single-target or AoE by spellbook, Cannon = splash, TzHaar = heavy melee, Slayer = anti-task/boss, Toxic = stacking venom.',
-    'Classic gear — monsters drop gear into a loot bag. A tower\'s first slot is its own style (Ammo for Ranged, Runes for the wizard, Kit for Melee) and only takes a match; the second slot is Jewellery, which fits any tower. Every piece needs the tower\'s combat level, and bosses drop signature jewellery with a bonus effect.',
+    'Classic gear — monsters drop gear into a loot bag (first stone in the bar). A tower\'s first slot is its own style (Ammo for Ranged, Runes for the wizard, Kit for Melee) and only takes a match; the second slot is Jewellery, which fits any tower. Every piece needs the tower\'s combat level, and bosses drop signature jewellery with a bonus effect.',
     'With a tower picked, hold Shift and drag to paint a line of them. Releasing Shift only prices the line up — a panel then asks you to confirm before a coin is spent, and for a line of wizards it asks which spellbook they should all use. Until you confirm, the stroke can be added to (hold Shift again), redrawn, or thrown away (Esc / right-click). Tiles you can’t afford paint red and are skipped.',
     'Drag a box (no Shift) to multi-select — the panel then upgrades, sells, moves, re-aims, re-elements or arms Auto‑upgrade on the whole box at once. A group Move carries the towers as one rigid formation: they keep the shape you arranged, and every tile must be legal or the drop is refused.',
     'Ctrl+C copies what is selected, Ctrl+V puts that formation on your pointer and a click builds all of it — the shape, each tower’s target priority and each wizard’s spellbook and spell come along. Copies are built at base level and cost full price, so it saves the clicking, not the gold.',

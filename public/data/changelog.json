@@ -2,6 +2,13 @@
   "generatedAt": "2026-08-18",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "assets",
+      "text": "Bake the last wiki-linked icon from the game cache",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
+    {
       "kind": "new",
       "scope": "achievements",
       "text": "Collection Log tab, tier titles and the tutorial entry",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "ui",
       "text": "Flag non-buildable tiles while you place a tower",
-      "fromFeedback": false,
-      "date": "2026-08-02"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "Centre the damage number inside the hitsplat",
       "fromFeedback": false,
       "date": "2026-08-02"
     }

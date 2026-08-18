@@ -223,6 +223,8 @@ const TARGETS = {
   slayer_helmet_i: { name: 'Slayer helmet (i)' },
   bracelet_of_slaughter: { name: 'Bracelet of slaughter' },
   expeditious_bracelet: { name: 'Expeditious bracelet' },
+  // Classic-mode loot bag: the bar stone that opens the gear you have found.
+  looting_bag: { name: 'Looting bag' },
   slayer_ring: { name: 'Slayer ring (8)' },
   giant_pouch: { name: 'Giant pouch' },
   eternal_gem: { name: 'Eternal gem' },
