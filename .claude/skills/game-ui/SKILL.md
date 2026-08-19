@@ -18,7 +18,7 @@ State lives in one imperative class. React never touches game entities.
 
 A feature normally touches three places: a method on `GameEngine`, a key in `UIState` + the `emit()` payload, and JSX in `GameRoot.tsx`.
 
-Rendering changes go in `core/renderer.ts` (it holds a back-reference to the engine and keeps no state of its own), never in the engine.
+Rendering changes go under `core/render/` — one module per layer (`terrain`, `build-overlay`, `towers`, `enemies`, `effects`, `hud`, `shared`), each a free function taking the renderer as `gr` and reading engine state through `gr.e`. `core/renderer.ts` itself is just the frame's running order (`draw()`) plus the caches a frame carries between calls. Never in the engine.
 
 ## Hard rules
 
@@ -56,7 +56,7 @@ Follow OSRS interface conventions; where OSRS has no answer, follow RuneLite. In
 
 ## A disabled tower always looks the same
 
-Anything that knocks a tower offline sets `Tower.disabledTimer` and gets the one standard look: the tower drawn at **40% opacity** with the **OSRS prohibited sign** (`assets/ui/blocked.png`, cache sprite 940) throbbing over it. It lives in exactly one place — `drawTowers` in `core/renderer.ts` — with a hand-drawn `--osrs-red` circle-slash fallback if the sprite fails to load. **Never give a new disable source its own indicator.**
+Anything that knocks a tower offline sets `Tower.disabledTimer` and gets the one standard look: the tower drawn at **40% opacity** with the **OSRS prohibited sign** (`assets/ui/blocked.png`, cache sprite 940) throbbing over it. It lives in exactly one place — `drawTowers` in `core/render/towers.ts` — with a hand-drawn `--osrs-red` circle-slash fallback if the sprite fails to load. **Never give a new disable source its own indicator.**
 
 Two earlier disable mechanics (Vorkath's freeze, the Hydra's chain lightning) fired correctly but drew nothing, so they read as bugs and were both cut: a disable needs a visible *cause* and a visible *state*, or it doesn't belong in the game. The other half of the standard is **never refresh an already-disabled tower** — skip it — so overlapping sources (a volatile pack, a boss charging twice) can't chain one tower off the board.
 

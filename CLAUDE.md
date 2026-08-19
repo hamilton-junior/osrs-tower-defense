@@ -25,7 +25,7 @@ The game was rebuilt clean from a tested foundation; the old god-class engine an
 Game state and logic live in **one imperative class**. React never touches game entities.
 
 - **[`lib/game/core/engine.ts`](lib/game/core/engine.ts)** — `GameEngine`: state, its own `requestAnimationFrame` loop, and the tower-defense simulation. It mutates plain arrays (`enemies`, `towers`, `projectiles`, `hitsplats`, …).
-- **[`lib/game/core/renderer.ts`](lib/game/core/renderer.ts)** — `GameRenderer` owns every Canvas 2D draw call. It holds a back-reference to the engine (`this.e`) and keeps **no state of its own**. Rendering changes go here, never in the engine.
+- **[`lib/game/core/renderer.ts`](lib/game/core/renderer.ts)** — `GameRenderer` owns every Canvas 2D draw call. It holds a back-reference to the engine (`e`) and keeps **no game state of its own**. The class itself is only the frame's running order plus a few caches; each layer lives in its own module under [`core/render/`](lib/game/core/render/) (`terrain`, `build-overlay`, `towers`, `enemies`, `effects`, `hud`, `shared`) as a free function taking the renderer as its first argument (`gr`). Rendering changes go there, never in the engine.
 - **[`components/game/GameRoot.tsx`](components/game/GameRoot.tsx)** — the React bridge and the whole OSRS interface.
 
 The boundary works like this:
