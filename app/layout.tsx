@@ -1,5 +1,4 @@
 import type {Metadata, Viewport} from 'next';
-import ClientWrapper from '@/components/ClientWrapper';
 import './globals.css'; // Global styles
 
 export const metadata: Metadata = {
@@ -22,9 +21,10 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="en">
       <body suppressHydrationWarning>
-        <ClientWrapper>
-          {children}
-        </ClientWrapper>
+        {/* A half-second fade-in on first paint. Plain CSS (see globals.css):
+            this used to be a motion.div, which cost a whole animation dependency
+            for one opacity ramp. */}
+        <div className="app-fade-in">{children}</div>
       </body>
     </html>
   );

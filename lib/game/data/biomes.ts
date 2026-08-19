@@ -126,8 +126,6 @@ export const BIOMES: Record<string, BiomeDef> = {
   },
 };
 
-export type BiomeId = keyof typeof BIOMES;
-
 /** Every biome in a stable order (the cycle order used by the debug skinner). */
 export const BIOME_LIST = Object.values(BIOMES);
 

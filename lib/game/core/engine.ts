@@ -57,7 +57,7 @@ import {
   HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT,
   moleBurrowInterval, moleBurrowTarget, moleIsHidden, moleIsBurrowing,
   MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS,
-  stepStall, stallTenacityBonus, stallHealMult, escortDamageMult, type BossState,
+  stepStall, stallTenacityBonus, stallHealMult, escortDamageMult,
   isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin,
   GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET,
   cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug,
@@ -3073,7 +3073,7 @@ export class GameEngine {
    * you actually built: a mono-style board has exactly one soul that matters, a spread
    * board has to clear more of them. Jad's healers are interchangeable; these are not.
    */
-  private updateCerberus(e: Enemy, dt: number) {
+  private updateCerberus(e: Enemy, _dt: number) {
     const st = e.bossState!;
     const hpFrac = e.hp / e.maxHp;
 

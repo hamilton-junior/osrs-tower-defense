@@ -13,7 +13,7 @@ waves, and earn gold to upgrade your defenses.
 ## Run locally
 
 ```bash
-npm install --legacy-peer-deps   # pre-existing eslint peer-dep conflict
+npm install --legacy-peer-deps   # next@15.0.0 pins an older React than the app uses
 npm run dev                      # http://localhost:3000
 ```
 
@@ -21,6 +21,7 @@ Other scripts:
 
 - `npm run build` — static export to `out/` (`output: 'export'`).
 - `npm run test` — Vitest unit suite (pure game-logic in `lib/game/systems/`).
+- `npm run lint` — ESLint (advice only; the build does not gate on it).
 
 ## Deploy to GitHub Pages
 

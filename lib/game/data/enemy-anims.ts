@@ -63,6 +63,3 @@ export function clipFrame(clip: EnemyClip, elapsedS: number): number {
   }
   return fi;
 }
-
-/** Window (s) a hit-flinch (`hurt`) clip is shown before reverting to `walk`. */
-export const HURT_SECONDS = 0.4;

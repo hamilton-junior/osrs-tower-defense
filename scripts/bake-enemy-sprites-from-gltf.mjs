@@ -37,7 +37,6 @@ const GLTF_DIR = join(PUBLIC, 'assets', 'enemies-gltf');
 
 const SIZE = 128;                 // per-frame canvas (matches the old bake)
 const MARGIN = 0.06;              // same framing margin as computeFit
-const MS_PER_FRAME_CAP = 400;     // generate-enemy-anims-data also caps at 400
 const TARGET_DEFAULTS = { yaw: 50, pitch: 6, maxFrames: 24, mirror: false, flipY: false, loop: { walk: true } };
 
 // ---------------------------------------------------------------- browser find
@@ -252,7 +251,7 @@ async function main() {
   await page.goto(origin, { waitUntil: 'load' });
   try {
     await page.waitForFunction('window.__ready === true', { timeout: 30000 });
-  } catch (e) {
+  } catch {
     console.error('Harness never became ready. Page errors:\n' + (pageErrors.join('\n') || '(none captured)'));
     await browser.close(); server.close(); process.exit(1);
   }

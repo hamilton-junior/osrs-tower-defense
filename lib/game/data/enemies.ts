@@ -1,39 +1,4 @@
-import type { CombatStyle, Element, StyleWeakness } from '../types';
-
-export interface EnemyDef {
-  type: string | any; // Keep flexible for now or use EnemyType
-  name: string;
-  hp: number;
-  speed: number;
-  color: string;
-  reward: number;
-  resistance?: number;
-  deathSound?: string;
-  weakness?: any;
-  /** The combat style this monster takes {@link STYLE_WEAKNESS_BONUS} extra damage
-   *  from. Mutually exclusive with {@link weakness} — see the weakness block below. */
-  styleWeakness?: StyleWeakness;
-  isBoss?: boolean;
-  waveUnlock?: number;
-  /** An innate protection prayer: this monster always prays against this style
-   *  (the `protected` affix, but built into the species rather than rolled).
-   *  Reserved for future monsters — no current enemy declares it. */
-  protectedStyle?: CombatStyle;
-  /** The boss that summons this enemy, if it is an escort rather than a monster
-   *  a wave can send. Escorts have no Collection Log entry of their own — like
-   *  OSRS, they live on their summoner's page (see `LogDetail` in GameRoot) — and
-   *  it is this field that puts them there, and keeps them out of the Monsters
-   *  tab's roster and its completion count. */
-  summonedBy?: string;
-  /** Baked-clip slug to draw this type with, when it differs from `type` (the
-   *  default). Cerberus's souls are three different NPCs in the cache sharing one
-   *  `type`, so the log entry that covers all three needs to name a face. */
-  animSlug?: string;
-  /** Sprite size multiplier at draw time (default 1). Used to compensate sprites
-   *  whose art has heavy transparent padding so they read at a consistent
-   *  on-screen size (e.g. Zulrah's serpentine pose). */
-  renderScale?: number;
-}
+import type { Element, EnemyDef, StyleWeakness } from '../types';
 
 // `hp` mirrors each monster's real OSRS hitpoints. `reward` is a "threat weight"
 // used only to size waves (see wave-generation); the gold the player earns is

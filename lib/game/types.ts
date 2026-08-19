@@ -50,10 +50,17 @@ export interface EnemyDef {
   styleWeakness?: StyleWeakness;
   isBoss?: boolean;
   waveUnlock?: number;
+  /** An innate protection prayer: this monster always prays against this style
+   *  (the `protected` affix, but built into the species rather than rolled). */
+  protectedStyle?: CombatStyle;
   /** The boss that spawns this enemy, if it is an add rather than something a
    *  wave can send. Its presence is what keeps the wave allocator from rolling
    *  a boss's summon as ordinary trash (see systems/wave-generation.ts). */
   summonedBy?: string;
+  /** Baked-clip slug to draw this type with, when it differs from `type` (the
+   *  default). Cerberus's souls are three different NPCs in the cache sharing one
+   *  `type`, so the log entry that covers all three needs to name a face. */
+  animSlug?: string;
   /** Sprite size multiplier at draw time (default 1); compensates for sprites
    *  with heavy transparent padding (see data/enemies.ts). */
   renderScale?: number;

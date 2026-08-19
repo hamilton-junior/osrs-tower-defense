@@ -1,5 +1,5 @@
 
-import { TowerType, CombatStyle, Element, MageMode } from '../types';
+import type { CombatStyle, Tower, TowerType } from '../types';
 
 /**
  * Each tower's combat style and whether stat boosts (potions/prayers) apply.
@@ -25,7 +25,7 @@ export interface TowerTier {
   range: number;
   color: string;
   upgradeCost: number;
-  special?: any;
+  special?: Tower['special'];
   minDamage?: number;
   maxDamage?: number;
 }

@@ -6,13 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `npm run dev` — start the Next.js dev server.
 - `npm run build` — **static export** to `out/` (`output: 'export'`, deployable to GitHub Pages). Set `NEXT_PUBLIC_BASE_PATH=/<repo>` for a project Pages subpath.
-- `npm run lint` — ESLint (`eslint-config-next`). Note: lint errors are **ignored during `next build`** (`next.config.ts` → `eslint.ignoreDuringBuilds: true`), but **TypeScript errors fail the build** (`typescript.ignoreBuildErrors: false`). Treat type errors as build-breaking.
+- `npm run lint` — ESLint, flat config in `eslint.config.mjs` (typescript-eslint + react-hooks, wired directly; `eslint-config-next` cannot load under ESLint 10). Lint errors are **ignored during `next build`** (`next.config.ts` → `eslint.ignoreDuringBuilds: true`), so treat it as advice — but **TypeScript errors fail the build** (`typescript.ignoreBuildErrors: false`). Treat type errors as build-breaking.
 - `npm run start` — serve the production build.
 - `npm run test` — run the Vitest unit suite once (`vitest run`); `npm run test:watch` for watch mode. Tests live next to their module as `*.test.ts` under `lib/` and cover the pure game-logic in `lib/game/systems/`. Add tests there when you extract or change logic — they are the regression net for the otherwise-untested engine.
 
-Note: dependency installs need `--legacy-peer-deps` (pre-existing eslint version conflict with `eslint-config-next`).
+Note: dependency installs need `--legacy-peer-deps`. The conflict is `next@15.0.0`, which peer-requires React 18.2 or a 19 release candidate, against the React 19.2 the app runs on; upgrading Next would settle it. `package-lock.json` is gitignored, so CI resolves fresh on every deploy.
 
-The `README.md` and the `@google/genai` dependency / `GEMINI_API_KEY` are leftover AI Studio scaffolding — no Gemini code exists in the app. Ignore them unless you are deliberately adding AI features.
+The `@google/genai` dependency and eleven other unused packages (lucide-react, clsx, tailwind-merge, firebase-tools…) were leftover AI Studio scaffolding and are gone; `three` stays, but as a devDependency — only the sprite-baking script uses it.
 
 ## Architecture
 

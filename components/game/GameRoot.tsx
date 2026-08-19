@@ -1028,6 +1028,9 @@ export default function GameRoot() {
 
   // Measure the enemy panel after each render so its placement can be clamped by
   // its true height/width (avoids the flip-but-still-clipped case near the top).
+  // Deliberately dependency-less: it must re-measure after EVERY render, and the
+  // size guard below is what stops the set-state from looping.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const el = enemyPanelRef.current;
     if (!el) return;
@@ -1037,6 +1040,7 @@ export default function GameRoot() {
 
   // Same measurement for the wizard picker — its height varies with the UI scale
   // and the hover preview, so only the real one can tell whether it fits above.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const el = wizardPickerRef.current;
     if (!el) return;
@@ -1260,6 +1264,9 @@ export default function GameRoot() {
       }
     }
     prevWaveActive.current = ui.waveActive;
+    // The reward multiplier is read, not depended on: the banner is raised
+    // by a wave transition, and buying an upgrade mid-run must not re-raise it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.waveActive, ui.wave, ui.gameOver, ui.bossWave, ui.lastWaveSandbox]);
 
   // Auto-dismiss whichever banner is showing.
@@ -5715,7 +5722,9 @@ function CollectionLog({ killCounts, cardCounts, achievements, victories, diffic
   // never counted here — the ladder only knows the tasks that exist today.
   const caDone = useMemo(() => new Set(achievements), [achievements]);
   const caProgress = useMemo(() => tierProgress(caDone), [caDone]);
-  const entries = tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : [];
+  // Memoised so the empty case is one stable array: a fresh literal per render would
+  // re-run every list memo below on tabs that show no enemies at all.
+  const entries = useMemo(() => (tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : []), [tab]);
   const total = isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : entries.length;
   const obtained = isAchievements
     ? CA_TASKS.filter((t) => caDone.has(t.id)).length
