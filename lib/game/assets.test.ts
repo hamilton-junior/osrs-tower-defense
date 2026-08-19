@@ -6,7 +6,7 @@
  * from an external host.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { coinsIcon, localIconNames } from './assets';
 import { GE_OFFERS } from './data/ge';
@@ -56,10 +56,19 @@ describe('coinsIcon', () => {
 const baked = new Set(localIconNames());
 
 /** Names the UI passes as literals, rather than reading off a data table. Read
- *  once — both checks below share the same scan of `GameRoot.tsx`. */
+ *  once — both checks below share the same scan. It walks the whole interface
+ *  directory rather than one file: the panels were split out of `GameRoot.tsx`,
+ *  so a literal now lives wherever its panel does, and a scan of one file would
+ *  quietly stop covering most of them. */
 const literalIconNames: string[] = (() => {
-  const src = readFileSync(join(__dirname, '../../components/game/GameRoot.tsx'), 'utf8');
-  return [...src.matchAll(/(?:iconUrl|geIcon)\('([^']+)'\)/g)].map((m) => m[1]);
+  const dir = join(__dirname, '../../components/game');
+  const names: string[] = [];
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith('.tsx') && !f.endsWith('.ts')) continue;
+    const src = readFileSync(join(dir, f), 'utf8');
+    for (const m of src.matchAll(/(?:iconUrl|geIcon)\('([^']+)'\)/g)) names.push(m[1]);
+  }
+  return names;
 })();
 
 describe('icon coverage', () => {
@@ -67,7 +76,7 @@ describe('icon coverage', () => {
     ['GE offers', GE_OFFERS.map((o) => o.wiki)],
     ['slayer rewards', SLAYER_REWARDS.map((r) => r.icon)],
     ['meta upgrades', GLOBAL_UPGRADE_DEFS.map((d) => d.icon)],
-    ['GameRoot literals', literalIconNames],
+    ['interface literals', literalIconNames],
   ])('%s all resolve to a local bake', (_label, names) => {
     expect(names.filter((n) => !baked.has(n))).toEqual([]);
   });
