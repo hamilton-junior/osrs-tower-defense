@@ -69,7 +69,7 @@ export interface SlayerReward {
   desc: string;
   /** Slayer-point cost. */
   cost: number;
-  /** Wiki sprite filename (drawn via ASSETS.misc.wiki_base). */
+  /** Icon name (no extension), resolved to its local bake by `iconUrl`. */
   icon: string;
   /** One-time purchase per run (greys out once owned). */
   once?: boolean;

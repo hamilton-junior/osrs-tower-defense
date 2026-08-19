@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { coinsIcon, localIconNames } from './assets';
-import { GE_CONSUMABLES } from './data/shop';
+import { GE_OFFERS } from './data/ge';
 import { SLAYER_REWARDS } from './data/slayer';
 import { GLOBAL_UPGRADE_DEFS } from './systems/meta-progression';
 
@@ -63,7 +63,7 @@ function literalIconNames(): string[] {
 
 describe('icon coverage', () => {
   it.each([
-    ['GE consumables', GE_CONSUMABLES.map((i) => i.wiki)],
+    ['GE offers', GE_OFFERS.map((o) => o.wiki)],
     ['slayer rewards', SLAYER_REWARDS.map((r) => r.icon)],
     ['meta upgrades', GLOBAL_UPGRADE_DEFS.map((d) => d.icon)],
     ['GameRoot literals', literalIconNames()],

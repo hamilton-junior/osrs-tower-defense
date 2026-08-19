@@ -70,8 +70,8 @@ export interface GearDropContext {
   isBoss: boolean;
 }
 
-/** The highest common `levelReq` allowed to drop at this wave — mirrors the
- *  wave-capped gear tier of the legacy loot roll (wave / 3, floored). */
+/** The highest common `levelReq` allowed to drop at this wave: the gear ladder
+ *  opens one tier per three waves (wave / 3, floored). */
 function commonLevelCap(wave: number): number {
   return Math.max(1, Math.floor(wave / 3) + 1);
 }

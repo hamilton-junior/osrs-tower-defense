@@ -5,7 +5,7 @@ description: Work on the OSRS tower-defense game's interface or its engine↔Rea
 
 # Working on the game's UI
 
-The active game is the **new core**: `lib/game/core/engine.ts`, `lib/game/core/renderer.ts`, `components/game/GameRoot.tsx`. `lib/game/engine.ts`, `lib/game/renderer.ts`, `components/GameCanvas.tsx` and `components/game-ui/` are **legacy, no longer rendered** — never add features there.
+The game is `lib/game/core/engine.ts`, `lib/game/core/renderer.ts` and `components/game/GameRoot.tsx`. (The old god-class engine and its `components/game-ui/` tree were deleted once nothing rendered them — `git log -- lib/game/engine.ts` if you ever need the old logic as reference.)
 
 ## The boundary
 
@@ -64,7 +64,7 @@ Two earlier disable mechanics (Vorkath's freeze, the Hydra's chain lightning) fi
 
 - **Keyboard handlers must ignore events from inputs.** Check `target.tagName === 'INPUT' | 'TEXTAREA'` and `isContentEditable` first, or typing in a number field sends a wave (Space) and changes speed (1/2/5). Use `e.code` (`'Quote'`) for chords — `e.key` is keyboard-layout dependent.
 - **`overflow-y-auto` clips `position: absolute` descendants.** Anchor tooltips to a non-scrolling `relative` ancestor.
-- Game speed and pause apply to `dt` only (`rawDt * gameSpeed`, zero when paused); real-world timers use `rawDt`. `TICK = 0.6` (`data/tower-stats.ts`) is the OSRS game tick and drives every cooldown.
+- Game speed and pause apply to `dt` only (`rawDt * gameSpeed`, zero when paused); real-world timers use `rawDt`. `TICK = 0.6` (`data/towers.ts`) is the OSRS game tick and drives every cooldown.
 - Meta-progression persists (`osrs_td_essence`, `osrs_td_upgrades`, `osrs_td_killcounts`, `osrs_td_cardcounts`, `osrs_td_bosses_seen`). The **run in progress** persists too, under `osrs_td_run`: `GameRoot` autosaves `engine.snapshotRun()` every 2s and on `pagehide`, and the start screen offers it back as **Continue**. It is a *between-waves checkpoint* — `snapshotRun()` returns null mid-wave and on game over, so enemies/projectiles are never serialized and quitting mid-fight resumes at that wave's start. The format is versioned and validated in `systems/run-save.ts` (`RUN_SAVE_VERSION`, `sanitizeRunSave`); bump the version when a field's meaning changes.
 
 ## Verify it

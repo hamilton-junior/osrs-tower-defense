@@ -1,6 +1,27 @@
 {
-  "generatedAt": "2026-08-18",
+  "generatedAt": "2026-08-19",
   "entries": [
+    {
+      "kind": "new",
+      "scope": "gear",
+      "text": "Equip straight from the loot bag, and see what the swap changes",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
+    {
+      "kind": "balanced",
+      "scope": "gear",
+      "text": "Utility wizards take jewellery only",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "A click no longer pins a tooltip open",
+      "fromFeedback": false,
+      "date": "2026-08-18"
+    },
     {
       "kind": "updated",
       "scope": "ui",
@@ -257,27 +278,6 @@
       "kind": "new",
       "scope": null,
       "text": "Signature gear (Twisted bow, Darklight) changes per-hit damage",
-      "fromFeedback": false,
-      "date": "2026-08-03"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Engine loot bag + equip/unequip + Classic gear drops",
-      "fromFeedback": false,
-      "date": "2026-08-03"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Pure Classic-gear logic (equip check, drops, signature maths)",
-      "fromFeedback": false,
-      "date": "2026-08-03"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Classic gear data model + starter pool",
       "fromFeedback": false,
       "date": "2026-08-03"
     }

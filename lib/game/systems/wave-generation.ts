@@ -12,7 +12,7 @@ export interface BuildWaveOptions {
   /** Fixed config for a landmark wave; when present it is used verbatim. */
   landmark?: WaveConfig[];
   /** Lifetime boss sightings (the engine's persisted `bossesSeen`). Omit it and the
-   *  wave carries no bosses at all — the legacy engine relies on that. */
+   *  wave carries no bosses at all. */
   bossesSeen?: Record<string, number>;
   /** Per-run boss kills (the engine's `bossesKilledThisRun`). Drives the ordered
    *  march so every run meets bosses gentle→hard; falls back to `bossesSeen` when
@@ -83,7 +83,7 @@ export function rollWaveBosses(
   if (wave < BOSS_WAVE_INTERVAL) return [];
   const pool = SCHEDULABLE_BOSSES as readonly EnemyType[];
   // Per-run march when provided (every run, veteran or not, meets bosses gentle→hard);
-  // otherwise fall back to the lifetime schedule the legacy engine relies on.
+  // otherwise fall back to the lifetime schedule.
   const marchSet = killedThisRun ?? bossesSeen;
   const unmet = pool.filter((b) => !marchSet[b]);
   const pick = () => pool[Math.floor(rng() * pool.length)];

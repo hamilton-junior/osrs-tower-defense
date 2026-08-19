@@ -1,18 +1,6 @@
 import type { EnemyAffix } from './systems/affixes';
 import type { BossState, RatPhase, StallState } from './systems/boss-mechanics';
 
-export type HitsplatType = 'melee' | 'ranged' | 'magic' | 'poison' | 'miss';
-
-export interface Hitsplat {
-  x: number;
-  y: number;
-  damage: number;
-  type: HitsplatType;
-  life: number;
-  velocityY: number;
-  velocityX: number;
-}
-
 export interface Point {
   x: number;
   y: number;
@@ -38,22 +26,6 @@ export type PrayerType = 'burst_of_strength' | 'sharp_eye' | 'mystic_will' | 'my
 export interface ActivePotion {
   type: 'overload' | 'super_restore' | 'prayer_potion' | 'ranging' | 'magic' | 'super_combat';
   timer: number;
-}
-
-export interface Pet {
-  id: string;
-  name: string;
-  type: string;
-  bonus: string;
-  x?: number;
-  y?: number;
-}
-
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  completed: boolean;
 }
 
 export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot' | 'brutus' | 'scurrius' | 'giant_rat'
@@ -119,8 +91,8 @@ export interface Enemy extends EnemyDef {
   baseSpeed: number;
   /** The enemy type's wave-scaled speed *before* any wave-event or affix multiplier
    *  (unlike {@link baseSpeed}, which bakes those in). The reference the hover panel
-   *  compares against to flag a hastened/slowed enemy. Optional only so the legacy
-   *  engine's `Enemy` literals still type-check; the live engine always sets it. */
+   *  compares against to flag a hastened/slowed enemy. Optional only so bare test
+   *  fixtures still type-check; the engine always sets it. */
   naturalSpeed?: number;
   pathIndex: number;
   slowTimer: number;
@@ -132,11 +104,6 @@ export interface Enemy extends EnemyDef {
   /** Bosses build crowd-control resistance from non-damaging debuffs they take
    *  (+1% tenacity each); this counts those hits. See `GameEngine.tenacity`. */
   debuffHits?: number;
-  /** @deprecated Legacy single-slot DoT, used only by the phased-out
-   *  `lib/game/engine.ts` / `renderer.ts`. The active core uses {@link dots}. */
-  burnTimer?: number;
-  /** @deprecated Legacy DoT damage — see {@link burnTimer}. */
-  burnDamage?: number;
   /** Water "amp" debuff: while >0 the enemy takes extra damage from all sources. */
   vulnTimer?: number;
   groundTimer: number;
@@ -288,29 +255,6 @@ export interface TowerSkills {
   magic: TowerSkill;
 }
 
-export interface PlayerSkills {
-  mining: TowerSkill;
-  woodcutting: TowerSkill;
-  herblore: TowerSkill;
-  crafting: TowerSkill;
-  prayer: TowerSkill;
-  farming: TowerSkill;
-  magic: TowerSkill;
-  construction: TowerSkill;
-}
-
-export interface GatheringNode {
-  id: string;
-  type: 'tree' | 'ore' | 'herb';
-  name: string;
-  x: number;
-  y: number;
-  respawnTimer: number;
-  maxRespawn: number;
-  level: number;
-  xp: number;
-}
-
 export interface Item {
   id: string;
   name: string;
@@ -321,22 +265,10 @@ export interface Item {
     cooldown?: number;
     xpBonus?: number;
   };
-  /** `'weapon' | 'shield' | 'accessory'` are legacy-only (kept so the phased-out
-   *  `lib/game/engine.ts` still type-checks); new Classic gear uses only
-   *  `'ammo' | 'jewellery'`. */
-  type: 'weapon' | 'shield' | 'accessory' | 'ammo' | 'jewellery' | 'seed' | 'herb' | 'potion' | 'material' | 'bone';
-  seedType?: 'herb' | 'flower' | 'allotment';
-  growthTime?: number;
-  harvestItem?: string;
-  potionEffect?: ActivePotion['type'];
-  potionDuration?: number;
-  sellPrice?: number;
+  /** Which equipment slot the piece fills. */
+  type: 'ammo' | 'jewellery';
   quantity?: number;
   stackable?: boolean;
-  /** Classic gear: the combat style this piece belongs to (unused by the new
-   *  ammo/jewellery gate, which keys off `ammoClass` instead; kept for legacy
-   *  `'weapon'`-typed items). */
-  style?: CombatStyle;
   /** Classic gear: the ammo/rune/kit family (ammo slot only; jewellery leaves
    *  this undefined — it fits any tower). */
   ammoClass?: AmmoClass;
@@ -346,22 +278,6 @@ export interface Item {
   gearEffect?: GearEffectId;
   /** Classic gear rarity — weights the drop; `signature` drops only from bosses. */
   rarity?: 'common' | 'signature';
-}
-
-export type Region = 'misthalin' | 'karamja' | 'wilderness' | 'morytania';
-
-export interface FarmingPatch {
-  id: string;
-  x: number;
-  y: number;
-  type: 'herb' | 'flower' | 'allotment';
-  seed: string | null;
-  stage: number;
-  timer: number;
-  yield: number;
-  maxStage: number;
-  diseased?: boolean;
-  compost?: 'compost' | 'supercompost' | 'ultracompost';
 }
 
 export type TargetingPriority = 'first' | 'last' | 'strongest' | 'weakest' | 'closest' | 'unmarked';
@@ -492,100 +408,10 @@ export interface SlayerTask {
   reward: number;
 }
 
-export interface Quest {
-  id: string;
-  name: string;
-  description: string;
-  objective: {
-    type: 'kill' | 'wave' | 'money' | 'essence';
-    target: number;
-    current: number;
-    enemyType?: EnemyType;
-  };
-  reward: {
-    money?: number;
-    essence?: number;
-    item?: Item;
-  };
-  completed: boolean;
-  claimed: boolean;
-}
-
 export interface PrayerDef {
   id: PrayerType;
   name: string;
   level: number;
   drain: number;
   description: string;
-}
-
-export interface Recipe {
-  id: string;
-  name: string;
-  ingredients: { itemId: string, amount: number }[];
-  resultItemId: string;
-  level: number;
-  xp: number;
-  skill: keyof PlayerSkills;
-  icon?: string;
-}
-
-export interface GameSettings {
-  volume: number;
-  showRangeAlways: boolean;
-  particles: boolean;
-}
-
-/**
- * The shape of every partial state object the engine pushes to the UI via its
- * `onStateChange` callback. Every key the engine emits must be declared here —
- * TypeScript's excess-property checks then flag any typo'd or stray key at the
- * call site. Keep this in sync with `GameEngine.getState()` and the `setState`
- * merge in `GameCanvas`.
- */
-export interface EngineStatePatch {
-  money?: number;
-  lives?: number;
-  wave?: number;
-  waveActive?: boolean;
-  isPlaying?: boolean;
-  isPaused?: boolean;
-  gameOver?: boolean;
-  devMode?: boolean;
-  runeEssence?: number;
-  remainingEnemies?: number;
-  prayerPoints?: number;
-  maxPrayerPoints?: number;
-  activePrayers?: PrayerType[];
-  specialAttackCharge?: number;
-  activePotions?: ActivePotion[];
-  inventory?: Item[];
-  playerSkills?: PlayerSkills;
-  currentRegion?: Region;
-  messages?: string[];
-  settings?: GameSettings;
-  slayerTask?: SlayerTask | null;
-  slayerMaster?: string;
-  slayerPoints?: number;
-  consecutiveTasks?: number;
-  unlockedTowers?: string[];
-  blockedEnemies?: string[];
-  extendedTasks?: string[];
-  biggerAndBadder?: boolean;
-  slayerHelmet?: boolean;
-  achievements?: Achievement[];
-  achievementPoints?: number;
-  quests?: Quest[];
-  towers?: Tower[];
-  enemies?: Enemy[];
-  pets?: Pet[];
-  selectedPlacedTower?: Tower | null;
-  autoSpawnEnabled?: boolean;
-  autoSpawnTimer?: number;
-  followingPetId?: string | null;
-  activeQuote?: { text: string; timer: number } | null;
-  farmingPatches?: FarmingPatch[];
-  itemPriceMultipliers?: Record<string, number>;
-  upgrades?: GlobalUpgrades;
-  pohUpgrades?: string[];
 }

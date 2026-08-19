@@ -36,7 +36,7 @@ export interface UpgradeDef {
   id: keyof GlobalUpgrades;
   name: string;
   desc: string;
-  /** Wiki sprite filename (no extension), drawn via `ASSETS.misc.wiki_base`. */
+  /** Icon name (no extension), resolved to its local bake by `iconUrl`. */
   icon: string;
   /** Essence cost of the FIRST purchase; doubles with each subsequent buy. */
   baseCost: number;
@@ -53,7 +53,7 @@ export interface UpgradeDef {
  * The MVP Essence Shop catalog. Every entry maps to a field the new core
  * actually applies today (tower-combat upgrades, starting gold, gold rewards,
  * build-cost reduction, prayer regen) — no dead upgrades. Unlock gates from the
- * legacy shop are dropped for now (they keyed off quests/achievements that the
+ * old shop are dropped for now (they keyed off quests/achievements that the
  * new core hasn't reintroduced).
  */
 export const GLOBAL_UPGRADE_DEFS: readonly UpgradeDef[] = [

@@ -14,76 +14,60 @@ Note: dependency installs need `--legacy-peer-deps` (pre-existing eslint version
 
 The `README.md` and the `@google/genai` dependency / `GEMINI_API_KEY` are leftover AI Studio scaffolding — no Gemini code exists in the app. Ignore them unless you are deliberately adding AI features.
 
-## ⚠️ Rebuild in progress (read first)
+## Architecture
 
-The game is being rebuilt clean from a tested foundation. **The active game is the new core:**
+A single-page, client-rendered OSRS-themed tower defense game on the Next.js App Router (`app/`). The whole game runs in the browser: no backend, no server-side game logic. `app/page.tsx` dynamically imports one component, `GameRoot`, with `ssr: false`.
 
-- **[`lib/game/core/engine.ts`](lib/game/core/engine.ts)** — lean `GameEngine` (state + loop + core tower-defense), emits a small typed `UIState` patch.
-- **[`lib/game/core/renderer.ts`](lib/game/core/renderer.ts)** — `GameRenderer` for the new engine.
-- **[`components/game/GameRoot.tsx`](components/game/GameRoot.tsx)** — the React bridge + OSRS UI that `app/page.tsx` renders.
-- **Shared/reused:** `lib/game/systems/` (pure, tested), `lib/game/data/`, `lib/game/assets.ts`, `lib/game/types.ts`, `app/globals.css`.
-
-**Being phased out (legacy, still in the tree but no longer rendered):** `lib/game/engine.ts` (the old ~2700-line god-class), `lib/game/renderer.ts` (old renderer), `components/GameCanvas.tsx`, `components/game-ui/*`. Don't add features there; port what you need into the new core. The OSRS subsystems (Slayer, Prayer, Farming, Magic, GE, quests, pets, bosses) will be reintroduced into the new engine incrementally, MVP-first.
-
-The sections below describe the **legacy** architecture, kept as a reference for the subsystem logic being ported.
-
-## Architecture (legacy reference)
-
-This is a single-page, client-rendered OSRS-themed tower defense game built on Next.js App Router (`app/`). The entire game runs in the browser; there is no backend and no server-side game logic.
+The game was rebuilt clean from a tested foundation; the old god-class engine and its `game-ui/` component tree were deleted once nothing rendered them (`git log -- lib/game/engine.ts` if you ever need the old subsystem logic as reference). The OSRS subsystems still missing from the new core (Farming, Herblore, gathering nodes, quests, pets) will be reintroduced MVP-first, as **new** content rather than ports.
 
 ### The engine / React split (most important concept)
 
-Game state and logic live in **one imperative class**, [`GameEngine`](lib/game/engine.ts) (~3400 lines and shrinking — see "Decomposition" below). React never touches game entities directly. The boundary works like this:
+Game state and logic live in **one imperative class**. React never touches game entities.
 
-- [`components/GameCanvas.tsx`](components/GameCanvas.tsx) is the bridge. It instantiates `GameEngine`, passing a `<canvas>` element and an `onStateChange` callback. It owns all React state (`gameState`), pointer/keyboard handlers, and renders every UI component in [`components/game-ui/`](components/game-ui/).
-- `GameEngine` runs its own `requestAnimationFrame` loop ([`loop()`](lib/game/engine.ts) → `update(dt, now, rawDt)` → `draw()`). It mutates plain in-memory arrays (`enemies`, `towers`, `projectiles`, `loots`, etc.).
-- To push data to the UI, the engine calls `this.onStateChange(patch)`, typed as [`EngineStatePatch`](lib/game/types.ts) — a flat partial of every key the engine may emit. **Add the key to `EngineStatePatch` when you emit a new one**, or TypeScript's excess-property check fails the build. `GameCanvas` merges the patch into `gameState` via `setGameState(prev => ({...prev, ...safe}))`. State crosses the boundary `structuredClone`'d, so anything passed must be cloneable (no class instances, no functions). The UI's `GameState` is a looser view of the same data; the two shapes are reconciled with a single cast at the callback in `GameCanvas`.
-- UI → engine communication is **method calls on `engineRef.current`** (e.g. `placeTower`, `upgradeTower`, `togglePrayer`, `castSpell`, `startWave`). These mutate engine state and usually emit a follow-up `onStateChange`.
-- The engine also exposes some fields read directly off `engineRef.current` (e.g. `slayerPoints`, `unlockedTowers`, `consecutiveTasks`) rather than through `onStateChange`.
+- **[`lib/game/core/engine.ts`](lib/game/core/engine.ts)** — `GameEngine`: state, its own `requestAnimationFrame` loop, and the tower-defense simulation. It mutates plain arrays (`enemies`, `towers`, `projectiles`, `hitsplats`, …).
+- **[`lib/game/core/renderer.ts`](lib/game/core/renderer.ts)** — `GameRenderer` owns every Canvas 2D draw call. It holds a back-reference to the engine (`this.e`) and keeps **no state of its own**. Rendering changes go here, never in the engine.
+- **[`components/game/GameRoot.tsx`](components/game/GameRoot.tsx)** — the React bridge and the whole OSRS interface.
 
-When adding a feature you almost always touch three layers: a method on `GameEngine`, an `onStateChange` payload (and `EngineStatePatch` / the `GameState` interface in `GameCanvas.tsx`), and the relevant `game-ui/` component.
+The boundary works like this:
 
-### Decomposition: systems, renderer, and the god-class
+- To push data up, the engine calls `this.onState(patch)`, typed `Partial<UIState>` (`UIState` is defined in `core/engine.ts`). **A new emitted key must be added to `UIState` first**, or the build fails on the excess-property check. The patch crosses `structuredClone`d — no class instances, no functions.
+- Emits are coalesced: `emit()` marks state dirty and `flush()` diffs `snapshot()` through `changedState` ([`systems/ui-diff.ts`](lib/game/systems/ui-diff.ts)), so only real changes reach React. `GameRoot` merges with `setUi((prev) => ({ ...prev, ...patch }))`.
+- UI → engine is **method calls on `engineRef.current`** (`startWave`, `placeTower`, `upgradeTower`, `setAutoplay`, `equipGear`, …), which mutate state and usually `emit()` afterwards. A few fields are read live off `engineRef.current` (e.g. `towers`) rather than through `UIState`.
 
-The engine is being incrementally broken up. Three layers already live outside it:
+A feature normally touches three places: a method on `GameEngine`, a key in `UIState` + the emit, and JSX in `GameRoot.tsx`.
 
-- **[`lib/game/renderer.ts`](lib/game/renderer.ts)** — `GameRenderer` owns every Canvas 2D draw call for a frame. It holds a back-reference to the engine (`this.e`) and reads game state through it but keeps **no state of its own**; `engine.draw()` just delegates to `renderer.draw()`. Put rendering changes here, not in the engine.
-- **Stateful subsystem classes** (composition) — cohesive subsystems that *own* their state and hold an engine back-reference (`this.e`) for shared state/UI updates. [`FarmingSystem`](lib/game/systems/farming-system.ts) is the first: it owns `patches` and the plant→grow→harvest lifecycle; the engine keeps a `farming: FarmingSystem` plus a `get farmingPatches()` and thin delegators (`plantSeed`/`harvestPatch`/…) so existing UI calls and `getState()` are unchanged. This is the template for extracting the remaining stateful subsystems (Slayer, Magic, boss mechanics).
-- **[`lib/game/systems/`](lib/game/systems/)** — small, **pure, unit-tested** modules the engine calls into: `geometry` (`distance`/`distanceSq`/`pointToSegmentDistance`/`isValidPlacement`), `leveling` (XP curves + `applyXpGain`), `enemy-scaling` (per-wave stat scaling), `economy` (GE price drift), `targeting` (`selectTarget` priority logic), `wave-generation` (`buildWaveConfigs` — the procedural wave budget allocator), `slayer` (`rollSlayerTask`), `tower-combat` (`calculateTowerStats` — the per-frame damage/range/cooldown multiplier pipeline), `prayer` (`prayerDrainRate`), `farming` (`diseaseChance`/`baseFarmYield`), `loot` (`rollItemDrops` — enemy drop rolls). These have no `this`/DOM dependencies, so they are the safest place to add logic and the only part currently under test. When you pull logic out of the god-class, prefer a pure function here with a matching `*.test.ts`.
+### Subsystems
 
-The engine still holds most remaining subsystems (combat, slayer, prayer, herblore, magic, economy bookkeeping, boss mechanics, waves). Continue the pattern: extract **pure** logic to `systems/` as unit-tested functions; extract **stateful** subsystems to a `*-System` class on the `FarmingSystem` template; keep the engine as the orchestrator/state-holder.
+Two kinds live outside the engine, both under [`lib/game/systems/`](lib/game/systems/):
+
+- **Pure, unit-tested modules** the engine calls into — the safest place to add logic and the only part under test. Examples: `geometry`, `leveling`, `enemy-scaling`, `targeting`, `tower-combat` (`calculateTowerStats`, the per-frame damage/range/cooldown pipeline), `tower-gear`, `tower-xp`, `tower-identity`, `wave-generation` (`buildWaveConfigs`), `wave-events`, `wave-preview`, `affixes`, `boss-mechanics`, `combat-achievements`, `roguelite-draft`, `run-modifiers`, `relics`, `difficulty`, `map-generation`, `terrain-generation`, `economy`, `rewards`, `leak-cost`, `unlock-queue`, `ui-diff`, `run-save`.
+- **Stateful `*-System` classes** that own their state and hold an engine back-reference (`this.e`) for shared state and UI updates: `slayer-system`, `prayer-system`, `ge-system`, `meta-system`. This is the template for extracting anything stateful out of the engine.
+
+When you pull logic out of the engine, prefer a pure function with a matching `*.test.ts`.
 
 ### Coordinate system & timing
 
-- The engine works in a fixed logical space `LOGIC_WIDTH=1920 × LOGIC_HEIGHT=1080` and scales to the real canvas in `resize()` / `draw()`. Convert pointer coordinates accordingly — do not assume canvas pixels equal logic units.
-- Game speed and pause are applied to `dt` only (`rawDt * gameSpeed`, zero when paused); real-world timers use `rawDt`. `TICK = 0.6` ([`tower-stats.ts`](lib/game/data/tower-stats.ts)) is the OSRS game tick (0.6s) and drives cooldowns/attack rates throughout.
+- The board is a **fixed** logical space, `LOGIC_WIDTH=1440 × LOGIC_HEIGHT=640` (45×20 tiles, 2.25:1) — the same board for every player. The game never derives from screen size; only the presentation does. See the `game-ui` skill for the full rule and its three easy-to-break consequences (`paintedBox()` for every screen↔logic conversion, the fixed bottom-bar height, blocked browser zoom).
+- Game speed and pause apply to `dt` only (`rawDt * gameSpeed`, zero when paused); real-world timers use `rawDt`. `TICK = 0.6` is the OSRS game tick and drives every cooldown.
 
 ### Data-driven content
 
-Static game content is separated from logic under [`lib/game/data/`](lib/game/data/): `enemies.ts`, `towers.ts`, `tower-stats.ts` (tier progressions for archer/wizard/ancient/utility), `waves.ts` (`LANDMARK_WAVES`), `items.ts` (`ITEMS`, `ITEM_PROGRESSIONS`), `recipes.ts`, `prayers.ts`, `quests.ts`, `achievements.ts`, `shop.ts` (`GE_CONSUMABLES`), `nodes.ts`, `drops.ts` (monster loot tables), `herblore.ts` (`HERBLORE_RECIPES`), `spells.ts` (`MAGIC_SPELLS`), `construction.ts` (`POH_UPGRADES`). The engine imports these and `structuredClone`s mutable ones (quests/achievements) on construction. Prefer adding new content tables here over inlining them in `engine.ts`. To add a new enemy/tower/item, extend the relevant data file **and** the corresponding union type in [`lib/game/types.ts`](lib/game/types.ts) (e.g. `EnemyType`, `TowerType`), plus the asset URL in [`lib/game/assets.ts`](lib/game/assets.ts).
+Static content lives under [`lib/game/data/`](lib/game/data/): `enemies.ts`, `towers.ts` (tier progressions per tower type), `waves.ts` (`LANDMARK_WAVES`), `gear.ts` (Classic ammo/jewellery ladders), `prayers.ts`, `slayer.ts`, `ge.ts` (`GE_OFFERS`), `combat-achievements.ts`, `biomes.ts`, plus the baked animation tables (`enemy-anims*`, `spotanims*`). Prefer a new table here over inlining content in the engine. To add an enemy/tower/item, extend the relevant data file **and** the matching union type in [`lib/game/types.ts`](lib/game/types.ts) (`EnemyType`, `TowerType`, …), plus its icon in [`lib/game/assets.ts`](lib/game/assets.ts). See the `game-content` skill for the full checklist and the asset-baking pipeline.
 
-[`lib/game/types.ts`](lib/game/types.ts) is the shared contract for engine entities (`Enemy`, `Tower`, `Projectile`, `Item`, `PlayerSkills`, `GlobalUpgrades`, etc.). `GameCanvas.tsx` redeclares its own looser UI-facing interfaces (`GameState`, `TowerData`) for the cloned data it receives.
+[`lib/game/types.ts`](lib/game/types.ts) is the shared contract for engine entities (`Enemy`, `Tower`, `Projectile`, `Item`, `GlobalUpgrades`, …).
 
 ### Persistence
 
-Only meta-progression persists, via `localStorage` keys written in `GameCanvas.tsx`: `osrs_td_essence`, `osrs_td_upgrades`, `osrs_td_player_skills`, `osrs_td_wave`. Rune essence + `GlobalUpgrades` are passed into the `GameEngine` constructor to seed a run. Per-run state (towers, enemies, money, lives) is **not** saved.
+`localStorage`, all keys listed in `SAVE_KEYS` in `GameRoot.tsx`: meta-progression (`osrs_td_essence`, `osrs_td_upgrades`, `osrs_td_killcounts`, `osrs_td_cardcounts`, `osrs_td_bosses_seen`, `osrs_td_victories`, `osrs_td_difficulty`, `osrs_td_achievements`) **and the run in progress** (`osrs_td_run`). `GameRoot` autosaves `engine.snapshotRun()` every 2s and on `pagehide`; the start screen offers it back as **Continue**. It is a between-waves checkpoint — `snapshotRun()` returns null mid-wave and on game over. The format is versioned and validated in [`systems/run-save.ts`](lib/game/systems/run-save.ts) (`RUN_SAVE_VERSION`, `sanitizeRunSave`); bump the version when a field's meaning changes.
 
 ### Assets
 
-Sprites are hot-linked from `oldschool.runescape.wiki` (and `picsum.photos`); both hosts are whitelisted in `next.config.ts` `images.remotePatterns`. The engine preloads images/sounds (`preloadImages`, `preloadSounds`) and guards against broken loads with `isImageValid`.
+Every sprite and sound comes from **OSRS itself**, baked out of the local game cache by the scripts in `scripts/` into `public/assets/` — never hot-linked from the wiki or any other external host. `lib/game/assets.ts` maps names to those local files; `assets.test.ts` fails the build if a data table names an icon with no bake behind it.
 
 ### Styling
 
-OSRS look-and-feel is hand-rolled CSS in [`app/globals.css`](app/globals.css): CSS variables (`--osrs-brown`, `--osrs-orange`, …) and utility classes (`.osrs-button`, `.osrs-window`, `.font-osrs`) used across all UI. Tailwind v4 (via `@tailwindcss/postcss`) is also available. The OSRS pixel fonts are self-hosted in `app/fonts/` (RuneStar/fonts recreations, CC0): 'RuneScape' (Plain 12 at normal weight, Bold 12 at bold — a real bold face, no synthetic emboldening) and 'RuneScape Small' (Plain 11), registered as `@font-face` in `globals.css` with relative `url()`s so the build bundles them basePath-safely; `--font-osrs` is defined in `:root` there. No Google fonts.
+OSRS look-and-feel is hand-rolled CSS in [`app/globals.css`](app/globals.css): CSS variables (`--osrs-brown`, `--osrs-orange`, `--rs-keyline`, …) and the `rs-*` utility classes (`.rs-panel`, `.rs-btn`, `.rs-slot`, `.rs-tab`, …). Tailwind v4 (via `@tailwindcss/postcss`) is available for layout. The OSRS pixel fonts are self-hosted in `app/fonts/` (RuneStar recreations, CC0), registered as `@font-face` with relative `url()`s so the build bundles them basePath-safely. No Google fonts.
 
-### Game systems implemented in the engine
+## Skills
 
-Beyond core tower defense, `GameEngine` contains interlocking OSRS-flavored subsystems, mostly as methods named after the system: Slayer (tasks, masters, points, blocking/skipping), Prayer (points/drain/protection prayers), special attacks, potions, Farming (patches/seeds/compost/disease), Herblore (`makePotion`), gathering nodes (mining/woodcutting), Magic spellbooks (elemental / ancients / utility tiers), quests, achievements, the Grand Exchange economy (`updateEconomy`, price multipliers), pets, and boss mechanics (`handleBossMechanics`, e.g. Jad/Zulrah/Vorkath). When modifying any of these, search `engine.ts` for the method named after the system.
-
-## Refactor roadmap
-
-An incremental restructuring of the engine is in progress. Done so far: a Vitest safety net + pure `systems/` modules (incl. `wave-generation`), the `GameRenderer` split, a typed `onStateChange` boundary, and the inline content tables (drops, potion/spell recipes, POH upgrades) moved out to `lib/game/data/`. Planned next, in rough priority order:
-
-1. **Continue extracting subsystems** out of `GameEngine` into `lib/game/systems/` (Slayer, Prayer, Farming, Herblore, Magic, boss mechanics), each as a testable unit the engine orchestrates. `damageEnemy` (loot rolls, slayer/quest hooks) and `update` (entity stepping, spawning) are the largest remaining methods.
-2. **Unify state types** — `GameState` in `GameCanvas.tsx` now uses the engine's real entity types (dead `EnemyData`/`nextLevelXp` removed). The remaining gap: `GameState` is a strict subset of `EngineStatePatch`, so a single boundary cast survives in the `onStateChange` handler. Fully fold `GameState` into `types.ts` (or have the engine emit only UI-facing keys) to drop it.
-3. **OSRS model rendering (stretch)** — replace the hot-linked wiki PNGs with actual in-game models rendered by NPC ID. This is a large, self-contained effort (sourcing model/animation data, a model→canvas renderer); isolate it behind `GameRenderer` so game logic is untouched.
+Project skills in `.claude/skills/` carry the detailed rules and are the first thing to read for their area: **game-ui** (the interface and the engine↔React boundary), **game-content** (new enemies/towers/items and the asset pipeline), **game-verify** (the tsc + vitest + build gate and driving the exported game headlessly), **changelog-convention** (the commit subject *is* the in-game changelog entry).

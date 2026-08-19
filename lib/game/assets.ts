@@ -46,7 +46,7 @@ export const coinsIcon = (n: number): string => {
  * a table grows a name with no bake behind it.
  */
 const LOCAL_BY_WIKI: Record<string, string> = {
-  // GE consumables (data/shop.ts `wiki` keys)
+  // GE consumables (data/ge.ts `wiki` keys)
   'Ranging_potion(4)': itemIcon('ranging_potion'),
   'Magic_potion(4)': itemIcon('magic_potion'),
   'Super_combat_potion(4)': itemIcon('super_combat_potion'),
@@ -526,7 +526,6 @@ export const ASSETS = {
     spellbook_standard: `${LOCAL}/misc/spellbook_standard.png`,
     spellbook_ancient: `${LOCAL}/misc/spellbook_ancient.png`,
     spellbook_arceuus: `${LOCAL}/misc/spellbook_arceuus.png`,
-    wiki_base: 'https://oldschool.runescape.wiki/images/',
   },
   // The real interface hitsplats, cache-extracted (extract-osrs-sprites.mjs),
   // keyed by the core engine's HitsplatKind. Drawn on-canvas by the renderer.

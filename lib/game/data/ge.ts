@@ -35,7 +35,7 @@ export interface GeOffer {
  * The MVP Grand Exchange stock: the consumables that actually do something in
  * the new core. Combat potions buff a tower style (read by
  * `calculateTowerStats`); prayer potions top up the prayer pool. Ores/herbs/
- * seeds from the legacy shop are omitted until their skills are reintroduced.
+ * seeds are omitted until their skills are reintroduced.
  */
 export const GE_OFFERS: GeOffer[] = [
   { id: 'ranging', name: 'Ranging Potion', desc: 'Ranged towers +15% damage & +10% range', baseCost: 100, kind: 'buff', wiki: 'Ranging_potion(4)', style: 'ranged', dmg: 0.15, range: 0.10 },

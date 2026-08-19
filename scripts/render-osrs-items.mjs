@@ -106,7 +106,7 @@ const TARGETS = {
   adamantite_ore: { name: 'Adamantite ore' },
   pure_essence: { name: 'Pure essence' },
   rune_essence: { name: 'Rune essence' },
-  // ---- GE consumables shop (data/shop.ts) ----
+  // ---- GE consumables shop (data/ge.ts) ----
   prayer_potion: { name: 'Prayer potion(4)' },
   super_restore: { name: 'Super restore(4)' },
   bronze_ore: { name: 'Copper ore' }, // "bronze ore" isn't a real item; copper reads bronze
@@ -247,7 +247,7 @@ const TARGETS = {
   // The clue-scroll compass — stands in for elapsed time / "survived" in the
   // end-of-run summary (OSRS has no clock sprite in the cache).
   compass: { name: 'Compass' },
-  // ---- Classic-mode gear (data/gear.ts) — legacy weapon pool (superseded by
+  // ---- Classic-mode gear (data/gear.ts) — the retired weapon pool (superseded by
   // the ammo/jewellery rework below; left baked since other slugs still share
   // these keys, e.g. granite_cannonball/cannonball are reused by AMMO_TIERS) ----
   iron_scimitar: { name: 'Iron scimitar' },

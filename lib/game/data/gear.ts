@@ -1,4 +1,4 @@
-import type { AmmoClass, CombatStyle, GearEffectId, Item } from '../types';
+import type { AmmoClass, GearEffectId, Item } from '../types';
 
 /**
  * Classic-mode gear content: real OSRS tier ladders (ammo/runes/kit, one per
@@ -15,16 +15,6 @@ interface TierEntry {
   name: string;
   levelReq: number;
 }
-
-/** The style each `AmmoClass` fires as, for `Item.style` (used by legacy code
- *  paths; the new ammo/jewellery gate keys off `ammoClass` instead). */
-const AMMO_CLASS_STYLE: Record<AmmoClass, CombatStyle> = {
-  arrows: 'ranged',
-  darts: 'ranged',
-  cannonballs: 'ranged',
-  runes: 'magic',
-  melee_kit: 'melee',
-};
 
 /**
  * Per-class tier ladders (validated OSRS progressions — never invent a tier).
@@ -146,7 +136,6 @@ function buildAmmoItems(): Item[] {
         description: ammoDescription(cls, tier.name),
         type: 'ammo',
         ammoClass: cls,
-        style: AMMO_CLASS_STYLE[cls],
         levelReq: tier.levelReq,
         rarity: 'common',
         bonus,

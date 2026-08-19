@@ -152,7 +152,7 @@ describe('buildWaveConfigs', () => {
     expect(buildWaveConfigs(7, opts)).toEqual(buildWaveConfigs(7, opts));
   });
 
-  it('carries no bosses at all when bossesSeen is omitted (the legacy engine)', () => {
+  it('carries no bosses at all when bossesSeen is omitted', () => {
     const out = buildWaveConfigs(20, { enemies: registry, blockedEnemies: [], rng: () => 0 });
     expect(out.some((c) => (SCHEDULABLE_BOSSES as readonly string[]).includes(c.type))).toBe(false);
   });
@@ -280,7 +280,7 @@ describe('per-run boss march', () => {
     expect(allSchedulableBossesCleared(killed)).toBe(true);
   });
 
-  it('falls back to lifetime bossesSeen when no per-run set is passed (legacy)', () => {
+  it('falls back to lifetime bossesSeen when no per-run set is passed', () => {
     const seen: Record<string, number> = {}; // new account, nothing seen
     const [boss] = rollWaveBosses(10, seen, rng);
     expect(boss).toBe(SCHEDULABLE_BOSSES[0]); // still the gentlest first
