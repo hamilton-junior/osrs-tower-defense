@@ -76,6 +76,12 @@ function commonLevelCap(wave: number): number {
   return Math.max(1, Math.floor(wave / 3) + 1);
 }
 
+// The drop pools, split once at module load: `GEAR_POOL` never changes, so only
+// the wave cap is worth re-testing per kill (this runs on every enemy death).
+const COMMON_AMMO: readonly Item[] = GEAR_POOL.filter(g => g.type === 'ammo' && g.rarity === 'common');
+const JEWELLERY: readonly Item[] = GEAR_POOL.filter(g => g.type === 'jewellery');
+const SIGNATURES: readonly Item[] = GEAR_POOL.filter(g => g.rarity === 'signature');
+
 /**
  * Roll gear drops for one kill (Classic only — the engine gates the call).
  * Consumes `rng` in a fixed order: common-ammo gate+pick, jewellery gate+pick,
@@ -85,21 +91,22 @@ function commonLevelCap(wave: number): number {
 export function rollGearDrops(ctx: GearDropContext, rng: () => number = Math.random): Item[] {
   const out: Item[] = [];
   const cap = commonLevelCap(ctx.wave);
-  const pick = (pool: Item[]) => pool.length ? pool[Math.floor(rng() * pool.length)] : null;
+  const pick = (pool: readonly Item[]) => pool.length ? pool[Math.floor(rng() * pool.length)] : null;
+  const upTo = (pool: readonly Item[]) => pool.filter(g => (g.levelReq ?? 1) <= cap);
 
   // Common ammo — rare, wave-capped.
   if (rng() < 0.02) {
-    const p = pick(GEAR_POOL.filter(g => g.type === 'ammo' && g.rarity === 'common' && (g.levelReq ?? 1) <= cap));
+    const p = pick(upTo(COMMON_AMMO));
     if (p) out.push(p);
   }
   // Jewellery — rarer.
   if (rng() < 0.01) {
-    const p = pick(GEAR_POOL.filter(g => g.type === 'jewellery' && (g.levelReq ?? 1) <= cap));
+    const p = pick(upTo(JEWELLERY));
     if (p) out.push(p);
   }
   // Signature — bosses only.
   if (ctx.isBoss && rng() < 0.25) {
-    const p = pick(GEAR_POOL.filter(g => g.rarity === 'signature'));
+    const p = pick(SIGNATURES);
     if (p) out.push(p);
   }
   return out;

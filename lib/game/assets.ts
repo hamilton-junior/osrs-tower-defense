@@ -53,42 +53,6 @@ const LOCAL_BY_WIKI: Record<string, string> = {
   'Prayer_potion(4)': itemIcon('prayer_potion'),
   'Super_restore(4)': itemIcon('super_restore'),
   'Overload_(4)': itemIcon('overload_4'),
-  Bronze_ore: itemIcon('bronze_ore'),
-  Iron_ore: itemIcon('iron_ore'),
-  Coal: itemIcon('coal'),
-  Mithril_ore: itemIcon('mithril_ore'),
-  Adamantite_ore: itemIcon('adamantite_ore'),
-  Rune_ore: itemIcon('rune_ore'),
-  Grimy_guam: itemIcon('grimy_guam'),
-  Clean_guam: itemIcon('guam_leaf'),
-  Grimy_ranarr: itemIcon('grimy_ranarr'),
-  Clean_ranarr: itemIcon('ranarr_weed'),
-  Vial_of_water: itemIcon('vial_of_water'),
-  Eye_of_newt: itemIcon('eye_of_newt'),
-  Limpwurt_root: itemIcon('limpwurt_root'),
-  Red_spiders_eggs: itemIcon('red_spiders_eggs'),
-  Bird_nest: itemIcon('bird_nest'),
-  Snape_grass: itemIcon('snape_grass'),
-  Guam_seed: itemIcon('guam_seed'),
-  Harralander_seed: itemIcon('harralander_seed'),
-  Toadflax_seed: itemIcon('toadflax_seed'),
-  Ranarr_seed: itemIcon('ranarr_seed'),
-  Snapdragon_seed: itemIcon('snapdragon_seed'),
-  Torstol_seed: itemIcon('torstol_seed'),
-  Potato_seed: itemIcon('potato_seed'),
-  Onion_seed: itemIcon('onion_seed'),
-  Cabbage_seed: itemIcon('cabbage_seed'),
-  Sweetcorn_seed: itemIcon('sweetcorn_seed'),
-  Watermelon_seed: itemIcon('watermelon_seed'),
-  Snape_grass_seed: itemIcon('snape_grass_seed'),
-  Bones: itemIcon('bones'),
-  Big_bones: itemIcon('big_bones'),
-  Dragon_bones: itemIcon('dragon_bones'),
-  Logs: itemIcon('logs'),
-  Oak_logs: itemIcon('oak_logs'),
-  Willow_logs: itemIcon('willow_logs'),
-  Yew_logs: itemIcon('yew_logs'),
-  Magic_logs: itemIcon('magic_logs'),
   // Slayer rewards (data/slayer.ts `icon` keys) — each unlock wears the item it
   // actually is in game (the imbued helm, the bracelet that extends tasks, the
   // Eternal gem the superiors drop).
@@ -318,20 +282,6 @@ export const ASSETS = {
     superior_gargoyle: `${LOCAL}/models/superior_gargoyle.png`,           // Marble gargoyle
     superior_nechryael: `${LOCAL}/models/superior_nechryael.png`,         // Nechryarch
   },
-  pets: {
-    beaver: `${LOCAL}/models/beaver.png`,
-    rock_golem: `${LOCAL}/models/rock_golem.png`,
-    tangleroot: `${LOCAL}/models/tangleroot.png`,
-    heron: `${LOCAL}/models/heron.png`,
-    rift_guardian: `${LOCAL}/models/rift_guardian.png`, // fire variant
-    baby_mole: `${LOCAL}/models/baby_mole.png`,
-    vorki: `${LOCAL}/models/vorki.png`,
-    snakeling: `${LOCAL}/models/snakeling.png`,         // tanzanite
-    prince_black_dragon: `${LOCAL}/models/prince_black_dragon.png`,
-    kalphite_princess: `${LOCAL}/models/kalphite_princess.png`, // 2nd form
-    tzrek_jad: `${LOCAL}/models/tzrek_jad.png`,
-    ikkle_hydra: `${LOCAL}/models/ikkle_hydra.png`,     // serpentine
-  },
   // Combat Achievement tier icons — the game's own CaTierSwords sprites (3393-3398),
   // one blade per tier, bronze for Easy up to the last for Grandmaster.
   achievements: {
@@ -424,38 +374,7 @@ export const ASSETS = {
       4: itemIcon('trident_of_the_swamp'),
     },
   },
-  items: {
-    amulet_of_power: itemIcon('amulet_of_power'),
-    anti_dragon_shield: itemIcon('anti_dragon_shield'),
-    combat_bracelet: itemIcon('combat_bracelet'),
-    silverlight: itemIcon('silverlight'),
-    dragon_scimitar: itemIcon('dragon_scimitar'),
-    logs: itemIcon('logs'),
-    iron_ore: itemIcon('iron_ore'),
-    grimy_guam: itemIcon('grimy_guam'),
-    vial: itemIcon('vial'),
-    guam_seed: itemIcon('guam_seed'),
-    ranarr_seed: itemIcon('ranarr_seed'),
-    potato_seed: itemIcon('potato_seed'),
-    potato: itemIcon('potato'),
-  },
-  farming: {
-    // Allotment patch states, cache-rendered from the LOC morph targets
-    // (scripts/render-osrs-objects.mjs): raked soil → potato plant → potato.
-    patch_empty: `${LOCAL}/objects/patch_empty.png`,
-    patch_growing: `${LOCAL}/objects/patch_growing.png`,
-    patch_ready: `${LOCAL}/objects/patch_ready.png`,
-    guam: itemIcon('guam_leaf'),
-    ranarr: itemIcon('ranarr_weed'),
-    potato: itemIcon('potato'),
-  },
   misc: {
-    // Generic portal icon (legacy UI fallback only — the live spawn portal is
-    // drawn procedurally in renderer.drawSpawnPortal, no sprite).
-    portal: `${LOCAL}/ui/transportation_icon.png`, // MAP_ICON_TRANSPORTATION (1504)
-    tree: `${LOCAL}/objects/tree.png`, // cache-rendered LOC (render-osrs-objects.mjs)
-    ore_adamant: itemIcon('adamantite_ore'),
-    ranarr: itemIcon('ranarr_weed'),
     // Skill/UI icons below are cache-extracted (SKILL_* sprite ids), served locally.
     magic_icon: `${LOCAL}/misc/magic_icon.png`,
     ranged_icon: `${LOCAL}/misc/ranged_icon.png`,
@@ -466,12 +385,6 @@ export const ASSETS = {
     // The clue-scroll compass, cache-rendered: a dial with a needle. It stands in
     // for elapsed time in the run summary — OSRS has no clock sprite.
     compass: itemIcon('compass'),
-    bones_loot: itemIcon('bones'),
-    skill_mining: `${LOCAL}/misc/skill_mining.png`,
-    skill_woodcutting: `${LOCAL}/misc/skill_woodcutting.png`,
-    skill_herblore: `${LOCAL}/misc/skill_herblore.png`,
-    skill_crafting: `${LOCAL}/misc/skill_crafting.png`,
-    skill_prayer: `${LOCAL}/misc/prayer_icon.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
     // OSRS "Stats" (Skills) tab icon — the bar-chart glyph; used for the DPS tab.
     stats_icon: `${LOCAL}/misc/stats_icon.png`,
@@ -498,12 +411,6 @@ export const ASSETS = {
     redemption_heart: `${LOCAL}/ui/redemption_heart.png`,
     hit_splat: `${LOCAL}/hitsplats/hit.png`,          // red damage (1359)
     magic_hit_splat: `${LOCAL}/hitsplats/miss.png`,   // blue zero-splat (1358)
-    poison_hit_splat: `${LOCAL}/hitsplats/poison.png`,// green (1360)
-    ranged_hit_splat: `${LOCAL}/hitsplats/heal.png`,  // gold (1362) — legacy renderer's ranged tint
-    miss_hit_splat: `${LOCAL}/hitsplats/miss.png`,    // blue zero-splat (1358)
-    background_pattern: `${LOCAL}/ui/back_pattern.png`, // TEXTURE_WOOD_DARK (452) — the interface wood tile
-    orb_background: `${LOCAL}/ui/orb_background.png`, // MINIMAP_ORB_EMPTY (1059)
-    inventory_background: `${LOCAL}/ui/inventory_background.png`, // FIXED_MODE_SIDE_PANEL_BACKGROUND (1031)
     hp_icon: `${LOCAL}/misc/hp_icon.png`,
     // Minimap data-orb glyphs — the authentic status symbols inside the HUD orbs
     // (extract-osrs-sprites.mjs). orb_run doubles as the Hasted affix icon.
@@ -511,16 +418,11 @@ export const ASSETS = {
     orb_prayer: `${LOCAL}/orbs/prayer.png`, // MINIMAP_ORB_PRAYER (1068)
     orb_run: `${LOCAL}/orbs/run_energy.png`, // MINIMAP_ORB_RUN (1069) — run off (brown)
     orb_run_on: `${LOCAL}/orbs/run_energy_on.png`, // MINIMAP_ORB_RUN_ACTIVATED (1070) — run on (gold)
-    ge_logo: `${LOCAL}/ui/ge_logo.png`, // GE map icon, the gold scales (1531)
-    essence_icon: itemIcon('pure_essence'),
-    pets_tab_icon: `${LOCAL}/ui/follower_details.png`, // OPTIONS_FOLLOWER_RIGHT_CLICK_MENU (1166)
     prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
     coins_icon: itemIcon('coins'),
     loot_bag: itemIcon('looting_bag'), // the classic-mode loot-bag stone
     xp_icon: itemIcon('antique_lamp'), // XP-gain stat rows (OSRS's experience lamp)
     rune_essence_icon: itemIcon('rune_essence'),
-    herblore_icon: `${LOCAL}/misc/skill_herblore.png`,
-    farming_icon: `${LOCAL}/misc/farming_icon.png`,
     // Spellbook icons for the wizard panel (Elemental→Standard, Ancients→Ancient,
     // Utility→Arceuus) — cache-extracted TAB_MAGIC* sprites, served locally.
     spellbook_standard: `${LOCAL}/misc/spellbook_standard.png`,
@@ -553,7 +455,6 @@ export const ASSETS = {
   // to a horizontal sheet by scripts/render-osrs-spotanims.mjs. Played frame by
   // frame at runtime (see lib/game/data/spotanims.ts + GameRenderer.drawEffects).
   spotanims: {
-    portal: `${LOCAL}/spotanims/portal.png`, // Void portal NPC (1739) idle swirl — looping
   },
   sounds: {
     shoot: SHOOT_SOUNDS,

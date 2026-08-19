@@ -120,9 +120,17 @@ describe('sanitizeRunSave', () => {
   });
 
   it('round-trips a lootBag of Classic gear', () => {
-    const gear = { id: 'twisted_bow', name: 'Twisted bow', description: '', bonus: { damage: 10 }, type: 'weapon' };
+    const gear = { id: 'rune_arrow', name: 'Rune arrow', description: '', bonus: { damage: 10 }, type: 'ammo' };
     const save = sanitizeRunSave(makeSave({ lootBag: [gear] }))!;
     expect(save.lootBag).toEqual([gear]);
+  });
+
+  it('drops a bag entry whose slot this build no longer wears', () => {
+    // An early-gear save could hold a 'weapon'; there is no weapon slot now, and
+    // an unfiltered entry would be treated as jewellery.
+    const legacy = { id: 'twisted_bow', name: 'Twisted bow', description: '', bonus: { damage: 10 }, type: 'weapon' };
+    const save = sanitizeRunSave(makeSave({ lootBag: [legacy] }))!;
+    expect(save.lootBag).toEqual([]);
   });
 
   it('defaults a missing lootBag to empty — saves written before gear existed', () => {

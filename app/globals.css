@@ -75,144 +75,11 @@ body {
   font-family: var(--font-osrs);
 }
 
-/* Global guarantee: UI sprites (wiki PNGs) keep their aspect ratio everywhere —
+/* Global guarantee: UI sprites keep their aspect ratio everywhere —
    a fixed width/height box never stretches them. OSRS icons are square-ish but
    not always exactly square, so this prevents the squashed look app-wide. */
 .font-osrs img {
   object-fit: contain;
-}
-
-.osrs-font {
-  font-family: var(--font-osrs);
-  letter-spacing: 0.5px;
-}
-
-/* OSRS Panel - Main Interface Style */
-.osrs-panel {
-  background-color: var(--osrs-brown);
-  border: 2px solid var(--osrs-border-dark);
-  border-top-color: var(--osrs-border-light);
-  border-left-color: var(--osrs-border-light);
-  box-shadow: 
-    inset 1px 1px 0 var(--osrs-border-light),
-    inset -1px -1px 0 var(--osrs-border-dark),
-    2px 2px 4px rgba(0,0,0,0.5);
-  position: relative;
-  background-image: var(--rs-wood);
-  background-repeat: repeat;
-}
-
-/* OSRS Orb - Status Indicators */
-.osrs-orb {
-  width: 44px;
-  height: 44px;
-  background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAaCAYAAACpSkzOAAAA/UlEQVR4Ab3BwYrjQBBEwVfNHBpKt/7/v5yEPE2tDloQjS3LtuyI4ITMLA5ICh4IDmRm9d65xTYzScEdwQ2ZWb13zrDNTFIwCSZjjOJJtplJCnaCnTFG8SLbzCQFm8ZmjFFcLDOLTeOOVgutFq7SWI0xip1WC1fJzGLVmLRa+ITIzOq981+rhb2/+OUM2xz56b2z9xe/fELjSxpf0mzzLts80viSxptsc0ZjZZtX2OasJil4gW3OkhSNjW3Oss2zgk1mFqveO/fY5lmSgtUPE9t8QrCTmcWFJAWbYJKZxQUkBTvBDZlZvEFSMAkOZGbxBEnBHcEJmVkckBQ88A8lPG0k4O5eXAAAAABJRU5ErkJggg==') no-repeat center;
-  background-size: contain;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.8));
-}
-
-.osrs-orb-fill {
-  position: absolute;
-  bottom: 4px;
-  left: 4px;
-  right: 4px;
-  background-color: rgba(255, 0, 0, 0.8);
-  transition: height 0.3s ease;
-  z-index: 1;
-  border-radius: 0 0 50% 50%;
-}
-
-.osrs-orb-icon {
-  position: relative;
-  z-index: 2;
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-}
-
-.osrs-orb-text {
-  position: absolute;
-  right: -24px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--osrs-yellow);
-  font-weight: bold;
-  font-size: 14px;
-  text-shadow: 1px 1px 0 #000;
-  z-index: 3;
-}
-
-/* OSRS Chatbox */
-.osrs-chatbox {
-  background-color: #4a3f35;
-  border: 2px solid #1b1712;
-  box-shadow: inset 2px 2px 0 #6d6150, inset -2px -2px 0 #2b231a;
-  background-image: var(--rs-wood);
-  position: relative;
-}
-
-.osrs-chat-tabs {
-  display: flex;
-  background-color: #3e3529;
-  border-top: 1px solid #1b1712;
-  height: 22px;
-}
-
-.osrs-chat-tab {
-  flex: 1;
-  border-right: 1px solid #1b1712;
-  color: var(--osrs-yellow);
-  font-size: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.osrs-chat-tab.active {
-  background-color: #5d5245;
-  color: #fff;
-}
-
-/* OSRS Inventory Grid */
-.osrs-inventory-grid {
-  /* legacy-only class; the authentic side-panel texture is ASSETS.misc.inventory_background */
-  background-image: var(--rs-wood);
-  background-repeat: repeat;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  padding: 4px;
-}
-
-/* OSRS Window - Modal Style */
-.osrs-window {
-  background-color: var(--osrs-brown);
-  border: 3px solid var(--osrs-border-dark);
-  border-top-color: var(--osrs-border-light);
-  border-left-color: var(--osrs-border-light);
-  box-shadow: 0 0 20px rgba(0,0,0,0.8);
-  position: relative;
-}
-
-.osrs-window-title {
-  background: linear-gradient(to bottom, #5d5245, #3e3529);
-  border-bottom: 2px solid var(--osrs-border-dark);
-  padding: 4px 8px;
-  color: var(--osrs-orange);
-  text-shadow: 1px 1px 0 #000;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: var(--font-osrs);
 }
 
 /* OSRS Button - Standard Button Style */
@@ -247,23 +114,6 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
   filter: grayscale(100%);
-}
-
-/* OSRS Tab - Tab Style */
-.osrs-tab {
-  background-color: var(--osrs-brown);
-  border: 1px solid var(--osrs-border-dark);
-  cursor: pointer;
-  transition: filter 0.1s;
-}
-
-.osrs-tab:hover {
-  filter: brightness(1.2);
-}
-
-.osrs-tab.active {
-  background-color: #4a3f35; /* Slightly lighter active state */
-  border-bottom: none; /* Connect to panel */
 }
 
 /* Scrollbar */
@@ -301,15 +151,6 @@ body {
 .text-osrs-white { color: #fff; text-shadow: 1px 1px 0 #000; }
 
 /* Animations */
-@keyframes pulse-yellow {
-  0%, 100% { color: #ffff00; text-shadow: 0 0 5px #ffff00; }
-  50% { color: #ffffff; text-shadow: 0 0 10px #ffff00; }
-}
-
-.pulse-yellow {
-  animation: pulse-yellow 2s infinite;
-}
-
 /* Wave-event indicator: a colour-agnostic brightness shimmer so the event-tinted
    chip pulls the eye without fighting its own inline glow colour. */
 @keyframes rs-event-shimmer {
@@ -424,34 +265,6 @@ body {
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.85));
 }
 
-/* Pill: compact horizontal stat (gold / wave) */
-.rs-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  background: linear-gradient(180deg, #463b29, #2c2519);
-  border: 1px solid var(--rs-keyline);
-  border-radius: 0;
-  box-shadow: var(--rs-sunken);
-  padding: 3px 12px;
-  min-width: 96px;
-}
-
-.rs-pill-label {
-  /* `em` (not `rem`) so it tracks the resolution-scaling base like the rest of the
-     UI, instead of being pinned to the 16px root and reading tiny on large screens. */
-  font-size: 0.46em;
-  color: #b7a98c;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.rs-pill-value {
-  font-size: 1rem;
-  text-shadow: 1px 1px 0 #000;
-}
-
 /* OSRS button: chiselled brown stone with a raised bevel; pressing inverts the
    bevel (sinks in) instead of just nudging. */
 .rs-btn {
@@ -526,7 +339,7 @@ body {
   position: absolute;
   bottom: 0;
   right: 3px;
-  /* `em` so the cost label scales with the UI (see .rs-pill-label). */
+  /* `em` so the cost label scales with the UI, like every other label. */
   font-size: 0.5em;
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
 }

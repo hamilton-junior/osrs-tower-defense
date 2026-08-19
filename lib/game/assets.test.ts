@@ -55,23 +55,34 @@ describe('coinsIcon', () => {
 
 const baked = new Set(localIconNames());
 
-/** Names the UI passes as literals, rather than reading off a data table. */
-function literalIconNames(): string[] {
+/** Names the UI passes as literals, rather than reading off a data table. Read
+ *  once — both checks below share the same scan of `GameRoot.tsx`. */
+const literalIconNames: string[] = (() => {
   const src = readFileSync(join(__dirname, '../../components/game/GameRoot.tsx'), 'utf8');
   return [...src.matchAll(/(?:iconUrl|geIcon)\('([^']+)'\)/g)].map((m) => m[1]);
-}
+})();
 
 describe('icon coverage', () => {
   it.each([
     ['GE offers', GE_OFFERS.map((o) => o.wiki)],
     ['slayer rewards', SLAYER_REWARDS.map((r) => r.icon)],
     ['meta upgrades', GLOBAL_UPGRADE_DEFS.map((d) => d.icon)],
-    ['GameRoot literals', literalIconNames()],
+    ['GameRoot literals', literalIconNames],
   ])('%s all resolve to a local bake', (_label, names) => {
     expect(names.filter((n) => !baked.has(n))).toEqual([]);
   });
 
   it('finds the literals it means to check', () => {
-    expect(literalIconNames().length).toBeGreaterThan(0);
+    expect(literalIconNames.length).toBeGreaterThan(0);
+  });
+
+  it('bakes nothing no table asks for', () => {
+    const asked = new Set([
+      ...GE_OFFERS.map((o) => o.wiki),
+      ...SLAYER_REWARDS.map((r) => r.icon),
+      ...GLOBAL_UPGRADE_DEFS.map((d) => d.icon),
+      ...literalIconNames,
+    ]);
+    expect([...baked].filter((n) => !asked.has(n))).toEqual([]);
   });
 });

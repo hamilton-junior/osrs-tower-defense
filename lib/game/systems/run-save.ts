@@ -155,7 +155,10 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     realTime: Math.max(0, num(raw.realTime, 0)),
     towers,
     lootBag: Array.isArray(raw.lootBag)
-      ? raw.lootBag.filter((g): g is Item => isObj(g) && typeof g.id === 'string' && typeof g.type === 'string')
+      // The slot must be one this build still knows how to wear: a save from an
+      // older gear model can carry a piece typed 'weapon'/'seed', and nothing
+      // downstream would catch it — it would just land in the jewellery slot.
+      ? raw.lootBag.filter((g): g is Item => isObj(g) && typeof g.id === 'string' && (g.type === 'ammo' || g.type === 'jewellery'))
       : [],
     runMods: raw.runMods as unknown as RunModifiers,
     runFx: raw.runFx as unknown as RunEffects,

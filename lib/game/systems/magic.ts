@@ -1,4 +1,4 @@
-import type { Element, AncientType, MageMode } from '../types';
+import type { Element, AncientType, MageMode, SupportSpell } from '../types';
 
 /**
  * On-hit status a magic projectile can inflict (resolved by the engine's hit).
@@ -95,7 +95,7 @@ export const ANCIENTS: Record<AncientType, AncientSpec> = {
  *    such wizard shaves the drain; 5 of them (with a maxed Prayer-regen upgrade)
  *    halve it. See {@link PrayerSystem.drainReduction}.
  */
-export type SupportSpellId = 'curse' | 'enfeeble' | 'sanctity';
+export type SupportSpellId = SupportSpell;
 
 export interface SupportSpec {
   color: string;

@@ -71,7 +71,7 @@ const TARGETS = {
   toxic_blowpipe: { name: 'Toxic blowpipe' },
   magic_fang: { name: 'Magic fang' },
   trident_of_the_swamp: { name: 'Trident of the swamp' },
-  // ---- items.ts / consumables / loot ----
+  // ---- consumables / loot ----
   amulet_of_power: { name: 'Amulet of power' },
   anti_dragon_shield: { name: 'Anti-dragon shield' },
   combat_bracelet: { name: 'Combat bracelet' },

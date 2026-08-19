@@ -91,9 +91,8 @@ export interface Enemy extends EnemyDef {
   baseSpeed: number;
   /** The enemy type's wave-scaled speed *before* any wave-event or affix multiplier
    *  (unlike {@link baseSpeed}, which bakes those in). The reference the hover panel
-   *  compares against to flag a hastened/slowed enemy. Optional only so bare test
-   *  fixtures still type-check; the engine always sets it. */
-  naturalSpeed?: number;
+   *  compares against to flag a hastened/slowed enemy. */
+  naturalSpeed: number;
   pathIndex: number;
   slowTimer: number;
   stunTimer: number;
@@ -267,8 +266,6 @@ export interface Item {
   };
   /** Which equipment slot the piece fills. */
   type: 'ammo' | 'jewellery';
-  quantity?: number;
-  stackable?: boolean;
   /** Classic gear: the ammo/rune/kit family (ammo slot only; jewellery leaves
    *  this undefined — it fits any tower). */
   ammoClass?: AmmoClass;
