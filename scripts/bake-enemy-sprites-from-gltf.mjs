@@ -100,6 +100,12 @@ window.loadEnemy = async (slug) => {
   });
   scene.add(root);
 
+  // The cache's morph tracks export as STEP: a pose is held, then snaps. Sampling
+  // exactly on a keyframe gives the same vertices either way, so switching to LINEAR
+  // leaves every keyframe bake byte-identical and only adds meaning to the times in
+  // between — which is what lets the walk sheets carry in-betweens (see tweenTimes).
+  for (const c of gltf.animations) for (const t of c.tracks) t.setInterpolation(THREE.InterpolateLinear);
+
   mixer = new THREE.AnimationMixer(root);
   actions = {};
   for (const c of gltf.animations) actions[c.name] = mixer.clipAction(c);
@@ -207,6 +213,27 @@ window.__ready = true;
 }
 
 // ----------------------------------------------------------- frame sampling
+// A walk is the one clip a player watches on loop, and the cache's own timing for it
+// varies wildly: the hill giant holds each pose 60ms, the jogre 185ms. Held that long
+// the sprite visibly snaps from pose to pose while it glides down the road. So for the
+// walk we subdivide any interval longer than WALK_HOLD_MS and let the morph tween fill
+// it — same cache poses, same total duration, just in-betweens between them. Every
+// original keyframe time survives in the list, and hurt/death are left untouched.
+const WALK_HOLD_MS = 60;
+const WALK_MAX_FRAMES = 48;
+
+function tweenTimes(times, duration, capMs = WALK_HOLD_MS) {
+  const out = [];
+  for (let i = 0; i < times.length; i++) {
+    const t = times[i];
+    const span = (i + 1 < times.length ? times[i + 1] : duration) - t;
+    // the 1e-6 keeps a span of exactly capMs at one step (0.06 * 1000 / 60 > 1 in floats)
+    const steps = Math.max(1, Math.ceil((span * 1000) / capMs - 1e-6));
+    for (let s = 0; s < steps; s++) out.push(t + (span * s) / steps);
+  }
+  return out;
+}
+
 function sampleIndices(len, maxFrames) {
   if (len <= maxFrames) return Array.from({ length: len }, (_, i) => i);
   const out = [];
@@ -274,8 +301,9 @@ async function main() {
 
     for (const name of wantClips) {
       const info = clipInfo.find((c) => c.name === name);
-      const times = info.times;
-      const idxs = sampleIndices(times.length, cfg.maxFrames);
+      const smooth = name === 'walk';
+      const times = smooth ? tweenTimes(info.times, info.duration) : info.times;
+      const idxs = sampleIndices(times.length, smooth ? Math.max(cfg.maxFrames, WALK_MAX_FRAMES) : cfg.maxFrames);
       const frames = idxs.length;
       const sheet = new PNG({ width: SIZE * frames, height: SIZE });
       const frameMs = [];
