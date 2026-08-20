@@ -12,6 +12,7 @@ import { essenceForWave, essenceMultiplier } from '../../systems/meta-progressio
 import { rollRelicChoice, interestGain } from '../../systems/relics';
 import { rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRenderScaleMult, shieldHpFor, regenPerSec, SWARM_COUNT, type AffixRoll } from '../../systems/affixes';
 import { resolveEventMods } from '../../systems/wave-events';
+import { pickVariant, resetVariantBag } from '../../systems/model-variants';
 import { enemyLeakCost } from '../../systems/leak-cost';
 import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, type BossId } from '../../systems/boss-mechanics';
 import { uid, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT } from '../engine-state';
@@ -28,18 +29,24 @@ import { damage } from './combat';
 
 /** Resolve (and memoise) the upcoming wave's `{type,count}` makeup. Pure aside
  *  from the cache: it assigns no task and fires no notifications, so it is safe
- *  to call from a UI hover or on every emit. Keyed by (wave, current task) so a
- *  Slayer skip refreshes it; {@link startWave} consumes the same result so the
- *  preview always matches what actually spawns. */
+ *  to call from a UI hover or on every emit. Keyed by (wave, current task, region)
+ *  so a Slayer skip or a region change refreshes it; {@link startWave} consumes the
+ *  same result so the preview always matches what actually spawns. */
 export function computeWaveConfigs(eng: GameEngine): WaveConfig[] {
   const taskType = eng.slayer.task?.type ?? null;
-  if (eng.previewCache && eng.previewCache.wave === eng.wave && eng.previewCache.task === taskType) {
+  const biome = eng.biome.id;
+  if (eng.previewCache && eng.previewCache.wave === eng.wave && eng.previewCache.task === taskType
+      && eng.previewCache.biome === biome) {
     return eng.previewCache.configs;
   }
   const configs = buildWaveConfigs(eng.wave, {
     enemies: Object.values(ENEMIES),
     blockedEnemies: [],
     landmark: LANDMARK_WAVES[eng.wave],
+    // The region the run is fought in: only monsters native to it (plus the
+    // generic backbone) can roll, and the scripted opening waves are rewritten
+    // into local equivalents. See systems/enemy-regions.
+    biome,
     // Seed the active Slayer-task target so its enemies keep spawning —
     // the fail-safe against a task whose monster has dropped out of waves.
     slayerTask: eng.slayer.task,
@@ -49,7 +56,7 @@ export function computeWaveConfigs(eng: GameEngine): WaveConfig[] {
     // Per-run march: every run meets bosses gentle→hard and has a real "last boss".
     bossKillsThisRun: eng.bossesKilledThisRun,
   });
-  eng.previewCache = { wave: eng.wave, task: taskType, configs };
+  eng.previewCache = { wave: eng.wave, task: taskType, biome, configs };
   return configs;
 }
 
@@ -92,6 +99,7 @@ export function wavePreview(eng: GameEngine): WavePreviewEntry[] {
  *  event's enemy-count multiplier (Infestation swells the horde). */
 export function buildWaveEnemies(eng: GameEngine, configs: WaveConfig[], wave: number): Enemy[] {
   const countMult = resolveEventMods(eng.activeEvent).enemyCount;
+  resetVariantBag(eng.variantBag); // a new wave leads with a fresh shuffle of looks
   const out: Enemy[] = [];
   for (const cfg of configs) {
     // Bosses/uniques (count 1) are never multiplied — only the rank-and-file swell.
@@ -104,7 +112,15 @@ export function buildWaveEnemies(eng: GameEngine, configs: WaveConfig[], wave: n
       // was already halved in makeEnemy); clone it into a full trio.
       if (enemy.affixes?.includes('swarm')) {
         for (let k = 1; k < SWARM_COUNT; k++) {
-          out.push({ ...enemy, id: uid(), affixes: enemy.affixes ? [...enemy.affixes] : undefined });
+          // A swarm is a pack of copies, so each copy draws its own look too —
+          // otherwise the one place three identical bodies stand together is the
+          // one place the variants would be most obvious by their absence.
+          out.push({
+            ...enemy,
+            id: uid(),
+            affixes: enemy.affixes ? [...enemy.affixes] : undefined,
+            animType: pickVariant(enemy.type, eng.variantBag) ?? enemy.animType,
+          });
         }
       }
     }
@@ -163,6 +179,9 @@ export function makeEnemy(eng: GameEngine, type: EnemyType, wave: number, forced
     protectedStyle: roll.protectedStyle ?? def.protectedStyle,
     shieldHp: shieldHp > 0 ? shieldHp : undefined,
     bossState: bossKind ? freshBossState(bossKind) : undefined,
+    // Cosmetic only: overrides which baked clip is drawn, never the type behind
+    // the stats, drops or kill count. `undefined` for everything without variants.
+    animType: pickVariant(type, eng.variantBag),
   };
 }
 

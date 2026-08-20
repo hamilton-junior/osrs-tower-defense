@@ -13,13 +13,23 @@ import { SCHEDULABLE_BOSSES } from '@/lib/game/systems/boss-mechanics';
 const CLIP_NAMES = ['walk', 'hurt', 'death', 'burrow', 'emerge'] as const;
 type ClipName = (typeof CLIP_NAMES)[number];
 
-/** Bestiary display names for baked slugs that aren't spawnable EnemyTypes
- *  (boss adds that ride another type's stats via `animType`). */
-const EXTRA_BESTIARY_NAMES: Record<string, string> = {
-  yt_hurkot: 'Yt-HurKot',
-  soul_ranged: 'Summoned Soul (Ranged)',
-  soul_magic: 'Summoned Soul (Magic)',
-  soul_melee: 'Summoned Soul (Melee)',
+/** Bestiary entries for baked slugs that aren't spawnable EnemyTypes of their own.
+ *  They ride another enemy's stats via `animType`, so each one names the type it
+ *  borrows from (`of`) and what the panel should call it (`kind`). The distinction
+ *  matters: a summoned soul is a body Cerberus puts on the field, while Demonic
+ *  Brutus is Brutus himself wearing a different model for the length of a charge —
+ *  calling that an add would invent an enemy the game never spawns. The five
+ *  Barrows brothers are the third case: cosmetic looks a Barrow Wight can wear. */
+const EXTRA_BESTIARY: Record<string, { name: string; of: EnemyType; kind: string }> = {
+  soul_ranged: { name: 'Summoned Soul (Ranged)', of: 'summoned_soul', kind: 'Boss add' },
+  soul_magic: { name: 'Summoned Soul (Magic)', of: 'summoned_soul', kind: 'Boss add' },
+  soul_melee: { name: 'Summoned Soul (Melee)', of: 'summoned_soul', kind: 'Boss add' },
+  brutus_demonic: { name: 'Demonic Brutus', of: 'brutus', kind: 'Brutus, enraged' },
+  ahrim: { name: 'Ahrim the Blighted', of: 'barrow_wight', kind: 'Barrow Wight' },
+  guthan: { name: 'Guthan the Infested', of: 'barrow_wight', kind: 'Barrow Wight' },
+  karil: { name: 'Karil the Tainted', of: 'barrow_wight', kind: 'Barrow Wight' },
+  torag: { name: 'Torag the Corrupted', of: 'barrow_wight', kind: 'Barrow Wight' },
+  verac: { name: 'Verac the Defiled', of: 'barrow_wight', kind: 'Barrow Wight' },
 };
 
 /** Plays a single baked clip on a loop in a small canvas. One-shot clips
@@ -220,10 +230,14 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   const [expanded, setExpanded] = useState<ClipName | null>(null);
   const [lightboxMode, setLightboxMode] = useState<'3d' | 'sprite'>('3d');
   const set = ENEMY_ANIMS[viewing];
-  // Some baked slugs (Cerberus's per-soul clips) aren't ENEMIES keys of their
-  // own — the bestiary still shows their clips, just without stats.
-  const def = (ENEMIES as Partial<Record<string, (typeof ENEMIES)[EnemyType]>>)[viewing];
-  const viewingName = def?.name ?? EXTRA_BESTIARY_NAMES[viewing] ?? viewing;
+  // Some baked slugs (Cerberus's per-soul clips, Brutus's demonic model) aren't
+  // ENEMIES keys of their own — they borrow the stats of the type they belong to.
+  const extra = EXTRA_BESTIARY[viewing];
+  const def = (ENEMIES as Partial<Record<string, (typeof ENEMIES)[EnemyType]>>)[extra?.of ?? viewing];
+  const viewingName = (ENEMIES as Partial<Record<string, { name: string }>>)[viewing]?.name ?? extra?.name ?? viewing;
+  // What the stat block calls this thing: an alternate model says so, a summoned
+  // body is an add, and everything else is either a boss or ordinary trash.
+  const kind = extra?.kind ?? (def?.isBoss ? 'Boss' : def?.summonedBy ? 'Boss add' : null);
 
   return (
     <>
@@ -438,7 +452,7 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
                 onClick={() => setViewing(t)}
                 className={`px-[0.4em] py-[0.15em] rounded-[3px] border text-[0.66em] capitalize ${viewing === t ? 'border-osrs-orange bg-osrs-orange/20 text-osrs-yellow' : 'border-[#3a2f1d] text-[#cdbe91] hover:border-[#6b5836]'}`}
               >
-                {(ENEMIES as Partial<Record<string, { name: string }>>)[t]?.name ?? EXTRA_BESTIARY_NAMES[t] ?? t}
+                {(ENEMIES as Partial<Record<string, { name: string }>>)[t]?.name ?? EXTRA_BESTIARY[t]?.name ?? t}
               </button>
             ))}
           </div>
@@ -464,7 +478,7 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.2em] text-[0.74em] flex-1">
-                  {def ? (
+                  {def && (
                     <>
                       <span className="text-[#d3c3a0]">HP</span>
                       <span className="text-right text-white">{def.hp}</span>
@@ -474,17 +488,12 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
                       <span className="text-right capitalize text-white">{def.weakness ?? 'None'}</span>
                       <span className="text-[#d3c3a0]">Reward</span>
                       <span className="text-right text-osrs-yellow">{def.reward}</span>
-                      {def.isBoss && (
-                        <>
-                          <span className="text-[#d3c3a0]">Type</span>
-                          <span className="text-right text-osrs-red uppercase">Boss</span>
-                        </>
-                      )}
                     </>
-                  ) : (
+                  )}
+                  {kind && (
                     <>
                       <span className="text-[#d3c3a0]">Type</span>
-                      <span className="text-right text-white">Boss add</span>
+                      <span className={`text-right ${def?.isBoss && !extra ? 'text-osrs-red uppercase' : 'text-white'}`}>{kind}</span>
                     </>
                   )}
                   <span className="text-[#d3c3a0]">Clips</span>

@@ -113,11 +113,11 @@ watched him run through it) and a visible state, or it does not belong in the ga
 
 ### F. Scales with its own decline
 
-- **Dharok the Wretched** — **faster the lower his health**. A slow chip-damage kill
-  hands him a sprint down the final stretch. Turns "am I killing it fast enough?" into a
-  real question instead of a feeling. (The other five Barrows brothers are five more
-  bosses' worth of ideas if this one lands: Guthan heals, Karil halves, Ahrim drains,
-  Verac ignores mitigation, Torag slows.)
+- **No boss carries this one yet.** The idea: a boss that gets **faster the lower its
+  health goes**, so a slow chip-damage kill hands it a sprint down the final stretch. It
+  turns "am I killing it fast enough?" into a real question instead of a feeling. The
+  Barrows brothers were the first thought and are the wrong one — they are ordinary
+  monsters, not bosses. The axis stays open until a real OSRS boss fits it.
 
 ### G. Punishing focus fire
 

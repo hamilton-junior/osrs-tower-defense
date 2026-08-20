@@ -3,6 +3,10 @@ import type { Element, EnemyDef, StyleWeakness } from '../types';
 // `hp` mirrors each monster's real OSRS hitpoints. `reward` is a "threat weight"
 // used only to size waves (see wave-generation); the gold the player earns is
 // derived from (wave-scaled) HP in systems/rewards, not from `reward`.
+// `region` is the home tag: absent means generic (rolls on any map), present means
+// the monster only appears while the run is in that region. Seventeen of these are
+// local; the rest are the backbone every biome fills its waves from. The split is
+// enforced in systems/enemy-regions and reasoned about in docs/enemy-roster.md.
 export const ENEMIES: Record<string, EnemyDef> = {
   goblin: {
     type: 'goblin',
@@ -25,6 +29,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   cow: {
     type: 'cow',
+    region: 'lumbridge',
     renderScale: 1.05,
     name: 'Cow',
     hp: 8,
@@ -74,6 +79,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   ghost: {
     type: 'ghost',
+    region: 'morytania',
     name: 'Ghost',
     hp: 19,
     speed: 50,
@@ -83,6 +89,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   hellhound: {
     type: 'hellhound',
+    region: 'wilderness',
     renderScale: 1.1,
     name: 'Hellhound',
     hp: 116,
@@ -93,6 +100,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   scorpion: {
     type: 'scorpion',
+    region: 'alkharid',
     renderScale: 0.85,
     name: 'Scorpion',
     hp: 17,
@@ -101,8 +109,20 @@ export const ENEMIES: Record<string, EnemyDef> = {
     reward: 7,
     waveUnlock: 3
   },
+  harpie_bug_swarm: {
+    type: 'harpie_bug_swarm',
+    region: 'karamja',
+    renderScale: 0.9,
+    name: 'Harpie Bug Swarm',
+    hp: 25,
+    speed: 115,
+    color: '#22354f',
+    reward: 8,
+    waveUnlock: 3
+  },
   fire_giant: {
     type: 'fire_giant',
+    region: 'tzhaar',
     renderScale: 1.55,
     name: 'Fire Giant',
     hp: 111,
@@ -133,6 +153,16 @@ export const ENEMIES: Record<string, EnemyDef> = {
     deathSound: 'demon',
     waveUnlock: 4
   },
+  ice_warrior: {
+    type: 'ice_warrior',
+    region: 'trollweiss',
+    name: 'Ice Warrior',
+    hp: 59,
+    speed: 55,
+    color: '#8fd0e8',
+    reward: 13,
+    waveUnlock: 4
+  },
   black_demon: {
     type: 'black_demon',
     renderScale: 1.45,
@@ -146,6 +176,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   gargoyle: {
     type: 'gargoyle',
+    region: 'morytania',
     renderScale: 1.15,
     name: 'Gargoyle',
     hp: 105,
@@ -167,6 +198,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   nechryael: {
     type: 'nechryael',
+    region: 'morytania',
     renderScale: 1.2,
     name: 'Nechryael',
     hp: 105,
@@ -197,6 +229,17 @@ export const ENEMIES: Record<string, EnemyDef> = {
     deathSound: 'demon',
     waveUnlock: 5
   },
+  jogre: {
+    type: 'jogre',
+    region: 'karamja',
+    renderScale: 1.45,
+    name: 'Jogre',
+    hp: 70,
+    speed: 35,
+    color: '#6b7f4a',
+    reward: 15,
+    waveUnlock: 5
+  },
   dark_beast: {
     type: 'dark_beast',
     renderScale: 1.3,
@@ -209,6 +252,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   green_dragon: {
     type: 'green_dragon',
+    region: 'wilderness',
     renderScale: 1.35,
     name: 'Green Dragon',
     hp: 75,
@@ -216,6 +260,17 @@ export const ENEMIES: Record<string, EnemyDef> = {
     color: '#228b22',
     reward: 30,
     deathSound: 'dragon',
+    waveUnlock: 7
+  },
+  ice_troll: {
+    type: 'ice_troll',
+    region: 'trollweiss',
+    renderScale: 1.35,
+    name: 'Ice Troll',
+    hp: 80,
+    speed: 30,
+    color: '#b9c6cc',
+    reward: 26,
     waveUnlock: 7
   },
   jad: {
@@ -256,6 +311,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   barrow_wight: {
     type: 'barrow_wight',
+    region: 'morytania',
     name: 'Barrow Wight',
     hp: 100,
     speed: 35,
@@ -266,6 +322,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   chaos_druid: {
     type: 'chaos_druid',
+    region: 'wilderness',
     name: 'Chaos Druid',
     hp: 30,
     speed: 55,
@@ -276,6 +333,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   skeletal_mage: {
     type: 'skeletal_mage',
+    region: 'morytania',
     name: 'Skeletal Mage',
     hp: 29,
     speed: 50,
@@ -468,6 +526,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   superior_gargoyle: {
     type: 'superior_gargoyle',
+    region: 'morytania',
     renderScale: 1.3,
     name: 'Marble Gargoyle',
     hp: 215,
@@ -478,6 +537,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   superior_nechryael: {
     type: 'superior_nechryael',
+    region: 'morytania',
     renderScale: 1.35,
     name: 'Nechryarch',
     hp: 312,
@@ -524,6 +584,9 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   nechryael: 'water', superior_nechryael: 'water',
   // Fire — undead, nature & insects
   zombie: 'fire', barrow_wight: 'fire', scorpion: 'fire', cow: 'fire',
+  // Karamja's swarm is the fire bucket's other half — insects — and Trollweiss'
+  // armoured warrior is the one answer no player needs told: ice melts.
+  harpie_bug_swarm: 'fire', ice_warrior: 'fire',
   // Earth — dragons, stone & burrowers
   blue_dragon: 'earth', green_dragon: 'earth', giant_mole: 'earth',
   // Living statues: stone answers to earth. Both halves read the same, so the pair
@@ -556,6 +619,9 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   // three styles and no element. They are also the three monsters an OSRS player
   // has meleed more than any other, so melee is where they read.
   goblin: 'melee', hill_giant: 'melee', bloodveld: 'melee', superior_bloodveld: 'melee',
+  // A troll takes its lowest defence to crush in OSRS, and a troll is the monster
+  // the word "crush" was invented for.
+  ice_troll: 'melee',
   // dcrush 25 against dranged 100; and Vorkath's dmagic 240 is the highest defence
   // stat in this roster, so a lance is the answer to both.
   cerberus: 'melee', vorkath: 'melee',
@@ -573,6 +639,9 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   // learns to range: Jad.
   spider: 'ranged', imp: 'ranged', chaos_druid: 'ranged', skeletal_mage: 'ranged',
   jad: 'ranged',
+  // Ours, and the same argument: a jogre is slow, huge and melee-only, so the whole
+  // point of one is never letting it arrive.
+  jogre: 'ranged',
 };
 
 for (const [type, weakness] of Object.entries(WEAKNESSES)) {

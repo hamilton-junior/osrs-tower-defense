@@ -1,4 +1,5 @@
 import type { EnemyAffix } from './systems/affixes';
+import type { BiomeId } from './data/biomes';
 import type { BossState, RatPhase, StallState } from './systems/boss-mechanics';
 
 export interface Point {
@@ -31,7 +32,10 @@ export interface ActivePotion {
 export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot' | 'brutus' | 'scurrius' | 'giant_rat'
   // Superior Slayer monsters — in ENEMIES all along (waves can roll them), but they
   // were missing from this union, so nothing could name one in typed code.
-  | 'superior_bloodveld' | 'superior_abyssal_demon' | 'superior_gargoyle' | 'superior_nechryael';
+  | 'superior_bloodveld' | 'superior_abyssal_demon' | 'superior_gargoyle' | 'superior_nechryael'
+  // Regional locals — each one belongs to a single biome and never rolls anywhere
+  // else (see the `region` tag in data/enemies.ts and docs/enemy-roster.md).
+  | 'ice_warrior' | 'ice_troll' | 'jogre' | 'harpie_bug_swarm';
 
 export type Element = 'air' | 'water' | 'earth' | 'fire' | 'none';
 
@@ -57,6 +61,13 @@ export interface EnemyDef {
    *  wave can send. Its presence is what keeps the wave allocator from rolling
    *  a boss's summon as ordinary trash (see systems/wave-generation.ts). */
   summonedBy?: string;
+  /** The region this monster is native to. **Absent means generic**: it can roll on
+   *  any map, and the generic set is the backbone that keeps every biome able to fill
+   *  a wave on its own. A tagged monster only appears while the run is in that region
+   *  — and is the only reason one biome plays differently from the last. A monster is
+   *  one or the other, never both (see systems/enemy-regions and docs/enemy-roster.md).
+   *  Bosses are deliberately untagged: the boss is the act, the region is the stage. */
+  region?: BiomeId;
   /** Baked-clip slug to draw this type with, when it differs from `type` (the
    *  default). Cerberus's souls are three different NPCs in the cache sharing one
    *  `type`, so the log entry that covers all three needs to name a face. */

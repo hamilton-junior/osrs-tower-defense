@@ -342,5 +342,77 @@
       "walk": 10690,
       "death": 10705
     }
+  },
+  "ahrim": {
+    "npc": 1672,
+    "anims": {
+      "walk": 1205,
+      "hurt": 424,
+      "death": 836
+    }
+  },
+  "guthan": {
+    "npc": 1674,
+    "anims": {
+      "walk": 1205,
+      "hurt": 424,
+      "death": 836
+    }
+  },
+  "karil": {
+    "npc": 1675,
+    "anims": {
+      "walk": 819,
+      "hurt": 424,
+      "death": 836
+    }
+  },
+  "torag": {
+    "npc": 1676,
+    "anims": {
+      "walk": 819,
+      "hurt": 424,
+      "death": 836
+    }
+  },
+  "verac": {
+    "npc": 1677,
+    "anims": {
+      "walk": 2060,
+      "hurt": 424,
+      "death": 836
+    }
+  },
+  "ice_warrior": {
+    "npc": 2841,
+    "anims": {
+      "walk": 841,
+      "hurt": 424,
+      "death": 843
+    }
+  },
+  "ice_troll": {
+    "npc": 700,
+    "anims": {
+      "walk": 283,
+      "hurt": 285,
+      "death": 287
+    }
+  },
+  "jogre": {
+    "npc": 2234,
+    "anims": {
+      "walk": 2932,
+      "hurt": 2937,
+      "death": 2938
+    }
+  },
+  "harpie_bug_swarm": {
+    "npc": 464,
+    "anims": {
+      "walk": 3108,
+      "hurt": 3110,
+      "death": 3111
+    }
   }
 }

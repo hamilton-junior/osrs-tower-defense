@@ -2,19 +2,22 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import type { GameEngine } from '../core/engine';
 import type { EnemyType, SlayerTask } from '../types';
 import { SlayerSystem } from './slayer-system';
+import { BIOMES, type BiomeId } from '../data/biomes';
 import {
   SLAYER_HELMET_BONUS, SLAYER_HELMET_IMBUED_BONUS,
   SLAYER_ESSENCE_YIELD, SLAYER_ESSENCE_SACK_YIELD, BIGGER_BADDER_CHANCE,
 } from '../data/slayer';
 
 /** The slice of the engine SlayerSystem actually touches. */
-function stubEngine(wave = 30) {
+function stubEngine(wave = 30, biome: BiomeId = 'morytania') {
   const awarded: number[] = [];
   const notices: string[] = [];
   const e = {
     wave,
     money: 0,
     goldEarned: 0,
+    // A master only assigns monsters native to the region the run is fought in.
+    biome: BIOMES[biome],
     meta: { award: (n: number) => awarded.push(n) },
     notify: (msg: string) => notices.push(msg),
     playSound: () => {},
@@ -262,5 +265,43 @@ describe('SlayerSystem — save round-trip', () => {
     expect(sys.biggerBadder).toBe(false);
     expect(sys.blocked).toEqual([]);
     expect(sys.extended).toEqual([]);
+  });
+});
+
+describe('SlayerSystem — moving between regions', () => {
+  it('assigns only what the current region can send', () => {
+    // Ghosts are Morytania's own, so no other region's master may name one.
+    const sys = new SlayerSystem(stubEngine(5, 'karamja').e);
+    for (let i = 0; i < 20; i++) {
+      sys.task = null as SlayerTask | null; // keep the union: assignTask fills it back in
+      sys.assignTask();
+      expect(sys.task?.type).not.toBe('ghost');
+    }
+  });
+
+  it('rerolls a task the new region cannot supply, free of charge', () => {
+    const env = stubEngine(5, 'karamja');
+    const sys = new SlayerSystem(env.e);
+    sys.points = 0;
+    sys.task = { type: 'ghost', count: 5, total: 5, reward: 10 };
+    sys.rerollForRegion();
+    expect(sys.task?.type).not.toBe('ghost');
+    expect(sys.points).toBe(0); // a reroll the player did not ask for is not charged
+    expect(env.notices.some((n) => n.includes('does not live here'))).toBe(true);
+  });
+
+  it('leaves a task the region still supplies alone', () => {
+    const env = stubEngine(5, 'morytania');
+    const sys = new SlayerSystem(env.e);
+    const task: SlayerTask = { type: 'ghost', count: 5, total: 5, reward: 10 };
+    sys.task = task;
+    sys.rerollForRegion();
+    expect(sys.task).toBe(task); // same object: untouched, not re-rolled onto itself
+  });
+
+  it('does nothing when there is no task at all', () => {
+    const sys = new SlayerSystem(stubEngine(5, 'karamja').e);
+    sys.rerollForRegion();
+    expect(sys.task).toBeNull();
   });
 });

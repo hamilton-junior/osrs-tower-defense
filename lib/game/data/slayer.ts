@@ -13,10 +13,13 @@ export interface SlayerMaster {
   pointsPerTask: number;
 }
 
+/** A pool may name a regional local (Ice warriors for Mazchna, Ice trolls for
+ *  Duradel, as in OSRS): the roll filters by the run's region, so one is only ever
+ *  assigned where it lives. See `systems/enemy-regions`. */
 export const SLAYER_MASTERS: SlayerMaster[] = [
   { id: 'turael', name: 'Turael', levelReq: 1, taskPool: ['goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost'], bonusMultiplier: 1.0, pointsPerTask: 2 },
-  { id: 'mazchna', name: 'Mazchna', levelReq: 20, taskPool: ['scorpion', 'hill_giant', 'lesser_demon', 'hellhound', 'fire_giant', 'bloodveld'], bonusMultiplier: 1.2, pointsPerTask: 5 },
-  { id: 'duradel', name: 'Duradel', levelReq: 50, taskPool: ['abyssal_demon', 'dark_beast', 'hydra', 'gargoyle', 'nechryael', 'black_demon', 'blue_dragon', 'green_dragon'], bonusMultiplier: 1.5, pointsPerTask: 15 },
+  { id: 'mazchna', name: 'Mazchna', levelReq: 20, taskPool: ['scorpion', 'hill_giant', 'lesser_demon', 'hellhound', 'fire_giant', 'bloodveld', 'ice_warrior', 'jogre', 'harpie_bug_swarm'], bonusMultiplier: 1.2, pointsPerTask: 5 },
+  { id: 'duradel', name: 'Duradel', levelReq: 50, taskPool: ['abyssal_demon', 'dark_beast', 'hydra', 'gargoyle', 'nechryael', 'black_demon', 'blue_dragon', 'green_dragon', 'ice_troll'], bonusMultiplier: 1.5, pointsPerTask: 15 },
 ];
 
 /** Tower-damage bonus vs the current task's monster while the Slayer Helmet is

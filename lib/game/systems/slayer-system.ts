@@ -1,6 +1,7 @@
 import type { GameEngine } from '../core/engine';
 import type { EnemyType, SlayerTask } from '../types';
 import { ENEMIES } from '../data/enemies';
+import { isNative } from './enemy-regions';
 import {
   SLAYER_MASTERS, SLAYER_REWARDS, SLAYER_HELMET_BONUS, SLAYER_HELMET_IMBUED_BONUS,
   SLAYER_ESSENCE_YIELD, SLAYER_ESSENCE_SACK_YIELD, BIGGER_BADDER_CHANCE, SUPERIOR_OF,
@@ -68,6 +69,8 @@ export class SlayerSystem {
       extendedTasks: this.extended,
       consecutiveTasks: this.streak,
       slayerRewardMultiplier: 1,
+      // A master only assigns what lives in the region the run is fought in.
+      biome: this.e.biome.id,
     });
     if (!task) {
       this.e.notify('No Slayer task available yet', SLAYER_ICON);
@@ -100,6 +103,27 @@ export class SlayerSystem {
     this.task = null;
     this.e.playSound('wave');
     this.e.notify('Slayer task complete!', SLAYER_ICON);
+  }
+
+  /**
+   * Drop a task the current region cannot supply and assign a fresh one, free of
+   * charge. Moving to another region retires its local monsters from the waves, so
+   * a task still pointing at one would be unkillable — the reroll is the promise
+   * that a task is always completable, not a courtesy. Silent when the task is
+   * still native (the common case) and when there is no task at all.
+   */
+  rerollForRegion() {
+    const task = this.task;
+    if (!task) return;
+    const def = ENEMIES[task.type];
+    if (def && isNative(def, this.e.biome.id)) return;
+    this.task = null;
+    // Not remembered as the last task: it was never finished, and the player did
+    // not choose to leave it, so it stays eligible if they return to its region.
+    this.assignTask();
+    if (this.task) {
+      this.e.notify(`${def?.name ?? task.type} does not live here — new task assigned`, SLAYER_ICON);
+    }
   }
 
   /** Whether the shop should show `id` as already bought (a spent one-time unlock). */

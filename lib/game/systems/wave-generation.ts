@@ -1,5 +1,7 @@
 import type { EnemyDef, EnemyType } from '../types';
 import type { WaveConfig } from '../data/waves';
+import type { BiomeId } from '../data/biomes';
+import { localizeWave, nativeEnemies } from './enemy-regions';
 import { SCHEDULABLE_BOSSES } from './boss-mechanics';
 
 export interface BuildWaveOptions {
@@ -18,6 +20,10 @@ export interface BuildWaveOptions {
    *  march so every run meets bosses gentle→hard; falls back to `bossesSeen` when
    *  omitted. */
   bossKillsThisRun?: Record<string, number>;
+  /** The region this run is being fought in. Local monsters from anywhere else are
+   *  left out of the mix; omit it and the whole roster is fair game (pre-split).
+   *  See systems/enemy-regions. */
+  biome?: BiomeId;
   /** Injectable RNG for deterministic tests. */
   rng?: () => number;
 }
@@ -105,10 +111,10 @@ export function rollWaveBosses(
  * and `rng`, it always returns the same configs. The engine turns these into
  * live `Enemy` instances separately.
  *
- * Landmark waves are returned as-is. Otherwise a "budget" that grows with the
- * wave number is spent greedily on spawnable (unlocked, unblocked, non-boss)
- * enemies, weighted toward those unlocked most recently, after first seeding a
- * few of the current Slayer-task target.
+ * Landmark waves keep their fixed counts, rewritten for the run's region. Otherwise a
+ * "budget" that grows with the wave number is spent greedily on spawnable (unlocked,
+ * unblocked, non-boss, native) enemies, weighted toward those unlocked most recently,
+ * after first seeding a few of the current Slayer-task target.
  */
 export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveConfig[] {
   const rng = opts.rng ?? Math.random;
@@ -118,7 +124,12 @@ export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveC
   // Copy each landmark config (not just the array) so the Slayer-seed merge below
   // never mutates the shared LANDMARK_WAVES table — this runs repeatedly (wave
   // preview + the real start), so aliasing would inflate the fixed counts.
-  const configs: WaveConfig[] = opts.landmark ? opts.landmark.map(c => ({ ...c })) : [];
+  // The fixed makeup is then rewritten for the run's region: seven of the scripted
+  // entries are local monsters, and left alone they would undo the roster split at
+  // the very first waves a player sees (see systems/enemy-regions.localizeWave).
+  const configs: WaveConfig[] = opts.landmark
+    ? localizeWave(opts.landmark.map(c => ({ ...c })), opts.enemies, opts.biome)
+    : [];
 
   const addToConfig = (type: EnemyType, count: number) => {
     const existing = configs.find(c => c.type === type);
@@ -128,6 +139,10 @@ export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveC
 
   // Seed the Slayer-task target so tasks always make progress — the fail-safe
   // against a task whose monster has dropped out of the procedural mix.
+  // Deliberately *not* region-filtered: this seed is the promise that a task can
+  // always finish, and a stalled task hurts more than a monster out of its region.
+  // Tasks are drawn from what the region can send, and a task left unreachable by a
+  // biome change is rerolled for free, so in normal play it never has to.
   let seedThreat = 0;
   if (opts.slayerTask && opts.slayerTask.count > 0) {
     const target = opts.enemies.find(e => e.type === opts.slayerTask!.type);
@@ -162,7 +177,9 @@ export function buildWaveConfigs(waveNum: number, opts: BuildWaveOptions): WaveC
   // rats — they are not escorts and do pay gold (killing one denies his refund,
   // so it is a kill worth rewarding), which made them ordinary trash the allocator
   // could roll from wave 1, kingless, before Scurrius had ever been met.
-  const spawnable = opts.enemies.filter(
+  // Only what this region can send: every generic, plus the locals that live here.
+  // This is what makes the biome more than paint — see systems/enemy-regions.
+  const spawnable = nativeEnemies(opts.enemies, opts.biome).filter(
     e => !e.isBoss && !e.summonedBy && e.reward > 0
       && (e.waveUnlock || 1) <= waveNum && !opts.blockedEnemies.includes(e.type),
   );

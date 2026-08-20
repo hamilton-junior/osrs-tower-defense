@@ -1,5 +1,7 @@
 import type { EnemyDef, EnemyType, SlayerTask } from '../types';
 import type { SlayerMaster } from '../data/slayer';
+import type { BiomeId } from '../data/biomes';
+import { isNative } from './enemy-regions';
 
 export interface RollSlayerTaskOptions {
   /** Every enemy definition (e.g. `Object.values(ENEMIES)`). */
@@ -14,13 +16,17 @@ export interface RollSlayerTaskOptions {
   consecutiveTasks: number;
   /** `GlobalUpgrades.slayerReward` multiplier. */
   slayerRewardMultiplier: number;
+  /** The region the run is being fought in. A master only assigns what is in reach:
+   *  the generic roster plus that biome's own monsters. Omit it and the whole roster
+   *  is assignable (pre-split). See systems/enemy-regions. */
+  biome?: BiomeId;
   /** Injectable RNG for deterministic tests. */
   rng?: () => number;
 }
 
 /**
  * Roll a new Slayer task for `master`, or return `null` if nothing is
- * assignable (no unlocked, unblocked, non-boss, non-repeat enemy in the
+ * assignable (no unlocked, unblocked, non-boss, non-repeat, native enemy in the
  * master's pool). Pure: side effects (setting `lastTaskType`, sound, UI sync)
  * stay in the engine.
  */
@@ -37,7 +43,10 @@ export function rollSlayerTask(
       e.type !== opts.lastTaskType &&
       !e.isBoss &&
       !opts.blockedEnemies.includes(e.type) &&
-      master.taskPool.includes(e.type),
+      master.taskPool.includes(e.type) &&
+      // A master assigns what lives nearby — which is also what the waves can send,
+      // so a task can never target a monster this region never spawns.
+      isNative(e, opts.biome),
   );
   if (available.length === 0) return null;
 

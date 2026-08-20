@@ -236,6 +236,16 @@ for (const t of DEATH_TYPES) DEATH_SOUNDS[t] = `${SND}/death_${t}.wav`;
 // Scurrius himself has no entry: his sound id is not in the curated map (he
 // post-dates it), and the generic `death` fallback stands rather than a borrowed cry.
 DEATH_SOUNDS.giant_rat = DEATH_SOUNDS.rat;
+// The four regional locals have no cry of their own in the curated sound map, so
+// each borrows the nearest voice already baked rather than shipping a new one: the
+// Ice warrior is a man in armour (human_death, 512), the Ice troll and the Jogre are
+// both big slow brutes (hill giant), and the Harpie bug swarm is an insect chorus
+// (scorpion). The troll and the jogre live in different regions and never meet, so
+// the one shared clip is never heard twice on the same board.
+DEATH_SOUNDS.ice_warrior = `${SND}/death_human.wav`;
+DEATH_SOUNDS.ice_troll = DEATH_SOUNDS.hill_giant;
+DEATH_SOUNDS.jogre = DEATH_SOUNDS.hill_giant;
+DEATH_SOUNDS.harpie_bug_swarm = DEATH_SOUNDS.scorpion;
 
 export const ASSETS = {
   spells: SPELL_ICONS,
@@ -281,6 +291,11 @@ export const ASSETS = {
     superior_abyssal_demon: `${LOCAL}/models/superior_abyssal_demon.png`, // Greater abyssal demon
     superior_gargoyle: `${LOCAL}/models/superior_gargoyle.png`,           // Marble gargoyle
     superior_nechryael: `${LOCAL}/models/superior_nechryael.png`,         // Nechryarch
+    // Regional locals — each one only ever walks its own biome.
+    ice_warrior: `${LOCAL}/models/ice_warrior.png`,                       // Trollweiss
+    ice_troll: `${LOCAL}/models/ice_troll.png`,
+    jogre: `${LOCAL}/models/jogre.png`,                                   // Karamja
+    harpie_bug_swarm: `${LOCAL}/models/harpie_bug_swarm.png`,
   },
   // Combat Achievement tier icons — the game's own CaTierSwords sprites (3393-3398),
   // one blade per tier, bronze for Easy up to the last for Grandmaster.

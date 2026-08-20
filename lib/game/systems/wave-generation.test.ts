@@ -172,6 +172,49 @@ describe('buildWaveConfigs', () => {
   });
 });
 
+describe('buildWaveConfigs — the region roster', () => {
+  // A registry split the way the real one is: a generic backbone plus one local
+  // monster per region (see systems/enemy-regions).
+  const regional: EnemyDef[] = [
+    def('goblin', 5, 1),
+    def('imp', 12, 1),
+    { ...def('ghost', 6, 1), region: 'morytania' } as EnemyDef,
+    { ...def('scorpion', 7, 1), region: 'alkharid' } as EnemyDef,
+  ];
+
+  it('sends generics plus the region’s own, and nothing from elsewhere', () => {
+    const out = buildWaveConfigs(20, { enemies: regional, blockedEnemies: [], rng: () => 0.5, biome: 'morytania' });
+    const types = new Set(out.map((c) => c.type as string));
+    expect(types.has('scorpion')).toBe(false);
+    expect([...types].every((t) => ['goblin', 'imp', 'ghost'].includes(t))).toBe(true);
+  });
+
+  it('sends everything when no region is given — the pre-split behaviour', () => {
+    const out = buildWaveConfigs(20, { enemies: regional, blockedEnemies: [], rng: () => 0.5 });
+    expect(totalCount(out)).toBeGreaterThan(0);
+    // Nothing is filtered out: an unregioned build can still reach a local monster.
+    const reachable = buildWaveConfigs(20, { enemies: regional, blockedEnemies: [], rng: () => 0.99 });
+    expect(totalCount(reachable)).toBeGreaterThan(0);
+  });
+
+  it('rewrites a scripted wave into local equivalents instead of importing them', () => {
+    const landmark = [{ type: 'scorpion' as const, count: 6 }, { type: 'goblin' as const, count: 8 }];
+    const out = buildWaveConfigs(4, { enemies: regional, blockedEnemies: [], landmark, biome: 'morytania' });
+    expect(out.map((c) => c.type as string)).not.toContain('scorpion');
+    expect(totalCount(out)).toBe(14); // headcount preserved, only the name changed
+    expect(out.find((c) => (c.type as string) === 'goblin')?.count).toBe(8);
+  });
+
+  it('still seeds the Slayer target even when the region would not send it', () => {
+    // The anti-softlock promise outranks the split: a task must stay completable.
+    const out = buildWaveConfigs(20, {
+      enemies: regional, blockedEnemies: [], rng: () => 0.5, biome: 'morytania',
+      slayerTask: { type: 'scorpion', count: 10 },
+    });
+    expect(out.map((c) => c.type as string)).toContain('scorpion');
+  });
+});
+
 describe('boss schedule', () => {
   it('marks every tenth wave, and only those', () => {
     expect(isBossWave(BOSS_WAVE_INTERVAL)).toBe(true);

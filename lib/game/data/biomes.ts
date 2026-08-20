@@ -10,8 +10,13 @@
  * automatically.
  */
 
+/** Every region the battlefield can be skinned as. It doubles as the address a
+ *  monster is *native to* (see `EnemyDef.region` and systems/enemy-regions), so a
+ *  new region here is a new home a monster can be assigned — keep the two in step. */
+export type BiomeId = 'lumbridge' | 'alkharid' | 'morytania' | 'wilderness' | 'trollweiss' | 'karamja' | 'tzhaar';
+
 export interface BiomeDef {
-  id: string;
+  id: BiomeId;
   /** Player-facing region name (shown in the HUD / debug). */
   name: string;
   /** Ground: vertical gradient stops (top → bottom). */
@@ -40,7 +45,7 @@ export interface BiomeDef {
   grid: string;
 }
 
-export const BIOMES: Record<string, BiomeDef> = {
+export const BIOMES: Record<BiomeId, BiomeDef> = {
   // Misthalin plains — the classic Lumbridge green (the original look).
   lumbridge: {
     id: 'lumbridge',

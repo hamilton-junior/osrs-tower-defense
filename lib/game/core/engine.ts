@@ -31,12 +31,13 @@ import { RELICS, type Relic, type RelicEffect } from '../systems/relics';
 import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
 import { rollArmoredStyle, rollProtectedStyle, ALL_AFFIXES, type EnemyAffix, type AffixRoll } from '../systems/affixes';
 import { rollWaveEvent, resolveEventMods, type WaveEvent } from '../systems/wave-events';
+import type { VariantBag } from '../systems/model-variants';
 import { enemyLeakCost } from '../systems/leak-cost';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import { generateMapLayout, type MapLayout, type MapEdge } from '../systems/map-generation';
 import { generateTerrain, type TerrainField } from '../systems/terrain-generation';
-import { BIOMES, pickBiome, nextBiome, type BiomeDef } from '../data/biomes';
+import { BIOMES, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
 import { handleBossMechanics } from './sim/bosses';
@@ -324,11 +325,16 @@ export class GameEngine {
 
   // --- spawn/loop bookkeeping ---
   spawnQueue: Enemy[] = [];
-  /** Memoised makeup of the upcoming wave, keyed by (wave, current Slayer task)
-   *  so the Start Wave preview is stable across emits/hovers and {@link startWave}
-   *  spawns exactly what was shown. Recomputed only when the wave advances or the
-   *  task changes (e.g. a Slayer skip). */
-  previewCache: { wave: number; task: EnemyType | null; configs: WaveConfig[] } | null = null;
+  /** Per-wave draw state for cosmetic model variants (see systems/model-variants):
+   *  which looks a type has already sent this wave, so six Barrow Wights are six
+   *  different brothers instead of Dharok six times. Reset by buildWaveEnemies. */
+  variantBag: VariantBag = {};
+  /** Memoised makeup of the upcoming wave, keyed by (wave, current Slayer task,
+   *  region) so the Start Wave preview is stable across emits/hovers and
+   *  {@link startWave} spawns exactly what was shown. Recomputed only when the wave
+   *  advances, the task changes (e.g. a Slayer skip), or the region does — the
+   *  region decides which monsters can roll at all, so it belongs in the key. */
+  previewCache: { wave: number; task: EnemyType | null; biome: BiomeId; configs: WaveConfig[] } | null = null;
   spawnTimer = 0;
   readonly spawnInterval = 0.7; // seconds between spawns
   private rafId = 0;
@@ -2854,11 +2860,15 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Re-skin the current layout with the next biome in the list (colours only —
-   *  the road shape is untouched), so every region's palette can be eyeballed on
-   *  the same map. Safe any time; purely cosmetic. */
+  /** Move the run to the next region in the list, keeping the road shape, so every
+   *  region's palette — and its roster — can be eyeballed on the same map. Not
+   *  cosmetic any more: the region decides which monsters spawn, so the wave preview
+   *  is dropped and a Slayer task the new region cannot supply is reassigned free of
+   *  charge. Safe any time. */
   debugCycleBiome() {
     this.biome = nextBiome(this.biome);
+    this.previewCache = null;
+    this.slayer.rerollForRegion();
     this.emit();
   }
 
