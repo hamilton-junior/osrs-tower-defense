@@ -323,7 +323,7 @@ export function CollectionLog({ killCounts, cardCounts, achievements, victories,
                   <GoStat icon={ASSETS.misc.multicombat_icon} label="Victories" value={fmt(victories.total)} />
                   <GoStat icon={ASSETS.misc.compass} label="Fastest clear" value={victories.fastestSeconds == null ? '—' : fmtTime(victories.fastestSeconds)} />
                   <GoStat icon={ASSETS.misc.stats_icon} label="Highest Endless" value={victories.highestEndlessWave > 0 ? `Wave ${fmt(victories.highestEndlessWave)}` : '—'} />
-                  <GoStat icon={iconUrl('Collection_log')} label="Roguelite wins" value={fmt(victories.byMode.roguelite)} />
+                  <GoStat icon={ASSETS.misc.cards_icon} label="Roguelite wins" value={fmt(victories.byMode.roguelite)} />
                 </div>
                 <div className="rs-panel-inset flex items-center justify-center gap-[0.5em] py-[0.5em] mt-3 text-[0.82em] text-[#d3c3a0]">
                   <span className="text-osrs-yellow font-bold">★ Champion</span>

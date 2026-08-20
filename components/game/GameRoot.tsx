@@ -2744,7 +2744,10 @@ export default function GameRoot() {
               anything happening on the board. Dismiss it or just pick a card. */}
           {!learnSeen.includes('draft') && (
             <div className="rs-panel-inset max-w-[36em] mb-4 px-[1.1em] py-[0.7em] text-center" style={{ fontSize: fs('clamp(12px, 0.8vw, 16px)') }}>
-              <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.3em]">✦ How reward cards work</div>
+              <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.3em] flex items-center justify-center gap-[0.35em]">
+                <img src={ASSETS.misc.cards_icon} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+                How reward cards work
+              </div>
               <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.55em]">
                 Keep <b>one</b> card to snowball your build — potions, weapons and rule-changing boons.
                 Hover a card to preview exactly what it does; duplicates stack. A card badged <b>NEW</b> is one
@@ -3676,7 +3679,7 @@ export default function GameRoot() {
                   drops no gear, so neither stone is ever shown over an empty panel. */}
               {ui.gameMode === 'roguelite' ? (
                 <button ref={boonsTabRef} onClick={() => onSideTab('home')} title="Run loadout — relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
-                  <img src={ASSETS.misc.multicombat_icon} alt="Run loadout" onError={hideBrokenImg} />
+                  <img src={ASSETS.misc.cards_icon} alt="Run loadout" onError={hideBrokenImg} />
                 </button>
               ) : (
                 <button onClick={() => onSideTab('lootbag')} title="Loot bag — gear dropped this run" className={`rs-tab ${tab === 'lootbag' ? 'rs-tab-on' : ''}`}>

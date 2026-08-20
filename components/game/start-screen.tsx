@@ -64,7 +64,7 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
     {
       id: 'roguelite', name: 'Roguelite', tag: 'Buy reward cards with gold',
       desc: 'Classic, plus reward cards you buy with gold between waves. Bosses pay relics.',
-      icon: iconUrl('Collection_log'),
+      icon: ASSETS.misc.cards_icon,
     },
   ];
   // Both paths out of the start screen destroy the saved run — throwing it away
