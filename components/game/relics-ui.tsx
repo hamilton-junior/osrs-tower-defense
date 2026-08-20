@@ -175,7 +175,7 @@ export function BuyCardRoll({ ui, onBuy, disabledReason = null }: { ui: UIState;
       title={title}
       className={`rs-btn w-full flex items-center justify-center gap-[0.4em] px-[0.6em] py-[0.3em] mb-[0.5em] ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
-      <img src={ASSETS.misc.coins_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+      <img src={ASSETS.misc.cards_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
       <span className="text-[0.8em] font-bold">Buy Card Roll</span>
       {blocked
         ? <span className="text-[0.7em] text-[#cdbe91] italic">{disabledReason}</span>

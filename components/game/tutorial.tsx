@@ -240,8 +240,8 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.orb_prayer, text: 'Prayer buffs a combat style while it drains. The pool refills between waves.' },
     { icon: ASSETS.misc.slayer_crossbow, text: 'Slayer tasks arrive on their own and pay points for the Slayer shop.' },
     { icon: ASSETS.misc.rune_essence_icon, text: 'Essence is kept forever — spend it in the Essence Shop on permanent upgrades.' },
-    { icon: ASSETS.misc.spellbook_standard, text: 'Roguelite: buy card rolls between waves and keep one. Bosses drop relics.' },
     { icon: iconUrl('Collection_log'), text: 'The Collection Log holds your kills, cards, wins and Combat Achievements.' },
+    { icon: ASSETS.misc.cards_icon, text: 'Roguelite: buy card rolls between waves and keep one. Bosses drop relics.' },
   ] },
   { id: 'keys', label: 'Keys', icon: ASSETS.misc.stats_icon, lines: [
     { keys: ['1', '–', '6'], text: 'pick a tower' },

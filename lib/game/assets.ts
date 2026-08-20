@@ -421,6 +421,10 @@ export const ASSETS = {
     prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
     coins_icon: itemIcon('coins'),
     loot_bag: itemIcon('looting_bag'), // the classic-mode loot-bag stone
+    // Mystic cards (the Guardians of the Rift reward) — OSRS's own pack of cards,
+    // and therefore *the* icon for anything about reward cards: the roguelite, a
+    // card roll, the draft. Use this rather than picking a fresh stand-in.
+    cards_icon: itemIcon('mystic_cards'),
     xp_icon: itemIcon('antique_lamp'), // XP-gain stat rows (OSRS's experience lamp)
     rune_essence_icon: itemIcon('rune_essence'),
     // Spellbook icons for the wizard panel (Elemental→Standard, Ancients→Ancient,

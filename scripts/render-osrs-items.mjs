@@ -247,6 +247,9 @@ const TARGETS = {
   // The clue-scroll compass — stands in for elapsed time / "survived" in the
   // end-of-run summary (OSRS has no clock sprite in the cache).
   compass: { name: 'Compass' },
+  // The roguelite's reward cards, wearing the game's own deck: Mystic cards, the
+  // Guardians of the Rift reward. The only actual pack of cards in OSRS.
+  mystic_cards: { name: 'Mystic cards' },
   // ---- Classic-mode gear (data/gear.ts) — the retired weapon pool (superseded by
   // the ammo/jewellery rework below; left baked since other slugs still share
   // these keys, e.g. granite_cannonball/cannonball are reused by AMMO_TIERS) ----
