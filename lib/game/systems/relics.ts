@@ -100,19 +100,19 @@ export const TIER_WEIGHT: Record<RelicTier, number> = {
 export const RELICS: readonly Relic[] = [
   // ───────────────────────────── relic-only rules ─────────────────────────
   { id: 'executioner', name: 'Executioner', tier: 'major',
-    desc: 'Your towers instantly slay any non-boss that drops to 12% health.',
+    desc: 'Finishes off any non-boss that drops to 12% health.',
     icon: itemIcon('dragon_longsword'), effect: { kind: 'execute', frac: 0.12 } },
   { id: 'bankers_note', name: "Banker's Note", tier: 'major',
-    desc: 'Each wave cleared pays 6% of your gold as interest (up to 80).',
+    desc: 'Each wave cleared pays 6% of your gold back (up to 80).',
     icon: itemIcon('bank_note'), effect: { kind: 'interest', rate: 0.06, cap: 80 } },
   { id: 'trickster', name: 'Trickster', tier: 'major',
-    desc: 'Re-roll each draft hand once if you dislike the cards on offer.',
+    desc: 'Re-roll each hand of cards once.',
     icon: itemIcon('ring_of_wealth'), effect: { kind: 'reroll', perWave: 1 } },
   { id: 'production_prodigy', name: 'Production Prodigy', tier: 'major',
     desc: 'Every draft offers one extra card to choose from.',
     icon: itemIcon('clue_scroll_master'), effect: { kind: 'handSize', extra: 1 } },
   { id: 'last_recall', name: 'Last Recall', tier: 'mythic',
-    desc: 'The first leak that would end your run leaves you on 1 life instead.',
+    desc: 'The first leak that would end your run leaves you on 1 life.',
     icon: itemIcon('ring_of_life'), effect: { kind: 'cheatDeath' } },
 
   // ──────────────────────── strong always-on passives ─────────────────────
@@ -126,7 +126,7 @@ export const RELICS: readonly Relic[] = [
     desc: 'Slain enemies drop 30% more gold.',
     icon: itemIcon('reward_casket_elite'), effect: { kind: 'goldFind', mult: 1.3 } },
   { id: 'soul_stealer', name: 'Soul Eater', tier: 'mythic',
-    desc: 'Every boss you slay restores a life. Lesser kills feed it too, but it takes hundreds — and more as the waves climb.',
+    desc: 'Every boss you slay gives a life back. Hundreds of lesser kills do too.',
     icon: itemIcon('soul_rune'), effect: { kind: 'soulSteal', bossHeal: 1, addKills: SOUL_STEAL_BASE_KILLS } },
   { id: 'brawlers_resolve', name: "Brawler's Resolve", tier: 'minor',
     desc: '+2 maximum lives (and heal 2 now).',

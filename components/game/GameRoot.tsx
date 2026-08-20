@@ -2340,9 +2340,7 @@ export default function GameRoot() {
                   </div>
                   <p className="text-[0.72em] text-[#b3a585] mt-[0.25em] px-[0.2em] leading-snug">
                     {SUPPORT_SPELLS[selectedTower.supportSpell ?? 'curse'].desc}.
-                    Always-on aura boosts nearby towers' range, speed &amp; damage too — with
-                    diminishing returns, so the second wizard covering a tower is worth half
-                    the first, the third a quarter, and so on.
+                    Its aura also lifts nearby towers, less with each extra wizard.
                   </p>
                 </>
               )}

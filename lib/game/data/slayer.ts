@@ -81,34 +81,34 @@ export const SLAYER_REWARDS: SlayerReward[] = [
   { id: 'helmet', name: 'Slayer Helmet', desc: `+${SLAYER_HELMET_BONUS * 100}% tower damage vs your current task`, cost: 20, icon: 'Slayer_helmet', once: true },
   {
     id: 'helmet_i', name: 'Slayer Helmet (i)', requires: 'helmet',
-    desc: `Imbue the helm: the on-task bonus becomes +${SLAYER_HELMET_IMBUED_BONUS * 100}%`,
+    desc: `The on-task bonus becomes +${SLAYER_HELMET_IMBUED_BONUS * 100}%`,
     cost: 40, icon: 'Slayer_helmet_(i)', once: true,
   },
   {
     id: 'bigger_badder', name: 'Bigger and Badder',
-    desc: 'Task monsters can rise again as their Superior form — far tougher, far richer. (Bloodvelds, Abyssal demons, Gargoyles, Nechryaels.)',
+    desc: 'Task monsters can rise again as a Superior — tougher, richer.',
     cost: 30, icon: 'Eternal_gem', once: true,
   },
   {
     id: 'block', name: 'Block Task',
-    desc: 'This monster is never assigned again this run. Rolls a fresh task.',
+    desc: 'Never see this monster again this run.',
     cost: 15, icon: 'Slayer_ring',
   },
   {
     id: 'extend', name: 'Extend Task',
-    desc: 'Double what is left of this task — and its payout. Future tasks on this monster come extended too.',
+    desc: 'Double this task and its payout, now and next time.',
     cost: 10, icon: 'Bracelet_of_slaughter',
   },
   {
     id: 'halve', name: 'Halve Task',
-    desc: 'Halve what is left of this task — and its payout. Less grind, less gold.',
+    desc: 'Halve this task and its payout.',
     cost: 8, icon: 'Expeditious_bracelet',
   },
   { id: 'skip', name: 'Skip Task', desc: 'Drop this task and roll a fresh one', cost: 8, icon: 'Enchanted_gem' },
   { id: 'essence', name: 'Essence Pouch', desc: `Convert 5 points into ${SLAYER_ESSENCE_YIELD} Rune Essence`, cost: 5, icon: 'Pure_essence' },
   {
     id: 'essence_sack', name: 'Essence Sack',
-    desc: `Convert ${SLAYER_ESSENCE_SACK_COST} points into ${SLAYER_ESSENCE_SACK_YIELD} Rune Essence — a better rate, in one click`,
+    desc: `Convert ${SLAYER_ESSENCE_SACK_COST} points into ${SLAYER_ESSENCE_SACK_YIELD} Rune Essence`,
     cost: SLAYER_ESSENCE_SACK_COST, icon: 'Giant_pouch',
   },
 ];

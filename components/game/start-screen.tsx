@@ -58,12 +58,12 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
   const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string }[] = [
     {
       id: 'classic', name: 'Classic', tag: 'Pure Tower Defense',
-      desc: 'Build towers and survive the waves. No draft, no run buffs — just your defences against the horde.',
+      desc: 'Build towers and survive the waves. Nothing else.',
       icon: iconUrl('Dwarf_multicannon'),
     },
     {
       id: 'roguelite', name: 'Roguelite', tag: 'Buy reward cards with gold',
-      desc: 'Spend gold on a hand of OSRS reward cards and keep one — each roll costs more than the last, so cards compete with towers for the purse. Bosses pay Relics. Stack potions, weapons and combos into a build that snowballs.',
+      desc: 'Classic, plus reward cards you buy with gold between waves. Bosses pay relics.',
       icon: iconUrl('Collection_log'),
     },
   ];
