@@ -87,7 +87,7 @@ export const LEARN_STEPS: LearnStep[] = [
   { id: 'prayer', target: 'prayers', icon: ASSETS.misc.orb_prayer, title: 'Prayer',
     body: 'Toggle one to buff your towers. It drains a pool that refills between waves.',
     when: (ui) => !ui.waveActive && ui.wave === 3 },
-  { id: 'sidebar', target: 'sidebar', icon: iconUrl('Collection_log'), title: 'The stones',
+  { id: 'sidebar', target: 'stones', icon: iconUrl('Collection_log'), title: 'The stones',
     body: 'The stones on the right open the shops, the log and this guide. Click one again to close it.',
     when: (ui) => !ui.waveActive && ui.wave === 4 },
   { id: 'affix', icon: ASSETS.misc.defence_icon, title: 'Elite enemies',

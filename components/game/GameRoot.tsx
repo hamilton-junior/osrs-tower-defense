@@ -3663,7 +3663,11 @@ export default function GameRoot() {
             {/* Interface stones, ordered by how often a run reaches for them:
                 loadout and DPS (read mid-run), then the two shops, then the log
                 and the two links out. Debug has no stone — it is Ctrl+' only. */}
-            <div className="flex flex-1 items-center justify-end gap-[0.4em]">
+            {/* The outer half takes the bar's leftover room (`flex-1`); the inner
+                one hugs the stones themselves, so the tutorial's ring lands on the
+                buttons instead of on the empty stretch beside them. */}
+            <div className="flex flex-1 items-center justify-end">
+            <div data-tut="stones" className="flex items-center gap-[0.4em]">
               {/* First stone, one per mode: the roguelite's loadout (relics + boons)
                   or classic's loot bag. Classic drafts nothing and the roguelite
                   drops no gear, so neither stone is ever shown over an empty panel. */}
@@ -3699,6 +3703,7 @@ export default function GameRoot() {
               <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
                 ❓
               </button>
+            </div>
             </div>
         </footer>
       </div>{/* bottom bar */}
