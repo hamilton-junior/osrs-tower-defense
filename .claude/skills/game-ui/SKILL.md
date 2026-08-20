@@ -12,11 +12,13 @@ The game is `lib/game/core/engine.ts`, `lib/game/core/renderer.ts` and `componen
 State lives in one imperative class. React never touches game entities.
 
 - `GameEngine` runs its own rAF loop and mutates plain arrays (`enemies`, `towers`, `projectiles`).
-- To push data up it calls `this.onState(patch)`, typed `Partial<UIState>` (defined in `core/engine.ts`). **Emitting a new key means adding it to `UIState` first**, or the build fails. The patch crosses `structuredClone`d — no class instances, no functions.
+- To push data up it calls `this.onState(patch)`, typed `Partial<UIState>` (defined in `core/engine-state.ts`, re-exported from `core/engine.ts` — import it from `core/engine` as before). **Emitting a new key means adding it to `UIState` first**, or the build fails. The patch crosses `structuredClone`d — no class instances, no functions.
 - `GameRoot.tsx` merges the patch: `setUi((prev) => ({ ...prev, ...patch }))`.
 - UI → engine is **method calls on `engineRef.current`** (`startWave`, `placeTower`, `setAutoplay`, `setAncientType`…), which mutate state and usually `emit()` afterwards.
 
 A feature normally touches three places: a method on `GameEngine`, a key in `UIState` + the `emit()` payload, and JSX in `GameRoot.tsx`.
+
+The engine class holds its state and **every method the UI calls** — that is the whole of its public API and it stays there. The simulation behind it lives under `core/sim/` (`combat`, `waves`, `bosses`) as free functions taking the engine as `eng`. Add a new UI-callable method to the class; put the per-frame work it triggers in the matching `sim/` module.
 
 Rendering changes go under `core/render/` — one module per layer (`terrain`, `build-overlay`, `towers`, `enemies`, `effects`, `hud`, `shared`), each a free function taking the renderer as `gr` and reading engine state through `gr.e`. `core/renderer.ts` itself is just the frame's running order (`draw()`) plus the caches a frame carries between calls. Never in the engine.
 

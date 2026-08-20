@@ -24,13 +24,13 @@ The game was rebuilt clean from a tested foundation; the old god-class engine an
 
 Game state and logic live in **one imperative class**. React never touches game entities.
 
-- **[`lib/game/core/engine.ts`](lib/game/core/engine.ts)** — `GameEngine`: state, its own `requestAnimationFrame` loop, and the tower-defense simulation. It mutates plain arrays (`enemies`, `towers`, `projectiles`, `hitsplats`, …).
+- **[`lib/game/core/engine.ts`](lib/game/core/engine.ts)** — `GameEngine`: state, its own `requestAnimationFrame` loop, and every method the interface calls. It mutates plain arrays (`enemies`, `towers`, `projectiles`, `hitsplats`, …). Its vocabulary — `UIState`, the per-run effect records, the board constants — lives beside it in [`core/engine-state.ts`](lib/game/core/engine-state.ts) and is re-exported, so `@/lib/game/core/engine` stays the one address to import from. The simulation itself is under [`core/sim/`](lib/game/core/sim/): `combat` (targeting → firing → hit → on-hit → kill), `waves` (roster, spawning, movement, DoT, wave end) and `bosses` (one state machine per boss). Those are free functions taking the engine as `eng`; nothing outside `engine.ts` calls them, so the UI's vocabulary is unchanged.
 - **[`lib/game/core/renderer.ts`](lib/game/core/renderer.ts)** — `GameRenderer` owns every Canvas 2D draw call. It holds a back-reference to the engine (`e`) and keeps **no game state of its own**. The class itself is only the frame's running order plus a few caches; each layer lives in its own module under [`core/render/`](lib/game/core/render/) (`terrain`, `build-overlay`, `towers`, `enemies`, `effects`, `hud`, `shared`) as a free function taking the renderer as its first argument (`gr`). Rendering changes go there, never in the engine.
 - **[`components/game/GameRoot.tsx`](components/game/GameRoot.tsx)** — the React bridge and the whole OSRS interface.
 
 The boundary works like this:
 
-- To push data up, the engine calls `this.onState(patch)`, typed `Partial<UIState>` (`UIState` is defined in `core/engine.ts`). **A new emitted key must be added to `UIState` first**, or the build fails on the excess-property check. The patch crosses `structuredClone`d — no class instances, no functions.
+- To push data up, the engine calls `this.onState(patch)`, typed `Partial<UIState>` (`UIState` is defined in `core/engine-state.ts` and re-exported from `core/engine.ts`). **A new emitted key must be added to `UIState` first**, or the build fails on the excess-property check. The patch crosses `structuredClone`d — no class instances, no functions.
 - Emits are coalesced: `emit()` marks state dirty and `flush()` diffs `snapshot()` through `changedState` ([`systems/ui-diff.ts`](lib/game/systems/ui-diff.ts)), so only real changes reach React. `GameRoot` merges with `setUi((prev) => ({ ...prev, ...patch }))`.
 - UI → engine is **method calls on `engineRef.current`** (`startWave`, `placeTower`, `upgradeTower`, `setAutoplay`, `equipGear`, …), which mutate state and usually `emit()` afterwards. A few fields are read live off `engineRef.current` (e.g. `towers`) rather than through `UIState`.
 
