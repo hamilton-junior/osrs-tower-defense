@@ -93,6 +93,12 @@ export function WaveEventChip({ event }: { event: NonNullable<UIState['activeEve
     const t = setTimeout(() => setAnnouncing(false), EVENT_ANNOUNCE_MS);
     return () => clearTimeout(t);
   }, []);
+  // Touching the chip ends the announcement and hands the bubble to the pointer,
+  // so it then closes on mouse-out like every other tooltip in the game. Without
+  // this the two owners fight: the bubble is forced open by the timer, so leaving
+  // the chip doesn't dismiss it, and the player is left with a tooltip that
+  // ignores them until the countdown happens to end.
+  const takeOver = () => setAnnouncing(false);
   return (
     <HoverTip
       side="bottom"
@@ -108,6 +114,10 @@ export function WaveEventChip({ event }: { event: NonNullable<UIState['activeEve
       <div
         className="wave-event-chip rs-panel flex items-center gap-[0.4em] pl-[0.3em] pr-[0.55em] py-[0.25em] pointer-events-auto"
         style={{ border: `1px solid ${event.color}`, boxShadow: `0 0 8px ${event.color}66` }}
+        onMouseEnter={takeOver}
+        // Also on move: the chip can mount right under a pointer that never
+        // moved, so no mouseenter is coming (HoverTip has the same guard).
+        onMouseMove={takeOver}
       >
         {/* Icon box mirrors the potion infoboxes sitting to its right, tinted to the event. */}
         <span className="rs-infobox shrink-0" style={{ border: `1px solid ${event.color}`, boxShadow: `inset 0 0 6px ${event.color}55` }}>
