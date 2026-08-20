@@ -86,7 +86,7 @@ export const PRIORITY_TIPS: Record<TargetingPriority, string> = {
   strongest: 'Strongest — the highest current HP',
   weakest: 'Weakest — the lowest current HP',
   closest: 'Closest — the nearest to this tower',
-  unmarked: 'Unmarked — carrying no status yet, so poison / burn / slow spreads across the wave instead of re-applying to one enemy',
+  unmarked: 'Unmarked — no status yet, so poison / burn / slow spreads across the wave',
 };
 
 /** One targeting-priority glyph: the dimension icon, with the most/least arrow
@@ -165,67 +165,79 @@ export const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = 
   toxic: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
 };
 
-/** Each non-wizard tower's signature niche — the specific scenario where it earns
- *  its slot over the wizard (which owns raw single-target + AoE). Copy mirrors the
- *  maths in systems/tower-identity.ts and the on-hit effects in the engine. Notes
- *  gated on a tier the tower hasn't reached are shown locked, so upgrading carries
- *  a visible promise. The wizard returns null — it has its own spellbook section. */
+/**
+ * Each tower's signature niche — the specific scenario where it earns its slot
+ * over the wizard (which owns raw single-target + AoE). Copy mirrors the maths in
+ * systems/tower-identity.ts and the on-hit effects in the engine. Notes gated on a
+ * tier the tower hasn't reached are shown locked, so upgrading carries a visible
+ * promise.
+ *
+ * **Keep it tiny.** Same rule as the tutorial (see `tutorial.tsx`): players skip
+ * anything longer than a glance, so a signature is one plain sentence plus a
+ * couple of short notes, led by an icon. The exact numbers belong in the stat rows
+ * and the code — not in the sales pitch.
+ */
 export function towerSignature(
   type: TowerType,
   level: number,
-): { label: string; desc: string; notes: { text: string; active: boolean }[] } | null {
+): { label: string; icon: string; desc: string; notes: { text: string; active: boolean }[] } | null {
   switch (type) {
     case 'archer':
       return {
         label: 'Twin Shot',
-        desc: 'Fast, relentless arrows — raw single-target volume.',
+        icon: ASSETS.misc.attack_icon,
+        desc: 'Shoots faster than anything else.',
         notes: [
-          { text: 'Lv3 Dark Bow: looses a 2nd arrow at the next target', active: level >= 3 },
-          { text: 'Lv4: arrows bite harder vs high-HP foes', active: level >= 4 },
+          { text: 'Lv3: a 2nd arrow hits another enemy', active: level >= 3 },
+          { text: 'Lv4: hits tough enemies harder', active: level >= 4 },
         ],
       };
     case 'cannon':
       return {
         label: 'Full Splash',
-        desc: 'Full-damage blast — no AoE falloff, unlike Ancients.',
-        notes: [{ text: 'Blast radius widens with each tier', active: true }],
+        icon: ASSETS.misc.multicombat_icon,
+        desc: 'Every enemy in the blast takes full damage.',
+        notes: [{ text: 'The blast widens with each upgrade', active: true }],
       };
     case 'tzhaar':
       return {
         label: 'Knockback',
-        desc: 'Shoves enemies back — crowd control the wizard can’t match.',
+        icon: ASSETS.debuffs.stun,
+        desc: 'Shoves enemies back down the path.',
         notes: [
-          { text: 'Every hit also briefly stuns (daggers 0.3–0.45s)', active: true },
-          { text: 'Lv3 maul: crushes for the full 0.6s stun', active: level >= 3 },
+          { text: 'Every hit stuns for a moment', active: true },
+          { text: 'Lv3: the maul stuns for longer', active: level >= 3 },
         ],
       };
     case 'slayer':
       return {
         label: 'Slayer Mark',
-        desc: 'Bonus damage vs your task, Superiors and bosses.',
+        icon: ASSETS.misc.slayer_crossbow,
+        desc: 'Extra damage on bosses and your Slayer task.',
         notes: [
-          { text: '+50% vs your current Slayer task', active: true },
+          { text: '+50% vs your task', active: true },
           { text: '+30% vs Superiors · +25% vs bosses', active: true },
         ],
       };
     case 'toxic':
       return {
         label: 'Venom',
-        desc: 'A separate dark-green venom DoT, apart from poison.',
+        icon: ASSETS.debuffs.venom,
+        desc: 'Venom keeps hurting after the enemy walks away.',
         notes: [
-          { text: 'Each hit ramps the venom up to a damage-scaled cap', active: true },
-          { text: 'Keeps ticking after foes leave its range', active: true },
-          { text: 'Ignores crowd-control resistance — bites bosses just as hard', active: true },
+          { text: 'Each hit makes the venom stronger', active: true },
+          { text: 'Bosses cannot resist it', active: true },
         ],
       };
     case 'wizard':
       return {
-        label: 'Arcane Mastery',
-        desc: 'The complete caster — pick a spellbook to specialise.',
+        label: 'Spellbooks',
+        icon: ASSETS.misc.magic_icon,
+        desc: 'Pick a spellbook to set its job.',
         notes: [
-          { text: 'Elemental: raw single-target + weakness bonus', active: true },
-          { text: 'Ancients: true AoE barrages with a status', active: true },
-          { text: 'Utility: an always-on aura that buffs nearby towers', active: true },
+          { text: 'Elemental: one target, hits weaknesses', active: true },
+          { text: 'Ancients: AoE with a status', active: true },
+          { text: 'Utility: buffs nearby towers', active: true },
         ],
       };
     default:

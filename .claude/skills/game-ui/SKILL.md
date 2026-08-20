@@ -40,6 +40,8 @@ Three consequences that are easy to get wrong:
 
 The **first** tip a new player gets is the interface size (`uiscale`), because players kept missing the − / + on the bar and played whole runs squinting. It is the pattern for anything else that hides in plain sight: `spotlight: true` swaps the plain orange ring for the pulsing `.rs-spotlight` one, and the balloon repeats the *live control itself* (`uiSizeControl`, wired to `onNudgeUiScale` from `GameRoot`) — a player who will not read a sentence will still press a button. Use it for a control, never for lore, and keep it to one or two tips: everything glowing is nothing glowing.
 
+**The same brevity rule governs every line that teaches or explains**, not just the tutorial — tower signatures (`towerSignature` in `tower-ui.tsx`), spell and prayer descriptions, targeting-priority tooltips, relic and card copy. One plain sentence, plain words, led by the OSRS icon of the thing it describes; a couple of short notes under it at most. Exact numbers belong in the stat rows and the code, not in the sentence: "Venom keeps hurting after the enemy walks away", not "a separate dark-green venom DoT that ramps to a damage-scaled cap". A player who won't read the tutorial won't read a tooltip paragraph either.
+
 ## OSRS chrome
 
 Hand-rolled CSS in `app/globals.css` — CSS variables (`--osrs-brown`, `--osrs-orange`, `--rs-keyline`, `--rs-raised`, `--rs-sunken`) and utility classes. Tailwind v4 is available for layout; use the `rs-*` classes for anything that should look like the game.

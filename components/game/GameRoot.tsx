@@ -2150,8 +2150,10 @@ export default function GameRoot() {
             if (!sig) return null;
             return (
               <div className="mt-[0.4em] px-[0.2em]">
-                <div className="flex items-center gap-[0.4em] mb-[0.15em]">
-                  <span className="text-[0.72em] text-[#d3c3a0] uppercase tracking-wide">Signature</span>
+                <div className="flex items-center gap-[0.35em] mb-[0.15em]">
+                  {/* The effect's own icon carries the "what kind of trick is this"
+                      job the word "Signature" used to do, in less room. */}
+                  <img src={sig.icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
                   <span className="text-[0.74em] text-osrs-yellow font-semibold">{sig.label}</span>
                 </div>
                 <p className="text-[0.72em] text-[#b3a585] leading-snug">{sig.desc}</p>
@@ -3548,7 +3550,10 @@ export default function GameRoot() {
                     </div>
                     {sig && (
                       <div className="mt-[0.35em] px-[0.1em]">
-                        <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{sig.label}</span>
+                        <span className="flex items-center gap-[0.3em]">
+                          <img src={sig.icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                          <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{sig.label}</span>
+                        </span>
                         <p className="text-[0.76em] text-[#cdbe91] leading-snug mt-[0.1em]">{sig.desc}</p>
                       </div>
                     )}
