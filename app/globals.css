@@ -983,3 +983,14 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
   border-left: 1px solid rgba(0, 0, 0, 0.32);
   border-right: 1px solid rgba(255, 255, 255, 0.045);
 }
+
+/* Learn-as-you-go spotlight: the ring a `spotlight` tip draws around its target.
+   Louder than the plain orange ring on purpose — it marks the one or two controls
+   a player who never notices them plays the whole run worse off (the interface
+   size being the first). Pulses rather than sits still, because the bottom bar is
+   busy and a static outline there reads as chrome. */
+.rs-spotlight { animation: rs-spotlight 1.3s ease-in-out infinite; }
+@keyframes rs-spotlight {
+  0%, 100% { box-shadow: 0 0 8px 2px rgba(255, 200, 60, 0.45); }
+  50% { box-shadow: 0 0 20px 6px rgba(255, 200, 60, 0.9); }
+}

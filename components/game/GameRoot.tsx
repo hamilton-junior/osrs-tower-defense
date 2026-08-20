@@ -2921,6 +2921,9 @@ export default function GameRoot() {
           seen={learnSeen}
           onSeen={markTipSeen}
           onSkipAll={skipAllTips}
+          uiScale={uiScale}
+          onNudgeUiScale={(d) => setUiScale((v) => Math.min(maxUiScale,
+            Math.max(UI_SCALE_MIN, +(v + d * UI_SCALE_STEP).toFixed(2))))}
         />
       )}
       </div>{/* board — floating overlays anchor to the map, never the dock bar */}
@@ -3479,7 +3482,7 @@ export default function GameRoot() {
                 OUTSIDE the clipping group above and never shrinks, because it is the way
                 back from an interface scaled too large to fit: clipping the escape hatch
                 would strand the player at 160%. */}
-            <div className="shrink-0 flex items-center gap-[0.25em]">
+            <div data-tut="uiscale" className="shrink-0 flex items-center gap-[0.25em]">
               <span className="text-[0.6em] text-[#d3c3a0] ml-[0.4em] mr-[0.4em] uppercase tracking-wide select-none">UI</span>
               <button
                 onClick={() => setUiScale((v) => Math.max(UI_SCALE_MIN, +(v - UI_SCALE_STEP).toFixed(2)))}
