@@ -2902,6 +2902,10 @@ export default function GameRoot() {
           onStart={() => { clearRunSave(); setSavedRun(null); setRunStarted(true); }}
           onContinue={() => {
             if (!savedRun) return;
+            // A run that was already won banked its win when it was won. The guard
+            // ref is per-page-load, so seed it from the save — otherwise resuming an
+            // Endless run would count the same victory again on every refresh.
+            recordedWin.current = savedRun.won === true;
             engineRef.current?.loadRun(savedRun);
             setRunStarted(true);
           }}

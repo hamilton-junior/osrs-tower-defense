@@ -74,6 +74,20 @@ export interface RunSave {
    *  it simply restarts its CA counters. Bumping the version would invalidate
    *  every save currently sitting in a player's browser. */
   caStats?: RunStats;
+  /** Bosses killed *this run*, keyed by enemy type. The boss schedule marches
+   *  through `SCHEDULABLE_BOSSES` gentlest-first by reading this, and victory is
+   *  "all of them, this run" — so a resumed run without it restarts the ladder at
+   *  the first boss, whatever wave the player is on. Optional like `caStats`: a
+   *  save written before this field resumes with an empty record, as it always did. */
+  bossesKilled?: Record<string, number>;
+  /** The victory latch and what came after it. `won` stays true for the rest of the
+   *  run, `runPhase` says whether the player took the Endless victory lap, and
+   *  `victoryWave` anchors the Endless HP curve. Without them a resumed Endless run
+   *  drops back to the normal curve and pops its victory screen a second time.
+   *  Optional — an older save resumes as a run still to be won. */
+  won?: boolean;
+  runPhase?: 'normal' | 'endless';
+  victoryWave?: number;
   slayer: {
     task: SlayerTask | null;
     points: number;
@@ -100,6 +114,16 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 const strList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+/** A `{ key: count }` tally read back from a save — keeps only positive whole
+ *  counts, so a corrupted entry costs one boss rather than the whole run. */
+const countRecord = (v: unknown): Record<string, number> => {
+  if (!isObj(v)) return {};
+  const out: Record<string, number> = {};
+  for (const [k, n] of Object.entries(v)) {
+    if (typeof n === 'number' && Number.isFinite(n) && n >= 1) out[k] = Math.floor(n);
+  }
+  return out;
+};
 
 /**
  * Validate a blob read back from `localStorage` and return it as a `RunSave`, or
@@ -178,6 +202,12 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     // Cast, not rebuilt, like the mod buckets above: every CA predicate reads it
     // defensively and a missing field only ever costs the player a task.
     caStats: isObj(raw.caStats) ? (raw.caStats as unknown as RunStats) : undefined,
+    bossesKilled: countRecord(raw.bossesKilled),
+    won: raw.won === true,
+    // Endless only exists past a win, so an unwon save is always 'normal' — that
+    // pairing is what `continueEndless` and the Endless HP curve both assume.
+    runPhase: raw.won === true && raw.runPhase === 'endless' ? 'endless' : 'normal',
+    victoryWave: Math.max(0, Math.floor(num(raw.victoryWave, 0))),
     slayer: {
       task: taskRaw && typeof taskRaw.type === 'string'
         ? {

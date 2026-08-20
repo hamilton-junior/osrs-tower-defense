@@ -2510,6 +2510,13 @@ export class GameEngine {
       // The run's Combat Achievement facts travel with the run: resuming must not
       // hand the player a fresh "no life lost yet" slate for tasks they already spent.
       caStats: structuredClone(this.caStats),
+      // The run's boss ladder: which bosses it has already put down, and whether
+      // that ladder was finished. Lose these and the next boss wave restarts the
+      // march at the gentlest boss, however deep the run is.
+      bossesKilled: { ...this.bossesKilledThisRun },
+      won: this.won,
+      runPhase: this.runPhase,
+      victoryWave: this.victoryWave,
       slayer: this.slayer.snapshot(),
       prayer: { points: this.prayer.points, active: [...this.prayer.active] },
     };
@@ -2582,6 +2589,13 @@ export class GameEngine {
     this.draftBoosted = save.draftBoosted ?? false;
     // A save written before Combat Achievements existed simply restarts its facts.
     this.caStats = save.caStats ?? emptyRunStats(this.gameMode, this.difficultyTier);
+    // The boss march is per-run, so it has to come back with the run: `rollWaveBosses`
+    // reads it to pick the next unmet boss, and victory is "every one of them, this
+    // run". A save from before this field resumes with an empty ladder, as it did.
+    this.bossesKilledThisRun = { ...(save.bossesKilled ?? {}) };
+    this.won = save.won ?? false;
+    this.runPhase = this.won && save.runPhase === 'endless' ? 'endless' : 'normal';
+    this.victoryWave = save.victoryWave ?? 0;
 
     this.waveActive = false;
     this.gameOver = false;

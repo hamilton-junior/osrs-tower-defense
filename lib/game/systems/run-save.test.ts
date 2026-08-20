@@ -199,3 +199,44 @@ describe('caStats', () => {
     expect(RUN_SAVE_VERSION).toBe(3);
   });
 });
+
+describe('the run\'s boss ladder', () => {
+  it('round-trips the bosses killed this run', () => {
+    const save = makeSave({ bossesKilled: { scurrius: 1, vorkath: 2 } });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.bossesKilled).toEqual({ scurrius: 1, vorkath: 2 });
+  });
+
+  it('resumes an older save with an empty ladder rather than refusing it', () => {
+    const save = makeSave();
+    delete (save as { bossesKilled?: unknown }).bossesKilled;
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back).not.toBeNull();
+    expect(back?.bossesKilled).toEqual({});
+  });
+
+  it('drops junk tallies instead of carrying them into the march', () => {
+    const save = makeSave({ bossesKilled: { scurrius: 1, vorkath: 0, zulrah: 'lots', hydra: NaN } });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.bossesKilled).toEqual({ scurrius: 1 });
+  });
+
+  it('round-trips the victory latch and the Endless phase', () => {
+    const save = makeSave({ won: true, runPhase: 'endless', victoryWave: 92 });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.won).toBe(true);
+    expect(back?.runPhase).toBe('endless');
+    expect(back?.victoryWave).toBe(92);
+  });
+
+  it('never resumes into Endless on a run that was not won', () => {
+    const save = makeSave({ runPhase: 'endless' });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.won).toBe(false);
+    expect(back?.runPhase).toBe('normal');
+  });
+
+  it('keeps the version at 3 — every new field is optional, so old saves still resume', () => {
+    expect(RUN_SAVE_VERSION).toBe(3);
+  });
+});
