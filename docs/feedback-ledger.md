@@ -204,15 +204,16 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
 
 19. **F4 treasure trails** — enemies drop a clue scroll very rarely (≈1/200); reading it from
     the inventory or the loot bag poses an OSRS-style riddle the player solves between waves
-    ("Dig where the Wizard first stood", "Search under the bridge at wave 15", "Bow at the
-    centre of the map") by clicking the right tile or playing an emote. Solve it for gold +
+    ("Dig where the Wizard first stood", "Search under the bridge at wave 15") by clicking the
+    right tile. **Puzzles only — no emote clues** (user, 2026-08-21): the game has no emote
+    system and an emote step would be a pure UI chore, not a riddle. Solve it for gold +
     essence + a shot at a rare cosmetic; get it wrong and the scroll is simply gone — **no
     punishment**. The hook the user wants: the clue reads the *current run* — where the first
     tower went down, which boss fell first — so it feels like the scroll knows what happened.
     This is the player's own ask **#30** arriving as a designed feature, so build the two
     together rather than as rival backlog items.
 
-20. **F5 NPC walkbys** — pure flavour, **between waves only, never during one**: OSRS regulars
+20. **F5 NPC walkbys** — the first piece of **D&D** (below). Pure flavour, **between waves only, never during one**: OSRS regulars
     stroll along the road or across empty tiles and say something when clicked. Hans ("I've
     been here for 20 years and I'm still not sure what this tower does."), Bob the axe seller,
     the Lumbridge Guide — the one exception, who gives a contextual hint about the coming wave
@@ -221,3 +222,14 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     inhabited. It shares its whole spine with **F1** (spawn on free tiles, a timer, a click
     handler, a sprite from the cache), so the two should be one system with two moods:
     F1 gives something, F5 just talks.
+
+21. **D&D — Distractions & Diversions**, the umbrella the user wants to explore **as soon as
+    possible** (2026-08-21). In OSRS a D&D is a recurring, opt-in, low-commitment activity that
+    finds *you* rather than the other way round — Shooting Stars, Tears of Guthix, Penguin Hide
+    and Seek, Champions' Challenge, Wilderness Flash Events. That description is already the
+    house rule this whole section runs on (no timing, no APM, fully optional), which is why
+    **F5 is explicitly a D&D and not a one-off**, and why **F1**, **F2** and **F4** are its
+    natural siblings: something turns up on its own schedule, the player engages if he feels
+    like it, and skipping it costs nothing. What is still to design is the frame itself — how
+    often a D&D shows up, whether they share one cooldown, where the player sees that one is
+    waiting, and which OSRS D&Ds map onto a tower-defense board at all.
