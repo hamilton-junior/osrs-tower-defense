@@ -158,3 +158,46 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
     (win-to-earn, buys Void — permanent gear, but reads as a grind currency).
     Unbuilt: the shop's contents are the actual design work, and the
     rewards must not inflate gold.
+
+---
+
+## Idle-friendly content, to explore (user's own ideas, 2026-08-21)
+
+Three features to *explore*, not yet designed. They share one house rule the user set for
+them: **nothing may demand timing, APM or constant attention, and everything is optional** —
+ignoring a random NPC or never planting a seed must cost the run nothing. Assets come from
+the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
+
+16. **F1 random events** — the OSRS random-event NPCs turn up on the board. They spawn on
+    empty (non-road) tiles, stay 10–15s, and the player clicks them if he feels like it.
+    Low chance per wave (≈5%), **never on a boss wave**, at most one alive at a time.
+    - *Drunken Dwarf* — a kebab: restore 1 life, or +10% gold next wave (50/50).
+    - *Genie* — offers three, player picks one: gold, essence, or +1 draft reroll.
+    - *Strange Plant* — drops a farming seed (feeds **F2**) or a one-wave random buff.
+    - *Rick Turpentine* — "fight back": auto-wins off the tower count, pays a loot bag.
+    Shape: a `randomNpcs` array in engine state, rolled in `startWave`; each entry carries
+    `type, x, y, sprite, timer, reward`; the renderer draws the sprite plus its name; a
+    click calls `handleNpcClick(type)`, applies the reward at once, despawns and toasts.
+    NPCs met are recorded in the Collection Log (new tab or an existing one widened).
+
+17. **F2 farming patches** — 1–2 allotment tiles placed procedurally with the terrain.
+    Between waves the player clicks a patch and sows a cheap seed (10–30gp); it ripens
+    over ~5 waves through visible stages (dry → sprout → small plant → mature), glows green
+    when ready, and harvesting grants a buff lasting one full wave.
+    Guam +15% tower damage · Marrentill +20% prayer efficiency (drains slower) ·
+    Ranarr +1 life restored on the next wave clear · Snapdragon +20% tower range ·
+    Torstol +30% gold next wave.
+    Shape: `farmingPatches` in engine state as `{ x, y, seedType, plantedAtWave, state }`,
+    the tiles marked `'farming'` by `generateMap()`/`generateTerrain()`; per-state sprites
+    from the cache; harvest applies a temporary `runMods` entry cleared on the following
+    `startWave`; seeds sown/harvested counted in the run stats.
+
+18. **F3 boss heads / Trophy Hall** — every boss can drop its severed head at **1/30**,
+    rolled per boss (not per run), purely cosmetic and persisted account-wide. A Trophy
+    Hall panel (its own, or a Collection Log tab) shows a wall of slots: a dark silhouette
+    until the head is won, then the head itself, each with an OSRS-style examine line
+    ("The head of TzTok-Jad. It looks disappointed.", "The head of the Giant Mole. Still
+    twitching.", "The head of Zulrah. You can't tell if it's angry or just a snake.").
+    Shape: `bossHeads: Record<string, boolean>` in localStorage beside killCounts and
+    achievements; roll on boss death when the head is still missing; celebrate with the
+    existing Collection Log unlock popup; sprites from the real slayer/boss heads.
