@@ -121,3 +121,18 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
 12. **A4** New Game+ / harder difficulty tier — *shipped* (`eca2936`..`04e1a1b`): winning a
     tier unlocks the next, with tougher enemies and a tighter economy. The reward is the
     record, not power.
+
+13. **V1** a victory-only currency + a permanent-unlock shop — *queued, design-first*
+    (user's own idea, 2026-08-21). Winning a run should pay a currency that exists
+    **only** for winning, spendable on *unique permanent* bonuses — one-off unlocks,
+    not another rank of the essence upgrades. It has to stay distinct from **rune
+    essence**, which is earned every wave, spent on repeatable upgrade ranks, and
+    refundable at 90%; this one is rare, per-victory, and its purchases do not respec.
+    OSRS-plausible names, in order of fit:
+    **Zeal Tokens** (Soul Wars — paid for *winning* a wave-survival game, and Nomad's
+    shop sells permanent things: imbues, XP, not gold) is the recommendation;
+    **Castle Wars tickets** (also strictly win-to-earn, but its shop is cosmetic
+    decorative armour, which suits a cosmetic-only ladder); **Pest Control points**
+    (win-to-earn, buys Void — permanent gear, but reads as a grind currency).
+    Unbuilt: the shop's contents are the actual design work, and the
+    rewards must not inflate gold.
