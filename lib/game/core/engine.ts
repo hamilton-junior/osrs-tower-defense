@@ -421,6 +421,20 @@ export class GameEngine {
   }
 
   /**
+   * The in-game UI scale (`--ui-scale`, the − / + control), mirrored here so the
+   * *interface* the renderer draws onto the board — the tower level/XP strip and
+   * anything like it — grows with it, the same as every DOM panel. Browser zoom is
+   * blocked, so this control is the player's only zoom and nothing readable may
+   * ignore it. Game entities are not interface: they stay in logic px.
+   */
+  uiScale = 1;
+
+  setUiScale(scale: number) {
+    if (!Number.isFinite(scale) || scale <= 0) return;
+    this.uiScale = scale;
+  }
+
+  /**
    * Report the board's on-screen size (CSS px), from the fit effect in the React
    * layer. Presentation only: it re-sizes the backing store so the board renders at
    * its native resolution — it never touches the logic space. Called on mount and on

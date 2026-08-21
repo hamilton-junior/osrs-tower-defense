@@ -260,6 +260,10 @@ export default function GameRoot() {
   useEffect(() => {
     try { localStorage.setItem('ui_scale', String(uiScale)); } catch { /* ignore */ }
     document.documentElement.style.setProperty('--ui-scale', String(uiScale));
+    // The board's canvas draws interface too (the tower level/XP strip), and it has
+    // to grow with the control like every panel does — the engine mirrors the scale
+    // for the renderer.
+    engineRef.current?.setUiScale(uiScale);
   }, [uiScale]);
   // How far the interface can actually grow is a property of the SCREEN, not a
   // constant: measured, the bar's run-controls start clipping at 110% on a 1366px
@@ -435,11 +439,18 @@ export default function GameRoot() {
     // the UI-owned saves.
     engine.seedAchievements(loadAchievements());
     engine.setAutoplay(loadBool('ui_autostart', false));
+    // Seed the UI scale too: the effect that mirrors it runs before this one on
+    // mount, when there is no engine yet to tell.
+    engine.setUiScale(uiScale);
     engine.setAutoplaySecs(loadNum('ui_autostart_secs', 3));
     return () => {
       engine.stop();
       engineRef.current = null;
     };
+    // Mount-only on purpose — the engine outlives every re-render. `uiScale` is read
+    // for its initial value alone; later changes reach the engine through the effect
+    // that mirrors `--ui-scale`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist meta-progression (essence + bought upgrades) whenever it changes, so
