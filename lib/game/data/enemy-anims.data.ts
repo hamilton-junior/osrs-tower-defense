@@ -12,8 +12,8 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/goblin/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/goblin/hurt.png`, frames: 19, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 20], loop: false },
-      death: { url: `${B}/goblin/death.png`, frames: 24, frameMs: [60, 120, 60, 60, 120, 60, 60, 60, 120, 60, 60, 120, 60, 60, 120, 60, 60, 60, 120, 60, 60, 120, 400, 20], loop: false },
+      hurt: { url: `${B}/goblin/hurt.png`, frames: 37, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
+      death: { url: `${B}/goblin/death.png`, frames: 37, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 60, 30, 30, 60, 30, 30, 60, 400, 20], loop: false },
     },
   },
   rat: {
@@ -21,23 +21,23 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/rat/walk.png`, frames: 16, frameMs: [40, 20, 40, 40, 40, 20, 40, 40, 40, 20, 40, 40, 40, 20, 40, 20], loop: true },
       hurt: { url: `${B}/rat/hurt.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/rat/death.png`, frames: 24, frameMs: [100, 100, 120, 220, 100, 100, 100, 100, 100, 100, 100, 200, 100, 100, 100, 120, 120, 120, 120, 240, 120, 120, 400, 20], loop: false },
+      death: { url: `${B}/rat/death.png`, frames: 55, frameMs: [50, 50, 50, 50, 60, 60, 60, 60, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 60, 60, 60, 60, 40, 40, 40, 60, 60, 40, 40, 40, 60, 60, 40, 40, 40, 60, 60, 400, 20], loop: false },
     },
   },
   cow: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/cow/walk.png`, frames: 15, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: true },
-      hurt: { url: `${B}/cow/hurt.png`, frames: 10, frameMs: [80, 80, 80, 80, 80, 80, 80, 80, 80, 20], loop: false },
-      death: { url: `${B}/cow/death.png`, frames: 23, frameMs: [80, 80, 80, 80, 80, 60, 60, 60, 60, 60, 80, 80, 100, 100, 100, 100, 100, 100, 100, 100, 100, 400, 20], loop: false },
+      hurt: { url: `${B}/cow/hurt.png`, frames: 19, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
+      death: { url: `${B}/cow/death.png`, frames: 39, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   imp: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/imp/walk.png`, frames: 8, frameMs: [60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/imp/hurt.png`, frames: 8, frameMs: [80, 80, 80, 140, 80, 80, 80, 20], loop: false },
-      death: { url: `${B}/imp/death.png`, frames: 19, frameMs: [80, 60, 60, 60, 60, 80, 60, 40, 40, 200, 80, 80, 80, 80, 80, 80, 80, 400, 20], loop: false },
+      hurt: { url: `${B}/imp/hurt.png`, frames: 16, frameMs: [40, 40, 40, 40, 40, 40, 47, 47, 47, 40, 40, 40, 40, 40, 40, 20], loop: false },
+      death: { url: `${B}/imp/death.png`, frames: 31, frameMs: [40, 40, 60, 60, 60, 60, 40, 40, 60, 40, 40, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 20], loop: false },
     },
   },
   spider: {
@@ -45,31 +45,31 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/spider/walk.png`, frames: 10, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/spider/hurt.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/spider/death.png`, frames: 22, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 80, 80, 80, 120, 200, 80, 80, 80, 400, 20], loop: false },
+      death: { url: `${B}/spider/death.png`, frames: 32, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 40, 40, 40, 40, 40, 40, 60, 60, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 400, 20], loop: false },
     },
   },
   skeleton: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/skeleton/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/skeleton/hurt.png`, frames: 10, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 100, 20], loop: false },
-      death: { url: `${B}/skeleton/death.png`, frames: 24, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 200, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 400, 20], loop: false },
+      hurt: { url: `${B}/skeleton/hurt.png`, frames: 19, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
+      death: { url: `${B}/skeleton/death.png`, frames: 48, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   zombie: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/zombie/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/zombie/hurt.png`, frames: 20, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 20], loop: false },
-      death: { url: `${B}/zombie/death.png`, frames: 24, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 200, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 400, 20], loop: false },
+      hurt: { url: `${B}/zombie/hurt.png`, frames: 39, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
+      death: { url: `${B}/zombie/death.png`, frames: 48, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   ghost: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/ghost/walk.png`, frames: 31, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/ghost/hurt.png`, frames: 15, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 20], loop: false },
-      death: { url: `${B}/ghost/death.png`, frames: 24, frameMs: [80, 80, 80, 80, 80, 120, 60, 60, 80, 80, 80, 80, 80, 80, 80, 60, 80, 160, 60, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/ghost/hurt.png`, frames: 29, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
+      death: { url: `${B}/ghost/death.png`, frames: 44, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, 30, 40, 40, 40, 40, 40, 40, 60, 30, 30, 60, 30, 30, 400, 20], loop: false },
     },
   },
   hellhound: {
@@ -77,15 +77,15 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/hellhound/walk.png`, frames: 31, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
       hurt: { url: `${B}/hellhound/hurt.png`, frames: 12, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/hellhound/death.png`, frames: 24, frameMs: [60, 60, 120, 60, 60, 60, 60, 60, 120, 60, 60, 60, 60, 60, 120, 60, 100, 100, 100, 100, 200, 100, 400, 20], loop: false },
+      death: { url: `${B}/hellhound/death.png`, frames: 37, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   scorpion: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/scorpion/walk.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/scorpion/hurt.png`, frames: 11, frameMs: [60, 60, 80, 100, 100, 100, 80, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/scorpion/death.png`, frames: 16, frameMs: [80, 80, 80, 80, 80, 100, 140, 120, 80, 60, 200, 100, 100, 100, 400, 20], loop: false },
+      hurt: { url: `${B}/scorpion/hurt.png`, frames: 16, frameMs: [60, 60, 40, 40, 50, 50, 50, 50, 50, 50, 40, 40, 60, 60, 60, 20], loop: false },
+      death: { url: `${B}/scorpion/death.png`, frames: 32, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 47, 47, 47, 60, 60, 40, 40, 60, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   fire_giant: {
@@ -93,15 +93,15 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/fire_giant/walk.png`, frames: 19, frameMs: [60, 60, 60, 60, 40, 60, 60, 60, 40, 40, 60, 60, 60, 60, 60, 60, 60, 40, 20], loop: true },
       hurt: { url: `${B}/fire_giant/hurt.png`, frames: 18, frameMs: [60, 60, 60, 60, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40, 20], loop: false },
-      death: { url: `${B}/fire_giant/death.png`, frames: 23, frameMs: [100, 100, 100, 100, 120, 160, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 200, 200, 200, 200, 400, 400, 20], loop: false },
+      death: { url: `${B}/fire_giant/death.png`, frames: 67, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 60, 60, 53, 53, 53, 60, 60, 60, 45, 45, 45, 45, 60, 60, 60, 45, 45, 45, 45, 60, 60, 60, 60, 60, 60, 45, 45, 45, 45, 45, 45, 45, 45, 60, 60, 60, 45, 45, 45, 45, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 400, 20], loop: false },
     },
   },
   bloodveld: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/bloodveld/walk.png`, frames: 15, frameMs: [50, 50, 50, 50, 40, 40, 50, 50, 50, 50, 40, 40, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/bloodveld/hurt.png`, frames: 8, frameMs: [80, 100, 80, 80, 80, 80, 80, 20], loop: false },
-      death: { url: `${B}/bloodveld/death.png`, frames: 12, frameMs: [80, 120, 140, 160, 180, 160, 100, 60, 160, 120, 120, 20], loop: false },
+      hurt: { url: `${B}/bloodveld/hurt.png`, frames: 15, frameMs: [40, 40, 50, 50, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
+      death: { url: `${B}/bloodveld/death.png`, frames: 28, frameMs: [40, 40, 60, 60, 47, 47, 47, 53, 53, 53, 60, 60, 60, 53, 53, 53, 50, 50, 30, 30, 53, 53, 53, 60, 60, 60, 60, 20], loop: false },
     },
   },
   hill_giant: {
@@ -109,15 +109,15 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/hill_giant/walk.png`, frames: 19, frameMs: [60, 60, 60, 60, 40, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40, 20], loop: true },
       hurt: { url: `${B}/hill_giant/hurt.png`, frames: 18, frameMs: [60, 60, 60, 60, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40, 20], loop: false },
-      death: { url: `${B}/hill_giant/death.png`, frames: 11, frameMs: [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 20], loop: false },
+      death: { url: `${B}/hill_giant/death.png`, frames: 21, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
     },
   },
   black_demon: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/black_demon/walk.png`, frames: 40, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 53, 53, 53, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/black_demon/hurt.png`, frames: 20, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 400, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/black_demon/death.png`, frames: 24, frameMs: [160, 40, 80, 100, 180, 100, 200, 200, 100, 200, 100, 200, 100, 200, 100, 200, 200, 100, 200, 100, 200, 100, 400, 20], loop: false },
+      hurt: { url: `${B}/black_demon/hurt.png`, frames: 24, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 400, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 20], loop: false },
+      death: { url: `${B}/black_demon/death.png`, frames: 69, frameMs: [40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   gargoyle: {
@@ -125,7 +125,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/gargoyle/walk.png`, frames: 30, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
       hurt: { url: `${B}/gargoyle/hurt.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
-      death: { url: `${B}/gargoyle/death.png`, frames: 24, frameMs: [80, 80, 80, 80, 80, 40, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 40, 80, 80, 80, 80, 80, 20], loop: false },
+      death: { url: `${B}/gargoyle/death.png`, frames: 45, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
     },
   },
   blue_dragon: {
@@ -133,38 +133,38 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/blue_dragon/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/blue_dragon/hurt.png`, frames: 21, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
-      death: { url: `${B}/blue_dragon/death.png`, frames: 24, frameMs: [180, 60, 120, 60, 120, 60, 120, 60, 120, 60, 120, 60, 120, 200, 240, 100, 200, 100, 200, 100, 220, 140, 400, 20], loop: false },
+      death: { url: `${B}/blue_dragon/death.png`, frames: 61, frameMs: [40, 40, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 50, 50, 50, 50, 47, 47, 47, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40, 40, 47, 47, 47, 53, 53, 53, 400, 20], loop: false },
     },
   },
   nechryael: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/nechryael/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      death: { url: `${B}/nechryael/death.png`, frames: 12, frameMs: [80, 120, 140, 180, 100, 100, 100, 100, 80, 80, 400, 20], loop: false },
+      death: { url: `${B}/nechryael/death.png`, frames: 24, frameMs: [40, 40, 60, 60, 47, 47, 47, 60, 60, 60, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 400, 20], loop: false },
     },
   },
   abyssal_demon: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/abyssal_demon/walk.png`, frames: 15, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: true },
-      hurt: { url: `${B}/abyssal_demon/hurt.png`, frames: 8, frameMs: [80, 80, 80, 80, 80, 80, 80, 20], loop: false },
-      death: { url: `${B}/abyssal_demon/death.png`, frames: 8, frameMs: [120, 100, 140, 140, 120, 120, 400, 20], loop: false },
+      hurt: { url: `${B}/abyssal_demon/hurt.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
+      death: { url: `${B}/abyssal_demon/death.png`, frames: 16, frameMs: [60, 60, 50, 50, 47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 400, 20], loop: false },
     },
   },
   lesser_demon: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/lesser_demon/walk.png`, frames: 40, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 53, 53, 53, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/lesser_demon/hurt.png`, frames: 20, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 400, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/lesser_demon/death.png`, frames: 24, frameMs: [160, 40, 80, 100, 180, 100, 200, 200, 100, 200, 100, 200, 100, 200, 100, 200, 200, 100, 200, 100, 200, 100, 400, 20], loop: false },
+      hurt: { url: `${B}/lesser_demon/hurt.png`, frames: 24, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 400, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 20], loop: false },
+      death: { url: `${B}/lesser_demon/death.png`, frames: 69, frameMs: [40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   dark_beast: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/dark_beast/walk.png`, frames: 24, frameMs: [40, 40, 60, 40, 40, 60, 40, 40, 60, 40, 40, 60, 40, 40, 60, 40, 40, 60, 40, 40, 60, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/dark_beast/hurt.png`, frames: 17, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 20], loop: false },
-      death: { url: `${B}/dark_beast/death.png`, frames: 24, frameMs: [200, 100, 200, 100, 200, 200, 100, 200, 100, 200, 200, 100, 200, 200, 100, 200, 100, 200, 200, 100, 200, 100, 400, 20], loop: false },
+      hurt: { url: `${B}/dark_beast/hurt.png`, frames: 33, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
+      death: { url: `${B}/dark_beast/death.png`, frames: 74, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   green_dragon: {
@@ -172,84 +172,84 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/green_dragon/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/green_dragon/hurt.png`, frames: 21, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
-      death: { url: `${B}/green_dragon/death.png`, frames: 24, frameMs: [180, 60, 120, 60, 120, 60, 120, 60, 120, 60, 120, 60, 120, 200, 240, 100, 200, 100, 200, 100, 220, 140, 400, 20], loop: false },
+      death: { url: `${B}/green_dragon/death.png`, frames: 61, frameMs: [40, 40, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 50, 50, 50, 50, 47, 47, 47, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40, 40, 47, 47, 47, 53, 53, 53, 400, 20], loop: false },
     },
   },
   jad: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/jad/walk.png`, frames: 46, frameMs: [47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 20], loop: true },
-      hurt: { url: `${B}/jad/hurt.png`, frames: 17, frameMs: [100, 100, 100, 100, 100, 100, 100, 300, 100, 100, 100, 100, 100, 100, 100, 100, 20], loop: false },
-      death: { url: `${B}/jad/death.png`, frames: 16, frameMs: [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 20], loop: false },
+      hurt: { url: `${B}/jad/hurt.png`, frames: 32, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 300, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
+      death: { url: `${B}/jad/death.png`, frames: 31, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
     },
   },
   yt_hurkot: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/yt_hurkot/walk.png`, frames: 46, frameMs: [53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 20], loop: true },
-      death: { url: `${B}/yt_hurkot/death.png`, frames: 22, frameMs: [40, 40, 40, 40, 40, 40, 40, 280, 40, 40, 60, 60, 40, 40, 60, 400, 100, 100, 100, 100, 400, 20], loop: false },
+      death: { url: `${B}/yt_hurkot/death.png`, frames: 30, frameMs: [40, 40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 40, 40, 60, 400, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   vorkath: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/vorkath/walk.png`, frames: 42, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 30, 30, 60, 20], loop: true },
-      hurt: { url: `${B}/vorkath/hurt.png`, frames: 15, frameMs: [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 20], loop: false },
-      death: { url: `${B}/vorkath/death.png`, frames: 24, frameMs: [160, 160, 160, 240, 160, 160, 160, 160, 160, 160, 160, 240, 160, 160, 160, 160, 160, 160, 160, 240, 160, 160, 160, 20], loop: false },
+      hurt: { url: `${B}/vorkath/hurt.png`, frames: 29, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
+      death: { url: `${B}/vorkath/death.png`, frames: 99, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
     },
   },
   zulrah: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/zulrah/walk.png`, frames: 17, frameMs: [40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 20], loop: true },
-      death: { url: `${B}/zulrah/death.png`, frames: 21, frameMs: [40, 40, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
+      death: { url: `${B}/zulrah/death.png`, frames: 23, frameMs: [40, 40, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 20], loop: false },
     },
   },
   barrow_wight: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/barrow_wight/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/barrow_wight/hurt.png`, frames: 8, frameMs: [120, 100, 80, 400, 80, 100, 120, 20], loop: false },
-      death: { url: `${B}/barrow_wight/death.png`, frames: 10, frameMs: [80, 80, 80, 280, 80, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/barrow_wight/hurt.png`, frames: 14, frameMs: [60, 60, 50, 50, 40, 40, 400, 40, 40, 50, 50, 60, 60, 20], loop: false },
+      death: { url: `${B}/barrow_wight/death.png`, frames: 18, frameMs: [40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 60, 400, 20], loop: false },
     },
   },
   chaos_druid: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/chaos_druid/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/chaos_druid/hurt.png`, frames: 8, frameMs: [120, 100, 80, 400, 80, 100, 120, 20], loop: false },
-      death: { url: `${B}/chaos_druid/death.png`, frames: 10, frameMs: [80, 80, 80, 280, 80, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/chaos_druid/hurt.png`, frames: 14, frameMs: [60, 60, 50, 50, 40, 40, 400, 40, 40, 50, 50, 60, 60, 20], loop: false },
+      death: { url: `${B}/chaos_druid/death.png`, frames: 18, frameMs: [40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 60, 400, 20], loop: false },
     },
   },
   skeletal_mage: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/skeletal_mage/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/skeletal_mage/hurt.png`, frames: 10, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 100, 20], loop: false },
-      death: { url: `${B}/skeletal_mage/death.png`, frames: 24, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 200, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 400, 20], loop: false },
+      hurt: { url: `${B}/skeletal_mage/hurt.png`, frames: 19, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
+      death: { url: `${B}/skeletal_mage/death.png`, frames: 48, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   hydra: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/hydra/walk.png`, frames: 37, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 40, 40, 40, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 60, 30, 30, 60, 40, 40, 40, 20], loop: true },
-      death: { url: `${B}/hydra/death.png`, frames: 24, frameMs: [120, 140, 180, 80, 80, 40, 80, 80, 80, 80, 80, 80, 80, 100, 120, 120, 120, 60, 120, 120, 120, 120, 120, 20], loop: false },
+      death: { url: `${B}/hydra/death.png`, frames: 56, frameMs: [60, 60, 60, 40, 40, 40, 40, 50, 50, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 60, 30, 30, 60, 60, 60, 30, 30, 20], loop: false },
     },
   },
   superior_bloodveld: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/superior_bloodveld/walk.png`, frames: 15, frameMs: [50, 50, 50, 50, 40, 40, 50, 50, 50, 50, 40, 40, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/superior_bloodveld/hurt.png`, frames: 8, frameMs: [80, 100, 80, 80, 80, 80, 80, 20], loop: false },
-      death: { url: `${B}/superior_bloodveld/death.png`, frames: 12, frameMs: [80, 120, 140, 160, 180, 160, 100, 60, 160, 120, 120, 20], loop: false },
+      hurt: { url: `${B}/superior_bloodveld/hurt.png`, frames: 15, frameMs: [40, 40, 50, 50, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
+      death: { url: `${B}/superior_bloodveld/death.png`, frames: 28, frameMs: [40, 40, 60, 60, 47, 47, 47, 53, 53, 53, 60, 60, 60, 53, 53, 53, 50, 50, 30, 30, 53, 53, 53, 60, 60, 60, 60, 20], loop: false },
     },
   },
   superior_abyssal_demon: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/superior_abyssal_demon/walk.png`, frames: 15, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: true },
-      hurt: { url: `${B}/superior_abyssal_demon/hurt.png`, frames: 8, frameMs: [80, 80, 80, 80, 80, 80, 80, 20], loop: false },
-      death: { url: `${B}/superior_abyssal_demon/death.png`, frames: 8, frameMs: [120, 100, 140, 140, 120, 120, 400, 20], loop: false },
+      hurt: { url: `${B}/superior_abyssal_demon/hurt.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
+      death: { url: `${B}/superior_abyssal_demon/death.png`, frames: 16, frameMs: [60, 60, 50, 50, 47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 400, 20], loop: false },
     },
   },
   superior_gargoyle: {
@@ -257,32 +257,32 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/superior_gargoyle/walk.png`, frames: 30, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
       hurt: { url: `${B}/superior_gargoyle/hurt.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
-      death: { url: `${B}/superior_gargoyle/death.png`, frames: 24, frameMs: [80, 80, 80, 80, 80, 40, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 40, 80, 80, 80, 80, 80, 20], loop: false },
+      death: { url: `${B}/superior_gargoyle/death.png`, frames: 45, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
     },
   },
   superior_nechryael: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/superior_nechryael/walk.png`, frames: 19, frameMs: [60, 60, 60, 60, 40, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40, 20], loop: true },
-      hurt: { url: `${B}/superior_nechryael/hurt.png`, frames: 15, frameMs: [80, 60, 40, 40, 80, 80, 80, 100, 80, 60, 60, 60, 60, 20, 20], loop: false },
-      death: { url: `${B}/superior_nechryael/death.png`, frames: 20, frameMs: [140, 140, 140, 120, 120, 100, 120, 120, 120, 120, 120, 120, 100, 120, 120, 120, 140, 400, 400, 20], loop: false },
+      hurt: { url: `${B}/superior_nechryael/hurt.png`, frames: 21, frameMs: [40, 40, 60, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 40, 40, 60, 60, 60, 60, 20, 20], loop: false },
+      death: { url: `${B}/superior_nechryael/death.png`, frames: 41, frameMs: [47, 47, 47, 47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 50, 50, 60, 60, 60, 60, 60, 60, 47, 47, 47, 400, 400, 20], loop: false },
     },
   },
   giant_mole: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/giant_mole/walk.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/giant_mole/hurt.png`, frames: 9, frameMs: [80, 240, 20, 20, 20, 20, 60, 60, 20], loop: false },
-      death: { url: `${B}/giant_mole/death.png`, frames: 13, frameMs: [140, 140, 240, 20, 20, 100, 80, 80, 80, 80, 80, 400, 20], loop: false },
-      burrow: { url: `${B}/giant_mole/burrow.png`, frames: 23, frameMs: [80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 60, 60, 60, 120, 120, 120, 120, 20], loop: false },
-      emerge: { url: `${B}/giant_mole/emerge.png`, frames: 9, frameMs: [100, 100, 100, 100, 100, 100, 100, 100, 20], loop: false },
+      hurt: { url: `${B}/giant_mole/hurt.png`, frames: 13, frameMs: [40, 40, 60, 60, 60, 60, 20, 20, 20, 20, 60, 60, 20], loop: false },
+      death: { url: `${B}/giant_mole/death.png`, frames: 26, frameMs: [47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 20, 20, 50, 50, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 20], loop: false },
+      burrow: { url: `${B}/giant_mole/burrow.png`, frames: 44, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, 30, 60, 30, 30, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
+      emerge: { url: `${B}/giant_mole/emerge.png`, frames: 17, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
     },
   },
   dusk: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/dusk/walk.png`, frames: 30, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/dusk/hurt.png`, frames: 24, frameMs: [60, 120, 60, 60, 60, 120, 60, 60, 60, 120, 60, 60, 60, 120, 60, 60, 60, 120, 60, 60, 60, 120, 60, 20], loop: false },
+      hurt: { url: `${B}/dusk/hurt.png`, frames: 36, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 60, 30, 30, 60, 30, 30, 60, 20], loop: false },
     },
   },
   dawn: {
@@ -290,125 +290,125 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/dawn/walk.png`, frames: 27, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 60, 40, 40, 40, 40, 40, 20], loop: true },
       hurt: { url: `${B}/dawn/hurt.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
-      death: { url: `${B}/dawn/death.png`, frames: 24, frameMs: [80, 120, 80, 80, 120, 80, 80, 80, 120, 80, 80, 120, 80, 80, 120, 80, 80, 80, 180, 120, 120, 180, 120, 20], loop: false },
+      death: { url: `${B}/dawn/death.png`, frames: 59, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, 30, 60, 30, 30, 60, 30, 30, 60, 60, 30, 30, 60, 60, 60, 30, 30, 20], loop: false },
     },
   },
   cerberus: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/cerberus/walk.png`, frames: 29, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/cerberus/hurt.png`, frames: 9, frameMs: [140, 140, 140, 140, 140, 140, 120, 100, 20], loop: false },
-      death: { url: `${B}/cerberus/death.png`, frames: 14, frameMs: [100, 100, 100, 100, 100, 60, 60, 100, 100, 60, 60, 80, 80, 20], loop: false },
+      hurt: { url: `${B}/cerberus/hurt.png`, frames: 23, frameMs: [47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 60, 60, 50, 50, 20], loop: false },
+      death: { url: `${B}/cerberus/death.png`, frames: 23, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 60, 60, 50, 50, 50, 50, 60, 60, 40, 40, 40, 40, 20], loop: false },
     },
   },
   soul_ranged: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/soul_ranged/walk.png`, frames: 28, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 30, 30, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/soul_ranged/hurt.png`, frames: 6, frameMs: [100, 100, 100, 100, 100, 20], loop: false },
+      hurt: { url: `${B}/soul_ranged/hurt.png`, frames: 11, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
     },
   },
   soul_magic: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/soul_magic/walk.png`, frames: 28, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 30, 30, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/soul_magic/hurt.png`, frames: 6, frameMs: [100, 100, 100, 100, 100, 20], loop: false },
+      hurt: { url: `${B}/soul_magic/hurt.png`, frames: 11, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
     },
   },
   soul_melee: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/soul_melee/walk.png`, frames: 28, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 30, 30, 40, 40, 20], loop: true },
-      hurt: { url: `${B}/soul_melee/hurt.png`, frames: 6, frameMs: [100, 100, 100, 100, 100, 20], loop: false },
+      hurt: { url: `${B}/soul_melee/hurt.png`, frames: 11, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
     },
   },
   brutus: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/brutus/walk.png`, frames: 47, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: true },
-      hurt: { url: `${B}/brutus/hurt.png`, frames: 5, frameMs: [120, 120, 120, 120, 20], loop: false },
-      death: { url: `${B}/brutus/death.png`, frames: 23, frameMs: [80, 80, 80, 80, 80, 60, 60, 60, 60, 60, 80, 80, 100, 100, 100, 100, 100, 100, 100, 100, 100, 400, 20], loop: false },
+      hurt: { url: `${B}/brutus/hurt.png`, frames: 9, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
+      death: { url: `${B}/brutus/death.png`, frames: 39, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
     },
   },
   brutus_demonic: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/brutus_demonic/walk.png`, frames: 47, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: true },
-      hurt: { url: `${B}/brutus_demonic/hurt.png`, frames: 5, frameMs: [120, 120, 120, 120, 20], loop: false },
-      death: { url: `${B}/brutus_demonic/death.png`, frames: 23, frameMs: [80, 80, 80, 80, 80, 60, 60, 60, 60, 60, 80, 80, 100, 100, 100, 100, 100, 100, 100, 100, 100, 400, 20], loop: false },
-      rage: { url: `${B}/brutus_demonic/rage.png`, frames: 21, frameMs: [80, 80, 80, 120, 120, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 100, 100, 20], loop: true },
-      charge: { url: `${B}/brutus_demonic/charge.png`, frames: 24, frameMs: [60, 120, 60, 60, 60, 120, 60, 60, 60, 120, 60, 60, 60, 120, 60, 60, 60, 120, 60, 60, 60, 120, 60, 20], loop: true },
+      hurt: { url: `${B}/brutus_demonic/hurt.png`, frames: 9, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
+      death: { url: `${B}/brutus_demonic/death.png`, frames: 39, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      rage: { url: `${B}/brutus_demonic/rage.png`, frames: 41, frameMs: [40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 20], loop: true },
+      charge: { url: `${B}/brutus_demonic/charge.png`, frames: 36, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 60, 30, 30, 60, 30, 30, 60, 20], loop: true },
     },
   },
   scurrius: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/scurrius/walk.png`, frames: 37, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 40, 20], loop: true },
-      death: { url: `${B}/scurrius/death.png`, frames: 24, frameMs: [120, 120, 180, 120, 120, 120, 120, 120, 180, 120, 120, 120, 120, 120, 180, 120, 120, 120, 120, 120, 180, 120, 100, 20], loop: false },
+      death: { url: `${B}/scurrius/death.png`, frames: 63, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 60, 60, 30, 30, 60, 60, 60, 30, 30, 60, 60, 60, 30, 30, 60, 60, 60, 30, 30, 60, 40, 20], loop: false },
     },
   },
   ahrim: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/ahrim/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/ahrim/hurt.png`, frames: 8, frameMs: [120, 100, 80, 400, 80, 100, 120, 20], loop: false },
-      death: { url: `${B}/ahrim/death.png`, frames: 10, frameMs: [80, 80, 80, 280, 80, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/ahrim/hurt.png`, frames: 14, frameMs: [60, 60, 50, 50, 40, 40, 400, 40, 40, 50, 50, 60, 60, 20], loop: false },
+      death: { url: `${B}/ahrim/death.png`, frames: 18, frameMs: [40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 60, 400, 20], loop: false },
     },
   },
   guthan: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/guthan/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/guthan/hurt.png`, frames: 8, frameMs: [120, 100, 80, 400, 80, 100, 120, 20], loop: false },
-      death: { url: `${B}/guthan/death.png`, frames: 10, frameMs: [80, 80, 80, 280, 80, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/guthan/hurt.png`, frames: 14, frameMs: [60, 60, 50, 50, 40, 40, 400, 40, 40, 50, 50, 60, 60, 20], loop: false },
+      death: { url: `${B}/guthan/death.png`, frames: 18, frameMs: [40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 60, 400, 20], loop: false },
     },
   },
   karil: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/karil/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/karil/hurt.png`, frames: 8, frameMs: [120, 100, 80, 400, 80, 100, 120, 20], loop: false },
-      death: { url: `${B}/karil/death.png`, frames: 10, frameMs: [80, 80, 80, 280, 80, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/karil/hurt.png`, frames: 14, frameMs: [60, 60, 50, 50, 40, 40, 400, 40, 40, 50, 50, 60, 60, 20], loop: false },
+      death: { url: `${B}/karil/death.png`, frames: 18, frameMs: [40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 60, 400, 20], loop: false },
     },
   },
   torag: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/torag/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/torag/hurt.png`, frames: 8, frameMs: [120, 100, 80, 400, 80, 100, 120, 20], loop: false },
-      death: { url: `${B}/torag/death.png`, frames: 10, frameMs: [80, 80, 80, 280, 80, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/torag/hurt.png`, frames: 14, frameMs: [60, 60, 50, 50, 40, 40, 400, 40, 40, 50, 50, 60, 60, 20], loop: false },
+      death: { url: `${B}/torag/death.png`, frames: 18, frameMs: [40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 60, 400, 20], loop: false },
     },
   },
   verac: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/verac/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/verac/hurt.png`, frames: 8, frameMs: [120, 100, 80, 400, 80, 100, 120, 20], loop: false },
-      death: { url: `${B}/verac/death.png`, frames: 10, frameMs: [80, 80, 80, 280, 80, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/verac/hurt.png`, frames: 14, frameMs: [60, 60, 50, 50, 40, 40, 400, 40, 40, 50, 50, 60, 60, 20], loop: false },
+      death: { url: `${B}/verac/death.png`, frames: 18, frameMs: [40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 60, 400, 20], loop: false },
     },
   },
   ice_warrior: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/ice_warrior/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
-      hurt: { url: `${B}/ice_warrior/hurt.png`, frames: 8, frameMs: [120, 100, 80, 400, 80, 100, 120, 20], loop: false },
-      death: { url: `${B}/ice_warrior/death.png`, frames: 7, frameMs: [80, 80, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/ice_warrior/hurt.png`, frames: 14, frameMs: [60, 60, 50, 50, 40, 40, 400, 40, 40, 50, 50, 60, 60, 20], loop: false },
+      death: { url: `${B}/ice_warrior/death.png`, frames: 9, frameMs: [40, 40, 40, 40, 60, 60, 60, 400, 20], loop: false },
     },
   },
   ice_troll: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/ice_troll/walk.png`, frames: 20, frameMs: [47, 47, 47, 47, 47, 47, 50, 50, 53, 53, 53, 47, 47, 47, 47, 47, 47, 50, 50, 20], loop: true },
-      hurt: { url: `${B}/ice_troll/hurt.png`, frames: 4, frameMs: [80, 80, 400, 20], loop: false },
-      death: { url: `${B}/ice_troll/death.png`, frames: 9, frameMs: [80, 60, 60, 200, 40, 40, 20, 400, 20], loop: false },
+      hurt: { url: `${B}/ice_troll/hurt.png`, frames: 6, frameMs: [40, 40, 40, 40, 400, 20], loop: false },
+      death: { url: `${B}/ice_troll/death.png`, frames: 13, frameMs: [40, 40, 60, 60, 50, 50, 50, 50, 40, 40, 20, 400, 20], loop: false },
     },
   },
   jogre: {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/jogre/walk.png`, frames: 25, frameMs: [50, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 50, 50, 50, 50, 60, 60, 60, 45, 45, 45, 45, 20], loop: true },
-      hurt: { url: `${B}/jogre/hurt.png`, frames: 8, frameMs: [40, 40, 60, 100, 60, 40, 40, 20], loop: false },
-      death: { url: `${B}/jogre/death.png`, frames: 10, frameMs: [80, 80, 80, 280, 80, 60, 60, 60, 400, 20], loop: false },
+      hurt: { url: `${B}/jogre/hurt.png`, frames: 9, frameMs: [40, 40, 60, 50, 50, 60, 40, 40, 20], loop: false },
+      death: { url: `${B}/jogre/death.png`, frames: 18, frameMs: [40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 60, 400, 20], loop: false },
     },
   },
   harpie_bug_swarm: {

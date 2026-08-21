@@ -103,7 +103,7 @@ window.loadEnemy = async (slug) => {
   // The cache's morph tracks export as STEP: a pose is held, then snaps. Sampling
   // exactly on a keyframe gives the same vertices either way, so switching to LINEAR
   // leaves every keyframe bake byte-identical and only adds meaning to the times in
-  // between — which is what lets the walk sheets carry in-betweens (see tweenTimes).
+  // between — which is what lets every sheet carry in-betweens (see tweenTimes).
   for (const c of gltf.animations) for (const t of c.tracks) t.setInterpolation(THREE.InterpolateLinear);
 
   mixer = new THREE.AnimationMixer(root);
@@ -213,22 +213,32 @@ window.__ready = true;
 }
 
 // ----------------------------------------------------------- frame sampling
-// A walk is the one clip a player watches on loop, and the cache's own timing for it
-// varies wildly: the hill giant holds each pose 60ms, the jogre 185ms. Held that long
-// the sprite visibly snaps from pose to pose while it glides down the road. So for the
-// walk we subdivide any interval longer than WALK_HOLD_MS and let the morph tween fill
-// it — same cache poses, same total duration, just in-betweens between them. Every
-// original keyframe time survives in the list, and hurt/death are left untouched.
-const WALK_HOLD_MS = 60;
-const WALK_MAX_FRAMES = 48;
+// The cache's frame timing is wildly uneven: a hill giant changes pose every 60ms, a
+// jogre only every 185ms. Held much past 60ms a sprite visibly snaps from pose to pose
+// instead of moving, so **every** clip is smoothed the same way — subdivide each
+// interval into steps of at most HOLD_MS and let the morph tween fill them. Same cache
+// poses, same total duration, just in-betweens between them, and every original
+// keyframe time survives in the list. A new enemy gets this for free.
+//
+// The exception is a rest. OSRS says "and now lie there dead" by holding the
+// second-to-last pose for four hundred *seconds*; nothing is moving across a gap like
+// that. So a span longer than REST_MS stays one frame — which is both correct and what
+// stops a death clip from exploding into thousands of identical frames.
+const HOLD_MS = 60;
+const REST_MS = 300;
+// Room for the smoothed count so sampleIndices never has to thin a clip back down:
+// evenly-spaced index sampling over unevenly-spaced times would distort the timing. The
+// longest clip in the roster is vorkath/death at 99 smoothed frames, so this is headroom,
+// not a budget — raise it rather than let a new enemy get resampled.
+const SMOOTH_MAX_FRAMES = 120;
 
-function tweenTimes(times, duration, capMs = WALK_HOLD_MS) {
+function tweenTimes(times, duration, capMs = HOLD_MS, restMs = REST_MS) {
   const out = [];
   for (let i = 0; i < times.length; i++) {
     const t = times[i];
     const span = (i + 1 < times.length ? times[i + 1] : duration) - t;
     // the 1e-6 keeps a span of exactly capMs at one step (0.06 * 1000 / 60 > 1 in floats)
-    const steps = Math.max(1, Math.ceil((span * 1000) / capMs - 1e-6));
+    const steps = span * 1000 > restMs ? 1 : Math.max(1, Math.ceil((span * 1000) / capMs - 1e-6));
     for (let s = 0; s < steps; s++) out.push(t + (span * s) / steps);
   }
   return out;
@@ -301,9 +311,8 @@ async function main() {
 
     for (const name of wantClips) {
       const info = clipInfo.find((c) => c.name === name);
-      const smooth = name === 'walk';
-      const times = smooth ? tweenTimes(info.times, info.duration) : info.times;
-      const idxs = sampleIndices(times.length, smooth ? Math.max(cfg.maxFrames, WALK_MAX_FRAMES) : cfg.maxFrames);
+      const times = tweenTimes(info.times, info.duration);
+      const idxs = sampleIndices(times.length, Math.max(cfg.maxFrames, SMOOTH_MAX_FRAMES));
       const frames = idxs.length;
       const sheet = new PNG({ width: SIZE * frames, height: SIZE });
       const frameMs = [];
