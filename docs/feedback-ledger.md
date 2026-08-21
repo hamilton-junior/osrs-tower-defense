@@ -57,7 +57,7 @@ if players push · no tag = ordinary backlog.
 | 19 | "Pricing bug" — tower cost rising above base | wontfix — intended: each same-type tower costs +15% than the last (`5d24d7d`, `economy.ts`) |
 | 20 | Endless button does nothing after clearing the boss roster | shipped — `c0a328f` (`continueEndless()` flips `runPhase` to endless and closes the victory screen, resuming play) |
 | 21 | *(no record — id skipped in NocoDB)* | — |
-| 22 | "Perfect Hydra" impossible — a 3s kill still counts as a vent heal | recheck — working as coded, but harsh: `bosses.ts` trips `hydraVentHealed` on **any** heal > 0 while a vent is open, and the vents open on a timer no matter how fast the kill is. Jad's twin task is escapable (a fast kill never summons healers), this one is not unless both vents are broken (which is already its own task, `vent-breaker`). Fix shape: only trip the flag past a real amount healed, or clear it if the vent is broken inside its window |
+| 22 | "Perfect Hydra" impossible — a 3s kill still counts as a vent heal | shipped — `ba98f08` (2026-08-21). `hydraVentHealed` used to trip on the first frame of any open vent, so even a board fast enough to shatter it on sight lost the task. Now only HP that actually went back on the bar is banked (`bossState.ventHealed`), and the flag breaks only past `HYDRA_PERFECT_HEAL_ALLOWANCE` (2% of max HP, ≈⅔s of an open vent) — the task is escapable by speed, like Jad's twin |
 | 23 | Boss progression resets on page reload | shipped — `42aab7e` (2026-08-20) persists `bossesKilled` in the run save, so the ladder resumes instead of restarting at Brutus. The report predates the fix by hours |
 
 ## Suggestions
@@ -99,7 +99,7 @@ if players push · no tag = ordinary backlog.
 | 35 | Construction (Mazing) mode | queued **[high-interest]** — the user likes the two parts that matter (2026-08-21): letting the player **alter the pathing**, and putting **towers/traps on the road itself**. The full separate mode is still design-first; those two mechanics are the piece worth designing |
 | 36 | Unique items feel unreachable / underpowered | queued — Will, 2026-08-20 (found the game via the B0aty channel). Only utility towers reach level 40 in a wave-90 run, so Blood Fury is effectively unobtainable. Asks: lower the level requirements, give Blood Fury a chance to restore a life, make the Salve amulet a flat + % (e.g. base 20 + 20%), and add a Tenacity-shredding unique (Holy Water-style −5% defence on demons; Amulet of the Damned as another candidate) |
 | 37 | Fang tower (rapid-fire range) is weak | queued — Will, 2026-08-20. A **niche failure**, not just numbers: the trident-of-the-swamp/fang tower has an Emberlight's range and speed with far worse DPS, and less range than cannon or bowfa, so a grandmaster clear used only four of them. Asks: roughly double its attack speed, scale it harder off the dart gear ladder, and let the "Archer towers hit harder" essence upgrade apply to it too. Cross-check against `systems/tower-identity.ts` — every tower must beat the wizard at something |
-| 38 | Towers should re-target on every attack | queued — Will, 2026-08-20. Aggro sticks to the first target until it dies or leaves range, so towers keep chewing on Vorkath while an abyssal demon walks to the exit, and mages on "Weakest" ignore Cerberus' souls the moment they spawn. The player's workaround is marquee-selecting every tower and re-applying the priority, which snaps it. Ask: re-run the priority pick each time a tower is about to fire (`systems/targeting.ts`) |
+| 38 | Towers should re-target on every attack | shipped — `5059de2` (2026-08-21). Will, 2026-08-20. Aggro stuck to the first target until it died or left range, so towers kept chewing on Vorkath while an abyssal demon walked to the exit, and the workaround was marquee-selecting every tower and re-applying the priority. The pick is now redone on every firing opportunity — the extra scan runs at most once per `TICK` per tower, since it is gated on the cooldown being ready |
 
 **Rejected outright (roster is CLOSED):** splitting magic/melee/ranged into several
 towers · a chinchompa AoE tower · M10 utility/buff-support tower.
@@ -237,3 +237,30 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     like it, and skipping it costs nothing. What is still to design is the frame itself — how
     often a D&D shows up, whether they share one cooldown, where the player sees that one is
     waiting, and which OSRS D&Ds map onto a tower-defense board at all.
+
+22. **F6 bird nests** — an OSRS woodcutting habit as a board pickup (user, 2026-08-21). A nest
+    drops onto a free tile at random, mostly **between** waves and rarely during one, sits there
+    for 10–15s as a small sprite with a soft "pop" to catch the eye without demanding attention,
+    and pays out on click: a farming seed (**F2**), 5–20gp, or a clue scroll (**F4**). It is the
+    same spawner as **F1**/**F5** wearing a third mood — one system, three payload kinds — so it
+    should not get its own timer, its own click handler or its own spawn scan.
+
+23. **F7 fishing spots** — water terrain finally does something (user, 2026-08-21). A water tile
+    grows an animated bubble spot; clicking it **between waves** fishes for ~3s on a simple
+    progress bar and yields food that restores lives when eaten between waves: shrimp +1, trout
+    +2, lobster +3, shark +5, manta ray +8 (very rare). A spot is exhausted after one or two
+    catches and respawns about five waves later. This is the section's first idea that touches
+    the *loss* economy rather than the damage one, so its ceiling wants care: lives are the run's
+    only real currency of failure, and a board that fishes every gap must not out-earn the leaks
+    it takes. Needs water tiles to be reachable-but-unbuildable in `terrain-generation`, and the
+    fishing-spot GFX + the raw-food inventory icons from the cache.
+
+24. **F8 the main menu becomes a POH** — *far* later, and explicitly so (user, 2026-08-21). The
+    start screen turns into a Player Owned House that grows with the account: an empty room with
+    a rug at first, then rooms that furnish themselves as things are unlocked — a **Trophy Hall**
+    hanging the boss heads of **F3**, a **Skill Hall** with achievement capes on mannequins for
+    cleared Combat Achievement tiers, a **Quest Hall** shelving quest rewards, a **Throne Room**
+    whose throne tracks prestige, a **Garden** growing whichever **F2** seeds the player plants
+    most. Purely a view — nothing is clickable, the player just looks at it. Its value is that
+    it makes every *other* item on this list visible in one place, which is also why it can only
+    be built after them: with F2/F3 unbuilt the house is a rug and nothing else.
