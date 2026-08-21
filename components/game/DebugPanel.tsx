@@ -203,7 +203,7 @@ function NumberRow({ label, value, onCommit, min = 0, max }: {
  *  plays each enemy's baked walk/hurt/death clips off-wave, with its stats). */
 export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   engineRef: React.RefObject<GameEngine | null>;
-  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; slayerPoints: number; autoplaySecs: number; biomeName: string; selectedTowerId: string | null };
+  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; slayerPoints: number; autoplaySecs: number; biomeName: string; selectedTowerId: string | null; lootBag: unknown[] };
   onClose: () => void;
   globalLock: boolean;
 }) {
@@ -481,6 +481,14 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
             title="Drop one of every Classic gear piece into the loot bag"
           >
             🎒 Give every gear piece
+          </button>
+
+          <button
+            onClick={() => engineRef.current?.debugClearItems()}
+            className="rs-btn w-full py-[0.35em] text-[0.8em]"
+            title="Empty the loot bag (worn gear stays equipped)"
+          >
+            🧹 Clear items ({ui.lootBag.length})
           </button>
           </>
           )}

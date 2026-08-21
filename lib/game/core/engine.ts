@@ -2934,6 +2934,19 @@ export class GameEngine {
     this.emit();
   }
 
+  /** Empty the loot bag. Debugging the bag means filling it (debugGiveGear drops
+   *  the whole pool at once), and there was no way back short of restarting the
+   *  run. Worn gear is deliberately left alone: in OSRS the inventory and the
+   *  equipment tab are separate, and unequipping every tower is a different cheat
+   *  from clearing the bag. */
+  debugClearItems() {
+    if (this.lootBag.length === 0) { this.notify('Bag already empty'); return; }
+    const n = this.lootBag.length;
+    this.lootBag = [];
+    this.notify(`Cleared ${n} item${n === 1 ? '' : 's'}`);
+    this.emit();
+  }
+
   debugTestUnlock() {
     const def = PRAYERS.find(p => p.id === 'rigour') ?? PRAYERS[0];
     this.announceUnlocks([{
