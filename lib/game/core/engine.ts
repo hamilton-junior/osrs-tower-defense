@@ -617,8 +617,8 @@ export class GameEngine {
   }
 
   /** Mark a placed tower's displayed config as changed and push the UI. The
-   *  selected-/multi-tower panels read priority/element/barrage/field off the
-   *  live tower object, none of which are snapshot keys — bumping this counter
+   *  selected-/multi-tower panels read priority/element/barrage/field/level off
+   *  the live tower object, none of which are snapshot keys — bumping this counter
    *  is what forces the re-render so the change shows at once, board idle or not. */
   private bumpTowerConfig() {
     this.towerConfigSeq++;
@@ -2780,7 +2780,7 @@ export class GameEngine {
     const key = styleSkillKey(TOWER_STYLES[tower.type].style);
     tower.skills[key] = { level: Math.max(1, Math.min(MAX_TOWER_LEVEL, Math.floor(level) || 1)), xp: 0 };
     this.bumpCombatEpoch();
-    this.emit();
+    this.bumpTowerConfig(); // level lives on the tower, not in the snapshot — see bumpTowerConfig
   }
 
   /** Set the selected tower's tier outright — free, and in both directions, so a
@@ -2791,7 +2791,7 @@ export class GameEngine {
     if (!tower) return;
     this.applyTier(tower, tier);
     this.bumpCombatEpoch();
-    this.emit();
+    this.bumpTowerConfig(); // ditto: no gold moved, so nothing in the snapshot would change
   }
 
   /** Start a wave built from an explicit enemy list — each chosen type spawned
