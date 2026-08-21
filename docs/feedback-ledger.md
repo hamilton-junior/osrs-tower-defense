@@ -17,12 +17,16 @@ audit date, or its row here says `recheck`. Append a row when you triage somethi
 and bump the watermark. The `Status` column in NocoDB is **not** authoritative — it lags
 behind what actually shipped; this file is the truth.
 
-**Watermark (2026-07-31):** Suggestions ≤ **35**, Bug Reports ≤ **20**.
+**Watermark (2026-08-21):** Suggestions ≤ **38**, Bug Reports ≤ **23**.
 
 ## Verdict vocabulary
 
 `shipped` — in the game today · `wontfix` — deliberately rejected · `queued` — accepted,
 not built · `recheck` — needs verification against current code before acting.
+
+A queued row may carry the user's own priority, set in his 2026-08-21 pass over #24–#35:
+**[high]** build it soon · **[later]** wanted, but not near · **[low]** parked, revisit only
+if players push · no tag = ordinary backlog.
 
 ## Bug Reports
 
@@ -48,6 +52,9 @@ not built · `recheck` — needs verification against current code before acting
 | 18 | Wizard staff-type picker draws *above* the tile, off-screen on the top 2 rows | shipped — `4b36706` (the picker measures itself and is clamped inside the board like the enemy panel, flipping below the tile near the top edge) |
 | 19 | "Pricing bug" — tower cost rising above base | wontfix — intended: each same-type tower costs +15% than the last (`5d24d7d`, `economy.ts`) |
 | 20 | Endless button does nothing after clearing the boss roster | shipped — `c0a328f` (`continueEndless()` flips `runPhase` to endless and closes the victory screen, resuming play) |
+| 21 | *(no record — id skipped in NocoDB)* | — |
+| 22 | "Perfect Hydra" impossible — a 3s kill still counts as a vent heal | recheck — working as coded, but harsh: `bosses.ts` trips `hydraVentHealed` on **any** heal > 0 while a vent is open, and the vents open on a timer no matter how fast the kill is. Jad's twin task is escapable (a fast kill never summons healers), this one is not unless both vents are broken (which is already its own task, `vent-breaker`). Fix shape: only trip the flag past a real amount healed, or clear it if the vent is broken inside its window |
+| 23 | Boss progression resets on page reload | shipped — `42aab7e` (2026-08-20) persists `bossesKilled` in the run save, so the ladder resumes instead of restarting at Brutus. The report predates the fix by hours |
 
 ## Suggestions
 
@@ -74,18 +81,21 @@ not built · `recheck` — needs verification against current code before acting
 | 21 | Upgrade All Towers | shipped — group auto-upgrade, cheapest-first |
 | 22 | Boss Balance | shipped — Regen decay `db42ad0`, Mole `52fb016`, per-boss "how to kill" text `a0aff14`, multi-boss floor moved to wave 20 `6fdebeb` |
 | 23 | Bosses again | shipped — `29382f0` (leak cost quoted on the enemy panel / wave preview / on leak; an escaped Guardian is never revived) |
-| 24 | Too Easy not enough content | queued — scaling/Scurrius/weakness shipped, but the asks (more bosses/mobs, "levels", a GP store) are content backlog (→ M1 bosses, M5 gold sink) |
+| 24 | Too Easy not enough content | **shipped** (user's call, 2026-08-21) — the difficulty half is solved (scaling, Scurrius, weaknesses, the New Game+ ladder). The content half is not verified against the report, but it is tracked on its own as M1/M5, so this row is closed rather than re-litigated |
 | 25 | See collection log when in card select | shipped — the offered alternative ("mark the cards I have not collected yet") is the NEW badge on never-kept draft cards (`08f9d6a`); the full in-draft log is not built, but the suggestion was an OR and the alt satisfies it |
 | 26 | Game ideas (11-item list) | queued — one point landed (road no longer reads as a car lane, `8fd8f66`); the rest (tower-spam curb, branching upgrades, tower XP, hand-drawn maps, win condition, campaign, monster drops, resources, traps, melee-spawning towers) is a long design backlog spanning M4/M6/M7 |
-| 27 | Ease of Late Game | queued — a real late-game break report (death-charge/vigor stacking dominates DPS; gold & slayer cost scale past card price; cards scale base faster than monster HP). Balance backlog, not yet resolved |
-| 28 | Card Balance, and Suggestions | queued — rarity-by-strength (`d3ccf3c`) and Soul Eater as a mythic appetite (`bf84a88`) touch it, but the core (essence/slayer/range cards meaningless late, Soul Eater outclassing food, an equipment/foil-card layer) is open |
-| 29 | Monster, Tower, and Prayer Balance | queued — headline ask shipped (mobs now weak to melee/ranged, `5f2014c`); the extras (slash/crush/stab & bolt/arrow tower types, a player special-energy bar) are backlog |
-| 30 | Clue Scrolls | queued — net-new content (draggable clue map, dig spots, golden-tower rewards, 3rd-age gear). Ambitious, unbuilt |
-| 31 | Local Login/Save | queued — only localStorage persists today; a portable/cross-device save is unbuilt (no backend) |
-| 32 | Zoom In/Out | queued → map zoom was **explicitly deferred** during the map-uniqueness work; also overlaps **M7** |
-| 33 | Card Categories | queued — `d3ccf3c` reworked card rarity by *power*, but this asks for consistency with OSRS item hierarchy (Pegasian vs Ranger, Kodai, twisted bow); the two framings can conflict, so it is not closed |
-| 34 | Mega rares (scythe/shadow/tbow) + pick your own map + periodic level-swap w/ full refund | queued — top-tier weapon content + map selection (map picking overlaps **M7**); unbuilt |
-| 35 | Construction (Mazing) mode | queued — a new mode parallel to Classic/Roguelite: waypoint routing + place-anywhere towers to build a maze, plus a cheap non-attacking wall tower. Design-first; a new pure-TD/roguelite-sibling mode. Unbuilt |
+| 27 | Ease of Late Game | **shipped** — the late-game break is closed as far as the report goes: the damage soft-cap, the draft re-weighting and the A1/A4 curve landed, and the user signed it off 2026-08-21 |
+| 28 | Card Balance, and Suggestions | **shipped** — rarity-by-strength (`d3ccf3c`) plus Soul Eater as a mythic appetite (`bf84a88`) settled it; signed off 2026-08-21. The equipment/foil-card layer was not part of the sign-off and lives on as its own idea, not as an open complaint |
+| 29 | Monster, Tower, and Prayer Balance | queued **[low]** — headline ask shipped (mobs weak to melee/ranged, `5f2014c`). The extras (slash/crush/stab & bolt/arrow tower types, a player special-energy bar) are **not interesting for now** (user, 2026-08-21) — parked |
+| 30 | Clue Scrolls | queued **[later]** — accepted as a real direction, but for a "not very near future" (user, 2026-08-21). Net-new content: draggable clue map, dig spots, golden-tower rewards, 3rd-age gear |
+| 31 | Local Login/Save | queued **[high]** — the user calls it important (2026-08-21). Only localStorage persists today; a portable/cross-device save is unbuilt and there is no backend, so the near-term shape is an export/import save code rather than an account |
+| 32 | Zoom In/Out | queued **[low]** — stays in the backlog (user, 2026-08-21). Map zoom was explicitly deferred during the map-uniqueness work; overlaps **M7** |
+| 33 | Card Categories | queued **[later]** — worth thinking about and eventually adjusting, but **the roguelite is not the focus for now** (user, 2026-08-21), and cards are roguelite-side. The tension stands: `d3ccf3c` ranks rarity by *power*, this asks to rank it by the OSRS item hierarchy |
+| 34 | Mega rares (scythe/shadow/tbow) + pick your own map + periodic level-swap w/ full refund | **partially shipped** — the top-tier item half is in (mega-rare gear exists). Map picking is **not** simply granted: the intended direction is the run *changing biome as the waves go*, so the pick-a-map ask has to be explored against that first (user, 2026-08-21) → feeds **M7** |
+| 35 | Construction (Mazing) mode | queued **[high-interest]** — the user likes the two parts that matter (2026-08-21): letting the player **alter the pathing**, and putting **towers/traps on the road itself**. The full separate mode is still design-first; those two mechanics are the piece worth designing |
+| 36 | Unique items feel unreachable / underpowered | queued — B0aty, 2026-08-20. Only utility towers reach level 40 in a wave-90 run, so Blood Fury is effectively unobtainable. Asks: lower the level requirements, give Blood Fury a chance to restore a life, make the Salve amulet a flat + % (e.g. base 20 + 20%), and add a Tenacity-shredding unique (Holy Water-style −5% defence on demons; Amulet of the Damned as another candidate) |
+| 37 | Fang tower (rapid-fire range) is weak | queued — B0aty, 2026-08-20. A **niche failure**, not just numbers: the trident-of-the-swamp/fang tower has an Emberlight's range and speed with far worse DPS, and less range than cannon or bowfa, so a grandmaster clear used only four of them. Asks: roughly double its attack speed, scale it harder off the dart gear ladder, and let the "Archer towers hit harder" essence upgrade apply to it too. Cross-check against `systems/tower-identity.ts` — every tower must beat the wizard at something |
+| 38 | Towers should re-target on every attack | queued — B0aty, 2026-08-20. Aggro sticks to the first target until it dies or leaves range, so towers keep chewing on Vorkath while an abyssal demon walks to the exit, and mages on "Weakest" ignore Cerberus' souls the moment they spawn. The player's workaround is marquee-selecting every tower and re-applying the priority, which snaps it. Ask: re-run the priority pick each time a tower is about to fire (`systems/targeting.ts`) |
 
 **Rejected outright (roster is CLOSED):** splitting magic/melee/ranged into several
 towers · a chinchompa AoE tower · M10 utility/buff-support tower.
@@ -109,7 +119,9 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
    `data/achievements.ts` (8 entries, legacy engine only) was deliberately left untouched.
 7. **M4** roguelite reset-loop / meta rework — next to *plan*, not build.
 8. **M6** tower fusion (must respect the closed roster) — think about soon.
-9. **M7** map selection at start — queued.
+9. **M7** maps — queued, and its shape moved (2026-08-21): the run is meant to **change biome
+    as the waves advance**, so "pick your own map" (#34, #17) has to be designed against that
+    rather than bolted on as a start-screen menu.
 10. **M5** a gold sink for **normal** mode — idea still wanted.
 11. **A1** late-game victory + Endless + a curve that overtakes — *shipped*: the run is
     won by clearing the boss roster, Endless carries on past it (`c0a328f`), and the
@@ -122,7 +134,17 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
     tier unlocks the next, with tougher enemies and a tighter economy. The reward is the
     record, not power.
 
-13. **V1** a victory-only currency + a permanent-unlock shop — *queued, design-first*
+13. **P1** portable save (#31) — *queued, the user's own "important"* (2026-08-21). Progress
+    lives in localStorage only, so a cleared browser or a second machine loses everything.
+    No backend exists and none is planned, so the realistic build is an export/import save
+    string (the whole `SAVE_KEYS` set, versioned like `run-save.ts`) rather than a login.
+
+14. **P2** pathing as a mechanic (#35) — *queued, design-first* (2026-08-21). Not the full
+    Construction mode: the two parts the user wants are the player being able to **alter the
+    enemy path**, and **towers/traps placed on the road itself**. Both cut across the fixed
+    board and `map-generation`, so this is a design pass before any code.
+
+15. **V1** a victory-only currency + a permanent-unlock shop — *queued, design-first*
     (user's own idea, 2026-08-21). Winning a run should pay a currency that exists
     **only** for winning, spendable on *unique permanent* bonuses — one-off unlocks,
     not another rank of the essence upgrades. It has to stay distinct from **rune
