@@ -174,20 +174,23 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 // Sized in logic px. A tower sprite is 36-48px wide against a 32px tile, so the
 // plate is allowed to be a little wider than its tile — but only a little, or
 // two towers side by side would trade strips.
-const BAR_W = 14;      // XP track
-const BAR_H = 4;
-const GAP = 2;         // between label, bar and pips
-const PIP_R = 1.3;     // tier pip radius
-const PIP_STEP = 3.2;  // pip centre-to-centre
+const ORB_R = 7.5;     // the level orb, same build as the minimap orbs
+const BAR_W = 16;      // XP track
+const BAR_H = 3;       // thin, like .rs-progress in the tower panel
+const GAP = 2;         // between orb, bar and pips
+const PIP_W = 3;       // tier pip, stacked into a column
+const PIP_H = 1.6;
+const PIP_STEP = 2.6;  // pip top-to-top
 
 /**
  * A tower's combat level, its XP progress toward the next one, and its tier —
  * on the board, so none of it needs the panel opened.
  *
- * Left to right: the level, a sunken XP track filling in XP-drop yellow, then one
- * pip per tier (filled up to the current one). The tier used to be a bare white
- * number here, which read as *the* level and collided with the real one; pips are
- * a different visual language, so the two can't be confused at a glance.
+ * Left to right: the level on a minimap-style orb, a thin green XP track (the
+ * same bar the tower panel shows, at 3px), then a column of tier pips lit from
+ * the bottom up. The tier used to be a bare white number here, which read as
+ * *the* level and collided with the real one; pips are a different visual
+ * language, so the two can't be confused at a glance.
  *
  * Drawn faint and lifted to full opacity for the tower under the pointer, the
  * selected one, or one highlighted from the DPS panel — legible when looked for,
@@ -205,51 +208,67 @@ function drawTowerPlate(gr: GameRenderer, ctx: CanvasRenderingContext2D, tower: 
     tower.id === gr.e.highlightTowerId ||
     Math.hypot(gr.e.pointer.x - tower.x, gr.e.pointer.y - tower.y) <= tower.visualRadius;
 
+  const tiers = Math.max(1, tower.maxLevel);
+  const total = ORB_R * 2 + GAP + BAR_W + GAP + PIP_W;
+  let x = tower.x - total / 2;
+  const y = tower.y + spriteRadius(gr, tower.type, tower.visualRadius) + 9;
+
   ctx.save();
   ctx.globalAlpha = focused ? 1 : 0.55;
+
+  // The orb: the same sphere the HUD orbs are built from — a lit-from-upper-left
+  // radial bed, a keyline, and a gloss dab — shrunk to hold two digits.
+  const ocx = x + ORB_R;
+  const bed = ctx.createRadialGradient(ocx - ORB_R * 0.24, y - ORB_R * 0.4, 0, ocx, y, ORB_R * 1.4);
+  bed.addColorStop(0, '#4c4740');
+  bed.addColorStop(1, '#16140f');
+  ctx.beginPath();
+  ctx.arc(ocx, y, ORB_R, 0, Math.PI * 2);
+  ctx.fillStyle = bed;
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#15130f';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(ocx - ORB_R * 0.28, y - ORB_R * 0.42, ORB_R * 0.36, ORB_R * 0.22, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fill();
+
   ctx.font = "bold 9px 'RuneScape', Arial";
-  ctx.textAlign = 'left';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-
-  const label = String(level);
-  const labelW = ctx.measureText(label).width;
-  const tiers = Math.max(1, tower.maxLevel);
-  const pipsW = (tiers - 1) * PIP_STEP + PIP_R * 2;
-  const total = labelW + GAP + BAR_W + GAP + pipsW;
-
-  let x = tower.x - total / 2;
-  const y = tower.y + spriteRadius(gr, tower.type, tower.visualRadius) + 7;
-
-  // Level.
-  ctx.fillStyle = maxed ? '#ffd83d' : '#fff';
+  ctx.fillStyle = maxed ? '#ffd83d' : '#4be23c';
   ctx.shadowColor = 'rgba(0,0,0,0.9)';
   ctx.shadowBlur = 2;
-  ctx.fillText(label, x, y);
+  ctx.fillText(String(level), ocx, y + 0.5);
   ctx.shadowBlur = 0;
-  x += labelW + GAP;
+  x += ORB_R * 2 + GAP;
 
-  // XP track: a keyline, a sunken bed, then the fill — the same chiselled order
-  // the CSS panels use, at 1px.
-  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  // XP track: keyline, sunken bed, green fill — .rs-progress at 3px.
+  ctx.fillStyle = '#100d09';
   ctx.fillRect(x - 1, y - BAR_H / 2 - 1, BAR_W + 2, BAR_H + 2);
-  ctx.fillStyle = '#2a2118';
+  const bar = ctx.createLinearGradient(0, y - BAR_H / 2, 0, y + BAR_H / 2);
+  bar.addColorStop(0, '#1a140c');
+  bar.addColorStop(1, '#0d0a06');
+  ctx.fillStyle = bar;
   ctx.fillRect(x, y - BAR_H / 2, BAR_W, BAR_H);
   if (progress > 0) {
-    ctx.fillStyle = maxed ? '#ffd83d' : '#ffb31f';
+    const fill = ctx.createLinearGradient(0, y - BAR_H / 2, 0, y + BAR_H / 2);
+    fill.addColorStop(0, maxed ? '#ffe06b' : '#6ee06e');
+    fill.addColorStop(1, maxed ? '#c08a10' : '#2f8a2f');
+    ctx.fillStyle = fill;
     ctx.fillRect(x, y - BAR_H / 2, Math.max(1, BAR_W * progress), BAR_H);
   }
   x += BAR_W + GAP;
 
-  // Tier pips.
+  // Tier pips, stacked bottom-up like a meter: tier 1 is the bottom rung.
+  const colH = (tiers - 1) * PIP_STEP + PIP_H;
   for (let i = 0; i < tiers; i++) {
-    const cx = x + PIP_R + i * PIP_STEP;
-    ctx.beginPath();
-    ctx.arc(cx, y, PIP_R, 0, Math.PI * 2);
-    ctx.fillStyle = i < tower.level ? '#ff981f' : 'rgba(0,0,0,0.65)';
-    ctx.fill();
-    ctx.lineWidth = 0.5;
-    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-    ctx.stroke();
+    const py = y + colH / 2 - PIP_H - i * PIP_STEP;
+    ctx.fillStyle = '#100d09';
+    ctx.fillRect(x - 0.5, py - 0.5, PIP_W + 1, PIP_H + 1);
+    ctx.fillStyle = i < tower.level ? '#ff981f' : '#2a2118';
+    ctx.fillRect(x, py, PIP_W, PIP_H);
   }
 
   ctx.restore();
