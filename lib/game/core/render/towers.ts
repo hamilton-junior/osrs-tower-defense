@@ -188,17 +188,19 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 // plate is allowed to be a little wider than its tile — but only a little, or two
 // towers side by side would trade strips.
 const FONT_PX = 9;     // the level, and what the orb is sized around
-const ORB_PAD = 1.8;   // the "minimal margin" between the digits and the rim
-const BAR_W = 16;      // XP track
+const ORB_PAD = 3;     // breathing room between the digits and the rim
+const BAR_W = 15;      // XP track
 const BAR_H = 3;       // thin, like .rs-progress in the tower panel
 const GAP = 2;         // between orb and bar
 
 /**
- * The tier ladder, as the metal ladder OSRS itself grades gear by. The top tier
- * always gets the top metal: a tower with three tiers reads bronze → mithril →
- * rune, one with four reads straight up the rungs.
+ * The tier ladder, coloured off the **Leagues trophies** — mithril, adamant,
+ * rune and dragon, the four top ones. The metals players actually chase: the
+ * starter end of the gear ladder (bronze, iron) carries no weight, so it does
+ * not appear here at all. Each value is that trophy's own body metal sampled
+ * out of the cache render and lifted to read as a 1px rim on the board.
  */
-const TIER_METALS = ['#b06a2c', '#d8d8d8', '#6a7fe8', '#3fc8c0'];
+const TIER_METALS = ['#9c9cd2', '#9ad89a', '#8ed2ea', '#e83a24'];
 
 function tierMetal(tower: Tower): string {
   const tiers = Math.max(1, tower.maxLevel);
@@ -220,11 +222,12 @@ function plateFocused(gr: GameRenderer, tower: Tower): boolean {
  * A tower's combat level, its XP progress toward the next one, and its tier —
  * on the board, so none of it needs the panel opened.
  *
- * The level sits on a minimap-style orb sized to its own digits plus a hair of
- * margin, and the orb's rim carries the tier as its metal (bronze up to rune) —
- * the tier used to be its own row of pips, which was a second thing to read on a
- * strip that has to survive at a third of a tile. Right of it is the same thin
- * green XP track the tower panel draws.
+ * The level sits on a minimap-style orb sized to its own digits plus a little
+ * margin, and the orb's rim carries the tier as its metal — the four top
+ * Leagues trophies, mithril up to dragon. The tier used to be its own row of
+ * pips, which was a second thing to read on a strip that has to survive at a
+ * third of a tile. Right of it is the same thin green XP track the tower panel
+ * draws.
  *
  * Faint by default and full opacity when focused: legible when looked for, quiet
  * across a board full of towers.
@@ -251,7 +254,7 @@ function drawTowerPlate(gr: GameRenderer, ctx: CanvasRenderingContext2D, tower: 
   // Only as big as the number needs — a one-digit level gets a smaller orb than
   // a 99 does, rather than every tower carrying the widest case.
   const label = String(level);
-  const orbR = Math.max(font * 0.52, ctx.measureText(label).width / 2 + ORB_PAD * s);
+  const orbR = Math.max(font * 0.66, ctx.measureText(label).width / 2 + ORB_PAD * s);
 
   const total = orbR * 2 + gap + barW;
   let x = tower.x - total / 2;
@@ -268,10 +271,10 @@ function drawTowerPlate(gr: GameRenderer, ctx: CanvasRenderingContext2D, tower: 
   ctx.fillStyle = bed;
   ctx.fill();
   // A dark keyline just outside the metal, so the rim reads over pale terrain too.
-  ctx.lineWidth = Math.max(1, 2.4 * s);
+  ctx.lineWidth = Math.max(1, 2 * s);
   ctx.strokeStyle = '#100d09';
   ctx.stroke();
-  ctx.lineWidth = Math.max(1, 1.4 * s);
+  ctx.lineWidth = Math.max(1, 1.1 * s);
   ctx.strokeStyle = tierMetal(tower);
   ctx.stroke();
   ctx.beginPath();
