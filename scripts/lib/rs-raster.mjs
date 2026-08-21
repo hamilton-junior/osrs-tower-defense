@@ -207,7 +207,16 @@ export function renderModelFrame(model, verts, fit, sy, cy, sp, cp, size, textur
   for (let f = 0; f < model.faceCount; f++) {
     order.push([f, (pz[fa[f]] + pz[fb[f]] + pz[fc[f]]) / 3]);
   }
-  order.sort((p, q) => q[1] - p[1]);
+  // Depth alone can't order a model whose parts are coplanar: an amulet's gem
+  // sits *inside* its setting, both discs within a unit of each other, and a
+  // painter's sort picks whichever face happened to come first. The cache
+  // answers that with faceRenderPriorities, and the client's Model.draw walks
+  // the priority groups in ascending order, using depth only *within* a group.
+  // So priority is the primary key wherever the model carries one — that is
+  // what puts the gem on top of the setting (and the clasp on top of both).
+  const prio = model.faceRenderPriorities;
+  if (prio) order.sort((p, q) => (prio[p[0]] & 0xff) - (prio[q[0]] & 0xff) || q[1] - p[1]);
+  else order.sort((p, q) => q[1] - p[1]);
 
   for (const [f] of order) {
     const renderType = model.faceRenderTypes ? (model.faceRenderTypes[f] ?? 0) : 0;
