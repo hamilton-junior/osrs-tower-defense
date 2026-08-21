@@ -17,6 +17,10 @@ audit date, or its row here says `recheck`. Append a row when you triage somethi
 and bump the watermark. The `Status` column in NocoDB is **not** authoritative — it lags
 behind what actually shipped; this file is the truth.
 
+**Two fields that read as the opposite of what they are:** `Name or Link` is *where the
+player found the game* (a channel, a video), **not** who wrote the report — pairing it with
+`Found On` makes that obvious. The reporter, when known at all, is in `Player Contact`.
+
 **Watermark (2026-08-21):** Suggestions ≤ **38**, Bug Reports ≤ **23**.
 
 ## Verdict vocabulary
@@ -93,9 +97,9 @@ if players push · no tag = ordinary backlog.
 | 33 | Card Categories | queued **[later]** — worth thinking about and eventually adjusting, but **the roguelite is not the focus for now** (user, 2026-08-21), and cards are roguelite-side. The tension stands: `d3ccf3c` ranks rarity by *power*, this asks to rank it by the OSRS item hierarchy |
 | 34 | Mega rares (scythe/shadow/tbow) + pick your own map + periodic level-swap w/ full refund | **partially shipped** — the top-tier item half is in (mega-rare gear exists). Map picking is **not** simply granted: the intended direction is the run *changing biome as the waves go*, so the pick-a-map ask has to be explored against that first (user, 2026-08-21) → feeds **M7** |
 | 35 | Construction (Mazing) mode | queued **[high-interest]** — the user likes the two parts that matter (2026-08-21): letting the player **alter the pathing**, and putting **towers/traps on the road itself**. The full separate mode is still design-first; those two mechanics are the piece worth designing |
-| 36 | Unique items feel unreachable / underpowered | queued — B0aty, 2026-08-20. Only utility towers reach level 40 in a wave-90 run, so Blood Fury is effectively unobtainable. Asks: lower the level requirements, give Blood Fury a chance to restore a life, make the Salve amulet a flat + % (e.g. base 20 + 20%), and add a Tenacity-shredding unique (Holy Water-style −5% defence on demons; Amulet of the Damned as another candidate) |
-| 37 | Fang tower (rapid-fire range) is weak | queued — B0aty, 2026-08-20. A **niche failure**, not just numbers: the trident-of-the-swamp/fang tower has an Emberlight's range and speed with far worse DPS, and less range than cannon or bowfa, so a grandmaster clear used only four of them. Asks: roughly double its attack speed, scale it harder off the dart gear ladder, and let the "Archer towers hit harder" essence upgrade apply to it too. Cross-check against `systems/tower-identity.ts` — every tower must beat the wizard at something |
-| 38 | Towers should re-target on every attack | queued — B0aty, 2026-08-20. Aggro sticks to the first target until it dies or leaves range, so towers keep chewing on Vorkath while an abyssal demon walks to the exit, and mages on "Weakest" ignore Cerberus' souls the moment they spawn. The player's workaround is marquee-selecting every tower and re-applying the priority, which snaps it. Ask: re-run the priority pick each time a tower is about to fire (`systems/targeting.ts`) |
+| 36 | Unique items feel unreachable / underpowered | queued — Will, 2026-08-20 (found the game via the B0aty channel). Only utility towers reach level 40 in a wave-90 run, so Blood Fury is effectively unobtainable. Asks: lower the level requirements, give Blood Fury a chance to restore a life, make the Salve amulet a flat + % (e.g. base 20 + 20%), and add a Tenacity-shredding unique (Holy Water-style −5% defence on demons; Amulet of the Damned as another candidate) |
+| 37 | Fang tower (rapid-fire range) is weak | queued — Will, 2026-08-20. A **niche failure**, not just numbers: the trident-of-the-swamp/fang tower has an Emberlight's range and speed with far worse DPS, and less range than cannon or bowfa, so a grandmaster clear used only four of them. Asks: roughly double its attack speed, scale it harder off the dart gear ladder, and let the "Archer towers hit harder" essence upgrade apply to it too. Cross-check against `systems/tower-identity.ts` — every tower must beat the wizard at something |
+| 38 | Towers should re-target on every attack | queued — Will, 2026-08-20. Aggro sticks to the first target until it dies or leaves range, so towers keep chewing on Vorkath while an abyssal demon walks to the exit, and mages on "Weakest" ignore Cerberus' souls the moment they spawn. The player's workaround is marquee-selecting every tower and re-applying the priority, which snaps it. Ask: re-run the priority pick each time a tower is about to fire (`systems/targeting.ts`) |
 
 **Rejected outright (roster is CLOSED):** splitting magic/melee/ranged into several
 towers · a chinchompa AoE tower · M10 utility/buff-support tower.
