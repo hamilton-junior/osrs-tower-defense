@@ -81,6 +81,13 @@ export function fireTowers(eng: GameEngine, dt: number) {
     const markKind = towerMarkKind(tower);
     const slayerFavored = (e: Enemy) => isSlayerFavoredTarget(e.type, eng.slayer.task?.type ?? null, !!e.isBoss);
     let target = tower.targetId ? eng.enemies.find(e => e.id === tower.targetId) : undefined;
+    // A tower never marries a target: whenever its cooldown is up it looks again, so
+    // the shot goes to whatever the priority ranks first *now* — the runner that just
+    // slipped past, the boss that just walked in — instead of to whatever it happened
+    // to lock on to when the wave started. Between shots the pick only changes when it
+    // dies or leaves range, which keeps the sight line, the DPS engagement clock and
+    // the prayer drain reading the truth every frame.
+    const ready = now - tower.lastFired >= stats.cooldown;
     // Slayer specialisation is sticky too: if it's chewing a non-favoured target
     // while a favoured one (task / superior / boss) is in range, drop it so the
     // reselect below prefers the specialised kill, regardless of set priority.
@@ -88,7 +95,7 @@ export function fireTowers(eng: GameEngine, dt: number) {
         eng.enemies.some(e => inReach(e) && slayerFavored(e))) {
       target = undefined;
     }
-    if (!target || !inReach(target)) {
+    if (!target || !inReach(target) || ready) {
       const inRange = eng.enemies.filter(inReach);
       // Slayer tower prioritises its specialised category over the raw priority:
       // pick among the favoured enemies if any are in range, else target normally.
@@ -102,9 +109,8 @@ export function fireTowers(eng: GameEngine, dt: number) {
       target = selectTarget(pool, tower.x, tower.y, eng.path, tower.targetingPriority, markKind) ?? undefined;
       tower.targetId = target?.id ?? null;
     }
-    if (!target) continue;
+    if (!target || !ready) continue;
 
-    if (now - tower.lastFired < stats.cooldown) continue;
     tower.lastFired = now;
     tower.recoilAngle = Math.atan2(target.y - tower.y, target.x - tower.x);
     tower.recoil = 1; // pulse, decays above
