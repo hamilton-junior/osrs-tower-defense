@@ -1,7 +1,9 @@
 import type { Tower } from '../../types';
-import { TOWERS } from '../../data/towers';
+import { TOWERS, TOWER_STYLES } from '../../data/towers';
 import { squareRange } from '../../systems/geometry';
+import { towerXpForLevel } from '../../systems/leveling';
 import { spellSpriteName } from '../../systems/magic';
+import { MAX_TOWER_LEVEL, styleSkillKey, towerCombatLevel } from '../../systems/tower-xp';
 import type { GameRenderer } from '../renderer';
 import { GRID, drawImageContain, drawSquareRange } from './shared';
 
@@ -137,7 +139,7 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 
     // The prohibited sign itself, at full opacity over the faded tower. It pulses
     // as the timer runs out so the player can see the tower is about to come back,
-    // and it is drawn last so nothing (aura, spell badge, level pip) covers it.
+    // and it is drawn over the sprite so nothing (aura, spell badge) covers it.
     if (disabled) {
       const blocked = gr.e.imageOk('blocked') ? gr.e.images.get('blocked')! : null;
       const throb = 0.78 + 0.22 * Math.sin(performance.now() / 180);
@@ -164,12 +166,93 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       }
     }
 
-    // level pip
-    ctx.fillStyle = '#fff';
-    ctx.font = "bold 11px 'RuneScape', Arial";
-    ctx.textAlign = 'center';
-    ctx.fillText(String(tower.level), tower.x, tower.y + spriteRadius(gr, tower.type, tower.visualRadius) + 8);
+    drawTowerPlate(gr, ctx, tower);
   }
+}
+
+// --- the strip under a tower -------------------------------------------------
+// Sized in logic px. A tower sprite is 36-48px wide against a 32px tile, so the
+// plate is allowed to be a little wider than its tile — but only a little, or
+// two towers side by side would trade strips.
+const BAR_W = 14;      // XP track
+const BAR_H = 4;
+const GAP = 2;         // between label, bar and pips
+const PIP_R = 1.3;     // tier pip radius
+const PIP_STEP = 3.2;  // pip centre-to-centre
+
+/**
+ * A tower's combat level, its XP progress toward the next one, and its tier —
+ * on the board, so none of it needs the panel opened.
+ *
+ * Left to right: the level, a sunken XP track filling in XP-drop yellow, then one
+ * pip per tier (filled up to the current one). The tier used to be a bare white
+ * number here, which read as *the* level and collided with the real one; pips are
+ * a different visual language, so the two can't be confused at a glance.
+ *
+ * Drawn faint and lifted to full opacity for the tower under the pointer, the
+ * selected one, or one highlighted from the DPS panel — legible when looked for,
+ * quiet across a board full of towers.
+ */
+function drawTowerPlate(gr: GameRenderer, ctx: CanvasRenderingContext2D, tower: Tower) {
+  const level = towerCombatLevel(tower);
+  const maxed = level >= MAX_TOWER_LEVEL;
+  const xp = tower.skills[styleSkillKey(TOWER_STYLES[tower.type].style)].xp;
+  const need = towerXpForLevel(level);
+  const progress = maxed ? 1 : Math.max(0, Math.min(1, need > 0 ? xp / need : 0));
+
+  const focused =
+    tower.id === gr.e.selectedTowerId ||
+    tower.id === gr.e.highlightTowerId ||
+    Math.hypot(gr.e.pointer.x - tower.x, gr.e.pointer.y - tower.y) <= tower.visualRadius;
+
+  ctx.save();
+  ctx.globalAlpha = focused ? 1 : 0.55;
+  ctx.font = "bold 9px 'RuneScape', Arial";
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+
+  const label = String(level);
+  const labelW = ctx.measureText(label).width;
+  const tiers = Math.max(1, tower.maxLevel);
+  const pipsW = (tiers - 1) * PIP_STEP + PIP_R * 2;
+  const total = labelW + GAP + BAR_W + GAP + pipsW;
+
+  let x = tower.x - total / 2;
+  const y = tower.y + spriteRadius(gr, tower.type, tower.visualRadius) + 7;
+
+  // Level.
+  ctx.fillStyle = maxed ? '#ffd83d' : '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,0.9)';
+  ctx.shadowBlur = 2;
+  ctx.fillText(label, x, y);
+  ctx.shadowBlur = 0;
+  x += labelW + GAP;
+
+  // XP track: a keyline, a sunken bed, then the fill — the same chiselled order
+  // the CSS panels use, at 1px.
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.fillRect(x - 1, y - BAR_H / 2 - 1, BAR_W + 2, BAR_H + 2);
+  ctx.fillStyle = '#2a2118';
+  ctx.fillRect(x, y - BAR_H / 2, BAR_W, BAR_H);
+  if (progress > 0) {
+    ctx.fillStyle = maxed ? '#ffd83d' : '#ffb31f';
+    ctx.fillRect(x, y - BAR_H / 2, Math.max(1, BAR_W * progress), BAR_H);
+  }
+  x += BAR_W + GAP;
+
+  // Tier pips.
+  for (let i = 0; i < tiers; i++) {
+    const cx = x + PIP_R + i * PIP_STEP;
+    ctx.beginPath();
+    ctx.arc(cx, y, PIP_R, 0, Math.PI * 2);
+    ctx.fillStyle = i < tower.level ? '#ff981f' : 'rgba(0,0,0,0.65)';
+    ctx.fill();
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 /** Staff-body sprite key for a wizard, reflecting its spellbook & element
