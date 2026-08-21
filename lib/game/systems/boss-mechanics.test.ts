@@ -66,6 +66,8 @@ import {
   hydraBreakTarget,
   hydraVentCredit,
   hydraVentHeal,
+  hydraHealSpoilsPerfect,
+  HYDRA_PERFECT_HEAL_ALLOWANCE,
   hydraIsEnraged,
   MECHANIC_BOSSES,
   SCHEDULABLE_BOSSES,
@@ -273,6 +275,14 @@ describe('vent break / heal maths', () => {
   it('regenerates a fixed fraction of max HP per second', () => {
     expect(hydraVentHeal(1000, 1)).toBeCloseTo(1000 * HYDRA_VENT_HEAL_PER_SEC);
     expect(hydraVentHeal(1000, 0.5)).toBeCloseTo(1000 * HYDRA_VENT_HEAL_PER_SEC * 0.5);
+  });
+  it('forgives a vent that healed a sliver, and fails one that healed real HP', () => {
+    // Perfect Hydra used to break on the first frame of ANY vent, so a kill fast
+    // enough to shatter it on sight still lost the task.
+    const maxHp = 2000;
+    expect(hydraHealSpoilsPerfect(hydraVentHeal(maxHp, 0.1), maxHp)).toBe(false);
+    expect(hydraHealSpoilsPerfect(maxHp * HYDRA_PERFECT_HEAL_ALLOWANCE, maxHp)).toBe(false);
+    expect(hydraHealSpoilsPerfect(hydraVentHeal(maxHp, 1), maxHp)).toBe(true);
   });
   it('credits a landed hit at its pre-hardening value', () => {
     // A 100-damage hit lands for 20 while the vent hardens the Hydra; the break bar

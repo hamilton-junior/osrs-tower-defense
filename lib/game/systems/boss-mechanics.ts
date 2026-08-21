@@ -253,6 +253,11 @@ export const HYDRA_VENT_COOLDOWN_SECS = 6;
 export const HYDRA_VENT_DAMAGE_MULT = 0.2;
 /** Fraction of max HP regenerated per second while a vent is open. */
 export const HYDRA_VENT_HEAL_PER_SEC = 0.03;
+/** Perfect Hydra's allowance, as a fraction of max HP. A vent that flickers open and
+ *  is shattered in the same breath has not *healed* the Hydra, and a board fast enough
+ *  to do that is exactly the one the task is for — so the achievement only breaks once
+ *  the regen adds up to real HP (this is about two thirds of a second of an open vent). */
+export const HYDRA_PERFECT_HEAL_ALLOWANCE = 0.02;
 /** Damage that must be dealt during the window, as a fraction of max HP, to shatter
  *  the vent — counted *before* the hardening cut (see {@link hydraVentCredit}), so
  *  this is the raw output the player's board has to muster in {@link HYDRA_VENT_SECS}. */
@@ -309,6 +314,12 @@ export function hydraVentCredit(dealt: number): number {
 /** HP regenerated over `dt` seconds of an open vent. */
 export function hydraVentHeal(maxHp: number, dt: number): number {
   return maxHp * HYDRA_VENT_HEAL_PER_SEC * dt;
+}
+
+/** Whether the HP the Hydra has regenerated at its vents is enough to spoil Perfect
+ *  Hydra — see {@link HYDRA_PERFECT_HEAL_ALLOWANCE}. */
+export function hydraHealSpoilsPerfect(healed: number, maxHp: number): boolean {
+  return healed > maxHp * HYDRA_PERFECT_HEAL_ALLOWANCE;
 }
 
 /** Whether the Hydra is in its final, enraged phase. */
@@ -997,6 +1008,9 @@ export interface BossState {
   /** Hydra: damage dealt since the vent opened (pre-hardening, via {@link hydraVentCredit}),
    *  against {@link hydraBreakTarget}. */
   ventDamage?: number;
+  /** Hydra: HP regenerated at vents so far this fight, against Perfect Hydra's
+   *  allowance (see {@link hydraHealSpoilsPerfect}). */
+  ventHealed?: number;
   /** Hydra: seconds before a sealed vent may open again — the board's full-damage window. */
   ventCooldown?: number;
   /** Hydra: vents shattered so far — this, not HP, drives the phase. */
