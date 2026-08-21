@@ -83,7 +83,7 @@
     "npc": 2075,
     "anims": {
       "walk": 4660,
-      "death": 4659,
+      "death": 4668,
       "hurt": 4654
     }
   },
@@ -92,7 +92,7 @@
     "anims": {
       "walk": 1549,
       "hurt": 1550,
-      "death": 1557
+      "death": 1553
     }
   },
   "hill_giant": {
@@ -100,7 +100,7 @@
     "anims": {
       "walk": 4649,
       "hurt": 4654,
-      "death": 4648
+      "death": 4653
     }
   },
   "black_demon": {
@@ -232,7 +232,7 @@
     "anims": {
       "walk": 1549,
       "hurt": 1550,
-      "death": 1557
+      "death": 1553
     }
   },
   "superior_abyssal_demon": {
