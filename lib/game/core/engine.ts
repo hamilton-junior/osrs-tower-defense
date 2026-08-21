@@ -12,7 +12,7 @@ import { CombatStatsSystem } from '../systems/combat-stats';
 import { ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, upgradeCostFor } from '../systems/magic';
 import { goldForKill } from '../systems/rewards';
 import { upgradeOrder } from '../systems/upgrades';
-import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor } from '../systems/tower-xp';
+import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor, MAX_TOWER_LEVEL } from '../systems/tower-xp';
 import { canEquip } from '../systems/tower-gear';
 import { GEAR } from '../data/gear';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
@@ -1823,21 +1823,30 @@ export class GameEngine {
     if (!tower || !tierGateFor(tower).ok) return; // maxed OR below the tier's level gate
     const cost = tower.upgradeCost;
     if (this.money < cost) { this.notify('Not enough gold'); return; }
-    const def = TOWERS[tower.type];
-    const tier = def.tiers[tower.level]; // next tier (0-indexed)
     this.money -= cost;
-    tower.level += 1;
-    tower.name = tier.name;
-    tower.damage = tier.damage;
-    tower.range = tier.range;
-    tower.cooldown = tier.cooldown;
-    tower.color = tier.color;
-    tower.special = tier.special;
-    tower.minDamage = tier.minDamage;
-    tower.maxDamage = tier.maxDamage;
-    tower.visualRadius += 2;
-    tower.upgradeCost = upgradeCostFor(def.tiers[tower.level]?.upgradeCost ?? 0, tower.mageMode);
+    this.applyTier(tower, tower.level + 1);
     this.emit();
+  }
+
+  /** Move a tower onto `tier` and copy that tier's stat block over. Written as a
+   *  jump rather than a step so it serves both the paid upgrade and the debug
+   *  tier setter, which can also walk a tower back down. visualRadius is derived
+   *  from the tier (18 at T1, +2 each) instead of nudged, so going down shrinks
+   *  the footprint again. */
+  private applyTier(tower: Tower, tier: number) {
+    const def = TOWERS[tower.type];
+    tower.level = Math.max(1, Math.min(def.tiers.length, Math.floor(tier)));
+    const t = def.tiers[tower.level - 1];
+    tower.name = t.name;
+    tower.damage = t.damage;
+    tower.range = t.range;
+    tower.cooldown = t.cooldown;
+    tower.color = t.color;
+    tower.special = t.special;
+    tower.minDamage = t.minDamage;
+    tower.maxDamage = t.maxDamage;
+    tower.visualRadius = 18 + 2 * (tower.level - 1);
+    tower.upgradeCost = upgradeCostFor(def.tiers[tower.level]?.upgradeCost ?? 0, tower.mageMode);
   }
 
   /** Marquee select: pick every tower whose centre falls inside the drag box, and
@@ -2757,6 +2766,31 @@ export class GameEngine {
   debugSetLives(n: number) {
     this.lives = Math.max(0, Math.min(this.maxLives, Math.floor(n) || 0));
     if (this.lives <= 0) this.endGame(); else if (this.gameOver) this.gameOver = false;
+    this.emit();
+  }
+
+  /** Set the selected tower's combat level outright. A tower normally only
+   *  climbs by dealing damage, so testing anything level-gated (a tier unlock,
+   *  a gear requirement, the per-level damage nudge) means farming waves for it.
+   *  The level lands on a clean threshold — XP into the level resets to 0 — and
+   *  the stat cache is invalidated so the new level applies on the next frame. */
+  debugSetTowerLevel(towerId: string, level: number) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower) return;
+    const key = styleSkillKey(TOWER_STYLES[tower.type].style);
+    tower.skills[key] = { level: Math.max(1, Math.min(MAX_TOWER_LEVEL, Math.floor(level) || 1)), xp: 0 };
+    this.bumpCombatEpoch();
+    this.emit();
+  }
+
+  /** Set the selected tower's tier outright — free, and in both directions, so a
+   *  tier's stats and sprite can be looked at without paying up the ladder or
+   *  rebuilding to come back down. Ignores the combat-level gate on purpose. */
+  debugSetTowerTier(towerId: string, tier: number) {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower) return;
+    this.applyTier(tower, tier);
+    this.bumpCombatEpoch();
     this.emit();
   }
 

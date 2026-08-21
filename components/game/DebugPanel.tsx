@@ -9,6 +9,8 @@ import { EnemyModelViewer } from './EnemyModelViewer';
 import type { EnemyType } from '@/lib/game/types';
 import { ALL_AFFIXES, AFFIX_DEFS, type EnemyAffix } from '@/lib/game/systems/affixes';
 import { SCHEDULABLE_BOSSES } from '@/lib/game/systems/boss-mechanics';
+import { styleSkillKey, MAX_TOWER_LEVEL } from '@/lib/game/systems/tower-xp';
+import { TOWER_STYLES } from '@/lib/game/data/towers';
 
 const CLIP_NAMES = ['walk', 'hurt', 'death', 'burrow', 'emerge'] as const;
 type ClipName = (typeof CLIP_NAMES)[number];
@@ -167,12 +169,16 @@ function AnimViewer({ set, clipName, size = 320 }: { set: EnemyAnimSet; clipName
   );
 }
 
-function NumberRow({ label, value, onCommit, min = 0 }: {
-  label: string; value: number; onCommit: (n: number) => void; min?: number;
+function NumberRow({ label, value, onCommit, min = 0, max }: {
+  label: string; value: number; onCommit: (n: number) => void; min?: number; max?: number;
 }) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => { setDraft(String(value)); }, [value]);
-  const commit = () => { const n = Number(draft); if (Number.isFinite(n)) onCommit(Math.max(min, Math.floor(n))); };
+  const commit = () => {
+    const n = Number(draft);
+    if (!Number.isFinite(n)) return;
+    onCommit(Math.min(max ?? Infinity, Math.max(min, Math.floor(n))));
+  };
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-[#cdbe91] text-[0.85em]">{label}</span>
@@ -181,6 +187,7 @@ function NumberRow({ label, value, onCommit, min = 0 }: {
           type="number"
           value={draft}
           min={min}
+          max={max}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
           className="w-[5.5em] bg-[#1a1712] border border-[#3a2f1d] rounded-[3px] px-[0.4em] py-[0.15em] text-osrs-yellow text-right text-[0.85em] outline-none focus:border-osrs-orange"
@@ -196,7 +203,7 @@ function NumberRow({ label, value, onCommit, min = 0 }: {
  *  plays each enemy's baked walk/hurt/death clips off-wave, with its stats). */
 export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   engineRef: React.RefObject<GameEngine | null>;
-  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; slayerPoints: number; autoplaySecs: number; biomeName: string };
+  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; slayerPoints: number; autoplaySecs: number; biomeName: string; selectedTowerId: string | null };
   onClose: () => void;
   globalLock: boolean;
 }) {
@@ -238,6 +245,13 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   // What the stat block calls this thing: an alternate model says so, a summoned
   // body is an add, and everything else is either a boss or ordinary trash.
   const kind = extra?.kind ?? (def?.isBoss ? 'Boss' : def?.summonedBy ? 'Boss add' : null);
+
+  // --- selected-tower cheats ---
+  // Read the tower live off the engine, the way GameRoot does: the panel re-renders
+  // on every emit, so the numbers below stay current without a UIState key of their own.
+  const selectedTower = ui.selectedTowerId
+    ? engineRef.current?.towers.find((t) => t.id === ui.selectedTowerId) ?? null
+    : null;
 
   return (
     <>
@@ -392,6 +406,36 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
 
           {cheatTab === 'tools' && (
           <>
+          <div className="rs-panel-inset p-[0.5em] space-y-[0.4em]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[0.72em] text-osrs-orange uppercase tracking-wide">Selected tower</span>
+              <span className="text-[0.74em] text-osrs-yellow truncate" title={selectedTower?.name}>
+                {selectedTower?.name ?? '—'}
+              </span>
+            </div>
+            {selectedTower ? (
+              <>
+                <NumberRow
+                  label="Combat level"
+                  value={selectedTower.skills[styleSkillKey(TOWER_STYLES[selectedTower.type].style)].level}
+                  min={1}
+                  max={MAX_TOWER_LEVEL}
+                  onCommit={(n) => engineRef.current?.debugSetTowerLevel(selectedTower.id, n)}
+                />
+                <NumberRow
+                  label="Tier"
+                  value={selectedTower.level}
+                  min={1}
+                  max={selectedTower.maxLevel}
+                  onCommit={(n) => engineRef.current?.debugSetTowerTier(selectedTower.id, n)}
+                />
+                <p className="text-[0.66em] text-[#b3a585]">Tier is free here, and goes back down.</p>
+              </>
+            ) : (
+              <p className="text-[0.66em] text-[#b3a585]">Click a tower on the map first.</p>
+            )}
+          </div>
+
           <div className="rs-panel-inset p-[0.5em] space-y-[0.4em]">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[0.72em] text-osrs-orange uppercase tracking-wide">Map</span>
