@@ -201,3 +201,23 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     Shape: `bossHeads: Record<string, boolean>` in localStorage beside killCounts and
     achievements; roll on boss death when the head is still missing; celebrate with the
     existing Collection Log unlock popup; sprites from the real slayer/boss heads.
+
+19. **F4 treasure trails** — enemies drop a clue scroll very rarely (≈1/200); reading it from
+    the inventory or the loot bag poses an OSRS-style riddle the player solves between waves
+    ("Dig where the Wizard first stood", "Search under the bridge at wave 15", "Bow at the
+    centre of the map") by clicking the right tile or playing an emote. Solve it for gold +
+    essence + a shot at a rare cosmetic; get it wrong and the scroll is simply gone — **no
+    punishment**. The hook the user wants: the clue reads the *current run* — where the first
+    tower went down, which boss fell first — so it feels like the scroll knows what happened.
+    This is the player's own ask **#30** arriving as a designed feature, so build the two
+    together rather than as rival backlog items.
+
+20. **F5 NPC walkbys** — pure flavour, **between waves only, never during one**: OSRS regulars
+    stroll along the road or across empty tiles and say something when clicked. Hans ("I've
+    been here for 20 years and I'm still not sure what this tower does."), Bob the axe seller,
+    the Lumbridge Guide — the one exception, who gives a contextual hint about the coming wave
+    or boss — and Party Pete, good for a short tune and a burst of confetti. Three or four
+    lines each, picked at random. No rewards otherwise; the point is a world that looks
+    inhabited. It shares its whole spine with **F1** (spawn on free tiles, a timer, a click
+    handler, a sprite from the cache), so the two should be one system with two moods:
+    F1 gives something, F5 just talks.
