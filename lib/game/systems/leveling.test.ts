@@ -6,9 +6,16 @@ describe('xp curves', () => {
     expect(playerXpForLevel(1)).toBe(100);
     expect(playerXpForLevel(5)).toBe(2500);
   });
-  it('tower curve is floor(level^1.8 * 80)', () => {
+  it('tower curve is floor(level^1.6 * 80)', () => {
     expect(towerXpForLevel(1)).toBe(80);
-    expect(towerXpForLevel(10)).toBe(Math.floor(Math.pow(10, 1.8) * 80));
+    expect(towerXpForLevel(10)).toBe(Math.floor(Math.pow(10, 1.6) * 80));
+  });
+  it('keeps the top of the gear ladder inside a run', () => {
+    // Level 40 gates the dragon dart, the amulet of torture and the blood fury; a
+    // run ends around wave 90. Above ~500k the climb outlives the run it belongs to.
+    let toForty = 0;
+    for (let l = 1; l < 40; l++) toForty += towerXpForLevel(l);
+    expect(toForty).toBeLessThan(500_000);
   });
 });
 

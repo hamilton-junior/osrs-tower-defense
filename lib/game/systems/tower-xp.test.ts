@@ -44,6 +44,17 @@ describe('supportXpFromDamage', () => {
   it('is always less than what the attacker itself earns', () => {
     expect(supportXpFromDamage(100)).toBeLessThan(xpFromHit(100, false));
   });
+  it('splits the share across the attackers the aura covers', () => {
+    // Unsplit, an aura over five attackers earned 20% of each — the full damage of
+    // all five, more than any single one of them, on a tower that never attacks.
+    const covered = 5;
+    const perHit = supportXpFromDamage(100, covered);
+    expect(perHit).toBe((100 * SUPPORT_XP_SHARE) / covered);
+    expect(perHit * covered).toBeLessThan(xpFromHit(100, false));
+  });
+  it('never divides by an empty aura', () => {
+    expect(supportXpFromDamage(100, 0)).toBe(supportXpFromDamage(100, 1));
+  });
   it('grants nothing for a zero/absorbed hit', () => {
     expect(supportXpFromDamage(0)).toBe(0);
     expect(supportXpFromDamage(-5)).toBe(0);

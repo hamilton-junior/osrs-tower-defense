@@ -825,13 +825,27 @@ export class GameEngine {
    *  The Utility wizard never attacks, so this is its only XP source — it levels
    *  by the damage its auras help nearby towers deal. */
   private grantSupportXp(source: Tower, dealt: number) {
-    const gain = supportXpFromDamage(dealt);
-    if (gain <= 0) return;
+    if (dealt <= 0) return;
     for (const t of this.towers) {
       if (t === source || t.type !== 'wizard' || t.mageMode !== 'utility') continue;
       if (distance(t.x, t.y, source.x, source.y) > t.range) continue;
-      this.addTowerXp(t, gain);
+      this.addTowerXp(t, supportXpFromDamage(dealt, this.supportCoverCount(t)));
     }
+  }
+
+  /** How many attackers a Utility wizard's aura covers — the divisor that keeps its
+   *  XP a share of the *group's* damage rather than a share of every member's (see
+   *  {@link supportXpFromDamage}). Other Utility wizards don't count: they never
+   *  attack, so they never feed it. Scanned inline rather than cached because it
+   *  only runs for a Utility tower that actually covered the hit, and boards carry
+   *  one or two of those at most. */
+  private supportCoverCount(support: Tower): number {
+    let n = 0;
+    for (const t of this.towers) {
+      if (t === support || (t.type === 'wizard' && t.mageMode === 'utility')) continue;
+      if (distance(support.x, support.y, t.x, t.y) <= support.range) n++;
+    }
+    return n;
   }
 
   /** The placement-synergy buff a tower is enjoying right now, for the renderer's
