@@ -34,7 +34,7 @@ export function SaveStat({ icon, title, value }: { icon: string; title: string; 
  *  card rolls + boss relics) — plus a Start button that locks the choice and kicks
  *  off wave 1. Mode can only change here, since the engine freezes it once a run
  *  begins. */
-export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, selectedTier, onSelect, onSelectTier, onStart, onContinue, onDiscard, onHelp }: {
+export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, selectedTier, onSelect, onSelectTier, onStart, onContinue, onDiscard, onHelp, onSaveCode }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back before mode select. */
   saved: RunSave | null;
@@ -54,6 +54,7 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
   onContinue: () => void;
   onDiscard: () => void;
   onHelp: () => void;
+  onSaveCode: () => void;
 }) {
   const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string }[] = [
     {
@@ -284,6 +285,12 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
         )}
         <button className="rs-btn w-full py-[0.4em] text-[0.85em] mt-[0.5em]" title="Open the how-to-play guide" onClick={onHelp}>
           ❓ How to Play
+        </button>
+        {/* Progress lives in this browser's localStorage and nowhere else, so the way
+            off this machine is a save code. Kept small and last: it is a chore, not a
+            step on the way into a run. */}
+        <button className="rs-btn w-full py-[0.3em] text-[0.72em] mt-[0.3em]" title="Export or import your progress as a save code" onClick={onSaveCode}>
+          💾 Save Code
         </button>
         {!compact && (
           <div className="text-center text-[0.7em] text-[#cdbe91] mt-[0.5em]">First time? Read <span className="text-osrs-orange">How to Play</span>. Then press <span className="text-osrs-orange">Start Wave</span> when you&apos;re ready.</div>

@@ -138,10 +138,14 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
     tier unlocks the next, with tougher enemies and a tighter economy. The reward is the
     record, not power.
 
-13. **P1** portable save (#31) — *queued, the user's own "important"* (2026-08-21). Progress
-    lives in localStorage only, so a cleared browser or a second machine loses everything.
-    No backend exists and none is planned, so the realistic build is an export/import save
-    string (the whole `SAVE_KEYS` set, versioned like `run-save.ts`) rather than a login.
+13. **P1** portable save (#31) — *shipped* (2026-08-23). A 💾 Save Code button on the start
+    screen exports the whole account — the eight meta keys **plus the run in progress** — as
+    one checksummed line (`OSRSTD1.<base64url>.<fnv1a>`), copyable or downloadable as a file;
+    import takes it back by paste or file. The maths is pure and tested
+    (`systems/account-save.ts`, versioned like `run-save.ts`); `components/game/save.ts` owns
+    the localStorage half. Import **replaces** rather than merges — merging lets one code be
+    redeemed twice — so it shows both accounts side by side and asks first. Still no backend
+    and none planned.
 
 14. **P2** pathing as a mechanic (#35) — *queued, design-first* (2026-08-21). Not the full
     Construction mode: the two parts the user wants are the player being able to **alter the

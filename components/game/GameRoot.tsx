@@ -22,6 +22,7 @@ import { weaknessTag, enemySpriteStyle } from './enemy-ui';
 import { StartScreen } from './start-screen';
 import { DpsView } from './dps-view';
 import { FeedbackModal } from './feedback-modal';
+import { SaveCodeModal } from './save-code';
 import { LEARN_STEPS, LearnAsYouGo, HowToPlay } from './tutorial';
 import { effectTag, DraftCardView } from './draft-cards';
 import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, towerListName, TOWER_COMBAT, towerSignature } from './tower-ui';
@@ -225,6 +226,9 @@ export default function GameRoot() {
   // In-game feedback launcher (opens NocoDB form links in a new tab). Only shown
   // when at least one form URL is configured in lib/game/feedback.ts.
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Export/import the whole account as a save code. Start screen only: it is how a
+  // player leaves this browser, not something to reach for mid-run.
+  const [saveCodeOpen, setSaveCodeOpen] = useState(false);
   // Learn-as-you-go coaching: instead of one long up-front tour, a single
   // contextual tip surfaces the first time each situation comes up (place a
   // tower, send the first wave, first boss / affix / event…). Each tip is
@@ -2922,12 +2926,14 @@ export default function GameRoot() {
           }}
           onDiscard={() => { clearRunSave(); setSavedRun(null); }}
           onHelp={() => setHelpOpen(true)}
+          onSaveCode={() => setSaveCodeOpen(true)}
         />
       )}
 
       {/* How-to-play reference guide — top layer so it reads over the start screen too */}
       {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} onResetTips={resetTips} />}
       {feedbackOpen && <FeedbackModal ui={ui} onClose={() => setFeedbackOpen(false)} />}
+      {saveCodeOpen && <SaveCodeModal onClose={() => setSaveCodeOpen(false)} />}
 
       {/* Learn-as-you-go: one contextual tip at a time, keyed to what's happening
           on-screen. Suppressed over the start screen, game-over, the guide and the

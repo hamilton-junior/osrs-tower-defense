@@ -1,26 +1,24 @@
 import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/run-save';
+import { EMPTY_DIFFICULTY, EMPTY_VICTORIES, buildAccountSave, type AccountSave, type DifficultyProgress, type Victories } from '@/lib/game/systems/account-save';
 
 /**
- * Everything the interface keeps in localStorage: the key names themselves and
- * the readers that turn each blob back into a value the UI can trust.
+ * Everything the interface keeps in localStorage: the key names themselves, the
+ * readers that turn each blob back into a value the UI can trust, and the two
+ * whole-account operations a save code needs ({@link readAccountSave} /
+ * {@link applyAccountSave}).
  *
  * Every reader is SSR-safe and tolerant of absent or corrupt data — a save
  * written by an older build must never take the game down, it just falls back to
- * the empty record. Moved out of GameRoot.tsx verbatim.
+ * the empty record.
  */
 
-export const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty', achievements: 'osrs_td_achievements' } as const;
+// The account record shapes themselves live in `systems/account-save.ts` (they are
+// what a save code carries) and are re-exported here so the interface keeps
+// importing them from the one storage address it always has.
+export { EMPTY_VICTORIES, EMPTY_DIFFICULTY };
+export type { Victories, DifficultyProgress };
 
-/** The champion's record — a non-monetary meta reward (no power, no gold), persisted
- *  like the rest of meta-progression. Total wins, best clear time, furthest Endless
- *  wave, and per-mode counts. */
-export type Victories = {
-  total: number;
-  fastestSeconds: number | null;
-  highestEndlessWave: number;
-  byMode: { classic: number; roguelite: number };
-};
-export const EMPTY_VICTORIES: Victories = { total: 0, fastestSeconds: null, highestEndlessWave: 0, byMode: { classic: 0, roguelite: 0 } };
+export const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty', achievements: 'osrs_td_achievements' } as const;
 
 export function loadVictories(): Victories {
   if (typeof window === 'undefined') return EMPTY_VICTORIES;
@@ -32,18 +30,6 @@ export function loadVictories(): Victories {
   } catch { /* ignore */ }
   return EMPTY_VICTORIES;
 }
-
-/** New Game+ progress — a non-monetary meta record kept separate from Victories
- *  so the already-validated Victories store is untouched. Highest tier cleared
- *  per mode (-1 = nothing cleared → only Normal selectable), plus best records. */
-export type DifficultyProgress = {
-  highestCleared: { classic: number; roguelite: number };
-  records: Record<string /* `${mode}:${tier}` */, { fastestSeconds: number | null; highestEndlessWave: number }>;
-};
-export const EMPTY_DIFFICULTY: DifficultyProgress = {
-  highestCleared: { classic: -1, roguelite: -1 },
-  records: {},
-};
 
 export function loadDifficulty(): DifficultyProgress {
   if (typeof window === 'undefined') return EMPTY_DIFFICULTY;
@@ -117,4 +103,51 @@ export function loadSave(): { essence: number; upgrades: unknown; killCounts: un
   try { cardCounts = JSON.parse(localStorage.getItem(SAVE_KEYS.cardCounts) ?? 'null'); } catch { /* ignore */ }
   try { bossesSeen = JSON.parse(localStorage.getItem(SAVE_KEYS.bossesSeen) ?? 'null'); } catch { /* ignore */ }
   return { essence, upgrades, killCounts, cardCounts, bossesSeen };
+}
+
+/**
+ * Gather every account key into one {@link AccountSave} — what an exported save code
+ * carries. The run in progress rides along (via {@link loadRunSave}, so a wave-1
+ * board with nothing on it is left behind rather than travelling as "progress").
+ */
+export function readAccountSave(): AccountSave {
+  const meta = loadSave();
+  return buildAccountSave({
+    savedAt: Date.now(),
+    essence: meta.essence,
+    upgrades: meta.upgrades,
+    killCounts: meta.killCounts,
+    cardCounts: meta.cardCounts,
+    bossesSeen: meta.bossesSeen,
+    victories: loadVictories(),
+    difficulty: loadDifficulty(),
+    achievements: loadAchievements(),
+    run: loadRunSave(),
+  });
+}
+
+/**
+ * Write an imported account over every key, replacing what was there. This is the
+ * destructive half of the feature and it is deliberately total: a half-applied
+ * account (new essence, old Collection Log) is a state no code path expects, so a
+ * save without a run **clears** the stored run rather than leaving the old one to be
+ * resumed under someone else's progress.
+ *
+ * The caller reloads afterwards. The engine reads meta once on mount, so writing the
+ * keys under a live engine would leave the interface showing the old account until
+ * something happened to re-emit it.
+ */
+export function applyAccountSave(save: AccountSave) {
+  try {
+    localStorage.setItem(SAVE_KEYS.essence, String(save.essence));
+    localStorage.setItem(SAVE_KEYS.upgrades, JSON.stringify(save.upgrades));
+    localStorage.setItem(SAVE_KEYS.killCounts, JSON.stringify(save.killCounts));
+    localStorage.setItem(SAVE_KEYS.cardCounts, JSON.stringify(save.cardCounts));
+    localStorage.setItem(SAVE_KEYS.bossesSeen, JSON.stringify(save.bossesSeen));
+    localStorage.setItem(SAVE_KEYS.victories, JSON.stringify(save.victories));
+    localStorage.setItem(SAVE_KEYS.difficulty, JSON.stringify(save.difficulty));
+    localStorage.setItem(SAVE_KEYS.achievements, JSON.stringify({ completed: save.achievements }));
+    if (save.run) localStorage.setItem(SAVE_KEYS.run, JSON.stringify(save.run));
+    else localStorage.removeItem(SAVE_KEYS.run);
+  } catch { /* quota / private mode — the reload below simply shows the old account */ }
 }
