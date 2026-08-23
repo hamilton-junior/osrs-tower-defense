@@ -125,7 +125,7 @@ export const TOWERS: Record<string, TowerDef> = {
     tiers: [
       { level: 1, name: 'Tanzanite Fang', damage: 8, cooldown: 2 * TICK * 1000, range: 5 * 25, color: '#2a6b5a', upgradeCost: 200, special: 'venom' },
       { level: 2, name: 'Toxic Blowpipe', damage: 16, cooldown: 2 * TICK * 1000, range: 5 * 25, color: '#008b8b', upgradeCost: 400, special: 'venom' },
-      { level: 3, name: 'Magic Fang', damage: 32, cooldown: 3 * TICK * 1000, range: 6 * 25, color: '#32cd32', upgradeCost: 800, special: 'venom' },
+      { level: 3, name: 'Magic Fang', damage: 32, cooldown: 2 * TICK * 1000, range: 6 * 25, color: '#32cd32', upgradeCost: 800, special: 'venom' },
       { level: 4, name: 'Trident of the Swamp', damage: 55, cooldown: 2 * TICK * 1000, range: 6 * 25, color: '#ff4500', upgradeCost: 1500, special: 'venom' }
     ]
   }

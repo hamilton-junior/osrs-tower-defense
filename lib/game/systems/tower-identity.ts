@@ -133,15 +133,29 @@ export function venomCap(wave: number, hitDamage: number): number {
   return Math.max(Math.floor(hitDamage * 0.6), Math.ceil(wave * venomWaveMult(wave)));
 }
 
+/** Reapplies it takes a venom stack to reach its cap. An enemy crosses a toxic
+ *  tower's range square in roughly five to six seconds, and the tower fires every
+ *  two ticks, so a single fang saturates its own venom over one full pass and a
+ *  second fang on the same stretch does it in half that — sustained fire pays,
+ *  without the ceiling being theoretical. */
+export const VENOM_RAMP_HITS = 5;
+
 /**
- * Venom ramp parameters derived from a single toxic hit's damage. Each reapply
- * adds `step` to the poison's damage-per-second up to `cap`, so sustained fire
- * makes the venom hurt more — the toxic tower's niche is a DoT that *climbs*,
- * unlike the wizard's flat burn/poison. The cap scales with the wave (see
- * `venomCap`) so late-game venom keeps its single-target edge over AoE poison.
- * `dur` keeps it ticking after the enemy leaves range (set-and-forget chip).
+ * Venom ramp parameters. Each reapply adds `step` to the poison's damage-per-second
+ * up to `cap`, so sustained fire makes the venom hurt more — the toxic tower's niche
+ * is a DoT that *climbs*, unlike the wizard's flat burn/poison. The cap scales with
+ * the wave (see `venomCap`) so late-game venom keeps its single-target edge over AoE
+ * poison. `dur` keeps it ticking after the enemy leaves range (set-and-forget chip).
+ *
+ * The step is a fraction of the CAP, not of the hit. Tying it to the hit (15% of it)
+ * meant the ramp climbed at the speed of the toxic tower's weakest stat: on wave 90
+ * the ceiling was ~150 dps and the step was 8, so the venom needed nineteen reapplies
+ * — about twenty-one seconds of unbroken fire on one enemy — to reach a ceiling
+ * nothing ever lived long enough to see. The niche was written in the code and
+ * unreachable in play; now the ramp always lands in {@link VENOM_RAMP_HITS}.
  */
 export function venomRamp(hitDamage: number, wave: number): { step: number; cap: number; dur: number } {
-  const step = Math.max(2, Math.floor(hitDamage * 0.15));
-  return { step, cap: Math.max(step, venomCap(wave, hitDamage)), dur: 4 };
+  const cap = venomCap(wave, hitDamage);
+  const step = Math.max(2, Math.ceil(cap / VENOM_RAMP_HITS));
+  return { step, cap: Math.max(step, cap), dur: 4 };
 }

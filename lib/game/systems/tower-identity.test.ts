@@ -8,6 +8,7 @@ import {
   towerMarkKind,
   venomRamp,
   venomCap,
+  VENOM_RAMP_HITS,
   venomWaveMult,
 } from './tower-identity';
 
@@ -104,14 +105,14 @@ describe('towerMarkKind', () => {
 describe('venomRamp', () => {
   it('ramps in steps up to a damage-scaled cap (tower floor dominates early)', () => {
     const { step, cap, dur } = venomRamp(40, 1);
-    expect(step).toBe(6); // floor(40*0.15)
     expect(cap).toBe(24); // floor(40*0.6) beats the wave-1 track
+    expect(step).toBe(5); // ceil(24/5)
     expect(dur).toBe(4);
     expect(cap).toBeGreaterThan(step);
   });
   it('keeps a floor so weak early hits still tick', () => {
     const { step, cap } = venomRamp(3, 1);
-    expect(step).toBe(2); // floor would be 0 → clamped to 2
+    expect(step).toBe(2); // ceil(2/5) would be 1 → clamped to 2
     expect(cap).toBe(2); // cap never below step
   });
   it('lets the wave-scaled track raise the cap late-game', () => {
@@ -119,6 +120,17 @@ describe('venomRamp', () => {
     const { cap } = venomRamp(40, 70);
     expect(cap).toBe(venomCap(70, 40));
     expect(cap).toBeGreaterThan(24);
+  });
+  it('always reaches the cap within VENOM_RAMP_HITS reapplies, at every wave', () => {
+    // The ramp used to be a fraction of the HIT, so on a late wave it needed ~19
+    // reapplies — a ceiling no enemy lived long enough to see. It is a fraction of
+    // the CAP now, so the climb takes the same handful of shots at wave 1 and 90.
+    for (const wave of [1, 10, 30, 50, 70, 90]) {
+      for (const hit of [8, 16, 32, 55]) {
+        const { step, cap } = venomRamp(hit, wave);
+        expect(step * VENOM_RAMP_HITS).toBeGreaterThanOrEqual(cap);
+      }
+    }
   });
 });
 
