@@ -3603,7 +3603,15 @@ export default function GameRoot() {
                       <img src={def.sprite} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
                       <span className="truncate">{def.name}</span>
                     </div>
-                    <p className="text-[0.76em] text-[#cdbe91] leading-snug mt-[0.35em] px-[0.1em]">{def.tip}</p>
+                    {/* The trap's signature, read exactly like a tower's: what it is
+                        good at, named, with the OSRS icon for that thing. */}
+                    <div className="mt-[0.35em] px-[0.1em]">
+                      <span className="flex items-center gap-[0.3em]">
+                        <img src={def.signature.icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                        <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{def.signature.label}</span>
+                      </span>
+                      <p className="text-[0.76em] text-[#cdbe91] leading-snug mt-[0.1em]">{def.tip}</p>
+                    </div>
                     <div className="space-y-[0.3em] mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
                       <Stat icon={ASSETS.misc.hunter_icon} label="Hunter level" value={String(def.level)} />
                       <Stat icon={ASSETS.misc.attack_icon} label="Charges" value={String(def.charges)} />
@@ -3672,22 +3680,24 @@ export default function GameRoot() {
               {/* Two jobs, two tabs. A tower is built *beside* the road; a trap is
                   laid *on* it. They share the dock rather than the bar, because the
                   bar's height is fixed and a seventh stone would have to come out of
-                  the board. */}
+                  the board. Each tab wears its skill's own OSRS icon — the
+                  Construction saw for the things you build, the Hunter paw for the
+                  things you lay — so the two stones read at a glance. */}
               <div className="flex items-stretch gap-[0.35em]">
                 <div className="shrink-0 flex flex-col justify-center gap-[0.2em]">
                   <button
                     onClick={() => { setBuildTab('towers'); engineRef.current?.selectTrapType(null); }}
                     title="Towers — built beside the road"
-                    className={`rs-tab text-[0.6em] px-[0.5em] py-[0.25em] ${buildTab === 'towers' ? 'rs-tab-on' : ''}`}
+                    className={`rs-tab flex items-center justify-center px-[0.45em] py-[0.35em] ${buildTab === 'towers' ? 'rs-tab-on' : ''}`}
                   >
-                    Towers
+                    <img src={ASSETS.misc.construction_icon} alt="Towers" className="w-[1.05em] h-[1.05em] object-contain" onError={hideBrokenImg} />
                   </button>
                   <button
                     onClick={() => { setBuildTab('traps'); engineRef.current?.selectTowerType(null); }}
                     title="Hunter traps — laid on the road itself, between waves"
-                    className={`rs-tab relative text-[0.6em] px-[0.5em] py-[0.25em] ${buildTab === 'traps' ? 'rs-tab-on' : ''}`}
+                    className={`rs-tab relative flex items-center justify-center px-[0.45em] py-[0.35em] ${buildTab === 'traps' ? 'rs-tab-on' : ''}`}
                   >
-                    Traps
+                    <img src={ASSETS.misc.hunter_icon} alt="Traps" className="w-[1.05em] h-[1.05em] object-contain" onError={hideBrokenImg} />
                     {ui.traps.length > 0 && <span className="rs-tab-badge">{ui.traps.length}</span>}
                   </button>
                 </div>
@@ -3746,19 +3756,17 @@ export default function GameRoot() {
                         </button>
                       );
                     })}
-                    {/* The sixth slot is the skill itself — the level beside the paw,
-                        the bar filling toward the next one, and the XP under it, because
-                        a bar with no number on it cannot tell you whether one more catch
+                    {/* The sixth slot is the skill itself: the paw, then the level
+                        sitting straight on top of the bar it fills, then the XP — a
+                        bar with no number on it cannot tell you whether one more catch
                         finishes the level. How many traps the level allows lives under
                         the row instead, beside the traps it is counting. */}
                     <div
                       className="rs-slot cursor-default flex flex-col items-center justify-center gap-[0.14em] px-[0.2em]"
                       title={`Hunter ${ui.hunterLevel} — ${ui.hunterXp}/${ui.hunterXpNeeded} XP to the next level. The skill levels every time a trap of yours goes off.`}
                     >
-                      <span className="flex items-center gap-[0.15em]">
-                        <img src={ASSETS.misc.hunter_icon} alt="Hunter" className="w-[0.95em] h-[0.95em] object-contain" onError={hideBrokenImg} />
-                        <span className="text-[0.62em] text-osrs-orange tabular-nums leading-none">{ui.hunterLevel}</span>
-                      </span>
+                      <img src={ASSETS.misc.hunter_icon} alt="Hunter" className="w-[0.85em] h-[0.85em] object-contain" onError={hideBrokenImg} />
+                      <span className="text-[0.62em] text-osrs-orange tabular-nums leading-none">{ui.hunterLevel}</span>
                       <div className="rs-progress w-full h-[0.24em]">
                         <div
                           className="rs-progress-fill"

@@ -91,6 +91,11 @@ const MISC_IDS = {
   skill_mining: 209, skill_woodcutting: 214, slayer_icon: 216, farming_icon: 217,
   // The Hunter paw print — the skill the road traps belong to.
   hunter_icon: 220,
+  // The Construction saw over a crate — OSRS's own symbol for a thing you build.
+  // It labels the Towers half of the build dock, opposite the Hunter paw.
+  // (Verified by eyeballing a --dump of 204..222: the skill block runs
+  // agility 204 … farming 217, then 220 hunter and 221 construction.)
+  construction_icon: 221,
   // OSRS "Stats" (Skills) tab icon — the coloured bar-chart glyph. Used for the
   // DPS-meter tab, since it's the game's own damage/stats symbol.
   stats_icon: 898,

@@ -404,6 +404,9 @@ export const ASSETS = {
     spade: itemIcon('spade'),
     // The Hunter paw print (cache sprite 220) — the skill the road traps belong to.
     hunter_icon: `${LOCAL}/misc/hunter_icon.png`,
+    // The Construction saw over a crate (cache sprite 221) — OSRS's own symbol for
+    // something you build, so it labels the Towers half of the build dock.
+    construction_icon: `${LOCAL}/misc/construction_icon.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
     // OSRS "Stats" (Skills) tab icon — the bar-chart glyph; used for the DPS tab.
     stats_icon: `${LOCAL}/misc/stats_icon.png`,

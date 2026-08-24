@@ -1,4 +1,4 @@
-import { itemIcon } from '../assets';
+import { ASSETS, itemIcon } from '../assets';
 
 /**
  * **Hunter traps** — the second half of "the road is a mechanic".
@@ -60,8 +60,13 @@ export interface HunterTrapDef {
   catchAt: number;
   /** Local bake — every asset in this game comes out of the OSRS cache. */
   sprite: string;
-  /** One short plain sentence: what this does. Icon-led, no numbers. */
+  /** One short plain sentence: what this does. No numbers — those are the stat
+   *  rows underneath it. */
   tip: string;
+  /** The trap's signature, the way every tower has one: a name for the thing it
+   *  is good at, and an OSRS icon for that thing — not for the trap, which has
+   *  its own sprite in the title beside it. */
+  signature: { label: string; icon: string };
 }
 
 export const HUNTER_TRAPS: HunterTrapDef[] = [
@@ -77,7 +82,8 @@ export const HUNTER_TRAPS: HunterTrapDef[] = [
     hold: 2.4,
     catchAt: 0,
     sprite: itemIcon('bird_snare'),
-    tip: '🪤 Holds whatever walks into it.',
+    tip: 'Holds whatever walks into it.',
+    signature: { label: 'Snare', icon: ASSETS.debuffs.stun },
   },
   {
     id: 'box_trap',
@@ -91,7 +97,8 @@ export const HUNTER_TRAPS: HunterTrapDef[] = [
     hold: 0,
     catchAt: 0.3,
     sprite: itemIcon('box_trap'),
-    tip: '📦 Takes a wounded enemy and pays for it.',
+    tip: 'Takes a wounded enemy and pays for it.',
+    signature: { label: 'Payday', icon: ASSETS.misc.coins_icon },
   },
   {
     id: 'chinchompa',
@@ -105,7 +112,8 @@ export const HUNTER_TRAPS: HunterTrapDef[] = [
     hold: 0,
     catchAt: 0,
     sprite: itemIcon('chinchompa'),
-    tip: '💥 Goes off under the pack that treads on it.',
+    tip: 'Goes off under the pack that treads on it.',
+    signature: { label: 'Chin Blast', icon: ASSETS.misc.multicombat_icon },
   },
   {
     id: 'red_chinchompa',
@@ -119,7 +127,8 @@ export const HUNTER_TRAPS: HunterTrapDef[] = [
     hold: 0,
     catchAt: 0,
     sprite: itemIcon('red_chinchompa'),
-    tip: '💥 The same bang, wider and harder.',
+    tip: 'The same bang, wider and harder.',
+    signature: { label: 'Bigger Blast', icon: ASSETS.misc.multicombat_icon },
   },
   {
     id: 'magic_box',
@@ -133,7 +142,8 @@ export const HUNTER_TRAPS: HunterTrapDef[] = [
     hold: 0,
     catchAt: 0.45,
     sprite: itemIcon('magic_box'),
-    tip: '✨ Takes a wounded enemy, three times over.',
+    tip: 'Takes a wounded enemy, three times over.',
+    signature: { label: 'Triple Catch', icon: ASSETS.misc.magic_icon },
   },
 ];
 
