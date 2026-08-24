@@ -25,6 +25,8 @@ import { FeedbackModal } from './feedback-modal';
 import { SaveCodeModal } from './save-code';
 import { LEARN_STEPS, LearnAsYouGo, HowToPlay } from './tutorial';
 import { effectTag, DraftCardView } from './draft-cards';
+import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '@/lib/game/data/hunter-traps';
+import { trapCost } from '@/lib/game/systems/hunter-traps';
 import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, towerListName, TOWER_COMBAT, towerSignature } from './tower-ui';
 import { GearHeader, GearStats, GearCompare, gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, type Victories, type DifficultyProgress } from './save';
@@ -97,6 +99,7 @@ const INITIAL: UIState = {
   lootBag: [],
   gearDrops: [], gearDropSeq: 0,
   diversions: [],
+  traps: [], selectedTrapId: null, hunterLevel: 1, hunterXp: 0, hunterXpNeeded: 10, maxTraps: 1,
 };
 
 /** How long a loot-drop toast stays in the corner. Matches the CSS animation in
@@ -159,6 +162,13 @@ export default function GameRoot() {
   const [duckPanel, setDuckPanel] = useState(false);
   const tabBodyRef = useRef<HTMLDivElement | null>(null);
   const [hoverShop, setHoverShop] = useState<TowerType | null>(null);
+  /** Which half of the build dock is showing. Towers are placed beside the road,
+   *  traps on it — two different jobs, so they get two tabs rather than one grid
+   *  the player has to scroll. */
+  const [buildTab, setBuildTab] = useState<'towers' | 'traps'>('towers');
+  const buildTabRef = useRef(buildTab);
+  buildTabRef.current = buildTab;
+  const [hoverTrap, setHoverTrap] = useState<HunterTrapId | null>(null);
   // Marquee drag-box multi-select (for batch tower upgrades). Start is kept in
   // client coords; the rendered box is in container pixels. `dragged` suppresses
   // the click that fires on mouse-up after a real drag.
@@ -711,10 +721,17 @@ export default function GameRoot() {
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser chords alone
 
-      // 1-6: the dock, left to right. Unaffordable/locked towers are the engine's
-      // call — it refuses the placement exactly as a click on the dock would.
-      const slot = TOWER_ORDER[Number(e.key) - 1];
-      if (slot) { eng.selectTowerType(slot); setSellConfirm(null); return; }
+      // 1-6: the dock, left to right — whichever tab the dock is showing, because
+      // the keys are the slots the player is looking at. Unaffordable or locked is
+      // the engine's call — it refuses exactly as a click on the slot would.
+      const n = Number(e.key) - 1;
+      if (buildTabRef.current === 'traps') {
+        const trap = HUNTER_TRAPS[n];
+        if (trap) { eng.selectTrapType(trap.id); setSellConfirm(null); return; }
+      } else {
+        const slot = TOWER_ORDER[n];
+        if (slot) { eng.selectTowerType(slot); setSellConfirm(null); return; }
+      }
 
       switch (e.key) {
         case 'Escape':
@@ -3574,6 +3591,35 @@ export default function GameRoot() {
             </div>
 
             <div className="relative shrink-0">
+              {hoverTrap && (() => {
+                const def = HUNTER_TRAP_BY_ID[hoverTrap];
+                const locked = ui.hunterLevel < def.level;
+                return (
+                  <div
+                    className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-2 w-[16em] z-30 pointer-events-none"
+                    style={{ fontSize: fs('clamp(13px, 0.85vw, 17px)') }}
+                  >
+                    <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
+                      <img src={def.sprite} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+                      <span className="truncate">{def.name}</span>
+                    </div>
+                    <p className="text-[0.76em] text-[#cdbe91] leading-snug mt-[0.35em] px-[0.1em]">{def.tip}</p>
+                    <div className="space-y-[0.3em] mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
+                      <Stat icon={ASSETS.misc.hunter_icon} label="Hunter level" value={String(def.level)} />
+                      <Stat icon={ASSETS.misc.attack_icon} label="Charges" value={String(def.charges)} />
+                      {def.kind === 'snare' && <Stat icon={ASSETS.debuffs.stun} label="Holds for" value={`${def.hold}s`} />}
+                      {def.kind === 'catch' && <Stat icon={ASSETS.misc.hp_icon} label="Takes under" value={`${Math.round(def.catchAt * 100)}% HP`} />}
+                      {def.kind === 'blast' && <Stat icon={ASSETS.misc.multicombat_icon} label="Blast" value={`${Math.round(def.radius / TILE_PX)} tiles`} />}
+                      <Stat icon={ASSETS.misc.coins_icon} label="Cost" value={`${fmt(trapCost(def, ui.wave))} gp`} />
+                    </div>
+                    <p className="text-[0.7em] text-[#b3a585] leading-snug mt-[0.4em] pt-[0.35em] px-[0.1em] border-t border-[var(--rs-keyline)]">
+                      {locked
+                        ? `Hunter ${def.level} unlocks this. The skill levels every time a trap of yours goes off.`
+                        : 'Laid on the road between waves, and picked back up with a click. Enemies walk over it \u2014 it never blocks the way.'}
+                    </p>
+                  </div>
+                );
+              })()}
               {hoverShop && (() => {
                 const t0 = TOWERS[hoverShop].tiers[0];
                 const combat = TOWER_COMBAT[hoverShop];
@@ -3623,8 +3669,30 @@ export default function GameRoot() {
                   </div>
                 );
               })()}
-              <div data-tut="dock" className="grid grid-cols-6 gap-[0.3em] w-[17.5em]">
-                {TOWER_ORDER.map((type, i) => {
+              {/* Two jobs, two tabs. A tower is built *beside* the road; a trap is
+                  laid *on* it. They share the dock rather than the bar, because the
+                  bar's height is fixed and a seventh stone would have to come out of
+                  the board. */}
+              <div className="flex items-stretch gap-[0.35em]">
+                <div className="shrink-0 flex flex-col justify-center gap-[0.2em]">
+                  <button
+                    onClick={() => { setBuildTab('towers'); engineRef.current?.selectTrapType(null); }}
+                    title="Towers — built beside the road"
+                    className={`rs-tab text-[0.6em] px-[0.5em] py-[0.25em] ${buildTab === 'towers' ? 'rs-tab-on' : ''}`}
+                  >
+                    Towers
+                  </button>
+                  <button
+                    onClick={() => { setBuildTab('traps'); engineRef.current?.selectTowerType(null); }}
+                    title="Hunter traps — laid on the road itself, between waves"
+                    className={`rs-tab relative text-[0.6em] px-[0.5em] py-[0.25em] ${buildTab === 'traps' ? 'rs-tab-on' : ''}`}
+                  >
+                    Traps
+                    {ui.traps.length > 0 && <span className="rs-tab-badge">{ui.traps.length}</span>}
+                  </button>
+                </div>
+                <div data-tut="dock" className="grid grid-cols-6 gap-[0.3em] w-[17.5em]">
+                {buildTab === 'towers' ? TOWER_ORDER.map((type, i) => {
                   const cost = ui.towerPrices[type];
                   const active = ui.selectedTowerType === type;
                   const afford = ui.money >= cost;
@@ -3647,8 +3715,57 @@ export default function GameRoot() {
                       <span className="rs-slot-cost" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{cost}</span>
                     </button>
                   );
-                })}
-              </div>{/* tower dock */}
+                }) : (
+                  <>
+                    {HUNTER_TRAPS.map((def, i) => {
+                      const locked = ui.hunterLevel < def.level;
+                      const cost = trapCost(def, ui.wave);
+                      const afford = ui.money >= cost;
+                      const active = ui.selectedTrapId === def.id;
+                      const full = ui.traps.length >= ui.maxTraps;
+                      return (
+                        <button
+                          key={def.id}
+                          onClick={() => engineRef.current?.selectTrapType(active ? null : def.id)}
+                          onMouseEnter={() => setHoverTrap(def.id)}
+                          onMouseLeave={() => setHoverTrap((h) => (h === def.id ? null : h))}
+                          disabled={ui.waveActive}
+                          className={`rs-slot ${active ? 'selected' : ''} ${locked || !afford || full ? 'rs-slot-unafford' : ''} disabled:opacity-40`}
+                        >
+                          <img src={def.sprite} alt={def.name} onError={hideBrokenImg} />
+                          <span className="rs-slot-key">{i + 1}</span>
+                          {/* A locked trap shows the level it wants rather than its price:
+                              the price is not what is stopping the player. */}
+                          <span
+                            className="rs-slot-cost"
+                            style={{ color: !locked && afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}
+                          >
+                            {locked ? `L${def.level}` : cost}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {/* The sixth slot is the skill itself — the level, the bar filling
+                        toward the next one, and how many traps that level lets you have
+                        out. Everything the other five slots are gated on, in one square. */}
+                    <div
+                      className="rs-slot cursor-default flex flex-col items-center justify-center gap-[0.1em]"
+                      title={`Hunter ${ui.hunterLevel} \u2014 ${ui.traps.length}/${ui.maxTraps} traps out. The skill levels every time one of yours goes off.`}
+                    >
+                      <img src={ASSETS.misc.hunter_icon} alt="Hunter" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                      <span className="text-[0.55em] text-osrs-orange tabular-nums leading-none">{ui.hunterLevel}</span>
+                      <div className="rs-progress w-[80%] h-[0.22em]">
+                        <div
+                          className="rs-progress-fill"
+                          style={{ width: `${Math.min(100, (ui.hunterXp / Math.max(1, ui.hunterXpNeeded)) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-[0.5em] text-[#cdbe91] tabular-nums leading-none">{ui.traps.length}/{ui.maxTraps}</span>
+                    </div>
+                  </>
+                )}
+                </div>{/* build dock */}
+              </div>
             </div>
 
             <div className="rs-bar-sep" />

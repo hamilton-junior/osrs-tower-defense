@@ -402,6 +402,8 @@ export const ASSETS = {
     compass: itemIcon('compass'),
     // The spade: the tool OSRS digs with, and the icon for bending the road.
     spade: itemIcon('spade'),
+    // The Hunter paw print (cache sprite 220) — the skill the road traps belong to.
+    hunter_icon: `${LOCAL}/misc/hunter_icon.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
     // OSRS "Stats" (Skills) tab icon — the bar-chart glyph; used for the DPS tab.
     stats_icon: `${LOCAL}/misc/stats_icon.png`,

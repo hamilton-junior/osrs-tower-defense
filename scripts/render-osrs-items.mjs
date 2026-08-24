@@ -314,6 +314,12 @@ const TARGETS = {
   bird_nest: { name: 'Bird nest' }, // the nest that drops between waves
   // ---- shaping the road ----
   spade: { name: 'Spade' }, // the icon for bending a stretch of road
+  // ---- Hunter traps laid on the road (systems/hunter-traps.ts) ----
+  bird_snare: { name: 'Bird snare' },
+  box_trap: { name: 'Box trap' },
+  magic_box: { name: 'Magic box' },
+  chinchompa: { name: 'Chinchompa' },
+  red_chinchompa: { name: 'Red chinchompa' },
 };
 
 // ------------------------------------------------------------------- helpers

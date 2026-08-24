@@ -47,7 +47,13 @@ import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES
 import { DIVERSION_BY_ID } from '../data/diversions';
 import { essenceMultiplier } from '../systems/meta-progression';
 import { diversionEssence, diversionGold, diversionLine, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, type Diversion } from '../systems/diversions';
+import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
+import {
+  hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
+  type HunterTrap,
+} from '../systems/hunter-traps';
 import { handleBossMechanics } from './sim/bosses';
+import { updateTraps } from './sim/traps';
 import { fireTowers, updateUtilityTowers, towerIdentity, moveProjectiles, tenacity } from './sim/combat';
 import { computeWaveConfigs, wavePreview, buildWaveEnemies, makeEnemy, spawn, moveEnemies, damageOverTime, updateEffects, addRing, checkWaveEnd, recordCombatTime } from './sim/waves';
 import type { UnlockItem, GameMode, StyleMods, RunModifiers, RunEffects, RelicEffects, UIState, Hitsplat, DebuffId, EnemyHoverInfo, DeathFx, Particle, RuneFx } from './engine-state';
@@ -306,6 +312,17 @@ export class GameEngine {
    *  Start Wave, so nothing here can ever block a build spot or a shot. */
   diversions: Diversion[] = [];
   private diversionSeq = 0;
+  /** Hunter traps lying on the road. Laid between waves, spent during one, gone
+   *  when their charges are — they never block passage, and nothing but the run's
+   *  own Hunter level limits how many may be out. */
+  traps: HunterTrap[] = [];
+  private trapSeq = 0;
+  /** The trap armed in the build panel, waiting for a click on the road. */
+  selectedTrapId: HunterTrapId | null = null;
+  /** The run's own Hunter skill. Starts at 1 like every skill, and levels by
+   *  catching things rather than by being bought. */
+  hunterLevel = 1;
+  hunterXp = 0;
 
   // --- composed subsystems ---
   readonly slayer = new SlayerSystem(this);
@@ -629,6 +646,18 @@ export class GameEngine {
         const def = DIVERSION_BY_ID[d.defId];
         return { id: d.id, defId: d.defId, mood: d.mood, name: def.name, icon: def.sprite, tip: def.tip };
       }),
+      traps: this.traps.map(t => {
+        const def = HUNTER_TRAP_BY_ID[t.defId];
+        return {
+          id: t.id, defId: t.defId, name: def.name, icon: def.sprite,
+          charges: t.charges, maxCharges: def.charges,
+        };
+      }),
+      selectedTrapId: this.selectedTrapId,
+      hunterLevel: this.hunterLevel,
+      hunterXp: Math.round(this.hunterXp),
+      hunterXpNeeded: hunterXpForLevel(this.hunterLevel),
+      maxTraps: maxActiveTraps(this.hunterLevel),
       killCounts: this.killCounts,
       achievements: [...this.achievements],
       cardCounts: this.cardCounts,
@@ -1037,6 +1066,8 @@ export class GameEngine {
       ...Object.fromEntries(
         Object.values(DIVERSION_BY_ID).map(d => [`diversion_${d.id}`, d.sprite]),
       ),
+      // Hunter traps lying on the road, keyed `trap_<id>` (baked item icons).
+      ...Object.fromEntries(HUNTER_TRAPS.map(t => [`trap_${t.id}`, t.sprite])),
     };
     for (const [key, url] of Object.entries(urls)) {
       const img = new Image();
@@ -1110,6 +1141,9 @@ export class GameEngine {
   roadShapeOptions(): RoadMove[] {
     if (this.waveActive || this.gameOver) return [];
     if (this.selectedTowerType || this.movingTowerId || this.movingGroupIds.length) return [];
+    // An armed trap is aimed at the road itself, where the handles live: while one
+    // is in hand the handles stand down rather than eat the click.
+    if (this.selectedTrapId) return [];
     if (this.pasting || this.queueArmed || this.placeQueue.length) return [];
     return roadMoveOptions(this.path, {
       grid: GRID,
@@ -1353,6 +1387,7 @@ export class GameEngine {
 
   selectTowerType(type: TowerType | null) {
     this.selectedTowerType = type;
+    if (type) this.selectedTrapId = null; // one thing in hand at a time
     this.selectedTowerId = null;
     this.movingTowerId = null;
     this.pendingPlacement = null;
@@ -1892,6 +1927,11 @@ export class GameEngine {
       this.placeTower(this.selectedTowerType, x, y, keepPlacing);
       return;
     }
+    // A trap in hand, and a trap already lying on the ground, both want the road —
+    // the same tiles the shaping handles sit on — so both are read before them.
+    if (this.selectedTrapId) { this.tryPlaceTrap(x, y); return; }
+    const laid = trapAtPoint(this.traps, x, y, GRID);
+    if (laid) { this.pickUpTrap(laid.id); return; }
     // The road's own handles get first refusal: they sit on the road and just off
     // it, where nothing else is clickable. A click they don't want falls straight
     // through to everything below.
@@ -2495,6 +2535,102 @@ export class GameEngine {
     this.emit();
   }
 
+  // -------------------------------------------------------------- hunter traps
+  // The other half of "the road is a mechanic": shaping it decides where things
+  // walk, a trap decides what happens on the tile they walk over. Traps are not
+  // towers — they lie ON the road, they never block passage, they hold a few
+  // charges and then they are gone, and how many may be out is a skill rather than
+  // a purse. The arithmetic is pure and lives in systems/hunter-traps; the firing
+  // is in sim/traps. What is left here is the buying, the laying and the picking up.
+  //
+  // Laying is a between-waves job on purpose, like shaping the road: a trap that
+  // could be dropped in front of a charging boss would turn the whole frame into
+  // an APM test, which is exactly what this game's board rules exist to avoid.
+
+  /** Arm a trap for the next click on the road, or `null` to put it away. */
+  selectTrapType(id: HunterTrapId | null) {
+    if (id && !trapUnlocked(id, this.hunterLevel)) {
+      this.notify(`Hunter ${HUNTER_TRAP_BY_ID[id].level} needed`, ASSETS.misc.hunter_icon);
+      return;
+    }
+    this.selectedTrapId = id;
+    if (id) {
+      // A trap in hand takes the board from everything else that wanted a click.
+      this.selectedTowerType = null;
+      this.selectedTowerId = null;
+      this.pendingPlacement = null;
+      this.inspectedEnemyId = null;
+      this.shapingLeg = null;
+      this.sound.play('click');
+    }
+    this.emit();
+  }
+
+  /** What that trap costs on this wave — the price climbs so late gold cannot
+   *  simply carpet the road. */
+  trapCostNow(id: HunterTrapId): number {
+    return trapCost(HUNTER_TRAP_BY_ID[id], this.wave);
+  }
+
+  /** How many traps may be out at once, and how many already are. */
+  get trapSlots(): number {
+    return maxActiveTraps(this.hunterLevel);
+  }
+
+  /**
+   * Lay the armed trap where the player clicked.
+   *
+   * Every refusal says why: a trap that silently fails to appear reads as a broken
+   * button, and the four reasons it can fail (wrong place, no slot, no gold, tile
+   * taken) are all things the player can act on.
+   */
+  tryPlaceTrap(x: number, y: number): boolean {
+    const id = this.selectedTrapId;
+    if (!id) return false;
+    const def = HUNTER_TRAP_BY_ID[id];
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return false; }
+    if (this.traps.length >= this.trapSlots) { this.notify('No trap slots left'); return false; }
+    const spot = snapTrapSpot(x, y, this.path, GRID);
+    if (!spot) { this.notify('Traps go on the road'); return false; }
+    if (!trapSpotFree(spot, this.traps, GRID)) { this.notify('Already a trap there'); return false; }
+    const price = trapCost(def, this.wave);
+    if (this.money < price) { this.notify('Not enough gold'); return false; }
+
+    this.money -= price;
+    this.traps.push({
+      id: `tr${++this.trapSeq}`,
+      defId: id,
+      x: spot.x,
+      y: spot.y,
+      charges: def.charges,
+      rearm: 0,
+    });
+    this.sound.play('sell'); // the coin-shuffle: gold left the purse
+    this.notify(`${def.name} set — ${price} gp`, def.sprite);
+    // The last slot's trap puts the rest away, so the next click is a normal one
+    // rather than a refusal.
+    if (this.traps.length >= this.trapSlots) this.selectedTrapId = null;
+    this.emit();
+    return true;
+  }
+
+  /**
+   * Pick a laid trap back up.
+   *
+   * No refund — the gold is spent the moment it is laid. What it gives back is the
+   * slot, which is the resource that actually matters: a player who fills every
+   * slot with traps facing the wrong way is never stuck with them.
+   */
+  pickUpTrap(id: string) {
+    if (this.waveActive) { this.notify('Only between waves'); return; }
+    const i = this.traps.findIndex(t => t.id === id);
+    if (i < 0) return;
+    const [gone] = this.traps.splice(i, 1);
+    this.sound.play('select');
+    this.notify(`${HUNTER_TRAP_BY_ID[gone.defId].name} picked up`);
+    this.emit();
+  }
+
   startWave() {
     if (this.waveActive || this.gameOver) return;
     if (this.pendingRelics) { this.notify('Choose a relic first'); return; }
@@ -2537,6 +2673,7 @@ export class GameEngine {
     recordCombatTime(this, dt);
     moveProjectiles(this, dt);
     handleBossMechanics(this, dt);
+    updateTraps(this, dt);
     updateEffects(this, dt);
     checkWaveEnd(this);
   }
@@ -2855,6 +2992,10 @@ export class GameEngine {
       won: this.won,
       runPhase: this.runPhase,
       victoryWave: this.victoryWave,
+      // Hunter is a per-run skill and the traps on the road were paid for out of
+      // this run's gold, so both travel with it.
+      hunter: { level: this.hunterLevel, xp: this.hunterXp },
+      traps: this.traps.map(t => ({ defId: t.defId, x: t.x, y: t.y, charges: t.charges })),
       slayer: this.slayer.snapshot(),
       prayer: { points: this.prayer.points, active: [...this.prayer.active] },
     };
@@ -2945,6 +3086,20 @@ export class GameEngine {
     this.bossWave = false;
     this.activeEvent = null;
     this.diversions = [];
+    this.selectedTrapId = null;
+    // Hunter and the traps on the road come back with the run that earned them;
+    // a save from before they existed resumes at level 1 with a clear road.
+    this.hunterLevel = save.hunter?.level ?? 1;
+    this.hunterXp = save.hunter?.xp ?? 0;
+    this.trapSeq = 0;
+    this.traps = (save.traps ?? []).map(t => ({
+      id: `tr${++this.trapSeq}`,
+      defId: t.defId,
+      x: t.x,
+      y: t.y,
+      charges: t.charges,
+      rearm: 0,
+    }));
     this.bumpCombatEpoch();
     this.sandboxWave = false;
     this.lastWaveSandbox = false;
@@ -3030,6 +3185,10 @@ export class GameEngine {
     this.bossWave = false;
     this.activeEvent = null;
     this.diversions = [];
+    this.traps = [];
+    this.selectedTrapId = null;
+    this.hunterLevel = 1;
+    this.hunterXp = 0;
     this.bumpCombatEpoch();
     this.sandboxWave = false;
     this.lastWaveSandbox = false;

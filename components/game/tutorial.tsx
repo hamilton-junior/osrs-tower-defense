@@ -93,6 +93,9 @@ export const LEARN_STEPS: LearnStep[] = [
   { id: 'road', target: 'map', icon: ASSETS.misc.spade, title: 'Bend the road',
     body: 'Click a grip on the road between waves to move that stretch one tile — a longer road is a longer walk under your towers.',
     when: (ui) => !ui.waveActive && ui.wave === 6 },
+  { id: 'traps', target: 'dock', icon: itemIcon('bird_snare'), title: 'Trap the road',
+    body: 'The Traps tab lays snares on the road itself. They never block it — enemies walk over them.',
+    when: (ui) => !ui.waveActive && ui.wave === 7 },
   { id: 'affix', icon: ASSETS.misc.defence_icon, title: 'Elite enemies',
     body: 'A glowing enemy breaks one rule — the aura colour says which. Vary your towers.',
     when: (ui) => ui.wave >= 5 && ui.waveActive },
@@ -224,6 +227,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.multicombat_icon, text: 'Nothing spawns until you press Start Wave. Between waves is free build time.' },
     { icon: itemIcon('collection_log'), text: 'Beat every boss — around wave 90 — to win the run, then carry on in Endless.' },
     { icon: ASSETS.misc.spade, text: 'Between waves you can pay to bend the road — click a grip on it, then an arrow.' },
+    { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
     { icon: ASSETS.misc.compass, text: 'Tips appear in-game the first time each new thing shows up.' },
   ] },
   { id: 'towers', label: 'Towers', icon: ASSETS.towers.archer[1], lines: [
@@ -248,7 +252,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.cards_icon, text: 'Roguelite: buy card rolls between waves and keep one. Bosses drop relics.' },
   ] },
   { id: 'keys', label: 'Keys', icon: ASSETS.misc.stats_icon, lines: [
-    { keys: ['1', '–', '6'], text: 'pick a tower' },
+    { keys: ['1', '–', '6'], text: 'pick from the dock — tower or trap' },
     { keys: ['Space'], text: 'start the wave' },
     { keys: ['U'], text: 'upgrade selection' },
     { keys: ['S'], text: 'sell selection' },

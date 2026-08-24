@@ -5,6 +5,7 @@ import { drawDangerZone, drawHoverRange, drawBuildOverlay, drawPlacementGhost } 
 import { drawTowers } from './render/towers';
 import { drawDeaths, drawEnemies } from './render/enemies';
 import { drawDiversions } from './render/diversions';
+import { drawTraps } from './render/hunter-traps';
 import { drawRoadShaping } from './render/road-shaping';
 import { drawProjectiles, drawParticles, drawFx, drawHitsplats } from './render/effects';
 import { drawVignette, drawBossBar, drawLowHealthWarning, drawLeakFlash } from './render/hud';
@@ -77,6 +78,7 @@ export class GameRenderer {
     drawTowers(this, ctx);
     drawRoadShaping(this, ctx); // road handles — between waves only, over the towers they must not hide behind
     drawDiversions(this, ctx); // the world between waves — always empty during a fight
+    drawTraps(this, ctx); // on the road, under the enemies — a trap is walked over, never into
     drawDeaths(this, ctx);
     drawSpawnPortal(this, ctx); // before enemies → they materialise out of its face
     drawEnemies(this, ctx);

@@ -1,6 +1,7 @@
 import type { Tower, Item, SlayerTask, PrayerType, EnemyType } from '../types';
 import type { GameMode, RunModifiers, RunEffects, RelicEffects } from '../core/engine';
 import { clampTier, type DifficultyTier } from './difficulty';
+import { HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import type { RunStats } from './combat-achievements';
 
 /**
@@ -93,6 +94,14 @@ export interface RunSave {
   won?: boolean;
   runPhase?: 'normal' | 'endless';
   victoryWave?: number;
+  /** The run's own Hunter skill: the level it reached and the XP banked toward the
+   *  next one. Optional like the fields above — RUN_SAVE_VERSION stays 3, and a save
+   *  written before traps existed resumes at Hunter 1, as a fresh run does. */
+  hunter?: { level: number; xp: number };
+  /** Traps still lying on the road when the run was put down. A between-waves
+   *  checkpoint saves them because they were paid for between waves: losing them on
+   *  a resume would quietly charge the player for nothing. */
+  traps?: { defId: HunterTrapId; x: number; y: number; charges: number }[];
   slayer: {
     task: SlayerTask | null;
     points: number;
@@ -224,6 +233,25 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     // pairing is what `continueEndless` and the Endless HP curve both assume.
     runPhase: raw.won === true && raw.runPhase === 'endless' ? 'endless' : 'normal',
     victoryWave: Math.max(0, Math.floor(num(raw.victoryWave, 0))),
+    hunter: isObj(raw.hunter)
+      ? {
+        level: Math.min(99, Math.max(1, Math.floor(num(raw.hunter.level, 1)))),
+        xp: Math.max(0, num(raw.hunter.xp, 0)),
+      }
+      : undefined,
+    // An unknown trap id is one this build no longer has — drop that trap rather
+    // than the save, exactly as a malformed road bend is dropped.
+    traps: Array.isArray(raw.traps)
+      ? raw.traps
+        .filter(isObj)
+        .filter((t) => typeof t.defId === 'string' && t.defId in HUNTER_TRAP_BY_ID)
+        .map((t) => ({
+          defId: t.defId as HunterTrapId,
+          x: num(t.x, 0),
+          y: num(t.y, 0),
+          charges: Math.max(1, Math.floor(num(t.charges, 1))),
+        }))
+      : [],
     slayer: {
       task: taskRaw && typeof taskRaw.type === 'string'
         ? {

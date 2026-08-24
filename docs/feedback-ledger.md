@@ -147,7 +147,7 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
     redeemed twice — so it shows both accounts side by side and asks first. Still no backend
     and none planned.
 
-14. **P2** pathing as a mechanic (#35) — *half shipped* (2026-08-23). Not the full
+14. **P2** pathing as a mechanic (#35) — **shipped** (2026-08-24). Not the full
     Construction mode: the two parts the user wants are the player being able to **alter the
     enemy path**, and **towers/traps placed on the road itself**.
     - **P2a road shaping — shipped.** Between waves every interior *leg* of the road (one
@@ -160,10 +160,26 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
       (120 gp first), so a road cannot be stretched forever — free-form mazing stays out.
       Pure and tested in `systems/road-shaping.ts` (+27 tests); the run save carries the
       bends as a replayable `{seg, dir}` list (`RUN_SAVE_VERSION` unchanged at 3).
-    - **P2b traps on the road — still queued.** Hunter traps (bird snare / box trap /
-      deadfall / net trap, chinchompa as the explosive) as a new entity class placed only on
-      road tiles, limited charges, never blocking passage. Validate the real OSRS Hunter
-      ladder before writing it.
+    - **P2b Hunter traps — shipped.** A new entity class, not a tower: laid *on* the road
+      between waves, drawn under the enemies so it is visibly walked over, and it never
+      blocks passage. Five traps, the real OSRS ladder at the real levels and catch XP —
+      bird snare (1, snare), box trap (27, takes a wounded enemy and pays extra for it),
+      chinchompa (53, blast) and red chinchompa (63, wider blast), magic box (71, three
+      catches). Deadfall and net trap are out: they are not items in OSRS, so there is no
+      cache icon and no bake behind them. Each holds a fixed number of charges and then it
+      is gone; the trap is picked back up with a click for a partial refund.
+      What limits the board is a **per-run Hunter level**, not gold: it levels every time a
+      trap of yours goes off (real per-catch XP against a run-length curve, ~23k for 71),
+      and OSRS's own table decides how many may be out at once — one, plus one at 20, 40,
+      60 and 80. Prices carry a +3%/wave surcharge so a wave-sixty board cannot be paved
+      with free chinchompas.
+      Pure and tested in `systems/hunter-traps.ts` (+38 tests); the table is
+      `data/hunter-traps.ts`, the per-frame half `core/sim/traps.ts`, the layer
+      `core/render/hunter-traps.ts`. The dock gained a **Towers | Traps** tab rather than a
+      seventh stone — the bottom bar's height is fixed — and its sixth trap slot is the
+      Hunter skill itself (level, XP bar, traps out). Keys 1–6 follow whichever tab is
+      showing. The run save carries the level and the laid traps
+      (`RUN_SAVE_VERSION` unchanged at 3).
 
 15. **V1** a victory-only currency + a permanent-unlock shop — *queued, design-first*
     (user's own idea, 2026-08-21). Winning a run should pay a currency that exists

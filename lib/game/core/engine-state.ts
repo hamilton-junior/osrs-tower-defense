@@ -8,6 +8,7 @@ import { DRAFT_POOL, type DraftCard } from '../systems/roguelite-draft';
 import { type EnemyAffix } from '../systems/affixes';
 import { MECHANIC_BOSSES } from '../systems/boss-mechanics';
 import { type DiversionId, type DiversionMood } from '../data/diversions';
+import { type HunterTrapId } from '../data/hunter-traps';
 
 /**
  * The engine's vocabulary: the board's fixed resolution, the shape of every
@@ -360,6 +361,17 @@ export interface UIState {
    *  is looking at their build panel still knows something turned up. Plain data:
    *  the engine keeps the real list, this is what the interface needs to draw it. */
   diversions: { id: string; defId: DiversionId; mood: DiversionMood; name: string; icon: string; tip: string }[];
+  /** Hunter traps lying on the road, flattened for drawing the slot row. The engine
+   *  keeps the real list (the renderer reads it live); this is what the panel needs. */
+  traps: { id: string; defId: HunterTrapId; name: string; icon: string; charges: number; maxCharges: number }[];
+  /** The trap armed in the build panel, waiting for a click on the road. */
+  selectedTrapId: HunterTrapId | null;
+  /** The run's own Hunter skill: what it has reached, how far into the next level
+   *  it is, what that level costs, and how many traps it allows out at once. */
+  hunterLevel: number;
+  hunterXp: number;
+  hunterXpNeeded: number;
+  maxTraps: number;
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 11);
