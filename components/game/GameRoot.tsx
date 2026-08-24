@@ -3691,6 +3691,7 @@ export default function GameRoot() {
                     {ui.traps.length > 0 && <span className="rs-tab-badge">{ui.traps.length}</span>}
                   </button>
                 </div>
+                <div className="flex flex-col justify-center">
                 <div data-tut="dock" className="grid grid-cols-6 gap-[0.3em] w-[17.5em]">
                 {buildTab === 'towers' ? TOWER_ORDER.map((type, i) => {
                   const cost = ui.towerPrices[type];
@@ -3745,26 +3746,40 @@ export default function GameRoot() {
                         </button>
                       );
                     })}
-                    {/* The sixth slot is the skill itself — the level, the bar filling
-                        toward the next one, and how many traps that level lets you have
-                        out. Everything the other five slots are gated on, in one square. */}
+                    {/* The sixth slot is the skill itself — the level beside the paw,
+                        the bar filling toward the next one, and the XP under it, because
+                        a bar with no number on it cannot tell you whether one more catch
+                        finishes the level. How many traps the level allows lives under
+                        the row instead, beside the traps it is counting. */}
                     <div
-                      className="rs-slot cursor-default flex flex-col items-center justify-center gap-[0.1em]"
-                      title={`Hunter ${ui.hunterLevel} \u2014 ${ui.traps.length}/${ui.maxTraps} traps out. The skill levels every time one of yours goes off.`}
+                      className="rs-slot cursor-default flex flex-col items-center justify-center gap-[0.14em] px-[0.2em]"
+                      title={`Hunter ${ui.hunterLevel} — ${ui.hunterXp}/${ui.hunterXpNeeded} XP to the next level. The skill levels every time a trap of yours goes off.`}
                     >
-                      <img src={ASSETS.misc.hunter_icon} alt="Hunter" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-                      <span className="text-[0.55em] text-osrs-orange tabular-nums leading-none">{ui.hunterLevel}</span>
-                      <div className="rs-progress w-[80%] h-[0.22em]">
+                      <span className="flex items-center gap-[0.15em]">
+                        <img src={ASSETS.misc.hunter_icon} alt="Hunter" className="w-[0.95em] h-[0.95em] object-contain" onError={hideBrokenImg} />
+                        <span className="text-[0.62em] text-osrs-orange tabular-nums leading-none">{ui.hunterLevel}</span>
+                      </span>
+                      <div className="rs-progress w-full h-[0.24em]">
                         <div
                           className="rs-progress-fill"
                           style={{ width: `${Math.min(100, (ui.hunterXp / Math.max(1, ui.hunterXpNeeded)) * 100)}%` }}
                         />
                       </div>
-                      <span className="text-[0.5em] text-[#cdbe91] tabular-nums leading-none">{ui.traps.length}/{ui.maxTraps}</span>
+                      <span className="text-[0.45em] text-[#cdbe91] tabular-nums leading-none">
+                        {ui.hunterLevel >= 99 ? 'MAX' : `${ui.hunterXp}/${ui.hunterXpNeeded}`}
+                      </span>
                     </div>
                   </>
                 )}
                 </div>{/* build dock */}
+                {buildTab === 'traps' && (
+                  /* Under the traps, not inside the Hunter slot: it counts what is on
+                     the board, and the board is what the row above is for. */
+                  <div className="text-center text-[0.55em] text-[#cdbe91] leading-none mt-[0.25em] tabular-nums">
+                    {ui.traps.length}/{ui.maxTraps} traps out
+                  </div>
+                )}
+                </div>
               </div>
             </div>
 

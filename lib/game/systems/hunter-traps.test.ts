@@ -20,10 +20,17 @@ import {
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID } from '../data/hunter-traps';
 
 const GRID = 32;
-/** A straight road down the middle, on tile centres. */
+/** A straight road across the middle. Its vertices sit on grid *lines*, the way
+ *  `buildPath` snaps them — so the walking line runs along a tile edge, never
+ *  through a tile centre. Traps have to land on that line. */
 const ROAD = [
-  { x: 0, y: 336 },
-  { x: 1440, y: 336 },
+  { x: 0, y: 320 },
+  { x: 1440, y: 320 },
+];
+/** The same road turned on its side, for the other axis. */
+const ROAD_DOWN = [
+  { x: 320, y: 0 },
+  { x: 320, y: 640 },
 ];
 
 /** Total XP to reach `level` from 1 — what a player actually has to earn. */
@@ -121,14 +128,14 @@ describe('what a trap costs', () => {
 });
 
 describe('placing one', () => {
-  it('snaps a click on the road to that tile', () => {
-    const spot = snapTrapSpot(500, 330, ROAD, GRID);
-    expect(spot).toEqual({ x: 496, y: 336 });
+  it('lands the trap on the road, not on the tile beside it', () => {
+    const spot = snapTrapSpot(500, 312, ROAD, GRID);
+    expect(spot).toEqual({ x: 496, y: 320 });
   });
 
-  it('accepts the whole width of the road tile, not just its centre-line', () => {
-    expect(snapTrapSpot(500, 320, ROAD, GRID)).not.toBeNull();
-    expect(snapTrapSpot(500, 350, ROAD, GRID)).not.toBeNull();
+  it('accepts the whole width of the road, not just its centre-line', () => {
+    expect(snapTrapSpot(500, 306, ROAD, GRID)).not.toBeNull();
+    expect(snapTrapSpot(500, 334, ROAD, GRID)).not.toBeNull();
   });
 
   it('refuses anywhere off the road — a trap is not a tower', () => {
@@ -136,17 +143,35 @@ describe('placing one', () => {
     expect(snapTrapSpot(500, 600, ROAD, GRID)).toBeNull();
   });
 
+  it('gives both sides of the road the same spot, so two cannot sit abreast', () => {
+    // The bug this replaced: clicks either side of the walking line snapped to the
+    // two different tile centres flanking it, so a stretch of road took two traps
+    // and neither was under the feet meant to spring it.
+    const above = snapTrapSpot(500, 308, ROAD, GRID)!;
+    const below = snapTrapSpot(500, 332, ROAD, GRID)!;
+    expect(above).toEqual(below);
+    expect(trapSpotFree(below, [above], GRID)).toBe(false);
+  });
+
+  it('snaps along a north-south leg too', () => {
+    expect(snapTrapSpot(312, 500, ROAD_DOWN, GRID)).toEqual({ x: 320, y: 496 });
+  });
+
+  it('never slides a trap off the end of the road', () => {
+    expect(snapTrapSpot(1450, 320, ROAD, GRID)).toEqual({ x: 1440, y: 320 });
+  });
+
   it('keeps one trap per tile', () => {
-    const spot = { x: 496, y: 336 };
+    const spot = { x: 496, y: 320 };
     expect(trapSpotFree(spot, [], GRID)).toBe(true);
-    expect(trapSpotFree(spot, [{ x: 496, y: 336 }], GRID)).toBe(false);
-    expect(trapSpotFree(spot, [{ x: 528, y: 336 }], GRID)).toBe(true);
+    expect(trapSpotFree(spot, [{ x: 496, y: 320 }], GRID)).toBe(false);
+    expect(trapSpotFree(spot, [{ x: 528, y: 320 }], GRID)).toBe(true);
   });
 
   it('is easy to pick back up', () => {
-    const traps = [{ x: 496, y: 336 }];
-    expect(trapAtPoint(traps, 500, 340, GRID)).toBe(traps[0]);
-    expect(trapAtPoint(traps, 560, 336, GRID)).toBeNull();
+    const traps = [{ x: 496, y: 320 }];
+    expect(trapAtPoint(traps, 500, 324, GRID)).toBe(traps[0]);
+    expect(trapAtPoint(traps, 560, 320, GRID)).toBeNull();
   });
 });
 

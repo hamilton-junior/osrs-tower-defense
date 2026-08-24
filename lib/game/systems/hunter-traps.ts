@@ -34,12 +34,13 @@ export const TRAP_TRIGGER_RADIUS = 16;
  *  three charges would spend all three on the same frame, on the same pack. */
 export const TRAP_REARM_SECONDS = 1.2;
 
-/** How far off a road segment's centre-line a trap may be dropped, in tiles.
- *  Beyond this the click was not aimed at the road. */
-export const TRAP_ROAD_TOLERANCE = 0.6;
+/** How far a *click* may be from a road segment's centre-line and still count as
+ *  aimed at the road, in tiles. The road is one tile wide, so half a tile is its
+ *  edge; the rest is slack for a hurried click. */
+export const TRAP_ROAD_TOLERANCE = 0.75;
 
-/** Two traps may not share a tile — otherwise a stack of five on one square would
- *  make every other tile of road pointless. */
+/** Two traps may not sit within a tile of each other — otherwise a stack of five on
+ *  one square would make every other stretch of road pointless. */
 export const TRAP_SPACING_TILES = 1;
 
 /** A trap on the board. The definition is looked up by `defId`; this is only what
@@ -101,28 +102,67 @@ export function trapCost(def: HunterTrapDef, wave: number): number {
 }
 
 /**
- * The tile a trap would land on for a click at `(x, y)`, or `null` if that click
- * was not on the road.
+ * Where a trap would land for a click at `(x, y)`, or `null` if that click was not
+ * on the road.
  *
- * Snapping to the tile centre first and *then* measuring to the road is what makes
- * the whole road clickable rather than just its centre-line: the tolerance is
- * measured from the tile the trap would actually occupy.
+ * **It snaps onto the road, not onto the tile grid.** The road's vertices sit on
+ * grid *lines* (see `buildPath`) so that tower ranges align with it — which means
+ * the walking line runs along a tile *edge*, and a tile centre is always half a tile
+ * off it. Snapping to tile centres therefore put every trap beside the road instead
+ * of on it: two would fit side by side across one stretch, neither of them under the
+ * feet that were supposed to spring it.
+ *
+ * So the click is projected onto the nearest segment, and only the coordinate that
+ * runs *along* that segment is snapped to the tile lattice. The trap ends up exactly
+ * on the line the enemies walk, one per tile of road, which is the only arrangement
+ * where "it goes off when something treads on it" is true.
  */
 export function snapTrapSpot(x: number, y: number, path: readonly Point[], grid: number): Point | null {
-  const sx = snapToTileCenter(x, grid);
-  const sy = snapToTileCenter(y, grid);
   let best = Infinity;
+  let seg = -1;
   for (let i = 0; i < path.length - 1; i++) {
-    best = Math.min(best, pointToSegmentDistance(sx, sy, path[i], path[i + 1]));
+    const d = pointToSegmentDistance(x, y, path[i], path[i + 1]);
+    if (d < best) { best = d; seg = i; }
     if (best === 0) break;
   }
-  return best <= TRAP_ROAD_TOLERANCE * grid ? { x: sx, y: sy } : null;
+  if (seg < 0 || best > TRAP_ROAD_TOLERANCE * grid) return null;
+
+  const a = path[seg];
+  const b = path[seg + 1];
+  // Every leg of the road is axis-aligned, by construction and after every bend the
+  // player buys. The diagonal branch is a guard, not a case: it drops the trap on
+  // the projection unsnapped rather than off the road.
+  if (a.y === b.y) {
+    const lo = Math.min(a.x, b.x);
+    const hi = Math.max(a.x, b.x);
+    return { x: clamp(snapToTileCenter(x, grid), lo, hi), y: a.y };
+  }
+  if (a.x === b.x) {
+    const lo = Math.min(a.y, b.y);
+    const hi = Math.max(a.y, b.y);
+    return { x: a.x, y: clamp(snapToTileCenter(y, grid), lo, hi) };
+  }
+  return projectOntoSegment(x, y, a, b);
 }
 
-/** Is that tile free of other traps? */
+/** Is that spot clear of the traps already down? Measured as a radius rather than a
+ *  box: traps now sit on the road's line, so what matters is the gap along it. */
 export function trapSpotFree(spot: Point, traps: readonly { x: number; y: number }[], grid: number): boolean {
   const min = TRAP_SPACING_TILES * grid;
-  return !traps.some(t => Math.abs(t.x - spot.x) < min && Math.abs(t.y - spot.y) < min);
+  return !traps.some(t => Math.hypot(t.x - spot.x, t.y - spot.y) < min);
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+function projectOntoSegment(x: number, y: number, a: Point, b: Point): Point {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return { x: a.x, y: a.y };
+  const t = clamp(((x - a.x) * dx + (y - a.y) * dy) / len2, 0, 1);
+  return { x: a.x + dx * t, y: a.y + dy * t };
 }
 
 /** The trap under a click, if any. Generous by half a tile — a trap is a small

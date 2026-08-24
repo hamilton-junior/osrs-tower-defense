@@ -1005,7 +1005,7 @@ export class GameEngine {
   escape() {
     if (this.pendingPlacement || this.movingTowerId || this.movingGroupIds.length
         || this.placeQueue.length || this.pasting || this.selectedTowerType
-        || this.shapingLeg !== null) {
+        || this.selectedTrapId || this.shapingLeg !== null) {
       this.cancelAction();
     } else {
       this.togglePause();
@@ -1503,6 +1503,7 @@ export class GameEngine {
     this.pendingPlacement = null;
     this.placeCursor = null; // the keyboard cursor goes with the cancelled placement
     this.shapingLeg = null; // a picked-up stretch of road is put back down too
+    this.selectedTrapId = null; // and a trap in hand is put back in the bag
     this.emit();
   }
 
