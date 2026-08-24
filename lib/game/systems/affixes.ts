@@ -179,6 +179,12 @@ function poolForWave(base: readonly EnemyAffix[], wave: number): EnemyAffix[] {
   return base.filter((a) => a !== 'regenerating' || wave >= REGEN_UNLOCK_WAVE);
 }
 
+/** The affixes a normal enemy could roll on `wave`. Public so the Lumbridge
+ *  Guide can warn about what is in the pool without spawning anything. */
+export function affixPoolForWave(wave: number): EnemyAffix[] {
+  return poolForWave(ALL_AFFIXES, wave);
+}
+
 /** Chance (0–1) that an enemy on `wave` rolls any affix at all. */
 export function eliteChanceForWave(wave: number): number {
   if (wave < AFFIX_UNLOCK_WAVE) return 0;

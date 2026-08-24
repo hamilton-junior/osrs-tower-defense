@@ -31,6 +31,7 @@ import { RELICS, type Relic, type RelicEffect } from '../systems/relics';
 import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
 import { rollArmoredStyle, rollProtectedStyle, ALL_AFFIXES, type EnemyAffix, type AffixRoll } from '../systems/affixes';
 import { rollWaveEvent, resolveEventMods, type WaveEvent } from '../systems/wave-events';
+import { waveHint as buildWaveHint } from '../systems/wave-preview';
 import type { VariantBag } from '../systems/model-variants';
 import { enemyLeakCost } from '../systems/leak-cost';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
@@ -2483,13 +2484,19 @@ export class GameEngine {
    *  you what you are about to walk into, so he gets the preview the player can
    *  otherwise only find by hovering Start Wave. */
   private waveHint(configs: WaveConfig[]): string | undefined {
-    const boss = configs.find(c => ENEMIES[c.type]?.isBoss);
-    if (boss) return `${ENEMIES[boss.type].name} comes down that road next. Be ready.`;
-    const biggest = configs.reduce<WaveConfig | null>(
-      (best, c) => (!best || c.count > best.count ? c : best), null,
+    return buildWaveHint(
+      configs.map(c => {
+        const def = ENEMIES[c.type];
+        return {
+          name: def?.name ?? 'trouble',
+          count: c.count,
+          isBoss: def?.isBoss,
+          weakness: def?.weakness,
+          styleWeakness: def?.styleWeakness,
+        };
+      }),
+      this.wave,
     );
-    if (!biggest) return undefined;
-    return `Mostly ${ENEMIES[biggest.type]?.name ?? 'trouble'} next wave.`;
   }
 
   /** The diversion under a click, if any. Generous radius — it is a small sprite on
