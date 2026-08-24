@@ -1,14 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import {
   DIVERSION_MOOD_PRIORITY,
+  DIVERSION_WALK_SPEED,
   diversionEssence,
   diversionGold,
   diversionLine,
+  offBoardPoint,
   pickDiversionDef,
   pickDiversionSpot,
   resolvePayload,
   rollDiversionMoods,
   rollNestPayload,
+  sendDiversionOff,
+  stepDiversion,
+  turnDiversion,
+  type Diversion,
 } from './diversions';
 import { DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, MAX_DIVERSIONS } from '../data/diversions';
 import { waveClearBonus } from './rewards';
@@ -184,6 +190,109 @@ describe('nests', () => {
     expect(resolvePayload('bird_nest', () => 0.9)).toBe('potion');
     expect(resolvePayload('genie', () => 0.9)).toBe('essence');
     expect(resolvePayload('hans', () => 0.9)).toBe('none');
+  });
+});
+
+describe('walking on and off', () => {
+  const W = 1440, H = 640;
+
+  /** One standing on its tile, ready to be sent somewhere. */
+  function standing(x: number, y: number): Diversion {
+    return {
+      id: 'dv1', defId: 'hans', mood: 'walkby',
+      x, y, homeX: x, homeY: y,
+      phase: 'here', exit: null, facing: 'front', facingLeft: false, line: 'hello',
+    };
+  }
+
+  it('comes in and goes out by the nearest edge, never the far one', () => {
+    expect(offBoardPoint(80, 320, W, H)).toEqual({ x: -40, y: 320 });
+    expect(offBoardPoint(1400, 320, W, H)).toEqual({ x: 1480, y: 320 });
+    expect(offBoardPoint(700, 80, W, H)).toEqual({ x: 700, y: -40 });
+    expect(offBoardPoint(700, 560, W, H)).toEqual({ x: 700, y: 680 });
+  });
+
+  it('walks to its tile and stops there', () => {
+    const d = standing(200, 320);
+    d.x = -40; d.phase = 'arriving';
+    // Far more than the walk needs: it must land exactly on the tile, not past it.
+    expect(stepDiversion(d, 10)).toBe(true);
+    expect(d.phase).toBe('here');
+    expect(d).toMatchObject({ x: 200, y: 320 });
+  });
+
+  it('covers its own speed in a second, and no more', () => {
+    const d = standing(600, 320);
+    d.x = 0; d.phase = 'arriving';
+    stepDiversion(d, 1);
+    expect(d.x).toBeCloseTo(DIVERSION_WALK_SPEED, 5);
+    expect(d.phase).toBe('arriving');
+  });
+
+  it('turns to face the way it is going', () => {
+    const d = standing(200, 320);
+    d.x = -40; d.phase = 'arriving';
+    stepDiversion(d, 0.1);
+    expect(d).toMatchObject({ facing: 'side', facingLeft: false });
+    sendDiversionOff(d, W, H);       // nearest edge from x≈-30 is the left one
+    stepDiversion(d, 0.1);
+    expect(d).toMatchObject({ facing: 'side', facingLeft: true });
+  });
+
+  it('shows its front walking down the board and its back walking up', () => {
+    const down = standing(700, 500);
+    down.y = -40; down.phase = 'arriving';
+    stepDiversion(down, 0.1);
+    expect(down.facing).toBe('front');
+
+    const up = standing(700, 100);
+    up.y = 680; up.phase = 'arriving';
+    stepDiversion(up, 0.1);
+    expect(up.facing).toBe('back');
+  });
+
+  it('turns to the player the moment it arrives, however it walked in', () => {
+    const d = standing(200, 320);
+    d.x = -40; d.phase = 'arriving';
+    stepDiversion(d, 0.1);
+    expect(d.facing).toBe('side');    // still crossing
+    stepDiversion(d, 10);             // lands on the tile
+    expect(d).toMatchObject({ phase: 'here', facing: 'front' });
+  });
+
+  it('picks the axis it is covering more of, so a diagonal does not flicker', () => {
+    const d = standing(0, 0);
+    turnDiversion(d, 10, 3);
+    expect(d.facing).toBe('side');
+    turnDiversion(d, 3, 10);
+    expect(d.facing).toBe('front');
+    // Noise at the end of a walk must not spin it on the spot.
+    d.facing = 'back';
+    turnDiversion(d, 0.2, -0.1);
+    expect(d.facing).toBe('back');
+  });
+
+  it('standing still costs it nothing and moves it nowhere', () => {
+    const d = standing(400, 300);
+    expect(stepDiversion(d, 5)).toBe(true);
+    expect(d).toMatchObject({ x: 400, y: 300, phase: 'here' });
+  });
+
+  it('is dropped only once it is off the board', () => {
+    const d = standing(80, 320);
+    sendDiversionOff(d, W, H);
+    expect(d.phase).toBe('leaving');
+    expect(stepDiversion(d, 0.5)).toBe(true);  // still on its way out
+    expect(stepDiversion(d, 10)).toBe(false);  // gone
+  });
+
+  it('will not be sent off twice — the first exit stands', () => {
+    const d = standing(80, 320);
+    sendDiversionOff(d, W, H);
+    const exit = d.exit;
+    d.x = 1400; // dragged across the board somehow
+    sendDiversionOff(d, W, H);
+    expect(d.exit).toBe(exit);
   });
 });
 

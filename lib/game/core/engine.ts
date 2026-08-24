@@ -46,7 +46,7 @@ import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
 import { DIVERSION_BY_ID } from '../data/diversions';
 import { essenceMultiplier } from '../systems/meta-progression';
-import { diversionEssence, diversionGold, diversionLine, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, type Diversion } from '../systems/diversions';
+import { diversionEssence, diversionGold, diversionLine, offBoardPoint, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sendDiversionOff, stepDiversion, turnDiversion, type Diversion } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import {
   HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
@@ -642,7 +642,9 @@ export class GameEngine {
       unlockSeq: this.unlockSeq,
       gearDrops: this.gearDrops,
       gearDropSeq: this.gearDropSeq,
-      diversions: this.diversions.map(d => {
+      // Only the ones still worth a click: someone already dealt with is walking
+      // off, and an infobox for them would be offering something already spent.
+      diversions: this.diversions.filter(d => d.phase !== 'leaving').map(d => {
         const def = DIVERSION_BY_ID[d.defId];
         return { id: d.id, defId: d.defId, mood: d.mood, name: def.name, icon: def.sprite, tip: def.tip };
       }),
@@ -1062,9 +1064,15 @@ export class GameEngine {
       // The prohibited sign stamped on a tower knocked offline (Brutus's trample).
       blocked: ASSETS.misc.blocked,
       // Distractions & Diversions: the cast that turns up between waves, keyed
-      // `diversion_<id>` (baked NPC models and one item icon).
+      // `diversion_<id>` (baked NPC models and one item icon), plus the back and
+      // side views a walker turns to — `diversion_<id>_back` / `_side`.
       ...Object.fromEntries(
-        Object.values(DIVERSION_BY_ID).map(d => [`diversion_${d.id}`, d.sprite]),
+        Object.values(DIVERSION_BY_ID).flatMap(d => [
+          [`diversion_${d.id}`, d.sprite],
+          ...(d.turned
+            ? [[`diversion_${d.id}_back`, d.turned.back], [`diversion_${d.id}_side`, d.turned.side]]
+            : []),
+        ]),
       ),
       // Hunter traps lying on the road, keyed `trap_<id>` (baked item icons).
       ...Object.fromEntries(HUNTER_TRAPS.map(t => [`trap_${t.id}`, t.sprite])),
@@ -2443,14 +2451,30 @@ export class GameEngine {
         GRID,
       );
       if (!spot) continue; // no room left on the board: the world stays away
-      this.diversions.push({
+      // Whoever can walk, walks: they come on from the nearest edge and cross to
+      // the tile they picked, so the board is somewhere people arrive at rather
+      // than a place things blink into. A nest and a plant were never walking
+      // anywhere, so those two simply appear where they are.
+      const walks = (def.arrival ?? 'walk') === 'walk';
+      const from = walks ? offBoardPoint(spot.x, spot.y, this.width, this.height) : spot;
+      const dv: Diversion = {
         id: `dv${++this.diversionSeq}`,
         defId: def.id,
         mood,
-        x: spot.x,
-        y: spot.y,
+        x: from.x,
+        y: from.y,
+        homeX: spot.x,
+        homeY: spot.y,
+        phase: walks ? 'arriving' : 'here',
+        exit: null,
+        facing: 'front',
+        facingLeft: false,
         line: diversionLine(def, Math.random, hint),
-      });
+      };
+      // Turned before the first frame, or a walker coming in from the left would
+      // spend that frame facing the player and then snap round.
+      if (walks) turnDiversion(dv, spot.x - from.x, spot.y - from.y);
+      this.diversions.push(dv);
     }
     if (this.diversions.length) this.sound.play('select');
   }
@@ -2471,7 +2495,19 @@ export class GameEngine {
   /** The diversion under a click, if any. Generous radius — it is a small sprite on
    *  empty ground, and nothing underneath it wanted the click. */
   diversionAt(x: number, y: number): Diversion | null {
-    return this.diversions.find(d => distance(d.x, d.y, x, y) <= 20) ?? null;
+    return this.diversions.find(
+      d => d.phase !== 'leaving' && distance(d.x, d.y, x, y) <= 20,
+    ) ?? null;
+  }
+
+  /** Walk everyone who is still going somewhere, and drop the ones who have got off
+   *  the board. Runs every frame: they only exist between waves, and a walk that
+   *  stopped while the player was reading a panel would look broken. */
+  private moveDiversions(dt: number) {
+    if (this.diversions.length === 0) return;
+    const before = this.diversions.length;
+    this.diversions = this.diversions.filter(d => stepDiversion(d, dt));
+    if (this.diversions.length !== before) this.emit();
   }
 
   /**
@@ -2485,18 +2521,31 @@ export class GameEngine {
    */
   private stepAsideDiversions() {
     if (this.diversions.length === 0) return;
-    this.diversions = this.diversions.filter(
-      d => !this.towers.some(t => distance(t.x, t.y, d.x, d.y) <= TOWER_RADIUS + 4),
-    );
+    for (const d of this.diversions) {
+      if (d.phase === 'leaving') continue;
+      // Measured against where they are headed, not where they are: someone still
+      // crossing the board would otherwise be sent home by every tower they pass.
+      const x = d.phase === 'arriving' ? d.homeX : d.x;
+      const y = d.phase === 'arriving' ? d.homeY : d.y;
+      if (this.towers.some(t => distance(t.x, t.y, x, y) <= TOWER_RADIUS + 4)) {
+        sendDiversionOff(d, this.width, this.height);
+      }
+    }
   }
 
-  /** Click one: pay out whatever it was holding, then it is gone. */
+  /** Click one: pay out whatever it was holding, then it sees itself out. */
   claimDiversion(id: string) {
-    const idx = this.diversions.findIndex(d => d.id === id);
-    if (idx < 0) return;
-    const found = this.diversions[idx];
+    const found = this.diversions.find(d => d.id === id && d.phase !== 'leaving');
+    if (!found) return;
     const def = DIVERSION_BY_ID[found.defId];
-    this.diversions.splice(idx, 1);
+    // Paid at the click, gone at its own pace: it stops being clickable now, and
+    // walks off the nearest edge on the frames after. A nest has nowhere to walk
+    // to, so opening one takes it off the board there and then.
+    if ((def.arrival ?? 'walk') === 'walk') {
+      sendDiversionOff(found, this.width, this.height);
+    } else {
+      this.diversions = this.diversions.filter(d => d.id !== id);
+    }
     // The nest is the one payload decided on opening rather than on landing — that
     // is the whole appeal of a nest.
     const payload = resolvePayload(found.defId, Math.random);
@@ -2675,6 +2724,7 @@ export class GameEngine {
     moveProjectiles(this, dt);
     handleBossMechanics(this, dt);
     updateTraps(this, dt);
+    this.moveDiversions(dt);
     updateEffects(this, dt);
     checkWaveEnd(this);
   }

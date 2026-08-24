@@ -1,5 +1,9 @@
 import { itemIcon, npcModel } from '../assets';
 
+/** The two extra yaws baked for a walker (`scripts/render-osrs-npcs.mjs`). The side
+ *  bake walks right; the renderer mirrors it for the other direction. */
+const turned = (slug: string) => ({ back: npcModel(`${slug}_back`), side: npcModel(`${slug}_side`) });
+
 /**
  * **Distractions & Diversions** — the world turning up between waves.
  *
@@ -33,9 +37,18 @@ export interface DiversionDef {
   mood: DiversionMood;
   /** Shown on the board and in the corner infobox. */
   name: string;
-  /** Local bake — every asset in this game comes out of the OSRS cache. */
+  /** Local bake — every asset in this game comes out of the OSRS cache. This one
+   *  is the front view: what the infobox shows, and what it looks like standing
+   *  on its tile facing the player. */
   sprite: string;
+  /** The same model from behind and in profile, so it can face the way it walks.
+   *  Absent on anything that never walks anywhere. */
+  turned?: { back: string; side: string };
   payload: DiversionPayload;
+  /** How it turns up, and how it goes away. Everyone walks on from the nearest edge
+   *  and walks back off it — the default — except the things that were never
+   *  walking anywhere: a nest falls out of a tree, a plant grows where it stands. */
+  arrival?: 'walk' | 'appear';
   /** One short plain sentence: what this is worth. Icon-led, no numbers. */
   tip: string;
   /** What it says. Walkbys pick one at spawn; the rest say theirs on payout. */
@@ -55,6 +68,7 @@ export const DIVERSIONS: DiversionDef[] = [
     mood: 'walkby',
     name: 'Hans',
     sprite: npcModel('hans'),
+    turned: turned('hans'),
     payload: 'none',
     tip: '💬 Just passing through.',
     lines: [
@@ -69,6 +83,7 @@ export const DIVERSIONS: DiversionDef[] = [
     mood: 'walkby',
     name: 'Bob',
     sprite: npcModel('bob'),
+    turned: turned('bob'),
     payload: 'none',
     tip: '💬 Just passing through.',
     lines: [
@@ -83,6 +98,7 @@ export const DIVERSIONS: DiversionDef[] = [
     mood: 'walkby',
     name: 'Lumbridge Guide',
     sprite: npcModel('lumbridge_guide'),
+    turned: turned('lumbridge_guide'),
     payload: 'none',
     tip: '💬 He has a read on the next wave.',
     lines: [
@@ -97,6 +113,7 @@ export const DIVERSIONS: DiversionDef[] = [
     mood: 'walkby',
     name: 'Party Pete',
     sprite: npcModel('party_pete'),
+    turned: turned('party_pete'),
     payload: 'none',
     tip: '💬 Just passing through.',
     lines: [
@@ -111,6 +128,7 @@ export const DIVERSIONS: DiversionDef[] = [
     mood: 'event',
     name: 'Drunken Dwarf',
     sprite: npcModel('drunken_dwarf'),
+    turned: turned('drunken_dwarf'),
     payload: 'life',
     tip: '🍢 Click for a kebab.',
     lines: [
@@ -123,6 +141,7 @@ export const DIVERSIONS: DiversionDef[] = [
     mood: 'event',
     name: 'Genie',
     sprite: npcModel('genie'),
+    turned: turned('genie'),
     payload: 'essence',
     tip: '🪔 Click for a lamp.',
     lines: [
@@ -136,6 +155,7 @@ export const DIVERSIONS: DiversionDef[] = [
     name: 'Strange Plant',
     sprite: npcModel('strange_plant'),
     payload: 'potion',
+    arrival: 'appear',
     tip: '🌱 Click for a free potion.',
     lines: [
       'The plant bears one fruit, and it is definitely a potion.',
@@ -147,6 +167,7 @@ export const DIVERSIONS: DiversionDef[] = [
     mood: 'event',
     name: 'Rick Turpentine',
     sprite: npcModel('rick_turpentine'),
+    turned: turned('rick_turpentine'),
     payload: 'gold',
     tip: '👊 Click to send him packing.',
     lines: [
@@ -160,6 +181,7 @@ export const DIVERSIONS: DiversionDef[] = [
     name: 'Bird nest',
     sprite: itemIcon('bird_nest'),
     payload: 'surprise',
+    arrival: 'appear',
     tip: "🪺 Click to see what's inside.",
     lines: ['Something falls out of the tree with a soft pop.'],
   },

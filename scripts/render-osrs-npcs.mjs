@@ -93,6 +93,26 @@ const TARGETS = {
   strange_plant: { npc: 323 },
   rick_turpentine: { npc: 375 },
 
+  // Turned round, so a walker can face the way it is going: the default render
+  // above is the front (a ¾ view, which is what the infobox icon wants too),
+  // `_side` is the same model walking to the right, and `_back` is its back. The
+  // renderer mirrors `_side` for anyone walking the other way, so three bakes
+  // cover all four directions. Strange Plant and the nest never walk anywhere.
+  hans_side: { npc: 3105, yaw: 270 },
+  hans_back: { npc: 3105, yaw: 180 },
+  bob_side: { npc: 4221, yaw: 270 },
+  bob_back: { npc: 4221, yaw: 180 },
+  lumbridge_guide_side: { npc: 306, yaw: 270 },
+  lumbridge_guide_back: { npc: 306, yaw: 180 },
+  party_pete_side: { npc: 5792, yaw: 270 },
+  party_pete_back: { npc: 5792, yaw: 180 },
+  drunken_dwarf_side: { npc: 322, yaw: 270 },
+  drunken_dwarf_back: { npc: 322, yaw: 180 },
+  genie_side: { npc: 326, yaw: 270 },
+  genie_back: { npc: 326, yaw: 180 },
+  rick_turpentine_side: { npc: 375, yaw: 270 },
+  rick_turpentine_back: { npc: 375, yaw: 180 },
+
   // --- Misc NPC-model icons ---
   giant_snail: { npc: 5628 },            // "slow" debuff icon
   kalphite_larva: { npc: 966 },          // Swarm affix / wave-event icon
