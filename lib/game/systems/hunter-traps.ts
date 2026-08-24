@@ -192,6 +192,12 @@ export function trapTriggeredBy(
  * it never takes a boss. Without the wound threshold a 150 gp box would delete a
  * full-health wave-eighty enemy, which is not a trap — that is a delete button.
  */
+/** How much likelier a caught creature is to leave gear behind than a killed one.
+ *  Taking something alive is the whole point of a box trap, and only a wounded,
+ *  non-boss enemy can be taken — so this doubles two thin lines (2% ammo, 1%
+ *  jewellery) and never touches a boss's signature drop. */
+export const CATCH_DROP_LUCK = 2;
+
 export function canCatch(
   def: HunterTrapDef,
   enemy: { hp: number; maxHp: number; isBoss?: boolean },

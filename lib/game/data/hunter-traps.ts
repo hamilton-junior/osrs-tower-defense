@@ -97,7 +97,7 @@ export const HUNTER_TRAPS: HunterTrapDef[] = [
     hold: 0,
     catchAt: 0.3,
     sprite: itemIcon('box_trap'),
-    tip: 'Takes a wounded enemy and pays for it.',
+    tip: 'Takes a wounded enemy, and loots it better than a kill.',
     signature: { label: 'Payday', icon: ASSETS.misc.coins_icon },
   },
   {

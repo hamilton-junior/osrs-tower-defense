@@ -5,6 +5,7 @@ import { TOWER_STYLES } from '../../data/towers';
 import { ELEMENTS } from '../../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../../systems/affixes';
 import { ZULRAH_PHASES, hydraPhase, HYDRA_VENT_SECS, moleIsHidden, MOLE_UNDER_SECS, bossPhaseClip, phaseResistedStyles } from '../../systems/boss-mechanics';
+import type { DeathFx } from '../engine-state';
 import type { GameRenderer } from '../renderer';
 import { GUARDIAN_LINK_COLOR, SOUL_COLORS, PORTAL_MASK_R } from './shared';
 
@@ -60,6 +61,7 @@ export function drawFlashTint(gr: GameRenderer,
 export function drawDeaths(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   for (const d of gr.e.deaths) {
     const t = Math.max(0, d.life / d.maxLife); // 1 → 0
+    if (d.caughtBy) { drawCatch(gr, ctx, d, t); continue; }
     // `animType` override (a Jad healer dies as `yt_hurkot`), same as drawEnemies.
     const deathSlug = d.animType && ENEMY_ANIMS[d.animType] ? d.animType : d.type;
     const deathClip = ENEMY_ANIMS[deathSlug]?.clips.death;
@@ -92,6 +94,56 @@ export function drawDeaths(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     ctx.drawImage(img, -size / 2, -size / 2, size, size);
     ctx.restore();
   }
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * A creature going into a trap rather than falling over: the body slides to the
+ * trap, shrinking and spinning as it goes, and a bright ring snaps shut behind it.
+ * Deliberately unlike a death — nothing collapses, because nothing was killed
+ * where it stood, and the player needs to see at a glance which of the two the
+ * road just did.
+ */
+function drawCatch(
+  gr: GameRenderer,
+  ctx: CanvasRenderingContext2D,
+  d: DeathFx,
+  t: number,
+) {
+  const trap = d.caughtBy!;
+  const k = 1 - t; // 0 → 1 over the fx's life
+  // Ease-in: it hangs for an instant, then is snatched.
+  const e = k * k;
+  const x = d.x + (trap.x - d.x) * e;
+  const y = d.y + (trap.y - d.y) * e;
+  const slug = d.animType && ENEMY_ANIMS[d.animType] ? d.animType : d.type;
+  const animKey = ENEMY_ANIMS[slug]?.clips.walk ? `enemyanim_${slug}_walk` : '';
+  const base = (d.isBoss ? 60 : 30) * (d.renderScale ?? 1);
+  const scale = 1 - 0.85 * e; // down to a scrap by the time it arrives
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, (1 - e) * 1.4);
+  ctx.translate(x, y);
+  ctx.rotate(e * Math.PI * 1.2); // tumbling in
+  if (d.movingLeft) ctx.scale(-1, 1);
+  if (animKey && gr.e.imageOk(animKey)) {
+    const set = ENEMY_ANIMS[slug]!;
+    const ds = base * 1.32 * scale;
+    // Frame 0 of the walk: a shape being carried off, not a body mid-collapse.
+    ctx.drawImage(gr.e.images.get(animKey)!, 0, 0, set.frameW, set.frameH, -ds / 2, -ds / 2, ds, ds);
+  } else if (gr.e.imageOk(d.type)) {
+    const ds = base * scale;
+    ctx.drawImage(gr.e.images.get(d.type)!, -ds / 2, -ds / 2, ds, ds);
+  }
+  ctx.restore();
+  // The trap closing: a ring that shrinks onto it as the body lands.
+  ctx.save();
+  ctx.globalAlpha = e * 0.85;
+  ctx.strokeStyle = '#ffd45e';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(trap.x, trap.y, 22 * (1 - e) + 5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
   ctx.globalAlpha = 1;
 }
 

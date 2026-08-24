@@ -84,8 +84,14 @@ function fire(eng: GameEngine, trap: HunterTrap, def: HunterTrapDef, e: Enemy): 
     case 'catch': {
       if (!canCatch(def, e)) return false;
       const bonus = catchBonusGold(def, eng.killGoldPreReward(e.type));
-      // Straight through the kill path: everything a kill pays, a catch pays too.
+      // Straight through the kill path: everything a kill pays, a catch pays too
+      // — and this flag, read on the way through, makes it pay a little better
+      // and sends the body into the trap instead of leaving it on the road.
+      e.caughtBy = { x: trap.x, y: trap.y };
       damage(eng, e, e.hp, 'hit', false, true, 0, undefined, { tag: 'direct' });
+      // The death fx has copied it by now; anything a shield left standing is an
+      // ordinary enemy again on the next frame.
+      delete e.caughtBy;
       if (bonus > 0 && !e.debug && !e.escort) eng.awardGold(bonus);
       addRing(eng, trap.x, trap.y, 4, 26, '#ffd45e', 0.4, 3);
       eng.sound.play('sell', 55);

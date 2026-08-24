@@ -213,6 +213,10 @@ export interface Enemy extends EnemyDef {
    *  effect on the run — no gold/essence/Slayer points, no life lost, no wave
    *  advance. Purely for testing enemies/towers. */
   debug?: boolean;
+  /** Set for the single frame a Hunter catch-trap takes this enemy: where the
+   *  trap is. It makes the kill pay a catch's better drop roll and sends the
+   *  body into the trap instead of collapsing where it stood. */
+  caughtBy?: { x: number; y: number };
 }
 
 /** Duration (s) of the portal materialise (fade-in + grow) on a fresh spawn. */

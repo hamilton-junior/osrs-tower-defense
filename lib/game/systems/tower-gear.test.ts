@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { TOWER_AMMO_CLASS, towerAmmoClassFor, canEquip, rollGearDrops, gearDamageMult, isUpgradeFor, isUpgradeForAny } from './tower-gear';
 import { GEAR } from '../data/gear';
+import { CATCH_DROP_LUCK } from './hunter-traps';
 import type { Tower, TowerSkill, Enemy, TowerType } from '../types';
 
 const skill = (level: number): TowerSkill => ({ level, xp: 0 });
@@ -99,6 +100,17 @@ describe('rollGearDrops', () => {
     expect(boss.some(g => g.rarity === 'signature')).toBe(true);
     const notBoss = rollGearDrops({ wave: 60, isBoss: false }, () => 0.0);
     expect(notBoss.some(g => g.rarity === 'signature')).toBe(false);
+  });
+  it('luck widens the gates — a roll that missed at 1x lands at 2x', () => {
+    // 0.03 is past the 2% ammo gate and short of doubling it.
+    const rng = () => 0.03;
+    expect(rollGearDrops({ wave: 30, isBoss: false }, rng)).toEqual([]);
+    const lucky = rollGearDrops({ wave: 30, isBoss: false, luck: CATCH_DROP_LUCK }, rng);
+    expect(lucky.some(g => g.type === 'ammo')).toBe(true);
+  });
+  it('luck cannot hand out the same piece twice — it is one roll, not two', () => {
+    const drops = rollGearDrops({ wave: 60, isBoss: false, luck: 10 }, () => 0);
+    expect(new Set(drops.map(g => g.id)).size).toBe(drops.length);
   });
   it('never drops common gear whose levelReq exceeds the wave cap', () => {
     const drops = rollGearDrops({ wave: 1, isBoss: false }, () => 0.0);

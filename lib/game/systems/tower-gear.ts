@@ -68,6 +68,9 @@ export function isUpgradeForAny(towers: readonly (Pick<Tower, 'type' | 'skills' 
 export interface GearDropContext {
   wave: number;
   isBoss: boolean;
+  /** Multiplier on every drop chance below (1 = the ordinary rate). A Hunter
+   *  catch is worth more than a kill, so it rolls with this above 1. */
+  luck?: number;
 }
 
 /** The highest common `levelReq` allowed to drop at this wave: the gear ladder
@@ -86,26 +89,29 @@ const SIGNATURES: readonly Item[] = GEAR_POOL.filter(g => g.rarity === 'signatur
  * Roll gear drops for one kill (Classic only — the engine gates the call).
  * Consumes `rng` in a fixed order: common-ammo gate+pick, jewellery gate+pick,
  * then a boss-only signature gate+pick. Common ammo is capped by wave so a
- * top-tier piece can't fall on wave 1. Returns the pieces that landed.
+ * top-tier piece can't fall on wave 1. `ctx.luck` scales every gate, so a better
+ * roll is one number rather than a second pass — which also means it can never
+ * hand out the same piece twice. Returns the pieces that landed.
  */
 export function rollGearDrops(ctx: GearDropContext, rng: () => number = Math.random): Item[] {
   const out: Item[] = [];
   const cap = commonLevelCap(ctx.wave);
+  const luck = Math.max(0, ctx.luck ?? 1);
   const pick = (pool: readonly Item[]) => pool.length ? pool[Math.floor(rng() * pool.length)] : null;
   const upTo = (pool: readonly Item[]) => pool.filter(g => (g.levelReq ?? 1) <= cap);
 
   // Common ammo — rare, wave-capped.
-  if (rng() < 0.02) {
+  if (rng() < 0.02 * luck) {
     const p = pick(upTo(COMMON_AMMO));
     if (p) out.push(p);
   }
   // Jewellery — rarer.
-  if (rng() < 0.01) {
+  if (rng() < 0.01 * luck) {
     const p = pick(upTo(JEWELLERY));
     if (p) out.push(p);
   }
   // Signature — bosses only.
-  if (ctx.isBoss && rng() < 0.25) {
+  if (ctx.isBoss && rng() < 0.25 * luck) {
     const p = pick(SIGNATURES);
     if (p) out.push(p);
   }

@@ -547,6 +547,9 @@ export interface DeathFx {
   movingLeft: boolean;
   life: number;
   maxLife: number;
+  /** A Hunter catch, not a kill: the trap's position. The body is drawn being
+   *  drawn *into* it rather than collapsing where it stood. */
+  caughtBy?: { x: number; y: number };
 }
 
 /** Transient death/impact particle. */

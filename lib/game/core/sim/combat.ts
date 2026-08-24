@@ -13,6 +13,7 @@ import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance
 import { debuffTenacity } from '../../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../../systems/tower-identity';
 import { rollGearDrops, gearDamageMult } from '../../systems/tower-gear';
+import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
 import { mergeUnlockBatch } from '../../systems/unlock-queue';
 import { GAME_SOUNDS } from '../sound';
 import { shouldExecute, soulStealAddChance } from '../../systems/relics';
@@ -997,7 +998,9 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
   // shrink-and-fade of the static sprite.
   const deathSlug = enemy.animType && ENEMY_ANIMS[enemy.animType] ? enemy.animType : enemy.type;
   const deathClip = ENEMY_ANIMS[deathSlug]?.clips.death;
-  const deathLife = deathClip ? clipDurationS(deathClip) : 0.45;
+  // A catch has its own short animation — the body pulled into the trap — so it
+  // does not play the collapse clip, however long that one runs.
+  const deathLife = enemy.caughtBy ? 0.42 : deathClip ? clipDurationS(deathClip) : 0.45;
   eng.deaths.push({
     x: enemy.x,
     y: enemy.y,
@@ -1008,6 +1011,7 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
     movingLeft: (eng.path[enemy.pathIndex + 1]?.x ?? enemy.x) < enemy.x,
     life: deathLife,
     maxLife: deathLife,
+    caughtBy: enemy.caughtBy,
   });
   // Per-enemy-type death clip (registered as `death_<type>` in sound.ts);
   // falls back to the generic `death` for anything unmapped.
@@ -1059,7 +1063,12 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
     // Classic gear drops fall straight into the run's loot bag (no ground loot in
     // the new core). Gated to Classic — roguelite gears its towers via drafts.
     if (eng.gameMode === 'classic') {
-      const gear = rollGearDrops({ wave: eng.wave, isBoss: !!enemy.isBoss });
+      const gear = rollGearDrops({
+        wave: eng.wave,
+        isBoss: !!enemy.isBoss,
+        // Taken alive, not killed: the better roll a trap is for.
+        luck: enemy.caughtBy ? CATCH_DROP_LUCK : 1,
+      });
       if (gear.length) {
         eng.lootBag = [...eng.lootBag, ...gear];
         eng.gearDrops = mergeUnlockBatch(eng.gearDrops, gear, eng.gearDropsDrained);
