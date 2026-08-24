@@ -537,6 +537,10 @@ export function checkWaveEnd(eng: GameEngine) {
   // Combat Achievements checkpoint — after the victory latch on purpose: a win
   // recorded on this wave has to be visible to `evaluate` in the same checkpoint,
   // or every win-gated task would wait a wave.
+  // The world turns up in the gap: a passer-by, a random event, a nest out of a
+  // tree. Rolled here rather than at Start Wave so it lands the moment the fighting
+  // stops and has the whole prep phase to be noticed — or ignored.
+  if (!eng.gameOver) eng.rollDiversions();
   eng.checkAchievements();
   eng.emit();
 }

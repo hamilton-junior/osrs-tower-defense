@@ -85,6 +85,27 @@ export class GeSystem {
     this.e.requestEmit();
   }
 
+  /**
+   * Hand a buff over for free — the payout side of a Distraction & Diversion, where
+   * the fruit of a strange plant or the contents of a bird nest is a potion the
+   * player never queued at the shop.
+   *
+   * Deliberately not a discounted {@link buy}: it skips the gold, skips the demand
+   * tally (a gift must not drive the price of the thing up for everyone) and skips
+   * the prayer branch, because a gift that lands on a full prayer pool would be a
+   * gift that vanished. Stacking follows the shop's own rule — re-granting extends.
+   */
+  grant(id: ActivePotion['type']) {
+    const offer = GE_OFFERS.find(o => o.id === id);
+    if (!offer || offer.kind !== 'buff') return;
+    const existing = this.active.find(p => p.type === offer.id);
+    if (existing) existing.timer += GE_POTION_DURATION;
+    else this.active.push({ type: offer.id, timer: GE_POTION_DURATION });
+    this.e.bumpCombatEpoch();
+    this.e.playSound('potion');
+    this.e.requestEmit();
+  }
+
   update(dt: number) {
     if (this.active.length === 0) return;
     // Buff timers only run during a wave (like prayer drain) — between waves

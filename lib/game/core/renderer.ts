@@ -4,6 +4,7 @@ import { drawBackground, drawPath, drawSpawnPortal, drawEffects } from './render
 import { drawDangerZone, drawHoverRange, drawBuildOverlay, drawPlacementGhost } from './render/build-overlay';
 import { drawTowers } from './render/towers';
 import { drawDeaths, drawEnemies } from './render/enemies';
+import { drawDiversions } from './render/diversions';
 import { drawProjectiles, drawParticles, drawFx, drawHitsplats } from './render/effects';
 import { drawVignette, drawBossBar, drawLowHealthWarning, drawLeakFlash } from './render/hud';
 
@@ -73,6 +74,7 @@ export class GameRenderer {
     drawBuildOverlay(this, ctx);
     drawPlacementGhost(this, ctx);
     drawTowers(this, ctx);
+    drawDiversions(this, ctx); // the world between waves — always empty during a fight
     drawDeaths(this, ctx);
     drawSpawnPortal(this, ctx); // before enemies → they materialise out of its face
     drawEnemies(this, ctx);

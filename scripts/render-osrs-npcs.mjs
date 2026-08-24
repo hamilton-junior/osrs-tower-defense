@@ -80,6 +80,19 @@ const TARGETS = {
   tzhaar_xil: { npc: 2167, yaw: 60 },    // knife (ranged) caste — obsidian-dark morph
   tzhaar_ket: { npc: 2173, yaw: 60 },
 
+  // --- Distractions & Diversions cast (lib/game/data/diversions.ts) ---
+  // Walkbys: the townsfolk who wander across the board between waves and only
+  // ever talk. Bob is 4221, the Lumbridge axe seller — 4231 is Bob the cat.
+  hans: { npc: 3105 },
+  bob: { npc: 4221 },
+  lumbridge_guide: { npc: 306 },
+  party_pete: { npc: 5792 },
+  // Random events: the classic 2000s-era event NPCs, ids straight from the cache.
+  drunken_dwarf: { npc: 322 },
+  genie: { npc: 326 },
+  strange_plant: { npc: 323 },
+  rick_turpentine: { npc: 375 },
+
   // --- Misc NPC-model icons ---
   giant_snail: { npc: 5628 },            // "slow" debuff icon
   kalphite_larva: { npc: 966 },          // Swarm affix / wave-event icon

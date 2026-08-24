@@ -7,6 +7,7 @@ import { type GeListing } from '../systems/ge-system';
 import { DRAFT_POOL, type DraftCard } from '../systems/roguelite-draft';
 import { type EnemyAffix } from '../systems/affixes';
 import { MECHANIC_BOSSES } from '../systems/boss-mechanics';
+import { type DiversionId, type DiversionMood } from '../data/diversions';
 
 /**
  * The engine's vocabulary: the board's fixed resolution, the shape of every
@@ -354,6 +355,11 @@ export interface UIState {
   /** Bumps on every real drop, so a run *loaded* from a save (which fills the bag
    *  in one go) never replays a run's worth of toasts. */
   gearDropSeq: number;
+  /** Distractions & Diversions waiting on the board — only ever between waves.
+   *  Each one is drawn on the map *and* listed as a corner infobox, so a player who
+   *  is looking at their build panel still knows something turned up. Plain data:
+   *  the engine keeps the real list, this is what the interface needs to draw it. */
+  diversions: { id: string; defId: DiversionId; mood: DiversionMood; name: string; icon: string; tip: string }[];
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 11);

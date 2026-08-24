@@ -96,6 +96,7 @@ const INITIAL: UIState = {
   towerConfigSeq: 0,
   lootBag: [],
   gearDrops: [], gearDropSeq: 0,
+  diversions: [],
 };
 
 /** How long a loot-drop toast stays in the corner. Matches the CSS animation in
@@ -2056,7 +2057,7 @@ export default function GameRoot() {
             </MovablePanel>
           )}
           {/* Event chip + potion infoboxes (existing row, now BELOW the strip). */}
-          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0) && (
+          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0 || ui.diversions.length > 0) && (
             <div className="flex items-start gap-[0.4em]">
               {/* Keyed by wave so each wave's event re-announces itself on mount. */}
               {ui.waveActive && ui.activeEvent && <WaveEventChip key={ui.wave} event={ui.activeEvent} />}
@@ -2074,6 +2075,30 @@ export default function GameRoot() {
                     <img src={geIcon(o.wiki)} alt={o.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     <span className="rs-infobox-time">{o.activeSecs}</span>
                   </div>
+                </HoverTip>
+              ))}
+              {/* Distractions & Diversions. The sprite is already on the board, but a
+                  player reading their build panel would never see it — so whatever
+                  turned up is also a box up here, and the box is clickable, so it can
+                  be taken without hunting for it on the map. Deliberately no timer
+                  digit: these wait out the whole prep phase rather than counting down. */}
+              {ui.diversions.map((d) => (
+                <HoverTip
+                  key={d.id}
+                  side="bottom"
+                  content={tipHeader(
+                    <span className="text-[0.85em] font-bold text-osrs-orange">{d.name}</span>,
+                    d.tip,
+                    <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">Click</span>,
+                  )}
+                >
+                  <button
+                    type="button"
+                    className="rs-infobox pointer-events-auto"
+                    onClick={() => engineRef.current?.claimDiversion(d.id)}
+                  >
+                    <img src={d.icon} alt={d.name} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  </button>
                 </HoverTip>
               ))}
             </div>

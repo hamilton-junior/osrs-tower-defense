@@ -310,6 +310,8 @@ const TARGETS = {
   // amulet_of_power / amulet_of_fury already baked above (relics group).
   amulet_of_blood_fury: { name: 'Amulet of blood fury' },
   salve_amulet_ei: { name: 'Salve amulet(ei)' }, // cache name has no space before "(ei)"
+  // ---- Distractions & Diversions ----
+  bird_nest: { name: 'Bird nest' }, // the nest that drops between waves
 };
 
 // ------------------------------------------------------------------- helpers

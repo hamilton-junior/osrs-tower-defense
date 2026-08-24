@@ -176,7 +176,17 @@ them: **nothing may demand timing, APM or constant attention, and everything is 
 ignoring a random NPC or never planting a seed must cost the run nothing. Assets come from
 the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
 
-16. **F1 random events** — the OSRS random-event NPCs turn up on the board. They spawn on
+16. **F1 random events** — **shipped** (2026-08-23) as the `event` mood of the D&D frame
+    (item **21**). Built: Drunken Dwarf (+1 life, or its kebab sold for gold when the player is
+    already full), Genie (an essence lamp), Strange Plant (a free overload from the GE), Rick
+    Turpentine (gold scaled off the wave and the tower count). Deviations from the sketch below,
+    all deliberate: no 10–15s despawn (they wait out the whole prep phase — a countdown would
+    demand exactly the timing the house rule forbids), the Genie hands over a lamp instead of a
+    three-option pick (a modal that must be answered is attention, not a diversion), the Strange
+    Plant pays a potion rather than a seed (**F2** does not exist yet), and Collection-Log
+    recording of NPCs met is **not** built — it needs a new log category, still open. The
+    original sketch, kept for the record:
+    The OSRS random-event NPCs turn up on the board. They spawn on
     empty (non-road) tiles, stay 10–15s, and the player clicks them if he feels like it.
     Low chance per wave (≈5%), **never on a boss wave**, at most one alive at a time.
     - *Drunken Dwarf* — a kebab: restore 1 life, or +10% gold next wave (50/50).
@@ -221,7 +231,13 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     This is the player's own ask **#30** arriving as a designed feature, so build the two
     together rather than as rival backlog items.
 
-20. **F5 NPC walkbys** — the first piece of **D&D** (below). Pure flavour, **between waves only, never during one**: OSRS regulars
+20. **F5 NPC walkbys** — **shipped** (2026-08-23) as the `walkby` mood of the D&D frame
+    (item **21**). Hans, Bob, Party Pete and the Lumbridge Guide all landed, four lines each,
+    no reward; the Guide's line is swapped for a real hint read off the coming wave (the boss's
+    name, else whatever the player is about to see most of). They do not actually walk — a
+    walkby stands on its tile and says its line overhead, because a moving click target is a
+    click target that demands timing. The original sketch:
+    Pure flavour, **between waves only, never during one**: OSRS regulars
     stroll along the road or across empty tiles and say something when clicked. Hans ("I've
     been here for 20 years and I'm still not sure what this tower does."), Bob the axe seller,
     the Lumbridge Guide — the one exception, who gives a contextual hint about the coming wave
@@ -231,8 +247,25 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     handler, a sprite from the cache), so the two should be one system with two moods:
     F1 gives something, F5 just talks.
 
-21. **D&D — Distractions & Diversions**, the umbrella the user wants to explore **as soon as
-    possible** (2026-08-21). In OSRS a D&D is a recurring, opt-in, low-commitment activity that
+21. **D&D — Distractions & Diversions** — **the frame is shipped** (2026-08-23). One spawner,
+    three moods: `event` (**F1**), `walkby` (**F5**), `nest` (**F6**). It rolls once per wave in
+    `checkWaveEnd`, so a diversion lands the moment the fighting stops and has the whole prep
+    phase to be noticed or ignored; nothing ever spawns during a fight, and `startWave` sweeps the
+    board clean. Each mood rolls its **own independent chance** (walkby 30%, nest 15%, event 7% —
+    the user's call over a single shared cooldown), every mood consumes its roll whether or not it
+    is eligible so blocking one never shifts another's luck, at most **2** stand at once, and the
+    rarer mood wins the cap. An event never rolls before a boss wave; walkbys and nests still do,
+    which is exactly when the Guide's hint is worth most. A diversion only lands where a tower
+    could legally have been built, and steps aside if one is later built on it. The player sees it
+    twice — the sprite on the board with a breathing ring and OSRS overhead text, and a clickable
+    `rs-infobox` in the top-centre HUD, with no timer digit because nothing is counting down.
+    Not persisted in the run save (`RUN_SAVE_VERSION` unchanged): a pending diversion is lost on
+    resume, which costs nothing by design. Code: `data/diversions.ts` (the nine entries and the
+    per-mood chances), `systems/diversions.ts` + its 32 tests (every roll is a pure function),
+    `core/render/diversions.ts`, and `rollDiversions`/`claimDiversion` on the engine.
+    **F2** and **F7** hang off this spawner when they are built; **F4** is deliberately not
+    wired in yet (user, 2026-08-23: "não faça a parte de clues ainda").
+    The design brief that produced it: In OSRS a D&D is a recurring, opt-in, low-commitment activity that
     finds *you* rather than the other way round — Shooting Stars, Tears of Guthix, Penguin Hide
     and Seek, Champions' Challenge, Wilderness Flash Events. That description is already the
     house rule this whole section runs on (no timing, no APM, fully optional), which is why
@@ -242,7 +275,13 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     often a D&D shows up, whether they share one cooldown, where the player sees that one is
     waiting, and which OSRS D&Ds map onto a tower-defense board at all.
 
-22. **F6 bird nests** — an OSRS woodcutting habit as a board pickup (user, 2026-08-21). A nest
+22. **F6 bird nests** — **shipped** (2026-08-23) as the `nest` mood of the D&D frame (item
+    **21**), and it did get the shared spawner, click handler and scan the note below asked for.
+    The payload is rolled on opening rather than on landing, which is the whole appeal of a nest:
+    gold 55% · essence 30% · a potion 15%. Deviations: between waves only (never during one, like
+    every other mood), no 10–15s timer, and no clue-scroll outcome — **F4** is not built. The
+    original sketch:
+    An OSRS woodcutting habit as a board pickup (user, 2026-08-21). A nest
     drops onto a free tile at random, mostly **between** waves and rarely during one, sits there
     for 10–15s as a small sprite with a soft "pop" to catch the eye without demanding attention,
     and pays out on click: a farming seed (**F2**), 5–20gp, or a clue scroll (**F4**). It is the

@@ -40,6 +40,9 @@ import { generateTerrain, type TerrainField } from '../systems/terrain-generatio
 import { BIOMES, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
+import { DIVERSION_BY_ID } from '../data/diversions';
+import { essenceMultiplier } from '../systems/meta-progression';
+import { diversionEssence, diversionGold, diversionLine, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, type Diversion } from '../systems/diversions';
 import { handleBossMechanics } from './sim/bosses';
 import { fireTowers, updateUtilityTowers, towerIdentity, moveProjectiles, tenacity } from './sim/combat';
 import { computeWaveConfigs, wavePreview, buildWaveEnemies, makeEnemy, spawn, moveEnemies, damageOverTime, updateEffects, addRing, checkWaveEnd, recordCombatTime } from './sim/waves';
@@ -285,6 +288,11 @@ export class GameEngine {
   gearDrops: Item[] = [];
   gearDropSeq = 0;
   gearDropsDrained = true;
+  /** Distractions & Diversions standing on the board — the world turning up in the
+   *  gap between waves. Never spawned during a fight and always cleared by the next
+   *  Start Wave, so nothing here can ever block a build spot or a shot. */
+  diversions: Diversion[] = [];
+  private diversionSeq = 0;
 
   // --- composed subsystems ---
   readonly slayer = new SlayerSystem(this);
@@ -604,6 +612,10 @@ export class GameEngine {
       unlockSeq: this.unlockSeq,
       gearDrops: this.gearDrops,
       gearDropSeq: this.gearDropSeq,
+      diversions: this.diversions.map(d => {
+        const def = DIVERSION_BY_ID[d.defId];
+        return { id: d.id, defId: d.defId, mood: d.mood, name: def.name, icon: def.sprite, tip: def.tip };
+      }),
       killCounts: this.killCounts,
       achievements: [...this.achievements],
       cardCounts: this.cardCounts,
@@ -1006,6 +1018,11 @@ export class GameEngine {
       prayericon_magic: ASSETS.prayers.overhead_magic,
       // The prohibited sign stamped on a tower knocked offline (Brutus's trample).
       blocked: ASSETS.misc.blocked,
+      // Distractions & Diversions: the cast that turns up between waves, keyed
+      // `diversion_<id>` (baked NPC models and one item icon).
+      ...Object.fromEntries(
+        Object.values(DIVERSION_BY_ID).map(d => [`diversion_${d.id}`, d.sprite]),
+      ),
     };
     for (const [key, url] of Object.entries(urls)) {
       const img = new Image();
@@ -1342,6 +1359,7 @@ export class GameEngine {
     tower.y = sy;
     tower.targetId = null; // re-acquire from the new position
     this.movingTowerId = null;
+    this.stepAsideDiversions();
     this.bumpTowerLayout(); // position changed → synergy auras may shift
     this.emit();
   }
@@ -1457,6 +1475,7 @@ export class GameEngine {
       t.tower.targetId = null; // re-acquire from the new position
     }
     this.movingGroupIds = [];
+    this.stepAsideDiversions();
     this.bumpTowerLayout(); // positions changed → synergy auras may shift
     this.emit();
   }
@@ -1738,6 +1757,10 @@ export class GameEngine {
       this.placeTower(this.selectedTowerType, x, y, keepPlacing);
       return;
     }
+    // Something the world dropped off gets the click before the board does — it is
+    // standing on empty ground, so nothing underneath it wanted the click anyway.
+    const diversion = this.diversionAt(x, y);
+    if (diversion) { this.claimDiversion(diversion.id); return; }
     const hit = this.towers.find(t => distance(t.x, t.y, x, y) <= TOWER_RADIUS + 4);
     const hadPanel = this.selectedTowerId !== null || this.inspectedEnemyId !== null;
     if (hit) {
@@ -1831,6 +1854,7 @@ export class GameEngine {
       supportSpell: type === 'wizard' && mageMode === 'utility' ? 'curse' : undefined,
     };
     this.towers.push(tower);
+    this.stepAsideDiversions();
     this.towersBuilt += 1;
     this.caStats.towersBuilt = this.towersBuilt;
     this.caStats.maxTowersOnField = Math.max(this.caStats.maxTowersOnField, this.towers.length);
@@ -2206,6 +2230,132 @@ export class GameEngine {
     this.emit();
   }
 
+  // ------------------------------------------ distractions & diversions
+  // The frame that lets the world turn up between waves: a passer-by with something
+  // to say, a random event with something to give, a nest that fell out of a tree.
+  // One spawner, one click handler, one renderer layer, three moods — the dice and
+  // the payout maths are pure and live in systems/diversions.
+  //
+  // The house rule for the whole section: nothing here may demand timing, APM or
+  // attention. So they only appear in the gap between waves, they never stand where
+  // a tower could have gone in the way of anything, they wait for as long as the
+  // prep phase lasts rather than counting down at the player, and Start Wave sweeps
+  // away whatever was ignored. Ignoring every one of them costs a run nothing.
+
+  /** Roll for company in the gap before the next wave. Called once at wave clear. */
+  rollDiversions() {
+    if (this.gameOver || this.waveActive) return;
+    const present = this.diversions.map(d => d.mood);
+    const configs = computeWaveConfigs(this);
+    const bossNext = configs.some(c => ENEMIES[c.type]?.isBoss);
+    const moods = rollDiversionMoods(Math.random, present, bossNext);
+    if (moods.length === 0) return;
+    const hint = this.waveHint(configs);
+    for (const mood of moods) {
+      const def = pickDiversionDef(mood, Math.random);
+      // A diversion stands exactly where a tower could have — off the road, off the
+      // obstacles, clear of what is already built — so it can never be in the way.
+      const spot = pickDiversionSpot(
+        Math.random,
+        (x, y) => isValidPlacement(x, y, this.path, this.towers, 40, 30, this.blockedTile),
+        Math.floor(this.width / GRID),
+        Math.floor(this.height / GRID),
+        GRID,
+      );
+      if (!spot) continue; // no room left on the board: the world stays away
+      this.diversions.push({
+        id: `dv${++this.diversionSeq}`,
+        defId: def.id,
+        mood,
+        x: spot.x,
+        y: spot.y,
+        line: diversionLine(def, Math.random, hint),
+      });
+    }
+    if (this.diversions.length) this.sound.play('select');
+  }
+
+  /** The Lumbridge Guide's read on the coming wave — his one job in OSRS is telling
+   *  you what you are about to walk into, so he gets the preview the player can
+   *  otherwise only find by hovering Start Wave. */
+  private waveHint(configs: WaveConfig[]): string | undefined {
+    const boss = configs.find(c => ENEMIES[c.type]?.isBoss);
+    if (boss) return `${ENEMIES[boss.type].name} comes down that road next. Be ready.`;
+    const biggest = configs.reduce<WaveConfig | null>(
+      (best, c) => (!best || c.count > best.count ? c : best), null,
+    );
+    if (!biggest) return undefined;
+    return `Mostly ${ENEMIES[biggest.type]?.name ?? 'trouble'} next wave.`;
+  }
+
+  /** The diversion under a click, if any. Generous radius — it is a small sprite on
+   *  empty ground, and nothing underneath it wanted the click. */
+  diversionAt(x: number, y: number): Diversion | null {
+    return this.diversions.find(d => distance(d.x, d.y, x, y) <= 20) ?? null;
+  }
+
+  /**
+   * A tower now stands where someone was loitering, so they get out of the way.
+   *
+   * The frame promises a diversion never costs the player anything, and a click on a
+   * tile is read as a diversion before it is read as a tower — so a genie left under a
+   * freshly built cannon would quietly swallow every click meant for that cannon. They
+   * step aside instead of being deleted: the infobox is gone with them, but the payload
+   * was never owed, and the board stays honest about what is clickable.
+   */
+  private stepAsideDiversions() {
+    if (this.diversions.length === 0) return;
+    this.diversions = this.diversions.filter(
+      d => !this.towers.some(t => distance(t.x, t.y, d.x, d.y) <= TOWER_RADIUS + 4),
+    );
+  }
+
+  /** Click one: pay out whatever it was holding, then it is gone. */
+  claimDiversion(id: string) {
+    const idx = this.diversions.findIndex(d => d.id === id);
+    if (idx < 0) return;
+    const found = this.diversions[idx];
+    const def = DIVERSION_BY_ID[found.defId];
+    this.diversions.splice(idx, 1);
+    // The nest is the one payload decided on opening rather than on landing — that
+    // is the whole appeal of a nest.
+    const payload = resolvePayload(found.defId, Math.random);
+    let message = found.line;
+    switch (payload) {
+      case 'none':
+        break; // a walkby: the click is just acknowledging them, and off they go
+      case 'life': {
+        if (this.lives < this.maxLives) {
+          this.lives += 1;
+        } else {
+          // Nothing to heal — he is not going to take it back, so it is worth gold.
+          const gold = this.awardGold(diversionGold(this.wave, this.towers.length));
+          message = `You are in no need of a kebab. You sell it for ${gold} gp.`;
+        }
+        break;
+      }
+      case 'gold':
+        this.awardGold(diversionGold(this.wave, this.towers.length));
+        break;
+      case 'essence': {
+        const essence = diversionEssence(
+          this.wave, essenceMultiplier(this.gameMode, this.runPhase),
+        );
+        this.meta.award(essence);
+        this.essenceEarnedThisRun += essence;
+        break;
+      }
+      case 'potion':
+        // The one style-agnostic buff in the shop: a gift has to be worth something
+        // whatever the player happens to have built.
+        this.ge.grant('overload');
+        break;
+    }
+    this.notify(message, def.sprite);
+    this.sound.play(payload === 'none' ? 'select' : 'interface_open');
+    this.emit();
+  }
+
   startWave() {
     if (this.waveActive || this.gameOver) return;
     if (this.pendingRelics) { this.notify('Choose a relic first'); return; }
@@ -2214,6 +2364,10 @@ export class GameEngine {
     // Spawn exactly what the Start Wave hover previewed. assignTask above may have
     // just rolled a task — that changes the cache key, so this recomputes with the
     // Slayer seed folded in; otherwise it reuses the memoised makeup.
+    // The world clears off before the fighting starts. Anything the player didn't
+    // pick up is simply gone — that is the frame's whole bargain: it never demands
+    // to be dealt with, and it never gets in the way of the wave.
+    this.diversions = [];
     const configs = computeWaveConfigs(this);
     // A boss wave stays the headline act — no event rolls on it (see wave-events).
     const bossWave = configs.some(c => ENEMIES[c.type]?.isBoss);
@@ -2646,6 +2800,7 @@ export class GameEngine {
     this.waveTotal = 0;
     this.bossWave = false;
     this.activeEvent = null;
+    this.diversions = [];
     this.bumpCombatEpoch();
     this.sandboxWave = false;
     this.lastWaveSandbox = false;
@@ -2730,6 +2885,7 @@ export class GameEngine {
     this.waveTotal = 0;
     this.bossWave = false;
     this.activeEvent = null;
+    this.diversions = [];
     this.bumpCombatEpoch();
     this.sandboxWave = false;
     this.lastWaveSandbox = false;
