@@ -99,7 +99,10 @@ function fire(eng: GameEngine, trap: HunterTrap, def: HunterTrapDef, e: Enemy): 
     }
     case 'blast': {
       const caught = enemiesInBlast(def, trap, eng.enemies);
-      spawnEffect(eng, 'hit_fire_3', trap.x, trap.y, def.radius / 26);
+      // The fireball is drawn as a box `size * scale` wide, and its art fills
+      // ~78% of that box — so radius/36 makes the visible blast span exactly
+      // the diameter it damages, matching the ring below instead of dwarfing it.
+      spawnEffect(eng, 'hit_fire_3', trap.x, trap.y, def.radius / 36);
       addRing(eng, trap.x, trap.y, 6, def.radius, '#ff8a3d', 0.4, 4);
       eng.sound.play('fire_cannon', 55);
       for (const target of caught) {

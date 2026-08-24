@@ -27,6 +27,16 @@ export interface SpotAnimMeta {
 }
 
 /**
+ * Impacts baked with extra padding, and the box size that cancels it out.
+ * Fire Blast's last frames bloom far wider than the rest, so it is baked at a
+ * 0.3 fit margin (see HIT_MARGIN in scripts/render-osrs-spotanims.mjs) to stop
+ * the star's points being cut off at the sheet edge — the art then fills ~78%
+ * of its frame instead of all of it, and a proportionally bigger box keeps it
+ * looking the same size on screen.
+ */
+const HIT_SIZE: Record<string, number> = { hit_fire_3: 92 };
+
+/**
  * Presentation defaults by slug family. Sheet facts (frames/timings) come from
  * the generated table; this layer decides how each GFX *plays* in our scenes:
  *  - `hit_*` spell impacts: one-shot on the struck model, sized near the
@@ -36,7 +46,7 @@ export interface SpotAnimMeta {
  */
 function presentationFor(slug: string): { size: number; speed: number; loop?: boolean; blend: 'add' | 'alpha' } {
   if (slug.startsWith('proj_')) return { size: 30, speed: 1, loop: true, blend: 'alpha' };
-  if (slug.startsWith('hit_')) return { size: 72, speed: 1, blend: 'alpha' };
+  if (slug.startsWith('hit_')) return { size: HIT_SIZE[slug] ?? 72, speed: 1, blend: 'alpha' };
   // portal (and future NPC-sourced loops)
   return { size: 104, speed: 1, loop: true, blend: 'add' };
 }

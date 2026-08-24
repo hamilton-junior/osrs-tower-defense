@@ -201,11 +201,21 @@ const TARGETS = [
   ...group(CA_TIER_IDS, 'achievements'),
 ];
 
+/**
+ * Sprites whose backdrop is opaque **black** rather than the transparent index.
+ * The binding-spell nets (Bind / Snare / Entangle) are drawn in the client over
+ * a spellbook page that is nearly black already, so Jagex never had to key the
+ * gaps out — on our brown panels the same art arrives as a black blob with a
+ * few coloured stripes in it. Dropping pure black restores the mesh.
+ */
+const BLACK_BG_IDS = new Set([319, 320, 321]);
+
 /** Encode one Sprite (ARGB pixels on a maxWidth×maxHeight canvas) to a PNG buffer. */
-function spriteToPng(sprite) {
+function spriteToPng(sprite, spriteId) {
   const w = sprite.maxWidth || sprite.width;
   const h = sprite.maxHeight || sprite.height;
   const png = new PNG({ width: w, height: h }); // zero-filled = transparent
+  const dropBlack = BLACK_BG_IDS.has(spriteId);
   const ox = sprite.offsetX || 0;
   const oy = sprite.offsetY || 0;
   for (let y = 0; y < sprite.height; y++) {
@@ -213,6 +223,9 @@ function spriteToPng(sprite) {
       const p = sprite.pixels[y * sprite.width + x] >>> 0;
       const a = (p >>> 24) & 0xff;
       if (a === 0) continue; // transparent
+      // Black is this sprite's background, not ink. The cache stores it as
+      // 0x000001, because index 0 of a sprite palette is the transparent one.
+      if (dropBlack && (p & 0xffffff) <= 1) continue;
       const di = ((y + oy) * w + (x + ox)) * 4;
       png.data[di + 0] = (p >>> 16) & 0xff;
       png.data[di + 1] = (p >>> 8) & 0xff;
@@ -243,7 +256,7 @@ async function main() {
       if (!def?.sprites?.length) continue;
       def.sprites.forEach((s, f) => {
         if (!s.width || !s.height) return;
-        writeFileSync(join(dir, `${id}_${f}.png`), spriteToPng(s));
+        writeFileSync(join(dir, `${id}_${f}.png`), spriteToPng(s, id));
       });
     }
     console.log(`Dumped sprites ${from}..${to} → ${dir}`);
@@ -259,7 +272,7 @@ async function main() {
     if (!sprite) { console.warn(`! sprite ${t.spriteId}[${frame}] (${t.slug}) empty — skipped`); continue; }
     const outPath = join(REPO, t.out);
     mkdirSync(dirname(outPath), { recursive: true });
-    writeFileSync(outPath, spriteToPng(sprite));
+    writeFileSync(outPath, spriteToPng(sprite, t.spriteId));
     console.log(`✓ ${t.slug}: sprite ${t.spriteId}[${frame}] → ${t.out} (${sprite.width}×${sprite.height})`);
   }
   process.exit(0);

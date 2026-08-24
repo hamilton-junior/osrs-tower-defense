@@ -63,6 +63,17 @@ const TARGETS = {
  *    cache projectile of their own — they reuse their element's rush/blitz orb
  *    (the closest authentic flight visual).
  */
+/**
+ * Per-impact fit margin. `computeFit` sizes the sheet from a 1%-trimmed
+ * percentile of the pooled vertices, so an anim whose last frames flare far
+ * wider than the rest overflows the 96px box and comes out cut off at the
+ * sides. A wider margin shrinks the model inside the frame until the widest
+ * frame fits. Only list the ones that need it.
+ */
+const HIT_MARGIN = {
+  fire_3: 0.3, // Fire Blast: frames 7-10 bloom past the box (chinchompa blast)
+};
+
 const SPELL_GFX = {
   air:   [[91, 92], [118, 119], [133, 134], [159, 160], [1456, 1457]],
   water: [[94, 95], [121, 122], [136, 137], [162, 163], [1459, 1460]],
@@ -83,7 +94,7 @@ for (const [el, tiers] of Object.entries(SPELL_GFX)) {
     // the live flight angle. (The taper is the TAIL, not the nose: -65 baked
     // every bolt flying backwards.)
     TARGETS[`proj_${el}_${i + 1}`] = { id: proj, maxFrames: 12, yaw: 65, pitch: 12 };
-    TARGETS[`hit_${el}_${i + 1}`] = { id: hit, maxFrames: 16 };
+    TARGETS[`hit_${el}_${i + 1}`] = { id: hit, maxFrames: 16, margin: HIT_MARGIN[`${el}_${i + 1}`] ?? MARGIN };
   });
 }
 
@@ -233,12 +244,14 @@ async function main() {
   const camOverride = {};
   if (yawIdx !== -1) camOverride.yaw = Number(argv[yawIdx + 1]);
   if (pitchIdx !== -1) camOverride.pitch = Number(argv[pitchIdx + 1]);
+  const marginIdx = argv.indexOf('--margin');
+  if (marginIdx !== -1) camOverride.margin = Number(argv[marginIdx + 1]);
 
   const entries = Object.entries(TARGETS).filter(([slug]) => !only || slug === only);
   if (!entries.length) { console.warn('No TARGETS to bake (fill ids via --list).'); process.exit(0); }
 
   for (const [slug, cfgIn] of entries) {
-    const cfg = { yaw: 0, pitch: 0, maxFrames: 24, ...cfgIn, ...camOverride };
+    const cfg = { yaw: 0, pitch: 0, maxFrames: 24, margin: MARGIN, ...cfgIn, ...camOverride };
     // Two sources: a spotanim (`cfg.id`) or an NPC's standing anim (`cfg.npc`).
     let model, animationId;
     if (cfg.npc != null) {
@@ -300,7 +313,7 @@ async function main() {
 
     const yawR = (cfg.yaw * Math.PI) / 180, pitchR = (cfg.pitch * Math.PI) / 180;
     const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
-    const fit = computeFit(frames, sy, cy, sp, cp, SIZE, MARGIN);
+    const fit = computeFit(frames, sy, cy, sp, cp, SIZE, cfg.margin);
 
     // Tile frames left→right into one sheet.
     const sheet = new PNG({ width: SIZE * frames.length, height: SIZE });
