@@ -401,6 +401,36 @@ body {
   box-shadow: 0 0 6px rgba(255, 152, 31, 0.55), inset 1px 1px 0 0 #c79a3e, inset -1px -1px 0 0 #2e2008;
 }
 .rs-tab img { width: 1.45em; height: 1.45em; object-fit: contain; image-rendering: pixelated; }
+
+/* Two-way switch: one frame split into two halves, for a pair of tabs the bar has
+   no room to stack as full stones — two `.rs-tab`s are 5em tall against a bar
+   whose height is a fixed 4.3em, so they spilled over both its edges. The halves
+   are shorter than a stone but carry a *bigger* icon, since the frame does the
+   chrome once instead of twice. The live half lights like `.rs-tab-on`. */
+.rs-switch {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rs-keyline);
+  box-shadow: var(--rs-raised);
+}
+.rs-switch-seg {
+  position: relative;
+  width: 1.75em;
+  height: 1.75em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #4a4035, #2a241b);
+  color: #ffce5c;
+  transition: filter 0.08s, background 0.1s;
+}
+.rs-switch-seg + .rs-switch-seg { border-top: 1px solid var(--rs-keyline); }
+.rs-switch-seg:hover:not(:disabled) { filter: brightness(1.2); }
+.rs-switch-seg.rs-switch-on {
+  background: linear-gradient(180deg, #5a4a22, #3a2c0e);
+  box-shadow: inset 0 0 0 1px var(--osrs-orange), 0 0 6px rgba(255, 152, 31, 0.45);
+}
+.rs-switch-seg img { width: 1.2em; height: 1.2em; object-fit: contain; image-rendering: pixelated; }
 /* Small live counter on a tab (essence balance, Slayer points), like the OSRS
    tab notification badges. */
 .rs-tab-badge {
@@ -649,11 +679,15 @@ kbd {
   box-shadow: inset 1px 1px 0 0 #7a4a3a, inset -1px -1px 0 0 #3a1414, 0 3px 9px rgba(0, 0, 0, 0.6);
   animation: rs-toast-pop 1.4s ease-out forwards;
 }
+/* Y only. The toast centres itself with Tailwind's `-translate-x-1/2`, which in
+   v4 writes the `translate` property rather than `transform` — so a `-50%` in
+   here would be a *second* half-width shift, and the notice sat a full width off
+   to the left. Move it vertically, and let the utility own the centring. */
 @keyframes rs-toast-pop {
-  0% { opacity: 0; transform: translate(-50%, 10px); }
-  12% { opacity: 1; transform: translate(-50%, 0); }
+  0% { opacity: 0; transform: translateY(10px); }
+  12% { opacity: 1; transform: translateY(0); }
   80% { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -6px); }
+  100% { opacity: 0; transform: translateY(-6px); }
 }
 
 /* Persistent on-board caption for a mode that is still running (e.g. the tiles a

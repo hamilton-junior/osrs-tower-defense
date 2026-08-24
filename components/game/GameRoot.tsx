@@ -3682,26 +3682,29 @@ export default function GameRoot() {
                   bar's height is fixed and a seventh stone would have to come out of
                   the board. Each tab wears its skill's own OSRS icon — the
                   Construction saw for the things you build, the Hunter paw for the
-                  things you lay — so the two stones read at a glance. */}
+                  things you lay — so the two halves read at a glance. One switch,
+                  not two stones: a pair of stacked `.rs-tab`s is 5em tall against a
+                  bar whose height is a fixed 4.3em, and they spilled over both its
+                  edges. The switch is shorter and carries the bigger icon. */}
               <div className="flex items-stretch gap-[0.35em]">
-                <div className="shrink-0 flex flex-col justify-center gap-[0.2em]">
+                <div className="shrink-0 self-center rs-switch">
                   <button
                     onClick={() => { setBuildTab('towers'); engineRef.current?.selectTrapType(null); }}
                     title="Towers — built beside the road"
-                    className={`rs-tab flex items-center justify-center px-[0.45em] py-[0.35em] ${buildTab === 'towers' ? 'rs-tab-on' : ''}`}
+                    className={`rs-switch-seg ${buildTab === 'towers' ? 'rs-switch-on' : ''}`}
                   >
-                    <img src={ASSETS.misc.construction_icon} alt="Towers" className="w-[1.05em] h-[1.05em] object-contain" onError={hideBrokenImg} />
+                    <img src={ASSETS.misc.construction_icon} alt="Towers" onError={hideBrokenImg} />
                   </button>
                   <button
                     onClick={() => { setBuildTab('traps'); engineRef.current?.selectTowerType(null); }}
                     title="Hunter traps — laid on the road itself, between waves"
-                    className={`rs-tab relative flex items-center justify-center px-[0.45em] py-[0.35em] ${buildTab === 'traps' ? 'rs-tab-on' : ''}`}
+                    className={`rs-switch-seg ${buildTab === 'traps' ? 'rs-switch-on' : ''}`}
                   >
-                    <img src={ASSETS.misc.hunter_icon} alt="Traps" className="w-[1.05em] h-[1.05em] object-contain" onError={hideBrokenImg} />
+                    <img src={ASSETS.misc.hunter_icon} alt="Traps" onError={hideBrokenImg} />
                     {ui.traps.length > 0 && <span className="rs-tab-badge">{ui.traps.length}</span>}
                   </button>
                 </div>
-                <div className="flex flex-col justify-center">
+                <div className="flex items-center gap-[0.45em]">
                 <div data-tut="dock" className="grid grid-cols-6 gap-[0.3em] w-[17.5em]">
                 {buildTab === 'towers' ? TOWER_ORDER.map((type, i) => {
                   const cost = ui.towerPrices[type];
@@ -3781,10 +3784,12 @@ export default function GameRoot() {
                 )}
                 </div>{/* build dock */}
                 {buildTab === 'traps' && (
-                  /* Under the traps, not inside the Hunter slot: it counts what is on
-                     the board, and the board is what the row above is for. */
-                  <div className="text-center text-[0.55em] text-[#cdbe91] leading-none mt-[0.25em] tabular-nums">
-                    {ui.traps.length}/{ui.maxTraps} traps out
+                  /* Beside the traps, not under them: the bar's height is fixed, and a
+                     line below the dock pushed the whole column past it. It counts what
+                     is on the board, so it stands next to the row that puts it there. */
+                  <div className="text-center text-[#cdbe91] tabular-nums leading-tight">
+                    <div className="text-[0.72em] text-osrs-orange">{ui.traps.length}/{ui.maxTraps}</div>
+                    <div className="text-[0.46em] uppercase tracking-wide">traps out</div>
                   </div>
                 )}
                 </div>
