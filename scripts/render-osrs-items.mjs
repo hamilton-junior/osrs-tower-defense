@@ -312,6 +312,8 @@ const TARGETS = {
   salve_amulet_ei: { name: 'Salve amulet(ei)' }, // cache name has no space before "(ei)"
   // ---- Distractions & Diversions ----
   bird_nest: { name: 'Bird nest' }, // the nest that drops between waves
+  // ---- shaping the road ----
+  spade: { name: 'Spade' }, // the icon for bending a stretch of road
 };
 
 // ------------------------------------------------------------------- helpers

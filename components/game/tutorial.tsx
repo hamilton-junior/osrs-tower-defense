@@ -90,6 +90,9 @@ export const LEARN_STEPS: LearnStep[] = [
   { id: 'sidebar', target: 'stones', icon: iconUrl('Collection_log'), title: 'The stones',
     body: 'The stones on the right open the shops, the log and this guide. Click one again to close it.',
     when: (ui) => !ui.waveActive && ui.wave === 4 },
+  { id: 'road', target: 'map', icon: ASSETS.misc.spade, title: 'Bend the road',
+    body: 'Click a grip on the road between waves to move that stretch one tile — a longer road is a longer walk under your towers.',
+    when: (ui) => !ui.waveActive && ui.wave === 6 },
   { id: 'affix', icon: ASSETS.misc.defence_icon, title: 'Elite enemies',
     body: 'A glowing enemy breaks one rule — the aura colour says which. Vary your towers.',
     when: (ui) => ui.wave >= 5 && ui.waveActive },
@@ -220,6 +223,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.coins_icon, text: 'Every kill pays gold. Gold buys and upgrades towers.' },
     { icon: ASSETS.misc.multicombat_icon, text: 'Nothing spawns until you press Start Wave. Between waves is free build time.' },
     { icon: itemIcon('collection_log'), text: 'Beat every boss — around wave 90 — to win the run, then carry on in Endless.' },
+    { icon: ASSETS.misc.spade, text: 'Between waves you can pay to bend the road — click a grip on it, then an arrow.' },
     { icon: ASSETS.misc.compass, text: 'Tips appear in-game the first time each new thing shows up.' },
   ] },
   { id: 'towers', label: 'Towers', icon: ASSETS.towers.archer[1], lines: [

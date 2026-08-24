@@ -27,6 +27,11 @@ export interface RunSave {
   savedAt: number;
   /** Seed of the procedural map, so the road and biome come back identical. */
   mapSeed: number;
+  /** The shoves the player bought to reshape the road, in purchase order — the
+   *  half of the map the seed does not describe. Replayed onto the freshly seeded
+   *  road on load. Optional like the fields below: RUN_SAVE_VERSION stays 3, and a
+   *  save written before road shaping resumes on the road it was dealt. */
+  roadBends?: { seg: number; dir: 'up' | 'down' | 'left' | 'right' }[];
   gameMode: GameMode;
   /** The New Game+ tier this run is being played at. Absent on saves written
    *  before the ladder shipped → they resume at tier 0 (Normal). */
@@ -161,6 +166,17 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     version: RUN_SAVE_VERSION,
     savedAt: num(raw.savedAt, 0),
     mapSeed: num(raw.mapSeed, 0) >>> 0,
+    // Each bend is two small facts; anything malformed is dropped rather than
+    // replayed, which costs the player a bend but never a broken road.
+    roadBends: Array.isArray(raw.roadBends)
+      ? raw.roadBends
+          .filter(isObj)
+          .filter((b) => b.dir === 'up' || b.dir === 'down' || b.dir === 'left' || b.dir === 'right')
+          .map((b) => ({
+            seg: Math.max(0, Math.floor(num(b.seg, 0))),
+            dir: b.dir as 'up' | 'down' | 'left' | 'right',
+          }))
+      : [],
     gameMode: raw.gameMode === 'classic' ? 'classic' : 'roguelite',
     // difficultyTier is itself back-compatible (missing => 0). The v2->v3 bump
     // above discards old saves by the repo's every-shape-change convention, not

@@ -5,6 +5,7 @@ import { drawDangerZone, drawHoverRange, drawBuildOverlay, drawPlacementGhost } 
 import { drawTowers } from './render/towers';
 import { drawDeaths, drawEnemies } from './render/enemies';
 import { drawDiversions } from './render/diversions';
+import { drawRoadShaping } from './render/road-shaping';
 import { drawProjectiles, drawParticles, drawFx, drawHitsplats } from './render/effects';
 import { drawVignette, drawBossBar, drawLowHealthWarning, drawLeakFlash } from './render/hud';
 
@@ -74,6 +75,7 @@ export class GameRenderer {
     drawBuildOverlay(this, ctx);
     drawPlacementGhost(this, ctx);
     drawTowers(this, ctx);
+    drawRoadShaping(this, ctx); // road handles — between waves only, over the towers they must not hide behind
     drawDiversions(this, ctx); // the world between waves — always empty during a fight
     drawDeaths(this, ctx);
     drawSpawnPortal(this, ctx); // before enemies → they materialise out of its face

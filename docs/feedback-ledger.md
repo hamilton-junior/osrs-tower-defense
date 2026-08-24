@@ -147,10 +147,23 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
     redeemed twice — so it shows both accounts side by side and asks first. Still no backend
     and none planned.
 
-14. **P2** pathing as a mechanic (#35) — *queued, design-first* (2026-08-21). Not the full
+14. **P2** pathing as a mechanic (#35) — *half shipped* (2026-08-23). Not the full
     Construction mode: the two parts the user wants are the player being able to **alter the
-    enemy path**, and **towers/traps placed on the road itself**. Both cut across the fixed
-    board and `map-generation`, so this is a design pass before any code.
+    enemy path**, and **towers/traps placed on the road itself**.
+    - **P2a road shaping — shipped.** Between waves every interior *leg* of the road (one
+      straight stretch) wears a grip; clicking it shows an arrow on each side it could move
+      to, with the price and what the move is worth. Buying one moves that leg's two
+      endpoints together, one tile: the road stays orthogonal, `path.length` never changes,
+      and no pathfinder was introduced. The shape decides the value — a U pushed outward is
+      **+2 tiles** of walking under fire, a staircase step is **±0** but re-cuts the board,
+      the same U pushed inward is **−2** and is the undo. Price climbs 1.55× per bend
+      (120 gp first), so a road cannot be stretched forever — free-form mazing stays out.
+      Pure and tested in `systems/road-shaping.ts` (+27 tests); the run save carries the
+      bends as a replayable `{seg, dir}` list (`RUN_SAVE_VERSION` unchanged at 3).
+    - **P2b traps on the road — still queued.** Hunter traps (bird snare / box trap /
+      deadfall / net trap, chinchompa as the explosive) as a new entity class placed only on
+      road tiles, limited charges, never blocking passage. Validate the real OSRS Hunter
+      ladder before writing it.
 
 15. **V1** a victory-only currency + a permanent-unlock shop — *queued, design-first*
     (user's own idea, 2026-08-21). Winning a run should pay a currency that exists

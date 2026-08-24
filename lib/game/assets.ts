@@ -400,6 +400,8 @@ export const ASSETS = {
     // The clue-scroll compass, cache-rendered: a dial with a needle. It stands in
     // for elapsed time in the run summary — OSRS has no clock sprite.
     compass: itemIcon('compass'),
+    // The spade: the tool OSRS digs with, and the icon for bending the road.
+    spade: itemIcon('spade'),
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
     // OSRS "Stats" (Skills) tab icon — the bar-chart glyph; used for the DPS tab.
     stats_icon: `${LOCAL}/misc/stats_icon.png`,

@@ -36,7 +36,11 @@ import { enemyLeakCost } from '../systems/leak-cost';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import { generateMapLayout, type MapLayout, type MapEdge } from '../systems/map-generation';
-import { generateTerrain, type TerrainField } from '../systems/terrain-generation';
+import { computeRoadTiles, generateTerrain, type TerrainField } from '../systems/terrain-generation';
+import {
+  roadBendCost, roadMoveOptions, shovedPath,
+  type BendDir, type RoadMove,
+} from '../systems/road-shaping';
 import { BIOMES, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
@@ -85,6 +89,15 @@ export class GameEngine {
 
   /** Bound form of {@link isTerrainBlocked} for handing to {@link isValidPlacement}. */
   private readonly blockedTile = (x: number, y: number): boolean => this.isTerrainBlocked(x, y);
+
+  /** Every shove the player has bought this run, in the order they bought them.
+   *  A shove never changes how many waypoints the road has, so a leg's index is
+   *  stable for the whole run — which is what lets a saved run replay this list
+   *  onto a freshly generated road and land on exactly the same map. */
+  roadBends: { seg: number; dir: BendDir }[] = [];
+  /** Which leg the player is currently considering, if any. Purely a UI state:
+   *  clicking a leg arms it, clicking one of its arrows spends the gold. */
+  shapingLeg: number | null = null;
   /** The active battlefield theme (OSRS region palette) — read by the renderer. */
   biome: BiomeDef = BIOMES.lumbridge;
   enemies: Enemy[] = [];
@@ -962,7 +975,8 @@ export class GameEngine {
    *  potion timers) — the player can still place, move, sell and pick spells. */
   escape() {
     if (this.pendingPlacement || this.movingTowerId || this.movingGroupIds.length
-        || this.placeQueue.length || this.pasting || this.selectedTowerType) {
+        || this.placeQueue.length || this.pasting || this.selectedTowerType
+        || this.shapingLeg !== null) {
       this.cancelAction();
     } else {
       this.togglePause();
@@ -1048,6 +1062,8 @@ export class GameEngine {
   private generateMap(seed?: number) {
     this.mapSeed = seed !== undefined ? seed >>> 0 : (Math.random() * 0x100000000) >>> 0;
     this.mapLayout = generateMapLayout(this.mapSeed);
+    this.roadBends = []; // the player's shaping is per-run, like the map it shapes
+    this.shapingLeg = null;
     this.biome = pickBiome(this.mapSeed);
     this.buildPath();
     this.terrain = generateTerrain(
@@ -1081,6 +1097,124 @@ export class GameEngine {
       ...pts,
       stub(pts[pts.length - 1], this.mapLayout.exit),
     ];
+  }
+
+  // ------------------------------------------------------------ shaping the road
+  /**
+   * The shoves the player could buy right now.
+   *
+   * Empty whenever the board belongs to something else — during a wave, after a
+   * loss, or while a tower is being placed, carried or pasted — so the handles
+   * never compete for a click that is already spoken for.
+   */
+  roadShapeOptions(): RoadMove[] {
+    if (this.waveActive || this.gameOver) return [];
+    if (this.selectedTowerType || this.movingTowerId || this.movingGroupIds.length) return [];
+    if (this.pasting || this.queueArmed || this.placeQueue.length) return [];
+    return roadMoveOptions(this.path, {
+      grid: GRID,
+      width: this.width,
+      height: this.height,
+      towers: this.towers,
+      isBlockedTile: this.blockedTile,
+    });
+  }
+
+  /** What the next shove costs — it climbs with every one already bought. */
+  get roadBendPrice(): number {
+    return roadBendCost(this.roadBends.length);
+  }
+
+  /**
+   * Did this click belong to the road-shaping interface?
+   *
+   * Two steps on purpose: the first click picks up a stretch of road and the
+   * arrows appear with their price, the second click spends the gold. A misclick
+   * on a long road is otherwise an expensive way to learn what the handles do.
+   */
+  private tryShapeRoad(x: number, y: number): boolean {
+    const opts = this.roadShapeOptions();
+    if (opts.length === 0) {
+      if (this.shapingLeg !== null) { this.shapingLeg = null; this.emit(); }
+      return false;
+    }
+    if (this.shapingLeg !== null) {
+      const arrow = opts.find(o => o.seg === this.shapingLeg && distance(o.x, o.y, x, y) <= 16);
+      if (arrow) { this.shoveRoad(arrow.seg, arrow.dir); return true; }
+      // Anywhere else puts the road back down, and the click carries on to do
+      // whatever it would normally have done — no click is ever swallowed.
+      this.shapingLeg = null;
+      this.emit();
+      return false;
+    }
+    for (const seg of new Set(opts.map(o => o.seg))) {
+      const a = this.path[seg];
+      const b = this.path[seg + 1];
+      if (distance((a.x + b.x) / 2, (a.y + b.y) / 2, x, y) <= 14) {
+        this.shapingLeg = seg;
+        this.sound.play('select');
+        this.emit();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Buy a shove: pay the price and move that stretch of road one tile.
+   *
+   * The legality of the move is re-checked here rather than trusted from the UI,
+   * because a tower can be built between the arrows being drawn and one being
+   * clicked.
+   */
+  shoveRoad(seg: number, dir: BendDir): boolean {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return false; }
+    if (!this.roadShapeOptions().some(o => o.seg === seg && o.dir === dir)) return false;
+    const price = this.roadBendPrice;
+    if (this.money < price) { this.notify('Not enough gold'); return false; }
+    const next = shovedPath(this.path, seg, dir, GRID);
+    if (!next) return false;
+
+    this.money -= price;
+    this.path = next;
+    this.roadBends.push({ seg, dir });
+    this.clearRoadDecorations();
+    this.shapingLeg = null;
+    this.previewCache = null;
+    // Towers keep their ground, but the road has moved under their range: what
+    // each one can reach has changed, so their cached stats have to go.
+    this.bumpTowerLayout();
+    this.sound.play('sell'); // the coin-shuffle: gold left the purse
+    this.notify(`Road reshaped — ${price} gp`);
+    this.emit();
+    return true;
+  }
+
+  /**
+   * Replay the shoves a saved run had bought, onto the road its seed just rebuilt.
+   *
+   * No legality check: these were legal when they were paid for, and the board
+   * they were legal on is the one being rebuilt. Re-judging them against a
+   * half-restored run (towers are not back yet) would quietly drop bends the
+   * player owns.
+   */
+  private applyRoadBends(bends: readonly { seg: number; dir: BendDir }[]) {
+    for (const b of bends) {
+      const next = shovedPath(this.path, b.seg, b.dir, GRID);
+      if (!next) continue; // a save from a road this shove no longer fits
+      this.path = next;
+      this.roadBends.push({ seg: b.seg, dir: b.dir });
+    }
+    if (this.roadBends.length) this.clearRoadDecorations();
+  }
+
+  /** Sweep away the scenery the road has just been laid over — a bush growing out
+   *  of the middle of the road is the one thing that would give the move away. */
+  private clearRoadDecorations() {
+    const t = this.terrain;
+    if (t.cols === 0) return;
+    const road = computeRoadTiles(this.path, t.cols, t.rows, GRID);
+    t.decorations = t.decorations.filter(d => !road[d.row * t.cols + d.col]);
   }
 
   /**
@@ -1333,6 +1467,7 @@ export class GameEngine {
     this.pasting = false; // the clipboard keeps its towers — only the aim is dropped
     this.pendingPlacement = null;
     this.placeCursor = null; // the keyboard cursor goes with the cancelled placement
+    this.shapingLeg = null; // a picked-up stretch of road is put back down too
     this.emit();
   }
 
@@ -1757,6 +1892,10 @@ export class GameEngine {
       this.placeTower(this.selectedTowerType, x, y, keepPlacing);
       return;
     }
+    // The road's own handles get first refusal: they sit on the road and just off
+    // it, where nothing else is clickable. A click they don't want falls straight
+    // through to everything below.
+    if (this.tryShapeRoad(x, y)) return;
     // Something the world dropped off gets the click before the board does — it is
     // standing on empty ground, so nothing underneath it wanted the click anyway.
     const diversion = this.diversionAt(x, y);
@@ -2677,6 +2816,8 @@ export class GameEngine {
       version: RUN_SAVE_VERSION,
       savedAt: Date.now(),
       mapSeed: this.mapSeed,
+      // The seed alone no longer describes the map: the player reshapes it too.
+      roadBends: this.roadBends.map(b => ({ ...b })),
       gameMode: this.gameMode,
       difficultyTier: this.difficultyTier,
       wave: this.wave,
@@ -2732,6 +2873,9 @@ export class GameEngine {
    */
   loadRun(save: RunSave) {
     this.generateMap(save.mapSeed);
+    // The seed rebuilds the road the run was *dealt*; the shoves rebuild the road
+    // the player paid to have. Both go in before anything is placed on it.
+    this.applyRoadBends(save.roadBends ?? []);
     // Transient combat state is never saved — start the restored board clean.
     this.enemies = [];
     this.projectiles = [];
