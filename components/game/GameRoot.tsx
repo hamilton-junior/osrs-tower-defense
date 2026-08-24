@@ -26,7 +26,7 @@ import { SaveCodeModal } from './save-code';
 import { LEARN_STEPS, LearnAsYouGo, HowToPlay } from './tutorial';
 import { effectTag, DraftCardView } from './draft-cards';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '@/lib/game/data/hunter-traps';
-import { trapCost } from '@/lib/game/systems/hunter-traps';
+import { trapCost, blastProfile } from '@/lib/game/systems/hunter-traps';
 import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, towerListName, TOWER_COMBAT, towerSignature } from './tower-ui';
 import { GearHeader, GearStats, GearCompare, gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, type Victories, type DifficultyProgress } from './save';
@@ -3594,6 +3594,10 @@ export default function GameRoot() {
               {hoverTrap && (() => {
                 const def = HUNTER_TRAP_BY_ID[hoverTrap];
                 const locked = ui.hunterLevel < def.level;
+                // A trap that hurts says how hard, the way a tower does: the flat
+                // part plus the share of the target's own health, and the max hit
+                // that caps them both.
+                const blast = blastProfile(def);
                 return (
                   <div
                     className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-2 w-[16em] z-30 pointer-events-none"
@@ -3618,6 +3622,8 @@ export default function GameRoot() {
                       {def.kind === 'snare' && <Stat icon={ASSETS.debuffs.stun} label="Holds for" value={`${def.hold}s`} />}
                       {def.kind === 'catch' && <Stat icon={ASSETS.misc.hp_icon} label="Takes under" value={`${Math.round(def.catchAt * 100)}% HP`} />}
                       {def.kind === 'blast' && <Stat icon={ASSETS.misc.multicombat_icon} label="Blast" value={`${Math.round(def.radius / TILE_PX)} tiles`} />}
+                      {blast && <Stat icon={ASSETS.misc.strength_icon} label="Damage" value={`${blast.flat} + ${Math.round(blast.share * 100)}% HP`} />}
+                      {blast && <Stat icon={ASSETS.misc.hp_icon} label="Max hit" value={String(blast.cap)} />}
                       <Stat icon={ASSETS.misc.coins_icon} label="Cost" value={`${fmt(trapCost(def, ui.wave))} gp`} />
                     </div>
                     <p className="text-[0.7em] text-[#b3a585] leading-snug mt-[0.4em] pt-[0.35em] px-[0.1em] border-t border-[var(--rs-keyline)]">

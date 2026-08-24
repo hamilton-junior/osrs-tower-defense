@@ -216,17 +216,40 @@ export function canCatch(
  * %-share from turning into an execute on a big enemy. Bosses take a quarter: they
  * are the fight, and a 240 gp item does not get to be a boss phase.
  */
+export interface BlastProfile {
+  /** Damage every target takes regardless of size. */
+  flat: number;
+  /** Extra damage, as a share of the target's own max HP. */
+  share: number;
+  /** The most one target can take — the trap's max hit. */
+  cap: number;
+  /** What a boss takes, as a share of the above. */
+  bossShare: number;
+}
+
+/**
+ * The numbers behind a chinchompa's blast, so the hover panel can state them
+ * without inventing a target to measure against.
+ */
+export function blastProfile(def: HunterTrapDef): BlastProfile | null {
+  if (def.kind !== 'blast') return null;
+  const heavy = def.id === 'red_chinchompa';
+  return {
+    flat: heavy ? 70 : 40,
+    share: heavy ? 0.14 : 0.08,
+    cap: heavy ? 1800 : 900,
+    bossShare: 0.25,
+  };
+}
+
 export function chinBlastDamage(
   def: HunterTrapDef,
   target: { maxHp: number; isBoss?: boolean },
 ): number {
-  if (def.kind !== 'blast') return 0;
-  const heavy = def.id === 'red_chinchompa';
-  const flat = heavy ? 70 : 40;
-  const share = heavy ? 0.14 : 0.08;
-  const cap = heavy ? 1800 : 900;
-  const raw = Math.min(cap, flat + target.maxHp * share);
-  return Math.max(1, Math.round(raw * (target.isBoss ? 0.25 : 1)));
+  const p = blastProfile(def);
+  if (!p) return 0;
+  const raw = Math.min(p.cap, p.flat + target.maxHp * p.share);
+  return Math.max(1, Math.round(raw * (target.isBoss ? p.bossShare : 1)));
 }
 
 /** Everything inside a blast. Pure so the radius is testable without a board. */
