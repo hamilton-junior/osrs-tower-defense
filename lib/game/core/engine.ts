@@ -49,7 +49,7 @@ import { essenceMultiplier } from '../systems/meta-progression';
 import { diversionEssence, diversionGold, diversionLine, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, type Diversion } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import {
-  hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
+  HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
   type HunterTrap,
 } from '../systems/hunter-traps';
 import { handleBossMechanics } from './sim/bosses';
@@ -3247,6 +3247,20 @@ export class GameEngine {
    *  testing any of its unlocks otherwise means grinding tasks for them. */
   debugSetSlayerPoints(n: number) {
     this.slayer.points = Math.max(0, Math.floor(n) || 0);
+    this.emit();
+  }
+
+  /** Set a run skill's level outright. Hunter is the only one so far, but the
+   *  debug panel asks by name so the next skill is one case here, not a new
+   *  method. The XP into the level resets — the level is what gates traps. */
+  debugSetSkillLevel(skill: 'hunter', n: number) {
+    if (skill === 'hunter') {
+      this.hunterLevel = Math.max(1, Math.min(HUNTER_MAX_LEVEL, Math.floor(n) || 1));
+      this.hunterXp = 0;
+      if (this.selectedTrapId && !trapUnlocked(this.selectedTrapId, this.hunterLevel)) {
+        this.selectedTrapId = null;
+      }
+    }
     this.emit();
   }
 

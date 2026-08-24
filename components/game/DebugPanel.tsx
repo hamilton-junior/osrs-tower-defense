@@ -198,18 +198,34 @@ function NumberRow({ label, value, onCommit, min = 0, max }: {
   );
 }
 
+/** The slice of `UIState` the panel reads. It is handed the whole thing, but
+ *  naming the fields keeps the table below honest about what it needs. */
+type DebugUi = {
+  wave: number; money: number; lives: number; maxLives: number; waveActive: boolean;
+  essence: number; slayerPoints: number; biomeName: string;
+  selectedTowerId: string | null; lootBag: unknown[]; hunterLevel: number;
+};
+
+/** The skills a *run* levels, as opposed to the account's meta-progression.
+ *  Hunter is the only one so far. */
+const RUN_SKILLS: ReadonlyArray<{
+  key: 'hunter'; label: string; max: number; read: (ui: DebugUi) => number;
+}> = [
+  { key: 'hunter', label: 'Hunter', max: 99, read: (ui) => ui.hunterLevel },
+];
+
 /** In-game debug + bestiary panel. Two tabs: "Cheats" (set wave/gold/lives,
  *  spawn a custom wave, clear the field) and "Bestiary" (a model viewer that
  *  plays each enemy's baked walk/hurt/death clips off-wave, with its stats). */
 export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
   engineRef: React.RefObject<GameEngine | null>;
-  ui: { wave: number; money: number; lives: number; maxLives: number; waveActive: boolean; essence: number; slayerPoints: number; autoplaySecs: number; biomeName: string; selectedTowerId: string | null; lootBag: unknown[] };
+  ui: DebugUi;
   onClose: () => void;
   globalLock: boolean;
 }) {
   const [tab, setTab] = useState<'cheats' | 'bestiary'>('cheats');
   // Cheats are split into subcategories so the panel never grows past the screen.
-  const [cheatTab, setCheatTab] = useState<'run' | 'spawn' | 'tools'>('run');
+  const [cheatTab, setCheatTab] = useState<'run' | 'spawn' | 'levels' | 'tools'>('run');
 
   // --- custom-wave builder state ---
   // Declaration order in `ENEMIES` is meaningless to anyone hunting for one name in a
@@ -281,8 +297,8 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
       {tab === 'cheats' && (
         <div className="space-y-[0.5em]">
           {/* Subcategories keep each group compact instead of one tall column. */}
-          <div className="grid grid-cols-3 gap-[0.3em]">
-            {(['run', 'spawn', 'tools'] as const).map((ct) => (
+          <div className="grid grid-cols-4 gap-[0.3em]">
+            {(['run', 'spawn', 'levels', 'tools'] as const).map((ct) => (
               <button
                 key={ct}
                 onClick={() => setCheatTab(ct)}
@@ -304,10 +320,6 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
             {ui.waveActive && <p className="text-[0.66em] text-[#b3a585]">Wave editing is locked mid-wave.</p>}
           </div>
 
-          <div className="rs-panel-inset p-[0.5em] space-y-[0.4em]">
-            <NumberRow label="Delay (s)" value={ui.autoplaySecs} min={1} onCommit={(n) => engineRef.current?.setAutoplaySecs(n)} />
-            <p className="text-[0.66em] text-[#b3a585]">Auto-start lives in the main menu now — this sets its delay between waves.</p>
-          </div>
           </>
           )}
 
@@ -404,6 +416,25 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
           </>
           )}
 
+          {cheatTab === 'levels' && (
+          <div className="rs-panel-inset p-[0.5em] space-y-[0.4em]">
+            <div className="text-[0.72em] text-osrs-orange uppercase tracking-wide">Run skills</div>
+            {/* One row per skill the run levels. Hunter is the only one today;
+                the next one is a line in RUN_SKILLS, not a new panel. */}
+            {RUN_SKILLS.map((sk) => (
+              <NumberRow
+                key={sk.key}
+                label={sk.label}
+                value={sk.read(ui)}
+                min={1}
+                max={sk.max}
+                onCommit={(n) => engineRef.current?.debugSetSkillLevel(sk.key, n)}
+              />
+            ))}
+            <p className="text-[0.66em] text-[#b3a585]">Setting a level clears the XP into it.</p>
+          </div>
+          )}
+
           {cheatTab === 'tools' && (
           <>
           <div className="rs-panel-inset p-[0.5em] space-y-[0.4em]">
@@ -461,35 +492,41 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
             {ui.waveActive && <p className="text-[0.66em] text-[#b3a585]">Reroll is locked mid-wave. Cycle biome is always safe.</p>}
           </div>
 
-          <button
-            onClick={() => engineRef.current?.debugTestUnlock()}
-            className="rs-btn w-full py-[0.35em] text-[0.8em]"
-          >
-            ✦ Test unlock popup
-          </button>
+          {/* Two to a row: the labels are short, the panel is narrow, and every
+              new tool used to make this column taller than the screen. */}
+          <div className="grid grid-cols-2 gap-[0.4em]">
+            <button
+              onClick={() => engineRef.current?.debugTestUnlock()}
+              className="rs-btn py-[0.35em] text-[0.74em]"
+              title="Show the unlock popup with a stand-in reward"
+            >
+              ✦ Test unlock
+            </button>
 
-          <button
-            onClick={() => engineRef.current?.debugSeedLog()}
-            className="rs-btn w-full py-[0.35em] text-[0.8em]"
-          >
-            📖 Seed Collection Log
-          </button>
+            <button
+              onClick={() => engineRef.current?.debugSeedLog()}
+              className="rs-btn py-[0.35em] text-[0.74em]"
+              title="Fill the Collection Log with sample kill counts"
+            >
+              📖 Seed log
+            </button>
 
-          <button
-            onClick={() => engineRef.current?.debugGiveGear()}
-            className="rs-btn w-full py-[0.35em] text-[0.8em]"
-            title="Drop one of every Classic gear piece into the loot bag"
-          >
-            🎒 Give every gear piece
-          </button>
+            <button
+              onClick={() => engineRef.current?.debugGiveGear()}
+              className="rs-btn py-[0.35em] text-[0.74em]"
+              title="Drop one of every Classic gear piece into the loot bag"
+            >
+              🎒 Give gear
+            </button>
 
-          <button
-            onClick={() => engineRef.current?.debugClearItems()}
-            className="rs-btn w-full py-[0.35em] text-[0.8em]"
-            title="Empty the loot bag (worn gear stays equipped)"
-          >
-            🧹 Clear items ({ui.lootBag.length})
-          </button>
+            <button
+              onClick={() => engineRef.current?.debugClearItems()}
+              className="rs-btn py-[0.35em] text-[0.74em]"
+              title="Empty the loot bag (worn gear stays equipped)"
+            >
+              🧹 Clear items ({ui.lootBag.length})
+            </button>
+          </div>
           </>
           )}
         </div>
