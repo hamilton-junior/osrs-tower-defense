@@ -30,7 +30,7 @@ import { trapCost, blastProfile } from '@/lib/game/systems/hunter-traps';
 import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, towerListName, TOWER_COMBAT, towerSignature } from './tower-ui';
 import { GearHeader, GearStats, GearCompare, gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, type Victories, type DifficultyProgress } from './save';
-import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Orb, GoStat, StatLabel, Stat } from './ui-kit';
+import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Vital, GoStat, StatLabel, Stat } from './ui-kit';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl, coinsIcon, GEAR_ICONS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
@@ -2123,43 +2123,6 @@ export default function GameRoot() {
         </div>
       )}
 
-      {/* Top-right data-orb cluster (OSRS minimap-orb style) */}
-      <div data-tut="hud" className="absolute top-4 right-4 flex flex-col gap-2 z-10 items-end">
-        <div className="relative">
-          <div key={ui.lifestealSeq} className={ui.lifestealSeq > 0 ? 'rs-orb-blip' : undefined}>
-            <Orb
-              icon={ASSETS.misc.orb_hitpoints}
-              title="Lives"
-              value={ui.lives}
-              valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
-              fill={ui.lives / ui.maxLives}
-              fillColor="linear-gradient(180deg, #e23a3a, #8a0000)"
-            />
-          </div>
-          {ui.lifestealSeq > 0 && (
-            <span key={`h${ui.lifestealSeq}`} className="rs-lifesteal-pop" aria-hidden>
-              ❤ +1
-            </span>
-          )}
-        </div>
-        {/* Gold is NOT an orb: it is read while shopping, so it sits beside the
-            tower dock (where the prices are), not up here with the vitals. */}
-        <Orb
-          icon={ASSETS.misc.attack_icon}
-          title="Wave"
-          value={ui.wave}
-          fill={1}
-          fillColor="linear-gradient(180deg, #3ac0c0, #0a6b6b)"
-        />
-        <Orb
-          icon={ASSETS.misc.orb_prayer}
-          title="Prayer"
-          value={ui.prayerPoints}
-          fill={ui.prayerPoints / ui.prayerMax}
-          fillColor="linear-gradient(180deg, #6db3f2, #1f5fa8)"
-        />
-      </div>
-
       {/* Selected tower panel (top-left) */}
       {selectedTower && (
         <MovablePanel
@@ -3869,7 +3832,52 @@ export default function GameRoot() {
             {/* The outer half takes the bar's leftover room (`flex-1`); the inner
                 one hugs the stones themselves, so the tutorial's ring lands on the
                 buttons instead of on the empty stretch beside them. */}
-            <div className="flex flex-1 items-center justify-end">
+            <div className="flex flex-1 items-center justify-end gap-[0.5em]">
+            {/* The run's vitals. They used to be minimap orbs pinned to the board's
+                top-right corner, where they floated over whatever the map put under
+                them; here they sit in the one interface that never covers the board,
+                and in `em` like the rest of the bar so the UI - / + control resizes
+                them. Lives and prayer each keep a hairline gauge; the wave is a plain
+                count, so it has nothing to fill. Gold is not among them — it is read
+                while shopping, so it stays beside the dock, against the prices.
+
+                Deliberately `shrink-0`, like the interface stones beside it. A vital
+                you cannot read is not worth the room it saves, and the bar already
+                has an answer for a row that runs out of width: `maxUiScale` above
+                measures what the groups naturally need and stops the UI + button
+                there. That measurement reads each group's children at their natural
+                width, so a group that quietly squeezed itself would under-report and
+                let the interface grow past what actually fits. */}
+            <div data-tut="hud" className="shrink-0 flex items-center gap-[0.4em]">
+              <div className="relative">
+                <div key={ui.lifestealSeq} className={ui.lifestealSeq > 0 ? 'rs-vital-blip' : undefined}>
+                  <Vital
+                    icon={ASSETS.misc.orb_hitpoints}
+                    title="Lives"
+                    value={ui.lives}
+                    valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
+                    fill={ui.lives / ui.maxLives}
+                    fillColor="linear-gradient(90deg, #8a0000, #e23a3a)"
+                  />
+                </div>
+                {ui.lifestealSeq > 0 && (
+                  <span key={`h${ui.lifestealSeq}`} className="rs-lifesteal-pop" aria-hidden>
+                    ❤ +1
+                  </span>
+                )}
+              </div>
+              <Vital icon={ASSETS.misc.attack_icon} title="Wave" value={ui.wave} />
+              <Vital
+                icon={ASSETS.misc.orb_prayer}
+                title="Prayer"
+                value={ui.prayerPoints}
+                fill={ui.prayerPoints / ui.prayerMax}
+                fillColor="linear-gradient(90deg, #1f5fa8, #6db3f2)"
+              />
+            </div>
+
+            <div className="rs-bar-sep" />
+
             <div data-tut="stones" className="flex items-center gap-[0.4em]">
               {/* First stone, one per mode: the roguelite's loadout (relics + boons)
                   or classic's loot bag. Classic drafts nothing and the roguelite

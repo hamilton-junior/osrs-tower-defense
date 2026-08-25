@@ -209,67 +209,60 @@ body {
   box-shadow: 0 1px 0 0 var(--rs-bevel-light);
 }
 
-/* Orb: round HP-style stat indicator */
-/* OSRS data orb: green value on the left + a colored, depleting sphere with a
-   centered stat icon on the right (matches the in-game minimap orbs). */
-.rs-orb {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.rs-orb-value {
-  font-size: 1.05rem;
-  font-weight: bold;
-  color: #4be23c;
-  text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
-  min-width: 36px;
-  text-align: right;
-}
-
-.rs-orb-sphere {
+/* A run vital, as it reads in the bottom bar: the OSRS glyph, the number beside
+   it, and a hairline gauge underneath when the number is a fraction of
+   something. These replaced the minimap-style orbs that used to float in the
+   board's top-right corner, where they sat over whatever the map put under them
+   — the bar is the one interface that never covers the board. Everything here is
+   in `em`, like the rest of the bar, so the UI - / + control resizes it too. */
+.rs-vital {
   position: relative;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 1px solid #15130f;
-  background: radial-gradient(circle at 38% 30%, #4c4740, #16140f);
-  box-shadow:
-    inset 0 2px 4px rgba(255, 255, 255, 0.22),
-    inset 0 -5px 9px rgba(0, 0, 0, 0.75),
-    0 2px 4px rgba(0, 0, 0, 0.6);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.12em;
+  min-width: 2.4em;
   flex-shrink: 0;
 }
 
-/* Fills from the bottom; height set inline as the stat percentage. */
-.rs-orb-fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  transition: height 0.25s ease-out;
+.rs-vital-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28em;
 }
 
-.rs-orb-gloss {
-  position: absolute;
-  top: 4px;
-  left: 9px;
-  width: 15px;
-  height: 9px;
-  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.45), transparent 70%);
-  border-radius: 50%;
-}
-
-.rs-orb-icon {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 22px;
-  height: 22px;
+.rs-vital img {
+  width: 1.05em;
+  height: 1.05em;
   object-fit: contain;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.85));
+}
+
+.rs-vital-value {
+  font-size: 0.9em;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  color: #4be23c;
+  text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+}
+
+/* The gauge is only drawn for a vital that has a real fraction to show. The wave
+   number has none — it is a count, not a resource — so it carries its row alone
+   rather than wearing a bar that is always full. */
+.rs-vital-bar {
+  display: block;
+  height: 0.28em;
+  border: 1px solid var(--rs-keyline);
+  background: #15130f;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.75);
+  overflow: hidden;
+}
+
+.rs-vital-fill {
+  display: block;
+  height: 100%;
+  transition: width 0.25s ease-out;
 }
 
 /* OSRS button: chiselled brown stone with a raised bevel; pressing inverts the
@@ -940,9 +933,9 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
   10% { background-position: -30% 0; }
   10.01%, 100% { background-position: 130% 0; }
 }
-/* Blood-barrage life steal: the lives orb blips and a heart floats off it. */
-.rs-orb-blip { animation: rs-orb-blip 0.5s ease-out; }
-@keyframes rs-orb-blip {
+/* Blood-barrage life steal: the lives chip blips and a heart floats off it. */
+.rs-vital-blip { animation: rs-vital-blip 0.5s ease-out; }
+@keyframes rs-vital-blip {
   0% { filter: drop-shadow(0 0 0 rgba(200, 30, 30, 0)); transform: scale(1); }
   30% { filter: drop-shadow(0 0 8px rgba(200, 30, 30, 0.9)); transform: scale(1.12); }
   100% { filter: drop-shadow(0 0 0 rgba(200, 30, 30, 0)); transform: scale(1); }

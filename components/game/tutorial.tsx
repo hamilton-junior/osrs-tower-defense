@@ -76,7 +76,7 @@ export const LEARN_STEPS: LearnStep[] = [
     body: 'Nothing spawns until you press Start Wave — or Space. Build first, the game waits.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && c.towersPlaced },
   { id: 'hud', target: 'hud', icon: ASSETS.misc.orb_hitpoints, title: 'Lives & gold',
-    body: 'Every enemy that reaches your base costs a life. Every kill pays gold.',
+    body: 'Lives, wave and prayer sit in the bar. Every enemy that reaches your base costs a life; every kill pays gold.',
     when: (ui) => ui.waveActive && ui.wave === 1 },
   { id: 'upgrade', target: 'dock', icon: ASSETS.misc.xp_icon, title: 'Spend between waves',
     body: 'Click a tower you built to upgrade or sell it. Fighting levels it up, and higher tiers ask for a level as well as gold.',
@@ -154,9 +154,9 @@ export function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll, uiScal
 
   // Beside the target on whichever side has room; park on the mid-left when the
   // tip is targetless. The mid-left strip is the one region no live event uses —
-  // the top-centre carries the wave strip and boss bar, the top-right the orbs,
-  // the bottom the prayers/controls and the right edge the docked menu — so a
-  // targetless tip never sits over what's happening on the board.
+  // the top-centre carries the wave strip and boss bar, the bottom the vitals,
+  // prayers and controls, and the right edge the docked menu — so a targetless
+  // tip never sits over what's happening on the board.
   let bStyle: React.CSSProperties;
   if (rect) {
     const placeBelow = vh - rect.bottom > 200 || vh - rect.bottom >= rect.top;

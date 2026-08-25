@@ -98,23 +98,34 @@ export const fmtTime = (s: number) => {
   const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
   return `${h > 0 ? `${h}:` : ''}${mm}:${String(sec).padStart(2, '0')}`;
 };
-export function Orb({ icon, title, value, valueColor, fill, fillColor }: {
+/**
+ * One of the run's vitals in the bottom bar: the OSRS glyph, the number beside
+ * it, and a hairline gauge underneath. Leave `fill` out for a number that is a
+ * count rather than a share of something — the wave — and it draws no gauge at
+ * all, which is more honest than a bar that is always full.
+ */
+export function Vital({ icon, title, value, valueColor, fill, fillColor }: {
   icon?: string;
   title: string;
   value: React.ReactNode;
   valueColor?: string;
-  fill: number;
-  fillColor: string;
+  fill?: number;
+  fillColor?: string;
 }) {
-  const pct = Math.max(0, Math.min(1, fill)) * 100;
   return (
-    <div className="rs-orb" title={title}>
-      <span className="rs-orb-value" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
-      <div className="rs-orb-sphere">
-        <div className="rs-orb-fill" style={{ height: `${pct}%`, background: fillColor }} />
-        <div className="rs-orb-gloss" />
-        {icon && <img src={icon} alt="" className="rs-orb-icon" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
-      </div>
+    <div className="rs-vital" title={title}>
+      <span className="rs-vital-row">
+        {icon && <img src={icon} alt="" onError={hideBrokenImg} />}
+        <span className="rs-vital-value" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
+      </span>
+      {fill !== undefined && (
+        <span className="rs-vital-bar">
+          <span
+            className="rs-vital-fill"
+            style={{ width: `${Math.max(0, Math.min(1, fill)) * 100}%`, background: fillColor }}
+          />
+        </span>
+      )}
     </div>
   );
 }
