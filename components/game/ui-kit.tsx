@@ -105,16 +105,19 @@ export const fmtTime = (s: number) => {
  * already owns it (the wave sits on the Start Wave button), not here wearing a
  * bar that is always full.
  */
-export function Vital({ icon, title, value, valueColor, fill, fillColor }: {
+export function Vital({ icon, title, value, valueColor, fill, fillColor, wide }: {
   icon?: string;
   title: string;
   value: React.ReactNode;
   valueColor?: string;
   fill: number;
   fillColor: string;
+  /** Stretch to fill the room it is given, gauge and all, instead of hugging its
+      number. Used in the bottom bar, where the vitals own a whole empty section. */
+  wide?: boolean;
 }) {
   return (
-    <div className="rs-vital" title={title}>
+    <div className={`rs-vital${wide ? ' rs-vital-wide' : ''}`} title={title}>
       <span className="rs-vital-row">
         {icon && <img src={icon} alt="" onError={hideBrokenImg} />}
         <span className="rs-vital-value" style={valueColor ? { color: valueColor } : undefined}>{value}</span>

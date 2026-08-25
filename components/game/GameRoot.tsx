@@ -304,9 +304,12 @@ export default function GameRoot() {
       // 100% — so look through it and add up what it holds instead: its children, its
       // gaps and its padding. Only a box that cannot grow, or has no element children,
       // is measured by its own box. That rule applies at any depth, which is what lets
-      // a group centre its content inside a growing wrapper without lying about it.
-      // `data-fit="content"` opts a box in by hand — the controls group cannot grow but
-      // is allowed to clip, and a clipped box would otherwise report less than it needs.
+      // a group hand its slack to a child without lying about it.
+      //
+      // `data-fit="min"` is the exception the rule needs: the vitals' gauges have no
+      // opinion about their own width — they take whatever the section gives them — so
+      // neither reading works on them. Such a box is measured by its CSS `min-width`,
+      // the width it was designed to still be readable at.
       //
       // Widths are *outer* widths, taken from the fractional rect: the controls carry
       // ~17px of `ml-`/`mr-` margins between the speed buttons and the volume slider,
@@ -317,8 +320,9 @@ export default function GameRoot() {
         (parseFloat(es.marginLeft) || 0) + (parseFloat(es.marginRight) || 0);
       const natural = (el: HTMLElement, isBar = false): number => {
         const es = getComputedStyle(el);
+        if (el.dataset.fit === 'min') return (parseFloat(es.minWidth) || 0) + margins(es);
         const inner = [...el.children] as HTMLElement[];
-        const grows = isBar || (parseFloat(es.flexGrow) || 0) > 0 || el.dataset.fit === 'content';
+        const grows = isBar || (parseFloat(es.flexGrow) || 0) > 0;
         if (!inner.length || !grows) return el.getBoundingClientRect().width + margins(es);
         const innerGap = parseFloat(es.columnGap) || 0;
         const innerPad = (parseFloat(es.paddingLeft) || 0) + (parseFloat(es.paddingRight) || 0);
@@ -330,7 +334,14 @@ export default function GameRoot() {
       // once for the largest scale that still fits, instead of stepping down until it
       // does — a step-down loop only ever shrinks, so a single reading taken mid-relayout
       // costs a size permanently, and that is what pinned the bar at its minimum.
-      const perUnit = natural(bar, true) / Math.max(0.01, s);
+      //
+      // The two halves flanking the dock are `flex-1 basis-0`, so the row gives them
+      // the *same* width — it needs twice the fatter one, not the sum of the two. The
+      // difference is exactly what the sum is missing (a + b + |a − b| = 2·max(a, b)),
+      // and dropping it is what would let the dock drift off centre at the ceiling.
+      const halves = ([...bar.children] as HTMLElement[]).filter((el) => el.dataset.half !== undefined);
+      const skew = halves.length === 2 ? Math.abs(natural(halves[0]) - natural(halves[1])) : 0;
+      const perUnit = (natural(bar, true) + skew) / Math.max(0.01, s);
       const fits = perUnit > 0 ? bar.offsetWidth / perUnit : UI_SCALE_MAX;
       const stepped = Math.floor((fits + 1e-6) / UI_SCALE_STEP) * UI_SCALE_STEP;
       setMaxUiScale(Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, +stepped.toFixed(2))));
@@ -3452,14 +3463,18 @@ export default function GameRoot() {
         <footer
           ref={barRef}
           data-tut="sidebar"
-          className="w-full rs-panel flex items-center gap-[0.6em] px-[0.6em]"
+          className="w-full rs-panel flex items-center gap-[0.45em] px-[0.6em]"
           style={{ height: '4.3em' }}
         >
-          {/* One row, four hairline-separated groups: the run controls (left), the
-              tower dock and Start Wave (centre) and the interface stones (right).
-              The row's leftover width all goes to the right group: the controls take
-              exactly what they hold, so the empty stretch collects around the vitals
-              instead of pooling behind the volume slider where nothing uses it. */}
+          {/* One row built around the tower dock, which is centred on the bar itself
+              - its middle is the bar's middle, on every screen. That is what the two
+              halves are for: both are `flex-1 basis-0`, so the row hands them the same
+              width whatever they hold, and the dock between them lands dead centre.
+              Everything else arranges itself inside its own half: the run controls
+              hold the far left, the gold pile ends the left half against the dock's
+              prices, and the right half runs Start Wave -> vitals -> interface
+              stones. */}
+          <div data-half="" className="flex flex-1 min-w-0 items-center gap-[0.6em]">
             {/* Everything here is sized in `em` (no text-xs / px-2 rem classes) so
                 the whole cluster tracks the bar's fs() font — i.e. the UI − / +
                 control below actually resizes these buttons too. */}
@@ -3471,12 +3486,9 @@ export default function GameRoot() {
                 below — is deliberately a sibling of this group rather than a child, so
                 it is never the thing that gets cut off.
 
-                It no longer grows (`flex-1` would hand it half the row's slack, which
-                it has no use for) — but it may still shrink, and a shrunk box measures
-                smaller than it needs. `data-fit="content"` tells `maxUiScale` to read
-                what this group holds rather than the width it currently shows, the same
-                way it looks through a box that can grow. */}
-            <div data-tut="controls" data-fit="content" className="flex min-w-0 items-center gap-[0.25em] overflow-hidden">
+                It takes the left half's slack (`flex-1`) so its contents stay pinned to
+                the bar's left edge and the gold pile ends up against the dock. */}
+            <div data-tut="controls" className="flex flex-1 min-w-0 items-center gap-[0.25em] overflow-hidden">
               <button
                 onClick={() => engineRef.current?.togglePause()}
                 title={ui.paused ? 'Resume' : 'Pause'}
@@ -3571,7 +3583,46 @@ export default function GameRoot() {
               <span className={`${stackClass(ui.money)} font-bold tabular-nums text-[0.9em]`}>{fmt(ui.money)}</span>
             </div>
 
-            <div className="relative shrink-0">
+            {/* Two jobs, two tabs. A tower is built *beside* the road; a trap is
+                laid *on* it. They share the dock rather than the bar, because the
+                bar's height is fixed and a seventh stone would have to come out of
+                the board. Each tab wears its skill's own OSRS icon — the
+                Construction saw for the things you build, the Hunter paw for the
+                things you lay — so the two halves read at a glance. One switch,
+                not two stones: a pair of stacked `.rs-tab`s is 5em tall against a
+                bar whose height is a fixed 4.3em, and they spilled over both its
+                edges. The switch is shorter and carries the bigger icon.
+
+                It ends the left half rather than riding inside the dock: the dock
+                is centred on the bar, and anything sharing that box would push the
+                slots off-centre by half its own width. Here it still sits against
+                them — the row's gap is all that separates the two. */}
+            <div className="shrink-0 rs-switch">
+              <button
+                onClick={() => { setBuildTab('towers'); engineRef.current?.selectTrapType(null); }}
+                title="Towers — built beside the road"
+                className={`rs-switch-seg ${buildTab === 'towers' ? 'rs-switch-on' : ''}`}
+              >
+                <img src={ASSETS.misc.construction_icon} alt="Towers" onError={hideBrokenImg} />
+              </button>
+              <button
+                onClick={() => { setBuildTab('traps'); engineRef.current?.selectTowerType(null); }}
+                title="Hunter traps — laid on the road itself, between waves"
+                className={`rs-switch-seg ${buildTab === 'traps' ? 'rs-switch-on' : ''}`}
+              >
+                <img src={ASSETS.misc.hunter_icon} alt="Traps" onError={hideBrokenImg} />
+                {ui.traps.length > 0 && <span className="rs-tab-badge">{ui.traps.length}</span>}
+              </button>
+            </div>
+          </div>
+
+          {/* The bar's centrepiece, and the only child of the row that is neither
+              half: the slots themselves, and nothing else. Whatever the two halves
+              hold, this box sits in the middle — which is why the switch beside it
+              and the trap counter after it each live in a half instead. The slots
+              hold the same spot on the bar in either tab, and the row's gap is all
+              that separates them from either. */}
+          <div className="relative shrink-0">
               {hoverTrap && (() => {
                 const def = HUNTER_TRAP_BY_ID[hoverTrap];
                 const locked = ui.hunterLevel < def.level;
@@ -3664,34 +3715,6 @@ export default function GameRoot() {
                   </div>
                 );
               })()}
-              {/* Two jobs, two tabs. A tower is built *beside* the road; a trap is
-                  laid *on* it. They share the dock rather than the bar, because the
-                  bar's height is fixed and a seventh stone would have to come out of
-                  the board. Each tab wears its skill's own OSRS icon — the
-                  Construction saw for the things you build, the Hunter paw for the
-                  things you lay — so the two halves read at a glance. One switch,
-                  not two stones: a pair of stacked `.rs-tab`s is 5em tall against a
-                  bar whose height is a fixed 4.3em, and they spilled over both its
-                  edges. The switch is shorter and carries the bigger icon. */}
-              <div className="flex items-stretch gap-[0.35em]">
-                <div className="shrink-0 self-center rs-switch">
-                  <button
-                    onClick={() => { setBuildTab('towers'); engineRef.current?.selectTrapType(null); }}
-                    title="Towers — built beside the road"
-                    className={`rs-switch-seg ${buildTab === 'towers' ? 'rs-switch-on' : ''}`}
-                  >
-                    <img src={ASSETS.misc.construction_icon} alt="Towers" onError={hideBrokenImg} />
-                  </button>
-                  <button
-                    onClick={() => { setBuildTab('traps'); engineRef.current?.selectTowerType(null); }}
-                    title="Hunter traps — laid on the road itself, between waves"
-                    className={`rs-switch-seg ${buildTab === 'traps' ? 'rs-switch-on' : ''}`}
-                  >
-                    <img src={ASSETS.misc.hunter_icon} alt="Traps" onError={hideBrokenImg} />
-                    {ui.traps.length > 0 && <span className="rs-tab-badge">{ui.traps.length}</span>}
-                  </button>
-                </div>
-                <div className="flex items-center gap-[0.45em]">
                 <div data-tut="dock" className="grid grid-cols-6 gap-[0.3em] w-[17.5em]">
                 {buildTab === 'towers' ? TOWER_ORDER.map((type, i) => {
                   const cost = ui.towerPrices[type];
@@ -3770,19 +3793,19 @@ export default function GameRoot() {
                   </>
                 )}
                 </div>{/* build dock */}
-                {buildTab === 'traps' && (
-                  /* Beside the traps, not under them: the bar's height is fixed, and a
-                     line below the dock pushed the whole column past it. It counts what
-                     is on the board, so it stands next to the row that puts it there. */
-                  <div className="text-center text-[#cdbe91] tabular-nums leading-tight">
-                    <div className="text-[0.72em] text-osrs-orange">{ui.traps.length}/{ui.maxTraps}</div>
-                    <div className="text-[0.46em] uppercase tracking-wide">traps out</div>
-                  </div>
-                )}
-                </div>
-              </div>
-            </div>
+          </div>
 
+          <div data-half="" className="flex flex-1 min-w-0 items-center gap-[0.6em]">
+            {buildTab === 'traps' && (
+              /* Beside the traps, not under them: the bar's height is fixed, and a
+                 line below the dock pushed the whole column past it. It counts what
+                 is on the board, so it stands next to the row that puts it there —
+                 in the right half, so that counting does not shift the slots. */
+              <div className="text-center text-[#cdbe91] tabular-nums leading-tight">
+                <div className="text-[0.72em] text-osrs-orange">{ui.traps.length}/{ui.maxTraps}</div>
+                <div className="text-[0.46em] uppercase tracking-wide">traps out</div>
+              </div>
+            )}
             <div className="rs-bar-sep" />
 
             {/* Sending the wave sits next to the towers you spend the gap building.
@@ -3847,10 +3870,9 @@ export default function GameRoot() {
             {/* Interface stones, ordered by how often a run reaches for them:
                 loadout and DPS (read mid-run), then the two shops, then the log
                 and the two links out. Debug has no stone — it is Ctrl+' only. */}
-            {/* The outer half takes the bar's leftover room (`flex-1` — and with the
-                controls no longer growing, that is all of it); the inner one hugs the
-                stones themselves, so the tutorial's ring lands on the buttons instead
-                of on the empty stretch beside them. */}
+            {/* The outer group takes what the right half has left over; the inner one
+                hugs the stones themselves, so the tutorial's ring lands on the buttons
+                instead of on the empty stretch beside them. */}
             <div className="flex flex-1 items-center justify-end gap-[0.5em]">
             {/* The run's vitals. They used to be minimap orbs pinned to the board's
                 top-right corner, where they floated over whatever the map put under
@@ -3863,21 +3885,20 @@ export default function GameRoot() {
                 count never goes away. Gold is not here either: it is read while
                 shopping, so it stays beside the dock, against the prices.
 
-                Deliberately `shrink-0`, like the interface stones beside it. A vital
-                you cannot read is not worth the room it saves, and the bar already
-                has an answer for a row that runs out of width: `maxUiScale` above
-                measures what the groups naturally need and stops the UI + button
-                there. That measurement reads each group's children at their natural
-                width, so a group that quietly squeezed itself would under-report and
-                let the interface grow past what actually fits.
+                The stretch between Start Wave and the interface stones is theirs, and
+                they fill it: the two gauges divide it in half and grow into their
+                share, so a fraction is read off a bar the width of a thumb rather than
+                a hairline. Nothing else wants that room - every other group in the bar
+                has a fixed footprint.
 
-                The wrapper takes the group's leftover room and centres them in it,
-                rather than letting them hug the stones with the whole empty stretch
-                on their other side. `maxUiScale` sees through the wrapper (it looks
-                past any box that can grow), so the centring costs nothing. */}
-            <div className="flex flex-1 items-center justify-center">
-              <div data-tut="hud" className="shrink-0 flex items-center gap-[0.4em]">
-              <div className="relative">
+                That stretching is invisible to `maxUiScale` in the worst way: a gauge
+                reports whatever width it was handed, so measuring it would let the
+                interface grow forever. The wrapper is marked `data-fit="min"` instead
+                - what this section actually needs is its `min-w-`, the width at which
+                the two numbers still read - and that is what the estimator counts. */}
+            <div data-fit="min" className="flex flex-1 items-center min-w-[7em]">
+              <div data-tut="hud" className="flex flex-1 items-center gap-[0.6em]">
+              <div className="relative flex-1 min-w-0">
                 <div key={ui.lifestealSeq} className={ui.lifestealSeq > 0 ? 'rs-vital-blip' : undefined}>
                   <Vital
                     icon={ASSETS.misc.orb_hitpoints}
@@ -3886,6 +3907,7 @@ export default function GameRoot() {
                     valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
                     fill={ui.lives / ui.maxLives}
                     fillColor="linear-gradient(90deg, #8a0000, #e23a3a)"
+                    wide
                   />
                 </div>
                 {ui.lifestealSeq > 0 && (
@@ -3900,6 +3922,7 @@ export default function GameRoot() {
                 value={ui.prayerPoints}
                 fill={ui.prayerPoints / ui.prayerMax}
                 fillColor="linear-gradient(90deg, #1f5fa8, #6db3f2)"
+                wide
               />
               </div>
             </div>
@@ -3944,6 +3967,7 @@ export default function GameRoot() {
               </button>
             </div>
             </div>
+          </div>
         </footer>
       </div>{/* bottom bar */}
     </div>

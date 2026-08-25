@@ -220,9 +220,19 @@ body {
   display: inline-flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.12em;
+  gap: 0.14em;
   min-width: 2.4em;
   flex-shrink: 0;
+}
+
+/* A vital that owns room rather than borrowing it: in the bottom bar the two of
+   them share the whole empty stretch between the wave button and the interface
+   stones, so the gauge — the only part with nothing to say about its own width —
+   is what grows to fill it. The number stays centred over its own gauge. */
+.rs-vital-wide {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
 }
 
 .rs-vital-row {
@@ -252,7 +262,7 @@ body {
    rides the Start Wave button instead of wearing a bar that is always full. */
 .rs-vital-bar {
   display: block;
-  height: 0.28em;
+  height: 0.4em;
   border: 1px solid var(--rs-keyline);
   background: #15130f;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.75);
