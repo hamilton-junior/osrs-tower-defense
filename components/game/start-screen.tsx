@@ -56,7 +56,7 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
   onHelp: () => void;
   onSaveCode: () => void;
 }) {
-  const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string }[] = [
+  const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string; wip?: string }[] = [
     {
       id: 'classic', name: 'Classic', tag: 'Pure Tower Defense',
       desc: 'Build towers and survive the waves. Nothing else.',
@@ -66,6 +66,10 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
       id: 'roguelite', name: 'Roguelite', tag: 'Buy reward cards with gold',
       desc: 'Classic, plus reward cards you buy with gold between waves. Bosses pay relics.',
       icon: ASSETS.misc.cards_icon,
+      // Said before the run rather than discovered during it: the cards and their
+      // numbers are still moving, and a player who knows that reads a swingy run
+      // as the mode being unfinished instead of the game being broken.
+      wip: 'Mode and Balance still WIP',
     },
   ];
   // Both paths out of the start screen destroy the saved run — throwing it away
@@ -221,6 +225,15 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
                   Essence <span className="text-osrs-yellow font-bold">{essenceRateLabel(m.id, 'normal')}</span>
                 </span>
                 {!compact && <span className="text-[0.78em] text-[#d3c3a0] leading-snug">{m.desc}</span>}
+                {/* The OSRS prohibited sign, the same glyph the board puts over a
+                    tower that is out of action — the game's own "careful with this"
+                    mark, so the notice needs no new asset. */}
+                {m.wip && (
+                  <span className="flex items-center gap-[0.3em] text-[0.7em] leading-snug" style={{ color: 'var(--osrs-red)' }}>
+                    <img src={ASSETS.misc.blocked} alt="" className="w-[0.95em] h-[0.95em] object-contain shrink-0" onError={hideBrokenImg} />
+                    {m.wip}
+                  </span>
+                )}
               </button>
             );
           })}
