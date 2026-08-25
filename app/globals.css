@@ -342,6 +342,13 @@ body {
 /* `em` (≈32px at the bar's default font) so slot icons grow with the UI size
    control instead of staying fixed while the slot around them scales. */
 .rs-slot img { width: 1.85em; height: 1.85em; object-fit: contain; image-rendering: pixelated; }
+/* One square in the dock is a read-out rather than an item: the Hunter paw sits
+   over a level, an XP bar and its numbers, so it takes a far smaller icon than a
+   slot holding one thing. Same specificity as the rule above and later in the
+   file, which is what a utility class on the `img` could not manage — it lost to
+   `.rs-slot img` and the paw came out at full slot size, shouldering the level and
+   the bar out of the square. */
+.rs-slot-skill img { width: 0.85em; height: 0.85em; }
 .rs-slot-cost {
   position: absolute;
   bottom: 0;

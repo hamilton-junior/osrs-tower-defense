@@ -3771,10 +3771,10 @@ export default function GameRoot() {
                         finishes the level. How many traps the level allows lives under
                         the row instead, beside the traps it is counting. */}
                     <div
-                      className="rs-slot cursor-default flex flex-col items-center justify-center gap-[0.14em] px-[0.2em]"
+                      className="rs-slot rs-slot-skill cursor-default flex flex-col items-center justify-center gap-[0.1em] px-[0.2em]"
                       title={`Hunter ${ui.hunterLevel} — ${ui.hunterXp}/${ui.hunterXpNeeded} XP to the next level. The skill levels every time a trap of yours goes off.`}
                     >
-                      <img src={ASSETS.misc.hunter_icon} alt="Hunter" className="w-[0.85em] h-[0.85em] object-contain" onError={hideBrokenImg} />
+                      <img src={ASSETS.misc.hunter_icon} alt="Hunter" onError={hideBrokenImg} />
                       <span className="text-[0.62em] text-osrs-orange tabular-nums leading-none">{ui.hunterLevel}</span>
                       <div className="rs-progress w-full h-[0.24em]">
                         <div
