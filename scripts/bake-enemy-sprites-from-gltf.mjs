@@ -320,8 +320,15 @@ async function main() {
         const t = times[idxs[fi]];
         const dataUrl = await page.evaluate((n, tt) => window.renderAt(n, tt), name, t);
         rendered.push(Uint8Array.from(dataUrlToRgba(dataUrl).data));
-        const next = fi + 1 < idxs.length ? times[idxs[fi + 1]] : info.duration;
-        rawMs.push(Math.max(20, Math.round((next - t) * 1000)) || 60);
+        // A pose is *reached* at its keyframe time and belongs to the span that ENDS
+        // there: the exporter stacks the cache frame lengths, so times[i] is frame i's
+        // end, not its start. Pairing a pose with the span that follows it dates every
+        // duration one frame late — invisible at 60ms, ruinous at the end of a death,
+        // where OSRS says "now lie there" by holding the settled corpse for four
+        // hundred seconds: that hold landed on the mid-fall pose before it, which froze
+        // in the air while the corpse flashed past in 20ms.
+        const prev = fi > 0 ? times[idxs[fi - 1]] : 0;
+        rawMs.push(Math.max(20, Math.round((t - prev) * 1000)) || 60);
       }
       // The cache's keyframes run on past the motion, so a one-shot ends holding a
       // pose nobody needs to watch (see scripts/lib/clip-tail.mjs).
