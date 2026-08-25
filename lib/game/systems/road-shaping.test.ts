@@ -269,6 +269,19 @@ describe('shapeOptions', () => {
       const back = shapeOptions(road(), deep, grab, ctx()).find(o => o.dir === 'down')!;
       expect(back).toMatchObject({ x: 320, y: 96, depth: 2, digs: false });
     });
+
+    it('keeps the detour on its own side of the road while filling it back in', () => {
+      // The arrow points back *at* the road — the opposite of the side the detour is
+      // on — so the way back is described by `side`, not by `dir`. Reading `dir` here
+      // is what once flipped a three-tile detour to the other flank, two tiles out.
+      const deep: RoadNotch[] = [{ x: 320, y: 160, dir: 'up', depth: 3 }];
+      const grab = grabOn(road(), deep, 320, 64)!;
+      const back = shapeOptions(road(), deep, grab, ctx()).find(o => !o.digs)!;
+      expect(back.side).toBe('up');
+      // Which is exactly where the engine leaves it: one tile nearer, same flank.
+      expect(notchHead({ x: 320, y: 160, dir: back.side, depth: back.depth }, GRID))
+        .toEqual({ x: 320, y: 96 });
+    });
   });
 });
 

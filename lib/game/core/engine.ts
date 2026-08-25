@@ -1268,9 +1268,12 @@ export class GameEngine {
     if (offered.depth === 0) {
       if (at >= 0) this.roadNotches.splice(at, 1);
     } else if (at >= 0) {
-      this.roadNotches[at] = { ...this.roadNotches[at], dir: offered.dir, depth: offered.depth };
+      // `side`, never `dir`: the arrow that fills a tile back in points *at* the road,
+      // which is the opposite of the side the detour is on. Storing the arrow's own
+      // direction here flipped the detour to the other flank instead of shortening it.
+      this.roadNotches[at] = { ...this.roadNotches[at], dir: offered.side, depth: offered.depth };
     } else {
-      this.roadNotches.push({ x: live.x, y: live.y, dir: offered.dir, depth: offered.depth });
+      this.roadNotches.push({ x: live.x, y: live.y, dir: offered.side, depth: offered.depth });
     }
 
     this.rebuildRoad();

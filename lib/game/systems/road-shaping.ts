@@ -53,7 +53,15 @@ export interface RoadNotch {
 
 /** One legal step of one tile, ready to be drawn as an arrow and paid for. */
 export interface RoadMove {
+  /** Where the arrow points — the way the square itself would travel. Coming back in
+   *  that is the *opposite* of the side the detour is on, which is why it is not the
+   *  thing to store on the notch: see {@link RoadMove.side}. */
   dir: BendDir;
+  /** Which side of the road the detour is left on afterwards. The same as {@link
+   *  RoadMove.dir} while digging out, and its opposite while filling back in — a
+   *  retreat walks the square *back* towards the road without ever changing the side
+   *  it was pulled to. Meaningless at depth 0, where there is no detour left. */
+  side: BendDir;
   /** Where the tile would land — where the arrow points. */
   x: number;
   y: number;
@@ -393,7 +401,7 @@ export function shapeOptions(
       const folded = foldLast(base, notches, target, grid);
       if (!folded || !isNotchLegal(folded.path, ctx, folded.seg)) continue;
       const head = notchHead(target, grid);
-      out.push({ dir, x: head.x, y: head.y, deltaTiles: 2, depth: 1, digs: true });
+      out.push({ dir, side: dir, x: head.x, y: head.y, deltaTiles: 2, depth: 1, digs: true });
     }
     return out;
   }
@@ -403,13 +411,14 @@ export function shapeOptions(
   const folded = foldLast(base, notches, deeper, grid);
   if (folded && isNotchLegal(folded.path, ctx, folded.seg)) {
     const head = notchHead(deeper, grid);
-    out.push({ dir, x: head.x, y: head.y, deltaTiles: 2, depth: deeper.depth, digs: true });
+    out.push({ dir, side: dir, x: head.x, y: head.y, deltaTiles: 2, depth: deeper.depth, digs: true });
   }
 
   const back = grab.depth - 1;
   const off = DIR_OFFSET[dir];
   out.push({
     dir: OPPOSITE[dir],
+    side: dir,
     x: grab.x + off.dx * grid * back,
     y: grab.y + off.dy * grid * back,
     deltaTiles: -2,
