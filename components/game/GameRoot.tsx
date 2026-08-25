@@ -3902,6 +3902,7 @@ export default function GameRoot() {
                 <div key={ui.lifestealSeq} className={ui.lifestealSeq > 0 ? 'rs-vital-blip' : undefined}>
                   <Vital
                     icon={ASSETS.misc.orb_hitpoints}
+                    orb={ASSETS.misc.orb_background}
                     title="Lives"
                     value={ui.lives}
                     valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
@@ -3918,6 +3919,7 @@ export default function GameRoot() {
               </div>
               <Vital
                 icon={ASSETS.misc.orb_prayer}
+                orb={ASSETS.misc.orb_background}
                 title="Prayer"
                 value={ui.prayerPoints}
                 fill={ui.prayerPoints / ui.prayerMax}

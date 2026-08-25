@@ -249,6 +249,20 @@ body {
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.85));
 }
 
+/* The empty minimap sphere, behind the glyph — the way the client draws its data
+   orbs. Both sprites are 26x26 and already centred on that canvas, so the sphere
+   is simply the glyph's own box wearing a background: no offset to tune, and the
+   icon in front keeps the size it always had. */
+.rs-vital-orb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  flex-shrink: 0;
+  background: center / contain no-repeat;
+}
+
 .rs-vital-value {
   font-size: 0.9em;
   font-weight: bold;

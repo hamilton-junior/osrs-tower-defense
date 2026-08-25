@@ -105,8 +105,12 @@ export const fmtTime = (s: number) => {
  * already owns it (the wave sits on the Start Wave button), not here wearing a
  * bar that is always full.
  */
-export function Vital({ icon, title, value, valueColor, fill, fillColor, wide }: {
+export function Vital({ icon, orb, title, value, valueColor, fill, fillColor, wide }: {
   icon?: string;
+  /** The empty sphere the OSRS client draws behind a data-orb glyph. Passed in
+      rather than imported, so this file keeps its no-dependencies rule; the two
+      sprites share a canvas, so the glyph needs no nudging to sit on it. */
+  orb?: string;
   title: string;
   value: React.ReactNode;
   valueColor?: string;
@@ -119,7 +123,14 @@ export function Vital({ icon, title, value, valueColor, fill, fillColor, wide }:
   return (
     <div className={`rs-vital${wide ? ' rs-vital-wide' : ''}`} title={title}>
       <span className="rs-vital-row">
-        {icon && <img src={icon} alt="" onError={hideBrokenImg} />}
+        {icon && (
+          <span
+            className="rs-vital-orb"
+            style={orb ? { backgroundImage: `url(${orb})` } : undefined}
+          >
+            <img src={icon} alt="" onError={hideBrokenImg} />
+          </span>
+        )}
         <span className="rs-vital-value" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
       </span>
       <span className="rs-vital-bar">
