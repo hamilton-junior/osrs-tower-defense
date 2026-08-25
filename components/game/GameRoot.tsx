@@ -73,7 +73,7 @@ const INITIAL: UIState = {
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false, slayerUnlocks: [], slayerBlocked: [],
-  prayerPoints: 10, prayerMax: 10, activePrayers: [],
+  prayerPoints: 10, prayerMax: 10, prayerFrac: 1, activePrayers: [],
   geOffers: [],
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
   unlocks: [], unlockSeq: 0,
@@ -3908,6 +3908,7 @@ export default function GameRoot() {
                     valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
                     fill={ui.lives / ui.maxLives}
                     fillColor="linear-gradient(90deg, #8a0000, #e23a3a)"
+                    orbColor="linear-gradient(180deg, #e23a3a, #8a0000)"
                     wide
                   />
                 </div>
@@ -3922,8 +3923,9 @@ export default function GameRoot() {
                 orb={ASSETS.misc.orb_background}
                 title="Prayer"
                 value={ui.prayerPoints}
-                fill={ui.prayerPoints / ui.prayerMax}
+                fill={ui.prayerFrac}
                 fillColor="linear-gradient(90deg, #1f5fa8, #6db3f2)"
+                orbColor="linear-gradient(180deg, #6db3f2, #1f5fa8)"
                 wide
               />
               </div>

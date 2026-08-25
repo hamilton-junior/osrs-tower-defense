@@ -279,6 +279,11 @@ export interface UIState {
   prayerPoints: number;
   /** Maximum prayer points. */
   prayerMax: number;
+  /** The pool as an unrounded 0..1 share, quantised to half a percent. The gauge
+   *  reads this rather than `prayerPoints / prayerMax`: the number is rounded, and
+   *  on a small pool a single point is several percent of the bar, so a bar driven
+   *  off it drains in visible steps. */
+  prayerFrac: number;
   /** Currently active prayers (cloneable list). */
   activePrayers: PrayerType[];
   /** Grand Exchange stock with live prices + active-buff timers. */

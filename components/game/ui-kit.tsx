@@ -105,12 +105,16 @@ export const fmtTime = (s: number) => {
  * already owns it (the wave sits on the Start Wave button), not here wearing a
  * bar that is always full.
  */
-export function Vital({ icon, orb, title, value, valueColor, fill, fillColor, wide }: {
+export function Vital({ icon, orb, orbColor, title, value, valueColor, fill, fillColor, wide }: {
   icon?: string;
   /** The empty sphere the OSRS client draws behind a data-orb glyph. Passed in
       rather than imported, so this file keeps its no-dependencies rule; the two
       sprites share a canvas, so the glyph needs no nudging to sit on it. */
   orb?: string;
+  /** The colour that fills that sphere, bottom-up, with the same share the gauge
+      shows — the client's own data orbs drain exactly like this. Vertical, since
+      it fills a ball and not a bar. Without it the sphere stays empty and black. */
+  orbColor?: string;
   title: string;
   value: React.ReactNode;
   valueColor?: string;
@@ -120,14 +124,23 @@ export function Vital({ icon, orb, title, value, valueColor, fill, fillColor, wi
       number. Used in the bottom bar, where the vitals own a whole empty section. */
   wide?: boolean;
 }) {
+  const pct = Math.max(0, Math.min(1, fill)) * 100;
   return (
     <div className={`rs-vital${wide ? ' rs-vital-wide' : ''}`} title={title}>
       <span className="rs-vital-row">
         {icon && (
           <span
             className="rs-vital-orb"
-            style={orb ? { backgroundImage: `url(${orb})` } : undefined}
+            style={orb ? ({ '--rs-orb': `url(${orb})` } as React.CSSProperties) : undefined}
           >
+            {orb && orbColor && (
+              <span className="rs-vital-orb-clip">
+                <span
+                  className="rs-vital-orb-fill"
+                  style={{ height: `${pct}%`, background: orbColor }}
+                />
+              </span>
+            )}
             <img src={icon} alt="" onError={hideBrokenImg} />
           </span>
         )}
@@ -136,7 +149,7 @@ export function Vital({ icon, orb, title, value, valueColor, fill, fillColor, wi
       <span className="rs-vital-bar">
         <span
           className="rs-vital-fill"
-          style={{ width: `${Math.max(0, Math.min(1, fill)) * 100}%`, background: fillColor }}
+          style={{ width: `${pct}%`, background: fillColor }}
         />
       </span>
     </div>

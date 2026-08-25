@@ -252,15 +252,43 @@ body {
 /* The empty minimap sphere, behind the glyph — the way the client draws its data
    orbs. Both sprites are 26x26 and already centred on that canvas, so the sphere
    is simply the glyph's own box wearing a background: no offset to tune, and the
-   icon in front keeps the size it always had. */
+   icon in front keeps the size it always had. The sprite arrives as `--rs-orb`
+   (from JSX, since only JS knows the deploy's base path) because the fill needs
+   the same image a second time, as a mask. */
 .rs-vital-orb {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.05em;
   height: 1.05em;
   flex-shrink: 0;
-  background: center / contain no-repeat;
+  background: var(--rs-orb) center / contain no-repeat;
+}
+
+/* The sphere's contents, cut to the sphere: the empty sprite is an opaque ball on
+   a transparent canvas, so masking with it is exactly the ball's silhouette — the
+   colour can then be a plain rectangle rising from the bottom. */
+.rs-vital-orb-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  -webkit-mask: var(--rs-orb) center / contain no-repeat;
+  mask: var(--rs-orb) center / contain no-repeat;
+}
+
+.rs-vital-orb-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: height 0.2s linear;
+}
+
+/* The glyph rides in front of the colour it describes. */
+.rs-vital-orb > img {
+  position: relative;
+  z-index: 1;
 }
 
 .rs-vital-value {
@@ -283,10 +311,13 @@ body {
   overflow: hidden;
 }
 
+/* Linear, not eased: a vital moves in a run of small steps, and an ease-out per
+   step brakes at every one of them — which is the stutter itself. Linear lets
+   consecutive steps read as one continuous slide. */
 .rs-vital-fill {
   display: block;
   height: 100%;
-  transition: width 0.25s ease-out;
+  transition: width 0.2s linear;
 }
 
 /* OSRS button: chiselled brown stone with a raised bevel; pressing inverts the

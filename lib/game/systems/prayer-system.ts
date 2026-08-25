@@ -41,15 +41,26 @@ export class PrayerSystem {
   readonly active = new Set<PrayerType>();
   /** Last integer point value pushed to the UI, to throttle per-frame emits. */
   private lastShown: number;
+  /** Same, for the finer fraction the gauge reads. */
+  private lastFrac: number;
 
   constructor(private e: GameEngine) {
     this.points = this.max;
     this.lastShown = Math.round(this.points);
+    this.lastFrac = this.frac;
   }
 
   /** Current pool size — scales with the wave (see `prayerMaxForWave`). */
   get max(): number {
     return prayerMaxForWave(this.e.wave);
+  }
+
+  /** The pool as a 0..1 share, quantised to half a percent. The UI's gauge runs
+   *  off this instead of the rounded point count, so a draining pool slides the
+   *  bar instead of stepping it a few percent at a time. */
+  get frac(): number {
+    const max = this.max;
+    return max > 0 ? Math.round((this.points / max) * 200) / 200 : 0;
   }
 
   private styleOf(id: PrayerType) {
@@ -120,15 +131,17 @@ export class PrayerSystem {
         this.e.bumpCombatEpoch(); // prayers just went dark — tower stats changed
         this.e.notify('Prayer points depleted');
         this.lastShown = 0;
+        this.lastFrac = 0;
         return;
       }
     } else if (this.points < this.max) {
       const regen = this.e.meta.upgrades.prayerRegen;
       if (regen > 0) this.points = Math.min(this.max, this.points + regen * dt);
     }
-    // Push to the UI only when the rounded value changes, so a continuously
-    // draining/regenerating pool doesn't trigger a setState every frame.
-    if (Math.round(this.points) !== this.lastShown) this.emitNow();
+    // Push to the UI only when something it shows changes — the rounded number,
+    // or the gauge's half-percent step — so a continuously draining/regenerating
+    // pool doesn't trigger a setState every frame.
+    if (Math.round(this.points) !== this.lastShown || this.frac !== this.lastFrac) this.emitNow();
   }
 
   /** Restore a fixed number of points, capped at the pool (e.g. a potion). */
@@ -149,6 +162,7 @@ export class PrayerSystem {
     this.points = this.max;
     this.active.clear();
     this.lastShown = this.max;
+    this.lastFrac = this.frac;
   }
 
   /** Restore a saved run's prayer state (see `systems/run-save`). Only prayers the
@@ -159,10 +173,12 @@ export class PrayerSystem {
     for (const id of state.active) if (this.isUnlocked(id)) this.active.add(id);
     this.points = Math.max(0, Math.min(this.max, state.points));
     this.lastShown = Math.round(this.points);
+    this.lastFrac = this.frac;
   }
 
   private emitNow() {
     this.lastShown = Math.round(this.points);
+    this.lastFrac = this.frac;
     this.e.requestEmit();
   }
 }

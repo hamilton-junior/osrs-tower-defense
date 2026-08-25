@@ -639,6 +639,7 @@ export class GameEngine {
       slayerBlocked: [...this.slayer.blocked],
       prayerPoints: Math.round(this.prayer.points),
       prayerMax: this.prayer.max,
+      prayerFrac: this.prayer.frac,
       activePrayers: [...this.prayer.active],
       geOffers: this.ge.listing(),
       essence: this.meta.essence,
