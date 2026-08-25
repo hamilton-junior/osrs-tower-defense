@@ -303,7 +303,7 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
             off this machine is a save code. Kept small and last: it is a chore, not a
             step on the way into a run. */}
         <button className="rs-btn w-full py-[0.3em] text-[0.72em] mt-[0.3em]" title="Export or import your progress as a save code" onClick={onSaveCode}>
-          💾 Save Code
+          💾 Save/Load Game
         </button>
         {!compact && (
           <div className="text-center text-[0.7em] text-[#cdbe91] mt-[0.5em]">First time? Read <span className="text-osrs-orange">How to Play</span>. Then press <span className="text-osrs-orange">Start Wave</span> when you&apos;re ready.</div>

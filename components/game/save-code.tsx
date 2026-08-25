@@ -7,7 +7,7 @@ import { applyAccountSave, readAccountSave } from './save';
 import { fs, fmt } from './ui-kit';
 
 /**
- * The 💾 Save Code panel: the whole account as one line of text.
+ * The 💾 Save/Load Game panel: the whole account as one line of text.
  *
  * There is no backend and none is planned, so progress lives in this browser's
  * localStorage and nowhere else — clearing site data or opening the game on a second
@@ -112,7 +112,7 @@ export function SaveCodeModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-[0.5em] mb-[0.4em]">
-          <span className="text-osrs-orange font-bold text-[1.1em]">💾 Save Code</span>
+          <span className="text-osrs-orange font-bold text-[1.1em]">💾 Save/Load Game</span>
           <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
         </div>
         <p className="text-[0.72em] text-[#cdbe91] mb-[0.6em] leading-snug">
