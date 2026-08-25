@@ -298,39 +298,39 @@ export default function GameRoot() {
     const measure = () => {
       const cs = getComputedStyle(bar);
       const s = parseFloat(cs.getPropertyValue('--ui-scale')) || 1;
-      const gap = parseFloat(cs.columnGap) || 0;
-      const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
-      // Natural width of each group. Two of them are `flex-1`, so their own
-      // offsetWidth is whatever slack the row handed them and says nothing about what
-      // they need — measuring that is what capped every screen at 100%. Use the sum of
-      // a group's children (plus its own gaps and padding); only a leaf with no element
-      // children falls back to its own width. Count each child's *outer* width: the
-      // controls carry ~17px of `ml-`/`mr-` margins between the speed buttons and the
-      // volume slider, and offsetWidth — which excludes margins and rounds to whole
-      // pixels — hid enough of that to sell one step more than the row could hold, so
-      // the far-left group came out clipped at the ceiling on a 1366-wide screen.
-      const outer = (el: HTMLElement) => {
+      // Natural width of the row: what the bar *needs*, not what it was handed. A box
+      // that can grow (`flex-1`) is as wide as the slack the row gave it and says
+      // nothing about its content — measuring that is what capped every screen at
+      // 100% — so look through it and add up what it holds instead: its children, its
+      // gaps and its padding. Only a box that cannot grow, or has no element children,
+      // is measured by its own box. That rule applies at any depth, which is what lets
+      // a group centre its content inside a growing wrapper without lying about it.
+      // `data-fit="content"` opts a box in by hand — the controls group cannot grow but
+      // is allowed to clip, and a clipped box would otherwise report less than it needs.
+      //
+      // Widths are *outer* widths, taken from the fractional rect: the controls carry
+      // ~17px of `ml-`/`mr-` margins between the speed buttons and the volume slider,
+      // and offsetWidth — which excludes margins and rounds to whole pixels — hid
+      // enough of that to sell one step more than the row could hold, so the far-left
+      // group came out clipped at the ceiling on a 1366-wide screen.
+      const margins = (es: CSSStyleDeclaration) =>
+        (parseFloat(es.marginLeft) || 0) + (parseFloat(es.marginRight) || 0);
+      const natural = (el: HTMLElement, isBar = false): number => {
         const es = getComputedStyle(el);
-        return el.getBoundingClientRect().width
-          + (parseFloat(es.marginLeft) || 0) + (parseFloat(es.marginRight) || 0);
+        const inner = [...el.children] as HTMLElement[];
+        const grows = isBar || (parseFloat(es.flexGrow) || 0) > 0 || el.dataset.fit === 'content';
+        if (!inner.length || !grows) return el.getBoundingClientRect().width + margins(es);
+        const innerGap = parseFloat(es.columnGap) || 0;
+        const innerPad = (parseFloat(es.paddingLeft) || 0) + (parseFloat(es.paddingRight) || 0);
+        return inner.reduce((a, c) => a + natural(c), 0)
+          + innerGap * (inner.length - 1) + innerPad + (isBar ? 0 : margins(es));
       };
-      const kids = [...bar.children] as HTMLElement[];
-      const natural = kids.reduce((sum, k) => {
-        const inner = [...k.children] as HTMLElement[];
-        if (!inner.length) return sum + outer(k);
-        const ks = getComputedStyle(k);
-        const innerGap = parseFloat(ks.columnGap) || 0;
-        const innerPad = (parseFloat(ks.paddingLeft) || 0) + (parseFloat(ks.paddingRight) || 0);
-        return sum + inner.reduce((a, c) => a + outer(c), 0)
-          + innerGap * (inner.length - 1) + innerPad
-          + (parseFloat(ks.marginLeft) || 0) + (parseFloat(ks.marginRight) || 0);
-      }, 0) + gap * Math.max(0, kids.length - 1);
       // Everything above is em-based, so it all scales linearly with s: the row needs
-      // (natural + pad)/s per unit of scale, and has `bar.offsetWidth` to spend. Solve
+      // `natural/s` per unit of scale, and has `bar.offsetWidth` to spend. Solve
       // once for the largest scale that still fits, instead of stepping down until it
       // does — a step-down loop only ever shrinks, so a single reading taken mid-relayout
       // costs a size permanently, and that is what pinned the bar at its minimum.
-      const perUnit = (natural + pad) / Math.max(0.01, s);
+      const perUnit = natural(bar, true) / Math.max(0.01, s);
       const fits = perUnit > 0 ? bar.offsetWidth / perUnit : UI_SCALE_MAX;
       const stepped = Math.floor((fits + 1e-6) / UI_SCALE_STEP) * UI_SCALE_STEP;
       setMaxUiScale(Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, +stepped.toFixed(2))));
@@ -3457,7 +3457,9 @@ export default function GameRoot() {
         >
           {/* One row, four hairline-separated groups: the run controls (left), the
               tower dock and Start Wave (centre) and the interface stones (right).
-              The outer groups both take `flex-1`, which centres the middle pair. */}
+              The row's leftover width all goes to the right group: the controls take
+              exactly what they hold, so the empty stretch collects around the vitals
+              instead of pooling behind the volume slider where nothing uses it. */}
             {/* Everything here is sized in `em` (no text-xs / px-2 rem classes) so
                 the whole cluster tracks the bar's fs() font — i.e. the UI − / +
                 control below actually resizes these buttons too. */}
@@ -3467,8 +3469,14 @@ export default function GameRoot() {
                 paint straight over the gold pile. Clipping keeps the bar legible, and
                 the one control you need to undo an over-large interface — the UI − / +
                 below — is deliberately a sibling of this group rather than a child, so
-                it is never the thing that gets cut off. */}
-            <div data-tut="controls" className="flex flex-1 min-w-0 items-center gap-[0.25em] overflow-hidden">
+                it is never the thing that gets cut off.
+
+                It no longer grows (`flex-1` would hand it half the row's slack, which
+                it has no use for) — but it may still shrink, and a shrunk box measures
+                smaller than it needs. `data-fit="content"` tells `maxUiScale` to read
+                what this group holds rather than the width it currently shows, the same
+                way it looks through a box that can grow. */}
+            <div data-tut="controls" data-fit="content" className="flex min-w-0 items-center gap-[0.25em] overflow-hidden">
               <button
                 onClick={() => engineRef.current?.togglePause()}
                 title={ui.paused ? 'Resume' : 'Pause'}
@@ -3839,9 +3847,10 @@ export default function GameRoot() {
             {/* Interface stones, ordered by how often a run reaches for them:
                 loadout and DPS (read mid-run), then the two shops, then the log
                 and the two links out. Debug has no stone — it is Ctrl+' only. */}
-            {/* The outer half takes the bar's leftover room (`flex-1`); the inner
-                one hugs the stones themselves, so the tutorial's ring lands on the
-                buttons instead of on the empty stretch beside them. */}
+            {/* The outer half takes the bar's leftover room (`flex-1` — and with the
+                controls no longer growing, that is all of it); the inner one hugs the
+                stones themselves, so the tutorial's ring lands on the buttons instead
+                of on the empty stretch beside them. */}
             <div className="flex flex-1 items-center justify-end gap-[0.5em]">
             {/* The run's vitals. They used to be minimap orbs pinned to the board's
                 top-right corner, where they floated over whatever the map put under
@@ -3860,8 +3869,14 @@ export default function GameRoot() {
                 measures what the groups naturally need and stops the UI + button
                 there. That measurement reads each group's children at their natural
                 width, so a group that quietly squeezed itself would under-report and
-                let the interface grow past what actually fits. */}
-            <div data-tut="hud" className="shrink-0 flex items-center gap-[0.4em]">
+                let the interface grow past what actually fits.
+
+                The wrapper takes the group's leftover room and centres them in it,
+                rather than letting them hug the stones with the whole empty stretch
+                on their other side. `maxUiScale` sees through the wrapper (it looks
+                past any box that can grow), so the centring costs nothing. */}
+            <div className="flex flex-1 items-center justify-center">
+              <div data-tut="hud" className="shrink-0 flex items-center gap-[0.4em]">
               <div className="relative">
                 <div key={ui.lifestealSeq} className={ui.lifestealSeq > 0 ? 'rs-vital-blip' : undefined}>
                   <Vital
@@ -3886,6 +3901,7 @@ export default function GameRoot() {
                 fill={ui.prayerPoints / ui.prayerMax}
                 fillColor="linear-gradient(90deg, #1f5fa8, #6db3f2)"
               />
+              </div>
             </div>
 
             <div className="rs-bar-sep" />
