@@ -605,6 +605,7 @@ export class GameEngine {
         : null,
       selectedTowerType: this.selectedTowerType,
       towerPrices: this.towerPrices(),
+      towersOnBoard: this.towers.length,
       selectedTowerId: this.selectedTowerId,
       multiSelectedIds: [...this.multiSelectedIds],
       movingTowerId: this.movingTowerId,

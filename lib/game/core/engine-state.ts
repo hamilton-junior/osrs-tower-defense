@@ -231,6 +231,11 @@ export interface UIState {
    *  escalation included. Emitted rather than recomputed in the UI: the price moves
    *  with the board, so a dock quoting a fixed tier-1 price would be lying. */
   towerPrices: Record<TowerType, number>;
+  /** How many towers stand on the board right now — the count on the Construction
+   *  half of the build switch, the way the Hunter half counts laid traps. Not
+   *  `towersBuilt`, which is a lifetime tally and never comes back down when one
+   *  is sold. */
+  towersOnBoard: number;
   selectedTowerId: string | null;
   /** Marquee multi-selection (tower ids) for the batch-upgrade panel. */
   multiSelectedIds: string[];

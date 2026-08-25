@@ -69,6 +69,7 @@ const INITIAL: UIState = {
   towerPrices: Object.fromEntries(
     Object.entries(TOWERS).map(([type, def]) => [type, def.tiers[0].upgradeCost]),
   ) as UIState['towerPrices'],
+  towersOnBoard: 0,
   multiSelectedIds: [], movingGroupIds: [], placeQueue: [], queueArmed: false, clipboard: [], pasting: false,
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
@@ -3604,6 +3605,7 @@ export default function GameRoot() {
                 className={`rs-switch-seg ${buildTab === 'towers' ? 'rs-switch-on' : ''}`}
               >
                 <img src={ASSETS.misc.construction_icon} alt="Towers" onError={hideBrokenImg} />
+                {ui.towersOnBoard > 0 && <span className="rs-tab-badge">{ui.towersOnBoard}</span>}
               </button>
               <button
                 onClick={() => { setBuildTab('traps'); engineRef.current?.selectTowerType(null); }}
