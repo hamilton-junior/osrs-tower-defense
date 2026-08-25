@@ -3619,7 +3619,7 @@ export default function GameRoot() {
           {/* The bar's centrepiece, and the only child of the row that is neither
               half: the slots themselves, and nothing else. Whatever the two halves
               hold, this box sits in the middle — which is why the switch beside it
-              and the trap counter after it each live in a half instead. The slots
+              lives in the left half instead. The slots
               hold the same spot on the bar in either tab, and the row's gap is all
               that separates them from either. */}
           <div className="relative shrink-0">
@@ -3657,6 +3657,34 @@ export default function GameRoot() {
                       {blast && <Stat icon={ASSETS.misc.strength_icon} label="Damage" value={`${blast.flat} + ${Math.round(blast.share * 100)}% HP`} />}
                       {blast && <Stat icon={ASSETS.misc.hp_icon} label="Max hit" value={String(blast.cap)} />}
                       <Stat icon={ASSETS.misc.coins_icon} label="Cost" value={`${fmt(trapCost(def, ui.wave))} gp`} />
+                      {/* How many the current level allows. It used to sit under the
+                          dock as a standing counter, where it shifted the bar every
+                          time the player switched tabs; it belongs with the trap it
+                          is limiting, and it is only a question while laying one. */}
+                      <Stat icon={def.sprite} label="Traps out" value={`${ui.traps.length}/${ui.maxTraps}`} />
+                    </div>
+                    {/* The skill, read the way every other level in the game is: the
+                        number above the bar it fills. It rode the dock's sixth slot
+                        before, which cost the trap row the symmetry it shares with
+                        the tower shop \u2014 here it is on screen exactly when a trap is
+                        under the pointer, which is when the level matters. */}
+                    <div className="mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
+                      <div className="flex items-center justify-between text-[0.72em] mb-[0.2em]">
+                        <span className="flex items-center gap-[0.3em] text-[#cdbe91] uppercase tracking-wide">
+                          <img src={ASSETS.misc.hunter_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                          Hunter
+                        </span>
+                        <span className="text-osrs-orange font-bold tabular-nums">{ui.hunterLevel}</span>
+                      </div>
+                      <div className="rs-progress">
+                        <div
+                          className="rs-progress-fill"
+                          style={{ width: `${Math.min(100, (ui.hunterXp / Math.max(1, ui.hunterXpNeeded)) * 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-end text-[0.6em] text-[#b3a585] tabular-nums mt-[0.15em]">
+                        {ui.hunterLevel >= 99 ? 'MAX' : `${ui.hunterXp}/${ui.hunterXpNeeded} XP`}
+                      </div>
                     </div>
                     <p className="text-[0.7em] text-[#b3a585] leading-snug mt-[0.4em] pt-[0.35em] px-[0.1em] border-t border-[var(--rs-keyline)]">
                       {locked
@@ -3740,8 +3768,12 @@ export default function GameRoot() {
                     </button>
                   );
                 }) : (
-                  <>
-                    {HUNTER_TRAPS.map((def, i) => {
+                  /* Five traps in a six-wide dock: the row lines up slot-for-slot
+                     with the tower shop above it, and the spare cell stays empty
+                     rather than being filled with something that isn't a purchase.
+                     The Hunter level and the trap allowance both moved into a
+                     trap's hover panel — see it there. */
+                  HUNTER_TRAPS.map((def, i) => {
                       const locked = ui.hunterLevel < def.level;
                       const cost = trapCost(def, ui.wave);
                       const afford = ui.money >= cost;
@@ -3768,44 +3800,12 @@ export default function GameRoot() {
                           </span>
                         </button>
                       );
-                    })}
-                    {/* The sixth slot is the skill itself: the paw, then the level
-                        sitting straight on top of the bar it fills, then the XP — a
-                        bar with no number on it cannot tell you whether one more catch
-                        finishes the level. How many traps the level allows lives under
-                        the row instead, beside the traps it is counting. */}
-                    <div
-                      className="rs-slot rs-slot-skill cursor-default flex flex-col items-center justify-center gap-[0.1em] px-[0.2em]"
-                      title={`Hunter ${ui.hunterLevel} — ${ui.hunterXp}/${ui.hunterXpNeeded} XP to the next level. The skill levels every time a trap of yours goes off.`}
-                    >
-                      <img src={ASSETS.misc.hunter_icon} alt="Hunter" onError={hideBrokenImg} />
-                      <span className="text-[0.62em] text-osrs-orange tabular-nums leading-none">{ui.hunterLevel}</span>
-                      <div className="rs-progress w-full h-[0.24em]">
-                        <div
-                          className="rs-progress-fill"
-                          style={{ width: `${Math.min(100, (ui.hunterXp / Math.max(1, ui.hunterXpNeeded)) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-[0.45em] text-[#cdbe91] tabular-nums leading-none">
-                        {ui.hunterLevel >= 99 ? 'MAX' : `${ui.hunterXp}/${ui.hunterXpNeeded}`}
-                      </span>
-                    </div>
-                  </>
+                  })
                 )}
                 </div>{/* build dock */}
           </div>
 
           <div data-half="" className="flex flex-1 min-w-0 items-center gap-[0.6em]">
-            {buildTab === 'traps' && (
-              /* Beside the traps, not under them: the bar's height is fixed, and a
-                 line below the dock pushed the whole column past it. It counts what
-                 is on the board, so it stands next to the row that puts it there —
-                 in the right half, so that counting does not shift the slots. */
-              <div className="text-center text-[#cdbe91] tabular-nums leading-tight">
-                <div className="text-[0.72em] text-osrs-orange">{ui.traps.length}/{ui.maxTraps}</div>
-                <div className="text-[0.46em] uppercase tracking-wide">traps out</div>
-              </div>
-            )}
             <div className="rs-bar-sep" />
 
             {/* Sending the wave sits next to the towers you spend the gap building.
