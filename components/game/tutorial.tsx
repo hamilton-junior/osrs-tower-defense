@@ -76,7 +76,7 @@ export const LEARN_STEPS: LearnStep[] = [
     body: 'Nothing spawns until you press Start Wave — or Space. Build first, the game waits.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && c.towersPlaced },
   { id: 'hud', target: 'hud', icon: ASSETS.misc.orb_hitpoints, title: 'Lives & gold',
-    body: 'Lives, wave and prayer sit in the bar. Every enemy that reaches your base costs a life; every kill pays gold.',
+    body: 'Lives and prayer sit in the bar. Every enemy that reaches your base costs a life; every kill pays gold.',
     when: (ui) => ui.waveActive && ui.wave === 1 },
   { id: 'upgrade', target: 'dock', icon: ASSETS.misc.xp_icon, title: 'Spend between waves',
     body: 'Click a tower you built to upgrade or sell it. Fighting levels it up, and higher tiers ask for a level as well as gold.',

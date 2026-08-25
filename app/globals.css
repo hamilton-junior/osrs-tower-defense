@@ -247,9 +247,9 @@ body {
   text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
 }
 
-/* The gauge is only drawn for a vital that has a real fraction to show. The wave
-   number has none — it is a count, not a resource — so it carries its row alone
-   rather than wearing a bar that is always full. */
+/* Every vital is a share of something, so every one of them draws this gauge. A
+   plain count has no fraction to show and does not belong here — the wave number
+   rides the Start Wave button instead of wearing a bar that is always full. */
 .rs-vital-bar {
   display: block;
   height: 0.28em;

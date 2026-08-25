@@ -100,17 +100,18 @@ export const fmtTime = (s: number) => {
 };
 /**
  * One of the run's vitals in the bottom bar: the OSRS glyph, the number beside
- * it, and a hairline gauge underneath. Leave `fill` out for a number that is a
- * count rather than a share of something — the wave — and it draws no gauge at
- * all, which is more honest than a bar that is always full.
+ * it, and a hairline gauge underneath. A vital is always a share of something,
+ * so the gauge is not optional — a plain count belongs on whatever control
+ * already owns it (the wave sits on the Start Wave button), not here wearing a
+ * bar that is always full.
  */
 export function Vital({ icon, title, value, valueColor, fill, fillColor }: {
   icon?: string;
   title: string;
   value: React.ReactNode;
   valueColor?: string;
-  fill?: number;
-  fillColor?: string;
+  fill: number;
+  fillColor: string;
 }) {
   return (
     <div className="rs-vital" title={title}>
@@ -118,14 +119,12 @@ export function Vital({ icon, title, value, valueColor, fill, fillColor }: {
         {icon && <img src={icon} alt="" onError={hideBrokenImg} />}
         <span className="rs-vital-value" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
       </span>
-      {fill !== undefined && (
-        <span className="rs-vital-bar">
-          <span
-            className="rs-vital-fill"
-            style={{ width: `${Math.max(0, Math.min(1, fill)) * 100}%`, background: fillColor }}
-          />
-        </span>
-      )}
+      <span className="rs-vital-bar">
+        <span
+          className="rs-vital-fill"
+          style={{ width: `${Math.max(0, Math.min(1, fill)) * 100}%`, background: fillColor }}
+        />
+      </span>
     </div>
   );
 }

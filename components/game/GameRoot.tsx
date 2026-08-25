@@ -304,16 +304,26 @@ export default function GameRoot() {
       // offsetWidth is whatever slack the row handed them and says nothing about what
       // they need — measuring that is what capped every screen at 100%. Use the sum of
       // a group's children (plus its own gaps and padding); only a leaf with no element
-      // children falls back to its own width.
+      // children falls back to its own width. Count each child's *outer* width: the
+      // controls carry ~17px of `ml-`/`mr-` margins between the speed buttons and the
+      // volume slider, and offsetWidth — which excludes margins and rounds to whole
+      // pixels — hid enough of that to sell one step more than the row could hold, so
+      // the far-left group came out clipped at the ceiling on a 1366-wide screen.
+      const outer = (el: HTMLElement) => {
+        const es = getComputedStyle(el);
+        return el.getBoundingClientRect().width
+          + (parseFloat(es.marginLeft) || 0) + (parseFloat(es.marginRight) || 0);
+      };
       const kids = [...bar.children] as HTMLElement[];
       const natural = kids.reduce((sum, k) => {
         const inner = [...k.children] as HTMLElement[];
-        if (!inner.length) return sum + k.offsetWidth;
+        if (!inner.length) return sum + outer(k);
         const ks = getComputedStyle(k);
         const innerGap = parseFloat(ks.columnGap) || 0;
         const innerPad = (parseFloat(ks.paddingLeft) || 0) + (parseFloat(ks.paddingRight) || 0);
-        return sum + inner.reduce((a, c) => a + c.offsetWidth, 0)
-          + innerGap * (inner.length - 1) + innerPad;
+        return sum + inner.reduce((a, c) => a + outer(c), 0)
+          + innerGap * (inner.length - 1) + innerPad
+          + (parseFloat(ks.marginLeft) || 0) + (parseFloat(ks.marginRight) || 0);
       }, 0) + gap * Math.max(0, kids.length - 1);
       // Everything above is em-based, so it all scales linearly with s: the row needs
       // (natural + pad)/s per unit of scale, and has `bar.offsetWidth` to spend. Solve
@@ -3837,9 +3847,12 @@ export default function GameRoot() {
                 top-right corner, where they floated over whatever the map put under
                 them; here they sit in the one interface that never covers the board,
                 and in `em` like the rest of the bar so the UI - / + control resizes
-                them. Lives and prayer each keep a hairline gauge; the wave is a plain
-                count, so it has nothing to fill. Gold is not among them — it is read
-                while shopping, so it stays beside the dock, against the prices.
+                them. Only the two that are a share of something are here: lives and
+                prayer, each with its hairline gauge. The wave number is not — the
+                Start Wave button a few steps to the left already carries it, and it
+                stays mounted (only disabled) while a wave is on the field, so the
+                count never goes away. Gold is not here either: it is read while
+                shopping, so it stays beside the dock, against the prices.
 
                 Deliberately `shrink-0`, like the interface stones beside it. A vital
                 you cannot read is not worth the room it saves, and the bar already
@@ -3866,7 +3879,6 @@ export default function GameRoot() {
                   </span>
                 )}
               </div>
-              <Vital icon={ASSETS.misc.attack_icon} title="Wave" value={ui.wave} />
               <Vital
                 icon={ASSETS.misc.orb_prayer}
                 title="Prayer"
