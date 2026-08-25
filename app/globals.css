@@ -260,21 +260,45 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.05em;
-  height: 1.05em;
+  width: 1.4em;
+  height: 1.4em;
   flex-shrink: 0;
-  background: var(--rs-orb) center / contain no-repeat;
+  /* The silhouette is CSS, not the sprite. The cache orb is a 26x26 bitmap with
+     binary alpha — its rim is a literal staircase, and the page draws everything
+     `pixelated` at a non-integer `em` size, so that staircase came out uneven and
+     read as "the orbs have pixelated corners". A round `overflow` clip gives a
+     smooth edge at any size, the background is scaled a hair past the box so the
+     sprite's own jagged rim is cropped away outside it, and `image-rendering:
+     auto` lets the near-black ball interpolate instead of blocking up. */
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--rs-orb) center / 114% 114% no-repeat;
+  image-rendering: auto;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
 }
 
-/* The sphere's contents, cut to the sphere: the empty sprite is an opaque ball on
-   a transparent canvas, so masking with it is exactly the ball's silhouette — the
-   colour can then be a plain rectangle rising from the bottom. */
+/* The frame: a dark keyline with a lit hairline just inside it, the same chiselled
+   edge the rest of the interface wears. It is a pseudo-element rather than a
+   `border` so the colour fill below can never paint over it. */
+.rs-vital-orb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* The sphere's contents, cut to the sphere — by the parent's round clip, which is
+   the same smooth circle the frame draws. The colour is then a plain rectangle
+   rising from the bottom. */
 .rs-vital-orb-clip {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  -webkit-mask: var(--rs-orb) center / contain no-repeat;
-  mask: var(--rs-orb) center / contain no-repeat;
 }
 
 .rs-vital-orb-fill {
@@ -285,10 +309,14 @@ body {
   transition: height 0.2s linear;
 }
 
-/* The glyph rides in front of the colour it describes. */
+/* The glyph rides in front of the colour it describes, and keeps its crisp
+   pixels — only the ball behind it is allowed to interpolate. It stays the size
+   it always had; the sphere grew around it instead, so nothing of the icon is
+   lost to the round clip. */
 .rs-vital-orb > img {
   position: relative;
   z-index: 1;
+  image-rendering: pixelated;
 }
 
 .rs-vital-value {
@@ -390,13 +418,6 @@ body {
 /* `em` (≈32px at the bar's default font) so slot icons grow with the UI size
    control instead of staying fixed while the slot around them scales. */
 .rs-slot img { width: 1.85em; height: 1.85em; object-fit: contain; image-rendering: pixelated; }
-/* One square in the dock is a read-out rather than an item: the Hunter paw sits
-   over a level, an XP bar and its numbers, so it takes a far smaller icon than a
-   slot holding one thing. Same specificity as the rule above and later in the
-   file, which is what a utility class on the `img` could not manage — it lost to
-   `.rs-slot img` and the paw came out at full slot size, shouldering the level and
-   the bar out of the square. */
-.rs-slot-skill img { width: 0.85em; height: 0.85em; }
 .rs-slot-cost {
   position: absolute;
   bottom: 0;
