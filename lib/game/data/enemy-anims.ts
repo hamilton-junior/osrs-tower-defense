@@ -39,6 +39,14 @@ export interface EnemyAnimSet {
 // this module owns only the contract + playback helpers.
 export { ENEMY_ANIMS } from './enemy-anims.data';
 
+/**
+ * How long a corpse lingers after its death clip has played out, in seconds.
+ * The clip ends on the pose the body settles into (its dead tail is cut at bake
+ * time — see scripts/lib/clip-tail.mjs), and one-shots clamp to their last frame,
+ * so this is exactly the window the corpse spends fading away on the ground.
+ */
+export const DEATH_SETTLE_S = 0.35;
+
 /** Total play time (seconds) of one clip. */
 export function clipDurationS(clip: EnemyClip): number {
   let ms = 0;

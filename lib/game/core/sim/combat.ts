@@ -1,7 +1,7 @@
 import type { Enemy, Tower, Projectile, EnemyType, Element, AncientType, DotKind, CombatStyle } from '../../types';
 import { SPOTANIMS } from '../../data/spotanims';
 import { resolveImpactTheme, IMPACT_RECIPES, type ImpactTheme } from '../../systems/impact-fx';
-import { ENEMY_ANIMS, clipDurationS } from '../../data/enemy-anims';
+import { ENEMY_ANIMS, clipDurationS, DEATH_SETTLE_S } from '../../data/enemy-anims';
 import { ENEMIES } from '../../data/enemies';
 import { TOWER_STYLES } from '../../data/towers';
 import { ASSETS } from '../../assets';
@@ -1000,7 +1000,7 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
   const deathClip = ENEMY_ANIMS[deathSlug]?.clips.death;
   // A catch has its own short animation — the body pulled into the trap — so it
   // does not play the collapse clip, however long that one runs.
-  const deathLife = enemy.caughtBy ? 0.42 : deathClip ? clipDurationS(deathClip) : 0.45;
+  const deathLife = enemy.caughtBy ? 0.42 : deathClip ? clipDurationS(deathClip) + DEATH_SETTLE_S : 0.45;
   eng.deaths.push({
     x: enemy.x,
     y: enemy.y,

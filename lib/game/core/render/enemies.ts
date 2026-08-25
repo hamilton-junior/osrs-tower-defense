@@ -1,6 +1,6 @@
 import { SPAWN_ANIM_SECONDS } from '../../types';
 import type { Enemy } from '../../types';
-import { ENEMY_ANIMS, clipFrame, clipDurationS } from '../../data/enemy-anims';
+import { ENEMY_ANIMS, clipFrame, clipDurationS, DEATH_SETTLE_S } from '../../data/enemy-anims';
 import { TOWER_STYLES } from '../../data/towers';
 import { ELEMENTS } from '../../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../../systems/affixes';
@@ -67,15 +67,17 @@ export function drawDeaths(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     const deathClip = ENEMY_ANIMS[deathSlug]?.clips.death;
     const animKey = deathClip ? `enemyanim_${deathSlug}_death` : '';
     if (deathClip && gr.e.imageOk(animKey)) {
-      // Animated death: play the collapse clip over the fx lifetime, at full
-      // size; only fade out in the final stretch so the body settles first.
+      // Animated death: the collapse clip plays out at full size, then the body
+      // lies where it fell for DEATH_SETTLE_S while it fades — the clip clamps to
+      // its last frame, so the fade always runs over the settled pose rather than
+      // over the fall itself.
       const set = ENEMY_ANIMS[deathSlug]!;
       const img = gr.e.images.get(animKey)!;
       const elapsed = (d.maxLife - d.life); // 0 → maxLife
       const fi = clipFrame(deathClip, elapsed);
       const ds = (d.isBoss ? 60 : 30) * (d.renderScale ?? 1) * 1.32; // match drawEnemies
       ctx.save();
-      ctx.globalAlpha = Math.min(1, t / 0.25); // hold, then fade in the last 25%
+      ctx.globalAlpha = Math.min(1, d.life / DEATH_SETTLE_S);
       ctx.translate(d.x, d.y);
       // Baked clips face RIGHT (canonical model space, same as static sprites);
       // flip only when travelling left.

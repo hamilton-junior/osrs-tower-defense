@@ -13,7 +13,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/goblin/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/goblin/hurt.png`, frames: 37, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
-      death: { url: `${B}/goblin/death.png`, frames: 37, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 60, 30, 30, 60, 30, 30, 60, 400, 20], loop: false },
+      death: { url: `${B}/goblin/death.png`, frames: 26, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30], loop: false },
     },
   },
   rat: {
@@ -21,7 +21,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/rat/walk.png`, frames: 16, frameMs: [40, 20, 40, 40, 40, 20, 40, 40, 40, 20, 40, 40, 40, 20, 40, 20], loop: true },
       hurt: { url: `${B}/rat/hurt.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/rat/death.png`, frames: 55, frameMs: [50, 50, 50, 50, 60, 60, 60, 60, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 60, 60, 60, 60, 40, 40, 40, 60, 60, 40, 40, 40, 60, 60, 40, 40, 40, 60, 60, 400, 20], loop: false },
+      death: { url: `${B}/rat/death.png`, frames: 44, frameMs: [50, 50, 50, 50, 60, 60, 60, 60, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 60, 60, 60, 60, 40, 40, 40, 60, 60, 40], loop: false },
     },
   },
   cow: {
@@ -29,7 +29,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/cow/walk.png`, frames: 15, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: true },
       hurt: { url: `${B}/cow/hurt.png`, frames: 19, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
-      death: { url: `${B}/cow/death.png`, frames: 39, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/cow/death.png`, frames: 26, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50], loop: false },
     },
   },
   imp: {
@@ -37,7 +37,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/imp/walk.png`, frames: 8, frameMs: [60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/imp/hurt.png`, frames: 16, frameMs: [40, 40, 40, 40, 40, 40, 47, 47, 47, 40, 40, 40, 40, 40, 40, 20], loop: false },
-      death: { url: `${B}/imp/death.png`, frames: 31, frameMs: [40, 40, 60, 60, 60, 60, 40, 40, 60, 40, 40, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 20], loop: false },
+      death: { url: `${B}/imp/death.png`, frames: 16, frameMs: [40, 40, 60, 60, 60, 60, 40, 40, 60, 40, 40, 50, 50, 50, 50, 40], loop: false },
     },
   },
   spider: {
@@ -45,7 +45,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/spider/walk.png`, frames: 10, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/spider/hurt.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/spider/death.png`, frames: 32, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 40, 40, 40, 40, 40, 40, 60, 60, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 400, 20], loop: false },
+      death: { url: `${B}/spider/death.png`, frames: 25, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 40, 40, 40, 40, 40, 40, 60, 60, 50, 50, 50, 50, 40], loop: false },
     },
   },
   skeleton: {
@@ -53,7 +53,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/skeleton/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/skeleton/hurt.png`, frames: 19, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
-      death: { url: `${B}/skeleton/death.png`, frames: 48, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/skeleton/death.png`, frames: 47, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 120], loop: false },
     },
   },
   zombie: {
@@ -61,7 +61,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/zombie/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/zombie/hurt.png`, frames: 39, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
-      death: { url: `${B}/zombie/death.png`, frames: 48, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/zombie/death.png`, frames: 47, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 120], loop: false },
     },
   },
   ghost: {
@@ -69,7 +69,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/ghost/walk.png`, frames: 31, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
       hurt: { url: `${B}/ghost/hurt.png`, frames: 29, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
-      death: { url: `${B}/ghost/death.png`, frames: 44, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, 30, 40, 40, 40, 40, 40, 40, 60, 30, 30, 60, 30, 30, 400, 20], loop: false },
+      death: { url: `${B}/ghost/death.png`, frames: 39, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, 30, 40, 40, 40, 40, 40, 40, 60, 30, 30], loop: false },
     },
   },
   hellhound: {
@@ -77,7 +77,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/hellhound/walk.png`, frames: 31, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
       hurt: { url: `${B}/hellhound/hurt.png`, frames: 12, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/hellhound/death.png`, frames: 37, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/hellhound/death.png`, frames: 24, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 50, 50, 50], loop: false },
     },
   },
   scorpion: {
@@ -85,7 +85,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/scorpion/walk.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
       hurt: { url: `${B}/scorpion/hurt.png`, frames: 16, frameMs: [60, 60, 40, 40, 50, 50, 50, 50, 50, 50, 40, 40, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/scorpion/death.png`, frames: 32, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 47, 47, 47, 60, 60, 40, 40, 60, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/scorpion/death.png`, frames: 25, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 47, 47, 47, 60, 60, 40, 40, 60, 50, 50, 50, 50, 50], loop: false },
     },
   },
   fire_giant: {
@@ -93,7 +93,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/fire_giant/walk.png`, frames: 19, frameMs: [60, 60, 60, 60, 40, 60, 60, 60, 40, 40, 60, 60, 60, 60, 60, 60, 60, 40, 20], loop: true },
       hurt: { url: `${B}/fire_giant/hurt.png`, frames: 18, frameMs: [60, 60, 60, 60, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40, 20], loop: false },
-      death: { url: `${B}/fire_giant/death.png`, frames: 41, frameMs: [47, 47, 47, 47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 47, 47, 47, 400, 400, 20], loop: false },
+      death: { url: `${B}/fire_giant/death.png`, frames: 40, frameMs: [47, 47, 47, 47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 47, 47, 47, 400, 120], loop: false },
     },
   },
   bloodveld: {
@@ -109,7 +109,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/hill_giant/walk.png`, frames: 19, frameMs: [60, 60, 60, 60, 40, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40, 20], loop: true },
       hurt: { url: `${B}/hill_giant/hurt.png`, frames: 18, frameMs: [60, 60, 60, 60, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40, 20], loop: false },
-      death: { url: `${B}/hill_giant/death.png`, frames: 41, frameMs: [47, 47, 47, 47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 50, 50, 60, 60, 60, 60, 60, 60, 47, 47, 47, 400, 400, 20], loop: false },
+      death: { url: `${B}/hill_giant/death.png`, frames: 40, frameMs: [47, 47, 47, 47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 50, 50, 60, 60, 60, 60, 60, 60, 47, 47, 47, 400, 120], loop: false },
     },
   },
   black_demon: {
@@ -117,7 +117,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/black_demon/walk.png`, frames: 40, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 53, 53, 53, 40, 40, 20], loop: true },
       hurt: { url: `${B}/black_demon/hurt.png`, frames: 24, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 400, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 20], loop: false },
-      death: { url: `${B}/black_demon/death.png`, frames: 69, frameMs: [40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/black_demon/death.png`, frames: 56, frameMs: [40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: false },
     },
   },
   gargoyle: {
@@ -133,7 +133,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/blue_dragon/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/blue_dragon/hurt.png`, frames: 21, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
-      death: { url: `${B}/blue_dragon/death.png`, frames: 61, frameMs: [40, 40, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 50, 50, 50, 50, 47, 47, 47, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40, 40, 47, 47, 47, 53, 53, 53, 400, 20], loop: false },
+      death: { url: `${B}/blue_dragon/death.png`, frames: 30, frameMs: [40, 40, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 50, 50, 50, 50, 47], loop: false },
     },
   },
   nechryael: {
@@ -156,7 +156,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/lesser_demon/walk.png`, frames: 40, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 53, 53, 53, 40, 40, 20], loop: true },
       hurt: { url: `${B}/lesser_demon/hurt.png`, frames: 24, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 400, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 20], loop: false },
-      death: { url: `${B}/lesser_demon/death.png`, frames: 69, frameMs: [40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/lesser_demon/death.png`, frames: 56, frameMs: [40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: false },
     },
   },
   dark_beast: {
@@ -172,7 +172,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/green_dragon/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/green_dragon/hurt.png`, frames: 21, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: false },
-      death: { url: `${B}/green_dragon/death.png`, frames: 61, frameMs: [40, 40, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 50, 50, 50, 50, 47, 47, 47, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40, 40, 47, 47, 47, 53, 53, 53, 400, 20], loop: false },
+      death: { url: `${B}/green_dragon/death.png`, frames: 30, frameMs: [40, 40, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 50, 50, 50, 50, 47], loop: false },
     },
   },
   jad: {
@@ -187,7 +187,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     frameW: 128, frameH: 128,
     clips: {
       walk: { url: `${B}/yt_hurkot/walk.png`, frames: 46, frameMs: [53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 20], loop: true },
-      death: { url: `${B}/yt_hurkot/death.png`, frames: 30, frameMs: [40, 40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 40, 40, 60, 400, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/yt_hurkot/death.png`, frames: 21, frameMs: [40, 40, 40, 40, 40, 40, 40, 56, 56, 56, 56, 56, 40, 40, 60, 60, 40, 40, 60, 400, 50], loop: false },
     },
   },
   vorkath: {
@@ -226,7 +226,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/skeletal_mage/walk.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: true },
       hurt: { url: `${B}/skeletal_mage/hurt.png`, frames: 19, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
-      death: { url: `${B}/skeletal_mage/death.png`, frames: 48, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/skeletal_mage/death.png`, frames: 47, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 120], loop: false },
     },
   },
   hydra: {
@@ -273,8 +273,8 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/giant_mole/walk.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
       hurt: { url: `${B}/giant_mole/hurt.png`, frames: 13, frameMs: [40, 40, 60, 60, 60, 60, 20, 20, 20, 20, 60, 60, 20], loop: false },
-      death: { url: `${B}/giant_mole/death.png`, frames: 26, frameMs: [47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 20, 20, 50, 50, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 20], loop: false },
-      burrow: { url: `${B}/giant_mole/burrow.png`, frames: 44, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, 30, 60, 30, 30, 60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
+      death: { url: `${B}/giant_mole/death.png`, frames: 21, frameMs: [47, 47, 47, 47, 47, 47, 60, 60, 60, 60, 20, 20, 50, 50, 40, 40, 40, 40, 40, 40, 40], loop: false },
+      burrow: { url: `${B}/giant_mole/burrow.png`, frames: 38, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 30, 30, 60, 30, 30, 60, 60, 60], loop: false },
       emerge: { url: `${B}/giant_mole/emerge.png`, frames: 17, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: false },
     },
   },
@@ -298,7 +298,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/cerberus/walk.png`, frames: 29, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 20], loop: true },
       hurt: { url: `${B}/cerberus/hurt.png`, frames: 23, frameMs: [47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 60, 60, 50, 50, 20], loop: false },
-      death: { url: `${B}/cerberus/death.png`, frames: 23, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 60, 60, 50, 50, 50, 50, 60, 60, 40, 40, 40, 40, 20], loop: false },
+      death: { url: `${B}/cerberus/death.png`, frames: 17, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 60, 60, 50, 50, 50, 50, 60], loop: false },
     },
   },
   soul_ranged: {
@@ -327,7 +327,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/brutus/walk.png`, frames: 47, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: true },
       hurt: { url: `${B}/brutus/hurt.png`, frames: 9, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/brutus/death.png`, frames: 39, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/brutus/death.png`, frames: 26, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50], loop: false },
     },
   },
   brutus_demonic: {
@@ -335,7 +335,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     clips: {
       walk: { url: `${B}/brutus_demonic/walk.png`, frames: 47, frameMs: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 20], loop: true },
       hurt: { url: `${B}/brutus_demonic/hurt.png`, frames: 9, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 20], loop: false },
-      death: { url: `${B}/brutus_demonic/death.png`, frames: 39, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 20], loop: false },
+      death: { url: `${B}/brutus_demonic/death.png`, frames: 26, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 60, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50], loop: false },
       rage: { url: `${B}/brutus_demonic/rage.png`, frames: 41, frameMs: [40, 40, 40, 40, 40, 40, 60, 60, 60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 20], loop: true },
       charge: { url: `${B}/brutus_demonic/charge.png`, frames: 36, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 60, 30, 30, 60, 30, 30, 60, 20], loop: true },
     },

@@ -27,6 +27,7 @@ import { dirname, join, extname } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 import puppeteer from 'puppeteer-core';
+import { trimTail } from './lib/clip-tail.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -313,30 +314,29 @@ async function main() {
       const info = clipInfo.find((c) => c.name === name);
       const times = tweenTimes(info.times, info.duration);
       const idxs = sampleIndices(times.length, Math.max(cfg.maxFrames, SMOOTH_MAX_FRAMES));
-      const frames = idxs.length;
-      const sheet = new PNG({ width: SIZE * frames, height: SIZE });
-      const frameMs = [];
-      for (let fi = 0; fi < frames; fi++) {
-        const k = idxs[fi];
-        const t = times[k];
+      const rendered = [];
+      const rawMs = [];
+      for (let fi = 0; fi < idxs.length; fi++) {
+        const t = times[idxs[fi]];
         const dataUrl = await page.evaluate((n, tt) => window.renderAt(n, tt), name, t);
-        const img = dataUrlToRgba(dataUrl);
-        for (let y = 0; y < SIZE; y++) {
-          for (let x = 0; x < SIZE; x++) {
-            const src = (y * SIZE + x) * 4;
-            const dst = (y * (SIZE * frames) + fi * SIZE + x) * 4;
-            sheet.data[dst] = img.data[src];
-            sheet.data[dst + 1] = img.data[src + 1];
-            sheet.data[dst + 2] = img.data[src + 2];
-            sheet.data[dst + 3] = img.data[src + 3];
-          }
-        }
-        const next = fi + 1 < frames ? times[idxs[fi + 1]] : info.duration;
-        frameMs.push(Math.max(20, Math.round((next - t) * 1000)) || 60);
+        rendered.push(Uint8Array.from(dataUrlToRgba(dataUrl).data));
+        const next = fi + 1 < idxs.length ? times[idxs[fi + 1]] : info.duration;
+        rawMs.push(Math.max(20, Math.round((next - t) * 1000)) || 60);
       }
+      // The cache's keyframes run on past the motion, so a one-shot ends holding a
+      // pose nobody needs to watch (see scripts/lib/clip-tail.mjs).
+      const cut = trimTail(rendered, rawMs, !!cfg.loop[name]);
+      const frames = cut.frames.length;
+      const frameMs = cut.frameMs;
+      const sheet = new PNG({ width: SIZE * frames, height: SIZE });
+      cut.frames.forEach((buf, fi) => {
+        for (let y = 0; y < SIZE; y++) {
+          sheet.data.set(buf.subarray(y * SIZE * 4, (y + 1) * SIZE * 4), (y * sheet.width + fi * SIZE) * 4);
+        }
+      });
       writeFileSync(join(outDir, `${name}.png`), PNG.sync.write(sheet));
       manifest.clips[name] = { anim: cfg.anims[name], frames, frameMs, loop: !!cfg.loop[name] };
-      console.log(`  ✓ ${slug}/${name}.png  (${frames} frames)`);
+      console.log(`  ✓ ${slug}/${name}.png  (${frames} frames${cut.dropped ? `, tail -${cut.dropped}` : ''})`);
     }
 
     writeFileSync(join(outDir, `${slug}.json`), JSON.stringify(manifest, null, 2));
