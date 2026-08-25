@@ -4,23 +4,20 @@ import { GRID } from './shared';
 /**
  * The road's own handles — the player's half of the map generator, drawn.
  *
- * Between waves every stretch of road the player may shove wears a small grip at
- * its middle. Clicking one picks that stretch up: the road under it lights, and an
- * arrow appears on each side it could move to, carrying the price and what the move
- * is worth in tiles of extra walking. Nothing here is drawn during a fight — the
- * engine returns no options while a wave is running, or while a tower is being
- * placed, carried or pasted, so this layer disappears exactly when the board belongs
- * to something else.
+ * Between waves the road answers the pointer: the square under it outlines, and
+ * clicking picks that one square up. The road then lights where it stands and an arrow
+ * appears on each side it could be pulled to, carrying the price and what the pull is
+ * worth in tiles of extra walking. Every square the road has already been pulled onto
+ * keeps a small handle of its own — press it to fill the notch back in.
  *
- * The figure on the arrow is the whole decision: +2 tiles is a longer walk under
- * fire, 0 re-cuts the board without lengthening it, −2 is the undo.
+ * Nothing here is drawn during a fight: the engine closes road shaping while a wave is
+ * running, or while a tower is being placed, carried or pasted, so this layer
+ * disappears exactly when the board belongs to something else.
  */
 export function drawRoadShaping(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
-  const opts = gr.e.roadShapeOptions();
-  if (opts.length === 0) return;
+  if (!gr.e.roadShapingOpen) return;
 
-  const path = gr.e.path;
-  const armed = gr.e.shapingLeg;
+  const armed = gr.e.shapingTile;
   const price = gr.e.roadBendPrice;
   const afford = gr.e.money >= price;
   // Real-world clock, like every other idle animation here: a pulse that froze on
@@ -28,60 +25,89 @@ export function drawRoadShaping(gr: GameRenderer, ctx: CanvasRenderingContext2D)
   const t = performance.now() / 1000;
   const pulse = 0.5 + 0.5 * Math.sin(t * 2.6);
 
-  const legs = [...new Set(opts.map(o => o.seg))];
+  // The squares the road was pulled onto, each wearing the handle that takes it back.
+  // The one under the pointer opens up so the gesture is discoverable by hovering
+  // rather than by reading a tooltip.
+  const under = gr.e.roadUndoAt(gr.e.pointer.x, gr.e.pointer.y);
+  gr.e.roadNotches.forEach((n, i) => {
+    const p = gr.e.notchHandle(n);
+    const on = i === under;
+    drawUndoHandle(ctx, p.x, p.y, on ? 1 : 0.45 + pulse * 0.15, on);
+  });
 
-  // The armed leg, lit along its whole length so it is obvious *what* is about to
-  // move — the arrows only say where.
-  if (armed !== null && path[armed] && path[armed + 1]) {
-    const a = path[armed];
-    const b = path[armed + 1];
-    ctx.save();
-    ctx.strokeStyle = '#ffd45e';
-    ctx.globalAlpha = 0.35 + pulse * 0.3;
-    ctx.lineWidth = GRID - 6;
-    ctx.lineCap = 'butt';
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.stroke();
-    ctx.restore();
+  // The square under the pointer, outlined: "this is the one that would move". Not
+  // drawn over a notch's own handle — there the offer is to fill it in, not to dig
+  // again — nor over the armed square, which is already lit below.
+  const hover = under < 0 ? gr.e.roadHoverTile() : null;
+  if (hover && (!armed || armed.x !== hover.x || armed.y !== hover.y)) {
+    tileOutline(ctx, hover.x, hover.y, '#c9a227', 0.3 + pulse * 0.25, 2);
   }
 
-  // A grip on every movable stretch. The armed one is drawn open, the rest recede
-  // so the board does not turn into a field of buttons.
-  for (const seg of legs) {
-    const a = path[seg];
-    const b = path[seg + 1];
-    if (!a || !b) continue;
-    const cx = (a.x + b.x) / 2;
-    const cy = (a.y + b.y) / 2;
-    const on = seg === armed;
-    const dim = armed !== null && !on;
-    drawGrip(ctx, cx, cy, a.y === b.y ? 'v' : 'h', on ? 1 : dim ? 0.25 : 0.55 + pulse * 0.2, on);
-  }
+  if (!armed) return;
 
-  if (armed === null) return;
+  // The armed square, lit so it is obvious *what* is about to move — the arrows only
+  // say where.
+  ctx.save();
+  ctx.globalAlpha = 0.3 + pulse * 0.3;
+  ctx.fillStyle = '#ffd45e';
+  ctx.fillRect(armed.x - GRID / 2 + 2, armed.y - GRID / 2 + 2, GRID - 4, GRID - 4);
+  ctx.restore();
+  tileOutline(ctx, armed.x, armed.y, '#ffd45e', 0.9, 2.5);
+  drawGrip(ctx, armed.x, armed.y, 1);
 
-  // Where the stretch could land, one arrow per direction, with the price on the
-  // first of them. Unaffordable arrows still draw — the price is the answer to
+  // Where the square could be pulled to, one arrow per direction, with the price above
+  // the first of them. Unaffordable arrows still draw — the price is the answer to
   // "why can't I?", and hiding it would leave the player clicking a dead handle.
-  const mine = opts.filter(o => o.seg === armed);
-  for (const o of mine) {
+  const opts = gr.e.roadShapeOptions();
+  for (const o of opts) {
     drawArrow(ctx, o.x, o.y, o.dir, afford, pulse);
     label(ctx, o.x, o.y + 22, deltaText(o.deltaTiles), deltaColor(o.deltaTiles, afford));
   }
-  const head = mine[0];
+  const head = opts[0];
   if (head) {
     label(ctx, head.x, head.y - 24, `${price} gp`, afford ? '#ffd45e' : '#ff4d4d');
   }
 }
 
-/** The grip: a small chiselled stud with the axis it slides along scored across it. */
-function drawGrip(
+/** The square a tile occupies, scored around its edge. */
+function tileOutline(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  axis: 'h' | 'v',
+  color: string,
+  alpha: number,
+  width: number,
+) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.strokeRect(x - GRID / 2 + 2, y - GRID / 2 + 2, GRID - 4, GRID - 4);
+  ctx.restore();
+}
+
+/** The grip: a small chiselled stud on the square that is in hand. */
+function drawGrip(ctx: CanvasRenderingContext2D, x: number, y: number, alpha: number) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.arc(x, y, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#3d3428';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ffd45e';
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * The handle on a square the road was pulled onto: the same chiselled stud, scored
+ * with a single bar. One notch less, one dig cheaper — the bar is the minus sign.
+ */
+function drawUndoHandle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
   alpha: number,
   open: boolean,
 ) {
@@ -96,19 +122,13 @@ function drawGrip(
   ctx.strokeStyle = open ? '#ffd45e' : '#c9a227';
   ctx.stroke();
 
-  // Two ticks across the stud, pointing the way this stretch can move.
-  ctx.strokeStyle = open ? '#ffd45e' : '#c9a227';
-  ctx.lineWidth = 2;
   ctx.beginPath();
-  if (axis === 'h') {
-    ctx.moveTo(x - r + 3, y);
-    ctx.lineTo(x + r - 3, y);
-  } else {
-    ctx.moveTo(x, y - r + 3);
-    ctx.lineTo(x, y + r - 3);
-  }
+  ctx.moveTo(x - r + 3, y);
+  ctx.lineTo(x + r - 3, y);
   ctx.stroke();
   ctx.restore();
+
+  if (open) label(ctx, x, y - r - 6, 'fill in', '#d8ccb4');
 }
 
 /** A solid triangle pointing the way the road would go, sitting where it would land. */

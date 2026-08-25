@@ -28,11 +28,12 @@ export interface RunSave {
   savedAt: number;
   /** Seed of the procedural map, so the road and biome come back identical. */
   mapSeed: number;
-  /** The shoves the player bought to reshape the road, in purchase order — the
-   *  half of the map the seed does not describe. Replayed onto the freshly seeded
-   *  road on load. Optional like the fields below: RUN_SAVE_VERSION stays 3, and a
-   *  save written before road shaping resumes on the road it was dealt. */
-  roadBends?: { seg: number; dir: 'up' | 'down' | 'left' | 'right' }[];
+  /** The notches the player dug into the road, in purchase order — the half of
+   *  the map the seed does not describe. Each names the road tile it pulled and the
+   *  way it went, so the set survives one of them being filled back in. Replayed onto
+   *  the freshly seeded road on load. Optional: a save written before road shaping
+   *  resumes on the road it was dealt. */
+  roadNotches?: { x: number; y: number; dir: 'up' | 'down' | 'left' | 'right' }[];
   gameMode: GameMode;
   /** The New Game+ tier this run is being played at. Absent on saves written
    *  before the ladder shipped → they resume at tier 0 (Normal). */
@@ -122,7 +123,7 @@ export interface RunSave {
 
 /** Bump when a field's meaning changes — an older save is then discarded rather
  *  than half-read into a run that would misbehave. */
-export const RUN_SAVE_VERSION = 3;
+export const RUN_SAVE_VERSION = 4;
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
@@ -175,15 +176,16 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     version: RUN_SAVE_VERSION,
     savedAt: num(raw.savedAt, 0),
     mapSeed: num(raw.mapSeed, 0) >>> 0,
-    // Each bend is two small facts; anything malformed is dropped rather than
-    // replayed, which costs the player a bend but never a broken road.
-    roadBends: Array.isArray(raw.roadBends)
-      ? raw.roadBends
+    // Each notch is three small facts; anything malformed is dropped rather than
+    // replayed, which costs the player a notch but never a broken road.
+    roadNotches: Array.isArray(raw.roadNotches)
+      ? raw.roadNotches
           .filter(isObj)
-          .filter((b) => b.dir === 'up' || b.dir === 'down' || b.dir === 'left' || b.dir === 'right')
-          .map((b) => ({
-            seg: Math.max(0, Math.floor(num(b.seg, 0))),
-            dir: b.dir as 'up' | 'down' | 'left' | 'right',
+          .filter((n) => n.dir === 'up' || n.dir === 'down' || n.dir === 'left' || n.dir === 'right')
+          .map((n) => ({
+            x: Math.round(num(n.x, 0)),
+            y: Math.round(num(n.y, 0)),
+            dir: n.dir as 'up' | 'down' | 'left' | 'right',
           }))
       : [],
     gameMode: raw.gameMode === 'classic' ? 'classic' : 'roguelite',

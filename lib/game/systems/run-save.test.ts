@@ -195,8 +195,8 @@ describe('caStats', () => {
     expect(back?.caStats).toBeUndefined();
   });
 
-  it('keeps the version at 3 — the field is optional, so old saves still resume', () => {
-    expect(RUN_SAVE_VERSION).toBe(3);
+  it('sits at 4 — road shaping changed shape, so v3 saves are refused', () => {
+    expect(RUN_SAVE_VERSION).toBe(4);
   });
 });
 
@@ -236,7 +236,7 @@ describe('the run\'s boss ladder', () => {
     expect(back?.runPhase).toBe('normal');
   });
 
-  it('keeps the version at 3 — every new field is optional, so old saves still resume', () => {
-    expect(RUN_SAVE_VERSION).toBe(3);
+  it('sits at 4 — these fields are optional; the bump came from road shaping', () => {
+    expect(RUN_SAVE_VERSION).toBe(4);
   });
 });
