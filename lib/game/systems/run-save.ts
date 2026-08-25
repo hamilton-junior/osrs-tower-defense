@@ -29,11 +29,12 @@ export interface RunSave {
   /** Seed of the procedural map, so the road and biome come back identical. */
   mapSeed: number;
   /** The notches the player dug into the road, in purchase order — the half of
-   *  the map the seed does not describe. Each names the road tile it pulled and the
-   *  way it went, so the set survives one of them being filled back in. Replayed onto
-   *  the freshly seeded road on load. Optional: a save written before road shaping
-   *  resumes on the road it was dealt. */
-  roadNotches?: { x: number; y: number; dir: 'up' | 'down' | 'left' | 'right' }[];
+   *  the map the seed does not describe. Each names the road tile it pulled, the way it
+   *  went and how many tiles out it has been pulled, so the set survives one of them
+   *  being filled back in. Replayed onto the freshly seeded road on load. Optional: a
+   *  save written before road shaping resumes on the road it was dealt, and one written
+   *  before notches had a depth reads every notch as one tile out. */
+  roadNotches?: { x: number; y: number; dir: 'up' | 'down' | 'left' | 'right'; depth?: number }[];
   gameMode: GameMode;
   /** The New Game+ tier this run is being played at. Absent on saves written
    *  before the ladder shipped → they resume at tier 0 (Normal). */
@@ -176,8 +177,10 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     version: RUN_SAVE_VERSION,
     savedAt: num(raw.savedAt, 0),
     mapSeed: num(raw.mapSeed, 0) >>> 0,
-    // Each notch is three small facts; anything malformed is dropped rather than
-    // replayed, which costs the player a notch but never a broken road.
+    // Each notch is four small facts; anything malformed is dropped rather than
+    // replayed, which costs the player a notch but never a broken road. A missing or
+    // nonsensical depth reads as one tile out — the shape every notch had before depth
+    // existed, and the shallowest a notch is ever allowed to be.
     roadNotches: Array.isArray(raw.roadNotches)
       ? raw.roadNotches
           .filter(isObj)
@@ -186,6 +189,7 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
             x: Math.round(num(n.x, 0)),
             y: Math.round(num(n.y, 0)),
             dir: n.dir as 'up' | 'down' | 'left' | 'right',
+            depth: Math.max(1, Math.round(num(n.depth, 1))),
           }))
       : [],
     gameMode: raw.gameMode === 'classic' ? 'classic' : 'roguelite',

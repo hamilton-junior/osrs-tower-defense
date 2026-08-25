@@ -6,9 +6,10 @@ import { GRID } from './shared';
  *
  * Between waves the road answers the pointer: the square under it outlines, and
  * clicking picks that one square up. The road then lights where it stands and an arrow
- * appears on each side it could be pulled to, carrying the price and what the pull is
- * worth in tiles of extra walking. Every square the road has already been pulled onto
- * keeps a small handle of its own — press it to fill the notch back in.
+ * appears on each side it could be pulled to, carrying its own price and what the pull
+ * is worth in tiles of extra walking. Every square the road has already been pulled
+ * onto keeps a small handle of its own — pick it up again to pull it a tile further out
+ * or to fill a tile back in, as many times as the player likes.
  *
  * Nothing here is drawn during a fight: the engine closes road shaping while a wave is
  * running, or while a tower is being placed, carried or pasted, so this layer
@@ -17,7 +18,7 @@ import { GRID } from './shared';
 export function drawRoadShaping(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   if (!gr.e.roadShapingOpen) return;
 
-  const armed = gr.e.shapingTile;
+  const armed = gr.e.shapingGrab;
   const price = gr.e.roadBendPrice;
   const afford = gr.e.money >= price;
   // Real-world clock, like every other idle animation here: a pulse that froze on
@@ -25,47 +26,46 @@ export function drawRoadShaping(gr: GameRenderer, ctx: CanvasRenderingContext2D)
   const t = performance.now() / 1000;
   const pulse = 0.5 + 0.5 * Math.sin(t * 2.6);
 
-  // The squares the road was pulled onto, each wearing the handle that takes it back.
-  // The one under the pointer opens up so the gesture is discoverable by hovering
-  // rather than by reading a tooltip.
-  const under = gr.e.roadUndoAt(gr.e.pointer.x, gr.e.pointer.y);
+  const hover = gr.e.roadHoverGrab();
+
+  // The far end of every detour the player has dug, each wearing a handle: picking one
+  // up is how it gets pulled further out or filled back in. The one under the pointer
+  // opens up so the gesture is discoverable by hovering rather than by reading a
+  // tooltip. The square in hand is skipped — it is lit in full below.
   gr.e.roadNotches.forEach((n, i) => {
+    if (armed && armed.index === i) return;
     const p = gr.e.notchHandle(n);
-    const on = i === under;
-    drawUndoHandle(ctx, p.x, p.y, on ? 1 : 0.45 + pulse * 0.15, on);
+    const on = !!hover && hover.index === i;
+    drawNotchHandle(ctx, p.x, p.y, on ? 1 : 0.45 + pulse * 0.15, on);
   });
 
   // The square under the pointer, outlined: "this is the one that would move". Not
-  // drawn over a notch's own handle — there the offer is to fill it in, not to dig
-  // again — nor over the armed square, which is already lit below.
-  const hover = under < 0 ? gr.e.roadHoverTile() : null;
-  if (hover && (!armed || armed.x !== hover.x || armed.y !== hover.y)) {
-    tileOutline(ctx, hover.x, hover.y, '#c9a227', 0.3 + pulse * 0.25, 2);
+  // drawn over the square already in hand, which is lit below.
+  if (hover && (!armed || armed.hx !== hover.hx || armed.hy !== hover.hy)) {
+    tileOutline(ctx, hover.hx, hover.hy, '#c9a227', 0.3 + pulse * 0.25, 2);
   }
 
   if (!armed) return;
 
-  // The armed square, lit so it is obvious *what* is about to move — the arrows only
+  // The square in hand, lit so it is obvious *what* is about to move — the arrows only
   // say where.
   ctx.save();
   ctx.globalAlpha = 0.3 + pulse * 0.3;
   ctx.fillStyle = '#ffd45e';
-  ctx.fillRect(armed.x - GRID / 2 + 2, armed.y - GRID / 2 + 2, GRID - 4, GRID - 4);
+  ctx.fillRect(armed.hx - GRID / 2 + 2, armed.hy - GRID / 2 + 2, GRID - 4, GRID - 4);
   ctx.restore();
-  tileOutline(ctx, armed.x, armed.y, '#ffd45e', 0.9, 2.5);
-  drawGrip(ctx, armed.x, armed.y, 1);
+  tileOutline(ctx, armed.hx, armed.hy, '#ffd45e', 0.9, 2.5);
+  drawGrip(ctx, armed.hx, armed.hy, 1);
 
-  // Where the square could be pulled to, one arrow per direction, with the price above
-  // the first of them. Unaffordable arrows still draw — the price is the answer to
-  // "why can't I?", and hiding it would leave the player clicking a dead handle.
-  const opts = gr.e.roadShapeOptions();
-  for (const o of opts) {
-    drawArrow(ctx, o.x, o.y, o.dir, afford, pulse);
-    label(ctx, o.x, o.y + 22, deltaText(o.deltaTiles), deltaColor(o.deltaTiles, afford));
-  }
-  const head = opts[0];
-  if (head) {
-    label(ctx, head.x, head.y - 24, `${price} gp`, afford ? '#ffd45e' : '#ff4d4d');
+  // Where the square could go, one arrow per step, each carrying its own price: gold to
+  // dig a tile further out, nothing to fill a tile back in. An unaffordable arrow still
+  // draws — the price is the answer to "why can't I?", and hiding it would leave the
+  // player clicking a dead handle.
+  for (const o of gr.e.roadShapeOptions()) {
+    const ok = o.digs ? afford : true;
+    drawArrow(ctx, o.x, o.y, o.dir, ok, pulse);
+    label(ctx, o.x, o.y + 22, deltaText(o.deltaTiles), deltaColor(o.deltaTiles, ok));
+    label(ctx, o.x, o.y - 24, o.digs ? `${price} gp` : 'fill in', ok ? '#ffd45e' : '#ff4d4d');
   }
 }
 
@@ -101,10 +101,11 @@ function drawGrip(ctx: CanvasRenderingContext2D, x: number, y: number, alpha: nu
 }
 
 /**
- * The handle on a square the road was pulled onto: the same chiselled stud, scored
- * with a single bar. One notch less, one dig cheaper — the bar is the minus sign.
+ * The handle on the far end of a detour: the same chiselled stud, scored with a single
+ * bar to say this square is not flat road but something the player made — and can go on
+ * making, a tile at a time, in either direction.
  */
-function drawUndoHandle(
+function drawNotchHandle(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -128,7 +129,7 @@ function drawUndoHandle(
   ctx.stroke();
   ctx.restore();
 
-  if (open) label(ctx, x, y - r - 6, 'fill in', '#d8ccb4');
+  if (open) label(ctx, x, y - r - 6, 'adjust', '#d8ccb4');
 }
 
 /** A solid triangle pointing the way the road would go, sitting where it would land. */

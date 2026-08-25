@@ -8,16 +8,24 @@
  * pathfinder and no grid rewrite, and enemies keep walking the same `pathIndex`
  * polyline they always did.
  *
- * What the player buys is a **notch**: one tile of road pulled a tile aside, with the
- * road stepping out to meet it and stepping straight back — a little detour around a
- * single square, not a whole stretch of road sliding sideways. It is worth **+2 tiles**
- * of walking every time (the step out and the step back), and it is always local: the
- * leg keeps both its ends, so nothing else on the map moves and a second notch further
+ * What the player buys is a **notch**: one tile of road pulled aside, with the road
+ * stepping out to meet it and stepping straight back — a little detour around a single
+ * square, not a whole stretch of road sliding sideways. It is always local: the leg
+ * keeps both its ends, so nothing else on the map moves and a second notch further
  * along the same leg is still on the table.
  *
- * A notch can also be **taken back**. The gold is spent for good — the digging was done
- * — but the run is one modification lighter, so the *next* notch is priced as if this
- * one had never been bought. That is what makes the arrows safe to press.
+ * A notch has a **depth**: how many tiles out it has been pulled. Every step costs a
+ * notch's worth of gold and adds **+2 tiles** of walking (the step out and the step
+ * back), and the same square can be pulled again and again — the detour just reaches
+ * further, and it is refused the moment it would come within a tile of the rest of the
+ * road, a tower, the scenery or the edge of the board. Depth is carried on the notch
+ * rather than stacked as notches-on-notches, so every detour stays anchored to a square
+ * of the road the generator dealt and the folding never depends on order.
+ *
+ * A notch can also be **pulled back in**, a tile at a time, until the road is flat
+ * again. The gold is spent for good — the digging was done — but the run is one
+ * modification lighter, so the *next* step out is priced as if this one had never been
+ * bought. That is what makes the arrows safe to press.
  *
  * Everything here is pure so the rules are testable: the engine owns the gold, the road
  * and the interface, and asks this module what is allowed.
@@ -37,17 +45,26 @@ export interface RoadNotch {
   x: number;
   y: number;
   dir: BendDir;
+  /** How many tiles out the road has been pulled here — at least 1. Deepening an
+   *  existing notch rather than cutting a new one beside it is what lets the same
+   *  square be adjusted over and over without the detours ever nesting. */
+  depth: number;
 }
 
-/** One legal pull of one tile, ready to be drawn as an arrow and paid for. */
+/** One legal step of one tile, ready to be drawn as an arrow and paid for. */
 export interface RoadMove {
   dir: BendDir;
   /** Where the tile would land — where the arrow points. */
   x: number;
   y: number;
-  /** Road length change in tiles. Always +2: out and back. Shown rather than
-   *  explained, the way the arrows have always shown theirs. */
+  /** Road length change in tiles: +2 stepping out, −2 coming back in. Shown rather
+   *  than explained, the way the arrows have always shown theirs. */
   deltaTiles: number;
+  /** The depth the notch would be left at — 0 when the road goes flat again. */
+  depth: number;
+  /** Whether this step costs gold. Digging further out does; filling back in never
+   *  does, so a player can always retreat out of a shape they regret. */
+  digs: boolean;
 }
 
 /** A road tile the player may pull, snapped to the road's own lattice. */
@@ -56,6 +73,30 @@ export interface RoadTile {
   seg: number;
   x: number;
   y: number;
+}
+
+/**
+ * What the player has picked up: one square, whether it is still flat road or a notch
+ * already dug. The two cases differ only in where the grip sits and which arrows are on
+ * offer, so the interface handles them as one thing.
+ */
+export interface RoadGrab {
+  /** The square of the generator's road the detour is anchored to — where filling it
+   *  back in returns to. */
+  x: number;
+  y: number;
+  /** Where the grip sits: the anchor while the road is still flat, the raised tile at
+   *  the far end of the detour once it has been pulled. */
+  hx: number;
+  hy: number;
+  /** Tiles it is already pulled out. 0 while the square is still flat road. */
+  depth: number;
+  /** The way it is already pulled — `null` at depth 0, where both sides are open. */
+  dir: BendDir | null;
+  /** Which way the leg underneath runs, so depth 0 knows its two perpendicular sides. */
+  axis: 'h' | 'v';
+  /** Its place in the player's notch list, or −1 while the square is still flat road. */
+  index: number;
 }
 
 export interface RoadContext {
@@ -86,6 +127,14 @@ const DIR_OFFSET: Record<BendDir, { dx: number; dy: number }> = {
   down: { dx: 0, dy: 1 },
   left: { dx: -1, dy: 0 },
   right: { dx: 1, dy: 0 },
+};
+
+/** The way back in, for the arrow that fills a notch a tile at a time. */
+const OPPOSITE: Record<BendDir, BendDir> = {
+  up: 'down',
+  down: 'up',
+  left: 'right',
+  right: 'left',
 };
 
 /**
@@ -119,7 +168,14 @@ export function notchableLegs(path: readonly Point[]): number[] {
  *  the handle that takes it back. */
 export function notchHead(n: RoadNotch, grid: number): Point {
   const off = DIR_OFFSET[n.dir];
-  return { x: n.x + off.dx * grid, y: n.y + off.dy * grid };
+  const d = notchDepth(n);
+  return { x: n.x + off.dx * grid * d, y: n.y + off.dy * grid * d };
+}
+
+/** A notch's depth, defended against a save written before depth existed and against
+ *  anything that would fold the detour back onto its own anchor. */
+function notchDepth(n: RoadNotch): number {
+  return Math.max(1, Math.round(n.depth || 1));
 }
 
 /**
@@ -162,8 +218,9 @@ function segForNotch(path: readonly Point[], n: RoadNotch, grid: number): number
  * *legal* road. `null` when the tile is not on a notchable leg, or the pull runs along
  * the leg rather than across it.
  *
- * Four waypoints go in and none come out: the leg becomes `A -> near -> out -> back ->
- * far -> B`, a three-tile-wide detour whose middle square is the one that was pulled.
+ * Four waypoints go in and none come out, however deep the notch: the leg becomes
+ * `A -> near -> out -> back -> far -> B`, a three-tile-wide detour reaching `depth`
+ * tiles off the leg, hinged on the square that was pulled.
  */
 export function notchedPath(path: readonly Point[], n: RoadNotch, grid: number): Point[] | null {
   const seg = segForNotch(path, n, grid);
@@ -174,10 +231,11 @@ export function notchedPath(path: readonly Point[], n: RoadNotch, grid: number):
   // Along the leg, pointing from A to B: the two shoulders sit one tile either side.
   const ux = a.y === b.y ? Math.sign(b.x - a.x) : 0;
   const uy = a.y === b.y ? 0 : Math.sign(b.y - a.y);
+  const d = notchDepth(n);
   const near = { x: n.x - ux * grid, y: n.y - uy * grid };
   const far = { x: n.x + ux * grid, y: n.y + uy * grid };
-  const out = { x: near.x + off.dx * grid, y: near.y + off.dy * grid };
-  const back = { x: far.x + off.dx * grid, y: far.y + off.dy * grid };
+  const out = { x: near.x + off.dx * grid * d, y: near.y + off.dy * grid * d };
+  const back = { x: far.x + off.dx * grid * d, y: far.y + off.dy * grid * d };
 
   const next = path.map(p => ({ x: p.x, y: p.y }));
   next.splice(seg + 1, 0, near, out, back, far);
@@ -260,30 +318,116 @@ export function isNotchLegal(next: readonly Point[], ctx: RoadContext, seg: numb
   return true;
 }
 
-/** Both ways one road tile could be pulled, minus the ones the rules refuse. */
-export function notchOptions(path: readonly Point[], tile: RoadTile, ctx: RoadContext): RoadMove[] {
-  const axis = legAxis(path, tile.seg);
-  if (axis === null) return [];
-  const dirs: BendDir[] = axis === 'h' ? ['up', 'down'] : ['left', 'right'];
-  const out: RoadMove[] = [];
-  for (const dir of dirs) {
-    const notch: RoadNotch = { x: tile.x, y: tile.y, dir };
-    const next = notchedPath(path, notch, ctx.grid);
-    if (!next || !isNotchLegal(next, ctx, tile.seg)) continue;
-    const head = notchHead(notch, ctx.grid);
-    out.push({ dir, x: head.x, y: head.y, deltaTiles: 2 });
+/**
+ * The square under a point, ready to be pulled: a notch already dug if the point is on
+ * its raised tile, otherwise a flat square of road.
+ *
+ * A notch is asked about first. Its raised tile is road like any other now, so it would
+ * also answer to {@link roadTileAt} — but what a player wants from a square they have
+ * already dug is to dig it further or fill it in, never to start a second detour off the
+ * side of the first.
+ */
+export function roadGrabAt(
+  path: readonly Point[],
+  notches: readonly RoadNotch[],
+  x: number,
+  y: number,
+  grid: number,
+): RoadGrab | null {
+  const i = notchAt(notches, x, y, grid);
+  if (i >= 0) {
+    const n = notches[i];
+    const head = notchHead(n, grid);
+    const axis: 'h' | 'v' = n.dir === 'up' || n.dir === 'down' ? 'h' : 'v';
+    return { x: n.x, y: n.y, hx: head.x, hy: head.y, depth: notchDepth(n), dir: n.dir, axis, index: i };
   }
+  const tile = roadTileAt(path, x, y, grid);
+  if (!tile) return null;
+  const axis = legAxis(path, tile.seg);
+  if (axis === null) return null;
+  return { x: tile.x, y: tile.y, hx: tile.x, hy: tile.y, depth: 0, dir: null, axis, index: -1 };
+}
+
+/** Fold every notch but one onto the base road, then fold that one last — so the leg it
+ *  lands on, and therefore the stretch legality has to judge, is known exactly. Order
+ *  never changes the road that comes out, only which notch's index is being reported. */
+function foldLast(
+  base: readonly Point[],
+  notches: readonly RoadNotch[],
+  target: RoadNotch,
+  grid: number,
+): { path: Point[]; seg: number } | null {
+  const others = notches.filter(n => n.x !== target.x || n.y !== target.y);
+  const path = applyNotches(base, others, grid);
+  const seg = segForNotch(path, target, grid);
+  if (seg < 0) return null;
+  const next = notchedPath(path, target, grid);
+  return next ? { path: next, seg } : null;
+}
+
+/**
+ * Every step the square in hand could take: further out, and — once it has been dug —
+ * back in.
+ *
+ * Stepping out is judged in full, against the road as it would actually be laid, so a
+ * deep notch is refused the moment it would crowd anything. Stepping back in never is:
+ * the shallower detour lies entirely on ground the deeper one already covered, and no
+ * tower can be standing there, because the tile a notch is pulled away from is always
+ * within a tower's clearance of the detour's own two sides. Retreating is therefore
+ * always safe, which is the whole point — a player can never dig themselves into a
+ * shape they cannot get out of.
+ */
+export function shapeOptions(
+  base: readonly Point[],
+  notches: readonly RoadNotch[],
+  grab: RoadGrab,
+  ctx: RoadContext,
+): RoadMove[] {
+  const { grid } = ctx;
+  const out: RoadMove[] = [];
+
+  if (grab.depth === 0) {
+    const dirs: BendDir[] = grab.axis === 'h' ? ['up', 'down'] : ['left', 'right'];
+    for (const dir of dirs) {
+      const target: RoadNotch = { x: grab.x, y: grab.y, dir, depth: 1 };
+      const folded = foldLast(base, notches, target, grid);
+      if (!folded || !isNotchLegal(folded.path, ctx, folded.seg)) continue;
+      const head = notchHead(target, grid);
+      out.push({ dir, x: head.x, y: head.y, deltaTiles: 2, depth: 1, digs: true });
+    }
+    return out;
+  }
+
+  const dir = grab.dir!;
+  const deeper: RoadNotch = { x: grab.x, y: grab.y, dir, depth: grab.depth + 1 };
+  const folded = foldLast(base, notches, deeper, grid);
+  if (folded && isNotchLegal(folded.path, ctx, folded.seg)) {
+    const head = notchHead(deeper, grid);
+    out.push({ dir, x: head.x, y: head.y, deltaTiles: 2, depth: deeper.depth, digs: true });
+  }
+
+  const back = grab.depth - 1;
+  const off = DIR_OFFSET[dir];
+  out.push({
+    dir: OPPOSITE[dir],
+    x: grab.x + off.dx * grid * back,
+    y: grab.y + off.dy * grid * back,
+    deltaTiles: -2,
+    depth: back,
+    digs: false,
+  });
   return out;
 }
 
 /**
  * Fold every notch the player owns onto the road the generator dealt.
  *
- * Notches are stored by position, and each one keeps clear of every other, so they
- * never depend on one another: the order is only the order they were bought in, and
- * dropping one from the middle leaves the rest exactly where they were. A notch that no
- * longer finds its leg — a save from a road that has since changed shape — is quietly
- * skipped rather than dragging the road with it.
+ * Notches are stored by position and depth, each anchored to a square of the road the
+ * generator dealt, and each keeps clear of every other — so they never depend on one
+ * another: the order is only the order they were bought in, and dropping one from the
+ * middle, or shaving a tile off its depth, leaves the rest exactly where they were. A
+ * notch that no longer finds its leg — a save from a road that has since changed shape
+ * — is quietly skipped rather than dragging the road with it.
  */
 export function applyNotches(base: readonly Point[], notches: readonly RoadNotch[], grid: number): Point[] {
   let path: Point[] = base.map(p => ({ x: p.x, y: p.y }));
@@ -307,11 +451,13 @@ export function notchAt(notches: readonly RoadNotch[], x: number, y: number, gri
 /**
  * What the next notch costs, given how many the player is currently keeping.
  *
- * It climbs steeply on purpose. One or two notches are a shaping decision made early
- * and lived with; a tenth would be a treadmill, and a road stretched without limit is
- * the mazing this game deliberately does not have. Taking one back lowers the count, so
- * the price is always the price of the notch the player is *about to own* — never a
- * tally of everything they ever tried.
+ * It climbs steeply on purpose. One or two steps are a shaping decision made early and
+ * lived with; a tenth would be a treadmill, and a road stretched without limit is the
+ * mazing this game deliberately does not have. `bought` counts *tiles* of digging, not
+ * notches, so pulling one square out three times costs exactly what pulling three
+ * squares out once would. Filling one back in lowers the count, so the price is always
+ * the price of the step the player is *about to take* — never a tally of everything they
+ * ever tried.
  */
 export function roadBendCost(bought: number): number {
   return Math.round((120 * Math.pow(1.55, Math.max(0, bought))) / 10) * 10;

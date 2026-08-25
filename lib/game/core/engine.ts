@@ -39,8 +39,8 @@ import { prayerUnlockWave } from '../systems/prayer';
 import { generateMapLayout, type MapLayout, type MapEdge } from '../systems/map-generation';
 import { computeRoadTiles, generateTerrain, type TerrainField } from '../systems/terrain-generation';
 import {
-  applyNotches, notchAt, notchedPath, notchHead, notchOptions, roadBendCost, roadTileAt,
-  type BendDir, type RoadMove, type RoadNotch, type RoadTile,
+  applyNotches, notchedPath, notchHead, roadBendCost, roadGrabAt, shapeOptions,
+  type RoadGrab, type RoadMove, type RoadNotch,
 } from '../systems/road-shaping';
 import { BIOMES, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
@@ -108,7 +108,7 @@ export class GameEngine {
   roadNotches: RoadNotch[] = [];
   /** Which road tile the player is currently considering, if any. Purely a UI
    *  state: clicking a tile arms it, clicking one of its arrows spends the gold. */
-  shapingTile: RoadTile | null = null;
+  shapingGrab: RoadGrab | null = null;
   /** The active battlefield theme (OSRS region palette) — read by the renderer. */
   biome: BiomeDef = BIOMES.lumbridge;
   enemies: Enemy[] = [];
@@ -1012,7 +1012,7 @@ export class GameEngine {
   escape() {
     if (this.pendingPlacement || this.movingTowerId || this.movingGroupIds.length
         || this.placeQueue.length || this.pasting || this.selectedTowerType
-        || this.selectedTrapId || this.shapingTile) {
+        || this.selectedTrapId || this.shapingGrab) {
       this.cancelAction();
     } else {
       this.togglePause();
@@ -1107,7 +1107,7 @@ export class GameEngine {
     this.mapSeed = seed !== undefined ? seed >>> 0 : (Math.random() * 0x100000000) >>> 0;
     this.mapLayout = generateMapLayout(this.mapSeed);
     this.roadNotches = []; // the player's shaping is per-run, like the map it shapes
-    this.shapingTile = null;
+    this.shapingGrab = null;
     this.biome = pickBiome(this.mapSeed);
     this.buildPath();
     this.terrain = generateTerrain(
@@ -1174,120 +1174,119 @@ export class GameEngine {
     };
   }
 
-  /** The road tile under the pointer, when the player could dig at it — what the
-   *  renderer outlines to say "this square is the one that would move". */
-  roadHoverTile(): RoadTile | null {
+  /** The square under a point that the player could work on — a notch they have
+   *  already dug, or a flat tile of road. `null` when the point is on neither. */
+  roadGrabAt(x: number, y: number): RoadGrab | null {
     if (!this.roadShapingOpen) return null;
-    return roadTileAt(this.path, this.pointer.x, this.pointer.y, GRID);
+    return roadGrabAt(this.path, this.roadNotches, x, y, GRID);
   }
 
-  /** Which notch's raised tile is under a point, or −1 — the undo handle. */
-  roadUndoAt(x: number, y: number): number {
-    if (!this.roadShapingOpen) return -1;
-    return notchAt(this.roadNotches, x, y, GRID);
+  /** What is under the pointer right now — what the renderer outlines to say "this
+   *  square is the one that would move". */
+  roadHoverGrab(): RoadGrab | null {
+    return this.roadGrabAt(this.pointer.x, this.pointer.y);
   }
 
-  /** Where the armed tile could be pulled to. Empty until one is armed: the arrows
-   *  belong to a chosen square, not to the whole road. */
+  /** Where the square in hand could step, out and back in. Empty until one is picked
+   *  up: the arrows belong to a chosen square, not to the whole road. */
   roadShapeOptions(): RoadMove[] {
-    if (!this.roadShapingOpen || !this.shapingTile) return [];
-    return notchOptions(this.path, this.shapingTile, this.roadCtx());
+    if (!this.roadShapingOpen || !this.shapingGrab) return [];
+    return shapeOptions(this.basePath, this.roadNotches, this.shapingGrab, this.roadCtx());
   }
 
-  /** Where a notch's raised tile sits — the square the road was pulled onto, which
-   *  is also the square that takes it back. */
+  /** Where a notch's raised tile sits — the far end of its detour, which is also the
+   *  handle that digs it deeper or fills it back in. */
   notchHandle(n: RoadNotch): Point {
     return notchHead(n, GRID);
   }
 
-  /** What the next notch costs — it climbs with every one the player is keeping,
-   *  and drops again when one is filled back in. */
+  /** What the next tile of digging costs — it climbs with every tile the player is
+   *  keeping, and drops again when one is filled back in. */
   get roadBendPrice(): number {
-    return roadBendCost(this.roadNotches.length);
+    return roadBendCost(this.roadNotches.reduce((sum, n) => sum + Math.max(1, n.depth), 0));
   }
 
   /**
    * Did this click belong to the road-shaping interface?
    *
-   * Two steps on purpose: the first click picks a square of road and the arrows
-   * appear with their price, the second click spends the gold. A misclick on a long
-   * road is otherwise an expensive way to learn what the handles do.
+   * Two steps on purpose: the first click picks a square up and the arrows appear
+   * with their price, the second click spends the gold. A misclick on a long road is
+   * otherwise an expensive way to learn what the handles do.
    *
-   * A square the road has already been pulled onto is read as the undo handle before
-   * it is read as a new tile to dig — it is road like any other now, and taking it
-   * back is the only thing a player wants from it.
+   * A square already dug picks up the same way as a flat one — that is what lets the
+   * player keep adjusting it. Its arrows just read differently: one pulls it a tile
+   * further out for the going price, the other fills a tile back in for nothing.
    */
   private tryShapeRoad(x: number, y: number): boolean {
     if (!this.roadShapingOpen) {
-      if (this.shapingTile) { this.shapingTile = null; this.emit(); }
+      if (this.shapingGrab) { this.shapingGrab = null; this.emit(); }
       return false;
     }
-    const dropped = this.shapingTile;
+    const dropped = this.shapingGrab;
     if (dropped) {
       const arrow = this.roadShapeOptions().find(o => distance(o.x, o.y, x, y) <= 16);
-      if (arrow) { this.notchRoad(dropped.x, dropped.y, arrow.dir); return true; }
+      if (arrow) { this.shapeRoad(dropped, arrow); return true; }
       // Anywhere else puts the square back down. The click carries on to do whatever
       // it would normally have done — no click is ever swallowed.
-      this.shapingTile = null;
+      this.shapingGrab = null;
       this.emit();
     }
-    const undo = this.roadUndoAt(x, y);
-    if (undo >= 0) { this.undoNotch(undo); return true; }
-    const tile = roadTileAt(this.path, x, y, GRID);
-    if (!tile) return false;
-    // Clicking the armed square again is how a player puts it down: it was just
+    const grab = this.roadGrabAt(x, y);
+    if (!grab) return false;
+    // Clicking the square in hand again is how a player puts it down: it was just
     // dropped above, and re-arming it here would make the gesture do nothing.
-    if (dropped && dropped.x === tile.x && dropped.y === tile.y) return true;
-    if (notchOptions(this.path, tile, this.roadCtx()).length === 0) return false;
-    this.shapingTile = tile;
+    if (dropped && dropped.x === grab.x && dropped.y === grab.y) return true;
+    if (shapeOptions(this.basePath, this.roadNotches, grab, this.roadCtx()).length === 0) return false;
+    this.shapingGrab = grab;
     this.sound.play('select');
     this.emit();
     return true;
   }
 
   /**
-   * Buy a notch: pay the price and pull that one square of road a tile aside, the
-   * road stepping out to meet it and straight back again.
+   * Take one step with the square in hand: a tile further out for the going price, or
+   * a tile back in for nothing.
    *
-   * The legality of the pull is re-checked here rather than trusted from the UI,
+   * The step is re-checked against the rules here rather than trusted from the UI,
    * because a tower can be built between the arrows being drawn and one being
-   * clicked.
+   * clicked. Filling in is the one thing that is never refused — the gold stays spent
+   * either way, so a player who can dig can always undig.
    */
-  notchRoad(x: number, y: number, dir: BendDir): boolean {
+  shapeRoad(grab: RoadGrab, move: RoadMove): boolean {
     if (!this.roadShapingOpen) { this.notify('Only between waves'); return false; }
-    const tile = roadTileAt(this.path, x, y, GRID);
-    if (!tile || tile.x !== x || tile.y !== y) return false;
-    if (!notchOptions(this.path, tile, this.roadCtx()).some(o => o.dir === dir)) return false;
-    const price = this.roadBendPrice;
+    const live = this.roadGrabAt(grab.hx, grab.hy);
+    if (!live || live.x !== grab.x || live.y !== grab.y) return false;
+    const offered = shapeOptions(this.basePath, this.roadNotches, live, this.roadCtx())
+      .find(o => o.dir === move.dir && o.depth === move.depth);
+    if (!offered) return false;
+
+    const price = offered.digs ? this.roadBendPrice : 0;
     if (this.money < price) { this.notify('Not enough gold'); return false; }
-
     this.money -= price;
-    this.roadNotches.push({ x, y, dir });
-    this.rebuildRoad();
-    this.shapingTile = null;
-    this.sound.play('sell'); // the coin-shuffle: gold left the purse
-    this.notify(`Road reshaped — ${price} gp`);
-    this.emit();
-    return true;
-  }
 
-  /**
-   * Fill a notch back in.
-   *
-   * The gold stays spent — the digging was done — but the run is one modification
-   * lighter, so the *next* notch is priced as if this one had never been bought.
-   * That is what makes the arrows safe to press: a mistake costs gold once, not for
-   * the rest of the run.
-   */
-  undoNotch(index: number): boolean {
-    if (!this.roadShapingOpen) { this.notify('Only between waves'); return false; }
-    if (!this.roadNotches[index]) return false;
+    const at = this.roadNotches.findIndex(n => n.x === live.x && n.y === live.y);
+    if (offered.depth === 0) {
+      if (at >= 0) this.roadNotches.splice(at, 1);
+    } else if (at >= 0) {
+      this.roadNotches[at] = { ...this.roadNotches[at], dir: offered.dir, depth: offered.depth };
+    } else {
+      this.roadNotches.push({ x: live.x, y: live.y, dir: offered.dir, depth: offered.depth });
+    }
 
-    this.roadNotches.splice(index, 1);
     this.rebuildRoad();
-    this.shapingTile = null;
-    this.sound.play('click');
-    this.notify('Road filled in — the next dig is cheaper');
+    // The square stays in hand where it ended up, so the next tile is one more click
+    // on the same arrow rather than another pick-up — adjusting a square over and over
+    // is the point. It is put down only once it has run out of moves.
+    const moved = this.roadGrabAt(offered.x, offered.y);
+    const more = moved && shapeOptions(this.basePath, this.roadNotches, moved, this.roadCtx()).length > 0;
+    this.shapingGrab = more ? moved : null;
+    if (offered.digs) {
+      this.sound.play('sell'); // the coin-shuffle: gold left the purse
+      this.notify(`Road reshaped — ${price} gp`);
+    } else {
+      this.sound.play('click');
+      this.notify('Road filled in — the next dig is cheaper');
+    }
     this.emit();
     return true;
   }
@@ -1313,13 +1312,18 @@ export class GameEngine {
    * that no longer finds its leg at all is dropped, though — keeping it would charge
    * the player for a bend that is not on the board.
    */
-  private applyRoadNotches(notches: readonly RoadNotch[]) {
+  private applyRoadNotches(notches: readonly (Omit<RoadNotch, 'depth'> & { depth?: number })[]) {
     this.roadNotches = [];
-    for (const n of notches) {
+    for (const raw of notches) {
+      // A save written before notches had a depth reads as one tile out — the only
+      // shape a notch could have had back then, and the shallowest one allowed now.
+      const n: RoadNotch = {
+        x: raw.x, y: raw.y, dir: raw.dir, depth: Math.max(1, Math.round(raw.depth || 1)),
+      };
       const next = notchedPath(this.path, n, GRID);
       if (!next) continue; // a save from a road this notch no longer fits
       this.path = next;
-      this.roadNotches.push({ x: n.x, y: n.y, dir: n.dir });
+      this.roadNotches.push(n);
     }
     if (this.roadNotches.length) this.clearRoadDecorations();
   }
@@ -1584,7 +1588,7 @@ export class GameEngine {
     this.pasting = false; // the clipboard keeps its towers — only the aim is dropped
     this.pendingPlacement = null;
     this.placeCursor = null; // the keyboard cursor goes with the cancelled placement
-    this.shapingTile = null; // a picked-up square of road is put back down too
+    this.shapingGrab = null; // a picked-up square of road is put back down too
     this.selectedTrapId = null; // and a trap in hand is put back in the bag
     this.emit();
   }
@@ -2690,7 +2694,7 @@ export class GameEngine {
       this.selectedTowerId = null;
       this.pendingPlacement = null;
       this.inspectedEnemyId = null;
-      this.shapingTile = null;
+      this.shapingGrab = null;
       this.sound.play('click');
     }
     this.emit();
