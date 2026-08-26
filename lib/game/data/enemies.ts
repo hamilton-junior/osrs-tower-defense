@@ -38,6 +38,87 @@ export const ENEMIES: Record<string, EnemyDef> = {
     reward: 3,
     waveUnlock: 2
   },
+  // ── Misthalin ──────────────────────────────────────────────────────────────
+  // Lumbridge and Varrock's own ladder, so the tutorial region stops playing on
+  // the generic backbone with a cow in it. `hp` is each monster's real OSRS
+  // hitpoints; the seven span wave 1 to wave 7 without touching the backbone.
+  cave_bug: {
+    type: 'cave_bug',
+    region: 'lumbridge',
+    renderScale: 0.8,
+    name: 'Cave bug',
+    hp: 5,
+    speed: 95,
+    color: '#8a7b3f',
+    reward: 2,
+    waveUnlock: 1
+  },
+  cave_slime: {
+    type: 'cave_slime',
+    region: 'lumbridge',
+    renderScale: 0.9,
+    name: 'Cave slime',
+    hp: 25,
+    speed: 30,
+    color: '#8fbf5f',
+    reward: 6,
+    waveUnlock: 3
+  },
+  big_frog: {
+    type: 'big_frog',
+    region: 'lumbridge',
+    renderScale: 0.95,
+    name: 'Big frog',
+    hp: 25,
+    speed: 75,
+    color: '#3f7a3f',
+    reward: 6,
+    waveUnlock: 3
+  },
+  hobgoblin: {
+    type: 'hobgoblin',
+    region: 'lumbridge',
+    name: 'Hobgoblin',
+    hp: 29,
+    speed: 60,
+    color: '#7d6a3a',
+    reward: 8,
+    waveUnlock: 4
+  },
+  giant_bat: {
+    type: 'giant_bat',
+    region: 'lumbridge',
+    renderScale: 1.1,
+    name: 'Giant bat',
+    hp: 32,
+    speed: 110,
+    color: '#5a4b40',
+    reward: 9,
+    waveUnlock: 4
+  },
+  moss_giant: {
+    type: 'moss_giant',
+    region: 'lumbridge',
+    renderScale: 1.5,
+    name: 'Moss giant',
+    hp: 60,
+    speed: 32,
+    color: '#55703f',
+    reward: 14,
+    waveUnlock: 5
+  },
+  giant_frog: {
+    type: 'giant_frog',
+    region: 'lumbridge',
+    renderScale: 1.25,
+    name: 'Giant frog',
+    hp: 100,
+    speed: 65,
+    color: '#2f6b34',
+    reward: 20,
+    waveUnlock: 7
+  },
+  // ───────────────────────────────────────────────────────────────────────────
   imp: {
     type: 'imp',
     renderScale: 0.75,
@@ -587,6 +668,9 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   // Karamja's swarm is the fire bucket's other half — insects — and Trollweiss'
   // armoured warrior is the one answer no player needs told: ice melts.
   harpie_bug_swarm: 'fire', ice_warrior: 'fire',
+  // Misthalin: a cave bug is an insect, and a moss giant is a walking hedge —
+  // the two readings the fire bucket was written for.
+  cave_bug: 'fire', moss_giant: 'fire',
   // Earth — dragons, stone & burrowers
   blue_dragon: 'earth', green_dragon: 'earth', giant_mole: 'earth',
   // Living statues: stone answers to earth. Both halves read the same, so the pair
@@ -596,6 +680,8 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   brutus: 'earth',
   // Air — agile, magical & ethereal
   rat: 'air', giant_rat: 'air', ghost: 'air', zulrah: 'air',
+  // The only thing on the board that actually flies.
+  giant_bat: 'air',
   // A deviation: OSRS gives Scurrius no elemental weakness at all. Leaving him blank
   // would make him the one boss the table skips, and it would read as an oversight
   // rather than a decision — every rat in the game is Air, including the ones he
@@ -622,6 +708,10 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   // A troll takes its lowest defence to crush in OSRS, and a troll is the monster
   // the word "crush" was invented for.
   ice_troll: 'melee',
+  // Misthalin, and all three ours: OSRS ties every defence on these. A hobgoblin is
+  // the rung an OSRS player meleed straight after the goblin, and a slime and a
+  // giant frog are both soft, slow bodies you walk up to rather than kite.
+  hobgoblin: 'melee', cave_slime: 'melee', giant_frog: 'melee',
   // dcrush 25 against dranged 100; and Vorkath's dmagic 240 is the highest defence
   // stat in this roster, so a lance is the answer to both.
   cerberus: 'melee', vorkath: 'melee',
@@ -642,6 +732,8 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   // Ours, and the same argument: a jogre is slow, huge and melee-only, so the whole
   // point of one is never letting it arrive.
   jogre: 'ranged',
+  // Ours: a big frog leaps, and the whole point of one is hitting it before it lands.
+  big_frog: 'ranged',
 };
 
 for (const [type, weakness] of Object.entries(WEAKNESSES)) {

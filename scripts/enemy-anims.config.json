@@ -414,5 +414,61 @@
       "hurt": 3110,
       "death": 3111
     }
+  },
+  "cave_bug": {
+    "npc": 481,
+    "anims": {
+      "walk": 6077,
+      "hurt": 6080,
+      "death": 6082
+    }
+  },
+  "cave_slime": {
+    "npc": 480,
+    "anims": {
+      "walk": 1788,
+      "hurt": 1791,
+      "death": 1792
+    }
+  },
+  "big_frog": {
+    "npc": 478,
+    "anims": {
+      "walk": 1797,
+      "hurt": 1794,
+      "death": 1795
+    }
+  },
+  "giant_frog": {
+    "npc": 477,
+    "anims": {
+      "walk": 1797,
+      "hurt": 1794,
+      "death": 1795
+    }
+  },
+  "hobgoblin": {
+    "npc": 3049,
+    "anims": {
+      "walk": 162,
+      "hurt": 165,
+      "death": 167
+    }
+  },
+  "giant_bat": {
+    "npc": 2834,
+    "anims": {
+      "walk": 4913,
+      "hurt": 4916,
+      "death": 4917
+    }
+  },
+  "moss_giant": {
+    "npc": 2090,
+    "anims": {
+      "walk": 4654,
+      "hurt": 4658,
+      "death": 4659
+    }
   }
 }

@@ -246,6 +246,21 @@ DEATH_SOUNDS.ice_warrior = `${SND}/death_human.wav`;
 DEATH_SOUNDS.ice_troll = DEATH_SOUNDS.hill_giant;
 DEATH_SOUNDS.jogre = DEATH_SOUNDS.hill_giant;
 DEATH_SOUNDS.harpie_bug_swarm = DEATH_SOUNDS.scorpion;
+// Misthalin's seven are the same story: the cache's NPC defs carry no sound ids, so
+// each takes the nearest voice already baked. Two of them are not stand-ins at all —
+// a hobgoblin *is* a goblin's throat, and OSRS gives every giant one death cry, so
+// the moss giant shares the hill giant's. The rest borrow by kind: the cave bug is an
+// insect (scorpion), the cave slime the only wet thing baked (bloodveld), the giant
+// bat a small squealing mammal (rat), and the two frogs the only low animal bellow
+// there is (cow) — the weakest match of the set, and the first to replace if a frog
+// clip is ever decoded.
+DEATH_SOUNDS.hobgoblin = DEATH_SOUNDS.goblin;
+DEATH_SOUNDS.moss_giant = DEATH_SOUNDS.hill_giant;
+DEATH_SOUNDS.cave_bug = DEATH_SOUNDS.scorpion;
+DEATH_SOUNDS.cave_slime = DEATH_SOUNDS.bloodveld;
+DEATH_SOUNDS.giant_bat = DEATH_SOUNDS.rat;
+DEATH_SOUNDS.big_frog = DEATH_SOUNDS.cow;
+DEATH_SOUNDS.giant_frog = DEATH_SOUNDS.cow;
 
 export const ASSETS = {
   spells: SPELL_ICONS,
@@ -296,6 +311,13 @@ export const ASSETS = {
     ice_troll: `${LOCAL}/models/ice_troll.png`,
     jogre: `${LOCAL}/models/jogre.png`,                                   // Karamja
     harpie_bug_swarm: `${LOCAL}/models/harpie_bug_swarm.png`,
+    cave_bug: `${LOCAL}/models/cave_bug.png`,                             // Misthalin
+    cave_slime: `${LOCAL}/models/cave_slime.png`,
+    big_frog: `${LOCAL}/models/big_frog.png`,
+    giant_frog: `${LOCAL}/models/giant_frog.png`,
+    hobgoblin: `${LOCAL}/models/hobgoblin.png`,
+    giant_bat: `${LOCAL}/models/giant_bat.png`,
+    moss_giant: `${LOCAL}/models/moss_giant.png`,
   },
   // Combat Achievement tier icons — the game's own CaTierSwords sprites (3393-3398),
   // one blade per tier, bronze for Easy up to the last for Grandmaster.

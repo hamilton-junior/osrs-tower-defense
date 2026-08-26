@@ -54,6 +54,15 @@ const TARGETS = {
   // animated spotanims, so a static render reads poorly. It's now drawn
   // procedurally as a swirling vortex in renderer.drawSpawnPortal.
 
+  // --- Misthalin locals (ASSETS.enemies) ---
+  cave_bug: { npc: 481 },                // Lumbridge Swamp Caves
+  cave_slime: { npc: 480 },
+  big_frog: { npc: 478, pitch: 45 },       // squat, splayed rig — needs a top-down look
+  giant_frog: { npc: 477, pitch: 45 },
+  hobgoblin: { npc: 3049 },
+  giant_bat: { npc: 2834, pitch: 35 },     // wings only read from above
+  moss_giant: { npc: 2090, yaw: 0 },       // Varrock sewers — front on; yaw 30 shows its back
+
   // --- Skilling pets (ASSETS.pets) ---
   beaver: { npc: 12169 },
   rock_golem: { npc: 6725 },
