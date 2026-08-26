@@ -22,6 +22,10 @@ player found the game* (a channel, a video), **not** who wrote the report — pa
 `Found On` makes that obvious. The reporter, when known at all, is in `Player Contact`.
 
 **Watermark (2026-08-21):** Suggestions ≤ **38**, Bug Reports ≤ **23**.
+Re-queried 2026-08-25: nothing past the watermark, so it stands. That pass also synced
+NocoDB's `Status` to this file for the rows that are *finished* — Suggestions 24, 27, 28,
+31, 37, 38 → Implemented; Bug Reports 18, 22, 23 → Fixed. Partials (34, 35, 36), the
+deliberately-Planned 18, the queued rows and the `Not a Bug` 19 were left as they were.
 
 ## Verdict vocabulary
 
@@ -92,7 +96,7 @@ if players push · no tag = ordinary backlog.
 | 28 | Card Balance, and Suggestions | **shipped** — rarity-by-strength (`d3ccf3c`) plus Soul Eater as a mythic appetite (`bf84a88`) settled it; signed off 2026-08-21. The equipment/foil-card layer was not part of the sign-off and lives on as its own idea, not as an open complaint |
 | 29 | Monster, Tower, and Prayer Balance | queued **[low]** — headline ask shipped (mobs weak to melee/ranged, `5f2014c`). The extras (slash/crush/stab & bolt/arrow tower types, a player special-energy bar) are **not interesting for now** (user, 2026-08-21) — parked |
 | 30 | Clue Scrolls | queued **[later]** — accepted as a real direction, but for a "not very near future" (user, 2026-08-21). Net-new content: draggable clue map, dig spots, golden-tower rewards, 3rd-age gear. Now has a designed sibling — **F4** below — so treat them as one piece of work |
-| 31 | Local Login/Save | queued **[high]** — the user calls it important (2026-08-21). Only localStorage persists today; a portable/cross-device save is unbuilt and there is no backend, so the near-term shape is an export/import save code rather than an account |
+| 31 | Local Login/Save | **shipped** — P1 portable save (2026-08-23, item 13 below): the 💾 Save/Load Game code exports and re-imports the whole account. The user called it important (2026-08-21). Only localStorage persists today; there is still no backend and none planned, so the save code is the answer here rather than an account/login |
 | 32 | Zoom In/Out | queued **[low]** — stays in the backlog (user, 2026-08-21). Map zoom was explicitly deferred during the map-uniqueness work; overlaps **M7** |
 | 33 | Card Categories | queued **[later]** — worth thinking about and eventually adjusting, but **the roguelite is not the focus for now** (user, 2026-08-21), and cards are roguelite-side. The tension stands: `d3ccf3c` ranks rarity by *power*, this asks to rank it by the OSRS item hierarchy |
 | 34 | Mega rares (scythe/shadow/tbow) + pick your own map + periodic level-swap w/ full refund | **partially shipped** — the top-tier item half is in (mega-rare gear exists). Map picking is **not** simply granted: the intended direction is the run *changing biome as the waves go*, so the pick-a-map ask has to be explored against that first (user, 2026-08-21) → feeds **M7** |
