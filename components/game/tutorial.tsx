@@ -108,6 +108,10 @@ export const LEARN_STEPS: LearnStep[] = [
   { id: 'victory', target: 'hud', icon: itemIcon('collection_log'), title: 'Runs can be won',
     body: 'Beat every boss — around wave 90 — and you win. Endless carries on from there.',
     when: (ui) => ui.wave >= 60 && !ui.waveActive },
+  // The 'travel' tip is taught *inside* the fork overlay itself (the two region
+  // cards carry the land they show and the monsters that live there), for the same
+  // reason as the draft below: it explains the choice while you are making it.
+  //
   // The 'draft' tip is taught *inside* the draft overlay itself (see the roguelite
   // draft block) so it explains the cards while you are choosing, not after — it is
   // not a floating coach step.
@@ -227,6 +231,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.multicombat_icon, text: 'Nothing spawns until you press Start Wave. Between waves is free build time.' },
     { icon: itemIcon('collection_log'), text: 'Beat every boss — around wave 90 — to win the run, then carry on in Endless.' },
     { icon: ASSETS.misc.spade, text: 'Pay to pull a square of road aside, again and again; the other arrow fills it back in.' },
+    { icon: ASSETS.misc.compass, text: 'Every few waves the road forks: pick a region, keep your towers, meet its locals.' },
     { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
     { icon: ASSETS.misc.compass, text: 'Tips appear in-game the first time each new thing shows up.' },
   ] },

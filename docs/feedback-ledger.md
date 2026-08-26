@@ -82,7 +82,7 @@ if players push · no tag = ordinary backlog.
 | 13 | Power scaling | shipped |
 | 14 | Wave 300+ clear feedback | shipped |
 | 16 | Accidentally selling towers | shipped — confirm step |
-| 17 | Alongar mapa (Bruno) | queued → **M7** map selection / bigger map |
+| 17 | Alongar mapa (Bruno) | **half shipped** — **M7** answers the map-selection half: the run now travels, and every five waves the player picks the next region (`systems/travel.ts`). A *bigger* board is not on the table — the fixed 1440x640 logic space is a hard rule — so the "longer map" half stands as road-bending (`spade` notches) plus the new legs |
 | 18 | Big TD fan, long list | complaints shipped (movable panels, tower niches, placement `d815c10`); **stays Planned** in NocoDB — two of its asks are still backlog: tower fusion (**M6**) and a gold sink (**M5**) |
 | 19 | Improvements to balancing | shipped |
 | 20 | Hotkeys | shipped |
@@ -99,7 +99,7 @@ if players push · no tag = ordinary backlog.
 | 31 | Local Login/Save | **shipped** — P1 portable save (2026-08-23, item 13 below): the 💾 Save/Load Game code exports and re-imports the whole account. The user called it important (2026-08-21). Only localStorage persists today; there is still no backend and none planned, so the save code is the answer here rather than an account/login |
 | 32 | Zoom In/Out | queued **[low]** — stays in the backlog (user, 2026-08-21). Map zoom was explicitly deferred during the map-uniqueness work; overlaps **M7** |
 | 33 | Card Categories | queued **[later]** — worth thinking about and eventually adjusting, but **the roguelite is not the focus for now** (user, 2026-08-21), and cards are roguelite-side. The tension stands: `d3ccf3c` ranks rarity by *power*, this asks to rank it by the OSRS item hierarchy |
-| 34 | Mega rares (scythe/shadow/tbow) + pick your own map + periodic level-swap w/ full refund | **partially shipped** — the top-tier item half is in (mega-rare gear exists). Map picking is **not** simply granted: the intended direction is the run *changing biome as the waves go*, so the pick-a-map ask has to be explored against that first (user, 2026-08-21) → feeds **M7** |
+| 34 | Mega rares (scythe/shadow/tbow) + pick your own map + periodic level-swap w/ full refund | **partially shipped** — the top-tier item half is in (mega-rare gear exists), and map picking landed the way the direction demanded: **M7** makes the run travel, and the fork between legs *is* the map choice (two regions, the locals shown, the road and your towers kept). Still open: the periodic level-swap with a full refund |
 | 35 | Construction (Mazing) mode | queued **[high-interest]** — the user likes the two parts that matter (2026-08-21): letting the player **alter the pathing**, and putting **towers/traps on the road itself**. The full separate mode is still design-first; those two mechanics are the piece worth designing |
 | 36 | Unique items feel unreachable / underpowered | **half shipped** — `4302a5e` (2026-08-23). Will, 2026-08-20 (found the game via the B0aty channel). The reachability half is fixed and was measured first: level 40 cost 844k XP, which a tower on a sixth of a normal board's damage only banked by wave 83 against a wave-90 run, so the last rung of every ladder was decoration. Curve is `level^1.6` now (level 40 by wave 55, tier 4 at wave 26 instead of 37). The measurement also caught what he was seeing: the support wizard earned 20% of *each* covered tower's damage, so an aura over five attackers paid it all five — that share is split across the covered attackers now. **Still open (item design, not reachability):** Blood Fury restoring a life, the Salve amulet as flat + % (base 20 + 20%), and a Tenacity-shredding unique (Holy Water-style −5% defence on demons; Amulet of the Damned another candidate) |
 | 37 | Fang tower (rapid-fire range) is weak | shipped — `3a992ab` (2026-08-23). Will, 2026-08-20. A **niche failure**, not just numbers, and the cause was in the ramp: venom is the toxic tower's whole compensation for hitting soft, and its step was 15% of the *hit* — the tower's weakest stat — so on wave 90 it climbed 8 dps at a time toward a 153 dps ceiling, nineteen reapplies and about twenty-one seconds of unbroken fire on one enemy. Nothing lives that long inside one tower's range, so the niche existed only in the source. The step is a fraction of the CAP now (`VENOM_RAMP_HITS = 5`), saturating over roughly one enemy's pass through the range square at any wave; Magic Fang also fired at 3 ticks between two tiers firing at 2, so upgrading into it made the tower slower *and* the ramp slower. Damage untouched on purpose — with the ramp working the tower passes Emberlight on a single target from wave ~50 (497 vs 475 over 5s; 681 vs 475 at wave 90), which is the scaling-tower shape it was written for. The dart-gear and essence-upgrade asks are folded into #36's open half |
@@ -127,9 +127,15 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
    `data/achievements.ts` (8 entries, legacy engine only) was deliberately left untouched.
 7. **M4** roguelite reset-loop / meta rework — next to *plan*, not build.
 8. **M6** tower fusion (must respect the closed roster) — think about soon.
-9. **M7** maps — queued, and its shape moved (2026-08-21): the run is meant to **change biome
-    as the waves advance**, so "pick your own map" (#34, #17) has to be designed against that
-    rather than bolted on as a start-screen menu.
+9. **M7** maps — *shipped*: the run **travels**. Every five waves (`TRAVEL_INTERVAL`,
+    `systems/travel.ts`) the road forks at wave end and offers two regions, each card painted
+    in that region's own palette and showing the monsters native to it; picking one re-skins
+    the board and swaps the roster, while the road layout, the towers and every bend paid for
+    stay exactly where they are. That fork is the answer to "pick your own map" (#34, #17) —
+    a choice made mid-run against what the run has become, not a menu before it starts. A
+    Slayer task the new region cannot supply is rerolled free. The fork blocks Start Wave like
+    a relic or draft choice, and rides in the run save (`biome`/`previousBiome`/`pendingTravel`,
+    still `RUN_SAVE_VERSION` 4).
 10. **M5** a gold sink for **normal** mode — idea still wanted.
 11. **A1** late-game victory + Endless + a curve that overtakes — *shipped*: the run is
     won by clearing the boss roster, Endless carries on past it (`c0a328f`), and the

@@ -350,6 +350,10 @@ export interface UIState {
   autoplaySecs: number;
   /** Player-facing name of the run's current biome (shown in the debug map tools). */
   biomeName: string;
+  /** The fork in the road: the regions offered at this leg's turn, each with the
+   *  monsters native to it, or null between turns. Blocks Start Wave until answered
+   *  (like {@link pendingDraft}) — the next wave's roster is the chosen region's. */
+  pendingTravel: { id: string; name: string; locals: { type: string; name: string }[] }[] | null;
   /** Bumps once per Blood-barrage life steal — the UI keys its ❤ pop off it. */
   lifestealSeq: number;
   /** Bumps whenever a placed tower's displayed config changes (target priority,

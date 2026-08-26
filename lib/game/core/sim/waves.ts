@@ -540,6 +540,12 @@ export function checkWaveEnd(eng: GameEngine) {
   // The world turns up in the gap: a passer-by, a random event, a nest out of a
   // tree. Rolled here rather than at Start Wave so it lands the moment the fighting
   // stops and has the whole prep phase to be noticed — or ignored.
+  // The road reaches a turn every few waves: the run is offered two regions and
+  // marches into the one the player picks. Only the place changes — palette and
+  // native roster — so the board they have been building is untouched. Offered here
+  // rather than at Start Wave so the choice is made with the whole prep phase to
+  // think in, and it holds Start Wave until it is answered.
+  if (!eng.gameOver) eng.offerTravel();
   if (!eng.gameOver) eng.rollDiversions();
   eng.checkAchievements();
   eng.emit();

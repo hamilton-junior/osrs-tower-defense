@@ -1,6 +1,7 @@
 import type { Tower, Item, SlayerTask, PrayerType, EnemyType } from '../types';
 import type { GameMode, RunModifiers, RunEffects, RelicEffects } from '../core/engine';
 import { clampTier, type DifficultyTier } from './difficulty';
+import { BIOMES, type BiomeId } from '../data/biomes';
 import { HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import type { RunStats } from './combat-achievements';
 
@@ -26,8 +27,20 @@ export interface RunSave {
   version: number;
   /** Epoch ms of the snapshot — shown on the Continue button. */
   savedAt: number;
-  /** Seed of the procedural map, so the road and biome come back identical. */
+  /** Seed of the procedural map, so the road comes back identical. It rolls the
+   *  *opening* region too, but the run travels away from it — {@link biome} is what
+   *  says where the run actually stands. */
   mapSeed: number;
+  /** The region the run is standing in, and the one it marched out of. The seed only
+   *  names where the journey *started*, so without these a save taken three legs in
+   *  would resume back at the opening region with the wrong monsters. Optional —
+   *  RUN_SAVE_VERSION stays 4, and a save written before travelling existed resumes
+   *  in its seed's region, which is exactly where it was. */
+  biome?: BiomeId;
+  previousBiome?: BiomeId | null;
+  /** A fork in the road the player had not answered yet. Saved so quitting at a turn
+   *  does not silently pick for them; absent whenever the run is mid-leg. */
+  pendingTravel?: BiomeId[];
   /** The notches the player dug into the road, in purchase order — the half of
    *  the map the seed does not describe. Each names the road tile it pulled, the way it
    *  went and how many tiles out it has been pulled, so the set survives one of them
@@ -129,6 +142,10 @@ export const RUN_SAVE_VERSION = 4;
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+/** A region id, or null if it names one this build does not have (a save from a
+ *  patch that had a region since removed) — the caller then falls back to the seed. */
+const biomeId = (v: unknown): BiomeId | null =>
+  (typeof v === 'string' && v in BIOMES ? (v as BiomeId) : null);
 const strList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 /** A `{ key: count }` tally read back from a save — keeps only positive whole
  *  counts, so a corrupted entry costs one boss rather than the whole run. */
@@ -192,6 +209,11 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
             depth: Math.max(1, Math.round(num(n.depth, 1))),
           }))
       : [],
+    ...(biomeId(raw.biome) ? { biome: biomeId(raw.biome)! } : {}),
+    ...(biomeId(raw.previousBiome) ? { previousBiome: biomeId(raw.previousBiome)! } : {}),
+    ...(Array.isArray(raw.pendingTravel)
+      ? { pendingTravel: raw.pendingTravel.map(biomeId).filter((b): b is BiomeId => b !== null) }
+      : {}),
     gameMode: raw.gameMode === 'classic' ? 'classic' : 'roguelite',
     // difficultyTier is itself back-compatible (missing => 0). The v2->v3 bump
     // above discards old saves by the repo's every-shape-change convention, not

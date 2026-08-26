@@ -43,6 +43,8 @@ import {
   type RoadGrab, type RoadMove, type RoadNotch,
 } from '../systems/road-shaping';
 import { BIOMES, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
+import { localTypes } from '../systems/enemy-regions';
+import { isTravelWave, legOfWave, travelOffer } from '../systems/travel';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
 import { DIVERSION_BY_ID } from '../data/diversions';
@@ -111,6 +113,13 @@ export class GameEngine {
   shapingGrab: RoadGrab | null = null;
   /** The active battlefield theme (OSRS region palette) — read by the renderer. */
   biome: BiomeDef = BIOMES.lumbridge;
+  /** The region the run marched out of, so a fork never offers a there-and-back.
+   *  Null on the opening leg, which was rolled rather than chosen. */
+  previousBiome: BiomeId | null = null;
+  /** The fork in the road: the regions offered at this leg's turn, awaiting a pick.
+   *  Null between turns. Like a relic choice it blocks Start Wave until resolved —
+   *  the next wave's roster depends on where the run is standing. */
+  pendingTravel: BiomeId[] | null = null;
   enemies: Enemy[] = [];
   towers: Tower[] = [];
   projectiles: Projectile[] = [];
@@ -687,6 +696,16 @@ export class GameEngine {
       autoplay: this.autoplay,
       autoplaySecs: this.autoplaySecs,
       biomeName: this.biome.name,
+      pendingTravel: this.pendingTravel
+        ? this.pendingTravel.map((id) => ({
+            id,
+            name: BIOMES[id].name,
+            // The region's *own* monsters — the whole reason one road differs from
+            // the next. Generics roll everywhere, so listing them would say nothing.
+            locals: localTypes(Object.values(ENEMIES), id)
+              .map((t) => ({ type: t, name: ENEMIES[t]?.name ?? t })),
+          }))
+        : null,
       lifestealSeq: this.lifestealSeq,
       towerConfigSeq: this.towerConfigSeq,
       lootBag: this.lootBag.map(g => ({ ...g })),
@@ -1111,6 +1130,8 @@ export class GameEngine {
     this.roadNotches = []; // the player's shaping is per-run, like the map it shapes
     this.shapingGrab = null;
     this.biome = pickBiome(this.mapSeed);
+    this.previousBiome = null; // a fresh road is a fresh journey
+    this.pendingTravel = null;
     this.buildPath();
     this.terrain = generateTerrain(
       this.mapSeed, this.path, Math.floor(this.width / GRID), Math.floor(this.height / GRID), GRID,
@@ -2774,6 +2795,7 @@ export class GameEngine {
     if (this.waveActive || this.gameOver) return;
     if (this.pendingRelics) { this.notify('Choose a relic first'); return; }
     if (this.pendingDraft) { this.notify('Choose a draft card first'); return; }
+    if (this.pendingTravel) { this.notify('Choose where to travel first'); return; }
     this.slayer.assignTask(); // idempotent: ensure a task exists so it can seed the wave
     // Spawn exactly what the Start Wave hover previewed. assignTask above may have
     // just rolled a task — that changes the cache key, so this recomputes with the
@@ -2819,10 +2841,12 @@ export class GameEngine {
   }
 
   /** Debug autoplay: count up while idle and auto-start the next wave once the
-   *  delay elapses. Waits on a pending roguelite draft (the pick stays manual).
+   *  delay elapses. Waits on a pending roguelite draft, relic, or fork in the road
+   *  — every one of those picks stays manual.
    *  Counts real seconds — the caller must pass the unscaled frame dt. */
   private tickAutoplay(dt: number) {
-    if (!this.autoplay || this.gameOver || this.waveActive || this.pendingDraft || this.pendingRelics) {
+    if (!this.autoplay || this.gameOver || this.waveActive || this.pendingDraft || this.pendingRelics
+      || this.pendingTravel) {
       this.autoplayTimer = 0;
       return;
     }
@@ -3093,8 +3117,12 @@ export class GameEngine {
       version: RUN_SAVE_VERSION,
       savedAt: Date.now(),
       mapSeed: this.mapSeed,
-      // The seed alone no longer describes the map: the player reshapes it too.
+      // The seed alone no longer describes the map: the player reshapes it too, and
+      // the run travels away from the region the seed rolled.
       roadNotches: this.roadNotches.map(n => ({ ...n })),
+      biome: this.biome.id,
+      previousBiome: this.previousBiome,
+      ...(this.pendingTravel ? { pendingTravel: [...this.pendingTravel] } : {}),
       gameMode: this.gameMode,
       difficultyTier: this.difficultyTier,
       wave: this.wave,
@@ -3157,6 +3185,11 @@ export class GameEngine {
     // The seed rebuilds the road the run was *dealt*; the notches rebuild the road
     // the player paid to have. Both go in before anything is placed on it.
     this.applyRoadNotches(save.roadNotches ?? []);
+    // Where the run had marched to, which the seed does not describe. A save from
+    // before travelling existed has none and simply keeps the region it was rolled.
+    if (save.biome) this.biome = BIOMES[save.biome];
+    this.previousBiome = save.previousBiome ?? null;
+    this.pendingTravel = save.pendingTravel?.length ? [...save.pendingTravel] : null;
     // Transient combat state is never saved — start the restored board clean.
     this.enemies = [];
     this.projectiles = [];
@@ -3532,6 +3565,38 @@ export class GameEngine {
     if (this.waveActive || this.enemies.length) { this.notify('Clear the field first'); return; }
     this.generateMap();
     this.bumpTowerLayout(); // towers may now sit on/off the new road — refresh ranges
+    this.emit();
+  }
+
+  /**
+   * Open the fork in the road: offer this leg's two regions and hold the run there.
+   * Called at wave end, so the player chooses during prep with the board in front of
+   * them. Deterministic in the map seed, so a save resumed at a turn is handed back
+   * the same two roads.
+   */
+  offerTravel() {
+    if (this.gameOver || !isTravelWave(this.wave)) return;
+    const offer = travelOffer(this.mapSeed, legOfWave(this.wave), this.biome.id, this.previousBiome);
+    if (!offer.length) return;
+    this.pendingTravel = offer;
+    this.sound.play('interface_open');
+  }
+
+  /**
+   * March the run into `id`. Only the *place* changes: the palette the board is drawn
+   * in and the monsters native to it. The road, the terrain beside it, the towers on
+   * it and the bends the player paid to shape are all left exactly as they are — a
+   * board built over a whole leg must never be invalidated by travelling.
+   */
+  travelTo(id: BiomeId) {
+    if (!this.pendingTravel || !this.pendingTravel.includes(id)) return;
+    this.pendingTravel = null;
+    this.previousBiome = this.biome.id;
+    this.biome = BIOMES[id];
+    this.previewCache = null; // the next wave's roster is the new region's
+    this.slayer.rerollForRegion(); // a task this region cannot supply is reassigned free
+    this.notify(`You travel to ${this.biome.name}`);
+    this.sound.play('interface_open');
     this.emit();
   }
 

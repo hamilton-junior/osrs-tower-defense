@@ -16,6 +16,8 @@ import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
 import { HoverTip } from './HoverTip';
 import { tipHeader, WavePreviewCard, DRAFT_FLY_MS, WaveEventChip } from './wave-ui';
+import type { BiomeId } from '@/lib/game/data/biomes';
+import { TravelCardView } from './travel-ui';
 import { CARD_BY_ID, BOON_GROUP_META, SYNERGY_CARD_ID, MAGE_CARD_ID, RelicStrip, RunBuild, BuyCardRoll, RelicCardView, OwnedRelicTray, type BoonGroupId, type BoonSource } from './relics-ui';
 import { CollectionLog } from './collection-log';
 import { weaknessTag, enemySpriteStyle } from './enemy-ui';
@@ -95,6 +97,7 @@ const INITIAL: UIState = {
   pendingRelics: null, ownedRelics: [], draftRerolls: 0,
   autoplay: false, autoplaySecs: 3,
   biomeName: 'Misthalin Plains',
+  pendingTravel: null,
   lifestealSeq: 0,
   towerConfigSeq: 0,
   lootBag: [],
@@ -2753,6 +2756,29 @@ export default function GameRoot() {
         </div>
       )}
 
+      {/* The road forks — pick the region the run marches into next. Waits behind a
+          relic or draft choice so two modals never stack; all three block Start Wave. */}
+      {ui.pendingTravel && !ui.gameOver && !ui.pendingRelics && !ui.pendingDraft && (
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4">
+          <div className="flex items-center gap-[0.4em] mb-1">
+            <img src={ASSETS.misc.compass} alt="" className="w-[1.4em] h-[1.4em]" />
+            <div className="text-osrs-orange font-bold text-[1.4em] text-center">The Road Forks</div>
+          </div>
+          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center max-w-[34em]">
+            Pick where to travel. Your road and towers stay; the land and its monsters change.
+          </div>
+          <div className="flex gap-6 flex-wrap justify-center">
+            {ui.pendingTravel.map((option) => (
+              <TravelCardView
+                key={option.id}
+                option={option}
+                onPick={() => engineRef.current?.travelTo(option.id as BiomeId)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Roguelite relic choice — a defeated boss's run-defining pick */}
       {ui.pendingRelics && !ui.gameOver && (
         <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4">
@@ -3830,7 +3856,7 @@ export default function GameRoot() {
               </button>
               <label
                 className="flex items-center gap-[0.3em] text-[0.6em] text-[#d3c3a0] uppercase tracking-wide cursor-pointer select-none"
-                title="Automatically start the next wave once the field is clear (waits on a pending draft)"
+                title="Automatically start the next wave once the field is clear (waits on a pending draft or fork in the road)"
               >
                 <input
                   type="checkbox"
