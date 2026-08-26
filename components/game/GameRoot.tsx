@@ -2765,7 +2765,7 @@ export default function GameRoot() {
             <div className="text-osrs-orange font-bold text-[1.4em] text-center">The Road Forks</div>
           </div>
           <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center max-w-[34em]">
-            Pick where to travel. Your road and towers stay; the land and its monsters change.
+            The boss is down — pick where to travel. Your road and towers stay; the land and its monsters change.
           </div>
           <div className="flex gap-6 flex-wrap justify-center">
             {ui.pendingTravel.map((option) => (

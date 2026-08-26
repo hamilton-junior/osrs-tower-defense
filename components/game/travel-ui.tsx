@@ -7,8 +7,8 @@ import { BIOMES, type BiomeId } from '@/lib/game/data/biomes';
 import { fs, hideBrokenImg } from './ui-kit';
 
 /**
- * **The fork in the road.** Every few waves the run reaches a turn and picks the
- * region it marches into next — the board is re-skinned in that region's palette
+ * **The fork in the road.** Every boss down ends a leg: the run reaches a turn and
+ * picks the region it marches into next — the board is re-skinned in that region's palette
  * and starts sending that region's own monsters.
  *
  * The card sells the destination with the two things that actually change: a

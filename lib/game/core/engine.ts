@@ -44,7 +44,7 @@ import {
 } from '../systems/road-shaping';
 import { BIOMES, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
 import { localTypes } from '../systems/enemy-regions';
-import { isTravelWave, legOfWave, travelOffer } from '../systems/travel';
+import { travelOffer } from '../systems/travel';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
 import { DIVERSION_BY_ID } from '../data/diversions';
@@ -3569,14 +3569,15 @@ export class GameEngine {
   }
 
   /**
-   * Open the fork in the road: offer this leg's two regions and hold the run there.
-   * Called at wave end, so the player chooses during prep with the board in front of
-   * them. Deterministic in the map seed, so a save resumed at a turn is handed back
-   * the same two roads.
+   * Open the fork in the road: offer two regions and hold the run there. Called at
+   * wave end when a boss has just been put down — the boss *is* the end of a leg —
+   * so the player chooses during prep with the board in front of them. Deterministic
+   * in the map seed and the wave, so a save resumed at a turn is handed back the same
+   * two roads.
    */
-  offerTravel() {
-    if (this.gameOver || !isTravelWave(this.wave)) return;
-    const offer = travelOffer(this.mapSeed, legOfWave(this.wave), this.biome.id, this.previousBiome);
+  offerTravel(bossCleared: boolean) {
+    if (this.gameOver || !bossCleared) return;
+    const offer = travelOffer(this.mapSeed, this.wave, this.biome.id, this.previousBiome);
     if (!offer.length) return;
     this.pendingTravel = offer;
     this.sound.play('interface_open');

@@ -231,7 +231,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.multicombat_icon, text: 'Nothing spawns until you press Start Wave. Between waves is free build time.' },
     { icon: itemIcon('collection_log'), text: 'Beat every boss — around wave 90 — to win the run, then carry on in Endless.' },
     { icon: ASSETS.misc.spade, text: 'Pay to pull a square of road aside, again and again; the other arrow fills it back in.' },
-    { icon: ASSETS.misc.compass, text: 'Every few waves the road forks: pick a region, keep your towers, meet its locals.' },
+    { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },
     { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
     { icon: ASSETS.misc.compass, text: 'Tips appear in-game the first time each new thing shows up.' },
   ] },

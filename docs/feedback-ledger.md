@@ -82,7 +82,7 @@ if players push · no tag = ordinary backlog.
 | 13 | Power scaling | shipped |
 | 14 | Wave 300+ clear feedback | shipped |
 | 16 | Accidentally selling towers | shipped — confirm step |
-| 17 | Alongar mapa (Bruno) | **half shipped** — **M7** answers the map-selection half: the run now travels, and every five waves the player picks the next region (`systems/travel.ts`). A *bigger* board is not on the table — the fixed 1440x640 logic space is a hard rule — so the "longer map" half stands as road-bending (`spade` notches) plus the new legs |
+| 17 | Alongar mapa (Bruno) | **half shipped** — **M7** answers the map-selection half: the run now travels, and every boss down lets the player pick the next region (`systems/travel.ts`). A *bigger* board is not on the table — the fixed 1440x640 logic space is a hard rule — so the "longer map" half stands as road-bending (`spade` notches) plus the new legs |
 | 18 | Big TD fan, long list | complaints shipped (movable panels, tower niches, placement `d815c10`); **stays Planned** in NocoDB — two of its asks are still backlog: tower fusion (**M6**) and a gold sink (**M5**) |
 | 19 | Improvements to balancing | shipped |
 | 20 | Hotkeys | shipped |
@@ -127,8 +127,8 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
    `data/achievements.ts` (8 entries, legacy engine only) was deliberately left untouched.
 7. **M4** roguelite reset-loop / meta rework — next to *plan*, not build.
 8. **M6** tower fusion (must respect the closed roster) — think about soon.
-9. **M7** maps — *shipped*: the run **travels**. Every five waves (`TRAVEL_INTERVAL`,
-    `systems/travel.ts`) the road forks at wave end and offers two regions, each card painted
+9. **M7** maps — *shipped*: the run **travels**. Every boss put down ends a leg
+    (`systems/travel.ts`): the road forks at that wave's end and offers two regions, each card painted
     in that region's own palette and showing the monsters native to it; picking one re-skins
     the board and swaps the roster, while the road layout, the towers and every bend paid for
     stay exactly where they are. That fork is the answer to "pick your own map" (#34, #17) —
