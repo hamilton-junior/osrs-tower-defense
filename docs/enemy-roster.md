@@ -9,8 +9,8 @@ walked the Trollweiss snowfield and the biome was pure paint.
 [`systems/enemy-regions.ts`](../lib/game/systems/enemy-regions.ts), the wave generator and
 the Slayer masters all respect it. What is left is content — the regional sets below, which
 are what the split is *for*. Phase 1 filled the two regions that had nothing at all, so
-every region now has a set of its own — TzHaar's is a set of one (Fire Giant), which is
-what phase 2 is for.
+every region now has a set of its own. Phase 4 — the per-region top-ups, researched
+against the cache and tabulated below — is what is being built now, thinnest region first.
 
 ## The rule
 
@@ -61,89 +61,153 @@ real), **Blue Dragon** → generic (dungeon dragons are everywhere).
 
 ## The regional sets
 
-Each set lists what moves there from the existing roster, then the new candidates. New
-candidates are OSRS monsters that exist in the cache; **their NPC ids and animation ids
-are not yet verified** — that is the first step of building any of them
-(`render-osrs-npc-anims.mjs --find <name>`, then the `npc-anim-auditor` agent).
+Each set lists what is already there, then the verified candidates. **Every candidate below
+was read out of the local OSRS cache** (`osrscachereader`): `id` is its NPC def id and `HP`
+is the real OSRS hitpoints (`stats[3]`, validated against Bloodveld 120 and Green dragon
+75), so a stat block can be written straight off these tables. 🔎 marks an id whose def
+comes back with a blank name in the reader — each of those was confirmed by matching combat
+level + hitpoints and then rendering the model and looking at the PNG.
+
+### Held back — humans and harmless animals
+
+Two categories are deliberately **not** on the build list:
+
+- **Purely human monsters — backlog, pending a direction call.** Barbarian (3055), Bandit
+  (1026), Chaos druid warrior (532), Chaos dwarf (291), Tribesman (530), and by the same
+  reading Dark wizard (510), Menaphite Thug (3549) and Black Knight (516). They stay in the
+  tables, marked *human*, so nothing has to be researched twice if the call goes the other
+  way.
+- **Harmless animals — out.** Penguin (2063), Monkey (1038). The roster is meant to read as
+  *enemies*, not merely as things that are alive.
+
+**Humanoids that are not purely human are fair game** — hobgoblin, troll, mummy, ankou,
+vampyre, banshee, ghoul, locust rider, scarab mage — and are built like anything else.
 
 ### Misthalin Plains — the tutorial region
 
 *Already here:* Cow.
 
-| Candidate | Why it belongs | Band |
-|---|---|---|
-| **Giant frog** | Lumbridge Swamp; the first thing past the cow field | early |
-| **Moss giant** | Varrock sewers — Misthalin's own giant, a rung under Hill Giant | early-mid |
-| **Cave slime** | Lumbridge Swamp Caves; carries the poison-on-contact idea if we want one | early |
+| Candidate | id | HP | Why it belongs | Band |
+|---|---|---|---|---|
+| **Cave bug** | 481 | 5 | Lumbridge Swamp Caves; wave-1 trash, frailer than the cow | early |
+| **Big frog** | 478 | 25 | the cheap swarm body of Lumbridge Swamp | early |
+| **Cave slime** | 480 | 25 | same caves, poison flavour, slow and squishy | early |
+| **Hobgoblin** | 3049 | 29 | the classic rung straight after the goblin | early-mid |
+| **Giant bat** | 2834 | 32 | fast flyer, low HP — the region's speed threat | early-mid |
+| **Moss giant** | 2090 | 60 | Varrock sewers; Misthalin's own giant, a rung under Hill Giant | mid |
+| **Giant frog** | 477 | 100 | closes the region as its non-boss elite | mid-late |
+| ~~Barbarian~~ | 3055 | 24 | *human — backlog* | — |
+| ~~Dark wizard~~ | 510 | 24 | *human — backlog* (mag 22, would be the first caster) | — |
 
 ### Kharidian Desert
 
 *Already here:* Scorpion.
 
-| Candidate | Why it belongs | Band |
-|---|---|---|
-| **Kalphite Worker** | the desert's signature swarm; reads instantly as "desert" | early-mid |
-| **Desert Lizard** | Slayer staple, and a small fast body the region otherwise lacks | mid |
-| **Dust Devil** | Smoke Dungeon; the region's high-tier Slayer answer | late |
-| **Mummy** | Pyramid Plunder; slow, heavy undead with a desert skin | mid |
+| Candidate | id | HP | Why it belongs | Band |
+|---|---|---|---|---|
+| **Vulture** | 1267 | 10 | fast, frail, and exactly the desert's colour | early |
+| **Jackal** | 4185 | 27 | a low-HP pack body | early |
+| **Desert Lizard** | 460 | 25 | Slayer staple, and canonically undone by cold | early |
+| **Kalphite Worker** | 955 | 40 | opens the kalphite line; reads instantly as "desert" | early-mid |
+| **Scarab Mage** | 794 | 50 | mag 70 — a low-HP caster | mid |
+| **Mummy** | 949 | 90 | Pyramid Plunder; slow, heavy undead | mid |
+| **Kalphite Soldier** | 138 | 90 | rung two of the kalphite line | mid |
+| 🔎 **Dust devil** | 423 | 105 | the desert's iconic Slayer monster | mid-late |
+| **Locust rider** | 795 | 90 | size 2, a mounted silhouette nothing else has | late |
+| **Kalphite Guardian** | 959 | 170 | size 3; the top of the line | late |
+| ~~Bandit~~ | 1026 | 27 | *human — backlog* | — |
+| ~~Menaphite Thug~~ | 3549 | 60 | *human — backlog* | — |
 
-### Morytania Swamp — the deepest set today
+### Morytania Swamp — the richest set in the cache
 
 *Already here:* Ghost · Barrow Wight · Skeletal Mage · Gargoyle · Nechryael (+ their
 Superiors: Marble Gargoyle, Nechryarch).
 
-| Candidate | Why it belongs | Band |
-|---|---|---|
-| **Crawling Hand** | the Slayer Tower's ground floor and every player's first task | early |
-| **Banshee** | Slayer Tower; the "bring the right answer" flavour | mid |
-| **Ghoul** | the far bank of the Salve — Morytania's border monster | early-mid |
-| **Feral Vampyre** | Canifis; the region's identity monster | mid-late |
+| Candidate | id | HP | Why it belongs | Band |
+|---|---|---|---|---|
+| **Crawling Hand** | 448 | 16 | the Slayer Tower's ground floor and every player's first task | early |
+| 🔎 **Banshee** | 414 | 22 | the scream is a debuff theme waiting to be used | early |
+| **Rockslug** | 421 | 27 | slow, low HP | early |
+| **Loar Shade** | 1277 | 38 | a shade only dies *properly* to fire | early-mid |
+| **Ghoul** | 289 | 50 | the far bank of the Salve — Morytania's border monster | mid |
+| **Infernal Mage** | 443 | 60 | mag 75 — a pure caster | mid |
+| **Screaming banshee** | 7390 | 61 | the upgraded 414 | mid |
+| **Feral Vampyre** | 3137 | 60 | Canifis; the region's identity monster | mid |
+| **Vyrewatch** | 8252 | 75 | flies; the Darkmeyer elite | mid-late |
+| **Werewolf** | 3135 | 92 | a fast tank that transforms | late |
+| **Aberrant spectre** | 2 | 90 | mag 105; the weakening aura | late |
+| **Terror dog** | 6474 | 82 | comes in pairs, hits hard | late |
 
 ### The Wilderness
 
 *Already here:* Green Dragon · Chaos Druid · Hellhound.
 
-| Candidate | Why it belongs | Band |
-|---|---|---|
-| **Revenant** (imp / knight) | Revenant Caves; nothing says "wilderness" harder | mid-late |
-| **Chaos Dwarf** | wildy staple, and a ranged-shaped body | mid |
-| **Earth Warrior** | Edgeville dungeon; the low rung the region needs | early-mid |
+| Candidate | id | HP | Why it belongs | Band |
+|---|---|---|---|---|
+| **Earth warrior** | 2840 | 54 | Edgeville dungeon; the earth theme and the low rung | mid |
+| 🔎 **Ankou** | 2514 | 60 | the reaper; cb 75 / hp 60 matches exactly | mid |
+| **Ent** | 7234 | 75 | a walking tree — a silhouette the roster has nothing like | mid-late |
+| **Mammoth** | 6604 | 130 | big, slow and very thick | mid-late |
+| **Greater demon** | 2025 | 87 | the standard demon | late |
+| **Revenants** | 7881 → 7933 → 7935 → 7939 → 7940 | 10 → 155 | **a whole ladder from one family**: imp → hobgoblin → hellhound → knight → dragon. Scales the region without inventing a tier | early → late |
+| 🔎 **Lava dragon** | 6593 | 230 | size 4; a natural mini-boss for the region | endgame |
+| ~~Chaos druid warrior~~ | 532 | 40 | *human — backlog* | — |
+| ~~Black Knight~~ | 516 | 42 | *human — backlog* | — |
+| ~~Chaos dwarf~~ | 291 | 61 | *human — backlog* | — |
 
 ### Trollweiss Snow
 
 *Already here:* Ice Warrior · Ice Troll (both shipped in phase 1).
 
-| Candidate | Why it belongs | Band |
-|---|---|---|
-| **Ice Giant** | its giant, and a direct sibling of the generic Hill Giant | mid |
-| **Wolf** | the fast, frail body the snow needs | early |
+| Candidate | id | HP | Why it belongs | Band |
+|---|---|---|---|---|
+| **Wolf / White wolf** | 110 / 107 / 108 | 34 / 34 / 44 | the fast frail pack the snow needs; three skins of one base | early |
+| **Ice giant** | 2085 | 70 | size 2; the snow's tank, sibling of the generic Hill Giant | mid |
+| **Thrower Troll** | 931 | 95 | rng 60 — the *ranged* body the region does not have today | mid |
+| **Mountain troll** | 936 | 90 | a thick melee body | mid |
+| **Dagannoth** | 973 / 2259 | 120 / 85 | 2259 has rng 100: a melee+ranged pair from one species | mid-late |
+| **Wallasalki** | 5938 | 120 | mag 100; a fish-skeleton nothing else looks like | late |
+| **Troll general** | 4120 | 140 | the elite that closes the region | late |
+| ~~Penguin~~ | 2063 | 4 | *harmless animal — out* | — |
 
 ### Karamja Jungle
 
 *Already here:* Jogre · Harpie Bug Swarm (both shipped in phase 1). Zulrah is Karamja's
 boss, but a boss belongs to no region.
 
-| Candidate | Why it belongs | Band |
-|---|---|---|
-| **Jungle Horror** | the region's late-tier Slayer monster | late |
+| Candidate | id | HP | Why it belongs | Band |
+|---|---|---|---|---|
+| **Giant mosquito** | 1041 | 3 | hp 3 and very fast — the AoE test | early |
+| **Snake** | 1037 | 25 | the jungle's poison | early-mid |
+| 🔎 **Jungle horror** | 1042–1046 | 45 | confirmed green horror in the render; five ids = five skins | mid |
+| **Cave horror** | 1049 | 55 | mag 80; the cave version, the one that demands protection | mid |
+| **Big Snake** | 2978 | 120 | large and thick | mid-late |
+| **Bronze dragon** | 270 | 122 | opens the **metal dragon** line | late |
+| **Iron dragon** | 272 | 165 | rung two | late |
+| **Steel dragon** | 139 | 210 | the top — the region's natural mini-boss | endgame |
+| ~~Tribesman~~ | 530 | 39 | *human — backlog* | — |
+| ~~Monkey~~ | 1038 | 6 | *harmless animal — out* | — |
 
-Karamja's two locals are both early-to-mid, so a late Karamja run reads as the generic
-backbone in jungle paint. Jungle Horror is the missing rung, and worth taking before the
-phase 4 top-ups.
+Karamja's two locals are both early-to-mid, so a late Karamja run still reads as the generic
+backbone in jungle paint. The metal dragon line is the missing top.
 
-### TzHaar Caverns — the one set that writes itself
+### TzHaar Caverns — held
 
 *Already here:* Fire Giant (by the decision above).
 
-| Candidate | Why it belongs | Band |
-|---|---|---|
-| **Tz-Kih** | the Fight Cave's first wave | early |
-| **Tz-Kek** | second rung; splits in OSRS, a mechanic we already own | mid |
-| **Yt-MejKot** | the healer; Jad already brings Yt-HurKot, so the family is established | late |
-| **Ket-Zek** | the last thing before Jad | late |
+**On hold at the user's request:** the TzHaar are already *towers* in this game, so putting
+them on the board as enemies is a design call to settle before any of it is built. The
+research stands in case the call goes the other way — three complete ladders exist in the
+cache:
 
-The Fight Cave ladder *is* a wave ladder. This is the cheapest coherent set in the
-document, and Jad is already the region's boss.
+- **Fight Caves** — Tz-Kih `2189` (hp 10) · Tz-Kek `2191` (hp 20), which splits into `3120`
+  (hp 10) · Tok-Xil `2193` (hp 40, rng 120) · Yt-MejKot `3123` (hp 80 — the healer, and the
+  pair of the Yt-HurKot `3128` already baked) · Ket-Zek `3125` (hp 160).
+- **TzHaar city** — Hur `2161` (hp 80) · Mej `2154` (hp 100, mag 120) · Xil `2167` (hp 120,
+  rng 120) · Ket `2173` (hp 140). A clean melee / mage / ranged / tank quartet.
+- **The Inferno** (endgame) — Jal-Nib `7691` (hp 10) · Jal-MejRah `7692` (hp 25) · Jal-Ak
+  `7693` (hp 40) · Jal-ImKot `7697` (hp 75) · Jal-Xil `7698` (hp 125) · Jal-Zek `7699`
+  (hp 220).
 
 ## The Slayer contract
 
@@ -236,8 +300,9 @@ from the cache (walk/hurt/death + bestiary portrait), answered on one axis each 
 = fire + melee, Karamja = fire + ranged) and placed in the Slayer pools Mazchna and Duradel
 draw from. Neither region plays on the backbone alone any more.
 
-**Phase 2 — TzHaar.** Tz-Kih, Tz-Kek, Ket-Zek. One coherent set, one art style, and the
-Fight Cave ladder maps onto wave bands for free.
+**Phase 2 — TzHaar. ⏸ Held.** The set writes itself, but the TzHaar are already towers here
+and being both is a design decision, not a content one. Nothing is built until that call is
+made.
 
 **Phase 3 — the split itself. ✅ Done, and taken first.** The existing roster is tagged (17
 local after phase 1, 15 generic), wave generation builds from `generic ∪ region`, the scripted opening
@@ -245,6 +310,9 @@ waves are rewritten into local equivalents rather than importing foreign monster
 Slayer masters filter their pools. No new art — this was the systems change, and it is what
 makes phases 1 and 2 mean anything.
 
-**Phase 4 — Misthalin, Kharidian, Morytania, Wilderness top-ups**, one or two each.
+**Phase 4 — the thin regions, one region per commit.** Misthalin first, then Kharidian —
+today they play on one local monster each, which is to say on the backbone in paint. Then
+Morytania and Wilderness top-ups, which are already deep enough to wait. Humans are skipped
+throughout (see the held-back note above).
 
 Phases 1, 2 and 4 are pure content and ship without touching a system.
