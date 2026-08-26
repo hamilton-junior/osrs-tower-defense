@@ -118,6 +118,108 @@ export const ENEMIES: Record<string, EnemyDef> = {
     reward: 20,
     waveUnlock: 7
   },
+  // ── Kharidian Desert ───────────────────────────────────────────────────────
+  // The desert played on one scorpion and the backbone. These nine give it its own
+  // ladder — the carrion birds and pack hunters at the bottom, the kalphite hive as
+  // its spine, and the tomb-dwellers as its heavy end. `hp` is each monster's real
+  // OSRS hitpoints.
+  vulture: {
+    type: 'vulture',
+    region: 'alkharid',
+    name: 'Vulture',
+    hp: 10,
+    speed: 105,
+    color: '#6b5c4a',
+    reward: 3,
+    waveUnlock: 1
+  },
+  desert_lizard: {
+    type: 'desert_lizard',
+    region: 'alkharid',
+    renderScale: 0.9,
+    name: 'Desert lizard',
+    hp: 25,
+    speed: 70,
+    color: '#c8b070',
+    reward: 6,
+    waveUnlock: 3
+  },
+  jackal: {
+    type: 'jackal',
+    region: 'alkharid',
+    renderScale: 0.85,
+    name: 'Jackal',
+    hp: 27,
+    speed: 100,
+    color: '#a67c52',
+    reward: 7,
+    waveUnlock: 3
+  },
+  kalphite_worker: {
+    type: 'kalphite_worker',
+    region: 'alkharid',
+    name: 'Kalphite Worker',
+    hp: 40,
+    speed: 55,
+    color: '#b08a4a',
+    reward: 11,
+    waveUnlock: 4
+  },
+  scarab_mage: {
+    type: 'scarab_mage',
+    region: 'alkharid',
+    renderScale: 0.95,
+    name: 'Scarab mage',
+    hp: 50,
+    speed: 50,
+    color: '#8a6f3a',
+    reward: 13,
+    waveUnlock: 5
+  },
+  mummy: {
+    type: 'mummy',
+    region: 'alkharid',
+    renderScale: 1.1,
+    name: 'Mummy',
+    hp: 90,
+    speed: 30,
+    color: '#cdc4ad',
+    reward: 20,
+    waveUnlock: 6
+  },
+  locust_rider: {
+    type: 'locust_rider',
+    region: 'alkharid',
+    renderScale: 1.2,
+    name: 'Locust rider',
+    hp: 90,
+    speed: 60,
+    color: '#9b7f3c',
+    reward: 22,
+    waveUnlock: 7
+  },
+  dust_devil: {
+    type: 'dust_devil',
+    region: 'alkharid',
+    renderScale: 1.05,
+    name: 'Dust devil',
+    hp: 105,
+    speed: 85,
+    color: '#7a6f66',
+    reward: 26,
+    waveUnlock: 8
+  },
+  kalphite_guardian: {
+    type: 'kalphite_guardian',
+    region: 'alkharid',
+    renderScale: 1.6,
+    name: 'Kalphite Guardian',
+    hp: 170,
+    speed: 35,
+    color: '#8a6b2f',
+    reward: 40,
+    waveUnlock: 9
+  },
   // ───────────────────────────────────────────────────────────────────────────
   imp: {
     type: 'imp',
@@ -663,6 +765,9 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   hellhound: 'water', fire_giant: 'water', lesser_demon: 'water',
   black_demon: 'water', abyssal_demon: 'water', superior_abyssal_demon: 'water',
   nechryael: 'water', superior_nechryael: 'water',
+  // The one monster OSRS itself hands you the answer to: an ice cooler is what
+  // kills a desert lizard, and water is this game's cold.
+  desert_lizard: 'water',
   // Fire — undead, nature & insects
   zombie: 'fire', barrow_wight: 'fire', scorpion: 'fire', cow: 'fire',
   // Karamja's swarm is the fire bucket's other half — insects — and Trollweiss'
@@ -671,8 +776,14 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   // Misthalin: a cave bug is an insect, and a moss giant is a walking hedge —
   // the two readings the fire bucket was written for.
   cave_bug: 'fire', moss_giant: 'fire',
+  // Kharidian: a mummy is undead and a locust is an insect — the bucket's two
+  // readings again, one on each of the desert's heavy bodies.
+  mummy: 'fire', locust_rider: 'fire',
   // Earth — dragons, stone & burrowers
   blue_dragon: 'earth', green_dragon: 'earth', giant_mole: 'earth',
+  // The kalphite hive burrows, which is the whole reason the earth bucket lists
+  // burrowers — and it keeps both rungs of the line reading the same.
+  kalphite_worker: 'earth', kalphite_guardian: 'earth',
   // Living statues: stone answers to earth. Both halves read the same, so the pair
   // never splits the player's answer — the fight is about order, not element.
   dusk: 'earth', dawn: 'earth',
@@ -682,6 +793,9 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   rat: 'air', giant_rat: 'air', ghost: 'air', zulrah: 'air',
   // The only thing on the board that actually flies.
   giant_bat: 'air',
+  // The desert's flyer, and its whirlwind: a vulture circles and a dust devil is
+  // literally moving air.
+  vulture: 'air', dust_devil: 'air',
   // A deviation: OSRS gives Scurrius no elemental weakness at all. Leaving him blank
   // would make him the one boss the table skips, and it would read as an oversight
   // rather than a decision — every rat in the game is Air, including the ones he
@@ -712,6 +826,9 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   // the rung an OSRS player meleed straight after the goblin, and a slime and a
   // giant frog are both soft, slow bodies you walk up to rather than kite.
   hobgoblin: 'melee', cave_slime: 'melee', giant_frog: 'melee',
+  // Kharidian, ours: OSRS ties the jackal's defences too, and a jackal is an
+  // unarmoured dog — nothing about it asks for a bow or a spell.
+  jackal: 'melee',
   // dcrush 25 against dranged 100; and Vorkath's dmagic 240 is the highest defence
   // stat in this roster, so a lance is the answer to both.
   cerberus: 'melee', vorkath: 'melee',
@@ -734,6 +851,9 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   jogre: 'ranged',
   // Ours: a big frog leaps, and the whole point of one is hitting it before it lands.
   big_frog: 'ranged',
+  // Ours: the scarab mage hides behind its own magic defence and stands still to
+  // cast, which is the definition of a target you shoot.
+  scarab_mage: 'ranged',
 };
 
 for (const [type, weakness] of Object.entries(WEAKNESSES)) {

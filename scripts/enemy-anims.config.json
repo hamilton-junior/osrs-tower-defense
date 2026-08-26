@@ -470,5 +470,77 @@
       "hurt": 4658,
       "death": 4659
     }
+  },
+  "vulture": {
+    "npc": 1267,
+    "anims": {
+      "walk": 2016,
+      "hurt": 2020,
+      "death": 2021
+    }
+  },
+  "desert_lizard": {
+    "npc": 460,
+    "anims": {
+      "walk": 2775,
+      "hurt": 2777,
+      "death": 2778
+    }
+  },
+  "jackal": {
+    "npc": 4185,
+    "anims": {
+      "walk": 6560,
+      "hurt": 6566,
+      "death": 6567
+    }
+  },
+  "kalphite_worker": {
+    "npc": 955,
+    "anims": {
+      "walk": 6220,
+      "hurt": 6227,
+      "death": 6228
+    }
+  },
+  "scarab_mage": {
+    "npc": 794,
+    "anims": {
+      "walk": 1205,
+      "hurt": 5443,
+      "death": 836
+    }
+  },
+  "mummy": {
+    "npc": 949,
+    "anims": {
+      "walk": 5553,
+      "hurt": 5552,
+      "death": 5546
+    }
+  },
+  "locust_rider": {
+    "npc": 795,
+    "anims": {
+      "walk": 5446,
+      "hurt": 5448,
+      "death": 5449
+    }
+  },
+  "dust_devil": {
+    "npc": 423,
+    "anims": {
+      "walk": 1554,
+      "hurt": 1557,
+      "death": 1558
+    }
+  },
+  "kalphite_guardian": {
+    "npc": 959,
+    "anims": {
+      "walk": 6222,
+      "hurt": 6227,
+      "death": 6230
+    }
   }
 }

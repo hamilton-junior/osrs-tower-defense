@@ -262,6 +262,25 @@ DEATH_SOUNDS.giant_bat = DEATH_SOUNDS.rat;
 DEATH_SOUNDS.big_frog = DEATH_SOUNDS.cow;
 DEATH_SOUNDS.giant_frog = DEATH_SOUNDS.cow;
 
+// Kharidian, same rule. Three of the nine are humanoid enough to use the human cry
+// outright — the mummy, the scarab mage and the locust rider all ride the human rig
+// in the cache, so it is the voice their animations were built around. The rest
+// borrow by kind: the kalphites and the scarab-swarm bodies are insects (scorpion),
+// the jackal a snarling dog (hellhound, the only canine baked), the vulture a bird
+// with nothing else close (rat's squeal, the smallest cry there is), and the desert
+// lizard a cold-blooded thing that hisses out (spider). The dust devil is a
+// whirlwind with no throat at all — the ghost's fade is the nearest thing to a body
+// dispersing, and it is the pick most worth replacing if a real clip turns up.
+DEATH_SOUNDS.mummy = `${SND}/death_human.wav`;
+DEATH_SOUNDS.scarab_mage = `${SND}/death_human.wav`;
+DEATH_SOUNDS.locust_rider = `${SND}/death_human.wav`;
+DEATH_SOUNDS.kalphite_worker = DEATH_SOUNDS.scorpion;
+DEATH_SOUNDS.kalphite_guardian = DEATH_SOUNDS.scorpion;
+DEATH_SOUNDS.jackal = DEATH_SOUNDS.hellhound;
+DEATH_SOUNDS.vulture = DEATH_SOUNDS.rat;
+DEATH_SOUNDS.desert_lizard = DEATH_SOUNDS.spider;
+DEATH_SOUNDS.dust_devil = DEATH_SOUNDS.ghost;
+
 export const ASSETS = {
   spells: SPELL_ICONS,
   // Enemy & pet portraits — NPC models rendered from the game cache
@@ -318,6 +337,15 @@ export const ASSETS = {
     hobgoblin: `${LOCAL}/models/hobgoblin.png`,
     giant_bat: `${LOCAL}/models/giant_bat.png`,
     moss_giant: `${LOCAL}/models/moss_giant.png`,
+    vulture: `${LOCAL}/models/vulture.png`,                               // Kharidian
+    desert_lizard: `${LOCAL}/models/desert_lizard.png`,
+    jackal: `${LOCAL}/models/jackal.png`,
+    kalphite_worker: `${LOCAL}/models/kalphite_worker.png`,
+    scarab_mage: `${LOCAL}/models/scarab_mage.png`,
+    mummy: `${LOCAL}/models/mummy.png`,
+    locust_rider: `${LOCAL}/models/locust_rider.png`,
+    dust_devil: `${LOCAL}/models/dust_devil.png`,
+    kalphite_guardian: `${LOCAL}/models/kalphite_guardian.png`,
   },
   // Combat Achievement tier icons — the game's own CaTierSwords sprites (3393-3398),
   // one blade per tier, bronze for Easy up to the last for Grandmaster.

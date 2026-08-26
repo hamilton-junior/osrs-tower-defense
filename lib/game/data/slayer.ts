@@ -16,10 +16,16 @@ export interface SlayerMaster {
 /** A pool may name a regional local (Ice warriors for Mazchna, Ice trolls for
  *  Duradel, as in OSRS): the roll filters by the run's region, so one is only ever
  *  assigned where it lives. See `systems/enemy-regions`. */
+/** Kharidian placements: four of them are literal OSRS Turael tasks (Birds for the
+ *  vulture, Dogs for the jackal, Desert lizards, Kalphites), so they sit where the
+ *  real game puts them. The dust devil is a genuine Duradel task too. The tomb
+ *  monsters — mummy, scarab mage, locust rider — are not assignable in OSRS at all,
+ *  so those three are placed by difficulty band instead, and the Kalphite Guardian
+ *  rides up to Duradel with the rest of its own hp bracket. */
 export const SLAYER_MASTERS: SlayerMaster[] = [
-  { id: 'turael', name: 'Turael', levelReq: 1, taskPool: ['goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost', 'cave_bug', 'cave_slime', 'giant_bat'], bonusMultiplier: 1.0, pointsPerTask: 2 },
-  { id: 'mazchna', name: 'Mazchna', levelReq: 20, taskPool: ['scorpion', 'hill_giant', 'lesser_demon', 'hellhound', 'fire_giant', 'bloodveld', 'ice_warrior', 'jogre', 'harpie_bug_swarm', 'hobgoblin', 'moss_giant'], bonusMultiplier: 1.2, pointsPerTask: 5 },
-  { id: 'duradel', name: 'Duradel', levelReq: 50, taskPool: ['abyssal_demon', 'dark_beast', 'hydra', 'gargoyle', 'nechryael', 'black_demon', 'blue_dragon', 'green_dragon', 'ice_troll'], bonusMultiplier: 1.5, pointsPerTask: 15 },
+  { id: 'turael', name: 'Turael', levelReq: 1, taskPool: ['goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost', 'cave_bug', 'cave_slime', 'giant_bat', 'vulture', 'desert_lizard', 'jackal', 'kalphite_worker'], bonusMultiplier: 1.0, pointsPerTask: 2 },
+  { id: 'mazchna', name: 'Mazchna', levelReq: 20, taskPool: ['scorpion', 'hill_giant', 'lesser_demon', 'hellhound', 'fire_giant', 'bloodveld', 'ice_warrior', 'jogre', 'harpie_bug_swarm', 'hobgoblin', 'moss_giant', 'scarab_mage', 'mummy', 'locust_rider'], bonusMultiplier: 1.2, pointsPerTask: 5 },
+  { id: 'duradel', name: 'Duradel', levelReq: 50, taskPool: ['abyssal_demon', 'dark_beast', 'hydra', 'gargoyle', 'nechryael', 'black_demon', 'blue_dragon', 'green_dragon', 'ice_troll', 'dust_devil', 'kalphite_guardian'], bonusMultiplier: 1.5, pointsPerTask: 15 },
 ];
 
 /** Tower-damage bonus vs the current task's monster while the Slayer Helmet is

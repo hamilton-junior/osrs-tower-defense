@@ -63,6 +63,17 @@ const TARGETS = {
   giant_bat: { npc: 2834, pitch: 35 },     // wings only read from above
   moss_giant: { npc: 2090, yaw: 0 },       // Varrock sewers — front on; yaw 30 shows its back
 
+  // --- Kharidian locals (ASSETS.enemies) ---
+  vulture: { npc: 1267, yaw: 60, pitch: 0 },   // flat side profile; the default look flew it overhead
+  desert_lizard: { npc: 460, pitch: 20 },      // low, sprawled rig — a shallower look keeps the head readable
+  jackal: { npc: 4185 },
+  kalphite_worker: { npc: 955 },
+  scarab_mage: { npc: 794 },
+  mummy: { npc: 949 },
+  locust_rider: { npc: 795 },
+  dust_devil: { npc: 423, cullBelowGround: true }, // drop the black ground disc it stands on
+  kalphite_guardian: { npc: 959, yaw: 60 },    // yaw 30 flattens it into a hedge; 60 shows the shell and the legs
+
   // --- Skilling pets (ASSETS.pets) ---
   beaver: { npc: 12169 },
   rock_golem: { npc: 6725 },

@@ -36,7 +36,9 @@ export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion'
   // Regional locals — each one belongs to a single biome and never rolls anywhere
   // else (see the `region` tag in data/enemies.ts and docs/enemy-roster.md).
   | 'ice_warrior' | 'ice_troll' | 'jogre' | 'harpie_bug_swarm'
-  | 'cave_bug' | 'cave_slime' | 'big_frog' | 'giant_frog' | 'hobgoblin' | 'giant_bat' | 'moss_giant';
+  | 'cave_bug' | 'cave_slime' | 'big_frog' | 'giant_frog' | 'hobgoblin' | 'giant_bat' | 'moss_giant'
+  | 'vulture' | 'desert_lizard' | 'jackal' | 'kalphite_worker' | 'scarab_mage' | 'mummy'
+  | 'locust_rider' | 'dust_devil' | 'kalphite_guardian';
 
 export type Element = 'air' | 'water' | 'earth' | 'fire' | 'none';
 
