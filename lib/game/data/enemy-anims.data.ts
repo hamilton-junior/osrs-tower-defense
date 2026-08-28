@@ -123,8 +123,8 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
   gargoyle: {
     frameW: 128, frameH: 128,
     clips: {
-      walk: { url: `${B}/gargoyle/walk.png`, frames: 30, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: true },
-      hurt: { url: `${B}/gargoyle/hurt.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: false },
+      walk: { url: `${B}/gargoyle/walk.png`, frames: 17, frameMs: [60, 60, 60, 60, 47, 47, 47, 60, 40, 40, 40, 60, 40, 40, 40, 40, 60], loop: true },
+      death: { url: `${B}/gargoyle/death.png`, frames: 12, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 20, 120], loop: false },
     },
   },
   blue_dragon: {

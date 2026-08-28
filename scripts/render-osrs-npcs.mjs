@@ -42,6 +42,10 @@ const TARGETS = {
   // npc: id is required; everything else optional (yaw/pitch in degrees).
   superior_bloodveld: { npc: 7397 },     // Insatiable Bloodveld
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon
+  // The common Gargoyle is NPC 412 — the level-111 Slayer Tower one. Its def carries
+  // no name in the cache (level 111, 105 hp and size 3 identify it), which is why the
+  // slug used to point at the Marble gargoyle by mistake.
+  gargoyle: { npc: 412 },
   superior_gargoyle: { npc: 7407, cullBelowGround: true }, // Marble gargoyle (drop red ground disc)
   superior_nechryael: { npc: 7411 },     // Nechryarch
   brutus: { npc: 15626 },                // Brutus (boss) — the calm form the log shows

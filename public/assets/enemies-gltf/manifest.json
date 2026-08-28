@@ -112,10 +112,10 @@
     ]
   },
   "gargoyle": {
-    "npc": 7407,
+    "npc": 412,
     "clips": [
       "walk",
-      "hurt"
+      "death"
     ]
   },
   "blue_dragon": {
