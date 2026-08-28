@@ -328,7 +328,10 @@ export function CollectionLog({ killCounts, cardCounts, achievements, victories,
                   <GoStat icon={ASSETS.misc.cards_icon} label="Roguelite wins" value={fmt(victories.byMode.roguelite)} />
                 </div>
                 <div className="rs-panel-inset flex items-center justify-center gap-[0.5em] py-[0.5em] mt-3 text-[0.82em] text-[#d3c3a0]">
-                  <span className="text-osrs-yellow font-bold">★ Champion</span>
+                  <span className="flex items-center gap-[0.3em] text-osrs-yellow font-bold">
+                    <img src={ASSETS.misc.trophy} alt="" className="w-[1.1em] h-[1.1em] object-contain" />
+                    Champion
+                  </span>
                   <span className="uppercase tracking-wide">
                     {victories.byMode.classic} classic · {victories.byMode.roguelite} roguelite
                   </span>

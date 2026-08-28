@@ -457,6 +457,9 @@ export const ASSETS = {
     signpost: `${LOCAL}/objects/signpost.png`,
     // The spade: the tool OSRS digs with, and the icon for bending the road.
     spade: itemIcon('spade'),
+    // The Gold speedrun trophy — OSRS's own two-handled gold cup. It marks a
+    // player who has won a run, where a typed star used to sit.
+    trophy: itemIcon('trophy'),
     // The Hunter paw print (cache sprite 220) — the skill the road traps belong to.
     hunter_icon: `${LOCAL}/misc/hunter_icon.png`,
     // The Construction saw over a crate (cache sprite 221) — OSRS's own symbol for

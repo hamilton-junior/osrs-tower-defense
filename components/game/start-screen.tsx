@@ -96,10 +96,11 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
           <div className="text-[#cdbe91] text-[0.85em] mt-[0.4em]">{saved ? 'Continue where you left off' : 'Choose your mode'}</div>
           {champion && (
             <div
-              className="text-osrs-yellow text-[0.8em] font-bold mt-[0.3em] uppercase tracking-wider"
+              className="flex items-center justify-center gap-[0.3em] text-osrs-yellow text-[0.8em] font-bold mt-[0.3em] uppercase tracking-wider"
               title={`Champion — ${wins} run${wins === 1 ? '' : 's'} won`}
             >
-              ★ Champion
+              <img src={ASSETS.misc.trophy} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+              Champion
             </div>
           )}
           {caTitle && (

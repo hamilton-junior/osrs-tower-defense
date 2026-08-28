@@ -312,6 +312,10 @@ const TARGETS = {
   salve_amulet_ei: { name: 'Salve amulet(ei)' }, // cache name has no space before "(ei)"
   // ---- Distractions & Diversions ----
   bird_nest: { name: 'Bird nest' }, // the nest that drops between waves
+  // ---- the Champion mark ----
+  // The Gold speedrun trophy (27422): OSRS's own two-handled gold cup. It replaces
+  // the typographic star beside "Champion" on the start screen and in the log.
+  trophy: { id: 27422 },
   // ---- shaping the road ----
   spade: { name: 'Spade' }, // the icon for bending a stretch of road
   // ---- Hunter traps laid on the road (systems/hunter-traps.ts) ----
