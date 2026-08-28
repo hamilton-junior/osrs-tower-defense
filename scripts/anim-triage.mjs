@@ -238,10 +238,11 @@ const twinRig = [...twinVotes.entries()]
 // A death that swaps the model — the classic Gargoyle crumbling into a pile of rubble
 // — is authored on a skeleton of its own, so strict rig scoping would hide it. Those
 // clips are recognisable: a tiny framemap that NO npc idles on, sitting right beside
-// his own id block. There are few of them, they are never someone else's idle, and
-// the metrics computed on his model do not mean the same thing (the gargoyle's reads
-// collapse 1.00 because the rubble is not his skeleton), so they are listed apart and
-// left for the eye rather than scored into the shortlists.
+// his own id block. Surfacing them is worth it, but they are a trap: the live client
+// plays them on the swapped model, and posing OUR mesh with those bones renders
+// garbage (gargoyle 1520 reads collapse 1.00 and draws a flattened figure). So they
+// are listed apart, never scored into the shortlists, and normally rejected — the
+// bakeable death is the held clip on the NPC's OWN rig.
 const ownedRigs = new Set();
 for (const v of Object.values(ix.npc)) { for (const a of [v[1], v[2]]) { const r = skelOf(a); if (r !== null) ownedRigs.add(r); } }
 // The window is his own stand/walk, not the whole rig's id span: a rig can hold one
@@ -338,7 +339,8 @@ say(seen.size === 0
     : `observed oracle: the dump lists ${seen.size} ids for npc ${npcId} and NONE is on this rig — it belongs to another NPC, so it is ignored here`);
 if (strays.length) {
   say(`off-rig neighbours: ${strays.join(' ')} — tiny framemaps no NPC idles on, next to his block.`);
-  say('  A model-swapping death (gargoyle → rubble) lives on one of these; judge it on the sheet, not the score.');
+  say('  A model-swapping death (gargoyle → rubble) lives on one of these — the client plays it, but it');
+  say('  cannot be baked on this mesh. Judge it on the sheet, then prefer the held clip on his own rig.');
 }
 say();
 say('  id     verdict   death block attack   coll reach settle   f    ms   notes');

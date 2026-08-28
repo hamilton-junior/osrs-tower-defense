@@ -39,10 +39,21 @@ to take a dozen probe images:
   Nechryarch's block was pinned (6368-6372 clone the hill giant's 4649-4653 tick for tick).
 - **Cross-checks the observed oracle** below, and says plainly when the dump can't help.
 - **One contact sheet**, `scripts/tmp-triage-<slug>.png`, ordered by verdict — look at it.
-- **The rubble case.** A death that swaps the model — the classic Gargoyle crumbling into
-  a pile — is authored on its own little skeleton, so strict rig scoping would hide it.
-  Those show up as `off-rig` rows: a tiny framemap no NPC idles on, next to his id block.
-  Their scores are measured on the wrong skeleton and mean nothing; judge them on the sheet.
+- **The rubble case — a trap, not a prize.** A death that swaps the model (the classic
+  Gargoyle crumbling into a pile) is authored on its own little skeleton, so it shows up as
+  an `off-rig` row: a tiny framemap no NPC idles on, right next to his id block. The live
+  client really does play it, and the observed dump really does list it — but we cannot bake
+  it. Posing his mesh with another skeleton's bones renders garbage (gargoyle 1520: `collapse
+  1.00`, a flattened figure). **Reject it and take his own rig's held clip instead** (1518),
+  or ship no death and let the engine shrink-fade.
+- **Exactly one clip on a Slayer rig holds at the end — that one is the death.** Checked
+  across ten of them (spectre 1508, kurask 1513, gargoyle 1518, banshee 1524, nechryael 1530,
+  pyrefiend 1580, cockatrice 1563, jelly 1587, rockslug 1568, choke devil 1558). The held
+  slot is not at a fixed offset, so find it by `holdsOf`, never by position. A held last
+  frame is never a block and never an attack — but it is not a "crippled pose" either.
+- **If every clip on the rig shares the walk's frame-length shape, there is no block.**
+  The gargoyle's 1517 and 1519 are his walk ±1 tick per frame, diverging only in the last
+  three — on screen they *are* the walk. Ship no hurt rather than a hurt that reads as one.
 
 Read the ranked table, then the sheet. The tool narrows twenty ids to two or three; it does
 not decide. **`best death` is near-deterministic; `best block` and `best attack` overlap by
