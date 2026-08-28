@@ -33,6 +33,10 @@
  *  5. **Cross-check the oracle.** `data/openosrs-observed-anims.json` records which
  *     ids each NPC was actually seen playing. Absence is suspicion, not proof.
  *
+ * `--audit` runs step 1-2 over every enemy the game has configured, from the index alone
+ * (no cache, no images): it prints each configured id that *cannot* be that NPC's — off
+ * his rig, his own idle, or a neighbour's — plus the slots left empty.
+ *
  * Output: that report, plus ONE contact sheet grouped by verdict, written to
  * `scripts/tmp-triage-<slug>.png`. The in-game look is still the only thing that
  * closes an audit — this exists to make the shortlist short and honest.
@@ -61,15 +65,6 @@ const config = JSON.parse(readFileSync(join(__dirname, 'enemy-anims.config.json'
 const observed = JSON.parse(readFileSync(join(__dirname, 'data', 'openosrs-observed-anims.json'), 'utf8'));
 const slug = argv.find((a) => !a.startsWith('--') && config[a]);
 const npcId = Number(arg('--npc', slug ? config[slug].npc : NaN));
-if (!Number.isFinite(npcId)) {
-  console.error('Usage: npm run anims:triage <slug>   |   npm run anims:triage -- --npc <id>');
-  console.error(`Known slugs: ${Object.keys(config).join(' ')}`);
-  process.exit(1);
-}
-const label = slug ?? `npc${npcId}`;
-const top = Number(arg('--top', '14'));
-const slotOrder = arg('--slot', null);
-
 if (!existsSync(INDEX_PATH)) {
   console.error(`No rig index at ${INDEX_PATH}`);
   console.error('Build it once with: npm run anims:index   (about a minute)');
@@ -80,6 +75,67 @@ const skelOf = (id) => ix.seq[id]?.[0] ?? null;
 const framesOf = (id) => ix.seq[id]?.[1] ?? 0;
 const lengthsOf = (id) => ix.seq[id]?.[2] ?? '';
 const mayaOf = (id) => ix.seq[id]?.[3] ?? null;
+
+// ----------------------------------------------------------------- audit mode
+// `--audit` needs no cache and draws nothing: it asks the index one question of every
+// clip the game has configured — could this sequence possibly be this NPC's? An id off
+// his rig, or one that is a neighbour's idle, is a contradiction whatever it looks like.
+// This is the check that would have caught the mummy's hurt 5563 (the stand of "Mummy
+// ashes") without a single probe image.
+if (flag('--audit')) {
+  const ownedRigs = new Set();
+  for (const v of Object.values(ix.npc)) for (const a of [v[1], v[2]]) { const r = skelOf(a); if (r !== null) ownedRigs.add(r); }
+  let flagged = 0;
+  for (const [sl, e] of Object.entries(config)) {
+    const npc = ix.npc[e.npc];
+    if (!npc) { console.log(`${sl}: npc ${e.npc} is not in the index`); flagged++; continue; }
+    const [name, st, wk] = npc;
+    const r = skelOf(st) ?? skelOf(wk);
+    const isMaya = r === null && (mayaOf(st) !== null || mayaOf(wk) !== null);
+    const claimed = new Map();
+    if (r !== null) {
+      for (const [id, v] of Object.entries(ix.npc)) {
+        if (Number(id) === e.npc || (skelOf(v[1]) !== r && skelOf(v[2]) !== r)) continue;
+        for (const [kind, a] of [['stand', v[1]], ['walk', v[2]]]) {
+          if (a < 0 || a === st || a === wk || claimed.has(a)) continue;
+          claimed.set(a, `${kind} of ${v[0] || '(unnamed)'} ${id}`);
+        }
+      }
+    }
+    const notes = [];
+    for (const [clipName, id] of Object.entries(e.anims ?? {})) {
+      if (id == null) continue;
+      if (isMaya) { if (mayaOf(id) === null) notes.push(`${clipName} ${id}: not a maya clip`); continue; }
+      if (r === null) continue;
+      if (ix.seq[id] === undefined) notes.push(`${clipName} ${id}: no such sequence`);
+      else if (skelOf(id) !== r) {
+        notes.push(`${clipName} ${id}: off-rig (framemap ${skelOf(id)}, his is ${r})`
+          + (ownedRigs.has(skelOf(id)) ? ' — and that rig belongs to some NPC' : ' — unowned rig, so possibly a model-swap death'));
+      } else if (clipName !== 'walk' && (id === st || id === wk)) notes.push(`${clipName} ${id}: is his own ${id === st ? 'stand' : 'walk'}`);
+      else if (claimed.has(id)) notes.push(`${clipName} ${id}: FOREIGN — ${claimed.get(id)}`);
+    }
+    const missing = ['walk', 'hurt', 'death'].filter((c) => e.anims?.[c] == null);
+    if (missing.length) notes.push(`no ${missing.join('/')} configured — most monsters do have all three`);
+    if (!notes.length) continue;
+    flagged++;
+    console.log(`
+${sl.padEnd(22)} npc ${e.npc} "${name}"  ${isMaya ? 'maya' : `rig ${r}`}`);
+    for (const n of notes) console.log(`   ${n}`);
+  }
+  console.log(`
+${flagged} of ${Object.keys(config).length} configured enemies have something to look at.`);
+  console.log('Run the slug through triage to see the alternatives on its rig.');
+  process.exit(0);
+}
+
+if (!Number.isFinite(npcId)) {
+  console.error('Usage: npm run anims:triage <slug>   |   npm run anims:triage -- --npc <id>');
+  console.error(`Known slugs: ${Object.keys(config).join(' ')}`);
+  process.exit(1);
+}
+const label = slug ?? `npc${npcId}`;
+const top = Number(arg('--top', '14'));
+const slotOrder = arg('--slot', null);
 
 const me = ix.npc[npcId];
 if (!me) { console.error(`NPC ${npcId} is not in the index (it has no stand or walk animation).`); process.exit(1); }
@@ -172,6 +228,32 @@ const twinRig = [...twinVotes.entries()]
   .filter(([r, n]) => n >= 3 && (rigSize.get(r) ?? 0) <= ourSize * 3 && (rigSize.get(r) ?? 0) >= ourSize / 3)
   .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
+// ------------------------------------------------------------- the rubble case
+// A death that swaps the model — the classic Gargoyle crumbling into a pile of rubble
+// — is authored on a skeleton of its own, so strict rig scoping would hide it. Those
+// clips are recognisable: a tiny framemap that NO npc idles on, sitting right beside
+// his own id block. There are few of them, they are never someone else's idle, and
+// the metrics computed on his model do not mean the same thing (the gargoyle's reads
+// collapse 1.00 because the rubble is not his skeleton), so they are listed apart and
+// left for the eye rather than scored into the shortlists.
+const ownedRigs = new Set();
+for (const v of Object.values(ix.npc)) { for (const a of [v[1], v[2]]) { const r = skelOf(a); if (r !== null) ownedRigs.add(r); } }
+// The window is his own stand/walk, not the whole rig's id span: a rig can hold one
+// stray low id (the mummy's reaches back to 1932) and sweeping that whole range would
+// drag in hundreds of unrelated little framemaps.
+const strays = [];
+if (rig !== null) {
+  const lo = Math.min(stand, walk) - 24, hi = Math.max(stand, walk) + 24;
+  for (let id = lo; id <= hi; id++) {
+    const r = skelOf(id);
+    if (r === null || r === rig || ownedRigs.has(r) || (rigSize.get(r) ?? 99) > 4) continue;
+    strays.push(id);
+  }
+  strays.sort((a, b) => Math.abs(a - stand) - Math.abs(b - stand));
+  strays.length = Math.min(strays.length, 12);
+  strays.sort((a, b) => a - b);
+}
+
 // ---------------------------------------------------------------- shape metrics
 if (!existsSync(join(CACHE_DIR, 'main_file_cache.dat2'))) {
   console.error(`No cache at ${CACHE_DIR}. Set OSRS_CACHE_DIR.`);
@@ -190,7 +272,7 @@ const seen = new Set(observed[String(npcId)] ?? []);
 const oracleUsable = candidates.some((id) => seen.has(id));
 const mine = slug ? Object.entries(config[slug].anims) : [];
 const rows = [];
-for (const id of candidates) {
+for (const id of [...candidates, ...strays]) {
   const clip = await loadClip(cache, model, id, METRIC_FRAMES).catch(() => null);
   if (!clip?.frames?.length) continue;
   const m = metrics(clip.frames);
@@ -198,11 +280,12 @@ for (const id of candidates) {
   const best = Object.keys(s).reduce((a, b) => (s[b] > s[a] ? b : a));
   rows.push({
     id, clip, m, s,
-    verdict: id === stand ? 'own stand' : id === walk ? 'own walk' : claimedBy.has(id) ? 'foreign' : best,
+    verdict: strays.includes(id) ? 'off-rig' : id === stand ? 'own stand' : id === walk ? 'own walk' : claimedBy.has(id) ? 'foreign' : best,
     score: s[best],
     note: [
       mine.filter(([, v]) => v === id).map(([c]) => `NOW ${c}`).join(' '),
       claimedBy.get(id) ? `is the ${claimedBy.get(id)}` : '',
+      strays.includes(id) ? `own framemap ${skelOf(id)}, unowned — a model-swap death looks like this` : '',
       twinSays.get(id) ?? '',
       oracleUsable && !seen.has(id) ? 'unobserved' : '',
     ].filter(Boolean).join('  '),
@@ -210,10 +293,11 @@ for (const id of candidates) {
 }
 if (!rows.length) { console.error('No clip on this rig would load for this model.'); process.exit(1); }
 
-const RANK = { death: 0, block: 1, attack: 2, 'own stand': 3, 'own walk': 3, foreign: 4 };
-/** His own stand and walk are answers already, and a neighbour's clip is not his at
- *  all — none of the three belong in a shortlist of what a slot could be. */
-const isCandidate = (r) => r.verdict !== 'foreign' && !r.verdict.startsWith('own');
+const RANK = { death: 0, block: 1, attack: 2, 'off-rig': 3, 'own stand': 4, 'own walk': 4, foreign: 5 };
+/** His own stand and walk are answers already, a neighbour's clip is not his at all,
+ *  and an off-rig clip is not measured on his skeleton — none of them belong in a
+ *  shortlist built out of the scores. */
+const isCandidate = (r) => !['foreign', 'off-rig'].includes(r.verdict) && !r.verdict.startsWith('own');
 rows.sort(slotOrder
   ? (a, b) => b.s[slotOrder] - a.s[slotOrder]
   : (a, b) => (RANK[a.verdict] - RANK[b.verdict]) || (b.score - a.score));
@@ -244,6 +328,10 @@ say(seen.size === 0
   : oracleUsable
     ? `observed oracle: ${candidates.filter((id) => seen.has(id)).length} of ${candidates.length} candidates were seen played in game`
     : `observed oracle: the dump lists ${seen.size} ids for npc ${npcId} and NONE is on this rig — it belongs to another NPC, so it is ignored here`);
+if (strays.length) {
+  say(`off-rig neighbours: ${strays.join(' ')} — tiny framemaps no NPC idles on, next to his block.`);
+  say('  A model-swapping death (gargoyle → rubble) lives on one of these; judge it on the sheet, not the score.');
+}
 say();
 say('  id     verdict   death block attack   coll reach settle   f   notes');
 for (const r of rows) {

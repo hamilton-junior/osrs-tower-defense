@@ -14,7 +14,13 @@ Your value is that you burn the images, not the parent's context. Look at as man
 ```
 npm run anims:index                 # once per cache update — builds the framemap↔sequence↔NPC index
 npm run anims:triage <slug>         # or --npc <id>; add --slot death|block|attack, --top N, --yaw/--pitch/--flipY
+npm run anims:triage -- --audit     # whole roster, index only: every configured id that cannot be that NPC's
 ```
+
+**Start an "it looks wrong" report with `--audit`.** It needs no cache and draws nothing —
+it just asks the index whether each configured id *could* be that NPC's, and names the
+contradictions (off-rig, his own idle, a neighbour's idle, a missing slot). That is the
+check that would have caught the mummy's hurt 5563 without a single probe image.
 
 `scripts/anim-triage.mjs` runs the whole loop in one pass and replaces steps that used
 to take a dozen probe images:
@@ -33,6 +39,10 @@ to take a dozen probe images:
   Nechryarch's block was pinned (6368-6372 clone the hill giant's 4649-4653 tick for tick).
 - **Cross-checks the observed oracle** below, and says plainly when the dump can't help.
 - **One contact sheet**, `scripts/tmp-triage-<slug>.png`, ordered by verdict — look at it.
+- **The rubble case.** A death that swaps the model — the classic Gargoyle crumbling into
+  a pile — is authored on its own little skeleton, so strict rig scoping would hide it.
+  Those show up as `off-rig` rows: a tiny framemap no NPC idles on, next to his id block.
+  Their scores are measured on the wrong skeleton and mean nothing; judge them on the sheet.
 
 Read the ranked table, then the sheet. The tool narrows twenty ids to two or three; it does
 not decide. **`best death` is near-deterministic; `best block` and `best attack` overlap by
