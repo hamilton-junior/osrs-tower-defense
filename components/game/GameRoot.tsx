@@ -3707,8 +3707,11 @@ export default function GameRoot() {
                       {/* How many the current level allows. It used to sit under the
                           dock as a standing counter, where it shifted the bar every
                           time the player switched tabs; it belongs with the trap it
-                          is limiting, and it is only a question while laying one. */}
-                      <Stat icon={def.sprite} label="Traps out" value={`${ui.traps.length}/${ui.maxTraps}`} />
+                          is limiting, and it is only a question while laying one.
+                          It counts EVERY trap on the road, not this kind of trap — so
+                          it wears the Hunter paw, never the hovered trap's own sprite,
+                          which read as "how many box traps are out". */}
+                      <Stat icon={ASSETS.misc.hunter_icon} label="Traps on road" value={`${ui.traps.length}/${ui.maxTraps}`} />
                     </div>
                     {/* The skill, read the way every other level in the game is: the
                         number above the bar it fills. It rode the dock's sixth slot
