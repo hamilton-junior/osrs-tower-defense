@@ -6,9 +6,9 @@
  * from an external host.
  */
 import { describe, it, expect } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { coinsIcon, localIconNames } from './assets';
+import { ASSETS, coinsIcon, localIconNames } from './assets';
 import { GE_OFFERS } from './data/ge';
 import { SLAYER_REWARDS } from './data/slayer';
 import { GLOBAL_UPGRADE_DEFS } from './systems/meta-progression';
@@ -93,5 +93,58 @@ describe('icon coverage', () => {
       ...literalIconNames,
     ]);
     expect([...baked].filter((n) => !asked.has(n))).toEqual([]);
+  });
+});
+
+
+/**
+ * Every enemy dies with its own voice.
+ *
+ * The hard rule for this game is that an NPC ships the death cry OSRS itself
+ * files under its name — a borrowed one is debt, and a *missing* one is worse:
+ * the engine looks up `death_<type>` and silently falls back to the generic
+ * `death` clip, so a new enemy added to the union without a bake makes no
+ * sound anyone would notice was wrong. This is the guard for that.
+ *
+ * The list is read out of `EnemyType` in `types.ts` rather than off a data
+ * table: the union is the contract every typed enemy id must join, and the
+ * only place a new enemy cannot avoid being written down.
+ */
+const enemyTypes: string[] = (() => {
+  const src = readFileSync(join(__dirname, 'types.ts'), 'utf8');
+  const decl = src.slice(src.indexOf('export type EnemyType'));
+  const body = decl.slice(0, decl.indexOf(';'));
+  return [...body.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+})();
+
+const deathSounds = ASSETS.sounds.death as Record<string, string>;
+
+/** `/assets/sounds/death_rat.wav` → `public/assets/sounds/death_rat.wav`. */
+const soundFile = (url: string) =>
+  join(__dirname, '../../public', url.slice(url.indexOf('/assets/')));
+
+describe('death sound coverage', () => {
+  it('finds the enemy types it means to check', () => {
+    expect(enemyTypes.length).toBeGreaterThan(50);
+    expect(enemyTypes).toContain('goblin');
+    expect(enemyTypes).toContain('kalphite_guardian');
+  });
+
+  it('gives every enemy type a death clip', () => {
+    expect(enemyTypes.filter((t) => !deathSounds[t])).toEqual([]);
+  });
+
+  // A mapped url with no file behind it is the same silence as no mapping at
+  // all, only harder to spot — the browser 404s and the clip never plays.
+  it('backs every death clip with a baked wav', () => {
+    const missing = enemyTypes.filter((t) => !existsSync(soundFile(deathSounds[t])));
+    expect(missing).toEqual([]);
+  });
+
+  // The reverse direction: a key for an enemy that no longer exists is a bake
+  // nothing can ever play, and usually a rename that left half its wiring.
+  it('maps nothing that is not an enemy type', () => {
+    const known = new Set(enemyTypes);
+    expect(Object.keys(deathSounds).filter((t) => !known.has(t))).toEqual([]);
   });
 });
