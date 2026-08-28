@@ -115,6 +115,7 @@
     "npc": 412,
     "clips": [
       "walk",
+      "hurt",
       "death"
     ]
   },

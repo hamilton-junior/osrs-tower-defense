@@ -75,6 +75,12 @@ const skelOf = (id) => ix.seq[id]?.[0] ?? null;
 const framesOf = (id) => ix.seq[id]?.[1] ?? 0;
 const lengthsOf = (id) => ix.seq[id]?.[2] ?? '';
 const mayaOf = (id) => ix.seq[id]?.[3] ?? null;
+/** Total play time in ms — frame lengths are client cycles of 20ms. */
+const durOf = (id) => (lengthsOf(id) ? lengthsOf(id).split(',').reduce((a, b) => a + Number(b), 0) * 20 : 0);
+/** A last frame parked for tens of seconds is a pose the NPC STAYS in: a corpse, or a
+ *  held state like the gargoyle waiting for its rock hammer. Neither a block nor an
+ *  attack ever ends that way, which is what unmasked 1518 after it scored best block. */
+const holdsOf = (id) => { const l = lengthsOf(id).split(','); return Number(l[l.length - 1]) >= 1000; };
 
 // ----------------------------------------------------------------- audit mode
 // `--audit` needs no cache and draws nothing: it asks the index one question of every
@@ -277,6 +283,7 @@ for (const id of [...candidates, ...strays]) {
   if (!clip?.frames?.length) continue;
   const m = metrics(clip.frames);
   const s = slotScores(m, clip.frames.length);
+  if (holdsOf(id)) { s.block = 0; s.attack = 0; }
   const best = Object.keys(s).reduce((a, b) => (s[b] > s[a] ? b : a));
   rows.push({
     id, clip, m, s,
@@ -286,6 +293,7 @@ for (const id of [...candidates, ...strays]) {
       mine.filter(([, v]) => v === id).map(([c]) => `NOW ${c}`).join(' '),
       claimedBy.get(id) ? `is the ${claimedBy.get(id)}` : '',
       strays.includes(id) ? `own framemap ${skelOf(id)}, unowned — a model-swap death looks like this` : '',
+      holdsOf(id) ? 'HOLDS at the end — a pose it stays in, so never a block or an attack' : '',
       twinSays.get(id) ?? '',
       oracleUsable && !seen.has(id) ? 'unobserved' : '',
     ].filter(Boolean).join('  '),
@@ -333,13 +341,13 @@ if (strays.length) {
   say('  A model-swapping death (gargoyle → rubble) lives on one of these; judge it on the sheet, not the score.');
 }
 say();
-say('  id     verdict   death block attack   coll reach settle   f   notes');
+say('  id     verdict   death block attack   coll reach settle   f    ms   notes');
 for (const r of rows) {
   say(
     `  ${String(r.id).padStart(6)} ${r.verdict.padEnd(9)}`
     + ` ${r.s.death.toFixed(2)}  ${r.s.block.toFixed(2)}  ${r.s.attack.toFixed(2)}`
     + `   ${r.m.collapse.toFixed(2)}  ${r.m.reach.toFixed(2)}  ${r.m.settle.toFixed(2)}`
-    + `  ${String(r.clip.frames.length).padStart(2)}   ${r.note}`,
+    + `  ${String(r.clip.frames.length).padStart(2)}  ${String(durOf(r.id)).padStart(5)}   ${r.note}`,
   );
 }
 say();
