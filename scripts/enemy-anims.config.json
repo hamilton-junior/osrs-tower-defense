@@ -84,7 +84,7 @@
     "anims": {
       "walk": 4660,
       "death": 4668,
-      "hurt": 4654
+      "hurt": 4664
     }
   },
   "bloodveld": {
@@ -99,7 +99,7 @@
     "npc": 2098,
     "anims": {
       "walk": 4649,
-      "hurt": 4654,
+      "hurt": 4651,
       "death": 4653
     }
   },
@@ -115,7 +115,6 @@
     "npc": 7407,
     "anims": {
       "walk": 7810,
-      "death": 7815,
       "hurt": 7814
     }
   },
@@ -131,7 +130,8 @@
     "npc": 8,
     "anims": {
       "walk": 1526,
-      "death": 1530
+      "death": 1530,
+      "hurt": 1531
     }
   },
   "abyssal_demon": {
@@ -178,7 +178,8 @@
     "npc": 3128,
     "anims": {
       "walk": 2634,
-      "death": 2638
+      "death": 2638,
+      "hurt": 2639
     }
   },
   "vorkath": {
@@ -247,7 +248,6 @@
     "npc": 7407,
     "anims": {
       "walk": 7810,
-      "death": 7815,
       "hurt": 7814
     }
   },
@@ -273,15 +273,14 @@
     "npc": 7851,
     "anims": {
       "walk": 7782,
-      "hurt": 7785
+      "hurt": 7794
     }
   },
   "dawn": {
     "npc": 7852,
     "anims": {
       "walk": 7768,
-      "hurt": 7775,
-      "death": 7767
+      "hurt": 7775
     }
   },
   "cerberus": {
@@ -467,7 +466,7 @@
     "npc": 2090,
     "anims": {
       "walk": 4654,
-      "hurt": 4658,
+      "hurt": 4657,
       "death": 4659
     }
   },
@@ -515,8 +514,8 @@
     "npc": 949,
     "anims": {
       "walk": 5553,
-      "hurt": 5552,
-      "death": 5546
+      "hurt": 5556,
+      "death": 5555
     }
   },
   "locust_rider": {

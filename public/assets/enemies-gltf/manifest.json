@@ -115,7 +115,6 @@
     "npc": 7407,
     "clips": [
       "walk",
-      "death",
       "hurt"
     ]
   },
@@ -131,7 +130,8 @@
     "npc": 8,
     "clips": [
       "walk",
-      "death"
+      "death",
+      "hurt"
     ]
   },
   "abyssal_demon": {
@@ -178,7 +178,8 @@
     "npc": 3128,
     "clips": [
       "walk",
-      "death"
+      "death",
+      "hurt"
     ]
   },
   "vorkath": {
@@ -247,7 +248,6 @@
     "npc": 7407,
     "clips": [
       "walk",
-      "death",
       "hurt"
     ]
   },
@@ -280,8 +280,7 @@
     "npc": 7852,
     "clips": [
       "walk",
-      "hurt",
-      "death"
+      "hurt"
     ]
   },
   "cerberus": {
@@ -335,6 +334,206 @@
     "npc": 7222,
     "clips": [
       "walk",
+      "death"
+    ]
+  },
+  "ahrim": {
+    "npc": 1672,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "guthan": {
+    "npc": 1674,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "karil": {
+    "npc": 1675,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "torag": {
+    "npc": 1676,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "verac": {
+    "npc": 1677,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "ice_warrior": {
+    "npc": 2841,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "ice_troll": {
+    "npc": 700,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "jogre": {
+    "npc": 2234,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "harpie_bug_swarm": {
+    "npc": 464,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "cave_bug": {
+    "npc": 481,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "cave_slime": {
+    "npc": 480,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "big_frog": {
+    "npc": 478,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "giant_frog": {
+    "npc": 477,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "hobgoblin": {
+    "npc": 3049,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "giant_bat": {
+    "npc": 2834,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "moss_giant": {
+    "npc": 2090,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "vulture": {
+    "npc": 1267,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "desert_lizard": {
+    "npc": 460,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "jackal": {
+    "npc": 4185,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "kalphite_worker": {
+    "npc": 955,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "scarab_mage": {
+    "npc": 794,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "mummy": {
+    "npc": 949,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "locust_rider": {
+    "npc": 795,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "dust_devil": {
+    "npc": 423,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "kalphite_guardian": {
+    "npc": 959,
+    "clips": [
+      "walk",
+      "hurt",
       "death"
     ]
   }
