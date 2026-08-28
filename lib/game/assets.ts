@@ -227,14 +227,16 @@ const DEATH_TYPES = [
   'superior_abyssal_demon', 'superior_gargoyle', 'superior_nechryael',
   // Bosses and their adds — each with its own cry, never a borrowed one.
   'giant_mole', 'cerberus', 'dusk', 'dawn', 'yt_hurkot', 'summoned_soul',
+  'scurrius', 'brutus',
 ];
 const DEATH_SOUNDS: Record<string, string> = {};
 for (const t of DEATH_TYPES) DEATH_SOUNDS[t] = `${SND}/death_${t}.wav`;
 // Scurrius' Giant rats are not borrowing a stand-in: `rat` in this game *is* the
 // cache's Giant rat (NPC 2510), and Scurrius' own rat (7223) shares that rig and
 // that voice. One clip, two enemy types — so no second copy of the same bytes.
-// Scurrius himself has no entry: his sound id is not in the curated map (he
-// post-dates it), and the generic `death` fallback stands rather than a borrowed cry.
+// Scurrius himself now has his own cry, and so does Brutus: both post-date the
+// curated sound list, but their death animations name the sound in their frames,
+// which is where those two ids came from.
 DEATH_SOUNDS.giant_rat = DEATH_SOUNDS.rat;
 // The four regional locals have no cry of their own in the curated sound map, so
 // each borrows the nearest voice already baked rather than shipping a new one: the

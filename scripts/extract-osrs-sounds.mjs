@@ -128,6 +128,11 @@ const TARGETS = {
   death_zulrah: 792,           // big_seasnake_death — was dragon_death (409), which it is not
   death_yt_hurkot: 252,        // tzhaar_hur_death — a Yt-HurKot is a TzHaar-Hur
   death_summoned_soul: 438,    // ghost_death — Cerberus' souls
+  // The two post-2018 bosses name their own cry inside the cache: their death
+  // sequence carries the sound in its frames, so these ids were read out of the
+  // animation rather than the wiki's list, then auditioned to pick between takes.
+  death_scurrius: 7694,        // seq 10705 (his death) — the first of five takes
+  death_brutus: 11246,         // seq 13784 (his death); 11245 is the ground-slam special
 };
 
 /**
