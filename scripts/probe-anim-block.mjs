@@ -7,6 +7,9 @@
  *   collapse = height(last) / max height   (DEATH → ~0, body drops to ground)
  *   reach    = max horiz extent / frame-0  (ATTACK → high, a limb shoots out)
  *   settle   = |last - first| centroid     (BLOCK → ~0, returns to rest)
+ *
+ * The maths lives in lib/anim-metrics.mjs, shared with validate-anims and anim-triage
+ * so the numbers here and the flags there can never drift apart.
  *   frames   (BLOCK/hurt is usually SHORT and upright)
  *
  *   node scripts/probe-anim-block.mjs --npc 240 --from 60 --to 73
@@ -20,6 +23,7 @@ import { writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildNpcModel, loadClip, renderFrame, computeFit, SIZE, CACHE_DIR } from './render-osrs-npc-anims.mjs';
+import { metrics } from './lib/anim-metrics.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i !== -1 ? process.argv[i + 1] : d; };
@@ -32,24 +36,6 @@ const pitch = Number(arg('--pitch', '6'));
 const COLS = 10;
 const CELL = 104;
 const LABELW = 150;
-
-function metrics(frames) {
-  const h = [], ext = [], cen = [];
-  for (const verts of frames) {
-    let minY = Infinity, maxY = -Infinity, cx = 0, cy = 0, cz = 0;
-    for (const v of verts) { minY = Math.min(minY, v[1]); maxY = Math.max(maxY, v[1]); cx += v[0]; cy += v[1]; cz += v[2]; }
-    cx /= verts.length; cy /= verts.length; cz /= verts.length;
-    let e = 0;
-    for (const v of verts) e = Math.max(e, Math.hypot(v[0] - cx, v[2] - cz));
-    h.push(maxY - minY); ext.push(e); cen.push([cx, cy, cz]);
-  }
-  const maxH = Math.max(...h) || 1;
-  const collapse = h[h.length - 1] / maxH;
-  const reach = Math.max(...ext) / (ext[0] || 1);
-  const a = cen[0], b = cen[cen.length - 1];
-  const settle = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / (maxH || 1);
-  return { collapse, reach, settle };
-}
 
 const cache = new RSCache(CACHE_DIR);
 await cache.onload;

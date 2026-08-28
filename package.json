@@ -18,6 +18,8 @@
     "bake:enemies": "node scripts/bake-enemy-sprites-from-gltf.mjs",
     "anims:data": "node scripts/generate-enemy-anims-data.mjs",
     "anims:observed": "node scripts/observed-anims.mjs",
+    "anims:index": "node scripts/anim-rig-index.mjs",
+    "anims:triage": "node scripts/anim-triage.mjs",
     "clean": "next clean"
   },
   "dependencies": {
@@ -33,7 +35,8 @@
     "@types/react-dom": "^19",
     "@types/three": "^0.184.1",
     "eslint": "^10.0.1",
-    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+
     "osrscachereader": "^1.1.3",
     "pngjs": "^7.0.0",
     "puppeteer-core": "^25.1.0",

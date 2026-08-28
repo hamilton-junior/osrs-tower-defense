@@ -18,6 +18,8 @@ next-env.d.ts
 /tmp/
 # diagnostic image dumps from scripts (review-clip, probe-anim-block, screenshot-ui, …)
 scripts/tmp-*.png
+# derived from the local OSRS cache and keyed to its revision — rebuild with `npm run anims:index`
+scripts/data/anim-rig-index.json
 # throwaway headless probes written against scripts/dev/harness.mjs
 scripts/dev/tmp-*
 

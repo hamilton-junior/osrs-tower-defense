@@ -9,6 +9,37 @@ You pick, bake and verify enemy animation clips for an OSRS-themed tower-defense
 
 Your value is that you burn the images, not the parent's context. Look at as many probe/review grids as you need; return a short verdict.
 
+## One command does the triage
+
+```
+npm run anims:index                 # once per cache update — builds the framemap↔sequence↔NPC index
+npm run anims:triage <slug>         # or --npc <id>; add --slot death|block|attack, --top N, --yaw/--pitch/--flipY
+```
+
+`scripts/anim-triage.mjs` runs the whole loop in one pass and replaces steps that used
+to take a dozen probe images:
+
+- **Scoping is structural, not guesswork.** A framemap owns an animation: every sequence
+  that poses the same skeleton shares its framemap id, so the NPC's *possible* clips are
+  exactly the sequences on his rig. No `--from/--to` id-range guessing. (A post-2023
+  **maya** NPC has no framemap; there it falls back to the contiguous maya run and says so.)
+- **Tenancy.** It lists the other NPCs living on that skeleton and labels any candidate
+  that is *someone else's* stand or walk `foreign` — a clip of theirs is never his. This is
+  what unmasked the wrong mummy hurt: 5563 is the stand of "Mummy ashes" (npc 718).
+- **Scores** every candidate as death / block / attack from the shared metrics, and marks
+  the ids the config currently uses (`NOW death`, `NOW hurt`).
+- **Timing homology.** Clips re-authored from one source keep byte-identical frame
+  lengths, so a slot already settled elsewhere names the same slot here — that is how the
+  Nechryarch's block was pinned (6368-6372 clone the hill giant's 4649-4653 tick for tick).
+- **Cross-checks the observed oracle** below, and says plainly when the dump can't help.
+- **One contact sheet**, `scripts/tmp-triage-<slug>.png`, ordered by verdict — look at it.
+
+Read the ranked table, then the sheet. The tool narrows twenty ids to two or three; it does
+not decide. **`best death` is near-deterministic; `best block` and `best attack` overlap by
+design** — metrics cannot separate a lunge that recovers from a flinch, so both lists
+routinely lead with the same id (Scurrius' 5550-style case). The images settle that, not
+the numbers.
+
 ## The oracle — always start here, never skip it
 
 Sequence ids alone are meaningless: an NPC's id block mixes its walk, attacks, blocks and death with anims belonging to *other* NPCs that share the rig. **Metrics and eyeballing cannot reliably separate an attack from a block** — two full audit rounds failed that way. What works is anchoring on what each NPC is *observed* to actually play in game.
@@ -31,9 +62,10 @@ Rules that fall out of it, learned the hard way:
 
 ## Flow
 
-1. **Candidates**: `npm run anims:observed [slug…]` → the ⚠ suspects and the NPC's other observed ids.
-2. **Probe** them on the NPC's *own* model:
-   `node scripts/probe-anim-block.mjs --npc <id> --from <a> --to <b>` → `scripts/tmp-probe-<npc>.png`, a labelled row per id + metrics (`collapse` → 0 = death, `reach` high = attack, `settle` → 0 = returns to rest = block). Probe a **generous window** — Jad's death sat two ids past a too-narrow one. Scrambled/garbage geometry in a row = that id belongs to another rig; it also marks the block boundary.
+1. **Triage**: `npm run anims:triage <slug>` → the rig's real candidate set, the tenancy
+   labels, the scores, the twin's settled slots and one contact sheet. Start here always.
+2. **Probe wider only if the sheet leaves you unsure**:
+   `node scripts/probe-anim-block.mjs --npc <id> --from <a> --to <b>` → `scripts/tmp-probe-<npc>.png`, a labelled row per id + metrics (`collapse` → 0 = death, `reach` high = attack, `settle` → 0 = returns to rest = block). Scrambled/garbage geometry in a row = that id belongs to another rig — triage's framemap scoping already excludes those, which is why it is the better first look.
    Run **one cache process at a time** — they each re-index the cache and contend on disk I/O. Batch several NPCs in a single sequential `for` loop, in the background, then read the PNGs.
    The `error reading index 16 … DataView` warning on load is non-fatal; ignore it.
 3. **Read the images and classify by motion**, using the metrics only as a hint:

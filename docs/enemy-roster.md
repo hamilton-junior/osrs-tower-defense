@@ -282,7 +282,10 @@ Per monster, mirroring the boss checklist:
 3. A region tag: `region: '<biome id>'` in the stat block, or the field left off for a
    generic. Never both, and never a boss.
 4. Baked clips: NPC id + walk/hurt/death sequence ids in `scripts/enemy-anims.config.json`,
-   rendered by `render-osrs-npc-anims.mjs`; the `npc-anim-auditor` agent picks and verifies
+   rendered by `render-osrs-npc-anims.mjs`. Pick the ids with `npm run anims:triage <slug>`
+   (one-off `npm run anims:index` first) — it scopes candidates to the NPC's own framemap,
+   flags the ones that belong to a neighbour on the same rig, and ranks them; the
+   `npc-anim-auditor` agent runs it and verifies
    the ids. Some monsters legitimately have no hurt clip — that is a valid outcome.
 5. A model icon in `lib/game/assets.ts` (`render-osrs-npcs.mjs`), or `assets.test.ts` fails
    the build.
