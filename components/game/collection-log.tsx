@@ -10,7 +10,9 @@ import { DIFFICULTY_TIERS, tierLabel } from '@/lib/game/systems/difficulty';
 import { bossTip } from '@/lib/game/systems/boss-tips';
 import { MovablePanel } from './MovablePanel';
 import { fs, fmt, fmtTime, hideBrokenImg, GoStat } from './ui-kit';
-import { weaknessTag, enemySpriteStyle } from './enemy-ui';
+import { weaknessTag, enemySpriteStyle, enemySlugSpriteStyle } from './enemy-ui';
+import { LOOK_BY_SLUG, LOOKS_BY_TYPE, defaultLookSlug } from '@/lib/game/data/enemy-variants';
+import type { EnemyType } from '@/lib/game/types';
 import { RARITY_COLOR, RARITY_LABEL, effectTag, renderWithStyleIcons, DraftCardView } from './draft-cards';
 import { type Victories, type DifficultyProgress } from './save';
 
@@ -435,10 +437,17 @@ export function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, onSele
   onPrev: () => void; onNext: () => void; onSelect: (type: string) => void;
   position: { index: number; total: number };
 }) {
+  // Which body is on show. One monster, several looks: the Barrows brothers share
+  // a stat block, so the log keeps one entry and lets you leaf through the bodies.
+  const [pickedLook, setPickedLook] = useState<string | null>(null);
   const def = ENEMIES[type as keyof typeof ENEMIES];
+  const looks = LOOKS_BY_TYPE[type as EnemyType];
+  // A look picked for the *previous* monster can't match this one's, so walking to
+  // the next entry falls back to its own body without an effect to reset it.
+  const shown = pickedLook && looks?.some((l) => l.slug === pickedLook) ? pickedLook : defaultLookSlug(type);
   if (!def) return null;
   const wk = weaknessTag(def.weakness, def.styleWeakness);
-  const style = enemySpriteStyle(type, true);
+  const style = enemySlugSpriteStyle(shown, true);
   const summons = SUMMONS_BY_BOSS[type] ?? [];
   return (
     <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
@@ -462,6 +471,9 @@ export function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, onSele
             <span className="text-osrs-orange font-bold text-[1.05em] truncate">{def.name}</span>
             {def.isBoss && <span className="text-[0.6em] text-osrs-red uppercase tracking-wide">Boss</span>}
           </div>
+          {looks && looks.length > 1 && LOOK_BY_SLUG[shown] && (
+            <div className="text-[0.72em] text-[#cdbb91] -mt-[0.25em] mb-[0.35em] truncate">{LOOK_BY_SLUG[shown]!.name}</div>
+          )}
           <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.2em] text-[0.78em]">
             <span className="text-[#d3c3a0]">Kills</span>
             <span className="text-right text-osrs-yellow font-bold">{fmt(kc)}</span>
@@ -480,6 +492,27 @@ export function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, onSele
         <div className="rs-panel-inset p-[0.7em] mt-[0.5em]">
           <div className="text-[0.7em] text-[#b3a585] uppercase tracking-wide mb-[0.4em]">How to kill</div>
           <p className="text-[0.75em] text-[#cdbb91] leading-snug">{bossTip(type)}</p>
+        </div>
+      )}
+      {looks && looks.length > 1 && (
+        <div className="rs-panel-inset p-[0.7em] mt-[0.5em]">
+          <div className="text-[0.7em] text-[#b3a585] uppercase tracking-wide mb-[0.5em]">Variants</div>
+          <div className="flex flex-wrap gap-[0.4em]">
+            {looks.map((l) => (
+              <button
+                key={l.slug}
+                onClick={() => setPickedLook(l.slug)}
+                title={l.name}
+                className={`flex flex-col items-center gap-[0.15em] rounded px-[0.25em] py-[0.15em] border transition-colors ${shown === l.slug ? 'border-osrs-orange bg-osrs-orange/15' : 'border-transparent hover:bg-[#3a3327]'}`}
+              >
+                <div className="rs-log-sprite shrink-0" style={{ ...enemySlugSpriteStyle(l.slug, shown === l.slug), fontSize: '0.75em' }} />
+                <span className="text-[0.62em] text-[#e8dcc0] max-w-[6em] truncate">{l.name}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[0.68em] text-[#9a8d70] mt-[0.5em] leading-snug">
+            The same monster wearing a different body — stats, drops and kills are shared.
+          </p>
         </div>
       )}
       {summons.length > 0 && (

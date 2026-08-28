@@ -1,4 +1,5 @@
 import { ENEMY_ANIMS } from '../data/enemy-anims';
+import { ENEMY_LOOKS } from '../data/enemy-variants';
 import type { EnemyType } from '../types';
 
 /**
@@ -11,14 +12,19 @@ import type { EnemyType } from '../types';
  * `Enemy.animType`, which the renderer uses to pick the clip, so stats, drops,
  * kill counts and the Collection Log all still see one `barrow_wight`.
  *
- * Each entry lists **baked clip slugs** (`public/assets/enemies/<slug>/`), and the
- * type's own slug belongs in the list — it is one of the looks, not a default the
- * others replace. A slug with no bake behind it is dropped at load, so an entry
- * can be written before its art exists without ever spawning an invisible enemy.
+ * Which looks exist, and what each one is *called*, is not decided here — it is
+ * read from `data/enemy-variants`, the same table the Bestiary and the Collection
+ * Log name them from. This module only takes the ones marked `rolled` (a boss add
+ * or a scripted rage form is chosen by the fight, never drawn from a bag). A slug
+ * with no bake behind it is dropped at load, so an entry can be written before its
+ * art exists without ever spawning an invisible enemy.
  */
-const VARIANT_SLUGS: Partial<Record<EnemyType, readonly string[]>> = {
-  barrow_wight: ['barrow_wight', 'ahrim', 'guthan', 'karil', 'torag', 'verac'],
-};
+const VARIANT_SLUGS: Partial<Record<EnemyType, readonly string[]>> = ENEMY_LOOKS
+  .filter((l) => l.rolled)
+  .reduce<Partial<Record<EnemyType, string[]>>>((acc, l) => {
+    (acc[l.of] ??= []).push(l.slug);
+    return acc;
+  }, {});
 
 /** The table with unbaked slugs removed. A type left with one look (or none) is
  *  dropped entirely, so `pickVariant` can early-out on the common case. */

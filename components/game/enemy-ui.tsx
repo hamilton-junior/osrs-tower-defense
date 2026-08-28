@@ -42,7 +42,13 @@ export function weaknessTag(weakness?: string | null, styleWeakness?: StyleWeakn
 export function enemySpriteStyle(type: string, animate = false): React.CSSProperties | undefined {
   // Most types are their own clip slug; `animSlug` covers the ones that aren't
   // (Cerberus's souls are three cache NPCs behind one type).
-  const slug = ENEMIES[type as keyof typeof ENEMIES]?.animSlug ?? type;
+  return enemySlugSpriteStyle(ENEMIES[type as keyof typeof ENEMIES]?.animSlug ?? type, animate);
+}
+
+/** The same icon, but for one *look* rather than one monster — the Barrows
+ *  brothers share a stat block, so a variant viewer needs to ask for the body it
+ *  wants by slug instead of by type. */
+export function enemySlugSpriteStyle(slug: string, animate = false): React.CSSProperties | undefined {
   const clip = ENEMY_ANIMS[slug]?.clips.walk;
   if (!clip) return undefined;
   const base: React.CSSProperties = {

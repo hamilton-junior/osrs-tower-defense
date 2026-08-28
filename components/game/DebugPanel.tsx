@@ -4,6 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { GameEngine } from '@/lib/game/core/engine';
 import { ENEMY_ANIMS, clipFrame, clipDurationS, type EnemyAnimSet } from '@/lib/game/data/enemy-anims';
 import { ENEMIES } from '@/lib/game/data/enemies';
+import { LOOK_BY_SLUG, LOOKS_BY_TYPE, defaultLookSlug } from '@/lib/game/data/enemy-variants';
+import { BIOMES } from '@/lib/game/data/biomes';
+import { GRID } from '@/lib/game/core/engine-state';
 import { MovablePanel } from './MovablePanel';
 import { EnemyModelViewer } from './EnemyModelViewer';
 import type { EnemyType } from '@/lib/game/types';
@@ -15,24 +18,28 @@ import { TOWER_STYLES } from '@/lib/game/data/towers';
 const CLIP_NAMES = ['walk', 'hurt', 'death', 'burrow', 'emerge'] as const;
 type ClipName = (typeof CLIP_NAMES)[number];
 
-/** Bestiary entries for baked slugs that aren't spawnable EnemyTypes of their own.
- *  They ride another enemy's stats via `animType`, so each one names the type it
- *  borrows from (`of`) and what the panel should call it (`kind`). The distinction
- *  matters: a summoned soul is a body Cerberus puts on the field, while Demonic
- *  Brutus is Brutus himself wearing a different model for the length of a charge —
- *  calling that an add would invent an enemy the game never spawns. The five
- *  Barrows brothers are the third case: cosmetic looks a Barrow Wight can wear. */
-const EXTRA_BESTIARY: Record<string, { name: string; of: EnemyType; kind: string }> = {
-  soul_ranged: { name: 'Summoned Soul (Ranged)', of: 'summoned_soul', kind: 'Boss add' },
-  soul_magic: { name: 'Summoned Soul (Magic)', of: 'summoned_soul', kind: 'Boss add' },
-  soul_melee: { name: 'Summoned Soul (Melee)', of: 'summoned_soul', kind: 'Boss add' },
-  brutus_demonic: { name: 'Demonic Brutus', of: 'brutus', kind: 'Brutus, enraged' },
-  ahrim: { name: 'Ahrim the Blighted', of: 'barrow_wight', kind: 'Barrow Wight' },
-  guthan: { name: 'Guthan the Infested', of: 'barrow_wight', kind: 'Barrow Wight' },
-  karil: { name: 'Karil the Tainted', of: 'barrow_wight', kind: 'Barrow Wight' },
-  torag: { name: 'Torag the Corrupted', of: 'barrow_wight', kind: 'Barrow Wight' },
-  verac: { name: 'Verac the Defiled', of: 'barrow_wight', kind: 'Barrow Wight' },
-};
+/** The Bestiary lists monsters the way a run meets them: the backbone that can
+ *  roll anywhere, then each region's own set, then the bosses and the bodies they
+ *  put on the field. The keys mirror `systems/enemy-regions` — an untagged monster
+ *  is generic — so the panel never invents a second notion of where a thing lives. */
+const BESTIARY_SECTIONS: { key: string; label: string }[] = [
+  { key: 'generic', label: 'Anywhere' },
+  ...Object.values(BIOMES).map((b) => ({ key: b.id as string, label: b.name })),
+  { key: 'boss', label: 'Bosses' },
+  { key: 'escort', label: 'Boss adds' },
+];
+
+function bestiarySection(def: (typeof ENEMIES)[EnemyType]): string {
+  if (def.isBoss) return 'boss';
+  if (def.summonedBy) return 'escort';
+  return def.region ?? 'generic';
+}
+
+/** How big this monster is drawn on the board, in logic pixels — the same sum
+ *  `core/render/enemies` does, so the number here is the one a player sees. */
+function boardSize(def: (typeof ENEMIES)[EnemyType]): number {
+  return Math.round((def.isBoss ? 60 : 30) * (def.renderScale ?? 1));
+}
 
 /** Plays a single baked clip on a loop in a small canvas. One-shot clips
  *  (hurt/death) replay after a short pause so the preview never freezes. */
@@ -248,19 +255,36 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
     setAffixPick((prev) => { const n = new Set(prev); n.has(a) ? n.delete(a) : n.add(a); return n; });
 
   // --- bestiary state ---
-  const animated = useMemo(() => Object.keys(ENEMY_ANIMS), []);
-  const [viewing, setViewing] = useState<string>(animated[0]);
+  // The list is one row per *monster*, grouped by where it lives; the several
+  // bodies one monster can wear (the Barrows brothers, Cerberus's souls) hang off
+  // its own entry instead of crowding the list with lookalikes.
+  const sections = useMemo(() => {
+    const groups = new Map<string, EnemyType[]>();
+    for (const def of Object.values(ENEMIES)) {
+      if (!ENEMY_ANIMS[defaultLookSlug(def.type)]) continue; // nothing baked, nothing to show
+      const key = bestiarySection(def);
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(def.type); else groups.set(key, [def.type]);
+    }
+    return BESTIARY_SECTIONS
+      .map((sec) => ({ ...sec, types: groups.get(sec.key) ?? [] }))
+      .filter((sec) => sec.types.length > 0);
+  }, []);
+  const [viewingType, setViewingType] = useState<EnemyType>(() => sections[0]?.types[0] ?? 'goblin');
+  const [viewingSlug, setViewingSlug] = useState<string>(() => defaultLookSlug(sections[0]?.types[0] ?? 'goblin'));
   const [expanded, setExpanded] = useState<ClipName | null>(null);
   const [lightboxMode, setLightboxMode] = useState<'3d' | 'sprite'>('3d');
-  const set = ENEMY_ANIMS[viewing];
-  // Some baked slugs (Cerberus's per-soul clips, Brutus's demonic model) aren't
-  // ENEMIES keys of their own — they borrow the stats of the type they belong to.
-  const extra = EXTRA_BESTIARY[viewing];
-  const def = (ENEMIES as Partial<Record<string, (typeof ENEMIES)[EnemyType]>>)[extra?.of ?? viewing];
-  const viewingName = (ENEMIES as Partial<Record<string, { name: string }>>)[viewing]?.name ?? extra?.name ?? viewing;
+  const showMonster = (t: EnemyType) => { setViewingType(t); setViewingSlug(defaultLookSlug(t)); };
+  const set = ENEMY_ANIMS[viewingSlug];
+  const def = ENEMIES[viewingType];
+  // A named look (Verac, a summoned soul) speaks for itself; anything else is
+  // called by its monster's own name.
+  const look = LOOK_BY_SLUG[viewingSlug];
+  const looks = LOOKS_BY_TYPE[viewingType];
+  const viewingName = look?.name ?? def?.name ?? viewingSlug;
   // What the stat block calls this thing: an alternate model says so, a summoned
   // body is an add, and everything else is either a boss or ordinary trash.
-  const kind = extra?.kind ?? (def?.isBoss ? 'Boss' : def?.summonedBy ? 'Boss add' : null);
+  const kind = look?.kind ?? (def?.isBoss ? 'Boss' : def?.summonedBy ? 'Boss add' : null);
 
   // --- selected-tower cheats ---
   // Read the tower live off the engine, the way GameRoot does: the panel re-renders
@@ -534,23 +558,46 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
 
       {tab === 'bestiary' && (
         <div className="space-y-[0.6em]">
-          <div className="flex flex-wrap gap-[0.25em] max-h-[8em] overflow-y-auto">
-            {animated.map((t) => (
-              <button
-                key={t}
-                onClick={() => setViewing(t)}
-                className={`px-[0.4em] py-[0.15em] rounded-[3px] border text-[0.66em] capitalize ${viewing === t ? 'border-osrs-orange bg-osrs-orange/20 text-osrs-yellow' : 'border-[#3a2f1d] text-[#cdbe91] hover:border-[#6b5836]'}`}
-              >
-                {(ENEMIES as Partial<Record<string, { name: string }>>)[t]?.name ?? EXTRA_BESTIARY[t]?.name ?? t}
-              </button>
+          <div className="max-h-[14em] overflow-y-auto custom-scrollbar pr-[0.2em] space-y-[0.35em]">
+            {sections.map((sec) => (
+              <div key={sec.key}>
+                <div className="text-[0.62em] uppercase tracking-wide text-[#9d8b63] mb-[0.15em]">
+                  {sec.label} <span className="text-[#6b5836]">({sec.types.length})</span>
+                </div>
+                <div className="flex flex-wrap gap-[0.25em]">
+                  {sec.types.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => showMonster(t)}
+                      className={`px-[0.4em] py-[0.15em] rounded-[3px] border text-[0.66em] capitalize ${viewingType === t ? 'border-osrs-orange bg-osrs-orange/20 text-osrs-yellow' : 'border-[#3a2f1d] text-[#cdbe91] hover:border-[#6b5836]'}`}
+                    >
+                      {ENEMIES[t].name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 
           {set && (
             <div className="rs-panel-inset p-[0.6em]">
               <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.4em]">{viewingName}</div>
+              {looks && looks.length > 1 && (
+                <div className="flex flex-wrap gap-[0.25em] mb-[0.45em]">
+                  {looks.map((l) => (
+                    <button
+                      key={l.slug}
+                      onClick={() => setViewingSlug(l.slug)}
+                      title={l.name}
+                      className={`px-[0.4em] py-[0.1em] rounded-[3px] border text-[0.62em] ${viewingSlug === l.slug ? 'border-osrs-orange bg-osrs-orange/20 text-osrs-yellow' : 'border-[#3a2f1d] text-[#cdbe91] hover:border-[#6b5836]'}`}
+                    >
+                      {l.name}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-[0.6em] items-start">
-                <div className="flex flex-col gap-[0.4em]">
+                <div className="flex flex-col gap-[0.4em] max-h-[17em] overflow-y-auto custom-scrollbar pr-[0.2em]">
                   {CLIP_NAMES.filter((c) => set.clips[c]).map((c) => (
                     <button
                       key={c}
@@ -577,12 +624,16 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
                       <span className="text-right capitalize text-white">{def.weakness ?? 'None'}</span>
                       <span className="text-[#d3c3a0]">Reward</span>
                       <span className="text-right text-osrs-yellow">{def.reward}</span>
+                      <span className="text-[#d3c3a0]">Size</span>
+                      <span className="text-right text-white">{boardSize(def)}px · {(boardSize(def) / GRID).toFixed(2)} tiles</span>
+                      <span className="text-[#d3c3a0]">Region</span>
+                      <span className="text-right text-white">{def.region ? BIOMES[def.region].name : 'Anywhere'}</span>
                     </>
                   )}
                   {kind && (
                     <>
                       <span className="text-[#d3c3a0]">Type</span>
-                      <span className={`text-right ${def?.isBoss && !extra ? 'text-osrs-red uppercase' : 'text-white'}`}>{kind}</span>
+                      <span className={`text-right ${def?.isBoss && !look ? 'text-osrs-red uppercase' : 'text-white'}`}>{kind}</span>
                     </>
                   )}
                   <span className="text-[#d3c3a0]">Clips</span>
@@ -616,7 +667,7 @@ export function DebugPanel({ engineRef, ui, onClose, globalLock }: {
             </span>
           </div>
           {lightboxMode === '3d'
-            ? <EnemyModelViewer slug={viewing} initialClip={expanded} />
+            ? <EnemyModelViewer slug={viewingSlug} initialClip={expanded} />
             : <AnimViewer set={set} clipName={expanded} />}
         </div>
       </div>
