@@ -22,7 +22,7 @@
 import { RSCache, IndexType } from 'osrscachereader';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -133,6 +133,37 @@ const TARGETS = {
   // animation rather than the wiki's list, then auditioned to pick between takes.
   death_scurrius: 7694,        // seq 10705 (his death) — the first of five takes
   death_brutus: 11246,         // seq 13784 (his death); 11245 is the ground-slam special
+
+  // ---- Paying down the borrowed voices -------------------------------------
+  // Every id below is the NPC's own config name in scripts/data/osrs-sound-names.tsv
+  // (`--find <needle>` searches it). Where the name does not match the monster's
+  // in-game name, the reason is on the line.
+  // Kharidian.
+  death_mummy: 642,              // mummy_death
+  death_scarab_mage: 618,        // locust_mage_death — the Scarab Mage (NPC 794) sits
+                                 // beside the Locust rider (795), and the sound family
+                                 // runs locust / locust_mage / locust_rider in step
+  death_locust_rider: 620,       // locust_rider_death
+  death_kalphite_worker: 572,    // kalthite_worker_death (Jagex's own typo for kalphite)
+  death_kalphite_guardian: 561,  // kalthite_lord_death — OSRS's four kalphites are
+                                 // Worker/Soldier/Guardian/Queen and the sound families
+                                 // are worker/soldier/lord/queen, so lord is the Guardian
+  death_jackal: 545,             // jackal_death
+  death_vulture: 891,            // vulture_death
+  death_desert_lizard: 606,      // lizard_death
+  death_dust_devil: 415,         // dust_devil_death
+  // Misthalin.
+  death_cave_bug: 1578,          // cave_bug_death
+  death_cave_slime: 785,         // slime_death
+  death_giant_bat: 293,          // bat_death
+  death_big_frog: 843,           // toad_death — OSRS files both frogs under "toad"
+  death_giant_frog: 839,         // giant_toad_death — the larger of the two clips
+  // The regional locals.
+  death_ice_warrior: 529,        // ice_warrior_death
+  death_ice_troll: 866,          // troll_death — OSRS gives the Ice troll its own hit
+                                 // (849) and attack (2399) but no death of its own, so
+                                 // the troll's is the clip the client itself falls back to
+  death_harpie_bug_swarm: 2744,  // harpiebugswarm_death
 };
 
 /**
@@ -647,7 +678,34 @@ async function renderId(cache, id) {
   }
 }
 
+/**
+ * `--find <needle>` — search the vendored config-name table for a monster.
+ *
+ * The cache's sound index carries no name hashes at all (checked: 12104 archives,
+ * zero of them named), so a monster's cry cannot be found by reading the cache.
+ * The names live only in `scripts/data/osrs-sound-names.tsv`, distilled from the
+ * wiki's *List of sound IDs* — which exists because Jagex once shipped the names
+ * by accident. Ids come from there; the audio still comes out of the local cache.
+ */
+function findNames(needle) {
+  const path = join(REPO, 'scripts', 'data', 'osrs-sound-names.tsv');
+  if (!existsSync(path)) { console.error(`Missing ${path}`); return; }
+  const re = new RegExp(needle, 'i');
+  let hits = 0;
+  for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {
+    if (!line || line.startsWith('#')) continue;
+    const [id, name] = line.split(/\t/);
+    if (re.test(name)) { console.log(`${id.padStart(6)}  ${name}`); hits++; }
+  }
+  console.log(hits ? `${hits} match(es) for /${needle}/i` : `No sound named /${needle}/i`);
+}
+
 async function main() {
+  // The name lookup reads a vendored table, not the cache — answer it before
+  // insisting on a cache being installed.
+  const findIdx = process.argv.indexOf('--find');
+  if (findIdx !== -1) { findNames(process.argv[findIdx + 1] ?? ''); process.exit(0); }
+
   if (!existsSync(join(CACHE_DIR, 'main_file_cache.dat2'))) {
     console.error(`No cache at ${CACHE_DIR}\nSet OSRS_CACHE_DIR.`);
     process.exit(1);

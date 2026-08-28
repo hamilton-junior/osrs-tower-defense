@@ -228,60 +228,37 @@ const DEATH_TYPES = [
   // Bosses and their adds — each with its own cry, never a borrowed one.
   'giant_mole', 'cerberus', 'dusk', 'dawn', 'yt_hurkot', 'summoned_soul',
   'scurrius', 'brutus',
+  // Kharidian. Every one of these used to borrow a neighbour's voice; each now
+  // ships the clip OSRS itself files under that monster's name. Two took a
+  // deduction: the kalphite Guardian's family is filed `kalthite_lord` (Jagex's
+  // own spelling, and OSRS's four kalphites are Worker/Soldier/Guardian/Queen
+  // against sound families worker/soldier/lord/queen), and the Scarab mage's is
+  // `locust_mage` — NPC 794 sits beside the Locust rider (795) and the family
+  // runs locust / locust_mage / locust_rider in step.
+  'mummy', 'scarab_mage', 'locust_rider', 'kalphite_worker', 'kalphite_guardian',
+  'jackal', 'vulture', 'desert_lizard', 'dust_devil',
+  // Misthalin. Both frogs are filed under `toad`, OSRS's own name for them.
+  'cave_bug', 'cave_slime', 'giant_bat', 'big_frog', 'giant_frog',
+  // The regional locals. The Ice troll is the one concession: OSRS gives it its
+  // own hit and attack clips but no death of its own, so `troll_death` is the
+  // sound the game itself falls back to for it.
+  'ice_warrior', 'ice_troll', 'harpie_bug_swarm',
 ];
 const DEATH_SOUNDS: Record<string, string> = {};
 for (const t of DEATH_TYPES) DEATH_SOUNDS[t] = `${SND}/death_${t}.wav`;
-// Scurrius' Giant rats are not borrowing a stand-in: `rat` in this game *is* the
-// cache's Giant rat (NPC 2510), and Scurrius' own rat (7223) shares that rig and
-// that voice. One clip, two enemy types — so no second copy of the same bytes.
-// Scurrius himself now has his own cry, and so does Brutus: both post-date the
-// curated sound list, but their death animations name the sound in their frames,
-// which is where those two ids came from.
+
+// The three shared clips below are not stand-ins — OSRS genuinely gives these
+// pairs one voice, so a second copy of the same bytes would be dead weight.
+// `rat` in this game *is* the cache's Giant rat (NPC 2510), and Scurrius' own rat
+// (7223) shares that rig and that cry; a hobgoblin is a goblin's throat; and every
+// giant in OSRS dies to the same bellow, so the moss giant is the hill giant's.
 DEATH_SOUNDS.giant_rat = DEATH_SOUNDS.rat;
-// The four regional locals have no cry of their own in the curated sound map, so
-// each borrows the nearest voice already baked rather than shipping a new one: the
-// Ice warrior is a man in armour (human_death, 512), the Ice troll and the Jogre are
-// both big slow brutes (hill giant), and the Harpie bug swarm is an insect chorus
-// (scorpion). The troll and the jogre live in different regions and never meet, so
-// the one shared clip is never heard twice on the same board.
-DEATH_SOUNDS.ice_warrior = `${SND}/death_human.wav`;
-DEATH_SOUNDS.ice_troll = DEATH_SOUNDS.hill_giant;
-DEATH_SOUNDS.jogre = DEATH_SOUNDS.hill_giant;
-DEATH_SOUNDS.harpie_bug_swarm = DEATH_SOUNDS.scorpion;
-// Misthalin's seven are the same story: the cache's NPC defs carry no sound ids, so
-// each takes the nearest voice already baked. Two of them are not stand-ins at all —
-// a hobgoblin *is* a goblin's throat, and OSRS gives every giant one death cry, so
-// the moss giant shares the hill giant's. The rest borrow by kind: the cave bug is an
-// insect (scorpion), the cave slime the only wet thing baked (bloodveld), the giant
-// bat a small squealing mammal (rat), and the two frogs the only low animal bellow
-// there is (cow) — the weakest match of the set, and the first to replace if a frog
-// clip is ever decoded.
 DEATH_SOUNDS.hobgoblin = DEATH_SOUNDS.goblin;
 DEATH_SOUNDS.moss_giant = DEATH_SOUNDS.hill_giant;
-DEATH_SOUNDS.cave_bug = DEATH_SOUNDS.scorpion;
-DEATH_SOUNDS.cave_slime = DEATH_SOUNDS.bloodveld;
-DEATH_SOUNDS.giant_bat = DEATH_SOUNDS.rat;
-DEATH_SOUNDS.big_frog = DEATH_SOUNDS.cow;
-DEATH_SOUNDS.giant_frog = DEATH_SOUNDS.cow;
-
-// Kharidian, same rule. Three of the nine are humanoid enough to use the human cry
-// outright — the mummy, the scarab mage and the locust rider all ride the human rig
-// in the cache, so it is the voice their animations were built around. The rest
-// borrow by kind: the kalphites and the scarab-swarm bodies are insects (scorpion),
-// the jackal a snarling dog (hellhound, the only canine baked), the vulture a bird
-// with nothing else close (rat's squeal, the smallest cry there is), and the desert
-// lizard a cold-blooded thing that hisses out (spider). The dust devil is a
-// whirlwind with no throat at all — the ghost's fade is the nearest thing to a body
-// dispersing, and it is the pick most worth replacing if a real clip turns up.
-DEATH_SOUNDS.mummy = `${SND}/death_human.wav`;
-DEATH_SOUNDS.scarab_mage = `${SND}/death_human.wav`;
-DEATH_SOUNDS.locust_rider = `${SND}/death_human.wav`;
-DEATH_SOUNDS.kalphite_worker = DEATH_SOUNDS.scorpion;
-DEATH_SOUNDS.kalphite_guardian = DEATH_SOUNDS.scorpion;
-DEATH_SOUNDS.jackal = DEATH_SOUNDS.hellhound;
-DEATH_SOUNDS.vulture = DEATH_SOUNDS.rat;
-DEATH_SOUNDS.desert_lizard = DEATH_SOUNDS.spider;
-DEATH_SOUNDS.dust_devil = DEATH_SOUNDS.ghost;
+// The one voice still borrowed. OSRS has no jogre death clip at all — the whole
+// named sound map holds no `jogre` and no plain ogre death, only the undead
+// Zogre's — so the hill giant's bellow stands in until one is found.
+DEATH_SOUNDS.jogre = DEATH_SOUNDS.hill_giant;
 
 export const ASSETS = {
   spells: SPELL_ICONS,
