@@ -46,11 +46,15 @@ to take a dozen probe images:
   it. Posing his mesh with another skeleton's bones renders garbage (gargoyle 1520: `collapse
   1.00`, a flattened figure). **Reject it and take his own rig's held clip instead** (1518),
   or ship no death and let the engine shrink-fade.
-- **Exactly one clip on a Slayer rig holds at the end — that one is the death.** Checked
+- **Exactly one clip on a Slayer rig holds at the end — that one is the death slot.** Checked
   across ten of them (spectre 1508, kurask 1513, gargoyle 1518, banshee 1524, nechryael 1530,
   pyrefiend 1580, cockatrice 1563, jelly 1587, rockslug 1568, choke devil 1558). The held
   slot is not at a fixed offset, so find it by `holdsOf`, never by position. A held last
   frame is never a block and never an attack — but it is not a "crippled pose" either.
+  **The slot is not a guarantee the clip is usable:** the gargoyle's 1518 holds mid-flap and
+  off the ground, so in game it reads as a stuck frame, not a corpse. Check on the sheet that
+  the held pose actually lands; if it does not, the NPC has no bakeable death — ship walk only
+  and let the engine shrink-fade.
 - **If every clip on the rig shares the walk's frame-length shape, there is no block.**
   The gargoyle's 1517 and 1519 are his walk ±1 tick per frame, diverging only in the last
   three — on screen they *are* the walk. Ship no hurt rather than a hurt that reads as one.

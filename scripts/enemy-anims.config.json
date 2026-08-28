@@ -114,8 +114,7 @@
   "gargoyle": {
     "npc": 412,
     "anims": {
-      "walk": 1515,
-      "death": 1518
+      "walk": 1515
     }
   },
   "blue_dragon": {
