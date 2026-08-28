@@ -286,10 +286,25 @@ Per monster, mirroring the boss checklist:
    the ids. Some monsters legitimately have no hurt clip — that is a valid outcome.
 5. A model icon in `lib/game/assets.ts` (`render-osrs-npcs.mjs`), or `assets.test.ts` fails
    the build.
-6. A death cry. Sequence `frameSounds` is empty for every death clip in the cache, so the
-   id cannot be read out of the animation — either curate one in `extract-osrs-sounds.mjs`
-   by ear, or alias a voice already baked (`DEATH_SOUNDS.jogre = DEATH_SOUNDS.hill_giant`)
-   and say in a comment why that one. Never a silent invention.
+6. **Its own death cry** — the monster's real clip from the cache, never a neighbour's.
+   The id cannot be read out of the cache: the sound index carries no name hashes (12104
+   archives, none named), and a death sequence's `frameSounds` names the cry only for
+   post-2018 content (probed across the whole roster: 4 of 68). So look the name up in
+   `scripts/data/osrs-sound-names.tsv` — `node scripts/extract-osrs-sounds.mjs --find
+   <needle>` — add the id to `TARGETS`, extract, and put the slug in `DEATH_TYPES` in
+   `lib/game/assets.ts`. Watch Jagex's own spellings: kalphites are filed `kalthite`,
+   frogs are filed `toad`. `assets.test.ts` fails the build if any `EnemyType` has no
+   clip or the wav is missing. If a monster's clip genuinely does not exist, **ask** —
+   never invent one, and never quietly alias.
+
+   Three shared clips are not aliases but the truth, because OSRS itself shares them:
+   hobgoblin→goblin, moss_giant→hill_giant, giant_rat→rat.
+
+   **The one accepted exception is the Jogre**, and it is a closed decision (2026-08-28),
+   not an open item: the named sound map holds no `jogre` and no plain ogre death at all —
+   only the undead Zogre's (916), which is a different creature — so the Jogre keeps the
+   hill giant's bellow. Do not "fix" it, and do not cite it as a precedent for aliasing
+   anything else.
 7. Slayer band placement, if it should ever be a task.
 
 ## Suggested build order

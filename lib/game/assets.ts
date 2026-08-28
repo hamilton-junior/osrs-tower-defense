@@ -255,9 +255,11 @@ for (const t of DEATH_TYPES) DEATH_SOUNDS[t] = `${SND}/death_${t}.wav`;
 DEATH_SOUNDS.giant_rat = DEATH_SOUNDS.rat;
 DEATH_SOUNDS.hobgoblin = DEATH_SOUNDS.goblin;
 DEATH_SOUNDS.moss_giant = DEATH_SOUNDS.hill_giant;
-// The one voice still borrowed. OSRS has no jogre death clip at all — the whole
-// named sound map holds no `jogre` and no plain ogre death, only the undead
-// Zogre's — so the hill giant's bellow stands in until one is found.
+// The one voice still borrowed, and deliberately so — a settled exception, not a
+// loose end. OSRS has no jogre death clip at all: the whole named sound map holds
+// no `jogre` and no plain ogre death, only the undead Zogre's (916), which is a
+// different creature. So the Jogre keeps the hill giant's bellow. Written down in
+// docs/enemy-roster.md beside the death-cry rule; do not cite it as a precedent.
 DEATH_SOUNDS.jogre = DEATH_SOUNDS.hill_giant;
 
 export const ASSETS = {
