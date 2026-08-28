@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+  BLAST_CAP_REF_WAVE,
   HUNTER_MAX_LEVEL,
   TRAP_TRIGGER_RADIUS,
+  blastCapMult,
+  blastProfile,
   canCatch,
   catchBonusGold,
   chinBlastDamage,
@@ -18,6 +21,7 @@ import {
   trapsUnlockedAt,
 } from './hunter-traps';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID } from '../data/hunter-traps';
+import { hpScaleForWave } from './enemy-scaling';
 
 const GRID = 32;
 /** A straight road across the middle. Its vertices sit on grid *lines*, the way
@@ -255,6 +259,36 @@ describe('the chinchompa', () => {
   it('is capped, so it can never be an execute on something huge', () => {
     expect(chinBlastDamage(grey, { maxHp: 1_000_000 })).toBeLessThanOrEqual(900);
     expect(chinBlastDamage(red, { maxHp: 1_000_000 })).toBeLessThanOrEqual(1800);
+    // Still a cap late on — it moves, it does not go away.
+    expect(chinBlastDamage(red, { maxHp: 10_000_000 }, 80)).toBeLessThanOrEqual(blastProfile(red, 80)!.cap);
+  });
+
+  it('holds the flat max hit up to the wave it was tuned for', () => {
+    for (const w of [1, 5, BLAST_CAP_REF_WAVE]) expect(blastCapMult(w)).toBe(1);
+    expect(blastProfile(red, BLAST_CAP_REF_WAVE)!.cap).toBe(1800);
+    expect(blastProfile(grey, 1)!.cap).toBe(900);
+  });
+
+  it('grows the max hit with the board it has to hurt', () => {
+    expect(blastCapMult(50)).toBeGreaterThan(blastCapMult(20));
+    expect(blastCapMult(90)).toBeGreaterThan(blastCapMult(50));
+    // The complaint that started this: 1800 stopped mattering long before the run did.
+    expect(chinBlastDamage(red, { maxHp: 40_000 }, 80)).toBeGreaterThan(1800);
+  });
+
+  it('binds on the same kind of target at every wave', () => {
+    // The cap rides the enemy curve, so what it capped at the reference wave it caps
+    // later too: an ordinary enemy is never capped, an absurd one always is. Before
+    // this the second row flipped — by wave 80 the cap bound on everything.
+    const capped = (wave: number, baseHp: number) => {
+      const maxHp = baseHp * hpScaleForWave(wave);
+      const p = blastProfile(red, wave)!;
+      return p.flat + maxHp * p.share >= p.cap;
+    };
+    for (const w of [BLAST_CAP_REF_WAVE, 50, 80]) {
+      expect(capped(w, 220)).toBe(false);   // the fattest ordinary enemy
+      expect(capped(w, 20_000)).toBe(true); // nothing this fat exists — the guard
+    }
   });
 
   it('is a nuisance to a boss, not a phase', () => {

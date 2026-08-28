@@ -700,7 +700,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     type: 'superior_abyssal_demon',
     renderScale: 1.25,
     name: 'Greater Abyssal Demon',
-    hp: 400,
+    hp: 330,
     speed: 75,
     color: '#8a2be2',
     reward: 150,

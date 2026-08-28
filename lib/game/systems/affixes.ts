@@ -102,6 +102,24 @@ export const BOSS_AFFIX_POOL: readonly EnemyAffix[] = ['shielded', 'armored', 'r
 export const BOSS_AFFIX_CHANCE = 0.6;
 export const BOSS_EXTRA_AFFIX_CHANCE = 0.25;
 
+/**
+ * Affixes a **superior** (`superior_*`) never rolls, for the same reason
+ * {@link BOSS_AFFIX_POOL} is a subset: a superior is already the elite spawn —
+ * its own art, its own name, and three lives on a leak instead of one.
+ *
+ * `colossal` and `swarm` are the two affixes that change *what a spawn is* rather
+ * than how it behaves, and both compound with a tier that is already the fattest
+ * thing on the board short of a boss. Colossal is a flat ×{@link COLOSSAL_HP_MULT}
+ * on top of an already-quadratic wave curve, so it grows with whatever it lands on:
+ * harmless on a goblin, and on a wave-50 superior it was three quarters of that
+ * wave's *boss*. Swarm is the same problem read as lives — three superiors at
+ * {@link SUPERIOR_LEAK_COST} apiece is a worse leak than the boss.
+ *
+ * The behavioural half of the pool (shields, armour, regen, haste, wards, volatile)
+ * still rolls: a superior can absolutely be a puzzle, it just can't be a boss.
+ */
+export const SUPERIOR_BARRED_AFFIXES: readonly EnemyAffix[] = ['colossal', 'swarm'];
+
 /** Shield pool = this fraction of the enemy's (already wave-scaled) max HP. */
 export const SHIELD_HP_FRAC = 0.12;
 /** Damage multiplier applied to the armored enemy's resisted style. */
@@ -255,12 +273,16 @@ function drawAffixes(pool: EnemyAffix[], rng: () => number, extraChance: (grante
  * `rng` is injected (`Math.random` in the engine) so the result is deterministic
  * under test. An elite always gets one affix and may stack more — see
  * {@link extraAffixChance}.
+ *
+ * `isSuperior` narrows the pool by {@link SUPERIOR_BARRED_AFFIXES} — the elite tier
+ * carries its own weight already.
  */
-export function rollAffixes(wave: number, isBoss: boolean, rng: () => number): AffixRoll {
+export function rollAffixes(wave: number, isBoss: boolean, rng: () => number, isSuperior = false): AffixRoll {
   if (isBoss) return { affixes: [] };
   const chance = eliteChanceForWave(wave);
   if (chance <= 0 || rng() >= chance) return { affixes: [] };
-  return drawAffixes(poolForWave(ALL_AFFIXES, wave), rng, (granted) => extraAffixChance(wave, granted));
+  const base = isSuperior ? ALL_AFFIXES.filter((a) => !SUPERIOR_BARRED_AFFIXES.includes(a)) : ALL_AFFIXES;
+  return drawAffixes(poolForWave(base, wave), rng, (granted) => extraAffixChance(wave, granted));
 }
 
 /**

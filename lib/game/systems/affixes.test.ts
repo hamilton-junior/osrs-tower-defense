@@ -24,6 +24,7 @@ import {
   STYLE_WEAKNESS_BONUS,
   absorbWithShield,
   ALL_AFFIXES,
+  SUPERIOR_BARRED_AFFIXES,
   AFFIX_DEFS,
   AFFIX_UNLOCK_WAVE,
   ELITE_CHANCE_STEP,
@@ -157,6 +158,30 @@ describe('rollBossAffixes', () => {
     expect(roll.affixes).not.toContain('swarm');
     expect(roll.affixes).not.toContain('colossal');
     expect(roll.affixes).not.toContain('volatile');
+  });
+  it('never gives a superior the affixes that make a second enemy', () => {
+    // rng of 0 passes every gate and drains the pool, so anything reachable shows up.
+    for (let i = 0; i < 200; i++) {
+      const roll = rollAffixes(200, false, seq(0, i / 200, 0, 0, 0, 0), true);
+      for (const a of SUPERIOR_BARRED_AFFIXES) expect(roll.affixes).not.toContain(a);
+    }
+  });
+  it('still gives a superior the behavioural half of the pool', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      for (const a of rollAffixes(200, false, seq(0, i / 300, 0, 0, 0, 0), true).affixes) seen.add(a);
+    }
+    expect(seen.size).toBeGreaterThan(0);
+    for (const a of ALL_AFFIXES) {
+      if (!SUPERIOR_BARRED_AFFIXES.includes(a)) expect(seen.has(a)).toBe(true);
+    }
+  });
+  it('leaves a normal enemy the full pool', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      for (const a of rollAffixes(200, false, seq(0, i / 300, 0, 0, 0, 0)).affixes) seen.add(a);
+    }
+    for (const a of SUPERIOR_BARRED_AFFIXES) expect(seen.has(a)).toBe(true);
   });
   it('uses BOSS_AFFIX_CHANCE as the gate', () => {
     // Just below the gate passes; at/above fails.

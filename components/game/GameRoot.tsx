@@ -3657,7 +3657,7 @@ export default function GameRoot() {
                 // A trap that hurts says how hard, the way a tower does: the flat
                 // part plus the share of the target's own health, and the max hit
                 // that caps them both.
-                const blast = blastProfile(def);
+                const blast = blastProfile(def, ui.wave);
                 return (
                   <div
                     className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-2 w-[16em] z-30 pointer-events-none"

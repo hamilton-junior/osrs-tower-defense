@@ -21,6 +21,7 @@
 import type { Point } from '../types';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapDef, type HunterTrapId } from '../data/hunter-traps';
 import { pointToSegmentDistance, snapToTileCenter } from './geometry';
+import { hpScaleForWave } from './enemy-scaling';
 
 /** The skill's ceiling, like every other skill in the game. Nothing unlocks above
  *  80 (the fifth trap); the rest is the same long tail OSRS has. */
@@ -214,7 +215,13 @@ export function canCatch(
  * Part flat, part share of the target's own max HP, so it stays worth laying at wave
  * eighty without ever being the thing that kills the wave — the cap is what stops the
  * %-share from turning into an execute on a big enemy. Bosses take a quarter: they
- * are the fight, and a 240 gp item does not get to be a boss phase.
+ * are the fight, and a 380 gp item does not get to be a boss phase.
+ *
+ * The cap is a **shape** guard, not a damage ceiling, so it moves with the board:
+ * see {@link blastCapMult}. Written as a fixed 1800 it stopped binding on anything
+ * around wave 20 and then became the binding constraint on everything past ~70,
+ * which is a max hit that dies of old age — the player reads a chinchompa as a
+ * wasted 380 gp long before the run is over.
  */
 export interface BlastProfile {
   /** Damage every target takes regardless of size. */
@@ -227,17 +234,34 @@ export interface BlastProfile {
   bossShare: number;
 }
 
+/** The wave the flat cap below was tuned against, and the anchor
+ *  {@link blastCapMult} measures every later wave from. */
+export const BLAST_CAP_REF_WAVE = 20;
+
+/**
+ * How much the max hit grows by `wave`.
+ *
+ * It rides the *enemy* HP curve rather than a curve of its own, so the cap binds at
+ * the same relative fatness on every wave: whatever fraction of the board it capped
+ * at wave twenty, it caps at wave ninety. Never below 1 — the early game keeps the
+ * flat number, so a chinchompa laid on wave five is exactly what the panel says.
+ */
+export function blastCapMult(wave: number): number {
+  const w = Math.max(1, Math.floor(wave));
+  return Math.max(1, hpScaleForWave(w) / hpScaleForWave(BLAST_CAP_REF_WAVE));
+}
+
 /**
  * The numbers behind a chinchompa's blast, so the hover panel can state them
- * without inventing a target to measure against.
+ * without inventing a target to measure against. `wave` only moves the cap.
  */
-export function blastProfile(def: HunterTrapDef): BlastProfile | null {
+export function blastProfile(def: HunterTrapDef, wave = 1): BlastProfile | null {
   if (def.kind !== 'blast') return null;
   const heavy = def.id === 'red_chinchompa';
   return {
     flat: heavy ? 70 : 40,
     share: heavy ? 0.14 : 0.08,
-    cap: heavy ? 1800 : 900,
+    cap: Math.round((heavy ? 1800 : 900) * blastCapMult(wave)),
     bossShare: 0.25,
   };
 }
@@ -245,8 +269,9 @@ export function blastProfile(def: HunterTrapDef): BlastProfile | null {
 export function chinBlastDamage(
   def: HunterTrapDef,
   target: { maxHp: number; isBoss?: boolean },
+  wave = 1,
 ): number {
-  const p = blastProfile(def);
+  const p = blastProfile(def, wave);
   if (!p) return 0;
   const raw = Math.min(p.cap, p.flat + target.maxHp * p.share);
   return Math.max(1, Math.round(raw * (target.isBoss ? p.bossShare : 1)));

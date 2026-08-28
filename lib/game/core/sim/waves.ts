@@ -141,7 +141,7 @@ export function makeEnemy(eng: GameEngine, type: EnemyType, wave: number, forced
   // the standard elite affixes.
   const roll = forced ?? (def.isBoss
     ? (eng.bossesSeen[type] ? rollBossAffixes(Math.random, wave) : { affixes: [] })
-    : rollAffixes(wave, false, Math.random));
+    : rollAffixes(wave, false, Math.random, type.startsWith('superior_')));
   const affixes = roll.affixes;
   const bossKind = def.isBoss && (MECHANIC_BOSSES as readonly string[]).includes(type)
     ? (type as BossId) : undefined;

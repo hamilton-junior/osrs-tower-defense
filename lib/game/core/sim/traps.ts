@@ -109,7 +109,7 @@ function fire(eng: GameEngine, trap: HunterTrap, def: HunterTrapDef, e: Enemy): 
         // `caught` was taken before the first hit landed — anything already killed
         // by an earlier one in this same blast is no longer on the board.
         if (!eng.enemies.includes(target)) continue;
-        damage(eng, target, chinBlastDamage(def, target), 'hit', false, true, 0, undefined, { tag: 'splash' });
+        damage(eng, target, chinBlastDamage(def, target, eng.wave), 'hit', false, true, 0, undefined, { tag: 'splash' });
       }
       return true;
     }
