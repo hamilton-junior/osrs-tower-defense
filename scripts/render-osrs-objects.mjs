@@ -71,6 +71,13 @@ const TARGETS = {
   patch_empty: { obj: 8573, pitch: 40, models: [8223], cull: false },
   patch_growing: { obj: 8559, pitch: 40 },    // potato plant (mid growth)
   patch_ready: { obj: 8562, pitch: 40 },      // potato, Harvest
+
+  // The wooden direction signpost — the one standing beside the Lumbridge Guide,
+  // and OSRS's own symbol for "the road splits here". Model 1402 is shared by every
+  // classic signpost def; 15522 is just the shell we read it out of. Yaw 0 on
+  // purpose: swept 0/20/40/60/90, and only flat-on keeps the board wide enough to
+  // read at the 1.4em the travel modal draws it.
+  signpost: { obj: 15522, yaw: 0 },
 };
 
 // -------------------------------------------------------- object def parsing

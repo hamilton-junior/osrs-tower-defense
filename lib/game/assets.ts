@@ -450,6 +450,11 @@ export const ASSETS = {
     // The clue-scroll compass, cache-rendered: a dial with a needle. It stands in
     // for elapsed time in the run summary — OSRS has no clock sprite.
     compass: itemIcon('compass'),
+    // The wooden signpost from beside the Lumbridge Guide (object model 1402),
+    // rendered by scripts/render-osrs-objects.mjs. It heads "The Road Forks",
+    // where the compass used to sit — a compass says which way is north, a
+    // signpost says the road splits, which is the choice being offered.
+    signpost: `${LOCAL}/objects/signpost.png`,
     // The spade: the tool OSRS digs with, and the icon for bending the road.
     spade: itemIcon('spade'),
     // The Hunter paw print (cache sprite 220) — the skill the road traps belong to.

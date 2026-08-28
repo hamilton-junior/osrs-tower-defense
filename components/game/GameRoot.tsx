@@ -2780,7 +2780,7 @@ export default function GameRoot() {
       {ui.pendingTravel && !ui.gameOver && !ui.pendingRelics && !ui.pendingDraft && (
         <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4">
           <div className="flex items-center gap-[0.4em] mb-1">
-            <img src={ASSETS.misc.compass} alt="" className="w-[1.4em] h-[1.4em]" />
+            <img src={ASSETS.misc.signpost} alt="" className="w-[1.4em] h-[1.4em] object-contain" />
             <div className="text-osrs-orange font-bold text-[1.4em] text-center">The Road Forks</div>
           </div>
           <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center max-w-[34em]">
