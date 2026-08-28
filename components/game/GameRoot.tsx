@@ -938,41 +938,61 @@ export default function GameRoot() {
       engineRef.current.queuePlacement(x, y);
       return;
     }
-    // Marquee drag: once moved past a small threshold, draw the selection box.
+  }, [toLogic]);
+
+  // Grow the box to the pointer, wherever it is. Once past a small threshold the
+  // drag is real and the click that follows it gets swallowed.
+  const dragMarquee = useCallback((cx: number, cy: number) => {
     const start = marqueeStart.current;
-    if (start && (e.buttons & 1)) {
-      // The container: the marquee is positioned inside it, in its pixels.
-      const rect = boardRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      if (Math.hypot(e.clientX - start.cx, e.clientY - start.cy) > 6) marqueeDragged.current = true;
-      if (marqueeDragged.current) {
-        const x0 = start.cx - rect.left, y0 = start.cy - rect.top;
-        const x1 = e.clientX - rect.left, y1 = e.clientY - rect.top;
-        setMarqueeBox({ l: Math.min(x0, x1), t: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) });
-      }
+    // The container: the marquee is positioned inside it, in its pixels.
+    const rect = boardRef.current?.getBoundingClientRect();
+    if (!start || !rect) return;
+    if (Math.hypot(cx - start.cx, cy - start.cy) > 6) marqueeDragged.current = true;
+    if (!marqueeDragged.current) return;
+    const x0 = start.cx - rect.left, y0 = start.cy - rect.top;
+    const x1 = cx - rect.left, y1 = cy - rect.top;
+    setMarqueeBox({ l: Math.min(x0, x1), t: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) });
+  }, []);
+
+  // Close the box and select what it covered. `inside` says whether the release
+  // landed on the board: when it didn't, no click event follows it, so the flag
+  // that swallows that click has to be cleared here or it would eat the *next*
+  // real click instead.
+  const endMarquee = useCallback((cx: number, cy: number, inside: boolean) => {
+    const start = marqueeStart.current;
+    marqueeStart.current = null;
+    setMarqueeBox(null);
+    if (start && marqueeDragged.current) {
+      const a = toLogic(start.cx, start.cy);
+      const b = toLogic(cx, cy);
+      engineRef.current?.selectTowersInBox(a.x, a.y, b.x, b.y);
     }
+    if (!inside) marqueeDragged.current = false;
   }, [toLogic]);
 
   // Start a marquee only when not placing/moving a tower (so click-to-place is
   // untouched). Left button only.
+  //
+  // The drag is followed on `window`, not on the board: a box dragged from near an
+  // edge leaves the board constantly, and a React handler on the board never sees
+  // the mouse-up that happens outside it — the selection simply never completed and
+  // the box hung on screen. Both listeners come off again the moment the drag ends.
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     const eng = engineRef.current;
     if (e.button !== 0 || !eng || eng.selectedTowerType || eng.movingTowerId
         || eng.movingGroupIds.length || eng.pasting) return;
     marqueeStart.current = { cx: e.clientX, cy: e.clientY };
     marqueeDragged.current = false;
-  }, []);
-
-  const onMouseUp = useCallback((e: React.MouseEvent) => {
-    const start = marqueeStart.current;
-    marqueeStart.current = null;
-    setMarqueeBox(null);
-    if (start && marqueeDragged.current) {
-      const a = toLogic(start.cx, start.cy);
-      const b = toLogic(e.clientX, e.clientY);
-      engineRef.current?.selectTowersInBox(a.x, a.y, b.x, b.y);
-    }
-  }, [toLogic]);
+    const move = (ev: MouseEvent) => dragMarquee(ev.clientX, ev.clientY);
+    const up = (ev: MouseEvent) => {
+      if (ev.button !== 0) return;
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      endMarquee(ev.clientX, ev.clientY, !!boardRef.current?.contains(ev.target as Node));
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  }, [dragMarquee, endMarquee]);
 
   const onClick = useCallback((e: React.MouseEvent) => {
     // A real marquee drag already handled selection on mouse-up; swallow the click.
@@ -1330,7 +1350,6 @@ export default function GameRoot() {
         style={{ objectFit: 'contain' }}
         onMouseMove={onMove}
         onMouseDown={onMouseDown}
-        onMouseUp={onMouseUp}
         onClick={onClick}
         onContextMenu={onContextMenu}
       />
