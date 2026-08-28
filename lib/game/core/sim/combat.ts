@@ -24,6 +24,7 @@ import type { HitsplatKind } from '../engine-state';
 import type { GameEngine } from '../engine';
 import { stallStacksOf, liveRatsOf, shearRat } from './bosses';
 import { makeEnemy, spawnEffect, spawnAncientHitFx, addRing, addBolt } from './waves';
+import { bodyY } from '../../systems/enemy-anchor';
 
 /**
  * The fight itself: towers picking targets and firing, projectiles travelling, a
@@ -977,7 +978,7 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
   const rise = lane?.rise ?? 0;
   eng.hitsplats.push({
     x: enemy.x + side * 14 + (Math.random() - 0.5) * (minor ? 8 : 16),
-    y: minor ? enemy.y + below : enemy.y - 18,
+    y: minor ? bodyY(enemy) + below : bodyY(enemy) - 18,
     value: dealt,
     kind: dealt > 0 ? kind : 'miss',
     life: HITSPLAT_LIFE,

@@ -7,6 +7,7 @@ import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, Z
 import { uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
 import { makeEnemy, addRing } from './waves';
+import { bodyY } from '../../systems/enemy-anchor';
 
 /**
  * Per-boss behaviour: the state machines that make each boss its own fight rather
@@ -662,7 +663,7 @@ export function updateJad(eng: GameEngine, e: Enemy, dt: number) {
         e.hp = Math.min(e.maxHp, e.hp + heal);
         eng.caStats.bossFlags.jadHealed = true;
         // A green "heal" splat floats off Jad so the regen reads clearly.
-        eng.hitsplats.push({ x: e.x + (Math.random() - 0.5) * 16, y: e.y - 18, value: heal, kind: 'heal', life: HITSPLAT_LIFE });
+        eng.hitsplats.push({ x: e.x + (Math.random() - 0.5) * 16, y: bodyY(e) - 18, value: heal, kind: 'heal', life: HITSPLAT_LIFE });
         for (let i = 0; i < 3; i++) {
           eng.particles.push({ x: e.x + (Math.random() - 0.5) * 20, y: e.y, vx: (Math.random() - 0.5) * 30, vy: -30 - Math.random() * 30, life: 0.5, maxLife: 0.5, color: '#48d04a', size: 2 });
         }
@@ -860,7 +861,7 @@ export function updateRat(eng: GameEngine, e: Enemy, dt: number) {
     if (healed > 0) {
       eng.hitsplats.push({
         x: king.x + (Math.random() - 0.5) * 16,
-        y: king.y - 18,
+        y: bodyY(king) - 18,
         value: Math.round(healed),
         kind: 'heal',
         life: HITSPLAT_LIFE,

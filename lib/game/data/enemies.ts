@@ -594,6 +594,12 @@ export const ENEMIES: Record<string, EnemyDef> = {
     type: 'giant_mole',
     // The mole model is low and squat; scale up so it reads as a boss on the field.
     renderScale: 1.4,
+    // Its cell is shared with the burrow and climb-out clips, which sink the whole
+    // model below the ground line, so the mole standing on the road is baked into
+    // the top of that cell — measured, its body centre is ~0.3 of a drawn size
+    // above the point it walks on. Everything that lands *on* the mole is raised
+    // by that much; the dust rings still belong to the ground and stay put.
+    bodyRise: 0.3,
     name: 'Giant Mole',
     // The gentlest boss, and the one a fresh account meets first (wave 10). Its HP
     // sits under Jad's 750 because the burrow already buys it survival: every cycle

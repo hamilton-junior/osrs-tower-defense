@@ -14,6 +14,7 @@ import { rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRe
 import { resolveEventMods } from '../../systems/wave-events';
 import { pickVariant, resetVariantBag } from '../../systems/model-variants';
 import { enemyLeakCost } from '../../systems/leak-cost';
+import { bodyY } from '../../systems/enemy-anchor';
 import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, type BossId } from '../../systems/boss-mechanics';
 import { uid, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT } from '../engine-state';
 import type { WavePreviewEntry } from '../engine-state';
@@ -211,7 +212,7 @@ export function updateEffects(eng: GameEngine, dt: number) {
     // lives; once it dies or leaks, the effect finishes where it stood.
     if (fx.enemyId) {
       const t = eng.enemies.find((en) => en.id === fx.enemyId);
-      if (t) { fx.x = t.x; fx.y = t.y; }
+      if (t) { fx.x = t.x; fx.y = bodyY(t); }
       else fx.enemyId = undefined;
     }
     const meta = SPOTANIMS[fx.slug];
@@ -265,7 +266,7 @@ export function spawnAncientHitFx(eng: GameEngine, slug: string, e: Enemy) {
   if (!meta) return;
   const fit = ANCIENT_HIT_FIT[slug.split('_')[1]] ?? 1.15;
   const bodyPx = (e.isBoss ? 60 : 30) * (e.renderScale ?? 1) * 1.32; // matches drawEnemies' ds
-  eng.spotEffects.push({ slug, x: e.x, y: e.y, age: 0, scale: (bodyPx * fit) / meta.size, enemyId: e.id });
+  eng.spotEffects.push({ slug, x: e.x, y: bodyY(e), age: 0, scale: (bodyPx * fit) / meta.size, enemyId: e.id });
 }
 
 /** An expanding ring VFX (overkill cleave, kill-streak shockwave, soul-split heal). */

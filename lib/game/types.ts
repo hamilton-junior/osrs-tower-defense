@@ -78,6 +78,14 @@ export interface EnemyDef {
   /** Sprite size multiplier at draw time (default 1); compensates for sprites
    *  with heavy transparent padding (see data/enemies.ts). */
   renderScale?: number;
+  /** How far above the enemy's point its drawn body actually sits, as a fraction
+   *  of that drawn size. Almost always absent: a baked cell frames the model
+   *  around its middle, so the point and the body agree. It exists for the model
+   *  whose cell reserves room the body does not use — the Giant Mole's dig goes
+   *  a full body-length below ground, so its walking body is baked into the top
+   *  of the cell and anything pinned to the point (hitsplats, the Ancients hit
+   *  GFX) would land under the mole instead of on it. See systems/enemy-anchor. */
+  bodyRise?: number;
 }
 
 /** A damage-over-time effect kind. Each ticks and renders independently. Toxic
