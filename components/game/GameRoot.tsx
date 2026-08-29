@@ -116,6 +116,20 @@ const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = {
   achievement: 'Combat Achievement',
 };
 
+/** One press of the interface-size − / +.
+ *
+ *  Steps land on the multiples of `UI_SCALE_STEP` — except the last one up, which is
+ *  allowed to be short so a screen whose ceiling sits between two steps (1920 wide
+ *  holds 107%) can still spend the room it has instead of stopping at the step below.
+ *  "−" from such a value snaps back onto the grid rather than carrying the remainder
+ *  down through every size after it. */
+const stepScale = (v: number, dir: 1 | -1, max: number) => {
+  const steps = v / UI_SCALE_STEP;
+  // Nudge off the grid before rounding so a value already ON it moves a whole step.
+  const next = (dir > 0 ? Math.floor(steps + 1e-6) + 1 : Math.ceil(steps - 1e-6) - 1) * UI_SCALE_STEP;
+  return Math.min(max, Math.max(UI_SCALE_MIN, +next.toFixed(2)));
+};
+
 const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>)[id];
 /** Icon for a GE offer / slayer reward / meta upgrade: resolves the data table's
  *  wiki filename to the cache-baked local asset (wiki hot-link as fallback). */
@@ -285,10 +299,10 @@ export default function GameRoot() {
     engineRef.current?.setUiScale(uiScale);
   }, [uiScale]);
   // How far the interface can actually grow is a property of the SCREEN, not a
-  // constant: measured, the bar's run-controls start clipping at 110% on a 1366px
-  // display, 130% at 1600, 140% at 1920, and never below 160% at 2560. A single
-  // hard-coded ceiling is therefore wrong for somebody no matter which one is
-  // picked — which is exactly the bug that got reported, on a small display.
+  // constant: measured, the bar's run-controls start clipping at 93% on a 1366px
+  // display, 107% at 1920 and 130% at 2560. A single hard-coded ceiling is therefore
+  // wrong for somebody no matter which one is picked — which is exactly the bug that
+  // got reported.
   //
   // So measure instead: `maxUiScale` is the largest scale this window can hold, solved
   // from the bar's own natural width. "+" stops there, and a scale inherited from a
@@ -347,8 +361,14 @@ export default function GameRoot() {
       const skew = halves.length === 2 ? Math.abs(natural(halves[0]) - natural(halves[1])) : 0;
       const perUnit = (natural(bar, true) + skew) / Math.max(0.01, s);
       const fits = perUnit > 0 ? bar.offsetWidth / perUnit : UI_SCALE_MAX;
-      const stepped = Math.floor((fits + 1e-6) / UI_SCALE_STEP) * UI_SCALE_STEP;
-      setMaxUiScale(Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, +stepped.toFixed(2))));
+      // Keep the ceiling at its measured value instead of rounding it down onto the
+      // step grid. A 1920-wide row holds 107%, and flooring that to the nearest step
+      // handed the player 100% with the "+" greyed out — indistinguishable from a
+      // hard 100% cap, and reported as one. The last press is allowed to be a short
+      // step so the leftover room is actually reachable; 1e-3 off keeps a rounding
+      // sliver between the ceiling and the width it was solved from.
+      const room = Math.floor((fits - 1e-3) * 100) / 100;
+      setMaxUiScale(Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, room)));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -3018,8 +3038,7 @@ export default function GameRoot() {
           onSeen={markTipSeen}
           onSkipAll={skipAllTips}
           uiScale={uiScale}
-          onNudgeUiScale={(d) => setUiScale((v) => Math.min(maxUiScale,
-            Math.max(UI_SCALE_MIN, +(v + d * UI_SCALE_STEP).toFixed(2))))}
+          onNudgeUiScale={(d) => setUiScale((v) => stepScale(v, d, maxUiScale))}
         />
       )}
       </div>{/* board — floating overlays anchor to the map, never the dock bar */}
@@ -3590,7 +3609,7 @@ export default function GameRoot() {
             <div data-tut="uiscale" className="shrink-0 flex items-center gap-[0.25em]">
               <span className="text-[0.6em] text-[#d3c3a0] ml-[0.4em] mr-[0.4em] uppercase tracking-wide select-none">UI</span>
               <button
-                onClick={() => setUiScale((v) => Math.max(UI_SCALE_MIN, +(v - UI_SCALE_STEP).toFixed(2)))}
+                onClick={() => setUiScale((v) => stepScale(v, -1, maxUiScale))}
                 disabled={uiScale <= UI_SCALE_MIN}
                 title="Smaller interface"
                 className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
@@ -3601,7 +3620,7 @@ export default function GameRoot() {
                 {Math.round(uiScale * 100)}%
               </span>
               <button
-                onClick={() => setUiScale((v) => Math.min(maxUiScale, +(v + UI_SCALE_STEP).toFixed(2)))}
+                onClick={() => setUiScale((v) => stepScale(v, 1, maxUiScale))}
                 disabled={uiScale >= maxUiScale}
                 title={uiScale >= maxUiScale && maxUiScale < UI_SCALE_MAX
                   ? 'This screen has no room for a larger interface — widen the window for more'

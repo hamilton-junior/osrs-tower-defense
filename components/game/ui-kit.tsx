@@ -46,7 +46,7 @@ export const fs = (base: string) => `calc(${base} * var(--ui-scale, 1))`;
  *  the gold. Anything stored outside these bounds is clamped back on load. */
 export const UI_SCALE_MIN = 0.7;
 export const UI_SCALE_MAX = 1.6;
-export const UI_SCALE_STEP = 0.1;
+export const UI_SCALE_STEP = 0.05;
 
 /** Collapse state for a tray, persisted under `key` so it survives the bar body
  *  unmounting when another tab is selected — the tray remounts and its local
