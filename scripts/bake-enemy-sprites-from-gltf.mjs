@@ -28,6 +28,7 @@ import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 import puppeteer from 'puppeteer-core';
 import { trimTail } from './lib/clip-tail.mjs';
+import { clipSource, isAltModel, altGltfName } from './lib/anim-source.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -71,7 +72,13 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const SIZE = ${SIZE};
-let renderer, scene, camera, mixer, root, gltf, actions, meshes;
+// A clip is normally posed on the enemy's own mesh, but one whose sequence was
+// authored on a FOREIGN skeleton ships as its own glTF (<slug>__<clip>.gltf, see
+// scripts/lib/anim-source.mjs). Every one of them is loaded into the SAME scene so
+// they share one camera and one fit — that shared fit is what makes a borrowed
+// death land where the body was standing — and only the root that owns the clip
+// being rendered is visible.
+let renderer, scene, camera, meshes, roots, actions;
 
 renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1);
@@ -79,43 +86,49 @@ renderer.setSize(SIZE, SIZE);
 renderer.setClearColor(0x000000, 0);
 document.body.appendChild(renderer.domElement);
 
-window.loadEnemy = async (slug) => {
-  if (root) { scene.remove(root); }
+window.loadEnemy = async (files) => {
   scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight(0xffffff, 0x3a3a3a, 1.15));
   const key = new THREE.DirectionalLight(0xffffff, 0.65);
   key.position.set(1, 2, 1.5);
   scene.add(key);
 
-  gltf = await new GLTFLoader().loadAsync('/assets/enemies-gltf/' + slug + '.gltf');
-  root = gltf.scene;
   meshes = [];
-  root.traverse((o) => {
-    if (o.isMesh && o.material && o.geometry) {
-      o.frustumCulled = false;
-      o.material.flatShading = true;
-      o.material.side = THREE.DoubleSide;
-      o.material.needsUpdate = true;
-      meshes.push(o);
-    }
-  });
-  scene.add(root);
-
-  // The cache's morph tracks export as STEP: a pose is held, then snaps. Sampling
-  // exactly on a keyframe gives the same vertices either way, so switching to LINEAR
-  // leaves every keyframe bake byte-identical and only adds meaning to the times in
-  // between — which is what lets every sheet carry in-betweens (see tweenTimes).
-  for (const c of gltf.animations) for (const t of c.tracks) t.setInterpolation(THREE.InterpolateLinear);
-
-  mixer = new THREE.AnimationMixer(root);
+  roots = [];
   actions = {};
-  for (const c of gltf.animations) actions[c.name] = mixer.clipAction(c);
+  const infos = [];
+  for (const file of files) {
+    const gltf = await new GLTFLoader().loadAsync('/assets/enemies-gltf/' + file + '.gltf');
+    const root = gltf.scene;
+    root.traverse((o) => {
+      if (o.isMesh && o.material && o.geometry) {
+        o.frustumCulled = false;
+        o.material.flatShading = true;
+        o.material.side = THREE.DoubleSide;
+        o.material.needsUpdate = true;
+        meshes.push(o);
+      }
+    });
+    scene.add(root);
+    roots.push(root);
 
-  return gltf.animations.map((c) => ({
-    name: c.name,
-    duration: c.duration,
-    times: Array.from(c.tracks[0] ? c.tracks[0].times : [0]),
-  }));
+    // The cache's morph tracks export as STEP: a pose is held, then snaps. Sampling
+    // exactly on a keyframe gives the same vertices either way, so switching to LINEAR
+    // leaves every keyframe bake byte-identical and only adds meaning to the times in
+    // between — which is what lets every sheet carry in-betweens (see tweenTimes).
+    for (const c of gltf.animations) for (const t of c.tracks) t.setInterpolation(THREE.InterpolateLinear);
+
+    const mixer = new THREE.AnimationMixer(root);
+    for (const c of gltf.animations) {
+      actions[c.name] = { root, mixer, action: mixer.clipAction(c) };
+      infos.push({
+        name: c.name,
+        duration: c.duration,
+        times: Array.from(c.tracks[0] ? c.tracks[0].times : [0]),
+      });
+    }
+  }
+  return infos;
 };
 
 // Orthographic basis that reproduces the old bake's project(yaw,pitch) exactly
@@ -200,11 +213,15 @@ window.setupCamera = (yawDeg, pitchDeg, flipY, mirror) => {
 
 // Render one absolute time of a clip's action and return a PNG dataURL.
 window.renderAt = (clipName, t) => {
-  for (const a of Object.values(actions)) { a.stop(); }
-  const act = actions[clipName];
+  for (const e of Object.values(actions)) e.action.stop();
+  const entry = actions[clipName];
+  // Only the mesh this clip was authored on is in the shot — the others are still
+  // in the scene (they paid into the shared fit) but must not appear beside it.
+  for (const r of roots) r.visible = r === entry.root;
+  const act = entry.action;
   act.reset(); act.play(); act.paused = true;
   act.time = Math.max(0, t);
-  mixer.update(0);
+  entry.mixer.update(0);
   renderer.render(scene, camera);
   return renderer.domElement.toDataURL('image/png');
 };
@@ -267,6 +284,9 @@ async function main() {
   const server = createServer((req, res) => {
     const url = decodeURIComponent(req.url.split('?')[0]);
     if (url === '/' || url === '/index.html') { res.setHeader('content-type', 'text/html'); res.end(harnessHtml()); return; }
+    // Chrome asks for this unprompted; without an answer it lands in pageErrors and
+    // every bake ends with a bogus "404 (Not Found)" warning.
+    if (url === '/favicon.ico') { res.statusCode = 204; res.end(); return; }
     if (url.startsWith('/vendor/addons/')) return serveFile(res, join(THREE_DIR, 'examples', 'jsm', url.slice('/vendor/addons/'.length)));
     if (url.startsWith('/vendor/')) return serveFile(res, join(THREE_DIR, 'build', url.slice('/vendor/'.length)));
     if (url.startsWith('/assets/')) return serveFile(res, join(PUBLIC, url));
@@ -297,11 +317,19 @@ async function main() {
   const entries = Object.entries(config).filter(([slug]) => !only || slug === only);
   for (const [slug, cfgIn] of entries) {
     const cfg = { ...TARGET_DEFAULTS, ...cfgIn, loop: { ...TARGET_DEFAULTS.loop, ...(cfgIn.loop ?? {}) } };
-    if (!existsSync(join(GLTF_DIR, `${slug}.gltf`))) { console.warn(`! ${slug}: no glTF`); continue; }
+    // The enemy's own mesh carries every ordinary clip; a clip posed on a borrowed
+    // model has a glTF to itself, and the harness loads them all into one scene.
+    const src = Object.fromEntries(Object.entries(cfg.anims).map(([n, v]) => [n, clipSource(v)]));
+    const files = [];
+    if (Object.entries(cfg.anims).some(([, v]) => !isAltModel(v))) files.push(slug);
+    for (const [n, v] of Object.entries(cfg.anims)) if (isAltModel(v)) files.push(altGltfName(slug, n));
+    const have = files.filter((f) => existsSync(join(GLTF_DIR, `${f}.gltf`)));
+    if (!have.length) { console.warn(`! ${slug}: no glTF`); continue; }
+    for (const f of files) if (!have.includes(f)) console.warn(`! ${slug}: missing ${f}.gltf — re-run export:enemy-gltf`);
 
     let clipInfo;
     try {
-      clipInfo = await page.evaluate((s) => window.loadEnemy(s), slug);
+      clipInfo = await page.evaluate((fs) => window.loadEnemy(fs), have);
     } catch (e) { console.warn(`! ${slug}: load failed — ${e.message}`); continue; }
     await page.evaluate((y, p, fy, mi) => window.setupCamera(y, p, fy, mi), cfg.yaw, cfg.pitch, !!cfg.flipY, !!cfg.mirror);
 
@@ -342,7 +370,7 @@ async function main() {
         }
       });
       writeFileSync(join(outDir, `${name}.png`), PNG.sync.write(sheet));
-      manifest.clips[name] = { anim: cfg.anims[name], frames, frameMs, loop: !!cfg.loop[name] };
+      manifest.clips[name] = { anim: src[name].anim, frames, frameMs, loop: !!cfg.loop[name] };
       console.log(`  ✓ ${slug}/${name}.png  (${frames} frames${cut.dropped ? `, tail -${cut.dropped}` : ''})`);
     }
 

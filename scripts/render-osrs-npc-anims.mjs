@@ -26,6 +26,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { readAnimConfig } from './lib/anim-source.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -53,8 +54,11 @@ const MS_PER_UNIT = 20; // OSRS frame-length unit ≈ 20ms (one client cycle)
  */
 const TARGET_DEFAULTS = { yaw: 50, pitch: 6, maxFrames: 24, mirror: false, loop: { walk: true } };
 const CONFIG_PATH = join(__dirname, 'enemy-anims.config.json');
-const TARGETS = Object.fromEntries(
-  Object.entries(JSON.parse(readFileSync(CONFIG_PATH, 'utf8'))).map(([slug, cfg]) => [
+// Read lazily: `skipAlt` reports the clips this renderer cannot draw, and that
+// belongs to a bake run — not to every script that merely imports buildNpcModel
+// from here.
+const readTargets = () => Object.fromEntries(
+  Object.entries(readAnimConfig(CONFIG_PATH, { skipAlt: true })).map(([slug, cfg]) => [
     slug,
     { ...TARGET_DEFAULTS, ...cfg, loop: { ...TARGET_DEFAULTS.loop, ...(cfg.loop ?? {}) } },
   ]),
@@ -339,7 +343,7 @@ async function main() {
   if (yawIdx !== -1) camOverride.yaw = Number(argv[yawIdx + 1]);
   if (pitchIdx !== -1) camOverride.pitch = Number(argv[pitchIdx + 1]);
 
-  const entries = Object.entries(TARGETS).filter(([slug]) => !only || slug === only);
+  const entries = Object.entries(readTargets()).filter(([slug]) => !only || slug === only);
   if (!entries.length) { console.warn('No TARGETS to bake.'); process.exit(0); }
 
   for (const [slug, cfgIn] of entries) {

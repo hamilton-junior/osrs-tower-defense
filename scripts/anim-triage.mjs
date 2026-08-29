@@ -48,6 +48,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildNpcModel, loadClip, renderFrame, computeFit, SIZE, CACHE_DIR } from './render-osrs-npc-anims.mjs';
 import { metrics, slotScores } from './lib/anim-metrics.mjs';
+import { readAnimConfig } from './lib/anim-source.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const INDEX_PATH = join(__dirname, 'data', 'anim-rig-index.json');
@@ -61,7 +62,7 @@ const LABELW = 190;
 const METRIC_FRAMES = 24;   // frames loaded per clip for the metrics
 
 // ------------------------------------------------------------------ the target
-const config = JSON.parse(readFileSync(join(__dirname, 'enemy-anims.config.json'), 'utf8'));
+const config = readAnimConfig(join(__dirname, 'enemy-anims.config.json'));
 const observed = JSON.parse(readFileSync(join(__dirname, 'data', 'openosrs-observed-anims.json'), 'utf8'));
 const slug = argv.find((a) => !a.startsWith('--') && config[a]);
 const npcId = Number(arg('--npc', slug ? config[slug].npc : NaN));

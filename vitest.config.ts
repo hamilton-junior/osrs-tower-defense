@@ -11,6 +11,8 @@ export default defineConfig({
     // Pure game-logic modules don't touch the DOM, so the lightweight
     // node environment keeps the suite fast.
     environment: 'node',
-    include: ['lib/**/*.test.ts'],
+    // Game logic is TypeScript under lib/; the build-time bake scripts are plain
+    // ESM, and their pure helpers are tested beside them as .mjs.
+    include: ['lib/**/*.test.ts', 'scripts/**/*.test.mjs'],
   },
 });

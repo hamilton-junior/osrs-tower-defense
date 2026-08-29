@@ -24,9 +24,10 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildNpcModel, loadClip, CACHE_DIR } from './render-osrs-npc-anims.mjs';
 import { metrics, ATTACK_REACH, DEATH_COLLAPSE, LIVE_COLLAPSE } from './lib/anim-metrics.mjs';
+import { readAnimConfig } from './lib/anim-source.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const config = JSON.parse(readFileSync(join(__dirname, 'enemy-anims.config.json'), 'utf8'));
+const config = readAnimConfig(join(__dirname, 'enemy-anims.config.json'));
 const filter = process.argv.slice(2);
 
 const cache = new RSCache(CACHE_DIR);

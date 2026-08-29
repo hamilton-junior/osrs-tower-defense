@@ -82,7 +82,7 @@ const TARGETS = {
 
 // -------------------------------------------------------- object def parsing
 /** Opcode walker for the current (rev-233) object config layout. */
-function parseObjectDef(content) {
+export function parseObjectDef(content) {
   const b = new Uint8Array(content.buffer ?? content);
   const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
   let p = 0;
@@ -112,7 +112,7 @@ function parseObjectDef(content) {
 }
 
 // --------------------------------------------------------------- model render
-async function buildObjectModel(cache, def, modelOverride) {
+export async function buildObjectModel(cache, def, modelOverride) {
   const models = [];
   for (const mid of modelOverride ?? def.models) {
     const m = await cache.getDef(IndexType.MODELS, mid).catch(() => null);
@@ -129,6 +129,19 @@ async function buildObjectModel(cache, def, modelOverride) {
     }
   }
   return merged;
+}
+
+/**
+ * The merged mesh of one scenery object (LOC) id — the hand-rolled parse plus the
+ * loader patch above, in one call, so anything outside this script can borrow a
+ * scenery model without re-deriving either. Used by the enemy exporter when a clip
+ * is animated on an object's model rather than on the NPC's own (see
+ * scripts/lib/anim-source.mjs).
+ */
+export async function objectModelById(cache, objId, modelOverride) {
+  const file = await cache.getFile(IndexType.CONFIGS, ConfigType.OBJECT, objId);
+  if (!file?.content) return null;
+  return buildObjectModel(cache, parseObjectDef(file.content), modelOverride);
 }
 
 function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true } = {}, textures) {
@@ -183,4 +196,6 @@ async function main() {
   process.exit(0);
 }
 
-main();
+// Guarded: this module also exports its object-def parser and model builder, and an
+// importer (the enemy glTF exporter) must not re-render every scenery PNG.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

@@ -23,10 +23,11 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readAnimConfig } from './lib/anim-source.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const observed = JSON.parse(readFileSync(join(__dirname, 'data', 'openosrs-observed-anims.json'), 'utf8'));
-const config = JSON.parse(readFileSync(join(__dirname, 'enemy-anims.config.json'), 'utf8'));
+const config = readAnimConfig(join(__dirname, 'enemy-anims.config.json'));
 
 const args = process.argv.slice(2);
 const npcIdx = args.indexOf('--npc');
