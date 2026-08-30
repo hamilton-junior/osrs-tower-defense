@@ -98,6 +98,234 @@ export function buildDpsRow(t: DpsTowerStat, view: 'wave' | 'total', wave: numbe
   };
 }
 
+/** One group of rows under the active grouping. */
+interface DpsBucket {
+  key: string;
+  label: string;
+  color: string;
+  style: CombatStyle | 'run';
+  icon?: string;
+  rows: DpsRow[];
+}
+
+/** What every row needs from the panel around it: which view it is in, how to
+ *  print a damage figure, the bar it is scaled against, and the open/hover state
+ *  the whole list shares. Passed as one object so the row components keep short
+ *  signatures. */
+interface RowCtx {
+  view: 'wave' | 'total';
+  valLabel: (d: number) => string;
+  maxDamage: number;
+  expanded: string | null;
+  setExpanded: (id: string | null) => void;
+  onHoverTower: (id: string | null) => void;
+}
+
+/** The toolbar: view, wave nav, grouping, number format, empty-tower filter. */
+function DpsToolbar({ view, setView, waves, curWave, lastWave, setWave, group, setGroup, format, setFormat, showEmpty, setShowEmpty }: {
+  view: 'wave' | 'total';
+  setView: (v: 'wave' | 'total') => void;
+  waves: number[];
+  curWave: number;
+  lastWave: number;
+  setWave: (w: number) => void;
+  group: 'none' | 'tower' | 'style';
+  setGroup: (g: 'none' | 'tower' | 'style') => void;
+  format: 'number' | 'percent';
+  setFormat: (f: (p: 'number' | 'percent') => 'number' | 'percent') => void;
+  showEmpty: boolean;
+  setShowEmpty: (b: boolean) => void;
+}) {
+  return (
+    // One calm toolbar for every control — view, wave nav, grouping, format,
+    // empty-tower filter — so they read as a single strip, not scattered chips.
+    // Sticky so it stays put while the tower list scrolls in the tab body.
+    <div className="rs-panel-inset flex flex-col gap-[0.35em] p-[0.45em] mb-[0.5em] sticky top-0 z-10" style={{ borderRadius: 0 }}>
+      {/* View: by-wave (with a wave stepper) or the whole run. */}
+      <div className="flex items-center justify-between gap-[0.4em] flex-wrap">
+        <div className="flex gap-[0.3em]">
+          <button onClick={() => setView('wave')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'wave' ? 'rs-btn-primary' : ''}`}>By Wave</button>
+          <button onClick={() => setView('total')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'total' ? 'rs-btn-primary' : ''}`}>Total</button>
+        </div>
+        {view === 'wave' && waves.length > 0 && (
+          <div className="flex items-center gap-[0.3em]">
+            <button onClick={() => setWave(Math.max(waves[0], curWave - 1))} disabled={curWave <= waves[0]} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">◀</button>
+            <span className="text-[0.74em] text-[#f0e6d2] w-[4.4em] text-center">Wave {curWave}</span>
+            <button onClick={() => setWave(Math.min(lastWave, curWave + 1))} disabled={curWave >= lastWave} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">▶</button>
+          </div>
+        )}
+      </div>
+
+      {/* Group / number-format / show-empty controls. */}
+      <div className="flex items-center justify-between gap-[0.4em] flex-wrap">
+        <div className="flex items-center gap-[0.25em]">
+          <span className="text-[0.62em] text-[#b3a585] uppercase tracking-wide mr-[0.1em]">Group</span>
+          {([['none', 'None'], ['tower', 'Tower'], ['style', 'Type']] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setGroup(k)} className={`rs-btn px-[0.5em] py-[0.1em] text-[0.68em] ${group === k ? 'rs-btn-primary' : ''}`}>{label}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-[0.4em]">
+          <button
+            onClick={() => setFormat((f) => (f === 'number' ? 'percent' : 'number'))}
+            title="Toggle raw numbers / % of the wave (or run) total"
+            className="rs-btn px-[0.55em] py-[0.1em] text-[0.68em]"
+          >
+            {format === 'number' ? '123' : '%'}
+          </button>
+          <label className="flex items-center gap-[0.25em] text-[0.66em] text-[#cdbe91] cursor-pointer select-none" title="Show towers that dealt no damage in this view">
+            <input type="checkbox" className="rs-check" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />
+            Empty
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** An opened row's drill-down: what this tower hit, and what its effects did. */
+function DpsRowDetail({ r, ctx }: { r: DpsRow; ctx: RowCtx }) {
+  const enemyMax = r.byWave.reduce((m, g) => Math.max(m, ...g.entries.map((e) => e.damage)), 1);
+  // Run Effects is a board-wide bucket, not a tower shooting specific monsters —
+  // so it drops the per-enemy list and shows only the values it generated
+  // (damage / CC / heals), by effect. Real towers keep both.
+  const isRun = r.style === 'run';
+  const shownEffects = DPS_EFFECT_META.filter((m) => (r.effects[m.key] ?? 0) > 0.05);
+  return (
+    <div className="mt-[0.4em] pl-[1.6em] pr-[0.2em] flex flex-col gap-[0.5em]">
+      {/* Per-enemy breakdown (grouped by wave in Total view) — towers only. */}
+      {!isRun && (r.byWave.length > 0 ? r.byWave.map((g) => (
+        <div key={g.wave}>
+          {ctx.view === 'total' && <div className="text-[0.62em] text-[#b3a585] uppercase tracking-wide mb-[0.15em]">Wave {g.wave}</div>}
+          <div className="flex flex-col gap-[0.15em]">
+            {g.entries.map((e) => (
+              <div key={e.type} className="flex items-center gap-[0.4em]">
+                <span className="text-[0.68em] text-[#cdbe91] w-[7em] truncate shrink-0">{ENEMIES[e.type as keyof typeof ENEMIES]?.name ?? e.type}</span>
+                <span className="flex-1 h-[0.4em] bg-[#241d15] overflow-hidden">
+                  <span className="block h-full" style={{ width: `${Math.max(2, (e.damage / enemyMax) * 100)}%`, background: r.color }} />
+                </span>
+                <span className="text-[0.68em] text-[#ffd257] w-[3.2em] text-right shrink-0">{ctx.valLabel(e.damage)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )) : <div className="text-[0.66em] text-[#8a7f68] italic">No damage this {ctx.view === 'wave' ? 'wave' : 'run'} yet.</div>)}
+
+      {/* Effect-specific tallies (only the non-zero ones for this row). For a
+          run row these carry the whole drill-down; for towers they sit under
+          the per-enemy list (so the divider only shows when something's above). */}
+      {shownEffects.length > 0 ? (
+        <div
+          className={`grid grid-cols-2 gap-x-[0.6em] gap-y-[0.15em] ${isRun ? '' : 'mt-[0.1em] pt-[0.35em]'}`}
+          style={isRun ? undefined : { borderTop: '1px solid #2b231a' }}
+        >
+          {shownEffects.map((m) => (
+            <div key={m.key} className="flex items-center justify-between gap-[0.4em]">
+              <span className="flex items-center gap-[0.35em] min-w-0">
+                <img src={m.icon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
+                <span className="text-[0.66em] text-[#b3a585] truncate">{m.label}</span>
+              </span>
+              <span className="text-[0.7em] text-[#e7d9b6] font-bold shrink-0">{dpsEffectValue(r.effects[m.key] ?? 0, m.kind)}</span>
+            </div>
+          ))}
+        </div>
+      ) : isRun ? (
+        <div className="text-[0.66em] text-[#8a7f68] italic">No run effects this {ctx.view === 'wave' ? 'wave' : 'run'} yet.</div>
+      ) : null}
+    </div>
+  );
+}
+
+/** One tower's line: its share of the damage, and its drill-down when open. */
+function DpsRowView({ r, ctx }: { r: DpsRow; ctx: RowCtx }) {
+  const open = ctx.expanded === r.id;
+  // Run Effects has no single tower on the board — nothing to ring/range.
+  const boardId = r.style === 'run' ? null : r.id;
+  return (
+    <div
+      className="rs-panel-inset px-[0.4em] py-[0.3em]"
+      style={{ borderRadius: 0 }}
+      onMouseEnter={() => ctx.onHoverTower(boardId)}
+      onMouseLeave={() => ctx.onHoverTower(null)}
+    >
+      <button
+        onClick={() => ctx.setExpanded(open ? null : r.id)}
+        title="Show per-enemy + effect breakdown"
+        className="w-full flex items-center gap-[0.5em] text-left"
+      >
+        <span className="text-[0.7em] w-[1em] shrink-0 text-[#b3a585]">{open ? '▾' : '▸'}</span>
+        {r.icon
+          ? <img src={r.icon} alt="" className="w-[1.5em] h-[1.5em] object-contain shrink-0" onError={hideBrokenImg} />
+          : <span className="w-[1.5em] shrink-0 text-center text-[0.9em]">✦</span>}
+        <span className="flex-1 min-w-0">
+          <span className="flex items-center justify-between gap-[0.4em]">
+            <span className="truncate text-[0.8em]" style={{ color: r.isUtility ? '#c9a24a' : '#f0e6d2' }}>
+              {r.name}
+              {/* A Utility wizard never fires, so this row is not damage it dealt —
+                  it is the extra its aura added to other towers' hits, peeled off
+                  their totals rather than added on top. Unlabelled, it read as
+                  "support is the top damage dealer" and invited spamming it, which
+                  the aura's diminishing returns silently punish. */}
+              {r.isUtility && (
+                <HoverTip content="Extra damage this aura added to other towers' hits — not damage it dealt, and already deducted from their totals. The board total is unchanged.">
+                  <span className="text-[0.72em] text-[#9a8d70] ml-[0.3em]">
+                    (extra)
+                  </span>
+                </HoverTip>
+              )}
+            </span>
+            <span className="shrink-0 flex items-baseline gap-[0.5em]">
+              <span className="text-[0.82em] font-bold" style={{ color: '#ffd257' }}>{ctx.valLabel(r.damage)}</span>
+              <span className="text-[0.66em] text-[#8fbf8f] w-[3.4em] text-right">{dpsFmt(r.dps)}/s</span>
+            </span>
+          </span>
+          <span className="block mt-[0.2em] h-[0.42em] bg-[#241d15] overflow-hidden" style={{ boxShadow: 'inset 1px 1px 0 #100d09' }}>
+            <span className="block h-full" style={{ width: `${Math.max(2, (r.damage / ctx.maxDamage) * 100)}%`, background: r.isUtility ? '#c9a24a' : r.color }} />
+          </span>
+        </span>
+      </button>
+
+      {open && <DpsRowDetail r={r} ctx={ctx} />}
+    </div>
+  );
+}
+
+/** A collapsible group of rows, headed by its own total. */
+function DpsBucketView({ b, ctx, group, collapsed, onToggle }: {
+  b: DpsBucket;
+  ctx: RowCtx;
+  group: 'none' | 'tower' | 'style';
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const bTotal = b.rows.reduce((s, r) => s + r.damage, 0);
+  return (
+    <div className="flex flex-col gap-[0.25em]">
+      <button
+        onClick={onToggle}
+        className="flex items-center justify-between gap-[0.4em] px-[0.4em] py-[0.2em]"
+        style={{ background: '#2b231a', boxShadow: 'inset 1px 1px 0 #6f6250, inset -1px -1px 0 #1b1610' }}
+      >
+        <span className="flex items-center gap-[0.4em] min-w-0">
+          <span className="text-[0.7em] text-[#b3a585]">{collapsed ? '▸' : '▾'}</span>
+          {group === 'style' && b.style !== 'run'
+            ? <StyleIcon style={b.style} />
+            : b.icon
+              ? <img src={b.icon} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />
+              : <span className="w-[0.7em] h-[0.7em] shrink-0" style={{ background: b.color }} />}
+          <span className="text-[0.76em] font-bold text-[#f0e6d2] truncate">{b.label}</span>
+          <span className="text-[0.64em] text-[#8a7f68]">×{b.rows.length}</span>
+        </span>
+        <span className="text-[0.76em] font-bold shrink-0" style={{ color: '#ffd257' }}>{ctx.valLabel(bTotal)}</span>
+      </button>
+      {!collapsed && (
+        <div className="flex flex-col gap-[0.25em] pl-[0.3em]">
+          {b.rows.map((r) => <DpsRowView key={r.id} r={r} ctx={ctx} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** DPS meter: per-tower damage dealt, by wave or total, groupable by tower type /
  *  damage type, with a per-enemy + per-effect drill-down on each tower. Rendered
  *  as an interface tab inside the main side panel (the tab body owns the scroll). */
@@ -107,6 +335,8 @@ export function buildDpsRow(t: DpsTowerStat, view: 'wave' | 'total', wave: numbe
 // the whole table on every gold tick — the fast-forward stutter behind bug #16.
 export const DpsView = React.memo(DpsViewBase);
 
+/** This function is the panel's own state and layout; the toolbar, the rows and
+ *  the group headers are their own components above. */
 export function DpsViewBase({ snap, onHoverTower }: { snap: DpsSnapshot | null; onHoverTower: (id: string | null) => void }) {
   // Clear the board highlight when the panel unmounts (tab switch / minimise).
   useEffect(() => () => onHoverTower(null), [onHoverTower]);
@@ -139,9 +369,9 @@ export function DpsViewBase({ snap, onHoverTower }: { snap: DpsSnapshot | null; 
     : dpsFmt(d));
 
   // Bucket the rows for the active grouping (each bucket is collapsible).
-  const buckets = useMemo(() => {
+  const buckets = useMemo<DpsBucket[]>(() => {
     if (group === 'none') return [{ key: '', label: '', color: '', style: 'run' as CombatStyle | 'run', icon: undefined as string | undefined, rows }];
-    const map = new Map<string, { key: string; label: string; color: string; style: CombatStyle | 'run'; icon?: string; rows: DpsRow[] }>();
+    const map = new Map<string, DpsBucket>();
     for (const r of rows) {
       let key: string, label: string, color: string;
       if (group === 'style') {
@@ -165,154 +395,17 @@ export function DpsViewBase({ snap, onHoverTower }: { snap: DpsSnapshot | null; 
 
   const toggleCollapse = (k: string) => setCollapsed((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
-  const renderRow = (r: DpsRow) => {
-    const open = expanded === r.id;
-    const enemyMax = r.byWave.reduce((m, g) => Math.max(m, ...g.entries.map((e) => e.damage)), 1);
-    // Run Effects has no single tower on the board — nothing to ring/range.
-    const boardId = r.style === 'run' ? null : r.id;
-    return (
-      <div
-        key={r.id}
-        className="rs-panel-inset px-[0.4em] py-[0.3em]"
-        style={{ borderRadius: 0 }}
-        onMouseEnter={() => onHoverTower(boardId)}
-        onMouseLeave={() => onHoverTower(null)}
-      >
-        <button
-          onClick={() => setExpanded(open ? null : r.id)}
-          title="Show per-enemy + effect breakdown"
-          className="w-full flex items-center gap-[0.5em] text-left"
-        >
-          <span className="text-[0.7em] w-[1em] shrink-0 text-[#b3a585]">{open ? '▾' : '▸'}</span>
-          {r.icon
-            ? <img src={r.icon} alt="" className="w-[1.5em] h-[1.5em] object-contain shrink-0" onError={hideBrokenImg} />
-            : <span className="w-[1.5em] shrink-0 text-center text-[0.9em]">✦</span>}
-          <span className="flex-1 min-w-0">
-            <span className="flex items-center justify-between gap-[0.4em]">
-              <span className="truncate text-[0.8em]" style={{ color: r.isUtility ? '#c9a24a' : '#f0e6d2' }}>
-                {r.name}
-                {/* A Utility wizard never fires, so this row is not damage it dealt —
-                    it is the extra its aura added to other towers' hits, peeled off
-                    their totals rather than added on top. Unlabelled, it read as
-                    "support is the top damage dealer" and invited spamming it, which
-                    the aura's diminishing returns silently punish. */}
-                {r.isUtility && (
-                  <HoverTip content="Extra damage this aura added to other towers' hits — not damage it dealt, and already deducted from their totals. The board total is unchanged.">
-                    <span className="text-[0.72em] text-[#9a8d70] ml-[0.3em]">
-                      (extra)
-                    </span>
-                  </HoverTip>
-                )}
-              </span>
-              <span className="shrink-0 flex items-baseline gap-[0.5em]">
-                <span className="text-[0.82em] font-bold" style={{ color: '#ffd257' }}>{valLabel(r.damage)}</span>
-                <span className="text-[0.66em] text-[#8fbf8f] w-[3.4em] text-right">{dpsFmt(r.dps)}/s</span>
-              </span>
-            </span>
-            <span className="block mt-[0.2em] h-[0.42em] bg-[#241d15] overflow-hidden" style={{ boxShadow: 'inset 1px 1px 0 #100d09' }}>
-              <span className="block h-full" style={{ width: `${Math.max(2, (r.damage / maxDamage) * 100)}%`, background: r.isUtility ? '#c9a24a' : r.color }} />
-            </span>
-          </span>
-        </button>
-
-        {open && (() => {
-          // Run Effects is a board-wide bucket, not a tower shooting specific
-          // monsters — so it drops the per-enemy list and shows only the values it
-          // generated (damage / CC / heals), by effect. Real towers keep both.
-          const isRun = r.style === 'run';
-          const shownEffects = DPS_EFFECT_META.filter((m) => (r.effects[m.key] ?? 0) > 0.05);
-          return (
-          <div className="mt-[0.4em] pl-[1.6em] pr-[0.2em] flex flex-col gap-[0.5em]">
-            {/* Per-enemy breakdown (grouped by wave in Total view) — towers only. */}
-            {!isRun && (r.byWave.length > 0 ? r.byWave.map((g) => (
-              <div key={g.wave}>
-                {view === 'total' && <div className="text-[0.62em] text-[#b3a585] uppercase tracking-wide mb-[0.15em]">Wave {g.wave}</div>}
-                <div className="flex flex-col gap-[0.15em]">
-                  {g.entries.map((e) => (
-                    <div key={e.type} className="flex items-center gap-[0.4em]">
-                      <span className="text-[0.68em] text-[#cdbe91] w-[7em] truncate shrink-0">{ENEMIES[e.type as keyof typeof ENEMIES]?.name ?? e.type}</span>
-                      <span className="flex-1 h-[0.4em] bg-[#241d15] overflow-hidden">
-                        <span className="block h-full" style={{ width: `${Math.max(2, (e.damage / enemyMax) * 100)}%`, background: r.color }} />
-                      </span>
-                      <span className="text-[0.68em] text-[#ffd257] w-[3.2em] text-right shrink-0">{valLabel(e.damage)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )) : <div className="text-[0.66em] text-[#8a7f68] italic">No damage this {view === 'wave' ? 'wave' : 'run'} yet.</div>)}
-
-            {/* Effect-specific tallies (only the non-zero ones for this row). For a
-                run row these carry the whole drill-down; for towers they sit under
-                the per-enemy list (so the divider only shows when something's above). */}
-            {shownEffects.length > 0 ? (
-              <div
-                className={`grid grid-cols-2 gap-x-[0.6em] gap-y-[0.15em] ${isRun ? '' : 'mt-[0.1em] pt-[0.35em]'}`}
-                style={isRun ? undefined : { borderTop: '1px solid #2b231a' }}
-              >
-                {shownEffects.map((m) => (
-                  <div key={m.key} className="flex items-center justify-between gap-[0.4em]">
-                    <span className="flex items-center gap-[0.35em] min-w-0">
-                      <img src={m.icon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
-                      <span className="text-[0.66em] text-[#b3a585] truncate">{m.label}</span>
-                    </span>
-                    <span className="text-[0.7em] text-[#e7d9b6] font-bold shrink-0">{dpsEffectValue(r.effects[m.key] ?? 0, m.kind)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : isRun ? (
-              <div className="text-[0.66em] text-[#8a7f68] italic">No run effects this {view === 'wave' ? 'wave' : 'run'} yet.</div>
-            ) : null}
-          </div>
-          );
-        })()}
-      </div>
-    );
-  };
+  const ctx: RowCtx = { view, valLabel, maxDamage, expanded, setExpanded, onHoverTower };
 
   return (
     <div className="flex flex-col">
-      {/* One calm toolbar for every control — view, wave nav, grouping, format,
-          empty-tower filter — so they read as a single strip, not scattered chips.
-          Sticky so it stays put while the tower list scrolls in the tab body. */}
-      <div className="rs-panel-inset flex flex-col gap-[0.35em] p-[0.45em] mb-[0.5em] sticky top-0 z-10" style={{ borderRadius: 0 }}>
-        {/* View: by-wave (with a wave stepper) or the whole run. */}
-        <div className="flex items-center justify-between gap-[0.4em] flex-wrap">
-          <div className="flex gap-[0.3em]">
-            <button onClick={() => setView('wave')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'wave' ? 'rs-btn-primary' : ''}`}>By Wave</button>
-            <button onClick={() => setView('total')} className={`rs-btn px-[0.7em] py-[0.15em] text-[0.75em] ${view === 'total' ? 'rs-btn-primary' : ''}`}>Total</button>
-          </div>
-          {view === 'wave' && waves.length > 0 && (
-            <div className="flex items-center gap-[0.3em]">
-              <button onClick={() => setWave(Math.max(waves[0], curWave - 1))} disabled={curWave <= waves[0]} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">◀</button>
-              <span className="text-[0.74em] text-[#f0e6d2] w-[4.4em] text-center">Wave {curWave}</span>
-              <button onClick={() => setWave(Math.min(lastWave, curWave + 1))} disabled={curWave >= lastWave} className="rs-btn px-[0.5em] py-[0.1em] text-[0.72em] disabled:opacity-40">▶</button>
-            </div>
-          )}
-        </div>
-
-        {/* Group / number-format / show-empty controls. */}
-        <div className="flex items-center justify-between gap-[0.4em] flex-wrap">
-          <div className="flex items-center gap-[0.25em]">
-            <span className="text-[0.62em] text-[#b3a585] uppercase tracking-wide mr-[0.1em]">Group</span>
-            {([['none', 'None'], ['tower', 'Tower'], ['style', 'Type']] as const).map(([k, label]) => (
-              <button key={k} onClick={() => setGroup(k)} className={`rs-btn px-[0.5em] py-[0.1em] text-[0.68em] ${group === k ? 'rs-btn-primary' : ''}`}>{label}</button>
-            ))}
-          </div>
-          <div className="flex items-center gap-[0.4em]">
-            <button
-              onClick={() => setFormat((f) => (f === 'number' ? 'percent' : 'number'))}
-              title="Toggle raw numbers / % of the wave (or run) total"
-              className="rs-btn px-[0.55em] py-[0.1em] text-[0.68em]"
-            >
-              {format === 'number' ? '123' : '%'}
-            </button>
-            <label className="flex items-center gap-[0.25em] text-[0.66em] text-[#cdbe91] cursor-pointer select-none" title="Show towers that dealt no damage in this view">
-              <input type="checkbox" className="rs-check" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} />
-              Empty
-            </label>
-          </div>
-        </div>
-      </div>
+      <DpsToolbar
+        view={view} setView={setView}
+        waves={waves} curWave={curWave} lastWave={lastWave} setWave={setWave}
+        group={group} setGroup={setGroup}
+        format={format} setFormat={setFormat}
+        showEmpty={showEmpty} setShowEmpty={setShowEmpty}
+      />
 
       <div className="flex flex-col gap-[0.3em]">
         {!snap || rows.length === 0 ? (
@@ -322,34 +415,18 @@ export function DpsViewBase({ snap, onHoverTower }: { snap: DpsSnapshot | null; 
               : 'No damage yet — start a wave and your towers will show up here.'}
           </div>
         ) : group === 'none' ? (
-          rows.map(renderRow)
+          rows.map((r) => <DpsRowView key={r.id} r={r} ctx={ctx} />)
         ) : (
-          buckets.map((b) => {
-            const isCollapsed = collapsed.has(b.key);
-            const bTotal = b.rows.reduce((s, r) => s + r.damage, 0);
-            return (
-              <div key={b.key} className="flex flex-col gap-[0.25em]">
-                <button
-                  onClick={() => toggleCollapse(b.key)}
-                  className="flex items-center justify-between gap-[0.4em] px-[0.4em] py-[0.2em]"
-                  style={{ background: '#2b231a', boxShadow: 'inset 1px 1px 0 #6f6250, inset -1px -1px 0 #1b1610' }}
-                >
-                  <span className="flex items-center gap-[0.4em] min-w-0">
-                    <span className="text-[0.7em] text-[#b3a585]">{isCollapsed ? '▸' : '▾'}</span>
-                    {group === 'style' && b.style !== 'run'
-                      ? <StyleIcon style={b.style} />
-                      : b.icon
-                        ? <img src={b.icon} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />
-                        : <span className="w-[0.7em] h-[0.7em] shrink-0" style={{ background: b.color }} />}
-                    <span className="text-[0.76em] font-bold text-[#f0e6d2] truncate">{b.label}</span>
-                    <span className="text-[0.64em] text-[#8a7f68]">×{b.rows.length}</span>
-                  </span>
-                  <span className="text-[0.76em] font-bold shrink-0" style={{ color: '#ffd257' }}>{valLabel(bTotal)}</span>
-                </button>
-                {!isCollapsed && <div className="flex flex-col gap-[0.25em] pl-[0.3em]">{b.rows.map(renderRow)}</div>}
-              </div>
-            );
-          })
+          buckets.map((b) => (
+            <DpsBucketView
+              key={b.key}
+              b={b}
+              ctx={ctx}
+              group={group}
+              collapsed={collapsed.has(b.key)}
+              onToggle={() => toggleCollapse(b.key)}
+            />
+          ))
         )}
       </div>
 
