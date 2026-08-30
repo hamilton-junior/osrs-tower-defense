@@ -127,12 +127,7 @@ const UI_IDS = {
   // metaphor either way — but it is the only clean one that collides with nothing
   // else on the grid (yellow is unique there, and the shape is no one else's).
   reticle: 518,
-  ge_logo: 1531, // MAP_ICON_GRAND_EXCHANGE (the gold-scales map icon)
-  back_pattern: 452, // TEXTURE_WOOD_DARK — the tiling interface wood (wiki "Back_pattern")
   orb_background: 1059, // MINIMAP_ORB_EMPTY
-  inventory_background: 1031, // FIXED_MODE_SIDE_PANEL_BACKGROUND
-  transportation_icon: 1504, // MAP_ICON_TRANSPORTATION (legacy portal fallback)
-  follower_details: 1166, // OPTIONS_FOLLOWER_RIGHT_CLICK_MENU (pets tab)
   // Bare white arrow glyphs (no button plate) — the "most / least" markers the
   // targeting-priority buttons pair with a dimension icon. Verified by eye from a
   // --dump: the neighbouring arrows (773/788/793/794) are scrollbar buttons and

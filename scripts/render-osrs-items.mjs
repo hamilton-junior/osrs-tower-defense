@@ -77,9 +77,6 @@ const TARGETS = {
   trident_of_the_swamp: { name: 'Trident of the swamp' },
   // ---- consumables / loot ----
   amulet_of_power: { name: 'Amulet of power' },
-  anti_dragon_shield: { name: 'Anti-dragon shield' },
-  combat_bracelet: { name: 'Combat bracelet' },
-  silverlight: { name: 'Silverlight' },
   dragon_scimitar: { name: 'Dragon scimitar' },
   logs: { name: 'Logs' },
   iron_ore: { name: 'Iron ore' },
@@ -176,14 +173,12 @@ const TARGETS = {
   dragon_longsword: { name: 'Dragon longsword' },
   dragon_platebody: { name: 'Dragon platebody' },
   dragon_warhammer: { name: 'Dragon warhammer' },
-  dragonstone: { name: 'Dragonstone' },
   elder_maul: { name: 'Elder maul' },
   elite_void_top: { name: 'Elite void top' },
   enchanted_gem: { name: 'Enchanted gem' },
   eternal_boots: { name: 'Eternal boots' },
   fire_cape: { name: 'Fire cape' },
   ghostly_hood: { name: 'Ghostly hood' },
-  graceful_boots: { name: 'Graceful boots' },
   granite_maul: { name: 'Granite maul' },
   harmonised_nightmare_staff: { name: 'Harmonised nightmare staff' },
   heavy_ballista: { name: 'Heavy ballista' },
@@ -193,7 +188,6 @@ const TARGETS = {
   inquisitors_great_helm: { name: "Inquisitor's great helm" },
   justiciar_chestguard: { name: 'Justiciar chestguard' },
   kodai_insignia: { name: 'Kodai insignia' },
-  kodai_wand: { name: 'Kodai wand' },
   looting_bag: { name: 'Looting bag' },
   magic_longbow: { name: 'Magic longbow' },
   magic_shortbow_i: { name: 'Magic shortbow (i)' },
@@ -209,7 +203,6 @@ const TARGETS = {
   ranging_potion: { name: 'Ranging potion(4)' },
   regen_bracelet: { name: 'Regen bracelet' },
   reward_casket_elite: { name: 'Reward casket (elite)' },
-  reward_casket_master: { name: 'Reward casket (master)' },
   ring_of_life: { name: 'Ring of life' },
   ring_of_wealth: { name: 'Ring of wealth' },
   rune_halberd: { name: 'Rune halberd' },
@@ -240,7 +233,6 @@ const TARGETS = {
   strength_potion: { name: 'Strength potion(4)' },
   super_combat_potion: { name: 'Super combat potion(4)' },
   super_strength: { name: 'Super strength(4)' },
-  tokkul: { name: 'Tokkul' },
   tome_of_fire: { name: 'Tome of fire' },
   trident_of_the_seas: { name: 'Trident of the seas' },
   twisted_bow: { name: 'Twisted bow' },
@@ -254,15 +246,11 @@ const TARGETS = {
   // The roguelite's reward cards, wearing the game's own deck: Mystic cards, the
   // Guardians of the Rift reward. The only actual pack of cards in OSRS.
   mystic_cards: { name: 'Mystic cards' },
-  // ---- Classic-mode gear (data/gear.ts) — the retired weapon pool (superseded by
-  // the ammo/jewellery rework below; left baked since other slugs still share
-  // these keys, e.g. granite_cannonball/cannonball are reused by AMMO_TIERS) ----
-  iron_scimitar: { name: 'Iron scimitar' },
-  warhammer: { name: 'Warhammer' },
-  tzhaar_ket_om: { name: 'Tzhaar-ket-om' },
+  // ---- Classic-mode gear (data/gear.ts) — what survives of the retired weapon
+  // pool, superseded by the ammo/jewellery rework below: these two slugs are
+  // still reused by AMMO_TIERS. ----
   granite_cannonball: { name: 'Granite cannonball' },
   cannonball: { name: 'Steel cannonball', id: 2 }, // no plain "Cannonball" def; id 2 is THE classic cannonball
-  mystic_staff: { name: 'Mystic air staff' }, // stand-in: no plain "Mystic staff" def exists
   // ---- Classic-mode gear: ammo/jewellery rework (data/gear.ts AMMO_TIERS /
   // JEWELLERY_TIERS / SIGNATURES) — slug === gear id, matched by exact cache
   // item name (confirmed via --find before baking; see task-3-report.md). ----
