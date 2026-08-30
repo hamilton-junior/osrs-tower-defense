@@ -28,9 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      # No committed lockfile, so use install (not ci). --legacy-peer-deps
-      # works around the pre-existing eslint/eslint-config-next conflict.
-      - run: npm install --legacy-peer-deps
+      # No committed lockfile, so use install (not ci).
+      - run: npm install
       - name: Build static export
         env:
           # Serve under /<repo-name> on a project Pages site.

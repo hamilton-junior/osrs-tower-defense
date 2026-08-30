@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run start` — serve the production build.
 - `npm run test` — run the Vitest unit suite once (`vitest run`); `npm run test:watch` for watch mode. Tests live next to their module as `*.test.ts` under `lib/` and cover the pure game-logic in `lib/game/systems/`. Add tests there when you extract or change logic — they are the regression net for the otherwise-untested engine.
 
-Note: dependency installs need `--legacy-peer-deps`. The conflict is `next@15.0.0`, which peer-requires React 18.2 or a 19 release candidate, against the React 19.2 the app runs on; upgrading Next would settle it. `package-lock.json` is gitignored, so CI resolves fresh on every deploy.
+Note: `npm install` resolves cleanly — `next` is pinned to 15.4.11, which peer-accepts the React 19.2 the app runs on (15.0.0 did not, and every install used to need `--legacy-peer-deps`). `package-lock.json` is gitignored, so CI resolves fresh on every deploy; keep `next` pinned exactly rather than on a caret.
 
 The `@google/genai` dependency and eleven other unused packages (lucide-react, clsx, tailwind-merge, firebase-tools…) were leftover AI Studio scaffolding and are gone; `three` stays, but as a devDependency — only the sprite-baking script uses it.
 

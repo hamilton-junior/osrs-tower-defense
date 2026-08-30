@@ -13,8 +13,8 @@ waves, and earn gold to upgrade your defenses.
 ## Run locally
 
 ```bash
-npm install --legacy-peer-deps   # next@15.0.0 pins an older React than the app uses
-npm run dev                      # http://localhost:3000
+npm install
+npm run dev   # http://localhost:3000
 ```
 
 Other scripts:
