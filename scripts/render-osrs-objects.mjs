@@ -39,6 +39,10 @@ const DEFAULT_CACHE = join(homedir(), '.runelite', 'jagexcache', 'oldschool', 'L
 const CACHE_DIR = process.env.OSRS_CACHE_DIR || DEFAULT_CACHE;
 
 const SIZE = 256;
+/** Supersampling: render each cell this many times over and box it down. Cache models
+ *  are low-poly, so their hard polygon silhouettes read as "the mesh is showing" long
+ *  before their shading does. Costs bake time only — the output size is unchanged. */
+const SS = 2;
 const MARGIN = 0.12;
 
 /**
@@ -154,7 +158,7 @@ function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true } = {
   const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
   const fit = computeFit([verts], sy, cy, sp, cp, SIZE, MARGIN);
   fit.scale *= zoom;
-  const img = renderModelFrame(model, verts, fit, sy, cy, sp, cp, SIZE, textures, undefined, cull);
+  const img = renderModelFrame(model, verts, fit, sy, cy, sp, cp, SIZE, textures, undefined, cull, SS);
   const canvas = createCanvas(SIZE, SIZE);
   canvas.getContext('2d').putImageData(img, 0, 0);
   return canvas.toBuffer('image/png');

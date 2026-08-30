@@ -29,7 +29,7 @@ export interface ActivePotion {
   timer: number;
 }
 
-export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot' | 'brutus' | 'scurrius' | 'giant_rat'
+export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot' | 'brutus' | 'scurrius' | 'kbd' | 'giant_rat'
   // Superior Slayer monsters — in ENEMIES all along (waves can roll them), but they
   // were missing from this union, so nothing could name one in typed code.
   | 'superior_bloodveld' | 'superior_abyssal_demon' | 'superior_gargoyle' | 'superior_nechryael'
@@ -341,6 +341,11 @@ export interface Tower {
   lastSpecFired?: number;
   visualRadius: number;
   disabledTimer: number;
+  /** Seconds left of the King Black Dragon's dragonfire on ground this tower covers:
+   *  its damage is multiplied by `KBD_SCORCH_MULT` while this runs. Deliberately not
+   *  `disabledTimer` — a scorched tower still fires, it just hits soft, and borrowing
+   *  the disabled state would give it the "switched off" look and the wrong lesson. */
+  scorchedTimer?: number;
   skills: TowerSkills;
   equipment: {
     ammo: Item | null;

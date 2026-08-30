@@ -10,8 +10,9 @@ import { DIFFICULTY_TIERS, tierLabel } from '@/lib/game/systems/difficulty';
 import { bossTip } from '@/lib/game/systems/boss-tips';
 import { MovablePanel } from './MovablePanel';
 import { fs, fmt, fmtTime, hideBrokenImg, GoStat } from './ui-kit';
-import { weaknessTag, enemySpriteStyle, enemySlugSpriteStyle } from './enemy-ui';
+import { weaknessTag, enemySpriteStyle, enemySlugSpriteStyle, diversionSpriteStyle } from './enemy-ui';
 import { LOOK_BY_SLUG, LOOKS_BY_TYPE, defaultLookSlug } from '@/lib/game/data/enemy-variants';
+import { DIVERSIONS, type DiversionDef } from '@/lib/game/data/diversions';
 import type { EnemyType } from '@/lib/game/types';
 import { RARITY_COLOR, RARITY_LABEL, effectTag, renderWithStyleIcons, DraftCardView } from './draft-cards';
 import { type Victories, type DifficultyProgress } from './save';
@@ -70,6 +71,12 @@ export const ENEMY_SORTS: { key: string; label: string }[] = [
   { key: 'obtained', label: 'Logged first' },
   { key: 'missing', label: 'Missing first' },
 ];
+export const DIVERSION_SORTS: { key: string; label: string }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'count', label: 'Times met' },
+  { key: 'obtained', label: 'Logged first' },
+  { key: 'missing', label: 'Missing first' },
+];
 export const CARD_SORTS: { key: string; label: string }[] = [
   { key: 'name', label: 'Name' },
   { key: 'rarity', label: 'Rarity' },
@@ -93,6 +100,22 @@ export function sortedEnemies(entries: readonly LogEntry[], killCounts: Record<s
       case 'weakness': return a.weakness.localeCompare(b.weakness) || byName(a, b);
       case 'obtained': return (kc(b) > 0 ? 1 : 0) - (kc(a) > 0 ? 1 : 0) || byName(a, b);
       case 'missing': return (kc(a) > 0 ? 1 : 0) - (kc(b) > 0 ? 1 : 0) || byName(a, b);
+      default: return byName(a, b);
+    }
+  })());
+}
+
+/** Apply the collection-log filter, then sort, to the Distractions & Diversions
+ *  cast. "Obtained" here means *met* — one has turned up on the board at least once. */
+export function sortedDiversions(met: Record<string, number>, filter: LogFilter, sort: string, dir: 1 | -1): DiversionDef[] {
+  const n = (d: DiversionDef) => met[d.id] ?? 0;
+  const list = DIVERSIONS.filter((d) => filter === 'all' || (filter === 'obtained' ? n(d) > 0 : n(d) === 0));
+  const byName = (a: DiversionDef, b: DiversionDef) => a.name.localeCompare(b.name);
+  return list.sort((a, b) => dir * (() => {
+    switch (sort) {
+      case 'count': return n(b) - n(a) || byName(a, b);
+      case 'obtained': return (n(b) > 0 ? 1 : 0) - (n(a) > 0 ? 1 : 0) || byName(a, b);
+      case 'missing': return (n(a) > 0 ? 1 : 0) - (n(b) > 0 ? 1 : 0) || byName(a, b);
       default: return byName(a, b);
     }
   })());
@@ -126,19 +149,22 @@ export function LogEmpty() {
  *  tabs. Enemies show their baked sprite + lifetime kill count; the Cards tab shows
  *  every draft card with its lifetime pick count. Unobtained entries are darkened
  *  silhouettes (collection-log style). A completion counter per tab. */
-export function CollectionLog({ killCounts, cardCounts, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
+export function CollectionLog({ killCounts, cardCounts, diversionsMet, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
+  /** Lifetime meetings per Distraction & Diversion id. */
+  diversionsMet: Record<string, number>;
   /** Completed Combat Achievement ids, account-wide. */
   achievements: string[];
   victories: Victories;
   difficulty: DifficultyProgress;
-  tab: 'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty' | 'achievements';
-  setTab: (t: 'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty' | 'achievements') => void;
+  tab: 'bosses' | 'monsters' | 'cards' | 'diversions' | 'victories' | 'difficulty' | 'achievements';
+  setTab: (t: 'bosses' | 'monsters' | 'cards' | 'diversions' | 'victories' | 'difficulty' | 'achievements') => void;
   onClose: () => void;
   globalLock: boolean;
 }) {
   const isCards = tab === 'cards';
+  const isDiversions = tab === 'diversions';
   const isVictories = tab === 'victories';
   const isDifficulty = tab === 'difficulty';
   const isAchievements = tab === 'achievements';
@@ -149,11 +175,13 @@ export function CollectionLog({ killCounts, cardCounts, achievements, victories,
   // Memoised so the empty case is one stable array: a fresh literal per render would
   // re-run every list memo below on tabs that show no enemies at all.
   const entries = useMemo(() => (tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : []), [tab]);
-  const total = isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : entries.length;
+  const total = isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : isDiversions ? DIVERSIONS.length : entries.length;
   const obtained = isAchievements
     ? CA_TASKS.filter((t) => caDone.has(t.id)).length
     : isCards
     ? DRAFT_POOL.filter((c) => (cardCounts[c.id] ?? 0) > 0).length
+    : isDiversions
+    ? DIVERSIONS.filter((d) => (diversionsMet[d.id] ?? 0) > 0).length
     : entries.filter((e) => (killCounts[e.type] ?? 0) > 0).length;
   const complete = total > 0 && obtained === total;
   // The clicked entry, shown as a detail card (stats + animated sprite). Enemy
@@ -164,9 +192,10 @@ export function CollectionLog({ killCounts, cardCounts, achievements, victories,
   const [filter, setFilter] = useState<LogFilter>('all');
   const [sort, setSort] = useState('name');
   const [dir, setDir] = useState<1 | -1>(1);
-  const sortOptions = isCards ? CARD_SORTS : ENEMY_SORTS;
+  const sortOptions = isCards ? CARD_SORTS : isDiversions ? DIVERSION_SORTS : ENEMY_SORTS;
   const dispEnemies = useMemo(() => sortedEnemies(entries, killCounts, filter, sort, dir), [entries, killCounts, filter, sort, dir]);
   const dispCards = useMemo(() => sortedCards(cardCounts, filter, sort, dir), [cardCounts, filter, sort, dir]);
+  const dispDiversions = useMemo(() => sortedDiversions(diversionsMet, filter, sort, dir), [diversionsMet, filter, sort, dir]);
   return (
     <MovablePanel
       id="collection-log"
@@ -182,15 +211,16 @@ export function CollectionLog({ killCounts, cardCounts, achievements, victories,
         <button onClick={onClose} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
       </div>
       <div className="flex items-center justify-between gap-[0.4em] mt-[0.4em] mb-[0.5em]">
-        {/* Six tabs no longer fit one row beside the counter at every UI scale, so the
+        {/* The tabs no longer fit one row beside the counter at every UI scale, so the
             strip wraps and the counter keeps its corner rather than spilling out. */}
         <div className="flex flex-wrap gap-[0.3em] min-w-0">
-          {(['bosses', 'monsters', 'cards', 'victories', 'difficulty', 'achievements'] as const).map((t) => (
+          {(['bosses', 'monsters', 'cards', 'diversions', 'victories', 'difficulty', 'achievements'] as const).map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setSelected(null); setSort('name'); }}
               title={
                 t === 'cards' ? 'Reward cards collected'
+                  : t === 'diversions' ? 'Distractions & Diversions you have met'
                   : t === 'victories' ? 'Runs won'
                   : t === 'difficulty' ? 'New Game+ progress'
                   : t === 'achievements' ? 'Combat Achievements — clear a tier for its title'
@@ -340,6 +370,30 @@ export function CollectionLog({ killCounts, cardCounts, achievements, victories,
             )}
           </div>
         )
+        : isDiversions
+        ? dispDiversions.length === 0
+          ? <LogEmpty />
+          : (
+            // No drill-down: a diversion is one sprite, one line and one payout, and
+            // all three fit on the card. What the log is for here is the checklist —
+            // who has turned up on your board, and how often.
+            <div className="grid grid-cols-3 gap-[0.4em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
+              {dispDiversions.map((d) => {
+                const n = diversionsMet[d.id] ?? 0;
+                return (
+                  <div
+                    key={d.id}
+                    className={`rs-log-entry ${n > 0 ? '' : 'rs-log-locked'}`}
+                    title={n > 0 ? `${d.name} — ${d.tip} · met ${n} time${n === 1 ? '' : 's'}` : `${d.name} — not met yet`}
+                  >
+                    <div className="rs-log-sprite" style={diversionSpriteStyle(d.id, n > 0)} />
+                    <span className="rs-log-name">{d.name}</span>
+                    <span className="rs-log-kc">{n > 0 ? `× ${fmt(n)}` : '0'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )
         : isCards
         ? selected
           ? (() => {

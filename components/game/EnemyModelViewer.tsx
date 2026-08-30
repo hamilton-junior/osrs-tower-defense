@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Live 3D enemy viewer. Loads the build-time glTF (exported via the cache lib's
+ * Live 3D enemy viewer. Loads the build-time .glb (exported via the cache lib's
  * own GLTFExporter — the authoritative, tested model+animation path) and plays it
  * with three.js: real WebGL z-buffer, real morph-target animation, free orbit.
  * This is the trustworthy reference — no hand-rolled rasteriser, no sign/order
@@ -69,7 +69,7 @@ export function EnemyModelViewer({ slug, initialClip }: { slug: string; initialC
       controls.enablePan = false;
       controls.enableDamping = true;
 
-      const url = `${BASE}/assets/enemies-gltf/${slug}.gltf`;
+      const url = `${BASE}/assets/enemies-gltf/${slug}.glb`;
       let gltf;
       try {
         gltf = await new GLTFLoader().loadAsync(url);

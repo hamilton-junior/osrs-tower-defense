@@ -90,6 +90,8 @@ export interface RunStats {
     /** A Summoned Soul was still alive when Cerberus raised the next trio, or when
      *  Cerberus himself died. */
     cerberusSoulSurvived: boolean;
+    /** The King Black Dragon's fire caught at least one tower in its reach. */
+    kbdTowerScorched: boolean;
   };
 }
 
@@ -107,7 +109,7 @@ export function emptyRunStats(mode: GameMode, tier: DifficultyTier): RunStats {
     bossKillSeconds: {}, bossSpawnSeconds: {}, livesLostDuringBoss: {},
     bossFlags: {
       jadHealed: false, hydraVentsBroken: 0, hydraVentHealed: false,
-      duskDawnClean: true, cerberusSoulSurvived: false,
+      duskDawnClean: true, cerberusSoulSurvived: false, kbdTowerScorched: false,
     },
   };
 }

@@ -4,6 +4,7 @@ import React, { useLayoutEffect, useState } from 'react';
 import type { UIState } from '@/lib/game/core/engine';
 import { ASSETS, iconUrl, itemIcon } from '@/lib/game/assets';
 import { fs, hideBrokenImg } from './ui-kit';
+import { DIVERSION_BY_ID } from '@/lib/game/data/diversions';
 
 /**
  * Everything that teaches the game: the contextual tips (`LEARN_STEPS` +
@@ -253,7 +254,8 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.orb_prayer, text: 'Prayer buffs a combat style while it drains. The pool refills between waves.' },
     { icon: ASSETS.misc.slayer_crossbow, text: 'Slayer tasks arrive on their own and pay points for the Slayer shop.' },
     { icon: ASSETS.misc.rune_essence_icon, text: 'Essence is kept forever — spend it in the Essence Shop on permanent upgrades.' },
-    { icon: iconUrl('Collection_log'), text: 'The Collection Log holds your kills, cards, wins and Combat Achievements.' },
+    { icon: DIVERSION_BY_ID.hans.sprite, text: 'Between waves someone may wander in. Click them — most hand something over.' },
+    { icon: iconUrl('Collection_log'), text: 'The Collection Log holds your kills, cards, visitors, wins and Combat Achievements.' },
     { icon: ASSETS.misc.cards_icon, text: 'Roguelite: buy card rolls between waves and keep one. Bosses drop relics.' },
   ] },
   { id: 'keys', label: 'Keys', icon: ASSETS.misc.stats_icon, lines: [

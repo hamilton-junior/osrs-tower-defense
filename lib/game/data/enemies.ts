@@ -572,6 +572,25 @@ export const ENEMIES: Record<string, EnemyDef> = {
     isBoss: true,
     resistance: 0.2
   },
+  kbd: {
+    type: 'kbd',
+    // He is the biggest thing on the board and has to read that way at a glance.
+    renderScale: 1.5,
+    name: 'King Black Dragon',
+    // Fourth on the ladder, between the Mole (700) and Jad (750). His mechanic takes
+    // nothing away from the player's board except its *value*, so he cannot lean on the
+    // bar the way Vorkath does — the fight is meant to be decided by where the towers
+    // were built, not by how long the health lasts. The dragonfire is already a large
+    // effective damage cut against a clustered board, and doubling that with a fat bar
+    // would just be a wall.
+    hp: 780,
+    speed: 34,
+    color: '#3f3a44',
+    reward: 420,
+    deathSound: 'boss',
+    isBoss: true,
+    resistance: 0.3
+  },
   giant_rat: {
     type: 'giant_rat',
     // Sheared off Scurrius, so it lives on his Collection Log page rather than in the
@@ -787,6 +806,9 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   mummy: 'fire', locust_rider: 'fire',
   // Earth — dragons, stone & burrowers
   blue_dragon: 'earth', green_dragon: 'earth', giant_mole: 'earth',
+  // The dragon bucket's boss: the same answer as every other dragon on the board, so
+  // meeting him never asks the player to re-learn what a dragon is weak to.
+  kbd: 'earth',
   // The kalphite hive burrows, which is the whole reason the earth bucket lists
   // burrowers — and it keeps both rungs of the line reading the same.
   kalphite_worker: 'earth', kalphite_guardian: 'earth',

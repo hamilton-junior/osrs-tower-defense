@@ -22,7 +22,8 @@ export interface EnemyAnimSet {
    * `hurt`/`death` are the generic one-shots. The others are **mechanic clips** — a boss
    * whose mechanic *is* an animation plays the real OSRS one for the duration of that
    * phase, chosen by `bossPhaseClip`: `burrow`/`emerge` are the Giant Mole's dig and
-   * surface, `rage`/`charge` are Brutus pawing the ground and galloping.
+   * surface, `rage`/`charge` are Brutus pawing the ground and galloping, `breath` is the
+   * King Black Dragon rearing back through his inhale.
    */
   clips: {
     walk: EnemyClip;
@@ -32,6 +33,7 @@ export interface EnemyAnimSet {
     emerge?: EnemyClip;
     rage?: EnemyClip;
     charge?: EnemyClip;
+    breath?: EnemyClip;
   };
 }
 

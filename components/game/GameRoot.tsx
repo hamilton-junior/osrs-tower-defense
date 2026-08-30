@@ -84,6 +84,7 @@ const INITIAL: UIState = {
   achievements: [],
   cardCounts: {},
   bossesSeen: {},
+  diversionsMet: {},
   dpsStats: null,
   lastWaveSandbox: false,
   gameMode: 'roguelite', difficultyTier: 0, pendingDraft: null, draftBoosted: false,
@@ -202,7 +203,7 @@ export default function GameRoot() {
   // Highest Combat Achievement tier cleared in full — a cosmetic title and nothing
   // more: it gates no control, mode or difficulty tier.
   const caTitle = useMemo(() => highestTitle(new Set(ui.achievements)), [ui.achievements]);
-  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards' | 'victories' | 'difficulty' | 'achievements'>('monsters');
+  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards' | 'diversions' | 'victories' | 'difficulty' | 'achievements'>('monsters');
   // The champion's win record (non-monetary meta reward). Read once on mount.
   const [victories, setVictories] = useState<Victories>(EMPTY_VICTORIES);
   useEffect(() => { setVictories(loadVictories()); }, []);
@@ -557,6 +558,15 @@ export default function GameRoot() {
     if (!bsLoaded.current) { bsLoaded.current = true; return; }
     try { localStorage.setItem(SAVE_KEYS.bossesSeen, JSON.stringify(ui.bossesSeen)); } catch { /* ignore */ }
   }, [ui.bossesSeen]);
+
+  // Persist which Distractions & Diversions have turned up (the Collection Log's
+  // Diversions tab). Account-wide like the logs above, and never read back by the
+  // game itself — it is a record of who the player has met, nothing more.
+  const dvLoaded = useRef(false);
+  useEffect(() => {
+    if (!dvLoaded.current) { dvLoaded.current = true; return; }
+    try { localStorage.setItem(SAVE_KEYS.diversionsMet, JSON.stringify(ui.diversionsMet)); } catch { /* ignore */ }
+  }, [ui.diversionsMet]);
 
   // Record a victory exactly once per win. `won` latches true for the whole victory
   // screen (and stays true through Endless), so a ref guards against re-counting; it
@@ -2731,6 +2741,7 @@ export default function GameRoot() {
         <CollectionLog
           killCounts={ui.killCounts}
           cardCounts={ui.cardCounts}
+          diversionsMet={ui.diversionsMet}
           achievements={ui.achievements}
           victories={victories}
           difficulty={difficulty}

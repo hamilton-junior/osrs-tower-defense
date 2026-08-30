@@ -15,7 +15,7 @@ import { resolveEventMods } from '../../systems/wave-events';
 import { pickVariant, resetVariantBag } from '../../systems/model-variants';
 import { enemyLeakCost } from '../../systems/leak-cost';
 import { bodyY } from '../../systems/enemy-anchor';
-import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, type BossId } from '../../systems/boss-mechanics';
+import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, type BossId } from '../../systems/boss-mechanics';
 import { uid, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT } from '../engine-state';
 import type { WavePreviewEntry } from '../engine-state';
 import type { GameEngine } from '../engine';
@@ -279,6 +279,15 @@ export function addBolt(eng: GameEngine, x0: number, y0: number, x1: number, y1:
   eng.fx.push({ kind: 'bolt', x0, y0, x1, y1, age: 0, life, color });
 }
 
+/** A gout of the King Black Dragon's dragonfire, thrown from his mouth at the patch of
+ *  road it is about to light. `life` is its flight time — it dies as the patch catches. */
+export function addBreath(
+  eng: GameEngine, x0: number, y0: number, x1: number, y1: number,
+  life: number, bow: number, slug: string,
+) {
+  eng.fx.push({ kind: 'breath', x0, y0, x1, y1, age: 0, life, bow, slug });
+}
+
 export function spawn(eng: GameEngine, dt: number) {
   if (eng.spawnQueue.length === 0) return;
   eng.spawnTimer += dt;
@@ -387,6 +396,11 @@ export function moveEnemies(eng: GameEngine, dt: number) {
     // is the price, and a halted boss is a far louder tell than an overhead on a
     // moving sprite.
     if (scurriusIsSqueaking(e.bossState)) continue;
+    // The King Black Dragon plants himself to breathe. The halt is the tell: the road
+    // ahead starts smouldering while he is stopped, so "he stopped" and "that stretch
+    // is about to burn" are the same event, and it costs him ground to say it. It holds
+    // through the settle afterwards too, so he is never sliding along the road mid-roar.
+    if (kbdIsHalted(e.bossState)) continue;
     // A sheared rat drives itself (wander, then the run home). Walking it as well would
     // slide it along the road while it is meant to be off it.
     if (e.ratPhase) continue;

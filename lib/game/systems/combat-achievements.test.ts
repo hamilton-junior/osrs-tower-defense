@@ -90,6 +90,11 @@ describe('medium tier', () => {
     expect(evaluate(stats({ bossKillSeconds: both }), none)).toContain('sun-and-moon');
   });
 
+  it('wilderness-lair needs the King Black Dragon dead', () => {
+    expect(evaluate(stats(), none)).not.toContain('wilderness-lair');
+    expect(evaluate(stats({ bossKillSeconds: { kbd: 80 } }), none)).toContain('wilderness-lair');
+  });
+
   it('thrifty needs wave 30 with at most 8 towers built', () => {
     expect(evaluate(stats({ maxWaveReached: 30, towersBuilt: 9 }), none)).not.toContain('thrifty');
     expect(evaluate(stats({ maxWaveReached: 29, towersBuilt: 8 }), none)).not.toContain('thrifty');
@@ -132,6 +137,13 @@ describe('hard tier', () => {
     expect(evaluate(stats({ bossKillSeconds: { cerberus: 70 }, bossFlags: flags({ cerberusSoulSurvived: true }) }), none))
       .not.toContain('hellhounds-master');
     expect(evaluate(stats({ bossKillSeconds: { cerberus: 70 } }), none)).toContain('hellhounds-master');
+  });
+
+  it('antifire-protection needs the KBD dead with no tower scorched', () => {
+    expect(evaluate(stats({ bossKillSeconds: { kbd: 80 }, bossFlags: flags({ kbdTowerScorched: true }) }), none))
+      .not.toContain('antifire-protection');
+    expect(evaluate(stats({ bossFlags: flags({}) }), none)).not.toContain('antifire-protection');
+    expect(evaluate(stats({ bossKillSeconds: { kbd: 80 } }), none)).toContain('antifire-protection');
   });
 
   it('snake-charmer needs Zulrah under 90 seconds', () => {
@@ -243,8 +255,8 @@ describe('master tier', () => {
 describe('grandmaster tier', () => {
   const win = (over: Partial<RunStats> = {}) => stats({ won: true, ...over });
 
-  it('has exactly 40 tasks in total', () => {
-    expect(CA_TASKS.length).toBe(40);
+  it('has exactly 42 tasks in total', () => {
+    expect(CA_TASKS.length).toBe(42);
   });
 
   it('grandmaster needs a tier-6 win', () => {
@@ -257,7 +269,7 @@ describe('grandmaster tier', () => {
     expect(evaluate(win({ livesLostRun: 0 }), none)).toContain('untouchable-champion');
   });
 
-  it('perfect-roster needs all ten bosses, none costing a life', () => {
+  it('perfect-roster needs every boss on the roster, none costing a life', () => {
     type Kills = RunStats['bossKillSeconds'];
     const all: Kills = Object.fromEntries(CA_BOSS_ROSTER.map((b) => [b, 30])) as Kills;
     expect(evaluate(win({ bossKillSeconds: all, livesLostDuringBoss: { jad: 1 } }), none))

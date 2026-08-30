@@ -1,0 +1,57 @@
+{
+  "hans": {
+    "npc": 3105,
+    "clips": [
+      "stand",
+      "walk"
+    ]
+  },
+  "bob": {
+    "npc": 4221,
+    "clips": [
+      "stand",
+      "walk"
+    ]
+  },
+  "lumbridge_guide": {
+    "npc": 306,
+    "clips": [
+      "stand",
+      "walk"
+    ]
+  },
+  "party_pete": {
+    "npc": 5792,
+    "clips": [
+      "stand",
+      "walk"
+    ]
+  },
+  "drunken_dwarf": {
+    "npc": 322,
+    "clips": [
+      "stand",
+      "walk"
+    ]
+  },
+  "genie": {
+    "npc": 326,
+    "clips": [
+      "stand",
+      "walk"
+    ]
+  },
+  "strange_plant": {
+    "npc": 323,
+    "clips": [
+      "stand"
+    ]
+  },
+  "rick_turpentine": {
+    "npc": 375,
+    "clips": [
+      "stand",
+      "walk"
+    ]
+  }
+}

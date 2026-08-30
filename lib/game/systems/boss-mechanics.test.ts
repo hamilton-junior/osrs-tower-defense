@@ -38,6 +38,24 @@ import {
   SCURRIUS_SQUEAK_INTERVAL,
   SCURRIUS_SQUEAK_STOP,
   scurriusIsSqueaking,
+  scorchSpan,
+  scorchedTowers,
+  pickScorchStart,
+  kbdIsInhaling,
+  kbdIsHalted,
+  KBD_BREATH_RELEASE,
+  KBD_RECOVER_SECS,
+  KBD_SCORCH_LENGTH,
+  KBD_SCORCH_STEP,
+  KBD_SCORCH_MULT,
+  KBD_BURN_SECS,
+  KBD_BREATH_INTERVAL,
+  KBD_INHALE_SECS,
+  KBD_BREATH_SPEED,
+  KBD_BREATH_MIN_FLIGHT,
+  KBD_BREATH_MAX_FLIGHT,
+  breathFlightTimes,
+  litScorchPoints,
   SCURRIUS_WANDER_LEASH,
   scurriusShouldShear,
   scurriusRatHp,
@@ -99,7 +117,17 @@ import {
   cerberusIsEnraged,
   soulLockMult,
   soulAnimSlug,
+  breathBows,
+  breathSlug,
+  breathArcPoint,
+  breathArcAngle,
+  KBD_BREATH_BOW_MIN,
+  KBD_BREATH_BOW_MAX,
+  KBD_BREATH_SLUGS,
 } from './boss-mechanics';
+import type { BossState } from './boss-mechanics';
+import { ENEMY_ANIMS } from '../data/enemy-anims';
+import { SPOTANIMS } from '../data/spotanims';
 import { pathTotalLength, remainingPathDistance } from './geometry';
 
 describe('Zulrah phases', () => {
@@ -1060,5 +1088,278 @@ describe('Scurrius — the squeak is what he pays', () => {
 
   it('costs him less time than it buys him rats — the stop is a price, not a stun', () => {
     expect(SCURRIUS_SQUEAK_STOP).toBeLessThan(SCURRIUS_SQUEAK_INTERVAL);
+  });
+});
+
+
+// A straight road along y = 300, 1000px long — the simplest thing to reason about.
+const ROAD = [{ x: 0, y: 300 }, { x: 1000, y: 300 }];
+
+describe('King Black Dragon — the burning stretch', () => {
+  it('samples the road itself, not a straight line between the ends', () => {
+    // An L-bend: a chord would cut the corner and burn grass nobody built along.
+    const bend = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }];
+    const span = scorchSpan(bend, 0, 200, 50);
+    expect(span).toContainEqual({ x: 50, y: 0 });
+    expect(span).toContainEqual({ x: 100, y: 50 });
+    // Every sample sits on one of the two legs.
+    for (const p of span) expect(p.x === 100 || p.y === 0).toBe(true);
+  });
+
+  it('covers the length it says it does', () => {
+    const span = scorchSpan(ROAD, 100, 170, 22);
+    expect(span[0]).toEqual({ x: 100, y: 300 });
+    expect(span[span.length - 1].x).toBeGreaterThanOrEqual(100 + 170 - 22);
+    expect(span[span.length - 1].x).toBeLessThanOrEqual(100 + 170);
+  });
+
+  it('survives a degenerate path', () => {
+    expect(scorchSpan([], 0)).toEqual([]);
+    expect(scorchSpan([{ x: 5, y: 5 }], 0)).toEqual([]);
+  });
+});
+
+describe('King Black Dragon — who gets scorched', () => {
+  const span = scorchSpan(ROAD, 400, KBD_SCORCH_LENGTH, KBD_SCORCH_STEP);
+
+  it('catches a tower whose range square reaches the fire', () => {
+    expect(scorchedTowers([{ x: 450, y: 380, half: 100 }], span)).toHaveLength(1);
+  });
+
+  it('spares a tower whose range stops short of it', () => {
+    expect(scorchedTowers([{ x: 450, y: 500, half: 100 }], span)).toHaveLength(0);
+    // ...and one that covers the road, but a different stretch of it.
+    expect(scorchedTowers([{ x: 100, y: 300, half: 60 }], span)).toHaveLength(0);
+  });
+
+  it('nothing burns when nothing is built', () => {
+    expect(scorchedTowers([], span)).toEqual([]);
+  });
+});
+
+describe('King Black Dragon — he breathes at the killbox', () => {
+  it('picks the stretch the most towers cover', () => {
+    const cluster = [
+      { x: 700, y: 260, half: 90 },
+      { x: 700, y: 340, half: 90 },
+      { x: 760, y: 300, half: 90 },
+      { x: 640, y: 300, half: 90 },
+    ];
+    const lone = { x: 150, y: 300, half: 90 };
+    const start = pickScorchStart(ROAD, [lone, ...cluster]);
+    const hit = scorchedTowers([lone, ...cluster], scorchSpan(ROAD, start));
+    expect(hit.length).toBeGreaterThanOrEqual(cluster.length);
+    expect(hit).not.toContain(lone);
+  });
+
+  it('spreading the same towers down the road costs him targets', () => {
+    const clustered = [
+      { x: 700, y: 300, half: 90 },
+      { x: 700, y: 360, half: 90 },
+      { x: 740, y: 300, half: 90 },
+      { x: 660, y: 300, half: 90 },
+    ];
+    const spread = [
+      { x: 100, y: 300, half: 90 },
+      { x: 400, y: 300, half: 90 },
+      { x: 700, y: 300, half: 90 },
+      { x: 950, y: 300, half: 90 },
+    ];
+    const worstClustered = scorchedTowers(
+      clustered, scorchSpan(ROAD, pickScorchStart(ROAD, clustered)),
+    ).length;
+    const worstSpread = scorchedTowers(
+      spread, scorchSpan(ROAD, pickScorchStart(ROAD, spread)),
+    ).length;
+    expect(worstClustered).toBeGreaterThan(worstSpread);
+  });
+
+  it('is deterministic, and still breathes at an empty board', () => {
+    expect(pickScorchStart(ROAD, [])).toBe(0);
+    const towers = [{ x: 500, y: 300, half: 80 }];
+    expect(pickScorchStart(ROAD, towers)).toBe(pickScorchStart(ROAD, towers));
+  });
+
+  it('never runs the fire off the end of the road', () => {
+    const far = [{ x: 1000, y: 300, half: 200 }];
+    const start = pickScorchStart(ROAD, far);
+    expect(start).toBeLessThanOrEqual(1000 - KBD_SCORCH_LENGTH);
+  });
+});
+
+describe('King Black Dragon — the tell', () => {
+  it('starts flying, and halts only while inhaling', () => {
+    const st = freshBossState('kbd');
+    expect(st.kbdPhase).toBe('fly');
+    expect(st.breaths).toBe(0);
+    expect(kbdIsInhaling(st)).toBe(false);
+    expect(kbdIsInhaling({ ...st, kbdPhase: 'inhale' })).toBe(true);
+  });
+
+  it('leaves every other boss walking', () => {
+    expect(kbdIsInhaling(freshBossState('brutus'))).toBe(false);
+    expect(kbdIsInhaling(undefined)).toBe(false);
+  });
+
+  it('softens towers rather than switching them off', () => {
+    expect(KBD_SCORCH_MULT).toBeGreaterThan(0);
+    expect(KBD_SCORCH_MULT).toBeLessThan(1);
+  });
+
+  it('leaves the board unburnt for longer than it burns', () => {
+    expect(KBD_BURN_SECS).toBeLessThan(KBD_BREATH_INTERVAL);
+  });
+
+  it('spits on the frame the tell ends, and settles afterwards', () => {
+    const st = freshBossState('kbd');
+    // The rear-up is stretched across the tell and lands on the release frame exactly as
+    // the fire is fired; the settle then plays on from there.
+    expect(bossPhaseClip({ ...st, kbdPhase: 'inhale', kbdTimer: KBD_INHALE_SECS }))
+      .toEqual({ name: 'breath', elapsed: 0 });
+    expect(bossPhaseClip({ ...st, kbdPhase: 'inhale', kbdTimer: 0 }))
+      .toEqual({ name: 'breath', elapsed: KBD_BREATH_RELEASE });
+    expect(bossPhaseClip({ ...st, kbdPhase: 'recover', kbdTimer: KBD_RECOVER_SECS }))
+      .toEqual({ name: 'breath', elapsed: KBD_BREATH_RELEASE });
+    expect(bossPhaseClip({ ...st, kbdPhase: 'recover', kbdTimer: 0 })?.elapsed)
+      .toBeCloseTo(KBD_BREATH_RELEASE + KBD_RECOVER_SECS, 5);
+    expect(bossPhaseClip({ ...st, kbdPhase: 'fly' })).toBeNull();
+  });
+
+  it('never plays past the end of the clip it was cut from', () => {
+    const clip = ENEMY_ANIMS.kbd.clips.breath!;
+    const durationS = clip.frameMs.reduce((a, b) => a + b, 0) / 1000;
+    expect(KBD_BREATH_RELEASE).toBeLessThan(durationS);
+    expect(KBD_BREATH_RELEASE + KBD_RECOVER_SECS).toBeLessThanOrEqual(durationS + 0.01);
+  });
+
+  it('stays planted through the settle, not just the tell', () => {
+    const st = freshBossState('kbd');
+    expect(kbdIsHalted({ ...st, kbdPhase: 'inhale' })).toBe(true);
+    expect(kbdIsHalted({ ...st, kbdPhase: 'recover' })).toBe(true);
+    expect(kbdIsHalted({ ...st, kbdPhase: 'fly' })).toBe(false);
+    expect(kbdIsHalted(freshBossState('brutus'))).toBe(false);
+    // The tell itself is narrower — the smoulder and the bar's warning end with it.
+    expect(kbdIsInhaling({ ...st, kbdPhase: 'recover' })).toBe(false);
+  });
+});
+
+describe('King Black Dragon — the fire has to arrive', () => {
+  const mouth = { x: 0, y: 0 };
+
+  it('lights the near end of the stretch before the far end', () => {
+    const lit = breathFlightTimes(mouth, [{ x: 200, y: 0 }, { x: 400, y: 0 }]);
+    expect(lit[0]).toBeLessThan(lit[1]);
+    expect(lit[1]).toBeCloseTo(400 / KBD_BREATH_SPEED, 5);
+  });
+
+  it('never fires instantly, and never outlasts the burn', () => {
+    const lit = breathFlightTimes(mouth, [{ x: 0, y: 0 }, { x: 9000, y: 0 }]);
+    expect(lit[0]).toBe(KBD_BREATH_MIN_FLIGHT);
+    expect(lit[1]).toBe(KBD_BREATH_MAX_FLIGHT);
+    expect(KBD_BREATH_MAX_FLIGHT).toBeLessThan(KBD_BURN_SECS);
+  });
+
+  it('burns only the patches whose gout has landed', () => {
+    const points = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }];
+    const lit = [0.1, 0.3, 0.5];
+    expect(litScorchPoints(points, lit, 0)).toEqual([]);
+    expect(litScorchPoints(points, lit, 0.3)).toEqual(points.slice(0, 2));
+    expect(litScorchPoints(points, lit, 1)).toEqual(points);
+  });
+
+  it('lights a telegraph all at once — it has no gouts to wait for', () => {
+    const points = [{ x: 0, y: 0 }, { x: 10, y: 0 }];
+    expect(litScorchPoints(points, undefined, 0)).toEqual(points);
+  });
+});
+
+describe('King Black Dragon — the volley you see is the fire that lands', () => {
+  const mouth = { x: 0, y: 0 };
+  const span = scorchSpan(
+    [{ x: 100, y: 300 }, { x: 900, y: 300 }], 0,
+  );
+
+  it('throws exactly one gout per patch of road', () => {
+    // The player is meant to be able to count them, so nothing here may collapse two
+    // patches into one projectile (or fire one that lights nothing).
+    expect(breathFlightTimes(mouth, span)).toHaveLength(span.length);
+    expect(breathBows(span.length)).toHaveLength(span.length);
+  });
+
+  it('gives every gout of a volley its own curve', () => {
+    const bows = breathBows(5);
+    expect(new Set(bows).size).toBe(5);
+    expect(Math.min(...bows)).toBe(KBD_BREATH_BOW_MIN);
+    expect(Math.max(...bows)).toBe(KBD_BREATH_BOW_MAX);
+    // A lone gout still arcs — a straight one would read as a laser.
+    expect(breathBows(1)[0]).toBeGreaterThan(0);
+    expect(breathBows(0)).toEqual([]);
+  });
+
+  it('leaves his mouth and lands on the patch, whatever the bow', () => {
+    const to = { x: 400, y: 300 };
+    for (const bow of [0, KBD_BREATH_BOW_MIN, KBD_BREATH_BOW_MAX]) {
+      expect(breathArcPoint(mouth, to, bow, 0)).toEqual(mouth);
+      expect(breathArcPoint(mouth, to, bow, 1)).toEqual(to);
+    }
+  });
+
+  it('bows off the straight line, always upwards', () => {
+    const to = { x: 400, y: 0 };
+    const mid = breathArcPoint(mouth, to, KBD_BREATH_BOW_MAX, 0.5);
+    expect(mid.x).toBeCloseTo(200, 5);
+    expect(mid.y).toBeLessThan(0); // lifted, not dropped
+    // The straight-line version of the same shot for comparison.
+    expect(breathArcPoint(mouth, to, 0, 0.5)).toEqual({ x: 200, y: 0 });
+    // Aimed the other way it still lifts — no mirrored dive.
+    expect(breathArcPoint(mouth, { x: -400, y: 0 }, KBD_BREATH_BOW_MAX, 0.5).y).toBeLessThan(0);
+  });
+
+  it('points along the curve, not at the destination', () => {
+    const to = { x: 400, y: 0 };
+    // Straight shot: the heading is the chord's, the whole way.
+    expect(breathArcAngle(mouth, to, 0, 0.5)).toBeCloseTo(0, 5);
+    // Bowed: it leaves rising and arrives falling.
+    expect(breathArcAngle(mouth, to, KBD_BREATH_BOW_MAX, 0)).toBeLessThan(0);
+    expect(breathArcAngle(mouth, to, KBD_BREATH_BOW_MAX, 1)).toBeGreaterThan(0);
+  });
+
+  it('cycles his four breaths, so a second breath is not a repeat', () => {
+    const seen = [0, 1, 2, 3].map(breathSlug);
+    expect(new Set(seen).size).toBe(4);
+    expect(seen[0]).toBe('proj_dragonfire');
+    expect(breathSlug(4)).toBe(seen[0]);
+    // Every one of them is a baked sheet, or the gout falls back to a procedural streak.
+    for (const slug of KBD_BREATH_SLUGS) expect(SPOTANIMS[slug]).toBeDefined();
+  });
+});
+
+describe('every mechanic clip a boss can ask for is actually baked', () => {
+  // The clip name is a string on both sides — `bossPhaseClip` returns one, the baked
+  // table holds them — so a clip that never made it through the bake pipeline fails
+  // silently, as the King Black Dragon's breath did. Assert the pairing instead.
+  const PHASES: { slug: string; states: BossState[] }[] = [
+    { slug: 'giant_mole', states: [
+      { ...freshBossState('giant_mole'), molePhase: 'dig' },
+      { ...freshBossState('giant_mole'), molePhase: 'emerge' },
+    ] },
+    { slug: BRUTUS_DEMONIC_SLUG, states: [
+      { ...freshBossState('brutus'), brutusPhase: 'brace' },
+      { ...freshBossState('brutus'), brutusPhase: 'dash' },
+    ] },
+    { slug: 'kbd', states: [
+      { ...freshBossState('kbd'), kbdPhase: 'inhale' },
+      { ...freshBossState('kbd'), kbdPhase: 'recover' },
+    ] },
+  ];
+
+  it.each(PHASES)('$slug has a sheet for every phase clip', ({ slug, states }) => {
+    const set = ENEMY_ANIMS[slug];
+    expect(set).toBeDefined();
+    for (const state of states) {
+      const clip = bossPhaseClip(state);
+      expect(clip).not.toBeNull();
+      expect(set.clips[clip!.name as keyof typeof set.clips]).toBeDefined();
+    }
   });
 });

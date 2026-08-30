@@ -29,7 +29,26 @@ const REPO = join(__dirname, '..');
 const DEFAULT_CACHE = join(homedir(), '.runelite', 'jagexcache', 'oldschool', 'LIVE');
 const CACHE_DIR = process.env.OSRS_CACHE_DIR || DEFAULT_CACHE;
 
-const SIZE = 96; // per-frame canvas; effects are small, kept tight for sheet size
+const SIZE = 192; // per-frame canvas; see the cell-size note below
+/** Supersampling: render each cell this many times over and box it down. A spell
+ *  impact is a stack of translucent triangles, and its polygon silhouettes read as
+ *  "the mesh is showing" long before its shading does. */
+const SS = 2;
+/**
+ * Cell size, and the per-target `size` override for anything drawn bigger still.
+ *
+ * The rule is: **a cell must hold at least as many pixels as the effect is ever drawn
+ * at on screen.** The renderer draws a spotanim at `meta.size * scale` from a
+ * `frameW`-wide cell, and the board is scaled up to the display and then again by the
+ * device pixel ratio (capped 2x), so even a modest 72px effect can land as ~190 device
+ * pixels. From a 96px bake that is a 2x upscale — exactly the "the magic hits go
+ * pixelated on the big monsters" the effects were accused of. The Ancients impacts are
+ * worse still: they are sized to the struck model, so a boss (`renderScale` 1.5+)
+ * stretches them past 150 logic pixels before the display scale even applies.
+ *
+ * Baking bigger costs sheet bytes and nothing else: nothing moves or resizes on
+ * screen, there is simply resolution behind it now.
+ */
 const MARGIN = 0.08;
 const MS_PER_UNIT = 20; // OSRS frame-length unit ≈ 20ms (one client cycle)
 
@@ -97,6 +116,27 @@ for (const [el, tiers] of Object.entries(SPELL_GFX)) {
     TARGETS[`hit_${el}_${i + 1}`] = { id: hit, maxFrames: 16, margin: HIT_MARGIN[`${el}_${i + 1}`] ?? MARGIN };
   });
 }
+
+/**
+ * The King Black Dragon's breath, as a flying projectile.
+ *
+ * Spotanims 393-396 are one family: the same model (17550) and sequence (1990),
+ * recoloured into the four breaths he actually uses in OSRS. All four are baked — he
+ * cycles them breath by breath, which is what keeps his fourth breath from looking
+ * like a replay of his first.
+ *
+ * Yaw is **-65**, the mirror of the spell bolts above: this model's spiked head sits
+ * at the opposite end of its axis, so +65 bakes it flying tail-first. Verified by eye
+ * — head to the right, the trailing droplets to the left, i.e. flying +x.
+ */
+TARGETS.proj_dragonfire = { id: 393, maxFrames: 12, yaw: -65, pitch: 12 };
+// His other three breaths, baked from the same family — the recolours are what makes
+// a second breath read as a *second* breath rather than a repeat of the first. Named
+// from the baked pixels, not from guesswork: 394 comes out olive-green (poison), 395
+// pale grey-white (ice), 396 blue-violet (shock).
+TARGETS.proj_dragonfire_poison = { id: 394, maxFrames: 12, yaw: -65, pitch: 12 };
+TARGETS.proj_dragonfire_ice = { id: 395, maxFrames: 12, yaw: -65, pitch: 12 };
+TARGETS.proj_dragonfire_shock = { id: 396, maxFrames: 12, yaw: -65, pitch: 12 };
 
 /**
  * Parse a spotanim config's model id + animation id (+ recolour) ourselves.
@@ -313,17 +353,18 @@ async function main() {
 
     const yawR = (cfg.yaw * Math.PI) / 180, pitchR = (cfg.pitch * Math.PI) / 180;
     const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
-    const fit = computeFit(frames, sy, cy, sp, cp, SIZE, cfg.margin);
+    const px = cfg.size ?? SIZE;
+    const fit = computeFit(frames, sy, cy, sp, cp, px, cfg.margin);
 
     // Tile frames left→right into one sheet.
-    const sheet = new PNG({ width: SIZE * frames.length, height: SIZE });
+    const sheet = new PNG({ width: px * frames.length, height: px });
     for (let fi = 0; fi < frames.length; fi++) {
-      const img = renderModelFrame(model, frames[fi], fit, sy, cy, sp, cp, SIZE, textures, alphas?.[fi] ?? undefined);
+      const img = renderModelFrame(model, frames[fi], fit, sy, cy, sp, cp, px, textures, alphas?.[fi] ?? undefined, true, SS);
       // blit into the sheet at column fi
-      for (let y = 0; y < SIZE; y++) {
-        for (let x = 0; x < SIZE; x++) {
-          const src = (y * SIZE + x) * 4;
-          const dst = (y * (SIZE * frames.length) + fi * SIZE + x) * 4;
+      for (let y = 0; y < px; y++) {
+        for (let x = 0; x < px; x++) {
+          const src = (y * px + x) * 4;
+          const dst = (y * (px * frames.length) + fi * px + x) * 4;
           sheet.data[dst] = img.data[src];
           sheet.data[dst + 1] = img.data[src + 1];
           sheet.data[dst + 2] = img.data[src + 2];
@@ -337,8 +378,8 @@ async function main() {
     writeFileSync(join(outDir, `${slug}.png`), PNG.sync.write(sheet));
     const meta = {
       frames: frames.length,
-      frameW: SIZE,
-      frameH: SIZE,
+      frameW: px,
+      frameH: px,
       frameMs: lengths.map((l) => Math.max(20, (l ?? 3) * MS_PER_UNIT)),
       spotanim: cfg.id,
     };

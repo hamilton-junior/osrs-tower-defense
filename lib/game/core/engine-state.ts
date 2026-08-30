@@ -1,4 +1,4 @@
-import type { TowerBlueprint, EnemyType, TowerType, GlobalUpgrades, PrayerType, Element, MageMode, DotKind, CombatStyle, StyleWeakness, Item } from '../types';
+import type { Point, TowerBlueprint, EnemyType, TowerType, GlobalUpgrades, PrayerType, Element, MageMode, DotKind, CombatStyle, StyleWeakness, Item } from '../types';
 import { ENEMIES } from '../data/enemies';
 import { type DifficultyTier } from '../systems/difficulty';
 import { type TowerSynergy } from '../systems/tower-combat';
@@ -316,6 +316,10 @@ export interface UIState {
   bossesSeen: Record<string, number>;
   /** Lifetime pick counts per draft-card id (the Collection Log "Cards" tab). */
   cardCounts: Record<string, number>;
+  /** Lifetime meetings per Distraction & Diversion id (the Collection Log
+   *  "Diversions" tab). Counted when one turns up on the board, not when it is
+   *  clicked — a walkby has nothing to click, and meeting one is the whole event. */
+  diversionsMet: Record<string, number>;
   /** True when the wave that just ended was a debug "custom wave" sandbox, so the
    *  UI can show a distinct "Custom Wave Complete!" banner. Reset when any wave
    *  starts. */
@@ -589,7 +593,44 @@ export interface Particle {
  *  and is culled once `age >= life`; purely visual, no game effect. */
 export type RuneFx =
   | { kind: 'ring'; x: number; y: number; age: number; life: number; r0: number; r1: number; color: string; width: number }
-  | { kind: 'bolt'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string };
+  | { kind: 'bolt'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string }
+  /** A gout of the King Black Dragon's dragonfire in flight, from his mouth to the patch
+   *  of road it is about to set alight. Drawn with his own cache GFX (spotanim 393) rather
+   *  than a procedural shape, and it lands exactly when the patch lights — `life` is the
+   *  flight time, and the matching entry in the scorch's `lit` carries the same number. */
+  | {
+      kind: 'breath'; x0: number; y0: number; x1: number; y1: number; age: number; life: number;
+      /** How far this gout bows off the straight line, as a fraction of it — its own
+       *  curve, so a volley fans out instead of stacking into one streak. */
+      bow: number;
+      /** Which of his four breaths this is (a `proj_dragonfire*` spotanim slug). */
+      slug: string;
+    };
+
+/**
+ * A stretch of road on fire — the King Black Dragon's dragonfire.
+ *
+ * Lives beside `fx` on the engine as pure board state: a scorch has no owner, so it
+ * outlives the dragon that breathed it (killing him mid-burn does not put the fire out)
+ * and it is never serialised — every transient is dropped by the run save.
+ */
+export interface Scorch {
+  /** The road's centre-line through the burning stretch, sampled every
+   *  `KBD_SCORCH_STEP` px. Points, not endpoints, because the road bends. */
+  points: Point[];
+  /** Seconds elapsed. */
+  timer: number;
+  /** Seconds this scorch lasts — the inhale for a telegraph, the burn for the fire. */
+  life: number;
+  /** True while this is the *tell* (he is still inhaling): drawn smouldering, and it
+   *  scorches nothing. The fire that follows re-uses the same points. */
+  warning: boolean;
+  /** Per-point ignition time (seconds after this scorch started), parallel to `points`.
+   *  A point neither burns nor scorches a tower before its own gout of dragonfire has
+   *  arrived, so the fire sweeps down the road at the speed of the breath instead of
+   *  appearing whole. Absent on the telegraph, which lights all at once. */
+  lit?: number[];
+}
 
 export const HITSPLAT_LIFE = 0.9;
 

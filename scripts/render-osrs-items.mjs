@@ -32,6 +32,10 @@ const CACHE_DIR = process.env.OSRS_CACHE_DIR || DEFAULT_CACHE;
 // 2× the client's native 36×32 icon: crisp at UI sizes, still reads "pixel".
 const SCALE = 2;
 const ICON_W = 36 * SCALE, ICON_H = 32 * SCALE;
+/** Supersampling: render each cell this many times over and box it down. Cache models
+ *  are low-poly, so their hard polygon silhouettes read as "the mesh is showing" long
+ *  before their shading does. Costs bake time only — the output size is unchanged. */
+const SS = 2;
 
 /**
  * slug → item. `name` = exact cache name (preferred; survives id renumbering),
@@ -475,7 +479,7 @@ function outlineAndShadow(img, w, h) {
 
 /** Render the icon pose once → 36×32-aspect crop → outline + shadow canvas. */
 function renderIcon(model, verts, fit, size, textures) {
-  const img = renderModelFrame(model, verts, fit, 0, 1, 0, 1, size, textures);
+  const img = renderModelFrame(model, verts, fit, 0, 1, 0, 1, size, textures, undefined, true, SS);
   const sq = createCanvas(size, size);
   sq.getContext('2d').putImageData(img, 0, 0);
   const iconRaw = createCanvas(ICON_W, ICON_H);

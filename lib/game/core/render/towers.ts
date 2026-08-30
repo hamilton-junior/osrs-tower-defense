@@ -5,6 +5,7 @@ import { towerXpForLevel } from '../../systems/leveling';
 import { spellSpriteName } from '../../systems/magic';
 import { MAX_TOWER_LEVEL, styleSkillKey, towerCombatLevel } from '../../systems/tower-xp';
 import type { GameRenderer } from '../renderer';
+import { drawScorchedTower } from './scorch';
 import { GRID, drawImageContain, drawSquareRange } from './shared';
 
 /**
@@ -99,6 +100,12 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     // prohibited sign on it below. Silence alone was indistinguishable from a
     // tower that simply had nothing in range.
     const disabled = tower.disabledTimer > 0;
+    // Standing in the King Black Dragon's fire: embers, not the prohibited sign. It is
+    // still shooting — it just hits for half — so it must not wear the "switched off"
+    // look. Drawn before the sprite so the tower sits in its own heat.
+    if ((tower.scorchedTimer ?? 0) > 0 && !disabled) {
+      drawScorchedTower(ctx, tower.x, tower.y, tower.visualRadius);
+    }
     ctx.save();
     if (disabled) ctx.globalAlpha = 0.4;
     ctx.translate(tower.x - Math.cos(angle) * back, tower.y - Math.sin(angle) * back);

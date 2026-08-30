@@ -540,5 +540,14 @@
       "hurt": 6227,
       "death": 6230
     }
+  },
+  "kbd": {
+    "npc": 239,
+    "anims": {
+      "walk": 4635,
+      "hurt": 4638,
+      "death": 92,
+      "breath": 81
+    }
   }
 }

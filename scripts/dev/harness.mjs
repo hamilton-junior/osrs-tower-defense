@@ -21,30 +21,15 @@
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
-import puppeteer from 'puppeteer-core';
+import { launchBrowser } from '../lib/browser.mjs';
 
 const OUT = resolve('out');
 
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json',
-  '.wav': 'audio/wav', '.woff2': 'font/woff2', '.gltf': 'model/gltf+json',
+  '.wav': 'audio/wav', '.woff2': 'font/woff2', '.glb': 'model/gltf-binary',
 };
-
-/** A Chromium the machine already has; puppeteer-core ships no browser. */
-function findBrowser() {
-  const candidates = [
-    process.env.PUPPETEER_EXECUTABLE_PATH,
-    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-    'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-    'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-  ].filter(Boolean);
-  const found = candidates.find(existsSync);
-  if (!found) throw new Error('No Chromium found. Set PUPPETEER_EXECUTABLE_PATH.');
-  return found;
-}
 
 /** Serve the static export on an ephemeral port, with an SPA fallback. */
 function serveOut() {
@@ -145,11 +130,7 @@ async function toggleDebug(page) {
 export async function withGame(fn, opts = {}) {
   const { width = 1600, height = 900, dpr = 1, skipRun = false } = opts;
   const { server, port } = await serveOut();
-  const browser = await puppeteer.launch({
-    executablePath: findBrowser(),
-    headless: true,
-    args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader'],
-  });
+  const browser = await launchBrowser({ args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader'] });
   try {
     const page = await browser.newPage();
     page.on('pageerror', (e) => console.error('PAGEERROR', e.message));

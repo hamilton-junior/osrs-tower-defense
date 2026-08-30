@@ -535,5 +535,13 @@
       "hurt",
       "death"
     ]
+  },
+  "kbd": {
+    "npc": 239,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
   }
 }

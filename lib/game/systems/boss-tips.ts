@@ -33,6 +33,8 @@ export const BOSS_TIPS: Record<BossId, string> = {
     'Opens a chemical vent at each health threshold: it hardens and regenerates until you burst through the vent. Sustained chip damage loses this fight; saved burst wins it.',
   scurrius:
     'Every heavy hit splits a Giant rat off him, carrying health out of his own bar — so burst alone just turns one big target into several small ones. The rats scatter across the board and then run back to him, handing the health straight back, so kill them before they arrive. Bring something that hits more than one thing at a time.',
+  kbd:
+    'Sets a stretch of road on fire, and picks whichever stretch the most of your towers are covering — everything that reaches the flames hits for half while they burn. A killbox around one bend loses its whole board to one breath; a long, thin line down the road loses two towers.',
 };
 
 /** The "how to kill" line for an enemy type, or undefined if it isn't a boss with one. */

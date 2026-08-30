@@ -143,6 +143,14 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       caption = `ENRAGED — reviving its twin in ${Math.ceil(st!.reviveTimer)}s!`;
       capColor = '#ff8b4c';
     }
+  } else if (st?.kind === 'kbd') {
+    capColor = '#ff9d3d';
+    // Three things, in the order the player needs them: the warning, the effect, and
+    // then — once the fire is out — the count, so "how often does he do that" is
+    // answerable from the bar alone.
+    if (st.kbdPhase === 'inhale') caption = 'INHALING — that stretch is about to burn!';
+    else if (gr.e.scorches.some((sc) => !sc.warning)) caption = 'DRAGONFIRE — towers over the flames hit for half!';
+    else if (st.breaths) caption = `Breaths: ${st.breaths}`;
   }
   if (caption) {
     ctx.font = "bold 12px 'RuneScape', Arial";

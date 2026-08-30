@@ -48,18 +48,19 @@ import { travelOffer } from '../systems/travel';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
 import { DIVERSION_BY_ID } from '../data/diversions';
+import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
-import { diversionEssence, diversionGold, diversionLine, offBoardPoint, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sendDiversionOff, stepDiversion, turnDiversion, type Diversion } from '../systems/diversions';
+import { diversionEssence, diversionGold, diversionLine, offBoardPoint, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import {
   HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
   type HunterTrap,
 } from '../systems/hunter-traps';
-import { handleBossMechanics } from './sim/bosses';
+import { handleBossMechanics, updateScorches } from './sim/bosses';
 import { updateTraps } from './sim/traps';
 import { fireTowers, updateUtilityTowers, towerIdentity, moveProjectiles, tenacity } from './sim/combat';
 import { computeWaveConfigs, wavePreview, buildWaveEnemies, makeEnemy, spawn, moveEnemies, damageOverTime, updateEffects, addRing, checkWaveEnd, recordCombatTime } from './sim/waves';
-import type { UnlockItem, GameMode, StyleMods, RunModifiers, RunEffects, RelicEffects, UIState, Hitsplat, DebuffId, EnemyHoverInfo, DeathFx, Particle, RuneFx } from './engine-state';
+import type { UnlockItem, GameMode, StyleMods, RunModifiers, RunEffects, RelicEffects, UIState, Hitsplat, DebuffId, EnemyHoverInfo, DeathFx, Particle, RuneFx, Scorch } from './engine-state';
 
 // The engine's vocabulary — board size, UIState, the per-run effect records and the
 // small pure helpers — lives in ./engine-state so the sim/ modules can share it
@@ -130,6 +131,9 @@ export class GameEngine {
   spotEffects: Effect[] = [];
   /** Procedural roguelite VFX (chain bolts, cleave/shockwave/heal rings). */
   fx: RuneFx[] = [];
+  /** Stretches of road the King Black Dragon has set alight (and the telegraphs that
+   *  precede them). Board state, not VFX — this is what halves a tower's damage. */
+  scorches: Scorch[] = [];
 
   money = START_MONEY;
   lives = START_LIVES;
@@ -297,6 +301,10 @@ export class GameEngine {
   /** Bosses encountered at least once (lifetime, persisted like killCounts).
    *  Gates boss modifiers — a boss is only "vanilla" on its first-ever sighting. */
   bossesSeen: Record<string, number> = {};
+  /** Distractions & Diversions met at least once (lifetime, persisted like the
+   *  tallies above). Purely a Collection Log record — nothing in the game reads it
+   *  to gate, scale or reward anything. */
+  diversionsMet: Record<string, number> = {};
 
   /** Hydrate the account's completed achievements from storage. Called by the UI
    *  once the localStorage blob is read; the constructor can't take it because the
@@ -410,7 +418,7 @@ export class GameEngine {
   constructor(
     canvas: HTMLCanvasElement,
     onState: (patch: Partial<UIState>) => void,
-    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown; bossesSeen?: unknown },
+    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown; bossesSeen?: unknown; diversionsMet?: unknown },
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -419,6 +427,7 @@ export class GameEngine {
     this.killCounts = sanitizeKillCounts(save?.killCounts);
     this.cardCounts = sanitizeCardCounts(save?.cardCounts);
     this.bossesSeen = sanitizeBossesSeen(save?.bossesSeen);
+    this.diversionsMet = sanitizeDiversionsMet(save?.diversionsMet);
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.renderer = new GameRenderer(this);
     this.dpr = this.computeDpr();
@@ -680,6 +689,7 @@ export class GameEngine {
       achievements: [...this.achievements],
       cardCounts: this.cardCounts,
       bossesSeen: this.bossesSeen,
+      diversionsMet: this.diversionsMet,
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
       difficultyTier: this.difficultyTier,
@@ -1099,6 +1109,18 @@ export class GameEngine {
             ? [[`diversion_${d.id}_back`, d.turned.back], [`diversion_${d.id}_side`, d.turned.side]]
             : []),
         ]),
+      ),
+      // ...and their baked animation sheets, keyed `divanim_<id>_<view>_<clip>`: one
+      // stand/walk loop per camera yaw, from the NPC's own cache animations. The
+      // portraits above stay loaded as the fallback while these arrive.
+      ...Object.fromEntries(
+        Object.entries(DIVERSION_ANIMS).flatMap(([id, set]) =>
+          Object.entries(set.views).flatMap(([view, clips]) =>
+            Object.entries(clips as unknown as Record<string, EnemyClip | undefined>)
+              .filter(([, clip]) => clip)
+              .map(([name, clip]) => [diversionAnimKey(id, view, name), clip!.url]),
+          ),
+        ),
       ),
       // Hunter traps lying on the road, keyed `trap_<id>` (baked item icons).
       ...Object.fromEntries(HUNTER_TRAPS.map(t => [`trap_${t.id}`, t.sprite])),
@@ -2579,6 +2601,9 @@ export class GameEngine {
       // spend that frame facing the player and then snap round.
       if (walks) turnDiversion(dv, spot.x - from.x, spot.y - from.y);
       this.diversions.push(dv);
+      // Met, for the Collection Log — on arrival, because turning up IS the event.
+      // A walkby is never clicked and would otherwise never be recorded at all.
+      this.diversionsMet = { ...this.diversionsMet, [def.id]: (this.diversionsMet[def.id] ?? 0) + 1 };
     }
     if (this.diversions.length) this.sound.play('select');
   }
@@ -2830,6 +2855,7 @@ export class GameEngine {
     damageOverTime(this, dt);
     moveEnemies(this, dt);
     fireTowers(this, dt);
+    updateScorches(this, dt);
     updateUtilityTowers(this);
     recordCombatTime(this, dt);
     moveProjectiles(this, dt);
@@ -3198,6 +3224,7 @@ export class GameEngine {
     this.deaths = [];
     this.spotEffects = [];
     this.fx = [];
+    this.scorches = [];
     this.spawnQueue = [];
     this.spawnTimer = 0;
     // A restored run starts hands-on: auto-wave is never carried in from the save
@@ -3321,6 +3348,7 @@ export class GameEngine {
     this.deaths = [];
     this.spotEffects = [];
     this.fx = [];
+    this.scorches = [];
     this.spawnQueue = [];
     // Meta-progression (essence + upgrades) persists across runs — only re-apply
     // the starting-gold bonus to the fresh balance.

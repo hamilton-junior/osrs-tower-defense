@@ -18,7 +18,7 @@ import { mergeUnlockBatch } from '../../systems/unlock-queue';
 import { GAME_SOUNDS } from '../sound';
 import { shouldExecute, soulStealAddChance } from '../../systems/relics';
 import { isCcImmune, styleDamageMult, protectedDamageMult, styleWeaknessMult, absorbWithShield, VOLATILE_STUN_SECS, VOLATILE_BLAST_RADIUS, volatileBlastTowers } from '../../systems/affixes';
-import { bossStyleMult, hydraVentCredit, moleIsHidden, stallTenacityBonus, escortDamageMult, SCHEDULABLE_BOSSES, scurriusShouldShear } from '../../systems/boss-mechanics';
+import { bossStyleMult, hydraVentCredit, moleIsHidden, KBD_SCORCH_MULT, stallTenacityBonus, escortDamageMult, SCHEDULABLE_BOSSES, scurriusShouldShear } from '../../systems/boss-mechanics';
 import { GRID, uid, enemyRadius, projectileEase, SHORTEST_CAST_S, DOT_LANE, HITSPLAT_LIFE, IMPACT_BASE_SCALE, IMPACT_SPLASH_SCALE } from '../engine-state';
 import type { HitsplatKind } from '../engine-state';
 import type { GameEngine } from '../engine';
@@ -128,6 +128,12 @@ export function fireTowers(eng: GameEngine, dt: number) {
       baseDamage = lo + Math.random() * (hi - lo);
     }
     let damage = Math.floor((baseDamage + stats.flatDamageBonus) * stats.damageMultiplier * eng.runDamageMult());
+    // Standing over the King Black Dragon's dragonfire: this tower hits for half while
+    // the road it covers burns. Applied at the shot rather than inside
+    // `calculateTowerStats`, so a fire sweeping across the board never invalidates the
+    // stat cache (see `combatEpoch`) — the multiplier is situational, like the Slayer
+    // bonus below it.
+    if ((tower.scorchedTimer ?? 0) > 0) damage = Math.floor(damage * KBD_SCORCH_MULT);
     // Utility damage-aura boosting this shot (for the DPS meter's attribution).
     const projAura = utilityAura(eng, tower);
 

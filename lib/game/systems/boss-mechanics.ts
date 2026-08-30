@@ -1,6 +1,6 @@
 import type { CombatStyle, Point } from '../types';
 import type { DamageTag } from './combat-stats';
-import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geometry';
+import { pathTotalLength, remainingPathDistance, advanceAlongPath, inSquareRange } from './geometry';
 
 /**
  * Boss mechanics (#4B): per-boss phase logic for the three signature bosses.
@@ -46,13 +46,13 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath } from './geom
  * ledger of which ideas are taken and which are still open.
  */
 
-export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus' | 'scurrius';
+export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus' | 'scurrius' | 'kbd';
 
 /** The bosses that carry phase mechanics: they get a {@link BossState} on spawn and
  *  roll boss modifiers once seen. The engine and the save sanitiser read this to decide
  *  who has state. */
 export const MECHANIC_BOSSES: readonly BossId[] = [
-  'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus', 'brutus', 'scurrius',
+  'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus', 'brutus', 'scurrius', 'kbd',
 ];
 
 /**
@@ -66,7 +66,7 @@ export const MECHANIC_BOSSES: readonly BossId[] = [
  * `BossState` and has no business being drawn on its own.
  */
 export const SCHEDULABLE_BOSSES: readonly BossId[] = [
-  'brutus', 'scurrius', 'giant_mole', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus', 'hydra',
+  'brutus', 'scurrius', 'giant_mole', 'kbd', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus', 'hydra',
 ];
 
 // ─────────────────────────────────── Zulrah ────────────────────────────────
@@ -604,6 +604,21 @@ export function bossPhaseClip(state: BossState | undefined): { name: string; ela
     if (state.brutusPhase === 'dash') return { name: 'charge', elapsed: BRUTUS_DASH_SECS - left };
     return null;
   }
+  if (state.kind === 'kbd') {
+    // One clip (OSRS sequence 81) across two phases, cut at the frame he spits.
+    // The rear-up is *stretched* over the tell — a long, deliberate inhale — and the
+    // settle plays at its own speed afterwards, so the fire leaves him on exactly the
+    // frame his head comes forward rather than at some arbitrary point in the animation.
+    const left = state.kbdTimer ?? 0;
+    if (state.kbdPhase === 'inhale') {
+      const progress = Math.min(1, Math.max(0, (KBD_INHALE_SECS - left) / KBD_INHALE_SECS));
+      return { name: 'breath', elapsed: KBD_BREATH_RELEASE * progress };
+    }
+    if (state.kbdPhase === 'recover') {
+      return { name: 'breath', elapsed: KBD_BREATH_RELEASE + (KBD_RECOVER_SECS - left) };
+    }
+    return null;
+  }
   return null;
 }
 
@@ -981,6 +996,267 @@ export function stallHealMult(stacks: number): number {
   return Math.max(0, 1 - Math.max(0, stacks) * STALL_HEAL_PER_STACK);
 }
 
+// ────────────────────────── King Black Dragon ──────────────────────────────
+/**
+ * The King Black Dragon: the first boss that attacks the **board** instead of the
+ * player's attention.
+ *
+ * Every boss before him answers "can your damage reach me?" — Brutus steps out of it,
+ * the Mole ducks under it, Scurrius splits it up. The King Black Dragon leaves the
+ * damage alone and sets the ground on fire: he rears back, and a stretch of road
+ * catches. Every tower whose range covers the burning stretch hits for half while it
+ * burns.
+ *
+ * That makes the *shape* of the defence the answer. A killbox — six towers stacked
+ * around one bend, the strongest thing a player can build against everything else — is
+ * exactly what he picks, because the breath lands on whichever stretch the most towers
+ * are covering. A long, thin line down the road loses two towers to a breath instead of
+ * the whole board. Punishing tight clustering is the idea this boss owns
+ * (`docs/boss-design.md`, axis B).
+ *
+ * It is deliberately **not** a disable: a scorched tower still fires, still tracks,
+ * still feeds the DPS meter — it just hits softly. Disables already have an owner
+ * (Brutus's trample) and a fixed look, and a second source stacked onto it would read as
+ * the same mechanic twice. What the player loses here is the *value* of having built
+ * everything in one place, which is a different loss from losing the tower.
+ *
+ * Fidelity: KBD's dragonfire in OSRS is exactly this — a wide, unavoidable breath that
+ * scorches whoever failed to prepare for it, and the counter is preparation, not
+ * dodging. The three-tick tell before it lands is ours, borrowed from the game's own
+ * convention for telegraphed specials, because a mechanic the player cannot see coming
+ * is a bug.
+ *
+ * NPC 239 in the cache.
+ */
+export type KbdPhase = 'fly' | 'inhale' | 'recover';
+
+/** Seconds after he arrives before the first breath — long enough that the player sees a
+ *  dragon walking the road before the board catches fire. */
+export const KBD_FIRST_BREATH = 6;
+/** Seconds between breaths, measured from one landing to the next tell. The burn lasts
+ *  six of them, so the board spends roughly half the fight scorched somewhere. */
+export const KBD_BREATH_INTERVAL = 13;
+/** The tell: he plants, rears back, and the stretch he picked starts smouldering.
+ *  **Three game ticks** — the window every telegraphed special in this game gives. */
+export const KBD_INHALE_SECS = 1.8;
+/** Seconds into his baked `breath` clip (OSRS sequence 81) at which his head snaps
+ *  forward and the fire actually leaves him. The inhale is stretched to end exactly here,
+ *  so the gouts appear on the frame he spits them — the tell is him drawing the breath,
+ *  not a countdown played over an unrelated animation. */
+export const KBD_BREATH_RELEASE = 0.82;
+/** The rest of that clip: him dropping back onto all fours after the breath. He stays
+ *  planted through it, so the whole gesture — rear, spit, settle — reads as one action
+ *  and the halt is visibly what it cost him. */
+export const KBD_RECOVER_SECS = 0.96;
+/** How long the road burns once the breath lands. */
+export const KBD_BURN_SECS = 6;
+/** Logic pixels of road set alight — about five tiles, wide enough that a killbox cannot
+ *  simply be rebuilt one tile to the left of it. */
+export const KBD_SCORCH_LENGTH = 170;
+/** What a scorched tower's damage is multiplied by. Half: felt immediately, and still
+ *  worth having built. */
+export const KBD_SCORCH_MULT = 0.5;
+/** How finely the burning stretch is sampled — for the coverage test and for the flames
+ *  the renderer draws along it. */
+export const KBD_SCORCH_STEP = 22;
+/** His tell. In-game strings stay English. */
+export const KBD_SAY = '*inhales*';
+/** How fast a gout of dragonfire crosses the board (logic px/s). Fast enough to read as
+ *  fire being *thrown*, slow enough that the eye can follow it from his mouth to the
+ *  road and connect the two. */
+export const KBD_BREATH_SPEED = 620;
+/** Floor on a gout's flight, so the near end of the stretch still shows a projectile
+ *  rather than igniting on the same frame it was fired. */
+export const KBD_BREATH_MIN_FLIGHT = 0.12;
+/** Ceiling on it, so a breath fired from the far corner of the board still lands inside
+ *  the burn it belongs to. */
+export const KBD_BREATH_MAX_FLIGHT = 0.75;
+/**
+ * How far a gout bows off the straight line to its patch, as a fraction of that line's
+ * length — the flattest and the most arced gout of a volley.
+ *
+ * Two jobs, one number. Fire is *lobbed*: a gout that travels the straight line between
+ * two points reads as a laser, not as something thrown. And a volley is one gout per
+ * patch of road, all leaving the same mouth on the same frame at the same speed — on a
+ * straight line they overlap into what looks like two or three projectiles, no matter how
+ * many were actually fired. Giving each its own bow fans them apart, so the count the
+ * player sees in the air is the count that lands on the ground.
+ */
+export const KBD_BREATH_BOW_MIN = 0.12;
+export const KBD_BREATH_BOW_MAX = 0.46;
+
+/** The four breaths he carries, in the order he cycles them — his own cache GFX
+ *  (spotanims 393-396: fire, poison, ice, shock), so a second breath reads as a second
+ *  breath rather than a repeat of the first. */
+export const KBD_BREATH_SLUGS = [
+  'proj_dragonfire', 'proj_dragonfire_poison', 'proj_dragonfire_ice', 'proj_dragonfire_shock',
+] as const;
+
+/** Which breath the `n`th one of the fight is. Cycles, so a long fight shows all four. */
+export function breathSlug(index: number): string {
+  const n = KBD_BREATH_SLUGS.length;
+  return KBD_BREATH_SLUGS[((index % n) + n) % n];
+}
+
+/**
+ * The bow of each gout in a volley of `n` — spread evenly from the flattest to the most
+ * arced, so no two gouts of one breath fly the same curve.
+ *
+ * All of them lift (positive, i.e. off the chord towards the top of the board) rather
+ * than fanning to both sides: crossing arcs read as a mess, a spray that all rises and
+ * comes down reads as one breath.
+ */
+export function breathBows(
+  n: number, min = KBD_BREATH_BOW_MIN, max = KBD_BREATH_BOW_MAX,
+): number[] {
+  if (n <= 0) return [];
+  if (n === 1) return [(min + max) / 2];
+  return Array.from({ length: n }, (_, i) => min + (max - min) * (i / (n - 1)));
+}
+
+/**
+ * The quadratic Bézier control point for a bowed gout: the midpoint of the chord, pushed
+ * off it along the perpendicular by `bow` × the chord's length.
+ *
+ * The normal is always chosen to point *up* the board (negative y), so a breath aimed
+ * left and a breath aimed right arc the same way instead of mirroring into a dive.
+ */
+export function breathArcControl(from: Point, to: Point, bow: number): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.hypot(dx, dy) || 1;
+  // Unit perpendicular, flipped so it always lifts.
+  let nx = -dy / len;
+  let ny = dx / len;
+  if (ny > 0) { nx = -nx; ny = -ny; }
+  const lift = bow * len;
+  return { x: (from.x + to.x) / 2 + nx * lift, y: (from.y + to.y) / 2 + ny * lift };
+}
+
+/** A point on that arc at `u` ∈ [0,1]. `u` is arc parameter, not time — the caller eases
+ *  it, so the fire still accelerates out of his mouth. */
+export function breathArcPoint(from: Point, to: Point, bow: number, u: number): Point {
+  const c = breathArcControl(from, to, bow);
+  const k = 1 - u;
+  return {
+    x: k * k * from.x + 2 * k * u * c.x + u * u * to.x,
+    y: k * k * from.y + 2 * k * u * c.y + u * u * to.y,
+  };
+}
+
+/** The heading along that arc at `u` — the Bézier's tangent, so the sprite points where
+ *  it is actually going rather than at where it will end up. */
+export function breathArcAngle(from: Point, to: Point, bow: number, u: number): number {
+  const c = breathArcControl(from, to, bow);
+  const k = 1 - u;
+  const dx = 2 * k * (c.x - from.x) + 2 * u * (to.x - c.x);
+  const dy = 2 * k * (c.y - from.y) + 2 * u * (to.y - c.y);
+  return Math.atan2(dy, dx);
+}
+
+
+/** A tower as the scorch cares about it: where it stands and its range half-width in
+ *  logic pixels (`squareRange(stats.range, GRID)`), so this maths never needs the stat
+ *  pipeline. */
+export interface ScorchTower {
+  x: number;
+  y: number;
+  half: number;
+}
+
+/**
+ * The centre-line of a burning stretch: the road sampled from `start` for `length`
+ * pixels. Points rather than a from/to pair, because roads bend — a straight line
+ * between the ends would cut the corner and burn grass nobody built along.
+ */
+export function scorchSpan(
+  path: readonly Point[], start: number, length = KBD_SCORCH_LENGTH, step = KBD_SCORCH_STEP,
+): Point[] {
+  const pts: Point[] = [];
+  if (path.length < 2) return pts;
+  const head = path[0];
+  for (let d = start; d <= start + length; d += step) {
+    const p = advanceAlongPath(path, 0, head.x, head.y, Math.max(0, d));
+    pts.push({ x: p.x, y: p.y });
+  }
+  return pts;
+}
+
+/** The towers whose range square covers any part of the burning stretch — the ones that
+ *  hit for {@link KBD_SCORCH_MULT} while it burns. */
+export function scorchedTowers<T extends ScorchTower>(
+  towers: readonly T[], span: readonly Point[],
+): T[] {
+  return towers.filter((t) => span.some((p) => inSquareRange(p.x, p.y, t.x, t.y, t.half)));
+}
+
+/**
+ * Where the breath lands: the stretch of road the *most* towers are covering.
+ *
+ * This is the whole mechanic. He does not breathe at the player, or ahead of himself, or
+ * at random — he breathes at whatever the board has been concentrated on, so the price of
+ * stacking every tower around one bend is that one breath halves all of them. Ties go to
+ * the earliest stretch, which keeps the pick deterministic (and testable).
+ *
+ * With nothing built, or nothing in reach of the road, every stretch scores zero and the
+ * first one wins: the road still burns, harmlessly. That is the right reading — the
+ * dragon breathes either way.
+ */
+export function pickScorchStart<T extends ScorchTower>(
+  path: readonly Point[], towers: readonly T[],
+  length = KBD_SCORCH_LENGTH, step = KBD_SCORCH_STEP,
+): number {
+  const last = Math.max(0, pathTotalLength(path) - length);
+  let bestStart = 0;
+  let bestScore = -1;
+  for (let start = 0; start <= last; start += step) {
+    const score = scorchedTowers(towers, scorchSpan(path, start, length, step)).length;
+    if (score > bestScore) { bestScore = score; bestStart = start; }
+  }
+  return bestStart;
+}
+
+/**
+ * When each patch of the stretch catches, in seconds after the breath is fired: how long
+ * its own gout of dragonfire takes to fly there from his mouth.
+ *
+ * Time, not just distance, because the fire has to *arrive*. Deriving the ignition from
+ * the flight is what keeps the two halves honest — the projectile the player watches and
+ * the flame that halves their damage are the same event, and no patch can burn before
+ * something visibly set it on fire.
+ */
+export function breathFlightTimes(
+  from: Point, points: readonly Point[],
+  speed = KBD_BREATH_SPEED, min = KBD_BREATH_MIN_FLIGHT, max = KBD_BREATH_MAX_FLIGHT,
+): number[] {
+  return points.map((p) => {
+    const t = Math.hypot(p.x - from.x, p.y - from.y) / speed;
+    return Math.min(max, Math.max(min, t));
+  });
+}
+
+/** The patches of a scorch that are already alight at `timer` seconds — everything whose
+ *  gout has landed. A scorch with no `lit` times (the telegraph) is lit all at once. */
+export function litScorchPoints(
+  points: readonly Point[], lit: readonly number[] | undefined, timer: number,
+): Point[] {
+  if (!lit) return [...points];
+  return points.filter((_, i) => timer >= (lit[i] ?? 0));
+}
+
+/** True while he is rearing back mid-breath. He stops walking for the tell — that halt is
+ *  what the breath costs him, and what makes the telegraph readable. */
+export function kbdIsInhaling(state: BossState | undefined): boolean {
+  return state?.kind === 'kbd' && state.kbdPhase === 'inhale';
+}
+
+/** True for the whole planted gesture — the inhale *and* the settle back down afterwards.
+ *  This is what stops him walking; {@link kbdIsInhaling} is only the tell itself, which is
+ *  the half the boss bar and the smoulder are about. */
+export function kbdIsHalted(state: BossState | undefined): boolean {
+  return state?.kind === 'kbd' && (state.kbdPhase === 'inhale' || state.kbdPhase === 'recover');
+}
+
 // ───────────────────────────── shared boss state ───────────────────────────
 /** Mutable per-boss runtime state the engine stores on the boss enemy. */
 export interface BossState {
@@ -1070,6 +1346,16 @@ export interface BossState {
   squeakStop?: number;
   /** Scurrius: rats shorn so far, read out on the boss bar. */
   ratsShorn?: number;
+  /** KBD: where he is in the breath cycle. */
+  kbdPhase?: KbdPhase;
+  /** KBD: seconds left of the current {@link kbdPhase} — while flying, the countdown to
+   *  the next breath. */
+  kbdTimer?: number;
+  /** KBD: the stretch he is breathing at, picked when the tell starts, so the fire lands
+   *  on exactly the road that smouldered — even if the player builds during the window. */
+  scorchAt?: Point[];
+  /** KBD: breaths taken, read out on the boss bar. */
+  breaths?: number;
   /** Stall breaker: the lowest HP fraction this boss has been driven to. */
   hpFloor?: number;
   /** Stall breaker: seconds since it last reached a new low. */
@@ -1103,6 +1389,11 @@ export function freshBossState(kind: BossId): BossState {
     state.brutusCooldown = 0;
     state.rageDamage = 0;
     state.rampages = 0;
+  }
+  if (kind === 'kbd') {
+    state.kbdPhase = 'fly';
+    state.kbdTimer = KBD_FIRST_BREATH;
+    state.breaths = 0;
   }
   if (isGuardian(kind)) state.twinType = guardianTwin(kind);
   if (kind === 'cerberus') { state.soulSummons = 0; state.lockedStyles = []; }

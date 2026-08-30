@@ -58,6 +58,10 @@ export interface AccountSave {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
   bossesSeen: Record<string, number>;
+  /** Lifetime meetings per Distraction & Diversion id. Added after the format was
+   *  first shipped, so an older code simply carries none — a missing tally is an
+   *  empty log, which is exactly what it means. */
+  diversionsMet: Record<string, number>;
   victories: Victories;
   difficulty: DifficultyProgress;
   achievements: string[];
@@ -128,6 +132,7 @@ export interface AccountParts {
   killCounts?: unknown;
   cardCounts?: unknown;
   bossesSeen?: unknown;
+  diversionsMet?: unknown;
   victories?: unknown;
   difficulty?: unknown;
   achievements?: unknown;
@@ -150,6 +155,7 @@ export function buildAccountSave(parts: AccountParts): AccountSave {
     killCounts: tally(raw.killCounts),
     cardCounts: tally(raw.cardCounts),
     bossesSeen: tally(raw.bossesSeen),
+    diversionsMet: tally(raw.diversionsMet),
     victories: sanitizeVictories(raw.victories),
     difficulty: sanitizeDifficulty(raw.difficulty),
     achievements: Array.isArray(raw.achievements) ? raw.achievements.filter((x): x is string => typeof x === 'string') : [],

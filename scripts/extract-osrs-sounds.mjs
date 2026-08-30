@@ -133,6 +133,16 @@ const TARGETS = {
   // animation rather than the wiki's list, then auditioned to pick between takes.
   death_scurrius: 7694,        // seq 10705 (his death) — the first of five takes
   death_brutus: 11246,         // seq 13784 (his death); 11245 is the ground-slam special
+  // The King Black Dragon's own sequences (walk 4635 / hurt 4638 / death 92) carry no
+  // embedded sound, so his voice is the one the cache files for every dragon — the same
+  // clip the green and blue dragons already die with. It is not a stand-in: it is what
+  // a dragon, KBD included, sounds like when it dies in OSRS.
+  death_kbd: 409,              // dragon_death
+  // The breath itself: the cache's `firebreath` (159) — the clip a dragon plays when it
+  // breathes on a player, which is what the board hears when he breathes on the road.
+  // Not `dragonbreath` (585): that one opens on a third of a second of near-silence, so
+  // over a fight it read as no sound at all.
+  kbd_breath: 159,             // firebreath
 
   // ---- Paying down the borrowed voices -------------------------------------
   // Every id below is the NPC's own config name in scripts/data/osrs-sound-names.tsv

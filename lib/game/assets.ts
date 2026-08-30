@@ -227,7 +227,7 @@ const DEATH_TYPES = [
   'superior_abyssal_demon', 'superior_gargoyle', 'superior_nechryael',
   // Bosses and their adds — each with its own cry, never a borrowed one.
   'giant_mole', 'cerberus', 'dusk', 'dawn', 'yt_hurkot', 'summoned_soul',
-  'scurrius', 'brutus',
+  'scurrius', 'brutus', 'kbd',
   // Kharidian. Every one of these used to borrow a neighbour's voice; each now
   // ships the clip OSRS itself files under that monster's name. Two took a
   // deduction: the kalphite Guardian's family is filed `kalthite_lord` (Jagex's
@@ -294,6 +294,7 @@ export const ASSETS = {
     dark_beast: `${LOCAL}/models/dark_beast.png`,
     hydra: `${LOCAL}/models/hydra.png`,
     brutus: `${LOCAL}/models/brutus.png`,
+    kbd: `${LOCAL}/models/kbd.png`,                     // King Black Dragon
     giant_mole: `${LOCAL}/models/giant_mole.png`,
     dusk: `${LOCAL}/models/dusk.png`,                   // Grotesque Guardians
     dawn: `${LOCAL}/models/dawn.png`,
@@ -540,6 +541,7 @@ export const ASSETS = {
       boss_attack: `${SND}/boss_attack.wav`,            // vorkath_attack (1521)
       zulrah_hiss: `${SND}/zulrah_hiss.wav`,            // snake_hiss (799) — Zulrah's morph cry
       vorkath_shield: `${SND}/vorkath_shield.wav`,      // vorkath (1511) — his ice shield going up
+      kbd_breath: `${SND}/kbd_breath.wav`,              // dragonbreath (585) — the King Black Dragon's breath landing
       prayer_on: `${LOCAL}/sounds/prayer_generic_on.wav`,  // thick-skin "vwoom" (2690)
       prayer_off: `${LOCAL}/sounds/prayer_off.wav`,        // deactivate vwoop (2663)
       potion: `${SND}/potion.wav`,                      // liquid (2401) — potion gulp

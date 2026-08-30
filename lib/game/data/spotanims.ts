@@ -37,6 +37,15 @@ export interface SpotAnimMeta {
 const HIT_SIZE: Record<string, number> = { hit_fire_3: 92 };
 
 /**
+ * Flight GFX that are not a caster's orb. The King Black Dragon's breath is a gout thrown
+ * by something the size of a house, so at the spells' 30px it reads as a spark; it is
+ * drawn at the size of a real breath instead.
+ */
+const PROJ_SIZE: Record<string, number> = {
+  proj_dragonfire: 54, proj_dragonfire_poison: 54, proj_dragonfire_ice: 54, proj_dragonfire_shock: 54,
+};
+
+/**
  * Presentation defaults by slug family. Sheet facts (frames/timings) come from
  * the generated table; this layer decides how each GFX *plays* in our scenes:
  *  - `hit_*` spell impacts: one-shot on the struck model, sized near the
@@ -45,7 +54,7 @@ const HIT_SIZE: Record<string, number> = { hit_fire_3: 92 };
  *  - `portal`: the looping spawn portal, drawn every frame (not spawnEffect).
  */
 function presentationFor(slug: string): { size: number; speed: number; loop?: boolean; blend: 'add' | 'alpha' } {
-  if (slug.startsWith('proj_')) return { size: 30, speed: 1, loop: true, blend: 'alpha' };
+  if (slug.startsWith('proj_')) return { size: PROJ_SIZE[slug] ?? 30, speed: 1, loop: true, blend: 'alpha' };
   if (slug.startsWith('hit_')) return { size: HIT_SIZE[slug] ?? 72, speed: 1, blend: 'alpha' };
   // portal (and future NPC-sourced loops)
   return { size: 104, speed: 1, loop: true, blend: 'add' };

@@ -1,17 +1,19 @@
 /**
  * Export each enemy NPC as an **animated glTF** using osrscachereader's own
  * GLTFExporter — the library's tested model+animation path (the same one used to
- * view these models in standard glTF viewers). One .gltf per enemy, holding the
+ * view these models in standard glTF viewers). One .glb per enemy, holding the
  * merged + recoloured mesh and a morph-target animation per clip (walk/hurt/death)
  * named after the clip. The browser then renders it live with three.js (real
  * z-buffer, real playback) — no hand-rolled rasteriser, no sign/order guessing.
  *
  *   node scripts/export-enemy-gltf.mjs                 # export every enemy
  *   node scripts/export-enemy-gltf.mjs --only hill_giant
+ *   node scripts/export-enemy-gltf.mjs --group diversions
  *
  * Build-time/offline only (osrscachereader needs the local cache).
  */
 import { RSCache, IndexType, ConfigType, GLTFExporter, ModelGroup } from 'osrscachereader';
+import { gltfToGlb } from './lib/glb.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
@@ -19,12 +21,14 @@ import { homedir } from 'node:os';
 import { buildNpcModel } from './render-osrs-npc-anims.mjs';
 import { objectModelById } from './render-osrs-objects.mjs';
 import { clipSource, isAltModel, altGltfName, sourceLabel } from './lib/anim-source.mjs';
+import { pickGroup } from './lib/anim-group.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
 const CACHE_DIR = process.env.OSRS_CACHE_DIR || join(homedir(), '.runelite', 'jagexcache', 'oldschool', 'LIVE');
-const CONFIG_PATH = join(__dirname, 'enemy-anims.config.json');
-const OUT_DIR = join(REPO, 'public', 'assets', 'enemies-gltf');
+const GROUP = pickGroup(process.argv);
+const CONFIG_PATH = join(__dirname, GROUP.config);
+const OUT_DIR = join(REPO, ...GROUP.gltfDir);
 
 /**
  * The mesh a clip is posed on. Normally the enemy's own NPC model; a clip that
@@ -41,7 +45,12 @@ async function modelFor(cache, src, ownNpc) {
   return buildNpcModel(cache, ownNpc);
 }
 
-/** One glTF holding one model and the clips posed on it. */
+/** One .glb holding one model and the clips posed on it.
+ *
+ * The exporter emits JSON with every accessor as its own base64 `data:` URI —
+ * hundreds of them for an animated NPC — so the document is packed into the binary
+ * container before it is written (see lib/glb.mjs). Base64 costs a third more than
+ * the bytes it carries, and these files ship to the browser. */
 async function exportGltf(cache, model, entries, outName, label) {
   const exporter = new GLTFExporter(model);
   const clips = [];
@@ -55,17 +64,17 @@ async function exportGltf(cache, model, entries, outName, label) {
   }
   if (!clips.length) return null;
   exporter.addColors();
-  const gltf = exporter.export();
+  const glb = gltfToGlb(exporter.export());
   mkdirSync(OUT_DIR, { recursive: true });
-  writeFileSync(join(OUT_DIR, `${outName}.gltf`), gltf);
-  console.log(`✓ ${outName}: ${label} → enemies-gltf/${outName}.gltf (${clips.join('+')}, ${(Buffer.byteLength(gltf) / 1024).toFixed(0)} KB)`);
+  writeFileSync(join(OUT_DIR, `${outName}.glb`), glb);
+  console.log(`✓ ${outName}: ${label} → ${GROUP.gltfDir.at(-1)}/${outName}.glb (${clips.join('+')}, ${(glb.length / 1024).toFixed(0)} KB)`);
   return clips;
 }
 
 async function exportOne(cache, slug, cfg) {
   // Split the clips by the mesh they are posed on: the enemy's own goes in
-  // <slug>.gltf as always, and each borrowed-model clip gets a glTF of its own,
-  // <slug>__<clip>.gltf, which the baker loads into the same scene.
+  // <slug>.glb as always, and each borrowed-model clip gets a file of its own,
+  // <slug>__<clip>.glb, which the baker loads into the same scene.
   const own = [], alt = [];
   for (const [name, value] of Object.entries(cfg.anims)) {
     (isAltModel(value) ? alt : own).push([name, clipSource(value), value]);
@@ -112,7 +121,7 @@ async function main() {
   }
   if (!only) {
     writeFileSync(join(OUT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2));
-    console.log(`✓ manifest.json (${Object.keys(manifest).length} enemies)`);
+    console.log(`✓ manifest.json (${Object.keys(manifest).length} ${GROUP.label})`);
   }
   process.exit(0);
 }

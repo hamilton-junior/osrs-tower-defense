@@ -10,6 +10,7 @@ import {
   pickDiversionSpot,
   resolvePayload,
   rollDiversionMoods,
+  sanitizeDiversionsMet,
   rollNestPayload,
   sendDiversionOff,
   stepDiversion,
@@ -327,5 +328,26 @@ describe('the cast', () => {
       expect(def.sprite).toMatch(/\/assets\/(models|items)\/[a-z0-9_]+\.png$/);
       expect(def.sprite).not.toMatch(/^https?:/);
     }
+  });
+});
+
+describe('sanitizeDiversionsMet', () => {
+  it('keeps positive whole counts for ids that still exist', () => {
+    expect(sanitizeDiversionsMet({ hans: 3, genie: 1 })).toEqual({ hans: 3, genie: 1 });
+  });
+
+  it('drops ids the table no longer has, and anything that is not a count', () => {
+    expect(sanitizeDiversionsMet({ hans: 2, wise_old_man: 9, bob: 0, genie: -1, party_pete: 'lots' }))
+      .toEqual({ hans: 2 });
+  });
+
+  it('floors a fractional count rather than throwing the entry away', () => {
+    expect(sanitizeDiversionsMet({ hans: 2.7 })).toEqual({ hans: 2 });
+  });
+
+  it('reads garbage as an empty log', () => {
+    expect(sanitizeDiversionsMet(null)).toEqual({});
+    expect(sanitizeDiversionsMet('hans')).toEqual({});
+    expect(sanitizeDiversionsMet(undefined)).toEqual({});
   });
 });

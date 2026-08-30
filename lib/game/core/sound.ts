@@ -28,6 +28,9 @@ export const GAME_SOUNDS: Record<string, string> = {
   // is Vorkath's own cry, kept clear of the Ice spellbook's clips so the shield reads as
   // the boss doing something rather than as a spell being cast at it.
   bossshield_vorkath: ASSETS.sounds.misc.vorkath_shield,
+  // The King Black Dragon's breath landing. The cache's own `dragonbreath`, kept apart
+  // from his death cry so the road catching fire never sounds like the boss dying.
+  bossbreath_kbd: ASSETS.sounds.misc.kbd_breath,
   select: ASSETS.sounds.misc.select,
   interface_open: ASSETS.sounds.misc.interface_open,
   interface_close: ASSETS.sounds.misc.interface_close,

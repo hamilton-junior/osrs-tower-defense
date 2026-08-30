@@ -1,7 +1,7 @@
 {
   "npc": 8609,
-  "frameW": 128,
-  "frameH": 128,
+  "frameW": 256,
+  "frameH": 256,
   "clips": {
     "walk": {
       "anim": 8259,

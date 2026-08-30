@@ -1,0 +1,85 @@
+{
+  "npc": 326,
+  "frameW": 128,
+  "frameH": 128,
+  "views": {
+    "front": {
+      "stand": {
+        "anim": 792,
+        "frames": 5,
+        "frameMs": [
+          220,
+          55,
+          55,
+          55,
+          55
+        ],
+        "loop": true
+      },
+      "walk": {
+        "anim": 792,
+        "frames": 5,
+        "frameMs": [
+          220,
+          55,
+          55,
+          55,
+          55
+        ],
+        "loop": true
+      }
+    },
+    "side": {
+      "stand": {
+        "anim": 792,
+        "frames": 5,
+        "frameMs": [
+          220,
+          55,
+          55,
+          55,
+          55
+        ],
+        "loop": true
+      },
+      "walk": {
+        "anim": 792,
+        "frames": 5,
+        "frameMs": [
+          220,
+          55,
+          55,
+          55,
+          55
+        ],
+        "loop": true
+      }
+    },
+    "back": {
+      "stand": {
+        "anim": 792,
+        "frames": 5,
+        "frameMs": [
+          220,
+          55,
+          55,
+          55,
+          55
+        ],
+        "loop": true
+      },
+      "walk": {
+        "anim": 792,
+        "frames": 5,
+        "frameMs": [
+          220,
+          55,
+          55,
+          55,
+          55
+        ],
+        "loop": true
+      }
+    }
+  }
+}

@@ -11,10 +11,10 @@
 import type { CaTask } from '../systems/combat-achievements';
 import type { EnemyType } from '../types';
 
-/** The ten bosses a full run must defeat, for `perfect-roster`. */
+/** The eleven bosses a full run must defeat, for `perfect-roster`. */
 export const CA_BOSS_ROSTER: readonly EnemyType[] = [
   'scurrius', 'brutus', 'giant_mole', 'dusk', 'dawn',
-  'cerberus', 'zulrah', 'vorkath', 'jad', 'hydra',
+  'cerberus', 'zulrah', 'vorkath', 'jad', 'hydra', 'kbd',
 ];
 
 export const CA_TASKS: readonly CaTask[] = [
@@ -69,6 +69,11 @@ export const CA_TASKS: readonly CaTask[] = [
       && s.bossFlags.duskDawnClean,
   },
   {
+    id: 'wilderness-lair', tier: 'medium', name: 'Wilderness Lair',
+    desc: 'Defeat the King Black Dragon.',
+    check: (s) => s.bossKillSeconds.kbd !== undefined,
+  },
+  {
     id: 'thrifty', tier: 'medium', name: 'Thrifty',
     desc: 'Reach wave 30 having built no more than 8 towers.',
     check: (s) => s.maxWaveReached >= 30 && s.towersBuilt <= 8,
@@ -114,6 +119,11 @@ export const CA_TASKS: readonly CaTask[] = [
     id: 'dragonfire-drill', tier: 'hard', name: 'Dragonfire Drill',
     desc: 'Defeat Vorkath without losing a life.',
     check: (s) => s.bossKillSeconds.vorkath !== undefined && (s.livesLostDuringBoss.vorkath ?? 0) === 0,
+  },
+  {
+    id: 'antifire-protection', tier: 'hard', name: 'Antifire Protection',
+    desc: 'Defeat the King Black Dragon without his fire reaching a tower.',
+    check: (s) => s.bossKillSeconds.kbd !== undefined && !s.bossFlags.kbdTowerScorched,
   },
   {
     id: 'minimalist', tier: 'hard', name: 'Minimalist',
@@ -217,7 +227,7 @@ export const CA_TASKS: readonly CaTask[] = [
   },
   {
     id: 'perfect-roster', tier: 'grandmaster', name: 'Perfect Roster',
-    desc: 'Defeat all ten bosses in one run, losing no life to any of them.',
+    desc: 'Defeat all eleven bosses in one run, losing no life to any of them.',
     check: (s) => s.won && CA_BOSS_ROSTER.every(
       (b) => s.bossKillSeconds[b] !== undefined && (s.livesLostDuringBoss[b] ?? 0) === 0,
     ),

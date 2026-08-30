@@ -4,6 +4,8 @@ import React from 'react';
 import { ENEMY_ANIMS, clipDurationS } from '@/lib/game/data/enemy-anims';
 import { ELEMENTS } from '@/lib/game/systems/magic';
 import { ENEMIES } from '@/lib/game/data/enemies';
+import { DIVERSION_ANIMS } from '@/lib/game/data/diversion-anims';
+import { DIVERSION_BY_ID, type DiversionId } from '@/lib/game/data/diversions';
 import type { StyleWeakness } from '@/lib/game/types';
 
 /**
@@ -43,6 +45,33 @@ export function enemySpriteStyle(type: string, animate = false): React.CSSProper
   // Most types are their own clip slug; `animSlug` covers the ones that aren't
   // (Cerberus's souls are three cache NPCs behind one type).
   return enemySlugSpriteStyle(ENEMIES[type as keyof typeof ENEMIES]?.animSlug ?? type, animate);
+}
+
+/** The same trick for a Distraction & Diversion: its baked **standing** loop, seen
+ *  from the front, is what it does while it waits on the board — so the Collection
+ *  Log shows it idling rather than posing. The bird nest has no rig (it is an item
+ *  lying on the floor), so it falls back to its own icon, still contained. */
+export function diversionSpriteStyle(id: string, animate = false): React.CSSProperties {
+  const clip = DIVERSION_ANIMS[id]?.views.front?.stand;
+  if (!clip) {
+    const sprite = DIVERSION_BY_ID[id as DiversionId]?.sprite;
+    return sprite
+      ? { backgroundImage: `url(${sprite})`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
+      : {};
+  }
+  const base: React.CSSProperties = {
+    backgroundImage: `url(${clip.url})`,
+    backgroundSize: `${clip.frames * 100}% 100%`,
+    backgroundPosition: 'left center',
+    backgroundRepeat: 'no-repeat',
+  };
+  if (!animate || clip.frames <= 1) return base;
+  const dur = Math.max(0.5, clipDurationS(clip));
+  return {
+    ...base,
+    ['--rs-walk-shift' as string]: `-${clip.frames * 3.4}em`,
+    animation: `rs-log-walk ${dur}s steps(${clip.frames}) infinite`,
+  };
 }
 
 /** The same icon, but for one *look* rather than one monster — the Barrows

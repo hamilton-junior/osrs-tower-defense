@@ -1,285 +1,285 @@
 {
-  "generatedAt": "2026-08-19",
+  "generatedAt": "2026-08-30",
   "entries": [
     {
       "kind": "new",
-      "scope": "gear",
-      "text": "Equip straight from the loot bag, and see what the swap changes",
+      "scope": "game",
+      "text": "The King Black Dragon sets the road alight, and travellers now wander in between waves",
       "fromFeedback": false,
-      "date": "2026-08-18"
+      "date": "2026-08-30"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "The interface size uses every bit of room the bar has, instead of stopping a step short",
+      "fromFeedback": true,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "The gargoyle no longer freezes mid-air when she dies",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "The gargoyle dies on his own skeleton now, instead of a broken crumble",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "The gargoyle flinches when you hit it",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Seventeen monsters that borrowed another's death cry now have their own",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Scurrius and Brutus die with their own voices now",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The Champion mark is a real gold trophy now, not a typed star",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "The common gargoyle is the Slayer Tower one again, and it crumbles into rubble when it dies",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Giants, gargoyles, the mummy and their neighbours flinch and die properly now",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The Road Forks is headed by a signpost now, not a compass",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "The trap counter no longer looks like it is counting only the trap you are holding",
+      "fromFeedback": false,
+      "date": "2026-08-28"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Spells and hitsplats now land on the Giant Mole instead of in the dirt under it",
+      "fromFeedback": false,
+      "date": "2026-08-27"
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "The Barrows brothers have names now — the log and the bestiary let you leaf through a monster's bodies",
+      "fromFeedback": false,
+      "date": "2026-08-27"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "A box selection now finishes even when you let go outside the board",
+      "fromFeedback": false,
+      "date": "2026-08-27"
     },
     {
       "kind": "balanced",
-      "scope": "gear",
-      "text": "Utility wizards take jewellery only",
+      "scope": "game",
+      "text": "A superior is no longer a second boss, and a chinchompa's max hit grows with the wave",
       "fromFeedback": false,
-      "date": "2026-08-18"
+      "date": "2026-08-27"
     },
     {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "A click no longer pins a tooltip open",
+      "kind": "new",
+      "scope": "game",
+      "text": "The Kharidian Desert fields its own nine — vultures, jackals, the kalphite hive, mummies and a dust devil",
       "fromFeedback": false,
-      "date": "2026-08-18"
+      "date": "2026-08-26"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Misthalin fields its own seven — cave bugs, frogs, hobgoblins, a giant bat and a moss giant",
+      "fromFeedback": false,
+      "date": "2026-08-26"
+    },
+    {
+      "kind": "balanced",
+      "scope": "game",
+      "text": "The road forks when a boss falls, instead of every five waves",
+      "fromFeedback": true,
+      "date": "2026-08-26"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "The run travels — every five waves the road forks and you choose the region you fight in next",
+      "fromFeedback": true,
+      "date": "2026-08-26"
     },
     {
       "kind": "updated",
       "scope": "ui",
-      "text": "Move the loot bag onto its own bar stone",
+      "text": "The start screen button is called Save/Load Game, since it both exports and imports",
       "fromFeedback": false,
-      "date": "2026-08-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "assets",
-      "text": "Bake the last wiki-linked icon from the game cache",
-      "fromFeedback": false,
-      "date": "2026-08-18"
+      "date": "2026-08-25"
     },
     {
       "kind": "new",
-      "scope": "achievements",
-      "text": "Collection Log tab, tier titles and the tutorial entry",
+      "scope": "ui",
+      "text": "The Roguelite card warns that the mode and its balance are still work in progress",
       "fromFeedback": false,
-      "date": "2026-08-18"
+      "date": "2026-08-25"
     },
     {
       "kind": "updated",
       "scope": "ui",
-      "text": "Make unlock-popup queueing a tested contract",
+      "text": "The life and prayer orbs are round spheres with a chiselled frame instead of a bitmap rim with jagged corners",
       "fromFeedback": false,
-      "date": "2026-08-18"
+      "date": "2026-08-25"
     },
     {
       "kind": "new",
-      "scope": "achievements",
-      "text": "Keep completed achievements and run facts across sessions",
+      "scope": "ui",
+      "text": "The construction button counts the towers standing on the board, the way the hunter button counts laid traps",
       "fromFeedback": false,
-      "date": "2026-08-18"
+      "date": "2026-08-25"
     },
     {
       "kind": "updated",
-      "scope": "achievements",
-      "text": "Tier icons from the game cache",
+      "scope": "ui",
+      "text": "The hunter level and the trap allowance move into a trap's hover panel, so the trap row lines up with the tower shop",
       "fromFeedback": false,
-      "date": "2026-08-18"
-    },
-    {
-      "kind": "new",
-      "scope": "achievements",
-      "text": "Evaluate Combat Achievements at the run checkpoints",
-      "fromFeedback": false,
-      "date": "2026-08-18"
+      "date": "2026-08-25"
     },
     {
       "kind": "fixed",
-      "scope": "achievements",
-      "text": "Make Hellhound's Master track survivable souls",
+      "scope": "enemies",
+      "text": "A humanoid death no longer freezes in mid-air before the body settles",
       "fromFeedback": false,
-      "date": "2026-08-16"
-    },
-    {
-      "kind": "new",
-      "scope": "achievements",
-      "text": "Record Combat Achievement run facts in the engine",
-      "fromFeedback": false,
-      "date": "2026-08-16"
-    },
-    {
-      "kind": "new",
-      "scope": "achievements",
-      "text": "Grandmaster tier and The Whole Log capstone",
-      "fromFeedback": false,
-      "date": "2026-08-16"
-    },
-    {
-      "kind": "new",
-      "scope": "achievements",
-      "text": "Elite and Master tiers",
-      "fromFeedback": false,
-      "date": "2026-08-16"
+      "date": "2026-08-25"
     },
     {
       "kind": "fixed",
-      "scope": "achievements",
-      "text": "Describe Sun and Moon by what it actually checks",
+      "scope": "jad",
+      "text": "TzTok-Jad dies with his own animation instead of another creature's",
       "fromFeedback": false,
-      "date": "2026-08-16"
+      "date": "2026-08-25"
+    },
+    {
+      "kind": "fixed",
+      "scope": "enemies",
+      "text": "A slain enemy settles onto the ground instead of freezing on its last frame",
+      "fromFeedback": false,
+      "date": "2026-08-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The life and prayer orbs carry their colour again, and their gauges drain smoothly instead of stepping",
+      "fromFeedback": false,
+      "date": "2026-08-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The life and prayer icons in the bottom bar wear the minimap orb behind them again",
+      "fromFeedback": false,
+      "date": "2026-08-25"
+    },
+    {
+      "kind": "fixed",
+      "scope": "road",
+      "text": "Filling a detour back in shortens it on its own side instead of flipping it to the other flank",
+      "fromFeedback": false,
+      "date": "2026-08-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The tower slots sit dead centre of the bottom bar, and the life and prayer gauges stretch across the space beside them",
+      "fromFeedback": false,
+      "date": "2026-08-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "Lives and prayer are centred in the bar's empty stretch instead of hugging the interface stones",
+      "fromFeedback": false,
+      "date": "2026-08-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The wave leaves the bottom bar, since the Start Wave button already carries its number",
+      "fromFeedback": false,
+      "date": "2026-08-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "Lives, wave and prayer leave the board's corner for the bottom bar, and the wave drops its always-full gauge",
+      "fromFeedback": false,
+      "date": "2026-08-24"
     },
     {
       "kind": "new",
-      "scope": "achievements",
-      "text": "Medium and Hard tiers",
+      "scope": "road",
+      "text": "The same square of road can be pulled aside over and over, each tile costing the going rate and filling back in for free",
       "fromFeedback": false,
-      "date": "2026-08-16"
+      "date": "2026-08-24"
     },
     {
       "kind": "fixed",
       "scope": "ui",
-      "text": "Label New Game+ tiers so the ladder reads as it climbs",
+      "text": "The Hunter paw in the bottom bar shrinks back to icon size, so its level and XP bar fit the square again",
       "fromFeedback": false,
-      "date": "2026-08-16"
+      "date": "2026-08-24"
     },
     {
       "kind": "new",
-      "scope": "achievements",
-      "text": "Pure Combat Achievements ruleset + Easy tier",
+      "scope": "road",
+      "text": "Dig one square of road a tile aside, and fill it back in if you change your mind",
       "fromFeedback": false,
-      "date": "2026-08-16"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "Keep the wizard spellbook picker inside the board",
-      "fromFeedback": false,
-      "date": "2026-08-16"
+      "date": "2026-08-24"
     },
     {
       "kind": "new",
-      "scope": null,
-      "text": "Difficulty collection-log entry + tutorial mirror line",
+      "scope": "guide",
+      "text": "The Lumbridge Guide reads the coming wave — what it is weak to, how many elites, and which modifiers are in the pool",
       "fromFeedback": false,
-      "date": "2026-08-14"
+      "date": "2026-08-24"
     },
     {
       "kind": "new",
-      "scope": null,
-      "text": "New Game+ tier selector + per-mode difficulty progress store",
+      "scope": "hunter",
+      "text": "A trap that hurts now names its damage and its max hit on hover",
       "fromFeedback": false,
-      "date": "2026-08-14"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Engine holds/applies/emits the difficulty tier (lives, enemy mults, save)",
-      "fromFeedback": false,
-      "date": "2026-08-13"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Persist difficultyTier in the run save (version 3, defaults to 0)",
-      "fromFeedback": false,
-      "date": "2026-08-13"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Optional difficulty multipliers on scaleEnemyStats (identity default)",
-      "fromFeedback": false,
-      "date": "2026-08-13"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "Restore Grandmaster -20 lives; add effectiveStartLives floor helper",
-      "fromFeedback": false,
-      "date": "2026-08-13"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Pure difficulty-ladder module (tiers, mods, unlock math)",
-      "fromFeedback": false,
-      "date": "2026-08-13"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "Render the board at native display resolution (sharp on any screen)",
-      "fromFeedback": false,
-      "date": "2026-08-05"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Tutorial covers the ammo/jewellery gear model",
-      "fromFeedback": false,
-      "date": "2026-08-05"
-    },
-    {
-      "kind": "updated",
-      "scope": null,
-      "text": "Slimmer tower panel (tighter layout + shorter effect copy)",
-      "fromFeedback": false,
-      "date": "2026-08-05"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Shared OSRS hover tooltip for informational hovers",
-      "fromFeedback": false,
-      "date": "2026-08-05"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Ammo/jewellery equipment slots with per-style labels",
-      "fromFeedback": false,
-      "date": "2026-08-05"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Bake ammo/kit/jewellery gear icons from the OSRS cache",
-      "fromFeedback": false,
-      "date": "2026-08-05"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Full OSRS ammo/kit/jewellery ladders (generated pool)",
-      "fromFeedback": false,
-      "date": "2026-08-05"
-    },
-    {
-      "kind": "updated",
-      "scope": null,
-      "text": "Gear model → ammo/jewellery slots + ammo-class foundation",
-      "fromFeedback": false,
-      "date": "2026-08-05"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "Gear stat epoch, sell-return, per-target signature, save the loot bag",
-      "fromFeedback": false,
-      "date": "2026-08-04"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Tutorial covers Classic gear (LEARN_STEPS + TLDR)",
-      "fromFeedback": false,
-      "date": "2026-08-03"
-    },
-    {
-      "kind": "fixed",
-      "scope": null,
-      "text": "Right-click unequip no longer resets the tower panel position",
-      "fromFeedback": false,
-      "date": "2026-08-03"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Classic gear slots on the tower panel + loot-bag panel",
-      "fromFeedback": false,
-      "date": "2026-08-03"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Bake Classic gear icons from the OSRS cache",
-      "fromFeedback": false,
-      "date": "2026-08-03"
-    },
-    {
-      "kind": "new",
-      "scope": null,
-      "text": "Signature gear (Twisted bow, Darklight) changes per-hit damage",
-      "fromFeedback": false,
-      "date": "2026-08-03"
+      "date": "2026-08-24"
     }
   ]
 }

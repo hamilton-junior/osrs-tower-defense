@@ -3,6 +3,7 @@ import type { TerrainField } from '../systems/terrain-generation';
 import { drawBackground, drawPath, drawSpawnPortal, drawEffects } from './render/terrain';
 import { drawDangerZone, drawHoverRange, drawBuildOverlay, drawPlacementGhost } from './render/build-overlay';
 import { drawTowers } from './render/towers';
+import { drawScorches } from './render/scorch';
 import { drawDeaths, drawEnemies } from './render/enemies';
 import { drawDiversions } from './render/diversions';
 import { drawTraps } from './render/hunter-traps';
@@ -71,6 +72,7 @@ export class GameRenderer {
     ctx.imageSmoothingEnabled = false;
     drawBackground(this, ctx);
     drawPath(this, ctx);
+    drawScorches(this, ctx); // dragonfire on the road — under the towers and enemies that stand in it
     drawDangerZone(this, ctx);
     drawHoverRange(this, ctx);
     drawBuildOverlay(this, ctx);

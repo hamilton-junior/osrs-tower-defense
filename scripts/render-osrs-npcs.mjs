@@ -30,6 +30,10 @@ const CACHE_DIR = process.env.OSRS_CACHE_DIR || DEFAULT_CACHE;
 
 // Output canvas size; the model is auto-fit inside this with a margin.
 const SIZE = 256;
+/** Supersampling: render each cell this many times over and box it down. Cache models
+ *  are low-poly, so their hard polygon silhouettes read as "the mesh is showing" long
+ *  before their shading does. Costs bake time only — the output size is unchanged. */
+const SS = 2;
 const MARGIN = 0.12; // fraction of the canvas kept empty around the model
 
 /**
@@ -53,6 +57,7 @@ const TARGETS = {
   dusk: { npc: 7851 },                   // Grotesque Guardians — Dusk (boss)
   dawn: { npc: 7852 },                   // Grotesque Guardians — Dawn (boss, arrives with Dusk)
   cerberus: { npc: 5862 },               // Cerberus (boss)
+  kbd: { npc: 239 },                     // King Black Dragon (boss)
   summoned_soul: { npc: 5869 },          // Summoned Soul (Cerberus's add; the melee one stands for all three)
   // NOTE: the spawn portal is no longer a model render — OSRS portals are mostly
   // animated spotanims, so a static render reads poorly. It's now drawn
@@ -119,22 +124,24 @@ const TARGETS = {
 
   // Turned round, so a walker can face the way it is going: the default render
   // above is the front (a ¾ view, which is what the infobox icon wants too),
-  // `_side` is the same model walking to the right, and `_back` is its back. The
-  // renderer mirrors `_side` for anyone walking the other way, so three bakes
-  // cover all four directions. Strange Plant and the nest never walk anywhere.
-  hans_side: { npc: 3105, yaw: 270 },
+  // `_side` is the same model in profile facing RIGHT, and `_back` is its back. The
+  // renderer mirrors `_side` for anyone walking the other way, so three bakes cover
+  // all four directions. Yaw 90 is the right-facing profile — 270 is the same profile
+  // facing left, which had every walker moonwalking. Strange Plant and the nest never
+  // walk anywhere.
+  hans_side: { npc: 3105, yaw: 90 },
   hans_back: { npc: 3105, yaw: 180 },
-  bob_side: { npc: 4221, yaw: 270 },
+  bob_side: { npc: 4221, yaw: 90 },
   bob_back: { npc: 4221, yaw: 180 },
-  lumbridge_guide_side: { npc: 306, yaw: 270 },
+  lumbridge_guide_side: { npc: 306, yaw: 90 },
   lumbridge_guide_back: { npc: 306, yaw: 180 },
-  party_pete_side: { npc: 5792, yaw: 270 },
+  party_pete_side: { npc: 5792, yaw: 90 },
   party_pete_back: { npc: 5792, yaw: 180 },
-  drunken_dwarf_side: { npc: 322, yaw: 270 },
+  drunken_dwarf_side: { npc: 322, yaw: 90 },
   drunken_dwarf_back: { npc: 322, yaw: 180 },
-  genie_side: { npc: 326, yaw: 270 },
+  genie_side: { npc: 326, yaw: 90 },
   genie_back: { npc: 326, yaw: 180 },
-  rick_turpentine_side: { npc: 375, yaw: 270 },
+  rick_turpentine_side: { npc: 375, yaw: 90 },
   rick_turpentine_back: { npc: 375, yaw: 180 },
 
   // --- Misc NPC-model icons ---
@@ -250,7 +257,7 @@ function renderNpc(model, { yaw = 30, pitch = 12, zoom = 1, cullBelowGround = fa
   const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
   const fit = computeFit([verts], sy, cy, sp, cp, SIZE, MARGIN);
   fit.scale *= zoom;
-  const img = renderModelFrame(model, verts, fit, sy, cy, sp, cp, SIZE, textures);
+  const img = renderModelFrame(model, verts, fit, sy, cy, sp, cp, SIZE, textures, undefined, true, SS);
   const canvas = createCanvas(SIZE, SIZE);
   canvas.getContext('2d').putImageData(img, 0, 0);
   return canvas.toBuffer('image/png');

@@ -1,6 +1,19 @@
 import type { GameRenderer } from '../renderer';
 import { DIVERSION_BY_ID } from '../../data/diversions';
+import { DIVERSION_ANIMS, diversionAnimKey, type DiversionView } from '../../data/diversion-anims';
+import { clipFrame } from '../../data/enemy-anims';
 import { drawImageContain } from './shared';
+
+/** Box the static portrait fallback is fit into, logic px. */
+const PORTRAIT_BOX = 34;
+/**
+ * Box a baked clip frame is drawn at. Smaller than the portrait box on purpose: a
+ * portrait cell is baked with a 12% margin (the model fills ~0.79 of it) and an
+ * animation cell with 6% (~0.91), so drawing both at 34 would make an NPC jump a
+ * size the moment its sheet finished loading. This is the number that makes the
+ * model itself the same height either way.
+ */
+const CLIP_BOX = 30;
 
 /**
  * Distractions & Diversions — whoever has wandered onto the board between waves.
@@ -8,7 +21,8 @@ import { drawImageContain } from './shared';
  * Drawn after the towers and before the enemies, because they only ever exist while
  * there are no enemies: this layer is empty for the whole of a fight. The job here is
  * to make one small sprite on a big board impossible to miss without shouting — a
- * soft pulsing ring on the ground, a gentle bob, and OSRS's own overhead text.
+ * soft pulsing ring on the ground, OSRS's own overhead text, and the NPC's own
+ * animation.
  *
  * Nothing here counts anything down. A diversion waits for as long as the prep phase
  * lasts, so a ring that drained would be telling the player a lie about urgency in a
@@ -18,19 +32,13 @@ export function drawDiversions(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
   const list = gr.e.diversions;
   if (list.length === 0) return;
 
-  // Real-world clock, like the other idle animations in this renderer: a bob that
-  // froze on pause would read as a broken sprite rather than a paused game.
+  // Real-world clock, like the other idle animations in this renderer: a walk cycle
+  // that froze on pause would read as a broken sprite rather than a paused game.
   const t = performance.now() / 1000;
 
   for (const d of list) {
     const def = DIVERSION_BY_ID[d.defId];
     const walking = d.phase !== 'here';
-    // Standing still is a slow breath; walking is a step cadence — the body rising
-    // on each stride and rocking with it. These NPCs are baked as single portraits,
-    // so the walk has to come from how the sprite is moved rather than from frames.
-    const stride = Math.abs(Math.sin(t * 7));
-    const bob = walking ? -stride * 3 : Math.sin(t * 2 + d.x * 0.05) * 2;
-    const lean = walking ? Math.sin(t * 7) * 0.09 : 0;
     const pulse = 0.5 + 0.5 * Math.sin(t * 3 + d.y * 0.05);
 
     // Ground ring — the "there is something here" tell, and the click target's
@@ -47,29 +55,55 @@ export function drawDiversions(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
       ctx.restore();
     }
 
-    // Facing the way they are walking: a separate bake of the same model for the
-    // back and the profile, since these are portraits rather than rigs. Someone
-    // standing on their tile is always `front`, looking at the player. Falls back to
-    // the front bake if a turned one is missing, so a bad bake costs a turn, not a
-    // sprite.
-    const turnedKey = d.facing === 'front' ? null : `diversion_${d.defId}_${d.facing}`;
-    const key = turnedKey && gr.e.imageOk(turnedKey) ? turnedKey : `diversion_${d.defId}`;
-    const img = gr.e.images.get(key);
+    // The NPC's own animation, baked from its own cache def — its standing loop while
+    // it waits, its walking loop while it travels — from the camera yaw that faces the
+    // way it is going. Someone standing on their tile is always `front`, looking at the
+    // player. A view that wasn't baked falls back to `front`, and an NPC with no rig at
+    // all (the bird nest is an item on the floor) falls through to its portrait below.
+    const set = DIVERSION_ANIMS[d.defId];
+    const view: DiversionView = set?.views[d.facing] ? d.facing : 'front';
+    const clips = set?.views[view];
+    const clipName = walking && clips?.walk ? 'walk' : 'stand';
+    const clip = clipName === 'walk' ? clips!.walk! : clips?.stand;
+    const animKey = clip ? diversionAnimKey(d.defId, view, clipName) : '';
+    const animated = !!clip && gr.e.imageOk(animKey);
+
+    // Only the fallback fakes a walk: the sprite bobbing and rocking on a stride it
+    // does not have. With real frames the body is already doing all of that.
+    // Anchored on the tile it is walking to, not on `x`, or the cadence would speed
+    // up and slow down with the NPC's own position.
+    const seed = d.homeX * 0.05 + d.homeY * 0.11;
+    const bob = animated ? 0 : walking ? -Math.abs(Math.sin(t * 7)) * 3 : Math.sin(t * 2 + seed) * 2;
+    const lean = !animated && walking ? Math.sin(t * 7) * 0.09 : 0;
+
     ctx.save();
     ctx.translate(d.x, d.y + bob);
     if (lean) ctx.rotate(lean);
     // The side bake walks to the right, so walking left is the same sprite mirrored.
     // A sprite drawn from its centre needs no offset to flip.
     if (d.facing === 'side' && d.facingLeft) ctx.scale(-1, 1);
-    if (gr.e.imageOk(key) && img) {
-      drawImageContain(gr, ctx, img, 0, 0, 34);
+    if (animated) {
+      // `seed` again, as a phase offset: two of the same NPC on the board at once
+      // would otherwise step in perfect lockstep.
+      const fi = clipFrame(clip!, t + seed);
+      const fw = set!.frameW, fh = set!.frameH;
+      ctx.drawImage(gr.e.images.get(animKey)!, fi * fw, 0, fw, fh, -CLIP_BOX / 2, -CLIP_BOX / 2, CLIP_BOX, CLIP_BOX);
     } else {
-      // The sprite failed to load. Something still has to be clickable where the
-      // ring says it is, so fall back to a plain marker rather than empty ground.
-      ctx.fillStyle = '#ffd45e';
-      ctx.beginPath();
-      ctx.arc(0, 0, 9, 0, Math.PI * 2);
-      ctx.fill();
+      // No sheet (yet). The static portrait is baked from the same model at the same
+      // three yaws, so a slow load costs the animation, not the sprite.
+      const turnedKey = d.facing === 'front' ? null : `diversion_${d.defId}_${d.facing}`;
+      const key = turnedKey && gr.e.imageOk(turnedKey) ? turnedKey : `diversion_${d.defId}`;
+      const img = gr.e.images.get(key);
+      if (gr.e.imageOk(key) && img) {
+        drawImageContain(gr, ctx, img, 0, 0, PORTRAIT_BOX);
+      } else {
+        // Nothing loaded at all. Something still has to be clickable where the ring
+        // says it is, so fall back to a plain marker rather than empty ground.
+        ctx.fillStyle = '#ffd45e';
+        ctx.beginPath();
+        ctx.arc(0, 0, 9, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.restore();
 

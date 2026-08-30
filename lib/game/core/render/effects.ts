@@ -1,5 +1,6 @@
 import type { HitsplatKind } from '../engine';
 import { SPOTANIMS } from '../../data/spotanims';
+import { breathArcAngle, breathArcPoint } from '../../systems/boss-mechanics';
 import type { GameRenderer } from '../renderer';
 import { HITSPLAT_COLORS, drawImageContain } from './shared';
 
@@ -180,7 +181,9 @@ export function drawSpark(gr: GameRenderer, ctx: CanvasRenderingContext2D, x: nu
 export function drawFx(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   for (const f of gr.e.fx) {
     const t = Math.min(1, f.age / f.life); // 0 → 1 over its life
-    if (f.kind === 'ring') {
+    if (f.kind === 'breath') {
+      drawBreathGout(gr, ctx, f.x0, f.y0, f.x1, f.y1, t, f.bow, f.slug);
+    } else if (f.kind === 'ring') {
       const r = f.r0 + (f.r1 - f.r0) * (1 - (1 - t) * (1 - t)); // ease-out expand
       ctx.save();
       ctx.globalAlpha = (1 - t) * 0.9;
@@ -202,6 +205,69 @@ export function drawFx(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     }
   }
   ctx.globalAlpha = 1;
+}
+
+/**
+ * One gout of the King Black Dragon's dragonfire in flight.
+ *
+ * His own cache GFX — one of the four breaths he carries (spotanims 393-396: fire,
+ * poison, ice, shock), picked per breath by the caller — drawn the same way a spell's
+ * flight sheet is: baked nose-first along +x, so rotating it to the flight angle is all
+ * the orientation it needs.
+ *
+ * It does not fly the straight line. Fire is *lobbed*: the gout rides a quadratic Bézier
+ * bowed off the chord by `bow` (see `breathArcControl`), pointed along the curve's own
+ * tangent rather than at the destination, and it accelerates out of his mouth — fire is
+ * thrown, not carried. Every gout of one volley gets a different bow, which is also what
+ * makes the volley countable: nine gouts on nine straight lines from one mouth overlap
+ * into what looks like three. It still lands exactly as the patch it is aimed at catches,
+ * because the fx's `life` and the scorch's ignition time are the same number.
+ *
+ * The fallback is a plain fiery streak rather than nothing: the projectile is the only
+ * thing tying "he breathed" to "that stretch is burning", so it must draw even if the
+ * sheet has not decoded yet.
+ */
+export function drawBreathGout(
+  gr: GameRenderer, ctx: CanvasRenderingContext2D,
+  x0: number, y0: number, x1: number, y1: number, t: number, bow: number, slug: string,
+) {
+  const from = { x: x0, y: y0 };
+  const to = { x: x1, y: y1 };
+  const u = t * t;                          // slow out of the mouth, fast on arrival
+  const p = breathArcPoint(from, to, bow, u);
+  const angle = breathArcAngle(from, to, bow, u);
+  const known = SPOTANIMS[slug] ? slug : 'proj_dragonfire';
+  const meta = SPOTANIMS[known];
+  const key = `spotanim_${known}`;
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(angle);
+  if (meta && gr.e.imageOk(key)) {
+    // The sheet loops on game time, like the spell bolts, so a volley of gouts is not a
+    // row of identical stills.
+    const total = meta.frameMs.reduce((a, b) => a + b, 0);
+    let rem = (gr.e.runSeconds * 1000 * meta.speed) % total;
+    let fi = 0;
+    for (; fi < meta.frames - 1; fi++) {
+      if (rem < meta.frameMs[fi]) break;
+      rem -= meta.frameMs[fi];
+    }
+    // It grows as it travels — a breath widens on its way out.
+    const sz = meta.size * (0.7 + 0.5 * t);
+    ctx.drawImage(gr.e.images.get(key)!, fi * meta.frameW, 0, meta.frameW, meta.frameH, -sz / 2, -sz / 2, sz, sz);
+  } else {
+    ctx.globalCompositeOperation = 'lighter';
+    const len = 18 + 10 * t;
+    const grad = ctx.createLinearGradient(-len, 0, len * 0.4, 0);
+    grad.addColorStop(0, 'rgba(150, 30, 0, 0)');
+    grad.addColorStop(0.6, 'rgba(255, 140, 30, 0.75)');
+    grad.addColorStop(1, 'rgba(255, 236, 170, 0.95)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, len, 5.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /** A jagged lightning-style polyline between two points (re-jittered each frame

@@ -9,6 +9,32 @@
  *    clamped them to fully opaque — THE "white box" bug. All spell impacts are
  *    big stacks of ~44%-alpha white faces; drawn opaque they merge into a slab.
  *    Masking with `& 0xff` restores the client's translucent layering.
+ *  - **Gouraud shading.** The client shades per *vertex* and interpolates across
+ *    the face; a flat per-face shade only passes while the cell is small enough
+ *    to blur the seams away. Baked bigger, every triangle of a spell burst turns
+ *    into a visible facet — the mesh showing through art that is smooth in game.
+ *    Vertex normals are averaged from the faces meeting at each vertex, the way
+ *    `Model.calculateVertexNormals` does, and the interpolation is exact: a
+ *    scalar shade across a triangle is an affine field, so its level sets are
+ *    parallel straight lines and one canvas linear gradient reproduces it with no
+ *    error. Faces the cache marks flat (render type 1) stay flat.
+ *  - **Supersampling.** Optional `ss`: render the cell at `size * ss` and box it
+ *    down. Polygon silhouettes are the other half of "the mesh is showing" — a
+ *    hard-edged triangle outline reads as geometry even when the shading across
+ *    it is smooth. Averaged in premultiplied alpha, so translucent GFX stacks do
+ *    not pull black in at their edges. It also takes over antialiasing entirely:
+ *    the canvas's own is switched off while supersampling, because per-triangle
+ *    antialiasing is what draws the wireframe (see below).
+ *  - **No per-triangle antialiasing.** Faces are drawn one at a time, so canvas
+ *    antialiasing smooths each triangle against whatever is already there — and
+ *    two triangles sharing an edge each cover about half of the pixels along it.
+ *    Composited one after the other at face alpha `a`, a shared-edge pixel ends
+ *    up at `a - a*a/4` instead of `a`: every interior edge of the mesh comes out
+ *    a shade lighter than the faces it joins. On an opaque model that is a hint;
+ *    on a translucent one — an Ice Barrage veil is a slab of ~44%-alpha faces —
+ *    it is a visible wireframe drawn over the spell. Rasterising hard-edged
+ *    makes adjacent triangles tile exactly, and the supersample box-down puts
+ *    the smooth edges back on the silhouette where they belong.
  *  - **Textured faces.** Faces with `faceTextures[f] != -1` are filled with the
  *    real cache texture (index 9 def → index 8 sprite), affine-mapped through
  *    the loader's precomputed per-corner UVs, wrapped via a repeating pattern
@@ -186,23 +212,51 @@ export async function loadAnimationWithAlpha(cache, model, animationId) {
  * `alphaOverride` is loadAnimationWithAlpha's per-face alpha for this frame
  * (optional — the model's static faceAlphas otherwise).
  */
-export function renderModelFrame(model, verts, fit, sy, cy, sp, cp, size, textures, alphaOverride, cull = true) {
+export function renderModelFrame(model, verts, fit, sy, cy, sp, cp, size, textures, alphaOverride, cull = true, ss = 1) {
+  const S = size * ss;
   const n = verts.length;
   const px = new Float64Array(n), py = new Float64Array(n), pz = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const [a, b, c] = project(verts[i][0], verts[i][1], verts[i][2], sy, cy, sp, cp);
     px[i] = a; py[i] = b; pz[i] = c;
   }
-  const sx = (i) => size / 2 + (px[i] - fit.cx) * fit.scale;
-  const syc = (i) => size / 2 + (py[i] - fit.cy) * fit.scale;
+  // `fit` is computed for the final cell, so a supersampled render is the same
+  // framing at ss times the resolution — nothing about the crop changes.
+  const sx = (i) => S / 2 + (px[i] - fit.cx) * fit.scale * ss;
+  const syc = (i) => S / 2 + (py[i] - fit.cy) * fit.scale * ss;
 
   const L = [-0.4, -0.5, -0.75];
   const Lmag = Math.hypot(...L);
 
-  const canvas = createCanvas(size, size);
+  const canvas = createCanvas(S, S);
   const ctx = canvas.getContext('2d');
+  // Hard-edged only when the box-down is there to antialias for us; a cell baked
+  // at 1x still wants the canvas's antialiasing, seams and all.
+  if (ss > 1) ctx.antialias = 'none';
 
   const fa = model.faceVertexIndices1, fb = model.faceVertexIndices2, fc = model.faceVertexIndices3;
+  // Vertex normals: every face meeting a vertex, summed. A model that wants a hard
+  // edge duplicates the vertex, so this smooths exactly what the artist meant to be
+  // smooth — the same contract the client relies on.
+  const vnx = new Float64Array(n), vny = new Float64Array(n), vnz = new Float64Array(n);
+  for (let f = 0; f < model.faceCount; f++) {
+    const a1 = fa[f], a2 = fb[f], a3 = fc[f];
+    const ux = px[a2] - px[a1], uy = py[a2] - py[a1], uz = pz[a2] - pz[a1];
+    const vx = px[a3] - px[a1], vy = py[a3] - py[a1], vz = pz[a3] - pz[a1];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const nmag = Math.hypot(nx, ny, nz);
+    if (!nmag) continue;
+    for (const i of [a1, a2, a3]) {
+      vnx[i] += nx / nmag; vny[i] += ny / nmag; vnz[i] += nz / nmag;
+    }
+  }
+  /** The shade at one vertex, or `flat` where it has no usable normal. */
+  const vertexShade = (i, flat) => {
+    const m = Math.hypot(vnx[i], vny[i], vnz[i]);
+    if (m < 1e-6) return flat;
+    const d = (vnx[i] * L[0] + vny[i] * L[1] + vnz[i] * L[2]) / (m * Lmag);
+    return 0.6 + 0.4 * Math.abs(d);
+  };
   const order = [];
   for (let f = 0; f < model.faceCount; f++) {
     order.push([f, (pz[fa[f]] + pz[fb[f]] + pz[fc[f]]) / 3]);
@@ -256,14 +310,78 @@ export function renderModelFrame(model, verts, fit, sy, cy, sp, cp, size, textur
       const hsl = model.faceColors[f];
       if (hsl === undefined || hsl < 0) continue;
       const [r, g, b] = hslToRgb(hsl);
-      ctx.fillStyle = `rgb(${Math.round(r * shade)},${Math.round(g * shade)},${Math.round(b * shade)})`;
+      // Render type 1 is the cache's own "keep this face flat"; everything else gets
+      // the interpolated shade the client would give it.
+      ctx.fillStyle = renderType === 1
+        ? `rgb(${Math.round(r * shade)},${Math.round(g * shade)},${Math.round(b * shade)})`
+        : shadeGradient(
+            ctx, r, g, b,
+            x1, y1, vertexShade(i1, shade),
+            x2, y2, vertexShade(i2, shade),
+            x3, y3, vertexShade(i3, shade),
+          );
       ctx.beginPath();
       ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath();
       ctx.fill();
     }
   }
   ctx.globalAlpha = 1;
-  return ctx.getImageData(0, 0, size, size);
+  const img = ctx.getImageData(0, 0, S, S);
+  return ss === 1 ? img : boxDown(img, size, ss);
+}
+
+/**
+ * A triangle's shade as one linear gradient.
+ *
+ * The shade is a single scalar over the triangle with a value at each corner, so it
+ * is an affine field `s = a*x + b*y + c`: its contours are parallel straight lines
+ * perpendicular to `(a, b)`, which is exactly what a canvas linear gradient paints.
+ * Anchoring the ramp at the darkest corner and running it `(hi - lo)/|(a,b)|` pixels
+ * along `(a, b)` puts the far stop precisely on the brightest corner — so this is not
+ * an approximation of Gouraud, it is Gouraud.
+ *
+ * A degenerate triangle, or one whose corners agree, falls back to a flat fill.
+ */
+function shadeGradient(ctx, r, g, b, x1, y1, s1, x2, y2, s2, x3, y3, s3) {
+  const rgb = (s) => `rgb(${Math.round(r * s)},${Math.round(g * s)},${Math.round(b * s)})`;
+  const lo = Math.min(s1, s2, s3), hi = Math.max(s1, s2, s3);
+  const det = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
+  if (!det || hi - lo < 1 / 512) return rgb((s1 + s2 + s3) / 3);
+  const ga = ((s2 - s1) * (y3 - y1) - (s3 - s1) * (y2 - y1)) / det;
+  const gb = ((s3 - s1) * (x2 - x1) - (s2 - s1) * (x3 - x1)) / det;
+  const mag2 = ga * ga + gb * gb;
+  if (!mag2) return rgb((s1 + s2 + s3) / 3);
+  const [ax, ay] = s1 === lo ? [x1, y1] : s2 === lo ? [x2, y2] : [x3, y3];
+  const k = (hi - lo) / mag2;
+  const grad = ctx.createLinearGradient(ax, ay, ax + ga * k, ay + gb * k);
+  grad.addColorStop(0, rgb(lo));
+  grad.addColorStop(1, rgb(hi));
+  return grad;
+}
+
+/** Box-filter a supersampled cell down to its final size, averaging in premultiplied
+ *  alpha so a translucent edge does not pull black in with it. */
+function boxDown(img, size, ss) {
+  const out = createCanvas(size, size).getContext('2d').createImageData(size, size);
+  const n = ss * ss;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let dy = 0; dy < ss; dy++) {
+        for (let dx = 0; dx < ss; dx++) {
+          const s = (((y * ss + dy) * img.width) + x * ss + dx) * 4;
+          const al = img.data[s + 3];
+          r += img.data[s] * al; g += img.data[s + 1] * al; b += img.data[s + 2] * al; a += al;
+        }
+      }
+      const d = (y * size + x) * 4;
+      out.data[d] = a ? Math.round(r / a) : 0;
+      out.data[d + 1] = a ? Math.round(g / a) : 0;
+      out.data[d + 2] = a ? Math.round(b / a) : 0;
+      out.data[d + 3] = Math.round(a / n);
+    }
+  }
+  return out;
 }
 
 /**

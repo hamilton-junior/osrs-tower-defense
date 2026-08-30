@@ -1,0 +1,52 @@
+{
+  "npc": 323,
+  "frameW": 128,
+  "frameH": 128,
+  "views": {
+    "front": {
+      "stand": {
+        "anim": 349,
+        "frames": 6,
+        "frameMs": [
+          420,
+          55,
+          55,
+          55,
+          55,
+          420
+        ],
+        "loop": true
+      }
+    },
+    "side": {
+      "stand": {
+        "anim": 349,
+        "frames": 6,
+        "frameMs": [
+          420,
+          55,
+          55,
+          55,
+          55,
+          420
+        ],
+        "loop": true
+      }
+    },
+    "back": {
+      "stand": {
+        "anim": 349,
+        "frames": 6,
+        "frameMs": [
+          420,
+          55,
+          55,
+          55,
+          55,
+          420
+        ],
+        "loop": true
+      }
+    }
+  }
+}

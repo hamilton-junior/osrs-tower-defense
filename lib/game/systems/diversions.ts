@@ -33,10 +33,10 @@ export type DiversionPhase = 'arriving' | 'here' | 'leaving';
 /**
  * Which of the three baked views to draw.
  *
- * These NPCs are single portraits, not rigs, so turning round means swapping
- * sprite: `front` is the default bake, `back` is the same model from behind, and
- * `side` is its profile — baked walking right, mirrored for the other way. Someone
- * standing on their tile always faces `front`, at the player.
+ * Each NPC is baked from three camera yaws rather than turned in 3D, so turning
+ * round means swapping sheet: `front` is the default bake, `back` is the same model
+ * from behind, and `side` is its profile — baked walking right, mirrored for the
+ * other way. Someone standing on their tile always faces `front`, at the player.
  */
 export type DiversionFacing = 'front' | 'back' | 'side';
 
@@ -257,4 +257,23 @@ export function rollNestPayload(rand: () => number): Exclude<DiversionPayload, '
 export function resolvePayload(defId: DiversionId, rand: () => number): DiversionPayload {
   const payload = DIVERSION_BY_ID[defId].payload;
   return payload === 'surprise' ? rollNestPayload(rand) : payload;
+}
+
+/**
+ * Clean a persisted "diversions met" blob — the Collection Log's record of which of
+ * the cast has turned up on this account's board at least once.
+ *
+ * Same trust model as the other lifetime tallies: only ids that still exist in the
+ * table survive, and only as positive whole counts, so a diversion retired by a
+ * patch costs its own line rather than the whole log.
+ */
+export function sanitizeDiversionsMet(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (raw && typeof raw === 'object') {
+    for (const id of Object.keys(DIVERSION_BY_ID)) {
+      const v = (raw as Record<string, unknown>)[id];
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 1) out[id] = Math.floor(v);
+    }
+  }
+  return out;
 }

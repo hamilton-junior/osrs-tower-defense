@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
  *   "death": { "anim": 1520, "model": 5034 }   // a bare model id, when the mesh
  *                                              // belongs to no def at all
  *
- * Such a clip is exported to its own glTF, `<slug>__<clip>.gltf`, and the baker
+ * Such a clip is exported to its own file, `<slug>__<clip>.glb`, and the baker
  * loads it alongside the main one: same scene, same camera, one shared fit, and
  * only the root that owns the clip being rendered is visible. The sheet the game
  * loads is unchanged — one PNG per clip, one entry in `<slug>.json`.

@@ -1,12 +1,13 @@
 import type { Enemy, Point, EnemyType } from '../../types';
 import { SPAWN_ANIM_SECONDS } from '../../types';
 import { ENEMIES } from '../../data/enemies';
-import { distanceSq } from '../../systems/geometry';
+import { distanceSq, squareRange } from '../../systems/geometry';
 import { GAME_SOUNDS } from '../sound';
-import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund } from '../../systems/boss-mechanics';
-import { uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
+import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY } from '../../systems/boss-mechanics';
+import type { Scorch } from '../engine-state';
+import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
-import { makeEnemy, addRing } from './waves';
+import { makeEnemy, addRing, addBreath } from './waves';
 import { bodyY } from '../../systems/enemy-anchor';
 
 /**
@@ -72,6 +73,8 @@ export function handleBossMechanics(eng: GameEngine, dt: number) {
       updateBrutus(eng, e, dt);
     } else if (st.kind === 'scurrius') {
       updateScurrius(eng, e, dt);
+    } else if (st.kind === 'kbd') {
+      updateKbd(eng, e, dt);
     }
     // The visual-state rule: a boss's current mechanic phase decides which model it is
     // drawn with. `animType` overrides the sprite/clip slug only, so stats, drops and
@@ -770,6 +773,125 @@ export function shearRat(eng: GameEngine, king: Enemy) {
   });
   addRing(eng, king.x, king.y, 6, 40, '#c9b28a', 0.45, 3);
   eng.sound.play('hit', 45);
+}
+
+
+/**
+ * The King Black Dragon: he sets the board on fire, not the player.
+ *
+ * A two-beat cycle. He flies the road for {@link KBD_BREATH_INTERVAL} seconds, then
+ * **inhales**: he plants himself, shouts, and the stretch of road he has picked starts
+ * smouldering for {@link KBD_INHALE_SECS} (three ticks). Then the breath lands, that
+ * exact stretch burns for {@link KBD_BURN_SECS}, and every tower whose range covers it
+ * hits for half until it goes out.
+ *
+ * The stretch is not random and not in front of him: {@link pickScorchStart} finds the
+ * one the *most* towers are covering. That is the whole boss — the answer to him is the
+ * shape of the defence, and a killbox is the shape he punishes hardest.
+ *
+ * The target is locked at the start of the tell, not at the moment the fire lands, so
+ * what smoulders is exactly what burns. Building a tower into the window is allowed to
+ * be a mistake; being lied to by the telegraph is not.
+ */
+export function updateKbd(eng: GameEngine, e: Enemy, dt: number) {
+  const st = e.bossState!;
+  st.kbdTimer = (st.kbdTimer ?? KBD_FIRST_BREATH) - dt;
+  if (st.kbdTimer > 0) return;
+
+  if (st.kbdPhase === 'recover') {
+    // Back on all fours; the fire is already on the road and lives its own life now.
+    st.kbdPhase = 'fly';
+    st.kbdTimer = KBD_BREATH_INTERVAL;
+    return;
+  }
+
+  if (st.kbdPhase !== 'inhale') {
+    // The tell. Pick the stretch now and lay the smoulder over it.
+    const towers = eng.towers.map((t) => ({
+      x: t.x, y: t.y,
+      // The tower's *live* reach, cache-warm from `fireTowers` earlier this frame; a
+      // tower that has never fired (or was just built) falls back to its own range, so
+      // the pick is never blind to it.
+      half: squareRange(eng.statsCache.get(t.id)?.stats.range ?? t.range, GRID),
+    }));
+    const start = pickScorchStart(eng.path, towers, KBD_SCORCH_LENGTH);
+    st.scorchAt = scorchSpan(eng.path, start, KBD_SCORCH_LENGTH);
+    st.kbdPhase = 'inhale';
+    st.kbdTimer = KBD_INHALE_SECS;
+    e.say = KBD_SAY;
+    e.sayTimer = KBD_INHALE_SECS;
+    eng.scorches.push({ points: st.scorchAt, timer: 0, life: KBD_INHALE_SECS, warning: true });
+    addRing(eng, e.x, e.y, 6, 40, '#ff9d3d', 0.5, 3);
+    return;
+  }
+
+  // The breath lands on the stretch that was telegraphed — one gout of dragonfire per
+  // patch, thrown from his mouth, and each patch catching as its own gout arrives. The
+  // fire therefore sweeps down the road at the speed of the breath: the player sees where
+  // it came from, and the burn never appears out of nothing.
+  const points = st.scorchAt ?? [];
+  if (points.length > 0) {
+    const mouth = { x: e.x, y: e.y - enemyRadius(e) * 0.35 };
+    const lit = breathFlightTimes(mouth, points);
+    eng.scorches.push({ points, timer: 0, life: KBD_BURN_SECS + Math.max(...lit), warning: false, lit });
+    // Exactly one gout per patch of road — the volley the player counts in the air is
+    // the fire that lands — each on its own arc so they do not overlap into a single
+    // streak, and all in the colour of *this* breath.
+    const bows = breathBows(points.length);
+    const slug = breathSlug(st.breaths ?? 0);
+    for (let i = 0; i < points.length; i++) {
+      addBreath(eng, mouth.x, mouth.y, points[i].x, points[i].y, lit[i], bows[i], slug);
+    }
+  }
+  st.scorchAt = undefined;
+  st.kbdPhase = 'recover';
+  st.kbdTimer = KBD_RECOVER_SECS;
+  st.breaths = (st.breaths ?? 0) + 1;
+  e.say = undefined;
+  e.sayTimer = 0;
+  eng.sound.play('bossbreath_kbd', 65);
+}
+
+/**
+ * Age the fires on the road, and mark whoever is standing over them.
+ *
+ * Runs every frame regardless of whether the dragon is still alive — a scorch is board
+ * state, not his, so killing him mid-breath does not put the fire out. `scorchedTimer`
+ * is re-armed here rather than counted down per tower, so a tower that walks out of
+ * (or into) a fire's reach — a range upgrade, a new fire, the old one going out — is
+ * always reading the truth this frame, and nothing has to be cleaned up when a scorch
+ * expires.
+ *
+ * Telegraphs (`warning`) age and are drawn, but scorch nobody: the tell is a warning,
+ * not the damage.
+ */
+export function updateScorches(eng: GameEngine, dt: number) {
+  for (let i = eng.scorches.length - 1; i >= 0; i--) {
+    const s = eng.scorches[i];
+    s.timer += dt;
+    if (s.timer >= s.life) eng.scorches.splice(i, 1);
+  }
+  if (eng.scorches.length === 0 && !eng.towers.some((t) => (t.scorchedTimer ?? 0) > 0)) return;
+  const burning: Scorch[] = eng.scorches.filter((s) => !s.warning);
+  for (const t of eng.towers) t.scorchedTimer = 0;
+  if (burning.length === 0) return;
+  for (const s of burning) {
+    const towers = eng.towers.map((t) => ({
+      t, x: t.x, y: t.y,
+      half: squareRange(eng.statsCache.get(t.id)?.stats.range ?? t.range, GRID),
+    }));
+    // The remaining burn is what the tower is told, so the ember overlay dies with the
+    // fire that caused it rather than lingering a frame past it.
+    const left = Math.max(0, s.life - s.timer);
+    // Only the patches whose gout has landed. A tower at the far end of the stretch is
+    // not scorched until the fire has actually reached it.
+    const live = litScorchPoints(s.points, s.lit, s.timer);
+    if (live.length === 0) continue;
+    for (const hit of scorchedTowers(towers, live)) {
+      hit.t.scorchedTimer = Math.max(hit.t.scorchedTimer ?? 0, left);
+      eng.caStats.bossFlags.kbdTowerScorched = true;
+    }
+  }
 }
 
 /**
