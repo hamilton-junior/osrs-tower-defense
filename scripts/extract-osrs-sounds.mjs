@@ -142,6 +142,16 @@ const TARGETS = {
   // every dragon, the same clip the green and blue dragons already die with. Not a
   // stand-in: it is what a dragon, KBD included, sounds like when it dies in OSRS.
   death_kbd: 409,              // dragon_death
+  // The Corporeal Beast keeps his own voice, and there is nothing to deduce: seq 1676,
+  // the death animation the cache configures for NPC 319, embeds 3906 on its first
+  // frame and 3914 six frames later. This is the first of the two — the cry itself.
+  death_corporeal_beast: 3906, // Sum2_spirit_beast_death
+  // The Dark energy core has no death clip anywhere in the cache: its whole family is
+  // 3893-3914 and the core owns exactly two entries, `Sum2_dark_core_launch` (3901) and
+  // `Sum2_dark_core_ready` (3910); its death sequence (1689) embeds no sound at all. So
+  // this is still the core's OWN filed voice, not a borrowed one — the pop it makes when
+  // it is thrown, which is also what it bursting sounds like.
+  death_dark_core: 3901,       // Sum2_dark_core_launch
   // The breath itself: the cache's `firebreath` (159) — the clip a dragon plays when it
   // breathes on a player, which is what the board hears when he breathes on the road.
   // Not `dragonbreath` (585): that one opens on a third of a second of near-silence, so

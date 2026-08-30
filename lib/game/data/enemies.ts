@@ -711,6 +711,45 @@ export const ENEMIES: Record<string, EnemyDef> = {
     reward: 480,
     resistance: 0.4
   },
+  corporeal_beast: {
+    type: 'corporeal_beast',
+    // The largest body in the roster (NPC 319 is size 5 in the cache, and the fight is
+    // remembered for filling the room). He reads as bigger than the dragon on purpose:
+    // the whole encounter is about a thing too big to ignore reaching across the board.
+    renderScale: 1.6,
+    name: 'Corporeal Beast',
+    // 2000 is his real OSRS hitpoints, and it lands him between the Hydra and Cerberus
+    // rather than above both — deliberately. His armour already halves the board while a
+    // core holds a tower, *and* that tower's damage is feeding him, so the swing per core
+    // is large; a bar bigger than Cerberus's on top of that would just be a wall.
+    hp: 2000,
+    // Slow. He lumbers, and every second the core spends crossing the board is a second
+    // he is still walking — the fight has to give the player time to answer it.
+    speed: 22,
+    color: '#4a3d63',
+    deathSound: 'boss',
+    isBoss: true,
+    reward: 850,
+    resistance: 0.45
+  },
+  dark_core: {
+    type: 'dark_core',
+    // A floating orb, not a body: small, and it must stay readable *on top of* a tower
+    // without hiding the thing it has taken.
+    renderScale: 0.8,
+    name: 'Dark Energy Core',
+    // An escort: the Beast spits it, it leaves the road for a tower, and it pays nothing
+    // on death (the payoff is your tower back and his guard down). Real HP is scaled off
+    // the Beast at spawn time — this is only the Collection Log's fallback.
+    hp: 140,
+    // It flies straight at the tower it was aimed at; `updateDarkCore` drives it, so this
+    // is what the chase looks like, not a path speed.
+    speed: 120,
+    color: '#7b4fd0',
+    reward: 0,
+    summonedBy: 'corporeal_beast'
+    // Slug defaults to `dark_core` (its own baked clip) — no animSlug needed.
+  },
   superior_bloodveld: {
     type: 'superior_bloodveld',
     renderScale: 1.3,
@@ -860,6 +899,11 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   // dcrush 25 against dranged 100; and Vorkath's dmagic 240 is the highest defence
   // stat in this roster, so a lance is the answer to both.
   cerberus: 'melee', vorkath: 'melee',
+  // The spear rule, written as a stat. OSRS gives the Corporeal Beast dstab 25 against
+  // dslash/dcrush/dranged 200 — which is the whole reason every team that ever fought him
+  // brought a Zamorakian spear. We do not model weapon classes, so the stab hole becomes
+  // the melee answer: the same lesson, in the vocabulary this game has.
+  corporeal_beast: 'melee',
   // The healers are 0 melee defence and 100 to everything else — reach them or
   // watch Jad drink. It is the mechanic, stated as a stat.
   yt_hurkot: 'melee',

@@ -7,7 +7,7 @@ import { TOWER_STYLES } from '../../data/towers';
 import { ASSETS } from '../../assets';
 import { distance, distanceSq, squareRange, inSquareRange, knockbackStep } from '../../systems/geometry';
 import { selectTarget } from '../../systems/targeting';
-import { calculateTowerStats, utilityAuraBonus } from '../../systems/tower-combat';
+import { calculateTowerStats, utilityAuraBonus, type ComputedTowerStats } from '../../systems/tower-combat';
 import { RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity } from '../../systems/combat-stats';
 import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../../systems/magic';
 import { debuffTenacity } from '../../systems/tenacity';
@@ -18,13 +18,75 @@ import { mergeUnlockBatch } from '../../systems/unlock-queue';
 import { GAME_SOUNDS } from '../sound';
 import { shouldExecute, soulStealAddChance } from '../../systems/relics';
 import { isCcImmune, styleDamageMult, protectedDamageMult, styleWeaknessMult, absorbWithShield, VOLATILE_STUN_SECS, VOLATILE_BLAST_RADIUS, volatileBlastTowers } from '../../systems/affixes';
-import { bossStyleMult, hydraVentCredit, moleIsHidden, KBD_SCORCH_MULT, stallTenacityBonus, escortDamageMult, SCHEDULABLE_BOSSES, scurriusShouldShear } from '../../systems/boss-mechanics';
-import { GRID, uid, enemyRadius, projectileEase, SHORTEST_CAST_S, DOT_LANE, HITSPLAT_LIFE, IMPACT_BASE_SCALE, IMPACT_SPLASH_SCALE } from '../engine-state';
+import { bossStyleMult, hydraVentCredit, moleIsHidden, KBD_SCORCH_MULT, stallTenacityBonus, escortDamageMult, SCHEDULABLE_BOSSES, scurriusShouldShear, corpSiphonHeal } from '../../systems/boss-mechanics';
+import { GRID, uid, enemyRadius, projectileEase, SHORTEST_CAST_S, DOT_LANE, HITSPLAT_LIFE, IMPACT_BASE_SCALE, IMPACT_SPLASH_SCALE, CORP_LINK_COLOR } from '../engine-state';
 import type { HitsplatKind } from '../engine-state';
 import type { GameEngine } from '../engine';
 import { stallStacksOf, liveRatsOf, shearRat } from './bosses';
 import { makeEnemy, spawnEffect, spawnAncientHitFx, addRing, addBolt } from './waves';
 import { bodyY } from '../../systems/enemy-anchor';
+
+/**
+ * One shot's damage before anything situational touches it: Ancients hit for the
+ * Ice-barrage values (16/22/25/30) independent of element, the cannon rolls between its
+ * min and max, everything else uses its tier's own damage.
+ *
+ * Extracted because the Corporeal Beast's siphon has to fire the tower's *real* shot —
+ * the whole point of the mechanic is that the player watches their best tower do its
+ * actual damage to the wrong target — and a second copy of this pick would drift.
+ */
+export function baseHit(tower: Tower): number {
+  if (tower.type === 'wizard' && (tower.mageMode ?? 'elemental') === 'ancients') return ancientHit(tower.level);
+  if (tower.type === 'cannon') {
+    const lo = tower.minDamage ?? 0;
+    const hi = tower.maxDamage ?? 0;
+    return lo + Math.random() * (hi - lo);
+  }
+  return tower.damage;
+}
+
+/** {@link baseHit} through the tower's own stat line and the run's damage multiplier —
+ *  the number a shot leaves the barrel with, before target-specific bonuses. */
+function towerHit(eng: GameEngine, tower: Tower, stats: ComputedTowerStats): number {
+  return Math.floor((baseHit(tower) + stats.flatDamageBonus) * stats.damageMultiplier * eng.runDamageMult());
+}
+
+/**
+ * A siphoned shot: the tower fires on its own cooldown, with its own damage, and the
+ * Corporeal Beast drinks it.
+ *
+ * Keeping the tower's real rhythm matters more than it sounds — the player recognises
+ * their tower working, and it is *their* damage on the boss bar going the wrong way.
+ * The heal runs through `corpSiphonHeal`, which halves it and applies the stall breaker,
+ * so a fight nobody is winning still cannot be held open forever by a core.
+ */
+function siphonShot(eng: GameEngine, tower: Tower, stats: ComputedTowerStats) {
+  const core = eng.enemies.find((c) => c.id === tower.siphonedBy);
+  const beast = core?.ownerId ? eng.enemies.find((b) => b.id === core.ownerId) : undefined;
+  const damage = towerHit(eng, tower, stats);
+  // The shot itself, drawn as a mote pulled out of the tower toward the core, so the
+  // theft is visible at the moment it happens rather than only in the tether.
+  if (core) {
+    for (let i = 0; i < 2; i++) {
+      eng.particles.push({
+        x: tower.x + (Math.random() - 0.5) * 10, y: tower.y + (Math.random() - 0.5) * 10,
+        vx: (core.x - tower.x) * 1.6, vy: (core.y - tower.y) * 1.6,
+        life: 0.35, maxLife: 0.35, color: CORP_LINK_COLOR, size: 2,
+      });
+    }
+  }
+  if (!beast || damage <= 0) return;
+  const heal = corpSiphonHeal(damage, beast.bossState?.stallStacks ?? 0);
+  if (heal <= 0) return;
+  beast.hp = Math.min(beast.maxHp, beast.hp + heal);
+  eng.caStats.bossFlags.corpSiphonHeld = true;
+  // Same green heal splat Jad's healers and Scurrius's rats use: a boss bar that rises
+  // with no explanation reads as a bug in every fight, so all three speak one language.
+  eng.hitsplats.push({
+    x: beast.x + (Math.random() - 0.5) * 16, y: bodyY(beast) - 18,
+    value: heal, kind: 'heal', life: HITSPLAT_LIFE,
+  });
+}
 
 /**
  * The fight itself: towers picking targets and firing, projectiles travelling, a
@@ -69,6 +131,18 @@ export function fireTowers(eng: GameEngine, dt: number) {
       eng.statsCache.set(tower.id, cached);
     }
     const stats = cached.stats;
+    // Held by a Dark energy core: the tower still works — it just works for the
+    // Corporeal Beast. Gated here, after the stat cache, so the siphon uses the tower's
+    // real damage and real cooldown; and deliberately not via `disabledTimer`, which
+    // would give it the switched-off look and teach the wrong answer (see `siphonedBy`).
+    if (tower.siphonedBy) {
+      tower.targetId = null;
+      if (now - tower.lastFired >= stats.cooldown) {
+        tower.lastFired = now;
+        siphonShot(eng, tower, stats);
+      }
+      continue;
+    }
     const half = squareRange(stats.range, GRID);
     // Test the enemy's body, not just its centre, so a tower fires as soon as
     // an enemy overlaps its range square (e.g. when the road clips the edge).
@@ -117,17 +191,7 @@ export function fireTowers(eng: GameEngine, dt: number) {
     tower.recoilAngle = Math.atan2(target.y - tower.y, target.x - tower.x);
     tower.recoil = 1; // pulse, decays above
 
-    // Base damage: Ancients hit for the Ice-barrage values (16/22/25/30),
-    // independent of element; everything else uses the tier's own damage.
-    let baseDamage = tower.type === 'wizard' && (tower.mageMode ?? 'elemental') === 'ancients'
-      ? ancientHit(tower.level)
-      : tower.damage;
-    if (tower.type === 'cannon') {
-      const lo = tower.minDamage ?? 0;
-      const hi = tower.maxDamage ?? 0;
-      baseDamage = lo + Math.random() * (hi - lo);
-    }
-    let damage = Math.floor((baseDamage + stats.flatDamageBonus) * stats.damageMultiplier * eng.runDamageMult());
+    let damage = towerHit(eng, tower, stats);
     // Standing over the King Black Dragon's dragonfire: this tower hits for half while
     // the road it covers burns. Applied at the shot rather than inside
     // `calculateTowerStats`, so a fire sweeping across the board never invalidates the

@@ -4,6 +4,7 @@ import { drawBackground, drawPath, drawSpawnPortal, drawEffects } from './render
 import { drawDangerZone, drawHoverRange, drawBuildOverlay, drawPlacementGhost } from './render/build-overlay';
 import { drawTowers } from './render/towers';
 import { drawScorches } from './render/scorch';
+import { drawSiphonLinks } from './render/siphon';
 import { drawDeaths, drawEnemies } from './render/enemies';
 import { drawDiversions } from './render/diversions';
 import { drawTraps } from './render/hunter-traps';
@@ -84,6 +85,7 @@ export class GameRenderer {
     drawDeaths(this, ctx);
     drawSpawnPortal(this, ctx); // before enemies → they materialise out of its face
     drawEnemies(this, ctx);
+    drawSiphonLinks(this, ctx); // over both ends of it: the Beast, and the tower it holds
     drawEffects(this, ctx); // baked spotanims (spawn flash) over the emerging enemy
     drawProjectiles(this, ctx);
     drawParticles(this, ctx);

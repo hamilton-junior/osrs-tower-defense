@@ -549,5 +549,20 @@
       "death": 92,
       "breath": 81
     }
+  },
+  "corporeal_beast": {
+    "npc": 319,
+    "anims": {
+      "walk": 1684,
+      "hurt": 1677,
+      "death": 1676
+    }
+  },
+  "dark_core": {
+    "npc": 320,
+    "anims": {
+      "walk": 1688,
+      "death": 1689
+    }
   }
 }

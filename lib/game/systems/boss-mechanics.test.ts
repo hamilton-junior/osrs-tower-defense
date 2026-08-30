@@ -124,6 +124,14 @@ import {
   KBD_BREATH_BOW_MIN,
   KBD_BREATH_BOW_MAX,
   KBD_BREATH_SLUGS,
+  pickSiphonTarget,
+  corpCoreHp,
+  corpSiphonHeal,
+  corpIsArmoured,
+  CORP_CORE_HP_FRAC,
+  CORP_CORE_MIN_HP,
+  CORP_ARMOUR_MULT,
+  CORP_SIPHON_HEAL_FRAC,
 } from './boss-mechanics';
 import type { BossState } from './boss-mechanics';
 import { ENEMY_ANIMS } from '../data/enemy-anims';
@@ -1361,5 +1369,83 @@ describe('every mechanic clip a boss can ask for is actually baked', () => {
       expect(clip).not.toBeNull();
       expect(set.clips[clip!.name as keyof typeof set.clips]).toBeDefined();
     }
+  });
+});
+
+describe('Corporeal Beast', () => {
+  const cand = (id: string, dps: number, taken?: boolean) => ({ id, dps, taken });
+
+  describe('pickSiphonTarget', () => {
+    it('spits at the strongest tower, not the first one', () => {
+      expect(pickSiphonTarget([cand('a', 10), cand('b', 90), cand('c', 40)])).toBe('b');
+    });
+
+    it('skips towers a core already has', () => {
+      expect(pickSiphonTarget([cand('a', 90, true), cand('b', 40)])).toBe('b');
+    });
+
+    it('breaks ties on id, so the same board always answers the same way', () => {
+      expect(pickSiphonTarget([cand('z', 50), cand('a', 50)])).toBe('a');
+    });
+
+    it('returns null with nothing left to take', () => {
+      expect(pickSiphonTarget([])).toBeNull();
+      expect(pickSiphonTarget([cand('a', 90, true)])).toBeNull();
+    });
+  });
+
+  describe('corpCoreHp', () => {
+    it('scales with the Beast that spat it', () => {
+      expect(corpCoreHp(10_000)).toBe(Math.round(10_000 * CORP_CORE_HP_FRAC));
+    });
+
+    it('never drops under the floor', () => {
+      expect(corpCoreHp(1)).toBe(CORP_CORE_MIN_HP);
+    });
+  });
+
+  describe('corpSiphonHeal', () => {
+    it('gives back half the shot', () => {
+      expect(corpSiphonHeal(100)).toBe(100 * CORP_SIPHON_HEAL_FRAC);
+    });
+
+    it('rounds down but always heals at least 1', () => {
+      expect(corpSiphonHeal(3)).toBe(1);
+      expect(corpSiphonHeal(1)).toBe(1);
+    });
+
+    it('heals nothing for a shot that did nothing', () => {
+      expect(corpSiphonHeal(0)).toBe(0);
+      expect(corpSiphonHeal(-5)).toBe(0);
+    });
+
+    it('shrinks with the stall breaker, like every other boss heal', () => {
+      const clean = corpSiphonHeal(200, 0);
+      const stalled = corpSiphonHeal(200, 2);
+      expect(stalled).toBeLessThan(clean);
+      expect(corpSiphonHeal(200, STALL_MAX_STACKS)).toBeLessThanOrEqual(stalled);
+    });
+  });
+
+  describe('corpIsArmoured', () => {
+    it('guards him only while a core holds a tower', () => {
+      const st = freshBossState('corporeal_beast');
+      expect(corpIsArmoured(st)).toBe(false);
+      st.coresLatched = 1;
+      expect(corpIsArmoured(st)).toBe(true);
+      expect(bossStyleMult(st, 'melee')).toBe(CORP_ARMOUR_MULT);
+    });
+
+    it('is styleless — no style chips past it', () => {
+      const st = { ...freshBossState('corporeal_beast'), coresLatched: 1 };
+      for (const style of ['melee', 'ranged', 'magic'] as const) {
+        expect(bossStyleMult(st, style)).toBe(CORP_ARMOUR_MULT);
+      }
+    });
+
+    it('ignores every other boss', () => {
+      expect(corpIsArmoured(freshBossState('kbd'))).toBe(false);
+      expect(corpIsArmoured(undefined)).toBe(false);
+    });
   });
 });

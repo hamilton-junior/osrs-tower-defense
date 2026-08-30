@@ -1,6 +1,6 @@
 import { ZULRAH_PHASES, hydraPhase, hydraBreakTarget, isGuardian, STALL_MAX_STACKS } from '../../systems/boss-mechanics';
 import type { GameRenderer } from '../renderer';
-import { GUARDIAN_LINK_COLOR } from './shared';
+import { GUARDIAN_LINK_COLOR, CORP_LINK_COLOR } from './shared';
 
 /**
  * On-canvas HUD: the boss health bar, the low-health warning and the leak flash.
@@ -151,6 +151,12 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     if (st.kbdPhase === 'inhale') caption = 'INHALING — that stretch is about to burn!';
     else if (gr.e.scorches.some((sc) => !sc.warning)) caption = 'DRAGONFIRE — towers over the flames hit for half!';
     else if (st.breaths) caption = `Breaths: ${st.breaths}`;
+  } else if (st?.kind === 'corporeal_beast') {
+    capColor = CORP_LINK_COLOR;
+    // The armour and the theft are one state, so they get one line — and it names the
+    // answer, because "kill the core" is the entire fight and nothing else works.
+    if ((st.coresLatched ?? 0) > 0) caption = 'SIPHONING — kill the core to free your tower!';
+    else if (st.coresSpat) caption = `Cores spat: ${st.coresSpat}`;
   }
   if (caption) {
     ctx.font = "bold 12px 'RuneScape', Arial";

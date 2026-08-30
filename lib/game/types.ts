@@ -29,7 +29,7 @@ export interface ActivePotion {
   timer: number;
 }
 
-export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot' | 'brutus' | 'scurrius' | 'kbd' | 'giant_rat'
+export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion' | 'hill_giant' | 'lesser_demon' | 'green_dragon' | 'jad' | 'blue_dragon' | 'black_demon' | 'abyssal_demon' | 'barrow_wight' | 'chaos_druid' | 'skeletal_mage' | 'vorkath' | 'zulrah' | 'skeleton' | 'zombie' | 'ghost' | 'hellhound' | 'fire_giant' | 'bloodveld' | 'gargoyle' | 'nechryael' | 'dark_beast' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'summoned_soul' | 'yt_hurkot' | 'brutus' | 'scurrius' | 'kbd' | 'giant_rat' | 'corporeal_beast' | 'dark_core'
   // Superior Slayer monsters — in ENEMIES all along (waves can roll them), but they
   // were missing from this union, so nothing could name one in typed code.
   | 'superior_bloodveld' | 'superior_abyssal_demon' | 'superior_gargoyle' | 'superior_nechryael'
@@ -187,6 +187,12 @@ export interface Enemy extends EnemyDef {
   /** Orbit phase (radians) of an escort around its owner; advanced each frame so the
    *  companions drift around the boss while following at a limited distance. */
   orbit?: number;
+  /** Dark energy core: the tower it was spat at. It flies there instead of orbiting the
+   *  Corporeal Beast, and latches on arrival. Re-picked if that tower is sold. */
+  coreTowerId?: string;
+  /** Dark energy core: it has arrived and the siphon is running. Until then it is only
+   *  a thing in the air — the tower keeps shooting while the core is still crossing. */
+  coreLatched?: boolean;
   /** Walk a lane parallel to the road, this many logic pixels to the side of it
    *  (perpendicular to the current segment; negative = the other side). Dawn uses it to
    *  fly beside Dusk instead of inside him — two bosses on the same waypoints stack into
@@ -346,6 +352,12 @@ export interface Tower {
    *  `disabledTimer` — a scorched tower still fires, it just hits soft, and borrowing
    *  the disabled state would give it the "switched off" look and the wrong lesson. */
   scorchedTimer?: number;
+  /** The id of the Dark energy core latched onto this tower: while that core lives, this
+   *  tower does not shoot the wave — its shots feed the Corporeal Beast instead (see
+   *  `corpSiphonHeal`). Deliberately not `disabledTimer`: nothing knocked it offline, it
+   *  is being *used*, and it comes back the instant the core dies rather than on a clock.
+   *  Cleared in `handleBossMechanics` the frame the core stops existing. */
+  siphonedBy?: string;
   skills: TowerSkills;
   equipment: {
     ammo: Item | null;

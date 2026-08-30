@@ -59,6 +59,8 @@ const TARGETS = {
   cerberus: { npc: 5862 },               // Cerberus (boss)
   kbd: { npc: 239 },                     // King Black Dragon (boss)
   summoned_soul: { npc: 5869 },          // Summoned Soul (Cerberus's add; the melee one stands for all three)
+  corporeal_beast: { npc: 319 },         // Corporeal Beast (boss)
+  dark_core: { npc: 320 },               // Dark energy core (the Beast's add)
   // NOTE: the spawn portal is no longer a model render — OSRS portals are mostly
   // animated spotanims, so a static render reads poorly. It's now drawn
   // procedurally as a swirling vortex in renderer.drawSpawnPortal.

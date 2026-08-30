@@ -46,13 +46,14 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath, inSquareRange
  * ledger of which ideas are taken and which are still open.
  */
 
-export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus' | 'scurrius' | 'kbd';
+export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus' | 'scurrius' | 'kbd' | 'corporeal_beast';
 
 /** The bosses that carry phase mechanics: they get a {@link BossState} on spawn and
  *  roll boss modifiers once seen. The engine and the save sanitiser read this to decide
  *  who has state. */
 export const MECHANIC_BOSSES: readonly BossId[] = [
   'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus', 'brutus', 'scurrius', 'kbd',
+  'corporeal_beast',
 ];
 
 /**
@@ -66,7 +67,8 @@ export const MECHANIC_BOSSES: readonly BossId[] = [
  * `BossState` and has no business being drawn on its own.
  */
 export const SCHEDULABLE_BOSSES: readonly BossId[] = [
-  'brutus', 'scurrius', 'giant_mole', 'kbd', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus', 'hydra',
+  'brutus', 'scurrius', 'giant_mole', 'kbd', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus',
+  'corporeal_beast', 'hydra',
 ];
 
 // ─────────────────────────────────── Zulrah ────────────────────────────────
@@ -1257,6 +1259,109 @@ export function kbdIsHalted(state: BossState | undefined): boolean {
   return state?.kind === 'kbd' && (state.kbdPhase === 'inhale' || state.kbdPhase === 'recover');
 }
 
+// ────────────────────────── Corporeal Beast ──────────────────────────
+/**
+ * The Corporeal Beast: the check on whether your board covers *itself*.
+ *
+ * He spits a **Dark energy core** at the single best tower you own. The core leaves the
+ * road, flies to that tower and latches on; while it lives there, the tower stops
+ * shooting the wave — every shot it would have fired is siphoned into the Beast as
+ * healing instead — and the Beast himself is armoured, taking half damage while the
+ * link holds. Kill the core and the tower comes straight back, the armour with it.
+ *
+ * The idea is not "a tower is disabled" (KBD already scorches, Vorkath already froze).
+ * It is: **your best tower is now a liability, and the answer has to come from somewhere
+ * else.** A board built around one star tower with nothing overlapping it turns its own
+ * damage against itself the moment the core lands; a board of mutually covering pairs
+ * answers it in a couple of seconds. KBD punishes six towers stacked in one killbox; the
+ * Beast punishes one tower standing alone. Between them they teach the same lesson from
+ * both ends.
+ *
+ * Fidelity: this is his real fight. The Corporeal Beast spawns dark energy cores that
+ * drain the team, and the room's whole job is to kill the core before it does its work.
+ * OSRS also gives him a huge stab hole (dstab 25 against 200 everywhere else), which is
+ * why every team that ever fought him brought a Zamorakian spear — we have no weapon
+ * classes, so that lives in `STYLE_WEAKNESSES` as a plain melee weakness instead.
+ *
+ * NPC 319 in the cache; the core is NPC 320.
+ */
+/** Seconds after he arrives before the first core — long enough to see the thing walking
+ *  the road before it reaches across the board at you. */
+export const CORP_FIRST_CORE = 7;
+/** Seconds between cores, measured spit to spit. */
+export const CORP_CORE_INTERVAL = 15;
+/** How many cores may hold towers at once. A ceiling, not a target: the timer keeps
+ *  running, so a player who never kills one still only ever loses three towers — a boss
+ *  that could eventually take the whole board is not a mechanic, it is a wall. */
+export const CORP_MAX_CORES = 3;
+/** A core's health as a fraction of the Beast's, so it stays killable-but-not-free at
+ *  every wave the fight can appear on. */
+export const CORP_CORE_HP_FRAC = 0.06;
+/** Floor under that, for the sandbox and for any future scaling that shrinks him. */
+export const CORP_CORE_MIN_HP = 40;
+/** What the Beast's incoming damage is multiplied by while any core holds a link.
+ *  Styleless, like the Guardians' shared stone: the answer is "kill the core", and
+ *  letting a DoT chip past it would answer the mechanic for free. */
+export const CORP_ARMOUR_MULT = 0.5;
+/** The fraction of a siphoned shot that comes back as healing. Half, not all: feeding the
+ *  full amount back would make one core worth two towers, and with the armour on top of
+ *  it the fight would stop moving entirely. */
+export const CORP_SIPHON_HEAL_FRAC = 0.5;
+/** Logic pixels: how close the core must get to its tower before it latches. */
+export const CORP_CORE_LATCH_DIST = 8;
+/** His tell. In-game strings stay English. */
+export const CORP_SAY = '*spits*';
+
+/** One tower, as the core-pick sees it: what it is worth and whether a core already has
+ *  it. `dps` is the caller's own damage-per-second estimate — the sim reads the live,
+ *  cache-warm stats, the tests pass plain numbers. */
+export interface SiphonCandidate {
+  id: string;
+  dps: number;
+  /** True if some other core is already latched onto it, or on its way there. */
+  taken?: boolean;
+}
+
+/**
+ * Which tower the next core is spat at: **the best one still free**.
+ *
+ * Deliberately not the nearest. Nearest would make the mechanic a positioning puzzle the
+ * player solves once by building away from the road — and since the Beast walks the road,
+ * he would pick the same front-line tower every time. Picking the highest damage instead
+ * aims the mechanic at exactly the board it is meant to test: the one carrying a single
+ * star tower. Ties break on id, so the same board always answers the same way.
+ */
+export function pickSiphonTarget(candidates: readonly SiphonCandidate[]): string | null {
+  let best: SiphonCandidate | null = null;
+  for (const c of candidates) {
+    if (c.taken) continue;
+    if (!best || c.dps > best.dps || (c.dps === best.dps && c.id < best.id)) best = c;
+  }
+  return best ? best.id : null;
+}
+
+/** A core's health, from the Beast that spat it. */
+export function corpCoreHp(bossMaxHp: number): number {
+  return Math.max(CORP_CORE_MIN_HP, Math.round(bossMaxHp * CORP_CORE_HP_FRAC));
+}
+
+/**
+ * What a siphoned shot heals the Beast for. Runs through {@link stallHealMult} like every
+ * other boss heal, so a player who has stopped making progress cannot be held there
+ * forever by a core they are not killing.
+ */
+export function corpSiphonHeal(damage: number, stallStacks = 0): number {
+  if (damage <= 0) return 0;
+  return Math.max(1, Math.floor(damage * CORP_SIPHON_HEAL_FRAC * stallHealMult(stallStacks)));
+}
+
+/** True while at least one core holds a link — the half the armour and the boss bar are
+ *  about. The sim recounts `coresLatched` from the live cores each frame, so the guard
+ *  drops on the frame the last one dies. */
+export function corpIsArmoured(state: BossState | undefined): boolean {
+  return state?.kind === 'corporeal_beast' && (state.coresLatched ?? 0) > 0;
+}
+
 // ───────────────────────────── shared boss state ───────────────────────────
 /** Mutable per-boss runtime state the engine stores on the boss enemy. */
 export interface BossState {
@@ -1356,6 +1461,14 @@ export interface BossState {
   scorchAt?: Point[];
   /** KBD: breaths taken, read out on the boss bar. */
   breaths?: number;
+  /** Corporeal Beast: counts down to the next core. */
+  coreTimer?: number;
+  /** Corporeal Beast: cores spat so far, read out on the boss bar. */
+  coresSpat?: number;
+  /** Corporeal Beast: how many of them are currently latched onto a tower. Rebuilt from
+   *  the live cores every frame (like Cerberus's locked styles), so the armour drops the
+   *  instant the last one dies rather than a tick later. */
+  coresLatched?: number;
   /** Stall breaker: the lowest HP fraction this boss has been driven to. */
   hpFloor?: number;
   /** Stall breaker: seconds since it last reached a new low. */
@@ -1394,6 +1507,11 @@ export function freshBossState(kind: BossId): BossState {
     state.kbdPhase = 'fly';
     state.kbdTimer = KBD_FIRST_BREATH;
     state.breaths = 0;
+  }
+  if (kind === 'corporeal_beast') {
+    state.coreTimer = CORP_FIRST_CORE;
+    state.coresSpat = 0;
+    state.coresLatched = 0;
   }
   if (isGuardian(kind)) state.twinType = guardianTwin(kind);
   if (kind === 'cerberus') { state.soulSummons = 0; state.lockedStyles = []; }
@@ -1454,5 +1572,9 @@ export function bossStyleMult(state: BossState | undefined, style: CombatStyle |
   // two above this leaves styleless DoT alone — a soul locks a *style*, and a burn has
   // none (the same seam Zulrah's phases leave).
   if (state.kind === 'cerberus') return soulLockMult(state.lockedStyles, style);
+  // The Corporeal Beast's guard, for as long as a core holds one of your towers. Styleless
+  // on purpose (see CORP_ARMOUR_MULT): the mechanic has exactly one answer, and it is the
+  // core — not a style switch, and not waiting out a burn.
+  if (corpIsArmoured(state)) return CORP_ARMOUR_MULT;
   return 1;
 }

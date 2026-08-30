@@ -26,7 +26,7 @@ The pattern is deliberately generic: `bossAnimVariant(state)` in `systems/boss-m
 maps a boss's current phase to an optional slug, and the engine assigns it to `animType`
 each frame. Any boss can opt in by returning a slug. **New mechanics are expected to.**
 
-## Taken ideas (the nine shipped bosses)
+## Taken ideas (the eleven shipped bosses)
 
 | Boss | The question it asks | Axis |
 |---|---|---|
@@ -39,6 +39,8 @@ each frame. Any boss can opt in by returning a slug. **New mechanics are expecte
 | Alchemical Hydra | Can you burst on demand? | breakpoints |
 | Brutus | *(new — see below)* | movement irregularity |
 | Scurrius | Does your board handle HP that has been redistributed? | adds — splitting |
+| King Black Dragon | Is your whole defence standing in one place? | the board itself — scorched road |
+| Corporeal Beast | Does anything cover your best tower? | the board itself — a tower turned against you |
 
 ## Open axes, and who should carry them
 
@@ -64,10 +66,9 @@ attribute to anything reads as a bug, not a mechanic. Both fired correctly and w
 indistinguishable from nothing happening. A tower-disable needs a visible cause (you
 watched him run through it) and a visible state, or it does not belong in the game.
 
-- **King Black Dragon** — dragonfire scorches a **stretch of road**; towers whose range
-  covers the burning stretch lose damage while it burns. Punishes tight clustering,
-  rewards a long thin defence. Iconic, early-mid tier, and the model is trivially
-  sourceable.
+- **King Black Dragon** ✅ shipped — dragonfire scorches a **stretch of road**; towers
+  whose range covers the burning stretch lose damage while it burns. Punishes tight
+  clustering, rewards a long thin defence.
 - **Vardorvis** — his **spinning axes** sweep along the path; a tower an axe passes over
   goes offline for a beat. The only boss that makes tower *position* dangerous rather
   than just suboptimal.
@@ -82,12 +83,36 @@ watched him run through it) and a visible state, or it does not belong in the ga
   hardest possible counter to the single-killbox build, and it is exactly the Inferno's
   real geometry. Endgame capstone material.
 
-### D. Weapon-class check
+### D. Weapon-class check — **Corporeal Beast** ✅ shipped
 
-- **Corporeal Beast** — takes heavily reduced damage from everything except one
-  designated tower type (the "spear"), and spawns a **Dark Energy Core** that latches
-  onto a tower and drains its output into Corp's healing. Two-part answer: own the right
-  tower at all, then kill the core. The most faithful translation on this list.
+- **Corporeal Beast** — shipped as **the core half only**. The weapon-class half was cut
+  on purpose: we have no weapon classes, and inventing a "designated tower type" would
+  have made the fight a checklist you either brought the answer to or did not — an
+  ownership check, not a decision. OSRS's real stab hole (dstab 25 against 200 everywhere
+  else) is instead folded into `STYLE_WEAKNESSES` as a plain **melee** weakness, which is
+  the same fact expressed in the vocabulary the game already has.
+
+  What did ship is the Dark energy core, and the question it asks is sharper than the
+  original entry's: **does anything on your board cover your best tower?** Every 15s
+  (first at 7s, three at once at most) he spits a core at the **highest-DPS free tower** —
+  not the nearest, which would make it a positioning puzzle solved once and would always
+  pick the same front-line tower, since he walks the road. The core leaves the road, flies
+  across the board and latches on; from then the tower fires **on its own cooldown, with
+  its own damage, into him** — half of it comes back as healing — and he takes **half
+  damage** from everything while any core holds a link. Kill the core and both the tower
+  and his guard come back on the same frame.
+
+  Three decisions are worth keeping written down. The armour is **styleless**, like the
+  Guardians' shared stone: the mechanic has exactly one answer, and letting a DoT chip
+  past it would answer it for free. The heal runs through `stallHealMult` like every other
+  boss heal, so a fight nobody is winning cannot be held open by a core nobody is killing.
+  And a siphoned tower is deliberately **not** given the disabled look (40% alpha + the
+  prohibited sign) — nothing knocked it offline, it is being *used*, and the shut-down
+  look would point the player at waiting instead of at the core; it wears a violet drain
+  and a tether back to him instead.
+
+  Pairs with the KBD by design: the KBD punishes six towers stacked in one killbox, the
+  Beast punishes one star tower standing alone. Same lesson from both ends.
 
 ### E. Splitting / swarm — **Scurrius** ✅ shipped
 
@@ -149,13 +174,12 @@ watched him run through it) and a visible state, or it does not belong in the ga
 
 1. **Brutus** — tier 0, gentlest rung, teaches that bosses do things. ✅
 2. **Scurrius** — tier 0 companion, teaches AoE. ✅
-3. **King Black Dragon** — mid, opens axis B (the board itself is attackable).
-4. **Corporeal Beast** — late, opens axis D.
+3. **King Black Dragon** — mid, opens axis B (the board itself is attackable). ✅
+4. **Corporeal Beast** — late, opens axis D. ✅
 5. **TzKal-Zuk** — endgame, opens axis C.
 6. **Nex** — endgame capstone, axis H.
 
-Each needs: a stat block (`data/enemies.ts`), an `EnemyType`, a drop table
-(`data/drops.ts`), baked clips (`scripts/enemy-anims.config.json` → the
+Each needs: a stat block (`data/enemies.ts`), an `EnemyType`, baked clips (`scripts/enemy-anims.config.json` → the
 `npc-anim-auditor` agent picks the sequence ids), a death sound, wave presence, a
 mechanic in `systems/boss-mechanics.ts`, and a line in `systems/boss-tips.ts`.
 

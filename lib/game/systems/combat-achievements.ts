@@ -92,6 +92,9 @@ export interface RunStats {
     cerberusSoulSurvived: boolean;
     /** The King Black Dragon's fire caught at least one tower in its reach. */
     kbdTowerScorched: boolean;
+    /** A Dark energy core held a tower long enough to heal the Corporeal Beast at least
+     *  once — i.e. the player let a core fire the tower's shot back at them. */
+    corpSiphonHeld: boolean;
   };
 }
 
@@ -110,6 +113,7 @@ export function emptyRunStats(mode: GameMode, tier: DifficultyTier): RunStats {
     bossFlags: {
       jadHealed: false, hydraVentsBroken: 0, hydraVentHealed: false,
       duskDawnClean: true, cerberusSoulSurvived: false, kbdTowerScorched: false,
+      corpSiphonHeld: false,
     },
   };
 }

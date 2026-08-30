@@ -227,7 +227,7 @@ const DEATH_TYPES = [
   'superior_abyssal_demon', 'superior_gargoyle', 'superior_nechryael',
   // Bosses and their adds — each with its own cry, never a borrowed one.
   'giant_mole', 'cerberus', 'dusk', 'dawn', 'yt_hurkot', 'summoned_soul',
-  'scurrius', 'brutus', 'kbd',
+  'scurrius', 'brutus', 'kbd', 'corporeal_beast', 'dark_core',
   // Kharidian. Every one of these used to borrow a neighbour's voice; each now
   // ships the clip OSRS itself files under that monster's name. Two took a
   // deduction: the kalphite Guardian's family is filed `kalthite_lord` (Jagex's
@@ -299,6 +299,8 @@ export const ASSETS = {
     dusk: `${LOCAL}/models/dusk.png`,                   // Grotesque Guardians
     dawn: `${LOCAL}/models/dawn.png`,
     cerberus: `${LOCAL}/models/cerberus.png`,
+    corporeal_beast: `${LOCAL}/models/corporeal_beast.png`,
+    dark_core: `${LOCAL}/models/dark_core.png`,
     summoned_soul: `${LOCAL}/models/summoned_soul.png`,
     jad: `${LOCAL}/models/jad.png`,                     // TzTok-Jad
     vorkath: `${LOCAL}/models/vorkath.png`,

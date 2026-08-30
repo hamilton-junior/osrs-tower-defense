@@ -443,6 +443,11 @@ export const MOLE_DUST = '#8a6b47';
 /** The Grotesque Guardians' shared stone — the tether, the enrage and the revival. */
 export const GUARDIAN_LINK_COLOR = '#c9a227';
 
+/** The Corporeal Beast's siphon — the core, the tether it holds a tower with, and the
+ *  drained look of the tower on the other end. One colour for the whole mechanic, so a
+ *  player who sees the mote leave him can follow it to the tower that went quiet. */
+export const CORP_LINK_COLOR = '#a06bff';
+
 /** Clean a persisted "bosses seen" blob: keep only the mechanic bosses flagged true,
  *  so a corrupt/stale save can't gate modifiers on bad data. */
 export function sanitizeBossesSeen(raw: unknown): Record<string, number> {

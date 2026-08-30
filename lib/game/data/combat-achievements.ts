@@ -11,10 +11,10 @@
 import type { CaTask } from '../systems/combat-achievements';
 import type { EnemyType } from '../types';
 
-/** The eleven bosses a full run must defeat, for `perfect-roster`. */
+/** The twelve bosses a full run must defeat, for `perfect-roster`. */
 export const CA_BOSS_ROSTER: readonly EnemyType[] = [
   'scurrius', 'brutus', 'giant_mole', 'dusk', 'dawn',
-  'cerberus', 'zulrah', 'vorkath', 'jad', 'hydra', 'kbd',
+  'cerberus', 'zulrah', 'vorkath', 'jad', 'hydra', 'kbd', 'corporeal_beast',
 ];
 
 export const CA_TASKS: readonly CaTask[] = [
@@ -124,6 +124,11 @@ export const CA_TASKS: readonly CaTask[] = [
     id: 'antifire-protection', tier: 'hard', name: 'Antifire Protection',
     desc: 'Defeat the King Black Dragon without his fire reaching a tower.',
     check: (s) => s.bossKillSeconds.kbd !== undefined && !s.bossFlags.kbdTowerScorched,
+  },
+  {
+    id: 'core-of-the-matter', tier: 'master', name: 'Core of the Matter',
+    desc: 'Defeat the Corporeal Beast without a Dark energy core healing him.',
+    check: (s) => s.bossKillSeconds.corporeal_beast !== undefined && !s.bossFlags.corpSiphonHeld,
   },
   {
     id: 'minimalist', tier: 'hard', name: 'Minimalist',

@@ -6,6 +6,7 @@ import { spellSpriteName } from '../../systems/magic';
 import { MAX_TOWER_LEVEL, styleSkillKey, towerCombatLevel } from '../../systems/tower-xp';
 import type { GameRenderer } from '../renderer';
 import { drawScorchedTower } from './scorch';
+import { drawSiphonedTower } from './siphon';
 import { GRID, drawImageContain, drawSquareRange } from './shared';
 
 /**
@@ -105,6 +106,11 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     // look. Drawn before the sprite so the tower sits in its own heat.
     if ((tower.scorchedTimer ?? 0) > 0 && !disabled) {
       drawScorchedTower(ctx, tower.x, tower.y, tower.visualRadius);
+    }
+    // Held by a Dark energy core: a violet drain, again not the prohibited sign. It is
+    // firing — into the Corporeal Beast — so the "switched off" look would be a lie.
+    if (tower.siphonedBy && !disabled) {
+      drawSiphonedTower(ctx, tower.x, tower.y, tower.visualRadius);
     }
     ctx.save();
     if (disabled) ctx.globalAlpha = 0.4;

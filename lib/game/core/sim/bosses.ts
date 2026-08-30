@@ -3,9 +3,9 @@ import { SPAWN_ANIM_SECONDS } from '../../types';
 import { ENEMIES } from '../../data/enemies';
 import { distanceSq, squareRange } from '../../systems/geometry';
 import { GAME_SOUNDS } from '../sound';
-import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY } from '../../systems/boss-mechanics';
+import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, type SiphonCandidate } from '../../systems/boss-mechanics';
 import type { Scorch } from '../engine-state';
-import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
+import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, CORP_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
 import { makeEnemy, addRing, addBreath } from './waves';
 import { bodyY } from '../../systems/enemy-anchor';
@@ -34,6 +34,15 @@ export function handleBossMechanics(eng: GameEngine, dt: number) {
   for (let i = eng.enemies.length - 1; i >= 0; i--) {
     const e = eng.enemies[i];
     if (e.escort && !eng.enemies.some(o => o.id === e.ownerId)) eng.enemies.splice(i, 1);
+  }
+  // A tower is only siphoned for as long as the core holding it is standing there. The
+  // link is cleared here rather than at the core's death, for the same reason the escort
+  // cull above is: there are several ways for a core to stop existing (killed, its Beast
+  // died, the wave ended), and one place that notices covers all of them.
+  for (const t of eng.towers) {
+    if (t.siphonedBy && !eng.enemies.some((c) => c.id === t.siphonedBy && c.coreLatched)) {
+      t.siphonedBy = undefined;
+    }
   }
   // Scurrius's rats are the opposite case: not escorts, so nothing above culls them,
   // and they drive themselves. Stepped over a snapshot because an absorbed rat splices
@@ -75,6 +84,8 @@ export function handleBossMechanics(eng: GameEngine, dt: number) {
       updateScurrius(eng, e, dt);
     } else if (st.kind === 'kbd') {
       updateKbd(eng, e, dt);
+    } else if (st.kind === 'corporeal_beast') {
+      updateCorp(eng, e, dt);
     }
     // The visual-state rule: a boss's current mechanic phase decides which model it is
     // drawn with. `animType` overrides the sprite/clip slug only, so stats, drops and
@@ -1001,11 +1012,138 @@ export function updateRat(eng: GameEngine, e: Enemy, dt: number) {
   e.y += (dy / d) * step;
 }
 
+/**
+ * The Corporeal Beast: he spits a Dark energy core at the best tower you own.
+ *
+ * The rules are in `systems/boss-mechanics` (`pickSiphonTarget`, `corpSiphonHeal`,
+ * `corpIsArmoured`); this owns the timer, the core entity and the link. The armour is
+ * recounted from the live cores every frame — same reasoning as Cerberus's soul locks:
+ * the reward for killing a core has to land on the frame it dies, or the player cannot
+ * feel the trade they just made.
+ */
+export function updateCorp(eng: GameEngine, e: Enemy, dt: number) {
+  const st = e.bossState!;
+  const cores = eng.enemies.filter((c) => c.type === 'dark_core' && c.ownerId === e.id);
+  st.coresLatched = cores.reduce((n, c) => n + (c.coreLatched ? 1 : 0), 0);
+
+  st.coreTimer = (st.coreTimer ?? CORP_FIRST_CORE) - dt;
+  if (st.coreTimer > 0) return;
+  // The clock resets whether or not a core actually goes out, so a board with nothing
+  // left to take (or already holding three) is not rewarded with a shorter fight later.
+  st.coreTimer = CORP_CORE_INTERVAL;
+  if (cores.length >= CORP_MAX_CORES) return;
+  if (spitDarkCore(eng, e)) st.coresSpat = (st.coresSpat ?? 0) + 1;
+}
+
+/** Every tower the next core could be spat at, priced by what it is actually worth —
+ *  its live, cache-warm damage over its live cooldown. Utility wizards are left out:
+ *  they project a field rather than firing, so siphoning one would take nothing. */
+function siphonCandidates(eng: GameEngine): SiphonCandidate[] {
+  const claimed = new Set<string>();
+  for (const c of eng.enemies) if (c.type === 'dark_core' && c.coreTowerId) claimed.add(c.coreTowerId);
+  const out: SiphonCandidate[] = [];
+  for (const t of eng.towers) {
+    if (t.type === 'wizard' && t.mageMode === 'utility') continue;
+    const st = eng.statsCache.get(t.id)?.stats;
+    const dmg = (t.damage + (st?.flatDamageBonus ?? 0)) * (st?.damageMultiplier ?? 1);
+    const cd = st?.cooldown ?? t.cooldown;
+    out.push({ id: t.id, dps: cd > 0 ? dmg / cd : dmg, taken: !!t.siphonedBy || claimed.has(t.id) });
+  }
+  return out;
+}
+
+/** Spit one core at the best free tower. Returns false when there is nothing to take —
+ *  an empty board, or every tower already held. */
+export function spitDarkCore(eng: GameEngine, beast: Enemy): boolean {
+  const towerId = pickSiphonTarget(siphonCandidates(eng));
+  const tower = towerId ? eng.towers.find((t) => t.id === towerId) : undefined;
+  if (!tower) return false;
+  const hp = corpCoreHp(beast.maxHp);
+  const speed = ENEMIES.dark_core.speed;
+  eng.enemies.push({
+    ...ENEMIES.dark_core,
+    id: uid(),
+    type: 'dark_core', // its own type → its own Collection Log line and kill count
+    name: 'Dark Energy Core',
+    escort: true,
+    ownerId: beast.id,
+    coreTowerId: tower.id,
+    coreLatched: false,
+    debug: beast.debug, // a sandbox Beast spits sandbox cores
+    x: beast.x,
+    y: bodyY(beast),
+    hp,
+    maxHp: hp,
+    speed,
+    baseSpeed: speed,
+    naturalSpeed: speed,
+    pathIndex: beast.pathIndex,
+    slowTimer: 0,
+    stunTimer: 0,
+    tauntTimer: 0,
+    groundTimer: 0,
+    animTime: 0,
+    spawnAnim: SPAWN_ANIM_SECONDS,
+  });
+  beast.say = CORP_SAY;
+  beast.sayTimer = 1.2;
+  addRing(eng, beast.x, bodyY(beast), 8, 60, CORP_LINK_COLOR, 0.55, 4);
+  eng.sound.play('wave', 60);
+  // Name the tower: the player has to know *which* one went quiet, and on a full board
+  // a purple mote crossing the screen is not enough to find it by.
+  eng.notify(`The Corporeal Beast spits a Dark energy core at your ${tower.name}!`);
+  return true;
+}
+
+/**
+ * A Dark energy core in flight, and then latched.
+ *
+ * Unlike every other escort it does not orbit its owner — it leaves the Beast entirely
+ * and crosses the board to one tower. Until it arrives the tower keeps shooting: the
+ * flight *is* the warning, and a mechanic that took effect the frame it was announced
+ * would be a tax rather than a thing to answer.
+ */
+export function updateDarkCore(eng: GameEngine, e: Enemy, dt: number) {
+  const tower = e.coreTowerId ? eng.towers.find((t) => t.id === e.coreTowerId) : undefined;
+  if (!tower) {
+    // Its tower was sold out from under it. Re-pick rather than leaving the thing
+    // hanging in the air: selling the tower is a legitimate answer, but it should cost
+    // the tower, not end the mechanic.
+    e.coreLatched = false;
+    e.coreTowerId = pickSiphonTarget(siphonCandidates(eng)) ?? undefined;
+    return;
+  }
+  const dx = tower.x - e.x;
+  const dy = tower.y - e.y;
+  const d = Math.hypot(dx, dy);
+  if (d > CORP_CORE_LATCH_DIST) {
+    const step = Math.min(d, e.speed * dt);
+    e.x += (dx / d) * step;
+    e.y += (dy / d) * step;
+    return;
+  }
+  if (!e.coreLatched) {
+    e.coreLatched = true;
+    tower.siphonedBy = e.id;
+    tower.targetId = null; // it is not aiming at anything any more
+    addRing(eng, tower.x, tower.y, 6, 44, CORP_LINK_COLOR, 0.5, 3);
+    eng.sound.play('wave', 50);
+  }
+  // Sitting on the tower it holds, bobbing — it must read as attached, not as an enemy
+  // that happens to be standing there.
+  e.orbit = (e.orbit ?? 0) + dt * ESCORT_ORBIT_DRIFT;
+  e.x = tower.x;
+  e.y = tower.y - TOWER_BODY_RADIUS * 0.5 + Math.sin(e.orbit * 2.2) * 2.5;
+}
+
 /** Move an escort (a Yt-HurKot healer, a Summoned Soul) toward its orbit slot around
  *  its owner, so it follows the boss at a fixed radius and drifts around it rather
  *  than walking the path. Orphans (owner gone) hold still until `handleBossMechanics`
  *  culls them. */
 export function updateEscortFollow(eng: GameEngine, e: Enemy, dt: number) {
+  // The one escort that does not follow anything: a Dark energy core flies to the tower
+  // it was spat at and stays there.
+  if (e.type === 'dark_core') { updateDarkCore(eng, e, dt); return; }
   const owner = e.ownerId ? eng.enemies.find(h => h.id === e.ownerId) : undefined;
   if (!owner) return;
   e.orbit = (e.orbit ?? 0) + dt * ESCORT_ORBIT_DRIFT; // slow circle around the boss

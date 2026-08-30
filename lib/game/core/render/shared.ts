@@ -11,6 +11,11 @@ import type { GameRenderer } from '../renderer';
  *  all read in the same gold, so the player learns one colour, not three. */
 export const GUARDIAN_LINK_COLOR = '#c9a227';
 
+/** The Corporeal Beast's siphon: the core, the tether it holds a tower with, the drained
+ *  tower on the other end and the boss-bar line all read in the same violet, so a player
+ *  who sees the mote leave him can follow it to the tower that went quiet. */
+export const CORP_LINK_COLOR = '#a06bff';
+
 /** Cerberus's Summoned Souls, one colour per style it locks — matching the OSRS models
  *  the clips are baked from: the ranged soul carries a green bow, the magic one a blue
  *  staff, the melee one a red blade. */
