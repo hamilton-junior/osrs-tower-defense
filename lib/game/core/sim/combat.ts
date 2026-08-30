@@ -96,6 +96,218 @@ function siphonShot(eng: GameEngine, tower: Tower, stats: ComputedTowerStats) {
  * `systems/magic.ts`; this is the per-frame pipeline that applies it to the world.
  */
 
+/** The tower's stat line, recomputed only when something that feeds it moved
+ *  (see `combatEpoch`) — every other frame it comes straight back out of the cache. */
+function towerStats(eng: GameEngine, tower: Tower): ComputedTowerStats {
+  let cached = eng.statsCache.get(tower.id);
+  if (!cached || cached.epoch !== eng.combatEpoch) {
+    cached = {
+      epoch: eng.combatEpoch,
+      stats: calculateTowerStats(tower, {
+        upgrades: eng.meta.upgrades,
+        activePrayers: eng.prayer.active,
+        activePotions: eng.ge.active,
+        allTowers: eng.towers,
+        runMods: eng.runMods,
+        synergyMult: eng.synergyMultFor(tower.id),
+        mageBuff: eng.runFx.mageBuff,
+        globalMods: eng.eventTowerMods(),
+      }),
+    };
+    eng.statsCache.set(tower.id, cached);
+  }
+  return cached.stats;
+}
+
+/**
+ * Who this shot goes to. A tower never marries a target: whenever its cooldown is up
+ * it looks again, so the shot goes to whatever the priority ranks first *now* — the
+ * runner that just slipped past, the boss that just walked in — instead of to whatever
+ * it happened to lock on to when the wave started. Between shots the pick only changes
+ * when it dies or leaves range, which keeps the sight line, the DPS engagement clock
+ * and the prayer drain reading the truth every frame.
+ */
+function acquireTarget(
+  eng: GameEngine, tower: Tower, inReach: (e: Enemy) => boolean, ready: boolean,
+  markKind: ReturnType<typeof towerMarkKind>,
+): Enemy | undefined {
+  const slayerFavored = (e: Enemy) => isSlayerFavoredTarget(e.type, eng.slayer.task?.type ?? null, !!e.isBoss);
+  let target = tower.targetId ? eng.enemies.find(e => e.id === tower.targetId) : undefined;
+  // Slayer specialisation is sticky too: if it's chewing a non-favoured target
+  // while a favoured one (task / superior / boss) is in range, drop it so the
+  // reselect below prefers the specialised kill, regardless of set priority.
+  if (target && tower.type === 'slayer' && !slayerFavored(target) &&
+      eng.enemies.some(e => inReach(e) && slayerFavored(e))) {
+    target = undefined;
+  }
+  if (!target || !inReach(target) || ready) {
+    const inRange = eng.enemies.filter(inReach);
+    // Slayer tower prioritises its specialised category over the raw priority:
+    // pick among the favoured enemies if any are in range, else target normally.
+    // Within the chosen pool the player's priority still decides. (Damage bonus
+    // is applied separately in slayerWeaponBonus.)
+    let pool = inRange;
+    if (tower.type === 'slayer') {
+      const favored = inRange.filter(slayerFavored);
+      if (favored.length > 0) pool = favored;
+    }
+    target = selectTarget(pool, tower.x, tower.y, eng.path, tower.targetingPriority, markKind) ?? undefined;
+    tower.targetId = target?.id ?? null;
+  }
+  return target;
+}
+
+/** The bolt's flavour, and the damage the tower's spellbook has already bent.
+ *  Everything a projectile carries that doesn't depend on *which* enemy it flies at. */
+interface ShotLoadout {
+  damage: number;
+  color: string;
+  element?: Element;
+  ancient?: AncientType;
+  special?: Projectile['special'];
+  aoe: boolean;
+  blastRadius?: number;
+  lifesteal: boolean;
+  bonusMaxHpFrac: number;
+  bonusMaxHpCap: number;
+  spellIcon?: string;
+}
+
+/**
+ * Base projectile flavour; the cannon splashes (radius grows by tier), toxic
+ * venoms, tzhaar crushes. Wizard spellbooks then take over: Elemental (single-target
+ * status + weakness bonus), Ancients (AoE barrage with a signature status), Utility
+ * (support aura, applied in tower-combat — it just fires a plain bolt here).
+ */
+function shotLoadout(eng: GameEngine, tower: Tower, target: Enemy, damage: number): ShotLoadout {
+  // Impact theme is keyed off the PROJECTILE (the tower's spell), never the
+  // enemy hit — elemental wizards tag the bolt with their element, ancients
+  // with their barrage type, so hit() themes the burst correctly (undefined
+  // here → a plain arrow/cannon spark).
+  const lo: ShotLoadout = {
+    damage,
+    color: tower.color,
+    special: tower.special === 'rapid' || tower.special === 'aoe' ? undefined : tower.special,
+    aoe: tower.special === 'aoe',
+    blastRadius: tower.type === 'cannon' ? cannonBlastRadius(tower.level) : undefined,
+    lifesteal: false,
+    bonusMaxHpFrac: 0,
+    bonusMaxHpCap: 0,
+    spellIcon: spellSpriteName(tower) ?? undefined,
+  };
+  if (tower.type !== 'wizard') return lo;
+
+  const mode = tower.mageMode ?? 'elemental';
+  if (mode === 'elemental') {
+    const spec = ELEMENTS[(tower.element ?? 'air') as Exclude<Element, 'none'>];
+    lo.color = spec.glow ?? spec.color; // glow/trail matches the spell sprite
+    lo.element = tower.element ?? 'air'; // themes the impact burst (fire → fire, …)
+    lo.special = spec.effect;
+    lo.damage = Math.floor(lo.damage * weaknessMultiplier(tower.element ?? 'air', target.weakness));
+  } else if (mode === 'ancients') {
+    const anc = tower.ancientType ?? 'ice';
+    const spec = ANCIENTS[anc];
+    lo.color = spec.glow ?? spec.color; // glow/trail matches the spell sprite
+    lo.ancient = anc; // themes the impact burst (ice/blood/shadow/smoke)
+    lo.special = spec.effect;
+    lo.aoe = true;
+    lo.lifesteal = !!spec.lifesteal;
+    // Blood barrage adds (0.75·level)% of each target's max HP, capped at 30·level.
+    if (anc === 'blood') { lo.bonusMaxHpFrac = bloodBonusFrac(tower.level); lo.bonusMaxHpCap = bloodBonusCap(tower.level); }
+    // Ice applies its slow NOW (on the tower's attack cadence), not on contact:
+    // the long sound-synced flight shouldn't delay the crowd-control. Damage
+    // still lands with the bolt, so drop the on-hit slow. Slows every enemy in
+    // the barrage's blast radius around the target, as the splash would.
+    if (anc === 'ice') {
+      for (const e of eng.enemies) {
+        if (distanceSq(e.x, e.y, target.x, target.y) <= 80 * 80) applySlow(eng, e);
+      }
+      lo.special = undefined;
+    }
+  }
+  return lo;
+}
+
+/** How long the shot is in the air, and the sounds/GFX bracketing that flight. */
+interface ShotFlight {
+  soundKey: string;
+  hitSound?: string;
+  flight: number;
+  projAnim?: string;
+}
+
+/**
+ * Every projectile flies at a fixed nominal speed (distance-scaled) and eases in
+ * (slow→fast) over that time (see moveProjectiles). A wizard plays its spell's cast
+ * clip on fire and tags the bolt with the matching impact clip, which plays when it
+ * connects (GameEngine.hit) — the authentic OSRS cast-on-fire / hit-on-impact pair.
+ */
+function shotFlight(eng: GameEngine, tower: Tower, target: Enemy): ShotFlight {
+  const dist = distance(tower.x, tower.y, target.x, target.y);
+  const fp: ShotFlight = { soundKey: `fire_${tower.type}`, flight: dist / 600 };
+  if (tower.type === 'wizard') {
+    const mode = tower.mageMode ?? 'elemental';
+    const tier = mode === 'ancients' ? (tower.ancientType ?? 'ice') : (tower.element ?? 'air');
+    fp.soundKey = `cast_${tier}_${tower.level}`;
+    fp.hitSound = `hit_${tier}_${tower.level}`;
+    // The spell's real flight GFX (baked from the cache); the spell icon
+    // stays as the renderer's fallback if the sheet ever fails to load.
+    if (SPOTANIMS[`proj_${tier}_${tower.level}`]) fp.projAnim = `proj_${tier}_${tower.level}`;
+    // Sound-sync the arc: the bolt must not land before the cast clip ends,
+    // so the impact sfx never steps on the cast. Floor the flight at the cast
+    // duration + 25% (a short beat of air after the cast lands). Until the
+    // clip's duration has decoded, fall back to the shortest cast clip's
+    // length so the floor never overshoots a real cast.
+    const castDur = eng.sound.duration(fp.soundKey);
+    fp.flight = Math.max(fp.flight, (isFinite(castDur) ? castDur : SHORTEST_CAST_S) * 1.25);
+  }
+  fp.flight = Math.max(0.05, fp.flight); // tiny floor: never instantaneous / div-by-zero
+  return fp;
+}
+
+/** Launch one projectile at `tgt` for `dmg`, counting it as incoming so other towers
+ *  firing this same frame treat the target as (more) doomed. */
+function launchProjectile(
+  eng: GameEngine, tower: Tower, tgt: Enemy, dmg: number, fl: number,
+  lo: ShotLoadout, fp: ShotFlight, aura: AuraAttribution | undefined,
+  incoming: Map<string, number>,
+) {
+  const projType: Projectile['type'] =
+    tower.type === 'cannon' ? 'cannonball'
+    : tower.type !== 'wizard' ? 'arrow'
+    : lo.ancient ? (`ancient_${lo.ancient}` as Projectile['type']) // ancients carry their tier so the impact themes right
+    : 'spell';
+  eng.projectiles.push({
+    id: uid(),
+    x: tower.x,
+    y: tower.y,
+    ox: tower.x,
+    oy: tower.y,
+    flight: fl,
+    age: 0,
+    targetId: tgt.id,
+    speed: distance(tower.x, tower.y, tgt.x, tgt.y) / fl, // trail/legacy; motion uses the ease curve
+    damage: dmg,
+    color: lo.color,
+    type: projType,
+    element: lo.element,
+    special: lo.special,
+    aoe: lo.aoe || undefined,
+    blastRadius: lo.blastRadius,
+    lifesteal: lo.lifesteal || undefined,
+    bonusMaxHpFrac: lo.bonusMaxHpFrac || undefined,
+    bonusMaxHpCap: lo.bonusMaxHpCap || undefined,
+    spellIcon: lo.spellIcon,
+    arrowIcon: tower.type === 'archer' ? 'dragon_arrow' : undefined,
+    hitSound: fp.hitSound,
+    projAnim: fp.projAnim,
+    sourceTowerId: tower.id,
+    aura,
+    trail: [],
+  });
+  incoming.set(tgt.id, (incoming.get(tgt.id) ?? 0) + dmg);
+}
+
 export function fireTowers(eng: GameEngine, dt: number) {
   const now = eng.gameTime * 1000; // ms of simulated time (cooldowns are in ms)
   // Damage already heading toward each enemy from in-flight projectiles. A
@@ -113,24 +325,7 @@ export function fireTowers(eng: GameEngine, dt: number) {
     if (tower.disabledTimer > 0) { tower.disabledTimer = Math.max(0, tower.disabledTimer - dt); continue; }
     // Utility wizards don't fire — they project a field (see updateUtilityTowers).
     if (tower.type === 'wizard' && tower.mageMode === 'utility') continue;
-    let cached = eng.statsCache.get(tower.id);
-    if (!cached || cached.epoch !== eng.combatEpoch) {
-      cached = {
-        epoch: eng.combatEpoch,
-        stats: calculateTowerStats(tower, {
-          upgrades: eng.meta.upgrades,
-          activePrayers: eng.prayer.active,
-          activePotions: eng.ge.active,
-          allTowers: eng.towers,
-          runMods: eng.runMods,
-          synergyMult: eng.synergyMultFor(tower.id),
-          mageBuff: eng.runFx.mageBuff,
-          globalMods: eng.eventTowerMods(),
-        }),
-      };
-      eng.statsCache.set(tower.id, cached);
-    }
-    const stats = cached.stats;
+    const stats = towerStats(eng, tower);
     // Held by a Dark energy core: the tower still works — it just works for the
     // Corporeal Beast. Gated here, after the stat cache, so the siphon uses the tower's
     // real damage and real cooldown; and deliberately not via `disabledTimer`, which
@@ -155,36 +350,8 @@ export function fireTowers(eng: GameEngine, dt: number) {
     // (re)acquire a target. `markKind` is the status this tower spreads (for the
     // `unmarked` priority — a tower only counts its OWN effect as a mark).
     const markKind = towerMarkKind(tower);
-    const slayerFavored = (e: Enemy) => isSlayerFavoredTarget(e.type, eng.slayer.task?.type ?? null, !!e.isBoss);
-    let target = tower.targetId ? eng.enemies.find(e => e.id === tower.targetId) : undefined;
-    // A tower never marries a target: whenever its cooldown is up it looks again, so
-    // the shot goes to whatever the priority ranks first *now* — the runner that just
-    // slipped past, the boss that just walked in — instead of to whatever it happened
-    // to lock on to when the wave started. Between shots the pick only changes when it
-    // dies or leaves range, which keeps the sight line, the DPS engagement clock and
-    // the prayer drain reading the truth every frame.
     const ready = now - tower.lastFired >= stats.cooldown;
-    // Slayer specialisation is sticky too: if it's chewing a non-favoured target
-    // while a favoured one (task / superior / boss) is in range, drop it so the
-    // reselect below prefers the specialised kill, regardless of set priority.
-    if (target && tower.type === 'slayer' && !slayerFavored(target) &&
-        eng.enemies.some(e => inReach(e) && slayerFavored(e))) {
-      target = undefined;
-    }
-    if (!target || !inReach(target) || ready) {
-      const inRange = eng.enemies.filter(inReach);
-      // Slayer tower prioritises its specialised category over the raw priority:
-      // pick among the favoured enemies if any are in range, else target normally.
-      // Within the chosen pool the player's priority still decides. (Damage bonus
-      // is applied separately in slayerWeaponBonus.)
-      let pool = inRange;
-      if (tower.type === 'slayer') {
-        const favored = inRange.filter(slayerFavored);
-        if (favored.length > 0) pool = favored;
-      }
-      target = selectTarget(pool, tower.x, tower.y, eng.path, tower.targetingPriority, markKind) ?? undefined;
-      tower.targetId = target?.id ?? null;
-    }
+    const target = acquireTarget(eng, tower, inReach, ready, markKind);
     if (!target || !ready) continue;
 
     tower.lastFired = now;
@@ -207,135 +374,22 @@ export function fireTowers(eng: GameEngine, dt: number) {
       damage = Math.floor(damage * slayerWeaponBonus(target.type, eng.slayer.task?.type ?? null, !!target.isBoss));
     }
 
-    // Base projectile flavour; the cannon splashes (radius grows by tier), toxic
-    // venoms, tzhaar crushes.
-    let projColor = tower.color;
-    // Impact theme is keyed off the PROJECTILE (the tower's spell), never the
-    // enemy hit — elemental wizards tag the bolt with their element, ancients
-    // with their barrage type, so hit() themes the burst correctly (undefined
-    // here → a plain arrow/cannon spark).
-    let projElement: Element | undefined;
-    let projAncient: AncientType | undefined;
-    let projSpecial: Projectile['special'] | undefined = tower.special === 'rapid' || tower.special === 'aoe' ? undefined : tower.special;
-    let projAoe = tower.special === 'aoe';
-    const projBlastRadius = tower.type === 'cannon' ? cannonBlastRadius(tower.level) : undefined;
-    let projLifesteal = false;
-    let projBonusMaxHpFrac = 0;
-    let projBonusMaxHpCap = 0;
-    const projSpell = spellSpriteName(tower) ?? undefined;
-
-    // Wizard spellbooks: Elemental (single-target status + weakness bonus),
-    // Ancients (AoE barrage with a signature status), Utility (support aura,
-    // applied in tower-combat — it just fires a plain bolt here).
-    if (tower.type === 'wizard') {
-      const mode = tower.mageMode ?? 'elemental';
-      if (mode === 'elemental') {
-        const spec = ELEMENTS[(tower.element ?? 'air') as Exclude<Element, 'none'>];
-        projColor = spec.glow ?? spec.color; // glow/trail matches the spell sprite
-        projElement = tower.element ?? 'air'; // themes the impact burst (fire → fire, …)
-        projSpecial = spec.effect;
-        damage = Math.floor(damage * weaknessMultiplier(tower.element ?? 'air', target.weakness));
-      } else if (mode === 'ancients') {
-        const anc = tower.ancientType ?? 'ice';
-        const spec = ANCIENTS[anc];
-        projColor = spec.glow ?? spec.color; // glow/trail matches the spell sprite
-        projAncient = anc; // themes the impact burst (ice/blood/shadow/smoke)
-        projSpecial = spec.effect;
-        projAoe = true;
-        projLifesteal = !!spec.lifesteal;
-        // Blood barrage adds (0.75·level)% of each target's max HP, capped at 30·level.
-        if (anc === 'blood') { projBonusMaxHpFrac = bloodBonusFrac(tower.level); projBonusMaxHpCap = bloodBonusCap(tower.level); }
-        // Ice applies its slow NOW (on the tower's attack cadence), not on contact:
-        // the long sound-synced flight shouldn't delay the crowd-control. Damage
-        // still lands with the bolt, so drop the on-hit slow. Slows every enemy in
-        // the barrage's blast radius around the target, as the splash would.
-        if (anc === 'ice') {
-          for (const e of eng.enemies) {
-            if (distanceSq(e.x, e.y, target.x, target.y) <= 80 * 80) applySlow(eng, e);
-          }
-          projSpecial = undefined;
-        }
-      }
-    }
-
-    // Every projectile flies at a fixed nominal speed (distance-scaled) and
-    // eases in (slow→fast) over that time (see moveProjectiles). A wizard plays
-    // its spell's cast clip here on fire and tags the bolt with the matching
-    // impact clip, which plays when it connects (GameEngine.hit) — the
-    // authentic OSRS cast-on-fire / hit-on-impact pair.
-    let soundKey = `fire_${tower.type}`;
-    let hitSound: string | undefined;
-    const dist = distance(tower.x, tower.y, target.x, target.y);
-    let flight = dist / 600; // nominal flight (archer/cannon/spell alike)
-    let projAnim: string | undefined;
-    if (tower.type === 'wizard') {
-      const mode = tower.mageMode ?? 'elemental';
-      const tier = mode === 'ancients' ? (tower.ancientType ?? 'ice') : (tower.element ?? 'air');
-      soundKey = `cast_${tier}_${tower.level}`;
-      hitSound = `hit_${tier}_${tower.level}`;
-      // The spell's real flight GFX (baked from the cache); the spell icon
-      // stays as the renderer's fallback if the sheet ever fails to load.
-      if (SPOTANIMS[`proj_${tier}_${tower.level}`]) projAnim = `proj_${tier}_${tower.level}`;
-      // Sound-sync the arc: the bolt must not land before the cast clip ends,
-      // so the impact sfx never steps on the cast. Floor the flight at the cast
-      // duration + 25% (a short beat of air after the cast lands). Until the
-      // clip's duration has decoded, fall back to the shortest cast clip's
-      // length so the floor never overshoots a real cast.
-      const castDur = eng.sound.duration(soundKey);
-      flight = Math.max(flight, (isFinite(castDur) ? castDur : SHORTEST_CAST_S) * 1.25);
-    }
-    flight = Math.max(0.05, flight); // tiny floor: never instantaneous / div-by-zero
-
-    // Launch one projectile at `tgt` for `dmg`, counting it as incoming so other
-    // towers firing this same frame treat the target as (more) doomed.
-    const projType: Projectile['type'] =
-      tower.type === 'cannon' ? 'cannonball'
-      : tower.type !== 'wizard' ? 'arrow'
-      : projAncient ? (`ancient_${projAncient}` as Projectile['type']) // ancients carry their tier so the impact themes right
-      : 'spell';
-    const launch = (tgt: Enemy, dmg: number, fl: number) => {
-      eng.projectiles.push({
-        id: uid(),
-        x: tower.x,
-        y: tower.y,
-        ox: tower.x,
-        oy: tower.y,
-        flight: fl,
-        age: 0,
-        targetId: tgt.id,
-        speed: distance(tower.x, tower.y, tgt.x, tgt.y) / fl, // trail/legacy; motion uses the ease curve
-        damage: dmg,
-        color: projColor,
-        type: projType,
-        element: projElement,
-        special: projSpecial,
-        aoe: projAoe || undefined,
-        blastRadius: projBlastRadius,
-        lifesteal: projLifesteal || undefined,
-        bonusMaxHpFrac: projBonusMaxHpFrac || undefined,
-        bonusMaxHpCap: projBonusMaxHpCap || undefined,
-        spellIcon: projSpell,
-        arrowIcon: tower.type === 'archer' ? 'dragon_arrow' : undefined,
-        hitSound,
-        projAnim,
-        sourceTowerId: tower.id,
-        aura: projAura,
-        trail: [],
-      });
-      incoming.set(tgt.id, (incoming.get(tgt.id) ?? 0) + dmg);
-    };
+    const lo = shotLoadout(eng, tower, target, damage);
+    const fp = shotFlight(eng, tower, target);
+    const launch = (tgt: Enemy, dmg: number, fl: number) =>
+      launchProjectile(eng, tower, tgt, dmg, fl, lo, fp, projAura, incoming);
 
     // Per-target multipliers keyed off the ENEMY: the signature gear mult
     // (Twisted bow scales with the target's max HP, Darklight with its category)
     // and the tier-4 bow's anti-tank nudge. Computed per shot so twin-shot / Double
     // Shot arrows against other enemies get their own value, not the primary's.
     const arrowDmg = (tgt: Enemy) => {
-      let d = Math.floor(damage * gearDamageMult(tower, tgt, eng.slayer.task?.type ?? null));
+      let d = Math.floor(lo.damage * gearDamageMult(tower, tgt, eng.slayer.task?.type ?? null));
       if (tower.type === 'archer' && tower.level >= 4) d = Math.floor(d * bowAntiTankMult(tgt.maxHp));
       return d;
     };
 
-    launch(target, arrowDmg(target), flight);
+    launch(target, arrowDmg(target), fp.flight);
 
     // Dark Bow twin-shot: the archer (tier 3+) looses a second arrow at the next
     // best target in range, or the same one if it's alone (a focused burst).
@@ -357,7 +411,7 @@ export function fireTowers(eng: GameEngine, dt: number) {
       }
     }
 
-    eng.sound.play(soundKey, 70);
+    eng.sound.play(fp.soundKey, 70);
   }
 }
 
@@ -929,11 +983,25 @@ export function spawnImpactParticles(eng: GameEngine, x: number, y: number, colo
   }
 }
 
-/** Deal damage to an enemy; returns true if it died from this hit. `kind`
- *  colours the hitsplat; `minor` (DoT) draws it small/below, drifting aside.
- *  `depth` guards the on-kill chain cards (ricochet / overkill / streak smite)
- *  against unbounded recursion — chains only fire from a depth-0 (direct) kill. */
-export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false, silent = false, depth = 0, style?: CombatStyle, source?: DamageSource): boolean {
+/** What a hit actually lands for, plus the two multipliers the callers downstream
+ *  still need: the species' style weakness (XP) and the on-task bonus (the meter). */
+interface ResolvedHit {
+  dealt: number;
+  weak: number;
+  onTask: number;
+}
+
+/**
+ * Everything situational between "the shot says 40" and "the enemy loses 27": the
+ * Water amp, the Slayer Helmet, the affix/prayer resists, the species' own
+ * combat-triangle weakness, the boss phase bias and an escort's splash resist —
+ * then the shield pool, which is drained (mutating `enemy.shieldHp`) before HP is
+ * touched at all.
+ */
+function resolveHit(
+  eng: GameEngine, enemy: Enemy, amount: number,
+  style: CombatStyle | undefined, source: DamageSource | undefined,
+): ResolvedHit {
   // Water "amp" makes the enemy take extra damage from every source; the Slayer
   // Helmet adds an on-task bonus vs the current task's monster. The Armored affix
   // halves damage from its rolled style (DoT/no-style hits are unaffected).
@@ -959,10 +1027,16 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
     enemy.shieldHp = a.shield;
     dealt = a.dmg;
   }
-  enemy.hp -= dealt;
-  // DPS meter: credit the dealt damage to its source (splitting off any Utility-
-  // aura extra), plus the effect-specific tallies (DoT damage, splash hits, the
-  // Slayer Helmet's on-task slice) so the panel can break them out per tower.
+  return { dealt, weak, onTask };
+}
+
+/**
+ * Who gets the credit for what landed: the DPS meter (splitting off any Utility-aura
+ * extra, plus the effect-specific tallies so the panel can break them out per tower)
+ * and the tower's own skill XP.
+ */
+function creditHit(eng: GameEngine, enemy: Enemy, hit: ResolvedHit, source: DamageSource | undefined) {
+  const { dealt, weak, onTask } = hit;
   if (source && dealt > 0) {
     eng.stats.recordDamage(source, eng.wave, enemy.type, dealt);
     const owner = source.towerId ?? RUN_FX_ID;
@@ -987,62 +1061,65 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
     const isDot = source.tag === 'burn' || source.tag === 'poison' || source.tag === 'venom';
     eng.grantTowerXp(source.towerId, dealt, weak > 1 && !isDot);
   }
+}
+
+/** Every mechanic that counts *being hit* rather than the health bar: one place, so
+ *  each new boss hook reads against the ones already here. */
+function noteDamageTaken(eng: GameEngine, enemy: Enemy, dealt: number) {
+  if (dealt <= 0) return;
   // Stall breaker: a hit that lands is what marks an enemy as *being fought*. Without
   // this the clock would run from the moment it spawned, and anything that simply walked
   // in unopposed would arrive at the base already hardened against control.
-  if (dealt > 0) {
-    const stall = enemy.bossState ?? enemy.stall;
-    if (stall) stall.sinceHit = 0;
-  }
+  const stall = enemy.bossState ?? enemy.stall;
+  if (stall) stall.sinceHit = 0;
   // Brutus: damage is what provokes him. Banked here rather than sampled from his HP so
   // that healing (a Regenerating affix, a Guardian revive) cannot un-anger him — what he
   // reacts to is being hit, not what his health bar currently reads.
-  if (dealt > 0 && enemy.bossState?.kind === 'brutus') {
+  if (enemy.bossState?.kind === 'brutus') {
     enemy.bossState.rageDamage = (enemy.bossState.rageDamage ?? 0) + dealt;
   }
   // Jad: remember damage that actually landed, for the Yt-HurKot heal window.
-  if (dealt > 0 && enemy.bossState?.kind === 'jad') {
+  if (enemy.bossState?.kind === 'jad') {
     (enemy.bossState.recentDamage ??= []).push({ t: eng.gameTime, amount: dealt });
   }
   // Hydra: damage dealt during an open vent counts toward shattering it — the
   // figure *before* the vent's hardening cut, or the player would pay for that
   // cut twice and the bar could never fill (see `hydraVentCredit`).
-  if (dealt > 0 && enemy.bossState?.kind === 'hydra' && enemy.bossState.venting) {
+  if (enemy.bossState?.kind === 'hydra' && enemy.bossState.venting) {
     enemy.bossState.ventDamage = (enemy.bossState.ventDamage ?? 0) + hydraVentCredit(dealt);
   }
   // Scurrius: a heavy hit shears a rat off his own bar. Placed with the other
   // per-boss damage hooks so it reads against Brutus's rage accumulator and Jad's
   // damage ring — same shape, same place.
-  if (dealt > 0 && enemy.bossState?.kind === 'scurrius') {
+  if (enemy.bossState?.kind === 'scurrius') {
     const st = enemy.bossState;
     if (scurriusShouldShear(dealt, enemy.maxHp, enemy.hp / enemy.maxHp,
                             st.scurriusShearCooldown ?? 0, liveRatsOf(eng, enemy.id))) {
       shearRat(eng, enemy);
     }
   }
-  // Executioner relic: a non-boss reduced to a sliver is slain outright (bosses,
-  // their phases, and Jad's healers are immune).
-  if (dealt > 0 && !enemy.isBoss && !enemy.bossState && !enemy.escort &&
-      shouldExecute(eng.relicFx.executeFrac, enemy.hp, enemy.maxHp)) {
-    enemy.hp = 0;
-  }
-  if (!minor) {
-    enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
-    // Play the WHOLE hurt flinch (priority over walk) before reverting — sizing
-    // the window to the clip's own length, not a fixed slice that cut it short.
-    // An animation can't be interrupted by a new one of the same priority: a
-    // fresh hit while the flinch is still playing does NOT restart it (else
-    // rapid hits would freeze the enemy on frame 0). Death (higher priority)
-    // still wins — a dying enemy leaves `enemies` entirely. The flash above
-    // still fires every hit, so feedback isn't lost.
-    const animSlug = enemy.animType && ENEMY_ANIMS[enemy.animType] ? enemy.animType : enemy.type;
-    const hurtClip = ENEMY_ANIMS[animSlug]?.clips.hurt;
-    if (hurtClip && (enemy.hurtAnim ?? 0) <= 0) enemy.hurtAnim = clipDurationS(hurtClip);
-  }
+}
+
+/**
+ * The hit flinch. Play the WHOLE clip (priority over walk) before reverting — sizing
+ * the window to the clip's own length, not a fixed slice that cut it short. An
+ * animation can't be interrupted by a new one of the same priority: a fresh hit while
+ * the flinch is still playing does NOT restart it (else rapid hits would freeze the
+ * enemy on frame 0). Death (higher priority) still wins — a dying enemy leaves
+ * `enemies` entirely. The flash fires every hit, so feedback isn't lost.
+ */
+function playHurtFlinch(enemy: Enemy) {
+  enemy.flashTimer = 0.15; // visual hit-pop (direct hits only)
+  const animSlug = enemy.animType && ENEMY_ANIMS[enemy.animType] ? enemy.animType : enemy.type;
+  const hurtClip = ENEMY_ANIMS[animSlug]?.clips.hurt;
+  if (hurtClip && (enemy.hurtAnim ?? 0) <= 0) enemy.hurtAnim = clipDurationS(hurtClip);
+}
+
+/** The number over the enemy's head. DoT splats fan into per-kind lanes (side + rise)
+ *  so an enemy carrying several shows them clearly apart rather than one overriding
+ *  the next: burn drifts left/up, poison right/up, venom right/down. See DOT_LANE. */
+function pushHitsplat(eng: GameEngine, enemy: Enemy, dealt: number, kind: HitsplatKind, minor: boolean) {
   const below = enemy.isBoss ? 30 : 16;
-  // DoT splats fan into per-kind lanes (side + rise) so an enemy carrying
-  // several shows them clearly apart rather than one overriding the next:
-  // burn drifts left/up, poison right/up, venom right/down. See DOT_LANE.
   const lane = minor ? DOT_LANE[kind as DotKind] : undefined;
   const side = lane?.side ?? 0;
   const rise = lane?.rise ?? 0;
@@ -1056,14 +1133,11 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
     vx: minor ? side * 30 + (Math.random() - 0.5) * 16 : 0,
     vy: minor ? rise * -26 : 0,
   });
-  if (dealt > 0 && !minor && !silent) eng.sound.play('hit', 70);
-  if (enemy.hp > 0) return false;
-  const i = eng.enemies.indexOf(enemy);
-  if (i < 0) return false;
-  // Overkill = damage spilled past 0 HP (for the Scythe cleave card).
-  const overkillDmg = Math.max(0, -enemy.hp);
-  const killX = enemy.x, killY = enemy.y;
-  eng.enemies.splice(i, 1);
+}
+
+/** The body leaving the board: its debris, the collapse the renderer plays out, and
+ *  the enemy's own death cry. */
+function pushDeathFx(eng: GameEngine, enemy: Enemy) {
   spawnDeathParticles(eng, enemy);
   // Animated enemies play their full death-collapse clip; others use the brief
   // shrink-and-fade of the static sprite.
@@ -1088,6 +1162,82 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
   // falls back to the generic `death` for anything unmapped.
   const deathKey = `death_${enemy.type}`;
   eng.sound.play(deathKey in GAME_SOUNDS ? deathKey : 'death', 40);
+}
+
+/** What a kill pays: gold, the tallies the Collection Log and the Combat Achievements
+ *  read, the Classic loot roll, the Slayer bookkeeping, and the on-kill cards. */
+function awardKill(
+  eng: GameEngine, enemy: Enemy, killX: number, killY: number,
+  dealt: number, overkillDmg: number, depth: number, source: DamageSource | undefined,
+) {
+  // Greed curse (×goldMult) and the active wave event (×event gold, e.g. Blood
+  // Moon's harder-wave payout) both scale the drop; both default to 1.
+  eng.awardGold(eng.killGoldPreReward(enemy.type));
+  eng.kills += 1;
+  if (source?.towerId) {
+    eng.caStats.killsByTower[source.towerId] = (eng.caStats.killsByTower[source.towerId] ?? 0) + 1;
+  }
+  if (enemy.isBoss) {
+    const spawned = eng.caStats.bossSpawnSeconds[enemy.type];
+    eng.caStats.bossKillSeconds[enemy.type] =
+      spawned === undefined ? eng.runSeconds : eng.runSeconds - spawned;
+    delete eng.caStats.bossSpawnSeconds[enemy.type];
+    // Cerberus down with a soul still orbiting him: recorded now, synchronously,
+    // because the orphan-escort cull that would otherwise clean up that soul runs
+    // on a later frame — after this kill's checkpoint has already been evaluated.
+    if (enemy.type === 'cerberus' && eng.enemies.some((s) => s.ownerId === enemy.id && s.soulStyle)) {
+      eng.caStats.bossFlags.cerberusSoulSurvived = true;
+    }
+  }
+  // New object each kill so the UI's persistence effect sees the change.
+  eng.killCounts = { ...eng.killCounts, [enemy.type]: (eng.killCounts[enemy.type] ?? 0) + 1 };
+  // Per-run boss tally: drives the ordered march and the victory trigger.
+  if (enemy.isBoss && (SCHEDULABLE_BOSSES as readonly string[]).includes(enemy.type)) {
+    eng.bossesKilledThisRun = {
+      ...eng.bossesKilledThisRun,
+      [enemy.type]: (eng.bossesKilledThisRun[enemy.type] ?? 0) + 1,
+    };
+  }
+  // Combat Achievements checkpoint: boss-kill tasks (speed/no-leak/mechanic)
+  // are only ever true for the instant after the boss dies.
+  if (enemy.isBoss) eng.checkAchievements();
+  // Classic gear drops fall straight into the run's loot bag (no ground loot in
+  // the new core). Gated to Classic — roguelite gears its towers via drafts.
+  if (eng.gameMode === 'classic') {
+    const gear = rollGearDrops({
+      wave: eng.wave,
+      isBoss: !!enemy.isBoss,
+      // Taken alive, not killed: the better roll a trap is for.
+      luck: enemy.caughtBy ? CATCH_DROP_LUCK : 1,
+    });
+    if (gear.length) {
+      eng.lootBag = [...eng.lootBag, ...gear];
+      eng.gearDrops = mergeUnlockBatch(eng.gearDrops, gear, eng.gearDropsDrained);
+      eng.gearDropsDrained = false;
+      eng.gearDropSeq++;
+    }
+  }
+  // Bigger and Badder (Slayer shop): the task monster can rise again, right
+  // where it fell, as its Superior form. Rolled BEFORE recordKill, so the kill
+  // that finishes a task can still spawn one — the superior is the send-off.
+  const superior = eng.slayer.rollSuperior(enemy.type);
+  eng.slayer.recordKill(enemy.type);
+  if (superior) raiseSuperior(eng, superior, enemy);
+  onKillChains(eng, killX, killY, dealt, overkillDmg, depth, !!enemy.isBoss);
+  // Volatile affix: a death blast briefly disables the nearest tower.
+  if (enemy.affixes?.includes('volatile')) detonateVolatile(eng, killX, killY);
+}
+
+/** The enemy is at 0 HP: take it off the board and settle up. Returns false if it was
+ *  already gone (something else killed it this frame). */
+function killEnemy(eng: GameEngine, enemy: Enemy, dealt: number, depth: number, source: DamageSource | undefined): boolean {
+  const i = eng.enemies.indexOf(enemy);
+  if (i < 0) return false;
+  // Overkill = damage spilled past 0 HP (for the Scythe cleave card).
+  const overkillDmg = Math.max(0, -enemy.hp);
+  const killX = enemy.x, killY = enemy.y;
+  eng.enemies.splice(i, 1);
+  pushDeathFx(eng, enemy);
   // Debug/sandbox enemies pay nothing and don't progress anything — they exist
   // only to test towers/enemies. Jad's healers likewise award nothing (their
   // payoff is denying Jad's heal). The death FX above still play.
@@ -1099,66 +1249,32 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
   if (!enemy.debug && enemy.escort && ENEMIES[enemy.type]?.summonedBy) {
     eng.killCounts = { ...eng.killCounts, [enemy.type]: (eng.killCounts[enemy.type] ?? 0) + 1 };
   }
-  if (!enemy.debug && !enemy.escort) {
-    // Greed curse (×goldMult) and the active wave event (×event gold, e.g. Blood
-    // Moon's harder-wave payout) both scale the drop; both default to 1.
-    eng.awardGold(eng.killGoldPreReward(enemy.type));
-    eng.kills += 1;
-    if (source?.towerId) {
-      eng.caStats.killsByTower[source.towerId] = (eng.caStats.killsByTower[source.towerId] ?? 0) + 1;
-    }
-    if (enemy.isBoss) {
-      const spawned = eng.caStats.bossSpawnSeconds[enemy.type];
-      eng.caStats.bossKillSeconds[enemy.type] =
-        spawned === undefined ? eng.runSeconds : eng.runSeconds - spawned;
-      delete eng.caStats.bossSpawnSeconds[enemy.type];
-      // Cerberus down with a soul still orbiting him: recorded now, synchronously,
-      // because the orphan-escort cull that would otherwise clean up that soul runs
-      // on a later frame — after this kill's checkpoint has already been evaluated.
-      if (enemy.type === 'cerberus' && eng.enemies.some((s) => s.ownerId === enemy.id && s.soulStyle)) {
-        eng.caStats.bossFlags.cerberusSoulSurvived = true;
-      }
-    }
-    // New object each kill so the UI's persistence effect sees the change.
-    eng.killCounts = { ...eng.killCounts, [enemy.type]: (eng.killCounts[enemy.type] ?? 0) + 1 };
-    // Per-run boss tally: drives the ordered march and the victory trigger.
-    if (enemy.isBoss && (SCHEDULABLE_BOSSES as readonly string[]).includes(enemy.type)) {
-      eng.bossesKilledThisRun = {
-        ...eng.bossesKilledThisRun,
-        [enemy.type]: (eng.bossesKilledThisRun[enemy.type] ?? 0) + 1,
-      };
-    }
-    // Combat Achievements checkpoint: boss-kill tasks (speed/no-leak/mechanic)
-    // are only ever true for the instant after the boss dies.
-    if (enemy.isBoss) eng.checkAchievements();
-    // Classic gear drops fall straight into the run's loot bag (no ground loot in
-    // the new core). Gated to Classic — roguelite gears its towers via drafts.
-    if (eng.gameMode === 'classic') {
-      const gear = rollGearDrops({
-        wave: eng.wave,
-        isBoss: !!enemy.isBoss,
-        // Taken alive, not killed: the better roll a trap is for.
-        luck: enemy.caughtBy ? CATCH_DROP_LUCK : 1,
-      });
-      if (gear.length) {
-        eng.lootBag = [...eng.lootBag, ...gear];
-        eng.gearDrops = mergeUnlockBatch(eng.gearDrops, gear, eng.gearDropsDrained);
-        eng.gearDropsDrained = false;
-        eng.gearDropSeq++;
-      }
-    }
-    // Bigger and Badder (Slayer shop): the task monster can rise again, right
-    // where it fell, as its Superior form. Rolled BEFORE recordKill, so the kill
-    // that finishes a task can still spawn one — the superior is the send-off.
-    const superior = eng.slayer.rollSuperior(enemy.type);
-    eng.slayer.recordKill(enemy.type);
-    if (superior) raiseSuperior(eng, superior, enemy);
-    onKillChains(eng, killX, killY, dealt, overkillDmg, depth, !!enemy.isBoss);
-    // Volatile affix: a death blast briefly disables the nearest tower.
-    if (enemy.affixes?.includes('volatile')) detonateVolatile(eng, killX, killY);
-  }
+  if (!enemy.debug && !enemy.escort) awardKill(eng, enemy, killX, killY, dealt, overkillDmg, depth, source);
   eng.emit();
   return true;
+}
+
+/** Deal damage to an enemy; returns true if it died from this hit. `kind`
+ *  colours the hitsplat; `minor` (DoT) draws it small/below, drifting aside.
+ *  `depth` guards the on-kill chain cards (ricochet / overkill / streak smite)
+ *  against unbounded recursion — chains only fire from a depth-0 (direct) kill. */
+export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: HitsplatKind = 'hit', minor = false, silent = false, depth = 0, style?: CombatStyle, source?: DamageSource): boolean {
+  const hit = resolveHit(eng, enemy, amount, style, source);
+  const dealt = hit.dealt;
+  enemy.hp -= dealt;
+  creditHit(eng, enemy, hit, source);
+  noteDamageTaken(eng, enemy, dealt);
+  // Executioner relic: a non-boss reduced to a sliver is slain outright (bosses,
+  // their phases, and Jad's healers are immune).
+  if (dealt > 0 && !enemy.isBoss && !enemy.bossState && !enemy.escort &&
+      shouldExecute(eng.relicFx.executeFrac, enemy.hp, enemy.maxHp)) {
+    enemy.hp = 0;
+  }
+  if (!minor) playHurtFlinch(enemy);
+  pushHitsplat(eng, enemy, dealt, kind, minor);
+  if (dealt > 0 && !minor && !silent) eng.sound.play('hit', 70);
+  if (enemy.hp > 0) return false;
+  return killEnemy(eng, enemy, dealt, depth, source);
 }
 
 /**
