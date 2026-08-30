@@ -1,5 +1,5 @@
 import { SPAWN_ANIM_SECONDS } from '../../types';
-import type { Enemy } from '../../types';
+import type { CombatStyle, Element, Enemy } from '../../types';
 import { ENEMY_ANIMS, clipFrame, clipDurationS, DEATH_SETTLE_S } from '../../data/enemy-anims';
 import { TOWER_STYLES } from '../../data/towers';
 import { ELEMENTS } from '../../systems/magic';
@@ -188,26 +188,45 @@ export function drawMoleMound(gr: GameRenderer, ctx: CanvasRenderingContext2D, e
   ctx.restore();
 }
 
-export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
-  // Selecting a tower marks the enemies it is *paid extra* to kill: an Elemental
-  // wizard rings the ones weak to its element, and any other tower rings the ones
-  // weak to its combat style. Same ring, same promise — the style answer is not a
-  // second-class one, it just reads in the combat-triangle colour instead.
-  const sel = gr.e.selectedTowerId ? gr.e.towers.find(t => t.id === gr.e.selectedTowerId) : null;
-  const markEl = sel && sel.type === 'wizard' && (sel.mageMode ?? 'elemental') === 'elemental' ? (sel.element ?? 'air') : null;
-  const markStyle = sel && !markEl ? TOWER_STYLES[sel.type]?.style : null;
-  const markColor = markEl && markEl !== 'none' ? ELEMENTS[markEl].color
-    : markStyle === 'melee' ? '#ff4d4d'
-      : markStyle === 'ranged' ? '#7fd14a'
-        : null;
-  const markPulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
-  const pp = gr.e.portalPoint;
-  // Jad (if present) — its healers draw a heal-beam back to it.
-  const jad = gr.e.enemies.find((en) => en.bossState?.kind === 'jad');
+/** What the selected tower is paid extra to kill. Selecting a tower marks those
+ *  enemies: an Elemental wizard rings the ones weak to its element, and any other
+ *  tower rings the ones weak to its combat style. Same ring, same promise — the
+ *  style answer is not a second-class one, it just reads in the combat-triangle
+ *  colour instead. */
+interface WeaknessMark {
+  element: Element | null;
+  style: CombatStyle | undefined | null;
+  color: string | null;
+  pulse: number;
+}
 
-  // Scurrius: a rat on its way home is about to hand his health back. Nothing else in
-  // the fight would show that, and a boss bar that rises for no visible reason reads as
-  // a bug rather than as a mechanic — so the rat is leashed to him while it returns.
+function weaknessMark(gr: GameRenderer): WeaknessMark {
+  const sel = gr.e.selectedTowerId ? gr.e.towers.find(t => t.id === gr.e.selectedTowerId) : null;
+  const element = sel && sel.type === 'wizard' && (sel.mageMode ?? 'elemental') === 'elemental' ? (sel.element ?? 'air') : null;
+  const style = sel && !element ? TOWER_STYLES[sel.type]?.style : null;
+  const color = element && element !== 'none' ? ELEMENTS[element].color
+    : style === 'melee' ? '#ff4d4d'
+      : style === 'ranged' ? '#7fd14a'
+        : null;
+  return { element, style, color, pulse: 0.5 + 0.5 * Math.sin(performance.now() / 300) };
+}
+
+/** How far an oversized sprite lifts everything drawn over its head. */
+function overheadLift(e: Enemy, isBoss: boolean): number {
+  return Math.max(0, ((e.renderScale ?? 1) - 1) * (isBoss ? 30 : 15));
+}
+
+/** The top of the HP bar — the anchor the prayer overheads stack off too. */
+function hpBarY(e: Enemy, isBoss: boolean): number {
+  return e.y - (isBoss ? 40 : 22) - overheadLift(e, isBoss);
+}
+
+/**
+ * Scurrius: a rat on its way home is about to hand his health back. Nothing else in
+ * the fight would show that, and a boss bar that rises for no visible reason reads as
+ * a bug rather than as a mechanic — so the rat is leashed to him while it returns.
+ */
+function drawRatLeashes(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   for (const e of gr.e.enemies) {
     if (e.ratPhase !== 'return' || !e.ownerId) continue;
     const king = gr.e.enemies.find((o) => o.id === e.ownerId);
@@ -226,6 +245,264 @@ export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     ctx.stroke();
     ctx.restore();
   }
+}
+
+/** Superior slayer variant: an extremely faint warm shimmer behind the sprite,
+ *  echoing the sparkle that marks a "Bigger and Badder" spawn. */
+function drawSuperiorGlow(ctx: CanvasRenderingContext2D, e: Enemy, size: number) {
+  const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 600);
+  const glowR = size * 0.62;
+  const g = ctx.createRadialGradient(e.x, e.y, glowR * 0.25, e.x, e.y, glowR);
+  g.addColorStop(0, `rgba(255, 238, 170, ${0.05 + pulse * 0.06})`);
+  g.addColorStop(1, 'rgba(255, 238, 170, 0)');
+  ctx.save();
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(e.x, e.y, glowR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** The body itself: its baked clip if one is loaded, else the static sprite, else
+ *  a coloured blob — each with the hit flash masked to its own silhouette. */
+function drawEnemyBody(
+  gr: GameRenderer, ctx: CanvasRenderingContext2D, e: Enemy,
+  size: number, shx: number, shy: number, flash: number,
+) {
+  const isBoss = !!e.isBoss;
+  const movingLeft = (gr.e.path[e.pathIndex + 1]?.x ?? e.x) < e.x;
+  // `animType` overrides the clip slug (e.g. a Jad healer renders `yt_hurkot`
+  // once baked); fall back to `type`'s clip when the override isn't baked.
+  const animSlug = e.animType && ENEMY_ANIMS[e.animType] ? e.animType : e.type;
+  const animSet = ENEMY_ANIMS[animSlug];
+  // A mechanic clip — the Mole's dig and climb-out, Brutus pawing the ground and
+  // charging — is the real OSRS animation for a phase whose mechanic *is* that
+  // animation. It outranks both the hurt flinch and the walk loop: the boss is not
+  // walking, and a flinch that interrupted the telegraph would break the one thing
+  // the mechanic is trying to say. Which clip belongs to which phase lives in
+  // `bossPhaseClip`, beside the phase durations that size it.
+  const phaseClip = bossPhaseClip(e.bossState);
+  const mechClip = phaseClip ? animSet?.clips[phaseClip.name as keyof typeof animSet.clips] : undefined;
+  const hurting = !mechClip && !!animSet?.clips.hurt && (e.hurtAnim ?? 0) > 0;
+  const clipName = mechClip ? phaseClip!.name : hurting ? 'hurt' : 'walk';
+  const animKey = animSet ? `enemyanim_${animSlug}_${clipName}` : '';
+  if (animSet && gr.e.imageOk(animKey)) {
+    // Animated enemy: loop `walk` on alive-time, or play a one-shot (the Mole's
+    // dig/emerge, else the `hurt` flinch) over exactly that clip's window. The hurt
+    // window is sized to the clip's own duration in `damage`, and the Mole's phases
+    // are sized to theirs in `boss-mechanics`, so `elapsed` counts up from 0 in both.
+    const clip = mechClip ?? (hurting ? animSet.clips.hurt! : animSet.clips.walk);
+    const img = gr.e.images.get(animKey)!;
+    const elapsed = mechClip
+      ? phaseClip!.elapsed
+      : hurting ? clipDurationS(clip) - (e.hurtAnim ?? 0) : e.animTime ?? 0;
+    const fi = clipFrame(clip, elapsed);
+    const fw = animSet.frameW, fh = animSet.frameH;
+    // The baked creature fills ~88% of its cell (6% margin/side); scale up to
+    // undo that, plus a touch more so the model reads a bit larger on the map.
+    const ds = size * 1.32;
+    ctx.save();
+    ctx.translate(e.x + shx, e.y + shy);
+    // Baked clips face RIGHT (canonical model space, same as static sprites);
+    // flip only when travelling left, exactly like the static-sprite branch.
+    if (movingLeft) ctx.scale(-1, 1);
+    ctx.drawImage(img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds);
+    if (flash > 0) {
+      drawFlashTint(gr, ctx, img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds, flash);
+    }
+    // Boss phase tint: recolour the body to its current phase. Zulrah's form
+    // says which style it's weak to; the Hydra's chemical colour says how many
+    // vents you've broken — both readable at a glance without the caption.
+    const zc = e.bossState?.kind === 'zulrah'
+      ? ZULRAH_PHASES[e.bossState.phaseIndex % ZULRAH_PHASES.length].color
+      : e.bossState?.kind === 'hydra'
+        ? hydraPhase(e.bossState.shattered ?? 0).color : null;
+    if (zc) drawFlashTint(gr, ctx, img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds, 0.6, zc);
+    ctx.restore();
+  } else if (gr.e.imageOk(e.type)) {
+    const img = gr.e.images.get(e.type)!;
+    ctx.save();
+    ctx.translate(e.x + shx, e.y + shy);
+    if (movingLeft) ctx.scale(-1, 1);
+    ctx.drawImage(img, -size / 2, -size / 2, size, size);
+    if (flash > 0) {
+      const sw = img.naturalWidth || size, sh = img.naturalHeight || size;
+      drawFlashTint(gr, ctx, img, 0, 0, sw, sh, -size / 2, -size / 2, size, size, flash);
+    }
+    ctx.restore();
+  } else {
+    const r = isBoss ? 20 : 12;
+    ctx.fillStyle = flash > 0 ? '#e00000' : e.color;
+    ctx.beginPath();
+    ctx.arc(e.x + shx, e.y + shy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** Affix auras: a pulsing ring per affix in its themed colour, so an elite enemy
+ *  reads at a glance (concentric when it carries two). */
+function drawAffixRings(ctx: CanvasRenderingContext2D, e: Enemy, isBoss: boolean, matAlpha: number) {
+  const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 400);
+  ctx.save();
+  ctx.lineWidth = 2;
+  e.affixes!.forEach((a, idx) => {
+    ctx.strokeStyle = AFFIX_DEFS[a].color;
+    ctx.globalAlpha = matAlpha * (0.35 + pulse * 0.35);
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, (isBoss ? 24 : 15) + idx * 4, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+/** Boss phase telegraphs: what this boss is doing *right now*, drawn on the body. */
+function drawBossTelegraph(ctx: CanvasRenderingContext2D, e: Enemy, size: number) {
+  const st = e.bossState!;
+  if (st.kind === 'zulrah') {
+    // A pulsing ring in the current form's colour, echoing the body tint.
+    const phase = ZULRAH_PHASES[st.phaseIndex % ZULRAH_PHASES.length];
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 320);
+    ctx.save();
+    ctx.strokeStyle = phase.color;
+    ctx.globalAlpha = 0.5 + pulse * 0.4;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, size * 0.62, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  } else if (st.kind === 'vorkath' && st.immune) {
+    // Ice shield: a crystalline frosted ring while Vorkath is immune.
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 200);
+    ctx.save();
+    const r = size * 0.66;
+    const g = ctx.createRadialGradient(e.x, e.y, r * 0.4, e.x, e.y, r);
+    g.addColorStop(0, 'rgba(150,220,255,0)');
+    g.addColorStop(1, `rgba(150,220,255,${0.22 + pulse * 0.16})`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(200,240,255,${0.7 + pulse * 0.3})`;
+    ctx.lineWidth = 2;
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2 + performance.now() / 1600;
+      ctx.beginPath();
+      ctx.moveTo(e.x + Math.cos(a) * r * 0.5, e.y + Math.sin(a) * r * 0.5);
+      ctx.lineTo(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r);
+      ctx.stroke();
+    }
+    ctx.restore();
+  } else if (st.kind === 'hydra' && st.venting) {
+    // Chemical vent: an acid-green haze with bubbling motes, and a ring that
+    // drains anticlockwise as the window runs out — the player's break timer.
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
+    const r = size * 0.66;
+    ctx.save();
+    const g = ctx.createRadialGradient(e.x, e.y, r * 0.35, e.x, e.y, r);
+    g.addColorStop(0, 'rgba(150,255,90,0)');
+    g.addColorStop(1, `rgba(150,255,90,${0.2 + pulse * 0.18})`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    // The window timer, drawn as the ring's remaining arc.
+    const left = Math.max(0, Math.min(1, (st.ventTimer ?? 0) / HYDRA_VENT_SECS));
+    ctx.strokeStyle = `rgba(182,255,106,${0.75 + pulse * 0.25})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, r, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/** Health bar — colour shifts green → yellow → red as HP drops. */
+function drawHealthBar(ctx: CanvasRenderingContext2D, e: Enemy, isBoss: boolean) {
+  const bw = isBoss ? 60 : 30;
+  // Lift the bar by any extra sprite height so scaled-up sprites (Zulrah)
+  // don't cover it.
+  const by = hpBarY(e, isBoss);
+  const ratio = Math.max(0, e.hp / e.maxHp);
+  ctx.fillStyle = '#400';
+  ctx.fillRect(e.x - bw / 2, by, bw, 4);
+  ctx.fillStyle = ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a';
+  ctx.fillRect(e.x - bw / 2, by, bw * ratio, 4);
+  // Shielded affix: a slim cyan pip above the HP bar for the shield left,
+  // normalised against the affix's max shield (≈ SHIELD_HP_FRAC of max HP).
+  if (e.shieldHp && e.shieldHp > 0) {
+    const sratio = Math.min(1, e.shieldHp / Math.max(1, e.maxHp * SHIELD_HP_FRAC));
+    ctx.fillStyle = '#13303a';
+    ctx.fillRect(e.x - bw / 2, by - 5, bw, 3);
+    ctx.fillStyle = '#7fd0ff';
+    ctx.fillRect(e.x - bw / 2, by - 5, bw * sratio, 3);
+  }
+}
+
+/**
+ * Protection-prayer overheads: a small prayer icon per style the enemy is actively
+ * praying against — its own `protectedStyle` (the affix / an innate species prayer)
+ * plus any *per-style* boss phase (Zulrah's forms, Cerberus's soul locks). Drawn
+ * above the HP bar; the icon says "switch styles".
+ */
+function drawPrayerOverheads(gr: GameRenderer, ctx: CanvasRenderingContext2D, e: Enemy, isBoss: boolean) {
+  const prayed = new Set<string>();
+  if (e.protectedStyle) prayed.add(e.protectedStyle);
+  for (const s of phaseResistedStyles(e.bossState)) prayed.add(s);
+  if (!prayed.size) return;
+  const styles = [...prayed];
+  // Drawn at the headicon's native 25px (scaled down for rank-and-file), so
+  // the sprite's own gold disc stays crisp — no backdrop of ours is needed.
+  const isz = isBoss ? 20 : 14;
+  const gap = 2;
+  const totalW = styles.length * isz + (styles.length - 1) * gap;
+  const iy = hpBarY(e, isBoss) - (e.shieldHp && e.shieldHp > 0 ? 9 : 6) - isz;
+  let ix = e.x - totalW / 2;
+  for (const s of styles) {
+    const img = gr.e.images.get(`prayericon_${s}`);
+    if (img && img.complete && img.naturalWidth > 0) ctx.drawImage(img, ix, iy, isz, isz);
+    ix += isz + gap;
+  }
+}
+
+/**
+ * Overhead speech — a boss announcing a mechanic one beat before it fires, drawn
+ * the way OSRS draws NPC chat: yellow, centred over the head, hard black shadow and
+ * no bubble. It sits above everything else on the enemy (prayer icons, HP bar), so
+ * the telegraph is never the thing that gets covered up.
+ */
+function drawOverheadSay(ctx: CanvasRenderingContext2D, e: Enemy, isBoss: boolean) {
+  ctx.save();
+  ctx.font = "bold 13px 'RuneScape', Arial";
+  ctx.textAlign = 'center';
+  const ty = e.y - (isBoss ? 62 : 42) - overheadLift(e, isBoss);
+  ctx.fillStyle = '#000';
+  ctx.fillText(e.say!, e.x + 1, ty + 1);
+  ctx.fillStyle = '#ffff00';
+  ctx.fillText(e.say!, e.x, ty);
+  ctx.restore();
+}
+
+/** Weakness highlight: a pulsing ring in the selected tower's element or style. */
+function drawWeaknessRing(ctx: CanvasRenderingContext2D, e: Enemy, isBoss: boolean, mark: WeaknessMark) {
+  ctx.save();
+  ctx.strokeStyle = mark.color!;
+  ctx.globalAlpha = 0.45 + mark.pulse * 0.4;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(e.x, e.y, isBoss ? 26 : 16, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Every living enemy: its body, then everything the player reads off it. This
+ *  function is the running order; each layer is its own function above. */
+export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  const mark = weaknessMark(gr);
+  const pp = gr.e.portalPoint;
+  // Jad (if present) — its healers draw a heal-beam back to it.
+  const jad = gr.e.enemies.find((en) => en.bossState?.kind === 'jad');
+
+  drawRatLeashes(gr, ctx);
 
   for (const e of gr.e.enemies) {
     // The Giant Mole is underground: no body, no HP bar, no overlays — only the
@@ -251,89 +528,9 @@ export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     const shx = flash > 0 ? (Math.random() - 0.5) * 6 * flash : 0;
     const shy = flash > 0 ? (Math.random() - 0.5) * 6 * flash : 0;
 
-    // Superior slayer variant: an extremely faint warm shimmer behind the
-    // sprite, echoing the sparkle that marks a "Bigger and Badder" spawn.
-    if (typeof e.type === 'string' && e.type.startsWith('superior_')) {
-      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 600);
-      const glowR = size * 0.62;
-      const g = ctx.createRadialGradient(e.x, e.y, glowR * 0.25, e.x, e.y, glowR);
-      g.addColorStop(0, `rgba(255, 238, 170, ${0.05 + pulse * 0.06})`);
-      g.addColorStop(1, 'rgba(255, 238, 170, 0)');
-      ctx.save();
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, glowR, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
+    if (typeof e.type === 'string' && e.type.startsWith('superior_')) drawSuperiorGlow(ctx, e, size);
 
-    const movingLeft = (gr.e.path[e.pathIndex + 1]?.x ?? e.x) < e.x;
-    // `animType` overrides the clip slug (e.g. a Jad healer renders `yt_hurkot`
-    // once baked); fall back to `type`'s clip when the override isn't baked.
-    const animSlug = e.animType && ENEMY_ANIMS[e.animType] ? e.animType : e.type;
-    const animSet = ENEMY_ANIMS[animSlug];
-    // A mechanic clip — the Mole's dig and climb-out, Brutus pawing the ground and
-    // charging — is the real OSRS animation for a phase whose mechanic *is* that
-    // animation. It outranks both the hurt flinch and the walk loop: the boss is not
-    // walking, and a flinch that interrupted the telegraph would break the one thing
-    // the mechanic is trying to say. Which clip belongs to which phase lives in
-    // `bossPhaseClip`, beside the phase durations that size it.
-    const phaseClip = bossPhaseClip(e.bossState);
-    const mechClip = phaseClip ? animSet?.clips[phaseClip.name as keyof typeof animSet.clips] : undefined;
-    const hurting = !mechClip && !!animSet?.clips.hurt && (e.hurtAnim ?? 0) > 0;
-    const clipName = mechClip ? phaseClip!.name : hurting ? 'hurt' : 'walk';
-    const animKey = animSet ? `enemyanim_${animSlug}_${clipName}` : '';
-    if (animSet && gr.e.imageOk(animKey)) {
-      // Animated enemy: loop `walk` on alive-time, or play a one-shot (the Mole's
-      // dig/emerge, else the `hurt` flinch) over exactly that clip's window. The hurt
-      // window is sized to the clip's own duration in `damage`, and the Mole's phases
-      // are sized to theirs in `boss-mechanics`, so `elapsed` counts up from 0 in both.
-      const clip = mechClip ?? (hurting ? animSet.clips.hurt! : animSet.clips.walk);
-      const img = gr.e.images.get(animKey)!;
-      const elapsed = mechClip
-        ? phaseClip!.elapsed
-        : hurting ? clipDurationS(clip) - (e.hurtAnim ?? 0) : e.animTime ?? 0;
-      const fi = clipFrame(clip, elapsed);
-      const fw = animSet.frameW, fh = animSet.frameH;
-      // The baked creature fills ~88% of its cell (6% margin/side); scale up to
-      // undo that, plus a touch more so the model reads a bit larger on the map.
-      const ds = size * 1.32;
-      ctx.save();
-      ctx.translate(e.x + shx, e.y + shy);
-      // Baked clips face RIGHT (canonical model space, same as static sprites);
-      // flip only when travelling left, exactly like the static-sprite branch.
-      if (movingLeft) ctx.scale(-1, 1);
-      ctx.drawImage(img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds);
-      if (flash > 0) {
-        drawFlashTint(gr, ctx, img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds, flash);
-      }
-      // Boss phase tint: recolour the body to its current phase. Zulrah's form
-      // says which style it's weak to; the Hydra's chemical colour says how many
-      // vents you've broken — both readable at a glance without the caption.
-      const zc = e.bossState?.kind === 'zulrah'
-        ? ZULRAH_PHASES[e.bossState.phaseIndex % ZULRAH_PHASES.length].color
-        : e.bossState?.kind === 'hydra'
-          ? hydraPhase(e.bossState.shattered ?? 0).color : null;
-      if (zc) drawFlashTint(gr, ctx, img, fi * fw, 0, fw, fh, -ds / 2, -ds / 2, ds, ds, 0.6, zc);
-      ctx.restore();
-    } else if (gr.e.imageOk(e.type)) {
-      const img = gr.e.images.get(e.type)!;
-      ctx.save();
-      ctx.translate(e.x + shx, e.y + shy);
-      if (movingLeft) ctx.scale(-1, 1);
-      ctx.drawImage(img, -size / 2, -size / 2, size, size);
-      if (flash > 0) {
-        const sw = img.naturalWidth || size, sh = img.naturalHeight || size;
-        drawFlashTint(gr, ctx, img, 0, 0, sw, sh, -size / 2, -size / 2, size, size, flash);
-      }
-      ctx.restore();
-    } else {
-      const r = isBoss ? 20 : 12;
-      ctx.fillStyle = flash > 0 ? '#e00000' : e.color;
-      ctx.beginPath();
-      ctx.arc(e.x + shx, e.y + shy, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    drawEnemyBody(gr, ctx, e, size, shx, shy, flash);
 
     // Yt-HurKot healer flair: a pulsing heal-beam back to Jad + a small heal
     // badge, drawn over the (imp / real Yt-HurKot) body the normal path rendered.
@@ -345,158 +542,14 @@ export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     // which one is which.
     if (e.soulStyle && !inPortal) drawSoulFx(gr, ctx, e, size);
 
-    // Affix auras: a pulsing ring per affix in its themed colour, so an elite
-    // enemy reads at a glance (concentric when it carries two).
-    if (!inPortal && e.affixes && e.affixes.length) {
-      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 400);
-      ctx.save();
-      ctx.lineWidth = 2;
-      e.affixes.forEach((a, idx) => {
-        ctx.strokeStyle = AFFIX_DEFS[a].color;
-        ctx.globalAlpha = matAlpha * (0.35 + pulse * 0.35);
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, (isBoss ? 24 : 15) + idx * 4, 0, Math.PI * 2);
-        ctx.stroke();
-      });
-      ctx.restore();
-    }
-
-    // Boss phase telegraphs.
-    if (!inPortal && e.bossState) {
-      const st = e.bossState;
-      if (st.kind === 'zulrah') {
-        // A pulsing ring in the current form's colour, echoing the body tint.
-        const phase = ZULRAH_PHASES[st.phaseIndex % ZULRAH_PHASES.length];
-        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 320);
-        ctx.save();
-        ctx.strokeStyle = phase.color;
-        ctx.globalAlpha = 0.5 + pulse * 0.4;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, size * 0.62, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      } else if (st.kind === 'vorkath' && st.immune) {
-        // Ice shield: a crystalline frosted ring while Vorkath is immune.
-        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 200);
-        ctx.save();
-        const r = size * 0.66;
-        const g = ctx.createRadialGradient(e.x, e.y, r * 0.4, e.x, e.y, r);
-        g.addColorStop(0, 'rgba(150,220,255,0)');
-        g.addColorStop(1, `rgba(150,220,255,${0.22 + pulse * 0.16})`);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = `rgba(200,240,255,${0.7 + pulse * 0.3})`;
-        ctx.lineWidth = 2;
-        for (let k = 0; k < 6; k++) {
-          const a = (k / 6) * Math.PI * 2 + performance.now() / 1600;
-          ctx.beginPath();
-          ctx.moveTo(e.x + Math.cos(a) * r * 0.5, e.y + Math.sin(a) * r * 0.5);
-          ctx.lineTo(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r);
-          ctx.stroke();
-        }
-        ctx.restore();
-      } else if (st.kind === 'hydra' && st.venting) {
-        // Chemical vent: an acid-green haze with bubbling motes, and a ring that
-        // drains anticlockwise as the window runs out — the player's break timer.
-        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
-        const r = size * 0.66;
-        ctx.save();
-        const g = ctx.createRadialGradient(e.x, e.y, r * 0.35, e.x, e.y, r);
-        g.addColorStop(0, 'rgba(150,255,90,0)');
-        g.addColorStop(1, `rgba(150,255,90,${0.2 + pulse * 0.18})`);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
-        ctx.fill();
-        // The window timer, drawn as the ring's remaining arc.
-        const left = Math.max(0, Math.min(1, (st.ventTimer ?? 0) / HYDRA_VENT_SECS));
-        ctx.strokeStyle = `rgba(182,255,106,${0.75 + pulse * 0.25})`;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, r, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-
-    // health bar — colour shifts green → yellow → red as HP drops. Hidden
-    // while the enemy is still in the portal so it doesn't poke through.
-    if (!inPortal) {
-      const bw = isBoss ? 60 : 30;
-      // Lift the bar by any extra sprite height so scaled-up sprites (Zulrah)
-      // don't cover it.
-      const by = e.y - (isBoss ? 40 : 22) - Math.max(0, ((e.renderScale ?? 1) - 1) * (isBoss ? 30 : 15));
-      const ratio = Math.max(0, e.hp / e.maxHp);
-      ctx.fillStyle = '#400';
-      ctx.fillRect(e.x - bw / 2, by, bw, 4);
-      ctx.fillStyle = ratio > 0.5 ? '#3c3' : ratio > 0.25 ? '#e0c020' : '#e23a3a';
-      ctx.fillRect(e.x - bw / 2, by, bw * ratio, 4);
-      // Shielded affix: a slim cyan pip above the HP bar for the shield left,
-      // normalised against the affix's max shield (≈ SHIELD_HP_FRAC of max HP).
-      if (e.shieldHp && e.shieldHp > 0) {
-        const sratio = Math.min(1, e.shieldHp / Math.max(1, e.maxHp * SHIELD_HP_FRAC));
-        ctx.fillStyle = '#13303a';
-        ctx.fillRect(e.x - bw / 2, by - 5, bw, 3);
-        ctx.fillStyle = '#7fd0ff';
-        ctx.fillRect(e.x - bw / 2, by - 5, bw * sratio, 3);
-      }
-    }
-
-    // Protection-prayer overheads: a small prayer icon per style the enemy is
-    // actively praying against — its own `protectedStyle` (the affix / an innate
-    // species prayer) plus any *per-style* boss phase (Zulrah's forms, Cerberus's
-    // soul locks). Drawn above the HP bar; the icon says "switch styles".
-    if (!inPortal) {
-      const prayed = new Set<string>();
-      if (e.protectedStyle) prayed.add(e.protectedStyle);
-      for (const s of phaseResistedStyles(e.bossState)) prayed.add(s);
-      if (prayed.size) {
-        const styles = [...prayed];
-        // Drawn at the headicon's native 25px (scaled down for rank-and-file), so
-        // the sprite's own gold disc stays crisp — no backdrop of ours is needed.
-        const isz = isBoss ? 20 : 14;
-        const gap = 2;
-        const totalW = styles.length * isz + (styles.length - 1) * gap;
-        const barY = e.y - (isBoss ? 40 : 22) - Math.max(0, ((e.renderScale ?? 1) - 1) * (isBoss ? 30 : 15));
-        const iy = barY - (e.shieldHp && e.shieldHp > 0 ? 9 : 6) - isz;
-        let ix = e.x - totalW / 2;
-        for (const s of styles) {
-          const img = gr.e.images.get(`prayericon_${s}`);
-          if (img && img.complete && img.naturalWidth > 0) ctx.drawImage(img, ix, iy, isz, isz);
-          ix += isz + gap;
-        }
-      }
-    }
-
-    // Overhead speech — a boss announcing a mechanic one beat before it fires, drawn
-    // the way OSRS draws NPC chat: yellow, centred over the head, hard black shadow and
-    // no bubble. It sits above everything else on the enemy (prayer icons, HP bar), so
-    // the telegraph is never the thing that gets covered up.
-    if (!inPortal && e.say) {
-      ctx.save();
-      ctx.font = "bold 13px 'RuneScape', Arial";
-      ctx.textAlign = 'center';
-      const ty = e.y - (isBoss ? 62 : 42) - Math.max(0, ((e.renderScale ?? 1) - 1) * (isBoss ? 30 : 15));
-      ctx.fillStyle = '#000';
-      ctx.fillText(e.say, e.x + 1, ty + 1);
-      ctx.fillStyle = '#ffff00';
-      ctx.fillText(e.say, e.x, ty);
-      ctx.restore();
-    }
-
-    // Weakness highlight: a pulsing ring in the selected tower's element or style.
-    if (!inPortal && markColor && (markEl ? e.weakness === markEl : e.styleWeakness === markStyle)) {
-      ctx.save();
-      ctx.strokeStyle = markColor;
-      ctx.globalAlpha = 0.45 + markPulse * 0.4;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(e.x, e.y, isBoss ? 26 : 16, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+    if (!inPortal && e.affixes && e.affixes.length) drawAffixRings(ctx, e, isBoss, matAlpha);
+    if (!inPortal && e.bossState) drawBossTelegraph(ctx, e, size);
+    // Hidden while the enemy is still in the portal so nothing pokes through.
+    if (!inPortal) drawHealthBar(ctx, e, isBoss);
+    if (!inPortal) drawPrayerOverheads(gr, ctx, e, isBoss);
+    if (!inPortal && e.say) drawOverheadSay(ctx, e, isBoss);
+    if (!inPortal && mark.color && (mark.element ? e.weakness === mark.element : e.styleWeakness === mark.style)) {
+      drawWeaknessRing(ctx, e, isBoss, mark);
     }
 
     ctx.restore(); // end materialise alpha
