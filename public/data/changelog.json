@@ -4,6 +4,13 @@
     {
       "kind": "new",
       "scope": "game",
+      "text": "The Corporeal Beast spits a core that turns your best tower against you",
+      "fromFeedback": false,
+      "date": "2026-08-30"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
       "text": "You hear the King Black Dragon plant himself before he breathes",
       "fromFeedback": false,
       "date": "2026-08-30"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "road",
       "text": "Dig one square of road a tile aside, and fill it back in if you change your mind",
-      "fromFeedback": false,
-      "date": "2026-08-24"
-    },
-    {
-      "kind": "new",
-      "scope": "guide",
-      "text": "The Lumbridge Guide reads the coming wave — what it is weak to, how many elites, and which modifiers are in the pool",
       "fromFeedback": false,
       "date": "2026-08-24"
     }

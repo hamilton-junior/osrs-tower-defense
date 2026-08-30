@@ -19,7 +19,7 @@ import { tipHeader, WavePreviewCard, DRAFT_FLY_MS, WaveEventChip } from './wave-
 import type { BiomeId } from '@/lib/game/data/biomes';
 import { TravelCardView } from './travel-ui';
 import { CARD_BY_ID, BOON_GROUP_META, SYNERGY_CARD_ID, MAGE_CARD_ID, RelicStrip, RunBuild, BuyCardRoll, RelicCardView, OwnedRelicTray, type BoonGroupId, type BoonSource } from './relics-ui';
-import { CollectionLog } from './collection-log';
+import { CollectionLog, type LogTab } from './collection-log';
 import { weaknessTag, enemySpriteStyle } from './enemy-ui';
 import { StartScreen } from './start-screen';
 import { DpsView } from './dps-view';
@@ -203,7 +203,7 @@ export default function GameRoot() {
   // Highest Combat Achievement tier cleared in full — a cosmetic title and nothing
   // more: it gates no control, mode or difficulty tier.
   const caTitle = useMemo(() => highestTitle(new Set(ui.achievements)), [ui.achievements]);
-  const [logTab, setLogTab] = useState<'bosses' | 'monsters' | 'cards' | 'diversions' | 'victories' | 'difficulty' | 'achievements'>('monsters');
+  const [logTab, setLogTab] = useState<LogTab>('monsters');
   // The champion's win record (non-monetary meta reward). Read once on mount.
   const [victories, setVictories] = useState<Victories>(EMPTY_VICTORIES);
   useEffect(() => { setVictories(loadVictories()); }, []);
