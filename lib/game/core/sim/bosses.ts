@@ -822,6 +822,8 @@ export function updateKbd(eng: GameEngine, e: Enemy, dt: number) {
     e.sayTimer = KBD_INHALE_SECS;
     eng.scorches.push({ points: st.scorchAt, timer: 0, life: KBD_INHALE_SECS, warning: true });
     addRing(eng, e.x, e.y, 6, 40, '#ff9d3d', 0.5, 3);
+    // Louder than the breath that follows: the tell is the beat the player has to act on.
+    eng.sound.play('bossplant_kbd', 75);
     return;
   }
 

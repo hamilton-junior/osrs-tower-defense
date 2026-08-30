@@ -133,16 +133,26 @@ const TARGETS = {
   // animation rather than the wiki's list, then auditioned to pick between takes.
   death_scurrius: 7694,        // seq 10705 (his death) — the first of five takes
   death_brutus: 11246,         // seq 13784 (his death); 11245 is the ground-slam special
-  // The King Black Dragon's own sequences (walk 4635 / hurt 4638 / death 92) carry no
-  // embedded sound, so his voice is the one the cache files for every dragon — the same
-  // clip the green and blue dragons already die with. It is not a stand-in: it is what
-  // a dragon, KBD included, sounds like when it dies in OSRS.
+  // The King Black Dragon has no death cry of his own, and the cache is unambiguous
+  // about it: all 33 sequences on his two rigs (1080, the dragon rig, and 290) were
+  // read out, and the only embedded sounds in the set are 3752 on the attack anims
+  // 80-84 and 3808 on an unrelated cutscene — his death (92, the shared dragon death
+  // anim, played by every dragon from 247 to 270) carries none, and no config name in
+  // osrs-sound-names.tsv mentions him. So his voice is the one the cache files for
+  // every dragon, the same clip the green and blue dragons already die with. Not a
+  // stand-in: it is what a dragon, KBD included, sounds like when it dies in OSRS.
   death_kbd: 409,              // dragon_death
   // The breath itself: the cache's `firebreath` (159) — the clip a dragon plays when it
   // breathes on a player, which is what the board hears when he breathes on the road.
   // Not `dragonbreath` (585): that one opens on a third of a second of near-silence, so
   // over a fight it read as no sound at all.
   kbd_breath: 159,             // firebreath
+  // The moment he plants himself to inhale. Not chosen from a list — read out of the
+  // animation: his attack sequences (80-84, and 81 is the very rear-up we bake as his
+  // breath clip) embed sound 3752 on the frame he comes down, so this is literally what
+  // the client plays when a dragon performs that gesture. Half a second, a heavy thud;
+  // it is the tell landing on the ear, not a roar.
+  kbd_stomp: 3752,             // dragonslayer_dragonstomp3
 
   // ---- Paying down the borrowed voices -------------------------------------
   // Every id below is the NPC's own config name in scripts/data/osrs-sound-names.tsv

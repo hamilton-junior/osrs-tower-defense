@@ -541,7 +541,8 @@ export const ASSETS = {
       boss_attack: `${SND}/boss_attack.wav`,            // vorkath_attack (1521)
       zulrah_hiss: `${SND}/zulrah_hiss.wav`,            // snake_hiss (799) — Zulrah's morph cry
       vorkath_shield: `${SND}/vorkath_shield.wav`,      // vorkath (1511) — his ice shield going up
-      kbd_breath: `${SND}/kbd_breath.wav`,              // dragonbreath (585) — the King Black Dragon's breath landing
+      kbd_breath: `${SND}/kbd_breath.wav`,              // firebreath (159) — the King Black Dragon's breath landing
+      kbd_stomp: `${SND}/kbd_stomp.wav`,                // dragonslayer_dragonstomp3 (3752) — embedded in his own rear-up anim
       prayer_on: `${LOCAL}/sounds/prayer_generic_on.wav`,  // thick-skin "vwoom" (2690)
       prayer_off: `${LOCAL}/sounds/prayer_off.wav`,        // deactivate vwoop (2663)
       potion: `${SND}/potion.wav`,                      // liquid (2401) — potion gulp

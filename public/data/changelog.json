@@ -4,6 +4,13 @@
     {
       "kind": "new",
       "scope": "game",
+      "text": "You hear the King Black Dragon plant himself before he breathes",
+      "fromFeedback": false,
+      "date": "2026-08-30"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
       "text": "The King Black Dragon sets the road alight, and travellers now wander in between waves",
       "fromFeedback": false,
       "date": "2026-08-30"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "guide",
       "text": "The Lumbridge Guide reads the coming wave — what it is weak to, how many elites, and which modifiers are in the pool",
-      "fromFeedback": false,
-      "date": "2026-08-24"
-    },
-    {
-      "kind": "new",
-      "scope": "hunter",
-      "text": "A trap that hurts now names its damage and its max hit on hover",
       "fromFeedback": false,
       "date": "2026-08-24"
     }

@@ -31,6 +31,10 @@ export const GAME_SOUNDS: Record<string, string> = {
   // The King Black Dragon's breath landing. The cache's own `dragonbreath`, kept apart
   // from his death cry so the road catching fire never sounds like the boss dying.
   bossbreath_kbd: ASSETS.sounds.misc.kbd_breath,
+  // ...and the thud of him planting himself to take that breath, the sound his own
+  // rear-up animation carries in the cache. It fires at the top of the tell, so the
+  // player hears the warning before the smoulder is even readable on the road.
+  bossplant_kbd: ASSETS.sounds.misc.kbd_stomp,
   select: ASSETS.sounds.misc.select,
   interface_open: ASSETS.sounds.misc.interface_open,
   interface_close: ASSETS.sounds.misc.interface_close,
