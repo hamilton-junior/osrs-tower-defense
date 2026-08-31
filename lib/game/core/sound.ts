@@ -35,6 +35,9 @@ export const GAME_SOUNDS: Record<string, string> = {
   // rear-up animation carries in the cache. It fires at the top of the tell, so the
   // player hears the warning before the smoulder is even readable on the road.
   bossplant_kbd: ASSETS.sounds.misc.kbd_stomp,
+  // General Graardor's slam landing — the cache's own `godwars_bandos_avatar_punch`,
+  // kept apart from his death cry so the prayers going out never sounds like he died.
+  bossslam_graardor: ASSETS.sounds.misc.graardor_slam,
   select: ASSETS.sounds.misc.select,
   interface_open: ASSETS.sounds.misc.interface_open,
   interface_close: ASSETS.sounds.misc.interface_close,

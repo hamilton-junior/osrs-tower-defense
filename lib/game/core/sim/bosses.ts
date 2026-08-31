@@ -1,9 +1,9 @@
 import type { Enemy, Point, EnemyType } from '../../types';
 import { SPAWN_ANIM_SECONDS } from '../../types';
 import { ENEMIES } from '../../data/enemies';
-import { distanceSq, squareRange } from '../../systems/geometry';
+import { distanceSq, squareRange, advanceAlongPath, remainingPathDistance } from '../../systems/geometry';
 import { GAME_SOUNDS } from '../sound';
-import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, type SiphonCandidate } from '../../systems/boss-mechanics';
+import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SAY, graardorGuardHp, type SiphonCandidate } from '../../systems/boss-mechanics';
 import type { Scorch } from '../engine-state';
 import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, CORP_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
@@ -86,6 +86,8 @@ export function handleBossMechanics(eng: GameEngine, dt: number) {
       updateKbd(eng, e, dt);
     } else if (st.kind === 'corporeal_beast') {
       updateCorp(eng, e, dt);
+    } else if (st.kind === 'graardor') {
+      updateGraardor(eng, e, dt);
     }
     // The visual-state rule: a boss's current mechanic phase decides which model it is
     // drawn with. `animType` overrides the sprite/clip slug only, so stats, drops and
@@ -1146,6 +1148,10 @@ export function updateEscortFollow(eng: GameEngine, e: Enemy, dt: number) {
   if (e.type === 'dark_core') { updateDarkCore(eng, e, dt); return; }
   const owner = e.ownerId ? eng.enemies.find(h => h.id === e.ownerId) : undefined;
   if (!owner) return;
+  // General Graardor's sergeants are the other exception: they march *along the road* in
+  // front of him rather than orbiting him, which is the entire fight (see
+  // `updateGraardorGuard`).
+  if (e.guardLead !== undefined) { updateGraardorGuard(eng, e, owner, dt); return; }
   e.orbit = (e.orbit ?? 0) + dt * ESCORT_ORBIT_DRIFT; // slow circle around the boss
   const radius = e.soulStyle ? CERBERUS_SOUL_ORBIT : JAD_HEALER_ORBIT;
   const tx = owner.x + Math.cos(e.orbit) * radius;
@@ -1155,6 +1161,149 @@ export function updateEscortFollow(eng: GameEngine, e: Enemy, dt: number) {
   if (d < 1) return;
   // Keep pace with the boss even if it's faster than the escort's base follow speed.
   const speed = Math.max(e.speed, (owner.speed || 0) * 1.4 + 40);
+  const step = Math.min(d, speed * dt);
+  e.x += (dx / d) * step;
+  e.y += (dy / d) * step;
+}
+
+/**
+ * **General Graardor: the body-block and the slam.**
+ *
+ * He brings his three sergeants in on his first frame and they march *in front of him*
+ * for the rest of the fight. While any of them is still further along the road, he is
+ * armoured to {@link GRAARDOR_ARMOUR_MULT} — and because the guards carry a real, higher
+ * road position, the default `first` priority is already aimed at them. The player never
+ * points a tower at anything; the formation does it.
+ *
+ * `guardsAhead` is recounted from the live guards every frame rather than tracked on
+ * kill, for the same reason the Beast recounts his cores: the reward for cutting a guard
+ * down has to land on the frame it dies. It also makes the road's end free — when the
+ * lead clamps to the final waypoint the guards stop gaining ground, he walks out from
+ * behind them, and the armour comes off exactly as he is about to leak.
+ */
+export function updateGraardor(eng: GameEngine, e: Enemy, dt: number) {
+  const st = e.bossState!;
+  if (!st.guardsSummoned) {
+    summonGraardorGuards(eng, e);
+    st.guardsSummoned = true;
+  }
+
+  const mine = remainingPathDistance(eng.path, e.pathIndex, e.x, e.y);
+  let ahead = 0;
+  let alive = 0;
+  for (const g of eng.enemies) {
+    if (g.ownerId !== e.id || g.guardLead === undefined) continue;
+    alive++;
+    if (remainingPathDistance(eng.path, g.pathIndex, g.x, g.y) < mine) ahead++;
+  }
+  st.guardsAhead = ahead;
+  // The achievement's whole condition: the wedge is down and he is standing there alone.
+  // Recorded the moment it happens rather than at his death, because his own death culls
+  // the guards and there would be nothing left to count.
+  if (alive === 0) eng.caStats.bossFlags.graardorGuardsWiped = true;
+
+  if ((st.slamWindup ?? 0) > 0) {
+    st.slamWindup = Math.max(0, (st.slamWindup ?? 0) - dt);
+    if (st.slamWindup === 0) graardorSlam(eng, e);
+    return;
+  }
+  st.slamTimer = (st.slamTimer ?? GRAARDOR_SLAM_FIRST) - dt;
+  if (st.slamTimer > 0) return;
+  // Roar first, land it after the windup. `moveEnemies` halts him for the whole of it
+  // (see `graardorIsSlamming`), so the attack costs him ground — that is the tell, and
+  // it is the same bargain Scurrius's squeak and the KBD's inhale make.
+  st.slamTimer = GRAARDOR_SLAM_INTERVAL;
+  st.slamWindup = GRAARDOR_SLAM_WINDUP;
+  e.say = GRAARDOR_SAY;
+  e.sayTimer = GRAARDOR_SLAM_WINDUP;
+  eng.sound.play('wave', 55);
+}
+
+/** The slam lands: every prayer goes out and the panel is barred for a few seconds. */
+function graardorSlam(eng: GameEngine, e: Enemy) {
+  const st = e.bossState!;
+  st.slams = (st.slams ?? 0) + 1;
+  e.say = undefined;
+  e.sayTimer = 0;
+  eng.prayer.shatter(GRAARDOR_PRAYER_LOCK);
+  // A shockwave in Bandos' brass, wide enough to read as "that hit the whole board" —
+  // because it did: the thing it hit is the interface, not any one tower.
+  addRing(eng, e.x, bodyY(e), 12, 180, '#d9b24a', 0.6, 5);
+  eng.sound.play('bossslam_graardor' in GAME_SOUNDS ? 'bossslam_graardor' : 'wave', 75);
+}
+
+/** Bring the three sergeants in. Escorts, so they never walk the path themselves, never
+ *  leak and never pay out — the reward for one is the General's armour coming off. */
+export function summonGraardorGuards(eng: GameEngine, general: Enemy) {
+  const hp = graardorGuardHp(general.maxHp);
+  for (const g of GRAARDOR_GUARDS) {
+    const def = ENEMIES[g.type];
+    const spot = advanceAlongPath(eng.path, general.pathIndex, general.x, general.y, g.lead);
+    eng.enemies.push({
+      ...def,
+      id: uid(),
+      type: g.type, // its own type → its own Collection Log line and kill count
+      name: def.name,
+      escort: true,
+      ownerId: general.id,
+      guardLead: g.lead,
+      guardSide: g.side,
+      debug: general.debug, // a sandbox General brings sandbox sergeants
+      x: spot.x,
+      y: spot.y,
+      hp,
+      maxHp: hp,
+      speed: def.speed,
+      baseSpeed: def.speed,
+      naturalSpeed: def.speed,
+      pathIndex: spot.pathIndex,
+      slowTimer: 0,
+      stunTimer: 0,
+      tauntTimer: 0,
+      groundTimer: 0,
+      animTime: Math.random() * 2,
+      spawnAnim: SPAWN_ANIM_SECONDS,
+    });
+  }
+  general.say = GRAARDOR_SAY;
+  general.sayTimer = 2;
+  eng.sound.play('wave', 60);
+  eng.notify('General Graardor marches in behind his bodyguards!');
+}
+
+/**
+ * Walk one sergeant to the point on the road `guardLead` pixels **ahead of the General**,
+ * offset `guardSide` from the centreline.
+ *
+ * This is what makes the mechanic targetable. The guard's `pathIndex` comes from that
+ * lead point, so it is genuinely further along the road than the boss behind it and the
+ * `first` priority — the default every tower ships with — picks it without the player
+ * doing anything. `advanceAlongPath` clamps at the last waypoint, so near the base the
+ * lead runs out, the General catches up, and his armour falls off on its own.
+ */
+export function updateGraardorGuard(eng: GameEngine, e: Enemy, owner: Enemy, dt: number) {
+  const spot = advanceAlongPath(eng.path, owner.pathIndex, owner.x, owner.y, e.guardLead ?? 0);
+  e.pathIndex = spot.pathIndex;
+  let tx = spot.x;
+  let ty = spot.y;
+  const side = e.guardSide ?? 0;
+  if (side) {
+    // Perpendicular to the segment it landed on — the same construction the lane offset
+    // uses in `moveEnemies`, so a guard on a corner leans the way the road does.
+    const from = eng.path[spot.pathIndex];
+    const next = eng.path[spot.pathIndex + 1] ?? from;
+    const sx = next.x - from.x;
+    const sy = next.y - from.y;
+    const sl = Math.hypot(sx, sy) || 1;
+    tx += (-sy / sl) * side;
+    ty += (sx / sl) * side;
+  }
+  const dx = tx - e.x;
+  const dy = ty - e.y;
+  const d = Math.hypot(dx, dy);
+  if (d < 1) return;
+  // Keep pace with the General even when something has hurried him along.
+  const speed = Math.max(e.speed, (owner.speed || 0) * 1.6 + 60);
   const step = Math.min(d, speed * dt);
   e.x += (dx / d) * step;
   e.y += (dy / d) * step;

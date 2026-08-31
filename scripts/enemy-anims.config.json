@@ -564,5 +564,37 @@
       "walk": 1688,
       "death": 1689
     }
+  },
+  "graardor": {
+    "npc": 2215,
+    "anims": {
+      "walk": 7016,
+      "hurt": 7019,
+      "death": 7020
+    }
+  },
+  "steelwill": {
+    "npc": 2217,
+    "anims": {
+      "walk": 6152,
+      "hurt": 6155,
+      "death": 6156
+    }
+  },
+  "strongstack": {
+    "npc": 2216,
+    "anims": {
+      "walk": 6152,
+      "hurt": 6155,
+      "death": 6156
+    }
+  },
+  "grimspike": {
+    "npc": 2218,
+    "anims": {
+      "walk": 6152,
+      "hurt": 6155,
+      "death": 6156
+    }
   }
 }

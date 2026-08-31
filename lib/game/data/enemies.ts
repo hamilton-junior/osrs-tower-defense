@@ -750,6 +750,62 @@ export const ENEMIES: Record<string, EnemyDef> = {
     summonedBy: 'corporeal_beast'
     // Slug defaults to `dark_core` (its own baked clip) — no animSlug needed.
   },
+  graardor: {
+    type: 'graardor',
+    // Bandos' avatar is a size-5 ork in the cache and the biggest thing in the God Wars
+    // Dungeon's basement; he has to read as heavier than his own bodyguards at a glance.
+    renderScale: 1.5,
+    name: 'General Graardor',
+    // Between Zulrah and Dusk on the ladder. The bar is deliberately not the fight — his
+    // three sergeants carry ~42% of his health *outside* it, and while any of them is
+    // still marching in front of him he takes almost nothing, so a fat bar on top of the
+    // guards would just be two walls in a row.
+    hp: 1500,
+    // He lumbers. The guards keep their lead off his pace, so his speed sets the whole
+    // formation's, and a quick Graardor would drag the wedge past your board.
+    speed: 28,
+    color: '#6b6a3a',
+    deathSound: 'boss',
+    isBoss: true,
+    reward: 700,
+    resistance: 0.4
+  },
+  strongstack: {
+    type: 'strongstack',
+    renderScale: 0.95,
+    name: 'Sergeant Strongstack',
+    // An escort, not a wave enemy: Graardor brings all three in with him, they march
+    // ahead of him on the road, they never leak, and they pay nothing on death — the
+    // payoff for killing one is a third of his guard gone. Real HP is scaled off him at
+    // summon time; this is only the Collection Log's fallback.
+    hp: 210,
+    // A follow speed, not a path speed: `updateGraardorGuard` drives it to a point read
+    // off the road ahead of the General.
+    speed: 90,
+    color: '#8a7b4a',
+    reward: 0,
+    summonedBy: 'graardor'
+  },
+  steelwill: {
+    type: 'steelwill',
+    renderScale: 0.95,
+    name: 'Sergeant Steelwill',
+    hp: 210,
+    speed: 90,
+    color: '#5f7b8a',
+    reward: 0,
+    summonedBy: 'graardor'
+  },
+  grimspike: {
+    type: 'grimspike',
+    renderScale: 0.95,
+    name: 'Sergeant Grimspike',
+    hp: 210,
+    speed: 90,
+    color: '#8a5f4a',
+    reward: 0,
+    summonedBy: 'graardor'
+  },
   superior_bloodveld: {
     type: 'superior_bloodveld',
     renderScale: 1.3,
@@ -926,6 +982,14 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   // Ours: the scarab mage hides behind its own magic defence and stands still to
   // cast, which is the definition of a target you shoot.
   scarab_mage: 'ranged',
+  // Graardor's mage sergeant: OSRS gives Steelwill dmagic 200 against dranged 50, so a
+  // bow is the tool for him and a spell is the worst one you own.
+  steelwill: 'ranged',
+  // ...and his ranger: Grimspike's dranged is 200 against a dstab of 50, which is the
+  // same trade read from the other end. Strongstack, the meleer, is deliberately left
+  // out — magic is his hole in OSRS, and magic is not a StyleWeakness here (see the type),
+  // so he is the one sergeant no bonus helps with and you simply have to out-damage.
+  grimspike: 'melee',
 };
 
 for (const [type, weakness] of Object.entries(WEAKNESSES)) {

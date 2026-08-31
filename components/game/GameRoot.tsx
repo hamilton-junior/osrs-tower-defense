@@ -76,7 +76,7 @@ const INITIAL: UIState = {
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
   notice: null, noticeIcon: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false, slayerUnlocks: [], slayerBlocked: [],
-  prayerPoints: 10, prayerMax: 10, prayerFrac: 1, activePrayers: [],
+  prayerPoints: 10, prayerMax: 10, prayerFrac: 1, activePrayers: [], prayerLock: 0,
   geOffers: [],
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
   unlocks: [], unlockSeq: 0,
@@ -1318,24 +1318,31 @@ export default function GameRoot() {
 
   // One quick-prayer toggle button (shared by the full bar and the minimized
   // "best per style" view). Locked prayers preview greyed-out with their wave.
+  // A shattered bar (General Graardor's slam) reuses exactly that greyed look, with
+  // the seconds left where the unlock wave normally sits — one lockout vocabulary,
+  // so a player who has seen a locked prayer already knows what a dark one means.
   const prayerButton = (p: (typeof TOWER_PRAYERS)[number]) => {
     const def = PRAYERS.find((d) => d.id === p.id)!;
     const locked = !isPrayerUnlocked(def.level, ui.wave);
+    const shattered = !locked && ui.prayerLock > 0;
     const on = ui.activePrayers.includes(p.id);
     const icon = prayerIcon(p.id);
     const title = locked
       ? `🔒 Unlocks at Wave ${prayerUnlockWave(def.level)} — ${def.name}: ${def.description}`
-      : `${def.name} — ${def.description}`;
+      : shattered
+        ? `Your prayers are shattered — ${ui.prayerLock}s`
+        : `${def.name} — ${def.description}`;
     return (
       <button
         key={p.id}
         title={title}
-        disabled={locked}
+        disabled={locked || shattered}
         onClick={() => engineRef.current?.togglePrayer(p.id)}
-        className={`rs-prayer ${on ? 'rs-prayer-on' : ''} ${locked ? 'rs-prayer-locked' : ''}`}
+        className={`rs-prayer ${on ? 'rs-prayer-on' : ''} ${locked || shattered ? 'rs-prayer-locked' : ''}`}
       >
         {icon && <img src={icon} alt={def.name} onError={hideBrokenImg} />}
         {locked && <span className="rs-prayer-lock">{prayerUnlockWave(def.level)}</span>}
+        {shattered && <span className="rs-prayer-lock">{ui.prayerLock}s</span>}
       </button>
     );
   };

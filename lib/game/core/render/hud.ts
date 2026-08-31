@@ -1,4 +1,4 @@
-import { ZULRAH_PHASES, hydraPhase, hydraBreakTarget, isGuardian, STALL_MAX_STACKS } from '../../systems/boss-mechanics';
+import { ZULRAH_PHASES, hydraPhase, hydraBreakTarget, isGuardian, graardorIsArmoured, STALL_MAX_STACKS } from '../../systems/boss-mechanics';
 import type { GameRenderer } from '../renderer';
 import { GUARDIAN_LINK_COLOR, CORP_LINK_COLOR } from './shared';
 
@@ -157,6 +157,14 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     // answer, because "kill the core" is the entire fight and nothing else works.
     if ((st.coresLatched ?? 0) > 0) caption = 'SIPHONING — kill the core to free your tower!';
     else if (st.coresSpat) caption = `Cores spat: ${st.coresSpat}`;
+  } else if (st?.kind === 'graardor') {
+    capColor = '#d9b24a';
+    // The armour and its answer are one line, and it names the answer, because the
+    // sergeants are the entire fight. Once they are down the line becomes the slam
+    // count, which is the other half: how many times the interface has gone dark.
+    if ((st.slamWindup ?? 0) > 0) caption = 'SLAM INCOMING — your prayers are about to break!';
+    else if (graardorIsArmoured(st)) caption = 'BODYGUARDS — kill the sergeants in front of him!';
+    else if (st.slams) caption = `Slams: ${st.slams}`;
   }
   if (caption) {
     ctx.font = "bold 12px 'RuneScape', Arial";

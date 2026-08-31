@@ -39,6 +39,9 @@ export const MAX_PRAYER_WARDS = 5;
 export class PrayerSystem {
   points: number;
   readonly active = new Set<PrayerType>();
+  /** Seconds until prayers may be lit again, after something shattered them. 0 the rest
+   *  of the time — see {@link shatter}. */
+  lockTimer = 0;
   /** Last integer point value pushed to the UI, to throttle per-frame emits. */
   private lastShown: number;
   /** Same, for the finer fraction the gauge reads. */
@@ -72,6 +75,31 @@ export class PrayerSystem {
     return !!def && isPrayerUnlocked(def.level, this.e.wave);
   }
 
+  /**
+   * Shatter every active prayer and bar the panel for `seconds`.
+   *
+   * The only thing in the game that reaches past the board and switches the *player's*
+   * own interface off, and General Graardor's slam is what fires it. Deliberately not
+   * "drain the pool": emptying the points would be a resource tax the player answers by
+   * praying less, and the point of the attack is that for a few seconds there is no
+   * answer at all — the buttons are simply dark. Points are left untouched, so the
+   * moment the lock lifts everything is available again and the cost is the window, not
+   * the run.
+   */
+  shatter(seconds: number) {
+    if (seconds <= 0) return;
+    // Never shorten a lock that is already running: two overlapping sources should not
+    // be able to *free* the player early.
+    this.lockTimer = Math.max(this.lockTimer, seconds);
+    if (this.active.size > 0) {
+      this.active.clear();
+      this.e.bumpCombatEpoch(); // prayers just went dark — tower stats changed
+      this.e.playSound('prayer_off');
+    }
+    this.e.notify('Your prayers are shattered!');
+    this.emitNow();
+  }
+
   /** Toggle a tower prayer on/off (UI button). One prayer per style at a time. */
   toggle(id: PrayerType) {
     if (!TOWER_PRAYERS.some(p => p.id === id)) return; // not a tower-buffing prayer
@@ -81,6 +109,9 @@ export class PrayerSystem {
       this.emitNow();
       return;
     }
+    // The lock bars *lighting* a prayer, never putting one out: the UI greys the
+    // buttons, and this is the engine-side half so a stale click can't slip through.
+    if (this.lockTimer > 0) { this.e.notify('Your prayers are shattered!'); return; }
     if (!this.isUnlocked(id)) { this.e.notify('Prayer level too low'); return; }
     if (this.points <= 0) { this.e.notify('Out of Prayer points'); return; }
     // OSRS-style exclusivity: enabling a prayer disables others of its style.
@@ -117,6 +148,13 @@ export class PrayerSystem {
   }
 
   update(dt: number) {
+    // The shatter lock runs on game time like every other combat timer, so pausing or
+    // slowing the game does not shorten it. It emits on the way out as well as on the
+    // way in, or the panel would stay greyed until the next point tick.
+    if (this.lockTimer > 0) {
+      this.lockTimer = Math.max(0, this.lockTimer - dt);
+      if (this.lockTimer === 0) this.emitNow();
+    }
     // Prayers only cost points while a wave is in progress AND at least one
     // tower is actually engaging an enemy (has a target). With nothing to fight
     // — between waves, or before enemies reach range — the drain pauses. Prayer
@@ -161,6 +199,7 @@ export class PrayerSystem {
   reset() {
     this.points = this.max;
     this.active.clear();
+    this.lockTimer = 0;
     this.lastShown = this.max;
     this.lastFrac = this.frac;
   }
@@ -170,6 +209,7 @@ export class PrayerSystem {
    *  prayer burning that the run cannot afford or has not earned. */
   load(state: { points: number; active: PrayerType[] }) {
     this.active.clear();
+    this.lockTimer = 0; // a save is loaded between waves; nothing is mid-slam
     for (const id of state.active) if (this.isUnlocked(id)) this.active.add(id);
     this.points = Math.max(0, Math.min(this.max, state.points));
     this.lastShown = Math.round(this.points);

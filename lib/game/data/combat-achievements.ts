@@ -11,10 +11,10 @@
 import type { CaTask } from '../systems/combat-achievements';
 import type { EnemyType } from '../types';
 
-/** The twelve bosses a full run must defeat, for `perfect-roster`. */
+/** The thirteen bosses a full run must defeat, for `perfect-roster`. */
 export const CA_BOSS_ROSTER: readonly EnemyType[] = [
   'scurrius', 'brutus', 'giant_mole', 'dusk', 'dawn',
-  'cerberus', 'zulrah', 'vorkath', 'jad', 'hydra', 'kbd', 'corporeal_beast',
+  'cerberus', 'zulrah', 'vorkath', 'jad', 'hydra', 'kbd', 'corporeal_beast', 'graardor',
 ];
 
 export const CA_TASKS: readonly CaTask[] = [
@@ -126,6 +126,11 @@ export const CA_TASKS: readonly CaTask[] = [
     check: (s) => s.bossKillSeconds.kbd !== undefined && !s.bossFlags.kbdTowerScorched,
   },
   {
+    id: 'sergeant-at-arms', tier: 'hard', name: 'Sergeant at Arms',
+    desc: 'Defeat General Graardor after cutting down all three of his sergeants.',
+    check: (s) => s.bossKillSeconds.graardor !== undefined && s.bossFlags.graardorGuardsWiped,
+  },
+  {
     id: 'core-of-the-matter', tier: 'master', name: 'Core of the Matter',
     desc: 'Defeat the Corporeal Beast without a Dark energy core healing him.',
     check: (s) => s.bossKillSeconds.corporeal_beast !== undefined && !s.bossFlags.corpSiphonHeld,
@@ -232,7 +237,7 @@ export const CA_TASKS: readonly CaTask[] = [
   },
   {
     id: 'perfect-roster', tier: 'grandmaster', name: 'Perfect Roster',
-    desc: 'Defeat all eleven bosses in one run, losing no life to any of them.',
+    desc: 'Defeat all thirteen bosses in one run, losing no life to any of them.',
     check: (s) => s.won && CA_BOSS_ROSTER.every(
       (b) => s.bossKillSeconds[b] !== undefined && (s.livesLostDuringBoss[b] ?? 0) === 0,
     ),

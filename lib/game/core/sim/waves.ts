@@ -15,7 +15,7 @@ import { resolveEventMods } from '../../systems/wave-events';
 import { pickVariant, resetVariantBag } from '../../systems/model-variants';
 import { enemyLeakCost } from '../../systems/leak-cost';
 import { bodyY } from '../../systems/enemy-anchor';
-import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, type BossId } from '../../systems/boss-mechanics';
+import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, graardorIsSlamming, type BossId } from '../../systems/boss-mechanics';
 import { uid, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT } from '../engine-state';
 import type { WavePreviewEntry } from '../engine-state';
 import type { GameEngine } from '../engine';
@@ -401,6 +401,10 @@ export function moveEnemies(eng: GameEngine, dt: number) {
     // is about to burn" are the same event, and it costs him ground to say it. It holds
     // through the settle afterwards too, so he is never sliding along the road mid-roar.
     if (kbdIsHalted(e.bossState)) continue;
+    // General Graardor plants himself to wind up a slam, for the same reason: the attack
+    // reaches past the board and switches the player's prayers off, so it had better cost
+    // him something visible, and a boss that stood still is the loudest tell there is.
+    if (graardorIsSlamming(e.bossState)) continue;
     // A sheared rat drives itself (wander, then the run home). Walking it as well would
     // slide it along the road while it is meant to be off it.
     if (e.ratPhase) continue;

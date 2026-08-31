@@ -95,6 +95,9 @@ export interface RunStats {
     /** A Dark energy core held a tower long enough to heal the Corporeal Beast at least
      *  once — i.e. the player let a core fire the tower's shot back at them. */
     corpSiphonHeld: boolean;
+    /** All three of General Graardor's sergeants were cut down while he was still
+     *  standing — the fight solved the way it is built to be solved. */
+    graardorGuardsWiped: boolean;
   };
 }
 
@@ -113,7 +116,7 @@ export function emptyRunStats(mode: GameMode, tier: DifficultyTier): RunStats {
     bossFlags: {
       jadHealed: false, hydraVentsBroken: 0, hydraVentHealed: false,
       duskDawnClean: true, cerberusSoulSurvived: false, kbdTowerScorched: false,
-      corpSiphonHeld: false,
+      corpSiphonHeld: false, graardorGuardsWiped: false,
     },
   };
 }

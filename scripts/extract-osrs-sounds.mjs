@@ -152,6 +152,20 @@ const TARGETS = {
   // this is still the core's OWN filed voice, not a borrowed one — the pop it makes when
   // it is thrown, which is also what it bursting sounds like.
   death_dark_core: 3901,       // Sum2_dark_core_launch
+  // General Graardor. His death sequence (7020) embeds 3859 `godwars_avatar_fall` — the
+  // collapse thud the four God Wars generals share — rather than a voice, so the cry is
+  // taken from the name instead: 3838 is the clip the cache itself files as
+  // `godwars_bandos_avatar_death`, which is his and nobody else's.
+  death_graardor: 3838,        // godwars_bandos_avatar_death
+  // His three sergeants embed no sound in any of their sequences. They are orks, and the
+  // cache ships exactly one ork death cry — so this is the voice OSRS gives them, the
+  // same legitimate one-clip-for-a-species case as the moss and hill giants.
+  death_strongstack: 649,      // orc_death
+  death_steelwill: 649,        // orc_death
+  death_grimspike: 649,        // orc_death
+  // The slam itself: the punch his own avatar throws, filed under his name. It plays as
+  // the windup lands, which is the frame the player's prayers go out.
+  graardor_slam: 3843,         // godwars_bandos_avatar_punch
   // The breath itself: the cache's `firebreath` (159) — the clip a dragon plays when it
   // breathes on a player, which is what the board hears when he breathes on the road.
   // Not `dragonbreath` (585): that one opens on a third of a second of near-silence, so

@@ -660,6 +660,7 @@ export class GameEngine {
       prayerMax: this.prayer.max,
       prayerFrac: this.prayer.frac,
       activePrayers: [...this.prayer.active],
+      prayerLock: Math.ceil(this.prayer.lockTimer),
       geOffers: this.ge.listing(),
       essence: this.meta.essence,
       upgrades: this.meta.upgrades,

@@ -131,6 +131,14 @@ import {
   CORP_CORE_HP_FRAC,
   CORP_CORE_MIN_HP,
   CORP_ARMOUR_MULT,
+  GRAARDOR_GUARDS,
+  GRAARDOR_ARMOUR_MULT,
+  GRAARDOR_GUARD_HP_FRAC,
+  GRAARDOR_GUARD_MIN_HP,
+  GRAARDOR_SLAM_FIRST,
+  graardorGuardHp,
+  graardorIsArmoured,
+  graardorIsSlamming,
   CORP_SIPHON_HEAL_FRAC,
 } from './boss-mechanics';
 import type { BossState } from './boss-mechanics';
@@ -1446,6 +1454,85 @@ describe('Corporeal Beast', () => {
     it('ignores every other boss', () => {
       expect(corpIsArmoured(freshBossState('kbd'))).toBe(false);
       expect(corpIsArmoured(undefined)).toBe(false);
+    });
+  });
+});
+
+describe('General Graardor', () => {
+  describe('graardorGuardHp', () => {
+    it('scales a sergeant off the General he came in with', () => {
+      expect(graardorGuardHp(1500)).toBe(Math.round(1500 * GRAARDOR_GUARD_HP_FRAC));
+      expect(graardorGuardHp(3000)).toBe(2 * graardorGuardHp(1500));
+    });
+
+    it('never drops below the floor, however small he is scaled', () => {
+      expect(graardorGuardHp(1)).toBe(GRAARDOR_GUARD_MIN_HP);
+      expect(graardorGuardHp(0)).toBe(GRAARDOR_GUARD_MIN_HP);
+    });
+
+    it('keeps the trio killable — well under the General himself', () => {
+      const boss = 1500;
+      expect(3 * graardorGuardHp(boss)).toBeLessThan(boss);
+    });
+  });
+
+  describe('the formation', () => {
+    it('marches every sergeant ahead of him, never level with him', () => {
+      for (const g of GRAARDOR_GUARDS) expect(g.lead).toBeGreaterThan(0);
+    });
+
+    it('is a wedge: one at the point, two abreast behind it', () => {
+      const leads = GRAARDOR_GUARDS.map(g => g.lead);
+      const point = GRAARDOR_GUARDS.filter(g => g.lead === Math.max(...leads));
+      expect(point).toHaveLength(1);
+      // ...and Strongstack is the one out front, because the meleer is the guard with
+      // no style weakness — the first thing the towers meet is the hardest of the three.
+      expect(point[0].type).toBe('strongstack');
+      const wings = GRAARDOR_GUARDS.filter(g => g !== point[0]);
+      expect(wings.map(w => w.side).reduce((a, b) => a + b, 0)).toBe(0); // symmetric
+      expect(wings.every(w => w.side !== 0)).toBe(true);
+    });
+  });
+
+  describe('graardorIsArmoured', () => {
+    it('holds only while a sergeant is still further along the road', () => {
+      const st = freshBossState('graardor');
+      expect(graardorIsArmoured(st)).toBe(false); // nothing summoned yet
+      st.guardsAhead = 3;
+      expect(graardorIsArmoured(st)).toBe(true);
+      expect(bossStyleMult(st, 'melee')).toBe(GRAARDOR_ARMOUR_MULT);
+      st.guardsAhead = 0; // the wedge is down, or he has overtaken it at the road's end
+      expect(graardorIsArmoured(st)).toBe(false);
+      expect(bossStyleMult(st, 'melee')).toBe(1);
+    });
+
+    it('is styleless — the answer is the guards and only the guards', () => {
+      const st = { ...freshBossState('graardor'), guardsAhead: 1 };
+      for (const style of ['melee', 'ranged', 'magic'] as const) {
+        expect(bossStyleMult(st, style)).toBe(GRAARDOR_ARMOUR_MULT);
+      }
+    });
+
+    it('ignores every other boss', () => {
+      expect(graardorIsArmoured(freshBossState('corporeal_beast'))).toBe(false);
+      expect(graardorIsArmoured(undefined)).toBe(false);
+    });
+  });
+
+  describe('graardorIsSlamming', () => {
+    it('is true only during the windup he is planted for', () => {
+      const st = freshBossState('graardor');
+      expect(st.slamTimer).toBe(GRAARDOR_SLAM_FIRST);
+      expect(graardorIsSlamming(st)).toBe(false);
+      st.slamWindup = 1.2;
+      expect(graardorIsSlamming(st)).toBe(true);
+      st.slamWindup = 0;
+      expect(graardorIsSlamming(st)).toBe(false);
+    });
+
+    it('ignores every other boss', () => {
+      expect(graardorIsSlamming(freshBossState('kbd'))).toBe(false);
+      expect(graardorIsSlamming(undefined)).toBe(false);
     });
   });
 });

@@ -33,6 +33,8 @@ export const BOSS_TIPS: Record<BossId, string> = {
     'Opens a chemical vent at each health threshold: it hardens and regenerates until you burst through the vent. Sustained chip damage loses this fight; saved burst wins it.',
   scurrius:
     'Every heavy hit splits a Giant rat off him, carrying health out of his own bar — so burst alone just turns one big target into several small ones. The rats scatter across the board and then run back to him, handing the health straight back, so kill them before they arrive. Bring something that hits more than one thing at a time.',
+  graardor:
+    'His three sergeants march in front of him, and while any of them is still ahead he barely takes damage. Your towers already aim at whatever is furthest along the road, so leave them on First and the guards die first — a board set to Strongest shoots the armoured General all fight. He also slams the ground and shatters your prayers for a few seconds; there is no answer, only the wait.',
   corporeal_beast:
     'Spits a Dark energy core at your strongest tower. While it holds on, that tower stops shooting the wave and heals him instead, and he takes half damage — kill the core and both come back. A board built around one star tower feeds him; towers that cover each other free it in seconds.',
   kbd:

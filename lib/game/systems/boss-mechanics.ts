@@ -1,4 +1,4 @@
-import type { CombatStyle, Point } from '../types';
+import type { CombatStyle, EnemyType, Point } from '../types';
 import type { DamageTag } from './combat-stats';
 import { pathTotalLength, remainingPathDistance, advanceAlongPath, inSquareRange } from './geometry';
 
@@ -46,14 +46,14 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath, inSquareRange
  * ledger of which ideas are taken and which are still open.
  */
 
-export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus' | 'scurrius' | 'kbd' | 'corporeal_beast';
+export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus' | 'scurrius' | 'kbd' | 'corporeal_beast' | 'graardor';
 
 /** The bosses that carry phase mechanics: they get a {@link BossState} on spawn and
  *  roll boss modifiers once seen. The engine and the save sanitiser read this to decide
  *  who has state. */
 export const MECHANIC_BOSSES: readonly BossId[] = [
   'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus', 'brutus', 'scurrius', 'kbd',
-  'corporeal_beast',
+  'corporeal_beast', 'graardor',
 ];
 
 /**
@@ -67,7 +67,7 @@ export const MECHANIC_BOSSES: readonly BossId[] = [
  * `BossState` and has no business being drawn on its own.
  */
 export const SCHEDULABLE_BOSSES: readonly BossId[] = [
-  'brutus', 'scurrius', 'giant_mole', 'kbd', 'jad', 'vorkath', 'zulrah', 'dusk', 'cerberus',
+  'brutus', 'scurrius', 'giant_mole', 'kbd', 'jad', 'vorkath', 'zulrah', 'graardor', 'dusk', 'cerberus',
   'corporeal_beast', 'hydra',
 ];
 
@@ -1362,6 +1362,83 @@ export function corpIsArmoured(state: BossState | undefined): boolean {
   return state?.kind === 'corporeal_beast' && (state.coresLatched ?? 0) > 0;
 }
 
+// ──────────────────────────── General Graardor ─────────────────────────────
+/**
+ * **General Graardor — the body-block.**
+ *
+ * His three sergeants march *ahead of him on the road*, and while any of them is still
+ * further along than he is, he is armoured almost to nothing. That is the whole idea, and
+ * it is built the only way this game can build an "adds first" fight: the player's aim
+ * vocabulary is a per-tower priority, not a click-to-focus, so a mechanic that needs a
+ * specific tower pointed at a specific add is unbuildable here. **Geometry does the target
+ * selection instead** — the default `first` priority already shoots whatever is furthest
+ * along the road, which is exactly the guards, so a board that never touches its priority
+ * dropdown solves the fight correctly, and a board that has switched everything to
+ * `strongest` finds out why the General is not dying.
+ *
+ * The other half is the slam: he stops, roars, and *shatters your prayers* — the only
+ * attack in the game aimed at the player's own interface rather than at their board.
+ *
+ * Fidelity: NPC 2215 in the cache, with Sergeants Strongstack (2216), Steelwill (2217) and
+ * Grimspike (2218). In OSRS the bodyguards are the fight — a team that ignores them dies to
+ * them, not to him — and the sergeants really do outrun the General, who is the slowest
+ * thing in the room. The prayer-shatter stands in for his signature ranged slam, the attack
+ * that punishes a team praying the wrong overhead.
+ */
+/** The three sergeants, in the order they are summoned. `lead` is how many logic pixels
+ *  ahead of the General each one marches, `side` its offset from the road's centreline —
+ *  together they read as a wedge with Strongstack at the point. Strongstack leads because
+ *  he is the meleer: the one your towers meet first is the one with no style weakness. */
+export const GRAARDOR_GUARDS: readonly { type: EnemyType; lead: number; side: number }[] = [
+  { type: 'strongstack', lead: 96, side: 0 },
+  { type: 'steelwill', lead: 58, side: -22 },
+  { type: 'grimspike', lead: 58, side: 22 },
+];
+
+/** What the General's incoming damage is multiplied by while a guard is still in front of
+ *  him. Harder than the Beast's armour (0.5) because his has an off switch that is *not* a
+ *  style switch and not a timer — three killable bodies — and because his own bar is
+ *  deliberately small. Styleless, like every other boss guard: letting a DoT chip through
+ *  would answer the mechanic without killing anything. */
+export const GRAARDOR_ARMOUR_MULT = 0.2;
+/** A sergeant's health as a fraction of the General's, so the trio carries about 42% of the
+ *  encounter's HP *outside* the boss bar and stays killable at every wave he can appear
+ *  on. */
+export const GRAARDOR_GUARD_HP_FRAC = 0.14;
+/** Floor under that, for the sandbox and for any future scaling that shrinks him. */
+export const GRAARDOR_GUARD_MIN_HP = 60;
+/** Seconds after he arrives before the first slam — long enough to have started killing
+ *  guards before the interface goes dark. */
+export const GRAARDOR_SLAM_FIRST = 12;
+/** Seconds between slams, measured roar to roar. */
+export const GRAARDOR_SLAM_INTERVAL = 22;
+/** How long he stands still winding one up. He is halted for the whole windup, which is the
+ *  tell: the ground he gives up is the price of the attack. */
+export const GRAARDOR_SLAM_WINDUP = 1.2;
+/** How long your prayers stay shattered. Long enough to be felt at the exact moment you
+ *  most want an overhead, short enough that it is a window and not a phase. */
+export const GRAARDOR_PRAYER_LOCK = 6;
+/** His tell. In-game strings stay English. */
+export const GRAARDOR_SAY = 'For the glory of Bandos!';
+
+/** A sergeant's health, from the General who brought him. */
+export function graardorGuardHp(bossMaxHp: number): number {
+  return Math.max(GRAARDOR_GUARD_MIN_HP, Math.round(bossMaxHp * GRAARDOR_GUARD_HP_FRAC));
+}
+
+/** True while at least one sergeant is still further along the road than he is. The sim
+ *  recounts `guardsAhead` from the live guards every frame, so the armour drops on the
+ *  frame the last one dies — and drops on its own at the road's end, where the lead clamps
+ *  to the final waypoint and the General walks out from behind his own wedge. */
+export function graardorIsArmoured(state: BossState | undefined): boolean {
+  return state?.kind === 'graardor' && (state.guardsAhead ?? 0) > 0;
+}
+
+/** True while he is planted, winding up a slam. `moveEnemies` reads this to halt him. */
+export function graardorIsSlamming(state: BossState | undefined): boolean {
+  return state?.kind === 'graardor' && (state.slamWindup ?? 0) > 0;
+}
+
 // ───────────────────────────── shared boss state ───────────────────────────
 /** Mutable per-boss runtime state the engine stores on the boss enemy. */
 export interface BossState {
@@ -1469,6 +1546,18 @@ export interface BossState {
    *  the live cores every frame (like Cerberus's locked styles), so the armour drops the
    *  instant the last one dies rather than a tick later. */
   coresLatched?: number;
+  /** Graardor: true once his three sergeants have been brought in — he never does it
+   *  twice, so a wiped guard is gone for good. */
+  guardsSummoned?: boolean;
+  /** Graardor: how many live sergeants are still further along the road than he is —
+   *  recounted every frame, and the whole of {@link graardorIsArmoured}. */
+  guardsAhead?: number;
+  /** Graardor: counts down to the next prayer-shattering slam. */
+  slamTimer?: number;
+  /** Graardor: seconds left in the windup he is planted for; 0 when not slamming. */
+  slamWindup?: number;
+  /** Graardor: slams landed, read out on the boss bar. */
+  slams?: number;
   /** Stall breaker: the lowest HP fraction this boss has been driven to. */
   hpFloor?: number;
   /** Stall breaker: seconds since it last reached a new low. */
@@ -1512,6 +1601,13 @@ export function freshBossState(kind: BossId): BossState {
     state.coreTimer = CORP_FIRST_CORE;
     state.coresSpat = 0;
     state.coresLatched = 0;
+  }
+  if (kind === 'graardor') {
+    state.guardsSummoned = false;
+    state.guardsAhead = 0;
+    state.slamTimer = GRAARDOR_SLAM_FIRST;
+    state.slamWindup = 0;
+    state.slams = 0;
   }
   if (isGuardian(kind)) state.twinType = guardianTwin(kind);
   if (kind === 'cerberus') { state.soulSummons = 0; state.lockedStyles = []; }
@@ -1576,5 +1672,8 @@ export function bossStyleMult(state: BossState | undefined, style: CombatStyle |
   // on purpose (see CORP_ARMOUR_MULT): the mechanic has exactly one answer, and it is the
   // core — not a style switch, and not waiting out a burn.
   if (corpIsArmoured(state)) return CORP_ARMOUR_MULT;
+  // General Graardor, for as long as a sergeant is still marching in front of him.
+  // Styleless for the same reason: the answer is the guards, and only the guards.
+  if (graardorIsArmoured(state)) return GRAARDOR_ARMOUR_MULT;
   return 1;
 }

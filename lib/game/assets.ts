@@ -228,6 +228,10 @@ const DEATH_TYPES = [
   // Bosses and their adds — each with its own cry, never a borrowed one.
   'giant_mole', 'cerberus', 'dusk', 'dawn', 'yt_hurkot', 'summoned_soul',
   'scurrius', 'brutus', 'kbd', 'corporeal_beast', 'dark_core',
+  // General Graardor and his three sergeants. He dies with the clip OSRS files under his
+  // own name (`godwars_bandos_avatar_death`); the sergeants are orks, and OSRS ships one
+  // ork death cry for all of them — one voice they genuinely share, not a borrowed one.
+  'graardor', 'strongstack', 'steelwill', 'grimspike',
   // Kharidian. Every one of these used to borrow a neighbour's voice; each now
   // ships the clip OSRS itself files under that monster's name. Two took a
   // deduction: the kalphite Guardian's family is filed `kalthite_lord` (Jagex's
@@ -301,6 +305,10 @@ export const ASSETS = {
     cerberus: `${LOCAL}/models/cerberus.png`,
     corporeal_beast: `${LOCAL}/models/corporeal_beast.png`,
     dark_core: `${LOCAL}/models/dark_core.png`,
+    graardor: `${LOCAL}/models/graardor.png`,           // General Graardor
+    strongstack: `${LOCAL}/models/strongstack.png`,     // Sergeant Strongstack (his melee guard)
+    steelwill: `${LOCAL}/models/steelwill.png`,         // Sergeant Steelwill (his mage guard)
+    grimspike: `${LOCAL}/models/grimspike.png`,         // Sergeant Grimspike (his ranged guard)
     summoned_soul: `${LOCAL}/models/summoned_soul.png`,
     jad: `${LOCAL}/models/jad.png`,                     // TzTok-Jad
     vorkath: `${LOCAL}/models/vorkath.png`,
@@ -545,6 +553,7 @@ export const ASSETS = {
       vorkath_shield: `${SND}/vorkath_shield.wav`,      // vorkath (1511) — his ice shield going up
       kbd_breath: `${SND}/kbd_breath.wav`,              // firebreath (159) — the King Black Dragon's breath landing
       kbd_stomp: `${SND}/kbd_stomp.wav`,                // dragonslayer_dragonstomp3 (3752) — embedded in his own rear-up anim
+      graardor_slam: `${SND}/graardor_slam.wav`,        // godwars_bandos_avatar_punch (3843) — his own slam, the attack that shatters prayers
       prayer_on: `${LOCAL}/sounds/prayer_generic_on.wav`,  // thick-skin "vwoom" (2690)
       prayer_off: `${LOCAL}/sounds/prayer_off.wav`,        // deactivate vwoop (2663)
       potion: `${SND}/potion.wav`,                      // liquid (2401) — potion gulp

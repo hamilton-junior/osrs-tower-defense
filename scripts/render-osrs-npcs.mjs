@@ -62,6 +62,10 @@ const TARGETS = {
   summoned_soul: { npc: 5869 },          // Summoned Soul (Cerberus's add; the melee one stands for all three)
   corporeal_beast: { npc: 319 },         // Corporeal Beast (boss)
   dark_core: { npc: 320 },               // Dark energy core (the Beast's add)
+  graardor: { npc: 2215 },               // General Graardor (boss)
+  strongstack: { npc: 2216 },            // Sergeant Strongstack (his melee bodyguard)
+  steelwill: { npc: 2217 },              // Sergeant Steelwill (his mage bodyguard)
+  grimspike: { npc: 2218 },              // Sergeant Grimspike (his ranged bodyguard)
   // NOTE: the spawn portal is no longer a model render — OSRS portals are mostly
   // animated spotanims, so a static render reads poorly. It's now drawn
   // procedurally as a swirling vortex in renderer.drawSpawnPortal.

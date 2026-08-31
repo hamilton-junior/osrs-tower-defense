@@ -291,6 +291,9 @@ export interface UIState {
   prayerFrac: number;
   /** Currently active prayers (cloneable list). */
   activePrayers: PrayerType[];
+  /** Seconds left on a prayer shatter (General Graardor's slam), 0 when free. The panel
+   *  greys itself out and counts this down. */
+  prayerLock: number;
   /** Grand Exchange stock with live prices + active-buff timers. */
   geOffers: GeListing[];
   /** Persistent Rune Essence balance (meta-progression currency). */

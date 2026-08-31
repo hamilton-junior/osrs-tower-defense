@@ -38,7 +38,11 @@ export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion'
   | 'ice_warrior' | 'ice_troll' | 'jogre' | 'harpie_bug_swarm'
   | 'cave_bug' | 'cave_slime' | 'big_frog' | 'giant_frog' | 'hobgoblin' | 'giant_bat' | 'moss_giant'
   | 'vulture' | 'desert_lizard' | 'jackal' | 'kalphite_worker' | 'scarab_mage' | 'mummy'
-  | 'locust_rider' | 'dust_devil' | 'kalphite_guardian';
+  | 'locust_rider' | 'dust_devil' | 'kalphite_guardian'
+  // General Graardor and his bodyguards. The three sergeants are adds, but each is
+  // its own type rather than one shared skin: they have different stats, and the
+  // variants rule is for same-stat skins only.
+  | 'graardor' | 'steelwill' | 'strongstack' | 'grimspike';
 
 export type Element = 'air' | 'water' | 'earth' | 'fire' | 'none';
 
@@ -193,6 +197,16 @@ export interface Enemy extends EnemyDef {
   /** Dark energy core: it has arrived and the siphon is running. Until then it is only
    *  a thing in the air — the tower keeps shooting while the core is still crossing. */
   coreLatched?: boolean;
+  /** General Graardor's bodyguard: how many logic pixels **ahead of its owner along the
+   *  road** it marches. It is an escort (it never walks the path itself and never leaks),
+   *  but unlike an orbiting escort its position is read off the path, so it carries a
+   *  real, higher `pathIndex` than the boss behind it — which is the whole mechanic: the
+   *  default `first` priority aims at whatever is furthest along, so the guards are what
+   *  every tower shoots without the player pointing anything at anything. */
+  guardLead?: number;
+  /** That guard's sideways offset from the road's centreline, so the trio reads as a
+   *  wedge marching in front of him rather than three sprites in one file. */
+  guardSide?: number;
   /** Walk a lane parallel to the road, this many logic pixels to the side of it
    *  (perpendicular to the current segment; negative = the other side). Dawn uses it to
    *  fly beside Dusk instead of inside him — two bosses on the same waypoints stack into
