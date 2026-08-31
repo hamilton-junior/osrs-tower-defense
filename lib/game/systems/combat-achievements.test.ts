@@ -256,7 +256,7 @@ describe('grandmaster tier', () => {
   const win = (over: Partial<RunStats> = {}) => stats({ won: true, ...over });
 
   it('has exactly 44 tasks in total', () => {
-    expect(CA_TASKS.length).toBe(44);
+    expect(CA_TASKS.length).toBe(45);
   });
 
   it('grandmaster needs a tier-6 win', () => {

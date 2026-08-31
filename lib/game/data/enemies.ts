@@ -806,6 +806,77 @@ export const ENEMIES: Record<string, EnemyDef> = {
     reward: 0,
     summonedBy: 'graardor'
   },
+  nex: {
+    type: 'nex',
+    // Zaros' champion is a size-3 winged thing in the cache — taller than a sergeant,
+    // nothing like the Beast. She reads as a duellist, so she is scaled to look fast.
+    renderScale: 1.35,
+    name: 'Nex',
+    // The last name on the ladder, and the biggest bar on it. Unlike Graardor's, this
+    // bar *is* the fight: the acolytes hold almost no health of their own, they hold
+    // *time*, so the number here is what the board actually has to chew through.
+    hp: 2200,
+    // Quick for her size. The gates cost the player road, so a slow Nex would give it
+    // all back — the pressure of the fight is that she is still walking while shielded.
+    speed: 34,
+    color: '#8a6bb0',
+    deathSound: 'boss',
+    isBoss: true,
+    reward: 900,
+    resistance: 0.4
+  },
+  fumus: {
+    type: 'fumus',
+    renderScale: 1.0,
+    name: 'Fumus',
+    // Her wards all carry the same body: they are one encounter split four ways, and a
+    // ward that took longer to kill than the one before would just be the same gate
+    // again, slower. What changes between them is the phase they open, not the wall.
+    hp: 240,
+    speed: 90,
+    color: '#8f8f92',
+    reward: 0,
+    summonedBy: 'nex'
+  },
+  umbra: {
+    type: 'umbra',
+    renderScale: 1.0,
+    name: 'Umbra',
+    // Her wards all carry the same body: they are one encounter split four ways, and a
+    // ward that took longer to kill than the one before would just be the same gate
+    // again, slower. What changes between them is the phase they open, not the wall.
+    hp: 240,
+    speed: 90,
+    color: '#6a4f8f',
+    reward: 0,
+    summonedBy: 'nex'
+  },
+  cruor: {
+    type: 'cruor',
+    renderScale: 1.0,
+    name: 'Cruor',
+    // Her wards all carry the same body: they are one encounter split four ways, and a
+    // ward that took longer to kill than the one before would just be the same gate
+    // again, slower. What changes between them is the phase they open, not the wall.
+    hp: 240,
+    speed: 90,
+    color: '#a03a34',
+    reward: 0,
+    summonedBy: 'nex'
+  },
+  glacies: {
+    type: 'glacies',
+    renderScale: 1.0,
+    name: 'Glacies',
+    // Her wards all carry the same body: they are one encounter split four ways, and a
+    // ward that took longer to kill than the one before would just be the same gate
+    // again, slower. What changes between them is the phase they open, not the wall.
+    hp: 240,
+    speed: 90,
+    color: '#4f8fa0',
+    reward: 0,
+    summonedBy: 'nex'
+  },
   superior_bloodveld: {
     type: 'superior_bloodveld',
     renderScale: 1.3,

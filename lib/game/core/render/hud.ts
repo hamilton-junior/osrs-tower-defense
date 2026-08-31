@@ -1,4 +1,4 @@
-import { ZULRAH_PHASES, hydraPhase, hydraBreakTarget, isGuardian, graardorIsArmoured, STALL_MAX_STACKS } from '../../systems/boss-mechanics';
+import { ZULRAH_PHASES, hydraPhase, hydraBreakTarget, isGuardian, graardorIsArmoured, nexIsShielded, nexWard, NEX_ACOLYTES, STALL_MAX_STACKS } from '../../systems/boss-mechanics';
 import type { GameRenderer } from '../renderer';
 import { GUARDIAN_LINK_COLOR, CORP_LINK_COLOR } from './shared';
 
@@ -165,6 +165,15 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     if ((st.slamWindup ?? 0) > 0) caption = 'SLAM INCOMING — your prayers are about to break!';
     else if (graardorIsArmoured(st)) caption = 'BODYGUARDS — kill the sergeants in front of him!';
     else if (st.slams) caption = `Slams: ${st.slams}`;
+  } else if (st?.kind === 'nex') {
+    capColor = '#c9a0ff';
+    // The line names the acolyte, because "kill that one" is the entire fight and the
+    // player has four different names to keep straight. Once every ward is spent it
+    // becomes the count, which is the fight's own scoreboard.
+    const ward = nexWard(st);
+    if (nexIsShielded(st) && ward) caption = `WARDED — kill ${ward.name} to reach her!`;
+    else if ((st.nexPhase ?? 0) >= NEX_ACOLYTES.length) caption = 'No acolytes left — she stands alone!';
+    else if (st.nexWardsBroken) caption = `Acolytes down: ${st.nexWardsBroken}/${NEX_ACOLYTES.length}`;
   }
   if (caption) {
     ctx.font = "bold 12px 'RuneScape', Arial";

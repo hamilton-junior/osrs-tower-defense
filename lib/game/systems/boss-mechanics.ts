@@ -46,14 +46,14 @@ import { pathTotalLength, remainingPathDistance, advanceAlongPath, inSquareRange
  * ledger of which ideas are taken and which are still open.
  */
 
-export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus' | 'scurrius' | 'kbd' | 'corporeal_beast' | 'graardor';
+export type BossId = 'zulrah' | 'vorkath' | 'jad' | 'hydra' | 'giant_mole' | 'dusk' | 'dawn' | 'cerberus' | 'brutus' | 'scurrius' | 'kbd' | 'corporeal_beast' | 'graardor' | 'nex';
 
 /** The bosses that carry phase mechanics: they get a {@link BossState} on spawn and
  *  roll boss modifiers once seen. The engine and the save sanitiser read this to decide
  *  who has state. */
 export const MECHANIC_BOSSES: readonly BossId[] = [
   'jad', 'vorkath', 'zulrah', 'hydra', 'giant_mole', 'dusk', 'dawn', 'cerberus', 'brutus', 'scurrius', 'kbd',
-  'corporeal_beast', 'graardor',
+  'corporeal_beast', 'graardor', 'nex',
 ];
 
 /**
@@ -68,7 +68,7 @@ export const MECHANIC_BOSSES: readonly BossId[] = [
  */
 export const SCHEDULABLE_BOSSES: readonly BossId[] = [
   'brutus', 'scurrius', 'giant_mole', 'kbd', 'jad', 'vorkath', 'zulrah', 'graardor', 'dusk', 'cerberus',
-  'corporeal_beast', 'hydra',
+  'corporeal_beast', 'hydra', 'nex',
 ];
 
 // ─────────────────────────────────── Zulrah ────────────────────────────────
@@ -1439,6 +1439,97 @@ export function graardorIsSlamming(state: BossState | undefined): boolean {
   return state?.kind === 'graardor' && (state.slamWindup ?? 0) > 0;
 }
 
+
+// ───────────────────────────────── Nex ─────────────────────────────────────
+/**
+ * **Nex: the four wards.**
+ *
+ * She never walks in alone. One acolyte marches on the road in front of her, and while
+ * that acolyte stands she is *shielded*: untargetable and immune. Kill it and she opens
+ * up — until her health crosses the next threshold, when the next acolyte arrives and the
+ * wall goes back up. Four acolytes, four gates, and after the last one she is exposed for
+ * the rest of the fight.
+ *
+ * It is built out of the same two pieces General Graardor is, for the same reason: the
+ * player's aim vocabulary is a per-tower priority, never a click-to-focus, so the fight
+ * has to *aim itself*. Here it does that twice over — the acolyte carries a real, higher
+ * road position (so `first` finds it), it carries a small fraction of the encounter's
+ * health (so `weakest` finds it too), and Nex herself is dropped out of every tower's
+ * reach while shielded, so a board on `strongest` or `last` is redirected onto the ward
+ * whether it meant to be or not. There is no priority setting that gets this fight wrong.
+ *
+ * And it can never deadlock: {@link NEX_WARD_MAX_SECS} after a ward goes up the shield
+ * falls off on its own, acolyte alive or not. A board that cannot kill the ward is then
+ * simply fighting Nex with an escort — slower, but a fight, not a wall.
+ *
+ * Fidelity: NPC 11278 in the cache, with Fumus (11283), Umbra (11284), Cruor (11285) and
+ * Glacies (11286). In OSRS those four really are the phase gates — smoke, shadow, blood,
+ * ice, in that order — and Nex really is invulnerable until the phase's acolyte is dead.
+ */
+/** Her four acolytes, in the order she calls them: smoke, shadow, blood, ice — the same
+ *  order the God Wars fight runs in. Index 0 arrives with her; the rest come at
+ *  {@link NEX_PHASE_THRESHOLDS}. `say` is the line she calls each one in with; in-game
+ *  strings stay English. */
+export const NEX_ACOLYTES: readonly { type: EnemyType; name: string; say: string }[] = [
+  { type: 'fumus', name: 'Fumus', say: 'Fumus, don your mask!' },
+  { type: 'umbra', name: 'Umbra', say: 'Umbra, embrace darkness!' },
+  { type: 'cruor', name: 'Cruor', say: 'Cruor, spill their blood!' },
+  { type: 'glacies', name: 'Glacies', say: 'Glacies, freeze them where they stand!' },
+];
+
+/** The HP fractions she raises the next ward at — one per acolyte after the first, so the
+ *  fight is four roughly equal quarters with a gate between each. */
+export const NEX_PHASE_THRESHOLDS: readonly number[] = [0.75, 0.5, 0.25];
+
+/** An acolyte's health as a fraction of hers. Deliberately *small*: a ward is a gate, not
+ *  a second health bar, and it has to sit below the pack around it so a `weakest`-priority
+ *  tower picks it out as readily as a `first` one does. */
+export const NEX_ACOLYTE_HP_FRAC = 0.11;
+/** Floor under that, for the sandbox and for any scaling that shrinks her. */
+export const NEX_ACOLYTE_MIN_HP = 70;
+/** How many logic pixels ahead of her the ward marches. Far enough that a tower reaching
+ *  Nex reaches the acolyte first, close enough that it still reads as *her* escort. */
+export const NEX_ACOLYTE_LEAD = 62;
+/** The fail-safe. Seconds a ward may hold before the shield falls off by itself, acolyte
+ *  dead or not — the guarantee that a board which cannot break the gate is still in a
+ *  fight rather than in a deadlock. */
+export const NEX_WARD_MAX_SECS = 22;
+/** Her opening line. In-game strings stay English. */
+export const NEX_SAY = 'There is no escape!';
+
+/** An acolyte's health, from the Nex who called it. */
+export function nexAcolyteHp(bossMaxHp: number): number {
+  return Math.max(NEX_ACOLYTE_MIN_HP, Math.round(bossMaxHp * NEX_ACOLYTE_HP_FRAC));
+}
+
+/** True while a ward is up: she is untargetable (`inReach` drops her) *and* immune
+ *  (`bossStyleMult` returns 0). Both, on purpose — the first redirects aimed fire onto the
+ *  acolyte, the second stops splash and DoT chipping her from behind it. */
+export function nexIsShielded(state: BossState | undefined): boolean {
+  return state?.kind === 'nex' && !!state.nexWarded;
+}
+
+/** The acolyte holding the current gate, or `undefined` before the first one arrives and
+ *  after the last is spent. */
+export function nexWard(
+  state: BossState | undefined,
+): { type: EnemyType; name: string; say: string } | undefined {
+  if (state?.kind !== 'nex' || !state.nexWarded) return undefined;
+  return NEX_ACOLYTES[(state.nexPhase ?? 0) - 1];
+}
+
+/** Whether she owes the board another ward yet: her health has crossed the threshold for
+ *  the next acolyte and she still has one left to call. Returns the acolyte's index, or
+ *  `-1` for "not yet" — which is also the answer once all four are spent, and that is the
+ *  final phase: she stands exposed for the rest of the fight. */
+export function nexNextWardIndex(state: BossState | undefined, hpFrac: number): number {
+  if (state?.kind !== 'nex') return -1;
+  const called = state.nexPhase ?? 0;
+  if (called === 0) return 0; // she arrives behind Fumus, before a shot is fired
+  if (called >= NEX_ACOLYTES.length) return -1;
+  return hpFrac <= NEX_PHASE_THRESHOLDS[called - 1] ? called : -1;
+}
+
 // ───────────────────────────── shared boss state ───────────────────────────
 /** Mutable per-boss runtime state the engine stores on the boss enemy. */
 export interface BossState {
@@ -1558,6 +1649,18 @@ export interface BossState {
   slamWindup?: number;
   /** Graardor: slams landed, read out on the boss bar. */
   slams?: number;
+  /** Nex: true while a ward holds — she is untargetable and immune. */
+  nexWarded?: boolean;
+  /** Nex: how many acolytes she has called so far, 0-4. Doubles as the phase number, and
+   *  as the index of the current ward in {@link NEX_ACOLYTES} plus one. */
+  nexPhase?: number;
+  /** Nex: the current acolyte's enemy id, so a ward the fail-safe already broke — still
+   *  alive and still marching ahead of her — is not mistaken for the one holding the gate. */
+  nexWardId?: string;
+  /** Nex: seconds left on the fail-safe ({@link NEX_WARD_MAX_SECS}). */
+  nexWardTimer?: number;
+  /** Nex: acolytes actually cut down, read out on the boss bar and by the achievement. */
+  nexWardsBroken?: number;
   /** Stall breaker: the lowest HP fraction this boss has been driven to. */
   hpFloor?: number;
   /** Stall breaker: seconds since it last reached a new low. */
@@ -1608,6 +1711,14 @@ export function freshBossState(kind: BossId): BossState {
     state.slamTimer = GRAARDOR_SLAM_FIRST;
     state.slamWindup = 0;
     state.slams = 0;
+  }
+  if (kind === 'nex') {
+    // Phase 0 is "she has not called anyone yet": the sim summons Fumus on her first frame
+    // and steps this to 1, so the ward is up before a tower ever gets a shot at her.
+    state.nexPhase = 0;
+    state.nexWarded = false;
+    state.nexWardTimer = 0;
+    state.nexWardsBroken = 0;
   }
   if (isGuardian(kind)) state.twinType = guardianTwin(kind);
   if (kind === 'cerberus') { state.soulSummons = 0; state.lockedStyles = []; }
@@ -1675,5 +1786,9 @@ export function bossStyleMult(state: BossState | undefined, style: CombatStyle |
   // General Graardor, for as long as a sergeant is still marching in front of him.
   // Styleless for the same reason: the answer is the guards, and only the guards.
   if (graardorIsArmoured(state)) return GRAARDOR_ARMOUR_MULT;
+  // Nex behind a ward. A flat 0 rather than Graardor's fraction, because this gate also
+  // takes her out of every tower's reach: leaving a sliver through would only mean splash
+  // and DoT quietly answering a gate that nothing on the board is even aiming at.
+  if (nexIsShielded(state)) return 0;
   return 1;
 }

@@ -42,7 +42,8 @@ export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion'
   // General Graardor and his bodyguards. The three sergeants are adds, but each is
   // its own type rather than one shared skin: they have different stats, and the
   // variants rule is for same-stat skins only.
-  | 'graardor' | 'steelwill' | 'strongstack' | 'grimspike';
+  | 'graardor' | 'steelwill' | 'strongstack' | 'grimspike'
+  | 'nex' | 'fumus' | 'umbra' | 'cruor' | 'glacies';
 
 export type Element = 'air' | 'water' | 'earth' | 'fire' | 'none';
 

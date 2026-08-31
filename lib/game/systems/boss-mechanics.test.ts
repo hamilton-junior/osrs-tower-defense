@@ -131,6 +131,15 @@ import {
   CORP_CORE_HP_FRAC,
   CORP_CORE_MIN_HP,
   CORP_ARMOUR_MULT,
+  NEX_ACOLYTES,
+  NEX_PHASE_THRESHOLDS,
+  NEX_ACOLYTE_HP_FRAC,
+  NEX_ACOLYTE_MIN_HP,
+  NEX_WARD_MAX_SECS,
+  nexAcolyteHp,
+  nexIsShielded,
+  nexWard,
+  nexNextWardIndex,
   GRAARDOR_GUARDS,
   GRAARDOR_ARMOUR_MULT,
   GRAARDOR_GUARD_HP_FRAC,
@@ -359,12 +368,14 @@ describe('boss id lists', () => {
     // MECHANIC_BOSSES) — the reverse need not hold.
     for (const b of SCHEDULABLE_BOSSES) expect(MECHANIC_BOSSES).toContain(b);
   });
-  it('introduces Brutus first and the Hydra last', () => {
+  it('introduces Brutus first and Nex last', () => {
     // The ladder runs gentlest → hardest. Brutus opens it because his rampage costs the
     // player a damage window and nothing else — he cannot bypass a defence the way the
     // Mole can, which makes him the only boss safe to meet before you know what a boss is.
+    // Nex closes it: she is the only boss the board cannot even *shoot* until it has
+    // solved her, which is the last thing a player should meet.
     expect(SCHEDULABLE_BOSSES[0]).toBe('brutus');
-    expect(SCHEDULABLE_BOSSES.at(-1)).toBe('hydra');
+    expect(SCHEDULABLE_BOSSES.at(-1)).toBe('nex');
   });
 });
 
@@ -1533,6 +1544,104 @@ describe('General Graardor', () => {
     it('ignores every other boss', () => {
       expect(graardorIsSlamming(freshBossState('kbd'))).toBe(false);
       expect(graardorIsSlamming(undefined)).toBe(false);
+    });
+  });
+});
+
+describe('Nex', () => {
+  describe('nexAcolyteHp', () => {
+    it('scales an acolyte off the Nex who called it', () => {
+      expect(nexAcolyteHp(2000)).toBe(Math.round(2000 * NEX_ACOLYTE_HP_FRAC));
+      expect(nexAcolyteHp(4000)).toBe(2 * nexAcolyteHp(2000));
+    });
+
+    it('never drops below the floor, however small she is scaled', () => {
+      expect(nexAcolyteHp(1)).toBe(NEX_ACOLYTE_MIN_HP);
+      expect(nexAcolyteHp(0)).toBe(NEX_ACOLYTE_MIN_HP);
+    });
+
+    it('keeps a ward a gate rather than a second health bar', () => {
+      // All four together must still be a fraction of her, or the fight becomes "kill
+      // four small bosses" and the thing being gated stops mattering.
+      const boss = 2200;
+      expect(NEX_ACOLYTES.length * nexAcolyteHp(boss)).toBeLessThan(boss * 0.5);
+    });
+  });
+
+  describe('the ward', () => {
+    it('makes her untouchable while it holds, and touchable the moment it does not', () => {
+      const st = freshBossState('nex');
+      expect(nexIsShielded(st)).toBe(false); // nobody called yet
+      expect(bossStyleMult(st, 'magic')).toBe(1);
+      st.nexWarded = true;
+      st.nexPhase = 1;
+      expect(nexIsShielded(st)).toBe(true);
+      for (const style of ['melee', 'ranged', 'magic'] as const) {
+        expect(bossStyleMult(st, style)).toBe(0);
+      }
+      st.nexWarded = false;
+      expect(nexIsShielded(st)).toBe(false);
+      expect(bossStyleMult(st, 'melee')).toBe(1);
+    });
+
+    it('names the acolyte actually holding it', () => {
+      const st = freshBossState('nex');
+      expect(nexWard(st)).toBeUndefined(); // no ward up
+      for (let i = 0; i < NEX_ACOLYTES.length; i++) {
+        st.nexWarded = true;
+        st.nexPhase = i + 1;
+        expect(nexWard(st)).toBe(NEX_ACOLYTES[i]);
+      }
+    });
+
+    it('ignores every other boss', () => {
+      expect(nexIsShielded(freshBossState('graardor'))).toBe(false);
+      expect(nexIsShielded(undefined)).toBe(false);
+      expect(nexWard(freshBossState('vorkath'))).toBeUndefined();
+    });
+
+    it('gives the fail-safe a real, finite window', () => {
+      // The one guarantee the whole design rests on: a board that cannot break a ward is
+      // still in a fight, because the ward expires on its own.
+      expect(NEX_WARD_MAX_SECS).toBeGreaterThan(0);
+      expect(Number.isFinite(NEX_WARD_MAX_SECS)).toBe(true);
+    });
+  });
+
+  describe('nexNextWardIndex', () => {
+    it('sends Fumus in before a shot is fired', () => {
+      expect(nexNextWardIndex(freshBossState('nex'), 1)).toBe(0);
+    });
+
+    it('holds the next acolyte back until her health crosses its threshold', () => {
+      const st = freshBossState('nex');
+      st.nexPhase = 1;
+      expect(nexNextWardIndex(st, 0.9)).toBe(-1);
+      expect(nexNextWardIndex(st, NEX_PHASE_THRESHOLDS[0])).toBe(1);
+      st.nexPhase = 2;
+      expect(nexNextWardIndex(st, 0.6)).toBe(-1);
+      expect(nexNextWardIndex(st, NEX_PHASE_THRESHOLDS[1])).toBe(2);
+      st.nexPhase = 3;
+      expect(nexNextWardIndex(st, 0.3)).toBe(-1);
+      expect(nexNextWardIndex(st, NEX_PHASE_THRESHOLDS[2])).toBe(3);
+    });
+
+    it('leaves her exposed for good once the fourth is spent', () => {
+      const st = freshBossState('nex');
+      st.nexPhase = NEX_ACOLYTES.length;
+      expect(nexNextWardIndex(st, 0.01)).toBe(-1);
+    });
+
+    it('has one threshold per acolyte after the first, in descending order', () => {
+      expect(NEX_PHASE_THRESHOLDS).toHaveLength(NEX_ACOLYTES.length - 1);
+      for (let i = 1; i < NEX_PHASE_THRESHOLDS.length; i++) {
+        expect(NEX_PHASE_THRESHOLDS[i]).toBeLessThan(NEX_PHASE_THRESHOLDS[i - 1]);
+      }
+    });
+
+    it('ignores every other boss', () => {
+      expect(nexNextWardIndex(freshBossState('kbd'), 0.1)).toBe(-1);
+      expect(nexNextWardIndex(undefined, 0.1)).toBe(-1);
     });
   });
 });

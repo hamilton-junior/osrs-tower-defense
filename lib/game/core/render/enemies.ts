@@ -4,10 +4,14 @@ import { ENEMY_ANIMS, clipFrame, clipDurationS, DEATH_SETTLE_S } from '../../dat
 import { TOWER_STYLES } from '../../data/towers';
 import { ELEMENTS } from '../../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../../systems/affixes';
-import { ZULRAH_PHASES, hydraPhase, HYDRA_VENT_SECS, moleIsHidden, MOLE_UNDER_SECS, bossPhaseClip, phaseResistedStyles } from '../../systems/boss-mechanics';
+import { ZULRAH_PHASES, hydraPhase, HYDRA_VENT_SECS, moleIsHidden, MOLE_UNDER_SECS, NEX_WARD_MAX_SECS, nexIsShielded, bossPhaseClip, phaseResistedStyles } from '../../systems/boss-mechanics';
 import type { DeathFx } from '../engine-state';
 import type { GameRenderer } from '../renderer';
 import { GUARDIAN_LINK_COLOR, SOUL_COLORS, PORTAL_MASK_R } from './shared';
+
+/** Nex's ward: Zarosian violet, shared by the dome, the tether and the boss-bar caption
+ *  so the three read as one mechanic. */
+const NEX_WARD_COLOR = '#c9a0ff';
 
 /**
  * Enemies: their baked walk/hurt/death clips, HP bars, affix marks, the hit
@@ -247,6 +251,32 @@ function drawRatLeashes(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   }
 }
 
+/**
+ * Nex: a dashed violet tether from her to the acolyte holding her ward. The gate is
+ * legible without it only if the player happens to read the boss bar — the line says
+ * *this* body is the one keeping her out of reach, which is the whole fight.
+ */
+function drawNexTethers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  for (const e of gr.e.enemies) {
+    if (!nexIsShielded(e.bossState)) continue;
+    const ward = gr.e.enemies.find((a) => a.id === e.bossState?.nexWardId);
+    if (!ward) continue;
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = NEX_WARD_COLOR;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 5]);
+    // Crawling toward the ward, so the line reads as her drawing on it rather than as
+    // decoration. `performance.now()` for the same reason the rat leashes use it.
+    ctx.lineDashOffset = -((performance.now() / 1000) * 26) % 12;
+    ctx.beginPath();
+    ctx.moveTo(e.x, e.y);
+    ctx.lineTo(ward.x, ward.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 /** Superior slayer variant: an extremely faint warm shimmer behind the sprite,
  *  echoing the sparkle that marks a "Bigger and Badder" spawn. */
 function drawSuperiorGlow(ctx: CanvasRenderingContext2D, e: Enemy, size: number) {
@@ -413,6 +443,28 @@ function drawBossTelegraph(ctx: CanvasRenderingContext2D, e: Enemy, size: number
     ctx.arc(e.x, e.y, r, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
     ctx.stroke();
     ctx.restore();
+  } else if (nexIsShielded(st)) {
+    // The ward: a violet dome she stands inside, with the fail-safe drawn as the ring's
+    // remaining arc — the same timer language the Hydra's vent window uses, because it
+    // answers the same question ("how long do I have?"), only inverted: here the arc
+    // running out is the player's *relief*, not their deadline.
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
+    const r = size * 0.7;
+    ctx.save();
+    const g = ctx.createRadialGradient(e.x, e.y, r * 0.3, e.x, e.y, r);
+    g.addColorStop(0, 'rgba(201,160,255,0)');
+    g.addColorStop(1, `rgba(201,160,255,${0.2 + pulse * 0.18})`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    const left = Math.max(0, Math.min(1, (st.nexWardTimer ?? 0) / NEX_WARD_MAX_SECS));
+    ctx.strokeStyle = `rgba(220,190,255,${0.7 + pulse * 0.3})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, r, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -503,6 +555,7 @@ export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const jad = gr.e.enemies.find((en) => en.bossState?.kind === 'jad');
 
   drawRatLeashes(gr, ctx);
+  drawNexTethers(gr, ctx);
 
   for (const e of gr.e.enemies) {
     // The Giant Mole is underground: no body, no HP bar, no overlays — only the

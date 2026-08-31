@@ -166,6 +166,16 @@ const TARGETS = {
   // The slam itself: the punch his own avatar throws, filed under his name. It plays as
   // the windup lands, which is the frame the player's prayers go out.
   graardor_slam: 3843,         // godwars_bandos_avatar_punch
+  // Nex. Her 2021 rework ships a named death cry of her own -- `nex2021_death` -- which is
+  // hers and nobody else's, so that is the voice she dies with.
+  death_nex: 5283,             // nex2021_death
+  // Her four acolytes are human-rigged and embed no sound in any of their sequences, so
+  // they take the cache's own human death cry. Fumus bakes it; Umbra, Cruor and Glacies
+  // alias to that same file in `assets.ts` rather than shipping three identical copies.
+  death_fumus: 512,            // human_death
+  // The gate going up and coming down, both from her own 2021 sound set.
+  nex_ward: 5196,              // nex2021_nex_deflect -- the ward snapping into place
+  nex_break: 5202,             // nex2021_turmoil_power_up -- the ward failing
   // The breath itself: the cache's `firebreath` (159) — the clip a dragon plays when it
   // breathes on a player, which is what the board hears when he breathes on the road.
   // Not `dragonbreath` (585): that one opens on a third of a second of near-silence, so

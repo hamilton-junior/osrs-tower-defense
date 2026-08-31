@@ -232,6 +232,10 @@ const DEATH_TYPES = [
   // own name (`godwars_bandos_avatar_death`); the sergeants are orks, and OSRS ships one
   // ork death cry for all of them — one voice they genuinely share, not a borrowed one.
   'graardor', 'strongstack', 'steelwill', 'grimspike',
+  // Nex and her wards. She dies with her own `nex2021_death`; the four acolytes are
+  // voiceless in the cache, so Fumus bakes the human death cry and the other three alias
+  // to it below -- one file, because it is literally the same clip.
+  'nex', 'fumus',
   // Kharidian. Every one of these used to borrow a neighbour's voice; each now
   // ships the clip OSRS itself files under that monster's name. Two took a
   // deduction: the kalphite Guardian's family is filed `kalthite_lord` (Jagex's
@@ -265,6 +269,12 @@ DEATH_SOUNDS.moss_giant = DEATH_SOUNDS.hill_giant;
 // different creature. So the Jogre keeps the hill giant's bellow. Written down in
 // docs/enemy-roster.md beside the death-cry rule; do not cite it as a precedent.
 DEATH_SOUNDS.jogre = DEATH_SOUNDS.hill_giant;
+// Nex's four acolytes are the same legitimate case as the giants: they are human-rigged,
+// the cache gives them no voice of their own, and the clip they die to is the one human
+// death cry OSRS ships. Fumus bakes it; the other three point at that same file.
+DEATH_SOUNDS.umbra = DEATH_SOUNDS.fumus;
+DEATH_SOUNDS.cruor = DEATH_SOUNDS.fumus;
+DEATH_SOUNDS.glacies = DEATH_SOUNDS.fumus;
 
 export const ASSETS = {
   spells: SPELL_ICONS,
@@ -309,6 +319,11 @@ export const ASSETS = {
     strongstack: `${LOCAL}/models/strongstack.png`,     // Sergeant Strongstack (his melee guard)
     steelwill: `${LOCAL}/models/steelwill.png`,         // Sergeant Steelwill (his mage guard)
     grimspike: `${LOCAL}/models/grimspike.png`,         // Sergeant Grimspike (his ranged guard)
+    nex: `${LOCAL}/models/nex.png`,                     // Nex
+    fumus: `${LOCAL}/models/fumus.png`,                 // Fumus, her smoke acolyte
+    umbra: `${LOCAL}/models/umbra.png`,                 // Umbra, her shadow acolyte
+    cruor: `${LOCAL}/models/cruor.png`,                 // Cruor, her blood acolyte
+    glacies: `${LOCAL}/models/glacies.png`,             // Glacies, her ice acolyte
     summoned_soul: `${LOCAL}/models/summoned_soul.png`,
     jad: `${LOCAL}/models/jad.png`,                     // TzTok-Jad
     vorkath: `${LOCAL}/models/vorkath.png`,
@@ -554,6 +569,8 @@ export const ASSETS = {
       kbd_breath: `${SND}/kbd_breath.wav`,              // firebreath (159) — the King Black Dragon's breath landing
       kbd_stomp: `${SND}/kbd_stomp.wav`,                // dragonslayer_dragonstomp3 (3752) — embedded in his own rear-up anim
       graardor_slam: `${SND}/graardor_slam.wav`,        // godwars_bandos_avatar_punch (3843) — his own slam, the attack that shatters prayers
+      nex_ward: `${SND}/nex_ward.wav`,                  // nex2021_nex_deflect (5196) — her ward snapping into place
+      nex_break: `${SND}/nex_break.wav`,                // nex2021_turmoil_power_up (5202) — the ward failing
       prayer_on: `${LOCAL}/sounds/prayer_generic_on.wav`,  // thick-skin "vwoom" (2690)
       prayer_off: `${LOCAL}/sounds/prayer_off.wav`,        // deactivate vwoop (2663)
       potion: `${SND}/potion.wav`,                      // liquid (2401) — potion gulp

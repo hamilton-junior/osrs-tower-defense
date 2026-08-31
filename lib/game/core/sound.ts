@@ -38,6 +38,10 @@ export const GAME_SOUNDS: Record<string, string> = {
   // General Graardor's slam landing — the cache's own `godwars_bandos_avatar_punch`,
   // kept apart from his death cry so the prayers going out never sounds like he died.
   bossslam_graardor: ASSETS.sounds.misc.graardor_slam,
+  // Nex's ward going up and coming down — her own 2021 clips, kept apart from her death
+  // cry so a gate opening never sounds like the boss dying.
+  nexward: ASSETS.sounds.misc.nex_ward,
+  nexbreak: ASSETS.sounds.misc.nex_break,
   select: ASSETS.sounds.misc.select,
   interface_open: ASSETS.sounds.misc.interface_open,
   interface_close: ASSETS.sounds.misc.interface_close,

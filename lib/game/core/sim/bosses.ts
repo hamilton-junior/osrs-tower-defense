@@ -3,7 +3,7 @@ import { SPAWN_ANIM_SECONDS } from '../../types';
 import { ENEMIES } from '../../data/enemies';
 import { distanceSq, squareRange, advanceAlongPath, remainingPathDistance } from '../../systems/geometry';
 import { GAME_SOUNDS } from '../sound';
-import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SAY, graardorGuardHp, type SiphonCandidate } from '../../systems/boss-mechanics';
+import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SAY, graardorGuardHp, NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_WARD_MAX_SECS, NEX_SAY, nexAcolyteHp, nexNextWardIndex, type SiphonCandidate } from '../../systems/boss-mechanics';
 import type { Scorch } from '../engine-state';
 import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, CORP_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
@@ -88,6 +88,8 @@ export function handleBossMechanics(eng: GameEngine, dt: number) {
       updateCorp(eng, e, dt);
     } else if (st.kind === 'graardor') {
       updateGraardor(eng, e, dt);
+    } else if (st.kind === 'nex') {
+      updateNex(eng, e, dt);
     }
     // The visual-state rule: a boss's current mechanic phase decides which model it is
     // drawn with. `animType` overrides the sprite/clip slug only, so stats, drops and
@@ -1148,9 +1150,9 @@ export function updateEscortFollow(eng: GameEngine, e: Enemy, dt: number) {
   if (e.type === 'dark_core') { updateDarkCore(eng, e, dt); return; }
   const owner = e.ownerId ? eng.enemies.find(h => h.id === e.ownerId) : undefined;
   if (!owner) return;
-  // General Graardor's sergeants are the other exception: they march *along the road* in
-  // front of him rather than orbiting him, which is the entire fight (see
-  // `updateGraardorGuard`).
+  // General Graardor's sergeants — and Nex's acolytes — are the other exception: they
+  // march *along the road* in front of the boss rather than orbiting it, which is the
+  // entire fight in both cases (see `updateGraardorGuard`).
   if (e.guardLead !== undefined) { updateGraardorGuard(eng, e, owner, dt); return; }
   e.orbit = (e.orbit ?? 0) + dt * ESCORT_ORBIT_DRIFT; // slow circle around the boss
   const radius = e.soulStyle ? CERBERUS_SOUL_ORBIT : JAD_HEALER_ORBIT;
@@ -1269,6 +1271,114 @@ export function summonGraardorGuards(eng: GameEngine, general: Enemy) {
   general.sayTimer = 2;
   eng.sound.play('wave', 60);
   eng.notify('General Graardor marches in behind his bodyguards!');
+}
+
+
+/**
+ * **Nex: the four wards.**
+ *
+ * Every frame asks one question — is a ward still holding? While one is, she is
+ * untargetable (`inReach` skips her) and immune (`bossStyleMult` returns 0), and the
+ * acolyte marching ahead of her is the only thing on the road worth a shot. The ward
+ * comes down when that acolyte is killed, or when {@link NEX_WARD_MAX_SECS} runs out —
+ * the fail-safe that keeps a board which *cannot* break the gate in a fight rather than
+ * in a deadlock.
+ *
+ * The current ward is tracked by **id**, not by "is any acolyte alive". A ward the timer
+ * already expired keeps marching and stays killable, so by the last phase there may be
+ * three of them on the road; only the one she is actually hiding behind counts.
+ *
+ * The rules — the thresholds, the acolyte order, the shield predicate — are pure and
+ * tested in `systems/boss-mechanics.ts`; this owns the entities and the timers.
+ */
+export function updateNex(eng: GameEngine, e: Enemy, dt: number) {
+  const st = e.bossState!;
+
+  if (st.nexWarded) {
+    const ward = eng.enemies.find(a => a.id === st.nexWardId);
+    if (!ward) {
+      // Cut down. The gate opens, and it is announced by name — the player just spent a
+      // wave's damage on it and the payoff has to be legible.
+      const name = NEX_ACOLYTES[(st.nexPhase ?? 1) - 1]?.name ?? 'The acolyte';
+      st.nexWarded = false;
+      st.nexWardId = undefined;
+      st.nexWardsBroken = (st.nexWardsBroken ?? 0) + 1;
+      // The achievement's whole condition: every gate answered by killing it, none of
+      // them waited out. Recorded here rather than at her death, because only this line
+      // knows *how* the ward came down.
+      if (st.nexWardsBroken >= NEX_ACOLYTES.length) eng.caStats.bossFlags.nexAllWardsBroken = true;
+      addRing(eng, e.x, bodyY(e), 10, 110, '#c9a0ff', 0.55, 5);
+      eng.notify(`${name} falls — Nex is exposed!`);
+      eng.sound.play('nexbreak' in GAME_SOUNDS ? 'nexbreak' : 'wave', 70);
+      return;
+    }
+    st.nexWardTimer = Math.max(0, (st.nexWardTimer ?? 0) - dt);
+    if (st.nexWardTimer === 0) {
+      // The fail-safe. The acolyte lives on — it is still a body on the road — but it
+      // stops being a wall, so the fight always has a way forward.
+      st.nexWarded = false;
+      st.nexWardId = undefined;
+      eng.notify('The ward flickers out — Nex is exposed!');
+      eng.sound.play('nexbreak' in GAME_SOUNDS ? 'nexbreak' : 'wave', 55);
+    }
+    return;
+  }
+
+  const idx = nexNextWardIndex(st, e.hp / e.maxHp);
+  if (idx >= 0) summonNexAcolyte(eng, e, idx);
+}
+
+/** Call the next acolyte in and raise the ward behind it. An escort, so it never walks
+ *  the path on its own, never leaks and never pays out — the reward for one is the phase
+ *  it opens. */
+export function summonNexAcolyte(eng: GameEngine, nex: Enemy, index: number) {
+  const st = nex.bossState!;
+  const acolyte = NEX_ACOLYTES[index];
+  const def = ENEMIES[acolyte.type];
+  const hp = nexAcolyteHp(nex.maxHp);
+  // Placed on the road ahead of her, exactly like a sergeant: the higher `pathIndex` is
+  // what makes the default `first` priority pick it, and the small HP pool is what makes
+  // `weakest` pick it too.
+  const spot = advanceAlongPath(eng.path, nex.pathIndex, nex.x, nex.y, NEX_ACOLYTE_LEAD);
+  const id = uid();
+  eng.enemies.push({
+    ...def,
+    id,
+    type: acolyte.type, // its own type -> its own Collection Log line and kill count
+    name: def.name,
+    escort: true,
+    ownerId: nex.id,
+    guardLead: NEX_ACOLYTE_LEAD,
+    guardSide: 0,
+    debug: nex.debug, // a sandbox Nex brings sandbox acolytes
+    x: spot.x,
+    y: spot.y,
+    hp,
+    maxHp: hp,
+    speed: def.speed,
+    baseSpeed: def.speed,
+    naturalSpeed: def.speed,
+    pathIndex: spot.pathIndex,
+    slowTimer: 0,
+    stunTimer: 0,
+    tauntTimer: 0,
+    groundTimer: 0,
+    animTime: Math.random() * 2,
+    spawnAnim: SPAWN_ANIM_SECONDS,
+  });
+  st.nexPhase = index + 1;
+  st.nexWarded = true;
+  st.nexWardId = id;
+  st.nexWardTimer = NEX_WARD_MAX_SECS;
+  nex.say = index === 0 ? NEX_SAY : acolyte.say;
+  nex.sayTimer = 2.5;
+  addRing(eng, nex.x, bodyY(nex), 8, 90, '#c9a0ff', 0.5, 4);
+  eng.notify(
+    index === 0
+      ? `Nex arrives behind ${acolyte.name} — kill the acolyte to reach her!`
+      : `${acolyte.name} answers Nex — the ward is back up!`,
+  );
+  eng.sound.play('nexward' in GAME_SOUNDS ? 'nexward' : 'wave', 60);
 }
 
 /**

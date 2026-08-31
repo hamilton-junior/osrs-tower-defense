@@ -18,7 +18,7 @@ import { mergeUnlockBatch } from '../../systems/unlock-queue';
 import { GAME_SOUNDS } from '../sound';
 import { shouldExecute, soulStealAddChance } from '../../systems/relics';
 import { isCcImmune, styleDamageMult, protectedDamageMult, styleWeaknessMult, absorbWithShield, VOLATILE_STUN_SECS, VOLATILE_BLAST_RADIUS, volatileBlastTowers } from '../../systems/affixes';
-import { bossStyleMult, hydraVentCredit, moleIsHidden, KBD_SCORCH_MULT, stallTenacityBonus, escortDamageMult, SCHEDULABLE_BOSSES, scurriusShouldShear, corpSiphonHeal } from '../../systems/boss-mechanics';
+import { bossStyleMult, hydraVentCredit, moleIsHidden, nexIsShielded, KBD_SCORCH_MULT, stallTenacityBonus, escortDamageMult, SCHEDULABLE_BOSSES, scurriusShouldShear, corpSiphonHeal } from '../../systems/boss-mechanics';
 import { GRID, uid, enemyRadius, projectileEase, SHORTEST_CAST_S, DOT_LANE, HITSPLAT_LIFE, IMPACT_BASE_SCALE, IMPACT_SPLASH_SCALE, CORP_LINK_COLOR } from '../engine-state';
 import type { HitsplatKind } from '../engine-state';
 import type { GameEngine } from '../engine';
@@ -344,8 +344,13 @@ export function fireTowers(eng: GameEngine, dt: number) {
     // Already-doomed enemies are excluded so the tower looks past them, and so is a
     // Giant Mole that is underground — it takes no damage there, and a tower emptying
     // its cooldowns into a hole in the ground would be pure waste, not a mechanic.
+    // Nex behind a ward is the same case with a different point: dropping her out of
+    // reach is what *aims* her fight. The player's only vocabulary is a priority, so a
+    // board on `strongest` would otherwise stand there shooting an invulnerable boss all
+    // wave; with her hidden, every priority falls through to the acolyte in front of her.
     const inReach = (e: Enemy) =>
-      !doomed(e) && !moleIsHidden(e.bossState) && inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e));
+      !doomed(e) && !moleIsHidden(e.bossState) && !nexIsShielded(e.bossState)
+      && inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e));
 
     // (re)acquire a target. `markKind` is the status this tower spreads (for the
     // `unmarked` priority — a tower only counts its OWN effect as a mark).

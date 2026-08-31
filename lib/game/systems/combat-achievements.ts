@@ -98,6 +98,9 @@ export interface RunStats {
     /** All three of General Graardor's sergeants were cut down while he was still
      *  standing — the fight solved the way it is built to be solved. */
     graardorGuardsWiped: boolean;
+    /** Every one of Nex's four wards was broken by killing its acolyte — none of them
+     *  timed out. The fight solved rather than waited out. */
+    nexAllWardsBroken: boolean;
   };
 }
 
@@ -116,7 +119,7 @@ export function emptyRunStats(mode: GameMode, tier: DifficultyTier): RunStats {
     bossFlags: {
       jadHealed: false, hydraVentsBroken: 0, hydraVentHealed: false,
       duskDawnClean: true, cerberusSoulSurvived: false, kbdTowerScorched: false,
-      corpSiphonHeld: false, graardorGuardsWiped: false,
+      corpSiphonHeld: false, graardorGuardsWiped: false, nexAllWardsBroken: false,
     },
   };
 }

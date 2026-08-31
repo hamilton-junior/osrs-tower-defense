@@ -66,6 +66,11 @@ const TARGETS = {
   strongstack: { npc: 2216 },            // Sergeant Strongstack (his melee bodyguard)
   steelwill: { npc: 2217 },              // Sergeant Steelwill (his mage bodyguard)
   grimspike: { npc: 2218 },              // Sergeant Grimspike (his ranged bodyguard)
+  nex: { npc: 11278 },                   // Nex (boss)
+  fumus: { npc: 11283 },                 // Fumus, her smoke acolyte
+  umbra: { npc: 11284 },                 // Umbra, her shadow acolyte
+  cruor: { npc: 11285 },                 // Cruor, her blood acolyte
+  glacies: { npc: 11286 },               // Glacies, her ice acolyte
   // NOTE: the spawn portal is no longer a model render — OSRS portals are mostly
   // animated spotanims, so a static render reads poorly. It's now drawn
   // procedurally as a swirling vortex in renderer.drawSpawnPortal.

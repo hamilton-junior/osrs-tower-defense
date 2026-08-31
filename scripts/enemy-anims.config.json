@@ -596,5 +596,45 @@
       "hurt": 6155,
       "death": 6156
     }
+  },
+  "nex": {
+    "npc": 11278,
+    "anims": {
+      "walk": 9175,
+      "hurt": 9187,
+      "death": 9184
+    }
+  },
+  "fumus": {
+    "npc": 11283,
+    "anims": {
+      "walk": 819,
+      "hurt": 424,
+      "death": 836
+    }
+  },
+  "umbra": {
+    "npc": 11284,
+    "anims": {
+      "walk": 819,
+      "hurt": 424,
+      "death": 836
+    }
+  },
+  "cruor": {
+    "npc": 11285,
+    "anims": {
+      "walk": 819,
+      "hurt": 424,
+      "death": 836
+    }
+  },
+  "glacies": {
+    "npc": 11286,
+    "anims": {
+      "walk": 819,
+      "hurt": 424,
+      "death": 836
+    }
   }
 }
