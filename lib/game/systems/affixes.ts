@@ -391,6 +391,16 @@ export function isCcImmune(affixes: readonly EnemyAffix[]): boolean {
   return has(affixes, 'warded');
 }
 
+/**
+ * The question every piece of crowd control actually asks: does this hold land on this
+ * enemy at all? Two sources answer no — the Warded affix, which is permanent, and a
+ * timed immunity granted by a boss (General Graardor's slam), which is not. One predicate
+ * for both, so a new source of either kind is honoured everywhere holds are applied.
+ */
+export function ignoresCc(e: { affixes?: readonly EnemyAffix[]; ccImmuneTimer?: number }): boolean {
+  return isCcImmune(e.affixes ?? []) || (e.ccImmuneTimer ?? 0) > 0;
+}
+
 /** Damage multiplier for an incoming `style` against an enemy's `armoredStyle`. */
 export function styleDamageMult(armoredStyle: CombatStyle | undefined, style: CombatStyle | undefined): number {
   return armoredStyle && style && armoredStyle === style ? ARMORED_RESIST : 1;

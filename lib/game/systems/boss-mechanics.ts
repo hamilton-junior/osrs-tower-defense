@@ -1439,6 +1439,16 @@ export const GRAARDOR_SLAM_INTERVAL = 22;
 /** How long he stands still winding one up. He is halted for the whole windup, which is the
  *  tell: the ground he gives up is the price of the attack. */
 export const GRAARDOR_SLAM_WINDUP = 1.2;
+/**
+ * How far the slam actually reaches. Deliberately **small** — a few tiles around him
+ * rather than the shockwave the ring used to suggest — because what it does inside that
+ * circle is hand out crowd-control immunity, and an area that covered half the board
+ * would mean every wave he is in walks straight through the player's control.
+ */
+export const GRAARDOR_SLAM_RADIUS = 96;
+/** Seconds of crowd-control immunity the slam grants everything standing in it. Brief:
+ *  it is a window his line gets to move in, not a state. */
+export const GRAARDOR_SLAM_CC_SECS = 3;
 /** How long your prayers stay shattered. Long enough to be felt at the exact moment you
  *  most want an overhead, short enough that it is a window and not a phase. */
 export const GRAARDOR_PRAYER_LOCK = 6;

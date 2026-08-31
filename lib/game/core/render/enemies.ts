@@ -277,6 +277,23 @@ function drawNexTethers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   }
 }
 
+/**
+ * Something the General's slam shook loose: a brass ring at its feet for as long as the
+ * crowd-control immunity lasts. The slam's own shockwave is gone in half a second, so
+ * without this the state it left behind — holds simply not landing — would read as the
+ * towers being broken rather than as the mechanic working.
+ */
+function drawSlamGuard(ctx: CanvasRenderingContext2D, e: Enemy, size: number) {
+  const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 220);
+  ctx.save();
+  ctx.strokeStyle = `rgba(217,178,74,${0.45 + pulse * 0.35})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(e.x, e.y + size * 0.34, size * 0.4, size * 0.16, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** Superior slayer variant: an extremely faint warm shimmer behind the sprite,
  *  echoing the sparkle that marks a "Bigger and Badder" spawn. */
 function drawSuperiorGlow(ctx: CanvasRenderingContext2D, e: Enemy, size: number) {
@@ -597,6 +614,7 @@ export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 
     if (!inPortal && e.affixes && e.affixes.length) drawAffixRings(ctx, e, isBoss, matAlpha);
     if (!inPortal && e.bossState) drawBossTelegraph(ctx, e, size);
+    if (!inPortal && (e.ccImmuneTimer ?? 0) > 0) drawSlamGuard(ctx, e, size);
     // Hidden while the enemy is still in the portal so nothing pokes through.
     if (!inPortal) drawHealthBar(ctx, e, isBoss);
     if (!inPortal) drawPrayerOverheads(gr, ctx, e, isBoss);

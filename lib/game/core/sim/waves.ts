@@ -352,6 +352,9 @@ export function moveEnemies(eng: GameEngine, dt: number) {
     }
     if (e.spawnAnim && e.spawnAnim > 0) e.spawnAnim = Math.max(0, e.spawnAnim - dt);
     if (e.flashTimer && e.flashTimer > 0) e.flashTimer -= dt;
+    // Ticked here, above the escort branch, so a sergeant caught in the General's slam
+    // runs its immunity down too — escorts `continue` before the other status timers.
+    if (e.ccImmuneTimer && e.ccImmuneTimer > 0) e.ccImmuneTimer = Math.max(0, e.ccImmuneTimer - dt);
     e.animTime = (e.animTime ?? 0) + dt; // drives the looping walk-cycle
     // Bosses are stepped by `handleBossMechanics` (they keep the clock in their own
     // state); everything else is stepped here, before any of the `continue`s below,

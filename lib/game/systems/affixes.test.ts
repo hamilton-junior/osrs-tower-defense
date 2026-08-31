@@ -19,6 +19,7 @@ import {
   BOSS_LEAK_BASE,
   BOSS_LEAK_MAX,
   isCcImmune,
+  ignoresCc,
   styleDamageMult,
   styleWeaknessMult,
   STYLE_WEAKNESS_BONUS,
@@ -236,6 +237,17 @@ describe('stat helpers', () => {
   it('isCcImmune only for warded', () => {
     expect(isCcImmune([])).toBe(false);
     expect(isCcImmune(['warded'])).toBe(true);
+  });
+  it('ignoresCc answers for the affix and for a timed immunity alike', () => {
+    // Two sources, one predicate: the permanent Warded affix, and the temporary immunity
+    // General Graardor's slam hands out to everything standing in it.
+    expect(ignoresCc({})).toBe(false);
+    expect(ignoresCc({ affixes: ['warded'] })).toBe(true);
+    expect(ignoresCc({ ccImmuneTimer: 1.5 })).toBe(true);
+    // An expired timer is not an immunity — it must fall through cleanly, or a slam
+    // would silently protect everything it ever touched.
+    expect(ignoresCc({ ccImmuneTimer: 0 })).toBe(false);
+    expect(ignoresCc({ affixes: [], ccImmuneTimer: 0 })).toBe(false);
   });
   it('styleDamageMult halves only the matching armored style', () => {
     expect(styleDamageMult('ranged', 'ranged')).toBe(ARMORED_RESIST);

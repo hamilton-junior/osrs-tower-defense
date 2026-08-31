@@ -145,6 +145,9 @@ import {
   GRAARDOR_GUARD_HP_FRAC,
   GRAARDOR_GUARD_MIN_HP,
   GRAARDOR_SLAM_FIRST,
+  GRAARDOR_SLAM_INTERVAL,
+  GRAARDOR_SLAM_RADIUS,
+  GRAARDOR_SLAM_CC_SECS,
   graardorGuardHp,
   graardorIsArmoured,
   graardorIsSlamming,
@@ -1569,6 +1572,25 @@ describe('General Graardor', () => {
     it('ignores every other boss', () => {
       expect(graardorIsArmoured(freshBossState('corporeal_beast'))).toBe(false);
       expect(graardorIsArmoured(undefined)).toBe(false);
+    });
+  });
+
+  describe('the slam', () => {
+    it('reaches his own line and stops well short of the board', () => {
+      // The slam frees everything inside it from crowd control, so its radius *is* the
+      // mechanic's cost. It has to cover the wedge marching in front of him…
+      const furthest = Math.max(...GRAARDOR_GUARDS.map(g => Math.hypot(g.lead, g.side)));
+      expect(GRAARDOR_SLAM_RADIUS).toBeGreaterThanOrEqual(furthest);
+      // …and nothing like the rest of the road. A quarter of the board's width would
+      // hand the immunity to the whole wave behind him, which is a run modifier, not a
+      // boss mechanic.
+      expect(GRAARDOR_SLAM_RADIUS).toBeLessThan(1440 / 8);
+    });
+
+    it('is a window, not a state', () => {
+      expect(GRAARDOR_SLAM_CC_SECS).toBeGreaterThan(0);
+      // Shorter than the gap between slams, so he is never permanently uncontrollable.
+      expect(GRAARDOR_SLAM_CC_SECS).toBeLessThan(GRAARDOR_SLAM_INTERVAL);
     });
   });
 

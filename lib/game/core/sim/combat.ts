@@ -17,7 +17,7 @@ import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
 import { mergeUnlockBatch } from '../../systems/unlock-queue';
 import { GAME_SOUNDS } from '../sound';
 import { shouldExecute, soulStealAddChance } from '../../systems/relics';
-import { isCcImmune, styleDamageMult, protectedDamageMult, styleWeaknessMult, absorbWithShield, VOLATILE_STUN_SECS, VOLATILE_BLAST_RADIUS, volatileBlastTowers } from '../../systems/affixes';
+import { ignoresCc, styleDamageMult, protectedDamageMult, styleWeaknessMult, absorbWithShield, VOLATILE_STUN_SECS, VOLATILE_BLAST_RADIUS, volatileBlastTowers } from '../../systems/affixes';
 import { bossStyleMult, hydraVentCredit, moleIsHidden, nexIsShielded, KBD_SCORCH_MULT, stallTenacityBonus, escortDamageMult, SCHEDULABLE_BOSSES, scurriusShouldShear, corpSiphonHeal } from '../../systems/boss-mechanics';
 import { GRID, uid, enemyRadius, projectileEase, SHORTEST_CAST_S, DOT_LANE, HITSPLAT_LIFE, IMPACT_BASE_SCALE, IMPACT_SPLASH_SCALE, CORP_LINK_COLOR } from '../engine-state';
 import type { HitsplatKind } from '../engine-state';
@@ -711,7 +711,7 @@ export function noteDebuffHit(eng: GameEngine, e: Enemy) {
  *  per-frame utility aura so it doesn't inflate the counter. `spread` lets the
  *  Chain Freeze card propagate the slow to neighbours (once, non-spreading). */
 export function applySlow(eng: GameEngine, e: Enemy, seconds = 2, count = true, spread = true) {
-  if (isCcImmune(e.affixes ?? [])) return; // Warded affix: ignores slows/freezes
+  if (ignoresCc(e)) return; // Warded, or standing in General Graardor's slam
   const eff = seconds * (1 - tenacity(eng, e));
   if (count) noteDebuffHit(eng, e);
   if (eff <= 0) return;
@@ -769,9 +769,10 @@ export function pierceThrough(eng: GameEngine, p: Projectile, target: Enemy) {
 }
 
 export function applyOnHit(eng: GameEngine, e: Enemy, p: Projectile) {
-  // Warded affix: shrug off the movement crowd-control specials (slow handled in
-  // applySlow; stun/pushback/crush guarded here). DoTs and amp still apply.
-  if (isCcImmune(e.affixes ?? []) && (p.special === 'stun' || p.special === 'pushback' || p.special === 'crush')) return;
+  // Warded affix — or General Graardor's slam: shrug off the movement crowd-control
+  // specials (slow handled in applySlow; stun/pushback/crush guarded here). DoTs and amp
+  // still apply, because neither is a hold.
+  if (ignoresCc(e) && (p.special === 'stun' || p.special === 'pushback' || p.special === 'crush')) return;
   // Source style, stamped on any DoT raised below so boss style-resistance
   // (Zulrah's phases) reduces the over-time damage — notably Fire's %max-HP
   // burn — just as it already reduces the projectile's direct hit.

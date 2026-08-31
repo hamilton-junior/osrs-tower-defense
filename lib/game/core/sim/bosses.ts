@@ -3,7 +3,7 @@ import { SPAWN_ANIM_SECONDS } from '../../types';
 import { ENEMIES } from '../../data/enemies';
 import { distanceSq, squareRange, advanceAlongPath, remainingPathDistance } from '../../systems/geometry';
 import { GAME_SOUNDS } from '../sound';
-import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SAY, graardorGuardHp, NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_WARD_MAX_SECS, NEX_SAY, nexAcolyteHp, nexNextWardIndex, type SiphonCandidate } from '../../systems/boss-mechanics';
+import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SLAM_RADIUS, GRAARDOR_SLAM_CC_SECS, GRAARDOR_SAY, graardorGuardHp, NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_WARD_MAX_SECS, NEX_SAY, nexAcolyteHp, nexNextWardIndex, type SiphonCandidate } from '../../systems/boss-mechanics';
 import type { Scorch } from '../engine-state';
 import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, CORP_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
@@ -1228,16 +1228,40 @@ export function updateGraardor(eng: GameEngine, e: Enemy, dt: number) {
   eng.sound.play('wave', 55);
 }
 
-/** The slam lands: every prayer goes out and the panel is barred for a few seconds. */
+/**
+ * The slam lands. Two things happen, and they are aimed at two different places.
+ *
+ * The **prayers** go out board-wide, because the thing that attack hits is the interface
+ * rather than any one tower. The **ground**, by contrast, is a small circle: everything
+ * standing in it — the General himself and whichever sergeants are still close enough —
+ * is shaken loose of every hold on it and shrugs off new ones for
+ * {@link GRAARDOR_SLAM_CC_SECS}. That is the point of the attack. A Bandosian line
+ * walking into a wall of stuns should be able to punch its way out of it once in a while,
+ * and the immunity is what lets him do that without needing to out-scale the control.
+ *
+ * The radius is deliberately tight ({@link GRAARDOR_SLAM_RADIUS}) — a wide slam would
+ * hand the immunity to the whole wave marching behind him, which is not a boss mechanic,
+ * it is a run modifier.
+ */
 function graardorSlam(eng: GameEngine, e: Enemy) {
   const st = e.bossState!;
   st.slams = (st.slams ?? 0) + 1;
   e.say = undefined;
   e.sayTimer = 0;
   eng.prayer.shatter(GRAARDOR_PRAYER_LOCK);
-  // A shockwave in Bandos' brass, wide enough to read as "that hit the whole board" —
-  // because it did: the thing it hit is the interface, not any one tower.
-  addRing(eng, e.x, bodyY(e), 12, 180, '#d9b24a', 0.6, 5);
+  const r2 = GRAARDOR_SLAM_RADIUS * GRAARDOR_SLAM_RADIUS;
+  for (const o of eng.enemies) {
+    // He is always inside his own slam (distance 0), so no special case for him.
+    if (distanceSq(o.x, o.y, e.x, e.y) > r2) continue;
+    o.ccImmuneTimer = Math.max(o.ccImmuneTimer ?? 0, GRAARDOR_SLAM_CC_SECS);
+    // Shaken loose of whatever is already on it — an immunity that left the existing
+    // stun running would do nothing at all for the thing it was meant to free.
+    o.stunTimer = 0;
+    if (o.slowTimer > 0) { o.slowTimer = 0; o.speed = o.baseSpeed; }
+  }
+  // The shockwave now draws the circle it actually is, so the immunity has a visible
+  // edge — a player has to be able to see which bodies it caught.
+  addRing(eng, e.x, bodyY(e), 12, GRAARDOR_SLAM_RADIUS, '#d9b24a', 0.6, 5);
   eng.sound.play('bossslam_graardor' in GAME_SOUNDS ? 'bossslam_graardor' : 'wave', 75);
 }
 

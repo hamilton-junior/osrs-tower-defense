@@ -10,7 +10,7 @@ import {
   trapTriggeredBy,
   type HunterTrap,
 } from '../../systems/hunter-traps';
-import { isCcImmune } from '../../systems/affixes';
+import { ignoresCc } from '../../systems/affixes';
 import { ASSETS } from '../../assets';
 import { RUN_FX_ID } from '../../systems/combat-stats';
 import type { GameEngine } from '../engine';
@@ -68,8 +68,9 @@ export function updateTraps(eng: GameEngine, dt: number) {
 function fire(eng: GameEngine, trap: HunterTrap, def: HunterTrapDef, e: Enemy): boolean {
   switch (def.kind) {
     case 'snare': {
-      // Warded shrugs off every hold in the game, and this is a hold.
-      if (isCcImmune(e.affixes ?? [])) return false;
+      // Warded — and a General Graardor slam — shrug off every hold in the game, and
+      // this is a hold. The trap keeps its charge for the next thing down the road.
+      if (ignoresCc(e)) return false;
       const eff = def.hold * (1 - tenacity(eng, e));
       noteDebuffHit(eng, e);
       if (eff <= 0) return false;

@@ -130,6 +130,10 @@ export interface Enemy extends EnemyDef {
   pathIndex: number;
   slowTimer: number;
   stunTimer: number;
+  /** Seconds of crowd-control immunity left (General Graardor's slam). While it runs,
+   *  every hold — slow, stun, snare, pushback, crush — is refused outright, exactly as
+   *  the Warded affix refuses them. */
+  ccImmuneTimer?: number;
   tauntTimer: number;
   /** Independent damage-over-time effects (`burn`, `poison`, `venom`), ticked and
    *  shown as separate hitsplats so they never merge into one splat. */
