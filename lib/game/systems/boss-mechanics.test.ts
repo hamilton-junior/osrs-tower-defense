@@ -884,13 +884,55 @@ describe('the stall breaker', () => {
     expect(stallTenacityBonus(s.stallStacks)).toBeGreaterThanOrEqual(0.5);
   });
 
-  it('drops every stack the moment the boss takes a real step down', () => {
+  it('stops the clock when the boss takes a real step down — without refunding it', () => {
     const stalled = run(STALL_GRACE + STALL_STEP * 3, () => 1);
     expect(stalled.stallStacks).toBeGreaterThan(1);
     const freed = stepStall(stalled, 1 - STALL_PROGRESS, DT);
-    expect(freed.stallStacks).toBe(0);
+    // The countdown to the *next* stack is reset, so a board that is genuinely winning
+    // never climbs any further…
     expect(freed.stallTimer).toBe(0);
     expect(freed.hpFloor).toBeCloseTo(1 - STALL_PROGRESS);
+    // …but the stacks already earned are kept. See the stunlock-cycle test below.
+    expect(freed.stallStacks).toBe(stalled.stallStacks);
+    expect(freed.stallFloor).toBe(stalled.stallStacks);
+  });
+
+  it('never hands the escalation back to a stun-chip-stun cycle', () => {
+    // The report: some builds still looped forever. They do not hold a boss at a *flat*
+    // HP — they hold it in a cycle, chipping it between stuns. Every chip counted as
+    // progress and wiped the escalation, so a boss that had fought its way to 4/6 of
+    // breaking free was put back to 0/6 for one point of damage, and the grace period
+    // started over. The stacks are a floor now: the next stalemate counts up from 4/6.
+    let s: StallState = { hpFloor: 1, stallTimer: 0, stallStacks: 0, sinceHit: 0 };
+    let hp = 1;
+    for (let cycle = 0; cycle < 6; cycle++) {
+      s = run(STALL_GRACE + STALL_STEP, () => hp, s); // pinned, HP going nowhere
+      hp -= STALL_PROGRESS * 2;                        // …then chipped just enough to "progress"
+      s = stepStall({ ...s, sinceHit: 0 }, hp, DT);
+    }
+    expect(s.stallStacks).toBe(STALL_MAX_STACKS);
+    expect(stallHealMult(s.stallStacks)).toBe(0);
+    expect(stallTenacityBonus(s.stallStacks)).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it('resumes from the peak rather than from zero', () => {
+    const stalled = run(STALL_GRACE + STALL_STEP * 3, () => 1);
+    const peak = stalled.stallStacks;
+    expect(peak).toBe(4);
+    const freed = stepStall({ ...stalled, sinceHit: 0 }, 1 - STALL_PROGRESS, DT);
+    // One more grace-plus-step from the floor is one more stack — not seven of them to
+    // get back to where it already was.
+    const again = run(STALL_GRACE + 1, () => freed.hpFloor, freed);
+    expect(again.stallStacks).toBe(peak + 1);
+  });
+
+  it('keeps the floor monotonic and capped', () => {
+    const maxed = run(STALL_GRACE + STALL_STEP * 20, () => 1);
+    expect(maxed.stallStacks).toBe(STALL_MAX_STACKS);
+    let s = stepStall(maxed, 0.5, DT);           // a huge, genuine step down
+    expect(s.stallStacks).toBe(STALL_MAX_STACKS); // still spent
+    s = run(STALL_GRACE + STALL_STEP * 20, () => 0.5, s);
+    expect(s.stallStacks).toBe(STALL_MAX_STACKS); // and never overruns the cap
   });
 
   it('does not accept chip damage inside the noise as progress', () => {

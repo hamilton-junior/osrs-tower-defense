@@ -950,6 +950,9 @@ export interface StallState {
   /** Seconds since the enemy last took damage. `Infinity` until it is hit at all, which is
    *  what keeps one that has only just spawned off the clock entirely. */
   sinceHit?: number;
+  /** The escalation's **high-water mark**: stacks this enemy has earned and now keeps for
+   *  good. Progress resets the clock, never this — see {@link stepStall}. */
+  stallFloor?: number;
 }
 
 /** Is the enemy actually being fought right now? Only then does the stall clock run. */
@@ -965,9 +968,22 @@ export function stallStacksFor(stallTimer: number): number {
 }
 
 /**
- * Advance the stall clock one frame. Reaching a new low HP (by at least
- * {@link STALL_PROGRESS}) is *progress*: it resets the clock and drops every stack,
- * so a board that is genuinely grinding the enemy down is never touched by any of this.
+ * Advance the stall clock one frame.
+ *
+ * Reaching a new low HP (by at least {@link STALL_PROGRESS}) is *progress*: it resets the
+ * clock, so a board that is genuinely grinding the enemy down never sees the escalation
+ * climb. What it does **not** do is hand the escalation back. The stacks already earned
+ * are a floor (`stallFloor`), and the next stalemate starts counting from there rather
+ * than from zero.
+ *
+ * That is the whole fix for the loop this was written against. A control build does not
+ * hold an enemy at a flat HP — it holds it in a *cycle*: stun, chip, stun, chip. Every
+ * chip counted as progress, wiped six stacks of tenacity, and handed the build another
+ * twenty seconds of grace to re-lock the enemy in; the escalation could never finish, and
+ * a boss that had already fought its way to 4/6 of breaking free was put back at 0/6 for
+ * one point of damage. Monotonic stacks close it: the enemy keeps every step it has
+ * taken toward walking free, so the cycle can be entered any number of times and still
+ * only ever ends one way.
  *
  * The clock only runs while the enemy is **engaged** — hit inside the last
  * {@link STALL_ENGAGE_WINDOW} seconds. One nobody is shooting is not in a
@@ -977,12 +993,20 @@ export function stallStacksFor(stallTimer: number): number {
  */
 export function stepStall(prev: StallState, hpFrac: number, dt: number): StallState {
   const sinceHit = (prev.sinceHit ?? Infinity) + dt;
+  // The floor only ever moves on a progress reset. Reading it back off the live stacks
+  // every frame would compound — each frame's total becoming the next frame's baseline —
+  // and the escalation would reach its cap in six frames rather than six stalled steps.
+  const floor = prev.stallFloor ?? 0;
   if (hpFrac <= prev.hpFloor - STALL_PROGRESS) {
-    return { hpFloor: hpFrac, stallTimer: 0, stallStacks: 0, sinceHit };
+    const kept = Math.max(floor, prev.stallStacks ?? 0);
+    return { hpFloor: hpFrac, stallTimer: 0, stallStacks: kept, sinceHit, stallFloor: kept };
   }
-  if (!stallIsEngaged(sinceHit)) return { ...prev, sinceHit };
+  if (!stallIsEngaged(sinceHit)) return { ...prev, sinceHit, stallFloor: floor };
   const stallTimer = prev.stallTimer + dt;
-  return { hpFloor: prev.hpFloor, stallTimer, stallStacks: stallStacksFor(stallTimer), sinceHit };
+  // Escalation resumes *from* the floor, so an enemy that reached 4/6 needs one more
+  // grace-plus-step to reach 5/6 — not seven of them to get back to where it was.
+  const stallStacks = Math.min(STALL_MAX_STACKS, floor + stallStacksFor(stallTimer));
+  return { hpFloor: prev.hpFloor, stallTimer, stallStacks, sinceHit, stallFloor: floor };
 }
 
 /** Extra tenacity from the escalation — pushes a stalled enemy past the CC-built cap to
@@ -1670,6 +1694,8 @@ export interface BossState {
   /** Stall breaker: seconds since it last took damage. The engine zeroes this on every
    *  hit that lands; the clock only advances while it is inside the engage window. */
   sinceHit?: number;
+  /** Stall breaker: the high-water mark of the escalation, which progress never gives back. */
+  stallFloor?: number;
 }
 
 /** Build the initial state for a freshly-spawned boss of `kind`. */

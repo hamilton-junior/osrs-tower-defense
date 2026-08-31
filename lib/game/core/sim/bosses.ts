@@ -127,7 +127,13 @@ export function stepStallClock(eng: GameEngine, e: Enemy, dt: number) {
   const st = e.bossState ?? (e.stall ??= { hpFloor: 1, stallTimer: 0, stallStacks: 0, sinceHit: Infinity });
   const before = st.stallStacks ?? 0;
   const next = stepStall(
-    { hpFloor: st.hpFloor ?? 1, stallTimer: st.stallTimer ?? 0, stallStacks: before, sinceHit: st.sinceHit },
+    {
+      hpFloor: st.hpFloor ?? 1,
+      stallTimer: st.stallTimer ?? 0,
+      stallStacks: before,
+      sinceHit: st.sinceHit,
+      stallFloor: st.stallFloor,
+    },
     e.hp / e.maxHp,
     dt,
   );
@@ -135,6 +141,7 @@ export function stepStallClock(eng: GameEngine, e: Enemy, dt: number) {
   st.stallTimer = next.stallTimer;
   st.stallStacks = next.stallStacks;
   st.sinceHit = next.sinceHit;
+  st.stallFloor = next.stallFloor;
 
   if (next.stallStacks <= before) return;
   // Announce only the first stack, and only for a boss — after that the boss bar carries
