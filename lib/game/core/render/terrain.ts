@@ -490,6 +490,9 @@ export function drawSpawnPortal(gr: GameRenderer, ctx: CanvasRenderingContext2D)
  */
 export function drawEffects(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   for (const fx of gr.e.spotEffects) {
+    // A negative age is an effect still waiting its turn — an impact queued alongside the
+    // projectile that causes it, counting up to the moment that projectile lands.
+    if (fx.age < 0) continue;
     const meta = SPOTANIMS[fx.slug];
     const key = `spotanim_${fx.slug}`;
     if (!meta || !gr.e.imageOk(key)) continue;

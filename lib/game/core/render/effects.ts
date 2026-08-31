@@ -1,6 +1,6 @@
 import type { HitsplatKind } from '../engine';
 import { SPOTANIMS } from '../../data/spotanims';
-import { breathArcAngle, breathArcPoint } from '../../systems/boss-mechanics';
+import { lobArcAngle, lobArcPoint } from '../../systems/boss-mechanics';
 import type { GameRenderer } from '../renderer';
 import { HITSPLAT_COLORS, drawImageContain } from './shared';
 
@@ -181,8 +181,8 @@ export function drawSpark(gr: GameRenderer, ctx: CanvasRenderingContext2D, x: nu
 export function drawFx(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   for (const f of gr.e.fx) {
     const t = Math.min(1, f.age / f.life); // 0 → 1 over its life
-    if (f.kind === 'breath') {
-      drawBreathGout(gr, ctx, f.x0, f.y0, f.x1, f.y1, t, f.bow, f.slug);
+    if (f.kind === 'hurl') {
+      drawHurledGfx(gr, ctx, f.x0, f.y0, f.x1, f.y1, t, f.bow, f.slug, f.grow);
     } else if (f.kind === 'ring') {
       const r = f.r0 + (f.r1 - f.r0) * (1 - (1 - t) * (1 - t)); // ease-out expand
       ctx.save();
@@ -208,35 +208,38 @@ export function drawFx(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 }
 
 /**
- * One gout of the King Black Dragon's dragonfire in flight.
+ * One thing in flight, drawn with a boss's own cache GFX: a gout of the King Black
+ * Dragon's dragonfire (spotanims 393-396 — fire, poison, ice, shock), or the boulder
+ * General Graardor throws at whatever his slam just freed (spotanim 314). Both are baked
+ * nose-first along +x, the same convention the spell bolts use, so rotating the sheet to
+ * the flight angle is all the orientation either needs.
  *
- * His own cache GFX — one of the four breaths he carries (spotanims 393-396: fire,
- * poison, ice, shock), picked per breath by the caller — drawn the same way a spell's
- * flight sheet is: baked nose-first along +x, so rotating it to the flight angle is all
- * the orientation it needs.
+ * Neither flies the straight line. Both are *lobbed*: the GFX rides a quadratic Bézier
+ * bowed off the chord by `bow` (see `lobArcControl`), pointed along the curve's own
+ * tangent rather than at the destination, and it accelerates away from the thrower —
+ * fire and rock are both thrown, not carried. Every throw of one volley gets a different
+ * bow, which is what makes a volley countable: nine on nine straight lines from one body
+ * overlap into what looks like three.
  *
- * It does not fly the straight line. Fire is *lobbed*: the gout rides a quadratic Bézier
- * bowed off the chord by `bow` (see `breathArcControl`), pointed along the curve's own
- * tangent rather than at the destination, and it accelerates out of his mouth — fire is
- * thrown, not carried. Every gout of one volley gets a different bow, which is also what
- * makes the volley countable: nine gouts on nine straight lines from one mouth overlap
- * into what looks like three. It still lands exactly as the patch it is aimed at catches,
- * because the fx's `life` and the scorch's ignition time are the same number.
+ * `grow` is the difference between them. A breath widens as it opens; a rock is the same
+ * rock the whole way, and swelling it reads as an approaching camera rather than a throw.
  *
- * The fallback is a plain fiery streak rather than nothing: the projectile is the only
- * thing tying "he breathed" to "that stretch is burning", so it must draw even if the
- * sheet has not decoded yet.
+ * The fallback is a streak rather than nothing: the projectile is the only thing tying
+ * "he did that" to "this is what it did", so it must draw even if the sheet has not
+ * decoded yet. It is fiery for a breath and pale stone for anything else.
  */
-export function drawBreathGout(
+export function drawHurledGfx(
   gr: GameRenderer, ctx: CanvasRenderingContext2D,
   x0: number, y0: number, x1: number, y1: number, t: number, bow: number, slug: string,
+  grow = false,
 ) {
   const from = { x: x0, y: y0 };
   const to = { x: x1, y: y1 };
   const u = t * t;                          // slow out of the mouth, fast on arrival
-  const p = breathArcPoint(from, to, bow, u);
-  const angle = breathArcAngle(from, to, bow, u);
+  const p = lobArcPoint(from, to, bow, u);
+  const angle = lobArcAngle(from, to, bow, u);
   const known = SPOTANIMS[slug] ? slug : 'proj_dragonfire';
+  const fire = known.startsWith('proj_dragonfire');
   const meta = SPOTANIMS[known];
   const key = `spotanim_${known}`;
   ctx.save();
@@ -252,16 +255,15 @@ export function drawBreathGout(
       if (rem < meta.frameMs[fi]) break;
       rem -= meta.frameMs[fi];
     }
-    // It grows as it travels — a breath widens on its way out.
-    const sz = meta.size * (0.7 + 0.5 * t);
+    const sz = meta.size * (grow ? 0.7 + 0.5 * t : 1);
     ctx.drawImage(gr.e.images.get(key)!, fi * meta.frameW, 0, meta.frameW, meta.frameH, -sz / 2, -sz / 2, sz, sz);
   } else {
     ctx.globalCompositeOperation = 'lighter';
     const len = 18 + 10 * t;
     const grad = ctx.createLinearGradient(-len, 0, len * 0.4, 0);
-    grad.addColorStop(0, 'rgba(150, 30, 0, 0)');
-    grad.addColorStop(0.6, 'rgba(255, 140, 30, 0.75)');
-    grad.addColorStop(1, 'rgba(255, 236, 170, 0.95)');
+    grad.addColorStop(0, fire ? 'rgba(150, 30, 0, 0)' : 'rgba(90, 84, 72, 0)');
+    grad.addColorStop(0.6, fire ? 'rgba(255, 140, 30, 0.75)' : 'rgba(196, 188, 168, 0.75)');
+    grad.addColorStop(1, fire ? 'rgba(255, 236, 170, 0.95)' : 'rgba(242, 240, 232, 0.95)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.ellipse(0, 0, len, 5.5, 0, 0, Math.PI * 2);

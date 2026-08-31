@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { IMPACT_RECIPES, resolveImpactTheme, type ImpactTheme } from './impact-fx';
+import { IMPACT_RECIPES, resolveImpactTheme, fanSample, type ImpactTheme } from './impact-fx';
 
 const THEMES: ImpactTheme[] = ['air', 'water', 'earth', 'fire', 'ice', 'blood', 'shadow', 'smoke'];
 
@@ -91,5 +91,65 @@ describe('IMPACT_RECIPES', () => {
     expect(isGrey(s.shards.color)).toBe(true);
     expect(s.particles.colors.every(isGrey)).toBe(true);
     expect(isGrey(s.spark.color)).toBe(true);
+  });
+});
+
+describe('fanSample', () => {
+  const O = { x: 0, y: 0 };
+  /** `n` points evenly around the origin, in bearing order already. */
+  const ring = (n: number, r = 100) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: i,
+      x: Math.cos((i / n) * Math.PI * 2) * r,
+      y: Math.sin((i / n) * Math.PI * 2) * r,
+    }));
+
+  it('keeps everything when the set already fits', () => {
+    const items = ring(4);
+    expect(fanSample(items, O, 6)).toEqual(items);
+    expect(fanSample(items, O, 4)).toEqual(items);
+  });
+
+  it('copies rather than handing back the caller its own array', () => {
+    const items = ring(3);
+    const out = fanSample(items, O, 6);
+    expect(out).not.toBe(items);
+  });
+
+  it('never returns more than the cap', () => {
+    for (const n of [7, 12, 40, 200]) {
+      expect(fanSample(ring(n), O, 6)).toHaveLength(6);
+    }
+  });
+
+  it('returns nothing for a cap of zero or less', () => {
+    expect(fanSample(ring(10), O, 0)).toEqual([]);
+    expect(fanSample(ring(10), O, -3)).toEqual([]);
+  });
+
+  it('spreads the survivors around the origin instead of taking one side', () => {
+    // The whole point: a naive slice(0, 6) of a list built in spawn order would take
+    // whichever six happened to be first, and a slam into a crowd would read as a
+    // directional attack. Thirty bodies in a full circle, arriving in a deliberately
+    // *unsorted* order — the six kept must still cover the circle.
+    const items = ring(30);
+    const shuffled = [...items].sort((a, b) => ((a.id * 7) % 30) - ((b.id * 7) % 30));
+    const out = fanSample(shuffled, O, 6);
+    const quadrants = new Set(out.map(p => (p.x >= 0 ? 0 : 2) + (p.y >= 0 ? 0 : 1)));
+    expect(quadrants.size).toBe(4);
+  });
+
+  it('picks each survivor only once', () => {
+    const out = fanSample(ring(9), O, 6);
+    expect(new Set(out.map(p => p.id)).size).toBe(6);
+  });
+
+  it('measures bearings from the origin it is given, not from (0,0)', () => {
+    // Two bodies north of a slam that landed well south of them are on *the same* side
+    // of the board but on opposite sides of the thrower, and the fan has to know it.
+    const items = [{ id: 0, x: -50, y: 500 }, { id: 1, x: 50, y: 500 }, { id: 2, x: 0, y: 400 }];
+    const out = fanSample(items, { x: 0, y: 600 }, 2);
+    expect(out).toHaveLength(2);
+    expect(new Set(out.map(p => p.id)).size).toBe(2);
   });
 });

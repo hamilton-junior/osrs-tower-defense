@@ -1141,13 +1141,14 @@ export function breathBows(
 }
 
 /**
- * The quadratic Bézier control point for a bowed gout: the midpoint of the chord, pushed
- * off it along the perpendicular by `bow` × the chord's length.
+ * The quadratic Bézier control point for anything **lobbed** — a gout of the King Black
+ * Dragon's breath, a boulder out of General Graardor's fist: the midpoint of the chord,
+ * pushed off it along the perpendicular by `bow` × the chord's length.
  *
- * The normal is always chosen to point *up* the board (negative y), so a breath aimed
- * left and a breath aimed right arc the same way instead of mirroring into a dive.
+ * The normal is always chosen to point *up* the board (negative y), so a throw aimed
+ * left and a throw aimed right arc the same way instead of mirroring into a dive.
  */
-export function breathArcControl(from: Point, to: Point, bow: number): Point {
+export function lobArcControl(from: Point, to: Point, bow: number): Point {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const len = Math.hypot(dx, dy) || 1;
@@ -1161,8 +1162,8 @@ export function breathArcControl(from: Point, to: Point, bow: number): Point {
 
 /** A point on that arc at `u` ∈ [0,1]. `u` is arc parameter, not time — the caller eases
  *  it, so the fire still accelerates out of his mouth. */
-export function breathArcPoint(from: Point, to: Point, bow: number, u: number): Point {
-  const c = breathArcControl(from, to, bow);
+export function lobArcPoint(from: Point, to: Point, bow: number, u: number): Point {
+  const c = lobArcControl(from, to, bow);
   const k = 1 - u;
   return {
     x: k * k * from.x + 2 * k * u * c.x + u * u * to.x,
@@ -1172,8 +1173,8 @@ export function breathArcPoint(from: Point, to: Point, bow: number, u: number): 
 
 /** The heading along that arc at `u` — the Bézier's tangent, so the sprite points where
  *  it is actually going rather than at where it will end up. */
-export function breathArcAngle(from: Point, to: Point, bow: number, u: number): number {
-  const c = breathArcControl(from, to, bow);
+export function lobArcAngle(from: Point, to: Point, bow: number, u: number): number {
+  const c = lobArcControl(from, to, bow);
   const k = 1 - u;
   const dx = 2 * k * (c.x - from.x) + 2 * u * (to.x - c.x);
   const dy = 2 * k * (c.y - from.y) + 2 * u * (to.y - c.y);
@@ -1446,6 +1447,15 @@ export const GRAARDOR_SLAM_WINDUP = 1.2;
  * would mean every wave he is in walks straight through the player's control.
  */
 export const GRAARDOR_SLAM_RADIUS = 96;
+/** How many boulders one slam may throw, however many bodies it caught.
+ *
+ *  The slam hurls his own ranged attack — a real cache GFX, not a stand-in — at each
+ *  thing it frees, so the buff has a visible *sender* and the player can count who got
+ *  it. That read dies the moment the horde is thick enough to bury the board in rock,
+ *  which is exactly when it matters most, so the throw is capped and the survivors are
+ *  picked evenly around him (see `fanSample`) rather than by whoever happens to be
+ *  first in the array. */
+export const GRAARDOR_SLAM_GFX_MAX = 6;
 /** Seconds of crowd-control immunity the slam grants everything standing in it. Brief:
  *  it is a window his line gets to move in, not a state. */
 export const GRAARDOR_SLAM_CC_SECS = 3;

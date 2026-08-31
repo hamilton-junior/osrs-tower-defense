@@ -119,8 +119,8 @@ import {
   soulAnimSlug,
   breathBows,
   breathSlug,
-  breathArcPoint,
-  breathArcAngle,
+  lobArcPoint,
+  lobArcAngle,
   KBD_BREATH_BOW_MIN,
   KBD_BREATH_BOW_MAX,
   KBD_BREATH_SLUGS,
@@ -1371,29 +1371,29 @@ describe('King Black Dragon — the volley you see is the fire that lands', () =
   it('leaves his mouth and lands on the patch, whatever the bow', () => {
     const to = { x: 400, y: 300 };
     for (const bow of [0, KBD_BREATH_BOW_MIN, KBD_BREATH_BOW_MAX]) {
-      expect(breathArcPoint(mouth, to, bow, 0)).toEqual(mouth);
-      expect(breathArcPoint(mouth, to, bow, 1)).toEqual(to);
+      expect(lobArcPoint(mouth, to, bow, 0)).toEqual(mouth);
+      expect(lobArcPoint(mouth, to, bow, 1)).toEqual(to);
     }
   });
 
   it('bows off the straight line, always upwards', () => {
     const to = { x: 400, y: 0 };
-    const mid = breathArcPoint(mouth, to, KBD_BREATH_BOW_MAX, 0.5);
+    const mid = lobArcPoint(mouth, to, KBD_BREATH_BOW_MAX, 0.5);
     expect(mid.x).toBeCloseTo(200, 5);
     expect(mid.y).toBeLessThan(0); // lifted, not dropped
     // The straight-line version of the same shot for comparison.
-    expect(breathArcPoint(mouth, to, 0, 0.5)).toEqual({ x: 200, y: 0 });
+    expect(lobArcPoint(mouth, to, 0, 0.5)).toEqual({ x: 200, y: 0 });
     // Aimed the other way it still lifts — no mirrored dive.
-    expect(breathArcPoint(mouth, { x: -400, y: 0 }, KBD_BREATH_BOW_MAX, 0.5).y).toBeLessThan(0);
+    expect(lobArcPoint(mouth, { x: -400, y: 0 }, KBD_BREATH_BOW_MAX, 0.5).y).toBeLessThan(0);
   });
 
   it('points along the curve, not at the destination', () => {
     const to = { x: 400, y: 0 };
     // Straight shot: the heading is the chord's, the whole way.
-    expect(breathArcAngle(mouth, to, 0, 0.5)).toBeCloseTo(0, 5);
+    expect(lobArcAngle(mouth, to, 0, 0.5)).toBeCloseTo(0, 5);
     // Bowed: it leaves rising and arrives falling.
-    expect(breathArcAngle(mouth, to, KBD_BREATH_BOW_MAX, 0)).toBeLessThan(0);
-    expect(breathArcAngle(mouth, to, KBD_BREATH_BOW_MAX, 1)).toBeGreaterThan(0);
+    expect(lobArcAngle(mouth, to, KBD_BREATH_BOW_MAX, 0)).toBeLessThan(0);
+    expect(lobArcAngle(mouth, to, KBD_BREATH_BOW_MAX, 1)).toBeGreaterThan(0);
   });
 
   it('cycles his four breaths, so a second breath is not a repeat', () => {

@@ -136,3 +136,33 @@ export const IMPACT_RECIPES: Record<ImpactTheme, ImpactRecipe> = {
     spark: { count: 4, color: '#d8d8d8', life: 0.7, size: 2.6 },
   },
 };
+
+/**
+ * Thin a set of VFX targets down to at most `max`, keeping the survivors spread evenly
+ * *around* `origin` rather than clustered on one side.
+ *
+ * Every "one GFX per affected thing" effect has the same failure: it reads beautifully
+ * at three targets and turns the board to soup at thirty — and thirty is precisely the
+ * case the player most needs to read (a slam into a packed horde, a volatile corpse
+ * inside a dense grid of towers). Capping alone is not enough, because the natural cap
+ * is `slice(0, max)` and the arrays are built in spawn or placement order, so the six
+ * survivors all come from one corner and the effect reads as a *directional* attack it
+ * never was.
+ *
+ * So: sort by bearing around the origin, then walk that circle in even strides. The
+ * result still says "everything around me", at a fixed cost.
+ */
+export function fanSample<T extends { x: number; y: number }>(
+  items: readonly T[],
+  origin: { x: number; y: number },
+  max: number,
+): T[] {
+  if (max <= 0) return [];
+  if (items.length <= max) return [...items];
+  const byBearing = [...items].sort(
+    (a, b) => Math.atan2(a.y - origin.y, a.x - origin.x) - Math.atan2(b.y - origin.y, b.x - origin.x),
+  );
+  const out: T[] = [];
+  for (let i = 0; i < max; i++) out.push(byBearing[Math.floor((i * byBearing.length) / max)]);
+  return out;
+}

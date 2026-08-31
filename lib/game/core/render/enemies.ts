@@ -8,6 +8,7 @@ import { ZULRAH_PHASES, hydraPhase, HYDRA_VENT_SECS, moleIsHidden, MOLE_UNDER_SE
 import type { DeathFx } from '../engine-state';
 import type { GameRenderer } from '../renderer';
 import { GUARDIAN_LINK_COLOR, SOUL_COLORS, PORTAL_MASK_R } from './shared';
+import { SPOTANIMS } from '../../data/spotanims';
 
 /** Nex's ward: Zarosian violet, shared by the dome, the tether and the boss-bar caption
  *  so the three read as one mechanic. */
@@ -402,8 +403,14 @@ function drawAffixRings(ctx: CanvasRenderingContext2D, e: Enemy, isBoss: boolean
   ctx.restore();
 }
 
+/** How many ice crystals stand in Vorkath's shell, and how fast the shell turns
+ *  (seconds per revolution). Slow on purpose: the shield is a *wait*, and a fast spin
+ *  reads as an attack winding up. */
+const VORKATH_SHARDS = 6;
+const VORKATH_SPIN_SECS = 9;
+
 /** Boss phase telegraphs: what this boss is doing *right now*, drawn on the body. */
-function drawBossTelegraph(ctx: CanvasRenderingContext2D, e: Enemy, size: number) {
+function drawBossTelegraph(gr: GameRenderer, ctx: CanvasRenderingContext2D, e: Enemy, size: number) {
   const st = e.bossState!;
   if (st.kind === 'zulrah') {
     // A pulsing ring in the current form's colour, echoing the body tint.
@@ -418,7 +425,14 @@ function drawBossTelegraph(ctx: CanvasRenderingContext2D, e: Enemy, size: number
     ctx.stroke();
     ctx.restore();
   } else if (st.kind === 'vorkath' && st.immune) {
-    // Ice shield: a crystalline frosted ring while Vorkath is immune.
+    // Ice shield: a slowly turning shell of real ice around him while he is immune.
+    //
+    // The crystals are the game's own (spotanim 1200, the blue of the three-way recolour
+    // his freeze is built from), one sprite per crystal, each turned to point outward and
+    // the whole ring rotated on wall-clock time. It used to be six stroked lines in a
+    // gradient, which read as a targeting reticle rather than as armour — and this shield
+    // is the one thing in the fight the player must recognise instantly, because every
+    // shot fired at it is wasted.
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 200);
     ctx.save();
     const r = size * 0.66;
@@ -429,14 +443,35 @@ function drawBossTelegraph(ctx: CanvasRenderingContext2D, e: Enemy, size: number
     ctx.beginPath();
     ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = `rgba(200,240,255,${0.7 + pulse * 0.3})`;
-    ctx.lineWidth = 2;
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2 + performance.now() / 1600;
-      ctx.beginPath();
-      ctx.moveTo(e.x + Math.cos(a) * r * 0.5, e.y + Math.sin(a) * r * 0.5);
-      ctx.lineTo(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r);
-      ctx.stroke();
+    const meta = SPOTANIMS.ice_shard;
+    const key = 'spotanim_ice_shard';
+    const spin = (performance.now() / 1000 / VORKATH_SPIN_SECS) * Math.PI * 2;
+    if (meta && gr.e.imageOk(key)) {
+      const img = gr.e.images.get(key)!;
+      // The crystals themselves are still; the shell turns. Their own sheet is a *melt*,
+      // so playing it would have the shield perpetually thawing — one frame, held.
+      const s = size * 0.5;
+      ctx.globalAlpha = 0.75 + pulse * 0.25;
+      for (let k = 0; k < VORKATH_SHARDS; k++) {
+        const a = (k / VORKATH_SHARDS) * Math.PI * 2 + spin;
+        ctx.save();
+        ctx.translate(e.x + Math.cos(a) * r * 0.86, e.y + Math.sin(a) * r * 0.86);
+        // Baked tip-down, so a quarter turn puts the point along the outward radius.
+        ctx.rotate(a - Math.PI / 2);
+        ctx.drawImage(img, 0, 0, meta.frameW, meta.frameH, -s / 2, -s / 2, s, s);
+        ctx.restore();
+      }
+    } else {
+      // Until the sheet decodes, the old spokes — the shield must never be invisible.
+      ctx.strokeStyle = `rgba(200,240,255,${0.7 + pulse * 0.3})`;
+      ctx.lineWidth = 2;
+      for (let k = 0; k < VORKATH_SHARDS; k++) {
+        const a = (k / VORKATH_SHARDS) * Math.PI * 2 + spin;
+        ctx.beginPath();
+        ctx.moveTo(e.x + Math.cos(a) * r * 0.5, e.y + Math.sin(a) * r * 0.5);
+        ctx.lineTo(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r);
+        ctx.stroke();
+      }
     }
     ctx.restore();
   } else if (st.kind === 'hydra' && st.venting) {
@@ -613,7 +648,7 @@ export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     if (e.soulStyle && !inPortal) drawSoulFx(gr, ctx, e, size);
 
     if (!inPortal && e.affixes && e.affixes.length) drawAffixRings(ctx, e, isBoss, matAlpha);
-    if (!inPortal && e.bossState) drawBossTelegraph(ctx, e, size);
+    if (!inPortal && e.bossState) drawBossTelegraph(gr, ctx, e, size);
     if (!inPortal && (e.ccImmuneTimer ?? 0) > 0) drawSlamGuard(ctx, e, size);
     // Hidden while the enemy is still in the portal so nothing pokes through.
     if (!inPortal) drawHealthBar(ctx, e, isBoss);

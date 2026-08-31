@@ -1,6 +1,6 @@
 import type { Enemy, Tower, Projectile, EnemyType, Element, AncientType, DotKind, CombatStyle } from '../../types';
 import { SPOTANIMS } from '../../data/spotanims';
-import { resolveImpactTheme, IMPACT_RECIPES, type ImpactTheme } from '../../systems/impact-fx';
+import { resolveImpactTheme, IMPACT_RECIPES, fanSample, type ImpactTheme } from '../../systems/impact-fx';
 import { ENEMY_ANIMS, clipDurationS, DEATH_SETTLE_S } from '../../data/enemy-anims';
 import { ENEMIES } from '../../data/enemies';
 import { TOWER_STYLES } from '../../data/towers';
@@ -23,7 +23,7 @@ import { GRID, uid, enemyRadius, projectileEase, SHORTEST_CAST_S, DOT_LANE, HITS
 import type { HitsplatKind } from '../engine-state';
 import type { GameEngine } from '../engine';
 import { stallStacksOf, liveRatsOf, shearRat } from './bosses';
-import { makeEnemy, spawnEffect, spawnAncientHitFx, addRing, addBolt } from './waves';
+import { makeEnemy, spawnEffect, spawnAncientHitFx, addRing, addBolt, addHurl } from './waves';
 import { bodyY } from '../../systems/enemy-anchor';
 
 /**
@@ -1312,7 +1312,17 @@ export function raiseSuperior(eng: GameEngine, type: EnemyType, fallen: Enemy) {
  * affix teaches its own shape, and the reason it can be answered by spacing towers out
  * instead of by luck. Which towers fall (and the guarantee that an already-downed one
  * is never re-timed) is `volatileBlastTowers`.
+ *
+ * On top of the ring, the corpse goes up in the game's own fire (the Fire Surge impact),
+ * and a burning fragment is thrown at each tower it actually knocked out. The ring says
+ * *how far*; the fragments say *who*, which is the part a player has to know to answer
+ * this affix — a tower silently greying out in the corner of a packed board reads as a
+ * bug. Capped at {@link VOLATILE_GFX_MAX} and sampled evenly around the corpse, because a
+ * volatile pack dying inside a dense grid is precisely when the answer must stay legible.
  */
+/** How many fragments one detonation may throw, however many towers it downed. */
+const VOLATILE_GFX_MAX = 6;
+
 export function detonateVolatile(eng: GameEngine, x: number, y: number) {
   // An orange shockwave + sparks for the detonation (NOT the spawn-portal
   // spotanim, which read as a gateway opening on the corpse).
@@ -1322,8 +1332,14 @@ export function detonateVolatile(eng: GameEngine, x: number, y: number) {
     const s = 60 + Math.random() * 120;
     eng.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.35, maxLife: 0.35, color: '#ff8a3c', size: 2 });
   }
+  spawnEffect(eng, 'hit_fire_5', x, y, 1.1);
   const hit = volatileBlastTowers(eng.towers, x, y);
   for (const tower of hit) tower.disabledTimer = VOLATILE_STUN_SECS;
+  fanSample(hit, { x, y }, VOLATILE_GFX_MAX).forEach((tower, i) => {
+    const flight = 0.12 + Math.sqrt(distanceSq(tower.x, tower.y, x, y)) / 900;
+    addHurl(eng, x, y, tower.x, tower.y, flight, 0.08 + 0.05 * (i % 3), 'proj_fire_4');
+    spawnEffect(eng, 'hit_fire_2', tower.x, tower.y, 0.9, undefined, flight);
+  });
   if (hit.length) eng.sound.play('hit', 80);
 }
 

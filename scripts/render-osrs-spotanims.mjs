@@ -140,6 +140,35 @@ TARGETS.proj_dragonfire_ice = { id: 395, maxFrames: 12, yaw: -65, pitch: 12 };
 TARGETS.proj_dragonfire_shock = { id: 396, maxFrames: 12, yaw: -65, pitch: 12 };
 
 /**
+ * The God Wars graphics block — spotanims 314-318, one contiguous family of models
+ * (11058-11061) sitting right beside K'ril Tsutsaroth's claw at 11069.
+ *
+ * `proj_graardor` (314) is the boulder General Graardor hurls: a pale, tapered rock
+ * with chunks breaking off it, and the reason he gets his own flight GFX at all — his
+ * slam now throws one at everything the slam catches, so the buff has a *sender*.
+ * `hit_graardor` (316) is that rock shattering.
+ *
+ * Yaw follows the spell-bolt convention: +65 puts the rock's mass on the right and its
+ * taper trailing left — the sheet's canonical "flying +x" pose.
+ *
+ * The family's fourth member, the ground ring at 318, is deliberately NOT baked: it is
+ * two usable frames of a near-white outline, and the slam's radius is a *rule* the player
+ * has to read at a glance — a crisp drawn ring says where the immunity ends far better
+ * than a faint sprite does.
+ */
+TARGETS.proj_graardor = { id: 314, maxFrames: 12, yaw: 65, pitch: 12 };
+TARGETS.hit_graardor = { id: 316, maxFrames: 12, margin: 0.16 };
+
+/**
+ * A single blue ice crystal (spotanim 1200 — the middle of a three-way recolour with
+ * 1198 teal and 1199 white). Vorkath's immunity used to be drawn as six straight lines
+ * rotating in a gradient; it is these instead, so the shell around him is made of real
+ * OSRS ice rather than strokes. Baked upright and front-on: the renderer places and
+ * rotates each shard itself.
+ */
+TARGETS.ice_shard = { id: 1200, maxFrames: 12, yaw: 0, pitch: 0, margin: 0.1 };
+
+/**
  * Parse a spotanim config's model id + animation id (+ recolour) ourselves.
  *
  * Why not osrscachereader's SpotAnimLoader: in the current LIVE cache the model

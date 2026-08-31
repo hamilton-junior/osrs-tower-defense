@@ -34,7 +34,7 @@ export interface SpotAnimMeta {
  * of its frame instead of all of it, and a proportionally bigger box keeps it
  * looking the same size on screen.
  */
-const HIT_SIZE: Record<string, number> = { hit_fire_3: 92 };
+const HIT_SIZE: Record<string, number> = { hit_fire_3: 92, hit_graardor: 60 };
 
 /**
  * Flight GFX that are not a caster's orb. The King Black Dragon's breath is a gout thrown
@@ -43,6 +43,19 @@ const HIT_SIZE: Record<string, number> = { hit_fire_3: 92 };
  */
 const PROJ_SIZE: Record<string, number> = {
   proj_dragonfire: 54, proj_dragonfire_poison: 54, proj_dragonfire_ice: 54, proj_dragonfire_shock: 54,
+  // General Graardor throws a rock, not a bolt: sized between a spell orb and a breath.
+  proj_graardor: 40,
+};
+
+/**
+ * GFX that are neither a spell's flight nor a spell's impact, so the prefix rules below
+ * have nothing to say about them.
+ *  - `ice_shard`: one blue ice crystal (spotanim 1200). It is not an effect on its own —
+ *    the renderer places six of them around Vorkath and rotates each one itself — so it
+ *    loops, and it is small: a *piece* of a shell, not the shell.
+ */
+const STANDALONE: Record<string, { size: number; speed: number; loop?: boolean; blend: 'add' | 'alpha' }> = {
+  ice_shard: { size: 34, speed: 1, loop: true, blend: 'alpha' },
 };
 
 /**
@@ -54,6 +67,7 @@ const PROJ_SIZE: Record<string, number> = {
  *  - `portal`: the looping spawn portal, drawn every frame (not spawnEffect).
  */
 function presentationFor(slug: string): { size: number; speed: number; loop?: boolean; blend: 'add' | 'alpha' } {
+  if (STANDALONE[slug]) return STANDALONE[slug];
   if (slug.startsWith('proj_')) return { size: PROJ_SIZE[slug] ?? 30, speed: 1, loop: true, blend: 'alpha' };
   if (slug.startsWith('hit_')) return { size: HIT_SIZE[slug] ?? 72, speed: 1, blend: 'alpha' };
   // portal (and future NPC-sourced loops)

@@ -259,7 +259,10 @@ export interface Enemy extends EnemyDef {
 export const SPAWN_ANIM_SECONDS = 0.6;
 
 /** A one-shot baked-spotanim effect playing at a point (purely visual). The
- *  `slug` keys into SPOTANIMS; `age` is elapsed simulated time in seconds. */
+ *  `slug` keys into SPOTANIMS; `age` is elapsed simulated time in seconds — and may
+ *  start **negative**, which is how an effect waits: it ages up to 0 without drawing,
+ *  so an impact can be queued at the same moment as the projectile that causes it and
+ *  still land when the projectile does. */
 export interface Effect {
   slug: string;
   x: number;

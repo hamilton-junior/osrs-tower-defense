@@ -252,9 +252,14 @@ export function updateEffects(eng: GameEngine, dt: number) {
  *  `scale` multiplies the spotanim's base draw size (impacts fit the model).
  *  `anchor` pins the GFX to an enemy — like the client's actor graphics, the
  *  effect rides the model while it lives (then finishes where it stood). */
-export function spawnEffect(eng: GameEngine, slug: string, x: number, y: number, scale = 1, anchor?: Enemy) {
+export function spawnEffect(
+  eng: GameEngine, slug: string, x: number, y: number, scale = 1, anchor?: Enemy, delay = 0,
+) {
   if (!SPOTANIMS[slug]) return;
-  eng.spotEffects.push({ slug, x, y, age: 0, scale, enemyId: anchor?.id });
+  // A negative age *is* the delay: the ager counts it up to 0 and the renderer skips it
+  // until then, so an impact can be queued in the same breath as the projectile causing it
+  // and still land when the projectile does — no timer, no second list.
+  eng.spotEffects.push({ slug, x, y, age: -delay, scale, enemyId: anchor?.id });
 }
 
 /** An Ancients hit GFX played ON the struck model: sized from the enemy's
@@ -279,13 +284,16 @@ export function addBolt(eng: GameEngine, x0: number, y0: number, x1: number, y1:
   eng.fx.push({ kind: 'bolt', x0, y0, x1, y1, age: 0, life, color });
 }
 
-/** A gout of the King Black Dragon's dragonfire, thrown from his mouth at the patch of
- *  road it is about to light. `life` is its flight time — it dies as the patch catches. */
-export function addBreath(
+/** Lob a cache GFX from one point to another on a bowed arc — the King Black Dragon's
+ *  dragonfire at the road it is about to light, General Graardor's boulder at a body his
+ *  slam just freed. `life` is the flight time, so whatever the throw causes can be
+ *  scheduled against the same number. `grow` swells it on the way out: true for a breath,
+ *  false for a solid. */
+export function addHurl(
   eng: GameEngine, x0: number, y0: number, x1: number, y1: number,
-  life: number, bow: number, slug: string,
+  life: number, bow: number, slug: string, grow = false,
 ) {
-  eng.fx.push({ kind: 'breath', x0, y0, x1, y1, age: 0, life, bow, slug });
+  eng.fx.push({ kind: 'hurl', x0, y0, x1, y1, age: 0, life, bow, slug, grow });
 }
 
 export function spawn(eng: GameEngine, dt: number) {

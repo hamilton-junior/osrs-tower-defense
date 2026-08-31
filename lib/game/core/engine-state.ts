@@ -602,17 +602,21 @@ export interface Particle {
 export type RuneFx =
   | { kind: 'ring'; x: number; y: number; age: number; life: number; r0: number; r1: number; color: string; width: number }
   | { kind: 'bolt'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string }
-  /** A gout of the King Black Dragon's dragonfire in flight, from his mouth to the patch
-   *  of road it is about to set alight. Drawn with his own cache GFX (spotanim 393) rather
-   *  than a procedural shape, and it lands exactly when the patch lights — `life` is the
-   *  flight time, and the matching entry in the scorch's `lit` carries the same number. */
+  /** Something **lobbed** across the board on a bowed arc, drawn with a real cache GFX
+   *  rather than a procedural shape: a gout of the King Black Dragon's dragonfire from his
+   *  mouth to the patch of road it is about to light, or a boulder out of General
+   *  Graardor's fist at everything his slam just freed. It lands exactly when `life` runs
+   *  out, so whatever it causes can be scheduled against the same number. */
   | {
-      kind: 'breath'; x0: number; y0: number; x1: number; y1: number; age: number; life: number;
-      /** How far this gout bows off the straight line, as a fraction of it — its own
-       *  curve, so a volley fans out instead of stacking into one streak. */
+      kind: 'hurl'; x0: number; y0: number; x1: number; y1: number; age: number; life: number;
+      /** How far this one bows off the straight line, as a fraction of it — its own curve,
+       *  so a volley fans out instead of stacking into one streak. */
       bow: number;
-      /** Which of his four breaths this is (a `proj_dragonfire*` spotanim slug). */
+      /** The flight GFX to draw (a `proj_*` spotanim slug). */
       slug: string;
+      /** Swell on the way out. True for a breath, which widens as it opens; false for a
+       *  thrown solid, which is the same rock the whole way. */
+      grow?: boolean;
     };
 
 /**

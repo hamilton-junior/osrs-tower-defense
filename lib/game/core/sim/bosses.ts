@@ -3,11 +3,12 @@ import { SPAWN_ANIM_SECONDS } from '../../types';
 import { ENEMIES } from '../../data/enemies';
 import { distanceSq, squareRange, advanceAlongPath, remainingPathDistance } from '../../systems/geometry';
 import { GAME_SOUNDS } from '../sound';
-import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SLAM_RADIUS, GRAARDOR_SLAM_CC_SECS, GRAARDOR_SAY, graardorGuardHp, NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_WARD_MAX_SECS, NEX_SAY, nexAcolyteHp, nexNextWardIndex, type SiphonCandidate } from '../../systems/boss-mechanics';
+import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SLAM_RADIUS, GRAARDOR_SLAM_CC_SECS, GRAARDOR_SLAM_GFX_MAX, GRAARDOR_SAY, graardorGuardHp, NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_WARD_MAX_SECS, NEX_SAY, nexAcolyteHp, nexNextWardIndex, type SiphonCandidate } from '../../systems/boss-mechanics';
 import type { Scorch } from '../engine-state';
 import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, CORP_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
-import { makeEnemy, addRing, addBreath } from './waves';
+import { makeEnemy, addRing, addHurl, spawnEffect } from './waves';
+import { fanSample } from '../../systems/impact-fx';
 import { bodyY } from '../../systems/enemy-anchor';
 
 /**
@@ -864,7 +865,7 @@ export function updateKbd(eng: GameEngine, e: Enemy, dt: number) {
     const bows = breathBows(points.length);
     const slug = breathSlug(st.breaths ?? 0);
     for (let i = 0; i < points.length; i++) {
-      addBreath(eng, mouth.x, mouth.y, points[i].x, points[i].y, lit[i], bows[i], slug);
+      addHurl(eng, mouth.x, mouth.y, points[i].x, points[i].y, lit[i], bows[i], slug, true);
     }
   }
   st.scorchAt = undefined;
@@ -1242,6 +1243,13 @@ export function updateGraardor(eng: GameEngine, e: Enemy, dt: number) {
  * The radius is deliberately tight ({@link GRAARDOR_SLAM_RADIUS}) — a wide slam would
  * hand the immunity to the whole wave marching behind him, which is not a boss mechanic,
  * it is a run modifier.
+ *
+ * And it is *shown*, not merely applied. Every body the slam frees is thrown one of his
+ * own boulders — spotanim 314, the rock he really does hurl in the God Wars Dungeon —
+ * which shatters (316) on arrival. That turns a silent stat change into an attack with a
+ * sender and a set of receivers a player can count. It is capped at
+ * {@link GRAARDOR_SLAM_GFX_MAX} throws, picked evenly around him, because the case where
+ * the read matters most is exactly the case where one rock per body would bury the board.
  */
 function graardorSlam(eng: GameEngine, e: Enemy) {
   const st = e.bossState!;
@@ -1250,6 +1258,7 @@ function graardorSlam(eng: GameEngine, e: Enemy) {
   e.sayTimer = 0;
   eng.prayer.shatter(GRAARDOR_PRAYER_LOCK);
   const r2 = GRAARDOR_SLAM_RADIUS * GRAARDOR_SLAM_RADIUS;
+  const freed: Enemy[] = [];
   for (const o of eng.enemies) {
     // He is always inside his own slam (distance 0), so no special case for him.
     if (distanceSq(o.x, o.y, e.x, e.y) > r2) continue;
@@ -1258,10 +1267,23 @@ function graardorSlam(eng: GameEngine, e: Enemy) {
     // stun running would do nothing at all for the thing it was meant to free.
     o.stunTimer = 0;
     if (o.slowTimer > 0) { o.slowTimer = 0; o.speed = o.baseSpeed; }
+    if (o !== e) freed.push(o); // he does not throw a rock at himself
   }
   // The shockwave now draws the circle it actually is, so the immunity has a visible
   // edge — a player has to be able to see which bodies it caught.
   addRing(eng, e.x, bodyY(e), 12, GRAARDOR_SLAM_RADIUS, '#d9b24a', 0.6, 5);
+  const fist = { x: e.x, y: bodyY(e) };
+  fanSample(freed, fist, GRAARDOR_SLAM_GFX_MAX).forEach((o, i) => {
+    // Short flights — the throw is a *pointer*, and a rock still in the air when the
+    // immunity is already running would be a lie about when the buff landed.
+    const flight = 0.16 + Math.sqrt(distanceSq(o.x, bodyY(o), fist.x, fist.y)) / 900;
+    // Alternating bows, so two rocks thrown at neighbouring bodies take visibly
+    // different arcs instead of merging into one streak.
+    addHurl(eng, fist.x, fist.y, o.x, bodyY(o), flight, 0.1 + 0.06 * (i % 3), 'proj_graardor');
+    // The shatter is queued now and waits out the flight (a negative age), anchored to
+    // the body so it breaks on the mark even if the mark walked.
+    spawnEffect(eng, 'hit_graardor', o.x, bodyY(o), 1, o, flight);
+  });
   eng.sound.play('bossslam_graardor' in GAME_SOUNDS ? 'bossslam_graardor' : 'wave', 75);
 }
 
