@@ -1,9 +1,9 @@
-import type { Enemy, Point, EnemyType } from '../../types';
+import type { AncientType, Enemy, Point, EnemyType, Tower } from '../../types';
 import { SPAWN_ANIM_SECONDS } from '../../types';
 import { ENEMIES } from '../../data/enemies';
-import { distanceSq, squareRange, advanceAlongPath, remainingPathDistance } from '../../systems/geometry';
+import { distanceSq, squareRange, inSquareRange, advanceAlongPath, remainingPathDistance } from '../../systems/geometry';
 import { GAME_SOUNDS } from '../sound';
-import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_MAX_CORES, CORP_CORE_LATCH_DIST, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SLAM_RADIUS, GRAARDOR_SLAM_CC_SECS, GRAARDOR_SLAM_GFX_MAX, GRAARDOR_SAY, graardorGuardHp, NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_WARD_MAX_SECS, NEX_SAY, nexAcolyteHp, nexNextWardIndex, type SiphonCandidate } from '../../systems/boss-mechanics';
+import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, corpCoreCap, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_CORE_HOP_SECS, CORP_CORE_HOP_LIFT, CORP_CORE_RETARGET_SECS, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SLAM_RADIUS, GRAARDOR_SLAM_CC_SECS, GRAARDOR_SLAM_GFX_MAX, GRAARDOR_SAY, graardorGuardHp, NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_WARD_MAX_SECS, NEX_SAY, NEX_SILENCE_SECS, NEX_SILENCE_INTERVAL, NEX_SILENCE_GFX_MAX, nexAcolyteHp, nexNextWardIndex, nexSilencedTowers, type SiphonCandidate } from '../../systems/boss-mechanics';
 import type { Scorch } from '../engine-state';
 import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, CORP_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
@@ -1041,35 +1041,81 @@ export function updateCorp(eng: GameEngine, e: Enemy, dt: number) {
   st.coreTimer = (st.coreTimer ?? CORP_FIRST_CORE) - dt;
   if (st.coreTimer > 0) return;
   // The clock resets whether or not a core actually goes out, so a board with nothing
-  // left to take (or already holding three) is not rewarded with a shorter fight later.
+  // left to take (or already at the ceiling) is not rewarded with a shorter fight later.
   st.coreTimer = CORP_CORE_INTERVAL;
-  if (cores.length >= CORP_MAX_CORES) return;
-  if (spitDarkCore(eng, e)) st.coresSpat = (st.coresSpat ?? 0) + 1;
+  // Each spit sends one more core than the last, and the wave decides where that stops
+  // (`corpCoreCap`) — so the fight escalates by itself, and a Beast met early is the same
+  // fight at proportionally less pressure. The ceiling counts the cores already out, so a
+  // player who kills none of them never faces more than the cap at once.
+  const cap = corpCoreCap(eng.wave);
+  const wanted = Math.min((st.coreVolleys ?? 0) + 1, cap - cores.length);
+  const names: string[] = [];
+  for (let i = 0; i < wanted; i++) {
+    const tower = spitDarkCore(eng, e);
+    if (!tower) break; // nothing left to take
+    names.push(tower.name);
+  }
+  if (!names.length) return;
+  st.coreVolleys = (st.coreVolleys ?? 0) + 1;
+  st.coresSpat = (st.coresSpat ?? 0) + names.length;
+  e.say = CORP_SAY;
+  e.sayTimer = 1.2;
+  addRing(eng, e.x, bodyY(e), 8, 60, CORP_LINK_COLOR, 0.55, 4);
+  eng.sound.play('wave', 60);
+  // Name the towers: the player has to know *which* ones went quiet, and on a full board
+  // a handful of purple motes crossing the screen is not enough to find them by.
+  eng.notify(
+    names.length === 1
+      ? `The Corporeal Beast spits a Dark energy core at your ${names[0]}!`
+      : `The Corporeal Beast spits ${names.length} Dark energy cores \u2014 ${names.join(', ')}!`,
+  );
 }
 
-/** Every tower the next core could be spat at, priced by what it is actually worth —
- *  its live, cache-warm damage over its live cooldown. Utility wizards are left out:
- *  they project a field rather than firing, so siphoning one would take nothing. */
-function siphonCandidates(eng: GameEngine): SiphonCandidate[] {
+/** What one tower is worth to a core: its live, cache-warm damage over its live cooldown.
+ *  Read from the stat cache rather than the base numbers, so gear and upgrades bought in
+ *  the middle of this wave count the moment they land — which is exactly the case the
+ *  re-target below exists for. */
+function towerDps(eng: GameEngine, t: Tower): number {
+  const st = eng.statsCache.get(t.id)?.stats;
+  const dmg = (t.damage + (st?.flatDamageBonus ?? 0)) * (st?.damageMultiplier ?? 1);
+  const cd = st?.cooldown ?? t.cooldown;
+  return cd > 0 ? dmg / cd : dmg;
+}
+
+/** Whether `tower` can currently reach `e` — its own live square range, the same test its
+ *  targeting uses. */
+function towerReaches(eng: GameEngine, tower: Tower, e: Enemy): boolean {
+  const range = eng.statsCache.get(tower.id)?.stats.range ?? tower.range;
+  return inSquareRange(e.x, e.y, tower.x, tower.y, squareRange(range, GRID) + enemyRadius(e));
+}
+
+/** Every tower the next core could be spat at, priced by what it is actually worth and
+ *  flagged with whether it is shooting the Beast right now — the cores go for his real
+ *  attackers first. Utility wizards are left out: they project a field rather than firing,
+ *  so siphoning one would take nothing. */
+function siphonCandidates(eng: GameEngine, beast?: Enemy): SiphonCandidate[] {
   const claimed = new Set<string>();
   for (const c of eng.enemies) if (c.type === 'dark_core' && c.coreTowerId) claimed.add(c.coreTowerId);
   const out: SiphonCandidate[] = [];
   for (const t of eng.towers) {
     if (t.type === 'wizard' && t.mageMode === 'utility') continue;
-    const st = eng.statsCache.get(t.id)?.stats;
-    const dmg = (t.damage + (st?.flatDamageBonus ?? 0)) * (st?.damageMultiplier ?? 1);
-    const cd = st?.cooldown ?? t.cooldown;
-    out.push({ id: t.id, dps: cd > 0 ? dmg / cd : dmg, taken: !!t.siphonedBy || claimed.has(t.id) });
+    out.push({
+      id: t.id,
+      dps: towerDps(eng, t),
+      taken: !!t.siphonedBy || claimed.has(t.id),
+      attacking: !!beast && t.targetId === beast.id,
+    });
   }
   return out;
 }
 
-/** Spit one core at the best free tower. Returns false when there is nothing to take —
- *  an empty board, or every tower already held. */
-export function spitDarkCore(eng: GameEngine, beast: Enemy): boolean {
-  const towerId = pickSiphonTarget(siphonCandidates(eng));
+/** Spit one core at the best free tower shooting him, and hand back that tower — or null
+ *  when there is nothing left to take: an empty board, or every tower already held. The
+ *  announcement is the caller's, because one spit is now a volley of several. */
+export function spitDarkCore(eng: GameEngine, beast: Enemy): Tower | null {
+  const towerId = pickSiphonTarget(siphonCandidates(eng, beast));
   const tower = towerId ? eng.towers.find((t) => t.id === towerId) : undefined;
-  if (!tower) return false;
+  if (!tower) return null;
   const hp = corpCoreHp(beast.maxHp);
   const speed = ENEMIES.dark_core.speed;
   eng.enemies.push({
@@ -1081,6 +1127,15 @@ export function spitDarkCore(eng: GameEngine, beast: Enemy): boolean {
     ownerId: beast.id,
     coreTowerId: tower.id,
     coreLatched: false,
+    coreHopT: 0,
+    coreHopX: beast.x,
+    coreHopY: bodyY(beast),
+    coreRetarget: CORP_CORE_RETARGET_SECS,
+    // Not a body, a mote of him. Holds and freezes have nothing to grip, and a core
+    // that could be stunned out of the air would be answered by the same slow the rest of
+    // the wave already eats. Deliberately not `ccImmuneTimer`: that one is General
+    // Graardor's slam, and it draws Bandos's sigil under whatever it freed.
+    ccImmune: true,
     debug: beast.debug, // a sandbox Beast spits sandbox cores
     x: beast.x,
     y: bodyY(beast),
@@ -1097,23 +1152,36 @@ export function spitDarkCore(eng: GameEngine, beast: Enemy): boolean {
     animTime: 0,
     spawnAnim: SPAWN_ANIM_SECONDS,
   });
-  beast.say = CORP_SAY;
-  beast.sayTimer = 1.2;
-  addRing(eng, beast.x, bodyY(beast), 8, 60, CORP_LINK_COLOR, 0.55, 4);
-  eng.sound.play('wave', 60);
-  // Name the tower: the player has to know *which* one went quiet, and on a full board
-  // a purple mote crossing the screen is not enough to find it by.
-  eng.notify(`The Corporeal Beast spits a Dark energy core at your ${tower.name}!`);
-  return true;
+  return tower;
+}
+
+/** Point a core at a tower and throw it there: the arc starts from wherever it is
+ *  standing now, and it lets go of whatever it was holding on the way up (the link is
+ *  cleared by `handleBossMechanics`, which watches `coreLatched`). */
+function startCoreHop(e: Enemy, towerId: string) {
+  e.coreTowerId = towerId;
+  e.coreLatched = false;
+  e.coreHopT = 0;
+  e.coreHopX = e.x;
+  e.coreHopY = e.y;
 }
 
 /**
- * A Dark energy core in flight, and then latched.
+ * A Dark energy core: mid-hop, landed, and deciding where to go next.
  *
  * Unlike every other escort it does not orbit its owner — it leaves the Beast entirely
- * and crosses the board to one tower. Until it arrives the tower keeps shooting: the
- * flight *is* the warning, and a mechanic that took effect the frame it was announced
- * would be a tax rather than a thing to answer.
+ * and goes to one tower. And it does not *fly* there: in his real fight the core jumps
+ * onto the player's tile the moment it is not already on it, so here it jumps too — a
+ * short arc ({@link CORP_CORE_HOP_SECS}), a landing, and then it sits. The hop is brief
+ * on purpose: it is a warning, not a journey, and a core still crossing the board when
+ * the next one is spat would turn the whole mechanic into scenery.
+ *
+ * Once landed it keeps asking, every {@link CORP_CORE_RETARGET_SECS}, whether it is still
+ * on the right tower — the strongest one actually shooting the Beast. It jumps again when
+ * the tower it holds can no longer reach him, or when a free tower has overtaken it: the
+ * player who buys a bigger weapon mid-wave has, by doing so, told the cores where to go.
+ * The interval exists so that answer arrives as a decision rather than a twitch between
+ * two towers a point apart.
  */
 export function updateDarkCore(eng: GameEngine, e: Enemy, dt: number) {
   const tower = e.coreTowerId ? eng.towers.find((t) => t.id === e.coreTowerId) : undefined;
@@ -1121,31 +1189,57 @@ export function updateDarkCore(eng: GameEngine, e: Enemy, dt: number) {
     // Its tower was sold out from under it. Re-pick rather than leaving the thing
     // hanging in the air: selling the tower is a legitimate answer, but it should cost
     // the tower, not end the mechanic.
+    const beast = e.ownerId ? eng.enemies.find((b) => b.id === e.ownerId) : undefined;
+    const next = pickSiphonTarget(siphonCandidates(eng, beast));
     e.coreLatched = false;
-    e.coreTowerId = pickSiphonTarget(siphonCandidates(eng)) ?? undefined;
+    if (next) startCoreHop(e, next);
+    else e.coreTowerId = undefined;
     return;
   }
-  const dx = tower.x - e.x;
-  const dy = tower.y - e.y;
-  const d = Math.hypot(dx, dy);
-  if (d > CORP_CORE_LATCH_DIST) {
-    const step = Math.min(d, e.speed * dt);
-    e.x += (dx / d) * step;
-    e.y += (dy / d) * step;
-    return;
+  // Where it sits when it lands: on the tower, a little up its body.
+  const tx = tower.x;
+  const ty = tower.y - TOWER_BODY_RADIUS * 0.5;
+  const hop = e.coreHopT ?? 1;
+  if (hop < 1) {
+    const k = Math.min(1, hop + dt / CORP_CORE_HOP_SECS);
+    e.coreHopT = k;
+    e.x = (e.coreHopX ?? e.x) + (tx - (e.coreHopX ?? e.x)) * k;
+    e.y = (e.coreHopY ?? e.y) + (ty - (e.coreHopY ?? e.y)) * k;
+    // A half-sine off the straight line: it leaves the ground, clears the sprite it was
+    // sitting on, and comes back down on the mark.
+    e.y -= Math.sin(k * Math.PI) * CORP_CORE_HOP_LIFT;
+    if (k < 1) return;
   }
   if (!e.coreLatched) {
     e.coreLatched = true;
+    e.coreHopT = 1;
     tower.siphonedBy = e.id;
     tower.targetId = null; // it is not aiming at anything any more
     addRing(eng, tower.x, tower.y, 6, 44, CORP_LINK_COLOR, 0.5, 3);
     eng.sound.play('wave', 50);
   }
+  e.coreRetarget = (e.coreRetarget ?? CORP_CORE_RETARGET_SECS) - dt;
+  if (e.coreRetarget <= 0) {
+    e.coreRetarget = CORP_CORE_RETARGET_SECS;
+    const beast = e.ownerId ? eng.enemies.find((b) => b.id === e.ownerId) : undefined;
+    // A held tower has no `targetId` — the core took it — so "is it still attacking?"
+    // cannot be read off the tower. What can be read is whether it *could*: if the Beast
+    // has walked out of its range, holding it is no longer holding anything back.
+    const stillOnHim = !!beast && towerReaches(eng, tower, beast);
+    const cands = siphonCandidates(eng, beast);
+    const bestId = pickSiphonTarget(cands);
+    const best = bestId ? cands.find((c) => c.id === bestId) : undefined;
+    // Strictly greater, so an equal-value tower never starts a hop: ties would have the
+    // cores trading places forever on a board of identical towers.
+    const overtaken = !!best && best.dps > towerDps(eng, tower);
+    if (best && (!stillOnHim || overtaken)) startCoreHop(e, best.id);
+    if (!e.coreLatched) return; // it just let go and is in the air again
+  }
   // Sitting on the tower it holds, bobbing — it must read as attached, not as an enemy
   // that happens to be standing there.
   e.orbit = (e.orbit ?? 0) + dt * ESCORT_ORBIT_DRIFT;
-  e.x = tower.x;
-  e.y = tower.y - TOWER_BODY_RADIUS * 0.5 + Math.sin(e.orbit * 2.2) * 2.5;
+  e.x = tx;
+  e.y = ty + Math.sin(e.orbit * 2.2) * 2.5;
 }
 
 /** Move an escort (a Yt-HurKot healer, a Summoned Soul) toward its orbit slot around

@@ -393,12 +393,16 @@ export function isCcImmune(affixes: readonly EnemyAffix[]): boolean {
 
 /**
  * The question every piece of crowd control actually asks: does this hold land on this
- * enemy at all? Two sources answer no — the Warded affix, which is permanent, and a
- * timed immunity granted by a boss (General Graardor's slam), which is not. One predicate
- * for both, so a new source of either kind is honoured everywhere holds are applied.
+ * enemy at all? Three sources answer no — the Warded affix, which is permanent; a timed
+ * immunity granted by a boss (General Graardor's slam), which is not; and a body that is
+ * simply built that way (`ccImmune` — the Corporeal Beast's dark energy core, which is
+ * not a body at all but a jumping mote of him). One predicate for all three, so a new
+ * source of any kind is honoured everywhere holds are applied.
  */
-export function ignoresCc(e: { affixes?: readonly EnemyAffix[]; ccImmuneTimer?: number }): boolean {
-  return isCcImmune(e.affixes ?? []) || (e.ccImmuneTimer ?? 0) > 0;
+export function ignoresCc(
+  e: { affixes?: readonly EnemyAffix[]; ccImmuneTimer?: number; ccImmune?: boolean },
+): boolean {
+  return !!e.ccImmune || isCcImmune(e.affixes ?? []) || (e.ccImmuneTimer ?? 0) > 0;
 }
 
 /** Damage multiplier for an incoming `style` against an enemy's `armoredStyle`. */

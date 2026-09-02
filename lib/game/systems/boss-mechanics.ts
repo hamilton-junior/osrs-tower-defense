@@ -1315,10 +1315,17 @@ export function kbdIsHalted(state: BossState | undefined): boolean {
 export const CORP_FIRST_CORE = 7;
 /** Seconds between cores, measured spit to spit. */
 export const CORP_CORE_INTERVAL = 15;
-/** How many cores may hold towers at once. A ceiling, not a target: the timer keeps
- *  running, so a player who never kills one still only ever loses three towers — a boss
- *  that could eventually take the whole board is not a mechanic, it is a wall. */
-export const CORP_MAX_CORES = 3;
+/** The most cores that may ever be out at once — the ceiling at the wave he is meant to
+ *  be met on. A ceiling, not a target: the timer keeps running, so a player who never
+ *  kills one still only ever loses this many towers. A boss that could eventually take
+ *  the whole board is not a mechanic, it is a wall. */
+export const CORP_MAX_CORES = 5;
+/** The wave a fresh account meets the Beast on: his slot in {@link SCHEDULABLE_BOSSES},
+ *  one boss per boss-wave (`wave-generation`'s `BOSS_WAVE_INTERVAL`, not imported here —
+ *  that module imports *this* one). The core count is measured against it, so the fight
+ *  at its intended wave is the full five, and the same fight rolled early — a later run,
+ *  where he is already met and can come up at wave 20 — is proportionally smaller. */
+export const CORP_CORE_SCALE_WAVE = (SCHEDULABLE_BOSSES.indexOf('corporeal_beast') + 1) * 10;
 /** A core's health as a fraction of the Beast's, so it stays killable-but-not-free at
  *  every wave the fight can appear on. */
 export const CORP_CORE_HP_FRAC = 0.06;
@@ -1332,8 +1339,17 @@ export const CORP_ARMOUR_MULT = 0.5;
  *  full amount back would make one core worth two towers, and with the armour on top of
  *  it the fight would stop moving entirely. */
 export const CORP_SIPHON_HEAL_FRAC = 0.5;
-/** Logic pixels: how close the core must get to its tower before it latches. */
-export const CORP_CORE_LATCH_DIST = 8;
+/** Seconds one hop takes. The core does not *fly* to a tower — in his real fight it
+ *  jumps onto the player's tile the moment it is not already on it, and it does the same
+ *  here: a short arc, land, hold. Short enough to be an arrival rather than a journey,
+ *  long enough that the tower gets one more volley off first. */
+export const CORP_CORE_HOP_SECS = 0.55;
+/** How high the hop arcs, in logic pixels — it has to clear the sprite it is leaving. */
+export const CORP_CORE_HOP_LIFT = 46;
+/** Seconds between "is this still the right tower?" checks while latched. A core that
+ *  re-decided every frame would twitch between two towers a point apart; this is slow
+ *  enough to read as the core changing its mind. */
+export const CORP_CORE_RETARGET_SECS = 1.5;
 /** His tell. In-game strings stay English. */
 export const CORP_SAY = '*spits*';
 
@@ -1345,6 +1361,10 @@ export interface SiphonCandidate {
   dps: number;
   /** True if some other core is already latched onto it, or on its way there. */
   taken?: boolean;
+  /** True if this tower is shooting **the Beast himself** right now. When any candidate
+   *  says so, the pick is made among those alone — the cores go for whatever is actually
+   *  hurting him. Left off (as the tests leave it) the field does nothing. */
+  attacking?: boolean;
 }
 
 /**
@@ -1355,14 +1375,38 @@ export interface SiphonCandidate {
  * he would pick the same front-line tower every time. Picking the highest damage instead
  * aims the mechanic at exactly the board it is meant to test: the one carrying a single
  * star tower. Ties break on id, so the same board always answers the same way.
+ *
+ * "Best" is narrowed once more when the caller can say who is **shooting him**: among
+ * those, only those. A core that jumped the biggest tower on the board while that tower
+ * was nowhere near the fight took nothing the player was using, and the mechanic read as
+ * random; going for his actual attackers makes every jump a trade the player watches
+ * happen. When nobody is flagged — the whole board out of reach, or a caller that does
+ * not track it at all — the pick falls back to the full free set, so a core always goes
+ * somewhere.
  */
 export function pickSiphonTarget(candidates: readonly SiphonCandidate[]): string | null {
+  const free = candidates.filter((c) => !c.taken);
+  const pool = free.some((c) => c.attacking) ? free.filter((c) => c.attacking) : free;
   let best: SiphonCandidate | null = null;
-  for (const c of candidates) {
-    if (c.taken) continue;
+  for (const c of pool) {
     if (!best || c.dps > best.dps || (c.dps === best.dps && c.id < best.id)) best = c;
   }
   return best ? best.id : null;
+}
+
+/**
+ * How many cores this fight is allowed, from the wave it is being fought on.
+ *
+ * Every spit sends one more core than the last, so the fight escalates on its own; this
+ * is where it stops. {@link CORP_MAX_CORES} at {@link CORP_CORE_SCALE_WAVE} — the wave he
+ * is introduced on — and proportionally fewer below it, rounded to the nearest whole core
+ * and never less than one. A Beast rolled at wave 20 on a later run is then the same
+ * fight at a fifth of the pressure, rather than the wave-110 fight dropped on a board
+ * that has not been built yet.
+ */
+export function corpCoreCap(wave: number, scaleWave = CORP_CORE_SCALE_WAVE): number {
+  if (scaleWave <= 0) return CORP_MAX_CORES;
+  return Math.max(1, Math.min(CORP_MAX_CORES, Math.round((CORP_MAX_CORES * wave) / scaleWave)));
 }
 
 /** A core's health, from the Beast that spat it. */
@@ -1677,6 +1721,10 @@ export interface BossState {
   coreTimer?: number;
   /** Corporeal Beast: cores spat so far, read out on the boss bar. */
   coresSpat?: number;
+  /** Corporeal Beast: how many times he has spat, which is also how many cores the *next*
+   *  spit sends. Kept apart from {@link coresSpat} because that one is the running total
+   *  the boss bar reads, and a volley of three has to add three to it. */
+  coreVolleys?: number;
   /** Corporeal Beast: how many of them are currently latched onto a tower. Rebuilt from
    *  the live cores every frame (like Cerberus's locked styles), so the armour drops the
    *  instant the last one dies rather than a tick later. */
@@ -1749,6 +1797,7 @@ export function freshBossState(kind: BossId): BossState {
   if (kind === 'corporeal_beast') {
     state.coreTimer = CORP_FIRST_CORE;
     state.coresSpat = 0;
+    state.coreVolleys = 0;
     state.coresLatched = 0;
   }
   if (kind === 'graardor') {

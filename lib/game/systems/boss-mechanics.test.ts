@@ -152,6 +152,12 @@ import {
   graardorIsArmoured,
   graardorIsSlamming,
   CORP_SIPHON_HEAL_FRAC,
+  corpCoreCap,
+  CORP_MAX_CORES,
+  CORP_CORE_SCALE_WAVE,
+  NEX_SILENCE_SECS,
+  NEX_SILENCE_INTERVAL,
+  nexSilencedTowers,
 } from './boss-mechanics';
 import type { BossState } from './boss-mechanics';
 import { ENEMY_ANIMS } from '../data/enemy-anims';
@@ -1455,6 +1461,69 @@ describe('Corporeal Beast', () => {
     it('returns null with nothing left to take', () => {
       expect(pickSiphonTarget([])).toBeNull();
       expect(pickSiphonTarget([cand('a', 90, true)])).toBeNull();
+    });
+
+    it('prefers a tower shooting the Beast over a stronger one that is not', () => {
+      // The whole rule: the cores go for whatever is actually hurting him, so the answer
+      // to a core is to stop shooting, not to have built small.
+      const out = pickSiphonTarget([
+        { id: 'idle', dps: 500 },
+        { id: 'onhim', dps: 30, attacking: true },
+      ]);
+      expect(out).toBe('onhim');
+    });
+
+    it('picks the strongest among his attackers', () => {
+      const out = pickSiphonTarget([
+        { id: 'a', dps: 10, attacking: true },
+        { id: 'b', dps: 90, attacking: true },
+        { id: 'c', dps: 999 },
+      ]);
+      expect(out).toBe('b');
+    });
+
+    it('never picks an attacker a core already has', () => {
+      const out = pickSiphonTarget([
+        { id: 'held', dps: 90, attacking: true, taken: true },
+        { id: 'free', dps: 20, attacking: true },
+      ]);
+      expect(out).toBe('free');
+    });
+
+    it('falls back to the strongest tower when nothing is shooting him', () => {
+      // If the board has stopped firing at him entirely there is still a fight to have,
+      // so the spit lands on the biggest thing standing.
+      expect(pickSiphonTarget([cand('a', 10), cand('b', 90)])).toBe('b');
+    });
+  });
+
+  describe('corpCoreCap', () => {
+    it('is the full five on the wave he is meant to be met on', () => {
+      expect(corpCoreCap(CORP_CORE_SCALE_WAVE)).toBe(CORP_MAX_CORES);
+    });
+
+    it('never goes past the ceiling, however long the run runs', () => {
+      for (const w of [CORP_CORE_SCALE_WAVE + 1, 500, 5000]) {
+        expect(corpCoreCap(w)).toBe(CORP_MAX_CORES);
+      }
+    });
+
+    it('scales down proportionally when he is rolled early', () => {
+      // Half the wave, half the cores; a fifth of it, one.
+      expect(corpCoreCap(CORP_CORE_SCALE_WAVE / 2)).toBe(Math.round(CORP_MAX_CORES / 2));
+      expect(corpCoreCap(CORP_CORE_SCALE_WAVE / 5)).toBe(1);
+    });
+
+    it('rounds to the nearest whole core rather than truncating', () => {
+      // 5 * 30 / 110 = 1.36 -> 1;  5 * 40 / 110 = 1.81 -> 2.
+      expect(corpCoreCap(30, 110)).toBe(1);
+      expect(corpCoreCap(40, 110)).toBe(2);
+    });
+
+    it('is always at least one, so the mechanic never silently vanishes', () => {
+      expect(corpCoreCap(1)).toBe(1);
+      expect(corpCoreCap(0)).toBe(1);
+      expect(corpCoreCap(-5)).toBe(1);
     });
   });
 

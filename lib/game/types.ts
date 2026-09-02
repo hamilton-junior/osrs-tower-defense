@@ -202,6 +202,26 @@ export interface Enemy extends EnemyDef {
   /** Dark energy core: it has arrived and the siphon is running. Until then it is only
    *  a thing in the air — the tower keeps shooting while the core is still crossing. */
   coreLatched?: boolean;
+  /** Dark energy core: how far through its current **hop** it is, 0→1. It does not fly
+   *  to a tower; like its real self it jumps, and this is the arc. Absent/1 = landed. */
+  coreHopT?: number;
+  /** Where that hop started, so the arc can be replayed from a fixed point rather than
+   *  from wherever the thing happens to be this frame. */
+  coreHopX?: number;
+  coreHopY?: number;
+  /** Dark energy core: seconds until it asks again whether it is still sitting on the
+   *  best tower attacking the Beast. */
+  coreRetarget?: number;
+  /** Permanently immune to slows and stuns, as a property of *what this thing is* rather
+   *  than something done to it. Distinct from `ccImmuneTimer`, which is General
+   *  Graardor's slam and draws his god's sigil under the body — a core is not Bandos's. */
+  ccImmune?: boolean;
+  /** One of Nex's acolytes: seconds until it reaches out and silences its own element
+   *  again (see `nexSilencedTowers`). */
+  silenceTimer?: number;
+  /** That acolyte has already announced its first silence — the line is a moment, not a
+   *  running commentary. */
+  silenceSaid?: boolean;
   /** General Graardor's bodyguard: how many logic pixels **ahead of its owner along the
    *  road** it marches. It is an escort (it never walks the path itself and never leaks),
    *  but unlike an orbiting escort its position is read off the path, so it carries a
