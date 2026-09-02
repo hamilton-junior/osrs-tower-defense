@@ -62,6 +62,9 @@ const DEBUFF_META: Record<DebuffId, { label: string; icon: string; color: string
   poison: { label: 'Poisoned', icon: ASSETS.debuffs.poison, color: '#5bd75b', desc: 'Taking poison damage over time' },
   venom: { label: 'Envenomed', icon: ASSETS.debuffs.venom, color: '#0b5c0b', desc: 'Taking venom damage that ramps the longer it stacks' },
   vuln: { label: 'Vulnerable', icon: ASSETS.debuffs.vuln, color: '#c87bff', desc: 'Takes increased damage' },
+  // The one badge that is good news for the enemy — Bandos's sigil, the same mark the
+  // board draws under a body his General's slam has shaken free.
+  cleansed: { label: 'Cleansed', icon: ASSETS.misc.bandos_symbol, color: '#d9b24a', desc: 'Shrugs off slows and stuns' },
 };
 
 const INITIAL: UIState = {

@@ -82,6 +82,19 @@ const TARGETS = {
   // purpose: swept 0/20/40/60/90, and only flat-on keeps the board wide enough to
   // read at the 1.4em the travel modal draws it.
   signpost: { obj: 15522, yaw: 0 },
+
+  /**
+   * **The Bandos symbol**, cut out of his own altar (LOC 26366): the god's sigil stands
+   * on a pole above the altar's skulls, and this is the only place in the cache the
+   * emblem exists as *geometry* — everywhere else (kiteshield, platebody, godsword) it
+   * is a texture painted onto armour, which this flat rasteriser cannot render.
+   *
+   * So: face-on (yaw 180, pitch 0), then `crop` keeps the sigil and drops the altar
+   * under it. It marks a body General Graardor's slam has shaken free of crowd control,
+   * and lives in `ui/` because nothing in the game is this scenery object — it is an
+   * interface mark that happens to be built from a piece of scenery.
+   */
+  bandos_symbol: { obj: 26366, yaw: 180, pitch: 0, crop: [78, 4, 182, 101], dir: 'ui' },
 };
 
 // -------------------------------------------------------- object def parsing
@@ -148,7 +161,7 @@ export async function objectModelById(cache, objId, modelOverride) {
   return buildObjectModel(cache, parseObjectDef(file.content), modelOverride);
 }
 
-function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true } = {}, textures) {
+function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true, crop } = {}, textures) {
   const n = model.vertexCount;
   const verts = new Array(n);
   for (let i = 0; i < n; i++) {
@@ -161,7 +174,31 @@ function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true } = {
   const img = renderModelFrame(model, verts, fit, sy, cy, sp, cp, SIZE, textures, undefined, cull, SS);
   const canvas = createCanvas(SIZE, SIZE);
   canvas.getContext('2d').putImageData(img, 0, 0);
-  return canvas.toBuffer('image/png');
+  if (!crop) return canvas.toBuffer('image/png');
+  // A target that wants one *piece* of an object (the sigil off the top of an altar)
+  // names the box in the 256-space above, and what comes out is that box trimmed back
+  // to its own painted pixels — so the PNG's edges are the piece's edges and the
+  // drawing code can centre it without carrying the parent object's empty margin.
+  return cropToContent(canvas, crop);
+}
+
+/** The sub-rect `[x0, y0, x1, y1]` of `canvas`, shrunk to the alpha it actually holds. */
+function cropToContent(canvas, [x0, y0, x1, y1]) {
+  const src = canvas.getContext('2d').getImageData(x0, y0, x1 - x0, y1 - y0);
+  let minX = src.width, minY = src.height, maxX = -1, maxY = -1;
+  for (let y = 0; y < src.height; y++) {
+    for (let x = 0; x < src.width; x++) {
+      if (src.data[(y * src.width + x) * 4 + 3] <= 8) continue;
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+  }
+  if (maxX < 0) return canvas.toBuffer('image/png'); // nothing in the box — keep the whole render
+  const out = createCanvas(maxX - minX + 1, maxY - minY + 1);
+  out.getContext('2d').drawImage(
+    canvas, x0 + minX, y0 + minY, out.width, out.height, 0, 0, out.width, out.height,
+  );
+  return out.toBuffer('image/png');
 }
 
 // ----------------------------------------------------------------------- main
@@ -192,10 +229,11 @@ async function main() {
     if (!model) { console.warn(`! ${slug}: no model geometry (models=[${def.models}])`); continue; }
     const textures = await loadTextures(cache, modelTextureIds(model));
     const buf = renderObject(model, { ...cfg, ...camOverride }, textures);
-    const outPath = join(REPO, 'public', 'assets', 'objects', `${slug}.png`);
+    const dir = cfg.dir ?? 'objects';
+    const outPath = join(REPO, 'public', 'assets', dir, `${slug}.png`);
     mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, buf);
-    console.log(`✓ ${slug}: object ${cfg.obj} "${def.name}" models=[${def.models}] → public/assets/objects/${slug}.png`);
+    console.log(`✓ ${slug}: object ${cfg.obj} "${def.name}" models=[${def.models}] → public/assets/${dir}/${slug}.png`);
   }
   process.exit(0);
 }

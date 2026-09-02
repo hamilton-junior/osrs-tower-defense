@@ -525,7 +525,11 @@ export interface Hitsplat {
 
 /** Live summary of the enemy under the pointer, for the hover info panel. */
 /** Active debuff kinds shown as icons in the enemy hover panel. */
-export type DebuffId = 'slow' | 'stun' | 'burn' | 'poison' | 'venom' | 'vuln';
+/** A status badge on the enemy info panel. Mostly debuffs; `cleansed` is the one
+ *  that runs the other way — a body General Graardor's slam has freed. It is listed
+ *  here because the player reads this row to answer "why is my slow not landing?",
+ *  and the answer has to be in the same place as the slow. */
+export type DebuffId = 'slow' | 'stun' | 'burn' | 'poison' | 'venom' | 'vuln' | 'cleansed';
 
 export interface EnemyHoverInfo {
   /** The enemy's type id — the panel keys its "how to kill" line off this. */

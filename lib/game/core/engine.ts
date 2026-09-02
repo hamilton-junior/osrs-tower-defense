@@ -1100,6 +1100,9 @@ export class GameEngine {
       prayericon_magic: ASSETS.prayers.overhead_magic,
       // The prohibited sign stamped on a tower knocked offline (Brutus's trample).
       blocked: ASSETS.misc.blocked,
+      // Bandos's sigil, drawn under anything his General's slam has made immune to
+      // crowd control.
+      bandos_symbol: ASSETS.misc.bandos_symbol,
       // Distractions & Diversions: the cast that turns up between waves, keyed
       // `diversion_<id>` (baked NPC models and one item icon), plus the back and
       // side views a walker turns to — `diversion_<id>_back` / `_side`.
@@ -1453,6 +1456,7 @@ export class GameEngine {
     if ((e.dots?.poison?.timer ?? 0) > 0) effects.push('poison');
     if ((e.dots?.venom?.timer ?? 0) > 0) effects.push('venom');
     if (e.vulnTimer && e.vulnTimer > 0) effects.push('vuln');
+    if ((e.ccImmuneTimer ?? 0) > 0) effects.push('cleansed');
     return {
       type: e.type,
       name: e.name,

@@ -490,6 +490,10 @@ export const ASSETS = {
     // offline. The other cache circle-slashes are world-map key icons and carry the
     // thing being prohibited baked in; this one is the bare sign.
     blocked: `${LOCAL}/ui/blocked.png`,
+    // Bandos's own sigil, cut off the top of his altar (LOC 26366) — the one place the
+    // emblem is geometry rather than a texture painted on armour. It stands under a body
+    // his General's slam has shaken free of crowd control.
+    bandos_symbol: `${LOCAL}/ui/bandos_symbol.png`,
     // Redemption's heart as the prayer book draws it unlocked/usable: the bright teal
     // symbol, with none of the gold disc the overhead headicons carry. Nothing prays
     // it here; it is borrowed as the mark on the start screen's "passion project"

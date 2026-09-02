@@ -279,19 +279,37 @@ function drawNexTethers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 }
 
 /**
- * Something the General's slam shook loose: a brass ring at its feet for as long as the
- * crowd-control immunity lasts. The slam's own shockwave is gone in half a second, so
- * without this the state it left behind — holds simply not landing — would read as the
- * towers being broken rather than as the mechanic working.
+ * Something the General's slam shook loose: **Bandos's own sigil** at its feet for as
+ * long as the crowd-control immunity lasts. The slam's own shockwave is gone in half a
+ * second, so without this the state it left behind — holds simply not landing — would
+ * read as the towers being broken rather than as the mechanic working.
+ *
+ * The mark used to be a plain brass ring, which said "this one is special" without ever
+ * saying *why*; the god's emblem names the source, and it is the same emblem the player
+ * sees on the General himself. It is drawn at the body's feet — under the sprite, where
+ * the ring was — and tinted brass over its stone so it stays readable on dark road.
  */
-function drawSlamGuard(ctx: CanvasRenderingContext2D, e: Enemy, size: number) {
+function drawSlamGuard(
+  gr: GameRenderer, ctx: CanvasRenderingContext2D, e: Enemy, size: number,
+) {
   const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 220);
+  const img = gr.e.imageOk('bandos_symbol') ? gr.e.images.get('bandos_symbol') : null;
   ctx.save();
-  ctx.strokeStyle = `rgba(217,178,74,${0.45 + pulse * 0.35})`;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.ellipse(e.x, e.y + size * 0.34, size * 0.4, size * 0.16, 0, 0, Math.PI * 2);
-  ctx.stroke();
+  if (img) {
+    const w = size * 0.62;
+    const h = (w * img.height) / img.width;
+    const dx = e.x - w / 2, dy = e.y + size * 0.34 - h / 2;
+    ctx.globalAlpha = 0.45 + pulse * 0.4;
+    ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, w, h);
+    drawFlashTint(gr, ctx, img, 0, 0, img.width, img.height, dx, dy, w, h, 1, '#d9b24a');
+  } else {
+    // Until the sigil decodes, the old ring — an immune body must never look ordinary.
+    ctx.strokeStyle = `rgba(217,178,74,${0.45 + pulse * 0.35})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(e.x, e.y + size * 0.34, size * 0.4, size * 0.16, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -649,7 +667,7 @@ export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 
     if (!inPortal && e.affixes && e.affixes.length) drawAffixRings(ctx, e, isBoss, matAlpha);
     if (!inPortal && e.bossState) drawBossTelegraph(gr, ctx, e, size);
-    if (!inPortal && (e.ccImmuneTimer ?? 0) > 0) drawSlamGuard(ctx, e, size);
+    if (!inPortal && (e.ccImmuneTimer ?? 0) > 0) drawSlamGuard(gr, ctx, e, size);
     // Hidden while the enemy is still in the portal so nothing pokes through.
     if (!inPortal) drawHealthBar(ctx, e, isBoss);
     if (!inPortal) drawPrayerOverheads(gr, ctx, e, isBoss);
