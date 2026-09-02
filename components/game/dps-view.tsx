@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ASSETS } from '@/lib/game/assets';
+import { ASSETS, GEAR_ICONS } from '@/lib/game/assets';
 import type { CombatStyle, TowerType } from '@/lib/game/types';
 import type { DpsSnapshot, DpsTowerStat, DpsWaveStat, EffectStat } from '@/lib/game/systems/combat-stats';
 import { TOWERS } from '@/lib/game/data/towers';
@@ -20,24 +20,52 @@ import { hideBrokenImg } from './ui-kit';
 
 // ============================ DPS meter ============================
 
-/** Effect tallies surfaced in a tower's drill-down, with how each is formatted
- *  and the OSRS icon that marks it. Icons are the game's own status/hitsplat
- *  sprites (local cache) so a row reads at a glance; adding an effect is one line. */
-export const DPS_EFFECT_META: { key: keyof EffectStat; label: string; kind: 'dmg' | 'int' | 'sec' | 'tiles'; icon: string }[] = [
-  { key: 'burnDmg', label: 'Burn damage', kind: 'dmg', icon: ASSETS.debuffs.burn },
-  { key: 'poisonDmg', label: 'Poison damage', kind: 'dmg', icon: ASSETS.debuffs.poison },
-  { key: 'venomDmg', label: 'Venom damage', kind: 'dmg', icon: ASSETS.debuffs.venom },
-  { key: 'chainDmg', label: 'Chain damage', kind: 'dmg', icon: ASSETS.misc.multicombat_icon },
-  { key: 'bloodBonusDmg', label: 'Blood bonus dmg', kind: 'dmg', icon: ASSETS.misc.hit_splat },
-  { key: 'taskBonusDmg', label: 'Slayer bonus dmg', kind: 'dmg', icon: ASSETS.misc.slayer_crossbow },
-  { key: 'stunCount', label: 'Enemies stunned', kind: 'int', icon: ASSETS.debuffs.stun },
-  { key: 'stunSeconds', label: 'Stun time', kind: 'sec', icon: ASSETS.debuffs.stun },
-  { key: 'pushCount', label: 'Knockbacks', kind: 'int', icon: ASSETS.misc.strength_icon },
-  { key: 'pushTiles', label: 'Tiles pushed', kind: 'tiles', icon: ASSETS.misc.strength_icon },
-  { key: 'slowCount', label: 'Slows applied', kind: 'int', icon: ASSETS.debuffs.slow },
-  { key: 'ampCount', label: 'Enemies marked', kind: 'int', icon: ASSETS.debuffs.vuln },
-  { key: 'splashHits', label: 'Splash hits', kind: 'int', icon: ASSETS.misc.magic_hit_splat },
-  { key: 'lifeStealHeals', label: 'Lives stolen', kind: 'int', icon: ASSETS.misc.hp_icon },
+/** Effect tallies surfaced in a tower's drill-down, with how each is formatted,
+ *  the OSRS icon that marks it and the one line that says what it is. Icons are
+ *  the game's own status / spell / item sprites (local cache) so a row reads at a
+ *  glance; adding an effect is one line here and one `recordEffect` in the sim.
+ *
+ *  Between them these cover every tower's signature, which is the point: archer →
+ *  extra shots, cannon → splash, slayer → weapon bonus, toxic → venom, tzhaar →
+ *  stuns, and each wizard spellbook its own status. A tower whose niche shows up
+ *  nowhere in this table has no line in the meter, and reads as a plain damage
+ *  number the player can't tell apart from any other.
+ */
+export const DPS_EFFECT_META: {
+  key: keyof EffectStat; label: string; kind: 'dmg' | 'int' | 'sec' | 'tiles'; icon: string; tip: string;
+}[] = [
+  { key: 'burnDmg', label: 'Burn damage', kind: 'dmg', icon: ASSETS.debuffs.burn,
+    tip: 'Damage from fire left burning on the enemy after the hit.' },
+  { key: 'poisonDmg', label: 'Poison damage', kind: 'dmg', icon: ASSETS.debuffs.poison,
+    tip: 'Damage from poison ticking on the enemy after the hit.' },
+  { key: 'venomDmg', label: 'Venom damage', kind: 'dmg', icon: ASSETS.debuffs.venom,
+    tip: 'Damage from venom, which hits harder the longer it is kept up.' },
+  { key: 'chainDmg', label: 'Chain damage', kind: 'dmg', icon: ASSETS.misc.multicombat_icon,
+    tip: 'Damage that jumped on to another enemy on its own.' },
+  { key: 'bloodBonusDmg', label: 'Blood bonus dmg', kind: 'dmg', icon: ASSETS.spells.Blood_Barrage,
+    tip: 'Extra damage Blood adds from the target’s own maximum hitpoints.' },
+  { key: 'taskBonusDmg', label: 'Slayer task bonus', kind: 'dmg', icon: ASSETS.misc.slayer_crossbow,
+    tip: 'Extra damage every tower deals while the enemy is your Slayer task.' },
+  { key: 'weaponBonusDmg', label: 'Weapon bonus dmg', kind: 'dmg', icon: ASSETS.misc.attack_icon,
+    tip: 'Extra damage this tower’s own weapon and gear add against this enemy.' },
+  { key: 'extraShots', label: 'Extra shots', kind: 'int', icon: GEAR_ICONS.dragon_arrow,
+    tip: 'Shots loosed on top of the tower’s attack, at a second enemy.' },
+  { key: 'stunCount', label: 'Enemies stunned', kind: 'int', icon: ASSETS.debuffs.stun,
+    tip: 'How many enemies were frozen in place.' },
+  { key: 'stunSeconds', label: 'Stun time', kind: 'sec', icon: ASSETS.debuffs.stun,
+    tip: 'How long, all told, enemies were held still.' },
+  { key: 'pushCount', label: 'Knockbacks', kind: 'int', icon: ASSETS.misc.strength_icon,
+    tip: 'How many enemies were shoved back down the road.' },
+  { key: 'pushTiles', label: 'Tiles pushed', kind: 'tiles', icon: ASSETS.misc.strength_icon,
+    tip: 'How much road the enemies had to walk again.' },
+  { key: 'slowCount', label: 'Slows applied', kind: 'int', icon: ASSETS.debuffs.slow,
+    tip: 'How many enemies were slowed down.' },
+  { key: 'ampCount', label: 'Enemies marked', kind: 'int', icon: ASSETS.debuffs.vuln,
+    tip: 'How many enemies were marked to take more damage from everything.' },
+  { key: 'splashHits', label: 'Splash hits', kind: 'int', icon: ASSETS.misc.magic_hit_splat,
+    tip: 'Hits that landed on enemies standing next to the target.' },
+  { key: 'lifeStealHeals', label: 'Lives stolen', kind: 'int', icon: ASSETS.misc.hp_icon,
+    tip: 'Lives won back by killing with Blood.' },
 ];
 
 export const DPS_STYLE_LABEL: Record<CombatStyle | 'run', string> = { melee: 'Melee', ranged: 'Ranged', magic: 'Magic', run: 'Run Effects' };
@@ -220,11 +248,15 @@ function DpsRowDetail({ r, ctx }: { r: DpsRow; ctx: RowCtx }) {
         >
           {shownEffects.map((m) => (
             <div key={m.key} className="flex items-center justify-between gap-[0.4em]">
-              <span className="flex items-center gap-[0.35em] min-w-0">
-                <img src={m.icon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
-                <span className="text-[0.66em] text-[#b3a585] truncate">{m.label}</span>
+              <HoverTip content={m.tip}>
+                <span className="flex items-center gap-[0.35em] min-w-0">
+                  <img src={m.icon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
+                  <span className="text-[0.66em] text-[#b3a585] truncate">{m.label}</span>
+                </span>
+              </HoverTip>
+              <span className="text-[0.7em] text-[#e7d9b6] font-bold shrink-0">
+                {m.kind === 'dmg' ? ctx.valLabel(r.effects[m.key] ?? 0) : dpsEffectValue(r.effects[m.key] ?? 0, m.kind)}
               </span>
-              <span className="text-[0.7em] text-[#e7d9b6] font-bold shrink-0">{dpsEffectValue(r.effects[m.key] ?? 0, m.kind)}</span>
             </div>
           ))}
         </div>

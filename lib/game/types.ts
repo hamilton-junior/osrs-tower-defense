@@ -458,6 +458,9 @@ export interface Projectile {
   bonusMaxHpFrac?: number;
   /** Flat per-hit ceiling of the %max-HP bonus (Blood barrage cap). */
   bonusMaxHpCap?: number;
+  /** Share of this shot's damage that came from the firing tower's own weapon
+   *  bonuses (0..1), carried so the damage meter can break it out on impact. */
+  weaponFrac?: number;
   /** Wiki spell-file name (e.g. `Fire_Wave`) used to draw the real spell sprite. */
   spellIcon?: string;
   /** Arrow style marker for archer shots (`'dragon_arrow'`): the renderer draws a

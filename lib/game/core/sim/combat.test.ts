@@ -32,7 +32,7 @@ function stubEngine() {
     gameMode: 'roguelite',
     enemies: [] as Enemy[],
     towers: [] as Tower[],
-    projectiles: [] as { targetId?: string; damage: number; special?: string; aoe?: boolean }[],
+    projectiles: [] as { targetId?: string; damage: number; special?: string; aoe?: boolean; weaponFrac?: number }[],
     particles: [] as unknown[],
     hitsplats: [] as { value: number; kind: string; minor?: boolean }[],
     deaths: [] as { type: string; life: number }[],
@@ -208,6 +208,32 @@ describe('fireTowers — who shoots, at what, for how much', () => {
     fireTowers(env.e, 0.016);
     expect(env.raw.projectiles).toHaveLength(2);
     expect(new Set(env.raw.projectiles.map(p => p.targetId)).size).toBe(2);
+  });
+
+  it('books every extra arrow with the damage meter, since volume is the whole niche', () => {
+    const env = stubEngine();
+    env.raw.towers.push(mkTower({ level: 3 }));
+    env.raw.enemies.push(mkEnemy(), mkEnemy({ id: 'e2', x: 220 }));
+    fireTowers(env.e, 0.016);
+    expect(env.effects.filter(f => f.patch.extraShots).length).toBe(1);
+  });
+
+  it('stamps a shot with how much of it the weapon itself added', () => {
+    const env = stubEngine();
+    // A tier-4 bow against a 400 HP target: the anti-tank nudge is at its +20% cap,
+    // and is the only bonus riding on this shot.
+    env.raw.towers.push(mkTower({ level: 4 }));
+    env.raw.enemies.push(mkEnemy({ hp: 400, maxHp: 400 }));
+    fireTowers(env.e, 0.016);
+    expect(env.raw.projectiles[0].weaponFrac).toBeCloseTo(1 - 1 / 1.2, 3);
+  });
+
+  it('leaves a plain shot unstamped, so the meter claims no bonus that was not there', () => {
+    const env = stubEngine();
+    env.raw.towers.push(mkTower({ level: 1 }));
+    env.raw.enemies.push(mkEnemy({ hp: 400, maxHp: 400 }));
+    fireTowers(env.e, 0.016);
+    expect(env.raw.projectiles[0].weaponFrac).toBeUndefined();
   });
 
   it('a siphoned tower fires no projectile — the Corporeal Beast drinks the shot', () => {

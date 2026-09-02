@@ -27,6 +27,12 @@ export interface DamageSource {
    *  (0..1). The hit still lands as a normal direct/splash — this only lets the
    *  meter break the bonus out, since the bonus survives the same multipliers. */
   bloodFrac?: number;
+  /** Fraction of this hit's raw damage that the firing tower's *own weapon* added
+   *  (0..1) — the Slayer weapon's category bonus, the tier-4 bow's anti-tank nudge
+   *  and the tower's signature gear. Same bargain as `bloodFrac`: the bonus rode
+   *  in with the shot and through the same multipliers, so its share of what
+   *  landed is its share of the raw hit. */
+  weaponFrac?: number;
 }
 
 export interface AuraAttribution {
@@ -70,7 +76,17 @@ export interface EffectStat {
   ampCount: number;
   splashHits: number;
   lifeStealHeals: number;
+  /** Extra damage the Slayer *helmet* granted while on task. Every tower gets it;
+   *  `weaponBonusDmg` below is the tower's own weapon instead. */
   taskBonusDmg: number;
+  /** Damage the tower's own weapon added over a plain hit: the Slayer weapon's
+   *  bonus against a monster category, the tier-4 bow's anti-tank nudge, and the
+   *  signature gear it has equipped. */
+  weaponBonusDmg: number;
+  /** Shots loosed on top of the tower's one attack — the Dark Bow's twin-shot and
+   *  the Double Shot transform. The archer's niche is volume, and this is the only
+   *  place the panel can show it. */
+  extraShots: number;
   /** Damage a Blood wizard added on top of its spell, as a % of the target's max
    *  HP (capped per hit). The signature reason to run Blood against big enemies. */
   bloodBonusDmg: number;

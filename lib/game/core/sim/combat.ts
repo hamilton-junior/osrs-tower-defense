@@ -270,7 +270,7 @@ function shotFlight(eng: GameEngine, tower: Tower, target: Enemy): ShotFlight {
 function launchProjectile(
   eng: GameEngine, tower: Tower, tgt: Enemy, dmg: number, fl: number,
   lo: ShotLoadout, fp: ShotFlight, aura: AuraAttribution | undefined,
-  incoming: Map<string, number>,
+  incoming: Map<string, number>, weaponFrac = 0,
 ) {
   const projType: Projectile['type'] =
     tower.type === 'cannon' ? 'cannonball'
@@ -297,6 +297,7 @@ function launchProjectile(
     lifesteal: lo.lifesteal || undefined,
     bonusMaxHpFrac: lo.bonusMaxHpFrac || undefined,
     bonusMaxHpCap: lo.bonusMaxHpCap || undefined,
+    weaponFrac: weaponFrac || undefined,
     spellIcon: lo.spellIcon,
     arrowIcon: tower.type === 'archer' ? 'dragon_arrow' : undefined,
     hitSound: fp.hitSound,
@@ -375,26 +376,31 @@ export function fireTowers(eng: GameEngine, dt: number) {
 
     // Slayer weapon: native bonus vs the current task target / superiors / bosses,
     // independent of (and stacking with) the Slayer Helmet applied in damage().
-    if (tower.type === 'slayer') {
-      damage = Math.floor(damage * slayerWeaponBonus(target.type, eng.slayer.task?.type ?? null, !!target.isBoss));
-    }
+    const slayerMult = tower.type === 'slayer'
+      ? slayerWeaponBonus(target.type, eng.slayer.task?.type ?? null, !!target.isBoss)
+      : 1;
+    if (slayerMult !== 1) damage = Math.floor(damage * slayerMult);
 
     const lo = shotLoadout(eng, tower, target, damage);
     const fp = shotFlight(eng, tower, target);
-    const launch = (tgt: Enemy, dmg: number, fl: number) =>
-      launchProjectile(eng, tower, tgt, dmg, fl, lo, fp, projAura, incoming);
+    const launch = (tgt: Enemy, shot: { dmg: number; frac: number }, fl: number) =>
+      launchProjectile(eng, tower, tgt, shot.dmg, fl, lo, fp, projAura, incoming, shot.frac);
 
     // Per-target multipliers keyed off the ENEMY: the signature gear mult
     // (Twisted bow scales with the target's max HP, Darklight with its category)
     // and the tier-4 bow's anti-tank nudge. Computed per shot so twin-shot / Double
     // Shot arrows against other enemies get their own value, not the primary's.
-    const arrowDmg = (tgt: Enemy) => {
-      let d = Math.floor(lo.damage * gearDamageMult(tower, tgt, eng.slayer.task?.type ?? null));
-      if (tower.type === 'archer' && tower.level >= 4) d = Math.floor(d * bowAntiTankMult(tgt.maxHp));
-      return d;
+    const arrowShot = (tgt: Enemy) => {
+      const gear = gearDamageMult(tower, tgt, eng.slayer.task?.type ?? null);
+      const bow = tower.type === 'archer' && tower.level >= 4 ? bowAntiTankMult(tgt.maxHp) : 1;
+      const d = Math.floor(Math.floor(lo.damage * gear) * bow);
+      // Everything the tower's *own weapon* put on top of a plain hit, as a share
+      // of the shot: the meter breaks it out again on impact (`weaponBonusDmg`).
+      const mult = slayerMult * gear * bow;
+      return { dmg: d, frac: mult > 1 ? 1 - 1 / mult : 0 };
     };
 
-    launch(target, arrowDmg(target), fp.flight);
+    launch(target, arrowShot(target), fp.flight);
 
     // Dark Bow twin-shot: the archer (tier 3+) looses a second arrow at the next
     // best target in range, or the same one if it's alone (a focused burst).
@@ -402,7 +408,8 @@ export function fireTowers(eng: GameEngine, dt: number) {
       const others = eng.enemies.filter(e => e.id !== target.id && inReach(e));
       const second = selectTarget(others, tower.x, tower.y, eng.path, tower.targetingPriority, markKind) ?? target;
       const fl2 = Math.max(0.05, distance(tower.x, tower.y, second.x, second.y) / 600);
-      launch(second, arrowDmg(second), fl2);
+      launch(second, arrowShot(second), fl2);
+      eng.stats.recordEffect(tower.id, eng.wave, { extraShots: 1 });
     }
 
     // Double Shot (roguelite transform): ranged towers loose an extra shot at
@@ -412,7 +419,8 @@ export function fireTowers(eng: GameEngine, dt: number) {
       const extra = others.length ? others[Math.floor(Math.random() * others.length)] : null;
       if (extra) {
         const fl2 = Math.max(0.05, distance(tower.x, tower.y, extra.x, extra.y) / 600);
-        launch(extra, arrowDmg(extra), fl2);
+        launch(extra, arrowShot(extra), fl2);
+        eng.stats.recordEffect(tower.id, eng.wave, { extraShots: 1 });
       }
     }
 
@@ -651,7 +659,8 @@ export function hit(eng: GameEngine, p: Projectile, target: Enemy | null) {
         : 0;
       const dmg = Math.floor(p.damage * scale) + bonus;
       const killed = damage(eng, e, dmg, 'hit', false, silent, 0, style,
-        { towerId: p.sourceTowerId, tag: isPrimary ? 'direct' : 'splash', aura: p.aura, bloodFrac: dmg > 0 ? bonus / dmg : 0 });
+        { towerId: p.sourceTowerId, tag: isPrimary ? 'direct' : 'splash', aura: p.aura,
+          bloodFrac: dmg > 0 ? bonus / dmg : 0, weaponFrac: p.weaponFrac });
       if (isPrimary) primaryKilled = killed;
       if (!killed) { applyOnHit(eng, e, p); applyVenomTips(eng, e); }
     }
@@ -663,7 +672,8 @@ export function hit(eng: GameEngine, p: Projectile, target: Enemy | null) {
       : 0;
     const dmg = p.damage + bonus;
     primaryKilled = damage(eng, target, dmg, 'hit', false, silent, 0, style,
-      { towerId: p.sourceTowerId, tag: 'direct', aura: p.aura, bloodFrac: dmg > 0 ? bonus / dmg : 0 });
+      { towerId: p.sourceTowerId, tag: 'direct', aura: p.aura,
+        bloodFrac: dmg > 0 ? bonus / dmg : 0, weaponFrac: p.weaponFrac });
     if (!primaryKilled) { applyOnHit(eng, target, p); applyVenomTips(eng, target); }
     // Pierce (roguelite transform): the bolt punches through to the nearest
     // *other* enemy near the impact, landing a second full hit.
@@ -875,6 +885,7 @@ export function tryLifesteal(eng: GameEngine, sourceTowerId?: string) {
   if (Math.random() >= lifestealChance(tower?.level ?? 1)) return;
   eng.lives += 1;
   eng.lifestealSeq += 1;
+  eng.stats.recordEffect(sourceTowerId ?? RUN_FX_ID, eng.wave, { lifeStealHeals: 1 });
   if (tower) addRing(eng, tower.x, tower.y, 4, 26, '#c81e1e', 0.5, 3);
   eng.emit();
 }
@@ -1057,6 +1068,8 @@ function creditHit(eng: GameEngine, enemy: Enemy, hit: ResolvedHit, source: Dama
     // Blood's %-max-HP bonus rode into `amount` and through the same multipliers,
     // so its share of what actually landed is its share of the raw hit.
     if (source.bloodFrac) eng.stats.recordEffect(owner, eng.wave, { bloodBonusDmg: dealt * source.bloodFrac });
+    // Same reasoning for the tower's own weapon bonuses, which rode in the same way.
+    if (source.weaponFrac) eng.stats.recordEffect(owner, eng.wave, { weaponBonusDmg: dealt * source.weaponFrac });
   }
   // Towers grow by fighting: credit the source tower for the damage it landed.
   // `weak > 1` means the hit exploited the enemy's melee/ranged weakness (magic
