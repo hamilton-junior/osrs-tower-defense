@@ -493,13 +493,16 @@ export default function GameRoot() {
     const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })), loadSave());
     engineRef.current = engine;
     engine.start();
-    // Auto-start lives beside Start Wave in the bottom bar; both the toggle and
-    // its delay persist across runs via localStorage (see their onChange).
+    // Auto-start lives beside Start Wave in the bottom bar. Its *delay* persists
+    // across sessions, but the toggle itself deliberately does not: a page that
+    // loaded with auto-wave already on starts sending waves at a board the player
+    // has not looked at yet, and they lose lives before the run is theirs. Every
+    // load begins hands-on — the same rule the engine already applies to a
+    // restored run and to a new one.
     // Account-wide Combat Achievements: seeded here rather than through the
     // constructor blob, because the store is read after mount like the rest of
     // the UI-owned saves.
     engine.seedAchievements(loadAchievements());
-    engine.setAutoplay(loadBool('ui_autostart', false));
     // Seed the UI scale too: the effect that mirrors it runs before this one on
     // mount, when there is no engine yet to tell.
     engine.setUiScale(uiScale);
@@ -3923,7 +3926,6 @@ export default function GameRoot() {
                   checked={ui.autoplay}
                   onChange={(e) => {
                     engineRef.current?.setAutoplay(e.target.checked);
-                    try { localStorage.setItem('ui_autostart', JSON.stringify(e.target.checked)); } catch { /* ignore */ }
                   }}
                 />
                 Auto
