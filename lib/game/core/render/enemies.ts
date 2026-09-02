@@ -4,6 +4,7 @@ import { ENEMY_ANIMS, clipFrame, clipDurationS, DEATH_SETTLE_S } from '../../dat
 import { TOWER_STYLES } from '../../data/towers';
 import { ELEMENTS } from '../../systems/magic';
 import { AFFIX_DEFS, SHIELD_HP_FRAC } from '../../systems/affixes';
+import { healingDenied } from '../../systems/tower-fusion';
 import { ZULRAH_PHASES, hydraPhase, HYDRA_VENT_SECS, moleIsHidden, MOLE_UNDER_SECS, NEX_WARD_MAX_SECS, nexIsShielded, bossPhaseClip, phaseResistedStyles } from '../../systems/boss-mechanics';
 import type { DeathFx } from '../engine-state';
 import type { GameRenderer } from '../renderer';
@@ -421,6 +422,24 @@ function drawAffixRings(ctx: CanvasRenderingContext2D, e: Enemy, isBoss: boolean
   ctx.restore();
 }
 
+/** Purged: a broken ring in the Purging staff's shadow-purple while nothing may
+ *  heal this enemy. Broken on purpose — it is the reading of a bar that has been
+ *  cut off from its own regen, not another aura. */
+const PURGE_RING_COLOR = '#a86bd8';
+
+function drawPurgeRing(ctx: CanvasRenderingContext2D, e: Enemy, isBoss: boolean, matAlpha: number) {
+  const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
+  ctx.save();
+  ctx.strokeStyle = PURGE_RING_COLOR;
+  ctx.globalAlpha = matAlpha * (0.4 + pulse * 0.4);
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.arc(e.x, e.y, isBoss ? 27 : 18, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** How many ice crystals stand in Vorkath's shell, and how fast the shell turns
  *  (seconds per revolution). Slow on purpose: the shield is a *wait*, and a fast spin
  *  reads as an attack winding up. */
@@ -666,6 +685,7 @@ export function drawEnemies(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     if (e.soulStyle && !inPortal) drawSoulFx(gr, ctx, e, size);
 
     if (!inPortal && e.affixes && e.affixes.length) drawAffixRings(ctx, e, isBoss, matAlpha);
+    if (!inPortal && healingDenied(e)) drawPurgeRing(ctx, e, isBoss, matAlpha);
     if (!inPortal && e.bossState) drawBossTelegraph(gr, ctx, e, size);
     if (!inPortal && (e.ccImmuneTimer ?? 0) > 0) drawSlamGuard(gr, ctx, e, size);
     // Hidden while the enemy is still in the portal so nothing pokes through.

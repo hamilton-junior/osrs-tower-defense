@@ -143,6 +143,11 @@ export interface Enemy extends EnemyDef {
   debuffHits?: number;
   /** Water "amp" debuff: while >0 the enemy takes extra damage from all sources. */
   vulnTimer?: number;
+  /** Purging staff: while >0 nothing may put health back on this enemy — every heal
+   *  in the game asks `healEnemy` first, and it asks this. `purgedBy` owns the
+   *  denial for the damage meter. */
+  purgedTimer?: number;
+  purgedBy?: string;
   groundTimer: number;
   poisonTimer?: number;
   venomTimer?: number;
@@ -300,7 +305,7 @@ export interface Effect {
  *  systems/tower-fusion) — a fusion is a tower in every way except that it is
  *  never bought, only made out of two finished ones. */
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic'
-  | 'scorching_bow';
+  | 'scorching_bow' | 'purging_staff';
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
 
@@ -387,7 +392,7 @@ export interface Tower {
    *  reaches this (1..maxLevel). Undefined = no cap (auto-upgrade to max). Only
    *  the auto tick honours it; manual/batch Upgrade ignore the cap. */
   autoUpgradeCap?: number;
-  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow';
+  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow' | 'purge';
   specCharge: number;
   specMax: number;
   lastSpecFired?: number;
@@ -450,7 +455,7 @@ export interface Projectile {
   color: string;
   type: 'arrow' | 'spell' | 'cannonball' | 'dart' | 'bolt' | 'magic_projectile' | 'ancient_ice' | 'ancient_blood' | 'ancient_shadow' | 'ancient_smoke' | 'chinchompa' | 'godsword';
   element?: Element;
-  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow';
+  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow' | 'purge';
   /** Hits every enemy near impact (Ancients barrage / cannon splash). */
   aoe?: boolean;
   /** Splash radius (logic px) for an AoE projectile; defaults to 80 (Ancients). */

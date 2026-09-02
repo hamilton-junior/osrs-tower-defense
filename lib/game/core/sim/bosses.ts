@@ -7,7 +7,7 @@ import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, Z
 import type { Scorch } from '../engine-state';
 import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, CORP_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
-import { makeEnemy, addRing, addHurl, spawnEffect } from './waves';
+import { makeEnemy, addRing, addHurl, spawnEffect, healEnemy } from './waves';
 import { fanSample } from '../../systems/impact-fx';
 import { bodyY } from '../../systems/enemy-anchor';
 
@@ -580,12 +580,11 @@ export function updateHydra(eng: GameEngine, e: Enemy, dt: number) {
     // of a thin board's damage, so a Hydra that has been going nowhere loses it and
     // the board that was *nearly* enough finally gets through.
     const heal = hydraVentHeal(e.maxHp, dt) * stallHealMult(st.stallStacks ?? 0);
-    const before = e.hp;
-    e.hp = Math.min(e.maxHp, e.hp + heal);
     // Perfect Hydra only breaks on HP that actually went back on the bar, and only
     // once it adds up — a vent shattered the instant it opened healed nothing worth
-    // failing the task over.
-    st.ventHealed = (st.ventHealed ?? 0) + (e.hp - before);
+    // failing the task over. A purged Hydra vents to no effect at all, and the task
+    // survives it.
+    st.ventHealed = (st.ventHealed ?? 0) + healEnemy(eng, e, heal, false);
     if (hydraHealSpoilsPerfect(st.ventHealed, e.maxHp)) eng.caStats.bossFlags.hydraVentHealed = true;
     st.ventTimer = (st.ventTimer ?? 0) - dt;
     if ((st.ventDamage ?? 0) >= hydraBreakTarget(e.maxHp)) shatterHydraVent(eng, e);
@@ -685,11 +684,11 @@ export function updateJad(eng: GameEngine, e: Enemy, dt: number) {
     if (st.healTickTimer >= JAD_HEAL_TICK_SECS) {
       st.healTickTimer -= JAD_HEAL_TICK_SECS;
       const heal = jadHealPerTick(recentDamageSum(st.recentDamage, now, JAD_HEAL_WINDOW_SECS));
-      if (heal > 0) {
-        e.hp = Math.min(e.maxHp, e.hp + heal);
+      const healed = healEnemy(eng, e, heal);
+      if (healed > 0) {
         eng.caStats.bossFlags.jadHealed = true;
         // A green "heal" splat floats off Jad so the regen reads clearly.
-        eng.hitsplats.push({ x: e.x + (Math.random() - 0.5) * 16, y: bodyY(e) - 18, value: heal, kind: 'heal', life: HITSPLAT_LIFE });
+        eng.hitsplats.push({ x: e.x + (Math.random() - 0.5) * 16, y: bodyY(e) - 18, value: healed, kind: 'heal', life: HITSPLAT_LIFE });
         for (let i = 0; i < 3; i++) {
           eng.particles.push({ x: e.x + (Math.random() - 0.5) * 20, y: e.y, vx: (Math.random() - 0.5) * 30, vy: -30 - Math.random() * 30, life: 0.5, maxLife: 0.5, color: '#48d04a', size: 2 });
         }
@@ -1000,8 +999,7 @@ export function updateRat(eng: GameEngine, e: Enemy, dt: number) {
   const dx = king.x - e.x, dy = king.y - e.y;
   const d = Math.hypot(dx, dy);
   if (d <= SCURRIUS_REFUND_RADIUS) {
-    const healed = ratRefund(e.hp, king.hp, king.maxHp);
-    king.hp += healed;
+    const healed = healEnemy(eng, king, ratRefund(e.hp, king.hp, king.maxHp));
     // Say it out loud: the refund is the one moment of this fight that would otherwise
     // be invisible, and an unexplained rising boss bar reads as a bug. A green `heal`
     // splat is the same language Jad's Yt-HurKot regen already speaks.

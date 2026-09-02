@@ -164,6 +164,7 @@ export const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = 
   slayer: { icon: ASSETS.misc.strength_icon, label: 'Melee' },
   toxic: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
   scorching_bow: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
+  purging_staff: { icon: ASSETS.misc.magic_icon, label: 'Magic' },
 };
 
 /**
@@ -249,6 +250,16 @@ export function towerSignature(
         notes: [
           { text: 'Everything else must come into range', active: true },
           { text: '+50% vs your task · +30% Superiors · +25% bosses', active: true },
+        ],
+      };
+    case 'purging_staff':
+      return {
+        label: 'Purge',
+        icon: ASSETS.misc.magic_hit_splat,
+        desc: 'Hits harder the closer the enemy is to death.',
+        notes: [
+          { text: 'Nothing can heal what it hits, for 5s', active: true },
+          { text: 'Up to double damage on a dying enemy', active: true },
         ],
       };
     default:

@@ -96,6 +96,9 @@ export interface EffectStat {
   /** Damage from chained board FX (ricochet / overkill cleave / kill-streak) —
    *  the Run-Effects damage that isn't a burn/poison/venom tick. */
   chainDmg: number;
+  /** Health a Purging staff refused to let an enemy put back on its bar. Never a
+   *  hit, but it is damage the board did not have to deal twice. */
+  healDenied: number;
 }
 
 export interface DpsWaveStat {

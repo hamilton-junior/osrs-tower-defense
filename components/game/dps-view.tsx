@@ -42,6 +42,8 @@ export const DPS_EFFECT_META: {
     tip: 'Damage from venom, which hits harder the longer it is kept up.' },
   { key: 'chainDmg', label: 'Chain damage', kind: 'dmg', icon: ASSETS.misc.multicombat_icon,
     tip: 'Damage that jumped on to another enemy on its own.' },
+  { key: 'healDenied', label: 'Healing denied', kind: 'dmg', icon: ASSETS.misc.magic_hit_splat,
+    tip: 'Health an enemy was not allowed to put back on its bar.' },
   { key: 'bloodBonusDmg', label: 'Blood bonus dmg', kind: 'dmg', icon: ASSETS.spells.Blood_Barrage,
     tip: 'Extra damage Blood adds from the target’s own maximum hitpoints.' },
   { key: 'taskBonusDmg', label: 'Slayer task bonus', kind: 'dmg', icon: ASSETS.misc.slayer_crossbow,

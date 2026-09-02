@@ -13,6 +13,7 @@ import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance
 import { debuffTenacity } from '../../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap } from '../../systems/tower-identity';
 import { rollGearDrops, gearDamageMult } from '../../systems/tower-gear';
+import { fusionSpellFx, purgeDamageMult, PURGE_DENY_SECS } from '../../systems/tower-fusion';
 import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
 import { mergeUnlockBatch } from '../../systems/unlock-queue';
 import { GAME_SOUNDS } from '../sound';
@@ -23,7 +24,7 @@ import { GRID, uid, enemyRadius, projectileEase, SHORTEST_CAST_S, DOT_LANE, HITS
 import type { HitsplatKind } from '../engine-state';
 import type { GameEngine } from '../engine';
 import { stallStacksOf, liveRatsOf, shearRat } from './bosses';
-import { makeEnemy, spawnEffect, spawnAncientHitFx, addRing, addBolt, addHurl } from './waves';
+import { makeEnemy, spawnEffect, spawnAncientHitFx, addRing, addBolt, addHurl, healEnemy } from './waves';
 import { bodyY } from '../../systems/enemy-anchor';
 
 /**
@@ -78,13 +79,14 @@ function siphonShot(eng: GameEngine, tower: Tower, stats: ComputedTowerStats) {
   if (!beast || damage <= 0) return;
   const heal = corpSiphonHeal(damage, beast.bossState?.stallStacks ?? 0);
   if (heal <= 0) return;
-  beast.hp = Math.min(beast.maxHp, beast.hp + heal);
+  const healed = healEnemy(eng, beast, heal);
+  if (healed <= 0) return;
   eng.caStats.bossFlags.corpSiphonHeld = true;
   // Same green heal splat Jad's healers and Scurrius's rats use: a boss bar that rises
   // with no explanation reads as a bug in every fight, so all three speak one language.
   eng.hitsplats.push({
     x: beast.x + (Math.random() - 0.5) * 16, y: bodyY(beast) - 18,
-    value: heal, kind: 'heal', life: HITSPLAT_LIFE,
+    value: healed, kind: 'heal', life: HITSPLAT_LIFE,
   });
 }
 
@@ -245,14 +247,22 @@ interface ShotFlight {
 function shotFlight(eng: GameEngine, tower: Tower, target: Enemy): ShotFlight {
   const dist = distance(tower.x, tower.y, target.x, target.y);
   const fp: ShotFlight = { soundKey: `fire_${tower.type}`, flight: dist / 600 };
+  // Which spell this shot *is*, as the `<tier>_<level>` key the baked cast, flight
+  // and impact tables are all keyed by. A wizard's is whatever its spellbook is set
+  // to; a fused staff borrows one outright (see fusionSpellFx) — it is a staff, so
+  // it has to sound and land like one, and the cache already holds the spell.
+  let spell = fusionSpellFx(tower.type);
   if (tower.type === 'wizard') {
     const mode = tower.mageMode ?? 'elemental';
     const tier = mode === 'ancients' ? (tower.ancientType ?? 'ice') : (tower.element ?? 'air');
-    fp.soundKey = `cast_${tier}_${tower.level}`;
-    fp.hitSound = `hit_${tier}_${tower.level}`;
+    spell = `${tier}_${tower.level}`;
+  }
+  if (spell) {
+    fp.soundKey = `cast_${spell}`;
+    fp.hitSound = `hit_${spell}`;
     // The spell's real flight GFX (baked from the cache); the spell icon
     // stays as the renderer's fallback if the sheet ever fails to load.
-    if (SPOTANIMS[`proj_${tier}_${tower.level}`]) fp.projAnim = `proj_${tier}_${tower.level}`;
+    if (SPOTANIMS[`proj_${spell}`]) fp.projAnim = `proj_${spell}`;
     // Sound-sync the arc: the bolt must not land before the cast clip ends,
     // so the impact sfx never steps on the cast. Floor the flight at the cast
     // duration + 25% (a short beat of air after the cast lands). Until the
@@ -272,11 +282,13 @@ function launchProjectile(
   lo: ShotLoadout, fp: ShotFlight, aura: AuraAttribution | undefined,
   incoming: Map<string, number>, weaponFrac = 0,
 ) {
+  // A fused staff flies as a 'spell' too, or the renderer would draw its baked
+  // flight GFX as an arrow (see core/render/effects.ts for the order).
   const projType: Projectile['type'] =
     tower.type === 'cannon' ? 'cannonball'
-    : tower.type !== 'wizard' ? 'arrow'
     : lo.ancient ? (`ancient_${lo.ancient}` as Projectile['type']) // ancients carry their tier so the impact themes right
-    : 'spell';
+    : tower.type === 'wizard' || fusionSpellFx(tower.type) ? 'spell'
+    : 'arrow';
   eng.projectiles.push({
     id: uid(),
     x: tower.x,
@@ -393,6 +405,12 @@ export function fireTowers(eng: GameEngine, dt: number) {
       eng.stats.recordEffect(tower.id, eng.wave, { longShots: 1 });
     }
     if (slayerMult !== 1) damage = Math.floor(damage * slayerMult);
+    // Purging staff: the execute curve. Its printed damage is what it does to a
+    // healthy enemy; every point already off the bar raises the hit, up to double
+    // on the last sliver. Keyed off the enemy, so it lives here rather than in
+    // `calculateTowerStats` — the same reason the Slayer bonus above it does.
+    const purgeMult = tower.special === 'purge' ? purgeDamageMult(target.hp, target.maxHp) : 1;
+    if (purgeMult !== 1) damage = Math.floor(damage * purgeMult);
 
     const lo = shotLoadout(eng, tower, target, damage);
     const fp = shotFlight(eng, tower, target);
@@ -409,7 +427,7 @@ export function fireTowers(eng: GameEngine, dt: number) {
       const d = Math.floor(Math.floor(lo.damage * gear) * bow);
       // Everything the tower's *own weapon* put on top of a plain hit, as a share
       // of the shot: the meter breaks it out again on impact (`weaponBonusDmg`).
-      const mult = slayerMult * gear * bow;
+      const mult = slayerMult * gear * bow * purgeMult;
       return { dmg: d, frac: mult > 1 ? 1 - 1 / mult : 0 };
     };
 
@@ -882,6 +900,16 @@ export function applyOnHit(eng: GameEngine, e: Enemy, p: Projectile) {
       const cur = dots.venom;
       if (cur) { cur.dps = Math.min(cap, cur.dps + step); cur.timer = Math.max(cur.timer, dur); cur.style = style; cur.sourceTowerId = p.sourceTowerId; }
       else dots.venom = { timer: dur, dps: step, accum: 0, tickTimer: 0, style, sourceTowerId: p.sourceTowerId };
+      break;
+    }
+    case 'purge': {
+      // The Purging staff's other half: for a few seconds nothing may put health
+      // back on this enemy — no boss self-heal, no Yt-HurKot, no Regenerating
+      // affix, because every heal in the game asks `healEnemy` first. It is not a
+      // hold, so boss tenacity does not shorten it: a boss out-resisting the one
+      // weapon built to stop it healing would be the whole fusion undone.
+      e.purgedTimer = Math.max(e.purgedTimer ?? 0, PURGE_DENY_SECS);
+      e.purgedBy = p.sourceTowerId;
       break;
     }
     default:

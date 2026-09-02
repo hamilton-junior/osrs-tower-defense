@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   FUSIONS, FUSION_COST, FUSION_UNLOCK_CA, FUSION_BLOCK_TEXT,
   areAdjacent, checkFusion, fusionDef, fusionFor, fusionOffersFor, isFusion,
-  isFusionReady, mergeSkills, type FusionContext,
+  isFusionReady, mergeSkills, purgeDamageMult, healingDenied, fusionSpellFx,
+  PURGE_MAX_MULT, type FusionContext,
 } from './tower-fusion';
 import { TOWERS } from '../data/towers';
 import type { Tower, TowerType } from '../types';
@@ -169,5 +170,36 @@ describe('mergeSkills', () => {
     // Copies, not shared references — the fused tower trains on its own from here.
     m.strength.xp = 1;
     expect(a.strength.xp).toBe(500);
+  });
+});
+
+describe('purgeDamageMult', () => {
+  it('runs from the printed hit at full health to double on the last sliver', () => {
+    expect(purgeDamageMult(100, 100)).toBe(1);
+    expect(purgeDamageMult(50, 100)).toBeCloseTo(1 + (PURGE_MAX_MULT - 1) * 0.5);
+    expect(purgeDamageMult(1, 100)).toBeCloseTo(1 + (PURGE_MAX_MULT - 1) * 0.99);
+    expect(purgeDamageMult(0, 100)).toBe(PURGE_MAX_MULT);
+  });
+
+  it('never runs away on nonsense health', () => {
+    expect(purgeDamageMult(150, 100)).toBe(1);   // overhealed
+    expect(purgeDamageMult(-10, 100)).toBe(PURGE_MAX_MULT);
+    expect(purgeDamageMult(5, 0)).toBe(1);       // no bar to read
+  });
+});
+
+describe('healingDenied', () => {
+  it('is on only while the purge timer is still running', () => {
+    expect(healingDenied({})).toBe(false);
+    expect(healingDenied({ purgedTimer: 0 })).toBe(false);
+    expect(healingDenied({ purgedTimer: 0.01 })).toBe(true);
+  });
+});
+
+describe('fusionSpellFx', () => {
+  it('only a fused weapon borrows a spell, and only a baked one', () => {
+    expect(fusionSpellFx('purging_staff')).toBe('shadow_4');
+    expect(fusionSpellFx('scorching_bow')).toBeNull();
+    expect(fusionSpellFx('wizard')).toBeNull();
   });
 });

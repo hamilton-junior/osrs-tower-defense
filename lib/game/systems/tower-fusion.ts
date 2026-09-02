@@ -24,7 +24,7 @@ import type { Tower, TowerSkills, TowerType } from '../types';
 
 /** Every fused weapon's type. These join `TowerType`, but they are never sold in
  *  the dock — the only way one reaches the board is {@link checkFusion}. */
-export type FusionType = 'scorching_bow';
+export type FusionType = 'scorching_bow' | 'purging_staff';
 
 export interface FusionDef {
   /** Also its `TowerType` member and its baked icon slug. */
@@ -51,7 +51,53 @@ export const FUSIONS: readonly FusionDef[] = [
     parents: ['archer', 'slayer'],
     blurb: 'Reaches your Slayer task, Superiors and bosses anywhere on the board.',
   },
+  {
+    type: 'purging_staff',
+    name: 'Purging staff',
+    parents: ['wizard', 'slayer'],
+    blurb: 'Hits harder the closer the enemy is to death, and stops it healing.',
+  },
 ];
+
+/** What a Purging staff hits for on a target that has nothing left: a target at
+ *  full health takes the printed damage, and the curve runs straight between. */
+export const PURGE_MAX_MULT = 2;
+
+/**
+ * The execute curve. Deliberately linear in *missing* health rather than
+ * remaining, so the weapon reads the way the bar looks: half a bar gone is half
+ * the bonus. It is worse than either parent against a fresh enemy and better
+ * than both against a dying one — the whole trade the fusion makes.
+ */
+export function purgeDamageMult(hp: number, maxHp: number): number {
+  if (!(maxHp > 0)) return 1;
+  const missing = Math.min(1, Math.max(0, 1 - hp / maxHp));
+  return 1 + (PURGE_MAX_MULT - 1) * missing;
+}
+
+/** How long one purging hit keeps its target from healing. Long enough to cover a
+ *  boss's heal tick, short enough that the staff has to keep firing to hold it. */
+export const PURGE_DENY_SECS = 5;
+
+/** Whether nothing may heal this enemy right now. Every heal in the game asks
+ *  this (through `healEnemy`), which is what makes the effect worth a fusion:
+ *  boss self-heals, Jad's Yt-HurKot, Scurrius's rats, the Corporeal Beast's
+ *  siphon and the Regenerating affix all stop at once. */
+export function healingDenied(e: { purgedTimer?: number }): boolean {
+  return (e.purgedTimer ?? 0) > 0;
+}
+
+/** Fused weapons that cast instead of shooting, and the baked spell whose voice,
+ *  flight GFX and impact they borrow (`<tier>_<level>`, as the spotanim and sound
+ *  tables are keyed). A staff has to sound and land like a staff, and the cache
+ *  already holds the spell — nothing new is baked for a fusion. */
+const FUSION_SPELL_FX: Partial<Record<FusionType, string>> = {
+  purging_staff: 'shadow_4',
+};
+
+export function fusionSpellFx(type: string): string | null {
+  return isFusion(type) ? FUSION_SPELL_FX[type] ?? null : null;
+}
 
 const BY_TYPE = new Map<string, FusionDef>(FUSIONS.map((f) => [f.type, f]));
 

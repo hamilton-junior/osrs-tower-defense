@@ -14,9 +14,10 @@ import { rollAffixes, rollBossAffixes, affixSpeedMult, affixSpawnHpMult, affixRe
 import { resolveEventMods } from '../../systems/wave-events';
 import { pickVariant, resetVariantBag } from '../../systems/model-variants';
 import { enemyLeakCost } from '../../systems/leak-cost';
+import { healingDenied } from '../../systems/tower-fusion';
 import { bodyY } from '../../systems/enemy-anchor';
 import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, graardorIsSlamming, type BossId } from '../../systems/boss-mechanics';
-import { uid, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT } from '../engine-state';
+import { uid, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT, HITSPLAT_LIFE } from '../engine-state';
 import type { WavePreviewEntry } from '../engine-state';
 import type { GameEngine } from '../engine';
 import { stepStallClock, stallStacksOf, updateEscortFollow } from './bosses';
@@ -27,6 +28,38 @@ import { damage } from './combat';
  * enemy with its scaling and affixes, walking them down the road, ticking damage
  * over time and the spawned effects, and settling up when the wave ends.
  */
+
+/**
+ * The one door every heal in the game goes through — a boss's self-heal, Jad's
+ * Yt-HurKot, Scurrius's rats, the Corporeal Beast's siphon and the Regenerating
+ * affix. Centralised so a Purging staff can close all of them with one rule
+ * instead of five remembered guards.
+ *
+ * While the enemy is purged nothing lands: the health it was denied is credited
+ * to the staff (the damage meter's only window on the effect) and a blue 0 floats
+ * where the gold heal splat would have — which is exactly how OSRS says "that did
+ * nothing". Per-frame heals pass `splat: false`, or they would spray a zero every
+ * frame.
+ *
+ * Returns the health actually restored, so callers splat and account for what
+ * really happened rather than what they asked for.
+ */
+export function healEnemy(eng: GameEngine, e: Enemy, amount: number, splat = true): number {
+  const real = Math.min(amount, e.maxHp - e.hp);
+  if (real <= 0) return 0;
+  if (healingDenied(e)) {
+    if (e.purgedBy) eng.stats.recordEffect(e.purgedBy, eng.wave, { healDenied: real });
+    if (splat) {
+      eng.hitsplats.push({
+        x: e.x + (Math.random() - 0.5) * 16, y: bodyY(e) - 18,
+        value: 0, kind: 'miss', life: HITSPLAT_LIFE,
+      });
+    }
+    return 0;
+  }
+  e.hp += real;
+  return real;
+}
 
 /** Resolve (and memoise) the upcoming wave's `{type,count}` makeup. Pure aside
  *  from the cache: it assigns no task and fires no notifications, so it is safe
@@ -381,6 +414,7 @@ export function moveEnemies(eng: GameEngine, dt: number) {
       if (e.slowTimer <= 0) e.speed = e.baseSpeed;
     }
     if (e.vulnTimer && e.vulnTimer > 0) e.vulnTimer -= dt;
+    if (e.purgedTimer && e.purgedTimer > 0) e.purgedTimer -= dt;
     // Regenerating affix: claw back HP over time, capped at full health. An enemy that
     // has stalled dries this up through the stall breaker (`stallHealMult`) exactly as a
     // boss's own self-heals do — without it, anything whose regen matches the board's
@@ -389,7 +423,7 @@ export function moveEnemies(eng: GameEngine, dt: number) {
     // it too, and then the wave has no way to end at all.
     if (e.affixes) {
       const regen = regenPerSec(e.affixes, e.maxHp, eng.wave, e.isBoss) * stallHealMult(stallStacksOf(eng, e));
-      if (regen > 0 && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + regen * dt);
+      if (regen > 0 && e.hp < e.maxHp) healEnemy(eng, e, regen * dt, false);
     }
     if (e.stunTimer > 0) {
       e.stunTimer -= dt;

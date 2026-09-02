@@ -17,6 +17,7 @@ export const TOWER_STYLES: Record<TowerType, { style: CombatStyle; boostable: bo
   slayer: { style: 'melee', boostable: true },
   // Fusions inherit the style of the parent whose reach they keep.
   scorching_bow: { style: 'ranged', boostable: true },
+  purging_staff: { style: 'magic', boostable: true },
 };
 
 export interface TowerTier {
@@ -149,6 +150,20 @@ export const TOWERS: Record<string, TowerDef> = {
     fireSound: 'archer',
     tiers: [
       { level: 1, name: 'Scorching Bow', damage: 120, cooldown: 2 * TICK * 1000, range: 10 * 25, color: '#c8412a', upgradeCost: 4800 }
+    ]
+  },
+  // Purging staff = Trident-class staff + Emberlight. An executioner: its hit grows
+  // with the health the target has already lost (x1 full → x2 on the last sliver,
+  // purgeDamageMult), and every hit shuts healing off for 5s — boss self-heals,
+  // Jad's Yt-HurKot, Scurrius's rats, the Corporeal Beast's siphon and the
+  // Regenerating affix all stop at once. Against a fresh enemy it is worse than
+  // either parent; against anything that is dying, or refuses to, nothing else
+  // comes close.
+  purging_staff: {
+    type: 'purging_staff',
+    baseName: 'Purging',
+    tiers: [
+      { level: 1, name: 'Purging Staff', damage: 100, cooldown: 3 * TICK * 1000, range: 8 * 25, color: '#8a5bd0', upgradeCost: 5000, special: 'purge' }
     ]
   }
 };
