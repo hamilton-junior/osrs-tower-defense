@@ -54,6 +54,8 @@ export const HITSPLAT_COLORS: Record<HitsplatKind, string> = {
   venom: '#0b5c0b',   // dark-green venom
   burn: '#cc6a16',    // orange fire DoT
   heal: '#7b2fb0',    // purple heal
+  armour: '#c86414',  // orange armour — a defence stopped it
+  shield: '#1aa08a',  // teal shield — a shield pool ate it
 };
 
 /** All Canvas 2D drawing for a frame. Reads engine state through `this.e`. */

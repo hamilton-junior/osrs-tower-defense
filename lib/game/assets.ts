@@ -536,9 +536,11 @@ export const ASSETS = {
     hit: `${LOCAL}/hitsplats/hit.png`,       // red damage (1359)
     miss: `${LOCAL}/hitsplats/miss.png`,     // blue zero-splat (1358)
     poison: `${LOCAL}/hitsplats/poison.png`, // green (1360)
-    venom: `${LOCAL}/hitsplats/venom.png`,   // dark green (1632)
+    venom: `${LOCAL}/hitsplats/venom.png`,   // teal (1632)
     burn: `${LOCAL}/hitsplats/burn.png`,     // orange (1361)
-    heal: `${LOCAL}/hitsplats/heal.png`,     // gold (1362)
+    heal: `${LOCAL}/hitsplats/heal.png`,     // purple cross (1629)
+    armour: `${LOCAL}/hitsplats/armour.png`, // orange chestplate (1628)
+    shield: `${LOCAL}/hitsplats/shield.png`, // teal shield (1419)
   },
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
   debuffs: {

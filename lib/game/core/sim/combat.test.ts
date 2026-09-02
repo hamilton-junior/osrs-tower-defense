@@ -317,11 +317,39 @@ describe('damage — the multipliers that stack on one hit', () => {
     expect(e.hp).toBe(80);
   });
 
-  it('reports a blocked hit as a miss splat', () => {
+  it('shows the shield splat, carrying what the pool ate, when nothing gets through', () => {
+    const env = stubEngine();
+    const e = mkEnemy({ shieldHp: 30 });
+    env.raw.enemies.push(e);
+    damage(env.e, e, 20);
+    const splat = env.raw.hitsplats.at(-1)!;
+    expect(splat.kind).toBe('shield');
+    expect(splat.value).toBe(20);
+  });
+
+  it('shows the normal splat when a hit breaks through the shield', () => {
+    const env = stubEngine();
+    const e = mkEnemy({ shieldHp: 30 });
+    env.raw.enemies.push(e);
+    damage(env.e, e, 50);
+    const splat = env.raw.hitsplats.at(-1)!;
+    expect(splat.kind).toBe('hit');
+    expect(splat.value).toBe(20);
+  });
+
+  it('reports a hit turned away by a defence as an armour splat', () => {
     const env = stubEngine();
     const e = mkEnemy({ protectedStyle: 'melee' });
     env.raw.enemies.push(e);
     damage(env.e, e, 1, 'hit', false, true, 0, 'melee');
+    expect(env.raw.hitsplats.at(-1)!.kind).toBe('armour');
+  });
+
+  it('keeps the blue 0 for a hit that genuinely landed for nothing', () => {
+    const env = stubEngine();
+    const e = mkEnemy();
+    env.raw.enemies.push(e);
+    damage(env.e, e, 0);
     expect(env.raw.hitsplats.at(-1)!.kind).toBe('miss');
   });
 

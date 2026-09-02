@@ -1042,11 +1042,17 @@ export function spawnImpactParticles(eng: GameEngine, x: number, y: number, colo
 }
 
 /** What a hit actually lands for, plus the two multipliers the callers downstream
- *  still need: the species' style weakness (XP) and the on-task bonus (the meter). */
+ *  still need: the species' style weakness (XP) and the on-task bonus (the meter).
+ *  `absorbed` and `blocked` carry *why* nothing reached the health bar, so the splat
+ *  can say so — damage eaten by a shield pool, or turned away by a defence. */
 interface ResolvedHit {
   dealt: number;
   weak: number;
   onTask: number;
+  /** Damage the shield pool swallowed on this hit (0 when there is no shield). */
+  absorbed: number;
+  /** A real hit reduced to nothing by a resistance, a protect prayer or immunity. */
+  blocked: boolean;
 }
 
 /**
@@ -1079,13 +1085,20 @@ function resolveHit(
   // answered rather than incidentally deleted. Focused fire is unaffected.
   const escortMult = escortDamageMult(!!enemy.escort, source?.tag);
   let dealt = Math.max(0, Math.floor(amount * vuln * onTask * resist * weak * bossMult * escortMult));
+  // Everything above that turns damage *away* rather than scaling it up. If a real
+  // hit came out at nothing while one of these was biting, the enemy's defences ate
+  // it — that is an armour splat, not a plain 0.
+  const defence = resist * bossMult * escortMult;
+  const blocked = amount > 0 && dealt === 0 && defence < 1;
   // Shielded affix: damage is drained from the shield pool before HP is touched.
+  let absorbed = 0;
   if (enemy.shieldHp && enemy.shieldHp > 0 && dealt > 0) {
     const a = absorbWithShield(enemy.shieldHp, dealt);
     enemy.shieldHp = a.shield;
+    absorbed = dealt - a.dmg;
     dealt = a.dmg;
   }
-  return { dealt, weak, onTask };
+  return { dealt, weak, onTask, absorbed, blocked };
 }
 
 /**
@@ -1175,19 +1188,33 @@ function playHurtFlinch(enemy: Enemy) {
   if (hurtClip && (enemy.hurtAnim ?? 0) <= 0) enemy.hurtAnim = clipDurationS(hurtClip);
 }
 
-/** The number over the enemy's head. DoT splats fan into per-kind lanes (side + rise)
- *  so an enemy carrying several shows them clearly apart rather than one overriding
- *  the next: burn drifts left/up, poison right/up, venom right/down. See DOT_LANE. */
-function pushHitsplat(eng: GameEngine, enemy: Enemy, dealt: number, kind: HitsplatKind, minor: boolean) {
+/**
+ * The number over the enemy's head. One splat, one meaning — the picture has to
+ * tell the player which of the four things happened, the way OSRS's own set does:
+ * health came off (the shot's own colour), a shield pool ate it (the shield), a
+ * defence turned it away (the armour), or it simply landed for nothing (the blue 0).
+ *
+ * DoT splats fan into per-kind lanes (side + rise) so an enemy carrying several
+ * shows them clearly apart rather than one overriding the next: burn drifts
+ * left/up, poison right/up, venom right/down. See DOT_LANE.
+ */
+function pushHitsplat(eng: GameEngine, enemy: Enemy, hit: ResolvedHit, kind: HitsplatKind, minor: boolean) {
   const below = enemy.isBoss ? 30 : 16;
   const lane = minor ? DOT_LANE[kind as DotKind] : undefined;
   const side = lane?.side ?? 0;
   const rise = lane?.rise ?? 0;
+  // The shield is only ever the whole story when nothing got past it; a hit that
+  // broke through shows the health it took off instead.
+  const shielded = hit.dealt <= 0 && hit.absorbed > 0;
+  const splatKind: HitsplatKind = hit.dealt > 0 ? kind
+    : shielded ? 'shield'
+    : hit.blocked ? 'armour'
+    : 'miss';
   eng.hitsplats.push({
     x: enemy.x + side * 14 + (Math.random() - 0.5) * (minor ? 8 : 16),
     y: minor ? bodyY(enemy) + below : bodyY(enemy) - 18,
-    value: dealt,
-    kind: dealt > 0 ? kind : 'miss',
+    value: shielded ? hit.absorbed : hit.dealt,
+    kind: splatKind,
     life: HITSPLAT_LIFE,
     minor: minor || undefined,
     vx: minor ? side * 30 + (Math.random() - 0.5) * 16 : 0,
@@ -1331,7 +1358,7 @@ export function damage(eng: GameEngine, enemy: Enemy, amount: number, kind: Hits
     enemy.hp = 0;
   }
   if (!minor) playHurtFlinch(enemy);
-  pushHitsplat(eng, enemy, dealt, kind, minor);
+  pushHitsplat(eng, enemy, hit, kind, minor);
   if (dealt > 0 && !minor && !silent) eng.sound.play('hit', 70);
   if (enemy.hp > 0) return false;
   return killEnemy(eng, enemy, dealt, depth, source);

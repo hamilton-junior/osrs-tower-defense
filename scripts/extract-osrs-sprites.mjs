@@ -105,15 +105,26 @@ const MISC_IDS = {
 
 /**
  * Hitsplats — the real interface splats, keyed by the core engine's
- * HitsplatKind. `miss` is the blue zero-splat, `heal` the gold one.
+ * HitsplatKind. `miss` is the blue zero-splat: OSRS shows it only when a hit
+ * genuinely landed for nothing, so nothing else in the game may borrow it.
+ *
+ * These ids are not guesses. The cache's own HITSPLAT config table (config type
+ * 32) names the sprite behind every splat the client can draw, and the ids below
+ * are read straight off it — config 6 is the heal splat, and its sprite is 1629.
+ * Each splat also has a darker twin (1630/1631…), which is the version drawn on
+ * *someone else's* target; the game only ever draws its own, so the bright one of
+ * each pair is the right one. The wiki's Hitsplat page lists the same set by name
+ * if you need to match a picture to a kind.
  */
 const HITSPLAT_IDS = {
-  hit: 1359,  // HITSPLAT_RED_DAMAGE
-  miss: 1358, // HITSPLAT_BLUE_MISS
-  poison: 1360, // HITSPLAT_GREEN_POISON
-  venom: 1632, // HITSPLAT_DARK_GREEN_VENOM
-  burn: 1361, // orange disease/burn splat
-  heal: 1362, // gold heal splat
+  hit: 1359,  // red damage
+  miss: 1358, // blue zero-splat
+  poison: 1360, // green poison
+  venom: 1632, // teal venom
+  burn: 1361, // orange fire DoT
+  heal: 1629, // purple cross — health going *back on* a bar
+  armour: 1628, // orange chestplate — the hit was stopped by a defence
+  shield: 1419, // teal shield — damage eaten by a shield pool
 };
 
 /** Interface chrome / HUD sprites. */

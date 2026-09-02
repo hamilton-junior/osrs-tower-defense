@@ -491,10 +491,16 @@ export function projectileEase(t: number): number {
  */
 export const SHORTEST_CAST_S = 1.52;
 
-/** Hitsplat colour, following the OSRS Template:Hitsplat palette: `hit` (red
- *  damage), `miss` (blue 0/block), `poison` (green), `venom` (dark green),
- *  `burn` (orange fire DoT), `heal` (purple). */
-export type HitsplatKind = 'hit' | 'miss' | 'poison' | 'venom' | 'burn' | 'heal';
+/** Which splat the client draws, following OSRS's own set: `hit` (red damage),
+ *  `miss` (blue 0), `poison` (green), `venom` (teal), `burn` (orange fire DoT),
+ *  `heal` (purple cross), `armour` (orange chestplate) and `shield` (teal shield).
+ *
+ *  Each one says a different thing, and OSRS never lets them blur — so neither do
+ *  we. The blue `miss` means the hit landed and was worth nothing on its own; a
+ *  defence that stopped it shows `armour`, a shield pool that ate it shows
+ *  `shield`, and healing shows `heal` whether or not any health moved. */
+export type HitsplatKind =
+  | 'hit' | 'miss' | 'poison' | 'venom' | 'burn' | 'heal' | 'armour' | 'shield';
 
 /** The damage-over-time kinds, ticked independently in `damageOverTime`. */
 export const DOT_KINDS: readonly DotKind[] = ['burn', 'poison', 'venom'];

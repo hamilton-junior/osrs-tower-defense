@@ -36,9 +36,10 @@ import { damage } from './combat';
  * instead of five remembered guards.
  *
  * While the enemy is purged nothing lands: the health it was denied is credited
- * to the staff (the damage meter's only window on the effect) and a blue 0 floats
- * where the gold heal splat would have — which is exactly how OSRS says "that did
- * nothing". Per-frame heals pass `splat: false`, or they would spray a zero every
+ * to the staff (the damage meter's only window on the effect) and the heal splat
+ * still floats, showing 0 — the same picture as a heal, worth nothing. The blue 0
+ * is not used here; that one is reserved for a hit that genuinely landed for
+ * nothing. Per-frame heals pass `splat: false`, or they would spray a zero every
  * frame.
  *
  * Returns the health actually restored, so callers splat and account for what
@@ -52,7 +53,7 @@ export function healEnemy(eng: GameEngine, e: Enemy, amount: number, splat = tru
     if (splat) {
       eng.hitsplats.push({
         x: e.x + (Math.random() - 0.5) * 16, y: bodyY(e) - 18,
-        value: 0, kind: 'miss', life: HITSPLAT_LIFE,
+        value: 0, kind: 'heal', life: HITSPLAT_LIFE,
       });
     }
     return 0;
