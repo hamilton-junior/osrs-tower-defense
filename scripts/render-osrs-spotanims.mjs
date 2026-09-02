@@ -145,8 +145,9 @@ TARGETS.proj_dragonfire_shock = { id: 396, maxFrames: 12, yaw: -65, pitch: 12 };
  *
  * `proj_graardor` (314) is the boulder General Graardor hurls: a pale, tapered rock
  * with chunks breaking off it, and the reason he gets his own flight GFX at all — his
- * slam now throws one at everything the slam catches, so the buff has a *sender*.
- * `hit_graardor` (316) is that rock shattering.
+ * slam now throws one at everything the slam catches, so the buff has a *sender*. What
+ * happens where it lands is not the rock shattering (316, tried and dropped — a body
+ * being *freed* must not be shown taking a hit) but the Death Charge below.
  *
  * Yaw follows the spell-bolt convention: +65 puts the rock's mass on the right and its
  * taper trailing left — the sheet's canonical "flying +x" pose.
@@ -157,7 +158,6 @@ TARGETS.proj_dragonfire_shock = { id: 396, maxFrames: 12, yaw: -65, pitch: 12 };
  * than a faint sprite does.
  */
 TARGETS.proj_graardor = { id: 314, maxFrames: 12, yaw: 65, pitch: 12 };
-TARGETS.hit_graardor = { id: 316, maxFrames: 12, margin: 0.16 };
 
 /**
  * A single blue ice crystal (spotanim 1200 — the middle of a three-way recolour with
@@ -167,6 +167,20 @@ TARGETS.hit_graardor = { id: 316, maxFrames: 12, margin: 0.16 };
  * rotates each shard itself.
  */
 TARGETS.ice_shard = { id: 1200, maxFrames: 12, yaw: 0, pitch: 0, margin: 0.1 };
+
+/**
+ * The cast of **Death Charge**, the Arceuus spell (spotanim 1852 — the growing half of a
+ * pair with 1853, which is the same model 41551 fading back out). A violet crystal rising
+ * out of a purple pool with dark tendrils curling up around it.
+ *
+ * It marks a body General Graardor's slam has just shaken free of every stun and slow.
+ * The shattering rock that used to sit there said "this was hit", which is the opposite of
+ * what happened — the point is that something was *lifted off* them, and a charge going up
+ * reads that way where an impact going down never could.
+ *
+ * Baked front-on and upright: it plays on the mark, standing still, not flying anywhere.
+ */
+TARGETS.cast_death_charge = { id: 1852, maxFrames: 14, yaw: 0, pitch: 0, margin: 0.12 };
 
 /**
  * Parse a spotanim config's model id + animation id (+ recolour) ourselves.

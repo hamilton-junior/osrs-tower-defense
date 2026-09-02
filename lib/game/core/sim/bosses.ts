@@ -1246,8 +1246,10 @@ export function updateGraardor(eng: GameEngine, e: Enemy, dt: number) {
  *
  * And it is *shown*, not merely applied. Every body the slam frees is thrown one of his
  * own boulders — spotanim 314, the rock he really does hurl in the God Wars Dungeon —
- * which shatters (316) on arrival. That turns a silent stat change into an attack with a
- * sender and a set of receivers a player can count. It is capped at
+ * and where it lands the Arceuus Death Charge goes off on the body (1852): a violet
+ * crystal rising out of the ground with the stun visibly lifting off. That turns a silent
+ * stat change into an attack with a sender, a set of receivers a player can count, and a
+ * mark on each of them that reads as *freed* rather than as hurt. It is capped at
  * {@link GRAARDOR_SLAM_GFX_MAX} throws, picked evenly around him, because the case where
  * the read matters most is exactly the case where one rock per body would bury the board.
  */
@@ -1280,9 +1282,9 @@ function graardorSlam(eng: GameEngine, e: Enemy) {
     // Alternating bows, so two rocks thrown at neighbouring bodies take visibly
     // different arcs instead of merging into one streak.
     addHurl(eng, fist.x, fist.y, o.x, bodyY(o), flight, 0.1 + 0.06 * (i % 3), 'proj_graardor');
-    // The shatter is queued now and waits out the flight (a negative age), anchored to
-    // the body so it breaks on the mark even if the mark walked.
-    spawnEffect(eng, 'hit_graardor', o.x, bodyY(o), 1, o, flight);
+    // The charge is queued now and waits out the flight (a negative age), anchored to the
+    // body so it goes off on the mark even if the mark walked.
+    spawnEffect(eng, 'cast_death_charge', o.x, bodyY(o), 1, o, flight);
   });
   eng.sound.play('bossslam_graardor' in GAME_SOUNDS ? 'bossslam_graardor' : 'wave', 75);
 }

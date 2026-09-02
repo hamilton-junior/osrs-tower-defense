@@ -15,6 +15,7 @@ export interface SpotAnimSheet {
 const B = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/assets/spotanims`;
 
 export const SPOTANIM_SHEETS: Record<string, SpotAnimSheet> = {
+  cast_death_charge: { url: `${B}/cast_death_charge.png`, frames: 14, frameW: 192, frameH: 192, frameMs: [100, 100, 80, 80, 80, 120, 80, 80, 80, 80, 80, 60, 60, 40] },
   hit_air_1: { url: `${B}/hit_air_1.png`, frames: 8, frameW: 192, frameH: 192, frameMs: [40, 40, 40, 40, 40, 40, 40, 40] },
   hit_air_2: { url: `${B}/hit_air_2.png`, frames: 8, frameW: 192, frameH: 192, frameMs: [40, 40, 40, 40, 40, 40, 40, 40] },
   hit_air_3: { url: `${B}/hit_air_3.png`, frames: 12, frameW: 192, frameH: 192, frameMs: [40, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60] },
@@ -34,7 +35,6 @@ export const SPOTANIM_SHEETS: Record<string, SpotAnimSheet> = {
   hit_fire_3: { url: `${B}/hit_fire_3.png`, frames: 12, frameW: 192, frameH: 192, frameMs: [40, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60] },
   hit_fire_4: { url: `${B}/hit_fire_4.png`, frames: 8, frameW: 192, frameH: 192, frameMs: [40, 60, 60, 60, 60, 60, 60, 60] },
   hit_fire_5: { url: `${B}/hit_fire_5.png`, frames: 8, frameW: 192, frameH: 192, frameMs: [40, 60, 60, 60, 60, 60, 60, 60] },
-  hit_graardor: { url: `${B}/hit_graardor.png`, frames: 3, frameW: 192, frameH: 192, frameMs: [280, 280, 240] },
   hit_ice_1: { url: `${B}/hit_ice_1.png`, frames: 16, frameW: 192, frameH: 192, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40] },
   hit_ice_2: { url: `${B}/hit_ice_2.png`, frames: 16, frameW: 192, frameH: 192, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40] },
   hit_ice_3: { url: `${B}/hit_ice_3.png`, frames: 16, frameW: 192, frameH: 192, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60] },

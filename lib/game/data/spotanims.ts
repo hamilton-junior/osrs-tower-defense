@@ -34,7 +34,7 @@ export interface SpotAnimMeta {
  * of its frame instead of all of it, and a proportionally bigger box keeps it
  * looking the same size on screen.
  */
-const HIT_SIZE: Record<string, number> = { hit_fire_3: 92, hit_graardor: 60 };
+const HIT_SIZE: Record<string, number> = { hit_fire_3: 92 };
 
 /**
  * Flight GFX that are not a caster's orb. The King Black Dragon's breath is a gout thrown
@@ -53,9 +53,14 @@ const PROJ_SIZE: Record<string, number> = {
  *  - `ice_shard`: one blue ice crystal (spotanim 1200). It is not an effect on its own —
  *    the renderer places six of them around Vorkath and rotates each one itself — so it
  *    loops, and it is small: a *piece* of a shell, not the shell.
+ *  - `cast_death_charge`: the Arceuus spell going off on a body General Graardor's slam
+ *    has freed. Dark violet, so 'alpha' rather than 'add' (an additive dark purple over
+ *    dark road is nearly nothing), and drawn a little larger than an enemy so the charge
+ *    stands over the mark instead of hiding inside it.
  */
 const STANDALONE: Record<string, { size: number; speed: number; loop?: boolean; blend: 'add' | 'alpha' }> = {
   ice_shard: { size: 34, speed: 1, loop: true, blend: 'alpha' },
+  cast_death_charge: { size: 58, speed: 1.15, blend: 'alpha' },
 };
 
 /**
