@@ -125,7 +125,9 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
    listed in a Collection Log **Achievements** tab. Clearing a tier grants its title — cosmetic
    only, it unlocks nothing. The new table is `lib/game/data/combat-achievements.ts`; the legacy
    `data/achievements.ts` (8 entries, legacy engine only) was deliberately left untouched.
-7. **M4** roguelite reset-loop / meta rework — next to *plan*, not build.
+7. **M4** roguelite reset-loop / meta rework — **descartado por ora** (user, 2026-09-01).
+    Not rejected on its merits: the roguelite simply is not the focus, so the whole reset-loop
+    rework is off the list until the user puts it back. Do not propose it as a next step.
 8. **M6** tower fusion (must respect the closed roster) — think about soon.
 9. **M7** maps — *shipped*: the run **travels**. Every boss put down ends a leg
     (`systems/travel.ts`): the road forks at that wave's end and offers two regions, each card painted
@@ -136,7 +138,9 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
     Slayer task the new region cannot supply is rerolled free. The fork blocks Start Wave like
     a relic or draft choice, and rides in the run save (`biome`/`previousBiome`/`pendingTravel`,
     still `RUN_SAVE_VERSION` 4).
-10. **M5** a gold sink for **normal** mode — idea still wanted.
+10. **M5** a gold sink for **normal** mode — **descartado por ora** (user, 2026-09-01).
+    The idea stands, the work does not: parked alongside M4 until the user reopens it. Do not
+    propose it as a next step.
 11. **A1** late-game victory + Endless + a curve that overtakes — *shipped*: the run is
     won by clearing the boss roster, Endless carries on past it (`c0a328f`), and the
     Victories tab keeps the record. Covers #27/#24/#29/#26.6. Siblings also shipped:
