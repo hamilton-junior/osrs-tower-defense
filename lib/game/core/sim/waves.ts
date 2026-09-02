@@ -493,6 +493,10 @@ export function checkWaveEnd(eng: GameEngine) {
   if (eng.sandboxWave) {
     eng.sandboxWave = false;
     eng.lastWaveSandbox = true; // flag the UI to show "Custom Wave Complete!"
+    // Prayer is the one thing it does give back. A sandbox wave is a *test*, and
+    // leaving the pool drained means the wave you actually wanted to test is fought
+    // without prayers — the tool would be changing the thing it is measuring.
+    eng.prayer.refill();
     eng.emit();
     return;
   }
