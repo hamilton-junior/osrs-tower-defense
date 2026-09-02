@@ -14,33 +14,33 @@ import type { BossId } from './boss-mechanics';
  */
 export const BOSS_TIPS: Record<BossId, string> = {
   brutus:
-    'Hurt him enough and he growls, turns demonic and charges off the road straight at your nearest tower before trotting back to the spot he left. He never skips ground, but whatever he ploughs through is knocked offline for five seconds — so give the towers hugging the road some space, or he picks one off every time you make him angry.',
+    'When he rages he charges off the road and knocks any tower he ploughs through offline. Leave the towers hugging the road some room.',
   giant_mole:
-    'Burrows and resurfaces further down the road, skipping whatever you fortified. Spread your damage along the path instead of stacking one killzone — and note it never digs on the final approach.',
+    'She burrows and comes up further down the road, skipping whatever you fortified. Spread your damage along the path.',
   jad:
-    'Below half health he calls three Yt-HurKot healers, and while they live he heals back a share of the damage you just dealt. Kill the healers first; damage on Jad is wasted until they are down.',
+    'Below half health he calls three healers and heals off your damage. Kill the healers first.',
   vorkath:
-    'Periodically raises an ice shield: immune to everything while it holds. Do not feed it — hold your burst for the window between shields.',
+    'His ice shield makes him immune while it holds. Save your burst for the gap between shields.',
   zulrah:
-    'Rotates through three forms, each weak to one combat style and heavily resistant to the other two. You need all three styles covering the same stretch of road, not one perfect tower.',
+    'He rotates through three forms, each weak to a different combat style. Cover one stretch of road with all three.',
   dusk:
-    'Arrives paired with Dawn. While both stand they share their stone and each takes half damage, and the survivor drags its twin back up — so kill them close together, not one at a time.',
+    'While Dawn still stands they share their stone: half damage each, and the survivor revives the other. Kill them close together.',
   dawn:
-    'Arrives paired with Dusk. While both stand they share their stone and each takes half damage, and the survivor drags its twin back up — so kill them close together, not one at a time.',
+    'While Dusk still stands they share their stone: half damage each, and the survivor revives the other. Kill them close together.',
   cerberus:
-    'Summons Summoned Souls, each locking one combat style out against him. Which soul you must kill first depends on the board you built — check what your damage is made of.',
+    'Each Summoned Soul locks one combat style out against him. Kill the soul your board cannot fight without.',
   hydra:
-    'Opens a chemical vent at each health threshold: it hardens and regenerates until you burst through the vent. Sustained chip damage loses this fight; saved burst wins it.',
+    'At each health threshold it vents, hardens and regenerates. Chip damage loses this fight; saved burst wins it.',
   scurrius:
-    'Every heavy hit splits a Giant rat off him, carrying health out of his own bar — so burst alone just turns one big target into several small ones. The rats scatter across the board and then run back to him, handing the health straight back, so kill them before they arrive. Bring something that hits more than one thing at a time.',
+    'Heavy hits split rats off him, and every rat that runs back hands his health over. Kill the rats before they reach him.',
   nex:
-    'She walks in behind an acolyte, and while it stands your towers cannot even see her. Kill the acolyte and she opens up — until her health drops far enough to call the next one. Four acolytes, four gates; after the last she is yours. Any priority works, because a warded Nex is not a target at all.',
+    'While an acolyte stands your towers cannot even see her, and it silences every tower casting its own Ancient. Kill the acolyte to open the next phase.',
   graardor:
-    'His three sergeants march in front of him, and while any of them is still ahead he barely takes damage. Your towers already aim at whatever is furthest along the road, so leave them on First and the guards die first — a board set to Strongest shoots the armoured General all fight. He also slams the ground and shatters your prayers for a few seconds; there is no answer, only the wait.',
+    'His sergeants shield him while they are ahead of him, so leave your towers on First. His slam frees everything nearby from slows and stuns for a few seconds.',
   corporeal_beast:
-    'Spits a Dark energy core at your strongest tower. While it holds on, that tower stops shooting the wave and heals him instead, and he takes half damage — kill the core and both come back. A board built around one star tower feeds him; towers that cover each other free it in seconds.',
+    'He spits Dark energy cores at the towers hurting him most; a held tower feeds him instead of shooting, and he takes half damage. Kill the cores, and note that nothing slows them.',
   kbd:
-    'Sets a stretch of road on fire, and picks whichever stretch the most of your towers are covering — everything that reaches the flames hits for half while they burn. A killbox around one bend loses its whole board to one breath; a long, thin line down the road loses two towers.',
+    'He burns whichever stretch of road your towers cover most, halving everything that reaches the flames. Do not stack the whole board on one bend.',
 };
 
 /** The "how to kill" line for an enemy type, or undefined if it isn't a boss with one. */
