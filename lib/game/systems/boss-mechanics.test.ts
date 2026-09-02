@@ -1778,3 +1778,64 @@ describe('Nex', () => {
     });
   });
 });
+
+describe('Nex: the acolytes silence their own element', () => {
+  const GRID = 32;
+  const tw = (id: string, x: number, y: number, over: Partial<{
+    range: number; disabled: boolean; ancientType: 'ice' | 'blood' | 'shadow' | 'smoke';
+  }> = {}) => ({ id, x, y, range: 200, ancientType: 'ice' as const, ...over });
+
+  it('takes only the towers casting that acolyte\'s Ancient', () => {
+    const towers = [
+      tw('ice', 0, 0),
+      tw('blood', 0, 0, { ancientType: 'blood' }),
+      tw('shadow', 0, 0, { ancientType: 'shadow' }),
+      tw('smoke', 0, 0, { ancientType: 'smoke' }),
+    ];
+    expect(nexSilencedTowers(towers, 'ice', 0, 0, GRID).map(t => t.id)).toEqual(['ice']);
+    expect(nexSilencedTowers(towers, 'smoke', 0, 0, GRID).map(t => t.id)).toEqual(['smoke']);
+  });
+
+  it('ignores towers that are not ancients wizards at all', () => {
+    const towers = [{ id: 'archer', x: 0, y: 0, range: 200 }];
+    expect(nexSilencedTowers(towers, 'ice', 0, 0, GRID)).toEqual([]);
+  });
+
+  it('takes exactly the towers that could have shot it', () => {
+    // The rule a player reads off the range square they already have: in reach both ways,
+    // or neither. A tower parked past its own range is safe.
+    const near = tw('near', 0, 0, { range: 200 });
+    const far = tw('far', 900, 0, { range: 200 });
+    expect(nexSilencedTowers([near, far], 'ice', 0, 0, GRID).map(t => t.id)).toEqual(['near']);
+  });
+
+  it('measures reach with the tower\'s own range, not a radius of its own', () => {
+    const short = tw('short', 300, 0, { range: 100 });
+    const long = tw('long', 300, 0, { range: 400 });
+    expect(nexSilencedTowers([short, long], 'ice', 0, 0, GRID).map(t => t.id)).toEqual(['long']);
+  });
+
+  it('never re-times a tower something else already has down', () => {
+    // The board-wide disabled-tower standard: overlapping sources must not be able to
+    // chain one tower off the field.
+    const towers = [tw('down', 0, 0, { disabled: true }), tw('up', 0, 0)];
+    expect(nexSilencedTowers(towers, 'ice', 0, 0, GRID).map(t => t.id)).toEqual(['up']);
+  });
+
+  it('lets a tower come back up before it can be silenced again', () => {
+    // The same standard from the other side: the gap has to stay positive.
+    expect(NEX_SILENCE_INTERVAL).toBeGreaterThan(NEX_SILENCE_SECS);
+  });
+
+  it('gives every acolyte its own element, with none shared', () => {
+    const elements = NEX_ACOLYTES.map(a => a.element);
+    expect(new Set(elements).size).toBe(NEX_ACOLYTES.length);
+  });
+
+  it('gives every acolyte a line for the first time it reaches out', () => {
+    for (const a of NEX_ACOLYTES) {
+      expect(a.silence.length).toBeGreaterThan(0);
+      expect(a.silence).toContain(a.name);
+    }
+  });
+});

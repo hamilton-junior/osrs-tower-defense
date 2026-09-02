@@ -1255,7 +1255,12 @@ export function updateEscortFollow(eng: GameEngine, e: Enemy, dt: number) {
   // General Graardor's sergeants — and Nex's acolytes — are the other exception: they
   // march *along the road* in front of the boss rather than orbiting it, which is the
   // entire fight in both cases (see `updateGraardorGuard`).
-  if (e.guardLead !== undefined) { updateGraardorGuard(eng, e, owner, dt); return; }
+  if (e.guardLead !== undefined) {
+    // Nex's four also cast while they march; Graardor's three only march.
+    updateNexAcolyte(eng, e, dt);
+    updateGraardorGuard(eng, e, owner, dt);
+    return;
+  }
   e.orbit = (e.orbit ?? 0) + dt * ESCORT_ORBIT_DRIFT; // slow circle around the boss
   const radius = e.soulStyle ? CERBERUS_SOUL_ORBIT : JAD_HEALER_ORBIT;
   const tx = owner.x + Math.cos(e.orbit) * radius;
@@ -1475,6 +1480,75 @@ export function updateNex(eng: GameEngine, e: Enemy, dt: number) {
 
   const idx = nexNextWardIndex(st, e.hp / e.maxHp);
   if (idx >= 0) summonNexAcolyte(eng, e, idx);
+}
+
+/** The spells the acolytes throw when they reach out: each one's own Ancient, at its
+ *  strongest tier, so a silence is unmistakably *that* acolyte's element and not a
+ *  generic grey puff. Flight GFX out, impact GFX on the tower. */
+const NEX_SILENCE_GFX: Record<AncientType, { proj: string; hit: string }> = {
+  ice: { proj: 'proj_ice_4', hit: 'hit_ice_4' },
+  blood: { proj: 'proj_blood_4', hit: 'hit_blood_4' },
+  shadow: { proj: 'proj_shadow_4', hit: 'hit_shadow_4' },
+  smoke: { proj: 'proj_smoke_4', hit: 'hit_smoke_4' },
+};
+
+/**
+ * **An acolyte silences its own element.**
+ *
+ * Every {@link NEX_SILENCE_INTERVAL} it reaches out and knocks out every wizard casting
+ * *its* Ancient that could have shot it — Glacies takes the Ice towers, Cruor the Blood,
+ * Umbra the Shadow, Fumus the Smoke. That is the whole point of there being four of them
+ * rather than four identical walls: each phase asks a different half of the board to sit
+ * one out, and a player who spread their spellbooks is asked for less than one who
+ * committed everything to a single element.
+ *
+ * The reach is **the tower's own** ({@link nexSilencedTowers}): whatever can shoot the
+ * acolyte can be silenced by it, which is a rule a player can see on the range square
+ * they already have, rather than a second invisible radius to learn. Moving a tower out
+ * of reach is therefore a real answer — and one that costs the tower's shots at the
+ * acolyte, which is the trade.
+ *
+ * It obeys the board's disable standard: a tower already down is skipped rather than
+ * re-timed, and the silence is shorter than the interval, so nothing can be chained off
+ * the field. The spells thrown are capped and fanned ({@link NEX_SILENCE_GFX_MAX}) for the
+ * same reason Graardor's boulders are — the case where the read matters most is the one
+ * where one bolt per tower would bury the board.
+ */
+function updateNexAcolyte(eng: GameEngine, a: Enemy, dt: number) {
+  const acolyte = NEX_ACOLYTES.find((x) => x.type === a.type);
+  if (!acolyte) return; // a Graardor sergeant, which marches but does not cast
+  a.silenceTimer = (a.silenceTimer ?? NEX_SILENCE_INTERVAL) - dt;
+  if (a.silenceTimer > 0) return;
+  a.silenceTimer = NEX_SILENCE_INTERVAL;
+  const ax = a.x;
+  const ay = bodyY(a);
+  const candidates = eng.towers.map((tw) => ({
+    id: tw.id,
+    x: tw.x,
+    y: tw.y,
+    range: eng.statsCache.get(tw.id)?.stats.range ?? tw.range,
+    disabled: tw.disabledTimer > 0,
+    ancientType: tw.mageMode === 'ancients' ? tw.ancientType : undefined,
+    tower: tw,
+  }));
+  const hit = nexSilencedTowers(candidates, acolyte.element, ax, ay, GRID);
+  if (!hit.length) return;
+  for (const c of hit) c.tower.disabledTimer = NEX_SILENCE_SECS;
+  const gfx = NEX_SILENCE_GFX[acolyte.element];
+  fanSample(hit, { x: ax, y: ay }, NEX_SILENCE_GFX_MAX).forEach((c, i) => {
+    const flight = 0.14 + Math.sqrt(distanceSq(c.x, c.y, ax, ay)) / 900;
+    addHurl(eng, ax, ay, c.x, c.y, flight, 0.08 + 0.05 * (i % 3), gfx.proj);
+    spawnEffect(eng, gfx.hit, c.x, c.y, 0.9, undefined, flight);
+  });
+  eng.sound.play('hit', 60);
+  if (!a.silenceSaid) {
+    // Once. The line is the moment the player learns what this acolyte does; repeated
+    // every six seconds it would be noise covering the towers it is meant to point at.
+    a.silenceSaid = true;
+    a.say = acolyte.say;
+    a.sayTimer = 2.5;
+    eng.notify(acolyte.silence);
+  }
 }
 
 /** Call the next acolyte in and raise the ward behind it. An escort, so it never walks

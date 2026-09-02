@@ -1,6 +1,6 @@
-import type { CombatStyle, EnemyType, Point } from '../types';
+import type { AncientType, CombatStyle, EnemyType, Point } from '../types';
 import type { DamageTag } from './combat-stats';
-import { pathTotalLength, remainingPathDistance, advanceAlongPath, inSquareRange } from './geometry';
+import { pathTotalLength, remainingPathDistance, advanceAlongPath, inSquareRange, squareRange } from './geometry';
 
 /**
  * Boss mechanics (#4B): per-boss phase logic for the three signature bosses.
@@ -1556,13 +1556,31 @@ export function graardorIsSlamming(state: BossState | undefined): boolean {
  */
 /** Her four acolytes, in the order she calls them: smoke, shadow, blood, ice — the same
  *  order the God Wars fight runs in. Index 0 arrives with her; the rest come at
- *  {@link NEX_PHASE_THRESHOLDS}. `say` is the line she calls each one in with; in-game
- *  strings stay English. */
-export const NEX_ACOLYTES: readonly { type: EnemyType; name: string; say: string }[] = [
-  { type: 'fumus', name: 'Fumus', say: 'Fumus, don your mask!' },
-  { type: 'umbra', name: 'Umbra', say: 'Umbra, embrace darkness!' },
-  { type: 'cruor', name: 'Cruor', say: 'Cruor, spill their blood!' },
-  { type: 'glacies', name: 'Glacies', say: 'Glacies, freeze them where they stand!' },
+ *  {@link NEX_PHASE_THRESHOLDS}.
+ *
+ *  Each one carries the Ancient it is named for, and that is not decoration: while it
+ *  stands it silences every wizard on the board casting *its* spell (see
+ *  {@link nexSilencedTowers}). `say` is the line Nex calls it in with, `silence` the line
+ *  the first silence is announced by. In-game strings stay English. */
+export const NEX_ACOLYTES: readonly {
+  type: EnemyType; name: string; element: AncientType; say: string; silence: string;
+}[] = [
+  {
+    type: 'fumus', name: 'Fumus', element: 'smoke', say: 'Fumus, don your mask!',
+    silence: 'Fumus fills your Smoke towers with choking ash!',
+  },
+  {
+    type: 'umbra', name: 'Umbra', element: 'shadow', say: 'Umbra, embrace darkness!',
+    silence: 'Umbra smothers your Shadow towers in darkness!',
+  },
+  {
+    type: 'cruor', name: 'Cruor', element: 'blood', say: 'Cruor, spill their blood!',
+    silence: 'Cruor drinks your Blood towers dry!',
+  },
+  {
+    type: 'glacies', name: 'Glacies', element: 'ice', say: 'Glacies, freeze them where they stand!',
+    silence: 'Glacies freezes your Ice towers solid!',
+  },
 ];
 
 /** The HP fractions she raises the next ward at — one per acolyte after the first, so the
@@ -1584,6 +1602,52 @@ export const NEX_ACOLYTE_LEAD = 62;
 export const NEX_WARD_MAX_SECS = 22;
 /** Her opening line. In-game strings stay English. */
 export const NEX_SAY = 'There is no escape!';
+/** Seconds a silenced tower stays down, and how often an acolyte reaches out again. The
+ *  gap between them is deliberate and must stay positive: a tower always comes back up
+ *  before it can be taken again, which is the board-wide rule that no source may chain a
+ *  tower off the field (see the disabled-tower standard). */
+export const NEX_SILENCE_SECS = 5;
+export const NEX_SILENCE_INTERVAL = 6.5;
+/** How many spells one acolyte may be seen throwing per pulse, however many towers it
+ *  actually took. Sampled evenly around it, for the same reason Graardor's slam caps its
+ *  boulders: the case where the read matters most is the crowded one. */
+export const NEX_SILENCE_GFX_MAX = 6;
+
+/** One tower, as an acolyte's silence sees it: where it stands, how far it reaches, what
+ *  it is casting, and whether something already has it switched off. */
+export interface SilenceCandidate {
+  id: string;
+  x: number;
+  y: number;
+  /** The tower's own live range in logic pixels. */
+  range: number;
+  /** True when something else already has it down — never re-time one of those. */
+  disabled?: boolean;
+  /** The Ancient this wizard casts, if it is an ancients wizard at all. */
+  ancientType?: AncientType;
+}
+
+/**
+ * Which towers an acolyte silences: **the ones that could shoot it, casting its spell.**
+ *
+ * Both halves matter. The element is the fight — four acolytes, four Ancients, and a
+ * board that answers Nex by not putting everything on one spellbook. And the reach is the
+ * *tower's own*, not a radius invented for the acolyte: a tower that cannot see the thing
+ * is a tower the thing has no quarrel with, so the mechanic is answered by exactly the
+ * skill the rest of the game teaches — where you build. Same square-range test the
+ * tower's own targeting uses, so what it can shoot and what can silence it are one shape.
+ *
+ * Already-disabled towers are excluded rather than re-timed, so two acolytes of the same
+ * element can never hold one tower down forever.
+ */
+export function nexSilencedTowers<T extends SilenceCandidate>(
+  towers: readonly T[], element: AncientType, ax: number, ay: number, grid: number,
+): T[] {
+  return towers.filter(
+    (t) => !t.disabled && t.ancientType === element
+      && inSquareRange(ax, ay, t.x, t.y, squareRange(t.range, grid)),
+  );
+}
 
 /** An acolyte's health, from the Nex who called it. */
 export function nexAcolyteHp(bossMaxHp: number): number {
