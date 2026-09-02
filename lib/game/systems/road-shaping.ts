@@ -70,9 +70,13 @@ export interface RoadMove {
   deltaTiles: number;
   /** The depth the notch would be left at — 0 when the road goes flat again. */
   depth: number;
-  /** Whether this step costs gold. Digging further out does; filling back in never
-   *  does, so a player can always retreat out of a shape they regret. */
+  /** Whether this step costs gold. Moving away from the road the seed dealt does;
+   *  moving back towards it never does, so a player can always retreat out of a shape
+   *  they regret. */
   digs: boolean;
+  /** For a stretch being slid, the leg it is — so the engine can tell two arrows of
+   *  the same compass direction on two different stretches apart. */
+  seg?: number;
 }
 
 /** A road tile the player may pull, snapped to the road's own lattice. */
@@ -89,6 +93,14 @@ export interface RoadTile {
  * offer, so the interface handles them as one thing.
  */
 export interface RoadGrab {
+  /** What is in hand: a single square being pulled aside, or a whole stretch of road
+   *  being slid across. The two are the same gesture with different geometry behind
+   *  them, so the interface carries them in one shape. */
+  kind: 'notch' | 'leg';
+  /** For a `leg` grab, which stretch of the generator's road is in hand — its leg
+   *  index into the base path, which no amount of shaping ever renumbers. −1 for a
+   *  notch grab. */
+  seg: number;
   /** The square of the generator's road the detour is anchored to — where filling it
    *  back in returns to. */
   x: number;
@@ -347,13 +359,13 @@ export function roadGrabAt(
     const n = notches[i];
     const head = notchHead(n, grid);
     const axis: 'h' | 'v' = n.dir === 'up' || n.dir === 'down' ? 'h' : 'v';
-    return { x: n.x, y: n.y, hx: head.x, hy: head.y, depth: notchDepth(n), dir: n.dir, axis, index: i };
+    return { kind: 'notch', seg: -1, x: n.x, y: n.y, hx: head.x, hy: head.y, depth: notchDepth(n), dir: n.dir, axis, index: i };
   }
   const tile = roadTileAt(path, x, y, grid);
   if (!tile) return null;
   const axis = legAxis(path, tile.seg);
   if (axis === null) return null;
-  return { x: tile.x, y: tile.y, hx: tile.x, hy: tile.y, depth: 0, dir: null, axis, index: -1 };
+  return { kind: 'notch', seg: -1, x: tile.x, y: tile.y, hx: tile.x, hy: tile.y, depth: 0, dir: null, axis, index: -1 };
 }
 
 /** Fold every notch but one onto the base road, then fold that one last — so the leg it
@@ -470,4 +482,412 @@ export function notchAt(notches: readonly RoadNotch[], x: number, y: number, gri
  */
 export function roadBendCost(bought: number): number {
   return Math.round((120 * Math.pow(1.55, Math.max(0, bought))) / 10) * 10;
+}
+
+// ─────────────────────────── sliding a stretch of road ──────────────────────
+//
+// A notch answers "I want the road to go *around* this square". The other half of
+// editing a road is "I want this whole stretch to run one tile over" — the question a
+// player asks at a **bend**, where a notch is refused because its three-tile detour
+// would land on the corner and quietly delete a turn.
+//
+// So the tiles a notch will not take — the ones within {@link NOTCH_END_MARGIN_TILES}
+// of either end of a stretch — carry the other handle instead, and between them the two
+// gestures cover every square of road on the board.
+//
+// Sliding is not a second kind of detour: it moves the leg itself, across its own run,
+// and the two stretches it hangs off simply grow and shrink to meet it. That is why it
+// stays orthogonal with no pathfinder — a leg only ever slides *along* the axis its
+// neighbours already run on. And it is why sliding is the only thing here that can
+// **remove** a bend: push a leg until the stretch beside it is squeezed out of
+// existence and the two turns at its ends cancel, leaving one straight run where the
+// road used to jog. Sliding back re-cuts them.
+
+/** One stretch of the generator's road, slid across itself.
+ *
+ *  Held against the **base** path — the road the seed dealt — because that is the one
+ *  numbering nothing renumbers: notches splice waypoints in, squeezed-out stretches take
+ *  waypoints away, but base leg 7 is base leg 7 for the whole run. Offsets are in whole
+ *  tiles and signed, so pushing a stretch out and easing it back are the same arithmetic
+ *  and a stretch at (0, 0) is simply not in the list. */
+export interface RoadShift {
+  /** Leg `seg -> seg + 1` of the base path. */
+  seg: number;
+  /** Tiles moved, signed. Only the axis across the leg is ever non-zero. */
+  dx: number;
+  dy: number;
+}
+
+/** How far a stretch has been slid, or (0, 0) if it has not been. */
+export function shiftOffset(shifts: readonly RoadShift[], seg: number): { dx: number; dy: number } {
+  const s = shifts.find(v => v.seg === seg);
+  return s ? { dx: Math.round(s.dx), dy: Math.round(s.dy) } : { dx: 0, dy: 0 };
+}
+
+/** Tiles of road the player is currently keeping moved — what the price climbs on,
+ *  alongside the tiles they have dug. Easing a stretch back lowers it again. */
+export function shiftTiles(shifts: readonly RoadShift[]): number {
+  return shifts.reduce((sum, s) => sum + Math.abs(Math.round(s.dx)) + Math.abs(Math.round(s.dy)), 0);
+}
+
+/** The list with one stretch's offset replaced. A stretch back at (0, 0) drops out
+ *  entirely, so "not slid" has exactly one representation. */
+export function withShift(shifts: readonly RoadShift[], next: RoadShift): RoadShift[] {
+  const out = shifts.filter(s => s.seg !== next.seg).map(s => ({ ...s }));
+  if (next.dx !== 0 || next.dy !== 0) out.push({ ...next });
+  return out;
+}
+
+/** The list with one stretch nudged a tile the given way. */
+export function shiftedBy(shifts: readonly RoadShift[], seg: number, dir: BendDir): RoadShift[] {
+  const cur = shiftOffset(shifts, seg);
+  const off = DIR_OFFSET[dir];
+  return withShift(shifts, { seg, dx: cur.dx + off.dx, dy: cur.dy + off.dy });
+}
+
+/** Move every slid leg, and let the off-board stubs follow the waypoints they hang
+ *  off. No waypoint is added or removed here: this is the road mid-slide, before the
+ *  turns that cancelled have been taken out of it. */
+function translateLegs(base: readonly Point[], shifts: readonly RoadShift[], grid: number): Point[] {
+  const pts = base.map(p => ({ x: p.x, y: p.y }));
+  const legs = new Set(notchableLegs(base));
+  for (const s of shifts) {
+    if (!legs.has(s.seg)) continue;
+    const axis = legAxis(base, s.seg);
+    // Across the leg only: sliding one along its own line would just renumber its tiles.
+    const dx = (axis === 'v' ? Math.round(s.dx) : 0) * grid;
+    const dy = (axis === 'h' ? Math.round(s.dy) : 0) * grid;
+    for (const i of [s.seg, s.seg + 1]) {
+      pts[i].x += dx;
+      pts[i].y += dy;
+    }
+  }
+  followStub(base, pts, 0, 1);
+  followStub(base, pts, base.length - 1, base.length - 2);
+  return pts;
+}
+
+/** The entry and exit stubs run off the board perpendicular to their border, so they
+ *  are not stretches anyone can slide — but when the waypoint one hangs off moves
+ *  sideways, the stub goes with it rather than turning into a diagonal. */
+function followStub(base: readonly Point[], pts: Point[], end: number, inner: number) {
+  if (!base[end] || !base[inner]) return;
+  if (base[end].y === base[inner].y) pts[end].y = pts[inner].y;
+  else if (base[end].x === base[inner].x) pts[end].x = pts[inner].x;
+}
+
+/** Which waypoints a set of slides is allowed to fold away: the ends of every leg that
+ *  moved, and the ones just beyond them. Everywhere else the road is exactly as the
+ *  generator drew it, and folding a waypoint there would silently redraw a map nobody
+ *  touched — including, on most orientations, the redundant corner where the entry stub
+ *  meets the first leg. */
+function touchedPoints(base: readonly Point[], shifts: readonly RoadShift[]): Set<number> {
+  const out = new Set<number>();
+  const legs = new Set(notchableLegs(base));
+  for (const s of shifts) {
+    if (!legs.has(s.seg) || (s.dx === 0 && s.dy === 0)) continue;
+    for (const i of [s.seg - 1, s.seg, s.seg + 1, s.seg + 2]) {
+      if (i >= 0 && i < base.length) out.add(i);
+    }
+  }
+  return out;
+}
+
+/**
+ * Tidy a mid-slide road into one the game can be played on: drop the stretches squeezed
+ * to nothing, and merge the pair of turns their ends leave behind into the straight run
+ * they have become. `null` when the result is not a road at all — a stretch folded back
+ * over itself, or a fold that would need a waypoint the slides are not allowed to touch.
+ *
+ * `orig` reports where each surviving waypoint came from, so a caller can still find the
+ * stretch it moved after the tidying has renumbered everything around it.
+ */
+function normalizeRoad(
+  pts: readonly Point[],
+  touched: ReadonlySet<number>,
+): { path: Point[]; orig: number[] } | null {
+  const path: Point[] = [];
+  const orig: number[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const j = path.length - 1;
+    if (j >= 0 && path[j].x === p.x && path[j].y === p.y) {
+      // A stretch squeezed to nothing. One of its two ends has to be a waypoint the
+      // slide may fold away, or this road cannot be laid.
+      if (touched.has(i)) continue;
+      if (!touched.has(orig[j])) return null;
+      path.pop();
+      orig.pop();
+    }
+    path.push({ x: p.x, y: p.y });
+    orig.push(i);
+  }
+
+  for (let i = 1; i < path.length - 1; ) {
+    const a = path[i - 1];
+    const b = path[i];
+    const c = path[i + 1];
+    const abx = Math.sign(b.x - a.x);
+    const aby = Math.sign(b.y - a.y);
+    const bcx = Math.sign(c.x - b.x);
+    const bcy = Math.sign(c.y - b.y);
+    // The road doubles back on itself: two stretches on the same line running opposite
+    // ways. Merging them would delete the ground between them, so it is refused instead.
+    if (abx === -bcx && aby === -bcy) return null;
+    if (abx === bcx && aby === bcy) {
+      if (!touched.has(orig[i])) return null;
+      path.splice(i, 1);
+      orig.splice(i, 1);
+      if (i > 1) i--;
+      continue;
+    }
+    i++;
+  }
+
+  if (path.length < 3) return null;
+  for (let i = 0; i < path.length - 1; i++) {
+    // Orthogonal or nothing — a diagonal would be a road no tile of this game can hold.
+    if (path[i].x !== path[i + 1].x && path[i].y !== path[i + 1].y) return null;
+  }
+  return { path, orig };
+}
+
+/** The road with every slide folded in, tidied — or `null` if those slides do not make
+ *  a road. */
+export function shiftRoad(
+  base: readonly Point[],
+  shifts: readonly RoadShift[],
+  grid: number,
+): { path: Point[]; orig: number[] } | null {
+  if (base.length < 4) return null;
+  return normalizeRoad(translateLegs(base, shifts, grid), touchedPoints(base, shifts));
+}
+
+/** The road with every slide folded in. Slides that do not make a road fall back to the
+ *  one the seed dealt — only ever reached by a save that has been tampered with, since
+ *  nothing illegal is ever stored. */
+export function applyShifts(base: readonly Point[], shifts: readonly RoadShift[], grid: number): Point[] {
+  const road = shiftRoad(base, shifts, grid);
+  return road ? road.path : base.map(p => ({ x: p.x, y: p.y }));
+}
+
+/** The whole road the player has made: the seed's, slid, then notched. */
+export function buildRoad(
+  base: readonly Point[],
+  shifts: readonly RoadShift[],
+  notches: readonly RoadNotch[],
+  grid: number,
+): Point[] {
+  return applyNotches(applyShifts(base, shifts, grid), notches, grid);
+}
+
+/** Where a stretch of the base road currently runs, or `null` if it has been squeezed
+ *  out of the road entirely. */
+export function legSpan(
+  base: readonly Point[],
+  shifts: readonly RoadShift[],
+  seg: number,
+  grid: number,
+): [Point, Point] | null {
+  if (legAxis(base, seg) === null || seg < 1 || seg > base.length - 3) return null;
+  const pts = translateLegs(base, shifts, grid);
+  const a = pts[seg];
+  const b = pts[seg + 1];
+  if (!a || !b || (a.x === b.x && a.y === b.y)) return null;
+  return [a, b];
+}
+
+/**
+ * The grip on a stretch: one tile in from where it starts.
+ *
+ * That square is always inside the margin a notch refuses, so the two handles never
+ * compete for the same click — and it is a square of the stretch itself, so a stretch
+ * that has been merged into a longer straight run still wears its own grip and can
+ * still be slid back.
+ */
+export function legHandle(
+  base: readonly Point[],
+  shifts: readonly RoadShift[],
+  seg: number,
+  grid: number,
+): Point | null {
+  const span = legSpan(base, shifts, seg, grid);
+  if (!span) return null;
+  const [a, b] = span;
+  return { x: a.x + Math.sign(b.x - a.x) * grid, y: a.y + Math.sign(b.y - a.y) * grid };
+}
+
+/** Every stretch the player could take hold of, with the square its grip sits on. */
+export function legHandles(
+  base: readonly Point[],
+  shifts: readonly RoadShift[],
+  grid: number,
+): { seg: number; x: number; y: number }[] {
+  const out: { seg: number; x: number; y: number }[] = [];
+  for (const seg of notchableLegs(base)) {
+    const h = legHandle(base, shifts, seg, grid);
+    if (h) out.push({ seg, x: h.x, y: h.y });
+  }
+  return out;
+}
+
+/** The stretch whose grip is under a point, ready to be slid. */
+export function legGrabAt(
+  base: readonly Point[],
+  shifts: readonly RoadShift[],
+  x: number,
+  y: number,
+  grid: number,
+): RoadGrab | null {
+  for (const { seg, x: hx, y: hy } of legHandles(base, shifts, grid)) {
+    if (Math.abs(hx - x) > grid / 2 || Math.abs(hy - y) > grid / 2) continue;
+    const off = shiftOffset(shifts, seg);
+    const dir: BendDir | null =
+      off.dx > 0 ? 'right' : off.dx < 0 ? 'left' : off.dy > 0 ? 'down' : off.dy < 0 ? 'up' : null;
+    return {
+      kind: 'leg',
+      seg,
+      x: hx,
+      y: hy,
+      hx,
+      hy,
+      depth: Math.abs(off.dx) + Math.abs(off.dy),
+      dir,
+      axis: legAxis(base, seg)!,
+      index: -1,
+    };
+  }
+  return null;
+}
+
+/** Total walking length of a road, in board pixels. */
+function pathLength(pts: readonly Point[]): number {
+  let sum = 0;
+  for (let i = 0; i < pts.length - 1; i++) sum += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+  return sum;
+}
+
+/** Which stretch of a tidied road a base leg ended up inside — `-1` once it has been
+ *  squeezed away. */
+function normSeg(orig: readonly number[], baseSeg: number): number {
+  for (let m = 0; m < orig.length - 1; m++) {
+    if (orig[m] <= baseSeg && orig[m + 1] >= baseSeg + 1) return m;
+  }
+  return -1;
+}
+
+/** Does every notch the player owns still find a stretch to sit on? A slide that would
+ *  pull the road out from under one is refused rather than pocketing the gold and
+ *  dropping the detour. */
+function notchesResolve(path: readonly Point[], notches: readonly RoadNotch[], grid: number): boolean {
+  let cur: Point[] = path.map(p => ({ x: p.x, y: p.y }));
+  for (const n of notches) {
+    const next = notchedPath(cur, n, grid);
+    if (!next) return false;
+    cur = next;
+  }
+  return true;
+}
+
+/**
+ * Is the slid road a road the game can still be played on?
+ *
+ * Only three stretches can have broken anything: the one that moved and the two it
+ * pulled on. Judging the whole road would re-judge geometry the generator produced, and
+ * a map born a tile tight would then refuse every slide forever — the same reason
+ * {@link isNotchLegal} looks only at the detour.
+ */
+export function isShiftLegal(
+  base: readonly Point[],
+  shifts: readonly RoadShift[],
+  road: { path: Point[]; orig: number[] },
+  notches: readonly RoadNotch[],
+  ctx: RoadContext,
+  seg: number,
+): boolean {
+  const { grid, width, height } = ctx;
+  const pts = road.path;
+
+  // Nothing the player has paid for may be squeezed out of reach: a slid stretch that
+  // lost its grip could never be slid back, and the gold would be gone with it.
+  for (const s of shifts) {
+    if (s.dx === 0 && s.dy === 0) continue;
+    if (!legHandle(base, shifts, s.seg, grid)) return false;
+  }
+
+  const touched: number[] = [];
+  for (const j of [seg - 1, seg, seg + 1]) {
+    const m = normSeg(road.orig, j);
+    // The two off-board stubs are not judged: they run off the world by design.
+    if (m >= 1 && m <= pts.length - 3 && !touched.includes(m)) touched.push(m);
+  }
+
+  for (const i of touched) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (a.x < grid || a.x > width - grid || a.y < grid || a.y > height - grid) return false;
+    if (b.x < grid || b.x > width - grid || b.y < grid || b.y > height - grid) return false;
+    if (crossesBlocked(a, b, ctx)) return false;
+    for (const t of ctx.towers) {
+      if (pointToSegmentDistance(t.x, t.y, a, b) < ROAD_TOWER_CLEARANCE) return false;
+    }
+    for (let j = 0; j < pts.length - 1; j++) {
+      if (Math.abs(j - i) <= 1) continue;
+      // A stretch and the one just past the turn from it are not the road running
+      // alongside itself — they are that turn's two arms, and squeezing the turn out is
+      // exactly the act of closing them together. Refusing it would make straightening a
+      // curve impossible, because the tile before two arms become one straight run is
+      // always the tile where they are one tile apart.
+      const link = Math.min(i, j) + 1;
+      if (Math.abs(j - i) === 2
+        && Math.hypot(pts[link + 1].x - pts[link].x, pts[link + 1].y - pts[link].y)
+          < ROAD_LEG_GAP_TILES * grid) continue;
+      if (segmentDistance(a, b, pts[j], pts[j + 1]) < ROAD_LEG_GAP_TILES * grid) return false;
+    }
+  }
+
+  return notchesResolve(pts, notches, grid);
+}
+
+/**
+ * The two ways the stretch in hand could go, each one tile across.
+ *
+ * Both are judged in full, unlike a notch's retreat: the ground a stretch vacated is
+ * ordinary buildable land the moment it is vacated, so a tower can be standing in the
+ * way back. The arrow is simply not offered then, and selling the tower brings it back.
+ */
+export function legOptions(
+  base: readonly Point[],
+  shifts: readonly RoadShift[],
+  notches: readonly RoadNotch[],
+  seg: number,
+  ctx: RoadContext,
+): RoadMove[] {
+  const { grid } = ctx;
+  const axis = legAxis(base, seg);
+  if (axis === null || seg < 1 || seg > base.length - 3) return [];
+  const cur = shiftOffset(shifts, seg);
+  const was = pathLength(buildRoad(base, shifts, notches, grid));
+  const out: RoadMove[] = [];
+
+  for (const dir of (axis === 'h' ? ['up', 'down'] : ['left', 'right']) as BendDir[]) {
+    const cand = shiftedBy(shifts, seg, dir);
+    const road = shiftRoad(base, cand, grid);
+    if (!road || !isShiftLegal(base, cand, road, notches, ctx, seg)) continue;
+    const handle = legHandle(base, cand, seg, grid);
+    if (!handle) continue;
+    const next = shiftOffset(cand, seg);
+    const reach = Math.abs(next.dx) + Math.abs(next.dy);
+    out.push({
+      dir,
+      side: dir,
+      x: handle.x,
+      y: handle.y,
+      deltaTiles: Math.round((pathLength(applyNotches(road.path, notches, grid)) - was) / grid),
+      depth: reach,
+      digs: reach > Math.abs(cur.dx) + Math.abs(cur.dy),
+      seg,
+    });
+  }
+  return out;
 }

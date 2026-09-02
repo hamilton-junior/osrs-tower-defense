@@ -39,8 +39,9 @@ import { prayerUnlockWave } from '../systems/prayer';
 import { generateMapLayout, type MapLayout, type MapEdge } from '../systems/map-generation';
 import { computeRoadTiles, generateTerrain, type TerrainField } from '../systems/terrain-generation';
 import {
-  applyNotches, notchedPath, notchHead, roadBendCost, roadGrabAt, shapeOptions,
-  type RoadGrab, type RoadMove, type RoadNotch,
+  applyNotches, applyShifts, legGrabAt, legHandles, legOptions, legSpan, notchAt, notchedPath,
+  notchHead, roadBendCost, roadGrabAt, shapeOptions, shiftedBy, shiftRoad, shiftTiles, withShift,
+  type RoadGrab, type RoadMove, type RoadNotch, type RoadShift,
 } from '../systems/road-shaping';
 import { BIOMES, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
 import { localTypes } from '../systems/enemy-regions';
@@ -109,6 +110,13 @@ export class GameEngine {
    *  or removed around it — and so a saved run can fold them onto a road its seed
    *  has just rebuilt. */
   roadNotches: RoadNotch[] = [];
+  /** Every stretch of the dealt road the player has slid across, held against
+   *  {@link basePath}'s own leg numbering — the one numbering neither notching nor a
+   *  squeezed-out turn ever renumbers. */
+  roadShifts: RoadShift[] = [];
+  /** {@link basePath} with every slide folded in: the road the notches are then dug
+   *  into. Derived, never edited — {@link rebuildRoad} lays it down again. */
+  private shapedBase: Point[] = [];
   /** Which road tile the player is currently considering, if any. Purely a UI
    *  state: clicking a tile arms it, clicking one of its arrows spends the gold. */
   shapingGrab: RoadGrab | null = null;
@@ -1154,6 +1162,7 @@ export class GameEngine {
     this.mapSeed = seed !== undefined ? seed >>> 0 : (Math.random() * 0x100000000) >>> 0;
     this.mapLayout = generateMapLayout(this.mapSeed);
     this.roadNotches = []; // the player's shaping is per-run, like the map it shapes
+    this.roadShifts = [];
     this.shapingGrab = null;
     this.biome = pickBiome(this.mapSeed);
     this.previousBiome = null; // a fresh road is a fresh journey
@@ -1190,7 +1199,8 @@ export class GameEngine {
       ...pts,
       stub(pts[pts.length - 1], this.mapLayout.exit),
     ];
-    this.path = applyNotches(this.basePath, this.roadNotches, GRID);
+    this.shapedBase = applyShifts(this.basePath, this.roadShifts, GRID);
+    this.path = applyNotches(this.shapedBase, this.roadNotches, GRID);
   }
 
   // ------------------------------------------------------------ shaping the road
@@ -1223,11 +1233,44 @@ export class GameEngine {
     };
   }
 
-  /** The square under a point that the player could work on — a notch they have
-   *  already dug, or a flat tile of road. `null` when the point is on neither. */
+  /**
+   * The square under a point that the player could work on — a notch they have already
+   * dug, the grip on a stretch of road, or a flat tile out in the open. `null` when the
+   * point is on none of them.
+   *
+   * The order is the order of ownership. A notch's raised tile answers first: it is the
+   * handle on something the player built, and it would otherwise read as ordinary road.
+   * Then the grips, which sit in the two tiles at each end of a stretch — exactly the
+   * ones a notch refuses on an untouched road, but ordinary middle-of-the-road tiles
+   * once a turn has been squeezed out and two stretches have merged into one. Last, the
+   * open road, where a notch is dug.
+   */
   roadGrabAt(x: number, y: number): RoadGrab | null {
     if (!this.roadShapingOpen) return null;
-    return roadGrabAt(this.path, this.roadNotches, x, y, GRID);
+    if (notchAt(this.roadNotches, x, y, GRID) >= 0) {
+      return roadGrabAt(this.path, this.roadNotches, x, y, GRID);
+    }
+    return legGrabAt(this.basePath, this.roadShifts, x, y, GRID)
+      ?? roadGrabAt(this.path, this.roadNotches, x, y, GRID);
+  }
+
+  /** Where the grip on every slidable stretch sits — the renderer's list. */
+  roadLegHandles(): { seg: number; x: number; y: number }[] {
+    return legHandles(this.basePath, this.roadShifts, GRID);
+  }
+
+  /** Where a stretch of the dealt road currently runs, so the renderer can light the
+   *  whole of it: sliding moves a run of road, not one square. */
+  roadLegSpan(seg: number): [Point, Point] | null {
+    return legSpan(this.basePath, this.roadShifts, seg, GRID);
+  }
+
+  /** Every step the thing in hand could take — a square pulled aside, or a stretch
+   *  slid across. */
+  private optionsFor(grab: RoadGrab): RoadMove[] {
+    return grab.kind === 'leg'
+      ? legOptions(this.basePath, this.roadShifts, this.roadNotches, grab.seg, this.roadCtx())
+      : shapeOptions(this.shapedBase, this.roadNotches, grab, this.roadCtx());
   }
 
   /** What is under the pointer right now — what the renderer outlines to say "this
@@ -1240,7 +1283,7 @@ export class GameEngine {
    *  up: the arrows belong to a chosen square, not to the whole road. */
   roadShapeOptions(): RoadMove[] {
     if (!this.roadShapingOpen || !this.shapingGrab) return [];
-    return shapeOptions(this.basePath, this.roadNotches, this.shapingGrab, this.roadCtx());
+    return this.optionsFor(this.shapingGrab);
   }
 
   /** Where a notch's raised tile sits — the far end of its detour, which is also the
@@ -1252,7 +1295,8 @@ export class GameEngine {
   /** What the next tile of digging costs — it climbs with every tile the player is
    *  keeping, and drops again when one is filled back in. */
   get roadBendPrice(): number {
-    return roadBendCost(this.roadNotches.reduce((sum, n) => sum + Math.max(1, n.depth), 0));
+    const dug = this.roadNotches.reduce((sum, n) => sum + Math.max(1, n.depth), 0);
+    return roadBendCost(dug + shiftTiles(this.roadShifts));
   }
 
   /**
@@ -1284,8 +1328,8 @@ export class GameEngine {
     if (!grab) return false;
     // Clicking the square in hand again is how a player puts it down: it was just
     // dropped above, and re-arming it here would make the gesture do nothing.
-    if (dropped && dropped.x === grab.x && dropped.y === grab.y) return true;
-    if (shapeOptions(this.basePath, this.roadNotches, grab, this.roadCtx()).length === 0) return false;
+    if (dropped && dropped.kind === grab.kind && dropped.x === grab.x && dropped.y === grab.y) return true;
+    if (this.optionsFor(grab).length === 0) return false;
     this.shapingGrab = grab;
     this.sound.play('select');
     this.emit();
@@ -1304,25 +1348,30 @@ export class GameEngine {
   shapeRoad(grab: RoadGrab, move: RoadMove): boolean {
     if (!this.roadShapingOpen) { this.notify('Only between waves'); return false; }
     const live = this.roadGrabAt(grab.hx, grab.hy);
-    if (!live || live.x !== grab.x || live.y !== grab.y) return false;
-    const offered = shapeOptions(this.basePath, this.roadNotches, live, this.roadCtx())
-      .find(o => o.dir === move.dir && o.depth === move.depth);
+    if (!live || live.kind !== grab.kind || live.x !== grab.x || live.y !== grab.y) return false;
+    if (live.kind === 'leg' && live.seg !== grab.seg) return false;
+    const offered = this.optionsFor(live)
+      .find(o => o.dir === move.dir && (live.kind === 'leg' || o.depth === move.depth));
     if (!offered) return false;
 
     const price = offered.digs ? this.roadBendPrice : 0;
     if (this.money < price) { this.notify('Not enough gold'); return false; }
     this.money -= price;
 
-    const at = this.roadNotches.findIndex(n => n.x === live.x && n.y === live.y);
-    if (offered.depth === 0) {
-      if (at >= 0) this.roadNotches.splice(at, 1);
-    } else if (at >= 0) {
-      // `side`, never `dir`: the arrow that fills a tile back in points *at* the road,
-      // which is the opposite of the side the detour is on. Storing the arrow's own
-      // direction here flipped the detour to the other flank instead of shortening it.
-      this.roadNotches[at] = { ...this.roadNotches[at], dir: offered.side, depth: offered.depth };
+    if (live.kind === 'leg') {
+      this.roadShifts = shiftedBy(this.roadShifts, live.seg, offered.dir);
     } else {
-      this.roadNotches.push({ x: live.x, y: live.y, dir: offered.side, depth: offered.depth });
+      const at = this.roadNotches.findIndex(n => n.x === live.x && n.y === live.y);
+      if (offered.depth === 0) {
+        if (at >= 0) this.roadNotches.splice(at, 1);
+      } else if (at >= 0) {
+        // `side`, never `dir`: the arrow that fills a tile back in points *at* the road,
+        // which is the opposite of the side the detour is on. Storing the arrow's own
+        // direction here flipped the detour to the other flank instead of shortening it.
+        this.roadNotches[at] = { ...this.roadNotches[at], dir: offered.side, depth: offered.depth };
+      } else {
+        this.roadNotches.push({ x: live.x, y: live.y, dir: offered.side, depth: offered.depth });
+      }
     }
 
     this.rebuildRoad();
@@ -1330,14 +1379,14 @@ export class GameEngine {
     // on the same arrow rather than another pick-up — adjusting a square over and over
     // is the point. It is put down only once it has run out of moves.
     const moved = this.roadGrabAt(offered.x, offered.y);
-    const more = moved && shapeOptions(this.basePath, this.roadNotches, moved, this.roadCtx()).length > 0;
+    const more = moved && this.optionsFor(moved).length > 0;
     this.shapingGrab = more ? moved : null;
     if (offered.digs) {
       this.sound.play('sell'); // the coin-shuffle: gold left the purse
       this.notify(`Road reshaped — ${price} gp`);
     } else {
       this.sound.play('click');
-      this.notify('Road filled in — the next dig is cheaper');
+      this.notify('Road put back — the next change is cheaper');
     }
     this.emit();
     return true;
@@ -1347,7 +1396,8 @@ export class GameEngine {
    *  still keeping folded onto it. Every change to {@link roadNotches} ends here,
    *  which is why undo needs no inverse geometry of its own. */
   private rebuildRoad() {
-    this.path = applyNotches(this.basePath, this.roadNotches, GRID);
+    this.shapedBase = applyShifts(this.basePath, this.roadShifts, GRID);
+    this.path = applyNotches(this.shapedBase, this.roadNotches, GRID);
     this.clearRoadDecorations();
     this.previewCache = null;
     // Towers keep their ground, but the road has moved under their range: what each
@@ -1364,6 +1414,23 @@ export class GameEngine {
    * that no longer finds its leg at all is dropped, though — keeping it would charge
    * the player for a bend that is not on the board.
    */
+  private applyRoadShifts(shifts: readonly RoadShift[]) {
+    this.roadShifts = [];
+    for (const raw of shifts) {
+      const cand = withShift(this.roadShifts, {
+        seg: Math.round(raw.seg), dx: Math.round(raw.dx), dy: Math.round(raw.dy),
+      });
+      // Geometry only, like the notches below: a slide that no longer makes a road at
+      // all is dropped, but one that merely crowds a tower is kept — the towers are not
+      // back on the board yet, so there is nothing honest to judge it against.
+      if (!shiftRoad(this.basePath, cand, GRID)) continue;
+      this.roadShifts = cand;
+    }
+    this.shapedBase = applyShifts(this.basePath, this.roadShifts, GRID);
+    this.path = this.shapedBase.map(p => ({ x: p.x, y: p.y }));
+    if (this.roadShifts.length) this.clearRoadDecorations();
+  }
+
   private applyRoadNotches(notches: readonly (Omit<RoadNotch, 'depth'> & { depth?: number })[]) {
     this.roadNotches = [];
     for (const raw of notches) {
@@ -3151,6 +3218,7 @@ export class GameEngine {
       // The seed alone no longer describes the map: the player reshapes it too, and
       // the run travels away from the region the seed rolled.
       roadNotches: this.roadNotches.map(n => ({ ...n })),
+      roadShifts: this.roadShifts.map(s => ({ ...s })),
       biome: this.biome.id,
       previousBiome: this.previousBiome,
       ...(this.pendingTravel ? { pendingTravel: [...this.pendingTravel] } : {}),
@@ -3213,8 +3281,10 @@ export class GameEngine {
    */
   loadRun(save: RunSave) {
     this.generateMap(save.mapSeed);
-    // The seed rebuilds the road the run was *dealt*; the notches rebuild the road
-    // the player paid to have. Both go in before anything is placed on it.
+    // The seed rebuilds the road the run was *dealt*; the slides and then the notches
+    // rebuild the road the player paid to have. All of it goes in before anything is
+    // placed on it — and in that order, because a notch is dug into the slid road.
+    this.applyRoadShifts(save.roadShifts ?? []);
     this.applyRoadNotches(save.roadNotches ?? []);
     // Where the run had marched to, which the seed does not describe. A save from
     // before travelling existed has none and simply keeps the region it was rolled.

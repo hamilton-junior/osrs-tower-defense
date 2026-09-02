@@ -48,6 +48,11 @@ export interface RunSave {
    *  save written before road shaping resumes on the road it was dealt, and one written
    *  before notches had a depth reads every notch as one tile out. */
   roadNotches?: { x: number; y: number; dir: 'up' | 'down' | 'left' | 'right'; depth?: number }[];
+  /** The stretches of the dealt road the player slid across, in purchase order. Each
+   *  names a leg of the seeded road and how far it has been pushed off its dealt line,
+   *  so a slide that squeezed a turn away is rebuilt exactly. Optional: a save written
+   *  before sliding shipped resumes on the road the seed drew. */
+  roadShifts?: { seg: number; dx: number; dy: number }[];
   gameMode: GameMode;
   /** The New Game+ tier this run is being played at. Absent on saves written
    *  before the ladder shipped → they resume at tier 0 (Normal). */
@@ -208,6 +213,17 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
             dir: n.dir as 'up' | 'down' | 'left' | 'right',
             depth: Math.max(1, Math.round(num(n.depth, 1))),
           }))
+      : [],
+    // Same bargain as the notches: a malformed slide is dropped, never replayed.
+    roadShifts: Array.isArray(raw.roadShifts)
+      ? raw.roadShifts
+          .filter(isObj)
+          .map((s) => ({
+            seg: Math.round(num(s.seg, -1)),
+            dx: Math.round(num(s.dx, 0)),
+            dy: Math.round(num(s.dy, 0)),
+          }))
+          .filter((s) => s.seg >= 0 && (s.dx !== 0 || s.dy !== 0))
       : [],
     ...(biomeId(raw.biome) ? { biome: biomeId(raw.biome)! } : {}),
     ...(biomeId(raw.previousBiome) ? { previousBiome: biomeId(raw.previousBiome)! } : {}),

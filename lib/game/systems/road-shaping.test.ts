@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { Point } from '../types';
 import {
   applyNotches,
+  applyShifts,
   isNotchLegal,
   legAxis,
+  legGrabAt,
+  legHandle,
+  legHandles,
+  legOptions,
   notchAt,
   notchHead,
   notchableLegs,
@@ -12,8 +17,14 @@ import {
   roadGrabAt,
   roadTileAt,
   shapeOptions,
+  shiftedBy,
+  shiftOffset,
+  shiftRoad,
+  shiftTiles,
+  withShift,
   type RoadContext,
   type RoadNotch,
+  type RoadShift,
 } from './road-shaping';
 
 const GRID = 32;
@@ -188,12 +199,14 @@ describe('roadGrabAt', () => {
 
   it('picks up a flat square of road, with no depth and no direction yet', () => {
     expect(roadGrabAt(road(), [], 320, 160, GRID)).toEqual({
+      kind: 'notch', seg: -1,
       x: 320, y: 160, hx: 320, hy: 160, depth: 0, dir: null, axis: 'h', index: -1,
     });
   });
 
   it('picks up a notch by its far end, remembering how far out it already is', () => {
     expect(roadGrabAt(folded(), notches, 320, 96, GRID)).toEqual({
+      kind: 'notch', seg: -1,
       x: 320, y: 160, hx: 320, hy: 96, depth: 2, dir: 'up', axis: 'h', index: 0,
     });
   });
@@ -389,5 +402,182 @@ describe('roadBendCost', () => {
 
   it('never goes below the first price', () => {
     expect(roadBendCost(-3)).toBe(roadBendCost(0));
+  });
+});
+
+// ---------------------------------------------------------------------------------
+// Sliding a stretch of road: the other half of the shaping, where the shape the seed
+// dealt is what moves.
+// ---------------------------------------------------------------------------------
+
+/** Walk a stretch one tile at a time, the way a player clicks the arrow, and stop the
+ *  moment the game refuses. Returns the shifts actually bought. */
+const slide = (
+  base: readonly Point[],
+  seg: number,
+  dir: 'up' | 'down' | 'left' | 'right',
+  steps: number,
+  over: Partial<RoadContext> = {},
+): RoadShift[] => {
+  let shifts: RoadShift[] = [];
+  for (let i = 0; i < steps; i++) {
+    const move = legOptions(base, shifts, [], seg, ctx(over)).find((o) => o.dir === dir);
+    if (!move) break;
+    shifts = shiftedBy(shifts, seg, dir);
+  }
+  return shifts;
+};
+
+describe('sliding a stretch of road', () => {
+  it('leaves the seeded road exactly as dealt while nothing has been slid', () => {
+    expect(applyShifts(road(), [], GRID)).toEqual(road());
+  });
+
+  it('moves the whole stretch across, and the turns at its ends follow it', () => {
+    const base = road();
+    const path = applyShifts(base, [{ seg: 2, dx: 0, dy: 1 }], GRID);
+    // Leg 2 ran along y=160 from x=160 to x=480; a tile down is y=192, and the two
+    // vertical legs it hangs between now end there instead.
+    expect(path[2]).toEqual({ x: 160, y: 192 });
+    expect(path[3]).toEqual({ x: 480, y: 192 });
+    // Everything else is where the generator left it.
+    expect(path[1]).toEqual({ x: 160, y: 320 });
+    expect(path[4]).toEqual({ x: 480, y: 480 });
+  });
+
+  it('only ever moves a stretch across itself, never along it', () => {
+    // A horizontal stretch handed a horizontal offset does not budge: sliding one along
+    // its own line would only renumber its tiles.
+    expect(applyShifts(road(), [{ seg: 2, dx: 3, dy: 0 }], GRID)).toEqual(road());
+  });
+
+  it('comes back to the road it was dealt when slid back', () => {
+    const base = road();
+    const there = shiftedBy([], 3, 'right');
+    const back = shiftedBy(there, 3, 'left');
+    expect(back).toEqual([]);
+    expect(applyShifts(base, back, GRID)).toEqual(base);
+  });
+
+  it('drops a stretch out of the list once it is home, so "not slid" reads one way', () => {
+    expect(withShift([{ seg: 2, dx: 0, dy: 1 }], { seg: 2, dx: 0, dy: 0 })).toEqual([]);
+    expect(shiftTiles([{ seg: 2, dx: 0, dy: -2 }, { seg: 4, dx: 0, dy: 1 }])).toBe(3);
+  });
+
+  it('takes the curve out of the road when a turn is squeezed to nothing', () => {
+    const base = road();
+    // Leg 1 is the five-tile climb from the entry; pushing leg 2 down onto the entry's
+    // own line uses it up.
+    const shifts = slide(base, 2, 'down', 5);
+    expect(shiftOffset(shifts, 2)).toEqual({ dx: 0, dy: 5 });
+
+    const path = applyShifts(base, shifts, GRID);
+    // One turn fewer than the seed drew, and the road runs straight in from the entry.
+    expect(path.length).toBe(base.length - 2);
+    expect(path[0]).toEqual({ x: -32, y: 320 });
+    expect(path[1]).toEqual({ x: 480, y: 320 });
+    // Still a road: orthogonal legs, none of them doubling back.
+    for (let i = 0; i < path.length - 1; i++) {
+      expect(path[i].x === path[i + 1].x || path[i].y === path[i + 1].y).toBe(true);
+    }
+  });
+
+  it('grows the curve back when the straightened stretch is slid out again', () => {
+    const base = road();
+    const flat = slide(base, 2, 'down', 5);
+    const path = applyShifts(base, shiftedBy(flat, 2, 'up'), GRID);
+    // The turn is back: every waypoint the seed drew, with the climb a single tile.
+    expect(path.length).toBe(base.length);
+    expect(path[1]).toEqual({ x: 160, y: 320 });
+    expect(path[2]).toEqual({ x: 160, y: 288 });
+  });
+
+  it('bends the turn the other way when a stretch is pushed past flat', () => {
+    const base = road();
+    const path = applyShifts(base, [{ seg: 2, dx: 0, dy: 6 }], GRID);
+    // A tile past the straight run the squeeze made: the climb is back, going the
+    // other way. Straightening a curve is not a wall, it is a place the road passes
+    // through.
+    expect(path.length).toBe(base.length);
+    expect(path[2]).toEqual({ x: 160, y: 352 });
+  });
+
+  it('refuses a slide that would fold the road back over itself', () => {
+    // Leg 1 pushed right onto leg 3's line uses up the stretch between them and leaves
+    // two runs on the same line pointing opposite ways — ground the road would have to
+    // walk twice.
+    expect(shiftRoad(road(), [{ seg: 1, dx: 10, dy: 0 }], GRID)).toBeNull();
+  });
+
+  it('never lets a stretch be pushed off the board', () => {
+    const base = road();
+    // Leg 2 sits at y=160, five tiles from the top; the margin stops it before the edge.
+    const shifts = slide(base, 2, 'up', 20);
+    const path = applyShifts(base, shifts, GRID);
+    for (const p of path.slice(1, -1)) expect(p.y).toBeGreaterThanOrEqual(GRID);
+  });
+
+  it('refuses to slide the road onto a tower', () => {
+    const base = road();
+    const towers = [{ x: 320, y: 192 }]; // right where leg 2 would land, a tile down
+    expect(legOptions(base, [], [], 2, ctx({ towers })).some((o) => o.dir === 'down')).toBe(false);
+    expect(legOptions(base, [], [], 2, ctx({ towers })).some((o) => o.dir === 'up')).toBe(true);
+  });
+
+  it('refuses to slide the road through blocked ground', () => {
+    const base = road();
+    const isBlockedTile = (x: number, y: number) => y > 176 && y < 208 && x > 160 && x < 480;
+    expect(legOptions(base, [], [], 2, ctx({ isBlockedTile })).some((o) => o.dir === 'down')).toBe(false);
+  });
+
+  it('refuses to slide a stretch out from under a detour dug into it', () => {
+    const base = road();
+    const notch: RoadNotch = { x: 320, y: 160, dir: 'up', depth: 1 };
+    expect(notchedPath(base, notch, GRID)).not.toBeNull(); // it sits on the road today
+    // Moving the stretch would leave the detour hanging in the grass, so it is pinned.
+    expect(legOptions(base, [], [notch], 2, ctx())).toEqual([]);
+    // Only that one stretch: the rest of the road still slides.
+    expect(legOptions(base, [], [notch], 4, ctx()).length).toBeGreaterThan(0);
+  });
+
+  it('charges for going out and nothing for coming back', () => {
+    const base = road();
+    const out = legOptions(base, [], [], 2, ctx());
+    expect(out.every((o) => o.digs)).toBe(true);
+    const one = shiftedBy([], 2, 'down');
+    const back = legOptions(base, one, [], 2, ctx()).find((o) => o.dir === 'up');
+    expect(back?.digs).toBe(false);
+  });
+
+  it('gives every slidable stretch a grip, one tile in from where it starts', () => {
+    const base = road();
+    const handles = legHandles(base, [], GRID);
+    expect(handles.map((h) => h.seg)).toEqual(notchableLegs(base));
+    // Leg 2 runs right from (160, 160): its grip is the next tile along.
+    expect(handles.find((h) => h.seg === 2)).toEqual({ seg: 2, x: 192, y: 160 });
+  });
+
+  it('hands the grip to the slide and the open road to the spade', () => {
+    const base = road();
+    const onGrip = legGrabAt(base, [], 192, 160, GRID);
+    expect(onGrip?.kind).toBe('leg');
+    expect(onGrip?.seg).toBe(2);
+    // A tile out in the middle of the same stretch belongs to the notch, not the slide.
+    expect(legGrabAt(base, [], 320, 160, GRID)).toBeNull();
+    expect(grabOn(base, [], 320, 160)?.kind).toBe('notch');
+  });
+
+  it('keeps a straightened stretch reachable, so a paid-for slide can always be undone', () => {
+    const base = road();
+    const flat = slide(base, 2, 'down', 5);
+    expect(legHandle(base, flat, 2, GRID)).not.toBeNull();
+    expect(legGrabAt(base, flat, 192, 320, GRID)?.seg).toBe(2);
+  });
+
+  it('reports the walking a slide costs or saves, in tiles', () => {
+    const base = road();
+    for (const o of legOptions(base, [], [], 2, ctx())) {
+      expect(Number.isInteger(o.deltaTiles)).toBe(true);
+    }
   });
 });
