@@ -167,6 +167,13 @@ describe('hard tier', () => {
     expect(evaluate(stats({ maxWaveReached: 40, towersSold: 1 }), none)).not.toContain('purist');
     expect(evaluate(stats({ maxWaveReached: 40, towersSold: 0 }), none)).toContain('purist');
   });
+
+  // The one gate on tower fusion, so it must stay exactly this: two finished
+  // towers at once, and nothing else (see systems/tower-fusion).
+  it('the-forge needs two maxed towers standing at once', () => {
+    expect(evaluate(stats({ twoMaxedAtOnce: false }), none)).not.toContain('the-forge');
+    expect(evaluate(stats({ twoMaxedAtOnce: true }), none)).toContain('the-forge');
+  });
 });
 
 describe('elite tier', () => {
@@ -255,8 +262,8 @@ describe('master tier', () => {
 describe('grandmaster tier', () => {
   const win = (over: Partial<RunStats> = {}) => stats({ won: true, ...over });
 
-  it('has exactly 44 tasks in total', () => {
-    expect(CA_TASKS.length).toBe(45);
+  it('has exactly 46 tasks in total', () => {
+    expect(CA_TASKS.length).toBe(46);
   });
 
   it('grandmaster needs a tier-6 win', () => {

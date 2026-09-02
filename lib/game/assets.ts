@@ -439,6 +439,8 @@ export const ASSETS = {
       3: `${LOCAL}/models/tzhaar_xil.png`, // sword variant
       4: `${LOCAL}/models/tzhaar_ket.png`,
     },
+    // Fused weapons: one tier, so one icon (see systems/tower-fusion).
+    scorching_bow: { 1: itemIcon('scorching_bow') },
     toxic: {
       1: itemIcon('tanzanite_fang'),
       2: itemIcon('toxic_blowpipe'),

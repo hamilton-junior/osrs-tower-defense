@@ -14,6 +14,10 @@ import { goldForKill } from '../systems/rewards';
 import { upgradeOrder } from '../systems/upgrades';
 import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor, MAX_TOWER_LEVEL } from '../systems/tower-xp';
 import { canEquip } from '../systems/tower-gear';
+import {
+  checkFusion, fusionOffersFor, isFusionReady, mergeSkills,
+  FUSION_BLOCK_TEXT, type FusionContext, type FusionOffer,
+} from '../systems/tower-fusion';
 import { GEAR } from '../data/gear';
 import { towerSpamCost, towerSpamBatchCost } from '../systems/economy';
 import { changedState } from '../systems/ui-diff';
@@ -278,6 +282,9 @@ export class GameEngine {
   /** Towers built this run (every successful {@link placeTower}); for the
    *  end-of-run summary. Not decremented on sell — it counts what you raised. */
   towersBuilt = 0;
+  /** Whether this leg of the road has already spent its one tower fusion. Reset
+   *  by {@link travelTo} — the run earns another forge by moving on. */
+  fusedThisLeg = false;
   /** Rune Essence awarded *during this run* (wave clears + essence cards), kept
    *  separate from the persistent {@link MetaSystem} balance so the summary can
    *  show what the run earned. Reset on {@link restart}. */
@@ -696,6 +703,7 @@ export class GameEngine {
       maxTraps: maxActiveTraps(this.hunterLevel),
       killCounts: this.killCounts,
       achievements: [...this.achievements],
+      fusedThisLeg: this.fusedThisLeg,
       cardCounts: this.cardCounts,
       bossesSeen: this.bossesSeen,
       diversionsMet: this.diversionsMet,
@@ -2285,6 +2293,10 @@ export class GameEngine {
     tower.maxDamage = t.maxDamage;
     tower.visualRadius = 18 + 2 * (tower.level - 1);
     tower.upgradeCost = upgradeCostFor(def.tiers[tower.level]?.upgradeCost ?? 0, tower.mageMode);
+    // Two towers with nothing left to upgrade, standing at once, is the whole gate
+    // on fusion (the `the-forge` achievement). Latches — selling one later
+    // doesn't take the forge back.
+    if (this.towers.filter(isFusionReady).length >= 2) this.caStats.twoMaxedAtOnce = true;
   }
 
   /** Marquee select: pick every tower whose centre falls inside the drag box, and
@@ -2591,6 +2603,93 @@ export class GameEngine {
       const sup = SUPPORT_ORDER[slot];
       if (sup) this.setSupportSpell(tower.id, sup);
     }
+  }
+
+  // --------------------------------------------------------------- fusion
+  // Two finished towers become one weapon that does something neither could.
+  // The gate itself is pure and lives in systems/tower-fusion; the engine only
+  // owns the mutation and the one per-leg budget.
+
+  private fusionContext(): FusionContext {
+    return {
+      grid: GRID,
+      money: this.money,
+      completed: this.achievements,
+      fusedThisLeg: this.fusedThisLeg,
+    };
+  }
+
+  /** Every fusion this tower could take part in — including the ones it can't
+   *  yet, each with the reason, so the panel can say why instead of hiding it. */
+  fusionOffers(towerId: string): FusionOffer[] {
+    const tower = this.towers.find(t => t.id === towerId);
+    if (!tower) return [];
+    return fusionOffersFor(tower, this.towers, this.fusionContext());
+  }
+
+  /**
+   * Forge `aId` and `bId` into the weapon they make. The first tower keeps its
+   * tile, its id and its equipment; the second is consumed and, in Classic, its
+   * gear goes back to the loot bag exactly as selling it would. The fused weapon
+   * inherits the better of the two towers' skills, so fusing never walks a
+   * combat level backwards. Irreversible for the rest of the run.
+   */
+  fuseTowers(aId: string, bId: string): Tower | null {
+    const a = this.towers.find(t => t.id === aId);
+    const b = this.towers.find(t => t.id === bId);
+    if (!a || !b) return null;
+    const res = checkFusion(a, b, this.fusionContext());
+    if (!res.ok) { this.notify(FUSION_BLOCK_TEXT[res.reason]); return null; }
+    const def = TOWERS[res.def.type];
+    const tier = def.tiers[0];
+    this.money -= res.cost;
+    const fused: Tower = {
+      ...a,
+      type: res.def.type,
+      level: 1,
+      maxLevel: def.tiers.length,
+      range: tier.range,
+      damage: tier.damage,
+      cooldown: tier.cooldown,
+      lastFired: 0,
+      color: tier.color,
+      targetId: null,
+      name: tier.name,
+      // A fused weapon arrives finished: there is no next tier to price.
+      upgradeCost: 0,
+      autoUpgrade: false,
+      autoUpgradeCap: undefined,
+      special: tier.special,
+      minDamage: tier.minDamage,
+      maxDamage: tier.maxDamage,
+      visualRadius: 24,
+      disabledTimer: 0,
+      scorchedTimer: 0,
+      siphonedBy: undefined,
+      specCharge: 0,
+      skills: mergeSkills(a.skills, b.skills),
+      equipment: { ...a.equipment },
+      // The weapon is its own thing; a wizard parent's spellbook does not survive it.
+      mageMode: undefined,
+      element: undefined,
+      ancientType: undefined,
+      supportSpell: undefined,
+    };
+    if (this.gameMode === 'classic') {
+      if (b.equipment.ammo) this.lootBag = [...this.lootBag, b.equipment.ammo];
+      if (b.equipment.jewellery) this.lootBag = [...this.lootBag, b.equipment.jewellery];
+    }
+    this.towers = this.towers.flatMap(t => (t === a ? [fused] : t === b ? [] : [t]));
+    this.fusedThisLeg = true;
+    this.selectedTowerId = fused.id;
+    this.multiSelectedIds = [];
+    if (this.movingTowerId === aId || this.movingTowerId === bId) this.movingTowerId = null;
+    this.bumpTowerLayout();
+    this.bumpCombatEpoch();
+    this.notify(`${tier.name} forged`);
+    this.sound.play('interface_open');
+    this.emit();
+    return fused;
   }
 
   sellTower(towerId: string) {
@@ -3231,6 +3330,7 @@ export class GameEngine {
       kills: this.kills,
       goldEarned: this.goldEarned,
       towersBuilt: this.towersBuilt,
+      fusedThisLeg: this.fusedThisLeg,
       essenceEarnedThisRun: this.essenceEarnedThisRun,
       // Tower cooldowns are stamped against this clock, so it travels with them.
       gameTime: this.gameTime,
@@ -3320,6 +3420,8 @@ export class GameEngine {
     this.kills = save.kills;
     this.goldEarned = save.goldEarned;
     this.towersBuilt = save.towersBuilt;
+    // A save from before fusion existed resumes with its forge unspent.
+    this.fusedThisLeg = save.fusedThisLeg ?? false;
     this.essenceEarnedThisRun = save.essenceEarnedThisRun;
     this.gameTime = save.gameTime;
     this.realTime = save.realTime;
@@ -3455,6 +3557,7 @@ export class GameEngine {
     this.kills = 0;
     this.goldEarned = 0;
     this.towersBuilt = 0;
+    this.fusedThisLeg = false;
     this.essenceEarnedThisRun = 0;
     this.caStats = emptyRunStats(this.gameMode, this.difficultyTier);
     this.waveTotal = 0;
@@ -3699,6 +3802,7 @@ export class GameEngine {
     this.biome = BIOMES[id];
     this.previewCache = null; // the next wave's roster is the new region's
     this.slayer.rerollForRegion(); // a task this region cannot supply is reassigned free
+    this.fusedThisLeg = false; // a new leg of the road, a new forge
     this.notify(`You travel to ${this.biome.name}`);
     this.sound.play('interface_open');
     this.emit();

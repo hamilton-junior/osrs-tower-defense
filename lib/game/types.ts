@@ -296,7 +296,11 @@ export interface Effect {
   enemyId?: string;
 }
 
-export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic';
+/** The six towers sold in the dock, plus every fused weapon (see
+ *  systems/tower-fusion) — a fusion is a tower in every way except that it is
+ *  never bought, only made out of two finished ones. */
+export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic'
+  | 'scorching_bow';
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
 

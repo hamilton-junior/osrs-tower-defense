@@ -313,6 +313,9 @@ export interface UIState {
   /** Completed Combat Achievement ids, account-wide. Plain array: the snapshot
    *  crosses the boundary structuredClone'd. */
   achievements: string[];
+  /** Whether this leg of the road has already spent its one tower fusion (see
+   *  systems/tower-fusion). Travelling on hands the run another. */
+  fusedThisLeg: boolean;
   /** Lifetime sighting count per boss type. A boss only rolls modifiers once it
    *  has appeared at least once, so a first encounter is always the "vanilla"
    *  fight; the count also ramps the lives a boss costs when it leaks. */

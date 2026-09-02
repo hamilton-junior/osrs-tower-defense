@@ -44,6 +44,7 @@ import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPO
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
 import { type RunSave } from '@/lib/game/systems/run-save';
 import { canEquip, towerAmmoClassFor, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/tower-gear';
+import { FUSION_BLOCK_TEXT } from '@/lib/game/systems/tower-fusion';
 import type { TowerType, PrayerType, MageMode, Item, Tower } from '@/lib/game/types';
 import { FEEDBACK_ENABLED } from '@/lib/game/feedback';
 import { highestUnlockedTier, type DifficultyTier } from '@/lib/game/systems/difficulty';
@@ -85,6 +86,7 @@ const INITIAL: UIState = {
   unlocks: [], unlockSeq: 0,
   killCounts: {},
   achievements: [],
+  fusedThisLeg: false,
   cardCounts: {},
   bossesSeen: {},
   diversionsMet: {},
@@ -241,6 +243,9 @@ export default function GameRoot() {
   // and players kept selling by fat-fingering a fast upgrade. The keyboard handler
   // is mounted once with no deps, so it reads the pending id off a ref.
   const [sellConfirm, setSellConfirm] = useState<string | null>(null);
+  /** Partner id of the fusion the panel is asking about. Fusing eats two finished
+   *  towers and can't be undone, so it confirms in place like Sell does. */
+  const [fuseConfirm, setFuseConfirm] = useState<string | null>(null);
   const sellConfirmRef = useRef<string | null>(null);
   useEffect(() => { sellConfirmRef.current = sellConfirm; }, [sellConfirm]);
   // Clicking away drops the pending sell with the panel that asked for it — for a
@@ -248,6 +253,7 @@ export default function GameRoot() {
   // confirmation armed for a different set of towers.
   const multiKey = ui.multiSelectedIds.join(',');
   useEffect(() => { setSellConfirm(null); }, [ui.selectedTowerId, multiKey]);
+  useEffect(() => { setFuseConfirm(null); }, [ui.selectedTowerId, multiKey]);
   // Classic-mode gear picker: which slot's popup (if any) is open on the selected
   // tower's Equipment section. Closes with the same triggers as the sell-confirm
   // above, so it never lingers on a tower that's no longer selected.
@@ -1291,6 +1297,14 @@ export default function GameRoot() {
   })();
 
   const moving = !!ui.movingTowerId;
+  // Every fusion this tower could join, ready ones first (see systems/tower-fusion).
+  // Read live off the engine like moveCost/sellValue below it — the panel already
+  // re-renders on every state patch that could change the answer.
+  const fusionOffers = selectedTower ? engineRef.current?.fusionOffers(selectedTower.id) ?? [] : [];
+  const readyFusions = fusionOffers.filter((o) => o.ok);
+  // With nothing ready, the panel still shows the nearest miss — a fusion the
+  // player never hears about is a fusion that doesn't exist.
+  const fusionHint = readyFusions.length === 0 ? fusionOffers[0] ?? null : null;
   const moveCost = selectedTower ? engineRef.current?.moveTowerCost(selectedTower) ?? 0 : 0;
   const sellValue = selectedTower ? engineRef.current?.sellValue(selectedTower) ?? 0 : 0;
   // The wizard's current cast (e.g. "Fire Wave" / "Ice Barrage") drives the
@@ -2686,6 +2700,50 @@ export default function GameRoot() {
                       </label>
                     )}
                   </div>
+                </div>
+              )}
+              {/* Fusion: two finished towers become one weapon that does something
+                  neither could. It eats a tower and a plot and can't be taken back,
+                  so it asks in place — the same rule as Sell. */}
+              {readyFusions.map((o) => (
+                fuseConfirm === o.partnerId ? (
+                  <div key={o.partnerId} className="flex flex-col gap-[0.35em]">
+                    <span className="text-[0.75em] text-osrs-warn text-center">
+                      Forge {o.def.name}? Both towers become one, for good.
+                    </span>
+                    <div className="flex gap-[0.4em]">
+                      <button
+                        className="rs-btn relative flex-1 px-[0.4em] py-[0.45em] text-osrs-warn"
+                        title={`Forge ${o.def.name} for ${fmt(o.cost)} gp`}
+                        onClick={() => { engineRef.current?.fuseTowers(selectedTower.id, o.partnerId); setFuseConfirm(null); }}
+                      >
+                        Yes, forge it
+                      </button>
+                      <button
+                        className="rs-btn relative flex-1 px-[0.4em] py-[0.45em]"
+                        title="Keep both towers"
+                        onClick={() => setFuseConfirm(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    key={o.partnerId}
+                    className="rs-btn w-full flex items-center justify-center gap-[0.35em] px-[0.4em] py-[0.45em]"
+                    title={`${o.def.blurb} Costs ${fmt(o.cost)} gp and both towers.`}
+                    onClick={() => setFuseConfirm(o.partnerId)}
+                  >
+                    <img src={towerIcon(o.def.type)} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+                    Forge {o.def.name} — {fmt(o.cost)} gp
+                  </button>
+                )
+              ))}
+              {fusionHint && (
+                <div className="flex items-center gap-[0.4em] text-[0.72em] text-[#b9a97f] px-[0.1em]">
+                  <img src={towerIcon(fusionHint.def.type)} alt="" className="w-[1.1em] h-[1.1em] object-contain opacity-60" onError={hideBrokenImg} />
+                  <span className="truncate">{fusionHint.def.name}: {FUSION_BLOCK_TEXT[fusionHint.reason!]}</span>
                 </div>
               )}
               {/* Selling refunds a fraction and cannot be undone, and the button sits

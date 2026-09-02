@@ -163,6 +163,7 @@ export const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = 
   tzhaar: { icon: ASSETS.misc.strength_icon, label: 'Melee' },
   slayer: { icon: ASSETS.misc.strength_icon, label: 'Melee' },
   toxic: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
+  scorching_bow: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
 };
 
 /**
@@ -238,6 +239,16 @@ export function towerSignature(
           { text: 'Elemental: one target, hits weaknesses', active: true },
           { text: 'Ancients: AoE with a status', active: true },
           { text: 'Utility: buffs nearby towers', active: true },
+        ],
+      };
+    case 'scorching_bow':
+      return {
+        label: 'Endless Reach',
+        icon: ASSETS.misc.reticle,
+        desc: 'Hits bosses and your Slayer task anywhere on the board.',
+        notes: [
+          { text: 'Everything else must come into range', active: true },
+          { text: '+50% vs your task · +30% Superiors · +25% bosses', active: true },
         ],
       };
     default:

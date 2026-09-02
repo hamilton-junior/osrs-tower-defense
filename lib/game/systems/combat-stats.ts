@@ -87,6 +87,9 @@ export interface EffectStat {
    *  the Double Shot transform. The archer's niche is volume, and this is the only
    *  place the panel can show it. */
   extraShots: number;
+  /** Shots the Scorching bow landed on a favoured target standing outside its own
+   *  range ring — the only visible measure of what the fusion bought. */
+  longShots: number;
   /** Damage a Blood wizard added on top of its spell, as a % of the target's max
    *  HP (capped per hit). The signature reason to run Blood against big enemies. */
   bloodBonusDmg: number;

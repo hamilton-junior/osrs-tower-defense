@@ -14,6 +14,8 @@ export const TOWER_AMMO_CLASS: Record<TowerType, AmmoClass> = {
   wizard: 'runes',
   tzhaar: 'melee_kit',
   slayer: 'melee_kit',
+  // A fusion consumes the ammo of the parent whose weapon it is.
+  scorching_bow: 'arrows',
 };
 
 /** Reader for `TOWER_AMMO_CLASS` (mirrors the old `weaponClassFor`). */

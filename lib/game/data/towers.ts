@@ -15,6 +15,8 @@ export const TOWER_STYLES: Record<TowerType, { style: CombatStyle; boostable: bo
   wizard: { style: 'magic', boostable: true },
   tzhaar: { style: 'melee', boostable: true },
   slayer: { style: 'melee', boostable: true },
+  // Fusions inherit the style of the parent whose reach they keep.
+  scorching_bow: { style: 'ranged', boostable: true },
 };
 
 export interface TowerTier {
@@ -127,6 +129,26 @@ export const TOWERS: Record<string, TowerDef> = {
       { level: 2, name: 'Toxic Blowpipe', damage: 16, cooldown: 2 * TICK * 1000, range: 5 * 25, color: '#008b8b', upgradeCost: 400, special: 'venom' },
       { level: 3, name: 'Magic Fang', damage: 32, cooldown: 2 * TICK * 1000, range: 6 * 25, color: '#32cd32', upgradeCost: 800, special: 'venom' },
       { level: 4, name: 'Trident of the Swamp', damage: 55, cooldown: 2 * TICK * 1000, range: 6 * 25, color: '#ff4500', upgradeCost: 1500, special: 'venom' }
+    ]
+  },
+  // ---------------------------------------------------------------- fusions
+  // A fused weapon arrives finished: one tier, no upgrade ladder. Its single
+  // `upgradeCost` is therefore not a price — nothing sells it — but the invested
+  // value the run refunds on a sell, which is why it reads as roughly what the
+  // two parents plus the fusion fee cost.
+  //
+  // Scorching bow = Bow of Faerdhinen + Emberlight. Against a favoured target
+  // (Slayer task / Superior / boss) it hits for 1.5x/1.3x/1.25x AND reaches it
+  // wherever it stands, so its uptime is the whole board; against everything
+  // else it is a plain 100 dps bow, slightly *worse* than the two towers it ate.
+  // That trade is the whole weapon: it stops clearing waves to never miss the
+  // one kill that matters.
+  scorching_bow: {
+    type: 'scorching_bow',
+    baseName: 'Scorching',
+    fireSound: 'archer',
+    tiers: [
+      { level: 1, name: 'Scorching Bow', damage: 120, cooldown: 2 * TICK * 1000, range: 10 * 25, color: '#c8412a', upgradeCost: 4800 }
     ]
   }
 };

@@ -75,6 +75,13 @@ const TARGETS = {
   toxic_blowpipe: { name: 'Toxic blowpipe' },
   magic_fang: { name: 'Magic fang' },
   trident_of_the_swamp: { name: 'Trident of the swamp' },
+  // ---- tower fusions (two tier-4 towers merged into one; see systems/tower-fusion) ----
+  scorching_bow: { name: 'Scorching bow' },
+  purging_staff: { name: 'Purging staff' },
+  venator_bow: { name: 'Venator bow' },
+  noxious_halberd: { name: 'Noxious halberd' },
+  eclipse_atlatl: { name: 'Eclipse atlatl' },
+  toxic_staff_of_the_dead: { name: 'Toxic staff of the dead' },
   // ---- consumables / loot ----
   amulet_of_power: { name: 'Amulet of power' },
   dragon_scimitar: { name: 'Dragon scimitar' },

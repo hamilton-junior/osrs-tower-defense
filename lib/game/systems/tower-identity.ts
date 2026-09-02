@@ -110,6 +110,25 @@ export function isSlayerFavoredTarget(enemyType: string, taskType: string | null
 }
 
 /**
+ * Tower types that carry the Slayer weapon's specialisation — its category damage
+ * bonus and its "favoured target first" targeting. The Slayer tower, and the
+ * Scorching bow fused out of it, which inherits the whole behaviour.
+ */
+export function hasSlayerSpecialisation(type: string): boolean {
+  return type === 'slayer' || type === 'scorching_bow';
+}
+
+/**
+ * Tower types whose reach against a *favoured* target is the entire board. This
+ * is the Scorching bow's whole trade: it is a plain, slightly weak bow against
+ * the wave, and it never stops covering the one kill that matters. Its printed
+ * range still governs everything else it shoots.
+ */
+export function favouredReachIsGlobal(type: string): boolean {
+  return type === 'scorching_bow';
+}
+
+/**
  * The venom cap's wave multiplier. Venom is single-target, so it must always
  * out-damage the Ancient Smoke *poison* (AoE, `dps = wave`) — and, because
  * single-target should out-scale AoE, the margin *grows* with the wave. This

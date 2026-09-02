@@ -11,7 +11,7 @@ import { calculateTowerStats, utilityAuraBonus, type ComputedTowerStats } from '
 import { RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity } from '../../systems/combat-stats';
 import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../../systems/magic';
 import { debuffTenacity } from '../../systems/tenacity';
-import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, towerMarkKind, venomRamp, venomCap } from '../../systems/tower-identity';
+import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap } from '../../systems/tower-identity';
 import { rollGearDrops, gearDamageMult } from '../../systems/tower-gear';
 import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
 import { mergeUnlockBatch } from '../../systems/unlock-queue';
@@ -136,7 +136,7 @@ function acquireTarget(
   // Slayer specialisation is sticky too: if it's chewing a non-favoured target
   // while a favoured one (task / superior / boss) is in range, drop it so the
   // reselect below prefers the specialised kill, regardless of set priority.
-  if (target && tower.type === 'slayer' && !slayerFavored(target) &&
+  if (target && hasSlayerSpecialisation(tower.type) && !slayerFavored(target) &&
       eng.enemies.some(e => inReach(e) && slayerFavored(e))) {
     target = undefined;
   }
@@ -147,7 +147,7 @@ function acquireTarget(
     // Within the chosen pool the player's priority still decides. (Damage bonus
     // is applied separately in slayerWeaponBonus.)
     let pool = inRange;
-    if (tower.type === 'slayer') {
+    if (hasSlayerSpecialisation(tower.type)) {
       const favored = inRange.filter(slayerFavored);
       if (favored.length > 0) pool = favored;
     }
@@ -349,9 +349,17 @@ export function fireTowers(eng: GameEngine, dt: number) {
     // reach is what *aims* her fight. The player's only vocabulary is a priority, so a
     // board on `strongest` would otherwise stand there shooting an invulnerable boss all
     // wave; with her hidden, every priority falls through to the acolyte in front of her.
+    // The Scorching bow's favoured targets (Slayer task / superior / boss) are in
+    // reach wherever they stand — that reach, not a bigger number, is what the
+    // fusion bought. Everything else it shoots obeys the printed range like any bow.
+    const globalFavoured = favouredReachIsGlobal(tower.type);
+    const favouredTarget = (e: Enemy) =>
+      hasSlayerSpecialisation(tower.type)
+      && isSlayerFavoredTarget(e.type, eng.slayer.task?.type ?? null, !!e.isBoss);
     const inReach = (e: Enemy) =>
       !doomed(e) && !moleIsHidden(e.bossState) && !nexIsShielded(e.bossState)
-      && inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e));
+      && (inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e))
+          || (globalFavoured && favouredTarget(e)));
 
     // (re)acquire a target. `markKind` is the status this tower spreads (for the
     // `unmarked` priority — a tower only counts its OWN effect as a mark).
@@ -376,9 +384,14 @@ export function fireTowers(eng: GameEngine, dt: number) {
 
     // Slayer weapon: native bonus vs the current task target / superiors / bosses,
     // independent of (and stacking with) the Slayer Helmet applied in damage().
-    const slayerMult = tower.type === 'slayer'
+    const slayerMult = hasSlayerSpecialisation(tower.type)
       ? slayerWeaponBonus(target.type, eng.slayer.task?.type ?? null, !!target.isBoss)
       : 1;
+    // A shot the tower could not have taken before it was fused: the meter's only
+    // window on what board-wide reach is actually worth.
+    if (globalFavoured && !inSquareRange(target.x, target.y, tower.x, tower.y, half + enemyRadius(target))) {
+      eng.stats.recordEffect(tower.id, eng.wave, { longShots: 1 });
+    }
     if (slayerMult !== 1) damage = Math.floor(damage * slayerMult);
 
     const lo = shotLoadout(eng, tower, target, damage);

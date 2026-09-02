@@ -150,6 +150,15 @@ export const CA_TASKS: readonly CaTask[] = [
     desc: 'Reach wave 40 without selling a tower.',
     check: (s) => s.maxWaveReached >= 40 && s.towersSold === 0,
   },
+  {
+    // The one gate on tower fusion, for the whole account: clear it once and every
+    // fusion is available for good (see systems/tower-fusion). It asks for exactly
+    // the thing a fusion costs — two finished towers — so the first time a player
+    // can afford to fuse, the forge opens in front of them.
+    id: 'the-forge', tier: 'hard', name: 'The Forge',
+    desc: 'Have two fully upgraded towers standing at once — this unlocks tower fusion.',
+    check: (s) => s.twoMaxedAtOnce,
+  },
 
   // --- Elite ---
   {

@@ -62,6 +62,9 @@ export interface RunStats {
   towersSold: number;
   maxTowersOnField: number;
   hadAllSixAtOnce: boolean;
+  /** Two towers with nothing left to upgrade stood on the board at the same time.
+   *  The gate on tower fusion (see systems/tower-fusion). Latches true. */
+  twoMaxedAtOnce: boolean;
   /** Kills credited to the tower that landed the killing blow, by tower id. */
   killsByTower: Record<string, number>;
   /** Distinct combat styles of every tower built this run. */
@@ -112,7 +115,7 @@ export function emptyRunStats(mode: GameMode, tier: DifficultyTier): RunStats {
   return {
     mode, tier, runPhase: 'normal', won: false, runSeconds: 0, maxWaveReached: 1,
     livesLostRun: 0, livesLostThisWave: 0, cleanWaveStreak: 0,
-    towersBuilt: 0, towersSold: 0, maxTowersOnField: 0, hadAllSixAtOnce: false,
+    towersBuilt: 0, towersSold: 0, maxTowersOnField: 0, hadAllSixAtOnce: false, twoMaxedAtOnce: false,
     killsByTower: {}, stylesUsed: [],
     slayerTasksDone: 0, prayerEverUsed: false, prayerActiveAtWaveEnd: false,
     bossKillSeconds: {}, bossSpawnSeconds: {}, livesLostDuringBoss: {},
