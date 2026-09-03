@@ -16,6 +16,10 @@ export const GAME_SOUNDS: Record<string, string> = {
   fire_scorching_bow: ASSETS.sounds.shoot.archer[1],
   fire_venator_bow: ASSETS.sounds.shoot.archer[1],
   fire_noxious_halberd: ASSETS.sounds.shoot.tzhaar[1],
+  // The one exception: the atlatl is archer + TzHaar, but what it actually does
+  // is throw a dart, so it borrows the blowpipe's dart clip rather than a
+  // bowstring or an obsidian maul.
+  fire_eclipse_atlatl: ASSETS.sounds.shoot.toxic[1],
   hit: ASSETS.sounds.misc.hit,
   base_hit: ASSETS.sounds.misc.block, // player taking damage, no armour (take-damage splat 510) — on a leak
   death: ASSETS.sounds.misc.kill,

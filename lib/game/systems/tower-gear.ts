@@ -20,6 +20,7 @@ export const TOWER_AMMO_CLASS: Record<TowerType, AmmoClass> = {
   noxious_halberd: 'melee_kit',
   purging_staff: 'runes',
   toxic_staff_of_the_dead: 'runes',
+  eclipse_atlatl: 'darts',
 };
 
 /** Reader for `TOWER_AMMO_CLASS` (mirrors the old `weaponClassFor`). */

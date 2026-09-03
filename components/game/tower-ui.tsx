@@ -168,6 +168,7 @@ export const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = 
   noxious_halberd: { icon: ASSETS.misc.strength_icon, label: 'Melee' },
   purging_staff: { icon: ASSETS.misc.magic_icon, label: 'Magic' },
   toxic_staff_of_the_dead: { icon: ASSETS.misc.magic_icon, label: 'Magic' },
+  eclipse_atlatl: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
 };
 
 /**
@@ -283,6 +284,16 @@ export function towerSignature(
         notes: [
           { text: 'Nothing can heal what it hits, for 5s', active: true },
           { text: 'Up to double damage on a dying enemy', active: true },
+        ],
+      };
+    case 'eclipse_atlatl':
+      return {
+        label: 'Eclipse',
+        icon: ASSETS.debuffs.burn,
+        desc: 'Every dart shoves what it hits and burns it hotter than the last.',
+        notes: [
+          { text: 'Builds up to five darts deep on one enemy', active: true },
+          { text: 'Stop hitting it and the eclipse fades', active: true },
         ],
       };
     case 'toxic_staff_of_the_dead':

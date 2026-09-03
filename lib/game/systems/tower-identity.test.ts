@@ -18,6 +18,11 @@ import {
   VENATOR_BENDS,
   envenomAura,
   envenomStaffFor,
+  eclipseStacksAfter,
+  eclipseShove,
+  eclipseBurnDps,
+  ECLIPSE_MAX_STACKS,
+  ECLIPSE_SHOVE_STEP,
   ENVENOM_AURA_FRAC,
   type AuraSource,
 } from './tower-identity';
@@ -341,5 +346,36 @@ describe('envenomStaffFor', () => {
     const strong = staff({ id: 'strong', damage: 120, x: 50 });
     expect(envenomStaffFor({ x: 10, y: 0 }, [weak, strong])?.id).toBe('strong');
     expect(envenomStaffFor({ x: 10, y: 0 }, [strong, weak])?.id).toBe('strong');
+  });
+});
+
+describe('the Eclipse atlatl stack', () => {
+  it('climbs one dart at a time and stops at the ceiling', () => {
+    expect(eclipseStacksAfter(undefined)).toBe(1);
+    expect(eclipseStacksAfter(1)).toBe(2);
+    expect(eclipseStacksAfter(ECLIPSE_MAX_STACKS)).toBe(ECLIPSE_MAX_STACKS);
+  });
+
+  it('shoves further with every stack, and not at all with none', () => {
+    expect(eclipseShove(0)).toBe(0);
+    expect(eclipseShove(1)).toBe(ECLIPSE_SHOVE_STEP);
+    expect(eclipseShove(ECLIPSE_MAX_STACKS)).toBe(ECLIPSE_MAX_STACKS * ECLIPSE_SHOVE_STEP);
+  });
+
+  it('cannot be pushed past the ceiling by a bad stack count', () => {
+    expect(eclipseShove(99)).toBe(eclipseShove(ECLIPSE_MAX_STACKS));
+    expect(eclipseBurnDps(85, 99)).toBe(eclipseBurnDps(85, ECLIPSE_MAX_STACKS));
+  });
+
+  it('burns in proportion to the stack, and never rounds a dart away to nothing', () => {
+    const one = eclipseBurnDps(85, 1);
+    expect(eclipseBurnDps(85, 3)).toBe(one * 3);
+    expect(eclipseBurnDps(1, 1)).toBeGreaterThanOrEqual(1);
+    expect(eclipseBurnDps(85, 0)).toBe(0);
+  });
+
+  it('a full eclipse beats what a maxed TzHaar could ever shove for', () => {
+    // The whole point of the fusion: the TzHaar's shove is flat at its tier.
+    expect(eclipseShove(ECLIPSE_MAX_STACKS)).toBeGreaterThan(56);
   });
 });

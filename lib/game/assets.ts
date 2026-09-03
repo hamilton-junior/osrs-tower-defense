@@ -445,6 +445,7 @@ export const ASSETS = {
     noxious_halberd: { 1: itemIcon('noxious_halberd') },
     purging_staff: { 1: itemIcon('purging_staff') },
     toxic_staff_of_the_dead: { 1: itemIcon('toxic_staff_of_the_dead') },
+    eclipse_atlatl: { 1: itemIcon('eclipse_atlatl') },
     toxic: {
       1: itemIcon('tanzanite_fang'),
       2: itemIcon('toxic_blowpipe'),

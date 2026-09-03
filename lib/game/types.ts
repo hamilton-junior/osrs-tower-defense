@@ -148,6 +148,12 @@ export interface Enemy extends EnemyDef {
    *  denial for the damage meter. */
   purgedTimer?: number;
   purgedBy?: string;
+  /** Eclipse atlatl: how many darts of the current eclipse are stacked on this
+   *  enemy (0..`ECLIPSE_MAX_STACKS`), and how long the stack has left before it
+   *  lapses. The count sets both the burn and the size of the next shove, so it
+   *  is the whole weapon — an atlatl that stops hitting loses everything it built. */
+  eclipseStacks?: number;
+  eclipseTimer?: number;
   groundTimer: number;
   poisonTimer?: number;
   venomTimer?: number;
@@ -307,7 +313,7 @@ export interface Effect {
  *  never bought, only made out of two finished ones. */
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic'
   | 'scorching_bow' | 'purging_staff' | 'venator_bow' | 'noxious_halberd'
-  | 'toxic_staff_of_the_dead';
+  | 'toxic_staff_of_the_dead' | 'eclipse_atlatl';
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
 
@@ -394,7 +400,7 @@ export interface Tower {
    *  reaches this (1..maxLevel). Undefined = no cap (auto-upgrade to max). Only
    *  the auto tick honours it; manual/batch Upgrade ignore the cap. */
   autoUpgradeCap?: number;
-  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow' | 'purge';
+  special?: 'slow' | 'aoe' | 'rapid' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow' | 'purge' | 'eclipse';
   specCharge: number;
   specMax: number;
   lastSpecFired?: number;
@@ -463,7 +469,7 @@ export interface Projectile {
   color: string;
   type: 'arrow' | 'spell' | 'cannonball' | 'dart' | 'bolt' | 'magic_projectile' | 'ancient_ice' | 'ancient_blood' | 'ancient_shadow' | 'ancient_smoke' | 'chinchompa' | 'godsword';
   element?: Element;
-  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow' | 'purge';
+  special?: 'slow' | 'aoe' | 'stun' | 'pushback' | 'crush' | 'burn' | 'venom' | 'amp' | 'blood' | 'aoe_slow' | 'purge' | 'eclipse';
   /** Hits every enemy near impact (Ancients barrage / cannon splash). */
   aoe?: boolean;
   /** Splash radius (logic px) for an AoE projectile; defaults to 80 (Ancients). */

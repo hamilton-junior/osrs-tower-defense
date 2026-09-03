@@ -361,3 +361,49 @@ export function envenomStaffFor<T extends AuraSource>(
   }
   return best;
 }
+
+/**
+ * **The Eclipse atlatl's stack.** The atlatl is the one weapon on the board that
+ * gets heavier the longer it works: every dart adds a stack of the eclipse, and
+ * the stack count sets both the burn left on the target and how far the *next*
+ * dart throws it back down the road. Neither parent can do that — a TzHaar's
+ * shove is a flat number fixed by its tier however long it has been swinging,
+ * and an archer never shoves at all.
+ *
+ * The stack lapses a few seconds after the last dart, so an atlatl that switches
+ * targets starts again from nothing. That is the whole cost of the weapon: it is
+ * a lockdown that has to be paid for with sustained fire on one enemy, not a
+ * property the tower owns.
+ */
+export const ECLIPSE_MAX_STACKS = 5;
+
+/** Seconds an eclipse survives without another dart. Also the burn's duration,
+ *  so the burn and the shove ladder always expire together. */
+export const ECLIPSE_STACK_SECS = 5;
+
+/** Shove (logic px) one stack is worth. Deliberately the TzHaar's own tier step,
+ *  so a full eclipse throws for what a TzHaar would if it had five more tiers. */
+export const ECLIPSE_SHOVE_STEP = 14;
+
+/** Burn dps one stack is worth, as a fraction of the dart's damage. */
+export const ECLIPSE_BURN_FRAC = 0.08;
+
+/** The stack count after one more dart lands. Clamped, so a held enemy tops out
+ *  rather than being thrown further every second for the rest of the wave. */
+export function eclipseStacksAfter(current: number | undefined): number {
+  return Math.min(ECLIPSE_MAX_STACKS, Math.max(0, Math.floor(current ?? 0)) + 1);
+}
+
+/** How far a dart shoves at this stack count, before boss tenacity. */
+export function eclipseShove(stacks: number): number {
+  return clampStacks(stacks) * ECLIPSE_SHOVE_STEP;
+}
+
+/** The burn a dart of `hitDamage` leaves at this stack count. */
+export function eclipseBurnDps(hitDamage: number, stacks: number): number {
+  return Math.max(1, Math.round(hitDamage * ECLIPSE_BURN_FRAC)) * clampStacks(stacks);
+}
+
+function clampStacks(stacks: number): number {
+  return Math.max(0, Math.min(ECLIPSE_MAX_STACKS, Math.floor(stacks)));
+}

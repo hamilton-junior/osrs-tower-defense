@@ -11,7 +11,7 @@ import { calculateTowerStats, utilityAuraBonus, type ComputedTowerStats } from '
 import { RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity } from '../../systems/combat-stats';
 import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../../systems/magic';
 import { debuffTenacity } from '../../systems/tenacity';
-import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch, noxiousSpread, halberdSeedDps, type VenomLevel, envenomAura, envenomStaffFor } from '../../systems/tower-identity';
+import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch, noxiousSpread, halberdSeedDps, type VenomLevel, envenomAura, envenomStaffFor, eclipseStacksAfter, eclipseShove, eclipseBurnDps, ECLIPSE_MAX_STACKS, ECLIPSE_STACK_SECS } from '../../systems/tower-identity';
 import { rollGearDrops, gearDamageMult } from '../../systems/tower-gear';
 import { fusionSpellFx, purgeDamageMult, PURGE_DENY_SECS } from '../../systems/tower-fusion';
 import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
@@ -1089,6 +1089,34 @@ export function applyOnHit(eng: GameEngine, e: Enemy, p: Projectile) {
       eng.stats.recordEffect(fx, eng.wave, {
         ...(moved > 0 ? { pushCount: 1, pushTiles: moved / GRID } : {}),
         ...(eff > 0 ? { stunCount: 1, stunSeconds: eff } : {}),
+      });
+      break;
+    }
+    case 'eclipse': {
+      // Eclipse atlatl: a dart thrown at a bow's range that lands with the
+      // TzHaar's weight — and gets heavier the longer it works on one enemy.
+      // Every dart adds a stack; the stack count drives BOTH the burn and the
+      // size of the shove, so an enemy held under sustained fire walks backwards
+      // down the road while it burns. The stack lapses if the atlatl stops
+      // hitting it (decayed in waves.ts), which is what stops the lockdown from
+      // being free: switch targets and the weapon starts again from nothing.
+      const stacks = eclipseStacksAfter(e.eclipseStacks);
+      e.eclipseStacks = stacks;
+      e.eclipseTimer = ECLIPSE_STACK_SECS;
+      const moved = knockback(eng, e, eclipseShove(stacks) * (1 - tenacity(eng, e)));
+      if (moved > 0) addRing(eng, e.x, e.y, 3, 16, '#ffb066', 0.28, 2);
+      noteDebuffHit(eng, e);
+      // The burn goes in the ordinary `burn` slot, so it splats orange like any
+      // other and never stacks twice with a Fire wizard's — the hotter of the two
+      // wins, exactly as two Fire wizards already resolve.
+      const burn = eclipseBurnDps(p.damage, stacks);
+      const dots = (e.dots ??= {});
+      const cur = dots.burn;
+      if (cur) { cur.timer = Math.max(cur.timer, ECLIPSE_STACK_SECS); cur.dps = Math.max(cur.dps, burn); cur.style = style; cur.sourceTowerId = p.sourceTowerId; }
+      else dots.burn = { timer: ECLIPSE_STACK_SECS, dps: burn, accum: 0, tickTimer: 0, style, sourceTowerId: p.sourceTowerId };
+      eng.stats.recordEffect(fx, eng.wave, {
+        ...(moved > 0 ? { pushCount: 1, pushTiles: moved / GRID } : {}),
+        ...(stacks >= ECLIPSE_MAX_STACKS ? { eclipseFull: 1 } : {}),
       });
       break;
     }

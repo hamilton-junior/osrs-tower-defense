@@ -103,6 +103,9 @@ export interface EffectStat {
    *  The staff's damage is beside the point; this is the only number that says
    *  whether it is standing where the board actually shoots from. */
   venomArmed: number;
+  /** Darts an Eclipse atlatl landed with the eclipse already at full strength —
+   *  how often it actually got to hold something, rather than starting over. */
+  eclipseFull: number;
   /** Damage a Blood wizard added on top of its spell, as a % of the target's max
    *  HP (capped per hit). The signature reason to run Blood against big enemies. */
   bloodBonusDmg: number;

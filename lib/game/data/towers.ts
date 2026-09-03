@@ -21,6 +21,7 @@ export const TOWER_STYLES: Record<TowerType, { style: CombatStyle; boostable: bo
   noxious_halberd: { style: 'melee', boostable: true },
   purging_staff: { style: 'magic', boostable: true },
   toxic_staff_of_the_dead: { style: 'magic', boostable: true },
+  eclipse_atlatl: { style: 'ranged', boostable: true },
 };
 
 export interface TowerTier {
@@ -214,6 +215,24 @@ export const TOWERS: Record<string, TowerDef> = {
     baseName: 'Toxic',
     tiers: [
       { level: 1, name: 'Toxic Staff of the Dead', damage: 70, cooldown: 3 * TICK * 1000, range: 9 * 25, color: '#4f8f3a', upgradeCost: 4700 }
+    ]
+  },
+  // Eclipse atlatl = the archer's reach on the TzHaar's arm. In OSRS the atlatl
+  // is the one ranged weapon that hits with melee Strength, and that is exactly
+  // what it is here: a dart thrown the length of a bow's range that lands with
+  // an obsidian maul's weight behind it. What neither parent can do is
+  // *escalate* — a TzHaar shoves by a flat, tier-fixed amount however long it has
+  // been swinging, and an archer never shoves at all. Every dart stacks the
+  // eclipse (up to ECLIPSE_MAX_STACKS), and the stack count sets BOTH the burn
+  // it leaves and how far the next dart throws the target back, so sustained
+  // fire on one enemy walks it backwards down the road while it burns. Stop
+  // hitting it and the eclipse lapses: the lockdown is rented, never owned.
+  eclipse_atlatl: {
+    type: 'eclipse_atlatl',
+    baseName: 'Eclipse',
+    fireSound: 'toxic_1',
+    tiers: [
+      { level: 1, name: 'Eclipse Atlatl', damage: 85, cooldown: 3 * TICK * 1000, range: 9 * 25, color: '#d0703c', upgradeCost: 4500, special: 'eclipse' }
     ]
   }
 };

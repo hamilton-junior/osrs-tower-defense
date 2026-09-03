@@ -426,6 +426,13 @@ export function moveEnemies(eng: GameEngine, dt: number) {
     }
     if (e.vulnTimer && e.vulnTimer > 0) e.vulnTimer -= dt;
     if (e.purgedTimer && e.purgedTimer > 0) e.purgedTimer -= dt;
+    // An Eclipse atlatl's stack is rented, not owned: a few seconds after the
+    // last dart the whole ladder resets, so the weapon has to keep hitting the
+    // same enemy to keep the shove growing.
+    if (e.eclipseTimer && e.eclipseTimer > 0) {
+      e.eclipseTimer -= dt;
+      if (e.eclipseTimer <= 0) e.eclipseStacks = 0;
+    }
     // Regenerating affix: claw back HP over time, capped at full health. An enemy that
     // has stalled dries this up through the stall breaker (`stallHealMult`) exactly as a
     // boss's own self-heals do — without it, anything whose regen matches the board's

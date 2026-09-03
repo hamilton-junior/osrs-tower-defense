@@ -69,8 +69,8 @@ describe('fusionRecipesFor', () => {
     ]);
     // The archer is in two, and each one names the partner, never itself.
     const archer = fusionRecipesFor('archer');
-    expect(archer.map((r) => r.def.type)).toEqual(['scorching_bow', 'venator_bow']);
-    expect(archer.map((r) => r.partner)).toEqual(['slayer', 'cannon']);
+    expect(archer.map((r) => r.def.type)).toEqual(['scorching_bow', 'venator_bow', 'eclipse_atlatl']);
+    expect(archer.map((r) => r.partner)).toEqual(['slayer', 'cannon', 'tzhaar']);
   });
 
   it('agrees with the pair lookup for every fusion in the table', () => {
@@ -128,7 +128,7 @@ describe('checkFusion', () => {
 
   it('reports the first thing standing in the way, in order', () => {
     const cases: [Tower, Tower, Partial<FusionContext>, string][] = [
-      [tower('a', 'archer', 100, 100), tower('b', 'tzhaar', 132, 100), {}, 'pair'],
+      [tower('a', 'archer', 100, 100), tower('b', 'wizard', 132, 100), {}, 'pair'],
       [tower('a', 'archer', 100, 100, 1), b(), {}, 'tier'],
       [a(), tower('b', 'slayer', 400, 400), {}, 'adjacent'],
       [a(), b(), { completed: new Set<string>() }, 'locked'],
@@ -165,7 +165,7 @@ describe('fusionOffersFor', () => {
     const arch = tower('arch', 'archer', 100, 100);
     const near = tower('near', 'slayer', 100 + GRID, 100);
     const far = tower('far', 'slayer', 500, 500);
-    const irrelevant = tower('tzhaar', 'tzhaar', 100, 100 + GRID);
+    const irrelevant = tower('wizard', 'wizard', 100, 100 + GRID);
     const offers = fusionOffersFor(arch, [arch, near, far, irrelevant], ctx());
     expect(offers.map((o) => o.partnerId)).toEqual(['near', 'far']);
     expect(offers[0].ok).toBe(true);

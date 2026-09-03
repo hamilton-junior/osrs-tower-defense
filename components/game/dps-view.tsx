@@ -56,6 +56,8 @@ export const DPS_EFFECT_META: {
     tip: 'Enemies caught further down the road by a shot aimed at another.' },
   { key: 'venomSpread', label: 'Venom spread', kind: 'int', icon: ASSETS.debuffs.venom,
     tip: 'Enemies handed a stronger venom than the one they were already carrying.' },
+  { key: 'eclipseFull', label: 'Full eclipse', kind: 'int', icon: ASSETS.debuffs.burn,
+    tip: 'Darts landed with the eclipse already at full strength.' },
   { key: 'venomArmed', label: 'Venom armed', kind: 'int', icon: ASSETS.debuffs.venom,
     tip: 'Hits this staff made venomous, fired by any tower in its range.' },
   { key: 'longShots', label: 'Long shots', kind: 'int', icon: ASSETS.misc.reticle,
