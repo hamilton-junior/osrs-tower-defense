@@ -4,7 +4,7 @@ import type { GameEngine } from '../engine';
 import { ENEMIES } from '../../data/enemies';
 import { bodyY } from '../../systems/enemy-anchor';
 import {
-  NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_SILENCE_INTERVAL, NEX_SILENCE_SECS,
+  NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_SILENCE_INTERVAL, NEX_SILENCE_SECS, NEX_SILENCE_FIRST,
 } from '../../systems/boss-mechanics';
 import { updateEscortFollow } from './bosses';
 
@@ -152,6 +152,22 @@ describe("Nex's acolytes — the silence, end to end", () => {
     tick(e, acolyte);
 
     expect(tower.disabledTimer).toBe(1.2);
+  });
+
+  it('reaches out soon after it arrives, not a whole interval later', () => {
+    // The opening delay is its own number for a reason: a ward broken quickly must still
+    // have cast once, or the mechanic is invisible on exactly the boards that beat it.
+    const early = mkFight('glacies');
+    const t1 = mkTower();
+    (early.e as unknown as { towers: Tower[] }).towers.push(t1);
+    updateEscortFollow(early.e, early.acolyte, NEX_SILENCE_FIRST - 0.1);
+    expect(t1.disabledTimer).toBe(0);
+
+    const on = mkFight('glacies');
+    const t2 = mkTower();
+    (on.e as unknown as { towers: Tower[] }).towers.push(t2);
+    updateEscortFollow(on.e, on.acolyte, NEX_SILENCE_FIRST);
+    expect(t2.disabledTimer).toBe(NEX_SILENCE_SECS);
   });
 
   it('waits its interval out before reaching again', () => {

@@ -1614,8 +1614,15 @@ export const NEX_SAY = 'There is no escape!';
  *  gap between them is deliberate and must stay positive: a tower always comes back up
  *  before it can be taken again, which is the board-wide rule that no source may chain a
  *  tower off the field (see the disabled-tower standard). */
-export const NEX_SILENCE_SECS = 5;
-export const NEX_SILENCE_INTERVAL = 6.5;
+export const NEX_SILENCE_SECS = 3;
+export const NEX_SILENCE_INTERVAL = 4;
+/** How long after it arrives an acolyte reaches out for the *first* time. Its own number,
+ *  because the interval is the wrong one to open with: a ward that a strong board breaks
+ *  inside a few seconds would die having done nothing at all, and the player would have
+ *  watched the mechanic never happen. Short enough to land while the acolyte is still the
+ *  thing being looked at, long enough to sit after the spawn (`SPAWN_ANIM_SECONDS`) so the
+ *  spells come from something already on the board. */
+export const NEX_SILENCE_FIRST = 1.4;
 /** How many spells one acolyte may be seen throwing per pulse, however many towers it
  *  actually took. Sampled evenly around it, for the same reason Graardor's slam caps its
  *  boulders: the case where the read matters most is the crowded one. */

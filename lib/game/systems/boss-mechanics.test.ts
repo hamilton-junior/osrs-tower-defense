@@ -157,6 +157,7 @@ import {
   CORP_CORE_SCALE_WAVE,
   NEX_SILENCE_SECS,
   NEX_SILENCE_INTERVAL,
+  NEX_SILENCE_FIRST,
   nexSilencedTowers,
 } from './boss-mechanics';
 import type { BossState } from './boss-mechanics';
@@ -1825,6 +1826,15 @@ describe('Nex: the acolytes silence their own element', () => {
   it('lets a tower come back up before it can be silenced again', () => {
     // The same standard from the other side: the gap has to stay positive.
     expect(NEX_SILENCE_INTERVAL).toBeGreaterThan(NEX_SILENCE_SECS);
+  });
+
+  it('opens well before its own interval, and lands several pulses inside a ward', () => {
+    // A ward is a gate the player is meant to break; if the acolyte behind it only cast
+    // once the gate fell, the fight would have three phases of nothing.
+    expect(NEX_SILENCE_FIRST).toBeGreaterThan(0);
+    expect(NEX_SILENCE_FIRST).toBeLessThan(NEX_SILENCE_INTERVAL);
+    const pulses = 1 + Math.floor((NEX_WARD_MAX_SECS - NEX_SILENCE_FIRST) / NEX_SILENCE_INTERVAL);
+    expect(pulses).toBeGreaterThanOrEqual(4);
   });
 
   it('gives every acolyte its own element, with none shared', () => {

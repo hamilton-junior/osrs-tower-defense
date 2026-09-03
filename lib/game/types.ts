@@ -222,7 +222,8 @@ export interface Enemy extends EnemyDef {
    *  Graardor's slam and draws his god's sigil under the body — a core is not Bandos's. */
   ccImmune?: boolean;
   /** One of Nex's acolytes: seconds until it reaches out and silences its own element
-   *  again (see `nexSilencedTowers`). */
+   *  again (see `nexSilencedTowers`). Unset until its first tick, which seeds it with the
+   *  short opening delay rather than the full interval. */
   silenceTimer?: number;
   /** That acolyte has already announced its first silence — the line is a moment, not a
    *  running commentary. */

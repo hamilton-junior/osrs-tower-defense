@@ -3,7 +3,7 @@ import { SPAWN_ANIM_SECONDS } from '../../types';
 import { ENEMIES } from '../../data/enemies';
 import { distanceSq, squareRange, inSquareRange, advanceAlongPath, remainingPathDistance } from '../../systems/geometry';
 import { GAME_SOUNDS } from '../sound';
-import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, corpCoreCap, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_CORE_HOP_SECS, CORP_CORE_HOP_LIFT, CORP_CORE_RETARGET_SECS, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SLAM_RADIUS, GRAARDOR_SLAM_CC_SECS, GRAARDOR_SLAM_GFX_MAX, GRAARDOR_SAY, graardorGuardHp, NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_WARD_MAX_SECS, NEX_SAY, NEX_SILENCE_SECS, NEX_SILENCE_INTERVAL, NEX_SILENCE_GFX_MAX, nexAcolyteHp, nexNextWardIndex, nexSilencedTowers, type SiphonCandidate } from '../../systems/boss-mechanics';
+import { zulrahPhaseIndex, recentDamageSum, pruneDamageEvents, jadHealPerTick, ZULRAH_PHASES, VORKATH_ICE_INTERVAL, VORKATH_ICE_DURATION, JAD_HEAL_THRESHOLD, JAD_HEALER_COUNT, JAD_HEALER_HP_FRAC, JAD_HEAL_WINDOW_SECS, JAD_HEAL_TICK_SECS, JAD_RESUMMON_COOLDOWN, hydraPhase, hydraShouldVent, hydraBreakTarget, hydraVentHeal, hydraHealSpoilsPerfect, hydraIsEnraged, HYDRA_VENT_SECS, HYDRA_VENT_COOLDOWN_SECS, HYDRA_SHATTER_VULN_SECS, HYDRA_ENRAGE_SPEED_MULT, moleBurrowInterval, moleBurrowTarget, MOLE_DIG_SECS, MOLE_UNDER_SECS, MOLE_EMERGE_SECS, stepStall, stallHealMult, isGuardian, guardianReviveHp, guardianCanRevive, linkGuardianStates, guardianShouldSummonTwin, GUARDIAN_REVIVE_SECS, GUARDIAN_ENRAGE_SPEED_MULT, GUARDIAN_PAIR_OFFSET, cerberusShouldSummon, cerberusIsEnraged, soulAnimSlug, SOUL_STYLES, CERBERUS_SOUL_HP_FRAC, CERBERUS_SOUL_ORBIT, CERBERUS_ENRAGE_SPEED_MULT, brutusShouldRage, brutusDashDirection, bossAnimVariant, BRUTUS_BRACE_SECS, BRUTUS_DASH_SECS, BRUTUS_SETTLE_SECS, BRUTUS_RAGE_COOLDOWN, BRUTUS_DASH_SPEED_MULT, BRUTUS_RETURN_SPEED_MULT, BRUTUS_EDGE_MARGIN, BRUTUS_SAY, BRUTUS_TRAMPLE_DISABLE_SECS, brutusTrampled, SCURRIUS_SHEAR_COOLDOWN, SCURRIUS_SQUEAK_INTERVAL, SCURRIUS_RAT_SPEED_MULT, SCURRIUS_WANDER_SECS, SCURRIUS_REFUND_RADIUS, SCURRIUS_SAY, SCURRIUS_MAX_RATS, SCURRIUS_SQUEAK_STOP, scurriusRatHp, ratWanderTarget, ratRefund, scorchSpan, pickScorchStart, scorchedTowers, breathBows, breathSlug, breathFlightTimes, litScorchPoints, KBD_FIRST_BREATH, KBD_BREATH_INTERVAL, KBD_INHALE_SECS, KBD_RECOVER_SECS, KBD_BURN_SECS, KBD_SCORCH_LENGTH, KBD_SAY, pickSiphonTarget, corpCoreHp, corpCoreCap, CORP_FIRST_CORE, CORP_CORE_INTERVAL, CORP_CORE_HOP_SECS, CORP_CORE_HOP_LIFT, CORP_CORE_RETARGET_SECS, CORP_SAY, GRAARDOR_GUARDS, GRAARDOR_SLAM_FIRST, GRAARDOR_SLAM_INTERVAL, GRAARDOR_SLAM_WINDUP, GRAARDOR_PRAYER_LOCK, GRAARDOR_SLAM_RADIUS, GRAARDOR_SLAM_CC_SECS, GRAARDOR_SLAM_GFX_MAX, GRAARDOR_SAY, graardorGuardHp, NEX_ACOLYTES, NEX_ACOLYTE_LEAD, NEX_WARD_MAX_SECS, NEX_SAY, NEX_SILENCE_SECS, NEX_SILENCE_INTERVAL, NEX_SILENCE_FIRST, NEX_SILENCE_GFX_MAX, nexAcolyteHp, nexNextWardIndex, nexSilencedTowers, type SiphonCandidate } from '../../systems/boss-mechanics';
 import type { Scorch } from '../engine-state';
 import { GRID, uid, enemyRadius, TOWER_BODY_RADIUS, ESCORT_ORBIT_DRIFT, JAD_HEALER_ORBIT, MOLE_DUST, GUARDIAN_LINK_COLOR, CORP_LINK_COLOR, HITSPLAT_LIFE } from '../engine-state';
 import type { GameEngine } from '../engine';
@@ -1493,7 +1493,8 @@ const NEX_SILENCE_GFX: Record<AncientType, { proj: string; hit: string }> = {
 /**
  * **An acolyte silences its own element.**
  *
- * Every {@link NEX_SILENCE_INTERVAL} it reaches out and knocks out every wizard casting
+ * It opens {@link NEX_SILENCE_FIRST} after it arrives and then reaches out every
+ * {@link NEX_SILENCE_INTERVAL}, knocking out every wizard casting
  * *its* Ancient that could have shot it — Glacies takes the Ice towers, Cruor the Blood,
  * Umbra the Shadow, Fumus the Smoke. That is the whole point of there being four of them
  * rather than four identical walls: each phase asks a different half of the board to sit
@@ -1515,7 +1516,10 @@ const NEX_SILENCE_GFX: Record<AncientType, { proj: string; hit: string }> = {
 function updateNexAcolyte(eng: GameEngine, a: Enemy, dt: number) {
   const acolyte = NEX_ACOLYTES.find((x) => x.type === a.type);
   if (!acolyte) return; // a Graardor sergeant, which marches but does not cast
-  a.silenceTimer = (a.silenceTimer ?? NEX_SILENCE_INTERVAL) - dt;
+  // Seeded with {@link NEX_SILENCE_FIRST}, not the interval: the first reach comes
+  // shortly after it materialises, so an acolyte that dies fast still got to be a
+  // mechanic. Every one after it is on the interval.
+  a.silenceTimer = (a.silenceTimer ?? NEX_SILENCE_FIRST) - dt;
   if (a.silenceTimer > 0) return;
   a.silenceTimer = NEX_SILENCE_INTERVAL;
   const ax = a.x;
@@ -1558,7 +1562,7 @@ function updateNexAcolyte(eng: GameEngine, a: Enemy, dt: number) {
   eng.sound.play('hit', 60);
   if (!a.silenceSaid) {
     // Once. The line is the moment the player learns what this acolyte does; repeated
-    // every six seconds it would be noise covering the towers it is meant to point at.
+    // every pulse it would be noise covering the towers it is meant to point at.
     a.silenceSaid = true;
     a.say = acolyte.say;
     a.sayTimer = 2.5;
