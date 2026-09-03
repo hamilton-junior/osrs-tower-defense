@@ -477,6 +477,10 @@ export const ASSETS = {
     // The Construction saw over a crate (cache sprite 221) — OSRS's own symbol for
     // something you build, so it labels the Towers half of the build dock.
     construction_icon: `${LOCAL}/misc/construction_icon.png`,
+    // The Smithing anvil (cache sprite 210) — the skill OSRS makes weapons at.
+    // It heads the shop tooltip's Forge section, where two towers are quoted as
+    // the weapon they become.
+    skill_smithing: `${LOCAL}/misc/skill_smithing.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
     // OSRS "Stats" (Skills) tab icon — the bar-chart glyph; used for the DPS tab.
     stats_icon: `${LOCAL}/misc/stats_icon.png`,

@@ -3923,7 +3923,10 @@ export default function GameRoot() {
                         happened to stand the right two towers next to each other. */}
                     {fusionRecipesFor(hoverShop).length > 0 && (
                       <div className="mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
-                        <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">Forge</span>
+                        <span className="flex items-center gap-[0.3em]">
+                          <img src={ASSETS.misc.skill_smithing} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                          <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">Forge</span>
+                        </span>
                         {fusionRecipesFor(hoverShop).map((r) => (
                           <div key={r.def.type} className="flex items-center gap-[0.3em] mt-[0.2em]" title={r.def.blurb}>
                             <img src={towerIcon(r.partner)} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />

@@ -5,6 +5,7 @@ import type { UIState } from '@/lib/game/core/engine';
 import { ASSETS, iconUrl, itemIcon } from '@/lib/game/assets';
 import { fs, hideBrokenImg } from './ui-kit';
 import { DIVERSION_BY_ID } from '@/lib/game/data/diversions';
+import { FUSION_UNLOCK_CA } from '@/lib/game/systems/tower-fusion';
 
 /**
  * Everything that teaches the game: the contextual tips (`LEARN_STEPS` +
@@ -100,6 +101,12 @@ export const LEARN_STEPS: LearnStep[] = [
   { id: 'traps', target: 'dock', icon: itemIcon('bird_snare'), title: 'Trap the road',
     body: 'The Traps tab lays snares on the road itself. They never block it — enemies walk over them.',
     when: (ui) => !ui.waveActive && ui.wave === 7 },
+  // Fires the moment the account earns The Forge, because that is the moment the
+  // rule becomes true — and a player who is never told will read "fuse" as a word
+  // on a tooltip rather than something they can do this wave.
+  { id: 'forge', target: 'dock', icon: ASSETS.misc.skill_smithing, title: 'Forge a weapon',
+    body: 'Two fully upgraded towers side by side can become one weapon. Hover a tower in the dock to see which pairs make what.',
+    when: (ui) => !ui.waveActive && ui.achievements.includes(FUSION_UNLOCK_CA) },
   { id: 'affix', icon: ASSETS.misc.defence_icon, title: 'Elite enemies',
     body: 'A glowing enemy breaks one rule — the aura colour says which. Vary your towers.',
     when: (ui) => ui.wave >= 5 && ui.waveActive },
@@ -244,6 +251,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.towers.archer[1], text: 'Pick one from the dock, click the grass. It aims and fires on its own.' },
     { icon: ASSETS.misc.arrow_up, text: 'Click a placed tower to upgrade, sell, or change what it shoots first.' },
     { icon: ASSETS.misc.xp_icon, text: 'Towers level up by fighting. A tier upgrade needs that level as well as gold.' },
+    { icon: ASSETS.misc.skill_smithing, text: 'Two fully upgraded towers side by side forge into one weapon — the dock tooltip lists the pairs.' },
     { icon: ASSETS.misc.magic_icon, text: 'Each monster is weak to one element or style — the right tower hits +50%.' },
     { icon: ASSETS.misc.loot_bag, text: 'Drops land in the loot bag on the bar. Ammo matches the style, jewellery fits any tower.' },
   ] },
