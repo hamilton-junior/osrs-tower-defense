@@ -203,3 +203,80 @@ export function isValidPlacement(
   }
   return true;
 }
+
+/**
+ * One straight run of road, as a player sees it.
+ *
+ * The path is a list of waypoints, but a waypoint is not a bend: the road editor
+ * and the notch tool both insert points along a run that is still visually dead
+ * straight, and a generated map can carry a couple of near-collinear points from
+ * its own smoothing. Counting those as corners would make "how many bends away"
+ * a property of how the road happens to be stored rather than of what is drawn.
+ *
+ * So a stretch merges consecutive segments while the road does not really turn —
+ * `minTurn` radians away from the heading the stretch *started* on. Measuring
+ * against the start (not against the previous segment) is what stops a long
+ * sweeping curve, made of many tiny turns, from swallowing the whole road.
+ *
+ * `from`/`to` are inclusive segment indices, which is the same index an enemy
+ * carries as `pathIndex` — so "which stretch is this enemy on" is a comparison,
+ * not a projection. Stretches tile the road exactly and never overlap.
+ */
+export interface RoadStretch {
+  /** First segment index in the run. */
+  from: number;
+  /** Last segment index in the run, inclusive. */
+  to: number;
+  /** Where the run starts — `path[from]`. */
+  a: Point;
+  /** Where the run ends — `path[to + 1]`. */
+  b: Point;
+}
+
+/** Signed angle difference wrapped into (-PI, PI]. */
+function angleDelta(a: number, b: number): number {
+  let d = b - a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d <= -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+/**
+ * Split a road into its straight runs. See {@link RoadStretch}.
+ *
+ * `minTurn` is in radians; the default (~14 degrees) is loose enough to absorb a
+ * waypoint dropped on a straight run and tight enough that any turn a player
+ * would call a corner splits the road.
+ */
+export function roadStretches(path: Point[], minTurn = 0.25): RoadStretch[] {
+  const segs = path.length - 1;
+  if (segs <= 0) return [];
+
+  const out: RoadStretch[] = [];
+  let from = 0;
+  let heading = Math.atan2(path[1].y - path[0].y, path[1].x - path[0].x);
+
+  for (let i = 1; i < segs; i++) {
+    const dx = path[i + 1].x - path[i].x;
+    const dy = path[i + 1].y - path[i].y;
+    // A zero-length segment has no heading of its own; it belongs to whatever
+    // run it sits in rather than starting a phantom bend.
+    if (dx === 0 && dy === 0) continue;
+    const h = Math.atan2(dy, dx);
+    if (Math.abs(angleDelta(heading, h)) >= minTurn) {
+      out.push({ from, to: i - 1, a: path[from], b: path[i] });
+      from = i;
+      heading = h;
+    }
+  }
+  out.push({ from, to: segs - 1, a: path[from], b: path[segs] });
+  return out;
+}
+
+/** The stretch holding segment `seg`, or `-1` if it is off the road. */
+export function stretchAt(stretches: RoadStretch[], seg: number): number {
+  for (let i = 0; i < stretches.length; i++) {
+    if (seg >= stretches[i].from && seg <= stretches[i].to) return i;
+  }
+  return -1;
+}

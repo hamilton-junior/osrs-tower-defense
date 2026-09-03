@@ -306,7 +306,7 @@ export interface Effect {
  *  systems/tower-fusion) — a fusion is a tower in every way except that it is
  *  never bought, only made out of two finished ones. */
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic'
-  | 'scorching_bow' | 'purging_staff';
+  | 'scorching_bow' | 'purging_staff' | 'venator_bow';
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
 
@@ -499,6 +499,10 @@ export interface Projectile {
   /** Launch point — the easing lerps from here toward the (live) target. */
   ox?: number;
   oy?: number;
+  /** The Venator bow's sweep: the runs of road this shot tears down, each with
+   *  the rate it hits for there (systems/tower-identity `venatorReach`). Every
+   *  enemy standing on one of them is hit, however many that is. */
+  roadSweep?: { from: number; to: number; mult: number; a: Point; b: Point }[];
   /** Last known target position — the bolt keeps flying here (and still splashes)
    *  even if the target dies mid-flight, so shots aren't silently wasted. */
   destX?: number;

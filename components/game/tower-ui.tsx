@@ -164,6 +164,7 @@ export const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = 
   slayer: { icon: ASSETS.misc.strength_icon, label: 'Melee' },
   toxic: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
   scorching_bow: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
+  venator_bow: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
   purging_staff: { icon: ASSETS.misc.magic_icon, label: 'Magic' },
 };
 
@@ -250,6 +251,16 @@ export function towerSignature(
         notes: [
           { text: 'Everything else must come into range', active: true },
           { text: '+50% vs your task · +30% Superiors · +25% bosses', active: true },
+        ],
+      };
+    case 'venator_bow':
+      return {
+        label: 'Road Sweep',
+        icon: ASSETS.misc.signpost,
+        desc: 'The shot runs down the road and hits everyone standing on it.',
+        notes: [
+          { text: 'No limit on how many it catches', active: true },
+          { text: '−25% damage per bend, and it stops after two', active: true },
         ],
       };
     case 'purging_staff':

@@ -17,6 +17,7 @@ export const TOWER_STYLES: Record<TowerType, { style: CombatStyle; boostable: bo
   slayer: { style: 'melee', boostable: true },
   // Fusions inherit the style of the parent whose reach they keep.
   scorching_bow: { style: 'ranged', boostable: true },
+  venator_bow: { style: 'ranged', boostable: true },
   purging_staff: { style: 'magic', boostable: true },
 };
 
@@ -150,6 +151,20 @@ export const TOWERS: Record<string, TowerDef> = {
     fireSound: 'archer',
     tiers: [
       { level: 1, name: 'Scorching Bow', damage: 120, cooldown: 2 * TICK * 1000, range: 10 * 25, color: '#c8412a', upgradeCost: 4800 }
+    ]
+  },
+  // Venator bow = Bow of Faerdhinen + the cannon's reach down a lane. One shot
+  // runs the length of the road it was fired along and keeps going back up the
+  // road behind it, with no cap on how many it hits — but it sheds a quarter of
+  // its damage at every bend and dies two bends out. So it is not a tower you
+  // aim, it is a tower you *site*: on the long straight approach it out-damages
+  // anything on the board, and in a switchback it is a slow single-target bow.
+  venator_bow: {
+    type: 'venator_bow',
+    baseName: 'Venator',
+    fireSound: 'archer',
+    tiers: [
+      { level: 1, name: 'Venator Bow', damage: 55, cooldown: 5 * TICK * 1000, range: 9 * 25, color: '#6f4fa8', upgradeCost: 4600 }
     ]
   },
   // Purging staff = Trident-class staff + Emberlight. An executioner: its hit grows

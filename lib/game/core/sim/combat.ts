@@ -5,13 +5,13 @@ import { ENEMY_ANIMS, clipDurationS, DEATH_SETTLE_S } from '../../data/enemy-ani
 import { ENEMIES } from '../../data/enemies';
 import { TOWER_STYLES } from '../../data/towers';
 import { ASSETS } from '../../assets';
-import { distance, distanceSq, squareRange, inSquareRange, knockbackStep } from '../../systems/geometry';
+import { distance, distanceSq, squareRange, inSquareRange, knockbackStep, roadStretches, type RoadStretch } from '../../systems/geometry';
 import { selectTarget } from '../../systems/targeting';
 import { calculateTowerStats, utilityAuraBonus, type ComputedTowerStats } from '../../systems/tower-combat';
 import { RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity } from '../../systems/combat-stats';
 import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../../systems/magic';
 import { debuffTenacity } from '../../systems/tenacity';
-import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap } from '../../systems/tower-identity';
+import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch } from '../../systems/tower-identity';
 import { rollGearDrops, gearDamageMult } from '../../systems/tower-gear';
 import { fusionSpellFx, purgeDamageMult, PURGE_DENY_SECS } from '../../systems/tower-fusion';
 import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
@@ -24,7 +24,7 @@ import { GRID, uid, enemyRadius, projectileEase, SHORTEST_CAST_S, DOT_LANE, HITS
 import type { HitsplatKind } from '../engine-state';
 import type { GameEngine } from '../engine';
 import { stallStacksOf, liveRatsOf, shearRat } from './bosses';
-import { makeEnemy, spawnEffect, spawnAncientHitFx, addRing, addBolt, addHurl, healEnemy } from './waves';
+import { makeEnemy, spawnEffect, spawnAncientHitFx, addRing, addBolt, addHurl, addStreak, healEnemy } from './waves';
 import { bodyY } from '../../systems/enemy-anchor';
 
 /**
@@ -173,6 +173,24 @@ interface ShotLoadout {
   bonusMaxHpFrac: number;
   bonusMaxHpCap: number;
   spellIcon?: string;
+  /** The Venator bow's sweep — the runs of road this shot tears down. */
+  roadSweep?: VenatorStretch[];
+}
+
+/**
+ * The road's straight runs, recomputed only when the road itself changes.
+ *
+ * `eng.path` is replaced wholesale every time it is rebuilt — a notch dug, a
+ * stretch dragged, a new leg travelled — so identity is an exact and free test
+ * for "is this still the same road". Cached because a Venator shot asks for it
+ * on every attack and the answer is the same for the whole board.
+ */
+let roadCache: { path: unknown; stretches: RoadStretch[] } | null = null;
+function roadOf(eng: GameEngine): RoadStretch[] {
+  if (!roadCache || roadCache.path !== eng.path) {
+    roadCache = { path: eng.path, stretches: roadStretches(eng.path) };
+  }
+  return roadCache.stretches;
 }
 
 /**
@@ -197,6 +215,10 @@ function shotLoadout(eng: GameEngine, tower: Tower, target: Enemy, damage: numbe
     bonusMaxHpCap: 0,
     spellIcon: spellSpriteName(tower) ?? undefined,
   };
+  // The Venator bow does not aim at a lane, it *inherits* one: whichever run of
+  // road its target happens to be standing on when the arrow leaves. Resolved at
+  // fire time and carried on the shot, so a road edited mid-flight can't move it.
+  if (tower.type === 'venator_bow') lo.roadSweep = venatorReach(roadOf(eng), target.pathIndex);
   if (tower.type !== 'wizard') return lo;
 
   const mode = tower.mageMode ?? 'elemental';
@@ -310,6 +332,7 @@ function launchProjectile(
     bonusMaxHpFrac: lo.bonusMaxHpFrac || undefined,
     bonusMaxHpCap: lo.bonusMaxHpCap || undefined,
     weaponFrac: weaponFrac || undefined,
+    roadSweep: lo.roadSweep,
     spellIcon: lo.spellIcon,
     arrowIcon: tower.type === 'archer' ? 'dragon_arrow' : undefined,
     hitSound: fp.hitSound,
@@ -659,7 +682,9 @@ export function hit(eng: GameEngine, p: Projectile, target: Enemy | null) {
   // venom is the payload, and the melee thud doesn't fit. Everything else thuds.
   const silent = !!p.arrowIcon || p.special === 'venom';
   let primaryKilled = false;
-  if (isAoe) {
+  if (p.roadSweep && p.roadSweep.length > 0) {
+    primaryKilled = roadSweep(eng, p, target, gfx, isAncientGfx, theme, silent, style);
+  } else if (isAoe) {
     // Magic barrages splash for reduced damage on non-primary targets so AoE
     // stays a side-grade to single-target; the cannon keeps full splash.
     const splash = p.type === 'cannonball' ? 1 : BARRAGE_SPLASH_FALLOFF;
@@ -719,6 +744,60 @@ export function hit(eng: GameEngine, p: Projectile, target: Enemy | null) {
   // Blood barrage: a chance to steal a life when the primary target is killed —
   // not a guaranteed heal on every splash kill.
   if (p.lifesteal && primaryKilled) tryLifesteal(eng, p.sourceTowerId);
+}
+
+/**
+ * **The Venator bow's shot landing.** It resolves as a line, not a point: every
+ * enemy standing on one of the runs of road the shot covers is hit, however many
+ * that is, at that run's rate (full where it landed, then three quarters, then a
+ * half). Everything else about the hit — the impact GFX, the on-hit statuses, the
+ * damage meter — behaves exactly as a normal hit does, once per enemy.
+ *
+ * Membership is `pathIndex` against the run's segment span, so it costs a
+ * comparison per enemy and can never disagree with where the enemy is drawn. The
+ * runs were resolved when the arrow was loosed, so a road edited mid-flight moves
+ * the enemies but not the shot — which is the honest reading: the arrow is
+ * already in the air down a lane that existed when it was fired.
+ *
+ * The enemy list is snapshotted first because `damage()` splices the live array
+ * as things die, and a kill on the first run would otherwise skip the next enemy.
+ */
+function roadSweep(
+  eng: GameEngine, p: Projectile, target: Enemy | null,
+  gfx: string | null, isAncientGfx: boolean, theme: ImpactTheme | null,
+  silent: boolean, style: CombatStyle | undefined,
+): boolean {
+  const sweep = p.roadSweep!;
+  // One tear of light per run, staggered so the sweep reads as travelling back
+  // up the road rather than every run lighting at once. Width and brightness
+  // carry the falloff, so the player can see where the shot gave out.
+  sweep.forEach((s, k) => {
+    addStreak(eng, s.b.x, s.b.y, s.a.x, s.a.y, p.color, 2 + 4 * s.mult, 0.45, k * 0.06);
+  });
+
+  let primaryKilled = false;
+  for (const e of eng.enemies.slice()) {
+    const mult = venatorMultAt(sweep, e.pathIndex);
+    if (mult <= 0) continue;
+    const isPrimary = e === target;
+    if (gfx) {
+      if (isAncientGfx) spawnAncientHitFx(eng, gfx, e);
+      else spawnEffect(eng, gfx, e.x, e.y, impactScale(eng, e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), e);
+    } else if (theme) {
+      spawnMagicImpact(eng, e.x, e.y, theme, impactScale(eng, e) * (isPrimary ? 1 : IMPACT_SPLASH_SCALE), e.x - p.x, e.y - p.y);
+    } else {
+      spawnImpactParticles(eng, e.x, e.y, p.color);
+    }
+    // Never rounds a reduced hit away to nothing: a shot that reached an enemy
+    // must land for something, or the blue 0 would be a lie about the falloff.
+    const dmg = Math.max(1, Math.floor(p.damage * mult));
+    const killed = damage(eng, e, dmg, 'hit', false, silent, 0, style,
+      { towerId: p.sourceTowerId, tag: isPrimary ? 'direct' : 'road', aura: p.aura,
+        weaponFrac: p.weaponFrac });
+    if (isPrimary) primaryKilled = killed;
+    if (!killed) { applyOnHit(eng, e, p); applyVenomTips(eng, e); }
+  }
+  return primaryKilled;
 }
 
 /**
@@ -1122,6 +1201,7 @@ function creditHit(eng: GameEngine, enemy: Enemy, hit: ResolvedHit, source: Dama
     else if (source.tag === 'venom') eng.stats.recordEffect(owner, eng.wave, { venomDmg: dealt });
     else if (source.tag === 'chain') eng.stats.recordEffect(owner, eng.wave, { chainDmg: dealt });
     else if (source.tag === 'splash') eng.stats.recordEffect(owner, eng.wave, { splashHits: 1 });
+    else if (source.tag === 'road') eng.stats.recordEffect(owner, eng.wave, { roadHits: 1 });
     if (source.towerId && onTask > 1) {
       eng.stats.recordEffect(source.towerId, eng.wave, { taskBonusDmg: dealt * (1 - 1 / onTask) });
     }

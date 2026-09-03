@@ -10,7 +10,11 @@ import {
   venomCap,
   VENOM_RAMP_HITS,
   venomWaveMult,
+  venatorReach,
+  venatorMultAt,
+  VENATOR_BENDS,
 } from './tower-identity';
+import { roadStretches } from './geometry';
 
 describe('archerArrowCount', () => {
   it('looses one arrow until the Dark Bow (tier 3), then two', () => {
@@ -171,5 +175,66 @@ describe('venomCap', () => {
     for (let w = 1; w <= 100; w++) {
       expect(venomCap(w, 0)).toBeLessThanOrEqual(Math.ceil(w * 1.7));
     }
+  });
+});
+
+describe('venatorReach', () => {
+  const p = (x: number, y: number) => ({ x, y });
+  // A staircase: four straight runs, one segment each, three bends between them.
+  const road = roadStretches([p(0, 0), p(100, 0), p(100, 100), p(200, 100), p(200, 200)]);
+
+  it('takes the run the target stands on and the two behind it, shedding a quarter at each bend', () => {
+    const reach = venatorReach(road, 3);
+    expect(reach.map((r) => r.stretch)).toEqual([3, 2, 1]);
+    expect(reach.map((r) => r.mult)).toEqual([1, 0.75, 0.5]);
+  });
+
+  it('sweeps back up the road toward the portal, never forward past the target', () => {
+    // The pack is always behind the leader, so "behind" is where the shot pays off.
+    for (const r of venatorReach(road, 3)) expect(r.from).toBeLessThanOrEqual(3);
+  });
+
+  it('stops at the start of the road instead of wrapping', () => {
+    const reach = venatorReach(road, 1);
+    expect(reach.map((r) => r.stretch)).toEqual([1, 0]);
+    expect(reach.map((r) => r.mult)).toEqual([1, 0.75]);
+    expect(venatorReach(road, 0).map((r) => r.mult)).toEqual([1]);
+  });
+
+  it('carries the run ends so the shot can still be drawn after the road is edited', () => {
+    const [first] = venatorReach(road, 3);
+    expect(first.a).toEqual(p(200, 100));
+    expect(first.b).toEqual(p(200, 200));
+  });
+
+  it('reaches nothing from a segment that is not on the road', () => {
+    expect(venatorReach(road, 99)).toEqual([]);
+    expect(venatorReach([], 0)).toEqual([]);
+  });
+
+  it('never covers more runs than the bend limit allows', () => {
+    const long = roadStretches([p(0, 0), p(100, 0), p(100, 100), p(200, 100), p(200, 200), p(300, 200), p(300, 300)]);
+    for (let seg = 0; seg < 6; seg++) {
+      expect(venatorReach(long, seg).length).toBeLessThanOrEqual(VENATOR_BENDS + 1);
+    }
+  });
+});
+
+describe('venatorMultAt', () => {
+  const reach = [
+    { from: 4, to: 6, mult: 1 },
+    { from: 2, to: 3, mult: 0.75 },
+  ];
+
+  it('answers with the rate of the run the enemy is standing on', () => {
+    expect(venatorMultAt(reach, 4)).toBe(1);
+    expect(venatorMultAt(reach, 6)).toBe(1);
+    expect(venatorMultAt(reach, 2)).toBe(0.75);
+  });
+
+  it('answers zero off the swept road, so the enemy is skipped entirely', () => {
+    expect(venatorMultAt(reach, 1)).toBe(0);
+    expect(venatorMultAt(reach, 7)).toBe(0);
+    expect(venatorMultAt([], 4)).toBe(0);
   });
 });

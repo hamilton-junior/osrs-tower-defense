@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   distance, distanceSq, pointToSegmentDistance, isValidPlacement, squareRange, inSquareRange, knockbackStep,
   pathTotalLength, remainingPathDistance, advanceAlongPath, clampCursorToBoard, snapToTileCenter,
+  roadStretches, stretchAt,
 } from './geometry';
 
 describe('snapToTileCenter', () => {
@@ -184,5 +185,65 @@ describe('clampCursorToBoard', () => {
 
   it('leaves an already-valid interior tile where it is', () => {
     expect(clampCursorToBoard(320, 320, G, W, H)).toEqual({ x: 320, y: 320 });
+  });
+});
+
+describe('roadStretches', () => {
+  const p = (x: number, y: number) => ({ x, y });
+
+  it('reads a straight road as one stretch, however many points it is made of', () => {
+    // The road editor and the notch spade both insert waypoints on straight runs;
+    // a waypoint the road does not turn at is not a bend.
+    const s = roadStretches([p(0, 0), p(100, 0), p(200, 0), p(300, 0)]);
+    expect(s.length).toBe(1);
+    expect(s[0]).toMatchObject({ from: 0, to: 2, a: p(0, 0), b: p(300, 0) });
+  });
+
+  it('splits an L into the two runs that meet at the corner', () => {
+    const s = roadStretches([p(0, 0), p(100, 0), p(100, 100)]);
+    expect(s.length).toBe(2);
+    expect(s[0]).toMatchObject({ from: 0, to: 0, a: p(0, 0), b: p(100, 0) });
+    expect(s[1]).toMatchObject({ from: 1, to: 1, a: p(100, 0), b: p(100, 100) });
+  });
+
+  it('does not let a long sweeping curve pass as one straight run', () => {
+    // Every step turns by less than the threshold, but they all turn the same way:
+    // measured against the run's *start* the curve breaks, as it should.
+    const path = [p(0, 0)];
+    let x = 0, y = 0, h = 0;
+    for (let i = 0; i < 12; i++) {
+      h += 0.2;
+      x += Math.cos(h) * 40; y += Math.sin(h) * 40;
+      path.push(p(x, y));
+    }
+    expect(roadStretches(path).length).toBeGreaterThan(1);
+  });
+
+  it('covers every segment exactly once, in order', () => {
+    const s = roadStretches([p(0, 0), p(100, 0), p(100, 100), p(200, 100), p(200, 0)]);
+    expect(s[0].from).toBe(0);
+    expect(s[s.length - 1].to).toBe(3);
+    for (let i = 1; i < s.length; i++) expect(s[i].from).toBe(s[i - 1].to + 1);
+  });
+
+  it('has nothing to say about a road with no segments', () => {
+    expect(roadStretches([])).toEqual([]);
+    expect(roadStretches([p(0, 0)])).toEqual([]);
+  });
+});
+
+describe('stretchAt', () => {
+  const p = (x: number, y: number) => ({ x, y });
+  const s = roadStretches([p(0, 0), p(100, 0), p(100, 100), p(200, 100)]);
+
+  it('finds the run a segment belongs to', () => {
+    expect(stretchAt(s, 0)).toBe(0);
+    expect(stretchAt(s, 1)).toBe(1);
+    expect(stretchAt(s, 2)).toBe(2);
+  });
+
+  it('answers -1 for a segment that is not on the road', () => {
+    expect(stretchAt(s, -1)).toBe(-1);
+    expect(stretchAt(s, 99)).toBe(-1);
   });
 });

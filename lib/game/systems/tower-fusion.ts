@@ -24,7 +24,7 @@ import type { Tower, TowerSkills, TowerType } from '../types';
 
 /** Every fused weapon's type. These join `TowerType`, but they are never sold in
  *  the dock — the only way one reaches the board is {@link checkFusion}. */
-export type FusionType = 'scorching_bow' | 'purging_staff';
+export type FusionType = 'scorching_bow' | 'purging_staff' | 'venator_bow';
 
 export interface FusionDef {
   /** Also its `TowerType` member and its baked icon slug. */
@@ -50,6 +50,12 @@ export const FUSIONS: readonly FusionDef[] = [
     name: 'Scorching bow',
     parents: ['archer', 'slayer'],
     blurb: 'Reaches your Slayer task, Superiors and bosses anywhere on the board.',
+  },
+  {
+    type: 'venator_bow',
+    name: 'Venator bow',
+    parents: ['archer', 'cannon'],
+    blurb: 'Tears down the road it fires along, hitting everything standing on it.',
   },
   {
     type: 'purging_staff',

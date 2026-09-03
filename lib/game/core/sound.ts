@@ -14,6 +14,7 @@ export const GAME_SOUNDS: Record<string, string> = {
   // Fused weapons borrow the voice of the parent whose weapon they are
   // (the sim asks for `fire_<tower type>`).
   fire_scorching_bow: ASSETS.sounds.shoot.archer[1],
+  fire_venator_bow: ASSETS.sounds.shoot.archer[1],
   hit: ASSETS.sounds.misc.hit,
   base_hit: ASSETS.sounds.misc.block, // player taking damage, no armour (take-damage splat 510) — on a leak
   death: ASSETS.sounds.misc.kill,

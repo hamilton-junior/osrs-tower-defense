@@ -160,7 +160,7 @@ export const VORKATH_ICE_DURATION = 3;
 export const ESCORT_AOE_DAMAGE_MULT = 0.4;
 
 /** Area tags — hits that land on an escort without being aimed at it. */
-const AOE_TAGS: readonly DamageTag[] = ['splash', 'chain'];
+const AOE_TAGS: readonly DamageTag[] = ['splash', 'chain', 'road'];
 
 /**
  * Damage multiplier for one hit landing on `isEscort`, by the hit's source tag.

@@ -14,6 +14,9 @@
  */
 
 import type { MarkKind } from './targeting';
+import { stretchAt, type RoadStretch } from './geometry';
+import type { Point } from '../types';
+
 
 /**
  * The kind of lingering status a tower lays on hit, for the `unmarked` priority
@@ -177,4 +180,69 @@ export function venomRamp(hitDamage: number, wave: number): { step: number; cap:
   const cap = venomCap(wave, hitDamage);
   const step = Math.max(2, Math.ceil(cap / VENOM_RAMP_HITS));
   return { step, cap: Math.max(step, cap), dur: 4 };
+}
+
+/**
+ * **The Venator bow's sweep.** The shot does not stop at the enemy it was aimed
+ * at — it carries on down the road it was standing on and keeps going back up
+ * the road behind it, hitting everything on the way with no cap on how many.
+ *
+ * *Back* up the road, toward the portal, because that is where the wave is: the
+ * enemy a tower shoots is the one furthest along, and everything still coming is
+ * behind it. Sweeping forward would aim the shot at the empty road the wave has
+ * already walked.
+ *
+ * It loses a quarter of its damage at every bend and gives out two bends later,
+ * which is the whole placement question the tower asks: not *what* to point it
+ * at — a tower is never asked that here — but where the road has a long run
+ * behind it. A bow watching the straight approach to the exit sweeps the whole
+ * queue; one tucked into a switchback hits a corner and stops.
+ */
+
+/** Damage lost per bend the sweep crosses. */
+export const VENATOR_BEND_FALLOFF = 0.25;
+
+/** Bends the sweep survives — so it covers this many stretches plus its own. */
+export const VENATOR_BENDS = 2;
+
+/** One stretch of road the sweep covers, and what it hits for there. */
+export interface VenatorStretch {
+  /** Index into the `stretches` array it came from. */
+  stretch: number;
+  /** First path segment covered, inclusive. */
+  from: number;
+  /** Last path segment covered, inclusive. */
+  to: number;
+  /** Damage multiplier on this stretch: 1, then 0.75, then 0.5. */
+  mult: number;
+  /** The run's two ends, carried so the shot can be drawn (and resolved) even if
+   *  the player edits the road while it is in the air. */
+  a: Point;
+  b: Point;
+}
+
+/**
+ * The stretches a Venator shot fired at an enemy on segment `seg` covers, in
+ * order from the one it landed on outwards. Empty when the segment is off the
+ * road at all, which can only happen if the path changed under a shot in flight.
+ */
+export function venatorReach(stretches: RoadStretch[], seg: number): VenatorStretch[] {
+  const start = stretchAt(stretches, seg);
+  if (start < 0) return [];
+  const out: VenatorStretch[] = [];
+  for (let k = 0; k <= VENATOR_BENDS; k++) {
+    const i = start - k;
+    if (i < 0) break;
+    const s = stretches[i];
+    out.push({ stretch: i, from: s.from, to: s.to, mult: 1 - VENATOR_BEND_FALLOFF * k, a: s.a, b: s.b });
+  }
+  return out;
+}
+
+/** Whether `seg` falls inside any stretch the sweep reached, and at what rate. */
+export function venatorMultAt(reach: readonly { from: number; to: number; mult: number }[], seg: number): number {
+  for (const r of reach) {
+    if (seg >= r.from && seg <= r.to) return r.mult;
+  }
+  return 0;
 }

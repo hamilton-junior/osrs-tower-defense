@@ -52,6 +52,8 @@ export const DPS_EFFECT_META: {
     tip: 'Extra damage this tower’s own weapon and gear add against this enemy.' },
   { key: 'extraShots', label: 'Extra shots', kind: 'int', icon: GEAR_ICONS.dragon_arrow,
     tip: 'Shots loosed on top of the tower’s attack, at a second enemy.' },
+  { key: 'roadHits', label: 'Road hits', kind: 'int', icon: ASSETS.misc.signpost,
+    tip: 'Enemies caught further down the road by a shot aimed at another.' },
   { key: 'longShots', label: 'Long shots', kind: 'int', icon: ASSETS.misc.reticle,
     tip: 'Shots that reached a target standing outside the tower’s range.' },
   { key: 'stunCount', label: 'Enemies stunned', kind: 'int', icon: ASSETS.debuffs.stun,

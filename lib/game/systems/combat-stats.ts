@@ -14,7 +14,7 @@ import type { TowerType, CombatStyle, EnemyType } from '../types';
  */
 
 /** Where a dealt hit came from, threaded into the engine's `damage()`. */
-export type DamageTag = 'direct' | 'splash' | 'burn' | 'poison' | 'venom' | 'chain';
+export type DamageTag = 'direct' | 'splash' | 'burn' | 'poison' | 'venom' | 'chain' | 'road';
 
 export interface DamageSource {
   /** Firing tower; absent for board-wide run FX (bucketed under "Run Effects"). */
@@ -90,6 +90,10 @@ export interface EffectStat {
   /** Shots the Scorching bow landed on a favoured target standing outside its own
    *  range ring — the only visible measure of what the fusion bought. */
   longShots: number;
+  /** Enemies a Venator shot tore through on its way down the road, on top of the
+   *  one it was aimed at. The bow's whole case for a slot is how much road it
+   *  covers, and this is the number that says whether the spot it sits on does. */
+  roadHits: number;
   /** Damage a Blood wizard added on top of its spell, as a % of the target's max
    *  HP (capped per hit). The signature reason to run Blood against big enemies. */
   bloodBonusDmg: number;

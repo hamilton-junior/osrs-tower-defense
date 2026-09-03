@@ -615,6 +615,12 @@ export interface Particle {
 export type RuneFx =
   | { kind: 'ring'; x: number; y: number; age: number; life: number; r0: number; r1: number; color: string; width: number }
   | { kind: 'bolt'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string }
+  /** A tear of light wiping along one straight run of road — the Venator bow's
+   *  sweep. It is drawn as the shot's *path*, not an impact, so it says which
+   *  stretch was covered and how hard (width) long enough for the player to read
+   *  the answer off the board rather than off the damage meter. A negative `age`
+   *  delays it, which is how the runs it crosses fire in order. */
+  | { kind: 'streak'; x0: number; y0: number; x1: number; y1: number; age: number; life: number; color: string; width: number }
   /** Something **lobbed** across the board on a bowed arc, drawn with a real cache GFX
    *  rather than a procedural shape: a gout of the King Black Dragon's dragonfire from his
    *  mouth to the patch of road it is about to light, or a boulder out of General

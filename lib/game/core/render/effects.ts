@@ -180,6 +180,9 @@ export function drawSpark(gr: GameRenderer, ctx: CanvasRenderingContext2D, x: nu
  *  jagged energy bolts (ricochet / pierce / chain-freeze jump). */
 export function drawFx(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   for (const f of gr.e.fx) {
+    // A negative age is a scheduled effect that has not started yet (the ager
+    // counts it up to zero); drawing it would play the whole clip backwards.
+    if (f.age < 0) continue;
     const t = Math.min(1, f.age / f.life); // 0 → 1 over its life
     if (f.kind === 'hurl') {
       drawHurledGfx(gr, ctx, f.x0, f.y0, f.x1, f.y1, t, f.bow, f.slug, f.grow);
@@ -191,6 +194,22 @@ export function drawFx(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       ctx.lineWidth = f.width * (1 - t * 0.5);
       ctx.beginPath();
       ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    } else if (f.kind === 'streak') {
+      // The tear runs out over the first half of the life and then fades in
+      // place, so the eye follows it down the road and still sees where it went.
+      const head = Math.min(1, t * 2);
+      ctx.save();
+      ctx.globalAlpha = (1 - t) * 0.9;
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = f.width;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = f.color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(f.x0, f.y0);
+      ctx.lineTo(f.x0 + (f.x1 - f.x0) * head, f.y0 + (f.y1 - f.y0) * head);
       ctx.stroke();
       ctx.restore();
     } else {
