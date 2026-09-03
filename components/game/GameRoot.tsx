@@ -44,7 +44,7 @@ import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPO
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
 import { type RunSave } from '@/lib/game/systems/run-save';
 import { canEquip, towerAmmoClassFor, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/tower-gear';
-import { FUSION_BLOCK_TEXT } from '@/lib/game/systems/tower-fusion';
+import { FUSION_BLOCK_TEXT, FUSION_UNLOCK_CA, fusionRecipesFor, isFusionReady } from '@/lib/game/systems/tower-fusion';
 import type { TowerType, PrayerType, MageMode, Item, Tower } from '@/lib/game/types';
 import { FEEDBACK_ENABLED } from '@/lib/game/feedback';
 import { highestUnlockedTier, type DifficultyTier } from '@/lib/game/systems/difficulty';
@@ -1302,9 +1302,31 @@ export default function GameRoot() {
   // re-renders on every state patch that could change the answer.
   const fusionOffers = selectedTower ? engineRef.current?.fusionOffers(selectedTower.id) ?? [] : [];
   const readyFusions = fusionOffers.filter((o) => o.ok);
+  // What a *finished* tower could still become, read from the fusion table rather
+  // than the board. An offer only exists once both halves are standing, so a maxed
+  // tower whose partner was never built has nothing to show — and that is exactly
+  // the moment the player asks "what now?". Below max the answer is always "upgrade
+  // it first", which the Upgrade button already says, so it stays quiet until then.
+  const fusionRecipes = selectedTower && isFusionReady(selectedTower)
+    ? fusionRecipesFor(selectedTower.type)
+      .filter((r) => !readyFusions.some((o) => o.def.type === r.def.type))
+      .map((r) => {
+        // Prefer what the board actually says over the generic recipe: with the
+        // partner already built, the real blocker is a better sentence than
+        // "build one".
+        const blocked = fusionOffers.find((o) => !o.ok && o.def.type === r.def.type);
+        return {
+          def: r.def,
+          note: blocked
+            ? FUSION_BLOCK_TEXT[blocked.reason!]
+            : `Needs a ${TOWERS[r.partner]?.baseName ?? r.partner} tower beside it.`,
+        };
+      })
+    : [];
   // With nothing ready, the panel still shows the nearest miss — a fusion the
-  // player never hears about is a fusion that doesn't exist.
-  const fusionHint = readyFusions.length === 0 ? fusionOffers[0] ?? null : null;
+  // player never hears about is a fusion that doesn't exist. The recipe list above
+  // says the same thing in more detail, so the two never stack.
+  const fusionHint = readyFusions.length === 0 && fusionRecipes.length === 0 ? fusionOffers[0] ?? null : null;
   const moveCost = selectedTower ? engineRef.current?.moveTowerCost(selectedTower) ?? 0 : 0;
   const sellValue = selectedTower ? engineRef.current?.sellValue(selectedTower) ?? 0 : 0;
   // The wizard's current cast (e.g. "Fire Wave" / "Ice Barrage") drives the
@@ -2740,6 +2762,19 @@ export default function GameRoot() {
                   </button>
                 )
               ))}
+              {/* A finished tower's recipes, whether or not the other half exists.
+                  The weapon is named and pictured, and under it the one thing still
+                  in the way — usually a tower that was never built, which nothing
+                  else in the game would ever have told the player about. */}
+              {fusionRecipes.map((r) => (
+                <div key={r.def.type} className="flex items-start gap-[0.4em] text-[0.72em] text-[#b9a97f] px-[0.1em]">
+                  <img src={towerIcon(r.def.type)} alt="" className="w-[1.1em] h-[1.1em] mt-[0.1em] object-contain opacity-60" onError={hideBrokenImg} />
+                  <span className="min-w-0">
+                    <span className="text-[#cdbe91]">{r.def.name}</span>
+                    <span className="block leading-snug">{r.note}</span>
+                  </span>
+                </div>
+              ))}
               {fusionHint && (
                 <div className="flex items-center gap-[0.4em] text-[0.72em] text-[#b9a97f] px-[0.1em]">
                   <img src={towerIcon(fusionHint.def.type)} alt="" className="w-[1.1em] h-[1.1em] object-contain opacity-60" onError={hideBrokenImg} />
@@ -3881,6 +3916,30 @@ export default function GameRoot() {
                       <Stat icon={ASSETS.misc.multicombat_icon} label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
                       <Stat icon={ASSETS.misc.coins_icon} label="Cost" value={`${fmt(ui.towerPrices[hoverShop])} gp`} />
                     </div>
+                    {/* What this tower can be forged into, before either half is on
+                        the board. It belongs here because this is where the plot is
+                        bought: "is a Toxic worth a slot?" is answered by what it makes
+                        later, and until now the recipe was invisible unless the player
+                        happened to stand the right two towers next to each other. */}
+                    {fusionRecipesFor(hoverShop).length > 0 && (
+                      <div className="mt-[0.45em] pt-[0.4em] px-[0.1em] border-t border-[var(--rs-keyline)]">
+                        <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">Forge</span>
+                        {fusionRecipesFor(hoverShop).map((r) => (
+                          <div key={r.def.type} className="flex items-center gap-[0.3em] mt-[0.2em]" title={r.def.blurb}>
+                            <img src={towerIcon(r.partner)} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                            <span className="text-[0.72em] text-[#cdbe91]">{TOWERS[r.partner]?.baseName ?? r.partner}</span>
+                            <span className="text-[0.72em] text-[#b3a585]">&rarr;</span>
+                            <img src={towerIcon(r.def.type)} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                            <span className="text-[0.72em] text-[#cdbe91] truncate">{r.def.name}</span>
+                          </div>
+                        ))}
+                        <p className="text-[0.7em] text-[#b3a585] leading-snug mt-[0.3em]">
+                          {ui.achievements.includes(FUSION_UNLOCK_CA)
+                            ? 'Both fully upgraded and side by side.'
+                            : FUSION_BLOCK_TEXT.locked}
+                        </p>
+                      </div>
+                    )}
                     {/* The price is only worth explaining once it has moved: a dock that
                         quotes a number the player has watched climb, without saying why,
                         reads as a bug. Shown only when this type is dearer than its base. */}

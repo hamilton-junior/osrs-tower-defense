@@ -3,6 +3,7 @@ import {
   FUSIONS, FUSION_COST, FUSION_UNLOCK_CA, FUSION_BLOCK_TEXT,
   areAdjacent, checkFusion, fusionDef, fusionFor, fusionOffersFor, isFusion,
   isFusionReady, mergeSkills, purgeDamageMult, healingDenied, fusionSpellFx,
+  fusionRecipesFor,
   PURGE_MAX_MULT, type FusionContext,
 } from './tower-fusion';
 import { TOWERS } from '../data/towers';
@@ -57,6 +58,33 @@ describe('fusion table', () => {
     expect(fusionDef(f.type)?.name).toBe(f.name);
     expect(isFusion(f.type)).toBe(true);
     expect(isFusion('archer')).toBe(false);
+  });
+});
+
+describe('fusionRecipesFor', () => {
+  it('names the other half of every fusion the type takes part in', () => {
+    expect(fusionRecipesFor('toxic')).toEqual([
+      { def: fusionDef('noxious_halberd'), partner: 'tzhaar' },
+    ]);
+    // The archer is in two, and each one names the partner, never itself.
+    const archer = fusionRecipesFor('archer');
+    expect(archer.map((r) => r.def.type)).toEqual(['scorching_bow', 'venator_bow']);
+    expect(archer.map((r) => r.partner)).toEqual(['slayer', 'cannon']);
+  });
+
+  it('agrees with the pair lookup for every fusion in the table', () => {
+    for (const f of FUSIONS) {
+      for (const p of f.parents) {
+        const rec = fusionRecipesFor(p).find((r) => r.def.type === f.type);
+        expect(rec, `${p} -> ${f.type}`).toBeDefined();
+        expect(rec!.partner).not.toBe(p);
+        expect(fusionFor(p, rec!.partner)).toBe(f);
+      }
+    }
+  });
+
+  it('a fused weapon is the end of its line', () => {
+    expect(fusionRecipesFor('noxious_halberd')).toEqual([]);
   });
 });
 

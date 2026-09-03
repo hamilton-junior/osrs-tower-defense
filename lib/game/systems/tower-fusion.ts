@@ -128,6 +128,30 @@ export function fusionFor(a: TowerType, b: TowerType): FusionDef | null {
   return FUSIONS.find((f) => f.parents.includes(a) && f.parents.includes(b)) ?? null;
 }
 
+export interface FusionRecipe {
+  def: FusionDef;
+  /** The other tower type this one has to stand beside. */
+  partner: TowerType;
+}
+
+/**
+ * Every weapon a tower type can become, and what it needs beside it.
+ *
+ * Pure table lookup: it asks nothing of the board, which is the whole point.
+ * {@link fusionOffersFor} can only speak about towers that already exist, so a
+ * recipe whose other half was never built is invisible — and a fusion nobody
+ * hears about is a fusion that isn't in the game. This is what the shop tooltip
+ * and a finished tower's panel read, before either half is on the board.
+ *
+ * A fused weapon has no recipes of its own: it is already the end of its line.
+ */
+export function fusionRecipesFor(type: TowerType): FusionRecipe[] {
+  if (isFusion(type)) return [];
+  return FUSIONS
+    .filter((f) => f.parents.includes(type))
+    .map((f) => ({ def: f, partner: f.parents[0] === type ? f.parents[1] : f.parents[0] }));
+}
+
 /** A tower that has nothing left to upgrade — the entry price for fusing. A fused
  *  weapon is excluded: it is `level 1 of 1`, which would otherwise read as maxed. */
 export function isFusionReady(t: Pick<Tower, 'type' | 'level' | 'maxLevel'>): boolean {
