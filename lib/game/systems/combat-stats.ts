@@ -94,6 +94,11 @@ export interface EffectStat {
    *  one it was aimed at. The bow's whole case for a slot is how much road it
    *  covers, and this is the number that says whether the spot it sits on does. */
   roadHits: number;
+  /** Enemies a Noxious halberd handed a venom stronger than the one they were
+   *  already carrying. The halberd grows almost no venom of its own, so this is
+   *  the number that says whether it is standing next to a Toxic tower worth
+   *  copying — the whole question the fusion asks. */
+  venomSpread: number;
   /** Damage a Blood wizard added on top of its spell, as a % of the target's max
    *  HP (capped per hit). The signature reason to run Blood against big enemies. */
   bloodBonusDmg: number;

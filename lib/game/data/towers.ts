@@ -18,6 +18,7 @@ export const TOWER_STYLES: Record<TowerType, { style: CombatStyle; boostable: bo
   // Fusions inherit the style of the parent whose reach they keep.
   scorching_bow: { style: 'ranged', boostable: true },
   venator_bow: { style: 'ranged', boostable: true },
+  noxious_halberd: { style: 'melee', boostable: true },
   purging_staff: { style: 'magic', boostable: true },
 };
 
@@ -165,6 +166,23 @@ export const TOWERS: Record<string, TowerDef> = {
     fireSound: 'archer',
     tiers: [
       { level: 1, name: 'Venator Bow', damage: 55, cooldown: 5 * TICK * 1000, range: 9 * 25, color: '#6f4fa8', upgradeCost: 4600 }
+    ]
+  },
+  // Noxious halberd = the TzHaar's obsidian and the Toxic fang's venom, and it
+  // fixes what is wrong with both: the TzHaar only ever touches one enemy, and
+  // the fang's venom needs sustained fire on one target to be worth anything. So
+  // the halberd SWINGS — every attack hits everything inside its (short) square
+  // at full damage — and then levels the whole swing up to the strongest venom
+  // already burning on any of them. It grows no venom of its own worth having;
+  // it is the tower that takes the venom a Toxic tower spent a wave ramping on
+  // the front tank and smears it across the pack behind. Alone: a mediocre AoE
+  // melee. Beside a fang: the reason the fang was worth building.
+  noxious_halberd: {
+    type: 'noxious_halberd',
+    baseName: 'Noxious',
+    fireSound: 'tzhaar',
+    tiers: [
+      { level: 1, name: 'Noxious Halberd', damage: 70, cooldown: 4 * TICK * 1000, range: 5 * 25, color: '#6a9a2f', upgradeCost: 4400 }
     ]
   },
   // Purging staff = Trident-class staff + Emberlight. An executioner: its hit grows

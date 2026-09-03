@@ -442,6 +442,7 @@ export const ASSETS = {
     // Fused weapons: one tier, so one icon (see systems/tower-fusion).
     scorching_bow: { 1: itemIcon('scorching_bow') },
     venator_bow: { 1: itemIcon('venator_bow') },
+    noxious_halberd: { 1: itemIcon('noxious_halberd') },
     purging_staff: { 1: itemIcon('purging_staff') },
     toxic: {
       1: itemIcon('tanzanite_fang'),

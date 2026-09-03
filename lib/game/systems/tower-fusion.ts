@@ -24,7 +24,7 @@ import type { Tower, TowerSkills, TowerType } from '../types';
 
 /** Every fused weapon's type. These join `TowerType`, but they are never sold in
  *  the dock — the only way one reaches the board is {@link checkFusion}. */
-export type FusionType = 'scorching_bow' | 'purging_staff' | 'venator_bow';
+export type FusionType = 'scorching_bow' | 'purging_staff' | 'venator_bow' | 'noxious_halberd';
 
 export interface FusionDef {
   /** Also its `TowerType` member and its baked icon slug. */
@@ -56,6 +56,12 @@ export const FUSIONS: readonly FusionDef[] = [
     name: 'Venator bow',
     parents: ['archer', 'cannon'],
     blurb: 'Tears down the road it fires along, hitting everything standing on it.',
+  },
+  {
+    type: 'noxious_halberd',
+    name: 'Noxious halberd',
+    parents: ['tzhaar', 'toxic'],
+    blurb: 'Swings at everything in reach and spreads the worst venom to all of it.',
   },
   {
     type: 'purging_staff',

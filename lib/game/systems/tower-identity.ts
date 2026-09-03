@@ -246,3 +246,51 @@ export function venatorMultAt(reach: readonly { from: number; to: number; mult: 
   }
   return 0;
 }
+
+/**
+ * **The Noxious halberd's contagion.** The halberd does not grow venom, it
+ * *moves* it: every swing reads the strongest venom already burning on anything
+ * it touched and levels the whole swing up to that.
+ *
+ * Which is the entire point of the weapon. A Toxic tower's venom ramps toward a
+ * cap over five reapplies on ONE enemy — enormous by the end of a wave, and
+ * stuck on the one tank that stood in front of the fang long enough to earn it.
+ * The halberd takes that grown venom and hands it to everything else in the
+ * pack, so the fang's slow single-target ramp finally pays out across a wave.
+ *
+ * It seeds its own only when there is nothing to copy, and deliberately badly
+ * ({@link HALBERD_SEED_FRAC} of one Toxic ramp step), so the halberd on its own
+ * is a middling AoE melee and never a substitute for the tower it needs.
+ *
+ * The duration is the *longer* of the two, never the shorter: a venom that is
+ * about to expire is still worth spreading at its own strength, and the swing
+ * that spreads it is what refreshes it.
+ */
+export interface VenomLevel {
+  /** Damage per second the venom is ticking for. */
+  dps: number;
+  /** Seconds it has left to run. */
+  dur: number;
+}
+
+/** How much of one Toxic ramp step the halberd manages on its own. Under half a
+ *  step: enough that a lone halberd still applies *a* venom, far too little to
+ *  make one worth running without a fang beside it. */
+export const HALBERD_SEED_FRAC = 0.5;
+
+/**
+ * The venom every enemy in one halberd swing comes out carrying: the strongest
+ * of the venoms already present, or the halberd's own weak seed if there were
+ * none worth copying.
+ */
+export function noxiousSpread(present: readonly VenomLevel[], seed: VenomLevel): VenomLevel {
+  let best = seed;
+  for (const v of present) if (v.dps > best.dps) best = v;
+  return { dps: best.dps, dur: Math.max(best.dur, seed.dur) };
+}
+
+/** The venom a halberd raises with nothing to copy — a fraction of the ramp step
+ *  a Toxic tower would have applied for the same hit. */
+export function halberdSeedDps(rampStep: number): number {
+  return Math.max(1, Math.round(rampStep * HALBERD_SEED_FRAC));
+}

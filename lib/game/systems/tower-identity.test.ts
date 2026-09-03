@@ -8,6 +8,9 @@ import {
   towerMarkKind,
   venomRamp,
   venomCap,
+  noxiousSpread,
+  halberdSeedDps,
+  HALBERD_SEED_FRAC,
   VENOM_RAMP_HITS,
   venomWaveMult,
   venatorReach,
@@ -236,5 +239,51 @@ describe('venatorMultAt', () => {
     expect(venatorMultAt(reach, 1)).toBe(0);
     expect(venatorMultAt(reach, 7)).toBe(0);
     expect(venatorMultAt([], 4)).toBe(0);
+  });
+});
+
+describe('noxiousSpread', () => {
+  const seed = { dps: 3, dur: 4 };
+
+  it('levels the swing up to the strongest venom it found', () => {
+    expect(noxiousSpread([{ dps: 40, dur: 2 }, { dps: 12, dur: 4 }], seed)).toEqual({ dps: 40, dur: 4 });
+  });
+
+  it('falls back to its own weak seed when there is nothing to copy', () => {
+    expect(noxiousSpread([], seed)).toEqual(seed);
+  });
+
+  it('ignores venoms weaker than the seed rather than spreading a downgrade', () => {
+    expect(noxiousSpread([{ dps: 1, dur: 9 }], seed).dps).toBe(3);
+  });
+
+  it('keeps the longer of the two durations, so a dying venom is still worth spreading', () => {
+    // A big venom with a second left refreshes to the seed's full duration...
+    expect(noxiousSpread([{ dps: 90, dur: 1 }], seed)).toEqual({ dps: 90, dur: 4 });
+    // ...and a long-running one is never cut short by the swing that copies it.
+    expect(noxiousSpread([{ dps: 90, dur: 7 }], seed)).toEqual({ dps: 90, dur: 7 });
+  });
+
+  it('cannot ratchet: spreading a level and re-reading it returns the same level', () => {
+    const first = noxiousSpread([{ dps: 40, dur: 3 }], seed);
+    const second = noxiousSpread([first, first, first], seed);
+    expect(second.dps).toBe(first.dps);
+  });
+});
+
+describe('halberdSeedDps', () => {
+  it('is a fraction of the ramp step a Toxic tower would have applied', () => {
+    expect(halberdSeedDps(20)).toBe(20 * HALBERD_SEED_FRAC);
+    expect(halberdSeedDps(9)).toBe(Math.round(9 * HALBERD_SEED_FRAC));
+  });
+
+  it('never rounds away to nothing', () => {
+    expect(halberdSeedDps(1)).toBe(1);
+    expect(halberdSeedDps(0)).toBe(1);
+  });
+
+  it('is always worse than the tower it copies from', () => {
+    const { step } = venomRamp(70, 40);
+    expect(halberdSeedDps(step)).toBeLessThan(step);
   });
 });

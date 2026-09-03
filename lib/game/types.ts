@@ -306,7 +306,7 @@ export interface Effect {
  *  systems/tower-fusion) — a fusion is a tower in every way except that it is
  *  never bought, only made out of two finished ones. */
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic'
-  | 'scorching_bow' | 'purging_staff' | 'venator_bow';
+  | 'scorching_bow' | 'purging_staff' | 'venator_bow' | 'noxious_halberd';
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
 
@@ -503,6 +503,10 @@ export interface Projectile {
    *  the rate it hits for there (systems/tower-identity `venatorReach`). Every
    *  enemy standing on one of them is hit, however many that is. */
   roadSweep?: { from: number; to: number; mult: number; a: Point; b: Point }[];
+  /** The Noxious halberd's swing: half-extent (logic px) of the square around the
+   *  tower that this attack sweeps. Everything inside it is hit, at full damage —
+   *  this is not a splash around the impact point but the tower's own reach. */
+  sweepHalf?: number;
   /** Last known target position — the bolt keeps flying here (and still splashes)
    *  even if the target dies mid-flight, so shots aren't silently wasted. */
   destX?: number;

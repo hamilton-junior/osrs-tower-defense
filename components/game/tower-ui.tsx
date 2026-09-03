@@ -165,6 +165,7 @@ export const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = 
   toxic: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
   scorching_bow: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
   venator_bow: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
+  noxious_halberd: { icon: ASSETS.misc.strength_icon, label: 'Melee' },
   purging_staff: { icon: ASSETS.misc.magic_icon, label: 'Magic' },
 };
 
@@ -261,6 +262,16 @@ export function towerSignature(
         notes: [
           { text: 'No limit on how many it catches', active: true },
           { text: '−25% damage per bend, and it stops after two', active: true },
+        ],
+      };
+    case 'noxious_halberd':
+      return {
+        label: 'Noxious Sweep',
+        icon: ASSETS.debuffs.venom,
+        desc: 'Hits everything in range and spreads the worst venom to all of it.',
+        notes: [
+          { text: 'Full damage on every enemy, not splash', active: true },
+          { text: 'Its own venom is weak — pair it with a Toxic tower', active: true },
         ],
       };
     case 'purging_staff':

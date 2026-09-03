@@ -313,7 +313,6 @@ export function addRing(eng: GameEngine, x: number, y: number, r0: number, r1: n
   eng.fx.push({ kind: 'ring', x, y, age: 0, life, r0, r1, color, width });
 }
 
-/** A quick energy bolt between two points (ricochet / pierce / chain-freeze jump). */
 /** A tear of light down one straight run of road (the Venator bow's sweep).
  *  `delay` seconds of negative age stagger the runs so the sweep reads as
  *  travelling rather than appearing all at once. */
@@ -324,6 +323,7 @@ export function addStreak(
   eng.fx.push({ kind: 'streak', x0, y0, x1, y1, age: -delay, life, color, width });
 }
 
+/** A quick energy bolt between two points (ricochet / pierce / chain-freeze jump). */
 export function addBolt(eng: GameEngine, x0: number, y0: number, x1: number, y1: number, color: string, life = 0.25) {
   eng.fx.push({ kind: 'bolt', x0, y0, x1, y1, age: 0, life, color });
 }

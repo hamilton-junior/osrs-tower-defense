@@ -11,7 +11,7 @@ import { calculateTowerStats, utilityAuraBonus, type ComputedTowerStats } from '
 import { RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity } from '../../systems/combat-stats';
 import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../../systems/magic';
 import { debuffTenacity } from '../../systems/tenacity';
-import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch } from '../../systems/tower-identity';
+import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch, noxiousSpread, halberdSeedDps, type VenomLevel } from '../../systems/tower-identity';
 import { rollGearDrops, gearDamageMult } from '../../systems/tower-gear';
 import { fusionSpellFx, purgeDamageMult, PURGE_DENY_SECS } from '../../systems/tower-fusion';
 import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
@@ -175,6 +175,8 @@ interface ShotLoadout {
   spellIcon?: string;
   /** The Venator bow's sweep — the runs of road this shot tears down. */
   roadSweep?: VenatorStretch[];
+  /** The Noxious halberd's swing — half-extent of the square it sweeps. */
+  sweepHalf?: number;
 }
 
 /**
@@ -199,7 +201,7 @@ function roadOf(eng: GameEngine): RoadStretch[] {
  * status + weakness bonus), Ancients (AoE barrage with a signature status), Utility
  * (support aura, applied in tower-combat — it just fires a plain bolt here).
  */
-function shotLoadout(eng: GameEngine, tower: Tower, target: Enemy, damage: number): ShotLoadout {
+function shotLoadout(eng: GameEngine, tower: Tower, target: Enemy, damage: number, half: number): ShotLoadout {
   // Impact theme is keyed off the PROJECTILE (the tower's spell), never the
   // enemy hit — elemental wizards tag the bolt with their element, ancients
   // with their barrage type, so hit() themes the burst correctly (undefined
@@ -219,6 +221,9 @@ function shotLoadout(eng: GameEngine, tower: Tower, target: Enemy, damage: numbe
   // road its target happens to be standing on when the arrow leaves. Resolved at
   // fire time and carried on the shot, so a road edited mid-flight can't move it.
   if (tower.type === 'venator_bow') lo.roadSweep = venatorReach(roadOf(eng), target.pathIndex);
+  // The Noxious halberd swings rather than shoots: the attack lands on the whole
+  // of its own range square, so it carries that square rather than a blast radius.
+  if (tower.type === 'noxious_halberd') lo.sweepHalf = half;
   if (tower.type !== 'wizard') return lo;
 
   const mode = tower.mageMode ?? 'elemental';
@@ -293,6 +298,10 @@ function shotFlight(eng: GameEngine, tower: Tower, target: Enemy): ShotFlight {
     const castDur = eng.sound.duration(fp.soundKey);
     fp.flight = Math.max(fp.flight, (isFinite(castDur) ? castDur : SHORTEST_CAST_S) * 1.25);
   }
+  // A halberd swing has no travel: the blade is already at the enemy. Hold it to
+  // the floor so the sweep resolves on the tower's cadence rather than arriving a
+  // beat late at whichever end of the square the target happened to be standing.
+  if (tower.type === 'noxious_halberd') fp.flight = 0;
   fp.flight = Math.max(0.05, fp.flight); // tiny floor: never instantaneous / div-by-zero
   return fp;
 }
@@ -333,6 +342,7 @@ function launchProjectile(
     bonusMaxHpCap: lo.bonusMaxHpCap || undefined,
     weaponFrac: weaponFrac || undefined,
     roadSweep: lo.roadSweep,
+    sweepHalf: lo.sweepHalf,
     spellIcon: lo.spellIcon,
     arrowIcon: tower.type === 'archer' ? 'dragon_arrow' : undefined,
     hitSound: fp.hitSound,
@@ -441,7 +451,7 @@ export function fireTowers(eng: GameEngine, dt: number) {
     const purgeMult = tower.special === 'purge' ? purgeDamageMult(target.hp, target.maxHp) : 1;
     if (purgeMult !== 1) damage = Math.floor(damage * purgeMult);
 
-    const lo = shotLoadout(eng, tower, target, damage);
+    const lo = shotLoadout(eng, tower, target, damage, half);
     const fp = shotFlight(eng, tower, target);
     const launch = (tgt: Enemy, shot: { dmg: number; frac: number }, fl: number) =>
       launchProjectile(eng, tower, tgt, shot.dmg, fl, lo, fp, projAura, incoming, shot.frac);
@@ -684,6 +694,8 @@ export function hit(eng: GameEngine, p: Projectile, target: Enemy | null) {
   let primaryKilled = false;
   if (p.roadSweep && p.roadSweep.length > 0) {
     primaryKilled = roadSweep(eng, p, target, gfx, isAncientGfx, theme, silent, style);
+  } else if (p.sweepHalf) {
+    primaryKilled = halberdSweep(eng, p, target, silent, style);
   } else if (isAoe) {
     // Magic barrages splash for reduced damage on non-primary targets so AoE
     // stays a side-grade to single-target; the cannon keeps full splash.
@@ -801,11 +813,94 @@ function roadSweep(
 }
 
 /**
- * Apply a projectile's on-hit status to a surviving enemy. Fire/Smoke share
- * `burn` and Earth/Shadow share `stun`, but single-target (Elemental) vs AoE
- * (Ancients) — read off `p.aoe` — tunes them: Fire burns by % max HP while
- * Smoke is flat poison; Earth stuns long while Shadow stuns briefly.
+ * **The Noxious halberd's swing landing.** It is not a projectile arriving at a
+ * point — it is the tower's whole range square going off at once. Everything
+ * standing in it is hit at full damage, shoved and briefly held, and then handed
+ * the strongest venom that was burning on any of them.
+ *
+ * The venoms are read BEFORE anything is damaged, so an enemy the swing kills
+ * still donates the venom it was carrying — the fang's work is not thrown away
+ * because the halberd finished the job. And the spread only ever raises: an
+ * enemy already carrying something worse keeps it (and keeps crediting the tower
+ * that grew it); everyone else is levelled up to it and credited to the halberd,
+ * which is the work it actually did.
+ *
+ * The square is the tower's own, not a blast around the impact — an enemy the
+ * player can see inside the range indicator is always hit, which is the same
+ * promise every other tower's square makes.
  */
+function halberdSweep(
+  eng: GameEngine, p: Projectile, target: Enemy | null,
+  silent: boolean, style: CombatStyle | undefined,
+): boolean {
+  const half = p.sweepHalf!;
+  // The swing is centred on the TOWER (the launch point), never on where the
+  // shot ended up: a halberd reaches as far as its haft, in every direction.
+  const cx = p.ox ?? p.x;
+  const cy = p.oy ?? p.y;
+  // Snapshot before anything dies — damage() splices the live array.
+  const caught = eng.enemies.filter(e => inSquareRange(e.x, e.y, cx, cy, half + enemyRadius(e)));
+  if (caught.length === 0) return false;
+
+  // What the halberd would manage on its own, and what it can copy instead.
+  const ramp = venomRamp(p.damage, eng.wave);
+  const seed: VenomLevel = { dps: halberdSeedDps(ramp.step), dur: ramp.dur };
+  const present: VenomLevel[] = [];
+  for (const e of caught) {
+    const v = e.dots?.venom;
+    if (v && v.dps > 0) present.push({ dps: v.dps, dur: v.timer });
+  }
+  const spread = noxiousSpread(present, seed);
+
+  // One green arc washing out to the edge of the square, so the reach the swing
+  // covers is the reach the player was already shown by the range indicator.
+  addRing(eng, cx, cy, half * 0.25, half, '#6a9a2f', 0.4, 3);
+
+  let primaryKilled = false;
+  for (const e of caught) {
+    const isPrimary = e === target;
+    spawnImpactParticles(eng, e.x, e.y, p.color);
+    // Full damage on everything — the halberd's splash IS its attack — but the
+    // non-primary hits still carry the `splash` tag, so an escort's AoE
+    // resistance applies and the meter can show how much of the swing was reach.
+    const killed = damage(eng, e, p.damage, 'hit', false, silent || !isPrimary, 0, style,
+      { towerId: p.sourceTowerId, tag: isPrimary ? 'direct' : 'splash', aura: p.aura,
+        weaponFrac: p.weaponFrac });
+    if (isPrimary) primaryKilled = killed;
+    if (killed) continue;
+
+    // The TzHaar half of the weapon, inherited whole but dialled down: it lands
+    // on everything at once, so it shoves and holds less than the maul it came
+    // from. Crowd-control, so tenacity applies.
+    const res = 1 - tenacity(eng, e);
+    const moved = knockback(eng, e, tzhaarKnockback(2) * res);
+    const held = tzhaarStun(1) * res;
+    noteDebuffHit(eng, e);
+    if (held > 0) e.stunTimer = Math.max(e.stunTimer, held);
+    eng.stats.recordEffect(p.sourceTowerId ?? RUN_FX_ID, eng.wave, {
+      ...(moved > 0 ? { pushCount: 1, pushTiles: moved / GRID } : {}),
+      ...(held > 0 ? { stunCount: 1, stunSeconds: held } : {}),
+    });
+
+    // The contagion. A venom already stronger than the swing's is left alone —
+    // both its damage and its credit belong to the tower that grew it.
+    const dots = (e.dots ??= {});
+    const cur = dots.venom;
+    if (!cur || cur.dps < spread.dps) {
+      if (cur) { cur.dps = spread.dps; cur.timer = Math.max(cur.timer, spread.dur); cur.style = style; cur.sourceTowerId = p.sourceTowerId; }
+      else dots.venom = { timer: spread.dur, dps: spread.dps, accum: 0, tickTimer: 0, style, sourceTowerId: p.sourceTowerId };
+      eng.stats.recordEffect(p.sourceTowerId ?? RUN_FX_ID, eng.wave, { venomSpread: 1 });
+      for (let i = 0; i < 3; i++) {
+        eng.particles.push({ x: e.x + (Math.random() - 0.5) * 12, y: e.y, vx: (Math.random() - 0.5) * 45, vy: -25 - Math.random() * 30, life: 0.5, maxLife: 0.5, color: '#6abe30', size: 2 });
+      }
+    } else {
+      cur.timer = Math.max(cur.timer, spread.dur);
+    }
+    applyVenomTips(eng, e);
+  }
+  return primaryKilled;
+}
+
 /**
  * Crowd-control resistance, 0..1. Reduces how long non-damaging debuffs (slow,
  * stun, vulnerability, knockback) last — damage-over-time (burn/poison) ignores
@@ -894,6 +989,12 @@ export function pierceThrough(eng: GameEngine, p: Projectile, target: Enemy) {
   if (!killed) { applyOnHit(eng, best, p); applyVenomTips(eng, best); }
 }
 
+/**
+ * Apply a projectile's on-hit status to a surviving enemy. Fire/Smoke share
+ * `burn` and Earth/Shadow share `stun`, but single-target (Elemental) vs AoE
+ * (Ancients) — read off `p.aoe` — tunes them: Fire burns by % max HP while
+ * Smoke is flat poison; Earth stuns long while Shadow stuns briefly.
+ */
 export function applyOnHit(eng: GameEngine, e: Enemy, p: Projectile) {
   // Warded affix — or General Graardor's slam: shrug off the movement crowd-control
   // specials (slow handled in applySlow; stun/pushback/crush guarded here). DoTs and amp

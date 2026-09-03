@@ -15,6 +15,7 @@ export const GAME_SOUNDS: Record<string, string> = {
   // (the sim asks for `fire_<tower type>`).
   fire_scorching_bow: ASSETS.sounds.shoot.archer[1],
   fire_venator_bow: ASSETS.sounds.shoot.archer[1],
+  fire_noxious_halberd: ASSETS.sounds.shoot.tzhaar[1],
   hit: ASSETS.sounds.misc.hit,
   base_hit: ASSETS.sounds.misc.block, // player taking damage, no armour (take-damage splat 510) — on a leak
   death: ASSETS.sounds.misc.kill,
