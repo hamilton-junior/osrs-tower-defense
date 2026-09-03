@@ -62,6 +62,9 @@ export interface AccountSave {
    *  first shipped, so an older code simply carries none — a missing tally is an
    *  empty log, which is exactly what it means. */
   diversionsMet: Record<string, number>;
+  /** Lifetime forges per fusion type. Added after the format was first shipped,
+   *  so an older code carries none — which reads as "nothing forged yet". */
+  fusionsMade: Record<string, number>;
   victories: Victories;
   difficulty: DifficultyProgress;
   achievements: string[];
@@ -133,6 +136,7 @@ export interface AccountParts {
   cardCounts?: unknown;
   bossesSeen?: unknown;
   diversionsMet?: unknown;
+  fusionsMade?: unknown;
   victories?: unknown;
   difficulty?: unknown;
   achievements?: unknown;
@@ -156,6 +160,7 @@ export function buildAccountSave(parts: AccountParts): AccountSave {
     cardCounts: tally(raw.cardCounts),
     bossesSeen: tally(raw.bossesSeen),
     diversionsMet: tally(raw.diversionsMet),
+    fusionsMade: tally(raw.fusionsMade),
     victories: sanitizeVictories(raw.victories),
     difficulty: sanitizeDifficulty(raw.difficulty),
     achievements: Array.isArray(raw.achievements) ? raw.achievements.filter((x): x is string => typeof x === 'string') : [],

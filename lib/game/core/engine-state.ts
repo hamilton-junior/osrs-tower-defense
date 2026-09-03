@@ -326,6 +326,10 @@ export interface UIState {
    *  "Diversions" tab). Counted when one turns up on the board, not when it is
    *  clicked — a walkby has nothing to click, and meeting one is the whole event. */
   diversionsMet: Record<string, number>;
+  /** Lifetime forges per fusion type (the Collection Log "Forge" tab). Counted
+   *  when a weapon is actually forged, so the tab is a record of what the account
+   *  has built — not of what it is allowed to build, which is one achievement. */
+  fusionsMade: Record<string, number>;
   /** True when the wave that just ended was a debug "custom wave" sandbox, so the
    *  UI can show a distinct "Custom Wave Complete!" banner. Reset when any wave
    *  starts. */

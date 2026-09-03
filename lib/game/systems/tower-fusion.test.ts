@@ -3,7 +3,7 @@ import {
   FUSIONS, FUSION_COST, FUSION_UNLOCK_CA, FUSION_BLOCK_TEXT,
   areAdjacent, checkFusion, fusionDef, fusionFor, fusionOffersFor, isFusion,
   isFusionReady, mergeSkills, purgeDamageMult, healingDenied, fusionSpellFx,
-  fusionRecipesFor,
+  fusionRecipesFor, sanitizeFusionsMade,
   PURGE_MAX_MULT, type FusionContext,
 } from './tower-fusion';
 import { TOWERS } from '../data/towers';
@@ -230,5 +230,35 @@ describe('fusionSpellFx', () => {
     expect(fusionSpellFx('purging_staff')).toBe('shadow_4');
     expect(fusionSpellFx('scorching_bow')).toBeNull();
     expect(fusionSpellFx('wizard')).toBeNull();
+  });
+});
+
+describe('sanitizeFusionsMade', () => {
+  it('keeps a real tally', () => {
+    expect(sanitizeFusionsMade({ scorching_bow: 3, venator_bow: 1 })).toEqual({ scorching_bow: 3, venator_bow: 1 });
+  });
+
+  it('reads a missing or malformed save as nothing forged', () => {
+    expect(sanitizeFusionsMade(undefined)).toEqual({});
+    expect(sanitizeFusionsMade(null)).toEqual({});
+    expect(sanitizeFusionsMade('scorching_bow')).toEqual({});
+    expect(sanitizeFusionsMade([1, 2, 3])).toEqual({});
+  });
+
+  it('drops a weapon this build no longer forges instead of parking it in the log', () => {
+    expect(sanitizeFusionsMade({ scorching_bow: 2, dragon_2h: 9 })).toEqual({ scorching_bow: 2 });
+  });
+
+  it('drops a count that is not a whole forge', () => {
+    expect(sanitizeFusionsMade({ scorching_bow: 0 })).toEqual({});
+    expect(sanitizeFusionsMade({ scorching_bow: -4 })).toEqual({});
+    expect(sanitizeFusionsMade({ scorching_bow: Number.NaN })).toEqual({});
+    expect(sanitizeFusionsMade({ scorching_bow: '5' })).toEqual({});
+    expect(sanitizeFusionsMade({ scorching_bow: 2.7 })).toEqual({ scorching_bow: 2 });
+  });
+
+  it('accepts every fusion this build ships, so the Log can show a completed page', () => {
+    const all = Object.fromEntries(FUSIONS.map((f) => [f.type, 1]));
+    expect(Object.keys(sanitizeFusionsMade(all)).sort()).toEqual(FUSIONS.map((f) => f.type).sort());
   });
 });

@@ -287,3 +287,19 @@ export function mergeSkills(a: TowerSkills, b: TowerSkills): TowerSkills {
     magic: best(a.magic, b.magic),
   };
 }
+
+/**
+ * Lifetime forges per fusion, read back from storage. Keeps only whole positive
+ * counts against a weapon this build still has, so a fusion retired in a later
+ * patch drops its line rather than parking an unforgeable entry in the log.
+ */
+export function sanitizeFusionsMade(raw: unknown): Record<string, number> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!fusionDef(k)) continue;
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 1) continue;
+    out[k] = Math.floor(v);
+  }
+  return out;
+}

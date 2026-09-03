@@ -16,7 +16,7 @@ import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor,
 import { canEquip } from '../systems/tower-gear';
 import { envenomStaffFor } from '../systems/tower-identity';
 import {
-  checkFusion, fusionOffersFor, isFusionReady, mergeSkills,
+  checkFusion, fusionOffersFor, isFusionReady, mergeSkills, sanitizeFusionsMade,
   FUSION_BLOCK_TEXT, type FusionContext, type FusionOffer,
 } from '../systems/tower-fusion';
 import { GEAR } from '../data/gear';
@@ -321,6 +321,10 @@ export class GameEngine {
    *  tallies above). Purely a Collection Log record — nothing in the game reads it
    *  to gate, scale or reward anything. */
   diversionsMet: Record<string, number> = {};
+  /** Weapons forged at least once (lifetime, persisted like the tallies above).
+   *  A Collection Log record only — what a player may forge is gated by one
+   *  Combat Achievement, never by having forged it before. */
+  fusionsMade: Record<string, number> = {};
 
   /** Hydrate the account's completed achievements from storage. Called by the UI
    *  once the localStorage blob is read; the constructor can't take it because the
@@ -434,7 +438,7 @@ export class GameEngine {
   constructor(
     canvas: HTMLCanvasElement,
     onState: (patch: Partial<UIState>) => void,
-    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown; bossesSeen?: unknown; diversionsMet?: unknown },
+    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown; bossesSeen?: unknown; diversionsMet?: unknown; fusionsMade?: unknown },
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -444,6 +448,7 @@ export class GameEngine {
     this.cardCounts = sanitizeCardCounts(save?.cardCounts);
     this.bossesSeen = sanitizeBossesSeen(save?.bossesSeen);
     this.diversionsMet = sanitizeDiversionsMet(save?.diversionsMet);
+    this.fusionsMade = sanitizeFusionsMade(save?.fusionsMade);
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.renderer = new GameRenderer(this);
     this.dpr = this.computeDpr();
@@ -708,6 +713,7 @@ export class GameEngine {
       cardCounts: this.cardCounts,
       bossesSeen: this.bossesSeen,
       diversionsMet: this.diversionsMet,
+      fusionsMade: this.fusionsMade,
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
       difficultyTier: this.difficultyTier,
@@ -2695,6 +2701,9 @@ export class GameEngine {
     }
     this.towers = this.towers.flatMap(t => (t === a ? [fused] : t === b ? [] : [t]));
     this.fusedThisLeg = true;
+    // A new object, not a mutation: the UI diff compares references, so forging
+    // the same weapon twice has to look like a change to reach the Log.
+    this.fusionsMade = { ...this.fusionsMade, [res.def.type]: (this.fusionsMade[res.def.type] ?? 0) + 1 };
     this.selectedTowerId = fused.id;
     this.multiSelectedIds = [];
     if (this.movingTowerId === aId || this.movingTowerId === bId) this.movingTowerId = null;

@@ -90,6 +90,7 @@ const INITIAL: UIState = {
   cardCounts: {},
   bossesSeen: {},
   diversionsMet: {},
+  fusionsMade: {},
   dpsStats: null,
   lastWaveSandbox: false,
   gameMode: 'roguelite', difficultyTier: 0, pendingDraft: null, draftBoosted: false,
@@ -579,6 +580,14 @@ export default function GameRoot() {
     if (!dvLoaded.current) { dvLoaded.current = true; return; }
     try { localStorage.setItem(SAVE_KEYS.diversionsMet, JSON.stringify(ui.diversionsMet)); } catch { /* ignore */ }
   }, [ui.diversionsMet]);
+
+  // Persist what the account has forged (the Collection Log's Forge tab). Same
+  // shape as the logs above, and read back only to fill in that page.
+  const fuLoaded = useRef(false);
+  useEffect(() => {
+    if (!fuLoaded.current) { fuLoaded.current = true; return; }
+    try { localStorage.setItem(SAVE_KEYS.fusionsMade, JSON.stringify(ui.fusionsMade)); } catch { /* ignore */ }
+  }, [ui.fusionsMade]);
 
   // Record a victory exactly once per win. `won` latches true for the whole victory
   // screen (and stays true through Endless), so a ref guards against re-counting; it
@@ -2848,6 +2857,7 @@ export default function GameRoot() {
           killCounts={ui.killCounts}
           cardCounts={ui.cardCounts}
           diversionsMet={ui.diversionsMet}
+          fusionsMade={ui.fusionsMade}
           achievements={ui.achievements}
           victories={victories}
           difficulty={difficulty}

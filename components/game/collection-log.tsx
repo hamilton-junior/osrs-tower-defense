@@ -13,7 +13,9 @@ import { fs, fmt, fmtTime, hideBrokenImg, GoStat } from './ui-kit';
 import { weaknessTag, enemySpriteStyle, enemySlugSpriteStyle, diversionSpriteStyle } from './enemy-ui';
 import { LOOK_BY_SLUG, LOOKS_BY_TYPE, defaultLookSlug } from '@/lib/game/data/enemy-variants';
 import { DIVERSIONS, type DiversionDef } from '@/lib/game/data/diversions';
-import type { EnemyType } from '@/lib/game/types';
+import { FUSIONS, FUSION_UNLOCK_CA, type FusionDef } from '@/lib/game/systems/tower-fusion';
+import { towerIcon } from './tower-ui';
+import type { EnemyType, TowerType } from '@/lib/game/types';
 import { RARITY_COLOR, RARITY_LABEL, effectTag, renderWithStyleIcons, DraftCardView } from './draft-cards';
 import { type Victories, type DifficultyProgress } from './save';
 
@@ -77,6 +79,12 @@ export const DIVERSION_SORTS: { key: string; label: string }[] = [
   { key: 'obtained', label: 'Logged first' },
   { key: 'missing', label: 'Missing first' },
 ];
+export const FUSION_SORTS: { key: string; label: string }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'count', label: 'Times forged' },
+  { key: 'obtained', label: 'Logged first' },
+  { key: 'missing', label: 'Missing first' },
+];
 export const CARD_SORTS: { key: string; label: string }[] = [
   { key: 'name', label: 'Name' },
   { key: 'rarity', label: 'Rarity' },
@@ -121,6 +129,23 @@ export function sortedDiversions(met: Record<string, number>, filter: LogFilter,
   })());
 }
 
+
+/** Apply the collection-log filter, then sort, to the forge's recipe book.
+ *  "Obtained" here means *forged* — the weapon has been built at least once. */
+export function sortedFusions(made: Record<string, number>, filter: LogFilter, sort: string, dir: 1 | -1): FusionDef[] {
+  const n = (f: FusionDef) => made[f.type] ?? 0;
+  const list = FUSIONS.filter((f) => filter === 'all' || (filter === 'obtained' ? n(f) > 0 : n(f) === 0));
+  const byName = (a: FusionDef, b: FusionDef) => a.name.localeCompare(b.name);
+  return [...list].sort((a, b) => dir * (() => {
+    switch (sort) {
+      case 'count': return n(b) - n(a) || byName(a, b);
+      case 'obtained': return (n(b) > 0 ? 1 : 0) - (n(a) > 0 ? 1 : 0) || byName(a, b);
+      case 'missing': return (n(a) > 0 ? 1 : 0) - (n(b) > 0 ? 1 : 0) || byName(a, b);
+      default: return byName(a, b);
+    }
+  })());
+}
+
 /** Apply the collection-log filter, then sort, to the draft-card pool. */
 export function sortedCards(cardCounts: Record<string, number>, filter: LogFilter, sort: string, dir: 1 | -1): DraftCard[] {
   const cc = (c: DraftCard) => cardCounts[c.id] ?? 0;
@@ -150,14 +175,15 @@ export function LogEmpty() {
  *  every draft card with its lifetime pick count. Unobtained entries are darkened
  *  silhouettes (collection-log style). A completion counter per tab. */
 /** Which tab is showing. The Log's own vocabulary, so every helper below names
- *  the same seven pages the tab strip does. */
-export type LogTab = 'bosses' | 'monsters' | 'cards' | 'diversions' | 'victories' | 'difficulty' | 'achievements';
+ *  the same eight pages the tab strip does. */
+export type LogTab = 'bosses' | 'monsters' | 'cards' | 'forge' | 'diversions' | 'victories' | 'difficulty' | 'achievements';
 
-const LOG_TABS: readonly LogTab[] = ['bosses', 'monsters', 'cards', 'diversions', 'victories', 'difficulty', 'achievements'];
+const LOG_TABS: readonly LogTab[] = ['bosses', 'monsters', 'cards', 'forge', 'diversions', 'victories', 'difficulty', 'achievements'];
 
 function tabHint(t: LogTab): string {
   switch (t) {
     case 'cards': return 'Reward cards collected';
+    case 'forge': return 'Fused weapons — what makes each one, and what it does';
     case 'diversions': return 'Distractions & Diversions you have met';
     case 'victories': return 'Runs won';
     case 'difficulty': return 'New Game+ progress';
@@ -386,6 +412,69 @@ function DiversionsBody({ list, met }: { list: DiversionDef[]; met: Record<strin
   );
 }
 
+
+/** The Forge tab: every fused weapon, what two towers make it, and what it does
+ *  that neither of them can. A recipe book as much as a log — the blurb stays
+ *  readable on a weapon never built, because knowing what a fusion is for is what
+ *  makes a player go and build it. Only the weapon's own icon is darkened. */
+function ForgeBody({ list, made, unlocked }: {
+  list: FusionDef[];
+  made: Record<string, number>;
+  unlocked: boolean;
+}) {
+  return (
+    <LogScroll>
+      {!unlocked && (
+        <div className="rs-panel-inset p-[0.5em] mb-[0.45em] flex items-center gap-[0.5em]">
+          <img src={ASSETS.misc.blocked} alt="" className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />
+          <span className="text-[0.74em] text-[#cdbb91] leading-snug">
+            Have two fully upgraded towers standing at once to open the Forge.
+          </span>
+        </div>
+      )}
+      {list.length === 0 ? <LogEmpty /> : (
+        <div className="flex flex-col gap-[0.4em]">
+          {list.map((f) => {
+            const n = made[f.type] ?? 0;
+            return (
+              <div
+                key={f.type}
+                className="rs-panel-inset p-[0.5em] flex gap-[0.6em] items-start"
+                title={n > 0 ? `${f.name} — forged ${n} time${n === 1 ? '' : 's'}` : `${f.name} — not forged yet`}
+              >
+                <img
+                  src={towerIcon(f.type as TowerType)}
+                  alt=""
+                  className="w-[2em] h-[2em] object-contain shrink-0 mt-[0.1em]"
+                  style={n > 0 ? undefined : { filter: 'grayscale(1) brightness(0.3)' }}
+                  onError={hideBrokenImg}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-[0.4em]">
+                    <span className={`text-[0.84em] font-bold truncate ${n > 0 ? 'text-osrs-orange' : 'text-[#8a7d5c]'}`}>{f.name}</span>
+                    <span className="text-[0.76em] tabular-nums shrink-0" style={{ color: n > 0 ? 'var(--osrs-yellow)' : '#7a7060' }}>
+                      {n > 0 ? `\u00d7 ${fmt(n)}` : '0'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-[0.25em] my-[0.25em]">
+                    {f.parents.map((p, i) => (
+                      <React.Fragment key={p}>
+                        {i > 0 && <span className="text-[0.7em] text-[#9a8d70]">+</span>}
+                        <img src={towerIcon(p)} alt="" title={p} className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <p className="text-[0.72em] text-[#cdbb91] leading-snug">{f.blurb}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </LogScroll>
+  );
+}
+
 /** The Cards tab: the grid, or one card being inspected. */
 function CardsBody({ list, counts, selected, setSelected }: {
   list: DraftCard[];
@@ -495,9 +584,11 @@ function EnemiesBody({ list, entries, killCounts, selected, setSelected }: {
  *
  *  This function is the window: the tab strip, the list controls and whichever
  *  page's body is showing. Each body is its own component above. */
-export function CollectionLog({ killCounts, cardCounts, diversionsMet, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
+export function CollectionLog({ killCounts, cardCounts, diversionsMet, fusionsMade, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
+  /** Lifetime forges per fusion type. */
+  fusionsMade: Record<string, number>;
   /** Lifetime meetings per Distraction & Diversion id. */
   diversionsMet: Record<string, number>;
   /** Completed Combat Achievement ids, account-wide. */
@@ -511,6 +602,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, achieveme
 }) {
   const isCards = tab === 'cards';
   const isDiversions = tab === 'diversions';
+  const isForge = tab === 'forge';
   const isAchievements = tab === 'achievements';
   /** The two pages that are a record of runs, not a checklist of things. */
   const isRecord = tab === 'victories' || tab === 'difficulty';
@@ -521,13 +613,15 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, achieveme
   // Memoised so the empty case is one stable array: a fresh literal per render would
   // re-run every list memo below on tabs that show no enemies at all.
   const entries = useMemo(() => (tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : []), [tab]);
-  const total = isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : isDiversions ? DIVERSIONS.length : entries.length;
+  const total = isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : isDiversions ? DIVERSIONS.length : isForge ? FUSIONS.length : entries.length;
   const obtained = isAchievements
     ? CA_TASKS.filter((t) => caDone.has(t.id)).length
     : isCards
     ? DRAFT_POOL.filter((c) => (cardCounts[c.id] ?? 0) > 0).length
     : isDiversions
     ? DIVERSIONS.filter((d) => (diversionsMet[d.id] ?? 0) > 0).length
+    : isForge
+    ? FUSIONS.filter((f) => (fusionsMade[f.type] ?? 0) > 0).length
     : entries.filter((e) => (killCounts[e.type] ?? 0) > 0).length;
   // The clicked entry, shown as a detail card (stats + animated sprite). Enemy
   // and card tabs only — the rest are read straight off the page.
@@ -540,6 +634,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, achieveme
   const dispEnemies = useMemo(() => sortedEnemies(entries, killCounts, filter, sort, dir), [entries, killCounts, filter, sort, dir]);
   const dispCards = useMemo(() => sortedCards(cardCounts, filter, sort, dir), [cardCounts, filter, sort, dir]);
   const dispDiversions = useMemo(() => sortedDiversions(diversionsMet, filter, sort, dir), [diversionsMet, filter, sort, dir]);
+  const dispFusions = useMemo(() => sortedFusions(fusionsMade, filter, sort, dir), [fusionsMade, filter, sort, dir]);
   return (
     <MovablePanel
       id="collection-log"
@@ -560,7 +655,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, achieveme
         onPick={(t) => { setTab(t); setSelected(null); setSort('name'); }}
         counter={isRecord ? null : {
           obtained, total, complete: total > 0 && obtained === total,
-          noun: isAchievements ? 'done' : 'found',
+          noun: isAchievements ? 'done' : isForge ? 'forged' : 'found',
         }}
       />
 
@@ -572,13 +667,14 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, achieveme
           setSort={setSort}
           dir={dir}
           setDir={setDir}
-          options={isCards ? CARD_SORTS : isDiversions ? DIVERSION_SORTS : ENEMY_SORTS}
+          options={isCards ? CARD_SORTS : isDiversions ? DIVERSION_SORTS : isForge ? FUSION_SORTS : ENEMY_SORTS}
         />
       )}
 
       {tab === 'achievements' ? <AchievementsBody done={caDone} progress={caProgress} />
         : tab === 'difficulty' ? <DifficultyBody difficulty={difficulty} />
         : tab === 'victories' ? <VictoriesBody victories={victories} />
+        : tab === 'forge' ? <ForgeBody list={dispFusions} made={fusionsMade} unlocked={caDone.has(FUSION_UNLOCK_CA)} />
         : tab === 'diversions' ? <DiversionsBody list={dispDiversions} met={diversionsMet} />
         : tab === 'cards' ? <CardsBody list={dispCards} counts={cardCounts} selected={selected} setSelected={setSelected} />
         : <EnemiesBody list={dispEnemies} entries={entries} killCounts={killCounts} selected={selected} setSelected={setSelected} />}
