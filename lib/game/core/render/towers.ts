@@ -6,6 +6,7 @@ import { spellSpriteName } from '../../systems/magic';
 import { MAX_TOWER_LEVEL, styleSkillKey, towerCombatLevel } from '../../systems/tower-xp';
 import type { GameRenderer } from '../renderer';
 import { drawScorchedTower } from './scorch';
+import { drawSilencedTower } from './silence';
 import { drawSiphonedTower } from './siphon';
 import { GRID, drawImageContain, drawSquareRange } from './shared';
 
@@ -13,6 +14,11 @@ import { GRID, drawImageContain, drawSquareRange } from './shared';
  * Towers on the board: the sprite per type and tier, the wizard's staff, the
  * baked synergy-aura glow, and the standard disabled look (40% alpha under the
  * OSRS prohibited sign) that every disable source shares.
+ *
+ * One disable source dresses that standard look rather than replacing it: a tower one of
+ * Nex's acolytes silenced also wears the element it was silenced with (`drawSilencedTower`),
+ * because four acolytes taking turns is only readable if the player can tell whose turn
+ * it is. The 40% alpha and the sign are untouched underneath it.
  */
 
 export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
@@ -112,6 +118,11 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     if (tower.siphonedBy && !disabled) {
       drawSiphonedTower(ctx, tower.x, tower.y, tower.visualRadius);
     }
+    // Silenced by one of Nex's acolytes: the element goes down first, so the tower
+    // stands *in* it, and comes back over the sprite below.
+    if (tower.silencedBy && disabled) {
+      drawSilencedTower(ctx, tower.silencedBy, tower.x, tower.y, tower.visualRadius, tower.disabledTimer, 'under');
+    }
     ctx.save();
     if (disabled) ctx.globalAlpha = 0.4;
     ctx.translate(tower.x - Math.cos(angle) * back, tower.y - Math.sin(angle) * back);
@@ -148,6 +159,12 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       ctx.shadowBlur = 3;
       drawImageContain(gr, ctx, gr.e.images.get(badgeKey)!, tower.x, tower.y, tower.visualRadius * 1.05);
       ctx.restore();
+    }
+
+    // … and closes over it: the ice block, the shroud, the runnels, the ash. Above the
+    // sprite so the tower is held by it, below the sign so nothing covers the sign.
+    if (tower.silencedBy && disabled) {
+      drawSilencedTower(ctx, tower.silencedBy, tower.x, tower.y, tower.visualRadius, tower.disabledTimer, 'over');
     }
 
     // The prohibited sign itself, at full opacity over the faded tower. It pulses

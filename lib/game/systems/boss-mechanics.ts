@@ -1564,22 +1564,30 @@ export function graardorIsSlamming(state: BossState | undefined): boolean {
  *  the first silence is announced by. In-game strings stay English. */
 export const NEX_ACOLYTES: readonly {
   type: EnemyType; name: string; element: AncientType; say: string; silence: string;
+  /** What it says when it reaches out and its element is nowhere on the board. Without
+   *  this the mechanic is invisible on the commonest board of all — no Ancients wizards
+   *  at all — and reads as broken rather than as answered. */
+  quiet: string;
 }[] = [
   {
     type: 'fumus', name: 'Fumus', element: 'smoke', say: 'Fumus, don your mask!',
     silence: 'Fumus fills your Smoke towers with choking ash!',
+    quiet: 'Fumus reaches for your Smoke towers — you have none in reach.',
   },
   {
     type: 'umbra', name: 'Umbra', element: 'shadow', say: 'Umbra, embrace darkness!',
     silence: 'Umbra smothers your Shadow towers in darkness!',
+    quiet: 'Umbra reaches for your Shadow towers — you have none in reach.',
   },
   {
     type: 'cruor', name: 'Cruor', element: 'blood', say: 'Cruor, spill their blood!',
     silence: 'Cruor drinks your Blood towers dry!',
+    quiet: 'Cruor reaches for your Blood towers — you have none in reach.',
   },
   {
     type: 'glacies', name: 'Glacies', element: 'ice', say: 'Glacies, freeze them where they stand!',
     silence: 'Glacies freezes your Ice towers solid!',
+    quiet: 'Glacies reaches for your Ice towers — you have none in reach.',
   },
 ];
 

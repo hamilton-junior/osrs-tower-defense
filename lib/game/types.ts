@@ -409,6 +409,12 @@ export interface Tower {
    *  is being *used*, and it comes back the instant the core dies rather than on a clock.
    *  Cleared in `handleBossMechanics` the frame the core stops existing. */
   siphonedBy?: string;
+  /** The Ancient one of Nex's acolytes silenced this tower with, for as long as
+   *  `disabledTimer` runs. It carries no rules of its own — the disable is the disable,
+   *  and it wears the board's one standard look — it only tells the renderer *which*
+   *  element to dress the downed tower in, so a frozen tower reads as Glacies' work and a
+   *  shrouded one as Umbra's. Cleared with the timer in `tickTowerCooldowns`. */
+  silencedBy?: AncientType;
   skills: TowerSkills;
   equipment: {
     ammo: Item | null;

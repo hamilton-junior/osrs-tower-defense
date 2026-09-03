@@ -1530,8 +1530,25 @@ function updateNexAcolyte(eng: GameEngine, a: Enemy, dt: number) {
     tower: tw,
   }));
   const hit = nexSilencedTowers(candidates, acolyte.element, ax, ay, GRID);
-  if (!hit.length) return;
-  for (const c of hit) c.tower.disabledTimer = NEX_SILENCE_SECS;
+  if (!hit.length) {
+    // Nothing of its element on the board — which is the *answer* to this acolyte, not a
+    // bug, so it has to be said out loud once. A player whose wizards are all on the
+    // Standard book would otherwise watch four acolytes do nothing and conclude the
+    // fight has no mechanic.
+    if (!a.silenceSaid) {
+      a.silenceSaid = true;
+      a.say = acolyte.say;
+      a.sayTimer = 2.5;
+      eng.notify(acolyte.quiet);
+    }
+    return;
+  }
+  for (const c of hit) {
+    c.tower.disabledTimer = NEX_SILENCE_SECS;
+    // The mark the renderer dresses the downed tower from: Glacies leaves ice on it,
+    // Umbra leaves shadow. The disable itself stays the board's one standard look.
+    c.tower.silencedBy = acolyte.element;
+  }
   const gfx = NEX_SILENCE_GFX[acolyte.element];
   fanSample(hit, { x: ax, y: ay }, NEX_SILENCE_GFX_MAX).forEach((c, i) => {
     const flight = 0.14 + Math.sqrt(distanceSq(c.x, c.y, ax, ay)) / 900;

@@ -335,7 +335,13 @@ export function fireTowers(eng: GameEngine, dt: number) {
     if (tower.recoil) tower.recoil = Math.max(0, tower.recoil - dt * 6); // ~0.16s pulse
     // Disabled (e.g. by a Volatile enemy's death blast): tick the timer down and
     // hold fire until it clears.
-    if (tower.disabledTimer > 0) { tower.disabledTimer = Math.max(0, tower.disabledTimer - dt); continue; }
+    if (tower.disabledTimer > 0) {
+      tower.disabledTimer = Math.max(0, tower.disabledTimer - dt);
+      // Whatever dressed the disable goes out with it, or a tower back online would keep
+      // wearing Glacies' ice.
+      if (tower.disabledTimer === 0) tower.silencedBy = undefined;
+      continue;
+    }
     // Utility wizards don't fire — they project a field (see updateUtilityTowers).
     if (tower.type === 'wizard' && tower.mageMode === 'utility') continue;
     const stats = towerStats(eng, tower);
