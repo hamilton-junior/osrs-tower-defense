@@ -20,6 +20,7 @@ export const TOWER_STYLES: Record<TowerType, { style: CombatStyle; boostable: bo
   venator_bow: { style: 'ranged', boostable: true },
   noxious_halberd: { style: 'melee', boostable: true },
   purging_staff: { style: 'magic', boostable: true },
+  toxic_staff_of_the_dead: { style: 'magic', boostable: true },
 };
 
 export interface TowerTier {
@@ -197,6 +198,22 @@ export const TOWERS: Record<string, TowerDef> = {
     baseName: 'Purging',
     tiers: [
       { level: 1, name: 'Purging Staff', damage: 100, cooldown: 3 * TICK * 1000, range: 8 * 25, color: '#8a5bd0', upgradeCost: 5000, special: 'purge' }
+    ]
+  },
+  // Toxic staff of the dead = the Trident of the Swamp's venom welded into a
+  // wizard's staff, and the only tower in the game whose weapon is the OTHER
+  // towers. It carries no venom special of its own: instead every tower firing
+  // from inside its range — archer, cannon, halberd, the staff itself — leaves
+  // venom on what it hits (see envenomAura). The fang's problem was always that
+  // its venom ramps on whatever one enemy it happened to be pointed at; the
+  // staff hands that venom to the whole board's rate of fire. So its range is
+  // the widest on the board, because the range IS the weapon, and where it
+  // stands matters more than what it shoots.
+  toxic_staff_of_the_dead: {
+    type: 'toxic_staff_of_the_dead',
+    baseName: 'Toxic',
+    tiers: [
+      { level: 1, name: 'Toxic Staff of the Dead', damage: 70, cooldown: 3 * TICK * 1000, range: 9 * 25, color: '#4f8f3a', upgradeCost: 4700 }
     ]
   }
 };

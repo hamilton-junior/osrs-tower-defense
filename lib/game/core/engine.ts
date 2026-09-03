@@ -14,6 +14,7 @@ import { goldForKill } from '../systems/rewards';
 import { upgradeOrder } from '../systems/upgrades';
 import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor, MAX_TOWER_LEVEL } from '../systems/tower-xp';
 import { canEquip } from '../systems/tower-gear';
+import { envenomStaffFor } from '../systems/tower-identity';
 import {
   checkFusion, fusionOffersFor, isFusionReady, mergeSkills,
   FUSION_BLOCK_TEXT, type FusionContext, type FusionOffer,
@@ -967,6 +968,19 @@ export class GameEngine {
     if (this.gameMode !== 'roguelite') return null;
     const e = this.synergyEntries().get(tower.id);
     return e && e.color ? { mult: e.mult, color: e.color } : null;
+  }
+
+  /** The glow the renderer paints around a tower, and why — the one place a
+   *  "this tower is being helped by its neighbours" state is turned into a
+   *  colour. A placement synergy comes first because its number is legible in
+   *  the tower panel; otherwise a Toxic staff of the dead standing over the
+   *  tower lights it venom-green, so the staff's field has a visible edge on the
+   *  board instead of being a number only the damage meter ever sees. */
+  towerAuraGlow(tower: Tower): { intensity: number; color: string } | null {
+    const syn = this.towerSynergyAura(tower);
+    if (syn) return { intensity: Math.min(1, (syn.mult - 1) / 0.6), color: syn.color };
+    if (envenomStaffFor(tower, this.towers)) return { intensity: 0.55, color: '#6abe30' };
+    return null;
   }
 
   /** The cached placement-synergy damage multiplier (≥1) for a tower — the value

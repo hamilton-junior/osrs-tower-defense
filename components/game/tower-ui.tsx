@@ -167,6 +167,7 @@ export const TOWER_COMBAT: Record<TowerType, { icon: string; label: string }> = 
   venator_bow: { icon: ASSETS.misc.ranged_icon, label: 'Ranged' },
   noxious_halberd: { icon: ASSETS.misc.strength_icon, label: 'Melee' },
   purging_staff: { icon: ASSETS.misc.magic_icon, label: 'Magic' },
+  toxic_staff_of_the_dead: { icon: ASSETS.misc.magic_icon, label: 'Magic' },
 };
 
 /**
@@ -282,6 +283,16 @@ export function towerSignature(
         notes: [
           { text: 'Nothing can heal what it hits, for 5s', active: true },
           { text: 'Up to double damage on a dying enemy', active: true },
+        ],
+      };
+    case 'toxic_staff_of_the_dead':
+      return {
+        label: 'Envenom',
+        icon: ASSETS.debuffs.venom,
+        desc: 'Every tower in its range poisons whatever it hits.',
+        notes: [
+          { text: 'Its own shots count too', active: true },
+          { text: 'Put it where the board shoots from, not where it can reach', active: true },
         ],
       };
     default:

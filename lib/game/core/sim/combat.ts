@@ -11,7 +11,7 @@ import { calculateTowerStats, utilityAuraBonus, type ComputedTowerStats } from '
 import { RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity } from '../../systems/combat-stats';
 import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../../systems/magic';
 import { debuffTenacity } from '../../systems/tenacity';
-import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch, noxiousSpread, halberdSeedDps, type VenomLevel } from '../../systems/tower-identity';
+import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch, noxiousSpread, halberdSeedDps, type VenomLevel, envenomAura, envenomStaffFor } from '../../systems/tower-identity';
 import { rollGearDrops, gearDamageMult } from '../../systems/tower-gear';
 import { fusionSpellFx, purgeDamageMult, PURGE_DENY_SECS } from '../../systems/tower-fusion';
 import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
@@ -177,6 +177,9 @@ interface ShotLoadout {
   roadSweep?: VenatorStretch[];
   /** The Noxious halberd's swing — half-extent of the square it sweeps. */
   sweepHalf?: number;
+  /** The venom a Toxic staff of the dead armed this shot with, if one covers the
+   *  firing tower. */
+  envenom?: Projectile['envenom'];
 }
 
 /**
@@ -224,6 +227,13 @@ function shotLoadout(eng: GameEngine, tower: Tower, target: Enemy, damage: numbe
   // The Noxious halberd swings rather than shoots: the attack lands on the whole
   // of its own range square, so it carries that square rather than a blast radius.
   if (tower.type === 'noxious_halberd') lo.sweepHalf = half;
+  // The Toxic staff of the dead poisons through OTHER towers, so the question it
+  // asks is about the firing tower, not the target: is it standing in a staff's
+  // field? Resolved here, at fire time, and carried on the bolt — the same rule
+  // the Venator's road sweep follows, so a staff sold while a shot is in the air
+  // cannot unmake a shot already loosed.
+  const staff = envenomStaffFor(tower, eng.towers);
+  if (staff) lo.envenom = { ...envenomAura(staff.damage, eng.wave), staffId: staff.id };
   if (tower.type !== 'wizard') return lo;
 
   const mode = tower.mageMode ?? 'elemental';
@@ -343,6 +353,7 @@ function launchProjectile(
     weaponFrac: weaponFrac || undefined,
     roadSweep: lo.roadSweep,
     sweepHalf: lo.sweepHalf,
+    envenom: lo.envenom,
     spellIcon: lo.spellIcon,
     arrowIcon: tower.type === 'archer' ? 'dragon_arrow' : undefined,
     hitSound: fp.hitSound,
@@ -996,6 +1007,10 @@ export function pierceThrough(eng: GameEngine, p: Projectile, target: Enemy) {
  * Smoke is flat poison; Earth stuns long while Shadow stuns briefly.
  */
 export function applyOnHit(eng: GameEngine, e: Enemy, p: Projectile) {
+  // The Toxic staff of the dead's field, cashed in. Before the crowd-control
+  // guard below, because a venom is a DoT and not a hold — a Warded enemy that
+  // shrugs off the shove still walks away poisoned.
+  applyEnvenomAura(eng, e, p);
   // Warded affix — or General Graardor's slam: shrug off the movement crowd-control
   // specials (slow handled in applySlow; stun/pushback/crush guarded here). DoTs and amp
   // still apply, because neither is a hold.
@@ -1100,6 +1115,37 @@ export function applyOnHit(eng: GameEngine, e: Enemy, p: Projectile) {
     }
     default:
       break;
+  }
+}
+
+/**
+ * The Toxic staff of the dead's aura, applied: any hit fired from inside a
+ * staff's range leaves venom, whatever the tower that fired it was.
+ *
+ * It only ever *adds* to a stack it finds, and only stamps itself as the source
+ * when it is the one that created it. A venom a Toxic tower spent half a wave
+ * ramping onto a tank keeps crediting that tower — otherwise a single staff
+ * would quietly harvest the damage meter of every fang on the board, and the
+ * meter is the only place the player can see which tower is doing the work.
+ */
+export function applyEnvenomAura(eng: GameEngine, e: Enemy, p: Projectile) {
+  const env = p.envenom;
+  if (!env) return;
+  const dots = (e.dots ??= {});
+  const cur = dots.venom;
+  if (cur) {
+    cur.timer = Math.max(cur.timer, env.dur);
+    const raised = Math.min(env.cap, cur.dps + env.step);
+    if (raised <= cur.dps) return; // already at the fang's own ceiling
+    cur.dps = raised;
+  } else {
+    dots.venom = { timer: env.dur, dps: env.step, accum: 0, tickTimer: 0, style: 'magic', sourceTowerId: env.staffId };
+  }
+  eng.stats.recordEffect(env.staffId, eng.wave, { venomArmed: 1 });
+  // The same couple of green motes an envenomed hit throws off elsewhere, so the
+  // aura is legible on the enemy and not only in the meter.
+  for (let i = 0; i < 2; i++) {
+    eng.particles.push({ x: e.x + (Math.random() - 0.5) * 10, y: e.y, vx: (Math.random() - 0.5) * 40, vy: -20 - Math.random() * 30, life: 0.45, maxLife: 0.45, color: '#6abe30', size: 2 });
   }
 }
 

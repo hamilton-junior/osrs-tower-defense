@@ -24,7 +24,8 @@ import type { Tower, TowerSkills, TowerType } from '../types';
 
 /** Every fused weapon's type. These join `TowerType`, but they are never sold in
  *  the dock — the only way one reaches the board is {@link checkFusion}. */
-export type FusionType = 'scorching_bow' | 'purging_staff' | 'venator_bow' | 'noxious_halberd';
+export type FusionType = 'scorching_bow' | 'purging_staff' | 'venator_bow' | 'noxious_halberd'
+  | 'toxic_staff_of_the_dead';
 
 export interface FusionDef {
   /** Also its `TowerType` member and its baked icon slug. */
@@ -69,6 +70,12 @@ export const FUSIONS: readonly FusionDef[] = [
     parents: ['wizard', 'slayer'],
     blurb: 'Hits harder the closer the enemy is to death, and stops it healing.',
   },
+  {
+    type: 'toxic_staff_of_the_dead',
+    name: 'Toxic staff of the dead',
+    parents: ['toxic', 'wizard'],
+    blurb: 'Every tower standing in its range poisons whatever it hits.',
+  },
 ];
 
 /** What a Purging staff hits for on a target that has nothing left: a target at
@@ -105,6 +112,9 @@ export function healingDenied(e: { purgedTimer?: number }): boolean {
  *  already holds the spell — nothing new is baked for a fusion. */
 const FUSION_SPELL_FX: Partial<Record<FusionType, string>> = {
   purging_staff: 'shadow_4',
+  // Smoke is the poison half of the Ancient book, and it is green — the staff
+  // casts the barrage's own clip, single-target.
+  toxic_staff_of_the_dead: 'smoke_4',
 };
 
 export function fusionSpellFx(type: string): string | null {

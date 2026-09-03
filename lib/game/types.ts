@@ -306,7 +306,8 @@ export interface Effect {
  *  systems/tower-fusion) — a fusion is a tower in every way except that it is
  *  never bought, only made out of two finished ones. */
 export type TowerType = 'archer' | 'wizard' | 'cannon' | 'tzhaar' | 'slayer' | 'toxic'
-  | 'scorching_bow' | 'purging_staff' | 'venator_bow' | 'noxious_halberd';
+  | 'scorching_bow' | 'purging_staff' | 'venator_bow' | 'noxious_halberd'
+  | 'toxic_staff_of_the_dead';
 /** Combat/damage style a weapon deals — drives which potions & prayers buff it. */
 export type CombatStyle = 'ranged' | 'magic' | 'melee';
 
@@ -467,6 +468,10 @@ export interface Projectile {
   aoe?: boolean;
   /** Splash radius (logic px) for an AoE projectile; defaults to 80 (Ancients). */
   blastRadius?: number;
+  /** The venom a Toxic staff of the dead armed this shot with, resolved at fire
+   *  time from whichever staff covered the tower (see `envenomStaffFor`). Carried
+   *  on the bolt so a staff sold mid-flight can't unmake a shot already loosed. */
+  envenom?: { step: number; cap: number; dur: number; staffId: string };
   /** Restores a life when this projectile lands a kill (Blood barrage). */
   lifesteal?: boolean;
   /** Bonus damage as a fraction of each hit enemy's max HP (Blood barrage),

@@ -99,6 +99,10 @@ export interface EffectStat {
    *  the number that says whether it is standing next to a Toxic tower worth
    *  copying — the whole question the fusion asks. */
   venomSpread: number;
+  /** Hits a Toxic staff of the dead turned venomous — its own shots included.
+   *  The staff's damage is beside the point; this is the only number that says
+   *  whether it is standing where the board actually shoots from. */
+  venomArmed: number;
   /** Damage a Blood wizard added on top of its spell, as a % of the target's max
    *  HP (capped per hit). The signature reason to run Blood against big enemies. */
   bloodBonusDmg: number;

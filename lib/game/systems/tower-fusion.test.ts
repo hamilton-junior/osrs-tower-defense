@@ -65,6 +65,7 @@ describe('fusionRecipesFor', () => {
   it('names the other half of every fusion the type takes part in', () => {
     expect(fusionRecipesFor('toxic')).toEqual([
       { def: fusionDef('noxious_halberd'), partner: 'tzhaar' },
+      { def: fusionDef('toxic_staff_of_the_dead'), partner: 'wizard' },
     ]);
     // The archer is in two, and each one names the partner, never itself.
     const archer = fusionRecipesFor('archer');

@@ -14,7 +14,7 @@
  */
 
 import type { MarkKind } from './targeting';
-import { stretchAt, type RoadStretch } from './geometry';
+import { distance, stretchAt, type RoadStretch } from './geometry';
 import type { Point } from '../types';
 
 
@@ -293,4 +293,71 @@ export function noxiousSpread(present: readonly VenomLevel[], seed: VenomLevel):
  *  a Toxic tower would have applied for the same hit. */
 export function halberdSeedDps(rampStep: number): number {
   return Math.max(1, Math.round(rampStep * HALBERD_SEED_FRAC));
+}
+
+/**
+ * **The Toxic staff of the dead's aura.** The staff does not out-damage the
+ * Trident it was made from — it hands the Trident's venom to every other tower
+ * standing near it. Anything that fires from inside the staff's range envenoms
+ * what it hits: the archer's volley, the cannon's splash, a barrage, the staff
+ * itself. A fang can only ever ramp venom on whatever one enemy it happens to
+ * be pointed at; the staff spends the whole board's rate of fire on it instead.
+ *
+ * Two deliberate constraints keep that from being a free upgrade. The step is a
+ * fraction ({@link ENVENOM_AURA_FRAC}) of one Toxic ramp step, so a covered
+ * board is slower onto a full stack than a fang firing into one target. And it
+ * is computed from the *staff's* damage, never the firing tower's, so a fast
+ * weak tower and a slow heavy one arm exactly the same venom — the aura is a
+ * property of where the staff stands, not of what it happens to cover.
+ *
+ * The ceiling is the fang's own, so the aura tops a stack up and never past it.
+ */
+export const ENVENOM_AURA_FRAC = 0.5;
+
+export interface EnvenomAura {
+  /** Venom dps one covered hit adds. */
+  step: number;
+  /** The most that venom may be raised to — a Toxic tower's own ceiling. */
+  cap: number;
+  /** Seconds the venom is refreshed to. */
+  dur: number;
+}
+
+export function envenomAura(staffDamage: number, wave: number): EnvenomAura {
+  const { step, cap, dur } = venomRamp(staffDamage, wave);
+  return { step: Math.max(1, Math.round(step * ENVENOM_AURA_FRAC)), cap, dur };
+}
+
+/** The least a tower has to look like to be tested as an aura source. */
+export interface AuraSource {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  range: number;
+  damage: number;
+  disabledTimer?: number;
+}
+
+/**
+ * The Toxic staff of the dead covering `at`, or null. The strongest one wins
+ * where two overlap, so a second staff can only ever improve a field.
+ *
+ * A staff covers itself — which is why the weapon carries no venom special of
+ * its own: its shots are envenomed by exactly the rule everyone else's are, and
+ * there is only ever one number to reason about. A staff knocked offline covers
+ * nothing, so the field goes out with the tower rather than outliving it.
+ */
+export function envenomStaffFor<T extends AuraSource>(
+  at: { x: number; y: number },
+  towers: readonly T[],
+): T | null {
+  let best: T | null = null;
+  for (const t of towers) {
+    if (t.type !== 'toxic_staff_of_the_dead') continue;
+    if ((t.disabledTimer ?? 0) > 0) continue;
+    if (distance(t.x, t.y, at.x, at.y) > t.range) continue;
+    if (!best || t.damage > best.damage) best = t;
+  }
+  return best;
 }

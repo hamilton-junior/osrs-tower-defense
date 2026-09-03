@@ -19,6 +19,7 @@ export const TOWER_AMMO_CLASS: Record<TowerType, AmmoClass> = {
   venator_bow: 'arrows',
   noxious_halberd: 'melee_kit',
   purging_staff: 'runes',
+  toxic_staff_of_the_dead: 'runes',
 };
 
 /** Reader for `TOWER_AMMO_CLASS` (mirrors the old `weaponClassFor`). */

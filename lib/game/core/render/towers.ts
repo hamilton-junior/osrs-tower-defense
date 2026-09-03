@@ -91,7 +91,7 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       drawSquareRange(gr, ctx, tower.x, tower.y, GRID / 2 + 2, 'rgba(110,220,255,0.9)', 'rgba(110,220,255,0.16)');
     }
 
-    const aura = gr.e.towerSynergyAura(tower);
+    const aura = gr.e.towerAuraGlow(tower);
     const auraEntry = aura ? towerImageEntry(gr, tower) : null;
 
     // Aim + recoil: nudge the sprite back along the firing direction and
@@ -134,7 +134,7 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       const size = Math.round(r * 2);
       const glow = glowSprite(gr, auraEntry.img, auraEntry.key, aura.color, size);
       if (glow) {
-        const intensity = Math.min(1, (aura.mult - 1) / 0.6); // 0..1 by buff strength
+        const intensity = aura.intensity; // 0..1 by buff strength
         const pulseGlow = 0.5 + 0.5 * Math.sin(performance.now() / 520);
         const pad = gr.GLOW_PAD;
         ctx.save();

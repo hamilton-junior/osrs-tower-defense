@@ -16,6 +16,10 @@ import {
   venatorReach,
   venatorMultAt,
   VENATOR_BENDS,
+  envenomAura,
+  envenomStaffFor,
+  ENVENOM_AURA_FRAC,
+  type AuraSource,
 } from './tower-identity';
 import { roadStretches } from './geometry';
 
@@ -285,5 +289,57 @@ describe('halberdSeedDps', () => {
   it('is always worse than the tower it copies from', () => {
     const { step } = venomRamp(70, 40);
     expect(halberdSeedDps(step)).toBeLessThan(step);
+  });
+});
+
+describe('envenomAura', () => {
+  it('is a fraction of the venom a Toxic tower would ramp for the same damage', () => {
+    const ramp = venomRamp(70, 30);
+    const aura = envenomAura(70, 30);
+    expect(aura.step).toBe(Math.round(ramp.step * ENVENOM_AURA_FRAC));
+    expect(aura.step).toBeLessThan(ramp.step);
+  });
+
+  it("shares the Toxic tower's ceiling and duration, so it tops a stack up and never past it", () => {
+    const ramp = venomRamp(70, 30);
+    const aura = envenomAura(70, 30);
+    expect(aura.cap).toBe(ramp.cap);
+    expect(aura.dur).toBe(ramp.dur);
+  });
+
+  it('never rounds away to nothing', () => {
+    expect(envenomAura(1, 1).step).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('envenomStaffFor', () => {
+  const staff = (over: Partial<AuraSource> = {}): AuraSource => ({
+    id: 's1', type: 'toxic_staff_of_the_dead', x: 0, y: 0, range: 200, damage: 70, ...over,
+  });
+
+  it('covers a tower inside its range and nothing outside it', () => {
+    const towers = [staff()];
+    expect(envenomStaffFor({ x: 100, y: 0 }, towers)?.id).toBe('s1');
+    expect(envenomStaffFor({ x: 300, y: 0 }, towers)).toBeNull();
+  });
+
+  it('covers itself, which is how its own shots get envenomed', () => {
+    const s = staff();
+    expect(envenomStaffFor(s, [s])).toBe(s);
+  });
+
+  it('ignores every tower that is not a staff', () => {
+    expect(envenomStaffFor({ x: 0, y: 0 }, [staff({ type: 'toxic' })])).toBeNull();
+  });
+
+  it('goes out with the tower: a staff knocked offline covers nothing', () => {
+    expect(envenomStaffFor({ x: 0, y: 0 }, [staff({ disabledTimer: 2 })])).toBeNull();
+  });
+
+  it('picks the strongest of two overlapping staves, so a second one only ever helps', () => {
+    const weak = staff({ id: 'weak', damage: 70 });
+    const strong = staff({ id: 'strong', damage: 120, x: 50 });
+    expect(envenomStaffFor({ x: 10, y: 0 }, [weak, strong])?.id).toBe('strong');
+    expect(envenomStaffFor({ x: 10, y: 0 }, [strong, weak])?.id).toBe('strong');
   });
 });
