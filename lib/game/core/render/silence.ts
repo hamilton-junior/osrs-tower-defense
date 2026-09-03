@@ -48,17 +48,18 @@ const LAYERS = {
  * The numbers exist because the bakes are not comparable to each other. Every spotanim is
  * a 192px frame, but how much of it the art fills is whatever the cache model happened to
  * need: Ice Barrage's block is a narrow column filling 24%×58% of its frame, Blood
- * Barrage's cast is a wide flat splash, Shadow Barrage's spikes come with three blank
- * frames in the middle of the strip. Drawing every sheet at one flat size therefore draws
- * four different sizes on screen — most of them a smudge. So `art` records the measured
- * bounds of the ink inside the frame (fractions of it, `cx`/`cy` being its centre) and the
- * draw fits *that* to the tower rather than fitting the padding.
+ * Barrage's spike is a hairline at 8%, Smoke Barrage's cloud fills the whole frame, and
+ * Shadow Barrage's spikes come with four blank frames in the strip. Drawing every sheet
+ * at one flat size therefore draws four different sizes on screen — most of them a smudge.
+ * So `art` records the measured bounds of the ink inside the frame (fractions of it,
+ * `cx`/`cy` being its centre) and the draw fits *that* to the tower rather than fitting
+ * the padding.
  *
  * `tall`/`wide` are the caps on the art itself in multiples of the tower's `visualRadius`
  * — whichever binds first wins, so a wide splash grows until it is as wide as it may be
  * and a narrow column until it is as tall as it may be. `at` then places the copies (also
- * in `visualRadius`), which is what lets a shape narrower or flatter than the tower still
- * cover it: two ice columns side by side, two blood splashes stacked.
+ * in `visualRadius`), which is what lets a shape narrower than the tower still cover it:
+ * two ice columns side by side, nine blood spikes in a row.
  */
 interface Dressing {
   slug: string;
@@ -79,14 +80,16 @@ const DRESS: Record<AncientType, Dressing> = {
     tall: 2.6, wide: 9,
     at: [[-0.5, 0], [0.5, 0]],
   },
-  // Blood Barrage's cast — the impact bake is a thin red line the flat rasteriser barely
-  // caught, so the element wears the half of the spell that did bake: the splash, twice
-  // over, since one flat band across the middle leaves most of the tower clean.
+  // Blood Barrage's impact: a spike of blood driven up through the tower. The flat
+  // rasteriser caught it as a hairline — 8% of its frame wide — so it takes nine of them
+  // in a row to be a curtain rather than a scratch, and only the frames where the spike
+  // stands at full height, since the strip spends most of itself growing and collapsing.
   blood: {
-    slug: 'proj_blood_4',
-    art: { w: 0.85, h: 0.42, cx: 0.53, cy: 0.51 },
-    tall: 9, wide: 2.8,
-    at: [[0, -0.6], [0, 0.6]],
+    slug: 'hit_blood_4',
+    art: { w: 0.08, h: 0.80, cx: 0.5, cy: 0.47 },
+    tall: 3.2, wide: 99,
+    at: [[-1.12, 0], [-0.84, 0], [-0.56, 0], [-0.28, 0], [0, 0], [0.28, 0], [0.56, 0], [0.84, 0], [1.12, 0]],
+    frames: [5, 6, 7, 8, 9],
   },
   // Shadow Barrage's impact: dark spikes driven through it. Frames 0, 7, 8 and 15 of the
   // strip are empty and the tail mirrors the head, so the loop plays the one rise-and-fall
@@ -98,13 +101,15 @@ const DRESS: Record<AncientType, Dressing> = {
     at: [[-0.5, 0], [0.5, 0]],
     frames: [1, 2, 3, 4, 5, 6],
   },
-  // Smoke Barrage's cast, stacked like the blood: its impact bakes as a few sparse specks
-  // that read as dirt on the screen, while the cast is a real cloud.
+  // Smoke Barrage's impact: the cloud it bursts into. It fills its frame but sparsely, so
+  // three overlapping copies give it body, and the loop is cut to the frames where the
+  // cloud is out at full size instead of the puff it opens and closes on.
   smoke: {
-    slug: 'proj_smoke_4',
-    art: { w: 0.85, h: 0.38, cx: 0.49, cy: 0.5 },
-    tall: 9, wide: 2.8,
-    at: [[0, -0.6], [0, 0.6]],
+    slug: 'hit_smoke_4',
+    art: { w: 1, h: 0.99, cx: 0.5, cy: 0.49 },
+    tall: 3, wide: 99,
+    at: [[-0.4, 0], [0, 0], [0.4, 0]],
+    frames: [5, 6, 7, 8, 9, 10],
   },
 };
 
