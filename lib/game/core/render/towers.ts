@@ -118,10 +118,10 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     if (tower.siphonedBy && !disabled) {
       drawSiphonedTower(ctx, tower.x, tower.y, tower.visualRadius);
     }
-    // Silenced by one of Nex's acolytes: the element goes down first, so the tower
-    // stands *in* it, and comes back over the sprite below.
+    // Silenced by one of Nex's acolytes: that Ancient's own GFX, looping. The wide
+    // dim copy goes down first, so the tower stands *in* the spell …
     if (tower.silencedBy && disabled) {
-      drawSilencedTower(ctx, tower.silencedBy, tower.x, tower.y, tower.visualRadius, tower.disabledTimer, 'under');
+      drawSilencedTower(gr, ctx, tower.silencedBy, tower.x, tower.y, tower.visualRadius, tower.disabledTimer, 'under');
     }
     ctx.save();
     if (disabled) ctx.globalAlpha = 0.4;
@@ -161,10 +161,10 @@ export function drawTowers(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       ctx.restore();
     }
 
-    // … and closes over it: the ice block, the shroud, the runnels, the ash. Above the
-    // sprite so the tower is held by it, below the sign so nothing covers the sign.
+    // … and the tight copy closes over it, so the spell has hold of the tower. Above
+    // the sprite for that, below the sign so nothing covers the sign.
     if (tower.silencedBy && disabled) {
-      drawSilencedTower(ctx, tower.silencedBy, tower.x, tower.y, tower.visualRadius, tower.disabledTimer, 'over');
+      drawSilencedTower(gr, ctx, tower.silencedBy, tower.x, tower.y, tower.visualRadius, tower.disabledTimer, 'over');
     }
 
     // The prohibited sign itself, at full opacity over the faded tower. It pulses
