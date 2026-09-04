@@ -1223,11 +1223,13 @@ export class GameEngine {
       ),
       // Hunter traps lying on the road, keyed `trap_<id>` (baked item icons).
       ...Object.fromEntries(HUNTER_TRAPS.map(t => [`trap_${t.id}`, t.sprite])),
-      // The allotment patches: the raked soil, and the three crop stages that draw
-      // over it (keyed `farm_<stage>`), plus each herb's icon for the ready plate.
+      // The allotment patches: the raked soil (keyed `farm_<stage>`), and every
+      // seed and herb icon — the board draws the player's own crop in the ground,
+      // and the ready plate draws the herb it hands back.
       ...Object.fromEntries(
         Object.entries(ASSETS.farming).map(([stage, url]) => [`farm_${stage}`, url]),
       ),
+      ...Object.fromEntries(SEEDS.map(s => [`seed_${s.id}`, s.seedIcon])),
       ...Object.fromEntries(SEEDS.map(s => [`herb_${s.id}`, s.herbIcon])),
     };
     for (const [key, url] of Object.entries(urls)) {
@@ -3095,21 +3097,15 @@ export class GameEngine {
   // one wave. Every worth-question is answered in systems/farming — the engine
   // only owns the ground, the purse and the clock.
 
-  /** Route a click on a patch: bare ground opens the seed menu, a ripe herb comes
-   *  straight out, and anything mid-growth just says how much longer. */
+  /** Route a click on a patch: a ripe herb comes straight out, and anything else
+   *  opens the patch menu — the seed list on bare ground, and on a growing one what
+   *  is in there, how much longer, and the offer to dig it up again. */
   private clickPatch(patch: FarmPatch) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
-    const stage = patchStage(patch, this.wave);
-    if (stage === 'ready') { this.harvestPatch(patch.id); return; }
-    if (stage === 'empty') {
-      this.pendingSow = patch.id;
-      this.sound.play('interface_open');
-      this.emit();
-      return;
-    }
-    const def = SEED_BY_ID[patch.seedId!];
-    const left = wavesLeft(patch, this.wave);
-    this.notify(`${def.herbName} — ${left} wave${left === 1 ? '' : 's'} to go`, def.herbIcon);
+    if (patchStage(patch, this.wave) === 'ready') { this.harvestPatch(patch.id); return; }
+    this.pendingSow = patch.id;
+    this.sound.play('interface_open');
+    this.emit();
   }
 
   /** Buy a seed into a bare patch. Like every refusal on this board, each way it
@@ -3128,6 +3124,24 @@ export class GameEngine {
     this.pendingSow = null;
     this.sound.play('sell'); // the coin-shuffle: gold left the purse
     this.notify(`${def.seedName} sown — ${def.waves} waves`, def.seedIcon);
+    this.emit();
+  }
+
+  /** Dig a seed back out of the ground. It is a mistake being undone, not a trade:
+   *  the gold is spent and stays spent, so this can never be a way to make money —
+   *  it only hands the plot back so a better herb can go in. A ripe one is harvested
+   *  instead; nothing here can throw away a herb that is owed. */
+  clearPatch(patchId: string) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    const patch = this.farmPatches.find(p => p.id === patchId);
+    if (!patch || !patch.seedId) return;
+    if (patchStage(patch, this.wave) === 'ready') { this.harvestPatch(patchId); return; }
+    const def = SEED_BY_ID[patch.seedId];
+    patch.seedId = null;
+    patch.sownAtWave = 0;
+    this.pendingSow = null;
+    this.sound.play('interface_close');
+    this.notify(`${def.seedName} dug up — no refund`, def.seedIcon);
     this.emit();
   }
 

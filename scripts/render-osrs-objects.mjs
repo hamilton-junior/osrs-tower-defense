@@ -66,19 +66,20 @@ const TARGETS = {
   dwarf_multicannon: { obj: 6, yaw: 225 },
   shattered_cannon: { obj: 43027, yaw: 225 },
 
-  // Allotment patch states (morph targets of patch shell 8550/8150).
-  // patch_empty is a raked-soil overlay quad coplanar with the black base
-  // quad; the client separates them by render priority, our painter sort
-  // can't — so render just the brown tilled-soil overlay (model 8223).
-  // Ground-decor quads are wound for the client's no-cull decor path, so
-  // backface culling must be off or the quad vanishes.
-  patch_empty: { obj: 8573, pitch: 40, models: [8223], cull: false },
-  // The three crop stages ship as the plant ALONE: each object also carries the
-  // same 7766 base quad patch_empty draws, and baking it into every stage would
-  // stamp a second, darker square over the soil the board already draws under it.
-  patch_sown: { obj: 8558, pitch: 40, models: [8212] },     // seed in the soil (nothing up yet)
-  patch_growing: { obj: 8559, pitch: 40, models: [8213] },  // potato plant (mid growth)
-  patch_ready: { obj: 8562, pitch: 40, models: [8216] },    // potato, ready to harvest
+  // The allotment's ground (patch shell 8550/8150). patch_empty is a raked-soil
+  // overlay quad coplanar with the black base quad; the client separates them by
+  // render priority, our painter sort can't — so render just the brown tilled-soil
+  // overlay (model 8223). Ground-decor quads are wound for the client's no-cull
+  // decor path, so backface culling must be off or the quad vanishes.
+  //
+  // Straight down (pitch 90) and square to the axes (yaw 0): the board is top-down,
+  // and at the isometric default the quad landed as a diamond squeezed into a tile,
+  // which is most of why players couldn't tell a patch from the grass.
+  //
+  // The crop stages are NOT baked. Objects 8558/8559/8562 are the *potato* ladder,
+  // and the board grows whatever seed the player bought — so what stands in the
+  // soil is that seed's own item icon (core/render/farming.ts), not scenery.
+  patch_empty: { obj: 8573, pitch: 90, yaw: 0, models: [8223], cull: false },
 
   // The wooden direction signpost — the one standing beside the Lumbridge Guide,
   // and OSRS's own symbol for "the road splits here". Model 1402 is shared by every

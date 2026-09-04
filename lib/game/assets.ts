@@ -553,15 +553,12 @@ export const ASSETS = {
     armour: `${LOCAL}/hitsplats/armour.png`, // orange chestplate (1628)
     shield: `${LOCAL}/hitsplats/shield.png`, // teal shield (1419)
   },
-  // The four looks a farming allotment has, rendered from the real OSRS allotment
-  // objects (scripts/render-osrs-objects.mjs). `soil` is the raked-earth quad the
-  // patch always stands on; the three crops draw *over* it, each baked as the plant
-  // alone so the soil underneath is the board's, not a second darker square.
+  // The ground a farming allotment stands on: the real OSRS allotment's raked-earth
+  // quad (scripts/render-osrs-objects.mjs), baked looking straight down so it fills
+  // its tile. What grows in it is not baked scenery — it is the player's own seed
+  // and herb icons, so a guam patch shows a guam (see core/render/farming.ts).
   farming: {
-    soil: `${LOCAL}/objects/patch_empty.png`,     // Allotment (8573)
-    sown: `${LOCAL}/objects/patch_sown.png`,      // Potato seed (8558)
-    growing: `${LOCAL}/objects/patch_growing.png`, // Potato plant (8559)
-    ready: `${LOCAL}/objects/patch_ready.png`,    // Potato (8562)
+    soil: `${LOCAL}/objects/patch_empty.png`, // Allotment (8573)
   },
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
   debuffs: {
