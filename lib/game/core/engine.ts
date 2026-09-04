@@ -3143,6 +3143,15 @@ export class GameEngine {
     this.emit();
   }
 
+  /** The same click, asked for by id — what the Skills interface's allotment rows
+   *  call. The panel mirrors the board rather than replacing it, so a row must go
+   *  through exactly the routing a click on the ground goes through: a ripe patch
+   *  is harvested, and anything else opens the seed menu over the board. */
+  openPatch(patchId: string) {
+    const patch = this.farmPatches.find(p => p.id === patchId);
+    if (patch) this.clickPatch(patch);
+  }
+
   /** Buy a seed into a bare patch. Like every refusal on this board, each way it
    *  can fail says which one it was. */
   sowSeed(patchId: string, seedId: SeedId) {

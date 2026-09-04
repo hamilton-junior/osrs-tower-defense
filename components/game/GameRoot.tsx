@@ -24,6 +24,7 @@ import { CollectionLog, type LogTab } from './collection-log';
 import { weaknessTag, enemySpriteStyle } from './enemy-ui';
 import { StartScreen } from './start-screen';
 import { DpsView } from './dps-view';
+import { SkillsView, type SkillId } from './skills-ui';
 import { FeedbackModal } from './feedback-modal';
 import { SaveCodeModal } from './save-code';
 import { LEARN_STEPS, LearnAsYouGo, HowToPlay } from './tutorial';
@@ -54,7 +55,7 @@ import { highestUnlockedTier, type DifficultyTier } from '@/lib/game/systems/dif
 /** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
  *  model — one stone per interface), or `null` for none. 'home' = the run's mode
  *  + roguelite loadout. */
-type SideTab = 'home' | 'essence' | 'slayer' | 'dps' | 'lootbag';
+type SideTab = 'home' | 'essence' | 'slayer' | 'dps' | 'skills' | 'lootbag';
 /** Label, OSRS icon, theme color and a one-line description for each enemy
  *  debuff. The color frames the icon (a RuneLite-style badge) so the five read
  *  apart at a glance; the description shows on hover in the info panel. */
@@ -402,6 +403,10 @@ export default function GameRoot() {
   // so opening it never resizes the canvas — which would rebuild the path and
   // re-anchor every tower mid-run.
   const onSideTab = useCallback((t: SideTab) => setTab((cur) => (cur === t ? null : t)), []);
+  // Which skill's page the Skills stone is showing, or null for the grid. It lives
+  // out here rather than inside the view so the panel reopens where it was left —
+  // a player checking their allotments between waves shouldn't have to walk back in.
+  const [openSkill, setOpenSkill] = useState<SkillId | null>(null);
   // Classic has no loadout stone (nothing is drafted), so a 'home' tab left open
   // from a roguelite run must not survive into a classic one.
   // 'home' (roguelite loadout) and 'lootbag' (classic gear) share the first stone,
@@ -3843,6 +3848,21 @@ export default function GameRoot() {
             tab (was a floating window). The tab body already scrolls, so a long
             tower list just scrolls in place. ── */}
         {tab === 'dps' && <DpsView snap={ui.dpsStats ?? null} onHoverTower={highlightTower} />}
+
+        {/* ── SKILLS: what every skill this run has going on, in one place. It
+            mirrors the board — every button here is a button that already exists
+            out there — so nothing moves out of the world and into a menu. ── */}
+        {tab === 'skills' && (
+          <SkillsView
+            ui={ui}
+            open={openSkill}
+            onOpen={setOpenSkill}
+            onSelectTrap={(id) => engineRef.current?.selectTrapType(id)}
+            onOpenPatch={(id) => engineRef.current?.openPatch(id)}
+            onMovePlot={(id) => engineRef.current?.beginMovePlot(id)}
+            onBuyPlot={() => engineRef.current?.buyPlot()}
+          />
+        )}
         </div>
         )}
 
@@ -4360,8 +4380,14 @@ export default function GameRoot() {
                   {ui.lootBag.length > 0 && <span className="rs-tab-badge">{ui.lootBag.length}</span>}
                 </button>
               )}
+              {/* The Stats tab icon is OSRS's own symbol for "your skills", so it
+                  heads the Skills interface, and the DPS meter — which is damage,
+                  not progression — takes the red hitsplat instead. */}
+              <button onClick={() => onSideTab('skills')} title="Skills — Hunter, Farming" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.stats_icon} alt="Skills" onError={hideBrokenImg} />
+              </button>
               <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.stats_icon} alt="DPS meter" onError={hideBrokenImg} />
+                <img src={ASSETS.misc.hit_splat} alt="DPS meter" onError={hideBrokenImg} />
               </button>
               <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />

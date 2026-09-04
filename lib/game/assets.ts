@@ -487,7 +487,9 @@ export const ASSETS = {
     // the weapon they become.
     skill_smithing: `${LOCAL}/misc/skill_smithing.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
-    // OSRS "Stats" (Skills) tab icon — the bar-chart glyph; used for the DPS tab.
+    // OSRS "Stats" (Skills) tab icon — the bar-chart glyph. It heads the Skills
+    // interface, which is what the tab is in OSRS; the DPS meter, being damage
+    // rather than progression, takes `hit_splat` instead.
     stats_icon: `${LOCAL}/misc/stats_icon.png`,
     // Multi-combat (crossed-swords) indicator — used as the Home/Wave sidebar tab.
     // Cache-extracted (MULTI_COMBAT_ZONE_CROSSED_SWORDS 442), like the splats below.
