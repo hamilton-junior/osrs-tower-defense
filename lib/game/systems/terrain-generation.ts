@@ -19,7 +19,7 @@ import type { Point } from '../types';
 import { pointToSegmentDistance } from './geometry';
 import { makeRng } from './map-generation';
 
-export type TileFlag = 'open' | 'blocked' | 'unbuildable';
+export type TileFlag = 'open' | 'blocked' | 'unbuildable' | 'farming';
 
 /** A cosmetic prop placed on an open tile (no gameplay effect). `kind` selects the
  *  shape/palette slot the renderer draws. */
@@ -29,12 +29,21 @@ export interface TerrainDecoration {
   kind: number;
 }
 
+/** A farming allotment: one tile the player can sow between waves. Flagged
+ *  `'farming'` in `tiles` as well, so placement rejects it like any other
+ *  non-open tile; this list is just the same tiles in a stable order. */
+export interface TerrainPatch {
+  col: number;
+  row: number;
+}
+
 export interface TerrainField {
   cols: number;
   rows: number;
   /** Row-major, length `cols * rows`. */
   tiles: TileFlag[];
   decorations: TerrainDecoration[];
+  patches: TerrainPatch[];
 }
 
 /** A tile counts as *road* if its centre is within this many px of the road
@@ -51,6 +60,11 @@ export const MIN_OPEN_NEAR = 6;
 const MAX_COVERAGE = 0.22;
 /** Chance an eligible open tile gets a cosmetic decoration. */
 const DECOR_PROB = 0.12;
+/** How many farming allotments a run's field carries, at most. */
+export const MAX_PATCHES = 2;
+/** Two patches never sit within this Chebyshev distance of each other, so the
+ *  pair reads as two plots rather than one double-wide one. */
+const PATCH_SPACING = 5;
 /** Seed offset so terrain varies independently of the road, still per-run stable. */
 const TERRAIN_SEED_XOR = 0x9e3779b9;
 
@@ -193,6 +207,45 @@ export function generateTerrain(
     }
   }
 
+  // ── farming allotments ──
+  // Carved out of ground that was *already* taken: a patch only ever replaces an
+  // obstacle or a rough-ground tile, never open ground. That keeps every
+  // guarantee above untouched — the tile was not buildable before and is not
+  // buildable now, so the corridor, the coverage cap and the defensibility repair
+  // all see exactly the field they saw without farming. Preferring a tile with
+  // open ground around it puts the plot at the edge of the scrub rather than
+  // buried inside a boulder field.
+  const patches: TerrainPatch[] = [];
+  const taken: number[] = [];
+  for (let i = 0; i < flags.length; i++) if (flags[i] !== 'open') taken.push(i);
+  const edging = taken.filter(idx => {
+    const c = idx % cols;
+    const r = (idx / cols) | 0;
+    let open = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+        if (flags[nr * cols + nc] === 'open') open++;
+      }
+    }
+    return open >= 3;
+  });
+  const pool = edging.length > 0 ? edging : taken;
+  const wanted = pool.length === 0 ? 0 : 1 + Math.floor(rng() * MAX_PATCHES);
+  let tries = 0;
+  while (patches.length < wanted && tries++ < 200) {
+    const idx = pool[Math.floor(rng() * pool.length)];
+    const col = idx % cols;
+    const row = (idx / cols) | 0;
+    if (flags[idx] === 'farming') continue;
+    if (patches.some(p => Math.max(Math.abs(p.col - col), Math.abs(p.row - row)) < PATCH_SPACING)) continue;
+    flags[idx] = 'farming';
+    patches.push({ col, row });
+  }
+  patches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
+
   // ── cosmetic decorations on open, non-corridor tiles ──
   const decorations: TerrainDecoration[] = [];
   for (const idx of eligible) {
@@ -202,5 +255,5 @@ export function generateTerrain(
     }
   }
 
-  return { cols, rows, tiles: flags, decorations };
+  return { cols, rows, tiles: flags, decorations, patches };
 }

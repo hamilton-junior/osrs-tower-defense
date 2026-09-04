@@ -58,6 +58,11 @@ import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
 import { diversionEssence, diversionGold, diversionLine, offBoardPoint, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
+import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
+import {
+  buildFarmPatches, farmGoldMult, farmTowerMods, harvestable, patchAtPoint, patchStage, wavesLeft,
+  type FarmBuff, type FarmPatch,
+} from '../systems/farming';
 import {
   HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
   type HunterTrap,
@@ -88,7 +93,7 @@ export class GameEngine {
   private mapLayout: MapLayout = { points: [], entry: 'left', exit: 'right', archetype: 'serpentine', orientation: 0 };
   /** Per-run terrain: obstacle / non-buildable / decoration flags over the tile grid.
    *  Rebuilt with the map each run; the renderer draws it and placement consults it. */
-  terrain: TerrainField = { cols: 0, rows: 0, tiles: [], decorations: [] };
+  terrain: TerrainField = { cols: 0, rows: 0, tiles: [], decorations: [], patches: [] };
 
   /** Does the terrain forbid building on the tile at `(x, y)` (obstacle or
    *  non-buildable zone)? Public so the renderer's placement ghost can turn red
@@ -287,6 +292,10 @@ export class GameEngine {
   /** Towers built this run (every successful {@link placeTower}); for the
    *  end-of-run summary. Not decremented on sell — it counts what you raised. */
   towersBuilt = 0;
+  /** Seeds put in the ground and herbs pulled back out this run, for the summary.
+   *  They differ whenever a run ends with something still growing. */
+  seedsSown = 0;
+  herbsHarvested = 0;
   /** Whether this leg of the road has already spent its one tower fusion. Reset
    *  by {@link travelTo} — the run earns another forge by moving on. */
   fusedThisLeg = false;
@@ -369,6 +378,22 @@ export class GameEngine {
    *  catching things rather than by being bought. */
   hunterLevel = 1;
   hunterXp = 0;
+  /** The allotment patches this map dealt — one or two tiles of workable ground,
+   *  placed with the terrain. Sown and harvested strictly between waves, and they
+   *  never take a build spot: the tile they stand on was already unbuildable. */
+  farmPatches: FarmPatch[] = [];
+  /** The patch whose seed menu is open, or null. */
+  pendingSow: string | null = null;
+  /** The herb riding a wave. One at a time, and one wave long — see
+   *  {@link activeFarmBuff}, which is what every system actually reads. */
+  farmBuff: FarmBuff | null = null;
+
+  /** The herb in effect *right now*, or null. A harvest stamps the wave it was
+   *  pulled for, so the buff expires by arithmetic rather than by a timer someone
+   *  has to remember to clear. */
+  activeFarmBuff(): SeedId | null {
+    return this.farmBuff && this.farmBuff.wave === this.wave ? this.farmBuff.seedId : null;
+  }
 
   // --- composed subsystems ---
   readonly slayer = new SlayerSystem(this);
@@ -711,6 +736,27 @@ export class GameEngine {
       hunterXp: Math.round(this.hunterXp),
       hunterXpNeeded: hunterXpForLevel(this.hunterLevel),
       maxTraps: maxActiveTraps(this.hunterLevel),
+      farmPatches: this.farmPatches.map(p => {
+        const def = p.seedId ? SEED_BY_ID[p.seedId] : null;
+        return {
+          id: p.id,
+          stage: patchStage(p, this.wave),
+          seedId: p.seedId,
+          name: def ? def.herbName : 'Allotment',
+          icon: def ? def.herbIcon : ASSETS.misc.farming_icon,
+          wavesLeft: wavesLeft(p, this.wave),
+        };
+      }),
+      pendingSow: this.pendingSow,
+      farmBuff: (() => {
+        const id = this.activeFarmBuff();
+        if (!id) return null;
+        const def = SEED_BY_ID[id];
+        return {
+          seedId: id, herbName: def.herbName, icon: def.herbIcon,
+          label: def.signature.label, labelIcon: def.signature.icon, tip: def.tip,
+        };
+      })(),
       killCounts: this.killCounts,
       achievements: [...this.achievements],
       fusedThisLeg: this.fusedThisLeg,
@@ -881,11 +927,17 @@ export class GameEngine {
     this.slayer.buyReward(id);
   }
 
-  /** The active wave event's board-wide tower multipliers (all 1 when no event),
-   *  passed to {@link calculateTowerStats} as its `globalMods` layer. */
+  /** The board-wide tower multipliers in force this wave (all 1 with nothing
+   *  running), passed to {@link calculateTowerStats} as its `globalMods` layer.
+   *  Two things feed it and they stack: the wave event, and a harvested herb. */
   eventTowerMods() {
     const m = resolveEventMods(this.activeEvent);
-    return { damage: m.towerDamage, range: m.towerRange, fireRate: m.towerFireRate };
+    const f = farmTowerMods(this.activeFarmBuff());
+    return {
+      damage: m.towerDamage * f.damage,
+      range: m.towerRange * f.range,
+      fireRate: m.towerFireRate * f.fireRate,
+    };
   }
 
   /** A tower's effective combat stats right now (prayers + potions applied),
@@ -1082,6 +1134,9 @@ export class GameEngine {
    *  Pausing only freezes the sim (enemies, towers, projectiles, DoTs, prayer &
    *  potion timers) — the player can still place, move, sell and pick spells. */
   escape() {
+    // The seed menu is the innermost thing open, so it is the first thing Esc
+    // backs out of — closing it must not also cancel the build in flight.
+    if (this.pendingSow !== null) { this.closeSow(); return; }
     if (this.pendingPlacement || this.movingTowerId || this.movingGroupIds.length
         || this.placeQueue.length || this.pasting || this.selectedTowerType
         || this.selectedTrapId || this.shapingGrab) {
@@ -1168,6 +1223,12 @@ export class GameEngine {
       ),
       // Hunter traps lying on the road, keyed `trap_<id>` (baked item icons).
       ...Object.fromEntries(HUNTER_TRAPS.map(t => [`trap_${t.id}`, t.sprite])),
+      // The allotment patches: the raked soil, and the three crop stages that draw
+      // over it (keyed `farm_<stage>`), plus each herb's icon for the ready plate.
+      ...Object.fromEntries(
+        Object.entries(ASSETS.farming).map(([stage, url]) => [`farm_${stage}`, url]),
+      ),
+      ...Object.fromEntries(SEEDS.map(s => [`herb_${s.id}`, s.herbIcon])),
     };
     for (const [key, url] of Object.entries(urls)) {
       const img = new Image();
@@ -1203,6 +1264,9 @@ export class GameEngine {
     this.terrain = generateTerrain(
       this.mapSeed, this.path, Math.floor(this.width / GRID), Math.floor(this.height / GRID), GRID,
     );
+    // Fresh road, fresh ground: nothing sown on the old map carries over.
+    this.farmPatches = buildFarmPatches(this.terrain, GRID);
+    this.pendingSow = null;
   }
 
   private buildPath() {
@@ -1687,7 +1751,7 @@ export class GameEngine {
   /** Add gold from a kill or wave clear, scaled by the rewardMultiplier upgrade,
    *  and track it for the game-over "earned" tally. Returns the gold granted. */
   awardGold(base: number): number {
-    const gold = Math.round(base * this.meta.upgrades.rewardMultiplier);
+    const gold = Math.round(base * this.meta.upgrades.rewardMultiplier * farmGoldMult(this.activeFarmBuff()));
     this.money += gold;
     this.goldEarned += gold;
     return gold;
@@ -2179,6 +2243,10 @@ export class GameEngine {
     // standing on empty ground, so nothing underneath it wanted the click anyway.
     const diversion = this.diversionAt(x, y);
     if (diversion) { this.claimDiversion(diversion.id); return; }
+    // An allotment stands on ground the board already refused to build on, so a
+    // click that reached it wanted the patch and nothing underneath it.
+    const plot = patchAtPoint(this.farmPatches, x, y, GRID);
+    if (plot) { this.clickPatch(plot); return; }
     const hit = this.towers.find(t => distance(t.x, t.y, x, y) <= TOWER_RADIUS + 4);
     const hadPanel = this.selectedTowerId !== null || this.inspectedEnemyId !== null;
     if (hit) {
@@ -3014,6 +3082,77 @@ export class GameEngine {
     this.emit();
   }
 
+  // ------------------------------------------------------------------ farming
+  // One or two allotments come with the map, on tiles that were never buildable.
+  // Between waves the player buys a seed into one; it ripens by *waves*, not by
+  // seconds, so thinking costs nothing; and the herb it hands back rides exactly
+  // one wave. Every worth-question is answered in systems/farming — the engine
+  // only owns the ground, the purse and the clock.
+
+  /** Route a click on a patch: bare ground opens the seed menu, a ripe herb comes
+   *  straight out, and anything mid-growth just says how much longer. */
+  private clickPatch(patch: FarmPatch) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    const stage = patchStage(patch, this.wave);
+    if (stage === 'ready') { this.harvestPatch(patch.id); return; }
+    if (stage === 'empty') {
+      this.pendingSow = patch.id;
+      this.sound.play('interface_open');
+      this.emit();
+      return;
+    }
+    const def = SEED_BY_ID[patch.seedId!];
+    const left = wavesLeft(patch, this.wave);
+    this.notify(`${def.herbName} — ${left} wave${left === 1 ? '' : 's'} to go`, def.herbIcon);
+  }
+
+  /** Buy a seed into a bare patch. Like every refusal on this board, each way it
+   *  can fail says which one it was. */
+  sowSeed(patchId: string, seedId: SeedId) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    const patch = this.farmPatches.find(p => p.id === patchId);
+    if (!patch) return;
+    if (patch.seedId) { this.notify('Something is already growing there'); return; }
+    const def = SEED_BY_ID[seedId];
+    if (this.money < def.cost) { this.notify('Not enough gold'); return; }
+    this.money -= def.cost;
+    patch.seedId = seedId;
+    patch.sownAtWave = this.wave;
+    this.seedsSown += 1;
+    this.pendingSow = null;
+    this.sound.play('sell'); // the coin-shuffle: gold left the purse
+    this.notify(`${def.seedName} sown — ${def.waves} waves`, def.seedIcon);
+    this.emit();
+  }
+
+  /** Close the seed menu without buying anything. */
+  closeSow() {
+    if (this.pendingSow === null) return;
+    this.pendingSow = null;
+    this.sound.play('interface_close');
+    this.emit();
+  }
+
+  /** Pull a ripe herb. It arms the *next* wave, and only that one: harvesting a
+   *  second patch before Start Wave replaces the first rather than stacking it,
+   *  which is what keeps a pair of allotments a choice instead of a sum. */
+  harvestPatch(patchId: string) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    const patch = this.farmPatches.find(p => p.id === patchId);
+    if (!patch) return;
+    const def = harvestable(patch, this.wave);
+    if (!def) return;
+    patch.seedId = null;
+    patch.sownAtWave = 0;
+    this.pendingSow = null;
+    this.farmBuff = { seedId: def.id, wave: this.wave };
+    this.herbsHarvested += 1;
+    this.bumpCombatEpoch(); // a damage or range herb changes every tower's stats
+    this.sound.play('farm_harvest');
+    this.notify(`${def.herbName} — ${def.signature.label}`, def.herbIcon);
+    this.emit();
+  }
+
   startWave() {
     if (this.waveActive || this.gameOver) return;
     if (this.pendingRelics) { this.notify('Choose a relic first'); return; }
@@ -3027,6 +3166,7 @@ export class GameEngine {
     // pick up is simply gone — that is the frame's whole bargain: it never demands
     // to be dealt with, and it never gets in the way of the wave.
     this.diversions = [];
+    this.pendingSow = null; // the seed menu is a between-waves interface
     const configs = computeWaveConfigs(this);
     // A boss wave stays the headline act — no event rolls on it (see wave-events).
     const bossWave = configs.some(c => ENEMIES[c.type]?.isBoss);
@@ -3357,6 +3497,17 @@ export class GameEngine {
       kills: this.kills,
       goldEarned: this.goldEarned,
       towersBuilt: this.towersBuilt,
+      seedsSown: this.seedsSown,
+      herbsHarvested: this.herbsHarvested,
+      // Only what is actually in the ground: the plots themselves come back with
+      // the map, which the same save rebuilds from its seed.
+      farmPatches: this.farmPatches
+        .filter(p => p.seedId)
+        .map(p => ({ id: p.id, seedId: p.seedId!, sownAtWave: p.sownAtWave })),
+      // A herb pulled but not yet spent. The checkpoint is taken between waves,
+      // which is exactly the gap a harvest sits in, so leaving it out would quietly
+      // pocket the herb the player harvested a second before quitting.
+      farmBuff: this.farmBuff,
       fusedThisLeg: this.fusedThisLeg,
       essenceEarnedThisRun: this.essenceEarnedThisRun,
       // Tower cooldowns are stamped against this clock, so it travels with them.
@@ -3447,6 +3598,18 @@ export class GameEngine {
     this.kills = save.kills;
     this.goldEarned = save.goldEarned;
     this.towersBuilt = save.towersBuilt;
+    this.seedsSown = save.seedsSown ?? 0;
+    this.herbsHarvested = save.herbsHarvested ?? 0;
+    // The plots were rebuilt from the map seed above; this puts back what was
+    // growing in them. A patch the map no longer deals simply has nothing sown.
+    for (const s of save.farmPatches ?? []) {
+      const plot = this.farmPatches.find(p => p.id === s.id);
+      if (!plot) continue;
+      plot.seedId = s.seedId;
+      plot.sownAtWave = s.sownAtWave;
+    }
+    this.farmBuff = save.farmBuff ? { ...save.farmBuff } : null;
+    this.pendingSow = null;
     // A save from before fusion existed resumes with its forge unspent.
     this.fusedThisLeg = save.fusedThisLeg ?? false;
     this.essenceEarnedThisRun = save.essenceEarnedThisRun;
@@ -3584,6 +3747,10 @@ export class GameEngine {
     this.kills = 0;
     this.goldEarned = 0;
     this.towersBuilt = 0;
+    this.seedsSown = 0;
+    this.herbsHarvested = 0;
+    this.farmBuff = null;
+    this.pendingSow = null;
     this.fusedThisLeg = false;
     this.essenceEarnedThisRun = 0;
     this.caStats = emptyRunStats(this.gameMode, this.difficultyTier);

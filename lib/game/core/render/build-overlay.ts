@@ -97,7 +97,7 @@ export function drawBuildOverlay(gr: GameRenderer, ctx: CanvasRenderingContext2D
   let any = false;
   for (let i = 0; i < t.tiles.length; i++) {
     const kind = t.tiles[i];
-    if (kind !== 'unbuildable' && kind !== 'blocked') continue;
+    if (kind === 'open') continue; // everything else is ground you cannot build on
     ctx.rect((i % cols) * GRID, ((i / cols) | 0) * GRID, GRID, GRID);
     any = true;
   }

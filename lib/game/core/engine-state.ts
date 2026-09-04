@@ -9,6 +9,8 @@ import { type EnemyAffix } from '../systems/affixes';
 import { MECHANIC_BOSSES } from '../systems/boss-mechanics';
 import { type DiversionId, type DiversionMood } from '../data/diversions';
 import { type HunterTrapId } from '../data/hunter-traps';
+import { type SeedId } from '../data/farming';
+import { type PatchStage } from '../systems/farming';
 
 /**
  * The engine's vocabulary: the board's fixed resolution, the shape of every
@@ -400,6 +402,18 @@ export interface UIState {
   hunterXp: number;
   hunterXpNeeded: number;
   maxTraps: number;
+  /** The allotment patches this map dealt, flattened for the sow menu and the
+   *  between-waves infobox. The engine keeps the real list (the renderer reads it
+   *  live off the engine); this is only what the interface has to draw. */
+  farmPatches: {
+    id: string; stage: PatchStage; seedId: SeedId | null;
+    name: string; icon: string; wavesLeft: number;
+  }[];
+  /** The patch whose seed menu is open, or null. Set by clicking a bare patch. */
+  pendingSow: string | null;
+  /** The herb riding this wave — what was pulled and what it is doing. Null
+   *  between the harvest's wave and the next one, since a herb lasts one wave. */
+  farmBuff: { seedId: SeedId; herbName: string; icon: string; label: string; labelIcon: string; tip: string } | null;
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 11);

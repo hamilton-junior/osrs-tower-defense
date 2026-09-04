@@ -98,6 +98,9 @@ export const LEARN_STEPS: LearnStep[] = [
   { id: 'roadslide', target: 'map', icon: ASSETS.misc.spade, title: 'Straighten the road',
     body: 'The grip near a bend slides that whole stretch across — push it far enough and the bend goes.',
     when: (ui) => !ui.waveActive && ui.wave === 8 },
+  { id: 'farming', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Sow the allotment',
+    body: 'Click a bare patch between waves and pick a seed. The herb it grows buffs one whole wave.',
+    when: (ui) => !ui.waveActive && ui.wave === 5 && ui.farmPatches.length > 0 },
   { id: 'traps', target: 'dock', icon: itemIcon('bird_snare'), title: 'Trap the road',
     body: 'The Traps tab lays snares on the road itself. They never block it — enemies walk over them.',
     when: (ui) => !ui.waveActive && ui.wave === 7 },
@@ -245,6 +248,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.spade, text: 'A stretch of road slides whole by the grip near its bend, straightening the bend or growing it back.' },
     { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },
     { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
+    { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows buffs one whole wave.' },
     { icon: ASSETS.misc.compass, text: 'Tips appear in-game the first time each new thing shows up.' },
   ] },
   { id: 'towers', label: 'Towers', icon: ASSETS.towers.archer[1], lines: [

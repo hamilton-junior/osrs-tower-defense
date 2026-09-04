@@ -7,6 +7,7 @@ import {
   CORRIDOR_RADIUS,
   REPAIR_RADIUS,
   MIN_OPEN_NEAR,
+  MAX_PATCHES,
 } from './terrain-generation';
 
 // The board's fixed resolution (mirrors the engine constants).
@@ -51,7 +52,7 @@ describe('generateTerrain', () => {
       expect(t.cols).toBe(COLS);
       expect(t.rows).toBe(ROWS);
       expect(t.tiles).toHaveLength(COLS * ROWS);
-      for (const f of t.tiles) expect(['open', 'blocked', 'unbuildable']).toContain(f);
+      for (const f of t.tiles) expect(['open', 'blocked', 'unbuildable', 'farming']).toContain(f);
     }
   });
 
@@ -129,6 +130,55 @@ describe('generateTerrain', () => {
         expect(road[idx]).toBe(false);
       }
     }
+  });
+
+  // Farming patches are carved out of ground that was already taken, so every
+  // guarantee above (corridor, coverage, defensibility) sees the same field with
+  // or without them. These three pin that down.
+  describe('farming patches', () => {
+    it('deals one or two, and flags each of them on the tile grid', () => {
+      for (const { seed, path } of PATHS) {
+        const t = generateTerrain(seed, path, COLS, ROWS, GRID);
+        expect(t.patches.length, `seed ${seed}`).toBeGreaterThanOrEqual(1);
+        expect(t.patches.length, `seed ${seed}`).toBeLessThanOrEqual(MAX_PATCHES);
+        for (const p of t.patches) {
+          expect(t.tiles[p.row * COLS + p.col], `seed ${seed} @${p.col},${p.row}`).toBe('farming');
+        }
+        expect(t.tiles.filter(f => f === 'farming')).toHaveLength(t.patches.length);
+      }
+    });
+
+    it('never takes open ground, the road, or the build corridor', () => {
+      for (const { seed, path } of PATHS) {
+        const t = generateTerrain(seed, path, COLS, ROWS, GRID);
+        const road = computeRoadTiles(path, COLS, ROWS, GRID);
+        for (const p of t.patches) {
+          expect(road[p.row * COLS + p.col], `seed ${seed} on road`).toBe(false);
+          // Inside the corridor everything is open, and a patch only ever
+          // replaces a tile that was not.
+          let nearRoad = false;
+          for (let dr = -CORRIDOR_RADIUS; dr <= CORRIDOR_RADIUS && !nearRoad; dr++) {
+            for (let dc = -CORRIDOR_RADIUS; dc <= CORRIDOR_RADIUS; dc++) {
+              const nr = p.row + dr;
+              const nc = p.col + dc;
+              if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+              if (road[nr * COLS + nc]) { nearRoad = true; break; }
+            }
+          }
+          expect(nearRoad, `seed ${seed} in corridor`).toBe(false);
+        }
+      }
+    });
+
+    it('keeps a pair apart, so they read as two plots', () => {
+      for (const { seed, path } of PATHS) {
+        const { patches } = generateTerrain(seed, path, COLS, ROWS, GRID);
+        if (patches.length < 2) continue;
+        const [a, b] = patches;
+        expect(Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row)), `seed ${seed}`)
+          .toBeGreaterThanOrEqual(5);
+      }
+    });
   });
 
   it('varies terrain across seeds', () => {

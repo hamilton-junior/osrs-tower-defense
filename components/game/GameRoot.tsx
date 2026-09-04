@@ -28,6 +28,7 @@ import { SaveCodeModal } from './save-code';
 import { LEARN_STEPS, LearnAsYouGo, HowToPlay } from './tutorial';
 import { effectTag, DraftCardView } from './draft-cards';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '@/lib/game/data/hunter-traps';
+import { SEEDS, SEED_BY_ID } from '@/lib/game/data/farming';
 import { trapCost, blastProfile } from '@/lib/game/systems/hunter-traps';
 import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, towerListName, TOWER_COMBAT, towerSignature } from './tower-ui';
 import { GearHeader, GearStats, GearCompare, gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
@@ -111,6 +112,7 @@ const INITIAL: UIState = {
   gearDrops: [], gearDropSeq: 0,
   diversions: [],
   traps: [], selectedTrapId: null, hunterLevel: 1, hunterXp: 0, hunterXpNeeded: 10, maxTraps: 1,
+  farmPatches: [], pendingSow: null, farmBuff: null,
 };
 
 /** How long a loot-drop toast stays in the corner. Matches the CSS animation in
@@ -1231,6 +1233,11 @@ export default function GameRoot() {
   }
   // Active buffs anywhere, for the always-on infobox cluster (RuneLite-style).
   const activeInfoboxes = ui.geOffers.filter((o) => o.activeSecs > 0);
+  // Ripe allotments, for that same cluster. The patch glows on the board, but a
+  // player reading their build panel would never look at it — so the herb is a box
+  // up top as well, and the box pulls it. Only between waves, which is the only
+  // time a patch can be harvested at all.
+  const readyPatches = ui.waveActive ? [] : ui.farmPatches.filter((p) => p.stage === 'ready');
 
   // Pre-render the selected tower's stat values, highlighting buffed ones.
   let dmgNode: React.ReactNode = null;
@@ -2206,7 +2213,7 @@ export default function GameRoot() {
             </MovablePanel>
           )}
           {/* Event chip + potion infoboxes (existing row, now BELOW the strip). */}
-          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0 || ui.diversions.length > 0) && (
+          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0 || ui.diversions.length > 0 || readyPatches.length > 0 || ui.farmBuff) && (
             <div className="flex items-start gap-[0.4em]">
               {/* Keyed by wave so each wave's event re-announces itself on mount. */}
               {ui.waveActive && ui.activeEvent && <WaveEventChip key={ui.wave} event={ui.activeEvent} />}
@@ -2250,8 +2257,111 @@ export default function GameRoot() {
                   </button>
                 </HoverTip>
               ))}
+              {/* A ripe allotment. Same deal as a diversion: it is already on the
+                  board, and the box is the second place to reach it. No timer digit
+                  — a herb waits as long as it has to. */}
+              {readyPatches.map((p) => (
+                <HoverTip
+                  key={p.id}
+                  side="bottom"
+                  content={tipHeader(
+                    <span className="text-[0.85em] font-bold text-osrs-orange">{p.name}</span>,
+                    'Ripe. Pull it and it rides the next wave.',
+                    <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">Click</span>,
+                  )}
+                >
+                  <button
+                    type="button"
+                    className="rs-infobox pointer-events-auto"
+                    onClick={() => engineRef.current?.harvestPatch(p.id)}
+                  >
+                    <img src={p.icon} alt={p.name} onError={hideBrokenImg} />
+                  </button>
+                </HoverTip>
+              ))}
+              {/* The herb riding this wave. It expires on its own when the wave
+                  counter moves, so there is nothing to count down here either. */}
+              {ui.farmBuff && (
+                <HoverTip
+                  side="bottom"
+                  content={tipHeader(
+                    <span className="text-[0.85em] font-bold text-osrs-orange">{ui.farmBuff.herbName}</span>,
+                    ui.farmBuff.tip,
+                    <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">{ui.farmBuff.label}</span>,
+                  )}
+                >
+                  <div className="rs-infobox pointer-events-auto">
+                    <img src={ui.farmBuff.icon} alt={ui.farmBuff.herbName} onError={hideBrokenImg} />
+                  </div>
+                </HoverTip>
+              )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Seed menu — a bare allotment was clicked. It floats over the board rather
+          than living in the bar because the patch it is filling is on the board, and
+          it is a between-waves interface: pressing Start Wave closes it. Movable like
+          every other floating panel, so it never has to sit on top of the patch. */}
+      {ui.pendingSow !== null && (
+        <div
+          className="absolute left-1/2 bottom-[19%] -translate-x-1/2 z-30"
+          style={{ fontSize: fs('clamp(14px, 0.95vw, 20px)') }}
+        >
+          <MovablePanel id="sow" globalLock={uiLocked} className="rs-panel relative p-[0.6em] w-[20em]">
+            <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
+              <img src={ASSETS.misc.farming_icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+              <span>Sow a seed</span>
+            </div>
+            <p className="text-[0.68em] text-[#b3a585] leading-snug mt-[0.3em] px-[0.1em]">
+              It grows while you fight. The herb buffs one whole wave.
+            </p>
+            <div className="flex flex-col gap-[0.25em] mt-[0.45em]">
+              {SEEDS.map((s) => {
+                const broke = ui.money < s.cost;
+                return (
+                  <HoverTip
+                    key={s.id}
+                    side="top"
+                    content={tipHeader(
+                      <span className="text-[0.85em] font-bold text-osrs-orange">{s.herbName}</span>,
+                      s.tip,
+                      <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">Farming {s.level}</span>,
+                    )}
+                  >
+                    <button
+                      type="button"
+                      disabled={broke}
+                      title={broke ? `${s.seedName} costs ${s.cost} gp` : `Sow a ${s.seedName} — ready in ${s.waves} waves`}
+                      onClick={() => { if (ui.pendingSow) engineRef.current?.sowSeed(ui.pendingSow, s.id); }}
+                      className="rs-panel-inset w-full flex items-center gap-[0.5em] px-[0.45em] py-[0.3em] text-left hover:border-[var(--osrs-orange)] disabled:opacity-50 disabled:hover:border-[var(--rs-keyline)]"
+                    >
+                      <img src={s.seedIcon} alt="" className="w-[1.6em] h-[1.6em] object-contain shrink-0" onError={hideBrokenImg} />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[0.76em] text-[#e7d9b0] truncate">{s.herbName}</span>
+                        <span className="flex items-center gap-[0.25em] text-[0.6em] uppercase tracking-wide text-osrs-orange">
+                          <img src={s.signature.icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                          <span className="truncate">{s.signature.label}</span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className={`block text-[0.72em] tabular-nums ${broke ? 'text-osrs-warn' : 'text-osrs-yellow'}`}>{s.cost} gp</span>
+                        <span className="block text-[0.6em] text-[#b3a585] tabular-nums">{s.waves} waves</span>
+                      </span>
+                    </button>
+                  </HoverTip>
+                );
+              })}
+            </div>
+            <button
+              className="rs-btn w-full py-[0.3em] text-[0.72em] mt-[0.5em]"
+              title="Leave the patch empty"
+              onClick={() => engineRef.current?.closeSow()}
+            >
+              Close (Esc)
+            </button>
+          </MovablePanel>
         </div>
       )}
 
@@ -3043,6 +3153,12 @@ export default function GameRoot() {
               <GoStat icon={ASSETS.misc.coins_icon} label="Earned" value={`${fmt(engineRef.current?.goldEarned ?? 0)} gp`} />
               <GoStat icon={ASSETS.misc.multicombat_icon} label="Towers built" value={fmt(engineRef.current?.towersBuilt ?? 0)} />
               <GoStat icon={ASSETS.misc.compass} label="Survived" value={fmtTime(engineRef.current?.runSeconds ?? 0)} />
+              {(engineRef.current?.seedsSown ?? 0) > 0 && (
+                <>
+                  <GoStat icon={ASSETS.misc.farming_icon} label="Seeds sown" value={fmt(engineRef.current?.seedsSown ?? 0)} />
+                  <GoStat icon={SEED_BY_ID.guam.herbIcon} label="Herbs pulled" value={fmt(engineRef.current?.herbsHarvested ?? 0)} />
+                </>
+              )}
             </div>
             {/* Essence is the meta reward — call it out so the player sees the run paid off. */}
             <div className="rs-panel-inset flex items-center justify-center gap-[0.5em] py-[0.5em] mb-4 text-[0.95em]">
@@ -3095,6 +3211,12 @@ export default function GameRoot() {
               <GoStat icon={ASSETS.misc.compass} label="Cleared in" value={fmtTime(ui.victory.seconds)} />
               <GoStat icon={ASSETS.misc.attack_icon} label="Slain" value={fmt(engineRef.current?.kills ?? 0)} />
               <GoStat icon={ASSETS.misc.coins_icon} label="Earned" value={`${fmt(engineRef.current?.goldEarned ?? 0)} gp`} />
+              {(engineRef.current?.seedsSown ?? 0) > 0 && (
+                <>
+                  <GoStat icon={ASSETS.misc.farming_icon} label="Seeds sown" value={fmt(engineRef.current?.seedsSown ?? 0)} />
+                  <GoStat icon={SEED_BY_ID.guam.herbIcon} label="Herbs pulled" value={fmt(engineRef.current?.herbsHarvested ?? 0)} />
+                </>
+              )}
             </div>
             {/* Endless is a victory lap: the threat accelerates and the essence
                 faucet drops to a tenth (see essenceMultiplier). Say so before the

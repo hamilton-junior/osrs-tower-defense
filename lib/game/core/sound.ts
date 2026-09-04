@@ -54,6 +54,9 @@ export const GAME_SOUNDS: Record<string, string> = {
   select: ASSETS.sounds.misc.select,
   interface_open: ASSETS.sounds.misc.interface_open,
   interface_close: ASSETS.sounds.misc.interface_close,
+  // Pulling a herb out of an allotment: the cache's own item-pickup plop, which is
+  // literally the sound OSRS makes when a picked herb lands in the inventory.
+  farm_harvest: ASSETS.sounds.misc.pick_up,
 };
 
 // --- Per-prayer activation sounds ----------------------------------------

@@ -477,6 +477,8 @@ export const ASSETS = {
     trophy: itemIcon('trophy'),
     // The Hunter paw print (cache sprite 220) — the skill the road traps belong to.
     hunter_icon: `${LOCAL}/misc/hunter_icon.png`,
+    // The Farming sapling (cache sprite 217) — heads the allotment patches.
+    farming_icon: `${LOCAL}/misc/farming_icon.png`,
     // The Construction saw over a crate (cache sprite 221) — OSRS's own symbol for
     // something you build, so it labels the Towers half of the build dock.
     construction_icon: `${LOCAL}/misc/construction_icon.png`,
@@ -550,6 +552,16 @@ export const ASSETS = {
     heal: `${LOCAL}/hitsplats/heal.png`,     // purple cross (1629)
     armour: `${LOCAL}/hitsplats/armour.png`, // orange chestplate (1628)
     shield: `${LOCAL}/hitsplats/shield.png`, // teal shield (1419)
+  },
+  // The four looks a farming allotment has, rendered from the real OSRS allotment
+  // objects (scripts/render-osrs-objects.mjs). `soil` is the raked-earth quad the
+  // patch always stands on; the three crops draw *over* it, each baked as the plant
+  // alone so the soil underneath is the board's, not a second darker square.
+  farming: {
+    soil: `${LOCAL}/objects/patch_empty.png`,     // Allotment (8573)
+    sown: `${LOCAL}/objects/patch_sown.png`,      // Potato seed (8558)
+    growing: `${LOCAL}/objects/patch_growing.png`, // Potato plant (8559)
+    ready: `${LOCAL}/objects/patch_ready.png`,    // Potato (8562)
   },
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
   debuffs: {

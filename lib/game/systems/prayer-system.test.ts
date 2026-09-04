@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { PrayerSystem } from './prayer-system';
 import { DEFAULT_UPGRADES } from './meta-progression';
 import type { GameEngine } from '../core/engine';
+import type { SeedId } from '../data/farming';
 
 /** Minimal engine stand-in exposing just what PrayerSystem reads. */
 function makeEngine(cfg: {
@@ -9,12 +10,15 @@ function makeEngine(cfg: {
   waveActive: boolean;
   towers: { type: string; mageMode?: string; supportSpell?: string; targetId: string | null }[];
   prayerRegen?: number;
+  /** The herb riding this wave, if any — a Marrentill slows the drain. */
+  farmBuff?: SeedId | null;
 }): GameEngine {
   return {
     wave: cfg.wave,
     waveActive: cfg.waveActive,
     towers: cfg.towers,
     meta: { upgrades: { ...DEFAULT_UPGRADES, prayerRegen: cfg.prayerRegen ?? 0 } },
+    activeFarmBuff: () => cfg.farmBuff ?? null,
     playSound() {},
     notify() {},
     requestEmit() {},
@@ -42,6 +46,27 @@ describe('PrayerSystem — three best prayers, base drain', () => {
     prayTrio(p);
     p.update(1);
     expect(p.points).toBeCloseTo(99 - 14.4 * (1 - 0.08)); // 13.248/s → 85.75
+  });
+
+  // The one thing a Marrentill buys, and the only place it is spent. It multiplies
+  // the drain *after* the wards have taken their cut, so the two stack rather than
+  // one replacing the other.
+  it('drains 20% slower while a Marrentill is riding the wave', () => {
+    const e = makeEngine({ wave: 20, waveActive: true, towers: [ward()], prayerRegen: 0, farmBuff: 'marrentill' });
+    const p = new PrayerSystem(e);
+    p.points = 99;
+    prayTrio(p);
+    p.update(1);
+    expect(p.points).toBeCloseTo(99 - 14.4 * (1 - 0.08) * 0.8);
+  });
+
+  it('leaves the drain alone for a herb that is not the Marrentill', () => {
+    const e = makeEngine({ wave: 20, waveActive: true, towers: [ward()], prayerRegen: 0, farmBuff: 'torstol' });
+    const p = new PrayerSystem(e);
+    p.points = 99;
+    prayTrio(p);
+    p.update(1);
+    expect(p.points).toBeCloseTo(99 - 14.4 * (1 - 0.08));
   });
 
   it('drains a clean 14.4 pts/s with nothing helping', () => {

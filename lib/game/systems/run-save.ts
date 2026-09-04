@@ -3,6 +3,7 @@ import type { GameMode, RunModifiers, RunEffects, RelicEffects } from '../core/e
 import { clampTier, type DifficultyTier } from './difficulty';
 import { BIOMES, type BiomeId } from '../data/biomes';
 import { HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
+import { SEED_BY_ID, type SeedId } from '../data/farming';
 import { GEAR } from '../data/gear';
 import type { RunStats } from './combat-achievements';
 
@@ -65,6 +66,10 @@ export interface RunSave {
   kills: number;
   goldEarned: number;
   towersBuilt: number;
+  /** Seeds sown and herbs pulled this run, for the end-of-run summary. Optional:
+   *  a save written before farming existed resumes with both at 0. */
+  seedsSown?: number;
+  herbsHarvested?: number;
   /** Whether this leg has already spent its one tower fusion. Optional: a save
    *  written before fusion existed simply resumes with its forge unspent. */
   fusedThisLeg?: boolean;
@@ -126,6 +131,13 @@ export interface RunSave {
    *  checkpoint saves them because they were paid for between waves: losing them on
    *  a resume would quietly charge the player for nothing. */
   traps?: { defId: HunterTrapId; x: number; y: number; charges: number }[];
+  /** What is growing in the allotments. Only the sown ones travel — the plots
+   *  themselves come back with the map, which the same save rebuilds from its
+   *  seed, so a patch is addressed by its tile-derived id. */
+  farmPatches?: { id: string; seedId: SeedId; sownAtWave: number }[];
+  /** A herb pulled but not yet spent. The checkpoint sits in exactly the gap a
+   *  harvest happens in, so dropping it would pocket the player's herb. */
+  farmBuff?: { seedId: SeedId; wave: number } | null;
   slayer: {
     task: SlayerTask | null;
     points: number;
@@ -309,6 +321,23 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
           charges: Math.max(1, Math.floor(num(t.charges, 1))),
         }))
       : [],
+    // A seed id this build no longer grows takes its patch out of the save rather
+    // than the save out of the run — the same bargain the trap list strikes above.
+    farmPatches: Array.isArray(raw.farmPatches)
+      ? raw.farmPatches
+        .filter(isObj)
+        .filter((p) => typeof p.id === 'string' && typeof p.seedId === 'string' && p.seedId in SEED_BY_ID)
+        .map((p) => ({
+          id: p.id as string,
+          seedId: p.seedId as SeedId,
+          sownAtWave: Math.max(0, Math.floor(num(p.sownAtWave, 0))),
+        }))
+      : [],
+    farmBuff: isObj(raw.farmBuff) && typeof raw.farmBuff.seedId === 'string' && raw.farmBuff.seedId in SEED_BY_ID
+      ? { seedId: raw.farmBuff.seedId as SeedId, wave: Math.max(0, Math.floor(num(raw.farmBuff.wave, 0))) }
+      : null,
+    seedsSown: Math.max(0, Math.floor(num(raw.seedsSown, 0))),
+    herbsHarvested: Math.max(0, Math.floor(num(raw.herbsHarvested, 0))),
     slayer: {
       task: taskRaw && typeof taskRaw.type === 'string'
         ? {

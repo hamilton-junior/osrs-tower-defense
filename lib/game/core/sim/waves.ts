@@ -15,6 +15,8 @@ import { resolveEventMods } from '../../systems/wave-events';
 import { pickVariant, resetVariantBag } from '../../systems/model-variants';
 import { enemyLeakCost } from '../../systems/leak-cost';
 import { healingDenied } from '../../systems/tower-fusion';
+import { farmLivesOnClear } from '../../systems/farming';
+import { SEED_BY_ID } from '../../data/farming';
 import { bodyY } from '../../systems/enemy-anchor';
 import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, graardorIsSlamming, type BossId } from '../../systems/boss-mechanics';
 import { uid, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT, HITSPLAT_LIFE } from '../engine-state';
@@ -579,6 +581,14 @@ export function checkWaveEnd(eng: GameEngine) {
     eng.caStats.cleanWaveStreak = 0;
     eng.baseFlash = 1;
     if (eng.checkLethal()) { eng.emit(); return; }
+  }
+  // A Ranarr hands a life back for surviving the wave it was pulled for. Read
+  // before `wave` advances, while the herb is still the live one, and capped at
+  // the run's own maximum so it heals rather than inflates.
+  const restored = farmLivesOnClear(eng.activeFarmBuff());
+  if (restored > 0 && eng.lives < eng.maxLives) {
+    eng.lives = Math.min(eng.maxLives, eng.lives + restored);
+    eng.notify(`${SEED_BY_ID.ranarr.herbName} — a life restored`, SEED_BY_ID.ranarr.herbIcon);
   }
   eng.wave += 1;
   eng.caStats.maxWaveReached = Math.max(eng.caStats.maxWaveReached, eng.wave);

@@ -132,6 +132,13 @@ const TARGETS = {
   toadflax_seed: { name: 'Toadflax seed' },
   snapdragon_seed: { name: 'Snapdragon seed' },
   torstol_seed: { name: 'Torstol seed' },
+  // The farming patches (systems/farming) sow five herbs and hand back the grown
+  // herb, so each of the five needs both halves of its pair. Guam and Ranarr
+  // already had theirs above; these are the three seeds/herbs that did not.
+  marrentill_seed: { name: 'Marrentill seed' },
+  marrentill: { name: 'Marrentill' },
+  snapdragon: { name: 'Snapdragon' },
+  torstol: { name: 'Torstol' },
   onion_seed: { name: 'Onion seed' },
   cabbage_seed: { name: 'Cabbage seed' },
   sweetcorn_seed: { name: 'Sweetcorn seed' },
