@@ -29,9 +29,8 @@ NocoDB's `Status` to this file for the rows that are *finished* — Suggestions 
 31, 37, 38 → Implemented; Bug Reports 18, 22, 23 → Fixed. Partials (34, 35, 36), the
 deliberately-Planned 18, the queued rows and the `Not a Bug` 19 were left as they were.
 **Sync done (2026-09-04):** the pass that had been pending since 2026-09-03 went through —
-Suggestions 18, 34 and 36 are Implemented in NocoDB, and Bug Report 24 is Fixed. Suggestion 39
-stays `New` on purpose, waiting on the user; Bug Report 25 was fixed the same day and wants `Fixed`
-on the next pass.
+Suggestions 18, 34 and 36 are Implemented in NocoDB, and Bug Report 24 is Fixed. Bug Report 25 was fixed
+the same day and is `Fixed` there too. Suggestion 39 stays `New` on purpose, waiting on the user.
 
 ## Verdict vocabulary
 
