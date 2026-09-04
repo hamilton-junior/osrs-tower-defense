@@ -245,8 +245,11 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     all deliberate: no 10–15s despawn (they wait out the whole prep phase — a countdown would
     demand exactly the timing the house rule forbids), the Genie hands over a lamp instead of a
     three-option pick (a modal that must be answered is attention, not a diversion), the Strange
-    Plant pays a potion rather than a seed (**F2** does not exist yet), and Collection-Log
-    recording of NPCs met is **not** built — it needs a new log category, still open. The
+    Plant pays a potion rather than a seed — **F2** exists now (`0ac3ed7`), so a seed is a
+    payout this one could carry if it is ever worth re-opening. The last line of this row used
+    to say Collection-Log recording of NPCs met was unbuilt; it is built (re-checked 2026-09-04)
+    — the log's **Diversions** tab lists every entry in `data/diversions.ts` with a met count,
+    fed by `diversionsMet` on the engine, and that covers all three moods, not just the events. The
     original sketch, kept for the record:
     The OSRS random-event NPCs turn up on the board. They spawn on
     empty (non-road) tiles, stay 10–15s, and the player clicks them if he feels like it.
