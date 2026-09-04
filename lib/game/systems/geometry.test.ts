@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   distance, distanceSq, pointToSegmentDistance, isValidPlacement, squareRange, inSquareRange, knockbackStep,
   pathTotalLength, remainingPathDistance, advanceAlongPath, clampCursorToBoard, snapToTileCenter,
-  roadStretches, stretchAt,
+  roadStretches, stretchAt, laneLeg,
 } from './geometry';
 
 describe('snapToTileCenter', () => {
@@ -245,5 +245,57 @@ describe('stretchAt', () => {
   it('answers -1 for a segment that is not on the road', () => {
     expect(stretchAt(s, -1)).toBe(-1);
     expect(stretchAt(s, 99)).toBe(-1);
+  });
+});
+
+describe('laneLeg', () => {
+  // The board is 32px tiles and Dawn's lane is 82px wide (GUARDIAN_PAIR_OFFSET),
+  // so a road shift's corner is easily sharper than the lane is wide — which is
+  // the whole bug.
+  const OFF = 82;
+
+  it('leaves an enemy with no lane offset on the plain distance test', () => {
+    expect(laneLeg(0, 0, { x: 0, y: 0 }, { x: 100, y: 0 }, 0)).toEqual({ x: 100, y: 0, done: false });
+    expect(laneLeg(98, 0, { x: 0, y: 0 }, { x: 100, y: 0 }, 0).done).toBe(true);
+  });
+
+  it('aims a lane walker at a point beside the waypoint, perpendicular to the leg', () => {
+    // Walking east, a negative offset lifts the aim point north (−y).
+    const leg = laneLeg(0, -OFF, { x: 0, y: 0 }, { x: 100, y: 0 }, -OFF);
+    expect(leg.x).toBeCloseTo(100);
+    expect(leg.y).toBeCloseTo(-OFF);
+    expect(leg.done).toBe(false);
+  });
+
+  it('ends the leg the moment the walker draws level with the aim point', () => {
+    // Level with it but a whole lane to the side: the old distance test would have
+    // kept steering, which is what made her circle back.
+    expect(laneLeg(100, -OFF, { x: 0, y: 0 }, { x: 100, y: 0 }, -OFF).done).toBe(true);
+    expect(laneLeg(90, -OFF, { x: 0, y: 0 }, { x: 100, y: 0 }, -OFF).done).toBe(false);
+  });
+
+  it('never sends a lane walker backwards over a shifted road leg', () => {
+    // The corner pair a road shift carves out: east along y=0, a short leg north,
+    // then east again on y=−64. Dawn flies the whole thing 82px to the north.
+    const path = [
+      { x: 0, y: 0 }, { x: 320, y: 0 }, { x: 320, y: -64 }, { x: 640, y: -64 },
+    ];
+    // She has just finished the first leg, so she is level with x=320 in her lane.
+    const at = laneLeg(320, -OFF, path[0], path[1], -OFF);
+    expect(at.done).toBe(true);
+    // The next leg runs north, so its aim point is pushed *west* — to x=238, well
+    // behind her. Under the old rule she had to fly back to touch it.
+    const north = laneLeg(320, -OFF, path[1], path[2], -OFF);
+    expect(north.x).toBeCloseTo(320 - OFF);
+    expect(north.done).toBe(true); // already past it: skip the leg, do not turn round
+    // And the leg after that carries her forward again, as it should.
+    const east = laneLeg(320, -OFF, path[2], path[3], -OFF);
+    expect(east.done).toBe(false);
+    expect(east.x).toBeCloseTo(640);
+    expect(east.y).toBeCloseTo(-64 - OFF);
+  });
+
+  it('treats a zero-length segment as already walked', () => {
+    expect(laneLeg(10, 10, { x: 50, y: 50 }, { x: 50, y: 50 }, -OFF).done).toBe(true);
   });
 });

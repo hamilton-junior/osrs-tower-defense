@@ -280,3 +280,48 @@ export function stretchAt(stretches: RoadStretch[], seg: number): number {
   }
   return -1;
 }
+
+/** Where a lane walker is steering, and whether the leg it is on is finished. */
+export interface LaneLeg {
+  /** The point to steer at — the waypoint, pushed sideways by the lane offset. */
+  x: number;
+  y: number;
+  /** The leg is over: advance to the next waypoint. */
+  done: boolean;
+}
+
+/**
+ * The leg `from → to` as walked by an enemy carrying a lane `offset` — Dawn flies
+ * one lane clear of Dusk, so the pair does not render as a single blob. The aim
+ * point is the waypoint pushed perpendicular to the segment, which is what makes
+ * the parallel track.
+ *
+ * The subtle half is `done`. Two segments meeting at a corner put their aim points
+ * in *different* places, and the sharper the corner and the wider the lane, the
+ * further apart: on the tight corner pair a road shift carves out, the next leg's
+ * aim point can sit behind the walker. Asking her to come within `tolerance` of it
+ * then made Dawn cross the leg, turn round to collect a point she had already flown
+ * past, and cross it again. So a lane walker also finishes a leg by crossing the
+ * plane through the aim point perpendicular to the segment — the moment she is
+ * level with it, which on a straight road is the same instant the distance test
+ * fired. An enemy with no offset keeps the plain distance test and is untouched.
+ */
+export function laneLeg(
+  px: number,
+  py: number,
+  from: Point,
+  to: Point,
+  offset: number,
+  tolerance = 4,
+): LaneLeg {
+  if (!offset) return { x: to.x, y: to.y, done: distance(px, py, to.x, to.y) < tolerance };
+  const sx = to.x - from.x;
+  const sy = to.y - from.y;
+  const sl = Math.hypot(sx, sy) || 1;
+  const ux = sx / sl;
+  const uy = sy / sl;
+  const x = to.x - uy * offset;
+  const y = to.y + ux * offset;
+  const done = distance(px, py, x, y) < tolerance || (px - x) * ux + (py - y) * uy >= 0;
+  return { x, y, done };
+}

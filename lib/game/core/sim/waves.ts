@@ -18,6 +18,7 @@ import { healingDenied } from '../../systems/tower-fusion';
 import { farmLivesOnClear } from '../../systems/farming';
 import { SEED_BY_ID } from '../../data/farming';
 import { bodyY } from '../../systems/enemy-anchor';
+import { laneLeg } from '../../systems/geometry';
 import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, graardorIsSlamming, type BossId } from '../../systems/boss-mechanics';
 import { uid, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT, HITSPLAT_LIFE } from '../engine-state';
 import type { WavePreviewEntry } from '../engine-state';
@@ -515,23 +516,17 @@ export function moveEnemies(eng: GameEngine, dt: number) {
     // An enemy with a lane offset aims at a point *beside* the waypoint, perpendicular
     // to the segment it is on, so it walks a parallel track instead of the road's
     // centreline. Dawn flies one lane over from Dusk; without it the pair would occupy
-    // the same waypoints and render as a single blob.
-    let tx = target.x;
-    let ty = target.y;
-    if (e.laneOffset) {
-      const from = eng.path[e.pathIndex];
-      const sx = target.x - from.x;
-      const sy = target.y - from.y;
-      const sl = Math.hypot(sx, sy) || 1;
-      tx += (-sy / sl) * e.laneOffset;
-      ty += (sx / sl) * e.laneOffset;
-    }
-    const dx = tx - e.x;
-    const dy = ty - e.y;
-    const d = Math.hypot(dx, dy);
-    if (d < 4) {
+    // the same waypoints and render as a single blob. `laneLeg` also decides when the
+    // leg is over — a lane walker ends it by drawing level with the aim point, not by
+    // touching it, or a corner sharp enough puts the next aim point behind her and she
+    // turns round to collect it (which is what a shifted road leg did to Dawn).
+    const leg = laneLeg(e.x, e.y, eng.path[e.pathIndex], target, e.laneOffset ?? 0);
+    if (leg.done) {
       e.pathIndex += 1;
     } else {
+      const dx = leg.x - e.x;
+      const dy = leg.y - e.y;
+      const d = Math.hypot(dx, dy) || 1;
       e.x += (dx / d) * e.speed * dt;
       e.y += (dy / d) * e.speed * dt;
     }
