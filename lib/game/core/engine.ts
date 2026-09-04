@@ -1350,9 +1350,15 @@ export class GameEngine {
       ?? roadGrabAt(this.path, this.roadNotches, x, y, GRID);
   }
 
-  /** Where the grip on every slidable stretch sits — the renderer's list. */
+  /** Where the grip on every slidable stretch sits — the renderer's list. Only the
+   *  stretches that have somewhere to go: a grip the road cannot follow reads as a
+   *  broken button, so it is not drawn at all. Between waves only, so the per-frame
+   *  legality pass costs nothing while the fight is on. */
   roadLegHandles(): { seg: number; x: number; y: number }[] {
-    return legHandles(this.basePath, this.roadShifts, GRID);
+    const ctx = this.roadCtx();
+    return legHandles(this.basePath, this.roadShifts, GRID).filter(
+      h => legOptions(this.basePath, this.roadShifts, this.roadNotches, h.seg, ctx).length > 0,
+    );
   }
 
   /** Where a stretch of the dealt road currently runs, so the renderer can light the

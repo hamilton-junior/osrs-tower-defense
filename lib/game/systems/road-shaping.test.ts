@@ -47,6 +47,22 @@ const road = (): Point[] => [
   { x: 1472, y: 320 }, // exit stub
 ];
 
+/**
+ * The same road carrying a redundant waypoint mid-run, where nothing turns — the shape
+ * the generator's grid-snapping leaves behind on nearly every map it deals.
+ */
+const kinkedRoad = (): Point[] => [
+  { x: -32, y: 320 },
+  { x: 64, y: 320 }, // collinear with both its neighbours: not a corner at all
+  { x: 160, y: 320 },
+  { x: 160, y: 160 },
+  { x: 480, y: 160 },
+  { x: 480, y: 480 },
+  { x: 800, y: 480 },
+  { x: 800, y: 320 },
+  { x: 1472, y: 320 },
+];
+
 /** A road pinned to the top of the board, for the rules that only bite at an edge. */
 const edgeRoad = (): Point[] => [
   { x: -32, y: 32 },
@@ -507,6 +523,30 @@ describe('sliding a stretch of road', () => {
     // two runs on the same line pointing opposite ways — ground the road would have to
     // walk twice.
     expect(shiftRoad(road(), [{ seg: 1, dx: 10, dy: 0 }], GRID)).toBeNull();
+  });
+
+  it('slides a road that came with a redundant corner in it', () => {
+    // The map generator snaps its waypoints to the tile grid, and nearly every road it
+    // deals ends up with a waypoint sitting mid-run where nothing actually turns. That
+    // spare vertex belongs to no slide, and refusing the road over it used to kill the
+    // slide on almost every map.
+    const base = kinkedRoad();
+    expect(legOptions(base, [], [], 3, ctx()).map((o) => o.dir).sort()).toEqual(['down', 'up']);
+
+    const path = applyShifts(base, [{ seg: 3, dx: 0, dy: 1 }], GRID);
+    expect(path[3]).toEqual({ x: 160, y: 192 });
+    expect(path[4]).toEqual({ x: 480, y: 192 });
+    // The spare corner is left exactly where the generator put it.
+    expect(path[1]).toEqual({ x: 64, y: 320 });
+  });
+
+  it('still folds away a corner the slide itself straightened out', () => {
+    const base = kinkedRoad();
+    // Leg 2 is the five-tile climb; pushing leg 3 down onto the entry's line uses it up.
+    const path = applyShifts(base, [{ seg: 3, dx: 0, dy: 5 }], GRID);
+    expect(path.length).toBe(base.length - 2);
+    expect(path[1]).toEqual({ x: 64, y: 320 }); // the untouched one stays
+    expect(path[2]).toEqual({ x: 480, y: 320 }); // the squeezed turn is gone
   });
 
   it('never lets a stretch be pushed off the board', () => {

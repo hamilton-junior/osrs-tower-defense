@@ -635,7 +635,15 @@ function normalizeRoad(
     // ways. Merging them would delete the ground between them, so it is refused instead.
     if (abx === -bcx && aby === -bcy) return null;
     if (abx === bcx && aby === bcy) {
-      if (!touched.has(orig[i])) return null;
+      // A straight run with a waypoint sitting in the middle of it. If the slide made
+      // it, fold it away — that is a turn being squeezed out, and the two stretches it
+      // separated really have become one. If it was already there, leave it exactly
+      // where it is: the generator marks most roads with a redundant corner of its own
+      // (the entry stub meeting the first leg), and a spare vertex on a straight run
+      // changes nothing about where the road goes. This used to refuse the whole road
+      // instead, which — since nearly every map is dealt with one — is why almost no
+      // stretch could be slid at all.
+      if (!touched.has(orig[i])) { i++; continue; }
       path.splice(i, 1);
       orig.splice(i, 1);
       if (i > 1) i--;
