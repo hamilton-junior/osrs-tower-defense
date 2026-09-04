@@ -26,6 +26,9 @@ Re-queried 2026-08-25: nothing past the watermark, so it stands. That pass also 
 NocoDB's `Status` to this file for the rows that are *finished* — Suggestions 24, 27, 28,
 31, 37, 38 → Implemented; Bug Reports 18, 22, 23 → Fixed. Partials (34, 35, 36), the
 deliberately-Planned 18, the queued rows and the `Not a Bug` 19 were left as they were.
+**Pending sync (2026-09-03):** 34 and 36 are finished here and 18 has nothing live left, so
+all three want Implemented in NocoDB on the next pass — the MCP server would not connect the
+day they closed.
 
 ## Verdict vocabulary
 
@@ -83,13 +86,13 @@ if players push · no tag = ordinary backlog.
 | 14 | Wave 300+ clear feedback | shipped |
 | 16 | Accidentally selling towers | shipped — confirm step |
 | 17 | Alongar mapa (Bruno) | **half shipped** — **M7** answers the map-selection half: the run now travels, and every boss down lets the player pick the next region (`systems/travel.ts`). A *bigger* board is not on the table — the fixed 1440x640 logic space is a hard rule — so the "longer map" half stands as road-bending (`spade` notches) plus the new legs |
-| 18 | Big TD fan, long list | complaints shipped (movable panels, tower niches, placement `d815c10`); **stays Planned** in NocoDB — two of its asks are still backlog: tower fusion (**M6**) and a gold sink (**M5**) |
+| 18 | Big TD fan, long list | complaints shipped (movable panels, tower niches, placement `d815c10`); **stays Planned** in NocoDB — tower fusion (**M6**) shipped (`f058ef5`..`0896c31`), and the gold sink (**M5**) is descartado, so nothing on the row is live any more |
 | 19 | Improvements to balancing | shipped |
 | 20 | Hotkeys | shipped |
 | 21 | Upgrade All Towers | shipped — group auto-upgrade, cheapest-first |
 | 22 | Boss Balance | shipped — Regen decay `db42ad0`, Mole `52fb016`, per-boss "how to kill" text `a0aff14`, multi-boss floor moved to wave 20 `6fdebeb` |
 | 23 | Bosses again | shipped — `29382f0` (leak cost quoted on the enemy panel / wave preview / on leak; an escaped Guardian is never revived) |
-| 24 | Too Easy not enough content | **shipped** (user's call, 2026-08-21) — the difficulty half is solved (scaling, Scurrius, weaknesses, the New Game+ ladder). The content half is not verified against the report, but it is tracked on its own as M1/M5, so this row is closed rather than re-litigated |
+| 24 | Too Easy not enough content | **shipped** (user's call, 2026-08-21) — the difficulty half is solved (scaling, Scurrius, weaknesses, the New Game+ ladder). The content half is not verified against the report, but both items it was tracked under (**M1** new bosses, **M5** a gold sink) are descartados as of 2026-09-03, so this row is closed for good rather than re-litigated |
 | 25 | See collection log when in card select | shipped — the offered alternative ("mark the cards I have not collected yet") is the NEW badge on never-kept draft cards (`08f9d6a`); the full in-draft log is not built, but the suggestion was an OR and the alt satisfies it |
 | 26 | Game ideas (11-item list) | queued — one point landed (road no longer reads as a car lane, `8fd8f66`); the rest (tower-spam curb, branching upgrades, tower XP, hand-drawn maps, win condition, campaign, monster drops, resources, traps, melee-spawning towers) is a long design backlog spanning M4/M6/M7 |
 | 27 | Ease of Late Game | **shipped** — the late-game break is closed as far as the report goes: the damage soft-cap, the draft re-weighting and the A1/A4 curve landed, and the user signed it off 2026-08-21 |
@@ -99,9 +102,9 @@ if players push · no tag = ordinary backlog.
 | 31 | Local Login/Save | **shipped** — P1 portable save (2026-08-23, item 13 below): the 💾 Save/Load Game code exports and re-imports the whole account. The user called it important (2026-08-21). Only localStorage persists today; there is still no backend and none planned, so the save code is the answer here rather than an account/login |
 | 32 | Zoom In/Out | queued **[low]** — stays in the backlog (user, 2026-08-21). Map zoom was explicitly deferred during the map-uniqueness work; overlaps **M7** |
 | 33 | Card Categories | queued **[later]** — worth thinking about and eventually adjusting, but **the roguelite is not the focus for now** (user, 2026-08-21), and cards are roguelite-side. The tension stands: `d3ccf3c` ranks rarity by *power*, this asks to rank it by the OSRS item hierarchy |
-| 34 | Mega rares (scythe/shadow/tbow) + pick your own map + periodic level-swap w/ full refund | **partially shipped** — the top-tier item half is in (mega-rare gear exists), and map picking landed the way the direction demanded: **M7** makes the run travel, and the fork between legs *is* the map choice (two regions, the locals shown, the road and your towers kept). Still open: the periodic level-swap with a full refund |
+| 34 | Mega rares (scythe/shadow/tbow) + pick your own map + periodic level-swap w/ full refund | **closed 2026-09-03** — the top-tier item half is in (mega-rare gear exists), and map picking landed the way the direction demanded: **M7** makes the run travel, and the fork between legs *is* the map choice (two regions, the locals shown, the road and your towers kept). The level-swap with a full refund was asked for against a game where changing map meant starting over. **M7** answers it a different way: the run travels, and a tower keeps its level, its gear and its spot across every leg, so there is nothing left for a refund to undo |
 | 35 | Construction (Mazing) mode | queued **[high-interest]** — the user likes the two parts that matter (2026-08-21): letting the player **alter the pathing**, and putting **towers/traps on the road itself**. The full separate mode is still design-first; those two mechanics are the piece worth designing |
-| 36 | Unique items feel unreachable / underpowered | **half shipped** — `4302a5e` (2026-08-23). Will, 2026-08-20 (found the game via the B0aty channel). The reachability half is fixed and was measured first: level 40 cost 844k XP, which a tower on a sixth of a normal board's damage only banked by wave 83 against a wave-90 run, so the last rung of every ladder was decoration. Curve is `level^1.6` now (level 40 by wave 55, tier 4 at wave 26 instead of 37). The measurement also caught what he was seeing: the support wizard earned 20% of *each* covered tower's damage, so an aura over five attackers paid it all five — that share is split across the covered attackers now. **Still open (item design, not reachability):** Blood Fury restoring a life, the Salve amulet as flat + % (base 20 + 20%), and a Tenacity-shredding unique (Holy Water-style −5% defence on demons; Amulet of the Damned another candidate) |
+| 36 | Unique items feel unreachable / underpowered | **shipped in full** — `4302a5e` (2026-08-23) then `94908d2` (2026-09-03). Will, 2026-08-20 (found the game via the B0aty channel). The reachability half is fixed and was measured first: level 40 cost 844k XP, which a tower on a sixth of a normal board's damage only banked by wave 83 against a wave-90 run, so the last rung of every ladder was decoration. Curve is `level^1.6` now (level 40 by wave 55, tier 4 at wave 26 instead of 37). The measurement also caught what he was seeing: the support wizard earned 20% of *each* covered tower's damage, so an aura over five attackers paid it all five — that share is split across the covered attackers now. **Item design closed 2026-09-03.** Every signature is flat + % now (base 20 + 20%), so it keeps paying on a maxed tower. Blood fury kept its damage curve and gained the life back: killing with it has a small chance to repair one leaked life, once a wave, and never banks past full. The Tenacity shred shipped as a third signature, the **Amulet of the damned**, which buys no damage at all — its hits leave the target unable to shrug off slows and stuns for 4s (half tenacity), ignored while a boss is escalating so gear cannot re-open the perma-lock the escalation exists to close. The demon-only Holy Water variant was rejected: it would ask the player to point a specific tower at a specific target |
 | 37 | Fang tower (rapid-fire range) is weak | shipped — `3a992ab` (2026-08-23). Will, 2026-08-20. A **niche failure**, not just numbers, and the cause was in the ramp: venom is the toxic tower's whole compensation for hitting soft, and its step was 15% of the *hit* — the tower's weakest stat — so on wave 90 it climbed 8 dps at a time toward a 153 dps ceiling, nineteen reapplies and about twenty-one seconds of unbroken fire on one enemy. Nothing lives that long inside one tower's range, so the niche existed only in the source. The step is a fraction of the CAP now (`VENOM_RAMP_HITS = 5`), saturating over roughly one enemy's pass through the range square at any wave; Magic Fang also fired at 3 ticks between two tiers firing at 2, so upgrading into it made the tower slower *and* the ramp slower. Damage untouched on purpose — with the ramp working the tower passes Emberlight on a single target from wave ~50 (497 vs 475 over 5s; 681 vs 475 at wave 90), which is the scaling-tower shape it was written for. The dart-gear and essence-upgrade asks are folded into #36's open half |
 | 38 | Towers should re-target on every attack | shipped — `5059de2` (2026-08-21). Will, 2026-08-20. Aggro stuck to the first target until it died or left range, so towers kept chewing on Vorkath while an abyssal demon walked to the exit, and the workaround was marquee-selecting every tower and re-applying the priority. The pick is now redone on every firing opportunity — the extra scan runs at most once per `TICK` per tower, since it is gated on the cooldown being ready |
 
@@ -118,7 +121,11 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
 4. **Boss clarity & balance** (suggestions #22, #23, bug #10) — *shipped in full*:
    Dusk/Dawn revive loop, Mole dig frequency, visible HP-loss-on-leak, the per-boss
    "how to kill" text and the multi-boss floor (now wave 20).
-5. **M1** new bosses (KBD/Graardor/Corp/Nex/Zuk/Verzik/Olm) — later.
+5. **M1** new bosses (KBD/Graardor/Corp/Nex/Zuk/Verzik/Olm) — **descartado** (user, 2026-09-03).
+    Everything but Verzik and Olm was built along the way (KBD, Graardor, Corp, Nex, Zuk all
+    have their own mechanic in `systems/boss-mechanics.ts`); the two left are the two whose
+    encounters are least translatable to a fixed board, and the user closed the item rather
+    than carry them. Do not propose them as a next step.
 6. **M2** combat achievements — *shipped in full* (`2c65334`..`2da53b4`): 40 tasks across the six
    real OSRS tiers (Easy…Grandmaster) as pure predicates over facts the engine records per run,
    evaluated at wave end and boss death, celebrated with the collection-log unlock popup and
@@ -128,7 +135,13 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
 7. **M4** roguelite reset-loop / meta rework — **descartado por ora** (user, 2026-09-01).
     Not rejected on its merits: the roguelite simply is not the focus, so the whole reset-loop
     rework is off the list until the user puts it back. Do not propose it as a next step.
-8. **M6** tower fusion (must respect the closed roster) — think about soon.
+8. **M6** tower fusion — *shipped in full* (`f058ef5`..`0896c31`). Two maxed towers standing
+    side by side forge into one weapon neither could be alone — six fusions, each a real OSRS
+    weapon, and every one of them respecting the closed roster: a fusion consumes both towers
+    rather than adding a seventh buyable one. The board teaches it before it can happen (every
+    tower's panel names what it forges into, and the forge announces itself the moment it is
+    earned), the damage meter breaks out what each fusion actually bought, and the Collection
+    Log keeps a **Forge** page listing all six with their two halves and a build count.
 9. **M7** maps — *shipped*: the run **travels**. Every boss put down ends a leg
     (`systems/travel.ts`): the road forks at that wave's end and offers two regions, each card painted
     in that region's own palette and showing the monsters native to it; picking one re-skins
@@ -195,8 +208,9 @@ towers · a chinchompa AoE tower · M10 utility/buff-support tower.
       showing. The run save carries the level and the laid traps
       (`RUN_SAVE_VERSION` unchanged at 3).
 
-15. **V1** a victory-only currency + a permanent-unlock shop — *queued, design-first*
-    (user's own idea, 2026-08-21). Winning a run should pay a currency that exists
+15. **V1** a victory-only currency + a permanent-unlock shop — **adiado** (user, 2026-09-03);
+    the design below stands as written and is what to pick up when it comes back. *Queued,
+    design-first* (user's own idea, 2026-08-21). Winning a run should pay a currency that exists
     **only** for winning, spendable on *unique permanent* bonuses — one-off unlocks,
     not another rank of the essence upgrades. It has to stay distinct from **rune
     essence**, which is earned every wave, spent on repeatable upgrade ranks, and
@@ -241,7 +255,9 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     click calls `handleNpcClick(type)`, applies the reward at once, despawns and toasts.
     NPCs met are recorded in the Collection Log (new tab or an existing one widened).
 
-17. **F2 farming patches** — 1–2 allotment tiles placed procedurally with the terrain.
+17. **F2 farming patches** — **adiado** (user, 2026-09-03), but explicitly *kept*: this and
+    **F7** are the two Fun-Content items still on the list. 1–2 allotment tiles placed
+    procedurally with the terrain.
     Between waves the player clicks a patch and sows a cheap seed (10–30gp); it ripens
     over ~5 waves through visible stages (dry → sprout → small plant → mature), glows green
     when ready, and harvesting grants a buff lasting one full wave.
@@ -253,7 +269,9 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     from the cache; harvest applies a temporary `runMods` entry cleared on the following
     `startWave`; seeds sown/harvested counted in the run stats.
 
-18. **F3 boss heads / Trophy Hall** — every boss can drop its severed head at **1/30**,
+18. **F3 boss heads / Trophy Hall** — **descartado** (user, 2026-09-03). Kept below only
+    because **F8**'s Trophy Hall room is written against it, so anyone reviving that room needs
+    to know what it was hanging. Every boss can drop its severed head at **1/30**,
     rolled per boss (not per run), purely cosmetic and persisted account-wide. A Trophy
     Hall panel (its own, or a Collection Log tab) shows a wall of slots: a dark silhouette
     until the head is won, then the head itself, each with an OSRS-style examine line
@@ -331,7 +349,8 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     same spawner as **F1**/**F5** wearing a third mood — one system, three payload kinds — so it
     should not get its own timer, its own click handler or its own spawn scan.
 
-23. **F7 fishing spots** — water terrain finally does something (user, 2026-08-21). A water tile
+23. **F7 fishing spots** — **adiado** (user, 2026-09-03), kept alongside **F2** as the other
+    live Fun-Content item. Water terrain finally does something (user, 2026-08-21). A water tile
     grows an animated bubble spot; clicking it **between waves** fishes for ~3s on a simple
     progress bar and yields food that restores lives when eaten between waves: shrimp +1, trout
     +2, lobster +3, shark +5, manta ray +8 (very rare). A spot is exhausted after one or two
@@ -349,4 +368,6 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     whose throne tracks prestige, a **Garden** growing whichever **F2** seeds the player plants
     most. Purely a view — nothing is clickable, the player just looks at it. Its value is that
     it makes every *other* item on this list visible in one place, which is also why it can only
-    be built after them: with F2/F3 unbuilt the house is a rug and nothing else.
+    be built after them: with F2/F3 unbuilt the house is a rug and nothing else. **F3 is
+    descartado** as of 2026-09-03, so a Trophy Hall room here would have to bring its own
+    reason to exist — or the room simply drops and the other five carry the house.
