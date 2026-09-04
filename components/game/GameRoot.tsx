@@ -15,6 +15,7 @@ import { towerXpForLevel } from '@/lib/game/systems/leveling';
 import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
 import { HoverTip } from './HoverTip';
+import { VolumeControl } from './VolumeControl';
 import { tipHeader, WavePreviewCard, DRAFT_FLY_MS, WaveEventChip } from './wave-ui';
 import type { BiomeId } from '@/lib/game/data/biomes';
 import { TravelCardView } from './travel-ui';
@@ -208,22 +209,6 @@ export default function GameRoot() {
   // Collection Log and Debug still open their own larger windows.
   const [tab, setTab] = useState<SideTab | null>(null);
   const [logOpen, setLogOpen] = useState(false);
-  // The volume slider lives over the mute button and only comes out on hover, so the
-  // bar keeps that width for buttons. `volDrag` holds it open while the knob is being
-  // dragged: the pointer wanders off the popup mid-drag, and losing the slider under
-  // your own hand is worse than the space it costs.
-  const [volHover, setVolHover] = useState(false);
-  const [volDrag, setVolDrag] = useState(false);
-  useEffect(() => {
-    if (!volDrag) return;
-    const up = () => setVolDrag(false);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
-    return () => {
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
-    };
-  }, [volDrag]);
   // Highest Combat Achievement tier cleared in full — a cosmetic title and nothing
   // more: it gates no control, mode or difficulty tier.
   const caTitle = useMemo(() => highestTitle(new Set(ui.achievements)), [ui.achievements]);
@@ -367,8 +352,8 @@ export default function GameRoot() {
         (parseFloat(es.marginLeft) || 0) + (parseFloat(es.marginRight) || 0);
       const natural = (el: HTMLElement, isBar = false): number => {
         const es = getComputedStyle(el);
-        // Taken out of the flow (the volume popup over the mute button): it sits over
-        // the row rather than in it, and takes none of its width.
+        // Out of the flow: it sits over the row rather than in it, and takes none of
+        // its width.
         if (es.position === 'absolute' || es.position === 'fixed') return 0;
         if (el.dataset.fit === 'min') return (parseFloat(es.minWidth) || 0) + margins(es);
         const inner = [...el.children] as HTMLElement[];
@@ -3886,49 +3871,15 @@ export default function GameRoot() {
                   <span className="rs-key">{key}</span>
                 </button>
               ))}
-              {/* Mute, with the volume slider parked above it until you reach for it.
-                  The popup is `absolute`, so it costs the row no width — that is the
-                  whole point of hiding it, and `natural()` above skips out-of-flow
-                  children so the measurement agrees. `pb` on the wrapper, not a
-                  margin, keeps the hover unbroken between button and slider. */}
-              <div
-                className="relative ml-[0.33em]"
-                onMouseEnter={() => setVolHover(true)}
-                onMouseLeave={() => setVolHover(false)}
-              >
-                <button
-                  onClick={() => engineRef.current?.toggleMute()}
-                  title={ui.muted ? 'Unmute (M)' : 'Mute (M)'}
-                  className="rs-btn relative px-[0.66em] py-[0.33em] text-[0.7em]"
-                >
-                  {ui.muted ? '🔇' : '🔊'}
-                  <span className="rs-key">M</span>
-                </button>
-                {(volHover || volDrag) && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-[0.4em] z-30">
-                    <div className="rs-panel flex items-center gap-[0.4em] px-[0.6em] py-[0.4em] whitespace-nowrap">
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={ui.muted ? 0 : ui.volume}
-                        onChange={(e) => engineRef.current?.setVolume(Number(e.target.value))}
-                        onPointerDown={() => setVolDrag(true)}
-                        title={`Volume ${Math.round(ui.volume * 100)}%`}
-                        className="rs-volume w-[6em]"
-                        aria-label="Volume"
-                      />
-                      <span
-                        className="text-[0.7em] text-osrs-orange tabular-nums w-[2.7em] text-right select-none"
-                        title="Current volume"
-                      >
-                        {ui.muted ? 'off' : `${Math.round(ui.volume * 100)}%`}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Mute, with the volume slider parked above it until you reach for it —
+                  the slider is portalled onto the body, because this control group
+                  clips itself and would otherwise cut the whole flyout away. */}
+              <VolumeControl
+                volume={ui.volume}
+                muted={ui.muted}
+                onVolume={(v) => engineRef.current?.setVolume(v)}
+                onToggleMute={() => engineRef.current?.toggleMute()}
+              />
             </div>
 
             {/* Global UI text-size nudge, on top of the viewport-adaptive base size.
