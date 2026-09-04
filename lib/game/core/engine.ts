@@ -61,7 +61,7 @@ import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunt
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
   buildFarmPatches, farmGoldMult, farmTowerMods, harvestable, patchAtPoint, patchStage, wavesLeft,
-  type FarmBuff, type FarmPatch,
+  type FarmPatch,
 } from '../systems/farming';
 import {
   HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
@@ -384,15 +384,15 @@ export class GameEngine {
   farmPatches: FarmPatch[] = [];
   /** The patch whose seed menu is open, or null. */
   pendingSow: string | null = null;
-  /** The herb riding a wave. One at a time, and one wave long — see
-   *  {@link activeFarmBuff}, which is what every system actually reads. */
-  farmBuff: FarmBuff | null = null;
+  /** The herb riding a wave. One at a time, and one wave long: a harvest arms it
+   *  and clearing that wave spends it (see the wave-end path in core/sim/waves).
+   *  Spent by the wave that was actually fought rather than by a wave number, for
+   *  the same reason a patch counts its own waves — see systems/farming. */
+  farmBuff: SeedId | null = null;
 
-  /** The herb in effect *right now*, or null. A harvest stamps the wave it was
-   *  pulled for, so the buff expires by arithmetic rather than by a timer someone
-   *  has to remember to clear. */
+  /** The herb in effect *right now*, or null. What every system reads. */
   activeFarmBuff(): SeedId | null {
-    return this.farmBuff && this.farmBuff.wave === this.wave ? this.farmBuff.seedId : null;
+    return this.farmBuff;
   }
 
   // --- composed subsystems ---
@@ -740,11 +740,11 @@ export class GameEngine {
         const def = p.seedId ? SEED_BY_ID[p.seedId] : null;
         return {
           id: p.id,
-          stage: patchStage(p, this.wave),
+          stage: patchStage(p),
           seedId: p.seedId,
           name: def ? def.herbName : 'Allotment',
           icon: def ? def.herbIcon : ASSETS.misc.farming_icon,
-          wavesLeft: wavesLeft(p, this.wave),
+          wavesLeft: wavesLeft(p),
         };
       }),
       pendingSow: this.pendingSow,
@@ -3102,7 +3102,7 @@ export class GameEngine {
    *  is in there, how much longer, and the offer to dig it up again. */
   private clickPatch(patch: FarmPatch) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
-    if (patchStage(patch, this.wave) === 'ready') { this.harvestPatch(patch.id); return; }
+    if (patchStage(patch) === 'ready') { this.harvestPatch(patch.id); return; }
     this.pendingSow = patch.id;
     this.sound.play('interface_open');
     this.emit();
@@ -3119,7 +3119,7 @@ export class GameEngine {
     if (this.money < def.cost) { this.notify('Not enough gold'); return; }
     this.money -= def.cost;
     patch.seedId = seedId;
-    patch.sownAtWave = this.wave;
+    patch.grown = 0;
     this.seedsSown += 1;
     this.pendingSow = null;
     this.sound.play('sell'); // the coin-shuffle: gold left the purse
@@ -3135,10 +3135,10 @@ export class GameEngine {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
     const patch = this.farmPatches.find(p => p.id === patchId);
     if (!patch || !patch.seedId) return;
-    if (patchStage(patch, this.wave) === 'ready') { this.harvestPatch(patchId); return; }
+    if (patchStage(patch) === 'ready') { this.harvestPatch(patchId); return; }
     const def = SEED_BY_ID[patch.seedId];
     patch.seedId = null;
-    patch.sownAtWave = 0;
+    patch.grown = 0;
     this.pendingSow = null;
     this.sound.play('interface_close');
     this.notify(`${def.seedName} dug up — no refund`, def.seedIcon);
@@ -3160,12 +3160,12 @@ export class GameEngine {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
     const patch = this.farmPatches.find(p => p.id === patchId);
     if (!patch) return;
-    const def = harvestable(patch, this.wave);
+    const def = harvestable(patch);
     if (!def) return;
     patch.seedId = null;
-    patch.sownAtWave = 0;
+    patch.grown = 0;
     this.pendingSow = null;
-    this.farmBuff = { seedId: def.id, wave: this.wave };
+    this.farmBuff = def.id;
     this.herbsHarvested += 1;
     this.bumpCombatEpoch(); // a damage or range herb changes every tower's stats
     this.sound.play('farm_harvest');
@@ -3523,7 +3523,7 @@ export class GameEngine {
       // the map, which the same save rebuilds from its seed.
       farmPatches: this.farmPatches
         .filter(p => p.seedId)
-        .map(p => ({ id: p.id, seedId: p.seedId!, sownAtWave: p.sownAtWave })),
+        .map(p => ({ id: p.id, seedId: p.seedId!, grown: p.grown })),
       // A herb pulled but not yet spent. The checkpoint is taken between waves,
       // which is exactly the gap a harvest sits in, so leaving it out would quietly
       // pocket the herb the player harvested a second before quitting.
@@ -3626,9 +3626,9 @@ export class GameEngine {
       const plot = this.farmPatches.find(p => p.id === s.id);
       if (!plot) continue;
       plot.seedId = s.seedId;
-      plot.sownAtWave = s.sownAtWave;
+      plot.grown = s.grown;
     }
-    this.farmBuff = save.farmBuff ? { ...save.farmBuff } : null;
+    this.farmBuff = save.farmBuff ?? null;
     this.pendingSow = null;
     // A save from before fusion existed resumes with its forge unspent.
     this.fusedThisLeg = save.fusedThisLeg ?? false;

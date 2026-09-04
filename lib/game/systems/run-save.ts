@@ -134,10 +134,10 @@ export interface RunSave {
   /** What is growing in the allotments. Only the sown ones travel — the plots
    *  themselves come back with the map, which the same save rebuilds from its
    *  seed, so a patch is addressed by its tile-derived id. */
-  farmPatches?: { id: string; seedId: SeedId; sownAtWave: number }[];
+  farmPatches?: { id: string; seedId: SeedId; grown: number }[];
   /** A herb pulled but not yet spent. The checkpoint sits in exactly the gap a
    *  harvest happens in, so dropping it would pocket the player's herb. */
-  farmBuff?: { seedId: SeedId; wave: number } | null;
+  farmBuff?: SeedId | null;
   slayer: {
     task: SlayerTask | null;
     points: number;
@@ -330,12 +330,24 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
         .map((p) => ({
           id: p.id as string,
           seedId: p.seedId as SeedId,
-          sownAtWave: Math.max(0, Math.floor(num(p.sownAtWave, 0))),
+          // Saves written while farming still read the wave counter stored the wave
+          // the seed went in; the same number of waves have gone by either way, so
+          // they resume where they were rather than costing the version a bump.
+          grown: 'grown' in p
+            ? Math.max(0, Math.floor(num(p.grown, 0)))
+            : Math.max(0, Math.floor(num(raw.wave, 1)) - Math.floor(num(p.sownAtWave, 0))),
         }))
       : [],
-    farmBuff: isObj(raw.farmBuff) && typeof raw.farmBuff.seedId === 'string' && raw.farmBuff.seedId in SEED_BY_ID
-      ? { seedId: raw.farmBuff.seedId as SeedId, wave: Math.max(0, Math.floor(num(raw.farmBuff.wave, 0))) }
-      : null,
+    // Same story: it used to be `{ seedId, wave }`, live only on the wave it was
+    // stamped with. A resumed checkpoint sits between waves, so an older buff comes
+    // back only if it was still the live one when the game was put down.
+    farmBuff: typeof raw.farmBuff === 'string' && raw.farmBuff in SEED_BY_ID
+      ? raw.farmBuff as SeedId
+      : isObj(raw.farmBuff) && typeof raw.farmBuff.seedId === 'string'
+        && raw.farmBuff.seedId in SEED_BY_ID
+        && num(raw.farmBuff.wave, -1) === num(raw.wave, 1)
+        ? raw.farmBuff.seedId as SeedId
+        : null,
     seedsSown: Math.max(0, Math.floor(num(raw.seedsSown, 0))),
     herbsHarvested: Math.max(0, Math.floor(num(raw.herbsHarvested, 0))),
     slayer: {

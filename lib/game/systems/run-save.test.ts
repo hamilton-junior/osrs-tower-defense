@@ -219,6 +219,45 @@ describe('caStats', () => {
   });
 });
 
+describe('the allotments', () => {
+  it('round-trips what is growing and the herb in hand', () => {
+    const save = makeSave({
+      farmPatches: [{ id: 'p3_4', seedId: 'guam', grown: 2 }],
+      farmBuff: 'ranarr',
+    });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.farmPatches).toEqual([{ id: 'p3_4', seedId: 'guam', grown: 2 }]);
+    expect(back?.farmBuff).toBe('ranarr');
+  });
+
+  // Patches used to store the wave they were sown on. The save carries the wave it
+  // was taken at, so the waves that went by are still known — an in-progress run
+  // survives the change instead of the version refusing it.
+  it('converts a patch saved as the wave it was sown on', () => {
+    const save = makeSave({ wave: 7, farmPatches: [{ id: 'p3_4', seedId: 'guam', sownAtWave: 5 }] });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.farmPatches).toEqual([{ id: 'p3_4', seedId: 'guam', grown: 2 }]);
+  });
+
+  it('keeps an old herb only while it was still the live one', () => {
+    const live = sanitizeRunSave(JSON.parse(JSON.stringify(
+      makeSave({ wave: 7, farmBuff: { seedId: 'guam', wave: 7 } }),
+    )));
+    const spent = sanitizeRunSave(JSON.parse(JSON.stringify(
+      makeSave({ wave: 7, farmBuff: { seedId: 'guam', wave: 6 } }),
+    )));
+    expect(live?.farmBuff).toBe('guam');
+    expect(spent?.farmBuff).toBeNull();
+  });
+
+  it('drops a seed this build no longer grows, rather than the save', () => {
+    const save = makeSave({ farmPatches: [{ id: 'p3_4', seedId: 'nettle', grown: 1 }] });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back).not.toBeNull();
+    expect(back?.farmPatches).toEqual([]);
+  });
+});
+
 describe('the run\'s boss ladder', () => {
   it('round-trips the bosses killed this run', () => {
     const save = makeSave({ bossesKilled: { scurrius: 1, vorkath: 2 } });

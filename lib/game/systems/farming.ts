@@ -7,7 +7,14 @@
  *
  * Growth is counted in *waves*, never in seconds: a patch that ripened on a clock
  * would punish a player for thinking between waves, and there is nothing here that
- * asks for timing or attention. `wave - sownAtWave` is the whole model.
+ * asks for timing or attention.
+ *
+ * And it counts waves *survived*, not wave numbers. Comparing against the wave
+ * counter looked the same right up until that counter moved on its own — the debug
+ * wave control jumps it, and anything that ever replays or rewinds a wave would too
+ * — and then a seed froze or ripened without a single fight going past it. So a
+ * patch carries its own tally, and something has to hand it a wave for it to age
+ * (see {@link ripenPatches}).
  */
 
 import { SEED_BY_ID, type SeedDef, type SeedId } from '../data/farming';
@@ -27,17 +34,9 @@ export interface FarmPatch {
   y: number;
   /** What is in the ground, or null for a bare patch. */
   seedId: SeedId | null;
-  /** The wave number showing when the seed went in. Meaningless while `seedId`
-   *  is null. */
-  sownAtWave: number;
-}
-
-/** The herb riding the current wave. One at a time: harvesting again before the
- *  wave starts replaces it rather than stacking. */
-export interface FarmBuff {
-  seedId: SeedId;
-  /** The wave this herb is spent on — it is live for that wave and no other. */
-  wave: number;
+  /** Waves this seed has sat through, counted one at a time as they are cleared.
+   *  Meaningless while `seedId` is null, and reset by every sowing. */
+  grown: number;
 }
 
 /** Turn the field's patch tiles into empty plots. Called with the map, so a fresh
@@ -50,28 +49,35 @@ export function buildFarmPatches(field: TerrainField, grid: number): FarmPatch[]
     x: (p.col + 0.5) * grid,
     y: (p.row + 0.5) * grid,
     seedId: null,
-    sownAtWave: 0,
+    grown: 0,
   }));
 }
 
-/** Waves elapsed since sowing. */
-function grown(patch: FarmPatch, wave: number): number {
-  return Math.max(0, wave - patch.sownAtWave);
+/** A wave has been fought and cleared: age everything in the ground by one. This
+ *  is the only thing that ripens a patch, and it is called from exactly one place —
+ *  the end of a real wave — so a debug sandbox wave, which is a test rather than a
+ *  fight, leaves the allotments where they were. Counting stops at the seed's own
+ *  wait: a ripe herb left standing is ready, not increasingly ready. */
+export function ripenPatches(patches: readonly FarmPatch[]): void {
+  for (const p of patches) {
+    if (!p.seedId) continue;
+    if (p.grown < SEED_BY_ID[p.seedId].waves) p.grown += 1;
+  }
 }
 
 /** How many more waves before the herb can be pulled. 0 once it is ready, and 0
  *  for a bare patch, which is not waiting on anything. */
-export function wavesLeft(patch: FarmPatch, wave: number): number {
+export function wavesLeft(patch: FarmPatch): number {
   if (!patch.seedId) return 0;
-  return Math.max(0, SEED_BY_ID[patch.seedId].waves - grown(patch, wave));
+  return Math.max(0, SEED_BY_ID[patch.seedId].waves - patch.grown);
 }
 
 /** The four looks a patch can have. The middle two split the wait in half, so a
  *  glance at the board says roughly how far along the seed is. */
-export function patchStage(patch: FarmPatch, wave: number): PatchStage {
+export function patchStage(patch: FarmPatch): PatchStage {
   if (!patch.seedId) return 'empty';
   const def = SEED_BY_ID[patch.seedId];
-  const done = grown(patch, wave) / def.waves;
+  const done = patch.grown / def.waves;
   if (done >= 1) return 'ready';
   return done >= 0.5 ? 'growing' : 'sown';
 }
@@ -87,8 +93,8 @@ export function patchAtPoint(
 }
 
 /** The seed a patch will hand back, or null while it is bare or still growing. */
-export function harvestable(patch: FarmPatch, wave: number): SeedDef | null {
-  return patchStage(patch, wave) === 'ready' && patch.seedId ? SEED_BY_ID[patch.seedId] : null;
+export function harvestable(patch: FarmPatch): SeedDef | null {
+  return patchStage(patch) === 'ready' && patch.seedId ? SEED_BY_ID[patch.seedId] : null;
 }
 
 // ─────────────────────────── what a herb is worth ───────────────────────────

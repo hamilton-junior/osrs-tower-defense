@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
-  buildFarmPatches, patchStage, wavesLeft, patchAtPoint, harvestable,
+  buildFarmPatches, patchStage, wavesLeft, patchAtPoint, harvestable, ripenPatches,
   farmTowerMods, farmGoldMult, farmPrayerDrainMult, farmLivesOnClear,
   type FarmPatch,
 } from './farming';
@@ -14,13 +14,13 @@ const field = (patches: { col: number; row: number }[]): TerrainField => ({
 });
 
 const patch = (over: Partial<FarmPatch> = {}): FarmPatch => ({
-  id: 'p0_0', col: 0, row: 0, x: 16, y: 16, seedId: null, sownAtWave: 0, ...over,
+  id: 'p0_0', col: 0, row: 0, x: 16, y: 16, seedId: null, grown: 0, ...over,
 });
 
 describe('buildFarmPatches', () => {
   it('puts a bare plot at the centre of each patch tile', () => {
     const [a, b] = buildFarmPatches(field([{ col: 3, row: 4 }, { col: 10, row: 2 }]), GRID);
-    expect(a).toEqual({ id: 'p3_4', col: 3, row: 4, x: 112, y: 144, seedId: null, sownAtWave: 0 });
+    expect(a).toEqual({ id: 'p3_4', col: 3, row: 4, x: 112, y: 144, seedId: null, grown: 0 });
     expect(b.x).toBe(336);
     expect(b.y).toBe(80);
   });
@@ -38,54 +38,69 @@ describe('buildFarmPatches', () => {
 });
 
 describe('patchStage', () => {
-  it('is empty with nothing in the ground, whatever the wave', () => {
-    expect(patchStage(patch(), 0)).toBe('empty');
-    expect(patchStage(patch(), 99)).toBe('empty');
+  it('is empty with nothing in the ground, however many waves went by', () => {
+    expect(patchStage(patch())).toBe('empty');
+    expect(patchStage(patch({ grown: 99 }))).toBe('empty');
   });
 
-  // Guam takes 3 waves: sown on 5, ready on 8. Half-way (1.5 waves) rounds onto
-  // wave 7, so the player sees three distinct pictures across the wait.
+  // Guam takes 3 waves. Half-way (1.5) rounds onto the second, so the player sees
+  // three distinct pictures across the wait.
   it('walks a guam through sown → growing → ready', () => {
-    const p = patch({ seedId: 'guam', sownAtWave: 5 });
-    expect(patchStage(p, 5)).toBe('sown');
-    expect(patchStage(p, 6)).toBe('sown');
-    expect(patchStage(p, 7)).toBe('growing');
-    expect(patchStage(p, 8)).toBe('ready');
-  });
-
-  it('stays ready past its wave rather than rolling over', () => {
-    const p = patch({ seedId: 'guam', sownAtWave: 5 });
-    expect(patchStage(p, 40)).toBe('ready');
-  });
-
-  // A patch sown on a leg of the road the run then travels back from would read
-  // as ripe the instant the wave counter went backwards.
-  it('reads as freshly sown if the wave count ever goes backwards', () => {
-    const p = patch({ seedId: 'torstol', sownAtWave: 12 });
-    expect(patchStage(p, 9)).toBe('sown');
-    expect(wavesLeft(p, 9)).toBe(SEED_BY_ID.torstol.waves);
+    expect(patchStage(patch({ seedId: 'guam', grown: 0 }))).toBe('sown');
+    expect(patchStage(patch({ seedId: 'guam', grown: 1 }))).toBe('sown');
+    expect(patchStage(patch({ seedId: 'guam', grown: 2 }))).toBe('growing');
+    expect(patchStage(patch({ seedId: 'guam', grown: 3 }))).toBe('ready');
   });
 
   it('gives every seed its own wait, to the wave', () => {
     for (const s of SEEDS) {
-      const p = patch({ seedId: s.id, sownAtWave: 0 });
-      expect(patchStage(p, s.waves - 1), s.id).not.toBe('ready');
-      expect(patchStage(p, s.waves), s.id).toBe('ready');
+      expect(patchStage(patch({ seedId: s.id, grown: s.waves - 1 })), s.id).not.toBe('ready');
+      expect(patchStage(patch({ seedId: s.id, grown: s.waves })), s.id).toBe('ready');
     }
+  });
+});
+
+describe('ripenPatches', () => {
+  it('ages every sown patch by exactly one wave', () => {
+    const ps = [patch({ id: 'a', seedId: 'guam', grown: 0 }), patch({ id: 'b', seedId: 'ranarr', grown: 2 })];
+    ripenPatches(ps);
+    expect(ps.map(p => p.grown)).toEqual([1, 3]);
+  });
+
+  it('leaves bare ground alone', () => {
+    const p = patch();
+    ripenPatches([p]);
+    expect(p.grown).toBe(0);
+  });
+
+  // A ripe herb the player has not pulled yet is ready, not increasingly ready —
+  // and an unbounded tally is a number that eventually reaches the save file.
+  it('stops counting once the herb is ready', () => {
+    const p = patch({ seedId: 'guam', grown: SEED_BY_ID.guam.waves });
+    ripenPatches([p]);
+    ripenPatches([p]);
+    expect(p.grown).toBe(SEED_BY_ID.guam.waves);
+  });
+
+  // The whole reason the tally exists: the debug wave control (and anything else
+  // that moves the counter) must not ripen or freeze what is in the ground.
+  it('is the only thing that ripens a patch', () => {
+    const p = patch({ seedId: 'torstol', grown: 1 });
+    expect(patchStage(p)).toBe('sown');
+    expect(wavesLeft(p)).toBe(SEED_BY_ID.torstol.waves - 1);
   });
 });
 
 describe('wavesLeft', () => {
   it('counts down to zero and stops', () => {
-    const p = patch({ seedId: 'ranarr', sownAtWave: 10 }); // 4 waves
-    expect(wavesLeft(p, 10)).toBe(4);
-    expect(wavesLeft(p, 12)).toBe(2);
-    expect(wavesLeft(p, 14)).toBe(0);
-    expect(wavesLeft(p, 30)).toBe(0);
+    expect(wavesLeft(patch({ seedId: 'ranarr', grown: 0 }))).toBe(4);
+    expect(wavesLeft(patch({ seedId: 'ranarr', grown: 2 }))).toBe(2);
+    expect(wavesLeft(patch({ seedId: 'ranarr', grown: 4 }))).toBe(0);
+    expect(wavesLeft(patch({ seedId: 'ranarr', grown: 30 }))).toBe(0);
   });
 
   it('is zero for a bare patch, which is not waiting on anything', () => {
-    expect(wavesLeft(patch(), 7)).toBe(0);
+    expect(wavesLeft(patch())).toBe(0);
   });
 });
 
@@ -105,13 +120,12 @@ describe('patchAtPoint', () => {
 
 describe('harvestable', () => {
   it('hands back the herb only once the patch is ready', () => {
-    const p = patch({ seedId: 'guam', sownAtWave: 1 });
-    expect(harvestable(p, 2)).toBeNull();
-    expect(harvestable(p, 4)).toEqual(SEED_BY_ID.guam);
+    expect(harvestable(patch({ seedId: 'guam', grown: 1 }))).toBeNull();
+    expect(harvestable(patch({ seedId: 'guam', grown: 3 }))).toEqual(SEED_BY_ID.guam);
   });
 
   it('hands back nothing from bare ground', () => {
-    expect(harvestable(patch(), 50)).toBeNull();
+    expect(harvestable(patch({ grown: 50 }))).toBeNull();
   });
 });
 

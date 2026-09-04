@@ -15,7 +15,7 @@ import { resolveEventMods } from '../../systems/wave-events';
 import { pickVariant, resetVariantBag } from '../../systems/model-variants';
 import { enemyLeakCost } from '../../systems/leak-cost';
 import { healingDenied } from '../../systems/tower-fusion';
-import { farmLivesOnClear } from '../../systems/farming';
+import { farmLivesOnClear, ripenPatches } from '../../systems/farming';
 import { SEED_BY_ID } from '../../data/farming';
 import { bodyY } from '../../systems/enemy-anchor';
 import { laneLeg } from '../../systems/geometry';
@@ -585,6 +585,13 @@ export function checkWaveEnd(eng: GameEngine) {
     eng.lives = Math.min(eng.maxLives, eng.lives + restored);
     eng.notify(`${SEED_BY_ID.ranarr.herbName} — a life restored`, SEED_BY_ID.ranarr.herbIcon);
   }
+  // Farming's whole clock, and the only one it has: a wave was fought, so the herb
+  // that rode it is spent and every seed in the ground is a wave older. It hangs off
+  // the fight rather than off the wave *number*, which is what a debug jump moves —
+  // and the sandbox wave above returned long before this line, so testing a spawn
+  // never ages an allotment.
+  eng.farmBuff = null;
+  ripenPatches(eng.farmPatches);
   eng.wave += 1;
   eng.caStats.maxWaveReached = Math.max(eng.caStats.maxWaveReached, eng.wave);
   eng.caStats.runPhase = eng.runPhase;

@@ -41,7 +41,7 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const soil = gr.e.imageOk('farm_soil') ? gr.e.images.get('farm_soil') : null;
 
   for (const p of patches) {
-    const stage = patchStage(p, gr.e.wave);
+    const stage = patchStage(p);
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + p.x * 0.03 + p.y * 0.05);
     const left = p.x - GRID / 2;
     const top = p.y - GRID / 2;
@@ -131,7 +131,7 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       // Still growing: the waves left, the one thing the picture cannot say exactly.
       // Outlined rather than shadowed — it sits over grass, soil and the crop itself,
       // and the player reported it as frozen when it was only unreadable.
-      const label = `${wavesLeft(p, gr.e.wave)}`;
+      const label = `${wavesLeft(p)}`;
       ctx.save();
       ctx.font = "bold 14px 'RuneScape', Arial";
       ctx.textAlign = 'center';
