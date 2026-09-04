@@ -255,19 +255,27 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     click calls `handleNpcClick(type)`, applies the reward at once, despawns and toasts.
     NPCs met are recorded in the Collection Log (new tab or an existing one widened).
 
-17. **F2 farming patches** — **adiado** (user, 2026-09-03), but explicitly *kept*: this and
-    **F7** are the two Fun-Content items still on the list. 1–2 allotment tiles placed
-    procedurally with the terrain.
+17. **F2 farming patches** — *shipped* (`0ac3ed7`), built to the brief below with three
+    departures worth recording. The buff is **not** a `runMods` entry cleared on the next
+    `startWave`: a harvest stamps the wave it was pulled for (`farmBuff = { seedId, wave }`)
+    and `activeFarmBuff()` returns it only while that wave is current, so the wave counter
+    retires it by arithmetic and there is no cleanup anyone can forget. Each effect landed
+    in the one place that already owned it — `eventTowerMods()` for damage and range (it
+    multiplies with a wave event's, it does not replace it), `awardGold()` for gold, the one
+    drain line in `PrayerSystem.update`, and `checkWaveEnd` *before* `wave += 1` for the
+    life, clamped to `maxLives`. And the herbs ripen at **different** rates (3–6 waves) so
+    the ladder is a real choice rather than five flavours of the same wait.
+    The brief as written: 1–2 allotment tiles placed procedurally with the terrain.
     Between waves the player clicks a patch and sows a cheap seed (10–30gp); it ripens
     over ~5 waves through visible stages (dry → sprout → small plant → mature), glows green
     when ready, and harvesting grants a buff lasting one full wave.
     Guam +15% tower damage · Marrentill +20% prayer efficiency (drains slower) ·
     Ranarr +1 life restored on the next wave clear · Snapdragon +20% tower range ·
     Torstol +30% gold next wave.
-    Shape: `farmingPatches` in engine state as `{ x, y, seedType, plantedAtWave, state }`,
-    the tiles marked `'farming'` by `generateMap()`/`generateTerrain()`; per-state sprites
-    from the cache; harvest applies a temporary `runMods` entry cleared on the following
-    `startWave`; seeds sown/harvested counted in the run stats.
+    Shape: `farmPatches` in engine state, the tiles marked `'farming'` by
+    `generateMap()`/`generateTerrain()`; per-state sprites baked from the cache
+    (`scripts/render-osrs-objects.mjs`); seeds sown/harvested counted in the run stats and
+    carried in the run save. **F7** is now the one Fun-Content item still on the list.
 
 18. **F3 boss heads / Trophy Hall** — **descartado** (user, 2026-09-03). Kept below only
     because **F8**'s Trophy Hall room is written against it, so anyone reviving that room needs
