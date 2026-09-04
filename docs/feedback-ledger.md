@@ -28,9 +28,9 @@ The previous pass, 2026-08-25, found nothing past Suggestions 38 / Bug Reports 2
 NocoDB's `Status` to this file for the rows that are *finished* — Suggestions 24, 27, 28,
 31, 37, 38 → Implemented; Bug Reports 18, 22, 23 → Fixed. Partials (34, 35, 36), the
 deliberately-Planned 18, the queued rows and the `Not a Bug` 19 were left as they were.
-**Pending sync (2026-09-03):** 34 and 36 are finished here and 18 has nothing live left, so
-all three want Implemented in NocoDB on the next pass — the MCP server would not connect the
-day they closed.
+**Sync done (2026-09-04):** the pass that had been pending since 2026-09-03 went through —
+Suggestions 18, 34 and 36 are Implemented in NocoDB, and Bug Report 24 is Fixed. Suggestion 39
+and Bug Report 25 stay `New` on purpose: 39 is waiting on the user, 25 is a live bug.
 
 ## Verdict vocabulary
 
