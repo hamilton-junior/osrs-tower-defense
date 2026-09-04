@@ -433,6 +433,9 @@ export function moveEnemies(eng: GameEngine, dt: number) {
       e.eclipseTimer -= dt;
       if (e.eclipseTimer <= 0) e.eclipseStacks = 0;
     }
+    // The Amulet of the damned's break is rented on the same terms: it lapses a few
+    // seconds after the last hit, so the tower wearing it has to keep earning it.
+    if (e.ccBreakTimer && e.ccBreakTimer > 0) e.ccBreakTimer -= dt;
     // Regenerating affix: claw back HP over time, capped at full health. An enemy that
     // has stalled dries this up through the stall breaker (`stallHealMult`) exactly as a
     // boss's own self-heals do — without it, anything whose regen matches the board's

@@ -229,6 +229,10 @@ export class GameEngine {
   private autoplayTimer = 0;
   /** Bumps once per Blood-barrage life steal — the UI keys its ❤ pop off it. */
   lifestealSeq = 0;
+  /** The wave an Amulet of blood fury last won a life back on (-1 = never). The
+   *  amulet pays out at most once a wave, so a board wearing several of them can't
+   *  turn a good wave into an unlimited supply of lives. */
+  bloodFuryWave = -1;
   /** Bumps on any placed-tower config change the panels display but that isn't
    *  otherwise in the snapshot (target priority, wizard element/barrage/field). */
   private towerConfigSeq = 0;

@@ -10,9 +10,9 @@ import { selectTarget } from '../../systems/targeting';
 import { calculateTowerStats, utilityAuraBonus, type ComputedTowerStats } from '../../systems/tower-combat';
 import { RUN_FX_ID, type DamageSource, type AuraAttribution, type TowerIdentity } from '../../systems/combat-stats';
 import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance, bloodBonusFrac, bloodBonusCap, bloodBonus, ancientHit, spellSpriteName, BARRAGE_SPLASH_FALLOFF, AIR_KNOCKBACK, tzhaarKnockback, tzhaarStun } from '../../systems/magic';
-import { debuffTenacity } from '../../systems/tenacity';
+import { debuffTenacity, CC_BREAK_SHRED, CC_BREAK_SECS } from '../../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch, noxiousSpread, halberdSeedDps, type VenomLevel, envenomAura, envenomStaffFor, eclipseStacksAfter, eclipseShove, eclipseBurnDps, ECLIPSE_MAX_STACKS, ECLIPSE_STACK_SECS } from '../../systems/tower-identity';
-import { rollGearDrops, gearDamageMult } from '../../systems/tower-gear';
+import { rollGearDrops, gearDamageMult, wearsGearEffect } from '../../systems/tower-gear';
 import { fusionSpellFx, purgeDamageMult, PURGE_DENY_SECS } from '../../systems/tower-fusion';
 import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
 import { mergeUnlockBatch } from '../../systems/unlock-queue';
@@ -464,8 +464,14 @@ export function fireTowers(eng: GameEngine, dt: number) {
 
     const lo = shotLoadout(eng, tower, target, damage, half);
     const fp = shotFlight(eng, tower, target);
-    const launch = (tgt: Enemy, shot: { dmg: number; frac: number }, fl: number) =>
+    // Amulet of the damned: every shot this tower looses breaks what it is aimed at,
+    // whichever of the shots below sends it. Stamped as the shot leaves rather than
+    // as it lands, so the break is already up when the arrow arrives.
+    const ccBreak = wearsGearEffect(tower, 'cc_breaker');
+    const launch = (tgt: Enemy, shot: { dmg: number; frac: number }, fl: number) => {
+      if (ccBreak) markCcBreak(eng, tower, tgt);
       launchProjectile(eng, tower, tgt, shot.dmg, fl, lo, fp, projAura, incoming, shot.frac);
+    };
 
     // Per-target multipliers keyed off the ENEMY: the signature gear mult
     // (Twisted bow scales with the target's max HP, Darklight with its category)
@@ -524,8 +530,13 @@ export function updateUtilityTowers(eng: GameEngine) {
 
     const range = eng.effectiveStats(tower.id)?.range ?? tower.range;
     const half = squareRange(range, GRID);
+    // A Utility wizard never reaches the firing block, and jewellery is the only slot
+    // it can equip — so without this, the Amulet of the damned would do nothing at
+    // all on the tower most likely to be wearing it.
+    const ccBreak = wearsGearEffect(tower, 'cc_breaker');
     for (const e of eng.enemies) {
       if (!inSquareRange(e.x, e.y, tower.x, tower.y, half + enemyRadius(e))) continue;
+      if (ccBreak) markCcBreak(eng, tower, e);
       if (spell === 'curse') {
         // Refreshed while inside; tenacity-scaled but doesn't build boss tenacity
         // (it's a continuous aura, not a discrete hit).
@@ -927,7 +938,17 @@ export function tenacity(eng: GameEngine, e: Enemy): number {
     wave: eng.wave,
     debuffHits: e.debuffHits,
     bonus: stallTenacityBonus(stallStacksOf(eng, e)),
+    shred: (e.ccBreakTimer ?? 0) > 0 ? CC_BREAK_SHRED : 0,
   });
+}
+
+/** Amulet of the damned: break what this enemy can shrug off, and start the clock
+ *  again. Only a *fresh* break is counted — the Utility wizard's aura re-stamps
+ *  every enemy in its field every frame, and a tally that ticked with it would say
+ *  nothing about how much the amulet is actually doing. */
+function markCcBreak(eng: GameEngine, tower: Tower, e: Enemy) {
+  if ((e.ccBreakTimer ?? 0) <= 0) eng.stats.recordEffect(tower.id, eng.wave, { ccBreakHits: 1 });
+  e.ccBreakTimer = CC_BREAK_SECS;
 }
 
 /** Register a non-damaging debuff landing on an enemy: bosses build tenacity
@@ -1190,6 +1211,27 @@ export function tryLifesteal(eng: GameEngine, sourceTowerId?: string) {
   if (tower) addRing(eng, tower.x, tower.y, 4, 26, '#c81e1e', 0.5, 3);
   eng.emit();
 }
+
+/** Amulet of blood fury: a kill can win back a life the board already lost. It never
+ *  banks — at full lives it does nothing — and it pays at most once a wave, so it
+ *  repairs a leak rather than turning a good wave into an endless supply. Shown as a
+ *  life stolen, with the same red pulse: a life won back reads the same however it
+ *  was won. */
+function tryBloodFuryLife(eng: GameEngine, sourceTowerId?: string) {
+  if (eng.lives >= eng.maxLives || eng.bloodFuryWave === eng.wave) return;
+  const tower = sourceTowerId ? eng.towers.find(t => t.id === sourceTowerId) : null;
+  if (!tower || !wearsGearEffect(tower, 'blood_fury')) return;
+  if (Math.random() >= BLOOD_FURY_CHANCE) return;
+  eng.bloodFuryWave = eng.wave;
+  eng.lives += 1;
+  eng.lifestealSeq += 1;
+  eng.stats.recordEffect(tower.id, eng.wave, { lifeStealHeals: 1 });
+  addRing(eng, tower.x, tower.y, 4, 26, '#c81e1e', 0.5, 3);
+  eng.emit();
+}
+
+/** How often a blood-fury kill pays out, before the once-a-wave gate. */
+const BLOOD_FURY_CHANCE = 0.08;
 
 /** Air gust: shove an enemy back toward the previous waypoint (clamped).
  *  Returns the distance actually moved (logic px), for the damage-meter's
@@ -1522,6 +1564,7 @@ function awardKill(
   // Moon's harder-wave payout) both scale the drop; both default to 1.
   eng.awardGold(eng.killGoldPreReward(enemy.type));
   eng.kills += 1;
+  tryBloodFuryLife(eng, source?.towerId);
   if (source?.towerId) {
     eng.caStats.killsByTower[source.towerId] = (eng.caStats.killsByTower[source.towerId] ?? 0) + 1;
   }

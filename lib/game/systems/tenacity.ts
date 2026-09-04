@@ -24,10 +24,17 @@ export function debuffTenacity(opts: {
   debuffHits?: number;
   /** Flat top-up applied after the curve (the stall-breaker's escalation). */
   bonus?: number;
+  /** Fraction of the curve to cut away, 0..1 — the Amulet of the damned's break.
+   *  Ignored outright while `bonus` is escalating: that escalation is the only thing
+   *  standing between the player and a fight that never ends, so no piece of gear
+   *  may re-open the perma-lock it exists to close. */
+  shred?: number;
 }): number {
-  const { isBoss, superior, wave, bonus = 0 } = opts;
+  const { isBoss, superior, wave, bonus = 0, shred = 0 } = opts;
   const waveScale = wave / 200; // wave/2 as a percentage
-  const top = (v: number) => clamp01(v + Math.max(0, bonus));
+  const escalation = Math.max(0, bonus);
+  const cut = escalation > 0 ? 1 : 1 - clamp01(shred);
+  const top = (v: number) => clamp01(v * cut + escalation);
   if (isBoss) return top(Math.min(0.5 + waveScale, 0.9));
   if (superior) return top(Math.min(0.5 + waveScale, 0.75));
   return top(Math.min(waveScale, 0.5));
@@ -36,3 +43,10 @@ export function debuffTenacity(opts: {
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v;
 }
+
+/** Amulet of the damned: how much of an enemy's resistance one of its hits strips,
+ *  and how long the break holds after that hit. Half is enough to make a slow tower
+ *  matter again against a late boss without one amulet becoming a permanent lock,
+ *  and four seconds is short enough that the amulet has to keep hitting to keep it. */
+export const CC_BREAK_SHRED = 0.5;
+export const CC_BREAK_SECS = 4;

@@ -39,4 +39,23 @@ describe('debuffTenacity', () => {
     expect(debuffTenacity({ wave: 10, bonus: 99 })).toBe(1);
     expect(debuffTenacity({ wave: 10, bonus: -99 })).toBeCloseTo(0.05); // negatives ignored
   });
+
+  it('cuts the curve by the shred an Amulet of the damned lands', () => {
+    expect(debuffTenacity({ wave: 80, isBoss: true, shred: 0.5 })).toBeCloseTo(0.45); // half of 0.9
+    expect(debuffTenacity({ wave: 50, superior: true, shred: 0.5 })).toBeCloseTo(0.375);
+    expect(debuffTenacity({ wave: 100, shred: 1 })).toBe(0); // a full break leaves nothing
+    expect(debuffTenacity({ wave: 100, shred: 0 })).toBeCloseTo(0.5); // absent = unchanged
+  });
+
+  it('ignores the shred entirely while the stall-breaker is escalating', () => {
+    // The escalation exists to close a fight that would otherwise never end. If gear
+    // could cut into it, the amulet would re-open exactly the perma-lock it closes.
+    expect(debuffTenacity({ wave: 80, isBoss: true, bonus: 0.6, shred: 1 })).toBe(1);
+    expect(debuffTenacity({ wave: 80, isBoss: true, bonus: 0.05, shred: 1 })).toBeCloseTo(0.95);
+  });
+
+  it('clamps the shred rather than inverting the curve', () => {
+    expect(debuffTenacity({ wave: 80, isBoss: true, shred: 99 })).toBe(0);
+    expect(debuffTenacity({ wave: 80, isBoss: true, shred: -99 })).toBeCloseTo(0.9); // negatives ignored
+  });
 });

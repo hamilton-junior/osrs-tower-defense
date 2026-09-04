@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sanitizeRunSave, isResumable, RUN_SAVE_VERSION, type RunSave } from './run-save';
+import { GEAR } from '../data/gear';
 import { emptyRunStats } from './combat-achievements';
 
 /** A minimal, valid save — the tests below bend one field at a time from this. */
@@ -119,10 +120,28 @@ describe('sanitizeRunSave', () => {
     expect(save.prayer.active).toEqual([]);
   });
 
-  it('round-trips a lootBag of Classic gear', () => {
-    const gear = { id: 'rune_arrow', name: 'Rune arrow', description: '', bonus: { damage: 10 }, type: 'ammo' };
-    const save = sanitizeRunSave(makeSave({ lootBag: [gear] }))!;
-    expect(save.lootBag).toEqual([gear]);
+  // A save stores gear as the whole item object, so a piece the game has since
+  // rebalanced — or handed a new signature effect — would come back frozen in the
+  // shape it had, quietly doing the old thing forever. Anything the pool still knows
+  // by id is re-read from it on load.
+  it('re-reads a lootBag piece from the live pool rather than the stored copy', () => {
+    const stale = { id: 'rune_arrow', name: 'Rune arrow', description: '', bonus: { damage: 10 }, type: 'ammo' };
+    const save = sanitizeRunSave(makeSave({ lootBag: [stale] }))!;
+    expect(save.lootBag).toEqual([GEAR.rune_arrow]);
+  });
+
+  it('re-reads equipped gear on a saved tower too', () => {
+    const stale = { id: 'amulet_of_glory', name: 'Amulet of glory', description: '', bonus: { damage: 1 }, type: 'jewellery' };
+    const towers = [{ id: 't1', type: 'archer', x: 100, y: 100, equipment: { ammo: null, jewellery: stale } }];
+    const save = sanitizeRunSave(makeSave({ towers }))!;
+    expect(save.towers[0].equipment.jewellery).toEqual(GEAR.amulet_of_glory);
+    expect(save.towers[0].equipment.ammo).toBeNull();
+  });
+
+  it('hands back a piece the pool no longer knows instead of emptying the slot', () => {
+    const retired = { id: 'gone_from_the_game', name: 'Old amulet', description: '', bonus: { damage: 10 }, type: 'jewellery' };
+    const save = sanitizeRunSave(makeSave({ lootBag: [retired] }))!;
+    expect(save.lootBag).toEqual([retired]);
   });
 
   it('drops a bag entry whose slot this build no longer wears', () => {

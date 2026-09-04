@@ -157,6 +157,7 @@ export const GEAR_ICONS: Record<string, string> = {
   // boss-drop signatures
   amulet_of_blood_fury: itemIcon('amulet_of_blood_fury'),
   salve_amulet_ei: itemIcon('salve_amulet_ei'),
+  amulet_of_the_damned: itemIcon('amulet_of_the_damned'),
 };
 
 /**

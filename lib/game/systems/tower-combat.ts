@@ -202,6 +202,7 @@ export function calculateTowerStats(
     const item = tower.equipment[slot];
     if (!item) continue;
     if (item.bonus.damage) flatDamageBonus += item.bonus.damage;
+    if (item.bonus.damagePct) damageMultiplier *= 1 + item.bonus.damagePct / 100;
     if (item.bonus.range) rangeMultiplier *= 1 + item.bonus.range / 100;
     if (item.bonus.cooldown) speedMultiplier *= 1 + item.bonus.cooldown / 100;
   }

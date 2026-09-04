@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TOWER_AMMO_CLASS, towerAmmoClassFor, canEquip, rollGearDrops, gearDamageMult, isUpgradeFor, isUpgradeForAny } from './tower-gear';
+import { TOWER_AMMO_CLASS, towerAmmoClassFor, canEquip, rollGearDrops, gearDamageMult, isUpgradeFor, isUpgradeForAny, wearsGearEffect } from './tower-gear';
 import { GEAR } from '../data/gear';
 import { CATCH_DROP_LUCK } from './hunter-traps';
 import type { Tower, TowerSkill, Enemy, TowerType } from '../types';
@@ -122,8 +122,8 @@ describe('gearDamageMult', () => {
   it('is 1 with no signature gear equipped', () => {
     expect(gearDamageMult(tower({ type: 'archer' }), enemy(), null)).toBe(1);
   });
-  it('anti_tank scales up against high-maxHp targets', () => {
-    // both signatures ship as jewellery-only content (see gear.ts), so anti_tank
+  it('blood_fury scales up against high-maxHp targets', () => {
+    // every signature ships as jewellery-only content (see gear.ts), so blood_fury
     // is exercised via the jewellery slot here.
     const t = tower({ type: 'archer', equipment: { ammo: null, jewellery: GEAR.amulet_of_blood_fury } });
     expect(gearDamageMult(t, enemy({ maxHp: 40 }), null)).toBeCloseTo(1, 5);
@@ -139,10 +139,40 @@ describe('gearDamageMult', () => {
     // Real content only ships jewellery signatures (one slot), so this exercises
     // the generic per-slot fold with a synthetic ammo piece carrying a gearEffect
     // — gearDamageMult itself is slot-agnostic and should still multiply both.
-    const antiTankAmmo = { ...GEAR.amulet_of_blood_fury, id: 'test_anti_tank_ammo', type: 'ammo' as const };
-    const both = tower({ type: 'archer', equipment: { ammo: antiTankAmmo, jewellery: GEAR.salve_amulet_ei } });
-    const ammoOnly = tower({ type: 'archer', equipment: { ammo: antiTankAmmo, jewellery: null } });
+    const furyAmmo = { ...GEAR.amulet_of_blood_fury, id: 'test_blood_fury_ammo', type: 'ammo' as const };
+    const both = tower({ type: 'archer', equipment: { ammo: furyAmmo, jewellery: GEAR.salve_amulet_ei } });
+    const ammoOnly = tower({ type: 'archer', equipment: { ammo: furyAmmo, jewellery: null } });
     const e = enemy({ maxHp: 4000, type: 'goblin' });
     expect(gearDamageMult(both, e, 'goblin')).toBeGreaterThan(gearDamageMult(ammoOnly, e, 'goblin'));
+  });
+});
+
+describe('cc_breaker buys no damage', () => {
+  // The Amulet of the damned pays entirely in broken resistance. If it ever starts
+  // returning a multiplier here it is quietly a damage amulet too, and its stat line
+  // stops being the whole story.
+  it('leaves gearDamageMult at 1 against anything', () => {
+    const t = tower({ type: 'wizard', equipment: { ammo: null, jewellery: GEAR.amulet_of_the_damned } });
+    expect(gearDamageMult(t, enemy({ maxHp: 4000 }), null)).toBe(1);
+    expect(gearDamageMult(t, enemy({ type: 'goblin', isBoss: true }), 'goblin')).toBe(1);
+  });
+});
+
+describe('wearsGearEffect', () => {
+  const damned = GEAR.amulet_of_the_damned;
+  it('finds the effect in either slot', () => {
+    expect(wearsGearEffect(tower({ equipment: { ammo: null, jewellery: damned } }), 'cc_breaker')).toBe(true);
+    expect(wearsGearEffect(tower({ equipment: { ammo: damned, jewellery: null } }), 'cc_breaker')).toBe(true);
+  });
+
+  it('is false for an empty tower, and for a signature carrying a different effect', () => {
+    expect(wearsGearEffect(tower(), 'cc_breaker')).toBe(false);
+    const fury = tower({ equipment: { ammo: null, jewellery: GEAR.amulet_of_blood_fury } });
+    expect(wearsGearEffect(fury, 'cc_breaker')).toBe(false);
+    expect(wearsGearEffect(fury, 'blood_fury')).toBe(true);
+  });
+
+  it('is false for ordinary gear, which carries no effect at all', () => {
+    expect(wearsGearEffect(tower({ equipment: { ammo: null, jewellery: GEAR.amulet_of_glory } }), 'blood_fury')).toBe(false);
   });
 });

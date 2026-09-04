@@ -77,7 +77,9 @@ export const DPS_EFFECT_META: {
   { key: 'splashHits', label: 'Splash hits', kind: 'int', icon: ASSETS.misc.magic_hit_splat,
     tip: 'Hits that landed on enemies standing next to the target.' },
   { key: 'lifeStealHeals', label: 'Lives stolen', kind: 'int', icon: ASSETS.misc.hp_icon,
-    tip: 'Lives won back by killing with Blood.' },
+    tip: 'Lives won back by killing with Blood or an Amulet of blood fury.' },
+  { key: 'ccBreakHits', label: 'Resistance broken', kind: 'int', icon: ASSETS.misc.defence_icon,
+    tip: 'Enemies stopped from shrugging off slows and stuns.' },
 ];
 
 export const DPS_STYLE_LABEL: Record<CombatStyle | 'run', string> = { melee: 'Melee', ranged: 'Ranged', magic: 'Magic', run: 'Run Effects' };

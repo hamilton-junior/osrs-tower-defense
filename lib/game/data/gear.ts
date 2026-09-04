@@ -92,11 +92,16 @@ export const JEWELLERY_TIERS: TierEntry[] = [
   { id: 'amulet_of_torture', name: 'Amulet of torture', levelReq: 40 },
 ];
 
-/** Universal jewellery signatures — boss-only drops, each carrying a `gearEffect`
- *  on top of a modest flat bonus. */
-export const SIGNATURES: (TierEntry & { gearEffect: GearEffectId })[] = [
-  { id: 'amulet_of_blood_fury', name: 'Amulet of blood fury', levelReq: 40, gearEffect: 'anti_tank' },
-  { id: 'salve_amulet_ei', name: 'Salve amulet (ei)', levelReq: 30, gearEffect: 'slayer_bane' },
+/** Universal jewellery signatures — boss-only drops. Each carries the `gearEffect`
+ *  its behaviour is keyed off and the one line the hover card leads with, on top of
+ *  the stat line every signature shares. */
+export const SIGNATURES: (TierEntry & { gearEffect: GearEffectId; blurb: string })[] = [
+  { id: 'amulet_of_blood_fury', name: 'Amulet of blood fury', levelReq: 40, gearEffect: 'blood_fury',
+    blurb: 'Hits harder the tougher the enemy, and a kill can win a lost life back.' },
+  { id: 'salve_amulet_ei', name: 'Salve amulet (ei)', levelReq: 30, gearEffect: 'slayer_bane',
+    blurb: 'Hits harder against your Slayer task, superiors and bosses.' },
+  { id: 'amulet_of_the_damned', name: 'Amulet of the damned', levelReq: 35, gearEffect: 'cc_breaker',
+    blurb: 'Whatever it hits stops shrugging off slows and stuns for a moment.' },
 ];
 
 const GROWTH = 1.35;
@@ -164,18 +169,21 @@ function buildJewelleryItems(): Item[] {
   });
 }
 
-/** Boss-drop signature jewellery: a modest flat bonus plus the effect id the
- *  firing pipeline reads via `gearDamageMult` (systems/tower-gear.ts). */
+/** Boss-drop signature jewellery: the shared stat line plus the effect id the
+ *  firing pipeline reads (systems/tower-gear.ts). The stats are half flat, half
+ *  percentage — the flat half carries an early tower, the percentage half keeps the
+ *  piece worth its slot on a maxed one, which a flat 25 stopped doing long before
+ *  the boss that drops it was even scheduled. */
 function buildSignatureItems(): Item[] {
   return SIGNATURES.map(sig => ({
     id: sig.id,
     name: sig.name,
-    description: `${sig.name} — a boss-drop signature.`,
+    description: sig.blurb,
     type: 'jewellery',
     levelReq: sig.levelReq,
     rarity: 'signature',
     gearEffect: sig.gearEffect,
-    bonus: { damage: 25 },
+    bonus: { damage: 20, damagePct: 20 },
   } as Item));
 }
 

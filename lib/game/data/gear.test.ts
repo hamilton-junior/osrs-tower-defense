@@ -44,15 +44,36 @@ describe('gear pool', () => {
     for (let i = 1; i < dmgs.length; i++) expect(dmgs[i]).toBeGreaterThanOrEqual(dmgs[i - 1]);
   });
 
-  it('has exactly two signatures, both jewellery, each with a gearEffect', () => {
+  it('ships one jewellery signature per effect, and no effect twice', () => {
     const sigs = GEAR_POOL.filter(g => g.rarity === 'signature');
-    expect(sigs.length).toBe(2);
+    expect(sigs.length).toBe(SIGNATURES.length);
     for (const s of sigs) {
       expect(s.type).toBe('jewellery');
       expect(s.gearEffect).toBeDefined();
     }
-    expect(SIGNATURES.length).toBe(2);
-    expect(new Set(SIGNATURES.map(s => s.gearEffect))).toEqual(new Set(['anti_tank', 'slayer_bane']));
+    expect(new Set(SIGNATURES.map(s => s.gearEffect)))
+      .toEqual(new Set(['blood_fury', 'slayer_bane', 'cc_breaker']));
+  });
+
+  // A flat bonus alone stops mattering long before the boss that drops it: the
+  // percentage half is what keeps a signature worth its slot on a maxed tower, so
+  // a signature shipped with only one of the two halves is a bug, not a choice.
+  it('gives every signature both halves of its stat line', () => {
+    for (const s of GEAR_POOL.filter(g => g.rarity === 'signature')) {
+      expect(s.bonus.damage, `${s.id} has no flat damage`).toBeGreaterThan(0);
+      expect(s.bonus.damagePct, `${s.id} has no percentage damage`).toBeGreaterThan(0);
+    }
+  });
+
+  // The hover card leads with the description, and for a signature that line is the
+  // only place the effect is ever explained — a generic one leaves the player
+  // holding an amulet with no idea what it does.
+  it('describes each signature by what its effect does, not by its own name', () => {
+    for (const s of SIGNATURES) {
+      expect(s.blurb.length, `${s.id} has no blurb`).toBeGreaterThan(20);
+      expect(s.blurb).not.toContain(s.name);
+      expect(GEAR[s.id].description).toBe(s.blurb);
+    }
   });
 
   it('every AmmoClass has at least one common (non-signature) item', () => {

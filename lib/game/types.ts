@@ -154,6 +154,10 @@ export interface Enemy extends EnemyDef {
    *  is the whole weapon — an atlatl that stops hitting loses everything it built. */
   eclipseStacks?: number;
   eclipseTimer?: number;
+  /** Amulet of the damned: how long this enemy's crowd-control resistance stays
+   *  broken (`CC_BREAK_SHRED` in systems/tenacity). Refreshed by every hit from a
+   *  tower wearing the amulet, so the break holds only while it keeps working. */
+  ccBreakTimer?: number;
   groundTimer: number;
   poisonTimer?: number;
   venomTimer?: number;
@@ -323,9 +327,10 @@ export type CombatStyle = 'ranged' | 'magic' | 'melee';
  *  `TOWER_AMMO_CLASS` / `towerAmmoClassFor` in systems/tower-gear. */
 export type AmmoClass = 'arrows' | 'darts' | 'cannonballs' | 'runes' | 'melee_kit';
 
-/** A rare gear piece's signature effect — a per-target conditional the flat
- *  `Item.bonus` can't express. Handled in the firing block; see systems/tower-gear. */
-export type GearEffectId = 'anti_tank' | 'slayer_bane';
+/** A rare gear piece's signature effect — behaviour the flat `Item.bonus` can't
+ *  express: damage that depends on the target, a life won back on a kill, a
+ *  crowd-control resistance broken. See systems/tower-gear. */
+export type GearEffectId = 'blood_fury' | 'slayer_bane' | 'cc_breaker';
 
 /**
  * The half of the combat triangle a monster is *vulnerable* to — the melee/ranged
@@ -358,6 +363,10 @@ export interface Item {
   description: string;
   bonus: {
     damage?: number;
+    /** Percent added to the tower's damage multiplier (folded as 1 + v/100), on top
+     *  of the flat `damage` above. Signature pieces carry both halves, so one is
+     *  worth having on a tier-1 tower and still worth its slot on a maxed one. */
+    damagePct?: number;
     range?: number;
     cooldown?: number;
     xpBonus?: number;

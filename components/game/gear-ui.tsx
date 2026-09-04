@@ -20,8 +20,9 @@ import { hideBrokenImg, Stat } from './ui-kit';
  * and the swap comparison can never drift apart or list them in a different
  * order. `unit` is what follows the number.
  */
-export const GEAR_STAT_DEFS: { key: 'damage' | 'range' | 'cooldown' | 'xpBonus'; icon: string; label: string; unit: string }[] = [
+export const GEAR_STAT_DEFS: { key: 'damage' | 'damagePct' | 'range' | 'cooldown' | 'xpBonus'; icon: string; label: string; unit: string }[] = [
   { key: 'damage', icon: ASSETS.misc.strength_icon, label: 'Damage', unit: '' },
+  { key: 'damagePct', icon: ASSETS.misc.hit_splat, label: 'Damage boost', unit: '%' },
   { key: 'range', icon: ASSETS.misc.multicombat_icon, label: 'Range', unit: '%' },
   { key: 'cooldown', icon: ASSETS.misc.attack_icon, label: 'Attack speed', unit: '%' },
   { key: 'xpBonus', icon: ASSETS.misc.xp_icon, label: 'XP gain', unit: '%' },

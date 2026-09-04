@@ -3,6 +3,7 @@ import type { GameMode, RunModifiers, RunEffects, RelicEffects } from '../core/e
 import { clampTier, type DifficultyTier } from './difficulty';
 import { BIOMES, type BiomeId } from '../data/biomes';
 import { HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
+import { GEAR } from '../data/gear';
 import type { RunStats } from './combat-achievements';
 
 /**
@@ -185,6 +186,12 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
   const towers = Array.isArray(raw.towers)
     ? raw.towers.filter((t): t is Tower => isObj(t) && typeof t.id === 'string' && typeof t.type === 'string'
       && Number.isFinite(t.x) && Number.isFinite(t.y))
+      .map((t) => (isObj(t.equipment)
+        ? { ...t, equipment: {
+            ammo: t.equipment.ammo ? refreshGear(t.equipment.ammo) : null,
+            jewellery: t.equipment.jewellery ? refreshGear(t.equipment.jewellery) : null,
+          } }
+        : t))
     : null;
   if (!towers) return null;
 
@@ -255,7 +262,9 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
       // The slot must be one this build still knows how to wear: a save from an
       // older gear model can carry a piece typed 'weapon'/'seed', and nothing
       // downstream would catch it — it would just land in the jewellery slot.
-      ? raw.lootBag.filter((g): g is Item => isObj(g) && typeof g.id === 'string' && (g.type === 'ammo' || g.type === 'jewellery'))
+      ? raw.lootBag
+          .filter((g): g is Item => isObj(g) && typeof g.id === 'string' && (g.type === 'ammo' || g.type === 'jewellery'))
+          .map(refreshGear)
       : [],
     runMods: raw.runMods as unknown as RunModifiers,
     runFx: raw.runFx as unknown as RunEffects,
@@ -330,4 +339,13 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
  *  with nothing built on it is not progress, it is the title screen. */
 export function isResumable(save: RunSave): boolean {
   return save.wave > 1 || save.towers.length > 0;
+}
+
+/** A save stores gear as the item object that was written, so a piece whose stats or
+ *  signature effect changed in a later patch would come back frozen in the shape it
+ *  had — an amulet quietly doing nothing. Re-read anything the current pool still
+ *  knows by id; a piece it doesn't know (one retired since) is handed back untouched,
+ *  so the slot is never silently emptied. */
+function refreshGear(worn: Item): Item {
+  return GEAR[worn.id] ?? worn;
 }

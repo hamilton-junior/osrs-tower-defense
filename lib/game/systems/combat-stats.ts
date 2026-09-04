@@ -76,6 +76,10 @@ export interface EffectStat {
   ampCount: number;
   splashHits: number;
   lifeStealHeals: number;
+  /** Enemies an Amulet of the damned broke the resistance of. The amulet deals no
+   *  damage of its own, so this count is the only place the meter can show that the
+   *  tower wearing it is doing anything at all. */
+  ccBreakHits: number;
   /** Extra damage the Slayer *helmet* granted while on task. Every tower gets it;
    *  `weaponBonusDmg` below is the tower's own weapon instead. */
   taskBonusDmg: number;

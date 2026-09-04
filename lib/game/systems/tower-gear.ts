@@ -1,4 +1,4 @@
-import type { Item, Tower, TowerType, AmmoClass, Enemy, MageMode } from '../types';
+import type { Item, Tower, TowerType, AmmoClass, Enemy, MageMode, GearEffectId } from '../types';
 import { towerCombatLevel } from './tower-xp';
 import { slayerWeaponBonus } from './tower-identity';
 import { GEAR_POOL } from '../data/gear';
@@ -50,7 +50,7 @@ export function canEquip(tower: Pick<Tower, 'type' | 'skills'> & { mageMode?: Ma
 }
 
 /** The stat keys a piece can carry — the whole of `Item.bonus`. */
-const GEAR_STAT_KEYS = ['damage', 'range', 'cooldown', 'xpBonus'] as const;
+const GEAR_STAT_KEYS = ['damage', 'damagePct', 'range', 'cooldown', 'xpBonus'] as const;
 
 /**
  * Would `item` improve `tower`? True when the tower can equip it at all *and*
@@ -129,9 +129,12 @@ export function rollGearDrops(ctx: GearDropContext, rng: () => number = Math.ran
  * Per-target damage multiplier from every equipped signature piece (1 when
  * none), folded across both gear slots (ammo, jewellery) — a tower running two
  * signatures multiplies both:
- *  - anti_tank: climbs with the target's max HP, 1.0 at ≤40 HP up to ~1.5 at
- *    very high HP.
+ *  - blood_fury: climbs with the target's max HP, 1.0 at ≤40 HP up to ~1.5 at
+ *    very high HP. Its other half — a life won back on a kill — isn't a damage
+ *    question, so it lives at the kill site instead.
  *  - slayer_bane: the slayer weapon bonus vs the active task / superiors / bosses.
+ *  - cc_breaker: nothing here. The Amulet of the damned buys no damage at all; it
+ *    breaks what the target it hits can shrug off (see `markCcBreak`).
  * Pure — the engine multiplies a landed hit by this at the damage site.
  */
 export function gearDamageMult(tower: Pick<Tower, 'equipment'>, enemy: Pick<Enemy, 'type' | 'maxHp' | 'isBoss'>, taskType: string | null): number {
@@ -139,7 +142,7 @@ export function gearDamageMult(tower: Pick<Tower, 'equipment'>, enemy: Pick<Enem
   for (const item of [tower.equipment.ammo, tower.equipment.jewellery]) {
     const effect = item?.gearEffect;
     if (!effect) continue;
-    if (effect === 'anti_tank') {
+    if (effect === 'blood_fury') {
       const t = Math.max(0, Math.min(1, (enemy.maxHp - 40) / 1960)); // 40..2000 HP → 0..1
       mult *= 1 + 0.5 * t;
     } else if (effect === 'slayer_bane') {
@@ -147,4 +150,14 @@ export function gearDamageMult(tower: Pick<Tower, 'equipment'>, enemy: Pick<Enem
     }
   }
   return mult;
+}
+
+/**
+ * Does `tower` wear a piece carrying `effect`, in either slot? The signatures that
+ * aren't a damage rule — a life won back on a kill, a resistance broken on a hit —
+ * ask this at their own site rather than riding the multiplier `gearDamageMult`
+ * returns, which can only ever answer a damage question.
+ */
+export function wearsGearEffect(tower: Pick<Tower, 'equipment'>, effect: GearEffectId): boolean {
+  return tower.equipment.ammo?.gearEffect === effect || tower.equipment.jewellery?.gearEffect === effect;
 }

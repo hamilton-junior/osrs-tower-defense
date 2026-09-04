@@ -309,6 +309,9 @@ const TARGETS = {
   // amulet_of_power / amulet_of_fury already baked above (relics group).
   amulet_of_blood_fury: { name: 'Amulet of blood fury' },
   salve_amulet_ei: { name: 'Salve amulet(ei)' }, // cache name has no space before "(ei)"
+  // The unenchanted Barrows amulet (12853), NOT the '(full)' charge state (12851):
+  // the plain def is the one the client draws as an item icon.
+  amulet_of_the_damned: { name: 'Amulet of the Damned' },
   // ---- Distractions & Diversions ----
   bird_nest: { name: 'Bird nest' }, // the nest that drops between waves
   // ---- the Champion mark ----
