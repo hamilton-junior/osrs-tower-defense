@@ -113,7 +113,7 @@ const INITIAL: UIState = {
   gearDrops: [], gearDropSeq: 0,
   diversions: [],
   traps: [], selectedTrapId: null, hunterLevel: 1, hunterXp: 0, hunterXpNeeded: 10, maxTraps: 1,
-  farmPatches: [], pendingSow: null, farmBuff: null,
+  farmPatches: [], pendingSow: null, movingPatchId: null, placingPlot: false, plotCost: 1000, farmBuff: null,
 };
 
 /** How long a loot-drop toast stays in the corner. Matches the CSS animation in
@@ -1949,6 +1949,19 @@ export default function GameRoot() {
         </div>
       )}
 
+      {/* An allotment in hand. The board is already marking every tile that will
+          take it, so this only has to say what the click does and how to back out
+          — and, for a bought one, that backing out is free. */}
+      {(ui.movingPatchId || ui.placingPlot) && (
+        <div className="rs-hint absolute left-1/2 bottom-[23%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap flex items-center gap-[0.4em] justify-center">
+          <img src={ASSETS.misc.farming_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+          {ui.placingPlot ? 'New allotment' : 'Moving the allotment'}
+          <span className="text-[#d3c3a0]">
+            · click any marked tile · right‑click to cancel{ui.placingPlot ? ' and refund' : ''}
+          </span>
+        </div>
+      )}
+
       {/* Shift-drag build line: what it costs and how to commit it, while the
           stroke is still free to redraw. Sits above the toast lane so a refusal
           can still speak over it. */}
@@ -2401,8 +2414,32 @@ export default function GameRoot() {
                 </div>
               </>
             )}
+            {/* The ground, rather than what is in it. Moving a plot is free — an
+                allotment the map dealt behind a boulder is the map's fault, not a
+                thing to charge for — and a second one is the expensive half. */}
+            <div className="flex gap-[0.35em] mt-[0.5em]">
+              <button
+                className="rs-btn flex-1 py-[0.3em] text-[0.72em] flex items-center justify-center gap-[0.35em]"
+                title="Pick this allotment up and put it down somewhere else — free"
+                onClick={() => { if (ui.pendingSow) engineRef.current?.beginMovePlot(ui.pendingSow); }}
+              >
+                <img src={ASSETS.misc.farming_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                <span>Move plot</span>
+              </button>
+              <button
+                className="rs-btn flex-1 py-[0.3em] text-[0.72em] flex items-center justify-center gap-[0.35em] disabled:opacity-50"
+                disabled={ui.money < ui.plotCost}
+                title={ui.money < ui.plotCost
+                  ? `Another allotment costs ${fmt(ui.plotCost)} gp`
+                  : `Buy another allotment for ${fmt(ui.plotCost)} gp — the next one costs double`}
+                onClick={() => engineRef.current?.buyPlot()}
+              >
+                <span>Buy plot</span>
+                <span className={`tabular-nums ${ui.money < ui.plotCost ? 'text-osrs-red' : 'text-osrs-yellow'}`}>{fmt(ui.plotCost)}</span>
+              </button>
+            </div>
             <button
-              className="rs-btn w-full py-[0.3em] text-[0.72em] mt-[0.5em]"
+              className="rs-btn w-full py-[0.3em] text-[0.72em] mt-[0.35em]"
               title={growing ? 'Leave it growing' : 'Leave the patch empty'}
               onClick={() => engineRef.current?.closeSow()}
             >

@@ -411,6 +411,12 @@ export interface UIState {
   }[];
   /** The patch whose seed menu is open, or null. Set by clicking a bare patch. */
   pendingSow: string | null;
+  /** The plot the player is carrying, or null. Moving one costs nothing. */
+  movingPatchId: string | null;
+  /** A bought plot waiting to be put down. Cancelling refunds it. */
+  placingPlot: boolean;
+  /** What the next plot costs — doubles with every one bought, and never caps. */
+  plotCost: number;
   /** The herb riding this wave — what was pulled and what it is doing. Null
    *  between the harvest's wave and the next one, since a herb lasts one wave. */
   farmBuff: { seedId: SeedId; herbName: string; icon: string; label: string; labelIcon: string; tip: string } | null;

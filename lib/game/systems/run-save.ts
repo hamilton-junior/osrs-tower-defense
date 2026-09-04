@@ -131,10 +131,16 @@ export interface RunSave {
    *  checkpoint saves them because they were paid for between waves: losing them on
    *  a resume would quietly charge the player for nothing. */
   traps?: { defId: HunterTrapId; x: number; y: number; charges: number }[];
-  /** What is growing in the allotments. Only the sown ones travel — the plots
-   *  themselves come back with the map, which the same save rebuilds from its
-   *  seed, so a patch is addressed by its tile-derived id. */
+  /** What is growing in the allotments, addressed by the plot's tile-derived id. */
   farmPatches?: { id: string; seedId: SeedId; grown: number }[];
+  /** Where every plot stands — one tile-derived id each (`p<col>_<row>`), which is
+   *  the whole board, since a plot's id *is* its tile. The map's own seed no longer
+   *  answers this: plots can be moved and bought. Absent in saves written before
+   *  they could be, and those resume with the ground their seed deals — which is
+   *  exactly where their plots were, so nothing needed a version bump. */
+  plots?: string[];
+  /** How many plots this run has bought, which is what the doubling price reads. */
+  plotsBought?: number;
   /** A herb pulled but not yet spent. The checkpoint sits in exactly the gap a
    *  harvest happens in, so dropping it would pocket the player's herb. */
   farmBuff?: SeedId | null;
@@ -338,6 +344,13 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
             : Math.max(0, Math.floor(num(raw.wave, 1)) - Math.floor(num(p.sownAtWave, 0))),
         }))
       : [],
+    // A plot id is a tile, and a tile is two numbers — anything else in this list is
+    // not a plot, and a duplicate would stand two allotments on one square.
+    plots: Array.isArray(raw.plots)
+      ? [...new Set(raw.plots.filter((id): id is string => typeof id === 'string' && /^p\d+_\d+$/.test(id)))]
+        .slice(0, 400)
+      : [],
+    plotsBought: Math.max(0, Math.floor(num(raw.plotsBought, 0))),
     // Same story: it used to be `{ seedId, wave }`, live only on the wave it was
     // stamped with. A resumed checkpoint sits between waves, so an older buff comes
     // back only if it was still the live one when the game was put down.

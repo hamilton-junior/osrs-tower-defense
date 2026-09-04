@@ -1,7 +1,7 @@
 import type { GameRenderer } from '../renderer';
 import { GRID } from '../engine-state';
 import { SEED_BY_ID } from '../../data/farming';
-import { patchStage, wavesLeft } from '../../systems/farming';
+import { canPlacePlot, patchStage, plotTargets, wavesLeft } from '../../systems/farming';
 import { drawImageContain } from './shared';
 
 /**
@@ -146,4 +146,51 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       ctx.restore();
     }
   }
+}
+
+/**
+ * The board while a plot is in hand — moved, or bought and not yet put down.
+ *
+ * An allotment may only stand on ground that was already unusable (systems/farming
+ * says why), and that is not a rule a player can see by looking at scrub. So every
+ * tile that would take it is marked, and the tile under the pointer answers yes or
+ * no in the two colours the rest of the board uses for it. Nobody should have to
+ * learn this rule by clicking somewhere and being ignored.
+ */
+export function drawPlotPlacement(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  const e = gr.e;
+  const moving = e.movingPatchId ? e.farmPatches.find(p => p.id === e.movingPatchId) ?? null : null;
+  if (!moving && !e.placingPlot) return;
+  if (e.terrain.cols === 0) return;
+
+  const t = performance.now() / 1000;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+
+  ctx.save();
+  ctx.lineWidth = 1;
+  for (const tile of plotTargets(e.terrain, moving)) {
+    const left = tile.col * GRID;
+    const top = tile.row * GRID;
+    ctx.fillStyle = `rgba(255,212,94,${0.07 + pulse * 0.05})`;
+    ctx.fillRect(left + 1, top + 1, GRID - 2, GRID - 2);
+    ctx.strokeStyle = 'rgba(255,212,94,0.35)';
+    ctx.strokeRect(left + 1.5, top + 1.5, GRID - 3, GRID - 3);
+  }
+  ctx.restore();
+
+  // The tile under the pointer, in the yes/no the board already speaks.
+  const col = Math.floor(e.pointer.x / GRID);
+  const row = Math.floor(e.pointer.y / GRID);
+  if (col < 0 || row < 0 || col >= e.terrain.cols || row >= e.terrain.rows) return;
+  const ok = canPlacePlot(e.terrain, col, row, moving);
+  const left = col * GRID;
+  const top = row * GRID;
+  ctx.save();
+  ctx.globalAlpha = 0.55 + pulse * 0.2;
+  ctx.fillStyle = ok ? 'rgba(77,255,77,0.22)' : 'rgba(255,77,77,0.22)';
+  ctx.fillRect(left, top, GRID, GRID);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = ok ? '#4dff4d' : '#ff4d4d';
+  ctx.strokeRect(left + 1, top + 1, GRID - 2, GRID - 2);
+  ctx.restore();
 }

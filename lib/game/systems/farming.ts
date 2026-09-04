@@ -25,7 +25,10 @@ import type { TerrainField } from './terrain-generation';
 export type PatchStage = 'empty' | 'sown' | 'growing' | 'ready';
 
 export interface FarmPatch {
-  /** Stable within a run: the patch's tile, so a save reconnects to the same plot. */
+  /** The patch's tile, written out — `p<col>_<row>`. It is the plot's whole
+   *  identity, which is why moving one *renames* it: two plots can never share a
+   *  tile, so the tile is already a unique name, and a save that lists these ids
+   *  has said where every plot stands without storing a coordinate twice. */
   id: string;
   col: number;
   row: number;
@@ -39,18 +42,112 @@ export interface FarmPatch {
   grown: number;
 }
 
+/** A plot's name from its tile. */
+export function plotId(col: number, row: number): string {
+  return `p${col}_${row}`;
+}
+
+/** The tile a plot's name spells out, or null if it isn't one. Only a save reads
+ *  this — it is how a plot the player moved or bought finds its way home. */
+export function parsePlotId(id: string): { col: number; row: number } | null {
+  const m = /^p(\d+)_(\d+)$/.exec(id);
+  return m ? { col: Number(m[1]), row: Number(m[2]) } : null;
+}
+
+/** One bare plot standing on a tile. */
+export function makePatch(col: number, row: number, grid: number): FarmPatch {
+  return {
+    id: plotId(col, row),
+    col,
+    row,
+    x: (col + 0.5) * grid,
+    y: (row + 0.5) * grid,
+    seedId: null,
+    grown: 0,
+  };
+}
+
 /** Turn the field's patch tiles into empty plots. Called with the map, so a fresh
  *  road means fresh ground: nothing that was sown survives a new map. */
 export function buildFarmPatches(field: TerrainField, grid: number): FarmPatch[] {
-  return field.patches.map(p => ({
-    id: `p${p.col}_${p.row}`,
-    col: p.col,
-    row: p.row,
-    x: (p.col + 0.5) * grid,
-    y: (p.row + 0.5) * grid,
-    seedId: null,
-    grown: 0,
-  }));
+  return field.patches.map(p => makePatch(p.col, p.row, grid));
+}
+
+// ───────────────────────────── where a plot may stand ─────────────────────────────
+// The player can pick a plot up and put it down elsewhere, and buy more of them, so
+// the rule the map generator followed has to hold for a hand as well as for a seed:
+// **an allotment only ever stands on ground that was already unusable.** That is the
+// one thing keeping farming out of the board's real currency — every guarantee the
+// terrain makes (the build corridor, the coverage cap, the defensibility repair) was
+// computed on a field where these tiles were taken, and it stays true as long as a
+// plot never eats open ground. It also means a plot can never be dropped on the road,
+// which is open by construction.
+
+/** Whether a plot may stand on this tile. `from` is the plot being moved, whose own
+ *  tile does not count as occupied. */
+export function canPlacePlot(
+  field: TerrainField, col: number, row: number, from?: { col: number; row: number } | null,
+): boolean {
+  if (col < 0 || row < 0 || col >= field.cols || row >= field.rows) return false;
+  if (from && from.col === col && from.row === row) return false; // already there
+  const flag = field.tiles[row * field.cols + col];
+  return flag === 'blocked' || flag === 'unbuildable';
+}
+
+/** Every tile a plot could be put down on right now, in board order. The renderer
+ *  paints these while a plot is in hand, so the rule above is something the player
+ *  sees rather than something they discover by being refused. */
+export function plotTargets(
+  field: TerrainField, from?: { col: number; row: number } | null,
+): { col: number; row: number }[] {
+  const out: { col: number; row: number }[] = [];
+  for (let row = 0; row < field.rows; row++) {
+    for (let col = 0; col < field.cols; col++) {
+      if (canPlacePlot(field, col, row, from)) out.push({ col, row });
+    }
+  }
+  return out;
+}
+
+/** Somewhere to stand `count` plots the player already owns, when the map itself
+ *  never dealt them — a new leg's ground has to honour the plots that were bought on
+ *  the last one. Prefers tiles with open ground around them, the same taste the
+ *  generator has: a plot at the edge of the scrub is reachable to look at, one buried
+ *  in a boulder field is a sprite nobody can read. */
+export function pickPlotTiles(
+  field: TerrainField, count: number,
+): { col: number; row: number }[] {
+  if (count <= 0) return [];
+  const free = plotTargets(field);
+  const openAround = ({ col, row }: { col: number; row: number }) => {
+    let n = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const r = row + dr, c = col + dc;
+        if (r < 0 || c < 0 || r >= field.rows || c >= field.cols) continue;
+        if (field.tiles[r * field.cols + c] === 'open') n++;
+      }
+    }
+    return n;
+  };
+  // Deterministic: the same map and the same number of plots always deal the same
+  // ground, so a reloaded run finds its allotments where it left them.
+  return free
+    .map(t => ({ t, open: openAround(t) }))
+    .sort((a, b) => (b.open - a.open) || (a.t.row - b.t.row) || (a.t.col - b.t.col))
+    .slice(0, count)
+    .map(e => e.t)
+    .sort((a, b) => (a.row - b.row) || (a.col - b.col));
+}
+
+/** What the next plot costs. Doubling, from a price that is already steep: a plot is
+ *  a permanent second buff slot for the rest of the run, so the second one has to be
+ *  a real decision against a tower and the fourth has to be out of reach for a while.
+ *  Nothing caps how many can be owned — the price is the cap. */
+export const PLOT_BASE_COST = 1000;
+
+export function plotCost(bought: number): number {
+  return PLOT_BASE_COST * 2 ** Math.max(0, bought);
 }
 
 /** A wave has been fought and cleared: age everything in the ground by one. This

@@ -249,6 +249,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },
     { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
     { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows buffs one whole wave.' },
+    { icon: ASSETS.misc.farming_icon, text: 'Move an allotment for free, or buy another — each one costs double the last.' },
     { icon: ASSETS.misc.compass, text: 'Tips appear in-game the first time each new thing shows up.' },
   ] },
   { id: 'towers', label: 'Towers', icon: ASSETS.towers.archer[1], lines: [

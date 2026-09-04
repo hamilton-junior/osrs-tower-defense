@@ -60,7 +60,8 @@ import { diversionEssence, diversionGold, diversionLine, offBoardPoint, pickDive
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
-  buildFarmPatches, farmGoldMult, farmTowerMods, harvestable, patchAtPoint, patchStage, wavesLeft,
+  buildFarmPatches, canPlacePlot, farmGoldMult, farmTowerMods, harvestable, makePatch, parsePlotId,
+  patchAtPoint, patchStage, pickPlotTiles, plotCost, plotId, wavesLeft,
   type FarmPatch,
 } from '../systems/farming';
 import {
@@ -384,6 +385,16 @@ export class GameEngine {
   farmPatches: FarmPatch[] = [];
   /** The patch whose seed menu is open, or null. */
   pendingSow: string | null = null;
+  /** The plot the player has picked up and is carrying, or null. Moving one is
+   *  free — the plot is ground, not a purchase, and charging for the ground would
+   *  only teach players to leave a badly-dealt allotment where it fell. */
+  movingPatchId: string | null = null;
+  /** A plot that has been *paid for* and is waiting to be put down. Held apart from
+   *  a move so a cancel can hand the gold back without guessing which it was. */
+  placingPlot = false;
+  /** How many plots this run has bought. The price doubles off this, and nothing
+   *  else reads it — there is no cap on the count. */
+  plotsBought = 0;
   /** The herb riding a wave. One at a time, and one wave long: a harvest arms it
    *  and clearing that wave spends it (see the wave-end path in core/sim/waves).
    *  Spent by the wave that was actually fought rather than by a wave number, for
@@ -748,6 +759,9 @@ export class GameEngine {
         };
       }),
       pendingSow: this.pendingSow,
+      movingPatchId: this.movingPatchId,
+      placingPlot: this.placingPlot,
+      plotCost: plotCost(this.plotsBought),
       farmBuff: (() => {
         const id = this.activeFarmBuff();
         if (!id) return null;
@@ -1139,7 +1153,8 @@ export class GameEngine {
     if (this.pendingSow !== null) { this.closeSow(); return; }
     if (this.pendingPlacement || this.movingTowerId || this.movingGroupIds.length
         || this.placeQueue.length || this.pasting || this.selectedTowerType
-        || this.selectedTrapId || this.shapingGrab) {
+        || this.selectedTrapId || this.shapingGrab
+        || this.movingPatchId || this.placingPlot) {
       this.cancelAction();
     } else {
       this.togglePause();
@@ -1268,7 +1283,22 @@ export class GameEngine {
     );
     // Fresh road, fresh ground: nothing sown on the old map carries over.
     this.farmPatches = buildFarmPatches(this.terrain, GRID);
+    // Plots that were *bought* do carry over. They were paid for at a doubling price
+    // and the run is one run: losing them at a border would make the purchase a rent.
+    // The new map deals them ground of its own, since it has no idea where the last
+    // one put them.
+    this.addOwnedPlots();
     this.pendingSow = null;
+  }
+
+  /** Stand this run's bought plots on ground the current map can spare, and flag
+   *  their tiles so nothing else claims them. */
+  private addOwnedPlots() {
+    for (const tile of pickPlotTiles(this.terrain, this.plotsBought)) {
+      this.terrain.tiles[tile.row * this.terrain.cols + tile.col] = 'farming';
+      this.farmPatches.push(makePatch(tile.col, tile.row, GRID));
+    }
+    this.farmPatches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
   }
 
   private buildPath() {
@@ -1814,6 +1844,7 @@ export class GameEngine {
     this.placeCursor = null; // the keyboard cursor goes with the cancelled placement
     this.shapingGrab = null; // a picked-up square of road is put back down too
     this.selectedTrapId = null; // and a trap in hand is put back in the bag
+    this.dropCarriedPlot(); // an allotment in hand goes back, and a bought one is refunded
     this.emit();
   }
 
@@ -2238,6 +2269,10 @@ export class GameEngine {
       this.placeTower(this.selectedTowerType, x, y, keepPlacing);
       return;
     }
+    // A plot in hand answers first, and answers alone: the whole board is its
+    // target, and every other reading of a click here — a trap, a road grip, the
+    // allotment underneath — would fire on the way to putting it down.
+    if (this.movingPatchId || this.placingPlot) { this.tryPlacePlot(x, y); return; }
     // A trap in hand, and a trap already lying on the ground, both want the road —
     // the same tiles the shaping handles sit on — so both are read before them.
     if (this.selectedTrapId) { this.tryPlaceTrap(x, y); return; }
@@ -3153,6 +3188,85 @@ export class GameEngine {
     this.emit();
   }
 
+  // ─────────────────────────── the ground itself ───────────────────────────
+  // A plot can be picked up and set down elsewhere for nothing, and more of them
+  // can be bought. Where they may stand is systems/farming's rule — already-unusable
+  // ground, never the open tiles a tower wants — and the engine only carries the
+  // plot, moves the terrain flag with it and keeps the till.
+
+  /** What the next plot costs. Doubles with every one bought. */
+  nextPlotCost(): number {
+    return plotCost(this.plotsBought);
+  }
+
+  /** Pick a plot up. Free, and it keeps whatever is growing in it. */
+  beginMovePlot(patchId: string) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    if (!this.farmPatches.some(p => p.id === patchId)) return;
+    this.cancelAction(); // nothing else may be in hand at the same time
+    this.movingPatchId = patchId;
+    this.pendingSow = null;
+    this.sound.play('click');
+    this.emit();
+  }
+
+  /** Buy a plot. The gold goes now and the plot is in hand: cancelling refunds it,
+   *  so the player is never charged for ground they didn't put down. */
+  buyPlot() {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    const cost = this.nextPlotCost();
+    if (this.money < cost) { this.notify('Not enough gold'); return; }
+    if (this.terrain.cols === 0) return;
+    this.cancelAction();
+    this.money -= cost;
+    this.placingPlot = true;
+    this.pendingSow = null;
+    this.sound.play('sell'); // the coin-shuffle: gold left the purse
+    this.emit();
+  }
+
+  /** Put down whatever plot is in hand, if the tile will take it. A click that
+   *  lands nowhere valid is not an answer — the plot stays in hand. */
+  private tryPlacePlot(x: number, y: number) {
+    const moving = this.movingPatchId ? this.farmPatches.find(p => p.id === this.movingPatchId) : null;
+    if (!moving && !this.placingPlot) return;
+    const col = Math.floor(x / GRID);
+    const row = Math.floor(y / GRID);
+    if (!canPlacePlot(this.terrain, col, row, moving)) return;
+    const cols = this.terrain.cols;
+    if (moving) {
+      // The ground the plot was standing on goes back to rough scrub. It was never
+      // buildable and still isn't, so no guarantee the terrain makes is disturbed —
+      // and a dug-over allotment looking like scrub is what it should look like.
+      this.terrain.tiles[moving.row * cols + moving.col] = 'unbuildable';
+      moving.col = col;
+      moving.row = row;
+      moving.x = (col + 0.5) * GRID;
+      moving.y = (row + 0.5) * GRID;
+      moving.id = plotId(col, row);
+      this.movingPatchId = null;
+    } else {
+      this.farmPatches.push(makePatch(col, row, GRID));
+      this.plotsBought += 1;
+      this.placingPlot = false;
+      this.notify('Allotment bought', ASSETS.misc.farming_icon);
+    }
+    this.terrain.tiles[row * cols + col] = 'farming';
+    this.farmPatches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
+    this.sound.play('farm_harvest');
+    this.emit();
+  }
+
+  /** Put the plot in hand back where it came from, refunding a bought one. Called
+   *  by every cancel path, so it must be safe to run when nothing is in hand. */
+  private dropCarriedPlot() {
+    if (this.placingPlot) {
+      this.money += this.nextPlotCost(); // never charged for ground not put down
+      this.placingPlot = false;
+    }
+    this.movingPatchId = null;
+  }
+
   /** Pull a ripe herb. It arms the *next* wave, and only that one: harvesting a
    *  second patch before Start Wave replaces the first rather than stacking it,
    *  which is what keeps a pair of allotments a choice instead of a sum. */
@@ -3519,11 +3633,17 @@ export class GameEngine {
       towersBuilt: this.towersBuilt,
       seedsSown: this.seedsSown,
       herbsHarvested: this.herbsHarvested,
-      // Only what is actually in the ground: the plots themselves come back with
-      // the map, which the same save rebuilds from its seed.
+      // What is actually in the ground...
       farmPatches: this.farmPatches
         .filter(p => p.seedId)
         .map(p => ({ id: p.id, seedId: p.seedId!, grown: p.grown })),
+      // ...and where every plot stands, which the map alone no longer says: the
+      // player can move a plot and buy more of them. A plot's id *is* its tile, so
+      // this list is the board. A save written before plots could move has no such
+      // list, and resumes with the ground its seed deals — which is exactly where
+      // its plots were.
+      plots: this.farmPatches.map(p => p.id),
+      plotsBought: this.plotsBought,
       // A herb pulled but not yet spent. The checkpoint is taken between waves,
       // which is exactly the gap a harvest sits in, so leaving it out would quietly
       // pocket the herb the player harvested a second before quitting.
@@ -3620,8 +3740,23 @@ export class GameEngine {
     this.towersBuilt = save.towersBuilt;
     this.seedsSown = save.seedsSown ?? 0;
     this.herbsHarvested = save.herbsHarvested ?? 0;
-    // The plots were rebuilt from the map seed above; this puts back what was
-    // growing in them. A patch the map no longer deals simply has nothing sown.
+    // Where the plots stand. The map above dealt its own, which is right for an
+    // older save and wrong for any run that moved or bought one — so a save that
+    // lists its plots replaces them wholesale, terrain flags and all.
+    this.plotsBought = save.plotsBought ?? 0;
+    if (save.plots && save.plots.length > 0) {
+      const cols = this.terrain.cols;
+      for (const p of this.farmPatches) this.terrain.tiles[p.row * cols + p.col] = 'unbuildable';
+      this.farmPatches = [];
+      for (const id of save.plots) {
+        const at = parsePlotId(id);
+        if (!at || at.col >= cols || at.row >= this.terrain.rows) continue;
+        this.terrain.tiles[at.row * cols + at.col] = 'farming';
+        this.farmPatches.push(makePatch(at.col, at.row, GRID));
+      }
+      this.farmPatches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
+    }
+    // What was growing in them. A patch the save no longer names has nothing sown.
     for (const s of save.farmPatches ?? []) {
       const plot = this.farmPatches.find(p => p.id === s.id);
       if (!plot) continue;
@@ -3725,6 +3860,11 @@ export class GameEngine {
   }
 
   restart() {
+    // Plots bought last run don't come free this one — zeroed before the map, which
+    // is what stands them up.
+    this.plotsBought = 0;
+    this.movingPatchId = null;
+    this.placingPlot = false;
     this.generateMap(); // fresh procedural map + biome for the new run
     this.enemies = [];
     this.towers = [];
@@ -3802,6 +3942,7 @@ export class GameEngine {
     this.clipboard = [];
     this.pasting = false;
     this.pendingPlacement = null;
+    this.pendingSow = null;
     this.gameTime = 0;
     this.realTime = 0;
     this.slayer.reset();

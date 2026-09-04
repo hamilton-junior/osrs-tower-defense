@@ -7,7 +7,7 @@ import { drawScorches } from './render/scorch';
 import { drawSiphonLinks } from './render/siphon';
 import { drawDeaths, drawEnemies } from './render/enemies';
 import { drawDiversions } from './render/diversions';
-import { drawFarming } from './render/farming';
+import { drawFarming, drawPlotPlacement } from './render/farming';
 import { drawTraps } from './render/hunter-traps';
 import { drawRoadShaping } from './render/road-shaping';
 import { drawProjectiles, drawParticles, drawFx, drawHitsplats } from './render/effects';
@@ -80,6 +80,7 @@ export class GameRenderer {
     drawBuildOverlay(this, ctx);
     drawPlacementGhost(this, ctx);
     drawFarming(this, ctx); // allotments — on unbuildable ground, so never over a tower
+    drawPlotPlacement(this, ctx); // where a plot in hand may be put down, over the plots themselves
     drawTowers(this, ctx);
     drawRoadShaping(this, ctx); // road handles — between waves only, over the towers they must not hide behind
     drawDiversions(this, ctx); // the world between waves — always empty during a fight

@@ -256,6 +256,39 @@ describe('the allotments', () => {
     expect(back).not.toBeNull();
     expect(back?.farmPatches).toEqual([]);
   });
+
+  // A plot's id *is* its tile, so the ground the player moved and bought their way
+  // into is these two fields and nothing else.
+  it('round-trips where the plots stand and how many were bought', () => {
+    const save = makeSave({ plots: ['p3_4', 'p10_2'], plotsBought: 2 });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.plots).toEqual(['p3_4', 'p10_2']);
+    expect(back?.plotsBought).toBe(2);
+  });
+
+  // Saves written before plots could move have neither field, and resume on the
+  // ground their map dealt them — which is why nothing needed a version bump.
+  it('resumes a save from before plots could move', () => {
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(makeSave())));
+    expect(back).not.toBeNull();
+    expect(back?.plots).toEqual([]);
+    expect(back?.plotsBought).toBe(0);
+  });
+
+  it('throws out anything in the list that is not a tile, and any repeat of one', () => {
+    const save = makeSave({ plots: ['p3_4', 'p3_4', 'nope', 7, 'p-1_2', null] });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.plots).toEqual(['p3_4']);
+  });
+
+  it('reads a nonsense purchase count as none bought', () => {
+    expect(sanitizeRunSave(JSON.parse(JSON.stringify(
+      makeSave({ plotsBought: -4 }),
+    )))?.plotsBought).toBe(0);
+    expect(sanitizeRunSave(JSON.parse(JSON.stringify(
+      makeSave({ plotsBought: 'lots' }),
+    )))?.plotsBought).toBe(0);
+  });
 });
 
 describe('the run\'s boss ladder', () => {

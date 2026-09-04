@@ -3,6 +3,8 @@ import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
   buildFarmPatches, patchStage, wavesLeft, patchAtPoint, harvestable, ripenPatches,
   farmTowerMods, farmGoldMult, farmPrayerDrainMult, farmLivesOnClear,
+  plotId, parsePlotId, makePatch, canPlacePlot, plotTargets, pickPlotTiles,
+  plotCost, PLOT_BASE_COST,
   type FarmPatch,
 } from './farming';
 import type { TerrainField } from './terrain-generation';
@@ -177,5 +179,138 @@ describe('what a herb is worth', () => {
         || farmLivesOnClear(id) !== 0;
       expect(moved, `${id} does nothing`).toBe(true);
     }
+  });
+});
+
+
+// ───────────────────────── moving and buying allotments ─────────────────────────
+// A tiny hand-drawn field: `.` open, `#` blocked, `-` unbuildable, `F` a plot already
+// standing. Rows are written the way the board reads them, top to bottom.
+const draw = (rows: string[]): TerrainField => {
+  const cols = rows[0].length;
+  const tiles: TerrainField['tiles'] = [];
+  const patches: { col: number; row: number }[] = [];
+  rows.forEach((line, row) => {
+    [...line].forEach((ch, col) => {
+      if (ch === '#') tiles.push('blocked');
+      else if (ch === '-') tiles.push('unbuildable');
+      else if (ch === 'F') { tiles.push('farming'); patches.push({ col, row }); }
+      else tiles.push('open');
+    });
+  });
+  return { cols, rows: rows.length, tiles, decorations: [], patches };
+};
+
+describe('plot ids', () => {
+  it('round-trips a tile through its name', () => {
+    expect(plotId(12, 7)).toBe('p12_7');
+    expect(parsePlotId('p12_7')).toEqual({ col: 12, row: 7 });
+  });
+
+  it('refuses anything that is not one', () => {
+    expect(parsePlotId('p12')).toBeNull();
+    expect(parsePlotId('12_7')).toBeNull();
+    expect(parsePlotId('p-1_7')).toBeNull();
+    expect(parsePlotId('')).toBeNull();
+  });
+
+  it('names a fresh plot after the tile it stands on', () => {
+    expect(makePatch(4, 2, GRID)).toEqual({
+      id: 'p4_2', col: 4, row: 2, x: 144, y: 80, seedId: null, grown: 0,
+    });
+  });
+});
+
+describe('where a plot may be put down', () => {
+  // The whole rule, in one field: only ground the board had already written off.
+  const f = draw([
+    '..#-',
+    '.F#.',
+    '....',
+  ]);
+
+  it('takes ground the board had already given up on', () => {
+    expect(canPlacePlot(f, 2, 0)).toBe(true);  // blocked
+    expect(canPlacePlot(f, 3, 0)).toBe(true);  // unbuildable
+  });
+
+  it('never takes open ground — the board needs it, and the road runs on it', () => {
+    expect(canPlacePlot(f, 0, 0)).toBe(false);
+    expect(canPlacePlot(f, 3, 1)).toBe(false);
+  });
+
+  it('never stacks two plots on one tile', () => {
+    expect(canPlacePlot(f, 1, 1)).toBe(false);
+  });
+
+  it('refuses a tile off the board', () => {
+    expect(canPlacePlot(f, -1, 0)).toBe(false);
+    expect(canPlacePlot(f, 0, -1)).toBe(false);
+    expect(canPlacePlot(f, 4, 0)).toBe(false);
+    expect(canPlacePlot(f, 0, 3)).toBe(false);
+  });
+
+  // A plot in hand is still standing on its tile, and dropping it back there is a
+  // move to nowhere — the click does nothing and the plot stays in hand, which is
+  // what right-click is for.
+  it('refuses the tile the plot in hand already stands on', () => {
+    expect(canPlacePlot(f, 1, 1, { col: 1, row: 1 })).toBe(false);
+  });
+
+  it('still refuses another plot’s tile while one is in hand', () => {
+    expect(canPlacePlot(f, 1, 1, { col: 2, row: 0 })).toBe(false);
+  });
+
+  it('lists every legal tile in board order', () => {
+    expect(plotTargets(f)).toEqual([{ col: 2, row: 0 }, { col: 3, row: 0 }, { col: 2, row: 1 }]);
+  });
+});
+
+describe('standing bought plots on a new map', () => {
+  const f = draw([
+    '..#',
+    '###',
+    '###',
+  ]);
+
+  it('deals nothing when nothing was bought', () => {
+    expect(pickPlotTiles(f, 0)).toEqual([]);
+  });
+
+  it('prefers the tiles with open ground around them', () => {
+    // (0,1) and (1,1) each sit under both open tiles; (2,0) only touches one. The
+    // row/col tiebreak then picks the leftmost of the two.
+    expect(pickPlotTiles(f, 1)).toEqual([{ col: 0, row: 1 }]);
+  });
+
+  it('hands them back in board order, however they were ranked', () => {
+    const picked = pickPlotTiles(f, 4);
+    expect(picked).toHaveLength(4);
+    expect([...picked].sort((a, b) => (a.row - b.row) || (a.col - b.col))).toEqual(picked);
+  });
+
+  it('is deterministic, so a reloaded run finds its plots where it left them', () => {
+    expect(pickPlotTiles(f, 3)).toEqual(pickPlotTiles(f, 3));
+  });
+
+  it('never deals more ground than the map has', () => {
+    expect(pickPlotTiles(f, 99)).toHaveLength(7);
+  });
+
+  it('never deals a tile a plot could not stand on', () => {
+    for (const t of pickPlotTiles(f, 99)) expect(canPlacePlot(f, t.col, t.row)).toBe(true);
+  });
+});
+
+describe('what the next plot costs', () => {
+  it('starts at the base price and doubles every time', () => {
+    expect(plotCost(0)).toBe(PLOT_BASE_COST);
+    expect(plotCost(1)).toBe(2000);
+    expect(plotCost(2)).toBe(4000);
+    expect(plotCost(5)).toBe(32000);
+  });
+
+  it('treats a nonsense count as none bought', () => {
+    expect(plotCost(-3)).toBe(PLOT_BASE_COST);
   });
 });
