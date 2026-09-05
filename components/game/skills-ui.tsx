@@ -179,6 +179,45 @@ function Section({ label, right, children }: { label: string; right?: React.Reac
   );
 }
 
+/**
+ * A `rs-btn` that asks once before it spends something for nothing. `confirm` is
+ * what makes it ask, so the extra click only ever appears where there is a reason
+ * — a herb already riding the wave, a dose still running — and every other press
+ * is the single click it has always been. Armed, it says **Sure?** in red and
+ * disarms itself after a few seconds, or the moment the reason to ask goes away.
+ */
+function ConfirmButton({ confirm, onPress, disabled, title, confirmTitle, children }: {
+  confirm: boolean;
+  onPress: () => void;
+  disabled?: boolean;
+  title?: string;
+  confirmTitle: string;
+  children: React.ReactNode;
+}) {
+  const [armed, setArmed] = React.useState(false);
+  React.useEffect(() => {
+    if (!armed) return;
+    if (!confirm || disabled) { setArmed(false); return; }
+    const t = window.setTimeout(() => setArmed(false), 3000);
+    return () => window.clearTimeout(t);
+  }, [armed, confirm, disabled]);
+  return (
+    <button
+      onClick={() => {
+        if (confirm && !armed) { setArmed(true); return; }
+        setArmed(false);
+        onPress();
+      }}
+      disabled={disabled}
+      title={confirm ? confirmTitle : title}
+      className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
+      style={armed ? { color: 'var(--osrs-red)' } : undefined}
+    >
+      {armed ? 'Sure?' : children}
+    </button>
+  );
+}
+
 // ───────────────────────────────── Hunter ─────────────────────────────────
 
 function HunterPage({ ui, onSelectTrap }: SkillsViewProps) {
@@ -315,6 +354,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
           <div className="flex flex-col gap-[0.25em]">
             {ui.herbPouch.map((h) => {
               const potion = POTIONS.find((p) => p.herb === h.seedId);
+              const riding = ui.farmBuffs.some((b) => b.seedId === h.seedId);
               return (
                 <div key={h.seedId} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
                   <img src={h.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
@@ -324,14 +364,15 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                     </span>
                     <span className="block text-[0.68em] text-[#cdbe91] truncate">{h.tip}</span>
                   </span>
-                  <button
-                    onClick={() => onUseHerb(h.seedId)}
+                  <ConfirmButton
+                    confirm={riding}
+                    onPress={() => onUseHerb(h.seedId)}
                     disabled={busy}
                     title={`Drink it raw — ${h.label} for the next wave`}
-                    className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
+                    confirmTitle={`${h.name} is already riding this wave. A second one adds nothing.`}
                   >
                     Use
-                  </button>
+                  </ConfirmButton>
                   {potion && (
                     <button
                       onClick={() => onBrewPotion(potion.id)}
@@ -462,6 +503,7 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
             {ui.potionStock.map((p) => {
               const def = POTIONS.find((d) => d.id === p.id);
               const cost = def?.lifeCost ?? 0;
+              const running = ui.activePotions.find((a) => a.id === p.id);
               return (
                 <div key={p.id} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
                   <img src={p.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
@@ -474,14 +516,15 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                       {cost > 0 && ` · costs ${cost} life`}
                     </span>
                   </span>
-                  <button
-                    onClick={() => onDrinkPotion(p.id)}
+                  <ConfirmButton
+                    confirm={!!running}
+                    onPress={() => onDrinkPotion(p.id)}
                     disabled={busy || (cost > 0 && ui.lives <= cost)}
                     title={cost > 0 && ui.lives <= cost ? 'Too few lives to drink that' : def?.tip}
-                    className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
+                    confirmTitle={`${p.name} still has ${running?.wavesLeft ?? 0} wave${running?.wavesLeft === 1 ? '' : 's'} left. Another dose only starts it over.`}
                   >
                     Drink
-                  </button>
+                  </ConfirmButton>
                 </div>
               );
             })}
