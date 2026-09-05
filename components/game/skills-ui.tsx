@@ -232,10 +232,15 @@ function HunterPage({ ui, onSelectTrap }: SkillsViewProps) {
           <div className="text-[0.7em] text-[#9d8f6e]">Nothing set. Pick a trap, then click the road.</div>
         ) : (
           <div className="flex flex-wrap gap-[0.3em]">
+            {/* `.rs-slot` is width:100% + a square aspect, so it takes its size from
+                whatever holds it. Without this wrapper each trap stretched to the
+                whole row and came out enormous. */}
             {ui.traps.map((t) => (
-              <div key={t.id} className="rs-slot" title={`${t.name} — ${t.charges} of ${t.maxCharges} catches left`}>
-                <img src={t.icon} alt={t.name} onError={hideBrokenImg} />
-                <span className="rs-slot-cost" style={{ color: 'var(--osrs-yellow)' }}>{t.charges}</span>
+              <div key={t.id} className="w-[2.6em]">
+                <div className="rs-slot" title={`${t.name} — ${t.charges} of ${t.maxCharges} catches left`}>
+                  <img src={t.icon} alt={t.name} onError={hideBrokenImg} />
+                  <span className="rs-slot-cost" style={{ color: 'var(--osrs-yellow)' }}>{t.charges}</span>
+                </div>
               </div>
             ))}
           </div>
