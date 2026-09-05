@@ -367,19 +367,23 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
         </button>
       </Section>
 
-      <Section label="Riding this wave">
-        {ui.farmBuff ? (
-          <div className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
-            <img src={ui.farmBuff.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[0.74em] text-osrs-orange truncate">{ui.farmBuff.herbName}</span>
-              <span className="block text-[0.68em] text-[#cdbe91] truncate">{ui.farmBuff.tip}</span>
-            </span>
-            <img src={ui.farmBuff.labelIcon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
-            <span className="text-[0.68em] text-[#cdbe91] shrink-0">{ui.farmBuff.label}</span>
-          </div>
+      <Section label="Riding this wave" right={ui.farmBuffs.length > 0 ? `${ui.farmBuffs.length} up` : undefined}>
+        {ui.farmBuffs.length === 0 ? (
+          <div className="text-[0.7em] text-[#9d8f6e]">No herb drunk. Use one from the pouch.</div>
         ) : (
-          <div className="text-[0.7em] text-[#9d8f6e]">No herb pulled. A harvest arms the next wave.</div>
+          <div className="flex flex-col gap-[0.25em]">
+            {ui.farmBuffs.map((h) => (
+              <div key={h.seedId} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
+                <img src={h.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[0.74em] text-osrs-orange truncate">{h.herbName}</span>
+                  <span className="block text-[0.68em] text-[#cdbe91] truncate">{h.tip}</span>
+                </span>
+                <img src={h.labelIcon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
+                <span className="text-[0.68em] text-[#cdbe91] shrink-0">{h.label}</span>
+              </div>
+            ))}
+          </div>
         )}
       </Section>
     </>

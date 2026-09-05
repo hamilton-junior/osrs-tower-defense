@@ -418,9 +418,10 @@ export interface UIState {
   placingPlot: boolean;
   /** What the next plot costs — doubles with every one bought, and never caps. */
   plotCost: number;
-  /** The herb riding this wave — what was pulled and what it is doing. Null
-   *  between the harvest's wave and the next one, since a herb lasts one wave. */
-  farmBuff: { seedId: SeedId; herbName: string; icon: string; label: string; labelIcon: string; tip: string } | null;
+  /** The herbs riding this wave — what was drunk and what each one is doing. They
+   *  stack like doses, but each herb appears once; the list empties every time a
+   *  wave is cleared, since a herb lasts exactly one wave. */
+  farmBuffs: { seedId: SeedId; herbName: string; icon: string; label: string; labelIcon: string; tip: string }[];
   /** Herbs pulled and not yet spent, only the stacks actually held. A harvest fills
    *  this instead of arming a wave, so the choice between drinking a herb raw and
    *  brewing it belongs to the player rather than to the patch. */

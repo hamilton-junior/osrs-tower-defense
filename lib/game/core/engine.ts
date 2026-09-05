@@ -401,15 +401,17 @@ export class GameEngine {
   /** How many plots this run has bought. The price doubles off this, and nothing
    *  else reads it — there is no cap on the count. */
   plotsBought = 0;
-  /** The herb riding a wave. One at a time, and one wave long: a harvest arms it
-   *  and clearing that wave spends it (see the wave-end path in core/sim/waves).
-   *  Spent by the wave that was actually fought rather than by a wave number, for
-   *  the same reason a patch counts its own waves — see systems/farming. */
-  farmBuff: SeedId | null = null;
+  /** The herbs riding a wave. They stack the way doses do — a Guam and a Torstol
+   *  can both be up — but each herb appears once, so drinking a second Guam is
+   *  the Guam that is already running rather than twice the damage. One wave long
+   *  whatever is in it: clearing the wave empties the list (see the wave-end path
+   *  in core/sim/waves). Spent by the wave that was actually fought rather than by
+   *  a wave number, for the same reason a patch counts its own waves. */
+  farmBuffs: SeedId[] = [];
 
-  /** The herb in effect *right now*, or null. What every system reads. */
-  activeFarmBuff(): SeedId | null {
-    return this.farmBuff;
+  /** The herbs in effect *right now*. What every system reads. */
+  activeFarmBuffs(): SeedId[] {
+    return this.farmBuffs;
   }
 
   // ----------------------------------------------------------------- herblore
@@ -797,15 +799,13 @@ export class GameEngine {
       movingPatchId: this.movingPatchId,
       placingPlot: this.placingPlot,
       plotCost: plotCost(this.plotsBought),
-      farmBuff: (() => {
-        const id = this.activeFarmBuff();
-        if (!id) return null;
+      farmBuffs: this.activeFarmBuffs().map((id) => {
         const def = SEED_BY_ID[id];
         return {
           seedId: id, herbName: def.herbName, icon: def.herbIcon,
           label: def.signature.label, labelIcon: def.signature.icon, tip: def.tip,
         };
-      })(),
+      }),
       herbPouch: SEEDS
         .filter(s => this.herbPouch[s.id] > 0)
         .map(s => ({
@@ -997,11 +997,11 @@ export class GameEngine {
 
   /** The board-wide tower multipliers in force this wave (all 1 with nothing
    *  running), passed to {@link calculateTowerStats} as its `globalMods` layer.
-   *  Three things feed it and they all stack: the wave event, a herb used raw,
+   *  Three things feed it and they all stack: the wave event, the herbs used raw,
    *  and every potion currently up. */
   eventTowerMods() {
     const m = resolveEventMods(this.activeEvent);
-    const f = farmTowerMods(this.activeFarmBuff());
+    const f = farmTowerMods(this.activeFarmBuffs());
     const p = potionTowerMods(this.activePotions);
     return {
       damage: m.towerDamage * f.damage * p.damage,
@@ -1845,7 +1845,7 @@ export class GameEngine {
   /** Add gold from a kill or wave clear, scaled by the rewardMultiplier upgrade,
    *  and track it for the game-over "earned" tally. Returns the gold granted. */
   awardGold(base: number): number {
-    const gold = Math.round(base * this.meta.upgrades.rewardMultiplier * farmGoldMult(this.activeFarmBuff()));
+    const gold = Math.round(base * this.meta.upgrades.rewardMultiplier * farmGoldMult(this.activeFarmBuffs()));
     this.money += gold;
     this.goldEarned += gold;
     return gold;
@@ -3359,14 +3359,15 @@ export class GameEngine {
   // touches — there is nothing here to click during a fight.
 
   /** Spend a herb raw: exactly the one-wave buff a harvest used to arm by itself.
-   *  Still one at a time — using a second before Start Wave replaces the first,
-   *  which is what keeps a pair of allotments a choice instead of a sum. */
+   *  They stack like doses do, so a pouchful of different herbs all ride the same
+   *  wave — but a herb already running is only re-armed, never doubled, which is
+   *  the confirmation the Use button asks for before it spends the second one. */
   useHerb(seedId: SeedId) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
     if (this.herbPouch[seedId] < 1) return;
     const def = SEED_BY_ID[seedId];
     this.herbPouch[seedId] -= 1;
-    this.farmBuff = seedId;
+    if (!this.farmBuffs.includes(seedId)) this.farmBuffs.push(seedId);
     this.bumpCombatEpoch(); // a damage or range herb changes every tower's stats
     this.sound.play('farm_harvest');
     this.notify(`${def.herbName} — ${def.signature.label}`, def.herbIcon);
@@ -3778,10 +3779,10 @@ export class GameEngine {
       // its plots were.
       plots: this.farmPatches.map(p => p.id),
       plotsBought: this.plotsBought,
-      // A herb pulled but not yet spent. The checkpoint is taken between waves,
+      // Herbs used but not yet spent. The checkpoint is taken between waves,
       // which is exactly the gap a harvest sits in, so leaving it out would quietly
-      // pocket the herb the player harvested a second before quitting.
-      farmBuff: this.farmBuff,
+      // pocket the herbs the player drank a second before quitting.
+      farmBuffs: [...this.farmBuffs],
       // And the bench: what the pouch holds, what has been brewed, what the skill
       // has reached, and which doses are still running. Every one of these is
       // optional in the save format, so a run written before Herblore existed
@@ -3906,7 +3907,7 @@ export class GameEngine {
       plot.seedId = s.seedId;
       plot.grown = s.grown;
     }
-    this.farmBuff = save.farmBuff ?? null;
+    this.farmBuffs = [...(save.farmBuffs ?? [])];
     this.herbPouch = { ...emptyPouch(), ...save.herbPouch };
     this.potionStock = { ...emptyStock(), ...save.potionStock };
     this.herbloreLevel = save.herbloreLevel ?? HERBLORE_START_LEVEL;
@@ -4058,7 +4059,7 @@ export class GameEngine {
     this.towersBuilt = 0;
     this.seedsSown = 0;
     this.herbsHarvested = 0;
-    this.farmBuff = null;
+    this.farmBuffs = [];
     this.herbPouch = emptyPouch();
     this.potionStock = emptyStock();
     this.herbloreLevel = HERBLORE_START_LEVEL;

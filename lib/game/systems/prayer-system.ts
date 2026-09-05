@@ -166,7 +166,7 @@ export class PrayerSystem {
     if (draining) {
       const drain = prayerDrainRate(this.active, PRAYERS, 1, 1) * DRAIN_SCALE
         * (1 - this.drainReduction())
-        * farmPrayerDrainMult(this.e.activeFarmBuff()) // a Marrentill makes points last
+        * farmPrayerDrainMult(this.e.activeFarmBuffs()) // a Marrentill makes points last
         * potionPrayerDrainMult(this.e.activePotions); // and a Prayer potion far more so
       this.points = Math.max(0, this.points - drain * dt);
       if (this.points <= 0) {

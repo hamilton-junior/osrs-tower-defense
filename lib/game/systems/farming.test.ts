@@ -135,36 +135,55 @@ describe('what a herb is worth', () => {
   // Nothing in the ground must leave every funnel exactly as it found it — these
   // four are multiplied into live systems on every frame of every wave.
   it('is identity with no herb', () => {
-    expect(farmTowerMods(null)).toEqual({ damage: 1, range: 1, fireRate: 1 });
-    expect(farmGoldMult(null)).toBe(1);
-    expect(farmPrayerDrainMult(null)).toBe(1);
-    expect(farmLivesOnClear(null)).toBe(0);
+    expect(farmTowerMods([])).toEqual({ damage: 1, range: 1, fireRate: 1 });
+    expect(farmGoldMult([])).toBe(1);
+    expect(farmPrayerDrainMult([])).toBe(1);
+    expect(farmLivesOnClear([])).toBe(0);
   });
 
   it('gives guam its damage and nothing else', () => {
-    expect(farmTowerMods('guam')).toEqual({ damage: 1.15, range: 1, fireRate: 1 });
-    expect(farmGoldMult('guam')).toBe(1);
-    expect(farmPrayerDrainMult('guam')).toBe(1);
-    expect(farmLivesOnClear('guam')).toBe(0);
+    expect(farmTowerMods(['guam'])).toEqual({ damage: 1.15, range: 1, fireRate: 1 });
+    expect(farmGoldMult(['guam'])).toBe(1);
+    expect(farmPrayerDrainMult(['guam'])).toBe(1);
+    expect(farmLivesOnClear(['guam'])).toBe(0);
   });
 
   it('gives snapdragon its range and nothing else', () => {
-    expect(farmTowerMods('snapdragon')).toEqual({ damage: 1, range: 1.2, fireRate: 1 });
+    expect(farmTowerMods(['snapdragon'])).toEqual({ damage: 1, range: 1.2, fireRate: 1 });
   });
 
   it('slows the prayer drain for marrentill, and only for marrentill', () => {
-    expect(farmPrayerDrainMult('marrentill')).toBeCloseTo(0.8);
-    expect(farmPrayerDrainMult('torstol')).toBe(1);
+    expect(farmPrayerDrainMult(['marrentill'])).toBeCloseTo(0.8);
+    expect(farmPrayerDrainMult(['torstol'])).toBe(1);
   });
 
   it('pays more gold for torstol, and only for torstol', () => {
-    expect(farmGoldMult('torstol')).toBeCloseTo(1.3);
-    expect(farmGoldMult('ranarr')).toBe(1);
+    expect(farmGoldMult(['torstol'])).toBeCloseTo(1.3);
+    expect(farmGoldMult(['ranarr'])).toBe(1);
   });
 
   it('hands a life back for ranarr, and only for ranarr', () => {
-    expect(farmLivesOnClear('ranarr')).toBe(1);
-    expect(farmLivesOnClear('guam')).toBe(0);
+    expect(farmLivesOnClear(['ranarr'])).toBe(1);
+    expect(farmLivesOnClear(['guam'])).toBe(0);
+  });
+
+  // Herbs stack the way doses do, so a pouchful of different ones all ride the
+  // same wave — each answering for its own system, none cancelling another.
+  it('stacks different herbs across the funnels', () => {
+    const all: SeedId[] = ['guam', 'snapdragon', 'marrentill', 'torstol', 'ranarr'];
+    expect(farmTowerMods(all).damage).toBeCloseTo(1.15);
+    expect(farmTowerMods(all).range).toBeCloseTo(1.2);
+    expect(farmGoldMult(all)).toBeCloseTo(1.3);
+    expect(farmPrayerDrainMult(all)).toBeCloseTo(0.8);
+    expect(farmLivesOnClear(all)).toBe(1);
+  });
+
+  // The engine keeps its list unique, so a repeat can only come out of a save
+  // someone edited by hand — and it still has to pay exactly once.
+  it('pays a repeated herb only once', () => {
+    expect(farmTowerMods(['guam', 'guam']).damage).toBeCloseTo(1.15);
+    expect(farmGoldMult(['torstol', 'torstol'])).toBeCloseTo(1.3);
+    expect(farmLivesOnClear(['ranarr', 'ranarr'])).toBe(1);
   });
 
   // Every herb has to actually do something, or a player waits six waves for a
@@ -172,11 +191,11 @@ describe('what a herb is worth', () => {
   it('leaves no seed in the table doing nothing', () => {
     for (const s of SEEDS) {
       const id: SeedId = s.id;
-      const moved = farmTowerMods(id).damage !== 1
-        || farmTowerMods(id).range !== 1
-        || farmGoldMult(id) !== 1
-        || farmPrayerDrainMult(id) !== 1
-        || farmLivesOnClear(id) !== 0;
+      const moved = farmTowerMods([id]).damage !== 1
+        || farmTowerMods([id]).range !== 1
+        || farmGoldMult([id]) !== 1
+        || farmPrayerDrainMult([id]) !== 1
+        || farmLivesOnClear([id]) !== 0;
       expect(moved, `${id} does nothing`).toBe(true);
     }
   });

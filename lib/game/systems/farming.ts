@@ -195,33 +195,54 @@ export function harvestable(patch: FarmPatch): SeedDef | null {
 }
 
 // ─────────────────────────── what a herb is worth ───────────────────────────
-// Each of the four takes the live herb (or null) and answers for one system, so
-// the engine folds farming into an existing funnel rather than growing a new one.
+// Each of the four takes every herb riding this wave and answers for one system,
+// so the engine folds farming into an existing funnel rather than growing a new
+// one. They take a list because herbs stack the way doses do — drink a Guam and a
+// Torstol before Start Wave and both are up — and, exactly like a dose, a second
+// helping of the *same* herb is the one it already had, never twice the effect.
 
 /** Board-wide tower multipliers, alongside a wave event's. */
-export function farmTowerMods(seedId: SeedId | null): { damage: number; range: number; fireRate: number } {
-  const def = seedId ? SEED_BY_ID[seedId] : null;
-  return {
-    damage: def?.effect === 'damage' ? 1 + def.amount : 1,
-    range: def?.effect === 'range' ? 1 + def.amount : 1,
-    fireRate: 1,
-  };
+export function farmTowerMods(seedIds: readonly SeedId[]): { damage: number; range: number; fireRate: number } {
+  let damage = 1;
+  let range = 1;
+  for (const def of uniqueDefs(seedIds)) {
+    if (def.effect === 'damage') damage *= 1 + def.amount;
+    if (def.effect === 'range') range *= 1 + def.amount;
+  }
+  return { damage, range, fireRate: 1 };
 }
 
 /** What every gold award this wave is multiplied by. */
-export function farmGoldMult(seedId: SeedId | null): number {
-  const def = seedId ? SEED_BY_ID[seedId] : null;
-  return def?.effect === 'gold' ? 1 + def.amount : 1;
+export function farmGoldMult(seedIds: readonly SeedId[]): number {
+  let mult = 1;
+  for (const def of uniqueDefs(seedIds)) if (def.effect === 'gold') mult *= 1 + def.amount;
+  return mult;
 }
 
 /** What the prayer drain is multiplied by — below 1, so points last longer. */
-export function farmPrayerDrainMult(seedId: SeedId | null): number {
-  const def = seedId ? SEED_BY_ID[seedId] : null;
-  return def?.effect === 'prayer' ? 1 - def.amount : 1;
+export function farmPrayerDrainMult(seedIds: readonly SeedId[]): number {
+  let mult = 1;
+  for (const def of uniqueDefs(seedIds)) if (def.effect === 'prayer') mult *= 1 - def.amount;
+  return Math.max(0, mult);
 }
 
 /** Lives handed back when this wave is cleared. */
-export function farmLivesOnClear(seedId: SeedId | null): number {
-  const def = seedId ? SEED_BY_ID[seedId] : null;
-  return def?.effect === 'life' ? def.amount : 0;
+export function farmLivesOnClear(seedIds: readonly SeedId[]): number {
+  let lives = 0;
+  for (const def of uniqueDefs(seedIds)) if (def.effect === 'life') lives += def.amount;
+  return lives;
+}
+
+/** The herbs riding the wave, each counted once. The engine already keeps the
+ *  list unique, so this is the belt to that braces — a save hand-edited into two
+ *  Torstols must not pay out twice. */
+function uniqueDefs(seedIds: readonly SeedId[]): SeedDef[] {
+  const seen = new Set<SeedId>();
+  const out: SeedDef[] = [];
+  for (const id of seedIds) {
+    if (seen.has(id) || !(id in SEED_BY_ID)) continue;
+    seen.add(id);
+    out.push(SEED_BY_ID[id]);
+  }
+  return out;
 }

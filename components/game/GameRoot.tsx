@@ -114,7 +114,7 @@ const INITIAL: UIState = {
   gearDrops: [], gearDropSeq: 0,
   diversions: [],
   traps: [], selectedTrapId: null, hunterLevel: 1, hunterXp: 0, hunterXpNeeded: 10, maxTraps: 1,
-  farmPatches: [], pendingSow: null, movingPatchId: null, placingPlot: false, plotCost: 1000, farmBuff: null,
+  farmPatches: [], pendingSow: null, movingPatchId: null, placingPlot: false, plotCost: 1000, farmBuffs: [],
   herbPouch: [], potionStock: [], herbloreLevel: 3, herbloreXp: 0, herbloreXpNeeded: 10, activePotions: [],
 };
 
@@ -2236,7 +2236,7 @@ export default function GameRoot() {
             </MovablePanel>
           )}
           {/* Event chip + potion infoboxes (existing row, now BELOW the strip). */}
-          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0 || ui.diversions.length > 0 || readyPatches.length > 0 || ui.farmBuff || ui.activePotions.length > 0) && (
+          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0 || ui.diversions.length > 0 || readyPatches.length > 0 || ui.farmBuffs.length > 0 || ui.activePotions.length > 0) && (
             <div className="flex items-start gap-[0.4em]">
               {/* Keyed by wave so each wave's event re-announces itself on mount. */}
               {ui.waveActive && ui.activeEvent && <WaveEventChip key={ui.wave} event={ui.activeEvent} />}
@@ -2302,22 +2302,23 @@ export default function GameRoot() {
                   </button>
                 </HoverTip>
               ))}
-              {/* The herb riding this wave. It expires on its own when the wave
-                  counter moves, so there is nothing to count down here either. */}
-              {ui.farmBuff && (
+              {/* Every herb riding this wave. They expire on their own when the
+                  wave counter moves, so there is nothing to count down here. */}
+              {ui.farmBuffs.map((h) => (
                 <HoverTip
+                  key={h.seedId}
                   side="bottom"
                   content={tipHeader(
-                    <span className="text-[0.85em] font-bold text-osrs-orange">{ui.farmBuff.herbName}</span>,
-                    ui.farmBuff.tip,
-                    <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">{ui.farmBuff.label}</span>,
+                    <span className="text-[0.85em] font-bold text-osrs-orange">{h.herbName}</span>,
+                    h.tip,
+                    <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">{h.label}</span>,
                   )}
                 >
                   <div className="rs-infobox pointer-events-auto">
-                    <img src={ui.farmBuff.icon} alt={ui.farmBuff.herbName} onError={hideBrokenImg} />
+                    <img src={h.icon} alt={h.herbName} onError={hideBrokenImg} />
                   </div>
                 </HoverTip>
-              )}
+              ))}
               {/* Every dose still running. Unlike a herb these outlive the wave they
                   were drunk on, so each one does carry a digit — the waves it has
                   left, counted down at the same moment the allotments ripen. */}

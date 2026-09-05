@@ -220,14 +220,28 @@ describe('caStats', () => {
 });
 
 describe('the allotments', () => {
-  it('round-trips what is growing and the herb in hand', () => {
+  it('round-trips what is growing and the herbs riding the wave', () => {
     const save = makeSave({
       farmPatches: [{ id: 'p3_4', seedId: 'guam', grown: 2 }],
-      farmBuff: 'ranarr',
+      farmBuffs: ['ranarr', 'guam'],
     });
     const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
     expect(back?.farmPatches).toEqual([{ id: 'p3_4', seedId: 'guam', grown: 2 }]);
-    expect(back?.farmBuff).toBe('ranarr');
+    expect(back?.farmBuffs).toEqual(['ranarr', 'guam']);
+  });
+
+  // Herbs used to be a single slot. A run put down before they stacked has to come
+  // back holding that one herb, not an empty list.
+  it('reads a herb saved as the one slot it used to be', () => {
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(makeSave({ farmBuff: 'ranarr' }))));
+    expect(back?.farmBuffs).toEqual(['ranarr']);
+  });
+
+  it('drops a herb this build no longer grows, and never lists one twice', () => {
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(
+      makeSave({ farmBuffs: ['guam', 'nettle', 'guam'] }),
+    )));
+    expect(back?.farmBuffs).toEqual(['guam']);
   });
 
   // Patches used to store the wave they were sown on. The save carries the wave it
@@ -246,8 +260,8 @@ describe('the allotments', () => {
     const spent = sanitizeRunSave(JSON.parse(JSON.stringify(
       makeSave({ wave: 7, farmBuff: { seedId: 'guam', wave: 6 } }),
     )));
-    expect(live?.farmBuff).toBe('guam');
-    expect(spent?.farmBuff).toBeNull();
+    expect(live?.farmBuffs).toEqual(['guam']);
+    expect(spent?.farmBuffs).toEqual([]);
   });
 
   it('drops a seed this build no longer grows, rather than the save', () => {

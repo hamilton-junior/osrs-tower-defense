@@ -143,9 +143,9 @@ export interface RunSave {
   plots?: string[];
   /** How many plots this run has bought, which is what the doubling price reads. */
   plotsBought?: number;
-  /** A herb pulled but not yet spent. The checkpoint sits in exactly the gap a
-   *  harvest happens in, so dropping it would pocket the player's herb. */
-  farmBuff?: SeedId | null;
+  /** The herbs drunk raw and not yet spent. The checkpoint sits in exactly the gap
+   *  they are used in, so dropping them would pocket the player's herbs. */
+  farmBuffs?: SeedId[];
   /** The Herblore bench: the pouch, the brewed stock, the skill and the doses still
    *  running. All optional, so a run written before Herblore existed resumes with an
    *  empty pouch at the starting level rather than being refused — a version bump
@@ -204,6 +204,24 @@ const countsOf = <K extends string>(v: unknown, table: Record<K, unknown>): Part
   const out: Partial<Record<K, number>> = {};
   for (const [k, n] of Object.entries(countRecord(v))) {
     if (k in table) out[k as K] = n;
+  }
+  return out;
+};
+
+/** The herbs riding the saved wave, read out of whichever of the three shapes the
+ *  save was written in: the list herbs use now, the single `farmBuff` slot they had
+ *  before they stacked, and the older `{ seedId, wave }` stamp before that — which
+ *  only counts if the stamp matches the wave being resumed. Duplicates are dropped
+ *  the same way the engine drops them, so nothing pays out twice. */
+const legacyFarmBuffs = (raw: Record<string, unknown>): SeedId[] => {
+  const ids: unknown[] = Array.isArray(raw.farmBuffs)
+    ? raw.farmBuffs
+    : isObj(raw.farmBuff)
+      ? [num(raw.farmBuff.wave, -1) === num(raw.wave, 1) ? raw.farmBuff.seedId : null]
+      : [raw.farmBuff];
+  const out: SeedId[] = [];
+  for (const id of ids) {
+    if (typeof id === 'string' && id in SEED_BY_ID && !out.includes(id as SeedId)) out.push(id as SeedId);
   }
   return out;
 };
@@ -374,16 +392,11 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
         .slice(0, 400)
       : [],
     plotsBought: Math.max(0, Math.floor(num(raw.plotsBought, 0))),
-    // Same story: it used to be `{ seedId, wave }`, live only on the wave it was
-    // stamped with. A resumed checkpoint sits between waves, so an older buff comes
-    // back only if it was still the live one when the game was put down.
-    farmBuff: typeof raw.farmBuff === 'string' && raw.farmBuff in SEED_BY_ID
-      ? raw.farmBuff as SeedId
-      : isObj(raw.farmBuff) && typeof raw.farmBuff.seedId === 'string'
-        && raw.farmBuff.seedId in SEED_BY_ID
-        && num(raw.farmBuff.wave, -1) === num(raw.wave, 1)
-        ? raw.farmBuff.seedId as SeedId
-        : null,
+    // Same story, twice over: herbs used to be a single slot, and before that a
+    // `{ seedId, wave }` stamped with the wave it was live on. Both shapes are still
+    // read and folded into the list, so no older run loses its Continue — and the
+    // stamped one comes back only if it was the live one when the game was put down.
+    farmBuffs: legacyFarmBuffs(raw),
     // The bench. Counts are clamped to whole non-negative numbers and keyed only by
     // ids the game still knows, so a hand-edited or older blob can neither conjure a
     // herb that no longer exists nor hold a negative stack of one that does.

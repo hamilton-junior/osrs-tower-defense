@@ -10,15 +10,15 @@ function makeEngine(cfg: {
   waveActive: boolean;
   towers: { type: string; mageMode?: string; supportSpell?: string; targetId: string | null }[];
   prayerRegen?: number;
-  /** The herb riding this wave, if any — a Marrentill slows the drain. */
-  farmBuff?: SeedId | null;
+  /** The herbs riding this wave, if any — a Marrentill slows the drain. */
+  farmBuffs?: SeedId[];
 }): GameEngine {
   return {
     wave: cfg.wave,
     waveActive: cfg.waveActive,
     towers: cfg.towers,
     meta: { upgrades: { ...DEFAULT_UPGRADES, prayerRegen: cfg.prayerRegen ?? 0 } },
-    activeFarmBuff: () => cfg.farmBuff ?? null,
+    activeFarmBuffs: () => cfg.farmBuffs ?? [],
     activePotions: [], // no dose running: only the herb layer is under test here
 
     playSound() {},
@@ -54,7 +54,7 @@ describe('PrayerSystem — three best prayers, base drain', () => {
   // the drain *after* the wards have taken their cut, so the two stack rather than
   // one replacing the other.
   it('drains 20% slower while a Marrentill is riding the wave', () => {
-    const e = makeEngine({ wave: 20, waveActive: true, towers: [ward()], prayerRegen: 0, farmBuff: 'marrentill' });
+    const e = makeEngine({ wave: 20, waveActive: true, towers: [ward()], prayerRegen: 0, farmBuffs: ['marrentill'] });
     const p = new PrayerSystem(e);
     p.points = 99;
     prayTrio(p);
@@ -63,7 +63,7 @@ describe('PrayerSystem — three best prayers, base drain', () => {
   });
 
   it('leaves the drain alone for a herb that is not the Marrentill', () => {
-    const e = makeEngine({ wave: 20, waveActive: true, towers: [ward()], prayerRegen: 0, farmBuff: 'torstol' });
+    const e = makeEngine({ wave: 20, waveActive: true, towers: [ward()], prayerRegen: 0, farmBuffs: ['torstol'] });
     const p = new PrayerSystem(e);
     p.points = 99;
     prayTrio(p);
