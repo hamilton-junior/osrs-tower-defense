@@ -31,6 +31,7 @@ import { LEARN_STEPS, LearnAsYouGo, HowToPlay } from './tutorial';
 import { effectTag, DraftCardView } from './draft-cards';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '@/lib/game/data/hunter-traps';
 import { SEEDS, SEED_BY_ID } from '@/lib/game/data/farming';
+import { POTION_BY_ID } from '@/lib/game/data/herblore';
 import { trapCost, blastProfile } from '@/lib/game/systems/hunter-traps';
 import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, towerListName, TOWER_COMBAT, towerSignature } from './tower-ui';
 import { GearHeader, GearStats, GearCompare, gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
@@ -1162,6 +1163,25 @@ export default function GameRoot() {
           const def = PRAYERS.find((d) => d.id === p.id)!;
           towerBoosts.push({ key: `pray-${p.id}`, icon: prayerIcon(p.id), amount: pct(p.dmg), title: `${def.name} — ${def.description}` });
         }
+      }
+    }
+    // Herblore rides over the whole board, so it lifts THIS tower too: every herb
+    // drunk raw and every dose still running gets a chip beside the prayers, or the
+    // green stat numbers above would have no named cause. Not style-gated — these
+    // are global mods, so they reach the cannon as well.
+    for (const h of ui.farmBuffs) {
+      const seed = SEED_BY_ID[h.seedId];
+      if (seed.effect !== 'damage' && seed.effect !== 'range') continue; // gold/prayer/life touch no tower
+      towerBoosts.push({ key: `herb-${h.seedId}`, icon: h.icon, amount: pct(seed.amount), title: `${h.herbName} — ${h.tip}` });
+    }
+    for (const a of ui.activePotions) {
+      const def = POTION_BY_ID[a.id];
+      if (def.effect === 'damage') {
+        towerBoosts.push({ key: `brew-${a.id}`, icon: a.icon, amount: pct(def.amount), title: `${a.name} — ${a.tip}` });
+      } else if (def.effect === 'steady') {
+        // A yes/no, not a multiplier — the chip wears the potion's own signature
+        // word where a percentage would go.
+        towerBoosts.push({ key: `brew-${a.id}`, icon: a.icon, amount: a.label, title: `${a.name} — ${a.tip}` });
       }
     }
     // Net Utility-aura bonus (with diminishing returns) from in-range supporters.
