@@ -4406,11 +4406,11 @@ export default function GameRoot() {
               {/* The Stats tab icon is OSRS's own symbol for "your skills", so it
                   heads the Skills interface, and the DPS meter — which is damage,
                   not progression — takes the red hitsplat instead. */}
-              <button onClick={() => onSideTab('skills')} title="Skills — Hunter, Farming, Herblore" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.stats_icon} alt="Skills" onError={hideBrokenImg} />
-              </button>
               <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.hit_splat} alt="DPS meter" onError={hideBrokenImg} />
+              </button>
+              <button onClick={() => onSideTab('skills')} title="Skills — Hunter, Farming, Herblore" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.stats_icon} alt="Skills" onError={hideBrokenImg} />
               </button>
               <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
