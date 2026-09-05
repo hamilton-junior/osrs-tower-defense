@@ -17,6 +17,8 @@ import { enemyLeakCost } from '../../systems/leak-cost';
 import { healingDenied } from '../../systems/tower-fusion';
 import { farmLivesOnClear, ripenPatches } from '../../systems/farming';
 import { SEED_BY_ID } from '../../data/farming';
+import { potionLivesOnClear, tickPotions } from '../../systems/herblore';
+import { POTION_BY_ID } from '../../data/herblore';
 import { bodyY } from '../../systems/enemy-anchor';
 import { laneLeg } from '../../systems/geometry';
 import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, graardorIsSlamming, type BossId } from '../../systems/boss-mechanics';
@@ -585,12 +587,21 @@ export function checkWaveEnd(eng: GameEngine) {
     eng.lives = Math.min(eng.maxLives, eng.lives + restored);
     eng.notify(`${SEED_BY_ID.ranarr.herbName} — a life restored`, SEED_BY_ID.ranarr.herbIcon);
   }
+  // A Super restore does the same, every wave it is up for rather than once.
+  const poured = potionLivesOnClear(eng.activePotions);
+  if (poured > 0 && eng.lives < eng.maxLives) {
+    eng.lives = Math.min(eng.maxLives, eng.lives + poured);
+    eng.notify(`${POTION_BY_ID.restore.name} — a life restored`, POTION_BY_ID.restore.icon);
+  }
   // Farming's whole clock, and the only one it has: a wave was fought, so the herb
   // that rode it is spent and every seed in the ground is a wave older. It hangs off
   // the fight rather than off the wave *number*, which is what a debug jump moves —
   // and the sandbox wave above returned long before this line, so testing a spawn
   // never ages an allotment.
   eng.farmBuff = null;
+  // A potion outlives the wave it was drunk on, so it counts down here rather than
+  // being cleared: same clock as the allotments, for the same reason.
+  eng.activePotions = tickPotions(eng.activePotions);
   ripenPatches(eng.farmPatches);
   eng.wave += 1;
   eng.caStats.maxWaveReached = Math.max(eng.caStats.maxWaveReached, eng.wave);

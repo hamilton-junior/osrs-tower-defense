@@ -486,6 +486,9 @@ export const ASSETS = {
     // It heads the shop tooltip's Forge section, where two towers are quoted as
     // the weapon they become.
     skill_smithing: `${LOCAL}/misc/skill_smithing.png`,
+    // The Herblore pestle and mortar (cache sprite 202) — heads the potion bench,
+    // and marks a Herblore level-up.
+    skill_herblore: `${LOCAL}/misc/skill_herblore.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
     // OSRS "Stats" (Skills) tab icon — the bar-chart glyph. It heads the Skills
     // interface, which is what the tab is in OSRS; the DPS meter, being damage

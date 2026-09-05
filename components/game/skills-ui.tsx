@@ -5,6 +5,8 @@ import { ASSETS } from '@/lib/game/assets';
 import type { UIState } from '@/lib/game/core/engine';
 import { HUNTER_TRAPS, type HunterTrapId } from '@/lib/game/data/hunter-traps';
 import { trapCost } from '@/lib/game/systems/hunter-traps';
+import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
+import { POTIONS, type PotionId } from '@/lib/game/data/herblore';
 import { hideBrokenImg, fmt } from './ui-kit';
 
 /**
@@ -29,7 +31,7 @@ import { hideBrokenImg, fmt } from './ui-kit';
  * Adding a skill is one entry in {@link SKILLS} plus its page in {@link SkillPage}.
  */
 
-export type SkillId = 'hunter' | 'farming';
+export type SkillId = 'hunter' | 'farming' | 'herblore';
 
 interface SkillMeta {
   id: SkillId;
@@ -62,7 +64,15 @@ const SKILLS: readonly SkillMeta[] = [
     // No Farming level yet — the bar shows how much of your ground is working.
     progress: (ui) => (ui.farmPatches.length === 0 ? 0
       : ui.farmPatches.filter(p => p.stage !== 'empty').length / ui.farmPatches.length),
-    tip: 'Seeds grow into herbs that buff a whole wave.',
+    tip: 'Seeds grow into herbs you can drink or brew.',
+  },
+  {
+    id: 'herblore',
+    name: 'Herblore',
+    icon: ASSETS.misc.skill_herblore,
+    headline: (ui) => `Level ${ui.herbloreLevel}`,
+    progress: (ui) => (ui.herbloreXpNeeded > 0 ? Math.min(1, ui.herbloreXp / ui.herbloreXpNeeded) : 1),
+    tip: 'Herbs brew into potions that last several waves.',
   },
 ];
 
@@ -77,6 +87,12 @@ export interface SkillsViewProps {
   onOpenPatch: (patchId: string) => void;
   onMovePlot: (patchId: string) => void;
   onBuyPlot: () => void;
+  /** Drink a herb raw — one wave of its own buff, the pouch's cheap option. */
+  onUseHerb: (seedId: SeedId) => void;
+  /** Turn a herb + a secondary into a potion. */
+  onBrewPotion: (potionId: PotionId) => void;
+  /** Drink a brewed potion — several waves, and the reason to brew at all. */
+  onDrinkPotion: (potionId: PotionId) => void;
 }
 
 export function SkillsView(props: SkillsViewProps) {
@@ -137,7 +153,17 @@ export function SkillsView(props: SkillsViewProps) {
 }
 
 function SkillPage(props: SkillsViewProps & { skill: SkillId }) {
-  return props.skill === 'hunter' ? <HunterPage {...props} /> : <FarmingPage {...props} />;
+  if (props.skill === 'hunter') return <HunterPage {...props} />;
+  if (props.skill === 'herblore') return <HerblorePage {...props} />;
+  return <FarmingPage {...props} />;
+}
+
+/** What the pouch holds, as a lookup — the emitted list only carries the stacks
+ *  that are actually there, so anything absent is a zero. */
+function pouchCounts(ui: UIState): Partial<Record<SeedId, number>> {
+  const out: Partial<Record<SeedId, number>> = {};
+  for (const h of ui.herbPouch) out[h.seedId] = h.count;
+  return out;
 }
 
 /** A small labelled band — the same rule between every page's sections. */
@@ -228,7 +254,7 @@ const STAGE_LABEL: Record<string, string> = {
   ready: 'Ready',
 };
 
-function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot }: SkillsViewProps) {
+function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrewPotion }: SkillsViewProps) {
   const busy = ui.waveActive || ui.gameOver;
   const afford = ui.money >= ui.plotCost;
   return (
@@ -275,6 +301,51 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot }: SkillsViewProps
         )}
       </Section>
 
+      {/* The pouch. Every herb here is a fork: spend it on the next wave, or put it
+          on the bench and get several waves out of it later. */}
+      <Section label="Herb pouch" right={`${ui.herbPouch.reduce((n, h) => n + h.count, 0)} held`}>
+        {ui.herbPouch.length === 0 ? (
+          <div className="text-[0.7em] text-[#9d8f6e]">Empty. Harvest a ready allotment.</div>
+        ) : (
+          <div className="flex flex-col gap-[0.25em]">
+            {ui.herbPouch.map((h) => {
+              const potion = POTIONS.find((p) => p.herb === h.seedId);
+              return (
+                <div key={h.seedId} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
+                  <img src={h.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[0.74em] text-osrs-orange truncate">
+                      {h.name} <span className="text-[#cdbe91] tabular-nums">×{h.count}</span>
+                    </span>
+                    <span className="block text-[0.68em] text-[#cdbe91] truncate">{h.tip}</span>
+                  </span>
+                  <button
+                    onClick={() => onUseHerb(h.seedId)}
+                    disabled={busy}
+                    title={`Drink it raw — ${h.label} for the next wave`}
+                    className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
+                  >
+                    Use
+                  </button>
+                  {potion && (
+                    <button
+                      onClick={() => onBrewPotion(potion.id)}
+                      disabled={busy || ui.herbloreLevel < potion.level || ui.money < potion.secondary.cost}
+                      title={ui.herbloreLevel < potion.level
+                        ? `${potion.name} needs Herblore ${potion.level}`
+                        : `Brew a ${potion.name} — ${potion.secondary.name}, ${fmt(potion.secondary.cost)} gp`}
+                      className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
+                    >
+                      Brew
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Section>
+
       {/* The bench: buying more ground. The price is the only cap there is. */}
       <Section label="Buy ground">
         <button
@@ -304,6 +375,130 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot }: SkillsViewProps
           </div>
         ) : (
           <div className="text-[0.7em] text-[#9d8f6e]">No herb pulled. A harvest arms the next wave.</div>
+        )}
+      </Section>
+    </>
+  );
+}
+
+// ──────────────────────────────── Herblore ────────────────────────────────
+
+/**
+ * The potion bench. Farming decides what the pouch holds; this decides what it is
+ * worth. Every row is the same bargain — one herb and some gold now, for a buff
+ * that outlives the wave you drink it on — and the level is what opens the better
+ * halves of that trade.
+ */
+function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
+  const busy = ui.waveActive || ui.gameOver;
+  const held = pouchCounts(ui);
+  const stock = new Map(ui.potionStock.map((p) => [p.id, p.count]));
+  return (
+    <>
+      <Section label="XP" right={`${fmt(ui.herbloreXp)} / ${fmt(ui.herbloreXpNeeded)}`}>
+        <div className="text-[0.7em] text-[#cdbe91]">
+          Brewing is what levels it. A higher level opens the stronger potions.
+        </div>
+      </Section>
+
+      {/* The bench: the whole ladder, locked rungs included, so the skill says up
+          front what it is going to be worth growing herbs for. */}
+      <Section label="Bench">
+        <div className="flex flex-col gap-[0.25em]">
+          {POTIONS.map((def) => {
+            const locked = ui.herbloreLevel < def.level;
+            const herbs = held[def.herb] ?? 0;
+            const afford = ui.money >= def.secondary.cost;
+            const herb = SEED_BY_ID[def.herb];
+            return (
+              <button
+                key={def.id}
+                onClick={() => onBrewPotion(def.id)}
+                disabled={busy || locked || herbs < 1 || !afford}
+                title={locked
+                  ? `Needs Herblore ${def.level}`
+                  : `${herb.herbName} + ${def.secondary.name} — ${def.waves} waves`}
+                className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em] text-left disabled:opacity-40 hover:brightness-125"
+              >
+                <img src={def.icon} alt="" className={`w-[1.4em] h-[1.4em] object-contain shrink-0 ${locked ? 'grayscale' : ''}`} onError={hideBrokenImg} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[0.74em] text-osrs-orange truncate">{def.name}</span>
+                  <span className="block text-[0.68em] text-[#cdbe91] truncate">{def.tip}</span>
+                </span>
+                <span className="flex items-center gap-[0.15em] shrink-0" title={`${herbs} ${herb.herbName} in the pouch`}>
+                  <img src={herb.herbIcon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                  <span className="text-[0.68em] tabular-nums" style={{ color: herbs > 0 ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
+                    {herbs}
+                  </span>
+                </span>
+                <span
+                  className="text-[0.72em] tabular-nums shrink-0"
+                  style={{ color: !locked && afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}
+                >
+                  {locked ? `L${def.level}` : fmt(def.secondary.cost)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+
+      {/* Resources: what is brewed and waiting. Nothing here does anything until
+          it is drunk — that is the whole point of a stock. */}
+      <Section label="Brewed" right={`${ui.potionStock.reduce((n, p) => n + p.count, 0)} held`}>
+        {ui.potionStock.length === 0 ? (
+          <div className="text-[0.7em] text-[#9d8f6e]">Nothing brewed. The bench is above.</div>
+        ) : (
+          <div className="flex flex-col gap-[0.25em]">
+            {ui.potionStock.map((p) => {
+              const def = POTIONS.find((d) => d.id === p.id);
+              const cost = def?.lifeCost ?? 0;
+              return (
+                <div key={p.id} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
+                  <img src={p.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[0.74em] text-osrs-orange truncate">
+                      {p.name} <span className="text-[#cdbe91] tabular-nums">×{p.count}</span>
+                    </span>
+                    <span className="block text-[0.68em] text-[#cdbe91] truncate">
+                      {def ? `${def.waves} waves` : ''}
+                      {cost > 0 && ` · costs ${cost} life`}
+                    </span>
+                  </span>
+                  <button
+                    onClick={() => onDrinkPotion(p.id)}
+                    disabled={busy || (cost > 0 && ui.lives <= cost)}
+                    title={cost > 0 && ui.lives <= cost ? 'Too few lives to drink that' : def?.tip}
+                    className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
+                  >
+                    Drink
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Section>
+
+      <Section label="Running">
+        {ui.activePotions.length === 0 ? (
+          <div className="text-[0.7em] text-[#9d8f6e]">Nothing drunk. A dose runs for several waves.</div>
+        ) : (
+          <div className="flex flex-col gap-[0.25em]">
+            {ui.activePotions.map((a) => (
+              <div key={a.id} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
+                <img src={a.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[0.74em] text-osrs-orange truncate">{a.name}</span>
+                  <span className="block text-[0.68em] text-[#cdbe91] truncate">{a.tip}</span>
+                </span>
+                <img src={a.labelIcon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
+                <span className="text-[0.68em] text-[#cdbe91] tabular-nums shrink-0">
+                  {a.wavesLeft} wave{a.wavesLeft === 1 ? '' : 's'}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </Section>
     </>

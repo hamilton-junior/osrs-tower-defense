@@ -19,6 +19,8 @@ function makeEngine(cfg: {
     towers: cfg.towers,
     meta: { upgrades: { ...DEFAULT_UPGRADES, prayerRegen: cfg.prayerRegen ?? 0 } },
     activeFarmBuff: () => cfg.farmBuff ?? null,
+    activePotions: [], // no dose running: only the herb layer is under test here
+
     playSound() {},
     notify() {},
     requestEmit() {},

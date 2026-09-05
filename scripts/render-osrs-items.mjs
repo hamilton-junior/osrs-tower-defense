@@ -139,6 +139,15 @@ const TARGETS = {
   marrentill: { name: 'Marrentill' },
   snapdragon: { name: 'Snapdragon' },
   torstol: { name: 'Torstol' },
+  // ---- Herblore (data/herblore.ts) ----
+  // The five potions the run's five herbs really make in OSRS, each at its full
+  // four-dose icon, plus the secondary each recipe actually asks for. Eye of newt,
+  // snape grass and red spiders' eggs are already baked above.
+  attack_potion: { name: 'Attack potion(4)' },
+  antipoison: { name: 'Antipoison(4)' },
+  zamorak_brew: { name: 'Zamorak brew(4)' },
+  unicorn_horn_dust: { name: 'Unicorn horn dust' },
+  jangerberries: { name: 'Jangerberries' },
   onion_seed: { name: 'Onion seed' },
   cabbage_seed: { name: 'Cabbage seed' },
   sweetcorn_seed: { name: 'Sweetcorn seed' },

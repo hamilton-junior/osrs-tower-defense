@@ -115,6 +115,7 @@ const INITIAL: UIState = {
   diversions: [],
   traps: [], selectedTrapId: null, hunterLevel: 1, hunterXp: 0, hunterXpNeeded: 10, maxTraps: 1,
   farmPatches: [], pendingSow: null, movingPatchId: null, placingPlot: false, plotCost: 1000, farmBuff: null,
+  herbPouch: [], potionStock: [], herbloreLevel: 3, herbloreXp: 0, herbloreXpNeeded: 10, activePotions: [],
 };
 
 /** How long a loot-drop toast stays in the corner. Matches the CSS animation in
@@ -2235,7 +2236,7 @@ export default function GameRoot() {
             </MovablePanel>
           )}
           {/* Event chip + potion infoboxes (existing row, now BELOW the strip). */}
-          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0 || ui.diversions.length > 0 || readyPatches.length > 0 || ui.farmBuff) && (
+          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0 || ui.diversions.length > 0 || readyPatches.length > 0 || ui.farmBuff || ui.activePotions.length > 0) && (
             <div className="flex items-start gap-[0.4em]">
               {/* Keyed by wave so each wave's event re-announces itself on mount. */}
               {ui.waveActive && ui.activeEvent && <WaveEventChip key={ui.wave} event={ui.activeEvent} />}
@@ -2288,7 +2289,7 @@ export default function GameRoot() {
                   side="bottom"
                   content={tipHeader(
                     <span className="text-[0.85em] font-bold text-osrs-orange">{p.name}</span>,
-                    'Ripe. Pull it and it rides the next wave.',
+                    'Ripe. Pull it and it goes into your pouch.',
                     <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">Click</span>,
                   )}
                 >
@@ -2317,6 +2318,25 @@ export default function GameRoot() {
                   </div>
                 </HoverTip>
               )}
+              {/* Every dose still running. Unlike a herb these outlive the wave they
+                  were drunk on, so each one does carry a digit — the waves it has
+                  left, counted down at the same moment the allotments ripen. */}
+              {ui.activePotions.map((a) => (
+                <HoverTip
+                  key={a.id}
+                  side="bottom"
+                  content={tipHeader(
+                    <span className="text-[0.85em] font-bold text-osrs-orange">{a.name}</span>,
+                    a.tip,
+                    <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">{a.label}</span>,
+                  )}
+                >
+                  <div className="rs-infobox pointer-events-auto">
+                    <img src={a.icon} alt={a.name} onError={hideBrokenImg} />
+                    <span className="rs-infobox-time">{a.wavesLeft}</span>
+                  </div>
+                </HoverTip>
+              ))}
             </div>
           )}
         </div>
@@ -2378,7 +2398,7 @@ export default function GameRoot() {
             ) : (
               <>
                 <p className="text-[0.68em] text-[#b3a585] leading-snug mt-[0.3em] px-[0.1em]">
-                  It grows while you fight. The herb buffs one whole wave.
+                  It grows while you fight. The herb goes into your pouch.
                 </p>
                 <div className="flex flex-col gap-[0.25em] mt-[0.45em]">
                   {SEEDS.map((s) => {
@@ -3861,6 +3881,9 @@ export default function GameRoot() {
             onOpenPatch={(id) => engineRef.current?.openPatch(id)}
             onMovePlot={(id) => engineRef.current?.beginMovePlot(id)}
             onBuyPlot={() => engineRef.current?.buyPlot()}
+            onUseHerb={(id) => engineRef.current?.useHerb(id)}
+            onBrewPotion={(id) => engineRef.current?.brewPotion(id)}
+            onDrinkPotion={(id) => engineRef.current?.drinkPotion(id)}
           />
         )}
         </div>
@@ -4383,7 +4406,7 @@ export default function GameRoot() {
               {/* The Stats tab icon is OSRS's own symbol for "your skills", so it
                   heads the Skills interface, and the DPS meter — which is damage,
                   not progression — takes the red hitsplat instead. */}
-              <button onClick={() => onSideTab('skills')} title="Skills — Hunter, Farming" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
+              <button onClick={() => onSideTab('skills')} title="Skills — Hunter, Farming, Herblore" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.stats_icon} alt="Skills" onError={hideBrokenImg} />
               </button>
               <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>

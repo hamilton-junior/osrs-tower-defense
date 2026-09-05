@@ -1719,7 +1719,9 @@ export function detonateVolatile(eng: GameEngine, x: number, y: number) {
   }
   spawnEffect(eng, 'hit_fire_5', x, y, 1.1);
   const hit = volatileBlastTowers(eng.towers, x, y);
-  for (const tower of hit) tower.disabledTimer = VOLATILE_STUN_SECS;
+  // An Antipoison is up: the blast still goes off and is still drawn, it just
+  // cannot knock anything offline.
+  if (!eng.steadyHeld()) for (const tower of hit) tower.disabledTimer = VOLATILE_STUN_SECS;
   fanSample(hit, { x, y }, VOLATILE_GFX_MAX).forEach((tower, i) => {
     const flight = 0.12 + Math.sqrt(distanceSq(tower.x, tower.y, x, y)) / 900;
     addHurl(eng, x, y, tower.x, tower.y, flight, 0.08 + 0.05 * (i % 3), 'proj_fire_4');

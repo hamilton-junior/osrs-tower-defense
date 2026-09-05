@@ -509,6 +509,7 @@ export function updateBrutus(eng: GameEngine, e: Enemy, dt: number) {
     // Anything standing in the charge gets flattened. Tested every frame of the dash,
     // not once at the end, because at 3.6× speed he crosses a tower between two frames.
     for (const tower of brutusTrampled(eng.towers, e.x, e.y, enemyRadius(e), TOWER_BODY_RADIUS)) {
+      if (eng.steadyHeld()) break; // an Antipoison is up: nothing goes offline
       if (tower.disabledTimer > 0) continue; // already down — don't refresh it mid-charge
       tower.disabledTimer = BRUTUS_TRAMPLE_DISABLE_SECS;
       addRing(eng, tower.x, tower.y, 6, 34, '#d4452f', 0.4, 3);
@@ -1548,6 +1549,7 @@ function updateNexAcolyte(eng: GameEngine, a: Enemy, dt: number) {
     return;
   }
   for (const c of hit) {
+    if (eng.steadyHeld()) break; // an Antipoison is up: the silence lands on nothing
     c.tower.disabledTimer = NEX_SILENCE_SECS;
     // The mark the renderer dresses the downed tower from: Glacies leaves ice on it,
     // Umbra leaves shadow. The disable itself stays the board's one standard look.

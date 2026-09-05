@@ -73,6 +73,7 @@ function stubEngine() {
     killGoldPreReward: () => 10,
     awardGold: (n: number) => { gold += n; },
     checkAchievements: () => {},
+    steadyHeld: () => false,
     emit: () => {},
   };
   return { e: e as unknown as GameEngine, raw: e, sounds, xp, recorded, effects, gold: () => gold };

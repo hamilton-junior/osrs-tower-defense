@@ -10,6 +10,7 @@ import { MECHANIC_BOSSES } from '../systems/boss-mechanics';
 import { type DiversionId, type DiversionMood } from '../data/diversions';
 import { type HunterTrapId } from '../data/hunter-traps';
 import { type SeedId } from '../data/farming';
+import { type PotionId } from '../data/herblore';
 import { type PatchStage } from '../systems/farming';
 
 /**
@@ -420,6 +421,26 @@ export interface UIState {
   /** The herb riding this wave — what was pulled and what it is doing. Null
    *  between the harvest's wave and the next one, since a herb lasts one wave. */
   farmBuff: { seedId: SeedId; herbName: string; icon: string; label: string; labelIcon: string; tip: string } | null;
+  /** Herbs pulled and not yet spent, only the stacks actually held. A harvest fills
+   *  this instead of arming a wave, so the choice between drinking a herb raw and
+   *  brewing it belongs to the player rather than to the patch. */
+  herbPouch: {
+    seedId: SeedId; name: string; icon: string; count: number;
+    label: string; labelIcon: string; tip: string;
+  }[];
+  /** Potions brewed and not yet drunk, only the stacks actually held. */
+  potionStock: { id: PotionId; name: string; icon: string; count: number }[];
+  /** The run's own Herblore skill: what it has reached, how far into the next level
+   *  it is, and what that level costs. Starts at 3, not 1 — see systems/herblore. */
+  herbloreLevel: number;
+  herbloreXp: number;
+  herbloreXpNeeded: number;
+  /** The doses running right now, each with the waves it has left. Several may be
+   *  up at once; a second dose of the same potion refills its clock. */
+  activePotions: {
+    id: PotionId; name: string; icon: string;
+    label: string; labelIcon: string; tip: string; wavesLeft: number;
+  }[];
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 11);

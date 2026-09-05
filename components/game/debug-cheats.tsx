@@ -14,7 +14,7 @@ import { TOWER_STYLES } from '@/lib/game/data/towers';
 export type DebugUi = {
   wave: number; money: number; lives: number; maxLives: number; waveActive: boolean;
   essence: number; slayerPoints: number; biomeName: string;
-  selectedTowerId: string | null; lootBag: unknown[]; hunterLevel: number;
+  selectedTowerId: string | null; lootBag: unknown[]; hunterLevel: number; herbloreLevel: number;
 };
 
 /** What every cheat group needs: the engine to call into, and the numbers to show. */
@@ -23,12 +23,12 @@ interface CheatProps {
   ui: DebugUi;
 }
 
-/** The skills a *run* levels, as opposed to the account's meta-progression.
- *  Hunter is the only one so far. */
+/** The skills a *run* levels, as opposed to the account's meta-progression. */
 const RUN_SKILLS: ReadonlyArray<{
-  key: 'hunter'; label: string; max: number; read: (ui: DebugUi) => number;
+  key: 'hunter' | 'herblore'; label: string; max: number; read: (ui: DebugUi) => number;
 }> = [
   { key: 'hunter', label: 'Hunter', max: 99, read: (ui) => ui.hunterLevel },
+  { key: 'herblore', label: 'Herblore', max: 99, read: (ui) => ui.herbloreLevel },
 ];
 
 function NumberRow({ label, value, onCommit, min = 0, max }: {
@@ -314,6 +314,7 @@ function ToolButtons({ engineRef, ui }: CheatProps) {
     { label: '✦ Test unlock', title: 'Show the unlock popup with a stand-in reward', run: () => eng()?.debugTestUnlock() },
     { label: '📖 Seed log', title: 'Fill the Collection Log with sample kill counts', run: () => eng()?.debugSeedLog() },
     { label: '🎒 Give gear', title: 'Drop one of every Classic gear piece into the loot bag', run: () => eng()?.debugGiveGear() },
+    { label: '🌿 Give herbs', title: 'Put one of every herb into the pouch, for the Herblore bench', run: () => eng()?.debugGiveHerbs() },
     { label: `🧹 Clear items (${ui.lootBag.length})`, title: 'Empty the loot bag (worn gear stays equipped)', run: () => eng()?.debugClearItems() },
   ];
   return (

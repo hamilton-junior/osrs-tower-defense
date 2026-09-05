@@ -99,8 +99,13 @@ export const LEARN_STEPS: LearnStep[] = [
     body: 'The grip near a bend slides that whole stretch across — push it far enough and the bend goes.',
     when: (ui) => !ui.waveActive && ui.wave === 8 },
   { id: 'farming', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Sow the allotment',
-    body: 'Click a bare patch between waves and pick a seed. The herb it grows buffs one whole wave.',
+    body: 'Click a bare patch between waves and pick a seed. The herb it grows goes into your pouch.',
     when: (ui) => !ui.waveActive && ui.wave === 5 && ui.farmPatches.length > 0 },
+  // Fires the first time the pouch actually has something in it — the tip is about
+  // a choice, and there is no choice to explain until the player is holding a herb.
+  { id: 'herblore', target: 'stones', icon: ASSETS.misc.skill_herblore, title: 'Brew it or drink it',
+    body: 'A herb buffs one wave on its own. The Skills stone brews it into a potion that lasts several.',
+    when: (ui) => !ui.waveActive && ui.herbPouch.length > 0 },
   { id: 'traps', target: 'dock', icon: itemIcon('bird_snare'), title: 'Trap the road',
     body: 'The Traps tab lays snares on the road itself. They never block it — enemies walk over them.',
     when: (ui) => !ui.waveActive && ui.wave === 7 },
@@ -248,9 +253,11 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.spade, text: 'A stretch of road slides whole by the grip near its bend, straightening the bend or growing it back.' },
     { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },
     { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
-    { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows buffs one whole wave.' },
+    { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows goes into your pouch.' },
     { icon: ASSETS.misc.farming_icon, text: 'Move an allotment for free, or buy another — each one costs double the last.' },
-    { icon: ASSETS.misc.stats_icon, text: 'The Skills stone lists every skill this run — your traps, your allotments — in one place.' },
+    { icon: ASSETS.misc.skill_herblore, text: 'Drink a herb raw for one wave, or brew it into a potion that lasts several.' },
+    { icon: ASSETS.misc.skill_herblore, text: 'Brewing levels Herblore, and a higher level opens the stronger potions.' },
+    { icon: ASSETS.misc.stats_icon, text: 'The Skills stone lists every skill this run — your traps, your allotments, your bench — in one place.' },
     { icon: ASSETS.misc.compass, text: 'Tips appear in-game the first time each new thing shows up.' },
   ] },
   { id: 'towers', label: 'Towers', icon: ASSETS.towers.archer[1], lines: [

@@ -27,6 +27,8 @@ function stubEngine() {
     statsCache: new Map(),
     sound: { play: () => {} },
     notify: (m: string) => notices.push(m),
+    // No Antipoison is up in these tests, so every disable lands as it always did.
+    steadyHeld: () => false,
   };
   return { e: e as unknown as GameEngine, raw: e, notices };
 }

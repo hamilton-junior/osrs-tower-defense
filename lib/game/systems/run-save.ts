@@ -4,6 +4,8 @@ import { clampTier, type DifficultyTier } from './difficulty';
 import { BIOMES, type BiomeId } from '../data/biomes';
 import { HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '../data/farming';
+import { POTION_BY_ID, type PotionId } from '../data/herblore';
+import { HERBLORE_START_LEVEL } from './herblore';
 import { GEAR } from '../data/gear';
 import type { RunStats } from './combat-achievements';
 
@@ -144,6 +146,16 @@ export interface RunSave {
   /** A herb pulled but not yet spent. The checkpoint sits in exactly the gap a
    *  harvest happens in, so dropping it would pocket the player's herb. */
   farmBuff?: SeedId | null;
+  /** The Herblore bench: the pouch, the brewed stock, the skill and the doses still
+   *  running. All optional, so a run written before Herblore existed resumes with an
+   *  empty pouch at the starting level rather than being refused — a version bump
+   *  costs every player their Continue, and nothing here changes an older field's
+   *  meaning. */
+  herbPouch?: Partial<Record<SeedId, number>>;
+  potionStock?: Partial<Record<PotionId, number>>;
+  herbloreLevel?: number;
+  herbloreXp?: number;
+  activePotions?: { id: PotionId; wavesLeft: number }[];
   slayer: {
     task: SlayerTask | null;
     points: number;
@@ -181,6 +193,17 @@ const countRecord = (v: unknown): Record<string, number> => {
   const out: Record<string, number> = {};
   for (const [k, n] of Object.entries(v)) {
     if (typeof n === 'number' && Number.isFinite(n) && n >= 1) out[k] = Math.floor(n);
+  }
+  return out;
+};
+
+/** The same tally, but keyed by a content table: an id the table no longer has is
+ *  dropped rather than carried, so a save written before an item was renamed cannot
+ *  smuggle a stack of something the game can no longer show. */
+const countsOf = <K extends string>(v: unknown, table: Record<K, unknown>): Partial<Record<K, number>> => {
+  const out: Partial<Record<K, number>> = {};
+  for (const [k, n] of Object.entries(countRecord(v))) {
+    if (k in table) out[k as K] = n;
   }
   return out;
 };
@@ -361,6 +384,23 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
         && num(raw.farmBuff.wave, -1) === num(raw.wave, 1)
         ? raw.farmBuff.seedId as SeedId
         : null,
+    // The bench. Counts are clamped to whole non-negative numbers and keyed only by
+    // ids the game still knows, so a hand-edited or older blob can neither conjure a
+    // herb that no longer exists nor hold a negative stack of one that does.
+    herbPouch: countsOf(raw.herbPouch, SEED_BY_ID),
+    potionStock: countsOf(raw.potionStock, POTION_BY_ID),
+    herbloreLevel: Math.max(1, Math.min(99, Math.floor(num(raw.herbloreLevel, HERBLORE_START_LEVEL)))),
+    herbloreXp: Math.max(0, num(raw.herbloreXp, 0)),
+    activePotions: Array.isArray(raw.activePotions)
+      ? raw.activePotions
+        .filter(isObj)
+        .filter(a => typeof a.id === 'string' && a.id in POTION_BY_ID && num(a.wavesLeft, 0) > 0)
+        .map(a => ({
+          id: a.id as PotionId,
+          wavesLeft: Math.min(POTION_BY_ID[a.id as PotionId].waves, Math.ceil(num(a.wavesLeft, 1))),
+        }))
+        .filter((a, i, all) => all.findIndex(b => b.id === a.id) === i)
+      : [],
     seedsSown: Math.max(0, Math.floor(num(raw.seedsSown, 0))),
     herbsHarvested: Math.max(0, Math.floor(num(raw.herbsHarvested, 0))),
     slayer: {

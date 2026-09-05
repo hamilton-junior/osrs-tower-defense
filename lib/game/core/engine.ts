@@ -64,6 +64,12 @@ import {
   patchAtPoint, patchStage, pickPlotTiles, plotCost, plotId, wavesLeft,
   type FarmPatch,
 } from '../systems/farming';
+import { POTIONS, POTION_BY_ID, type PotionId } from '../data/herblore';
+import {
+  HERBLORE_MAX_LEVEL, HERBLORE_START_LEVEL, brewBlocker, drinkPotion as drinkDose, emptyPouch, emptyStock,
+  gainHerbloreXp, herbloreXpForLevel, potionTowerMods, potionsSteady,
+  type ActivePotion, type HerbPouch, type PotionStock,
+} from '../systems/herblore';
 import {
   HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
   type HunterTrap,
@@ -404,6 +410,35 @@ export class GameEngine {
   /** The herb in effect *right now*, or null. What every system reads. */
   activeFarmBuff(): SeedId | null {
     return this.farmBuff;
+  }
+
+  // ----------------------------------------------------------------- herblore
+  /** Herbs pulled and not yet spent. A harvest no longer arms a wave by itself —
+   *  it fills this — so what to do with a herb is the player's choice, and it can
+   *  be made on a later wave than the one it ripened on. */
+  herbPouch: HerbPouch = emptyPouch();
+  /** Potions brewed and not yet drunk. */
+  potionStock: PotionStock = emptyStock();
+  /** The run's own Herblore skill. Starts at 3 — the level OSRS gates its first
+   *  potion behind — so the bench can make something the wave it is opened. */
+  herbloreLevel = HERBLORE_START_LEVEL;
+  herbloreXp = 0;
+  /** Doses running, each with the waves it has left. */
+  activePotions: ActivePotion[] = [];
+  /** Whether this wave has already said an Antipoison held a tower up. One notice
+   *  a wave: Brutus tests his charge on every frame of it. */
+  private steadySaid = false;
+
+  /** Whether nothing may knock a tower offline right now, plus the notice for the
+   *  first time in a wave that the answer is yes. Every disable source asks this —
+   *  it is the whole of the Antipoison. */
+  steadyHeld(): boolean {
+    if (!potionsSteady(this.activePotions)) return false;
+    if (!this.steadySaid) {
+      this.steadySaid = true;
+      this.notify('Antipoison — your towers hold', POTION_BY_ID.antipoison.icon);
+    }
+    return true;
   }
 
   // --- composed subsystems ---
@@ -771,6 +806,25 @@ export class GameEngine {
           label: def.signature.label, labelIcon: def.signature.icon, tip: def.tip,
         };
       })(),
+      herbPouch: SEEDS
+        .filter(s => this.herbPouch[s.id] > 0)
+        .map(s => ({
+          seedId: s.id, name: s.herbName, icon: s.herbIcon, count: this.herbPouch[s.id],
+          label: s.signature.label, labelIcon: s.signature.icon, tip: s.tip,
+        })),
+      potionStock: POTIONS
+        .filter(p => this.potionStock[p.id] > 0)
+        .map(p => ({ id: p.id, name: p.name, icon: p.icon, count: this.potionStock[p.id] })),
+      herbloreLevel: this.herbloreLevel,
+      herbloreXp: Math.round(this.herbloreXp),
+      herbloreXpNeeded: herbloreXpForLevel(this.herbloreLevel),
+      activePotions: this.activePotions.map(a => {
+        const def = POTION_BY_ID[a.id];
+        return {
+          id: a.id, name: def.name, icon: def.icon, label: def.signature.label,
+          labelIcon: def.signature.icon, tip: def.tip, wavesLeft: a.wavesLeft,
+        };
+      }),
       killCounts: this.killCounts,
       achievements: [...this.achievements],
       fusedThisLeg: this.fusedThisLeg,
@@ -943,14 +997,16 @@ export class GameEngine {
 
   /** The board-wide tower multipliers in force this wave (all 1 with nothing
    *  running), passed to {@link calculateTowerStats} as its `globalMods` layer.
-   *  Two things feed it and they stack: the wave event, and a harvested herb. */
+   *  Three things feed it and they all stack: the wave event, a herb used raw,
+   *  and every potion currently up. */
   eventTowerMods() {
     const m = resolveEventMods(this.activeEvent);
     const f = farmTowerMods(this.activeFarmBuff());
+    const p = potionTowerMods(this.activePotions);
     return {
-      damage: m.towerDamage * f.damage,
-      range: m.towerRange * f.range,
-      fireRate: m.towerFireRate * f.fireRate,
+      damage: m.towerDamage * f.damage * p.damage,
+      range: m.towerRange * f.range * p.range,
+      fireRate: m.towerFireRate * f.fireRate * p.fireRate,
     };
   }
 
@@ -3276,9 +3332,10 @@ export class GameEngine {
     this.movingPatchId = null;
   }
 
-  /** Pull a ripe herb. It arms the *next* wave, and only that one: harvesting a
-   *  second patch before Start Wave replaces the first rather than stacking it,
-   *  which is what keeps a pair of allotments a choice instead of a sum. */
+  /** Pull a ripe herb. It goes into the pouch rather than straight onto a wave:
+   *  what to do with it — spend it raw for one wave, or brew it into something
+   *  that lasts several — is the choice Herblore exists to offer, and a herb that
+   *  armed itself on the way out of the ground would have made it already. */
   harvestPatch(patchId: string) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
     const patch = this.farmPatches.find(p => p.id === patchId);
@@ -3288,11 +3345,78 @@ export class GameEngine {
     patch.seedId = null;
     patch.grown = 0;
     this.pendingSow = null;
-    this.farmBuff = def.id;
+    this.herbPouch[def.id] += 1;
     this.herbsHarvested += 1;
+    this.sound.play('farm_harvest');
+    this.notify(`${def.herbName} — into the pouch`, def.herbIcon);
+    this.emit();
+  }
+
+  // ----------------------------------------------------------------- herblore
+  // Three things can be done with what the pouch holds, and between them they are
+  // the skill: drink a herb raw for one wave, brew it into a potion, or drink a
+  // potion for several. All strictly between waves, like everything farming
+  // touches — there is nothing here to click during a fight.
+
+  /** Spend a herb raw: exactly the one-wave buff a harvest used to arm by itself.
+   *  Still one at a time — using a second before Start Wave replaces the first,
+   *  which is what keeps a pair of allotments a choice instead of a sum. */
+  useHerb(seedId: SeedId) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    if (this.herbPouch[seedId] < 1) return;
+    const def = SEED_BY_ID[seedId];
+    this.herbPouch[seedId] -= 1;
+    this.farmBuff = seedId;
     this.bumpCombatEpoch(); // a damage or range herb changes every tower's stats
     this.sound.play('farm_harvest');
     this.notify(`${def.herbName} — ${def.signature.label}`, def.herbIcon);
+    this.emit();
+  }
+
+  /** Brew one potion: a herb out of the pouch, its secondary out of the purse, and
+   *  the XP that opens the rest of the ladder. */
+  brewPotion(potionId: PotionId) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    const def = POTION_BY_ID[potionId];
+    const blocked = brewBlocker(def, this.herbloreLevel, this.herbPouch, this.money);
+    if (blocked === 'level') { this.notify(`Herblore ${def.level} needed`, def.icon); return; }
+    if (blocked === 'herb') { this.notify(`No ${SEED_BY_ID[def.herb].herbName} in the pouch`); return; }
+    if (blocked === 'gold') { this.notify('Not enough gold'); return; }
+    this.herbPouch[def.herb] -= 1;
+    this.money -= def.secondary.cost;
+    this.potionStock[potionId] += 1;
+    const gain = gainHerbloreXp(this.herbloreLevel, this.herbloreXp, def.xp);
+    this.herbloreLevel = gain.level;
+    this.herbloreXp = gain.xp;
+    this.sound.play('farm_harvest');
+    this.notify(`${def.name} brewed`, def.icon);
+    if (gain.levels > 0) {
+      this.sound.play('level_up');
+      this.notify(`Herblore level ${gain.level}`, ASSETS.misc.skill_herblore);
+    }
+    this.emit();
+  }
+
+  /** Drink one. It runs for the potion's own count of waves, and a second dose of
+   *  the same potion refills that clock rather than stacking on it — so nothing is
+   *  ever gained by saving five of one and drinking them back to back. */
+  drinkPotion(potionId: PotionId) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    if (this.potionStock[potionId] < 1) return;
+    const def = POTION_BY_ID[potionId];
+    // The Zamorak brew's real OSRS bargain: it takes hitpoints to drink. Never the
+    // last one, though — a potion is not allowed to end the run on its own.
+    const cost = def.lifeCost ?? 0;
+    if (cost > 0 && this.lives <= cost) { this.notify('Too few lives to drink that'); return; }
+    this.potionStock[potionId] -= 1;
+    if (cost > 0) {
+      this.lives -= cost;
+      this.baseFlash = 1;
+    }
+    this.activePotions = drinkDose(this.activePotions, def);
+    this.bumpCombatEpoch(); // a damage potion changes every tower's stats
+    this.sound.play('farm_harvest');
+    this.notify(`${def.name} — ${def.signature.label}`, def.icon);
     this.emit();
   }
 
@@ -3310,6 +3434,7 @@ export class GameEngine {
     // to be dealt with, and it never gets in the way of the wave.
     this.diversions = [];
     this.pendingSow = null; // the seed menu is a between-waves interface
+    this.steadySaid = false; // a new wave may say the Antipoison held again
     const configs = computeWaveConfigs(this);
     // A boss wave stays the headline act — no event rolls on it (see wave-events).
     const bossWave = configs.some(c => ENEMIES[c.type]?.isBoss);
@@ -3657,6 +3782,15 @@ export class GameEngine {
       // which is exactly the gap a harvest sits in, so leaving it out would quietly
       // pocket the herb the player harvested a second before quitting.
       farmBuff: this.farmBuff,
+      // And the bench: what the pouch holds, what has been brewed, what the skill
+      // has reached, and which doses are still running. Every one of these is
+      // optional in the save format, so a run written before Herblore existed
+      // resumes with an empty pouch at level 3 instead of costing its Continue.
+      herbPouch: { ...this.herbPouch },
+      potionStock: { ...this.potionStock },
+      herbloreLevel: this.herbloreLevel,
+      herbloreXp: this.herbloreXp,
+      activePotions: this.activePotions.map(a => ({ ...a })),
       fusedThisLeg: this.fusedThisLeg,
       essenceEarnedThisRun: this.essenceEarnedThisRun,
       // Tower cooldowns are stamped against this clock, so it travels with them.
@@ -3773,6 +3907,12 @@ export class GameEngine {
       plot.grown = s.grown;
     }
     this.farmBuff = save.farmBuff ?? null;
+    this.herbPouch = { ...emptyPouch(), ...save.herbPouch };
+    this.potionStock = { ...emptyStock(), ...save.potionStock };
+    this.herbloreLevel = save.herbloreLevel ?? HERBLORE_START_LEVEL;
+    this.herbloreXp = save.herbloreXp ?? 0;
+    this.activePotions = (save.activePotions ?? []).map(a => ({ ...a }));
+    this.steadySaid = false;
     this.pendingSow = null;
     // A save from before fusion existed resumes with its forge unspent.
     this.fusedThisLeg = save.fusedThisLeg ?? false;
@@ -3919,6 +4059,12 @@ export class GameEngine {
     this.seedsSown = 0;
     this.herbsHarvested = 0;
     this.farmBuff = null;
+    this.herbPouch = emptyPouch();
+    this.potionStock = emptyStock();
+    this.herbloreLevel = HERBLORE_START_LEVEL;
+    this.herbloreXp = 0;
+    this.activePotions = [];
+    this.steadySaid = false;
     this.pendingSow = null;
     this.fusedThisLeg = false;
     this.essenceEarnedThisRun = 0;
@@ -3992,10 +4138,10 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Set a run skill's level outright. Hunter is the only one so far, but the
-   *  debug panel asks by name so the next skill is one case here, not a new
-   *  method. The XP into the level resets — the level is what gates traps. */
-  debugSetSkillLevel(skill: 'hunter', n: number) {
+  /** Set a run skill's level outright. The debug panel asks by name, so each new
+   *  skill is one case here rather than a new method. The XP into the level resets
+   *  — the level is what gates traps and potions. */
+  debugSetSkillLevel(skill: 'hunter' | 'herblore', n: number) {
     if (skill === 'hunter') {
       this.hunterLevel = Math.max(1, Math.min(HUNTER_MAX_LEVEL, Math.floor(n) || 1));
       this.hunterXp = 0;
@@ -4003,6 +4149,19 @@ export class GameEngine {
         this.selectedTrapId = null;
       }
     }
+    if (skill === 'herblore') {
+      this.herbloreLevel = Math.max(1, Math.min(HERBLORE_MAX_LEVEL, Math.floor(n) || 1));
+      this.herbloreXp = 0;
+    }
+    this.emit();
+  }
+
+  /** Fill the pouch with one of every herb. Same reason as debugGiveGear: the
+   *  bench is otherwise thirty waves of farming away, and a random handful would
+   *  make "does the Zamorak row work" a coin flip. */
+  debugGiveHerbs() {
+    for (const s of SEEDS) this.herbPouch[s.id] += 1;
+    this.notify(`${SEEDS.length} herbs — into the pouch`, ASSETS.misc.skill_herblore);
     this.emit();
   }
 
