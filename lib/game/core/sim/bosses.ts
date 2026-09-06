@@ -243,7 +243,7 @@ export function summonSouls(eng: GameEngine, cerb: Enemy) {
   });
   addRing(eng, cerb.x, cerb.y, 10, 110, '#b7c6dd', 0.6, 5);
   eng.sound.play('wave', 65);
-  eng.notify('Cerberus summons his Souls — each locks a combat style!');
+  eng.notify('Cerberus summons his Souls. Each one locks a combat style!');
 }
 
 /**
@@ -294,8 +294,8 @@ export function updateGuardian(eng: GameEngine, e: Enemy, dt: number) {
     }
     addRing(eng, e.x, e.y, 8, 70, GUARDIAN_LINK_COLOR, 0.6, 5);
     eng.notify(canRevive
-      ? `${e.name} enrages — kill it before it revives its twin!`
-      : `${e.name} enrages — its twin is gone for good.`);
+      ? `${e.name} enrages. Kill it before it revives its twin!`
+      : `${e.name} enrages, but its twin is gone for good.`);
     eng.sound.play('wave', 60);
     return;
   }
@@ -329,7 +329,7 @@ export function summonDawn(eng: GameEngine, dusk: Enemy) {
     eng.bossesSeen = { ...eng.bossesSeen, dawn: (eng.bossesSeen.dawn ?? 0) + 1 };
   }
   addRing(eng, dawn.x, dawn.y, 6, 60, GUARDIAN_LINK_COLOR, 0.7, 5);
-  eng.notify('Dawn joins Dusk — they share their stone!');
+  eng.notify('Dawn joins Dusk. They share their stone!');
 }
 
 /** Haul a fallen Guardian back up beside its twin, on half health, link restored. */
@@ -595,14 +595,14 @@ export function updateHydra(eng: GameEngine, e: Enemy, dt: number) {
       st.venting = false;
       st.ventDamage = 0;
       st.ventCooldown = HYDRA_VENT_COOLDOWN_SECS;
-      eng.notify('The Hydra seals its vent — not enough damage!');
+      eng.notify('The Hydra seals its vent. Not enough damage!');
       addRing(eng, e.x, e.y, 40, 6, hydraPhase(st.shattered ?? 0).color, 0.45, 3);
     }
   } else if (hydraShouldVent(frac, st.shattered ?? 0, false, st.ventCooldown ?? 0)) {
     st.venting = true;
     st.ventTimer = HYDRA_VENT_SECS;
     st.ventDamage = 0;
-    eng.notify('The Hydra vents chemicals — break it!');
+    eng.notify('The Hydra vents chemicals. Break it!');
     addRing(eng, e.x, e.y, 8, 64, '#b6ff6a', 0.55, 4);
     eng.sound.play('hit', 65);
   }
@@ -632,7 +632,7 @@ export function shatterHydraVent(eng: GameEngine, e: Enemy) {
   const phase = hydraPhase(st.shattered);
   addRing(eng, e.x, e.y, 6, 90, phase.color, 0.6, 5);
   eng.sound.play('wave', 60);
-  eng.notify(`The Hydra's vent shatters — ${phase.name} phase!`);
+  eng.notify(`The Hydra's vent shatters. ${phase.name} phase!`);
 }
 
 /** Vorkath: alternate a vulnerable window and a short ice shield. While the
@@ -1066,7 +1066,7 @@ export function updateCorp(eng: GameEngine, e: Enemy, dt: number) {
   eng.notify(
     names.length === 1
       ? `The Corporeal Beast spits a Dark energy core at your ${names[0]}!`
-      : `The Corporeal Beast spits ${names.length} Dark energy cores \u2014 ${names.join(', ')}!`,
+      : `The Corporeal Beast spits ${names.length} Dark energy cores at your ${names.join(', ')}!`,
   );
 }
 
@@ -1461,7 +1461,7 @@ export function updateNex(eng: GameEngine, e: Enemy, dt: number) {
       // knows *how* the ward came down.
       if (st.nexWardsBroken >= NEX_ACOLYTES.length) eng.caStats.bossFlags.nexAllWardsBroken = true;
       addRing(eng, e.x, bodyY(e), 10, 110, '#c9a0ff', 0.55, 5);
-      eng.notify(`${name} falls — Nex is exposed!`);
+      eng.notify(`${name} falls, and Nex is exposed!`);
       eng.sound.play('nexbreak' in GAME_SOUNDS ? 'nexbreak' : 'wave', 70);
       return;
     }
@@ -1471,7 +1471,7 @@ export function updateNex(eng: GameEngine, e: Enemy, dt: number) {
       // stops being a wall, so the fight always has a way forward.
       st.nexWarded = false;
       st.nexWardId = undefined;
-      eng.notify('The ward flickers out — Nex is exposed!');
+      eng.notify('The ward flickers out, and Nex is exposed!');
       eng.sound.play('nexbreak' in GAME_SOUNDS ? 'nexbreak' : 'wave', 55);
     }
     return;
@@ -1619,8 +1619,8 @@ export function summonNexAcolyte(eng: GameEngine, nex: Enemy, index: number) {
   addRing(eng, nex.x, bodyY(nex), 8, 90, '#c9a0ff', 0.5, 4);
   eng.notify(
     index === 0
-      ? `Nex arrives behind ${acolyte.name} — kill the acolyte to reach her!`
-      : `${acolyte.name} answers Nex — the ward is back up!`,
+      ? `Nex arrives behind ${acolyte.name}. Kill the acolyte to reach her!`
+      : `${acolyte.name} answers Nex, and the ward is back up!`,
   );
   eng.sound.play('nexward' in GAME_SOUNDS ? 'nexward' : 'wave', 60);
 }

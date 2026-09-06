@@ -39,11 +39,11 @@ export const DPS_EFFECT_META: {
   { key: 'poisonDmg', label: 'Poison damage', kind: 'dmg', icon: ASSETS.debuffs.poison,
     tip: 'Damage from poison ticking on the enemy after the hit.' },
   { key: 'venomDmg', label: 'Venom damage', kind: 'dmg', icon: ASSETS.debuffs.venom,
-    tip: 'Damage from venom, which hits harder the longer it is kept up.' },
+    tip: 'Damage from venom, which hits harder the longer you keep it up.' },
   { key: 'chainDmg', label: 'Chain damage', kind: 'dmg', icon: ASSETS.misc.multicombat_icon,
     tip: 'Damage that jumped on to another enemy on its own.' },
   { key: 'healDenied', label: 'Healing denied', kind: 'dmg', icon: ASSETS.hitsplats.heal,
-    tip: 'Health an enemy was not allowed to put back on its bar.' },
+    tip: 'Healing this tower stopped an enemy putting back on its bar.' },
   { key: 'bloodBonusDmg', label: 'Blood bonus dmg', kind: 'dmg', icon: ASSETS.spells.Blood_Barrage,
     tip: 'Extra damage Blood adds from the target’s own maximum hitpoints.' },
   { key: 'taskBonusDmg', label: 'Slayer task bonus', kind: 'dmg', icon: ASSETS.misc.slayer_crossbow,
@@ -51,35 +51,35 @@ export const DPS_EFFECT_META: {
   { key: 'weaponBonusDmg', label: 'Weapon bonus dmg', kind: 'dmg', icon: ASSETS.misc.attack_icon,
     tip: 'Extra damage this tower’s own weapon and gear add against this enemy.' },
   { key: 'extraShots', label: 'Extra shots', kind: 'int', icon: GEAR_ICONS.dragon_arrow,
-    tip: 'Shots loosed on top of the tower’s attack, at a second enemy.' },
+    tip: 'Shots this tower loosed at a second enemy, on top of its attack.' },
   { key: 'roadHits', label: 'Road hits', kind: 'int', icon: ASSETS.misc.signpost,
-    tip: 'Enemies caught further down the road by a shot aimed at another.' },
+    tip: 'Enemies this tower caught further down the road, aiming at another.' },
   { key: 'venomSpread', label: 'Venom spread', kind: 'int', icon: ASSETS.debuffs.venom,
-    tip: 'Enemies handed a stronger venom than the one they were already carrying.' },
+    tip: 'Enemies this tower moved up to a stronger venom than they carried.' },
   { key: 'eclipseFull', label: 'Full eclipse', kind: 'int', icon: ASSETS.debuffs.burn,
-    tip: 'Darts landed with the eclipse already at full strength.' },
+    tip: 'Darts this tower landed with the eclipse already at full strength.' },
   { key: 'venomArmed', label: 'Venom armed', kind: 'int', icon: ASSETS.debuffs.venom,
     tip: 'Hits this staff made venomous, fired by any tower in its range.' },
   { key: 'longShots', label: 'Long shots', kind: 'int', icon: ASSETS.misc.reticle,
     tip: 'Shots that reached a target standing outside the tower’s range.' },
   { key: 'stunCount', label: 'Enemies stunned', kind: 'int', icon: ASSETS.debuffs.stun,
-    tip: 'How many enemies were frozen in place.' },
+    tip: 'How many enemies this tower froze in place.' },
   { key: 'stunSeconds', label: 'Stun time', kind: 'sec', icon: ASSETS.debuffs.stun,
-    tip: 'How long, all told, enemies were held still.' },
+    tip: 'How long this tower held enemies still, all told.' },
   { key: 'pushCount', label: 'Knockbacks', kind: 'int', icon: ASSETS.misc.strength_icon,
-    tip: 'How many enemies were shoved back down the road.' },
+    tip: 'How many enemies this tower shoved back down the road.' },
   { key: 'pushTiles', label: 'Tiles pushed', kind: 'tiles', icon: ASSETS.misc.strength_icon,
     tip: 'How much road the enemies had to walk again.' },
   { key: 'slowCount', label: 'Slows applied', kind: 'int', icon: ASSETS.debuffs.slow,
-    tip: 'How many enemies were slowed down.' },
+    tip: 'How many enemies this tower slowed down.' },
   { key: 'ampCount', label: 'Enemies marked', kind: 'int', icon: ASSETS.debuffs.vuln,
-    tip: 'How many enemies were marked to take more damage from everything.' },
+    tip: 'How many enemies this tower marked to take more damage from everything.' },
   { key: 'splashHits', label: 'Splash hits', kind: 'int', icon: ASSETS.misc.magic_hit_splat,
     tip: 'Hits that landed on enemies standing next to the target.' },
   { key: 'lifeStealHeals', label: 'Lives stolen', kind: 'int', icon: ASSETS.misc.hp_icon,
-    tip: 'Lives won back by killing with Blood or an Amulet of blood fury.' },
+    tip: 'Lives you won back killing with Blood or an Amulet of blood fury.' },
   { key: 'ccBreakHits', label: 'Resistance broken', kind: 'int', icon: ASSETS.misc.defence_icon,
-    tip: 'Enemies stopped from shrugging off slows and stuns.' },
+    tip: 'Enemies this tower stopped shrugging off slows and stuns.' },
 ];
 
 export const DPS_STYLE_LABEL: Record<CombatStyle | 'run', string> = { melee: 'Melee', ranged: 'Ranged', magic: 'Magic', run: 'Run Effects' };
@@ -312,7 +312,7 @@ function DpsRowView({ r, ctx }: { r: DpsRow; ctx: RowCtx }) {
                   "support is the top damage dealer" and invited spamming it, which
                   the aura's diminishing returns silently punish. */}
               {r.isUtility && (
-                <HoverTip content="Extra damage this aura added to other towers' hits — not damage it dealt, and already deducted from their totals. The board total is unchanged.">
+                <HoverTip content="Extra damage this aura added to other towers' hits. It is already deducted from their totals, so the board total is unchanged.">
                   <span className="text-[0.72em] text-[#9a8d70] ml-[0.3em]">
                     (extra)
                   </span>
@@ -457,8 +457,8 @@ export function DpsViewBase({ snap, onHoverTower }: { snap: DpsSnapshot | null; 
         {!snap || rows.length === 0 ? (
           <div className="text-[0.78em] text-[#b3a585] text-center py-[2em] px-[1em] leading-relaxed">
             {snap && snap.waves.length > 0
-              ? 'No damage recorded for this view yet.'
-              : 'No damage yet — start a wave and your towers will show up here.'}
+              ? 'No damage in this view yet.'
+              : 'No damage yet. Start a wave and your towers will show up here.'}
           </div>
         ) : group === 'none' ? (
           rows.map((r) => <DpsRowView key={r.id} r={r} ctx={ctx} />)

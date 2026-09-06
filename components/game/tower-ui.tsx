@@ -81,12 +81,12 @@ export function MultiSpellButton({ icon, label, color, active, title, onClick }:
 export const PRIORITY_ORDER = ['first', 'last', 'closest', 'strongest', 'weakest', 'unmarked'] as const;
 /** Spelled-out tooltips — the buttons are glyphs, so the words live here. */
 export const PRIORITY_TIPS: Record<TargetingPriority, string> = {
-  first: 'First — the enemy furthest along the path',
-  last: 'Last — the enemy least far along the path',
-  strongest: 'Strongest — the highest current HP',
-  weakest: 'Weakest — the lowest current HP',
-  closest: 'Closest — the nearest to this tower',
-  unmarked: 'Unmarked — no status yet, so poison / burn / slow spreads across the wave',
+  first: 'First: the enemy furthest along the path',
+  last: 'Last: the enemy least far along the path',
+  strongest: 'Strongest: the highest current HP',
+  weakest: 'Weakest: the lowest current HP',
+  closest: 'Closest: the nearest to this tower',
+  unmarked: 'Unmarked: no status yet, so poison / burn / slow spreads across the wave',
 };
 
 /** One targeting-priority glyph: the dimension icon, with the most/least arrow
@@ -273,7 +273,7 @@ export function towerSignature(
         desc: 'Hits everything in range and spreads the worst venom to all of it.',
         notes: [
           { text: 'Full damage on every enemy, not splash', active: true },
-          { text: 'Its own venom is weak — pair it with a Toxic tower', active: true },
+          { text: 'Its own venom is weak, so pair it with a Toxic tower', active: true },
         ],
       };
     case 'purging_staff':

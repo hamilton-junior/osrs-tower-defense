@@ -24,7 +24,7 @@ import { agoLabel, type DifficultyProgress } from './save';
 const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string; wip?: string }[] = [
   {
     id: 'classic', name: 'Classic', tag: 'Pure Tower Defense',
-    desc: 'Build towers and survive the waves. Nothing else.',
+    desc: 'Build towers and survive the waves. No cards, no relics.',
     icon: iconUrl('Dwarf_multicannon'),
   },
   {
@@ -73,7 +73,7 @@ function ScreenHeader({ compact, saved, champion, wins, caTitle }: {
       {champion && (
         <div
           className="flex items-center justify-center gap-[0.3em] text-osrs-yellow text-[0.8em] font-bold mt-[0.3em] uppercase tracking-wider"
-          title={`Champion — ${wins} run${wins === 1 ? '' : 's'} won`}
+          title={`Champion: ${wins} run${wins === 1 ? '' : 's'} won`}
         >
           <img src={ASSETS.misc.trophy} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
           Champion
@@ -82,7 +82,7 @@ function ScreenHeader({ compact, saved, champion, wins, caTitle }: {
       {caTitle && (
         <div
           className="flex items-center justify-center gap-[0.3em] text-osrs-yellow text-[0.8em] font-bold mt-[0.3em] uppercase tracking-wider"
-          title={`Combat Achievements — the ${CA_TIER_NAMES[caTitle]} tier cleared in full`}
+          title={`Combat Achievements: the ${CA_TIER_NAMES[caTitle]} tier cleared in full`}
         >
           <img src={ASSETS.achievements[caTitle]} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
           {CA_TIER_NAMES[caTitle]}
@@ -106,8 +106,8 @@ function WipNotice({ compact }: { compact: boolean }) {
         className="w-[1.8em] h-[1.8em] object-contain inline-block align-middle mr-[0.4em]"
         onError={hideBrokenImg}
       />
-      <span className="text-osrs-orange font-bold">Work in progress</span> — a passion project, still being
-      built. Nothing here is final.
+      <span className="text-osrs-orange font-bold">Work in progress</span>: a passion project, still
+      being built. Nothing here is final.
       {!compact && (
         <> Towers, bosses and balance change between visits, so keep an eye on{' '}
           {FEEDBACK_ENABLED ? <span className="text-osrs-yellow">💬 Recent updates</span> : <span className="text-osrs-yellow">the updates list</span>}.
@@ -202,7 +202,7 @@ function ModePicker({ mode, onSelect, compact }: {
           <button
             key={m.id}
             onClick={() => onSelect(m.id)}
-            title={`${m.name} — ${m.desc}`}
+            title={`${m.name}: ${m.desc}`}
             className={`rs-panel-inset text-left flex flex-col gap-[0.35em] ${compact ? 'p-[0.55em]' : 'p-[0.8em]'}`}
             style={{ outline: `2px solid ${on ? 'var(--osrs-orange)' : 'transparent'}`, opacity: on ? 1 : 0.78 }}
           >
@@ -259,7 +259,7 @@ function DifficultyPicker({ mode, difficulty, selectedTier, onSelectTier }: {
               key={t.id}
               disabled={!unlocked}
               className={`rs-btn px-[0.7em] py-[0.3em] text-[0.8em] ${on ? 'rs-btn-primary' : ''}`}
-              title={unlocked ? `Play at ${tierLabel(t.id)}` : `Locked — win the tier below to unlock ${tierLabel(t.id)}`}
+              title={unlocked ? `Play at ${tierLabel(t.id)}` : `Locked. Win the tier below to unlock ${tierLabel(t.id)}`}
               onClick={() => unlocked && onSelectTier(t.id)}
             >
               {!unlocked && '🔒 '}{tierLabel(t.id)}
@@ -269,7 +269,7 @@ function DifficultyPicker({ mode, difficulty, selectedTier, onSelectTier }: {
       </div>
       <div className="text-[0.68em] text-[#a89870] mt-[0.5em] leading-snug">
         Win a tier to unlock the next. Higher tiers give tougher enemies and a
-        tighter economy — the reward is the record, not power.
+        tighter economy. You play them for the record, not for power.
       </div>
     </div>
   );
@@ -383,7 +383,7 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
           />
         )}
 
-        {saved && <div className="text-center text-[0.75em] text-[#cdbe91] mt-[0.8em] mb-[0.3em]">— or start a new run —</div>}
+        {saved && <div className="text-center text-[0.75em] text-[#cdbe91] mt-[0.8em] mb-[0.3em]">· or start a new run ·</div>}
 
         <ModePicker mode={mode} onSelect={onSelect} compact={compact} />
 

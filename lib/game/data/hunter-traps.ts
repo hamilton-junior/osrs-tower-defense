@@ -127,7 +127,7 @@ export const HUNTER_TRAPS: HunterTrapDef[] = [
     hold: 0,
     catchAt: 0,
     sprite: itemIcon('red_chinchompa'),
-    tip: 'The same bang, wider and harder.',
+    tip: 'Blasts wider and harder than the chinchompa.',
     signature: { label: 'Bigger Blast', icon: ASSETS.misc.multicombat_icon },
   },
   {

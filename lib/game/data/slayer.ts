@@ -95,7 +95,7 @@ export const SLAYER_REWARDS: SlayerReward[] = [
   },
   {
     id: 'bigger_badder', name: 'Bigger and Badder',
-    desc: 'Task monsters can rise again as a Superior — tougher, richer.',
+    desc: 'Task monsters can rise again as a Superior, tougher and richer.',
     cost: 30, icon: 'Eternal_gem', once: true,
   },
   {

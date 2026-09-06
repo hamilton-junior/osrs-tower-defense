@@ -62,7 +62,7 @@ export const FUSIONS: readonly FusionDef[] = [
     type: 'noxious_halberd',
     name: 'Noxious halberd',
     parents: ['tzhaar', 'toxic'],
-    blurb: 'Swings at everything in reach and spreads the worst venom to all of it.',
+    blurb: 'Swings at every enemy in reach and spreads the worst venom to all of them.',
   },
   {
     type: 'purging_staff',
@@ -196,7 +196,7 @@ export const FUSION_BLOCK_TEXT: Record<FusionBlock, string> = {
   tier: 'Both towers must be fully upgraded.',
   adjacent: 'The two towers must stand side by side.',
   locked: 'Complete The Forge to unlock fusing.',
-  leg: 'Already fused here — travel on for another.',
+  leg: 'This leg already has its fusion. Travel on for another.',
   gold: 'Not enough gold.',
 };
 

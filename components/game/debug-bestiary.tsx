@@ -380,7 +380,7 @@ export function BestiaryLightbox({ st }: { st: BestiaryState }) {
     >
       <div className="rs-panel p-4 w-[24em]" onClick={(e) => e.stopPropagation()} style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}>
         <div className="rs-panel-title flex items-center justify-between mb-[0.6em]">
-          <span className="capitalize">{viewingName} — {expanded}</span>
+          <span className="capitalize">{viewingName}: {expanded}</span>
           <span className="flex items-center gap-[0.3em]">
             <button
               onClick={st.toggleLightboxMode}

@@ -183,11 +183,11 @@ const LOG_TABS: readonly LogTab[] = ['bosses', 'monsters', 'cards', 'forge', 'di
 function tabHint(t: LogTab): string {
   switch (t) {
     case 'cards': return 'Reward cards collected';
-    case 'forge': return 'Fused weapons — what makes each one, and what it does';
+    case 'forge': return 'Fused weapons: what makes each one, and what it does';
     case 'diversions': return 'Distractions & Diversions you have met';
     case 'victories': return 'Runs won';
     case 'difficulty': return 'New Game+ progress';
-    case 'achievements': return 'Combat Achievements — clear a tier for its title';
+    case 'achievements': return 'Combat Achievements: clear a tier for its title';
     default: return `${t === 'bosses' ? 'Bosses' : 'Monsters'} slain`;
   }
 }
@@ -400,7 +400,7 @@ function DiversionsBody({ list, met }: { list: DiversionDef[]; met: Record<strin
           <div
             key={d.id}
             className={`rs-log-entry ${n > 0 ? '' : 'rs-log-locked'}`}
-            title={n > 0 ? `${d.name} — ${d.tip} · met ${n} time${n === 1 ? '' : 's'}` : `${d.name} — not met yet`}
+            title={n > 0 ? `${d.name}: ${d.tip} · met ${n} time${n === 1 ? '' : 's'}` : `${d.name}: not met yet`}
           >
             <div className="rs-log-sprite" style={diversionSpriteStyle(d.id, n > 0)} />
             <span className="rs-log-name">{d.name}</span>
@@ -440,7 +440,7 @@ function ForgeBody({ list, made, unlocked }: {
               <div
                 key={f.type}
                 className="rs-panel-inset p-[0.5em] flex gap-[0.6em] items-start"
-                title={n > 0 ? `${f.name} — forged ${n} time${n === 1 ? '' : 's'}` : `${f.name} — not forged yet`}
+                title={n > 0 ? `${f.name}: forged ${n} time${n === 1 ? '' : 's'}` : `${f.name}: not forged yet`}
               >
                 <img
                   src={towerIcon(f.type as TowerType)}
@@ -565,7 +565,7 @@ function EnemiesBody({ list, entries, killCounts, selected, setSelected }: {
             key={e.type}
             onClick={() => setSelected(e.type)}
             className={`rs-log-entry ${seen ? '' : 'rs-log-locked'}`}
-            title={`${e.name} — ${kc} kill${kc === 1 ? '' : 's'} · click for info`}
+            title={`${e.name}: ${kc} kill${kc === 1 ? '' : 's'} · click for info`}
           >
             <div className="rs-log-sprite" style={style}>{style ? null : '?'}</div>
             <span className="rs-log-name">{e.name}</span>
@@ -765,7 +765,7 @@ export function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, onSele
             ))}
           </div>
           <p className="text-[0.68em] text-[#9a8d70] mt-[0.5em] leading-snug">
-            The same monster wearing a different body — stats, drops and kills are shared.
+            The same monster wearing a different body. It shares stats, drops and kills.
           </p>
         </div>
       )}
@@ -779,7 +779,7 @@ export function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, onSele
                 <button
                   key={s.type}
                   onClick={() => onSelect(s.type)}
-                  title={`${s.name} — ${n} kill${n === 1 ? '' : 's'} · click for stats`}
+                  title={`${s.name}: ${n} kill${n === 1 ? '' : 's'} · click for stats`}
                   className={`flex items-center gap-[0.6em] w-full text-left rounded px-[0.2em] py-[0.1em] transition-colors hover:bg-[#3a3327] ${n > 0 ? '' : 'rs-log-locked'}`}
                 >
                   <div className="rs-log-sprite shrink-0" style={{ ...enemySpriteStyle(s.type, true), fontSize: '0.75em' }} />
@@ -792,7 +792,7 @@ export function LogDetail({ type, kc, killCounts, onBack, onPrev, onNext, onSele
             })}
           </div>
           <p className="text-[0.68em] text-[#9a8d70] mt-[0.5em] leading-snug">
-            Escorts, not wave monsters — they only appear alongside {def.name}, and pay no gold.
+            Escorts only. They appear alongside {def.name} and pay no gold.
           </p>
         </div>
       )}

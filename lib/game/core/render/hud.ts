@@ -97,18 +97,18 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   let capColor = '#cfe8ff';
   if (st?.kind === 'zulrah') {
     const phase = ZULRAH_PHASES[st.phaseIndex % ZULRAH_PHASES.length];
-    caption = `${phase.name} — weak to ${phase.weak}`;
+    caption = `${phase.name}, weak to ${phase.weak}`;
     capColor = phase.color;
   } else if (st?.kind === 'vorkath' && st.immune) {
-    caption = 'ICE SHIELD — immune!';
+    caption = 'ICE SHIELD: immune!';
     capColor = '#bfe9ff';
   } else if (st?.kind === 'jad' && boss.hp <= boss.maxHp * 0.5 && gr.e.enemies.some(en => en.healer)) {
-    caption = 'Healers active — kill them!';
+    caption = 'Healers active: kill them!';
     capColor = '#7dff9a';
   } else if (st?.kind === 'hydra') {
     const phase = hydraPhase(st.shattered ?? 0);
     if (st.venting) {
-      caption = 'CHEMICAL VENT — break it!';
+      caption = 'CHEMICAL VENT: break it!';
       capColor = '#b6ff6a';
     } else if (st.enraged) {
       caption = 'ENRAGED!';
@@ -119,16 +119,16 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     }
   } else if (st?.kind === 'giant_mole') {
     capColor = '#d9b184';
-    if (st.molePhase === 'dig') caption = 'DIGGING — it will surface ahead!';
-    else if (st.molePhase === 'under') caption = 'BURROWED — untouchable!';
-    else if (st.molePhase === 'emerge') caption = 'Surfacing — hit it now!';
+    if (st.molePhase === 'dig') caption = 'DIGGING: it will surface ahead!';
+    else if (st.molePhase === 'under') caption = 'BURROWED: untouchable!';
+    else if (st.molePhase === 'emerge') caption = 'Surfacing: hit it now!';
     else if (st.burrows) caption = `Burrows: ${st.burrows}`;
   } else if (st?.kind === 'cerberus') {
     const locked = st.lockedStyles ?? [];
     if (locked.length) {
       // Name the styles that are locked, not the count: "2 souls" tells the player
       // nothing they can act on, and which styles are dead is the whole decision.
-      caption = `SOULS — ${locked.join(', ')} locked!`;
+      caption = `SOULS: ${locked.join(', ')} locked!`;
       capColor = '#b7c6dd';
     } else if (st.enraged) {
       caption = 'ENRAGED!';
@@ -137,10 +137,10 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   } else if (isGuardian(st?.kind)) {
     capColor = GUARDIAN_LINK_COLOR;
     if (st!.linked) {
-      caption = 'SHARED STONE — both take half damage';
+      caption = 'SHARED STONE: both take half damage';
     } else if (st!.reviveTimer !== undefined) {
       // The number is the whole mechanic: it is the clock the player is racing.
-      caption = `ENRAGED — reviving its twin in ${Math.ceil(st!.reviveTimer)}s!`;
+      caption = `ENRAGED: reviving its twin in ${Math.ceil(st!.reviveTimer)}s!`;
       capColor = '#ff8b4c';
     }
   } else if (st?.kind === 'kbd') {
@@ -148,22 +148,22 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     // Three things, in the order the player needs them: the warning, the effect, and
     // then — once the fire is out — the count, so "how often does he do that" is
     // answerable from the bar alone.
-    if (st.kbdPhase === 'inhale') caption = 'INHALING — that stretch is about to burn!';
-    else if (gr.e.scorches.some((sc) => !sc.warning)) caption = 'DRAGONFIRE — towers over the flames hit for half!';
+    if (st.kbdPhase === 'inhale') caption = 'INHALING: that stretch is about to burn!';
+    else if (gr.e.scorches.some((sc) => !sc.warning)) caption = 'DRAGONFIRE: towers over the flames hit for half!';
     else if (st.breaths) caption = `Breaths: ${st.breaths}`;
   } else if (st?.kind === 'corporeal_beast') {
     capColor = CORP_LINK_COLOR;
     // The armour and the theft are one state, so they get one line — and it names the
     // answer, because "kill the core" is the entire fight and nothing else works.
-    if ((st.coresLatched ?? 0) > 0) caption = 'SIPHONING — kill the core to free your tower!';
+    if ((st.coresLatched ?? 0) > 0) caption = 'SIPHONING: kill the core to free your tower!';
     else if (st.coresSpat) caption = `Cores spat: ${st.coresSpat}`;
   } else if (st?.kind === 'graardor') {
     capColor = '#d9b24a';
     // The armour and its answer are one line, and it names the answer, because the
     // sergeants are the entire fight. Once they are down the line becomes the slam
     // count, which is the other half: how many times the interface has gone dark.
-    if ((st.slamWindup ?? 0) > 0) caption = 'SLAM INCOMING — your prayers are about to break!';
-    else if (graardorIsArmoured(st)) caption = 'BODYGUARDS — kill the sergeants in front of him!';
+    if ((st.slamWindup ?? 0) > 0) caption = 'SLAM INCOMING: your prayers are about to break!';
+    else if (graardorIsArmoured(st)) caption = 'BODYGUARDS: kill the sergeants in front of him!';
     else if (st.slams) caption = `Slams: ${st.slams}`;
   } else if (st?.kind === 'nex') {
     capColor = '#c9a0ff';
@@ -171,8 +171,8 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     // player has four different names to keep straight. Once every ward is spent it
     // becomes the count, which is the fight's own scoreboard.
     const ward = nexWard(st);
-    if (nexIsShielded(st) && ward) caption = `WARDED — kill ${ward.name} to reach her!`;
-    else if ((st.nexPhase ?? 0) >= NEX_ACOLYTES.length) caption = 'No acolytes left — she stands alone!';
+    if (nexIsShielded(st) && ward) caption = `WARDED: kill ${ward.name} to reach her!`;
+    else if ((st.nexPhase ?? 0) >= NEX_ACOLYTES.length) caption = 'No acolytes left, she stands alone!';
     else if (st.nexWardsBroken) caption = `Acolytes down: ${st.nexWardsBroken}/${NEX_ACOLYTES.length}`;
   }
   if (caption) {
@@ -189,7 +189,7 @@ export function drawBossBar(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     ctx.font = "bold 12px 'RuneScape', Arial";
     ctx.fillStyle = '#ffcb05';
     ctx.fillText(
-      `BREAKING FREE ${stacks}/${STALL_MAX_STACKS} — it is shrugging off your control!`,
+      `BREAKING FREE ${stacks}/${STALL_MAX_STACKS}: it is shrugging off your control!`,
       w / 2, below + 11,
     );
     below += 18;

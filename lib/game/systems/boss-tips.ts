@@ -14,7 +14,7 @@ import type { BossId } from './boss-mechanics';
  */
 export const BOSS_TIPS: Record<BossId, string> = {
   brutus:
-    'When he rages he charges off the road and knocks any tower he ploughs through offline. Leave the towers hugging the road some room.',
+    'His rage charges him off the road, knocking any tower he ploughs through offline. Give the towers hugging the road some space.',
   giant_mole:
     'She burrows and comes up further down the road, skipping whatever you fortified. Spread your damage along the path.',
   jad:
@@ -24,21 +24,21 @@ export const BOSS_TIPS: Record<BossId, string> = {
   zulrah:
     'He rotates through three forms, each weak to a different combat style. Cover one stretch of road with all three.',
   dusk:
-    'While Dawn still stands they share their stone: half damage each, and the survivor revives the other. Kill them close together.',
+    'The pair share their stone while both stand: half damage each, and the survivor revives the other. Kill them close together.',
   dawn:
-    'While Dusk still stands they share their stone: half damage each, and the survivor revives the other. Kill them close together.',
+    'The pair share their stone while both stand: half damage each, and the survivor revives the other. Kill them close together.',
   cerberus:
     'Each Summoned Soul locks one combat style out against him. Kill the soul your board cannot fight without.',
   hydra:
-    'At each health threshold it vents, hardens and regenerates. Chip damage loses this fight; saved burst wins it.',
+    'At each health threshold it vents and hardens, healing behind the shield. Chip damage will not break it in time, so save your burst.',
   scurrius:
     'Heavy hits split rats off him, and every rat that runs back hands his health over. Kill the rats before they reach him.',
   nex:
-    'While an acolyte stands your towers cannot even see her, and it silences every tower casting its own Ancient. Kill the acolyte to open the next phase.',
+    'An acolyte hides her from your towers and silences every tower casting its own Ancient. Kill the acolyte to open the next phase.',
   graardor:
-    'His sergeants shield him while they are ahead of him, so leave your towers on First. His slam frees everything nearby from slows and stuns for a few seconds.',
+    'His sergeants shield him while they are ahead of him, so leave your towers on First. The slam that follows frees everything nearby from slows and stuns for a few seconds.',
   corporeal_beast:
-    'He spits Dark energy cores at the towers hurting him most; a held tower feeds him instead of shooting, and he takes half damage. Kill the cores, and note that nothing slows them.',
+    'He spits Dark energy cores at the towers hurting him most; a held tower feeds him instead of shooting, and he takes half damage. Kill the cores fast, because nothing slows them.',
   kbd:
     'He burns whichever stretch of road your towers cover most, halving everything that reaches the flames. Do not stack the whole board on one bend.',
 };

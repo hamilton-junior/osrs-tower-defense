@@ -101,7 +101,7 @@ export const SIGNATURES: (TierEntry & { gearEffect: GearEffectId; blurb: string 
   { id: 'salve_amulet_ei', name: 'Salve amulet (ei)', levelReq: 30, gearEffect: 'slayer_bane',
     blurb: 'Hits harder against your Slayer task, superiors and bosses.' },
   { id: 'amulet_of_the_damned', name: 'Amulet of the damned', levelReq: 35, gearEffect: 'cc_breaker',
-    blurb: 'Whatever it hits stops shrugging off slows and stuns for a moment.' },
+    blurb: 'Whatever it hits takes full slows and stuns for a moment.' },
 ];
 
 const GROWTH = 1.35;
@@ -121,7 +121,7 @@ function tierDamage(cls: AmmoClass | 'jewellery', i: number): number {
 
 function ammoDescription(cls: AmmoClass, name: string): string {
   const noun = cls === 'runes' ? 'runes' : cls === 'melee_kit' ? 'melee kit' : cls;
-  return `${name} — ${noun} tier for the matching tower's ammo slot.`;
+  return `${name}: ${noun} tier for the matching tower's ammo slot.`;
 }
 
 /** Build the full `AmmoClass` ladders into `Item`s via the bonus rule: damage
@@ -160,7 +160,7 @@ function buildJewelleryItems(): Item[] {
     return {
       id: tier.id,
       name: tier.name,
-      description: `${tier.name} — universal jewellery, fits any tower.`,
+      description: `${tier.name}: universal jewellery, fits any tower.`,
       type: 'jewellery',
       levelReq: tier.levelReq,
       rarity: 'common',

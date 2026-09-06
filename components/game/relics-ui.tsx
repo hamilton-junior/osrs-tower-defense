@@ -80,7 +80,7 @@ export function RelicStrip({ cards, highlight }: { cards: { id: string; count: n
             return (
               <span
                 key={card.id}
-                title={`${card.name} — ${effectTag(card.effect)}`}
+                title={`${card.name}: ${effectTag(card.effect)}`}
                 className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
                 style={{
                   border: `1px solid ${hi ? '#ffd257' : RARITY_COLOR[card.rarity]}`,
@@ -126,7 +126,7 @@ export function RunBuild({ cards }: { cards: { id: string; count: number }[] }) 
         {built.map(({ card, count }) => (
           <span
             key={card.id}
-            title={`${card.name} — ${effectTag(card.effect)}`}
+            title={`${card.name}: ${effectTag(card.effect)}`}
             className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
             style={{ border: `1px solid ${RARITY_COLOR[card.rarity]}`, boxShadow: `inset 0 0 6px ${RARITY_COLOR[card.rarity]}55` }}
           >
@@ -166,8 +166,8 @@ export function BuyCardRoll({ ui, onBuy, disabledReason = null }: { ui: UIState;
   const title = blocked
     ? disabledReason!
     : afford
-      ? `Buy a hand of reward cards for ${cost} gp — keep one. Each roll makes the next dearer.`
-      : `A card roll costs ${cost} gp — ${cost - ui.money} more needed.`;
+      ? `Buy a hand of reward cards for ${cost} gp and keep one. Each roll makes the next dearer.`
+      : `A card roll costs ${cost} gp. You need ${cost - ui.money} more.`;
   return (
     <button
       onClick={onBuy}
@@ -265,7 +265,7 @@ export function OwnedRelicTray({ ids, summary }: { ids: string[]; summary?: bool
         {relics.map((relic) => (
           <span
             key={relic.id}
-            title={`${relic.name} — ${relic.desc}`}
+            title={`${relic.name}: ${relic.desc}`}
             className="relative flex items-center justify-center w-[2.1em] h-[2.1em] rs-panel-inset"
             style={{ border: `1px solid ${TIER_COLOR[relic.tier]}`, boxShadow: `inset 0 0 6px ${TIER_COLOR[relic.tier]}55` }}
           >

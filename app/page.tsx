@@ -23,7 +23,7 @@ export default function Page() {
           href={GAME_URL}
           target="_blank"
           rel="noopener noreferrer"
-          title="Play it yourself — opens in a new tab"
+          title="Play it yourself, in a new tab"
           className="pointer-events-auto shrink-0 truncate text-sm text-osrs-yellow hover:text-osrs-orange underline decoration-dotted underline-offset-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
         >
           ▶ Play it: {GAME_URL_LABEL}

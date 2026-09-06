@@ -68,35 +68,35 @@ export interface WaveEvent {
 export const WAVE_EVENTS: readonly WaveEvent[] = [
   // ───────────────────────────────── hazards ──────────────────────────────
   { id: 'dense_fog', name: 'Dense Fog', tone: 'hazard', color: '#8aa0b0', weight: 20,
-    desc: 'A thick sea fog rolls in — your towers see much less far this wave.',
+    desc: 'Sea fog swallows the board and cuts your towers\' sight short.',
     icon: itemIcon('ghostly_hood'), effect: { towerRangeMult: 0.72 } },
   { id: 'iron_tide', name: 'Iron Tide', tone: 'hazard', color: '#9aa0a8', weight: 20,
-    desc: 'The horde marches in heavy armour — every enemy is far tougher.',
+    desc: 'The horde marches in heavy armour. Every enemy takes far more killing.',
     icon: itemIcon('rune_platebody'), effect: { enemyHpMult: 1.35 } },
   { id: 'frenzy', name: 'Frenzy', tone: 'hazard', color: '#ff5a3c', weight: 18,
-    desc: 'A blood-frenzy grips the horde — they charge in much faster.',
+    desc: 'A blood-frenzy grips the horde and they charge in much faster.',
     icon: itemIcon('berserker_necklace'), effect: { enemySpeedMult: 1.4 } },
   { id: 'curse_of_darkness', name: 'Curse of Darkness', tone: 'hazard', color: '#7a5cff', weight: 14,
-    desc: 'A creeping darkness saps your towers — they hit weaker this wave.',
+    desc: 'Creeping darkness saps your towers, so they hit weaker this wave.',
     icon: ASSETS.spells['Curse'], effect: { towerDamageMult: 0.8 } },
   { id: 'infestation', name: 'Infestation', tone: 'hazard', color: '#b6d957', weight: 16,
-    desc: 'An infestation swells the horde with frail, numberless stragglers.',
+    desc: 'An infestation swells the horde with frail stragglers.',
     icon: npcModel('kalphite_larva'), effect: { enemyCountMult: 1.6, enemyHpMult: 0.6 } },
 
   // ───────────────────────────── risk / reward ────────────────────────────
   { id: 'blood_moon', name: 'Blood Moon', tone: 'hazard', color: '#c0392b', weight: 10,
-    desc: 'Under the blood moon enemies are stronger and swifter — but drop far more gold.',
+    desc: 'The blood moon makes enemies stronger and swifter, and their purses fatter.',
     icon: itemIcon('blood_rune'), effect: { enemyHpMult: 1.2, enemySpeedMult: 1.2, goldMult: 1.4 } },
 
   // ────────────────────────────────── boons ───────────────────────────────
   { id: 'overcharge', name: 'Overcharge', tone: 'boon', color: '#57d9d9', weight: 12,
-    desc: 'Arcane winds overcharge your towers — they attack faster this wave.',
+    desc: 'Arcane winds overcharge your towers into a faster rhythm.',
     icon: itemIcon('battlestaff'), effect: { towerFireRateMult: 1.25 } },
   { id: 'clear_skies', name: 'Clear Skies', tone: 'boon', color: '#57c8ff', weight: 12,
-    desc: 'The skies clear — your towers see much farther this wave.',
+    desc: 'The skies clear and your towers see much farther.',
     icon: ASSETS.prayers.eagle_eye, effect: { towerRangeMult: 1.3 } },
   { id: 'war_banner', name: 'War Banner', tone: 'boon', color: '#ffd257', weight: 12,
-    desc: 'A war banner rallies your towers — they strike harder this wave.',
+    desc: 'A war banner rallies your towers into harder blows.',
     icon: itemIcon('saradomin_banner'), effect: { towerDamageMult: 1.22 } },
 ];
 

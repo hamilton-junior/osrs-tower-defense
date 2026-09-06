@@ -290,7 +290,7 @@ export function drawPlacementSynergy(gr: GameRenderer,
       radius,
       stroke: ok ? '#5ec8ff' : '#ff6a6a',
       fill: ok ? 'rgba(94,200,255,0.10)' : 'rgba(255,80,80,0.12)',
-      label: ok ? `Lone Wolf ✓ ×${syn.loneWolf.mult}` : 'Lone Wolf — tower in range',
+      label: ok ? `Lone Wolf ✓ ×${syn.loneWolf.mult}` : 'Lone Wolf: tower in range',
     });
   }
 

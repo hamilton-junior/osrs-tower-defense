@@ -1572,22 +1572,22 @@ export const NEX_ACOLYTES: readonly {
   {
     type: 'fumus', name: 'Fumus', element: 'smoke', say: 'Fumus, don your mask!',
     silence: 'Fumus fills your Smoke towers with choking ash!',
-    quiet: 'Fumus reaches for your Smoke towers — you have none in reach.',
+    quiet: 'Fumus reaches for your Smoke towers and finds none in reach.',
   },
   {
     type: 'umbra', name: 'Umbra', element: 'shadow', say: 'Umbra, embrace darkness!',
     silence: 'Umbra smothers your Shadow towers in darkness!',
-    quiet: 'Umbra reaches for your Shadow towers — you have none in reach.',
+    quiet: 'Umbra reaches for your Shadow towers and finds none in reach.',
   },
   {
     type: 'cruor', name: 'Cruor', element: 'blood', say: 'Cruor, spill their blood!',
     silence: 'Cruor drinks your Blood towers dry!',
-    quiet: 'Cruor reaches for your Blood towers — you have none in reach.',
+    quiet: 'Cruor reaches for your Blood towers and finds none in reach.',
   },
   {
     type: 'glacies', name: 'Glacies', element: 'ice', say: 'Glacies, freeze them where they stand!',
     silence: 'Glacies freezes your Ice towers solid!',
-    quiet: 'Glacies reaches for your Ice towers — you have none in reach.',
+    quiet: 'Glacies reaches for your Ice towers and finds none in reach.',
   },
 ];
 

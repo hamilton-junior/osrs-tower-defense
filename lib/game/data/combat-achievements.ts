@@ -156,7 +156,7 @@ export const CA_TASKS: readonly CaTask[] = [
     // the thing a fusion costs — two finished towers — so the first time a player
     // can afford to fuse, the forge opens in front of them.
     id: 'the-forge', tier: 'hard', name: 'The Forge',
-    desc: 'Have two fully upgraded towers standing at once — this unlocks tower fusion.',
+    desc: 'Have two fully upgraded towers standing at once. This unlocks tower fusion.',
     check: (s) => s.twoMaxedAtOnce,
   },
 
@@ -229,7 +229,7 @@ export const CA_TASKS: readonly CaTask[] = [
   },
   {
     id: 'no-gods-no-prayers', tier: 'master', name: 'No Gods, No Prayers',
-    desc: 'Win a run without activating a single prayer.',
+    desc: 'Win a run without activating any prayer.',
     check: (s) => s.won && !s.prayerEverUsed,
   },
   {
@@ -246,7 +246,7 @@ export const CA_TASKS: readonly CaTask[] = [
   },
   {
     id: 'untouchable-champion', tier: 'grandmaster', name: 'Untouchable Champion',
-    desc: 'Win a run without losing a single life.',
+    desc: 'Win a run without losing a life.',
     check: (s) => s.won && s.livesLostRun === 0,
   },
   {

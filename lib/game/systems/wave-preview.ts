@@ -145,7 +145,7 @@ export function waveHintLines(
   const biggest = mobs.reduce((best, e) => (e.count > best.count ? e : best), mobs[0]);
   if (biggest.count / total >= 0.5) lines.push(`Mostly ${biggest.name} next wave.`);
 
-  if (lines.length === 0) lines.push(`A mixed lot next wave — ${total} of them, no two alike.`);
+  if (lines.length === 0) lines.push(`A mixed lot next wave: ${total} of them, no two alike.`);
   return lines;
 }
 

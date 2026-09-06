@@ -122,7 +122,7 @@ export class SlayerSystem {
     // not choose to leave it, so it stays eligible if they return to its region.
     this.assignTask();
     if (this.task) {
-      this.e.notify(`${def?.name ?? task.type} does not live here — new task assigned`, SLAYER_ICON);
+      this.e.notify(`${def?.name ?? task.type} does not live here, so here is a new task`, SLAYER_ICON);
     }
   }
 
@@ -193,7 +193,7 @@ export class SlayerSystem {
         break;
       case 'helmet_i':
         this.imbued = true;
-        this.e.notify(`Helm imbued — +${SLAYER_HELMET_IMBUED_BONUS * 100}% on task`, SLAYER_ICON);
+        this.e.notify(`Helm imbued: +${SLAYER_HELMET_IMBUED_BONUS * 100}% on task`, SLAYER_ICON);
         break;
       case 'bigger_badder':
         this.biggerBadder = true;
@@ -219,7 +219,7 @@ export class SlayerSystem {
         task.total += task.count / 2;
         task.reward *= 2;
         if (!this.extended.includes(task.type)) this.extended.push(task.type);
-        this.e.notify(`Task extended — ${task.count} left`, SLAYER_ICON);
+        this.e.notify(`Task extended: ${task.count} left`, SLAYER_ICON);
         break;
       }
       case 'halve': {
@@ -231,7 +231,7 @@ export class SlayerSystem {
         task.count -= removed;
         task.total = Math.max(task.count, task.total - removed);
         task.reward = Math.max(1, Math.round(task.reward / 2));
-        this.e.notify(`Task halved — ${task.count} left`, SLAYER_ICON);
+        this.e.notify(`Task halved: ${task.count} left`, SLAYER_ICON);
         break;
       }
       case 'skip':

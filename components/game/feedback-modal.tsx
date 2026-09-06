@@ -80,7 +80,7 @@ export function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => voi
           <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
         </div>
         <p className="text-[0.72em] text-[#cdbe91] mb-[0.7em] leading-snug">
-          Opens a short form in a new tab. Thanks for helping shape the game — every note is read.
+          Opens a short form in a new tab. Thanks for helping shape the game. We read every note.
         </p>
         <div className="flex flex-col gap-[0.5em]">
           {FEEDBACK.bugFormUrl && (
@@ -154,7 +154,7 @@ export function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => voi
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rs-btn w-full py-[0.5em] text-[0.95em] flex items-center justify-center gap-[0.4em]"
-                title="Join the community Discord — opens in a new tab"
+                title="Join the community Discord (opens in a new tab)"
                 onClick={onClose}
               >
                 <svg viewBox="0 0 24 24" className="w-[1.2em] h-[1.2em] shrink-0" fill="#5865f2" aria-hidden="true">

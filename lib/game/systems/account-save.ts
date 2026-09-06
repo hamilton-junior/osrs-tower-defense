@@ -277,7 +277,7 @@ export function decodeSaveCode(code: string): DecodeResult {
   const [prefix, body, sum] = parts;
   if (!/^OSRSTD\d+$/.test(prefix)) return { ok: false, error: "That doesn't look like a save code." };
   if (prefix !== CODE_PREFIX) return { ok: false, error: 'That code is from a different version of the game.' };
-  if (parts.length !== 3 || checksum(body) !== sum) return { ok: false, error: 'The code is incomplete — copy all of it.' };
+  if (parts.length !== 3 || checksum(body) !== sum) return { ok: false, error: 'The code is incomplete. Copy all of it.' };
   const bytes = b64ToBytes(body);
   if (!bytes) return { ok: false, error: 'The code is damaged and cannot be read.' };
   let raw: unknown;
