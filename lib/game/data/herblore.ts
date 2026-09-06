@@ -39,10 +39,10 @@ import type { StyleBoost } from '../systems/style-mods';
  */
 
 export type PotionId =
-  | 'attack' | 'antidote' | 'strength' | 'energy' | 'combat' | 'prayer'
+  | 'attack' | 'antidote' | 'strength' | 'energy' | 'combat'
   | 'super_attack' | 'superantipoison' | 'super_energy' | 'super_strength'
   | 'restore' | 'sanfew' | 'ranging' | 'magic' | 'zamorak'
-  | 'bastion' | 'battlemage' | 'brew' | 'super_combat';
+  | 'bastion' | 'battlemage' | 'brew' | 'prayer_regen' | 'super_combat';
 
 export interface PotionDef {
   id: PotionId;
@@ -162,20 +162,6 @@ export const POTIONS: PotionDef[] = [
     icon: itemIcon('combat_potion'),
     tip: 'Your melee towers hit harder and swing faster.',
     signature: { label: 'Warpath', icon: ASSETS.misc.attack_icon },
-  },
-  {
-    id: 'prayer',
-    name: 'Prayer regen potion',
-    herb: 'ranarr',
-    secondary: { name: 'Snape grass', icon: itemIcon('snape_grass') },
-    cost: 200,
-    level: 38,
-    xp: 87.5,
-    waves: 4,
-    prayerDrain: 0.4,
-    icon: itemIcon('prayer_potion'),
-    tip: 'Your prayers drain slower.',
-    signature: { label: 'Zeal', icon: ASSETS.misc.prayer_icon },
   },
   {
     id: 'super_attack',
@@ -348,6 +334,20 @@ export const POTIONS: PotionDef[] = [
     icon: itemIcon('saradomin_brew'),
     tip: 'Hands you a life now, and leaves every tower weaker for the rest of the run.',
     signature: { label: 'Bulwark', icon: ASSETS.misc.orb_hitpoints },
+  },
+  {
+    id: 'prayer_regen',
+    name: 'Prayer regeneration potion',
+    potionInput: 'restore',
+    secondary: { name: 'Aldarium', icon: itemIcon('aldarium') },
+    cost: 800,
+    level: 84,
+    xp: 190,
+    waves: 5,
+    prayerDrain: 0.4,
+    icon: itemIcon('prayer_regeneration_potion'),
+    tip: 'Your prayers drain slower.',
+    signature: { label: 'Zeal', icon: ASSETS.misc.prayer_icon },
   },
   {
     id: 'super_combat',

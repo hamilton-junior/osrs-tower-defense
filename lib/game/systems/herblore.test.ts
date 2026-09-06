@@ -96,7 +96,7 @@ describe('the level curve', () => {
     const total = xpBetween(HERBLORE_START_LEVEL, POTION_BY_ID.super_combat.level);
     expect(total).toBe(5016);
     // Roughly forty brews at the ladder's own rates — a run, not an afternoon.
-    const perBrew = (POTION_BY_ID.attack.xp + POTION_BY_ID.prayer.xp + POTION_BY_ID.restore.xp) / 3;
+    const perBrew = (POTION_BY_ID.attack.xp + POTION_BY_ID.prayer_regen.xp + POTION_BY_ID.restore.xp) / 3;
     expect(total / perBrew).toBeGreaterThan(15);
     expect(total / perBrew).toBeLessThan(80);
   });
@@ -118,12 +118,12 @@ describe('the level curve', () => {
 
 describe('the bench', () => {
   it('names the first wall it hits, in the order a player hits them', () => {
-    const def = POTION_BY_ID.prayer;
+    const def = POTION_BY_ID.magic;
     const pouch = emptyPouch();
     const stock = emptyStock();
     expect(brewBlocker(def, 1, pouch, stock, 99999)).toBe('level');
     expect(brewBlocker(def, def.level, pouch, stock, 99999)).toBe('herb');
-    pouch.ranarr = 1;
+    pouch.lantadyme = 1;
     expect(brewBlocker(def, def.level, pouch, stock, 0)).toBe('gold');
     expect(brewBlocker(def, def.level, pouch, stock, def.cost)).toBeNull();
   });
@@ -212,7 +212,7 @@ describe('what is up', () => {
   });
 
   it('slows the prayer drain and never below nothing', () => {
-    const def = POTION_BY_ID.prayer;
+    const def = POTION_BY_ID.prayer_regen;
     expect(potionPrayerDrainMult([])).toBe(1);
     expect(potionPrayerDrainMult(drinkPotion([], def))).toBeCloseTo(0.6);
     expect(potionPrayerDrainMult(drinkPotion([], def))).toBeGreaterThanOrEqual(0);
