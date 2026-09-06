@@ -1,285 +1,285 @@
 {
-  "generatedAt": "2026-08-30",
+  "generatedAt": "2026-09-06",
   "entries": [
     {
       "kind": "new",
       "scope": "game",
-      "text": "The Corporeal Beast spits a core that turns your best tower against you",
+      "text": "The Overload lifts every tower at once, and charges a life at the end of every wave it is up",
       "fromFeedback": false,
-      "date": "2026-08-30"
+      "date": "2026-09-06"
     },
     {
-      "kind": "new",
+      "kind": "updated",
       "scope": "game",
-      "text": "You hear the King Black Dragon plant himself before he breathes",
+      "text": "The potion that slows prayer drain is the real Prayer regeneration potion, brewed from a Super restore at 84",
       "fromFeedback": false,
-      "date": "2026-08-30"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "The King Black Dragon sets the road alight, and travellers now wander in between waves",
-      "fromFeedback": false,
-      "date": "2026-08-30"
+      "date": "2026-09-06"
     },
     {
       "kind": "fixed",
       "scope": "ui",
-      "text": "The interface size uses every bit of room the bar has, instead of stopping a step short",
+      "text": "A plot's ripe glow and its countdown stay inside their own tile instead of sitting over whatever you built above it",
+      "fromFeedback": false,
+      "date": "2026-09-06"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "The Herblore bench brews nineteen real OSRS potions, and each one only lifts the towers of its own style",
+      "fromFeedback": false,
+      "date": "2026-09-06"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "Every tip, hint and boss caption now reads like a line somebody wrote",
+      "fromFeedback": false,
+      "date": "2026-09-06"
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "A tower's panel now names the herbs and potions boosting it, beside its prayers",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Drinking a herb or potion that is already running now asks you to confirm first",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Herbs stack like potions now, so a second one rides the wave alongside the first instead of replacing it",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "Traps are back to inventory size in the Hunter page instead of stretching across the row",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The DPS and Skills stones swapped places on the bar",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Herbs go into a pouch now, and a Herblore bench brews them into potions that last several waves",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "A Skills stone on the bar now gathers Hunter and Farming in one place",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Allotments can be picked up and moved for free, and you can buy as many more as you can afford",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "The volume slider comes out of the mute button again, as a flyout above the bar",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Seeds now count the waves you actually fight, so jumping waves in the debug menu no longer ages them",
+      "fromFeedback": false,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The volume slider now waits under the mute button until you hover it",
       "fromFeedback": true,
-      "date": "2026-08-28"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "The gargoyle no longer freezes mid-air when she dies",
-      "fromFeedback": false,
-      "date": "2026-08-28"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "The gargoyle dies on his own skeleton now, instead of a broken crumble",
-      "fromFeedback": false,
-      "date": "2026-08-28"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "The gargoyle flinches when you hit it",
-      "fromFeedback": false,
-      "date": "2026-08-28"
+      "date": "2026-09-04"
     },
     {
       "kind": "new",
       "scope": "game",
-      "text": "Seventeen monsters that borrowed another's death cry now have their own",
-      "fromFeedback": false,
-      "date": "2026-08-28"
+      "text": "An allotment now looks like one — raked soil with your own seed growing in it, and you can dig it up",
+      "fromFeedback": true,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "The road's slide grips move the road again — almost every one of them was refusing to budge",
+      "fromFeedback": true,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Dawn no longer doubles back over a road leg you shifted",
+      "fromFeedback": true,
+      "date": "2026-09-04"
     },
     {
       "kind": "new",
       "scope": "game",
-      "text": "Scurrius and Brutus die with their own voices now",
+      "text": "The map now deals allotments — sow a seed between waves and the herb it grows buffs the whole next one",
       "fromFeedback": false,
-      "date": "2026-08-28"
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "A third signature amulet drops from bosses, and every signature now scales with the tower wearing it",
+      "fromFeedback": true,
+      "date": "2026-09-04"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "The Collection Log now keeps a Forge page listing every fusion, what two towers make it and how many you have built",
+      "fromFeedback": false,
+      "date": "2026-09-03"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "An archer and a tzhaar fuse into a thrown dart that shoves harder with every one that lands",
+      "fromFeedback": false,
+      "date": "2026-09-03"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "A toxic and a wizard fuse into a staff that hands its venom to every tower standing near it",
+      "fromFeedback": false,
+      "date": "2026-09-03"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "The moment you earn the forge, the game tells you what it means — two maxed towers side by side become one weapon",
+      "fromFeedback": false,
+      "date": "2026-09-03"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Every tower now tells you what it can be forged into, before you own either half",
+      "fromFeedback": false,
+      "date": "2026-09-03"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "A tzhaar and a toxic fuse into a halberd that swings at everything in reach and smears the worst venom across all of it",
+      "fromFeedback": false,
+      "date": "2026-09-03"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "An archer and a cannon fuse into a bow whose shot runs the whole road, hitting everyone on it",
+      "fromFeedback": false,
+      "date": "2026-09-03"
     },
     {
       "kind": "updated",
-      "scope": "ui",
-      "text": "The Champion mark is a real gold trophy now, not a typed star",
-      "fromFeedback": false,
-      "date": "2026-08-28"
-    },
-    {
-      "kind": "fixed",
       "scope": "game",
-      "text": "The common gargoyle is the Slayer Tower one again, and it crumbles into rubble when it dies",
+      "text": "A silenced tower now wears the spell's impact, not its orb — blood runs down it and smoke curls off it",
       "fromFeedback": false,
-      "date": "2026-08-28"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Giants, gargoyles, the mummy and their neighbours flinch and die properly now",
-      "fromFeedback": false,
-      "date": "2026-08-28"
+      "date": "2026-09-03"
     },
     {
       "kind": "updated",
-      "scope": "ui",
-      "text": "The Road Forks is headed by a signpost now, not a compass",
-      "fromFeedback": false,
-      "date": "2026-08-28"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "The trap counter no longer looks like it is counting only the trap you are holding",
-      "fromFeedback": false,
-      "date": "2026-08-28"
-    },
-    {
-      "kind": "fixed",
       "scope": "game",
-      "text": "Spells and hitsplats now land on the Giant Mole instead of in the dirt under it",
+      "text": "A tower an acolyte silenced now wears that Ancient's own spell, looping over it",
       "fromFeedback": false,
-      "date": "2026-08-27"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "The Barrows brothers have names now — the log and the bestiary let you leaf through a monster's bodies",
-      "fromFeedback": false,
-      "date": "2026-08-27"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "A box selection now finishes even when you let go outside the board",
-      "fromFeedback": false,
-      "date": "2026-08-27"
+      "date": "2026-09-03"
     },
     {
       "kind": "balanced",
       "scope": "game",
-      "text": "A superior is no longer a second boss, and a chinchompa's max hit grows with the wave",
+      "text": "Nex's acolytes now silence within a second and a half of arriving, and reach out every 4s instead of 6.5s",
       "fromFeedback": false,
-      "date": "2026-08-27"
+      "date": "2026-09-02"
     },
     {
       "kind": "new",
       "scope": "game",
-      "text": "The Kharidian Desert fields its own nine — vultures, jackals, the kalphite hive, mummies and a dust devil",
+      "text": "A tower silenced by one of Nex's acolytes now wears that element, and each acolyte calls out when your board has none of its own",
       "fromFeedback": false,
-      "date": "2026-08-26"
+      "date": "2026-09-02"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "A 0 over an enemy now says which kind of nothing it was",
+      "fromFeedback": false,
+      "date": "2026-09-02"
     },
     {
       "kind": "new",
       "scope": "game",
-      "text": "Misthalin fields its own seven — cave bugs, frogs, hobgoblins, a giant bat and a moss giant",
+      "text": "A wizard and a slayer fuse into a staff that hits dying enemies harder and stops anything healing",
       "fromFeedback": false,
-      "date": "2026-08-26"
-    },
-    {
-      "kind": "balanced",
-      "scope": "game",
-      "text": "The road forks when a boss falls, instead of every five waves",
-      "fromFeedback": true,
-      "date": "2026-08-26"
+      "date": "2026-09-02"
     },
     {
       "kind": "new",
       "scope": "game",
-      "text": "The run travels — every five waves the road forks and you choose the region you fight in next",
-      "fromFeedback": true,
-      "date": "2026-08-26"
+      "text": "Two finished towers can now be forged into one weapon they could never be apart",
+      "fromFeedback": false,
+      "date": "2026-09-02"
     },
     {
       "kind": "updated",
-      "scope": "ui",
-      "text": "The start screen button is called Save/Load Game, since it both exports and imports",
+      "scope": "game",
+      "text": "The damage meter now breaks out every tower's own signature",
       "fromFeedback": false,
-      "date": "2026-08-25"
+      "date": "2026-09-02"
     },
     {
       "kind": "new",
-      "scope": "ui",
-      "text": "The Roguelite card warns that the mode and its balance are still work in progress",
+      "scope": "game",
+      "text": "The road slides too — grab a stretch by its grip to straighten a bend or grow one back",
       "fromFeedback": false,
-      "date": "2026-08-25"
+      "date": "2026-09-02"
     },
     {
       "kind": "updated",
-      "scope": "ui",
-      "text": "The life and prayer orbs are round spheres with a chiselled frame instead of a bitmap rim with jagged corners",
+      "scope": "game",
+      "text": "Shorter 'how to kill' lines on every boss",
       "fromFeedback": false,
-      "date": "2026-08-25"
+      "date": "2026-09-01"
     },
     {
       "kind": "new",
-      "scope": "ui",
-      "text": "The construction button counts the towers standing on the board, the way the hunter button counts laid traps",
+      "scope": "game",
+      "text": "Each of Nex's acolytes silences every tower casting its own Ancient",
       "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The hunter level and the trap allowance move into a trap's hover panel, so the trap row lines up with the tower shop",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "fixed",
-      "scope": "enemies",
-      "text": "A humanoid death no longer freezes in mid-air before the body settles",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "fixed",
-      "scope": "jad",
-      "text": "TzTok-Jad dies with his own animation instead of another creature's",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "fixed",
-      "scope": "enemies",
-      "text": "A slain enemy settles onto the ground instead of freezing on its last frame",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The life and prayer orbs carry their colour again, and their gauges drain smoothly instead of stepping",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The life and prayer icons in the bottom bar wear the minimap orb behind them again",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "fixed",
-      "scope": "road",
-      "text": "Filling a detour back in shortens it on its own side instead of flipping it to the other flank",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The tower slots sit dead centre of the bottom bar, and the life and prayer gauges stretch across the space beside them",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "Lives and prayer are centred in the bar's empty stretch instead of hugging the interface stones",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The wave leaves the bottom bar, since the Start Wave button already carries its number",
-      "fromFeedback": false,
-      "date": "2026-08-25"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "Lives, wave and prayer leave the board's corner for the bottom bar, and the wave drops its always-full gauge",
-      "fromFeedback": false,
-      "date": "2026-08-24"
+      "date": "2026-09-01"
     },
     {
       "kind": "new",
-      "scope": "road",
-      "text": "The same square of road can be pulled aside over and over, each tile costing the going rate and filling back in for free",
+      "scope": "game",
+      "text": "The Beast's cores leap onto whatever is hurting him, and one more of them every spit",
       "fromFeedback": false,
-      "date": "2026-08-24"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "The Hunter paw in the bottom bar shrinks back to icon size, so its level and XP bar fit the square again",
-      "fromFeedback": false,
-      "date": "2026-08-24"
-    },
-    {
-      "kind": "new",
-      "scope": "road",
-      "text": "Dig one square of road a tile aside, and fill it back in if you change your mind",
-      "fromFeedback": false,
-      "date": "2026-08-24"
+      "date": "2026-09-01"
     }
   ]
 }
