@@ -76,10 +76,22 @@ const TARGETS = {
   // and at the isometric default the quad landed as a diamond squeezed into a tile,
   // which is most of why players couldn't tell a patch from the grass.
   //
+  // `margin: 0` because this one is not a portrait of an object — it is a floor,
+  // and the drawing code stretches the whole PNG across one tile. At the default
+  // 12% the soil came out inset on every side, so the tile's own edge fell on
+  // empty pixels and the plot had no border to read.
+  //
+  // `groundTex` is the last piece. Model 8223 is two untextured triangles: the
+  // client paints it in one flat colour and lets the *ground* under it carry the
+  // grain, which our board has no equivalent of, so the plot arrived as a plain
+  // olive square that a green herb icon disappeared into. Texture 32 is OSRS's own
+  // dirt, multiplied over the model's own colour — every pixel still comes out of
+  // the cache, and the herb now sits on soil instead of on a swatch.
+  //
   // The crop stages are NOT baked. Objects 8558/8559/8562 are the *potato* ladder,
   // and the board grows whatever seed the player bought — so what stands in the
   // soil is that seed's own item icon (core/render/farming.ts), not scenery.
-  patch_empty: { obj: 8573, pitch: 90, yaw: 0, models: [8223], cull: false },
+  patch_empty: { obj: 8573, pitch: 90, yaw: 0, models: [8223], cull: false, margin: 0, groundTex: 32, groundTile: 128 },
 
   // The wooden direction signpost — the one standing beside the Lumbridge Guide,
   // and OSRS's own symbol for "the road splits here". Model 1402 is shared by every
@@ -166,7 +178,7 @@ export async function objectModelById(cache, objId, modelOverride) {
   return buildObjectModel(cache, parseObjectDef(file.content), modelOverride);
 }
 
-function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true, crop } = {}, textures) {
+function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true, crop, margin = MARGIN, groundTex, groundTile = 128 } = {}, textures) {
   const n = model.vertexCount;
   const verts = new Array(n);
   for (let i = 0; i < n; i++) {
@@ -174,17 +186,52 @@ function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true, crop
   }
   const yawR = (yaw * Math.PI) / 180, pitchR = (pitch * Math.PI) / 180;
   const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
-  const fit = computeFit([verts], sy, cy, sp, cp, SIZE, MARGIN);
+  const fit = computeFit([verts], sy, cy, sp, cp, SIZE, margin);
   fit.scale *= zoom;
   const img = renderModelFrame(model, verts, fit, sy, cy, sp, cp, SIZE, textures, undefined, cull, SS);
   const canvas = createCanvas(SIZE, SIZE);
   canvas.getContext('2d').putImageData(img, 0, 0);
+  if (groundTex !== undefined) paintGroundTexture(canvas, textures.get(groundTex), groundTile);
   if (!crop) return canvas.toBuffer('image/png');
   // A target that wants one *piece* of an object (the sigil off the top of an altar)
   // names the box in the 256-space above, and what comes out is that box trimmed back
   // to its own painted pixels — so the PNG's edges are the piece's edges and the
   // drawing code can centre it without carrying the parent object's empty margin.
   return cropToContent(canvas, crop);
+}
+
+/**
+ * Multiply a cache texture over what was just rendered, tiled at `tile` pixels and
+ * clipped back to the model's own silhouette.
+ *
+ * For flat floor quads only. Their faces carry no texture and no UVs, so the
+ * rasteriser has nothing to map — but the client never shows them bare either; the
+ * grain a player sees is the ground itself. Tiling one of OSRS's own ground textures
+ * over the model's colour is the closest this flat rasteriser gets to that, and it
+ * keeps every pixel cache-sourced. The texture is laid down at its own brightness —
+ * it is already the colour of dug earth — and the model's flat colour is multiplied
+ * back over it at a quarter strength, as a tint rather than as the base. Multiplying
+ * the two at full strength lands nearly black, and at tile size that read as a hole
+ * in the ground rather than as soil.
+ */
+function paintGroundTexture(canvas, tex, tile) {
+  if (!tex) return;
+  const ctx = canvas.getContext('2d');
+  const flat = createCanvas(canvas.width, canvas.height);
+  flat.getContext('2d').drawImage(canvas, 0, 0);
+  ctx.save();
+  for (let y = 0; y < canvas.height; y += tile) {
+    for (let x = 0; x < canvas.width; x += tile) ctx.drawImage(tex.canvas, x, y, tile, tile);
+  }
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = 0.25;
+  ctx.drawImage(flat, 0, 0);
+  ctx.globalAlpha = 1;
+  // The two passes above paint the whole square; this trims them back to the shape
+  // the model actually covered.
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(flat, 0, 0);
+  ctx.restore();
 }
 
 /** The sub-rect `[x0, y0, x1, y1]` of `canvas`, shrunk to the alpha it actually holds. */
@@ -232,7 +279,9 @@ async function main() {
     const def = parseObjectDef(file.content);
     const model = await buildObjectModel(cache, def, cfg.models);
     if (!model) { console.warn(`! ${slug}: no model geometry (models=[${def.models}])`); continue; }
-    const textures = await loadTextures(cache, modelTextureIds(model));
+    const texIds = modelTextureIds(model);
+    if (cfg.groundTex !== undefined) texIds.push(cfg.groundTex);
+    const textures = await loadTextures(cache, texIds);
     const buf = renderObject(model, { ...cfg, ...camOverride }, textures);
     const dir = cfg.dir ?? 'objects';
     const outPath = join(REPO, 'public', 'assets', dir, `${slug}.png`);

@@ -57,9 +57,9 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       ctx.fillRect(left, top, GRID, GRID);
     }
 
-    // Furrows and a cut edge. The model is a flat brown quad — this is what turns
-    // it into ploughed ground, and it is the difference between a patch you can
-    // pick out from across the board and a brown tile.
+    // Furrows and a cut edge. The model is two untextured triangles — this is what
+    // turns it into ploughed ground, and it is the difference between a patch you
+    // can pick out from across the board and a brown tile.
     ctx.save();
     ctx.beginPath();
     ctx.rect(left, top, GRID, GRID);
@@ -67,22 +67,28 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     ctx.lineWidth = 1;
     for (let i = 1; i <= 3; i++) {
       const y = Math.round(top + (GRID * i) / 4) + 0.5;
-      ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.26)';
       ctx.beginPath();
       ctx.moveTo(left + 2, y);
       ctx.lineTo(left + GRID - 2, y);
       ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,235,190,0.10)';
+      ctx.strokeStyle = 'rgba(255,231,182,0.09)';
       ctx.beginPath();
       ctx.moveTo(left + 2, y - 1);
       ctx.lineTo(left + GRID - 2, y - 1);
       ctx.stroke();
     }
     ctx.restore();
+
+    // The edge, cut the way OSRS cuts a sunken box: a dark line on the outside and
+    // a warm one just inside it. One flat outline read as a seam between two brown
+    // tiles; two lines read as ground that was dug out and has a lip.
     ctx.save();
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
     ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(0,0,0,0.72)';
     ctx.strokeRect(left + 0.5, top + 0.5, GRID - 1, GRID - 1);
+    ctx.strokeStyle = 'rgba(214,178,118,0.10)';
+    ctx.strokeRect(left + 1.5, top + 1.5, GRID - 3, GRID - 3);
     ctx.restore();
 
     // What is in the ground: the player's own seed, then the herb it becomes. One
@@ -117,13 +123,15 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 
     if (stage === 'empty') {
       // "There is ground here going unused." Quiet on purpose — an empty patch is
-      // an offer, not a job, and it must not compete with a ready one.
+      // an offer, not a job, and it must not compete with a ready one. Thin, because
+      // the soil now carries its own cut edge: at two pixels the ring sat right on
+      // top of that edge and the pair read as a wooden frame around the tile.
       ctx.save();
-      ctx.globalAlpha = 0.2 + pulse * 0.2;
+      ctx.globalAlpha = 0.14 + pulse * 0.16;
       ctx.strokeStyle = '#ffd45e';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 4]);
-      ctx.strokeRect(left + 3, top + 3, GRID - 6, GRID - 6);
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeRect(left + 2.5, top + 2.5, GRID - 5, GRID - 5);
       ctx.restore();
     } else if (stage !== 'ready') {
       // Still growing: the waves left, the one thing the picture cannot say exactly.
