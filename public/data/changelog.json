@@ -4,6 +4,13 @@
     {
       "kind": "new",
       "scope": "game",
+      "text": "An Inventory tab holds the 28 slots a run carries, and a bank takes whatever overflows",
+      "fromFeedback": false,
+      "date": "2026-09-06"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
       "text": "A ripe herb only comes out of the ground during a wave",
       "fromFeedback": false,
       "date": "2026-09-06"
@@ -271,13 +278,6 @@
       "kind": "updated",
       "scope": "game",
       "text": "The damage meter now breaks out every tower's own signature",
-      "fromFeedback": false,
-      "date": "2026-09-02"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "The road slides too — grab a stretch by its grip to straighten a bend or grow one back",
       "fromFeedback": false,
       "date": "2026-09-02"
     }
