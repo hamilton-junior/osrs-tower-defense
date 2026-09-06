@@ -449,6 +449,19 @@ body {
   pointer-events: none;
 }
 .rs-slot-key { left: 3px; }
+/* Stack size, in OSRS's own corner: top-left, over the icon. Coloured by
+   `stackClass`, so a five-figure pile reads as one before a digit does. Fixed px
+   tracking --ui-scale, like .rs-slot-key — a stack number is a marker, not body
+   text, and at em it came out unreadable inside the bar's 0.7em panels. */
+.rs-slot-count {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: calc(8px * var(--ui-scale, 1));
+  line-height: 1.2;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+  pointer-events: none;
+}
 .rs-key { right: 3px; }
 
 /* OSRS sidebar "stone tab": a square icon button that opens an interface panel

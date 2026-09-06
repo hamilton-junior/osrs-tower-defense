@@ -99,15 +99,25 @@ export const LEARN_STEPS: LearnStep[] = [
     body: 'The grip near a bend slides that whole stretch across. Push it far enough and the bend goes.',
     when: (ui) => !ui.waveActive && ui.wave === 8 },
   { id: 'farming', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Sow the allotment',
-    body: 'Click a bare patch between waves and pick a seed. The herb it grows goes into your pouch.',
+    body: 'Click a bare patch between waves and pick a seed. The herb it grows goes into your inventory.',
     when: (ui) => !ui.waveActive && ui.wave === 5 && ui.farmPatches.length > 0 },
   // Fires the first time a herb ripens *and* the wave that lets it out is running,
   // which is the only moment the harvest button is live.
   { id: 'harvest', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Pull the herb mid-wave',
     body: 'A ripe allotment glows while a wave runs. Harvest it then — between waves it stays in the ground.',
     when: (ui) => ui.waveActive && ui.farmPatches.some((p) => p.stage === 'ready') },
-  // Fires the first time the pouch actually has something in it — the tip is about
-  // a choice, and there is no choice to explain until the player is holding a herb.
+  // Fires the first time the slots actually have something in them: three tips
+  // about carrying, in the order the player meets them.
+  { id: 'inventory', target: 'stones', icon: ASSETS.misc.inventory_icon, title: 'Where it all goes',
+    body: 'The Inventory stone holds 28 slots. Everything you harvest or brew lands there.',
+    when: (ui) => !ui.waveActive && ui.inventory.some((s) => s !== null) },
+  // Fires the first time something actually overflowed, which is the only moment
+  // the bank is a thing that happened rather than a thing that might.
+  { id: 'bank', target: 'stones', icon: ASSETS.misc.bank_chest, title: 'The bank caught it',
+    body: 'A full inventory sends the rest to the bank. Open it from the Inventory, between waves.',
+    when: (ui) => !ui.waveActive && ui.bank.length > 0 },
+  // The bench tip is about a choice, and there is no choice to explain until the
+  // player is holding a herb.
   { id: 'herblore', target: 'stones', icon: ASSETS.misc.skill_herblore, title: 'Brew it or drink it',
     body: 'A herb buffs one wave on its own. The Skills stone brews it into a potion that lasts several, for one combat style.',
     when: (ui) => !ui.waveActive && ui.herbPouch.length > 0 },
@@ -258,7 +268,9 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.spade, text: 'A stretch of road slides whole by the grip near its bend, straightening the bend or growing it back.' },
     { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },
     { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
-    { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows goes into your pouch.' },
+    { icon: ASSETS.misc.inventory_icon, text: 'The Inventory stone is your 28 slots. Herbs and potions live there.' },
+    { icon: ASSETS.misc.bank_chest, text: 'Fill all 28 and the rest goes to the bank. It opens between waves, from the Inventory.' },
+    { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows goes into your inventory.' },
     { icon: ASSETS.misc.farming_icon, text: 'A ripe allotment only gives up its herb during a wave. It glows when it is ready.' },
     { icon: ASSETS.misc.farming_icon, text: 'Move an allotment for free, or buy another. Each one costs double the last.' },
     { icon: ASSETS.misc.skill_herblore, text: 'Drink a herb raw for one wave, or brew it into a potion that lasts several.' },

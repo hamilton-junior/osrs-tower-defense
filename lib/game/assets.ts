@@ -494,6 +494,12 @@ export const ASSETS = {
     // interface, which is what the tab is in OSRS; the DPS meter, being damage
     // rather than progression, takes `hit_splat` instead.
     stats_icon: `${LOCAL}/misc/stats_icon.png`,
+    // The backpack off OSRS's own Inventory tab (sprite 900, out of the side
+    // panel's icon block), for the stone that opens the twenty-eight slots.
+    inventory_icon: `${LOCAL}/misc/inventory_icon.png`,
+    // A bank chest (object 4483) — the bank you reach without a booth and a teller,
+    // and what the inventory's Bank tab opens.
+    bank_chest: `${LOCAL}/objects/bank_chest.png`,
     // Multi-combat (crossed-swords) indicator — used as the Home/Wave sidebar tab.
     // Cache-extracted (MULTI_COMBAT_ZONE_CROSSED_SWORDS 442), like the splats below.
     multicombat_icon: `${LOCAL}/ui/multicombat_icon.png`,

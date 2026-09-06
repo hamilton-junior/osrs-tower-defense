@@ -192,3 +192,201 @@ export function Stat({ icon, label, value }: { icon?: string; label: string; val
     </div>
   );
 }
+
+/* ══════════════════════════════ the shop standard ═════════════════════════
+ * OSRS's minigame shops — Nightmare Zone, Barbarian Assault, the Mage Arena —
+ * are all the same interface wearing different stock: a titled frame, a strip of
+ * tabs when there is more than one page, a scrolling grid of item squares, and a
+ * detail strip under it that names whatever is selected and carries its buttons.
+ * Nothing is hidden behind a hover and nothing is one click deep: every option
+ * the player has is on the screen.
+ *
+ * These four pieces are that interface. A new shop should be a list of items and
+ * a couple of handlers, not a new layout.
+ */
+
+/** One page of a {@link ShopFrame}. */
+export interface ShopTab {
+  id: string;
+  label: string;
+  icon?: string;
+  /** A count in the corner, drawn only when above zero. */
+  badge?: number;
+  title?: string;
+  disabled?: boolean;
+}
+
+/** The frame: title bar, optional tab strip, and whatever the page puts inside. */
+export function ShopFrame({ icon, title, right, tabs, activeTab, onTab, children }: {
+  icon: string;
+  title: string;
+  /** The one number that belongs beside the title — gold held, slots free. */
+  right?: React.ReactNode;
+  tabs?: ShopTab[];
+  activeTab?: string;
+  onTab?: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <div className="rs-panel-title flex items-center gap-2">
+        <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+        <span className="flex-1">{title}</span>
+        {right != null && <span className="text-[0.8em] text-osrs-yellow font-bold">{right}</span>}
+      </div>
+      {tabs && tabs.length > 0 && (
+        <div className="flex items-center gap-[0.25em] mt-[0.45em]">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              title={t.title ?? t.label}
+              disabled={t.disabled}
+              onClick={() => onTab?.(t.id)}
+              className={`rs-btn flex-1 flex items-center justify-center gap-[0.35em] py-[0.25em] text-[0.75em] ${t.id === activeTab ? 'rs-btn-primary' : ''}`}
+            >
+              {t.icon && <img src={t.icon} alt="" className="w-[1.15em] h-[1.15em] object-contain" onError={hideBrokenImg} />}
+              {t.label}
+              {t.badge != null && t.badge > 0 && <span className="text-osrs-yellow font-bold">{t.badge}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {children}
+    </>
+  );
+}
+
+/** The stock: a fixed-column grid of squares in its own scroll box, so a shop
+ *  that grows past the panel scrolls rather than shoving the buttons off-screen. */
+export function SlotGrid({ cols, maxHeight = '13em', label, right, children }: {
+  cols: number;
+  maxHeight?: string;
+  label?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      {(label || right != null) && (
+        <div className="flex items-center justify-between gap-2 mt-[0.5em] px-[0.2em] text-[0.78em]">
+          <span className="text-[#cdbe91] uppercase tracking-wide">{label}</span>
+          {right != null && <span className="text-osrs-yellow font-bold">{right}</span>}
+        </div>
+      )}
+      <div className="rs-panel-inset mt-[0.3em] p-[0.3em] overflow-y-auto" style={{ maxHeight }}>
+        <div className="grid gap-[0.25em]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** One square. With no icon it is an empty slot — drawn, not skipped, because the
+ *  shape of the grid is what tells the player how much room is left. */
+export function ItemSlot({ icon, name, count, selected = false, dim = false, title, onClick }: {
+  icon?: string;
+  name?: string;
+  count?: number;
+  selected?: boolean;
+  dim?: boolean;
+  title?: string;
+  onClick?: () => void;
+}) {
+  if (!icon) return <div className="rs-slot" />;
+  return (
+    <button
+      type="button"
+      title={title ?? name}
+      aria-label={name}
+      onClick={onClick}
+      className={`rs-slot ${selected ? 'selected' : ''} ${dim ? 'rs-slot-unafford' : ''}`}
+    >
+      <img src={icon} alt="" onError={hideBrokenImg} />
+      {count != null && <span className={`rs-slot-count ${stackClass(count)}`}>{fmt(count)}</span>}
+    </button>
+  );
+}
+
+/** The detail strip: what is selected, the one line that says what it does, and
+ *  its buttons. With nothing selected it shows the hint instead, so the strip
+ *  never collapses and the buttons never move. */
+export function DetailPane({ icon, name, line, hint, children }: {
+  icon?: string;
+  name?: string;
+  line?: string;
+  /** Shown when nothing is selected. */
+  hint: string;
+  children?: React.ReactNode;
+}) {
+  if (!name) {
+    return (
+      <div className="rs-panel-inset mt-[0.5em] p-[0.5em] text-[0.75em] text-[#8f8158] leading-snug">
+        {hint}
+      </div>
+    );
+  }
+  return (
+    <div className="rs-panel-inset mt-[0.5em] p-[0.5em]">
+      <div className="flex items-center gap-[0.5em]">
+        {icon && <img src={icon} alt="" className="w-[1.6em] h-[1.6em] object-contain shrink-0" onError={hideBrokenImg} />}
+        <div className="min-w-0">
+          <div className="text-osrs-yellow font-bold text-[0.85em] truncate">{name}</div>
+          {line && <div className="text-[0.72em] text-[#d3c3a0] leading-snug">{line}</div>}
+        </div>
+      </div>
+      {children && <div className="flex items-center gap-[0.3em] mt-[0.45em]">{children}</div>}
+    </div>
+  );
+}
+
+/** How many a click moves. OSRS's own row, X included. */
+export type ShopQty = number | 'all';
+
+export function QtyBar({ value, onChange, label = 'Quantity' }: {
+  value: ShopQty;
+  onChange: (q: ShopQty) => void;
+  label?: string;
+}) {
+  const [custom, setCustom] = useState(25);
+  const preset = (n: ShopQty, text: string) => (
+    <button
+      key={text}
+      type="button"
+      onClick={() => onChange(n)}
+      className={`rs-btn px-[0.55em] py-[0.15em] text-[0.72em] ${value === n ? 'rs-btn-primary' : ''}`}
+    >
+      {text}
+    </button>
+  );
+  const customOn = typeof value === 'number' && value !== 1 && value !== 5 && value !== 10;
+  return (
+    <div className="flex items-center gap-[0.3em] mt-[0.4em] px-[0.2em]">
+      <span className="text-[0.7em] text-[#8f8158] uppercase tracking-wide mr-auto">{label}</span>
+      {preset(1, '1')}
+      {preset(5, '5')}
+      {preset(10, '10')}
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(1, custom))}
+        className={`rs-btn px-[0.55em] py-[0.15em] text-[0.72em] ${customOn ? 'rs-btn-primary' : ''}`}
+      >
+        X
+      </button>
+      <input
+        type="number"
+        min={1}
+        value={custom}
+        onChange={(e) => {
+          const n = Math.max(1, Math.floor(Number(e.target.value) || 1));
+          setCustom(n);
+          if (customOn) onChange(n);
+        }}
+        className="rs-num w-[3.2em] text-[0.72em]"
+        aria-label="Custom quantity"
+      />
+      {preset('all', 'All')}
+    </div>
+  );
+}

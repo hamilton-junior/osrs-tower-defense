@@ -93,6 +93,11 @@ const TARGETS = {
   // soil is that seed's own item icon (core/render/farming.ts), not scenery.
   patch_empty: { obj: 8573, pitch: 90, yaw: 0, models: [8223], cull: false, margin: 0, groundTex: 32, groundTile: 128 },
 
+  // The bank chest — OSRS's own bank you can reach without a booth and a teller,
+  // which is what the interface's Bank tab opens. Object 4483, model 1226: a lid
+  // and a keyhole, and both still read at the size a tab icon is drawn.
+  bank_chest: { obj: 4483 },
+
   // The wooden direction signpost — the one standing beside the Lumbridge Guide,
   // and OSRS's own symbol for "the road splits here". Model 1402 is shared by every
   // classic signpost def; 15522 is just the shell we read it out of. Yaw 0 on

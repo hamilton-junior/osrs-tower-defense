@@ -6,6 +6,7 @@ import { HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '../data/farming';
 import { POTION_BY_ID, type PotionId } from '../data/herblore';
 import { HERBLORE_START_LEVEL } from './herblore';
+import { addItem, emptyStore, sanitizeStore, type ItemStore, type StackKind } from './inventory';
 import { GEAR } from '../data/gear';
 import type { RunStats } from './combat-achievements';
 
@@ -146,11 +147,14 @@ export interface RunSave {
   /** The herbs drunk raw and not yet spent. The checkpoint sits in exactly the gap
    *  they are used in, so dropping them would pocket the player's herbs. */
   farmBuffs?: SeedId[];
-  /** The Herblore bench: the pouch, the brewed stock, the skill, the doses still
-   *  running and the Saradomin brew debt. All optional, so a run written before one
-   *  of them existed resumes with an empty bench rather than being refused. */
-  herbPouch?: Partial<Record<SeedId, number>>;
-  potionStock?: Partial<Record<PotionId, number>>;
+  /** Everything carried and everything banked. Always written — a save from before
+   *  the inventory existed kept two loose piles (`herbPouch` / `potionStock`)
+   *  instead, and {@link sanitizeRunSave} rebuilds the slots from those, so an old
+   *  Continue keeps its herbs without costing a version bump. */
+  items: ItemStore;
+  /** The rest of the Herblore bench: the skill, the doses still running and the
+   *  Saradomin brew debt. All optional, so a run written before one of them existed
+   *  resumes with an empty bench rather than being refused. */
   herbloreLevel?: number;
   herbloreXp?: number;
   activePotions?: { id: PotionId; wavesLeft: number }[];
@@ -205,6 +209,31 @@ const countsOf = <K extends string>(v: unknown, table: Record<K, unknown>): Part
     if (k in table) out[k as K] = n;
   }
   return out;
+};
+
+/** Does the game still have this thing? The load path's filter — a save naming a
+ *  herb that has since been removed drops that stack rather than the whole run. */
+const knownStack = (kind: StackKind, id: string): boolean =>
+  kind === 'herb' ? id in SEED_BY_ID : kind === 'potion' ? id in POTION_BY_ID : false;
+
+/** The slots, out of whichever shape the save was written in. A save from before
+ *  the inventory has two `{ id: count }` piles instead; those are poured back in
+ *  one stack at a time, which fills the twenty-eight slots first and sends whatever
+ *  does not fit to the bank — the same rule a harvest follows. */
+const storeFromSave = (raw: Record<string, unknown>): ItemStore => {
+  if (isObj(raw.items)) {
+    const inv = Array.isArray(raw.items.inv) ? raw.items.inv : [];
+    const bank = Array.isArray(raw.items.bank) ? raw.items.bank : [];
+    const read = (v: unknown) => {
+      if (!isObj(v) || typeof v.kind !== 'string' || typeof v.id !== 'string') return null;
+      return { kind: v.kind as StackKind, id: v.id, count: num(v.count, 0) };
+    };
+    return sanitizeStore({ inv: inv.map(read), bank: bank.map(read).filter(s => s !== null) }, knownStack);
+  }
+  const store = emptyStore();
+  for (const [id, n] of Object.entries(countsOf(raw.herbPouch, SEED_BY_ID))) addItem(store, 'herb', id, n as number);
+  for (const [id, n] of Object.entries(countsOf(raw.potionStock, POTION_BY_ID))) addItem(store, 'potion', id, n as number);
+  return store;
 };
 
 /** The herbs riding the saved wave, read out of whichever of the three shapes the
@@ -396,11 +425,10 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     // read and folded into the list, so no older run loses its Continue — and the
     // stamped one comes back only if it was the live one when the game was put down.
     farmBuffs: legacyFarmBuffs(raw),
-    // The bench. Counts are clamped to whole non-negative numbers and keyed only by
+    // The slots. Counts are clamped to whole non-negative numbers and keyed only by
     // ids the game still knows, so a hand-edited or older blob can neither conjure a
     // herb that no longer exists nor hold a negative stack of one that does.
-    herbPouch: countsOf(raw.herbPouch, SEED_BY_ID),
-    potionStock: countsOf(raw.potionStock, POTION_BY_ID),
+    items: storeFromSave(raw),
     herbloreLevel: Math.max(1, Math.min(99, Math.floor(num(raw.herbloreLevel, HERBLORE_START_LEVEL)))),
     herbloreXp: Math.max(0, num(raw.herbloreXp, 0)),
     activePotions: Array.isArray(raw.activePotions)

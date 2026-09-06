@@ -25,6 +25,7 @@ import { weaknessTag, enemySpriteStyle } from './enemy-ui';
 import { StartScreen } from './start-screen';
 import { DpsView } from './dps-view';
 import { SkillsView, type SkillId } from './skills-ui';
+import { InventoryView } from './inventory-ui';
 import { FeedbackModal } from './feedback-modal';
 import { SaveCodeModal } from './save-code';
 import { LEARN_STEPS, LearnAsYouGo, HowToPlay } from './tutorial';
@@ -57,7 +58,7 @@ import { highestUnlockedTier, type DifficultyTier } from '@/lib/game/systems/dif
 /** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
  *  model — one stone per interface), or `null` for none. 'home' = the run's mode
  *  + roguelite loadout. */
-type SideTab = 'home' | 'essence' | 'slayer' | 'dps' | 'skills' | 'lootbag';
+type SideTab = 'home' | 'essence' | 'slayer' | 'dps' | 'skills' | 'lootbag' | 'inventory';
 /** Label, OSRS icon, theme color and a one-line description for each enemy
  *  debuff. The color frames the icon (a RuneLite-style badge) so the five read
  *  apart at a glance; the description shows on hover in the info panel. */
@@ -117,6 +118,7 @@ const INITIAL: UIState = {
   diversions: [],
   traps: [], selectedTrapId: null, hunterLevel: 1, hunterXp: 0, hunterXpNeeded: 10, maxTraps: 1,
   farmPatches: [], pendingSow: null, movingPatchId: null, placingPlot: false, plotCost: 1000, farmBuffs: [],
+  inventory: Array.from({ length: 28 }, () => null), bank: [], bankOpen: false,
   herbPouch: [], potionStock: [], herbloreLevel: 3, herbloreXp: 0, herbloreXpNeeded: 10, activePotions: [],
   brewStacks: 0,
 };
@@ -955,6 +957,12 @@ export default function GameRoot() {
   // The bag re-indexes when a piece is equipped (and grows on a drop), so an open
   // picker would end up pointing at a different item. Close it instead.
   useEffect(() => { setBagPick(null); }, [ui.lootBag.length]);
+  // The bank lives inside the inventory interface, so closing that interface closes
+  // the bank — otherwise reopening the stone would land straight back in the bank,
+  // and a wave could start with it still nominally open.
+  useEffect(() => {
+    if (tab !== 'inventory') engineRef.current?.closeBank();
+  }, [tab]);
 
   // Fit the board box to its container: the largest LOGIC-aspect rectangle that
   // fits, recomputed whenever the window (and thus the game area) changes. This is
@@ -3468,7 +3476,7 @@ export default function GameRoot() {
           key={tab}
           ref={tabBodyRef}
           onContextMenu={(e) => { e.preventDefault(); setTab(null); }}
-          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 ${tab === 'skills' ? 'w-[clamp(24em,46vw,40em)]' : 'w-[clamp(20em,34vw,30em)]'} max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${duckPanel ? ' rs-duck' : ''}`}
+          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 ${tab === 'skills' || (tab === 'inventory' && ui.bankOpen) ? 'w-[clamp(24em,46vw,40em)]' : 'w-[clamp(20em,34vw,30em)]'} max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${duckPanel ? ' rs-duck' : ''}`}
         >
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
@@ -3917,6 +3925,23 @@ export default function GameRoot() {
         {/* ── SKILLS: what every skill this run has going on, in one place. It
             mirrors the board — every button here is a button that already exists
             out there — so nothing moves out of the world and into a menu. ── */}
+        {/* ── INVENTORY: the twenty-eight slots, the bank behind them, and the
+            loot bag one tab across. Everything a run carries is in here, and the
+            Herblore bench reads these same slots. ── */}
+        {tab === 'inventory' && (
+          <InventoryView
+            ui={ui}
+            showLootBag={ui.gameMode === 'classic'}
+            onLootBag={() => setTab('lootbag')}
+            onOpenBank={() => engineRef.current?.openBank()}
+            onCloseBank={() => engineRef.current?.closeBank()}
+            onDeposit={(kind, id, qty) => engineRef.current?.depositStack(kind, id, qty)}
+            onWithdraw={(kind, id, qty) => engineRef.current?.withdrawStack(kind, id, qty)}
+            onUseHerb={(id) => engineRef.current?.useHerb(id)}
+            onDrinkPotion={(id) => engineRef.current?.drinkPotion(id)}
+          />
+        )}
+
         {tab === 'skills' && (
           <SkillsView
             ui={ui}
@@ -4448,6 +4473,13 @@ export default function GameRoot() {
                   {ui.lootBag.length > 0 && <span className="rs-tab-badge">{ui.lootBag.length}</span>}
                 </button>
               )}
+              {/* The inventory sits beside the bag it now holds a tab for: one is
+                  what gets used, the other what gets equipped. The badge counts the
+                  bank, since the slots themselves are on the panel. */}
+              <button onClick={() => onSideTab('inventory')} title="Inventory: what this run carries, and the bank" className={`rs-tab ${tab === 'inventory' ? 'rs-tab-on' : ''}`}>
+                <img src={ASSETS.misc.inventory_icon} alt="Inventory" onError={hideBrokenImg} />
+                {ui.bank.length > 0 && <span className="rs-tab-badge">{ui.bank.length}</span>}
+              </button>
               {/* The Stats tab icon is OSRS's own symbol for "your skills", so it
                   heads the Skills interface, and the DPS meter — which is damage,
                   not progression — takes the red hitsplat instead. */}

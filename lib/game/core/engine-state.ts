@@ -12,6 +12,7 @@ import { type HunterTrapId } from '../data/hunter-traps';
 import { type SeedId } from '../data/farming';
 import { type PotionId } from '../data/herblore';
 import { type PatchStage } from '../systems/farming';
+import { type StackKind } from '../systems/inventory';
 
 /**
  * The engine's vocabulary: the board's fixed resolution, the shape of every
@@ -200,6 +201,20 @@ export interface WavePreviewEntry {
    *  at spawn, so a Colossal's doubled cost can't be previewed — bosses, the ones
    *  that actually hurt, are exact. */
   leakCost: number;
+}
+
+/** One stack as the interface draws it. The engine is the only side that knows a
+ *  'guam' is a Guam leaf and which icon that is, so the name and the picture ride
+ *  along rather than being looked up again in React. */
+export interface UiStack {
+  kind: StackKind;
+  id: string;
+  name: string;
+  icon: string;
+  count: number;
+  /** The one line the detail pane shows: what the thing does, in the player's
+   *  words. Herbs and potions both already carry one. */
+  tip: string;
 }
 
 export interface UIState {
@@ -424,9 +439,17 @@ export interface UIState {
    *  stack like doses, but each herb appears once; the list empties every time a
    *  wave is cleared, since a herb lasts exactly one wave. */
   farmBuffs: { seedId: SeedId; herbName: string; icon: string; label: string; labelIcon: string; tip: string }[];
-  /** Herbs pulled and not yet spent, only the stacks actually held. A harvest fills
-   *  this instead of arming a wave, so the choice between drinking a herb raw and
-   *  brewing it belongs to the player rather than to the patch. */
+  /** The twenty-eight slots, in order, with a null for every empty one. Positions
+   *  matter: a deposit leaves its hole where it was, the way OSRS does. */
+  inventory: (UiStack | null)[];
+  /** What the bank holds. Unbounded, in the order stacks first reached it. */
+  bank: UiStack[];
+  /** Is the bank interface up? It only opens between waves. */
+  bankOpen: boolean;
+  /** Herbs pulled and not yet spent, only the stacks actually held — the same
+   *  slots as {@link inventory}, counted the way the bench reads them. A harvest
+   *  fills this instead of arming a wave, so the choice between drinking a herb raw
+   *  and brewing it belongs to the player rather than to the patch. */
   herbPouch: {
     seedId: SeedId; name: string; icon: string; count: number;
     label: string; labelIcon: string; tip: string;

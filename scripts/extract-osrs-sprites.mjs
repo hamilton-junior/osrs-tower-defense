@@ -102,6 +102,10 @@ const MISC_IDS = {
   // OSRS "Stats" (Skills) tab icon — the coloured bar-chart glyph. Used for the
   // DPS-meter tab, since it's the game's own damage/stats symbol.
   stats_icon: 898,
+  // The backpack OSRS puts on its own Inventory tab, straight out of the side
+  // panel's icon block (verified by eyeballing a --dump of 890..915: 897 combat,
+  // 898 stats, 899 quests, 900 inventory, 901 equipment).
+  inventory_icon: 900,
   // Spellbook selector tabs (Standard / Ancient / Arceuus).
   spellbook_standard: 780, spellbook_ancient: 1583, spellbook_arceuus: 1711,
 };
