@@ -21,9 +21,11 @@ import { drawImageContain } from './shared';
  * icon it will hand back. A potato in a guam patch said the wrong thing.
  *
  * The two states that want a click are the two that glow, and only between waves:
- * a ring on ground that could be sown, and a green halo plus overhead text on a
- * herb that is ready. Nothing here counts down during a fight, because nothing
- * here can be done during one.
+ * a ring on ground that could be sown, and a green contour on a ripe herb, which
+ * also lifts off its soil and settles back. Both stay inside their own tile — an
+ * indicator that reached into the tile above sat on whatever the player had built
+ * there. Nothing here counts down during a fight, because nothing here can be done
+ * during one.
  */
 
 /** How much of the tile the crop fills at each stage — the growth the player
@@ -90,7 +92,25 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       const def = SEED_BY_ID[p.seedId];
       const key = stage === 'sown' ? `seed_${def.id}` : `herb_${def.id}`;
       const img = gr.e.imageOk(key) ? gr.e.images.get(key) : null;
-      if (img) drawImageContain(gr, ctx, img, p.x, p.y + 1, GRID * CROP_SCALE[stage]);
+      if (img) {
+        // Ripe: the herb rises and settles by a pixel or two, and the sprite's own
+        // silhouette picks up a green edge. The shadow follows the icon's alpha, so
+        // the contour hugs the leaves rather than boxing the tile — and both tells
+        // sit on the sprite itself, inside the plot's own square.
+        const ripe = stage === 'ready' && idle;
+        const bob = ripe ? Math.sin(t * 1.8 + p.x * 0.05) * 1.6 : 0;
+        const size = GRID * CROP_SCALE[stage];
+        if (ripe) {
+          ctx.save();
+          ctx.shadowColor = `rgba(77,255,77,${0.5 + pulse * 0.35})`;
+          ctx.shadowBlur = 4;
+          // Three passes, because one shadow pass alone is too faint to read from
+          // across the board.
+          for (let i = 0; i < 3; i++) drawImageContain(gr, ctx, img, p.x, p.y + 1 + bob, size);
+          ctx.restore();
+        }
+        drawImageContain(gr, ctx, img, p.x, p.y + 1 + bob, size);
+      }
     }
 
     if (!idle) continue;
@@ -105,44 +125,25 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       ctx.setLineDash([5, 4]);
       ctx.strokeRect(left + 3, top + 3, GRID - 6, GRID - 6);
       ctx.restore();
-    } else if (stage === 'ready') {
-      // A ripe herb is the one thing on this layer that is genuinely owed to the
-      // player, so it gets the loud tell: a green halo and OSRS overhead text.
-      ctx.save();
-      ctx.globalAlpha = 0.3 + pulse * 0.4;
-      ctx.strokeStyle = '#4dff4d';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y + 10, 17 + pulse * 3, 7 + pulse * 1.5, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-
-      const name = p.seedId ? SEED_BY_ID[p.seedId].herbName : 'Ready';
-      ctx.save();
-      ctx.font = "bold 13px 'RuneScape', Arial";
-      ctx.textAlign = 'center';
-      const ty = p.y - 22;
-      ctx.fillStyle = '#000';
-      ctx.fillText(name, p.x + 1, ty + 1);
-      ctx.fillStyle = '#4dff4d';
-      ctx.fillText(name, p.x, ty);
-      ctx.restore();
-    } else {
+    } else if (stage !== 'ready') {
       // Still growing: the waves left, the one thing the picture cannot say exactly.
-      // Outlined rather than shadowed — it sits over grass, soil and the crop itself,
-      // and the player reported it as frozen when it was only unreadable.
+      // It sits in the plot's own bottom-right corner, small and outlined — over the
+      // tile above it covered whatever stood there, and the crop is centred, so the
+      // corner is the one part of the square the herb never reaches.
       const label = `${wavesLeft(p)}`;
       ctx.save();
-      ctx.font = "bold 14px 'RuneScape', Arial";
-      ctx.textAlign = 'center';
+      ctx.font = "bold 11px 'RuneScape', Arial";
+      ctx.textAlign = 'right';
       ctx.textBaseline = 'alphabetic';
-      const ty = p.y - 21;
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#000';
+      const tx = left + GRID - 2;
+      const ty = top + GRID - 2;
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
       ctx.lineJoin = 'round';
-      ctx.strokeText(label, p.x, ty);
+      ctx.strokeText(label, tx, ty);
       ctx.fillStyle = '#ffd45e';
-      ctx.fillText(label, p.x, ty);
+      ctx.globalAlpha = 0.85;
+      ctx.fillText(label, tx, ty);
       ctx.restore();
     }
   }
