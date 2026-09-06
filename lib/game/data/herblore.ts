@@ -14,7 +14,13 @@ import type { StyleBoost } from '../systems/style-mods';
  *
  * The ladder is the real OSRS one — the real herb→secondary pairings, the real
  * Herblore levels and the real XP per potion, from an Attack potion at 3 to a
- * Super combat at 90. Nineteen potions, no invented recipes.
+ * Prayer regeneration potion at 84. Twenty potions.
+ *
+ * One recipe is ours. OSRS sells the Overload in Nightmare Zone rather than
+ * brewing it, so the item is real and the bench's road to it is not: it sits above
+ * the Super combat it is built from, lifts all three styles at once, and charges a
+ * life at the end of every wave it stays up. The only potion on the ladder that
+ * keeps taking after the drink.
  *
  * **A potion is style-targeted, the way OSRS targets them.** A Ranging potion does
  * nothing for a staff and a Super strength does nothing for a bow, so `boost.style`
@@ -42,7 +48,8 @@ export type PotionId =
   | 'attack' | 'antidote' | 'strength' | 'energy' | 'combat'
   | 'super_attack' | 'superantipoison' | 'super_energy' | 'super_strength'
   | 'restore' | 'sanfew' | 'ranging' | 'magic' | 'zamorak'
-  | 'bastion' | 'battlemage' | 'brew' | 'prayer_regen' | 'super_combat';
+  | 'bastion' | 'battlemage' | 'brew' | 'prayer_regen' | 'super_combat'
+  | 'overload';
 
 export interface PotionDef {
   id: PotionId;
@@ -84,6 +91,9 @@ export interface PotionDef {
   /** Lives drinking it costs. Only the Zamorak brew asks for any — that is its
    *  real OSRS bargain, and the reason the strongest potion isn't the obvious one. */
   lifeCost?: number;
+  /** Lives the dose takes at the end of every wave it is up for. The Overload's
+   *  half of its own bargain, and the ladder's only running cost. */
+  livesPerWave?: number;
   icon: string;
   /** One short plain sentence: what the potion does. No numbers — those are the
    *  stat rows beside it. */
@@ -362,6 +372,21 @@ export const POTIONS: PotionDef[] = [
     icon: itemIcon('super_combat_potion'),
     tip: 'Your melee towers hit harder and swing faster, for longer than anything else.',
     signature: { label: 'Champion', icon: ASSETS.misc.multicombat_icon },
+  },
+  {
+    id: 'overload',
+    name: 'Overload',
+    herb: 'torstol',
+    potionInput: 'super_combat',
+    cost: 1500,
+    level: 96,
+    xp: 200,
+    waves: 4,
+    boost: { damage: 0.35, range: 0.15, fireRate: 0.2 },
+    livesPerWave: 1,
+    icon: itemIcon('overload_4'),
+    tip: 'Every tower hits harder, reaches further and swings faster, and each wave costs you a life.',
+    signature: { label: 'Overcharge', icon: ASSETS.misc.multicombat_icon },
   },
 ];
 

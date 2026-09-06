@@ -17,7 +17,9 @@ import { enemyLeakCost } from '../../systems/leak-cost';
 import { healingDenied } from '../../systems/tower-fusion';
 import { farmLivesOnClear, ripenPatches } from '../../systems/farming';
 import { SEED_BY_ID } from '../../data/farming';
-import { potionLivesOnClear, pouringPotion, tickPotions } from '../../systems/herblore';
+import {
+  burningPotion, dropBurningPotions, potionLivesOnClear, potionLivesPerWave, pouringPotion, tickPotions,
+} from '../../systems/herblore';
 import { bodyY } from '../../systems/enemy-anchor';
 import { laneLeg } from '../../systems/geometry';
 import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, graardorIsSlamming, type BossId } from '../../systems/boss-mechanics';
@@ -593,6 +595,24 @@ export function checkWaveEnd(eng: GameEngine) {
   if (poured > 0 && pourer && eng.lives < eng.maxLives) {
     eng.lives = Math.min(eng.maxLives, eng.lives + poured);
     eng.notify(`${pourer.name}: a life restored`, pourer.icon);
+  }
+  // The Overload's bill, read after the two potions that pay lives out so a wave
+  // never both heals and burns the same life. It never takes the last one — a
+  // potion is not allowed to end the run, so an Overload with nothing left to
+  // charge goes out instead.
+  const burn = potionLivesPerWave(eng.activePotions);
+  const burner = burningPotion(eng.activePotions);
+  if (burn > 0 && burner) {
+    const taken = Math.min(burn, Math.max(0, eng.lives - 1));
+    if (taken > 0) {
+      eng.lives -= taken;
+      eng.baseFlash = 1;
+      eng.notify(`${burner.name}: a life burned`, burner.icon);
+    } else {
+      eng.activePotions = dropBurningPotions(eng.activePotions);
+      eng.bumpCombatEpoch(); // the board just lost its boost
+      eng.notify(`${burner.name} burned out`, burner.icon);
+    }
   }
   // Farming's whole clock, and the only one it has: a wave was fought, so the herbs
   // that rode it are spent and every seed in the ground is a wave older. It hangs off

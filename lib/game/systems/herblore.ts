@@ -197,6 +197,30 @@ export function pouringPotion(active: readonly ActivePotion[]): PotionDef | null
   return null;
 }
 
+/** Lives the running potions take at the end of every wave. Only the Overload
+ *  asks for any: it boosts all three styles at once, and the base pays the bill
+ *  wave after wave rather than once at the drink. */
+export function potionLivesPerWave(active: readonly ActivePotion[]): number {
+  let lives = 0;
+  for (const a of active) lives += POTION_BY_ID[a.id]?.livesPerWave ?? 0;
+  return lives;
+}
+
+/** The running potion taking those lives, so the notice can name it. */
+export function burningPotion(active: readonly ActivePotion[]): PotionDef | null {
+  for (const a of active) {
+    const def = POTION_BY_ID[a.id];
+    if (def?.livesPerWave) return def;
+  }
+  return null;
+}
+
+/** Everything except the potions that burn lives. A potion may never end the run,
+ *  so an Overload standing over the last life goes out instead of taking it. */
+export function dropBurningPotions(active: readonly ActivePotion[]): ActivePotion[] {
+  return active.filter(a => !POTION_BY_ID[a.id]?.livesPerWave);
+}
+
 /** The running potion holding the towers up, or null if nothing is. The Antidote
  *  line's whole job, and the one effect that is a yes/no rather than a multiplier. */
 export function steadyPotion(active: readonly ActivePotion[]): PotionDef | null {

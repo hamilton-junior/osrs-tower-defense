@@ -547,6 +547,7 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                     <span className="block text-[0.68em] text-[#cdbe91] truncate">
                       {def ? (def.waves > 0 ? `${def.waves} waves` : 'one drink') : ''}
                       {cost > 0 && ` · costs ${cost} life`}
+                      {(def?.livesPerWave ?? 0) > 0 && ' · a life every wave'}
                     </span>
                   </span>
                   <ConfirmButton

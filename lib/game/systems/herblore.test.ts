@@ -9,7 +9,10 @@ import {
   gainHerbloreXp,
   heldHerbs,
   herbloreXpForLevel,
+  burningPotion,
+  dropBurningPotions,
   potionLivesOnClear,
+  potionLivesPerWave,
   potionPrayerDrainMult,
   potionTowerMods,
   potionUnlocked,
@@ -224,6 +227,39 @@ describe('what is up', () => {
     const active = drinkPotion([], POTION_BY_ID.sanfew);
     expect(potionLivesOnClear(active)).toBe(1);
     expect(pouringPotion(active)?.id).toBe('sanfew');
+  });
+
+  it('lifts all three styles at once for an Overload, and nothing else does', () => {
+    // The capstone's whole claim: one dose where the ladder otherwise asks for
+    // three. Every other boosting potion below it names a style or moves one stat.
+    const mods = potionTowerMods(drinkPotion([], POTION_BY_ID.overload));
+    expect(mods.damage).toEqual({ melee: 1.35, ranged: 1.35, magic: 1.35 });
+    expect(mods.range).toEqual({ melee: 1.15, ranged: 1.15, magic: 1.15 });
+    expect(mods.fireRate).toEqual({ melee: 1.2, ranged: 1.2, magic: 1.2 });
+  });
+
+  it('charges a life every wave an Overload is up, and names itself', () => {
+    expect(potionLivesPerWave([])).toBe(0);
+    expect(burningPotion([])).toBeNull();
+    const active = drinkPotion([], POTION_BY_ID.overload);
+    expect(potionLivesPerWave(active)).toBe(1);
+    expect(burningPotion(active)?.id).toBe('overload');
+  });
+
+  it('takes only the burning potion off the board, and leaves the rest running', () => {
+    // How the wave refuses to let a potion end the run: over the last life the
+    // Overload goes out, and whatever else is up carries on.
+    const active = drinkPotion(drinkPotion([], POTION_BY_ID.attack), POTION_BY_ID.overload);
+    const left = dropBurningPotions(active);
+    expect(left.map(a => a.id)).toEqual(['attack']);
+    expect(potionLivesPerWave(left)).toBe(0);
+  });
+
+  it('asks a life of nothing but the Overload', () => {
+    for (const p of POTIONS) {
+      if (p.id === 'overload') continue;
+      expect(p.livesPerWave ?? 0, `${p.id} charges a life every wave`).toBe(0);
+    }
   });
 
   it('holds the towers up only while an Antidote is up', () => {
