@@ -3458,13 +3458,17 @@ export default function GameRoot() {
             closes when its stone is clicked again — or on a right-click anywhere on
             the panel (there is no ✕; the stone is the toggle). `key` re-mounts it on
             a switch so the fade/slide-in replays. Right-aligned beneath the stones
-            that open it; scrolls internally when taller than the space allowed. */}
+            that open it; scrolls internally when taller than the space allowed.
+
+            Skills opens wider than the rest: its rows are a whole recipe — icon,
+            name, what it does, every ingredient held, and a price — and at the
+            narrow width they all truncated into each other. */}
         {tab && (
         <div
           key={tab}
           ref={tabBodyRef}
           onContextMenu={(e) => { e.preventDefault(); setTab(null); }}
-          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 w-[clamp(20em,34vw,30em)] max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${duckPanel ? ' rs-duck' : ''}`}
+          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 ${tab === 'skills' ? 'w-[clamp(24em,46vw,40em)]' : 'w-[clamp(20em,34vw,30em)]'} max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${duckPanel ? ' rs-duck' : ''}`}
         >
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (

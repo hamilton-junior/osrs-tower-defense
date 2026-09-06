@@ -65,7 +65,7 @@ const SKILLS: readonly SkillMeta[] = [
     // No Farming level yet — the bar shows how much of your ground is working.
     progress: (ui) => (ui.farmPatches.length === 0 ? 0
       : ui.farmPatches.filter(p => p.stage !== 'empty').length / ui.farmPatches.length),
-    tip: 'Seeds grow into herbs you can drink or brew.',
+    tip: 'Seeds grow into herbs you pull out during a wave.',
   },
   {
     id: 'herblore',
@@ -104,7 +104,7 @@ export function SkillsView(props: SkillsViewProps) {
     return (
       <div className="flex flex-col gap-[0.4em]">
         <div className="text-[0.72em] text-[#cdbe91] uppercase tracking-wide">Skills</div>
-        <div className="grid grid-cols-2 gap-[0.4em]">
+        <div className="grid grid-cols-3 gap-[0.4em]">
           {SKILLS.map((s) => (
             <button
               key={s.id}
@@ -190,6 +190,20 @@ function Section({ label, right, children }: { label: string; right?: React.Reac
         <span>{label}</span>
         {right && <span className="ml-auto tabular-nums text-[#cdbe91]">{right}</span>}
       </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * A list that scrolls inside its own box, instead of pushing everything below it
+ * off the panel. The bench is a rung per potion — twenty of them — so without
+ * this the brewed stock and the running doses sat under a fold nobody found.
+ * `max` is in `em`, so it tracks the UI scale like the rest of the panel.
+ */
+function ScrollList({ max, children }: { max: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-[0.25em] overflow-y-auto pr-[0.25em]" style={{ maxHeight: max }}>
       {children}
     </div>
   );
@@ -325,7 +339,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
         {ui.farmPatches.length === 0 ? (
           <div className="text-[0.7em] text-[#9d8f6e]">This map dealt no ground. Buy a plot below.</div>
         ) : (
-          <div className="flex flex-col gap-[0.25em]">
+          <ScrollList max="11em">
             {ui.farmPatches.map((p) => (
               <div key={p.id} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
                 <img src={p.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
@@ -357,7 +371,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                 </button>
               </div>
             ))}
-          </div>
+          </ScrollList>
         )}
       </Section>
 
@@ -367,7 +381,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
         {ui.herbPouch.length === 0 ? (
           <div className="text-[0.7em] text-[#9d8f6e]">Empty. Harvest a ready allotment.</div>
         ) : (
-          <div className="flex flex-col gap-[0.25em]">
+          <ScrollList max="13em">
             {ui.herbPouch.map((h) => {
               const potion = herbPotion(h.seedId, ui.herbloreLevel);
               const riding = ui.farmBuffs.some((b) => b.seedId === h.seedId);
@@ -404,7 +418,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                 </div>
               );
             })}
-          </div>
+          </ScrollList>
         )}
       </Section>
 
@@ -470,7 +484,7 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
       {/* The bench: the whole ladder, locked rungs included, so the skill says up
           front what it is going to be worth growing herbs for. */}
       <Section label="Bench">
-        <div className="flex flex-col gap-[0.25em]">
+        <ScrollList max="15em">
           {POTIONS.map((def) => {
             const locked = ui.herbloreLevel < def.level;
             const herb = def.herb ? SEED_BY_ID[def.herb] : null;
@@ -519,7 +533,7 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
               </button>
             );
           })}
-        </div>
+        </ScrollList>
       </Section>
 
       {/* Resources: what is brewed and waiting. Nothing here does anything until
@@ -528,7 +542,7 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
         {ui.potionStock.length === 0 ? (
           <div className="text-[0.7em] text-[#9d8f6e]">Nothing brewed. The bench is above.</div>
         ) : (
-          <div className="flex flex-col gap-[0.25em]">
+          <ScrollList max="13em">
             {ui.potionStock.map((p) => {
               const def = POTIONS.find((d) => d.id === p.id);
               const cost = def?.lifeCost ?? 0;
@@ -562,7 +576,7 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                 </div>
               );
             })}
-          </div>
+          </ScrollList>
         )}
       </Section>
 
