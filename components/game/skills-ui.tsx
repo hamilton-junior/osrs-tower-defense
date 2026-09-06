@@ -330,6 +330,9 @@ const STAGE_LABEL: Record<string, string> = {
 
 function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrewPotion }: SkillsViewProps) {
   const busy = ui.waveActive || ui.gameOver;
+  // The harvest is the one farming button that wants the opposite clock: a ripe
+  // herb only comes out while the wave is running.
+  const fighting = ui.waveActive && !ui.gameOver;
   const afford = ui.money >= ui.plotCost;
   return (
     <>
@@ -355,8 +358,10 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                 </span>
                 <button
                   onClick={() => onOpenPatch(p.id)}
-                  disabled={busy}
-                  title={p.stage === 'ready' ? 'Pull the herb' : p.stage === 'empty' ? 'Sow a seed' : 'See what is growing'}
+                  disabled={p.stage === 'ready' ? !fighting : busy}
+                  title={p.stage === 'ready'
+                    ? (fighting ? 'Pull the herb' : 'Ripe herbs only come out during a wave')
+                    : p.stage === 'empty' ? 'Sow a seed' : 'See what is growing'}
                   className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
                 >
                   {p.stage === 'ready' ? 'Harvest' : p.stage === 'empty' ? 'Sow' : 'Open'}

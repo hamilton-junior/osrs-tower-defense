@@ -13,19 +13,21 @@ import { drawImageContain } from './shared';
  * The whole job is legibility from across the board, and there are two questions
  * to answer at a glance: *this is a farming patch*, and *that is my herb in it*.
  * The first is the OSRS allotment itself — object 8573's raked soil, baked
- * top-down (scripts/render-osrs-objects.mjs) so it fills its tile as a square of
- * worked ground instead of a diamond floating on grass — with its furrows and its
- * cut edge drawn over it, which is what a tilled plot looks like from above and
- * what no flat-rasterised model can supply. The second is the seed the player
- * actually bought: its own item icon goes in the ground, and grows into the herb
- * icon it will hand back. A potato in a guam patch said the wrong thing.
+ * top-down and edge-to-edge under OSRS's own dirt texture
+ * (scripts/render-osrs-objects.mjs), so it fills its tile as a square of worked
+ * ground instead of a diamond floating on grass — with its furrows and its cut
+ * edge drawn over it, which is what a tilled plot looks like from above and what
+ * no flat-rasterised model can supply. The second is the seed the player actually
+ * bought: its own item icon goes in the ground, and grows into the herb icon it
+ * will hand back. A potato in a guam patch said the wrong thing.
  *
- * The two states that want a click are the two that glow, and only between waves:
- * a ring on ground that could be sown, and a green contour on a ripe herb, which
- * also lifts off its soil and settles back. Both stay inside their own tile — an
- * indicator that reached into the tile above sat on whatever the player had built
- * there. Nothing here counts down during a fight, because nothing here can be done
- * during one.
+ * The two states that want a click are the two that glow, and each glows on its
+ * own clock: between waves, a ring on ground that could be sown; during a wave, a
+ * green contour on a ripe herb, which also lifts off its soil and settles back —
+ * the harvest is the one thing here a fight has room for. Both stay inside their
+ * own tile: an indicator that reached into the tile above sat on whatever the
+ * player had built there. The growing count is a between-waves tell too, since
+ * nothing ripens mid-fight.
  */
 
 /** How much of the tile the crop fills at each stage — the growth the player
@@ -40,6 +42,7 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   // pause would read as a broken sprite rather than a paused game.
   const t = performance.now() / 1000;
   const idle = !gr.e.waveActive && !gr.e.gameOver;
+  const fighting = gr.e.waveActive && !gr.e.gameOver;
   const soil = gr.e.imageOk('farm_soil') ? gr.e.images.get('farm_soil') : null;
 
   for (const p of patches) {
@@ -103,7 +106,7 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
         // silhouette picks up a green edge. The shadow follows the icon's alpha, so
         // the contour hugs the leaves rather than boxing the tile — and both tells
         // sit on the sprite itself, inside the plot's own square.
-        const ripe = stage === 'ready' && idle;
+        const ripe = stage === 'ready' && fighting;
         const bob = ripe ? Math.sin(t * 1.8 + p.x * 0.05) * 1.6 : 0;
         const size = GRID * CROP_SCALE[stage];
         if (ripe) {

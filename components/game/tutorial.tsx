@@ -101,6 +101,11 @@ export const LEARN_STEPS: LearnStep[] = [
   { id: 'farming', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Sow the allotment',
     body: 'Click a bare patch between waves and pick a seed. The herb it grows goes into your pouch.',
     when: (ui) => !ui.waveActive && ui.wave === 5 && ui.farmPatches.length > 0 },
+  // Fires the first time a herb ripens *and* the wave that lets it out is running,
+  // which is the only moment the harvest button is live.
+  { id: 'harvest', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Pull the herb mid-wave',
+    body: 'A ripe allotment glows while a wave runs. Harvest it then — between waves it stays in the ground.',
+    when: (ui) => ui.waveActive && ui.farmPatches.some((p) => p.stage === 'ready') },
   // Fires the first time the pouch actually has something in it — the tip is about
   // a choice, and there is no choice to explain until the player is holding a herb.
   { id: 'herblore', target: 'stones', icon: ASSETS.misc.skill_herblore, title: 'Brew it or drink it',
@@ -254,6 +259,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },
     { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
     { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows goes into your pouch.' },
+    { icon: ASSETS.misc.farming_icon, text: 'A ripe allotment only gives up its herb during a wave. It glows when it is ready.' },
     { icon: ASSETS.misc.farming_icon, text: 'Move an allotment for free, or buy another. Each one costs double the last.' },
     { icon: ASSETS.misc.skill_herblore, text: 'Drink a herb raw for one wave, or brew it into a potion that lasts several.' },
     { icon: ASSETS.misc.skill_herblore, text: 'Brewing levels Herblore, and a higher level opens the stronger potions.' },
