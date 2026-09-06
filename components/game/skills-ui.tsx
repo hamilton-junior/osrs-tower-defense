@@ -6,7 +6,8 @@ import type { UIState } from '@/lib/game/core/engine';
 import { HUNTER_TRAPS, type HunterTrapId } from '@/lib/game/data/hunter-traps';
 import { trapCost } from '@/lib/game/systems/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
-import { POTIONS, type PotionId } from '@/lib/game/data/herblore';
+import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
+import { brewDamageMult } from '@/lib/game/systems/herblore';
 import { hideBrokenImg, fmt } from './ui-kit';
 
 /**
@@ -166,6 +167,21 @@ function pouchCounts(ui: UIState): Partial<Record<SeedId, number>> {
   return out;
 }
 
+/**
+ * The potion the pouch's Brew button offers for one herb: the highest rung this
+ * level opens, falling back to the lowest so the button can say what it is locked
+ * behind. Several herbs make two potions — a harralander is an Energy potion early
+ * and a Combat potion later — and the shortcut always offers the better one.
+ *
+ * Potions built out of another potion are skipped: the bench below is where a
+ * Sanfew serum or a Super combat is made, since a herb alone never brews one.
+ */
+function herbPotion(seedId: SeedId, level: number) {
+  const made = POTIONS.filter((p) => p.herb === seedId && !p.potionInput);
+  const open = made.filter((p) => p.level <= level);
+  return open[open.length - 1] ?? made[0] ?? null;
+}
+
 /** A small labelled band — the same rule between every page's sections. */
 function Section({ label, right, children }: { label: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -276,7 +292,7 @@ function HunterPage({ ui, onSelectTrap }: SkillsViewProps) {
                 whole row and came out enormous. */}
             {ui.traps.map((t) => (
               <div key={t.id} className="w-[2.6em]">
-                <div className="rs-slot" title={`${t.name} — ${t.charges} of ${t.maxCharges} catches left`}>
+                <div className="rs-slot" title={`${t.name}: ${t.charges} of ${t.maxCharges} catches left`}>
                   <img src={t.icon} alt={t.name} onError={hideBrokenImg} />
                   <span className="rs-slot-cost" style={{ color: 'var(--osrs-yellow)' }}>{t.charges}</span>
                 </div>
@@ -334,7 +350,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                 <button
                   onClick={() => onMovePlot(p.id)}
                   disabled={busy}
-                  title="Pick this allotment up and put it down somewhere else — free"
+                  title="Move this allotment somewhere else, free of charge"
                   className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
                 >
                   Move
@@ -353,7 +369,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
         ) : (
           <div className="flex flex-col gap-[0.25em]">
             {ui.herbPouch.map((h) => {
-              const potion = POTIONS.find((p) => p.herb === h.seedId);
+              const potion = herbPotion(h.seedId, ui.herbloreLevel);
               const riding = ui.farmBuffs.some((b) => b.seedId === h.seedId);
               return (
                 <div key={h.seedId} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
@@ -368,7 +384,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                     confirm={riding}
                     onPress={() => onUseHerb(h.seedId)}
                     disabled={busy}
-                    title={`Drink it raw — ${h.label} for the next wave`}
+                    title={`Drink it raw: ${h.label} for the next wave`}
                     confirmTitle={`${h.name} is already riding this wave. A second one adds nothing.`}
                   >
                     Use
@@ -376,10 +392,10 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                   {potion && (
                     <button
                       onClick={() => onBrewPotion(potion.id)}
-                      disabled={busy || ui.herbloreLevel < potion.level || ui.money < potion.secondary.cost}
+                      disabled={busy || ui.herbloreLevel < potion.level || ui.money < potion.cost}
                       title={ui.herbloreLevel < potion.level
                         ? `${potion.name} needs Herblore ${potion.level}`
-                        : `Brew a ${potion.name} — ${potion.secondary.name}, ${fmt(potion.secondary.cost)} gp`}
+                        : `Brew a ${potion.name}: ${potion.secondary?.name ?? 'no second ingredient'}, ${fmt(potion.cost)} gp`}
                       className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
                     >
                       Brew
@@ -397,7 +413,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
         <button
           onClick={onBuyPlot}
           disabled={busy || !afford}
-          title={afford ? 'Buy another allotment — the next one costs double' : `Another allotment costs ${fmt(ui.plotCost)} gp`}
+          title={afford ? 'Buy another allotment. The next one costs double' : `Another allotment costs ${fmt(ui.plotCost)} gp`}
           className="rs-btn w-full flex items-center justify-center gap-[0.4em] py-[0.2em] text-[0.7em] disabled:opacity-50"
         >
           <img src={ASSETS.misc.farming_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
@@ -457,17 +473,28 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
         <div className="flex flex-col gap-[0.25em]">
           {POTIONS.map((def) => {
             const locked = ui.herbloreLevel < def.level;
-            const herbs = held[def.herb] ?? 0;
-            const afford = ui.money >= def.secondary.cost;
-            const herb = SEED_BY_ID[def.herb];
+            const herb = def.herb ? SEED_BY_ID[def.herb] : null;
+            const herbs = def.herb ? held[def.herb] ?? 0 : 0;
+            // A few rungs are brewed out of a finished potion rather than a herb —
+            // a Sanfew serum out of a Super restore, a Super combat out of a Super
+            // strength — so the row shows whichever inputs it actually wants.
+            const base = def.potionInput ? POTION_BY_ID[def.potionInput] : null;
+            const bases = base ? stock.get(base.id) ?? 0 : 0;
+            const afford = ui.money >= def.cost;
+            const missing = (!!herb && herbs < 1) || (!!base && bases < 1);
+            const inputs = [
+              herb ? { icon: herb.herbIcon, name: herb.herbName, count: herbs } : null,
+              base ? { icon: base.icon, name: base.name, count: bases } : null,
+            ].filter((i): i is { icon: string; name: string; count: number } => i !== null);
+            const recipe = [herb?.herbName, base?.name, def.secondary?.name].filter(Boolean).join(' + ');
             return (
               <button
                 key={def.id}
                 onClick={() => onBrewPotion(def.id)}
-                disabled={busy || locked || herbs < 1 || !afford}
+                disabled={busy || locked || missing || !afford}
                 title={locked
                   ? `Needs Herblore ${def.level}`
-                  : `${herb.herbName} + ${def.secondary.name} — ${def.waves} waves`}
+                  : `${recipe}: ${def.waves > 0 ? `${def.waves} waves` : 'one drink'}`}
                 className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em] text-left disabled:opacity-40 hover:brightness-125"
               >
                 <img src={def.icon} alt="" className={`w-[1.4em] h-[1.4em] object-contain shrink-0 ${locked ? 'grayscale' : ''}`} onError={hideBrokenImg} />
@@ -475,17 +502,19 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                   <span className="block text-[0.74em] text-osrs-orange truncate">{def.name}</span>
                   <span className="block text-[0.68em] text-[#cdbe91] truncate">{def.tip}</span>
                 </span>
-                <span className="flex items-center gap-[0.15em] shrink-0" title={`${herbs} ${herb.herbName} in the pouch`}>
-                  <img src={herb.herbIcon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                  <span className="text-[0.68em] tabular-nums" style={{ color: herbs > 0 ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
-                    {herbs}
+                {inputs.map((i) => (
+                  <span key={i.name} className="flex items-center gap-[0.15em] shrink-0" title={`${i.count} ${i.name} held`}>
+                    <img src={i.icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                    <span className="text-[0.68em] tabular-nums" style={{ color: i.count > 0 ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
+                      {i.count}
+                    </span>
                   </span>
-                </span>
+                ))}
                 <span
                   className="text-[0.72em] tabular-nums shrink-0"
                   style={{ color: !locked && afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}
                 >
-                  {locked ? `L${def.level}` : fmt(def.secondary.cost)}
+                  {locked ? `L${def.level}` : fmt(def.cost)}
                 </span>
               </button>
             );
@@ -504,6 +533,10 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
               const def = POTIONS.find((d) => d.id === p.id);
               const cost = def?.lifeCost ?? 0;
               const running = ui.activePotions.find((a) => a.id === p.id);
+              // A cleanser with nothing to clean is the one potion worth greying
+              // out: drinking it would spend the stock and change nothing.
+              const idle = !!def?.clearsBrew && ui.brewStacks < 1;
+              const short = cost > 0 && ui.lives <= cost;
               return (
                 <div key={p.id} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
                   <img src={p.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
@@ -512,15 +545,15 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                       {p.name} <span className="text-[#cdbe91] tabular-nums">×{p.count}</span>
                     </span>
                     <span className="block text-[0.68em] text-[#cdbe91] truncate">
-                      {def ? `${def.waves} waves` : ''}
+                      {def ? (def.waves > 0 ? `${def.waves} waves` : 'one drink') : ''}
                       {cost > 0 && ` · costs ${cost} life`}
                     </span>
                   </span>
                   <ConfirmButton
                     confirm={!!running}
                     onPress={() => onDrinkPotion(p.id)}
-                    disabled={busy || (cost > 0 && ui.lives <= cost)}
-                    title={cost > 0 && ui.lives <= cost ? 'Too few lives to drink that' : def?.tip}
+                    disabled={busy || short || idle}
+                    title={short ? 'Too few lives to drink that' : idle ? 'No brew to clear' : def?.tip}
                     confirmTitle={`${p.name} still has ${running?.wavesLeft ?? 0} wave${running?.wavesLeft === 1 ? '' : 's'} left. Another dose only starts it over.`}
                   >
                     Drink
@@ -531,6 +564,17 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
           </div>
         )}
       </Section>
+
+      {ui.brewStacks > 0 && (
+        <Section
+          label="Brew debt"
+          right={`−${Math.round((1 - brewDamageMult(ui.brewStacks)) * 100)}% damage`}
+        >
+          <div className="text-[0.7em] text-[#cdbe91]">
+            A Super restore clears three brews, a Sanfew serum clears the lot.
+          </div>
+        </Section>
+      )}
 
       <Section label="Running">
         {ui.activePotions.length === 0 ? (

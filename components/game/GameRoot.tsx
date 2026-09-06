@@ -32,6 +32,7 @@ import { effectTag, DraftCardView } from './draft-cards';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '@/lib/game/data/hunter-traps';
 import { SEEDS, SEED_BY_ID } from '@/lib/game/data/farming';
 import { POTION_BY_ID } from '@/lib/game/data/herblore';
+import { brewDamageMult } from '@/lib/game/systems/herblore';
 import { trapCost, blastProfile } from '@/lib/game/systems/hunter-traps';
 import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, towerListName, TOWER_COMBAT, towerSignature } from './tower-ui';
 import { GearHeader, GearStats, GearCompare, gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
@@ -62,7 +63,7 @@ type SideTab = 'home' | 'essence' | 'slayer' | 'dps' | 'skills' | 'lootbag';
  *  apart at a glance; the description shows on hover in the info panel. */
 const DEBUFF_META: Record<DebuffId, { label: string; icon: string; color: string; desc: string }> = {
   slow: { label: 'Slowed', icon: ASSETS.debuffs.slow, color: '#5f7d96', desc: 'Movement speed reduced' },
-  stun: { label: 'Stunned', icon: ASSETS.debuffs.stun, color: '#9c6b3f', desc: 'Rooted in place — cannot move' },
+  stun: { label: 'Stunned', icon: ASSETS.debuffs.stun, color: '#9c6b3f', desc: 'Rooted in place and cannot move' },
   burn: { label: 'Burning', icon: ASSETS.debuffs.burn, color: '#ff7a2a', desc: 'Taking fire damage over time' },
   poison: { label: 'Poisoned', icon: ASSETS.debuffs.poison, color: '#5bd75b', desc: 'Taking poison damage over time' },
   venom: { label: 'Envenomed', icon: ASSETS.debuffs.venom, color: '#0b5c0b', desc: 'Taking venom damage that ramps the longer it stacks' },
@@ -117,6 +118,7 @@ const INITIAL: UIState = {
   traps: [], selectedTrapId: null, hunterLevel: 1, hunterXp: 0, hunterXpNeeded: 10, maxTraps: 1,
   farmPatches: [], pendingSow: null, movingPatchId: null, placingPlot: false, plotCost: 1000, farmBuffs: [],
   herbPouch: [], potionStock: [], herbloreLevel: 3, herbloreXp: 0, herbloreXpNeeded: 10, activePotions: [],
+  brewStacks: 0,
 };
 
 /** How long a loot-drop toast stays in the corner. Matches the CSS animation in
@@ -1155,33 +1157,51 @@ export default function GameRoot() {
     if (towerStyle?.boostable) {
       for (const o of ui.geOffers) {
         if (o.kind === 'buff' && o.activeSecs > 0 && (!o.style || o.style === towerStyle.style)) {
-          towerBoosts.push({ key: `pot-${o.id}`, icon: geIcon(o.wiki), amount: pct(o.dmg ?? 0), title: `${o.name} — ${o.desc}` });
+          towerBoosts.push({ key: `pot-${o.id}`, icon: geIcon(o.wiki), amount: pct(o.dmg ?? 0), title: `${o.name}: ${o.desc}` });
         }
       }
       for (const p of TOWER_PRAYERS) {
         if (p.style === towerStyle.style && ui.activePrayers.includes(p.id)) {
           const def = PRAYERS.find((d) => d.id === p.id)!;
-          towerBoosts.push({ key: `pray-${p.id}`, icon: prayerIcon(p.id), amount: pct(p.dmg), title: `${def.name} — ${def.description}` });
+          towerBoosts.push({ key: `pray-${p.id}`, icon: prayerIcon(p.id), amount: pct(p.dmg), title: `${def.name}: ${def.description}` });
         }
       }
     }
-    // Herblore rides over the whole board, so it lifts THIS tower too: every herb
-    // drunk raw and every dose still running gets a chip beside the prayers, or the
-    // green stat numbers above would have no named cause. Not style-gated — these
-    // are global mods, so they reach the cannon as well.
-    for (const h of ui.farmBuffs) {
-      const seed = SEED_BY_ID[h.seedId];
-      if (seed.effect !== 'damage' && seed.effect !== 'range') continue; // gold/prayer/life touch no tower
-      towerBoosts.push({ key: `herb-${h.seedId}`, icon: h.icon, amount: pct(seed.amount), title: `${h.herbName} — ${h.tip}` });
-    }
-    for (const a of ui.activePotions) {
-      const def = POTION_BY_ID[a.id];
-      if (def.effect === 'damage') {
-        towerBoosts.push({ key: `brew-${a.id}`, icon: a.icon, amount: pct(def.amount), title: `${a.name} — ${a.tip}` });
-      } else if (def.effect === 'steady') {
-        // A yes/no, not a multiplier — the chip wears the potion's own signature
-        // word where a percentage would go.
-        towerBoosts.push({ key: `brew-${a.id}`, icon: a.icon, amount: a.label, title: `${a.name} — ${a.tip}` });
+    // Herblore lifts THIS tower too: every herb drunk raw and every dose still
+    // running gets a chip beside the prayers, or the green stat numbers above would
+    // have no named cause. Style-gated, the way the combat maths is — a Ranging
+    // potion says nothing on a wizard, and none of it reaches the cannon.
+    if (towerStyle?.boostable) {
+      for (const h of ui.farmBuffs) {
+        const seed = SEED_BY_ID[h.seedId];
+        // gold / prayer / life touch no tower, and a styled herb only its own
+        if (seed.effect === 'gold' || seed.effect === 'prayer' || seed.effect === 'life') continue;
+        if (seed.style && seed.style !== towerStyle.style) continue;
+        towerBoosts.push({ key: `herb-${h.seedId}`, icon: h.icon, amount: pct(seed.amount), title: `${h.herbName}: ${h.tip}` });
+      }
+      for (const a of ui.activePotions) {
+        const def = POTION_BY_ID[a.id];
+        const boost = def.boost;
+        if (boost && (!boost.style || boost.style === towerStyle.style)) {
+          // One chip per potion, wearing its biggest number — the stat rows above
+          // carry the rest.
+          const best = Math.max(boost.damage ?? 0, boost.range ?? 0, boost.fireRate ?? 0);
+          towerBoosts.push({ key: `brew-${a.id}`, icon: a.icon, amount: pct(best), title: `${a.name}: ${a.tip}` });
+        } else if (def.steady) {
+          // A yes/no, not a multiplier — the chip wears the potion's own signature
+          // word where a percentage would go.
+          towerBoosts.push({ key: `brew-${a.id}`, icon: a.icon, amount: a.label, title: `${a.name}: ${a.tip}` });
+        }
+      }
+      // The one chip that costs the tower something: a Saradomin brew bought a life
+      // and every boostable tower pays for it until the debt is cleared.
+      if (ui.brewStacks > 0) {
+        towerBoosts.push({
+          key: 'brew-debt',
+          icon: POTION_BY_ID.brew.icon,
+          amount: `−${Math.round((1 - brewDamageMult(ui.brewStacks)) * 100)}%`,
+          title: `${POTION_BY_ID.brew.name}: ${ui.brewStacks} drunk, and each one costs damage`,
+        });
       }
     }
     // Net Utility-aura bonus (with diminishing returns) from in-range supporters.
@@ -1200,7 +1220,7 @@ export default function GameRoot() {
     if (netR) parts.push(`${pct(netR)} range`);
     if (netS) parts.push(`${pct(netS)} attack speed`);
     if (parts.length && WIZARD_UTILITY_STAFF) {
-      towerBoosts.push({ key: 'aura', icon: WIZARD_UTILITY_STAFF, amount: pct(netD || netR || netS), title: `Utility aura — ${parts.join(', ')}` });
+      towerBoosts.push({ key: 'aura', icon: WIZARD_UTILITY_STAFF, amount: pct(netD || netR || netS), title: `Utility aura: ${parts.join(', ')}` });
     }
     // Roguelite relics that touch THIS tower: placement synergies (per-tower,
     // layout-dependent) and magic-spellbook specialisations — one chip each.
@@ -1212,7 +1232,7 @@ export default function GameRoot() {
         const m = synergyDamageMult(selectedTower, eng.towers, { [key]: syn[key] } as typeof syn, eng.portalPoint);
         if (m > 1.001) {
           const card = CARD_BY_ID[SYNERGY_CARD_ID[key]];
-          if (card) towerBoosts.push({ key: `relic-${key}`, icon: card.icon, amount: pct(m - 1), title: `${card.name} — ${effectTag(card.effect)}` });
+          if (card) towerBoosts.push({ key: `relic-${key}`, icon: card.icon, amount: pct(m - 1), title: `${card.name}: ${effectTag(card.effect)}` });
         }
       }
       if (selectedTower.type === 'wizard') {
@@ -1221,7 +1241,7 @@ export default function GameRoot() {
         if (b && (b.damage > 1 || b.range > 1 || b.fireRate > 1)) {
           const card = CARD_BY_ID[MAGE_CARD_ID[mode]];
           const amt = b.damage > 1 ? b.damage - 1 : b.range > 1 ? b.range - 1 : b.fireRate - 1;
-          if (card) towerBoosts.push({ key: 'relic-mage', icon: card.icon, amount: pct(amt), title: `${card.name} — ${effectTag(card.effect)}` });
+          if (card) towerBoosts.push({ key: 'relic-mage', icon: card.icon, amount: pct(amt), title: `${card.name}: ${effectTag(card.effect)}` });
         }
       }
       // Run-wide draft "boons": the per-style stat buffs (damage / range / attack
@@ -1416,10 +1436,10 @@ export default function GameRoot() {
     const on = ui.activePrayers.includes(p.id);
     const icon = prayerIcon(p.id);
     const title = locked
-      ? `🔒 Unlocks at Wave ${prayerUnlockWave(def.level)} — ${def.name}: ${def.description}`
+      ? `🔒 Unlocks at Wave ${prayerUnlockWave(def.level)}. ${def.name}: ${def.description}`
       : shattered
-        ? `Your prayers are shattered — ${ui.prayerLock}s`
-        : `${def.name} — ${def.description}`;
+        ? `Your prayers are shattered: ${ui.prayerLock}s`
+        : `${def.name}: ${def.description}`;
     return (
       <button
         key={p.id}
@@ -1557,7 +1577,7 @@ export default function GameRoot() {
               <button
                 className="rs-btn px-[0.7em] py-[0.3em] flex items-center justify-center gap-[0.3em] disabled:opacity-50"
                 disabled={ui.money < move.cost}
-                title={`Move all ${move.count} selected towers for ${fmt(move.cost)} gp — they keep their formation`}
+                title={`Move all ${move.count} selected towers for ${fmt(move.cost)} gp. They keep their formation`}
                 onClick={() => eng?.beginMoveGroup()}
               >
                 <span className="text-[#cdbe91]">✥</span>
@@ -1574,7 +1594,7 @@ export default function GameRoot() {
                   <div className="flex gap-[0.4em]">
                     <button
                       className="rs-btn relative flex-1 px-[0.4em] py-[0.3em] text-osrs-warn"
-                      title="Sell every selected tower — gone, with their levels (Enter)"
+                      title="Sell every selected tower, levels and all (Enter)"
                       onClick={() => { eng?.sellMultiSelected(); setSellConfirm(null); }}
                     >
                       Yes, sell all
@@ -1593,7 +1613,7 @@ export default function GameRoot() {
               ) : (
                 <button
                   className="rs-btn relative px-[0.7em] py-[0.3em] flex items-center justify-center gap-[0.3em]"
-                  title={`Sell all ${sell.count} selected towers for ${fmt(sell.refund)} gp (75% refund) — asks to confirm (S)`}
+                  title={`Sell all ${sell.count} selected towers for ${fmt(sell.refund)} gp (75% refund). Asks to confirm (S)`}
                   onClick={() => setSellConfirm(MULTI_SELL)}
                 >
                   Sell ({fmt(sell.refund)} gp)
@@ -1608,7 +1628,7 @@ export default function GameRoot() {
                   {PRIORITY_ORDER.map((p) => (
                     <button
                       key={p}
-                      title={`${PRIORITY_TIPS[p]} — for every selected tower`}
+                      title={`${PRIORITY_TIPS[p]}, for every selected tower`}
                       aria-label={PRIORITY_TIPS[p]}
                       onClick={() => eng?.setMultiTargetingPriority(p)}
                       className="rs-btn px-0 py-[0.3em] flex items-center justify-center"
@@ -1631,7 +1651,7 @@ export default function GameRoot() {
                       label={ELEMENTS[el].label}
                       color={ELEMENTS[el].color}
                       active={mage.element === el}
-                      title={`${ELEMENTS[el].label} — every selected Elemental wizard`}
+                      title={`${ELEMENTS[el].label} for every selected Elemental wizard`}
                       onClick={() => eng?.setMultiWizardElement(el)}
                     />
                   ))}
@@ -1646,7 +1666,7 @@ export default function GameRoot() {
                       label={ANCIENTS[a].label}
                       color={ANCIENTS[a].color}
                       active={mage.ancientType === a}
-                      title={`${ANCIENTS[a].label} — every selected Ancients wizard`}
+                      title={`${ANCIENTS[a].label} for every selected Ancients wizard`}
                       onClick={() => eng?.setMultiAncientType(a)}
                     />
                   ))}
@@ -1661,7 +1681,7 @@ export default function GameRoot() {
                       label={SUPPORT_SPELLS[s].label}
                       color={SUPPORT_SPELLS[s].color}
                       active={mage.supportSpell === s}
-                      title={`${SUPPORT_SPELLS[s].label} — every selected Utility wizard (the Prayer Ward cap still applies)`}
+                      title={`${SUPPORT_SPELLS[s].label} for every selected Utility wizard (the Prayer Ward cap still applies)`}
                       onClick={() => eng?.setMultiSupportSpell(s)}
                     />
                   ))}
@@ -1735,7 +1755,7 @@ export default function GameRoot() {
                             </span>
                             <span className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-[0.4em] px-[0.5em] py-[0.3em] hidden group-hover:block whitespace-nowrap z-30 pointer-events-none text-[0.72em]">
                               <span className="font-bold" style={{ color: def.color }}>{def.name}</span>
-                              <span className="text-[#d3c3a0]"> — {desc}</span>
+                              <span className="text-[#d3c3a0]">: {desc}</span>
                             </span>
                           </span>
                         );
@@ -1773,7 +1793,7 @@ export default function GameRoot() {
                     <span
                       className="text-[0.9em] leading-none font-bold"
                       style={{ color: speedShift === 'up' ? '#ff6a4d' : '#57c8ff' }}
-                      title={`${speedShift === 'up' ? 'Hastened' : 'Slowed'} by an event or affix — normally ${natSpeed}`}
+                      title={`${speedShift === 'up' ? 'Hastened' : 'Slowed'} by an event or affix, normally ${natSpeed}`}
                     >
                       {speedShift === 'up' ? '▲' : '▼'}
                     </span>
@@ -1813,7 +1833,7 @@ export default function GameRoot() {
                         {/* Hover tooltip: what the icon means. */}
                         <span className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-[0.4em] px-[0.5em] py-[0.3em] hidden group-hover:block whitespace-nowrap z-30 pointer-events-none text-[0.72em]">
                           <span className="font-bold" style={{ color: meta.color }}>{meta.label}</span>
-                          <span className="text-[#d3c3a0]"> — {meta.desc}</span>
+                          <span className="text-[#d3c3a0]">: {meta.desc}</span>
                         </span>
                       </span>
                     );
@@ -1926,7 +1946,7 @@ export default function GameRoot() {
                   <button
                     key={type}
                     disabled={!afford}
-                    title={`${TOWERS[type].baseName} — ${cost} gp`}
+                    title={`${TOWERS[type].baseName}: ${cost} gp`}
                     onClick={() => engineRef.current?.confirmPlacement(type)}
                     onMouseEnter={() => setPickerHover(type)}
                     onMouseLeave={() => setPickerHover((h) => (h === type ? null : h))}
@@ -2038,7 +2058,7 @@ export default function GameRoot() {
               </div>
               {short && (
                 <div className="text-center text-[0.62em] text-osrs-warn mb-[0.4em]">
-                  {afford > 0 ? `Only ${afford} affordable — the rest won't be built` : 'Not enough gold'}
+                  {afford > 0 ? `Only ${afford} affordable, so the rest won't be built` : 'Not enough gold'}
                 </div>
               )}
 
@@ -2194,7 +2214,7 @@ export default function GameRoot() {
                 <>
                   <div className="flex items-center justify-between gap-[1em] text-[0.8em] text-osrs-orange mb-[0.2em]">
                     <span>
-                      ⚔ Wave {ui.wave}{ui.bossWave ? ' — BOSS' : ''}
+                      ⚔ Wave {ui.wave}{ui.bossWave ? ' · BOSS' : ''}
                       {ui.runPhase === 'endless' && <span className="ml-[0.4em] text-[0.85em] uppercase tracking-wider">· Endless</span>}
                     </span>
                     <span className="text-[#cdbe91]">{ui.remaining} left</span>
@@ -2409,7 +2429,7 @@ export default function GameRoot() {
                 </div>
                 <button
                   className="rs-btn w-full py-[0.3em] text-[0.72em] mt-[0.5em] flex items-center justify-center gap-[0.4em]"
-                  title={`Dig up the ${growing.seedName} — the ${growing.cost} gp it cost is not refunded`}
+                  title={`Dig up the ${growing.seedName}. You lose the ${growing.cost} gp it cost`}
                   onClick={() => { if (ui.pendingSow) engineRef.current?.clearPatch(ui.pendingSow); }}
                 >
                   <img src={growing.seedIcon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
@@ -2437,7 +2457,7 @@ export default function GameRoot() {
                         <button
                           type="button"
                           disabled={broke}
-                          title={broke ? `${s.seedName} costs ${s.cost} gp` : `Sow a ${s.seedName} — ready in ${s.waves} waves`}
+                          title={broke ? `${s.seedName} costs ${s.cost} gp` : `Sow a ${s.seedName}, ready in ${s.waves} waves`}
                           onClick={() => { if (ui.pendingSow) engineRef.current?.sowSeed(ui.pendingSow, s.id); }}
                           className="rs-panel-inset w-full flex items-center gap-[0.5em] px-[0.45em] py-[0.3em] text-left hover:border-[var(--osrs-orange)] disabled:opacity-50 disabled:hover:border-[var(--rs-keyline)]"
                         >
@@ -2466,7 +2486,7 @@ export default function GameRoot() {
             <div className="flex gap-[0.35em] mt-[0.5em]">
               <button
                 className="rs-btn flex-1 py-[0.3em] text-[0.72em] flex items-center justify-center gap-[0.35em]"
-                title="Pick this allotment up and put it down somewhere else — free"
+                title="Move this allotment somewhere else, free of charge"
                 onClick={() => { if (ui.pendingSow) engineRef.current?.beginMovePlot(ui.pendingSow); }}
               >
                 <img src={ASSETS.misc.farming_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
@@ -2477,7 +2497,7 @@ export default function GameRoot() {
                 disabled={ui.money < ui.plotCost}
                 title={ui.money < ui.plotCost
                   ? `Another allotment costs ${fmt(ui.plotCost)} gp`
-                  : `Buy another allotment for ${fmt(ui.plotCost)} gp — the next one costs double`}
+                  : `Buy another allotment for ${fmt(ui.plotCost)} gp. The next one costs double`}
                 onClick={() => engineRef.current?.buyPlot()}
               >
                 <span>Buy plot</span>
@@ -2598,7 +2618,7 @@ export default function GameRoot() {
                       {hoverBoonGroup === g.id && (
                         <div className="absolute bottom-full left-0 mb-[0.35em] z-50 rs-panel-inset p-[0.45em] w-max max-w-[16em] shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
                           <div className="text-[0.68em] uppercase tracking-wide mb-[0.3em] whitespace-nowrap" style={{ color: g.color }}>
-                            {g.title} — {pct(grp.total - 1)} total
+                            {g.title}: {pct(grp.total - 1)} total
                           </div>
                           {grp.sources.map((s) => (
                             <div key={s.id} className="flex items-center gap-[0.35em] text-[0.72em] text-[#d3c3a0] leading-[1.6] whitespace-nowrap">
@@ -2661,7 +2681,7 @@ export default function GameRoot() {
                     return (
                       <button
                         key={el}
-                        title={`${spell.replace('_', ' ')} — ${ELEMENTS[el].desc}; +50% vs weakness (${WIZARD_SLOT_KEYS[i]})`}
+                        title={`${spell.replace('_', ' ')}: ${ELEMENTS[el].desc}; +50% vs weakness (${WIZARD_SLOT_KEYS[i]})`}
                         onClick={() => engineRef.current?.setWizardElement(selectedTower.id, el)}
                         className={`rs-btn relative flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
                         style={{ borderBottom: `2px solid ${ELEMENTS[el].color}` }}
@@ -2686,7 +2706,7 @@ export default function GameRoot() {
                     return (
                       <button
                         key={a}
-                        title={`${spell.replace('_', ' ')} — ${ANCIENTS[a].desc} (${WIZARD_SLOT_KEYS[i]})`}
+                        title={`${spell.replace('_', ' ')}: ${ANCIENTS[a].desc} (${WIZARD_SLOT_KEYS[i]})`}
                         onClick={() => engineRef.current?.setAncientType(selectedTower.id, a)}
                         className={`rs-btn relative flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''}`}
                         style={{ borderBottom: `2px solid ${ANCIENTS[a].color}` }}
@@ -2718,7 +2738,7 @@ export default function GameRoot() {
                           disabled={wardCapped}
                           title={wardCapped
                             ? `Max ${MAX_PRAYER_WARDS} Prayer Ward wizards on the field`
-                            : `${SUPPORT_SPELLS[s].label} — ${SUPPORT_SPELLS[s].desc} (${WIZARD_SLOT_KEYS[i]})`}
+                            : `${SUPPORT_SPELLS[s].label}: ${SUPPORT_SPELLS[s].desc} (${WIZARD_SLOT_KEYS[i]})`}
                           onClick={() => engineRef.current?.setSupportSpell(selectedTower.id, s)}
                           className={`rs-btn relative flex items-center justify-center px-0 py-[0.3em] ${active ? 'rs-btn-primary' : ''} ${wardCapped ? 'opacity-40 cursor-not-allowed' : ''}`}
                           style={{ borderBottom: `2px solid ${SUPPORT_SPELLS[s].color}` }}
@@ -2790,7 +2810,7 @@ export default function GameRoot() {
                   });
                   return (
                     <div key={slotType} className="relative flex flex-col items-center" style={{ width: '3em' }}>
-                      <HoverTip content={equipped ? gearTooltip(equipped) : `Empty ${slotLabel} slot — click to equip from your loot bag`}>
+                      <HoverTip content={equipped ? gearTooltip(equipped) : `Empty ${slotLabel} slot. Click to equip from your loot bag`}>
                         <button
                           type="button"
                           className="rs-slot w-[3em] relative"
@@ -2935,7 +2955,7 @@ export default function GameRoot() {
                   >
                     <span className="text-[#5bd75b] font-bold">⬆</span>
                     {towerGate?.ok
-                      ? <>Upgrade — {selectedTower.upgradeCost} gp</>
+                      ? <>Upgrade · {selectedTower.upgradeCost} gp</>
                       : <>Needs Lv {towerGate?.neededLevel}</>}
                     <span className="rs-key">U</span>
                   </button>
@@ -3008,7 +3028,7 @@ export default function GameRoot() {
                     onClick={() => setFuseConfirm(o.partnerId)}
                   >
                     <img src={towerIcon(o.def.type)} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
-                    Forge {o.def.name} — {fmt(o.cost)} gp
+                    Forge {o.def.name} · {fmt(o.cost)} gp
                   </button>
                 )
               ))}
@@ -3042,7 +3062,7 @@ export default function GameRoot() {
                   <div className="flex gap-[0.4em]">
                     <button
                       className="rs-btn relative flex-1 px-[0.4em] py-[0.45em] text-osrs-warn"
-                      title="Sell it — the tower and its levels are gone (Enter)"
+                      title="Sell it. The tower and its levels are gone (Enter)"
                       onClick={() => { engineRef.current?.sellTower(selectedTower.id); setSellConfirm(null); }}
                     >
                       Yes, sell it
@@ -3070,7 +3090,7 @@ export default function GameRoot() {
                   </button>
                   <button
                     className="rs-btn relative flex-1 px-[0.4em] py-[0.45em]"
-                    title={`Sell this tower for ${sellValue} gp (75% refund) — asks to confirm (S)`}
+                    title={`Sell this tower for ${sellValue} gp (75% refund). Asks to confirm (S)`}
                     onClick={() => setSellConfirm(selectedTower.id)}
                   >
                     Sell ({sellValue} gp)
@@ -3172,7 +3192,7 @@ export default function GameRoot() {
             <div className="text-osrs-orange font-bold text-[1.4em] text-center">The Road Forks</div>
           </div>
           <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center max-w-[34em]">
-            The boss is down — pick where to travel. Your road and towers stay; the land and its monsters change.
+            The boss is down. Pick where to travel. Your road and towers stay; the land and its monsters change.
           </div>
           <div className="flex gap-6 flex-wrap justify-center">
             {ui.pendingTravel.map((option) => (
@@ -3190,7 +3210,7 @@ export default function GameRoot() {
       {ui.pendingRelics && !ui.gameOver && (
         <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4">
           <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Choose a Relic</div>
-          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">The boss falls — claim one run-long power</div>
+          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">The boss falls. Claim one run-long power</div>
           <div className="flex gap-6 flex-wrap justify-center">
             {ui.pendingRelics.map((relic) => (
               <RelicCardView
@@ -3211,7 +3231,7 @@ export default function GameRoot() {
           </div>
           <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">
             {ui.draftBoosted
-              ? 'Every relic is yours — the boss pays in rare cards instead. Keep one.'
+              ? 'Every relic is yours, so the boss pays in rare cards instead. Keep one.'
               : 'Keep one card'}
           </div>
           {/* First-time coaching, shown right here while the cards are on the table
@@ -3224,9 +3244,9 @@ export default function GameRoot() {
                 How reward cards work
               </div>
               <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.55em]">
-                Keep <b>one</b> card to snowball your build — potions, weapons and rule-changing boons.
+                Keep <b>one</b> card to snowball your build: potions, weapons and rule-changing boons.
                 Hover a card to preview exactly what it does; duplicates stack. A card badged <b>NEW</b> is one
-                you have never kept — it is missing from your Collection Log. Rolls are bought with gold
+                you have never kept, so it is missing from your Collection Log. You buy rolls with gold
                 and each one costs more, so spend against your towers. Beating a <b>boss</b> pays a <b>Relic</b>.
               </p>
               <button className="rs-btn px-[0.9em] py-[0.2em] text-[0.8em]" onClick={() => markTipSeen('draft')}>Got it ✓</button>
@@ -3331,7 +3351,7 @@ export default function GameRoot() {
             {caTitle && (
               <div
                 className="flex items-center justify-center gap-[0.35em] text-[0.8em] text-osrs-yellow font-bold uppercase tracking-wide mb-3"
-                title={`Combat Achievements — the ${CA_TIER_NAMES[caTitle]} tier cleared in full`}
+                title={`Combat Achievements: the ${CA_TIER_NAMES[caTitle]} tier cleared in full`}
               >
                 <img src={ASSETS.achievements[caTitle]} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
                 {CA_TIER_NAMES[caTitle]}
@@ -3358,7 +3378,7 @@ export default function GameRoot() {
             </div>
             <button
               className="rs-btn rs-btn-primary px-6 py-2 w-full mb-2"
-              title="Play on — the threat now accelerates, and essence drops to 10%"
+              title="Play on. The threat now accelerates, and essence drops to 10%"
               onClick={() => engineRef.current?.continueEndless()}
             >
               ▶ Continue (Endless)
@@ -3726,7 +3746,7 @@ export default function GameRoot() {
           </div>
           {ui.lootBag.length === 0 ? (
             <div className="mt-[0.6em] px-[0.2em] text-[0.75em] text-[#8f8158] leading-relaxed">
-              Empty. Monsters drop gear as they die — bosses drop the signature
+              Empty. Monsters drop gear as they die, and bosses drop the signature
               jewellery. Click a piece here, or a tower&apos;s own slot, to equip it.
             </div>
           ) : (
@@ -3739,7 +3759,7 @@ export default function GameRoot() {
               </div>
               <label
                 className="flex items-center gap-[0.4em] mt-[0.3em] px-[0.2em] text-[0.72em] text-[#d3c3a0] cursor-pointer select-none"
-                title="Hide pieces that would not improve any tower on the board — either nothing can wear them, or what those towers already wear is better"
+                title="Hide pieces that would not improve any tower on the board: nothing can wear them, or what those towers already wear is better"
               >
                 <input
                   type="checkbox"
@@ -3752,7 +3772,7 @@ export default function GameRoot() {
               </label>
               {shown.length === 0 ? (
                 <div className="mt-[0.5em] px-[0.2em] text-[0.72em] text-[#8f8158] leading-snug">
-                  Nothing here would improve a tower on the board — wrong style, too
+                  Nothing here would improve a tower on the board: wrong style, too
                   high a level, or beaten by what is already worn. Untick to see it all.
                 </div>
               ) : (
@@ -3818,7 +3838,7 @@ export default function GameRoot() {
                       <span className="text-[0.68em] uppercase tracking-wide text-[#9d8f6a]">Equip on</span>
                       <label
                         className="flex items-center gap-[0.35em] text-[0.7em] text-[#d3c3a0] cursor-pointer select-none"
-                        title="Hide towers this piece would not improve — a full slot with something better in it, or a level you have not reached"
+                        title="Hide towers this piece would not improve: a full slot with something better in it, or a level you have not reached"
                       >
                         <input
                           type="checkbox"
@@ -4005,7 +4025,7 @@ export default function GameRoot() {
                 onClick={() => setUiScale((v) => stepScale(v, 1, maxUiScale))}
                 disabled={uiScale >= maxUiScale}
                 title={uiScale >= maxUiScale && maxUiScale < UI_SCALE_MAX
-                  ? 'This screen has no room for a larger interface — widen the window for more'
+                  ? 'This screen has no room for a larger interface. Widen the window for more'
                   : 'Larger interface'}
                 className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
               >
@@ -4024,7 +4044,7 @@ export default function GameRoot() {
                 for the number's colour. */}
             <div
               className="shrink-0 flex items-center gap-[0.35em] pr-[0.5em]"
-              title="Gold — spent on towers and upgrades"
+              title="Gold: spent on towers and upgrades"
             >
               <img src={coinsIcon(ui.money)} alt="" className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
               <span className={`${stackClass(ui.money)} font-bold tabular-nums text-[0.9em]`}>{fmt(ui.money)}</span>
@@ -4047,7 +4067,7 @@ export default function GameRoot() {
             <div className="shrink-0 rs-switch">
               <button
                 onClick={() => { setBuildTab('towers'); engineRef.current?.selectTrapType(null); }}
-                title="Towers — built beside the road"
+                title="Towers: built beside the road"
                 className={`rs-switch-seg ${buildTab === 'towers' ? 'rs-switch-on' : ''}`}
               >
                 <img src={ASSETS.misc.construction_icon} alt="Towers" onError={hideBrokenImg} />
@@ -4055,7 +4075,7 @@ export default function GameRoot() {
               </button>
               <button
                 onClick={() => { setBuildTab('traps'); engineRef.current?.selectTowerType(null); }}
-                title="Hunter traps — laid on the road itself, between waves"
+                title="Hunter traps: laid on the road itself, between waves"
                 className={`rs-switch-seg ${buildTab === 'traps' ? 'rs-switch-on' : ''}`}
               >
                 <img src={ASSETS.misc.hunter_icon} alt="Traps" onError={hideBrokenImg} />
@@ -4140,7 +4160,7 @@ export default function GameRoot() {
                     <p className="text-[0.7em] text-[#b3a585] leading-snug mt-[0.4em] pt-[0.35em] px-[0.1em] border-t border-[var(--rs-keyline)]">
                       {locked
                         ? `Hunter ${def.level} unlocks this. The skill levels every time a trap of yours goes off.`
-                        : 'Laid on the road between waves, and picked back up with a click. Enemies walk over it \u2014 it never blocks the way.'}
+                        : 'Laid on the road between waves, and picked back up with a click. Enemies walk over it, so it never blocks the way.'}
                     </p>
                   </div>
                 );
@@ -4415,11 +4435,11 @@ export default function GameRoot() {
                   or classic's loot bag. Classic drafts nothing and the roguelite
                   drops no gear, so neither stone is ever shown over an empty panel. */}
               {ui.gameMode === 'roguelite' ? (
-                <button ref={boonsTabRef} onClick={() => onSideTab('home')} title="Run loadout — relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
+                <button ref={boonsTabRef} onClick={() => onSideTab('home')} title="Run loadout: relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
                   <img src={ASSETS.misc.cards_icon} alt="Run loadout" onError={hideBrokenImg} />
                 </button>
               ) : (
-                <button onClick={() => onSideTab('lootbag')} title="Loot bag — gear dropped this run" className={`rs-tab ${tab === 'lootbag' ? 'rs-tab-on' : ''}`}>
+                <button onClick={() => onSideTab('lootbag')} title="Loot bag: gear dropped this run" className={`rs-tab ${tab === 'lootbag' ? 'rs-tab-on' : ''}`}>
                   <img src={ASSETS.misc.loot_bag} alt="Loot bag" onError={hideBrokenImg} />
                   {ui.lootBag.length > 0 && <span className="rs-tab-badge">{ui.lootBag.length}</span>}
                 </button>
@@ -4427,17 +4447,17 @@ export default function GameRoot() {
               {/* The Stats tab icon is OSRS's own symbol for "your skills", so it
                   heads the Skills interface, and the DPS meter — which is damage,
                   not progression — takes the red hitsplat instead. */}
-              <button onClick={() => onSideTab('dps')} title="DPS meter — damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
+              <button onClick={() => onSideTab('dps')} title="DPS meter: damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.hit_splat} alt="DPS meter" onError={hideBrokenImg} />
               </button>
-              <button onClick={() => onSideTab('skills')} title="Skills — Hunter, Farming, Herblore" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
+              <button onClick={() => onSideTab('skills')} title="Skills: Hunter, Farming, Herblore" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.stats_icon} alt="Skills" onError={hideBrokenImg} />
               </button>
               <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
                 <span className="rs-tab-badge">{ui.slayerPoints}</span>
               </button>
-              <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop — permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
+              <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop: permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
                 <span className="rs-tab-badge">{fmt(ui.essence)}</span>
               </button>

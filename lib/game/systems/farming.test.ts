@@ -132,24 +132,49 @@ describe('harvestable', () => {
 });
 
 describe('what a herb is worth', () => {
+  // Every style at ×1 on every stat: what the board runs at with nothing drunk.
+  const flat = { melee: 1, ranged: 1, magic: 1 };
+  const all = (n: number) => ({ melee: n, ranged: n, magic: n });
+
   // Nothing in the ground must leave every funnel exactly as it found it — these
   // four are multiplied into live systems on every frame of every wave.
   it('is identity with no herb', () => {
-    expect(farmTowerMods([])).toEqual({ damage: 1, range: 1, fireRate: 1 });
+    expect(farmTowerMods([])).toEqual({ damage: flat, range: flat, fireRate: flat });
     expect(farmGoldMult([])).toBe(1);
     expect(farmPrayerDrainMult([])).toBe(1);
     expect(farmLivesOnClear([])).toBe(0);
   });
 
-  it('gives guam its damage and nothing else', () => {
-    expect(farmTowerMods(['guam'])).toEqual({ damage: 1.15, range: 1, fireRate: 1 });
+  it('gives guam its damage, to every style and nothing else', () => {
+    expect(farmTowerMods(['guam'])).toEqual({ damage: all(1.15), range: flat, fireRate: flat });
     expect(farmGoldMult(['guam'])).toBe(1);
     expect(farmPrayerDrainMult(['guam'])).toBe(1);
     expect(farmLivesOnClear(['guam'])).toBe(0);
   });
 
-  it('gives snapdragon its range and nothing else', () => {
-    expect(farmTowerMods(['snapdragon'])).toEqual({ damage: 1, range: 1.2, fireRate: 1 });
+  // The whole point of the style column: a herb grown for one kind of tower must
+  // leave the other two exactly where it found them.
+  it('keeps kwuarm on the melee towers', () => {
+    const m = farmTowerMods(['kwuarm']);
+    expect(m.damage.melee).toBeCloseTo(1.4);
+    expect(m.damage.ranged).toBe(1);
+    expect(m.damage.magic).toBe(1);
+  });
+
+  it('keeps irit on the rangers and lantadyme on the wizards', () => {
+    const irit = farmTowerMods(['irit']);
+    expect(irit.range.ranged).toBeCloseTo(1.3);
+    expect(irit.range.magic).toBe(1);
+    const lant = farmTowerMods(['lantadyme']);
+    expect(lant.damage.magic).toBeCloseTo(1.45);
+    expect(lant.damage.melee).toBe(1);
+  });
+
+  it('speeds only the melee towers up for tarromin, and all three for harralander', () => {
+    const tar = farmTowerMods(['tarromin']);
+    expect(tar.fireRate.melee).toBeCloseTo(1.2);
+    expect(tar.fireRate.ranged).toBe(1);
+    expect(farmTowerMods(['harralander']).fireRate).toEqual(all(1.1));
   });
 
   it('slows the prayer drain for marrentill, and only for marrentill', () => {
@@ -157,8 +182,9 @@ describe('what a herb is worth', () => {
     expect(farmPrayerDrainMult(['torstol'])).toBe(1);
   });
 
-  it('pays more gold for torstol, and only for torstol', () => {
+  it('pays more gold for torstol and toadflax, and only for those two', () => {
     expect(farmGoldMult(['torstol'])).toBeCloseTo(1.3);
+    expect(farmGoldMult(['toadflax'])).toBeCloseTo(1.15);
     expect(farmGoldMult(['ranarr'])).toBe(1);
   });
 
@@ -170,18 +196,21 @@ describe('what a herb is worth', () => {
   // Herbs stack the way doses do, so a pouchful of different ones all ride the
   // same wave — each answering for its own system, none cancelling another.
   it('stacks different herbs across the funnels', () => {
-    const all: SeedId[] = ['guam', 'snapdragon', 'marrentill', 'torstol', 'ranarr'];
-    expect(farmTowerMods(all).damage).toBeCloseTo(1.15);
-    expect(farmTowerMods(all).range).toBeCloseTo(1.2);
-    expect(farmGoldMult(all)).toBeCloseTo(1.3);
-    expect(farmPrayerDrainMult(all)).toBeCloseTo(0.8);
-    expect(farmLivesOnClear(all)).toBe(1);
+    const held: SeedId[] = ['guam', 'kwuarm', 'snapdragon', 'marrentill', 'torstol', 'ranarr'];
+    const m = farmTowerMods(held);
+    // guam reaches all three; kwuarm rides on top of it for the melee alone
+    expect(m.damage.melee).toBeCloseTo(1.15 * 1.4);
+    expect(m.damage.ranged).toBeCloseTo(1.15);
+    expect(m.range).toEqual({ melee: 1.2, ranged: 1.2, magic: 1.2 });
+    expect(farmGoldMult(held)).toBeCloseTo(1.3);
+    expect(farmPrayerDrainMult(held)).toBeCloseTo(0.8);
+    expect(farmLivesOnClear(held)).toBe(1);
   });
 
   // The engine keeps its list unique, so a repeat can only come out of a save
   // someone edited by hand — and it still has to pay exactly once.
   it('pays a repeated herb only once', () => {
-    expect(farmTowerMods(['guam', 'guam']).damage).toBeCloseTo(1.15);
+    expect(farmTowerMods(['guam', 'guam']).damage.melee).toBeCloseTo(1.15);
     expect(farmGoldMult(['torstol', 'torstol'])).toBeCloseTo(1.3);
     expect(farmLivesOnClear(['ranarr', 'ranarr'])).toBe(1);
   });
@@ -191,12 +220,23 @@ describe('what a herb is worth', () => {
   it('leaves no seed in the table doing nothing', () => {
     for (const s of SEEDS) {
       const id: SeedId = s.id;
-      const moved = farmTowerMods([id]).damage !== 1
-        || farmTowerMods([id]).range !== 1
+      const m = farmTowerMods([id]);
+      const towers = ([...Object.values(m.damage), ...Object.values(m.range), ...Object.values(m.fireRate)])
+        .some(n => n !== 1);
+      const moved = towers
         || farmGoldMult([id]) !== 1
         || farmPrayerDrainMult([id]) !== 1
         || farmLivesOnClear([id]) !== 0;
       expect(moved, `${id} does nothing`).toBe(true);
+    }
+  });
+
+  // A styled herb that names a style no tower has would be a dead row, and the
+  // table is the only place that can go wrong.
+  it('names a real combat style wherever it names one', () => {
+    for (const s of SEEDS) {
+      if (!s.style) continue;
+      expect(['melee', 'ranged', 'magic'], `${s.id} styles nothing`).toContain(s.style);
     }
   });
 });

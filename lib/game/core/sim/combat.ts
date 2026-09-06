@@ -114,6 +114,7 @@ function towerStats(eng: GameEngine, tower: Tower): ComputedTowerStats {
         synergyMult: eng.synergyMultFor(tower.id),
         mageBuff: eng.runFx.mageBuff,
         globalMods: eng.eventTowerMods(),
+        consumableMods: eng.consumableTowerMods(),
       }),
     };
     eng.statsCache.set(tower.id, cached);

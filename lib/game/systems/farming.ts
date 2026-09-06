@@ -19,6 +19,7 @@
 
 import { SEED_BY_ID, type SeedDef, type SeedId } from '../data/farming';
 import type { TerrainField } from './terrain-generation';
+import { applyStyleBoost, identityStyleMods, type StyleMods } from './style-mods';
 
 /** What a patch looks like, and what clicking it does. `empty` offers the seed
  *  menu, `ready` harvests, and the two in between are just a picture of waiting. */
@@ -201,15 +202,16 @@ export function harvestable(patch: FarmPatch): SeedDef | null {
 // Torstol before Start Wave and both are up — and, exactly like a dose, a second
 // helping of the *same* herb is the one it already had, never twice the effect.
 
-/** Board-wide tower multipliers, alongside a wave event's. */
-export function farmTowerMods(seedIds: readonly SeedId[]): { damage: number; range: number; fireRate: number } {
-  let damage = 1;
-  let range = 1;
+/** Tower multipliers per combat style, alongside a wave event's. A herb that
+ *  names a style only reaches towers fighting that way. */
+export function farmTowerMods(seedIds: readonly SeedId[]): StyleMods {
+  const mods = identityStyleMods();
   for (const def of uniqueDefs(seedIds)) {
-    if (def.effect === 'damage') damage *= 1 + def.amount;
-    if (def.effect === 'range') range *= 1 + def.amount;
+    if (def.effect === 'damage') applyStyleBoost(mods, { style: def.style, damage: def.amount });
+    if (def.effect === 'range') applyStyleBoost(mods, { style: def.style, range: def.amount });
+    if (def.effect === 'fireRate') applyStyleBoost(mods, { style: def.style, fireRate: def.amount });
   }
-  return { damage, range, fireRate: 1 };
+  return mods;
 }
 
 /** What every gold award this wave is multiplied by. */

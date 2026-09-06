@@ -6,20 +6,24 @@
  * engine owns the pouch, the purse and the waves — everything here is arithmetic,
  * which is the part worth testing.
  *
- * Two rules shape it:
+ * Three rules shape it:
  *
  * 1. **A potion outlives the wave it was drunk on.** A raw herb is one wave; every
- *    potion is three to five. That difference is the only reason to spend a herb
- *    here instead of drinking it as it comes out of the ground.
+ *    potion that runs is three to six. That difference is the only reason to spend
+ *    a herb here instead of drinking it as it comes out of the ground.
  * 2. **The ladder is gated by the skill, and the skill levels by brewing.** So the
  *    strong potions arrive late in a run and only for a player who has been
  *    brewing the weak ones — never by buying them.
+ * 3. **A potion is style-targeted.** Its boost carries the combat style it belongs
+ *    to, so a Ranging potion helps the archers and leaves the wizards alone. See
+ *    `systems/style-mods`.
  */
 
-import { POTIONS, POTION_BY_ID, type PotionDef, type PotionId } from '../data/herblore';
-import type { SeedId } from '../data/farming';
+import { POTIONS, POTION_BY_ID, BREW_DAMAGE_PENALTY, type PotionDef, type PotionId } from '../data/herblore';
+import { SEEDS, type SeedId } from '../data/farming';
+import { applyStyleBoost, identityStyleMods, type StyleMods } from './style-mods';
 
-/** The ceiling, like every other skill in the game. Nothing unlocks above 78. */
+/** The ceiling, like every other skill in the game. Nothing unlocks above 90. */
 export const HERBLORE_MAX_LEVEL = 99;
 
 /**
@@ -35,12 +39,12 @@ export const HERBLORE_START_LEVEL = 3;
  * XP to advance Herblore from `level` to `level + 1`.
  *
  * Run-scaled, the same way Hunter's is and for the same reason: OSRS's own table
- * asks over a million XP for the 78 a Zamorak brew needs, which is a month of
- * play, not a run. This curve asks about 3,000 XP to climb the whole ladder — at
- * the real per-potion rates, roughly thirty-three brews. That is a lot of herbs:
+ * asks over a million XP for the 90 a Super combat needs, which is a month of
+ * play, not a run. This curve asks about 5,000 XP to climb the whole ladder — at
+ * the real per-potion rates, roughly fifty brews. That is a lot of herbs:
  * reachable across a full run by a player who keeps every allotment busy and buys
  * more ground, and out of reach for one who sows now and then. The floor of 10
- * carries the first twenty-seven levels, so Antipoison lands after a single brew
+ * carries the first twenty-seven levels, so the Antidote lands after a single brew
  * and the mechanic gets to teach itself.
  */
 export function herbloreXpForLevel(level: number): number {
@@ -92,12 +96,14 @@ export type HerbPouch = Record<SeedId, number>;
 /** Potions brewed and not yet drunk. */
 export type PotionStock = Record<PotionId, number>;
 
+/** Built from the tables rather than written out, so adding a herb or a potion is
+ *  one row in `data/` and nothing here. */
 export function emptyPouch(): HerbPouch {
-  return { guam: 0, marrentill: 0, ranarr: 0, snapdragon: 0, torstol: 0 };
+  return Object.fromEntries(SEEDS.map(s => [s.id, 0])) as HerbPouch;
 }
 
 export function emptyStock(): PotionStock {
-  return { attack: 0, antipoison: 0, prayer: 0, restore: 0, zamorak: 0 };
+  return Object.fromEntries(POTIONS.map(p => [p.id, 0])) as PotionStock;
 }
 
 /** Everything in the pouch, in ladder order and skipping the empty stacks. */
@@ -113,14 +119,15 @@ export function heldHerbs(pouch: HerbPouch): { seedId: SeedId; count: number }[]
  * One reason at a time, in the order a player would hit them, so the button under
  * it can say exactly which wall it is against instead of "no".
  */
-export type BrewBlocker = 'level' | 'herb' | 'gold';
+export type BrewBlocker = 'level' | 'herb' | 'potion' | 'gold';
 
 export function brewBlocker(
-  def: PotionDef, level: number, pouch: HerbPouch, money: number,
+  def: PotionDef, level: number, pouch: HerbPouch, stock: PotionStock, money: number,
 ): BrewBlocker | null {
   if (level < def.level) return 'level';
-  if ((pouch[def.herb] ?? 0) < 1) return 'herb';
-  if (money < def.secondary.cost) return 'gold';
+  if (def.herb && (pouch[def.herb] ?? 0) < 1) return 'herb';
+  if (def.potionInput && (stock[def.potionInput] ?? 0) < 1) return 'potion';
+  if (money < def.cost) return 'gold';
   return null;
 }
 
@@ -129,6 +136,10 @@ export function brewBlocker(
 // potions doing different things — but a second dose of the *same* potion refills
 // its clock rather than stacking on top of itself, so nothing is ever gained by
 // hoarding five of one and drinking them back to back.
+//
+// Two potions never join this list at all: a Super restore and a Saradomin brew do
+// their whole job on the way down (`waves: 0`), and the engine reads `lives`,
+// `brewStacks` and `clearsBrew` off the def as it pours.
 
 export interface ActivePotion {
   id: PotionId;
@@ -150,25 +161,22 @@ export function tickPotions(active: readonly ActivePotion[]): ActivePotion[] {
     .filter(a => a.wavesLeft > 0);
 }
 
-/** Board-wide tower multipliers, folded in beside the wave event's and the herb's.
- *  No potion touches range or fire rate — those are the herbs' half of the split. */
-export function potionTowerMods(
-  active: readonly ActivePotion[],
-): { damage: number; range: number; fireRate: number } {
-  let damage = 1;
+/** Tower multipliers per combat style, folded in beside the herbs'. */
+export function potionTowerMods(active: readonly ActivePotion[]): StyleMods {
+  const mods = identityStyleMods();
   for (const a of active) {
-    const def = POTION_BY_ID[a.id];
-    if (def.effect === 'damage') damage *= 1 + def.amount;
+    const boost = POTION_BY_ID[a.id]?.boost;
+    if (boost) applyStyleBoost(mods, boost);
   }
-  return { damage, range: 1, fireRate: 1 };
+  return mods;
 }
 
 /** What the prayer drain is multiplied by — below 1, so points last longer. */
 export function potionPrayerDrainMult(active: readonly ActivePotion[]): number {
   let mult = 1;
   for (const a of active) {
-    const def = POTION_BY_ID[a.id];
-    if (def.effect === 'prayer') mult *= 1 - def.amount;
+    const cut = POTION_BY_ID[a.id]?.prayerDrain;
+    if (cut) mult *= 1 - cut;
   }
   return Math.max(0, mult);
 }
@@ -176,15 +184,37 @@ export function potionPrayerDrainMult(active: readonly ActivePotion[]): number {
 /** Lives handed back for clearing this wave. */
 export function potionLivesOnClear(active: readonly ActivePotion[]): number {
   let lives = 0;
-  for (const a of active) {
-    const def = POTION_BY_ID[a.id];
-    if (def.effect === 'life') lives += def.amount;
-  }
+  for (const a of active) lives += POTION_BY_ID[a.id]?.livesOnClear ?? 0;
   return lives;
 }
 
-/** Whether a tower may be knocked offline at all right now. The Antipoison's whole
- *  job, and the one effect that is a yes/no rather than a multiplier. */
+/** The running potion paying those lives out, so the notice can name it. */
+export function pouringPotion(active: readonly ActivePotion[]): PotionDef | null {
+  for (const a of active) {
+    const def = POTION_BY_ID[a.id];
+    if (def?.livesOnClear) return def;
+  }
+  return null;
+}
+
+/** The running potion holding the towers up, or null if nothing is. The Antidote
+ *  line's whole job, and the one effect that is a yes/no rather than a multiplier. */
+export function steadyPotion(active: readonly ActivePotion[]): PotionDef | null {
+  for (const a of active) {
+    const def = POTION_BY_ID[a.id];
+    if (def?.steady) return def;
+  }
+  return null;
+}
+
+/** Whether a tower may be knocked offline at all right now. */
 export function potionsSteady(active: readonly ActivePotion[]): boolean {
-  return active.some(a => POTION_BY_ID[a.id].effect === 'steady');
+  return steadyPotion(active) !== null;
+}
+
+/** What every boostable tower's damage is multiplied by after `stacks` Saradomin
+ *  brews. Multiplicative, so a hoarder's board tends towards nothing rather than
+ *  falling through it, and the Dwarf Cannon never feels it (fixed damage). */
+export function brewDamageMult(stacks: number): number {
+  return Math.pow(1 - BREW_DAMAGE_PENALTY, Math.max(0, Math.floor(stacks)));
 }

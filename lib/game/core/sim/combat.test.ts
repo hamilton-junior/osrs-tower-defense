@@ -70,6 +70,11 @@ function stubEngine() {
     runDamageMult: () => 1,
     synergyMultFor: () => 1,
     eventTowerMods: () => ({ damage: 1, range: 1, fireRate: 1 }),
+    consumableTowerMods: () => ({
+      damage: { ranged: 1, magic: 1, melee: 1 },
+      range: { ranged: 1, magic: 1, melee: 1 },
+      fireRate: { ranged: 1, magic: 1, melee: 1 },
+    }),
     killGoldPreReward: () => 10,
     awardGold: (n: number) => { gold += n; },
     checkAchievements: () => {},

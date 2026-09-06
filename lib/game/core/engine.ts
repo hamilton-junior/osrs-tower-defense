@@ -66,10 +66,11 @@ import {
 } from '../systems/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '../data/herblore';
 import {
-  HERBLORE_MAX_LEVEL, HERBLORE_START_LEVEL, brewBlocker, drinkPotion as drinkDose, emptyPouch, emptyStock,
-  gainHerbloreXp, herbloreXpForLevel, potionTowerMods, potionsSteady,
+  HERBLORE_MAX_LEVEL, HERBLORE_START_LEVEL, brewBlocker, brewDamageMult, drinkPotion as drinkDose,
+  emptyPouch, emptyStock, gainHerbloreXp, herbloreXpForLevel, potionTowerMods, steadyPotion,
   type ActivePotion, type HerbPouch, type PotionStock,
 } from '../systems/herblore';
+import { multiplyStyleMods, scaleAllStyles, type StyleMods } from '../systems/style-mods';
 import {
   HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
   type HunterTrap,
@@ -78,7 +79,7 @@ import { handleBossMechanics, updateScorches } from './sim/bosses';
 import { updateTraps } from './sim/traps';
 import { fireTowers, updateUtilityTowers, towerIdentity, moveProjectiles, tenacity } from './sim/combat';
 import { computeWaveConfigs, wavePreview, buildWaveEnemies, makeEnemy, spawn, moveEnemies, damageOverTime, updateEffects, addRing, checkWaveEnd, recordCombatTime } from './sim/waves';
-import type { UnlockItem, GameMode, StyleMods, RunModifiers, RunEffects, RelicEffects, UIState, Hitsplat, DebuffId, EnemyHoverInfo, DeathFx, Particle, RuneFx, Scorch } from './engine-state';
+import type { UnlockItem, GameMode, PerStyle, RunModifiers, RunEffects, RelicEffects, UIState, Hitsplat, DebuffId, EnemyHoverInfo, DeathFx, Particle, RuneFx, Scorch } from './engine-state';
 
 // The engine's vocabulary — board size, UIState, the per-run effect records and the
 // small pure helpers — lives in ./engine-state so the sim/ modules can share it
@@ -427,18 +428,24 @@ export class GameEngine {
   herbloreXp = 0;
   /** Doses running, each with the waves it has left. */
   activePotions: ActivePotion[] = [];
-  /** Whether this wave has already said an Antipoison held a tower up. One notice
-   *  a wave: Brutus tests his charge on every frame of it. */
+  /** Saradomin brews drunk this run and not yet cleared. Each one bought a life
+   *  and left a permanent bite out of every boostable tower's damage — the OSRS
+   *  trade, kept honest by making the debt outlive the wave. A Super restore
+   *  clears three of them; a Sanfew serum clears the lot. */
+  brewStacks = 0;
+  /** Whether this wave has already said a potion held a tower up. One notice a
+   *  wave: Brutus tests his charge on every frame of it. */
   private steadySaid = false;
 
   /** Whether nothing may knock a tower offline right now, plus the notice for the
    *  first time in a wave that the answer is yes. Every disable source asks this —
-   *  it is the whole of the Antipoison. */
+   *  it is the whole of the Antidote line. */
   steadyHeld(): boolean {
-    if (!potionsSteady(this.activePotions)) return false;
+    const def = steadyPotion(this.activePotions);
+    if (!def) return false;
     if (!this.steadySaid) {
       this.steadySaid = true;
-      this.notify('Antipoison — your towers hold', POTION_BY_ID.antipoison.icon);
+      this.notify(`${def.name}: your towers hold`, def.icon);
     }
     return true;
   }
@@ -818,6 +825,7 @@ export class GameEngine {
       herbloreLevel: this.herbloreLevel,
       herbloreXp: Math.round(this.herbloreXp),
       herbloreXpNeeded: herbloreXpForLevel(this.herbloreLevel),
+      brewStacks: this.brewStacks,
       activePotions: this.activePotions.map(a => {
         const def = POTION_BY_ID[a.id];
         return {
@@ -995,19 +1003,26 @@ export class GameEngine {
     this.slayer.buyReward(id);
   }
 
-  /** The board-wide tower multipliers in force this wave (all 1 with nothing
+  /** What the wave event is doing to every tower on the board (all 1 with no event
    *  running), passed to {@link calculateTowerStats} as its `globalMods` layer.
-   *  Three things feed it and they all stack: the wave event, the herbs used raw,
-   *  and every potion currently up. */
+   *  An event reaches the Dwarf Cannon too — it is weather, not a potion. */
   eventTowerMods() {
     const m = resolveEventMods(this.activeEvent);
-    const f = farmTowerMods(this.activeFarmBuffs());
-    const p = potionTowerMods(this.activePotions);
-    return {
-      damage: m.towerDamage * f.damage * p.damage,
-      range: m.towerRange * f.range * p.range,
-      fireRate: m.towerFireRate * f.fireRate * p.fireRate,
-    };
+    return { damage: m.towerDamage, range: m.towerRange, fireRate: m.towerFireRate };
+  }
+
+  /** What the player drank, per combat style: the herbs riding this wave, the
+   *  potions still running, and the damage owed for every Saradomin brew. Handed
+   *  to {@link calculateTowerStats} as `consumableMods`, which applies it inside
+   *  the boostable guard — so a Ranging potion skips the wizards, and the Dwarf
+   *  Cannon takes neither the boosts nor the brew debt. */
+  consumableTowerMods(): StyleMods {
+    const mods = multiplyStyleMods(
+      farmTowerMods(this.activeFarmBuffs()),
+      potionTowerMods(this.activePotions),
+    );
+    if (this.brewStacks > 0) scaleAllStyles(mods, 'damage', brewDamageMult(this.brewStacks));
+    return mods;
   }
 
   /** A tower's effective combat stats right now (prayers + potions applied),
@@ -1024,6 +1039,7 @@ export class GameEngine {
       synergyMult: this.synergyMultFor(towerId),
       mageBuff: this.runFx.mageBuff,
       globalMods: this.eventTowerMods(),
+      consumableMods: this.consumableTowerMods(),
     });
   }
 
@@ -1186,6 +1202,7 @@ export class GameEngine {
       portal: this.portalPoint,
       mageBuff: this.runFx.mageBuff,
       globalMods: this.eventTowerMods(),
+      consumableMods: this.consumableTowerMods(),
     });
   }
 
@@ -1573,10 +1590,10 @@ export class GameEngine {
     this.shapingGrab = more ? moved : null;
     if (offered.digs) {
       this.sound.play('sell'); // the coin-shuffle: gold left the purse
-      this.notify(`Road reshaped — ${price} gp`);
+      this.notify(`Road reshaped for ${price} gp`);
     } else {
       this.sound.play('click');
-      this.notify('Road put back — the next change is cheaper');
+      this.notify('Road put back. The next change is cheaper');
     }
     this.emit();
     return true;
@@ -2273,7 +2290,7 @@ export class GameEngine {
       if (this.towers.length > before) built++;
     }
     this.selectedTowerType = null; // the line is spent: the mode is over
-    if (built < queue.length) this.notify(built ? `Built ${built} of ${queue.length} — out of gold` : 'Not enough gold');
+    if (built < queue.length) this.notify(built ? `Built ${built} of ${queue.length}, then ran out of gold` : 'Not enough gold');
     this.emit();
   }
 
@@ -3156,7 +3173,7 @@ export class GameEngine {
       rearm: 0,
     });
     this.sound.play('sell'); // the coin-shuffle: gold left the purse
-    this.notify(`${def.name} set — ${price} gp`, def.sprite);
+    this.notify(`${def.name} set for ${price} gp`, def.sprite);
     // The last slot's trap puts the rest away, so the next click is a normal one
     // rather than a refusal.
     if (this.traps.length >= this.trapSlots) this.selectedTrapId = null;
@@ -3223,7 +3240,7 @@ export class GameEngine {
     this.seedsSown += 1;
     this.pendingSow = null;
     this.sound.play('sell'); // the coin-shuffle: gold left the purse
-    this.notify(`${def.seedName} sown — ${def.waves} waves`, def.seedIcon);
+    this.notify(`${def.seedName} sown, ready in ${def.waves} waves`, def.seedIcon);
     this.emit();
   }
 
@@ -3241,7 +3258,7 @@ export class GameEngine {
     patch.grown = 0;
     this.pendingSow = null;
     this.sound.play('interface_close');
-    this.notify(`${def.seedName} dug up — no refund`, def.seedIcon);
+    this.notify(`${def.seedName} dug up, no refund`, def.seedIcon);
     this.emit();
   }
 
@@ -3348,7 +3365,7 @@ export class GameEngine {
     this.herbPouch[def.id] += 1;
     this.herbsHarvested += 1;
     this.sound.play('farm_harvest');
-    this.notify(`${def.herbName} — into the pouch`, def.herbIcon);
+    this.notify(`${def.herbName} into the pouch`, def.herbIcon);
     this.emit();
   }
 
@@ -3370,21 +3387,29 @@ export class GameEngine {
     if (!this.farmBuffs.includes(seedId)) this.farmBuffs.push(seedId);
     this.bumpCombatEpoch(); // a damage or range herb changes every tower's stats
     this.sound.play('farm_harvest');
-    this.notify(`${def.herbName} — ${def.signature.label}`, def.herbIcon);
+    this.notify(`${def.herbName}: ${def.signature.label}`, def.herbIcon);
     this.emit();
   }
 
-  /** Brew one potion: a herb out of the pouch, its secondary out of the purse, and
-   *  the XP that opens the rest of the ladder. */
+  /** Brew one potion: a herb out of the pouch, or a weaker potion off the shelf,
+   *  plus its secondary out of the purse and the XP that opens the rest of the
+   *  ladder. Two rungs are built from another potion the way OSRS builds them — a
+   *  Sanfew serum from a Super restore, a Super combat from a Super strength. */
   brewPotion(potionId: PotionId) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
     const def = POTION_BY_ID[potionId];
-    const blocked = brewBlocker(def, this.herbloreLevel, this.herbPouch, this.money);
+    const blocked = brewBlocker(def, this.herbloreLevel, this.herbPouch, this.potionStock, this.money);
     if (blocked === 'level') { this.notify(`Herblore ${def.level} needed`, def.icon); return; }
-    if (blocked === 'herb') { this.notify(`No ${SEED_BY_ID[def.herb].herbName} in the pouch`); return; }
+    if (blocked === 'herb' && def.herb) { this.notify(`No ${SEED_BY_ID[def.herb].herbName} in the pouch`); return; }
+    if (blocked === 'potion' && def.potionInput) {
+      const input = POTION_BY_ID[def.potionInput];
+      this.notify(`No ${input.name} on the shelf`, input.icon);
+      return;
+    }
     if (blocked === 'gold') { this.notify('Not enough gold'); return; }
-    this.herbPouch[def.herb] -= 1;
-    this.money -= def.secondary.cost;
+    if (def.herb) this.herbPouch[def.herb] -= 1;
+    if (def.potionInput) this.potionStock[def.potionInput] -= 1;
+    this.money -= def.cost;
     this.potionStock[potionId] += 1;
     const gain = gainHerbloreXp(this.herbloreLevel, this.herbloreXp, def.xp);
     this.herbloreLevel = gain.level;
@@ -3398,9 +3423,11 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Drink one. It runs for the potion's own count of waves, and a second dose of
+  /** Drink one. Most run for the potion's own count of waves, and a second dose of
    *  the same potion refills that clock rather than stacking on it — so nothing is
-   *  ever gained by saving five of one and drinking them back to back. */
+   *  ever gained by saving five of one and drinking them back to back. Two pay out
+   *  the moment they go down instead: a Saradomin brew buys a life against a
+   *  permanent damage debt, and a Super restore pays part of that debt off. */
   drinkPotion(potionId: PotionId) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
     if (this.potionStock[potionId] < 1) return;
@@ -3409,15 +3436,27 @@ export class GameEngine {
     // last one, though — a potion is not allowed to end the run on its own.
     const cost = def.lifeCost ?? 0;
     if (cost > 0 && this.lives <= cost) { this.notify('Too few lives to drink that'); return; }
+    // A Super restore with no brew debt to clear would pour itself away for nothing.
+    if (def.clearsBrew && this.brewStacks < 1) { this.notify('No brew to clear', def.icon); return; }
     this.potionStock[potionId] -= 1;
     if (cost > 0) {
       this.lives -= cost;
       this.baseFlash = 1;
     }
-    this.activePotions = drinkDose(this.activePotions, def);
+    if (def.lives) {
+      this.lives = Math.min(this.maxLives, this.lives + def.lives);
+      this.baseFlash = 1;
+    }
+    if (def.brewStacks) this.brewStacks += def.brewStacks;
+    if (def.clearsBrew) {
+      const cleared = def.clearsBrew === 'all' ? this.brewStacks : Math.min(this.brewStacks, def.clearsBrew);
+      this.brewStacks -= cleared;
+      this.notify(`${cleared} brew cleared`, def.icon);
+    }
+    if (def.waves > 0) this.activePotions = drinkDose(this.activePotions, def);
     this.bumpCombatEpoch(); // a damage potion changes every tower's stats
     this.sound.play('farm_harvest');
-    this.notify(`${def.name} — ${def.signature.label}`, def.icon);
+    this.notify(`${def.name}: ${def.signature.label}`, def.icon);
     this.emit();
   }
 
@@ -3552,7 +3591,7 @@ export class GameEngine {
       this.relicFx.cheatDeathLeft -= 1;
       this.lives = 1;
       addRing(this, this.width / 2, this.height / 2, 24, Math.max(this.width, this.height) * 0.5, '#9dffa0', 0.7, 8);
-      this.notify('Last Recall — cheated death!');
+      this.notify('Last Recall: cheated death!');
       return false;
     }
     this.lives = 0;
@@ -3699,7 +3738,7 @@ export class GameEngine {
 
   /** Multiply one stat's per-style mods: a specific `style` buffs only that style,
    *  an omitted style is "general" and buffs all three (e.g. Overload). */
-  private applyStyleMult(mods: StyleMods, mult: number, style?: CombatStyle) {
+  private applyStyleMult(mods: PerStyle, mult: number, style?: CombatStyle) {
     if (style) mods[style] *= mult;
     else { mods.melee *= mult; mods.ranged *= mult; mods.magic *= mult; }
   }
@@ -3792,6 +3831,7 @@ export class GameEngine {
       herbloreLevel: this.herbloreLevel,
       herbloreXp: this.herbloreXp,
       activePotions: this.activePotions.map(a => ({ ...a })),
+      brewStacks: this.brewStacks,
       fusedThisLeg: this.fusedThisLeg,
       essenceEarnedThisRun: this.essenceEarnedThisRun,
       // Tower cooldowns are stamped against this clock, so it travels with them.
@@ -3913,6 +3953,7 @@ export class GameEngine {
     this.herbloreLevel = save.herbloreLevel ?? HERBLORE_START_LEVEL;
     this.herbloreXp = save.herbloreXp ?? 0;
     this.activePotions = (save.activePotions ?? []).map(a => ({ ...a }));
+    this.brewStacks = save.brewStacks ?? 0;
     this.steadySaid = false;
     this.pendingSow = null;
     // A save from before fusion existed resumes with its forge unspent.
@@ -4065,6 +4106,7 @@ export class GameEngine {
     this.herbloreLevel = HERBLORE_START_LEVEL;
     this.herbloreXp = 0;
     this.activePotions = [];
+    this.brewStacks = 0;
     this.steadySaid = false;
     this.pendingSow = null;
     this.fusedThisLeg = false;
@@ -4162,7 +4204,7 @@ export class GameEngine {
    *  make "does the Zamorak row work" a coin flip. */
   debugGiveHerbs() {
     for (const s of SEEDS) this.herbPouch[s.id] += 1;
-    this.notify(`${SEEDS.length} herbs — into the pouch`, ASSETS.misc.skill_herblore);
+    this.notify(`${SEEDS.length} herbs into the pouch`, ASSETS.misc.skill_herblore);
     this.emit();
   }
 

@@ -214,8 +214,8 @@ describe('caStats', () => {
     expect(back?.caStats).toBeUndefined();
   });
 
-  it('sits at 4 — road shaping changed shape, so v3 saves are refused', () => {
-    expect(RUN_SAVE_VERSION).toBe(4);
+  it('sits at 5 — the potion table renamed its ids, so v4 saves are refused', () => {
+    expect(RUN_SAVE_VERSION).toBe(5);
   });
 });
 
@@ -341,7 +341,7 @@ describe('the run\'s boss ladder', () => {
     expect(back?.runPhase).toBe('normal');
   });
 
-  it('sits at 4 — these fields are optional; the bump came from road shaping', () => {
-    expect(RUN_SAVE_VERSION).toBe(4);
+  it('sits at 5 — these fields are optional; the bump came from the potion table', () => {
+    expect(RUN_SAVE_VERSION).toBe(5);
   });
 });

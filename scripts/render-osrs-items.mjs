@@ -132,22 +132,56 @@ const TARGETS = {
   toadflax_seed: { name: 'Toadflax seed' },
   snapdragon_seed: { name: 'Snapdragon seed' },
   torstol_seed: { name: 'Torstol seed' },
-  // The farming patches (systems/farming) sow five herbs and hand back the grown
-  // herb, so each of the five needs both halves of its pair. Guam and Ranarr
-  // already had theirs above; these are the three seeds/herbs that did not.
+  // The farming patches (systems/farming) sow all fourteen OSRS herbs and hand
+  // back the grown herb, so each one needs both halves of its pair. Guam and
+  // Ranarr already had theirs above; the rest follow the real ladder's order.
   marrentill_seed: { name: 'Marrentill seed' },
   marrentill: { name: 'Marrentill' },
+  tarromin_seed: { name: 'Tarromin seed' },
+  tarromin: { name: 'Tarromin' },
+  harralander: { name: 'Harralander' },
+  toadflax: { name: 'Toadflax' },
+  irit_seed: { name: 'Irit seed' },
+  irit_leaf: { name: 'Irit leaf' },
+  avantoe_seed: { name: 'Avantoe seed' },
+  avantoe: { name: 'Avantoe' },
+  kwuarm_seed: { name: 'Kwuarm seed' },
+  kwuarm: { name: 'Kwuarm' },
   snapdragon: { name: 'Snapdragon' },
+  cadantine_seed: { name: 'Cadantine seed' },
+  cadantine: { name: 'Cadantine' },
+  lantadyme_seed: { name: 'Lantadyme seed' },
+  lantadyme: { name: 'Lantadyme' },
+  dwarf_weed_seed: { name: 'Dwarf weed seed' },
+  dwarf_weed: { name: 'Dwarf weed' },
   torstol: { name: 'Torstol' },
   // ---- Herblore (data/herblore.ts) ----
-  // The five potions the run's five herbs really make in OSRS, each at its full
-  // four-dose icon, plus the secondary each recipe actually asks for. Eye of newt,
-  // snape grass and red spiders' eggs are already baked above.
+  // The potions those herbs really make in OSRS, each at its full four-dose
+  // icon, plus the secondary each recipe actually asks for. Eye of newt, snape
+  // grass and red spiders' eggs are already baked above; strength_potion,
+  // super_strength, prayer_potion, super_restore, magic_potion, ranging_potion,
+  // bastion_potion, battlemage_potion and saradomin_brew come from the gear and
+  // Grand Exchange blocks further down.
   attack_potion: { name: 'Attack potion(4)' },
   antipoison: { name: 'Antipoison(4)' },
+  superantipoison: { name: 'Superantipoison(4)' },
+  sanfew_serum: { name: 'Sanfew serum(4)' },
+  combat_potion: { name: 'Combat potion(4)' },
+  super_attack: { name: 'Super attack(4)' },
+  energy_potion: { name: 'Energy potion(4)' },
+  super_energy: { name: 'Super energy(4)' },
   zamorak_brew: { name: 'Zamorak brew(4)' },
   unicorn_horn_dust: { name: 'Unicorn horn dust' },
   jangerberries: { name: 'Jangerberries' },
+  goat_horn_dust: { name: 'Goat horn dust' },
+  chocolate_dust: { name: 'Chocolate dust' },
+  mort_myre_fungus: { name: 'Mort myre fungus' },
+  wine_of_zamorak: { name: 'Wine of Zamorak' },
+  potato_cactus: { name: 'Potato cactus' },
+  crushed_nest: { name: 'Crushed nest' },
+  snake_weed: { name: 'Snake weed' },
+  prayer_regeneration_potion: { name: 'Prayer regeneration potion(4)' },
+  aldarium: { name: 'Aldarium' },
   onion_seed: { name: 'Onion seed' },
   cabbage_seed: { name: 'Cabbage seed' },
   sweetcorn_seed: { name: 'Sweetcorn seed' },

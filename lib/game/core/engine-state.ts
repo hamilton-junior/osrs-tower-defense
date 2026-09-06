@@ -63,9 +63,11 @@ export interface UnlockItem {
  *  adds {@link DraftCard} hands bought with gold, plus a relic for each boss. */
 export type GameMode = 'classic' | 'roguelite';
 
-/** Per-combat-style multiplier (1 = no change). A "general" draft buff bumps all
- *  three; a styled one (e.g. a Strength Potion → melee) bumps only its style. */
-export interface StyleMods {
+/** Per-combat-style multiplier (1 = no change) for one stat. A "general" draft
+ *  buff bumps all three; a styled one (e.g. a Strength Potion → melee) bumps only
+ *  its style. The consumable layer's own three-stat set is `StyleMods` in
+ *  `systems/style-mods`, which is a different shape under a similar name. */
+export interface PerStyle {
   melee: number;
   ranged: number;
   magic: number;
@@ -76,16 +78,16 @@ export interface StyleMods {
  *  "general"). All default to 1 and reset on {@link GameEngine.restart}; they
  *  layer onto every tower in the combat pipe, keyed off the tower's style. */
 export interface RunModifiers {
-  damage: StyleMods;
-  range: StyleMods;
-  fireRate: StyleMods;
+  damage: PerStyle;
+  range: PerStyle;
+  fireRate: PerStyle;
 }
 
-export const freshStyleMods = (): StyleMods => ({ melee: 1, ranged: 1, magic: 1 });
+export const freshPerStyle = (): PerStyle => ({ melee: 1, ranged: 1, magic: 1 });
 export const freshRunMods = (): RunModifiers => ({
-  damage: freshStyleMods(),
-  range: freshStyleMods(),
-  fireRate: freshStyleMods(),
+  damage: freshPerStyle(),
+  range: freshPerStyle(),
+  fireRate: freshPerStyle(),
 });
 export const cloneRunMods = (m: RunModifiers): RunModifiers => ({
   damage: { ...m.damage },
@@ -442,6 +444,10 @@ export interface UIState {
     id: PotionId; name: string; icon: string;
     label: string; labelIcon: string; tip: string; wavesLeft: number;
   }[];
+  /** Saradomin brews drunk this run and not yet cleared. Each one bought a life and
+   *  costs every boostable tower a slice of its damage until a Super restore or a
+   *  Sanfew serum washes it out, so the interface has to show the debt. */
+  brewStacks: number;
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 11);

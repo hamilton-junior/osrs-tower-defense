@@ -146,16 +146,15 @@ export interface RunSave {
   /** The herbs drunk raw and not yet spent. The checkpoint sits in exactly the gap
    *  they are used in, so dropping them would pocket the player's herbs. */
   farmBuffs?: SeedId[];
-  /** The Herblore bench: the pouch, the brewed stock, the skill and the doses still
-   *  running. All optional, so a run written before Herblore existed resumes with an
-   *  empty pouch at the starting level rather than being refused — a version bump
-   *  costs every player their Continue, and nothing here changes an older field's
-   *  meaning. */
+  /** The Herblore bench: the pouch, the brewed stock, the skill, the doses still
+   *  running and the Saradomin brew debt. All optional, so a run written before one
+   *  of them existed resumes with an empty bench rather than being refused. */
   herbPouch?: Partial<Record<SeedId, number>>;
   potionStock?: Partial<Record<PotionId, number>>;
   herbloreLevel?: number;
   herbloreXp?: number;
   activePotions?: { id: PotionId; wavesLeft: number }[];
+  brewStacks?: number;
   slayer: {
     task: SlayerTask | null;
     points: number;
@@ -176,7 +175,7 @@ export interface RunSave {
 
 /** Bump when a field's meaning changes — an older save is then discarded rather
  *  than half-read into a run that would misbehave. */
-export const RUN_SAVE_VERSION = 4;
+export const RUN_SAVE_VERSION = 5;
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
@@ -408,12 +407,17 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
       ? raw.activePotions
         .filter(isObj)
         .filter(a => typeof a.id === 'string' && a.id in POTION_BY_ID && num(a.wavesLeft, 0) > 0)
+        // A Super restore and a Saradomin brew do their whole job on the way down
+        // (`waves: 0`), so neither belongs in this list — only a hand-edited save
+        // can name one, and it would run forever at zero waves left.
+        .filter(a => POTION_BY_ID[a.id as PotionId].waves > 0)
         .map(a => ({
           id: a.id as PotionId,
           wavesLeft: Math.min(POTION_BY_ID[a.id as PotionId].waves, Math.ceil(num(a.wavesLeft, 1))),
         }))
         .filter((a, i, all) => all.findIndex(b => b.id === a.id) === i)
       : [],
+    brewStacks: Math.max(0, Math.floor(num(raw.brewStacks, 0))),
     seedsSown: Math.max(0, Math.floor(num(raw.seedsSown, 0))),
     herbsHarvested: Math.max(0, Math.floor(num(raw.herbsHarvested, 0))),
     slayer: {

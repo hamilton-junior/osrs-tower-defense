@@ -17,8 +17,7 @@ import { enemyLeakCost } from '../../systems/leak-cost';
 import { healingDenied } from '../../systems/tower-fusion';
 import { farmLivesOnClear, ripenPatches } from '../../systems/farming';
 import { SEED_BY_ID } from '../../data/farming';
-import { potionLivesOnClear, tickPotions } from '../../systems/herblore';
-import { POTION_BY_ID } from '../../data/herblore';
+import { potionLivesOnClear, pouringPotion, tickPotions } from '../../systems/herblore';
 import { bodyY } from '../../systems/enemy-anchor';
 import { laneLeg } from '../../systems/geometry';
 import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, graardorIsSlamming, type BossId } from '../../systems/boss-mechanics';
@@ -507,7 +506,7 @@ export function moveEnemies(eng: GameEngine, dt: number) {
         }
         // Name the price out loud. The flash alone said "something got through";
         // it never said a boss had just taken five lives off the total.
-        eng.notify(`${e.name} escaped — ${cost} ${cost === 1 ? 'life' : 'lives'}`, ASSETS.misc.hp_icon);
+        eng.notify(`${e.name} escaped: ${cost} ${cost === 1 ? 'life' : 'lives'}`, ASSETS.misc.hp_icon);
         eng.baseFlash = 1;
         eng.sound.play('base_hit', 90); // player taking damage with no armour (OSRS take-damage splat)
         eng.checkLethal();
@@ -585,13 +584,15 @@ export function checkWaveEnd(eng: GameEngine) {
   const restored = farmLivesOnClear(eng.activeFarmBuffs());
   if (restored > 0 && eng.lives < eng.maxLives) {
     eng.lives = Math.min(eng.maxLives, eng.lives + restored);
-    eng.notify(`${SEED_BY_ID.ranarr.herbName} — a life restored`, SEED_BY_ID.ranarr.herbIcon);
+    eng.notify(`${SEED_BY_ID.ranarr.herbName}: a life restored`, SEED_BY_ID.ranarr.herbIcon);
   }
-  // A Super restore does the same, every wave it is up for rather than once.
+  // A Sanfew serum does the same, every wave it is up for rather than once. The
+  // potion names itself in the notice, so a second life-payer needs nothing here.
   const poured = potionLivesOnClear(eng.activePotions);
-  if (poured > 0 && eng.lives < eng.maxLives) {
+  const pourer = pouringPotion(eng.activePotions);
+  if (poured > 0 && pourer && eng.lives < eng.maxLives) {
     eng.lives = Math.min(eng.maxLives, eng.lives + poured);
-    eng.notify(`${POTION_BY_ID.restore.name} — a life restored`, POTION_BY_ID.restore.icon);
+    eng.notify(`${pourer.name}: a life restored`, pourer.icon);
   }
   // Farming's whole clock, and the only one it has: a wave was fought, so the herbs
   // that rode it are spent and every seed in the ground is a wave older. It hangs off

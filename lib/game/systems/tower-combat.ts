@@ -5,6 +5,7 @@ import { TOWER_STYLES } from '../data/towers';
 import { TOWER_PRAYERS } from '../data/prayers';
 import { GE_OFFERS } from '../data/ge';
 import { levelStatBonus, styleSkillKey } from './tower-xp';
+import type { StyleMods } from './style-mods';
 
 export interface TowerStatsContext {
   upgrades: GlobalUpgrades;
@@ -35,6 +36,11 @@ export interface TowerStatsContext {
   /** Wave-event board-wide multipliers (all towers equally, this wave only).
    *  Omitted / all-1 when no event is active. See `systems/wave-events`. */
   globalMods?: { damage: number; range: number; fireRate: number };
+  /** Herbs, Herblore potions and the Saradomin brew debt, per combat style. The
+   *  layer sits *inside* the boostable guard, so a Ranging potion skips the
+   *  wizards and nothing here ever reaches the Dwarf Cannon. See
+   *  `systems/style-mods`. */
+  consumableMods?: StyleMods;
 }
 
 export interface TowerSynergy {
@@ -177,6 +183,14 @@ export function calculateTowerStats(
       damageMultiplier *= 1 + (offer.dmg ?? 0);
       rangeMultiplier *= 1 + (offer.range ?? 0);
       speedMultiplier *= 1 + (offer.speed ?? 0);
+    }
+
+    // Farming herbs, Herblore potions and the brew debt they leave behind, already
+    // resolved per style by `systems/style-mods`.
+    if (ctx.consumableMods) {
+      damageMultiplier *= ctx.consumableMods.damage[profile.style];
+      rangeMultiplier *= ctx.consumableMods.range[profile.style];
+      speedMultiplier *= ctx.consumableMods.fireRate[profile.style];
     }
   }
 
