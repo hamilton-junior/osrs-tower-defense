@@ -4,6 +4,27 @@
     {
       "kind": "new",
       "scope": "game",
+      "text": "A ripe herb only comes out of the ground during a wave",
+      "fromFeedback": false,
+      "date": "2026-09-06"
+    },
+    {
+      "kind": "updated",
+      "scope": "game",
+      "text": "The allotment is OSRS's own raked soil, baked edge to edge under the game's dirt texture, with a cut border a seed reads against",
+      "fromFeedback": false,
+      "date": "2026-09-06"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "The Farming and Herblore lists scroll in their own boxes, and the Skills panel opens wide enough to read a whole recipe",
+      "fromFeedback": false,
+      "date": "2026-09-06"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
       "text": "The Overload lifts every tower at once, and charges a life at the end of every wave it is up",
       "fromFeedback": false,
       "date": "2026-09-06"
@@ -259,27 +280,6 @@
       "text": "The road slides too — grab a stretch by its grip to straighten a bend or grow one back",
       "fromFeedback": false,
       "date": "2026-09-02"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "Shorter 'how to kill' lines on every boss",
-      "fromFeedback": false,
-      "date": "2026-09-01"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "Each of Nex's acolytes silences every tower casting its own Ancient",
-      "fromFeedback": false,
-      "date": "2026-09-01"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "The Beast's cores leap onto whatever is hurting him, and one more of them every spit",
-      "fromFeedback": false,
-      "date": "2026-09-01"
     }
   ]
 }
