@@ -12,6 +12,16 @@ const nextConfig: NextConfig = {
   assetPrefix: basePath || undefined,
   trailingSlash: true,
   reactStrictMode: true,
+  experimental: {
+    // Prerender in the build process instead of a worker thread. Next 15.4.11's
+    // export workers die on this machine's Node 24 with
+    // `TypeError: a[d] is not a function` out of `.next/server/webpack-runtime.js`
+    // — the worker loads a chunk whose factory never arrived, so every page fails
+    // to prerender and `output: 'export'` aborts. Same failure on a clean tree and
+    // a fresh `npm install`, so it is the worker, not the app. Single-process
+    // export costs a few seconds on four pages.
+    workerThreads: false,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
