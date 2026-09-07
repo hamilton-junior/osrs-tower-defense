@@ -65,7 +65,7 @@ const SKILLS: readonly SkillMeta[] = [
     // No Farming level yet — the bar shows how much of your ground is working.
     progress: (ui) => (ui.farmPatches.length === 0 ? 0
       : ui.farmPatches.filter(p => p.stage !== 'empty').length / ui.farmPatches.length),
-    tip: 'Seeds grow into herbs you pull out during a wave.',
+    tip: 'Seeds grow into herbs you pull out of the ground.',
   },
   {
     id: 'herblore',
@@ -332,7 +332,6 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
   const busy = ui.waveActive || ui.gameOver;
   // The harvest is the one farming button that wants the opposite clock: a ripe
   // herb only comes out while the wave is running.
-  const fighting = ui.waveActive && !ui.gameOver;
   const afford = ui.money >= ui.plotCost;
   return (
     <>
@@ -358,9 +357,8 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                 </span>
                 <button
                   onClick={() => onOpenPatch(p.id)}
-                  disabled={p.stage === 'ready' ? !fighting : busy}
-                  title={p.stage === 'ready'
-                    ? (fighting ? 'Pull the herb' : 'Ripe herbs only come out during a wave')
+                  disabled={p.stage === 'ready' ? ui.gameOver : busy}
+                  title={p.stage === 'ready' ? 'Pull the herb'
                     : p.stage === 'empty' ? 'Sow a seed' : 'See what is growing'}
                   className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
                 >

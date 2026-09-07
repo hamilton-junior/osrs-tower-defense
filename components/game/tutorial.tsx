@@ -101,11 +101,11 @@ export const LEARN_STEPS: LearnStep[] = [
   { id: 'farming', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Sow the allotment',
     body: 'Click a bare patch between waves and pick a seed. The herb it grows goes into your inventory.',
     when: (ui) => !ui.waveActive && ui.wave === 5 && ui.farmPatches.length > 0 },
-  // Fires the first time a herb ripens *and* the wave that lets it out is running,
-  // which is the only moment the harvest button is live.
-  { id: 'harvest', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Pull the herb mid-wave',
-    body: 'A ripe allotment glows while a wave runs. Harvest it then — between waves it stays in the ground.',
-    when: (ui) => ui.waveActive && ui.farmPatches.some((p) => p.stage === 'ready') },
+  // Fires the first time a herb ripens, wave or no wave — the harvest is the one
+  // thing on this board with no clock on it.
+  { id: 'harvest', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Pull the herb',
+    body: 'A ripe allotment glows green. Click it any time to put the herb in your inventory.',
+    when: (ui) => ui.farmPatches.some((p) => p.stage === 'ready') },
   // Fires the first time the slots actually have something in them: three tips
   // about carrying, in the order the player meets them.
   { id: 'inventory', target: 'stones', icon: ASSETS.misc.inventory_icon, title: 'Where it all goes',
@@ -271,7 +271,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.inventory_icon, text: 'The Inventory stone is your 28 slots. Herbs and potions live there.' },
     { icon: ASSETS.misc.bank_chest, text: 'Fill all 28 and the rest goes to the bank. It opens between waves, from the Inventory.' },
     { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows goes into your inventory.' },
-    { icon: ASSETS.misc.farming_icon, text: 'A ripe allotment only gives up its herb during a wave. It glows when it is ready.' },
+    { icon: ASSETS.misc.farming_icon, text: 'A ripe allotment glows green. Click it any time to pull the herb.' },
     { icon: ASSETS.misc.farming_icon, text: 'Move an allotment for free, or buy another. Each one costs double the last.' },
     { icon: ASSETS.misc.skill_herblore, text: 'Drink a herb raw for one wave, or brew it into a potion that lasts several.' },
     { icon: ASSETS.misc.skill_herblore, text: 'Brewing levels Herblore, and a higher level opens the stronger potions.' },

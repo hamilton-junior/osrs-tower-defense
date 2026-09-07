@@ -3253,19 +3253,18 @@ export class GameEngine {
   // one wave. Every worth-question is answered in systems/farming — the engine
   // only owns the ground, the purse and the clock.
   //
-  // The one thing that happens *during* a fight is the harvest. A ripe herb sat
-  // in the quiet cost nothing to collect, so it was never a decision; pulling it
-  // while the wave runs is attention spent on the ground instead of on the road,
-  // which is the price the herb is worth. Everything else here — sowing, digging,
-  // moving, buying — stays strictly between waves.
+  // The harvest is the one thing here with no clock on it: a ripe herb comes out
+  // whenever the player reaches for it, mid-fight or not, because a herb left in
+  // the ground by a rule nobody can see reads as a broken button. Everything else
+  // — sowing, digging, moving, buying — stays strictly between waves.
 
   /** Route a click on a patch: a ripe herb comes straight out, and anything else
    *  opens the patch menu — the seed list on bare ground, and on a growing one what
    *  is in there, how much longer, and the offer to dig it up again. */
   private clickPatch(patch: FarmPatch) {
     if (this.gameOver) return;
-    // A ripe patch answers during the wave, and the rest of the menu answers
-    // between them — so the click routes on the stage before it checks the clock.
+    // A ripe patch answers at any time, and the rest of the menu answers between
+    // waves — so the click routes on the stage before it checks the clock.
     if (patchStage(patch) === 'ready') { this.harvestPatch(patch.id); return; }
     if (this.waveActive) { this.notify('Only between waves'); return; }
     this.pendingSow = patch.id;
@@ -3414,7 +3413,6 @@ export class GameEngine {
    *  trip rather than losing it. */
   harvestPatch(patchId: string) {
     if (this.gameOver) return;
-    if (!this.waveActive) { this.notify('Only during a wave'); return; }
     const patch = this.farmPatches.find(p => p.id === patchId);
     if (!patch) return;
     const def = harvestable(patch);

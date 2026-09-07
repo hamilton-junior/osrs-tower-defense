@@ -21,13 +21,13 @@ import { drawImageContain } from './shared';
  * bought: its own item icon goes in the ground, and grows into the herb icon it
  * will hand back. A potato in a guam patch said the wrong thing.
  *
- * The two states that want a click are the two that glow, and each glows on its
- * own clock: between waves, a ring on ground that could be sown; during a wave, a
- * green contour on a ripe herb, which also lifts off its soil and settles back —
- * the harvest is the one thing here a fight has room for. Both stay inside their
- * own tile: an indicator that reached into the tile above sat on whatever the
- * player had built there. The growing count is a between-waves tell too, since
- * nothing ripens mid-fight.
+ * The two states that want a click are the two that glow: a ring on bare ground
+ * that could be sown, which only appears between waves because that is when it can
+ * be sown, and a green contour on a ripe herb, which also lifts off its soil and
+ * settles back and is drawn whenever the herb is there, because the harvest itself
+ * has no clock on it. Both stay inside their own tile: an indicator that reached
+ * into the tile above sat on whatever the player had built there. The growing
+ * count is a between-waves tell, since nothing ripens mid-fight.
  */
 
 /** How much of the tile the crop fills at each stage — the growth the player
@@ -42,7 +42,6 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   // pause would read as a broken sprite rather than a paused game.
   const t = performance.now() / 1000;
   const idle = !gr.e.waveActive && !gr.e.gameOver;
-  const fighting = gr.e.waveActive && !gr.e.gameOver;
   const soil = gr.e.imageOk('farm_soil') ? gr.e.images.get('farm_soil') : null;
 
   for (const p of patches) {
@@ -106,7 +105,7 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
         // silhouette picks up a green edge. The shadow follows the icon's alpha, so
         // the contour hugs the leaves rather than boxing the tile — and both tells
         // sit on the sprite itself, inside the plot's own square.
-        const ripe = stage === 'ready' && fighting;
+        const ripe = stage === 'ready' && !gr.e.gameOver;
         const bob = ripe ? Math.sin(t * 1.8 + p.x * 0.05) * 1.6 : 0;
         const size = GRID * CROP_SCALE[stage];
         if (ripe) {
