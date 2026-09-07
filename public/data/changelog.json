@@ -1,6 +1,20 @@
 {
-  "generatedAt": "2026-09-06",
+  "generatedAt": "2026-09-07",
   "entries": [
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "The loot bag moves inside the Inventory, and the slots are the client's own",
+      "fromFeedback": false,
+      "date": "2026-09-07"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "A ripe herb comes out of the ground whenever you click it, wave or no wave",
+      "fromFeedback": false,
+      "date": "2026-09-07"
+    },
     {
       "kind": "new",
       "scope": "game",
@@ -264,20 +278,6 @@
       "kind": "new",
       "scope": "game",
       "text": "A wizard and a slayer fuse into a staff that hits dying enemies harder and stops anything healing",
-      "fromFeedback": false,
-      "date": "2026-09-02"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "Two finished towers can now be forged into one weapon they could never be apart",
-      "fromFeedback": false,
-      "date": "2026-09-02"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The damage meter now breaks out every tower's own signature",
       "fromFeedback": false,
       "date": "2026-09-02"
     }
