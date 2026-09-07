@@ -84,7 +84,7 @@ export const LEARN_STEPS: LearnStep[] = [
     body: 'Click a tower you built to upgrade or sell it. Fighting levels it up, and higher tiers ask for a level as well as gold.',
     when: (ui) => !ui.waveActive && ui.wave === 2 },
   { id: 'gear', target: 'gear', icon: ASSETS.misc.loot_bag, title: 'Equip drops',
-    body: 'Monsters drop gear into this bag. Click a tower slot to equip it. Ammo matches the tower\'s style, jewellery fits any.',
+    body: 'Monsters drop gear into the loot bag, a tab in the Inventory. Click a slot here to equip it. Ammo matches the tower\'s style, jewellery fits any.',
     when: (ui) => ui.gameMode === 'classic' && !!ui.selectedTowerId && ui.wave >= 2 },
   { id: 'prayer', target: 'prayers', icon: ASSETS.misc.orb_prayer, title: 'Prayer',
     body: 'Toggle one to buff your towers. It drains a pool that refills between waves.',
@@ -285,7 +285,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.xp_icon, text: 'Towers level up by fighting. A tier upgrade needs that level as well as gold.' },
     { icon: ASSETS.misc.skill_smithing, text: 'Two fully upgraded towers side by side forge into one weapon. The dock tooltip lists the pairs.' },
     { icon: ASSETS.misc.magic_icon, text: 'Each monster is weak to one element or style, and the right tower hits +50%.' },
-    { icon: ASSETS.misc.loot_bag, text: 'Drops land in the loot bag on the bar. Ammo matches the style, jewellery fits any tower.' },
+    { icon: ASSETS.misc.loot_bag, text: 'Drops land in the loot bag, a tab in the Inventory. Ammo matches the style, jewellery fits any tower.' },
   ] },
   { id: 'waves', label: 'Waves', icon: ASSETS.misc.multicombat_icon, lines: [
     { icon: ASSETS.misc.multicombat_icon, text: 'The strip at the top shows what is coming. Hover a monster to scout it.' },

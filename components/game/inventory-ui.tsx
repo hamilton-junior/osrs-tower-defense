@@ -5,16 +5,20 @@ import { ASSETS } from '@/lib/game/assets';
 import type { UIState, UiStack } from '@/lib/game/core/engine';
 import type { SeedId } from '@/lib/game/data/farming';
 import type { PotionId } from '@/lib/game/data/herblore';
+import type { Tower } from '@/lib/game/types';
 import { INVENTORY_SLOTS, stackKey, type StackKind } from '@/lib/game/systems/inventory';
+import { LootBagView } from './lootbag-ui';
 import {
-  DetailPane, ItemSlot, QtyBar, ShopFrame, SlotGrid, type ShopQty, type ShopTab,
+  DetailPane, InvGrid, ItemSlot, QtyBar, ShopFrame, SlotGrid, type ShopQty, type ShopTab,
 } from './ui-kit';
 
 /**
  * The **Inventory** interface — twenty-eight slots, a bank behind them, and the
- * loot bag one tab away.
+ * loot bag on the third tab.
  *
- * It is OSRS's arrangement, and it is here for OSRS's reason: fourteen herbs plus
+ * It is OSRS's arrangement down to the pixel: a 4×7 grid of 42×36 cells on the
+ * client's own `invback` panel ({@link InvGrid}), borderless, because that is what
+ * the backpack looks like. And it is here for OSRS's reason: fourteen herbs plus
  * twenty potions is thirty-four stacks against twenty-eight slots, so by the late
  * run what to carry is a question with an answer. The inventory is what the rest
  * of the game reads — the bench brews from these slots, a herb in the bank is a
@@ -22,8 +26,9 @@ import {
  * decided before the fighting, not during it.
  *
  * The three tabs are three different bags, not three views of one: the inventory
- * holds what gets used, the bank holds the overflow, and the **loot bag** holds
- * tower gear, which is equipped rather than used and so keeps its own interface.
+ * holds what gets used, the bank holds the overflow, and the loot bag holds tower
+ * gear, which is equipped rather than used and so keeps its own page
+ * ({@link LootBagView}) inside this frame.
  *
  * Built out of the shop primitives in `ui-kit` ({@link ShopFrame},
  * {@link SlotGrid}, {@link DetailPane}, {@link QtyBar}) — the same skeleton every
@@ -35,8 +40,11 @@ export interface InventoryViewProps {
   ui: UIState;
   /** Classic only: the roguelite drops no gear, so it has no loot bag. */
   showLootBag: boolean;
-  /** Swap the bar to the loot-bag interface. */
-  onLootBag: () => void;
+  /** The board's towers, live off the engine — the loot bag equips them. */
+  towers: Tower[];
+  hoverTowerId: string | null;
+  onHoverTower: (t: Tower | null) => void;
+  onEquipGear: (towerId: string, gearId: string) => void;
   onOpenBank: () => void;
   onCloseBank: () => void;
   onDeposit: (kind: StackKind, id: string, qty: ShopQty) => void;
@@ -46,12 +54,18 @@ export interface InventoryViewProps {
 }
 
 export function InventoryView(props: InventoryViewProps) {
-  const { ui, showLootBag, onLootBag, onOpenBank, onCloseBank, onDeposit, onWithdraw } = props;
+  const {
+    ui, showLootBag, towers, hoverTowerId, onHoverTower, onEquipGear,
+    onOpenBank, onCloseBank, onDeposit, onWithdraw,
+  } = props;
   // Selection is held by what the stack *is*, not by which slot it sits in: a
   // deposit moves stacks around, and a selection that followed the slot would end
   // up pointing at whatever landed there.
   const [picked, setPicked] = useState<string | null>(null);
   const [qty, setQty] = useState<ShopQty>(1);
+  // Which page is showing. The bank is not one of them — it is engine state (a
+  // wave may not start with it open), so an open bank overrides this.
+  const [page, setPage] = useState<'inventory' | 'lootbag'>('inventory');
 
   const free = useMemo(() => ui.inventory.reduce((n, s) => n + (s ? 0 : 1), 0), [ui.inventory]);
   const sel = useMemo(
@@ -75,15 +89,38 @@ export function InventoryView(props: InventoryViewProps) {
   ];
 
   const onTab = (id: string) => {
-    if (id === 'lootbag') { if (ui.bankOpen) onCloseBank(); onLootBag(); return; }
     if (id === 'bank') { onOpenBank(); return; }
     if (ui.bankOpen) onCloseBank();
+    setPage(id === 'lootbag' ? 'lootbag' : 'inventory');
   };
+
+  /** The 28 slots, at the client's metrics. Both the inventory page and the bank's
+   *  bottom half are the same backpack, so they are the same grid. */
+  const backpack = (onSlot: (s: UiStack) => void, slotTitle: (s: UiStack) => string, selectable: boolean) => (
+    <InvGrid background={ASSETS.misc.inventory_background}>
+      {ui.inventory.map((s, i) => (
+        s
+          ? (
+            <ItemSlot
+              key={`i${i}`}
+              osrs
+              icon={s.icon}
+              name={s.name}
+              count={s.count}
+              title={slotTitle(s)}
+              selected={selectable && picked === stackKey(s.kind, s.id)}
+              onClick={() => onSlot(s)}
+            />
+          )
+          : <ItemSlot key={`i${i}`} osrs />
+      ))}
+    </InvGrid>
+  );
 
   // ─────────────────────────────── the bank ───────────────────────────────
   // OSRS's own layout: what is stored on top, what is carried underneath, and one
   // quantity serving both directions. A click in the top grid withdraws, a click
-  // in the bottom grid deposits — no drag, no menu.
+  // in the backpack deposits — no drag, no menu.
   if (ui.bankOpen) {
     return (
       <ShopFrame
@@ -111,22 +148,15 @@ export function InventoryView(props: InventoryViewProps) {
 
         <QtyBar value={qty} onChange={setQty} />
 
-        <SlotGrid cols={8} maxHeight="9em" label="Inventory" right={`${free} free`}>
-          {ui.inventory.map((s, i) => (
-            s
-              ? (
-                <ItemSlot
-                  key={`i${i}`}
-                  icon={s.icon}
-                  name={s.name}
-                  count={s.count}
-                  title={`Deposit ${s.name} — ${s.tip}`}
-                  onClick={() => onDeposit(s.kind, s.id, qty)}
-                />
-              )
-              : <ItemSlot key={`i${i}`} />
-          ))}
-        </SlotGrid>
+        <div className="flex items-center justify-between gap-2 mt-[0.5em] px-[0.2em] text-[0.78em]">
+          <span className="text-[#cdbe91] uppercase tracking-wide">Inventory</span>
+          <span className="text-osrs-yellow font-bold">{free} free</span>
+        </div>
+        {backpack(
+          (s) => onDeposit(s.kind, s.id, qty),
+          (s) => `Deposit ${s.name} — ${s.tip}`,
+          false,
+        )}
 
         <div className="mt-[0.45em] px-[0.2em] text-[0.72em] text-[#8f8158] leading-snug">
           Click the bank to withdraw, the inventory to deposit.
@@ -134,6 +164,28 @@ export function InventoryView(props: InventoryViewProps) {
         <button type="button" onClick={onCloseBank} className="rs-btn w-full mt-[0.45em] py-[0.3em] text-[0.8em]">
           Close bank
         </button>
+      </ShopFrame>
+    );
+  }
+
+  // ──────────────────────────── the loot bag ─────────────────────────────
+  if (page === 'lootbag' && showLootBag) {
+    return (
+      <ShopFrame
+        icon={ASSETS.misc.loot_bag}
+        title="Loot bag"
+        right={ui.lootBag.length > 0 ? `${ui.lootBag.length} held` : undefined}
+        tabs={tabs}
+        activeTab="lootbag"
+        onTab={onTab}
+      >
+        <LootBagView
+          bag={ui.lootBag}
+          towers={towers}
+          hoverTowerId={hoverTowerId}
+          onHoverTower={onHoverTower}
+          onEquip={onEquipGear}
+        />
       </ShopFrame>
     );
   }
@@ -148,23 +200,11 @@ export function InventoryView(props: InventoryViewProps) {
       activeTab="inventory"
       onTab={onTab}
     >
-      <SlotGrid cols={4} maxHeight="15em">
-        {ui.inventory.map((s, i) => (
-          s
-            ? (
-              <ItemSlot
-                key={`i${i}`}
-                icon={s.icon}
-                name={s.name}
-                count={s.count}
-                title={s.tip}
-                selected={picked === stackKey(s.kind, s.id)}
-                onClick={() => setPicked((cur) => (cur === stackKey(s.kind, s.id) ? null : stackKey(s.kind, s.id)))}
-              />
-            )
-            : <ItemSlot key={`i${i}`} />
-        ))}
-      </SlotGrid>
+      {backpack(
+        (s) => setPicked((cur) => (cur === stackKey(s.kind, s.id) ? null : stackKey(s.kind, s.id))),
+        (s) => s.tip,
+        true,
+      )}
 
       <DetailPane
         icon={sel?.icon}

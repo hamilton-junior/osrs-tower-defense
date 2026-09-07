@@ -511,6 +511,10 @@ export const ASSETS = {
     // priority buttons pair with a dimension icon.
     arrow_up: `${LOCAL}/ui/arrow_up.png`,
     arrow_down: `${LOCAL}/ui/arrow_down.png`,
+    // `invback` (1031) — the leather panel the client draws the backpack's 4x7 grid
+    // on. It is 190x261: the grid's 168x252 plus its border, which is what makes it
+    // the one sprite that can carry OSRS's exact slot metrics without guessing.
+    inventory_background: `${LOCAL}/ui/inventory_background.png`,
     // The game's red circle-slash (940), stamped over a tower that has been knocked
     // offline. The other cache circle-slashes are world-map key icons and carry the
     // thing being prohibited baked in; this one is the bare sign.
@@ -539,7 +543,7 @@ export const ASSETS = {
     orb_run_on: `${LOCAL}/orbs/run_energy_on.png`, // MINIMAP_ORB_RUN_ACTIVATED (1070) — run on (gold)
     prayer_icon: `${LOCAL}/misc/prayer_icon.png`,
     coins_icon: itemIcon('coins'),
-    loot_bag: itemIcon('looting_bag'), // the classic-mode loot-bag stone
+    loot_bag: itemIcon('looting_bag'), // the classic-mode loot bag, a tab in the Inventory
     // Mystic cards (the Guardians of the Rift reward) — OSRS's own pack of cards,
     // and therefore *the* icon for anything about reward cards: the roguelite, a
     // card roll, the draft. Use this rather than picking a fresh stand-in.

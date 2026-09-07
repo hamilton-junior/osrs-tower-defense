@@ -236,17 +236,22 @@ export function ShopFrame({ icon, title, right, tabs, activeTab, onTab, children
       </div>
       {tabs && tabs.length > 0 && (
         <div className="flex items-center gap-[0.25em] mt-[0.45em]">
+          {/* Icon only, the way the client's own interface tabs are: the picture is
+              the whole button, and the name lives in the tooltip. A tab with no icon
+              falls back to its label rather than rendering a blank square. */}
           {tabs.map((t) => (
             <button
               key={t.id}
               type="button"
               title={t.title ?? t.label}
+              aria-label={t.label}
               disabled={t.disabled}
               onClick={() => onTab?.(t.id)}
-              className={`rs-btn flex-1 flex items-center justify-center gap-[0.35em] py-[0.25em] text-[0.75em] ${t.id === activeTab ? 'rs-btn-primary' : ''}`}
+              className={`rs-btn flex-1 flex items-center justify-center gap-[0.3em] py-[0.25em] text-[0.75em] ${t.id === activeTab ? 'rs-btn-primary' : ''}`}
             >
-              {t.icon && <img src={t.icon} alt="" className="w-[1.15em] h-[1.15em] object-contain" onError={hideBrokenImg} />}
-              {t.label}
+              {t.icon
+                ? <img src={t.icon} alt="" className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
+                : t.label}
               {t.badge != null && t.badge > 0 && <span className="text-osrs-yellow font-bold">{t.badge}</span>}
             </button>
           ))}
@@ -283,25 +288,49 @@ export function SlotGrid({ cols, maxHeight = '13em', label, right, children }: {
   );
 }
 
+/** The twenty-eight slots at OSRS's own metrics: a 4×7 grid of 42×36 cells on the
+ *  client's `invback` panel, which is exactly 190×261 — that grid plus its border.
+ *  Every number is the client's, multiplied by `--ui-scale` in CSS, so the whole
+ *  thing grows with the UI control and nothing else about it moves.
+ *
+ *  The background comes in as a prop rather than an import, the same way
+ *  {@link Vital} takes its orb: this file stays free of the game's asset table. */
+export function InvGrid({ background, children }: { background: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="rs-inv mx-auto mt-[0.4em]"
+      style={{ '--rs-invback': `url(${background})` } as React.CSSProperties}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** One square. With no icon it is an empty slot — drawn, not skipped, because the
  *  shape of the grid is what tells the player how much room is left. */
-export function ItemSlot({ icon, name, count, selected = false, dim = false, title, onClick }: {
+export function ItemSlot({ icon, name, count, selected = false, dim = false, signature = false, osrs = false, title, onClick }: {
   icon?: string;
   name?: string;
   count?: number;
   selected?: boolean;
   dim?: boolean;
+  /** A boss's own drop: the square is marked even before it is picked. */
+  signature?: boolean;
+  /** Draw it as an {@link InvGrid} cell — OSRS's borderless 42×36 square with a
+   *  36×32 icon — instead of the panel's own bordered slot. */
+  osrs?: boolean;
   title?: string;
   onClick?: () => void;
 }) {
-  if (!icon) return <div className="rs-slot" />;
+  const base = osrs ? 'rs-inv-slot' : 'rs-slot';
+  if (!icon) return <div className={base} />;
   return (
     <button
       type="button"
       title={title ?? name}
       aria-label={name}
       onClick={onClick}
-      className={`rs-slot ${selected ? 'selected' : ''} ${dim ? 'rs-slot-unafford' : ''}`}
+      className={`${base} ${selected ? 'selected' : ''} ${signature ? 'signature' : ''} ${dim ? 'rs-slot-unafford' : ''}`}
     >
       <img src={icon} alt="" onError={hideBrokenImg} />
       {count != null && <span className={`rs-slot-count ${stackClass(count)}`}>{fmt(count)}</span>}

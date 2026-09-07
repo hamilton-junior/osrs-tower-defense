@@ -158,6 +158,12 @@ const UI_IDS = {
   // (rocks, a blob) baked into the sprite; 940 is the bare sign on transparency, so
   // it overlays a tower without dragging a second subject onto the board.
   blocked: 940,
+  // "invback" — the leather panel the client draws the inventory's 4x7 grid on
+  // (190x261, the exact size of that grid plus its border). Found by scanning the
+  // sprite index for that size; it is the only one, and nothing else in the cache
+  // is the inventory's own ground. The interface copies OSRS's metrics on top of
+  // it: 42x36 cells, item icons 36x32.
+  inventory_background: 1031,
 };
 
 /**

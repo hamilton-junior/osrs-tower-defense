@@ -35,8 +35,8 @@ import { SEEDS, SEED_BY_ID } from '@/lib/game/data/farming';
 import { POTION_BY_ID } from '@/lib/game/data/herblore';
 import { brewDamageMult } from '@/lib/game/systems/herblore';
 import { trapCost, blastProfile } from '@/lib/game/systems/hunter-traps';
-import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, towerListName, TOWER_COMBAT, towerSignature } from './tower-ui';
-import { GearHeader, GearStats, GearCompare, gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
+import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, TOWER_COMBAT, towerSignature } from './tower-ui';
+import { gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, type Victories, type DifficultyProgress } from './save';
 import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Vital, GoStat, StatLabel, Stat } from './ui-kit';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
@@ -49,7 +49,7 @@ import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
 import { ELEMENTS, ELEMENT_ORDER, ANCIENTS, ANCIENT_ORDER, SUPPORT_SPELLS, SUPPORT_ORDER, ELEMENTAL_TIER_NAMES, ANCIENT_TIER_NAMES, elementalSpellName, ancientSpellName, ancientHit, spellSpriteName } from '@/lib/game/systems/magic';
 import { MAX_PRAYER_WARDS } from '@/lib/game/systems/prayer-system';
 import { type RunSave } from '@/lib/game/systems/run-save';
-import { canEquip, towerAmmoClassFor, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/tower-gear';
+import { canEquip, towerAmmoClassFor } from '@/lib/game/systems/tower-gear';
 import { FUSION_BLOCK_TEXT, FUSION_UNLOCK_CA, fusionRecipesFor, isFusionReady } from '@/lib/game/systems/tower-fusion';
 import type { TowerType, PrayerType, MageMode, Item, Tower } from '@/lib/game/types';
 import { FEEDBACK_ENABLED } from '@/lib/game/feedback';
@@ -58,7 +58,7 @@ import { highestUnlockedTier, type DifficultyTier } from '@/lib/game/systems/dif
 /** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
  *  model — one stone per interface), or `null` for none. 'home' = the run's mode
  *  + roguelite loadout. */
-type SideTab = 'home' | 'essence' | 'slayer' | 'dps' | 'skills' | 'lootbag' | 'inventory';
+type SideTab = 'home' | 'essence' | 'slayer' | 'dps' | 'skills' | 'inventory';
 /** Label, OSRS icon, theme color and a one-line description for each enemy
  *  debuff. The color frames the icon (a RuneLite-style badge) so the five read
  *  apart at a glance; the description shows on hover in the info panel. */
@@ -175,20 +175,12 @@ export default function GameRoot() {
   useEffect(() => { setPreviewExpanded(false); }, [ui.wave]);
   const unlockIdRef = useRef(0);
   const lastUnlockSeq = useRef(0);
-  // Loot-bag drop toasts: a small stack in the corner over the bag's own stone,
+  // Loot-bag drop toasts: a small stack in the corner over the interface stones,
   // each fading itself out. Separate from the unlock popup on purpose — a piece of
   // gear is a "you picked something up", not a celebration that owns the screen.
   const [lootToasts, setLootToasts] = useState<{ id: number; item: Item }[]>([]);
   const lootToastIdRef = useRef(0);
   const lastGearSeq = useRef(0);
-  // Which loot-bag piece has its tower picker open, by bag index.
-  const [bagPick, setBagPick] = useState<number | null>(null);
-  // Both loot-bag filters default ON: the bag and the tower list are only worth
-  // reading when they are down to what would actually change something.
-  const [hideJunkGear, setHideJunkGear] = useState(() => loadBool('ui_bag_hide_junk', true));
-  const [hideDowngrades, setHideDowngrades] = useState(() => loadBool('ui_bag_hide_downgrades', true));
-  useEffect(() => { try { localStorage.setItem('ui_bag_hide_junk', JSON.stringify(hideJunkGear)); } catch { /* ignore */ } }, [hideJunkGear]);
-  useEffect(() => { try { localStorage.setItem('ui_bag_hide_downgrades', JSON.stringify(hideDowngrades)); } catch { /* ignore */ } }, [hideDowngrades]);
   // The tower row the pointer is on, so the picker's stat card can show what the
   // swap would actually change.
   const [hoverTowerId, setHoverTowerId] = useState<string | null>(null);
@@ -413,13 +405,10 @@ export default function GameRoot() {
   // out here rather than inside the view so the panel reopens where it was left —
   // a player checking their allotments between waves shouldn't have to walk back in.
   const [openSkill, setOpenSkill] = useState<SkillId | null>(null);
-  // Classic has no loadout stone (nothing is drafted), so a 'home' tab left open
+  // Classic drafts nothing, so it has no loadout stone — a 'home' tab left open
   // from a roguelite run must not survive into a classic one.
-  // 'home' (roguelite loadout) and 'lootbag' (classic gear) share the first stone,
-  // one per mode — so a mode change must close whichever no longer has a stone.
   useEffect(() => {
-    const gone: SideTab = ui.gameMode === 'classic' ? 'home' : 'lootbag';
-    setTab((cur) => (cur === gone ? null : cur));
+    if (ui.gameMode === 'classic') setTab((cur) => (cur === 'home' ? null : cur));
   }, [ui.gameMode]);
   // Drives the on-map picker's per-tick animation (cycling staves/spells).
   const [pickerHover, setPickerHover] = useState<TowerType | null>(null);
@@ -948,15 +937,11 @@ export default function GameRoot() {
   // Closing the interface (or switching stones) must not leave a tower ringed or
   // the panel faded — the pointer never gets a chance to leave the row.
   useEffect(() => {
-    if (tab === 'lootbag') return;
-    setBagPick(null);
+    if (tab === 'inventory') return;
     setDuckPanel(false);
     setHoverTowerId(null);
     highlightTower(null);
   }, [tab, highlightTower]);
-  // The bag re-indexes when a piece is equipped (and grows on a drop), so an open
-  // picker would end up pointing at a different item. Close it instead.
-  useEffect(() => { setBagPick(null); }, [ui.lootBag.length]);
   // The bank lives inside the inventory interface, so closing that interface closes
   // the bank — otherwise reopening the stone would land straight back in the bank,
   // and a wave could start with it still nominally open.
@@ -3736,187 +3721,6 @@ export default function GameRoot() {
         </>
         )}
 
-        {/* ── LOOT BAG (classic): every gear piece dropped this run, and the other
-            half of the equip flow. The tower's own slot asks "which piece?"; a
-            piece here asks "which tower?" — same picker, read from the other end,
-            so neither question forces you to walk to the other panel. It lives on
-            the first stone, the slot the roguelite gives its loadout. ── */}
-        {tab === 'lootbag' && (() => {
-          const towersOnBoard = engineRef.current?.towers ?? [];
-          // Both filters default on: a deep run's bag fills with pieces nothing
-          // wants, and every tower is listed for every piece. The useful answer is
-          // the short list — the long one stays a click away.
-          const shown = ui.lootBag
-            .map((g, i) => ({ g, i }))
-            .filter(({ g }) => !hideJunkGear || isUpgradeForAny(towersOnBoard, g));
-          const hiddenCount = ui.lootBag.length - shown.length;
-          return (
-        <>
-          <div className="rs-panel-title flex items-center gap-2">
-            <img src={ASSETS.misc.loot_bag} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-            Loot bag
-          </div>
-          {ui.lootBag.length === 0 ? (
-            <div className="mt-[0.6em] px-[0.2em] text-[0.75em] text-[#8f8158] leading-relaxed">
-              Empty. Monsters drop gear as they die, and bosses drop the signature
-              jewellery. Click a piece here, or a tower&apos;s own slot, to equip it.
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between gap-2 mt-[0.5em] px-[0.2em] text-[0.8em]">
-                <span className="text-[#cdbe91] uppercase tracking-wide">Unequipped gear</span>
-                <span className="text-osrs-yellow font-bold">
-                  {hiddenCount > 0 ? `${shown.length}/${ui.lootBag.length}` : ui.lootBag.length}
-                </span>
-              </div>
-              <label
-                className="flex items-center gap-[0.4em] mt-[0.3em] px-[0.2em] text-[0.72em] text-[#d3c3a0] cursor-pointer select-none"
-                title="Hide pieces that would not improve any tower on the board: nothing can wear them, or what those towers already wear is better"
-              >
-                <input
-                  type="checkbox"
-                  className="rs-check"
-                  checked={hideJunkGear}
-                  onChange={(e) => setHideJunkGear(e.target.checked)}
-                />
-                Hide non-upgrades
-                {hiddenCount > 0 && <span className="text-[#8a7c5c]">({hiddenCount} hidden)</span>}
-              </label>
-              {shown.length === 0 ? (
-                <div className="mt-[0.5em] px-[0.2em] text-[0.72em] text-[#8f8158] leading-snug">
-                  Nothing here would improve a tower on the board: wrong style, too
-                  high a level, or beaten by what is already worn. Untick to see it all.
-                </div>
-              ) : (
-                <div className="mt-[0.5em] flex flex-wrap gap-[0.3em]">
-                  {/* `.rs-slot` is `width: 100%; aspect-ratio: 1`, so the size has to
-                      come from a wrapper — same as the tower panel's gear slots. */}
-                  {shown.map(({ g, i }) => (
-                    <div key={i} className="w-[3em]">
-                      <HoverTip content={gearTooltip(g)}>
-                        <button
-                          type="button"
-                          aria-label={`Equip ${g.name}`}
-                          onClick={() => setBagPick((cur) => (cur === i ? null : i))}
-                          className={`rs-slot ${bagPick === i ? 'selected' : ''}`}
-                          style={g.rarity === 'signature' && bagPick !== i
-                            ? { borderColor: 'var(--osrs-yellow)' } : undefined}
-                        >
-                          <img src={GEAR_ICONS[g.id]} alt={g.name} onError={hideBrokenImg} />
-                        </button>
-                      </HoverTip>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Which tower takes this piece. A tower whose level is too low is
-                  listed but disabled, and one whose slot is full says what it
-                  would replace (equipping swaps — the old piece falls back into
-                  this bag). Hovering a row rings that tower on the board. Inline
-                  rather than a floating dropdown: this panel scrolls, and
-                  `overflow-y-auto` would clip one. */}
-              {bagPick !== null && ui.lootBag[bagPick] && (() => {
-                const g = ui.lootBag[bagPick]!;
-                const slot: 'ammo' | 'jewellery' = g.type === 'ammo' ? 'ammo' : 'jewellery';
-                const all = towersOnBoard
-                  .map((t) => ({ t, check: canEquip(t, g), upgrade: isUpgradeFor(t, g) }))
-                  .filter(({ check }) => check.ok || check.reason === 'level');
-                // Best first: a free slot, then a real gain, then the ones listed
-                // only so you can see why they are not worth it.
-                const ordered = [...all].sort((a, b) => {
-                  const rank = (x: typeof a) => (x.upgrade ? (x.t.equipment[slot] ? 1 : 0) : 2);
-                  return rank(a) - rank(b) || towerListName(a.t).localeCompare(towerListName(b.t));
-                });
-                const towers = hideDowngrades ? ordered.filter((x) => x.upgrade) : ordered;
-                const buried = ordered.length - towers.length;
-                const hovered = towers.find(({ t }) => t.id === hoverTowerId)?.t;
-                const worn = hovered?.equipment[slot];
-                return (
-                  <div className="mt-[0.5em] rs-panel-inset p-[0.5em]">
-                    {/* The picked piece's stats stay on screen for as long as the
-                        picker is open — the decision is "is this worth a slot?",
-                        and you cannot answer it from a tooltip you have to keep
-                        summoning. Hovering a tower that already wears something
-                        turns the same block into the before/after of that swap. */}
-                    <GearHeader item={g} note={worn ? `Replacing ${worn.name}` : undefined} />
-                    {g.rarity === 'signature' && g.description && (
-                      <p className="mt-[0.3em] text-[0.72em] text-[#c9b78c] leading-snug">{g.description}</p>
-                    )}
-                    <div className="mt-[0.35em]">
-                      {worn ? <GearCompare from={worn} to={g} /> : <GearStats item={g} />}
-                    </div>
-                    <div className="flex items-center justify-between gap-2 mt-[0.45em] pt-[0.35em] border-t border-[var(--rs-keyline)]">
-                      <span className="text-[0.68em] uppercase tracking-wide text-[#9d8f6a]">Equip on</span>
-                      <label
-                        className="flex items-center gap-[0.35em] text-[0.7em] text-[#d3c3a0] cursor-pointer select-none"
-                        title="Hide towers this piece would not improve: a full slot with something better in it, or a level you have not reached"
-                      >
-                        <input
-                          type="checkbox"
-                          className="rs-check"
-                          checked={hideDowngrades}
-                          onChange={(e) => setHideDowngrades(e.target.checked)}
-                        />
-                        Hide downgrades
-                        {buried > 0 && <span className="text-[#8a7c5c]">({buried})</span>}
-                      </label>
-                    </div>
-                    {towers.length === 0 ? (
-                      <div className="text-[0.7em] text-[#8a7c5c] px-[0.2em] py-[0.15em] leading-snug">
-                        {ordered.length === 0
-                          ? 'No tower on the board can take this piece.'
-                          : 'No tower would gain from it. Untick the filter to equip it anyway.'}
-                      </div>
-                    ) : (
-                      <div className="max-h-[12em] overflow-y-auto space-y-[0.1em] pr-[0.1em] mt-[0.25em]">
-                        {towers.map(({ t, check, upgrade }) => {
-                          const wornHere = t.equipment[slot];
-                          const icon = t.type === 'wizard' ? wizardStaffUrl(t) : towerIcon(t.type);
-                          return (
-                            <button
-                              key={t.id}
-                              type="button"
-                              disabled={!check.ok}
-                              onMouseEnter={() => hoverTowerRow(t)}
-                              onMouseLeave={() => hoverTowerRow(null)}
-                              onFocus={() => hoverTowerRow(t)}
-                              onBlur={() => hoverTowerRow(null)}
-                              onClick={() => {
-                                engineRef.current?.equipGear(t.id, g.id);
-                                hoverTowerRow(null);
-                                setBagPick(null);
-                              }}
-                              className={`w-full flex items-center gap-[0.4em] px-[0.3em] py-[0.25em] text-left text-[0.72em] ${
-                                check.ok ? 'hover:bg-[#3a3122] text-[#d3c3a0]' : 'opacity-45 cursor-not-allowed text-[#d3c3a0]'
-                              }`}
-                            >
-                              {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />}
-                              <span className="flex-1 truncate">{towerListName(t)}</span>
-                              {!check.ok ? (
-                                <span className="text-[0.9em] text-osrs-red whitespace-nowrap">Requires Lv {g.levelReq}</span>
-                              ) : wornHere ? (
-                                <span className={`flex items-center gap-[0.25em] text-[0.9em] whitespace-nowrap ${upgrade ? 'text-[#9d8f6a]' : 'text-[#6f6449]'}`}>
-                                  {upgrade ? 'swaps' : 'worse'}
-                                  <img src={GEAR_ICONS[wornHere.id]} alt={wornHere.name} title={wornHere.name} className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-                                </span>
-                              ) : (
-                                <span className="text-[0.9em] text-osrs-green whitespace-nowrap">empty</span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </>
-          )}
-        </>
-          );
-        })()}
-
         {/* ── DPS: the damage meter, folded into the main panel as an interface
             tab (was a floating window). The tab body already scrolls, so a long
             tower list just scrolls in place. ── */}
@@ -3932,7 +3736,10 @@ export default function GameRoot() {
           <InventoryView
             ui={ui}
             showLootBag={ui.gameMode === 'classic'}
-            onLootBag={() => setTab('lootbag')}
+            towers={engineRef.current?.towers ?? []}
+            hoverTowerId={hoverTowerId}
+            onHoverTower={hoverTowerRow}
+            onEquipGear={(towerId, gearId) => engineRef.current?.equipGear(towerId, gearId)}
             onOpenBank={() => engineRef.current?.openBank()}
             onCloseBank={() => engineRef.current?.closeBank()}
             onDeposit={(kind, id, qty) => engineRef.current?.depositStack(kind, id, qty)}
@@ -4460,17 +4267,12 @@ export default function GameRoot() {
             <div className="rs-bar-sep" />
 
             <div data-tut="stones" className="flex items-center gap-[0.4em]">
-              {/* First stone, one per mode: the roguelite's loadout (relics + boons)
-                  or classic's loot bag. Classic drafts nothing and the roguelite
-                  drops no gear, so neither stone is ever shown over an empty panel. */}
-              {ui.gameMode === 'roguelite' ? (
+              {/* The roguelite's loadout: relics and boons. Classic drafts nothing, so
+                  it has no loadout stone at all; classic's gear lives on the
+                  Inventory's loot-bag tab instead. */}
+              {ui.gameMode === 'roguelite' && (
                 <button ref={boonsTabRef} onClick={() => onSideTab('home')} title="Run loadout: relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
                   <img src={ASSETS.misc.cards_icon} alt="Run loadout" onError={hideBrokenImg} />
-                </button>
-              ) : (
-                <button onClick={() => onSideTab('lootbag')} title="Loot bag: gear dropped this run" className={`rs-tab ${tab === 'lootbag' ? 'rs-tab-on' : ''}`}>
-                  <img src={ASSETS.misc.loot_bag} alt="Loot bag" onError={hideBrokenImg} />
-                  {ui.lootBag.length > 0 && <span className="rs-tab-badge">{ui.lootBag.length}</span>}
                 </button>
               )}
               {/* The inventory sits beside the bag it now holds a tab for: one is

@@ -412,6 +412,55 @@ body {
   border-color: var(--osrs-orange);
   box-shadow: 0 0 7px rgba(255, 152, 31, 0.7), inset 2px 2px 3px rgba(0, 0, 0, 0.7);
 }
+/* A boss's own drop, marked before it is picked (the loot bag's signature gear). */
+.rs-slot.signature:not(.selected) { border-color: var(--osrs-yellow); }
+
+/* ── The inventory, at the client's own metrics ─────────────────────────────
+   OSRS draws the backpack as a 4x7 grid of 42x36 cells on `invback`, a leather
+   panel that is exactly 190x261 — that grid plus 11px of border either side and
+   4.5px top and bottom — with each item icon 36x32 inside its cell. Those are the
+   numbers here, times `--ui-scale` so the whole thing grows with the UI control.
+   The cells carry no border of their own: in OSRS the grid is the background's
+   own texture, and a box drawn around every square is a thing the client never
+   does. The panel sprite comes in through `--rs-invback` (set inline, so the
+   basePath is the app's own).                                                */
+.rs-inv {
+  --rs-cell-w: calc(42px * var(--ui-scale, 1));
+  --rs-cell-h: calc(36px * var(--ui-scale, 1));
+  width: calc(190px * var(--ui-scale, 1));
+  display: grid;
+  grid-template-columns: repeat(4, var(--rs-cell-w));
+  grid-auto-rows: var(--rs-cell-h);
+  justify-content: center;
+  padding: calc(4.5px * var(--ui-scale, 1)) calc(11px * var(--ui-scale, 1));
+  background-image: var(--rs-invback);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+.rs-inv-slot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rs-inv-slot img {
+  width: calc(36px * var(--ui-scale, 1));
+  height: calc(32px * var(--ui-scale, 1));
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.rs-inv-slot:hover img { filter: brightness(1.25); }
+/* No border to tint, so selection is the square lighting up, the way the client
+   marks a slot it is acting on. */
+.rs-inv-slot.selected { background: rgba(255, 152, 31, 0.28); box-shadow: inset 0 0 0 1px var(--osrs-orange); }
+.rs-inv-slot.signature:not(.selected) { box-shadow: inset 0 0 0 1px var(--osrs-yellow); }
+
 /* Unaffordable: dimmed but still hoverable so stats can be previewed. */
 .rs-slot-unafford { opacity: 0.5; }
 .rs-slot-unafford img { filter: grayscale(0.6); }
