@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-07",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "game",
+      "text": "The inventory's tabs are the client's own stone buttons, red under the open page",
+      "fromFeedback": false,
+      "date": "2026-09-07"
+    },
+    {
       "kind": "new",
       "scope": "game",
       "text": "The loot bag moves inside the Inventory, and the slots are the client's own",
@@ -271,13 +278,6 @@
       "kind": "fixed",
       "scope": "game",
       "text": "A 0 over an enemy now says which kind of nothing it was",
-      "fromFeedback": false,
-      "date": "2026-09-02"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "A wizard and a slayer fuse into a staff that hits dying enemies harder and stops anything healing",
       "fromFeedback": false,
       "date": "2026-09-02"
     }
