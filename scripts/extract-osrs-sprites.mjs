@@ -164,6 +164,14 @@ const UI_IDS = {
   // is the inventory's own ground. The interface copies OSRS's metrics on top of
   // it: 42x36 cells, item icons 36x32.
   inventory_background: 1031,
+  // The interface tab buttons themselves, as resizable mode draws them: a stone
+  // square per tab, grey while idle and red once that tab is the open one. Found
+  // by scanning the whole sprite index for 26-48px squares — 1180/1181 are the
+  // only pair in the cache that differs by nothing but that hue, which is what a
+  // button's two states look like. The icon is drawn on top, the way the client
+  // stamps the backpack or the prayer book onto its stone.
+  tab_stone: 1180,
+  tab_stone_on: 1181,
 };
 
 /**

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { ASSETS } from '@/lib/game/assets';
 
 /**
  * Small presentational primitives and formatters shared across the interface.
@@ -216,6 +217,51 @@ export interface ShopTab {
   disabled?: boolean;
 }
 
+/**
+ * The tab rail, built the way resizable mode builds it: one stone square per tab,
+ * flush against its neighbours, the open one wearing the red stone instead of the
+ * grey. The client's own sprites (1180 / 1181) are the whole button — there is no
+ * border or bevel of ours on top — and the tab's icon is stamped in the middle,
+ * with the name in the tooltip, because that is all a real interface tab shows.
+ *
+ * A count rides the bottom-right corner the way the client stacks a quantity, and
+ * a tab that cannot be opened right now stays on the rail, greyed: a missing stone
+ * would say the page does not exist rather than "not yet".
+ */
+function TabRail({ tabs, activeTab, onTab }: {
+  tabs: ShopTab[];
+  activeTab?: string;
+  onTab?: (id: string) => void;
+}) {
+  return (
+    <div
+      className="rs-tabrail"
+      style={{
+        '--rs-tab-off': `url(${ASSETS.misc.tab_stone})`,
+        '--rs-tab-on': `url(${ASSETS.misc.tab_stone_on})`,
+      } as React.CSSProperties}
+    >
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          title={t.title ?? t.label}
+          aria-label={t.label}
+          aria-pressed={t.id === activeTab}
+          disabled={t.disabled}
+          onClick={() => onTab?.(t.id)}
+          className={`rs-tabstone ${t.id === activeTab ? 'rs-tabstone-on' : ''}`}
+        >
+          {t.icon
+            ? <img src={t.icon} alt="" onError={hideBrokenImg} />
+            : <span className="rs-tabstone-label">{t.label}</span>}
+          {t.badge != null && t.badge > 0 && <span className="rs-tab-badge">{t.badge}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** The frame: title bar, optional tab strip, and whatever the page puts inside. */
 export function ShopFrame({ icon, title, right, tabs, activeTab, onTab, children }: {
   icon: string;
@@ -234,29 +280,7 @@ export function ShopFrame({ icon, title, right, tabs, activeTab, onTab, children
         <span className="flex-1">{title}</span>
         {right != null && <span className="text-[0.8em] text-osrs-yellow font-bold">{right}</span>}
       </div>
-      {tabs && tabs.length > 0 && (
-        <div className="flex items-center gap-[0.25em] mt-[0.45em]">
-          {/* Icon only, the way the client's own interface tabs are: the picture is
-              the whole button, and the name lives in the tooltip. A tab with no icon
-              falls back to its label rather than rendering a blank square. */}
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              title={t.title ?? t.label}
-              aria-label={t.label}
-              disabled={t.disabled}
-              onClick={() => onTab?.(t.id)}
-              className={`rs-btn flex-1 flex items-center justify-center gap-[0.3em] py-[0.25em] text-[0.75em] ${t.id === activeTab ? 'rs-btn-primary' : ''}`}
-            >
-              {t.icon
-                ? <img src={t.icon} alt="" className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
-                : t.label}
-              {t.badge != null && t.badge > 0 && <span className="text-osrs-yellow font-bold">{t.badge}</span>}
-            </button>
-          ))}
-        </div>
-      )}
+      {tabs && tabs.length > 0 && <TabRail tabs={tabs} activeTab={activeTab} onTab={onTab} />}
       {children}
     </>
   );

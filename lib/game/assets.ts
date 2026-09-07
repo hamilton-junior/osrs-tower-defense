@@ -515,6 +515,11 @@ export const ASSETS = {
     // on. It is 190x261: the grid's 168x252 plus its border, which is what makes it
     // the one sprite that can carry OSRS's exact slot metrics without guessing.
     inventory_background: `${LOCAL}/ui/inventory_background.png`,
+    // The interface tab buttons (1180 / 1181) — the stone squares resizable mode
+    // puts a tab's icon on, grey while idle and red under the open tab. 33x36 each,
+    // laid flush against one another the way the client rails them.
+    tab_stone: `${LOCAL}/ui/tab_stone.png`,
+    tab_stone_on: `${LOCAL}/ui/tab_stone_on.png`,
     // The game's red circle-slash (940), stamped over a tower that has been knocked
     // offline. The other cache circle-slashes are world-map key icons and carry the
     // thing being prohibited baked in; this one is the bare sign.

@@ -461,6 +461,57 @@ body {
 .rs-inv-slot.selected { background: rgba(255, 152, 31, 0.28); box-shadow: inset 0 0 0 1px var(--osrs-orange); }
 .rs-inv-slot.signature:not(.selected) { box-shadow: inset 0 0 0 1px var(--osrs-yellow); }
 
+/* ── The interface tab rail, as resizable mode draws it ────────────────────
+   OSRS puts each tab on its own stone square (sprite 1180, 33x36), flush against
+   its neighbours with no gap, and swaps that stone for the red one (1181) under
+   whichever tab is open. So the button *is* the stone: no border, no bevel of
+   ours, and the tab's icon stamped in the middle of it — which is why the two
+   sprites arrive through `--rs-tab-off` / `--rs-tab-on` (set inline, for the
+   app's basePath) rather than being drawn in CSS. Sized in px times
+   `--ui-scale`, like the backpack above, because the art has one true size and
+   stretching it would distort a sprite.                                      */
+.rs-tabrail {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin-top: calc(6px * var(--ui-scale, 1));
+}
+/* The rail sits *on* the panel it opens, the way the client hangs its tabs off the
+   inventory's top edge — so the backpack drops its own top margin behind one. */
+.rs-tabrail + .rs-inv { margin-top: 0; }
+.rs-tabstone {
+  position: relative;
+  width: calc(33px * var(--ui-scale, 1));
+  height: calc(36px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background-image: var(--rs-tab-off);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: filter 0.08s;
+}
+.rs-tabstone:hover:not(:disabled) { filter: brightness(1.25); }
+.rs-tabstone:disabled { filter: grayscale(0.7) brightness(0.75); cursor: not-allowed; }
+.rs-tabstone.rs-tabstone-on { background-image: var(--rs-tab-on); }
+.rs-tabstone img {
+  width: calc(22px * var(--ui-scale, 1));
+  height: calc(22px * var(--ui-scale, 1));
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+/* A tab with no icon falls back to its name, so the stone is never blank. */
+.rs-tabstone span.rs-tabstone-label {
+  font-size: calc(9px * var(--ui-scale, 1));
+  line-height: 1;
+  color: #e8dcc0;
+  text-shadow: 1px 1px 0 #000;
+}
+
 /* Unaffordable: dimmed but still hoverable so stats can be previewed. */
 .rs-slot-unafford { opacity: 0.5; }
 .rs-slot-unafford img { filter: grayscale(0.6); }
