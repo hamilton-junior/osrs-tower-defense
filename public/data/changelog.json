@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-08",
   "entries": [
     {
+      "kind": "new",
+      "scope": "game",
+      "text": "The bank opens in its own window, and the Inventory wears the client's own frame",
+      "fromFeedback": false,
+      "date": "2026-09-08"
+    },
+    {
       "kind": "updated",
       "scope": "game",
       "text": "The inventory's tabs are the client's own stone buttons, red under the open page",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "game",
       "text": "A tower silenced by one of Nex's acolytes now wears that element, and each acolyte calls out when your board has none of its own",
-      "fromFeedback": false,
-      "date": "2026-09-02"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "A 0 over an enemy now says which kind of nothing it was",
       "fromFeedback": false,
       "date": "2026-09-02"
     }
