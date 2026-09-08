@@ -147,10 +147,10 @@ export interface RunSave {
   /** The herbs drunk raw and not yet spent. The checkpoint sits in exactly the gap
    *  they are used in, so dropping them would pocket the player's herbs. */
   farmBuffs?: SeedId[];
-  /** Everything carried and everything banked. Always written — a save from before
-   *  the inventory existed kept two loose piles (`herbPouch` / `potionStock`)
-   *  instead, and {@link sanitizeRunSave} rebuilds the slots from those, so an old
-   *  Continue keeps its herbs without costing a version bump. */
+  /** Everything carried and everything the looting bag holds. Always written — a
+   *  save from before the inventory existed kept two loose piles (`herbPouch` /
+   *  `potionStock`) instead, and {@link sanitizeRunSave} rebuilds the slots from
+   *  those, so an old Continue keeps its herbs without costing a version bump. */
   items: ItemStore;
   /** The rest of the Herblore bench: the skill, the doses still running and the
    *  Saradomin brew debt. All optional, so a run written before one of them existed
@@ -218,17 +218,19 @@ const knownStack = (kind: StackKind, id: string): boolean =>
 
 /** The slots, out of whichever shape the save was written in. A save from before
  *  the inventory has two `{ id: count }` piles instead; those are poured back in
- *  one stack at a time, which fills the twenty-eight slots first and sends whatever
- *  does not fit to the bank — the same rule a harvest follows. */
+ *  one item at a time, which fills the twenty-eight slots first and sends whatever
+ *  does not fit to the looting bag — the same rule a harvest follows. A save from
+ *  the short-lived bank build carried an `items.bank` that no longer has a home;
+ *  it is dropped, and the run resumes with whatever it was actually carrying. */
 const storeFromSave = (raw: Record<string, unknown>): ItemStore => {
   if (isObj(raw.items)) {
     const inv = Array.isArray(raw.items.inv) ? raw.items.inv : [];
-    const bank = Array.isArray(raw.items.bank) ? raw.items.bank : [];
+    const bag = Array.isArray(raw.items.bag) ? raw.items.bag : [];
     const read = (v: unknown) => {
       if (!isObj(v) || typeof v.kind !== 'string' || typeof v.id !== 'string') return null;
       return { kind: v.kind as StackKind, id: v.id, count: num(v.count, 0) };
     };
-    return sanitizeStore({ inv: inv.map(read), bank: bank.map(read).filter(s => s !== null) }, knownStack);
+    return sanitizeStore({ inv: inv.map(read), bag: bag.map(read).filter(s => s !== null) }, knownStack);
   }
   const store = emptyStore();
   for (const [id, n] of Object.entries(countsOf(raw.herbPouch, SEED_BY_ID))) addItem(store, 'herb', id, n as number);

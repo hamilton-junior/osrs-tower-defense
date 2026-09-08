@@ -439,13 +439,13 @@ export interface UIState {
    *  stack like doses, but each herb appears once; the list empties every time a
    *  wave is cleared, since a herb lasts exactly one wave. */
   farmBuffs: { seedId: SeedId; herbName: string; icon: string; label: string; labelIcon: string; tip: string }[];
-  /** The twenty-eight slots, in order, with a null for every empty one. Positions
-   *  matter: a deposit leaves its hole where it was, the way OSRS does. */
+  /** The twenty-eight slots, in order, with a null for every empty one. Nothing
+   *  stacks here — every entry is one item — and positions matter: taking one out
+   *  leaves its hole where it was, the way OSRS does. */
   inventory: (UiStack | null)[];
-  /** What the bank holds. Unbounded, in the order stacks first reached it. */
-  bank: UiStack[];
-  /** Is the bank interface up? It only opens between waves. */
-  bankOpen: boolean;
+  /** The herbs and potions the looting bag holds. Unbounded and stacking, in the
+   *  order stacks first reached it. */
+  bagStacks: UiStack[];
   /** Herbs pulled and not yet spent, only the stacks actually held — the same
    *  slots as {@link inventory}, counted the way the bench reads them. A harvest
    *  fills this instead of arming a wave, so the choice between drinking a herb raw

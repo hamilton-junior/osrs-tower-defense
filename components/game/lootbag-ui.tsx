@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { ASSETS, GEAR_ICONS } from '@/lib/game/assets';
+import type { UiStack } from '@/lib/game/core/engine';
+import type { StackKind } from '@/lib/game/systems/inventory';
 import type { Item, Tower } from '@/lib/game/types';
 import { canEquip, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/tower-gear';
 import { GearCompare, GearHeader, GearStats, gearTooltip } from './gear-ui';
@@ -10,44 +12,71 @@ import { towerIcon, towerListName, wizardStaffUrl } from './tower-ui';
 import { hideBrokenImg, InvGrid, ItemSlot, loadBool } from './ui-kit';
 
 /**
- * The **loot bag** — every gear piece dropped this run, and the other half of the
- * equip flow.
+ * The **loot bag** — everything the run picked up and is not carrying: the gear
+ * that dropped, and whatever overflowed the twenty-eight slots.
  *
  * The bag itself is the backpack again: the client's own panel between its two
- * posts, four squares to a row. A real looting bag holds twenty-eight, so that is
- * how many squares one panel draws and a longer haul stacks a second panel under
- * the first — the sprite keeps its own proportions instead of being stretched to
- * whatever the run happens to be carrying.
+ * posts, four squares to a row ({@link InvGrid}). A real looting bag holds
+ * twenty-eight, so that is the height one panel draws — but this one is unbounded,
+ * so a longer haul scrolls inside that panel instead of paging. The sprite behind
+ * the squares stays put while they move, and keeps its own proportions.
+ *
+ * It stacks where the inventory does not. Two of the same gear piece are one square
+ * with a 2 on it, and every herb or potion pushed out here piles into one square,
+ * so a deep run reads as what it found rather than as a wall of repeats.
  *
  * A tower's own slot asks "which piece?"; a piece here asks "which tower?" — the
- * same picker read from the other end, so neither question makes the player walk
- * to the other panel. It is a page of the inventory interface (classic only: the
- * roguelite drops no gear), because a bag is a bag: what a run picked up belongs
- * behind the same stone as what it carries.
+ * same picker read from the other end, so neither question makes the player walk to
+ * the other panel. A herb or a potion has no such question: clicking one pulls a
+ * single item back into a free slot. The page lives inside the inventory interface
+ * (classic only: the roguelite drops no gear), because a bag is a bag.
  */
 
-/** What a looting bag holds in OSRS, and so how many squares one panel draws. */
+/** What a looting bag holds in OSRS, and so how tall one panel of it draws. */
 const BAG_SLOTS = 28;
+const COLUMNS = 4;
 
-/** Cut the shown pieces into bag-sized pages. */
-function pages<T>(all: T[]): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < all.length; i += BAG_SLOTS) out.push(all.slice(i, i + BAG_SLOTS));
+/** One square: a pile of the same gear piece, in the order the first one dropped. */
+interface GearPile {
+  item: Item;
+  count: number;
+}
+
+/** Fold repeats together. Equipping takes an id, not a position, so the pile only
+ *  ever needs one of them — and one square with a 3 on it says more than three
+ *  identical squares do. */
+function pileGear(items: Item[]): GearPile[] {
+  const out: GearPile[] = [];
+  const at = new Map<string, GearPile>();
+  for (const item of items) {
+    const held = at.get(item.id);
+    if (held) { held.count += 1; continue; }
+    const pile = { item, count: 1 };
+    at.set(item.id, pile);
+    out.push(pile);
+  }
   return out;
 }
 
 export interface LootBagViewProps {
   bag: Item[];
+  /** The herbs and potions that overflowed the inventory, or were pushed out here. */
+  stacks: UiStack[];
+  /** No free slot, so nothing can come back out right now. */
+  invFull: boolean;
   /** Read live off the engine rather than `UIState` — the picker equips real towers. */
   towers: Tower[];
   /** Which tower row the pointer is on, so the board can ring that tower. */
   hoverTowerId: string | null;
   onHoverTower: (t: Tower | null) => void;
   onEquip: (towerId: string, gearId: string) => void;
+  onTake: (kind: StackKind, id: string) => void;
 }
 
-export function LootBagView({ bag, towers: towersOnBoard, hoverTowerId, onHoverTower, onEquip }: LootBagViewProps) {
-  const [pick, setPick] = useState<number | null>(null);
+export function LootBagView({
+  bag, stacks, invFull, towers: towersOnBoard, hoverTowerId, onHoverTower, onEquip, onTake,
+}: LootBagViewProps) {
+  const [pick, setPick] = useState<string | null>(null);
   // Both filters default on: a deep run's bag fills with pieces nothing wants, and
   // every tower is listed for every piece. The useful answer is the short list —
   // the long one stays a click away.
@@ -55,31 +84,36 @@ export function LootBagView({ bag, towers: towersOnBoard, hoverTowerId, onHoverT
   const [hideDowngrades, setHideDowngrades] = useState(() => loadBool('ui_bag_hide_downgrades', true));
   useEffect(() => { try { localStorage.setItem('ui_bag_hide_junk', JSON.stringify(hideJunk)); } catch { /* ignore */ } }, [hideJunk]);
   useEffect(() => { try { localStorage.setItem('ui_bag_hide_downgrades', JSON.stringify(hideDowngrades)); } catch { /* ignore */ } }, [hideDowngrades]);
-  // The bag re-indexes when a piece is equipped (and grows on a drop), so an open
-  // picker would end up pointing at a different item. Close it instead.
-  useEffect(() => { setPick(null); }, [bag.length]);
+  // Equipping the picked piece takes it out of the bag. The picker is keyed by the
+  // piece's id rather than its position, so the rest re-ordering underneath cannot
+  // point it at something else — but a piece that is gone still closes it.
+  useEffect(() => { setPick((cur) => (cur && bag.some((g) => g.id === cur) ? cur : null)); }, [bag]);
   // Leaving this page must not leave a tower ringed on the board — the pointer
   // never gets a chance to leave the row it was on.
   useEffect(() => () => onHoverTower(null), [onHoverTower]);
 
-  if (bag.length === 0) {
+  if (bag.length === 0 && stacks.length === 0) {
     return (
       <div className="mt-[0.6em] px-[0.2em] text-[0.75em] text-[#8f8158] leading-relaxed">
         Empty. Monsters drop gear as they die, and bosses drop the signature
-        jewellery. Click a piece here, or a tower&apos;s own slot, to equip it.
+        jewellery. Whatever will not fit in the inventory waits here too.
       </div>
     );
   }
 
-  const shown = bag
-    .map((g, i) => ({ g, i }))
-    .filter(({ g }) => !hideJunk || isUpgradeForAny(towersOnBoard, g));
-  const hiddenCount = bag.length - shown.length;
+  const allPiles = pileGear(bag);
+  const piles = allPiles.filter(({ item }) => !hideJunk || isUpgradeForAny(towersOnBoard, item));
+  const hiddenCount = allPiles.length - piles.length;
+  const filled = piles.length + stacks.length;
+  // Keep the panel a full backpack tall, and every row full, so the scrolling grid
+  // stays the shape the client draws rather than a ragged half-page.
+  const padding = Math.max(BAG_SLOTS, Math.ceil(filled / COLUMNS) * COLUMNS) - filled;
+  const picked = pick ? bag.find((g) => g.id === pick) : undefined;
 
   return (
     <>
       <label
-        className="flex items-center gap-[0.4em] mt-[0.5em] px-[0.2em] text-[0.72em] text-[#d3c3a0] cursor-pointer select-none"
+        className="rs-inv-col flex flex-wrap items-center gap-[0.4em] mt-[0.5em] px-[0.2em] text-[0.72em] text-[#d3c3a0] cursor-pointer select-none"
         title="Hide pieces that would not improve any tower on the board: nothing can wear them, or what those towers already wear is better"
       >
         <input
@@ -92,39 +126,48 @@ export function LootBagView({ bag, towers: towersOnBoard, hoverTowerId, onHoverT
         {hiddenCount > 0 && <span className="text-[#8a7c5c]">({hiddenCount} hidden)</span>}
       </label>
 
-      {shown.length === 0 ? (
-        <div className="mt-[0.5em] px-[0.2em] text-[0.72em] text-[#8f8158] leading-snug">
+      {filled === 0 ? (
+        <div className="rs-inv-col mt-[0.5em] px-[0.2em] text-[0.72em] text-[#8f8158] leading-snug">
           Nothing here would improve a tower on the board: wrong style, too
           high a level, or beaten by what is already worn. Untick to see it all.
         </div>
       ) : (
-        pages(shown).map((page, p) => (
-          <InvGrid
-            key={p}
-            background={ASSETS.misc.inventory_background}
-            postLeft={ASSETS.misc.inv_post_left}
-            postRight={ASSETS.misc.inv_post_right}
-          >
-            {Array.from({ length: BAG_SLOTS }, (_, j) => {
-              const cell = page[j];
-              if (!cell) return <ItemSlot key={`e${j}`} osrs />;
-              const { g, i } = cell;
-              return (
-                <HoverTip key={i} content={gearTooltip(g)}>
-                  <ItemSlot
-                    osrs
-                    icon={GEAR_ICONS[g.id]}
-                    name={g.name}
-                    title={`Equip ${g.name}`}
-                    selected={pick === i}
-                    signature={g.rarity === 'signature'}
-                    onClick={() => setPick((cur) => (cur === i ? null : i))}
-                  />
-                </HoverTip>
-              );
-            })}
-          </InvGrid>
-        ))
+        <InvGrid
+          background={ASSETS.misc.inventory_background}
+          postLeft={ASSETS.misc.inv_post_left}
+          postRight={ASSETS.misc.inv_post_right}
+          className="rs-inv-page rs-inv-scroll"
+        >
+          {piles.map(({ item, count }) => (
+            <HoverTip key={item.id} content={gearTooltip(item)}>
+              <ItemSlot
+                osrs
+                icon={GEAR_ICONS[item.id]}
+                name={item.name}
+                count={count > 1 ? count : undefined}
+                title={`Equip ${item.name}`}
+                selected={pick === item.id}
+                signature={item.rarity === 'signature'}
+                onClick={() => setPick((cur) => (cur === item.id ? null : item.id))}
+              />
+            </HoverTip>
+          ))}
+          {/* A herb or a potion has one thing to ask, so it is a click and not a
+              picker: one comes back, into the first free square. */}
+          {stacks.map((s) => (
+            <ItemSlot
+              key={`${s.kind}:${s.id}`}
+              osrs
+              icon={s.icon}
+              name={s.name}
+              count={s.count}
+              dim={invFull}
+              title={invFull ? 'Inventory full' : `Take one ${s.name}`}
+              onClick={() => onTake(s.kind, s.id)}
+            />
+          ))}
+          {Array.from({ length: padding }, (_, j) => <ItemSlot key={`e${j}`} osrs />)}
+        </InvGrid>
       )}
 
       {/* Which tower takes this piece. A tower whose level is too low is listed but
@@ -132,8 +175,8 @@ export function LootBagView({ bag, towers: towersOnBoard, hoverTowerId, onHoverT
           swaps — the old piece falls back into this bag). Hovering a row rings that
           tower on the board. Inline rather than a floating dropdown: this panel
           scrolls, and `overflow-y-auto` would clip one. */}
-      {pick !== null && bag[pick] && (() => {
-        const g = bag[pick]!;
+      {picked && (() => {
+        const g = picked;
         const slot: 'ammo' | 'jewellery' = g.type === 'ammo' ? 'ammo' : 'jewellery';
         const all = towersOnBoard
           .map((t) => ({ t, check: canEquip(t, g), upgrade: isUpgradeFor(t, g) }))
@@ -149,7 +192,7 @@ export function LootBagView({ bag, towers: towersOnBoard, hoverTowerId, onHoverT
         const hovered = towers.find(({ t }) => t.id === hoverTowerId)?.t;
         const worn = hovered?.equipment[slot];
         return (
-          <div className="mt-[0.5em] rs-panel-inset p-[0.5em]">
+          <div className="rs-inv-col mt-[0.5em] rs-panel-inset p-[0.5em]">
             {/* The picked piece's stats stay on screen for as long as the picker is
                 open — the decision is "is this worth a slot?", and you cannot answer
                 it from a tooltip you have to keep summoning. Hovering a tower that

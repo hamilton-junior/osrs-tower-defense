@@ -179,25 +179,6 @@ const UI_IDS = {
   // reads as a bag hung on a frame rather than a floating rectangle.
   inv_post_left: 1175,
   inv_post_right: 1176,
-  // The bank's own tab plates, 40x36: dark while idle, lit while that tab is the
-  // open one. Same pair-by-hue test as the interface stones above.
-  bank_tab: 1120,
-  bank_tab_on: 1121,
-  // The rounded 35x25 plates the bank draws its quantity row on (1 / 5 / 10 / X /
-  // All), light and dark.
-  bank_button: 1110,
-  bank_button_on: 1111,
-  // The chest-with-a-green-arrow button: "deposit everything you carry". 26x35,
-  // and the one in the cache pointing *down into* the chest (1106 is its orange
-  // withdraw twin).
-  bank_deposit: 1108,
-  // The bordered X plate every OSRS window closes with, 21x21.
-  window_close: 535,
-  window_close_on: 536,
-  // The world map's bank marker — the gold pound sign the map stamps on every
-  // bank booth. It sits in the map's function-icon block (1448-1538, all 15x15);
-  // 1453 is the sixth of them, found by dumping the block and reading the sheet.
-  map_bank: 1453,
 };
 
 /**

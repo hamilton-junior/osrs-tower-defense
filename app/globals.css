@@ -487,126 +487,26 @@ body {
 .rs-invframe::before { background-image: var(--rs-post-left); }
 .rs-invframe::after { background-image: var(--rs-post-right); }
 
-/* ── The bank, at the client's own metrics ─────────────────────────────────
-   OSRS's bank is a titled window: the counts top-left, the name across the
-   middle, the close X top-right, a row of tab plates, the stored items eight to
-   a row, and the quantity buttons under them. Every piece of chrome here is the
-   client's own sprite at its native size (tab plates 1120/1121 at 40x36, the
-   quantity plates 1110/1111 at 35x25, the deposit chest 1108 at 26x35, the
-   close box 535/536 at 21x21), times `--ui-scale`.
-
-   The stored grid is the one part with no sprite behind it, because the client
-   has none either — it draws that area as flat ground and stamps the item icons
-   on it. Stretching `invback` to eight columns would distort a sprite, so the
-   flat ground is both the faithful answer and the honest one; the backpack half
-   below keeps its real panel.                                                */
-.rs-bank {
-  width: fit-content;
-  margin: 0 auto;
-  user-select: none;
-}
-.rs-bank-head {
-  display: flex;
-  align-items: center;
-  gap: calc(6px * var(--ui-scale, 1));
-  padding-bottom: calc(3px * var(--ui-scale, 1));
-}
-.rs-bank-count {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-  font-size: calc(10px * var(--ui-scale, 1));
-  text-shadow: 1px 1px 0 #000;
-}
-.rs-bank-count b { color: var(--osrs-yellow); font-weight: normal; }
-.rs-bank-count i { color: #7ce0ff; font-style: normal; }
-.rs-bank-name {
-  flex: 1;
-  text-align: center;
-  color: var(--osrs-orange);
-  font-size: calc(13px * var(--ui-scale, 1));
-  text-shadow: 1px 1px 0 #000;
-}
-.rs-bank-close {
-  flex: none;
-  width: calc(21px * var(--ui-scale, 1));
-  height: calc(21px * var(--ui-scale, 1));
-  padding: 0;
-  border: 0;
-  background: var(--rs-close) no-repeat;
-  background-size: 100% 100%;
-  image-rendering: pixelated;
-  cursor: pointer;
-}
-.rs-bank-close:hover { background-image: var(--rs-close-on); }
-.rs-bank-tabs { display: flex; gap: 0; }
-.rs-bank-tab {
-  width: calc(40px * var(--ui-scale, 1));
-  height: calc(36px * var(--ui-scale, 1));
-  padding: 0;
-  border: 0;
-  background-image: var(--rs-bank-tab);
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  image-rendering: pixelated;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.rs-bank-tab.rs-bank-tab-on { background-image: var(--rs-bank-tab-on); }
-.rs-bank-tab:hover { filter: brightness(1.2); }
-.rs-bank-tab img {
-  width: calc(24px * var(--ui-scale, 1));
-  height: calc(24px * var(--ui-scale, 1));
-  object-fit: contain;
-  image-rendering: pixelated;
-}
-.rs-bank-scroll {
-  max-height: calc(252px * var(--ui-scale, 1));
+/* The loot bag is the same panel, but unbounded: past twenty-eight it scrolls
+   inside one backpack rather than stacking a second one. The panel keeps its own
+   261px height (4.5px of border, seven 36px rows, 4.5px again), and the sprite
+   behind the squares stays still while they move — `background-attachment` is
+   `scroll`, which paints the background against the box and not the content.   */
+.rs-invframe.rs-inv-scroll > .rs-inv {
+  height: calc(261px * var(--ui-scale, 1));
   overflow-y: auto;
-  background: #4a4136;
-  box-shadow: inset 0 0 0 1px #000;
+  scrollbar-width: thin;
+  scrollbar-color: #6f6449 transparent;
 }
-.rs-bank-grid {
-  display: grid;
-  grid-template-columns: repeat(8, calc(42px * var(--ui-scale, 1)));
-  grid-auto-rows: calc(36px * var(--ui-scale, 1));
+
+/* Everything the loot-bag page stacks above or below the backpack keeps the
+   backpack's own width — 190px of panel between two 26px posts — so the page reads
+   as one column of the client's chrome, instead of a sentence's worth of invisible
+   panel with the squares floating in the middle of it.                          */
+.rs-inv-col {
+  width: calc(242px * var(--ui-scale, 1));
+  margin-inline: auto;
 }
-.rs-bank-foot {
-  display: flex;
-  align-items: center;
-  gap: calc(2px * var(--ui-scale, 1));
-  padding-top: calc(3px * var(--ui-scale, 1));
-}
-.rs-bank-btn {
-  width: calc(35px * var(--ui-scale, 1));
-  height: calc(25px * var(--ui-scale, 1));
-  padding: 0;
-  border: 0;
-  background-image: var(--rs-bank-btn);
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  image-rendering: pixelated;
-  color: #e8dcc0;
-  font-size: calc(11px * var(--ui-scale, 1));
-  text-shadow: 1px 1px 0 #000;
-  cursor: pointer;
-}
-.rs-bank-btn:hover { filter: brightness(1.15); }
-/* The client marks the live quantity by lighting its plate and turning the number
-   red — the same two-sprite state the tab plates use. */
-.rs-bank-btn.rs-bank-btn-on { background-image: var(--rs-bank-btn-on); color: var(--osrs-red); }
-.rs-bank-dep {
-  width: calc(26px * var(--ui-scale, 1));
-  height: calc(35px * var(--ui-scale, 1));
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-}
-.rs-bank-dep img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
-.rs-bank-dep:hover img { filter: brightness(1.2); }
 
 /* ── The interface tab rail, as resizable mode draws it ────────────────────
    OSRS puts each tab on its own stone square (sprite 1180, 33x36), flush against
@@ -850,8 +750,7 @@ body {
 /* The Inventory pages carry the client's own chrome already — the `invback`
    panel, a wooden post down each side, and the stone rail under it. A wood box
    around that is a second frame the client never draws, so the backpack pages
-   drop it: no wall, no bevel, no padding, only OSRS's own sprites. The bank
-   keeps the box, because a bank window *is* a framed window in the client. */
+   drop it: no wall, no bevel, no padding, only OSRS's own sprites. */
 .rs-tab-body.rs-tab-bare {
   background: none;
   border: 0;

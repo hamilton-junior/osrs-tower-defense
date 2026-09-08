@@ -112,10 +112,10 @@ export const LEARN_STEPS: LearnStep[] = [
     body: 'The Inventory stone holds 28 slots. Everything you harvest or brew lands there.',
     when: (ui) => !ui.waveActive && ui.inventory.some((s) => s !== null) },
   // Fires the first time something actually overflowed, which is the only moment
-  // the bank is a thing that happened rather than a thing that might.
-  { id: 'bank', target: 'stones', icon: ASSETS.misc.bank_chest, title: 'The bank caught it',
-    body: 'A full inventory sends the rest to the bank. Open it from the Inventory, between waves.',
-    when: (ui) => !ui.waveActive && ui.bank.length > 0 },
+  // the loot bag is a thing that happened rather than a thing that might.
+  { id: 'overflow', target: 'stones', icon: ASSETS.misc.loot_bag, title: 'The loot bag caught it',
+    body: 'A full inventory sends the rest to the loot bag. Take one back once a slot frees up.',
+    when: (ui) => !ui.waveActive && ui.bagStacks.length > 0 },
   // The bench tip is about a choice, and there is no choice to explain until the
   // player is holding a herb.
   { id: 'herblore', target: 'stones', icon: ASSETS.misc.skill_herblore, title: 'Brew it or drink it',
@@ -269,7 +269,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },
     { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
     { icon: ASSETS.misc.inventory_icon, text: 'The Inventory stone is your 28 slots. Herbs and potions live there.' },
-    { icon: ASSETS.misc.bank_chest, text: 'Fill all 28 and the rest goes to the bank. It opens between waves, from the Inventory.' },
+    { icon: ASSETS.misc.loot_bag, text: 'Fill all 28 and the rest goes to the loot bag, the second tab of the Inventory.' },
     { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows goes into your inventory.' },
     { icon: ASSETS.misc.farming_icon, text: 'A ripe allotment glows green. Click it any time to pull the herb.' },
     { icon: ASSETS.misc.farming_icon, text: 'Move an allotment for free, or buy another. Each one costs double the last.' },

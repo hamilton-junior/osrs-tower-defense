@@ -20,7 +20,6 @@ import { tipHeader, WavePreviewCard, DRAFT_FLY_MS, WaveEventChip } from './wave-
 import type { BiomeId } from '@/lib/game/data/biomes';
 import { TravelCardView } from './travel-ui';
 import { CARD_BY_ID, BOON_GROUP_META, SYNERGY_CARD_ID, MAGE_CARD_ID, RelicStrip, RunBuild, BuyCardRoll, RelicCardView, OwnedRelicTray, type BoonGroupId, type BoonSource } from './relics-ui';
-import { BankWindow } from './bank-ui';
 import { CollectionLog, type LogTab } from './collection-log';
 import { weaknessTag, enemySpriteStyle } from './enemy-ui';
 import { StartScreen } from './start-screen';
@@ -119,7 +118,7 @@ const INITIAL: UIState = {
   diversions: [],
   traps: [], selectedTrapId: null, hunterLevel: 1, hunterXp: 0, hunterXpNeeded: 10, maxTraps: 1,
   farmPatches: [], pendingSow: null, movingPatchId: null, placingPlot: false, plotCost: 1000, farmBuffs: [],
-  inventory: Array.from({ length: 28 }, () => null), bank: [], bankOpen: false,
+  inventory: Array.from({ length: 28 }, () => null), bagStacks: [],
   herbPouch: [], potionStock: [], herbloreLevel: 3, herbloreXp: 0, herbloreXpNeeded: 10, activePotions: [],
   brewStacks: 0,
 };
@@ -943,13 +942,6 @@ export default function GameRoot() {
     setHoverTowerId(null);
     highlightTower(null);
   }, [tab, highlightTower]);
-  // The bank lives inside the inventory interface, so closing that interface closes
-  // the bank — otherwise reopening the stone would land straight back in the bank,
-  // and a wave could start with it still nominally open.
-  useEffect(() => {
-    if (tab !== 'inventory') engineRef.current?.closeBank();
-  }, [tab]);
-
   // Fit the board box to its container: the largest LOGIC-aspect rectangle that
   // fits, recomputed whenever the window (and thus the game area) changes. This is
   // the *only* place the layout reacts to size — and it sizes the presentation box,
@@ -3106,19 +3098,6 @@ export default function GameRoot() {
         />
       )}
 
-      {/* The bank, a window of its own over the board the way OSRS opens it —
-          not a page of the Inventory panel. The Inventory's third stone is the
-          switch; the engine keeps it shut once a wave is running. */}
-      {ui.bankOpen && (
-        <BankWindow
-          ui={ui}
-          onWithdraw={(kind, id, qty) => engineRef.current?.withdrawStack(kind, id, qty)}
-          onDeposit={(kind, id, qty) => engineRef.current?.depositStack(kind, id, qty)}
-          onClose={() => engineRef.current?.closeBank()}
-          globalLock={uiLocked}
-        />
-      )}
-
       {/* Collection Log / Boss Log — lifetime kills per enemy, account-wide. */}
       {logOpen && (
         <CollectionLog
@@ -3743,9 +3722,9 @@ export default function GameRoot() {
         {/* ── SKILLS: what every skill this run has going on, in one place. It
             mirrors the board — every button here is a button that already exists
             out there — so nothing moves out of the world and into a menu. ── */}
-        {/* ── INVENTORY: the twenty-eight slots, the loot bag one tab across,
-            and a third stone that opens the bank in its own window. Everything a
-            run carries is in here, and the Herblore bench reads these slots. ── */}
+        {/* ── INVENTORY: the twenty-eight slots, and the loot bag one tab across
+            holding everything that did not fit. Everything a run carries is in
+            here, and the Herblore bench reads these slots. ── */}
         {tab === 'inventory' && (
           <InventoryView
             ui={ui}
@@ -3754,8 +3733,8 @@ export default function GameRoot() {
             hoverTowerId={hoverTowerId}
             onHoverTower={hoverTowerRow}
             onEquipGear={(towerId, gearId) => engineRef.current?.equipGear(towerId, gearId)}
-            onOpenBank={() => engineRef.current?.openBank()}
-            onCloseBank={() => engineRef.current?.closeBank()}
+            onStoreStack={(kind, id) => engineRef.current?.storeInBag(kind, id)}
+            onTakeStack={(kind, id) => engineRef.current?.takeFromBag(kind, id)}
             onUseHerb={(id) => engineRef.current?.useHerb(id)}
             onBrewPotion={(id) => engineRef.current?.brewPotion(id)}
             onDrinkPotion={(id) => engineRef.current?.drinkPotion(id)}
@@ -4290,10 +4269,12 @@ export default function GameRoot() {
               )}
               {/* The inventory sits beside the bag it now holds a tab for: one is
                   what gets used, the other what gets equipped. The badge counts the
-                  bank, since the slots themselves are on the panel. */}
-              <button onClick={() => onSideTab('inventory')} title="Inventory: what this run carries, and the bank" className={`rs-tab ${tab === 'inventory' ? 'rs-tab-on' : ''}`}>
+                  loot bag, since the slots themselves are on the panel. */}
+              <button onClick={() => onSideTab('inventory')} title="Inventory: what this run carries, and the loot bag" className={`rs-tab ${tab === 'inventory' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.inventory_icon} alt="Inventory" onError={hideBrokenImg} />
-                {ui.bank.length > 0 && <span className="rs-tab-badge">{ui.bank.length}</span>}
+                {ui.lootBag.length + ui.bagStacks.length > 0 && (
+                  <span className="rs-tab-badge">{ui.lootBag.length + ui.bagStacks.length}</span>
+                )}
               </button>
               {/* The Stats tab icon is OSRS's own symbol for "your skills", so it
                   heads the Skills interface, and the DPS meter — which is damage,

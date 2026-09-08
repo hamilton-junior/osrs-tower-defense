@@ -71,8 +71,8 @@ import {
   type ActivePotion, type HerbPouch, type PotionStock,
 } from '../systems/herblore';
 import {
-  addItem, countsOfKind, deposit, emptyStore, freeSlots, invCount, takeItem, withdraw,
-  type ItemStore, type MoveQty, type Stack, type StackKind,
+  addItem, countsOfKind, emptyStore, freeSlots, invCount, takeItem, toBag, toInv,
+  type ItemStore, type Stack, type StackKind,
 } from '../systems/inventory';
 import { multiplyStyleMods, scaleAllStyles, type StyleMods } from '../systems/style-mods';
 import {
@@ -420,15 +420,12 @@ export class GameEngine {
   }
 
   // ---------------------------------------------------------------- inventory
-  /** Everything the run carries and everything it has stored: twenty-eight slots,
-   *  and a bank behind them for the overflow. The inventory is what the rest of
-   *  the game reads — a herb in the bank is a herb left at home — and a harvest
-   *  with no room goes to the bank rather than being dropped. See
-   *  systems/inventory for the rules. */
+  /** Everything the run carries and everything it has stored: twenty-eight slots
+   *  that never stack, and the looting bag behind them for the overflow. The
+   *  inventory is what the rest of the game reads — a herb in the bag is a herb
+   *  left at home — and a harvest with no room goes to the bag rather than being
+   *  dropped. See systems/inventory for the rules. */
   items: ItemStore = emptyStore();
-  /** Is the bank interface open? What to carry is a loadout decision, so the bank
-   *  only opens between waves, and starting one closes it. */
-  bankOpen = false;
 
   // ----------------------------------------------------------------- herblore
   /** Herbs carried, keyed the way the bench reads them. Derived from the slots
@@ -717,7 +714,7 @@ export class GameEngine {
     }
   }
 
-  /** One carried or banked stack as the interface draws it. The engine is the only
+  /** One carried or stored stack as the interface draws it. The engine is the only
    *  side that knows a 'guam' is a Guam leaf and which icon that is, so the name and
    *  the picture are attached here rather than looked up again in React. */
   private uiStack(s: Stack): UiStack {
@@ -866,8 +863,7 @@ export class GameEngine {
         };
       }),
       inventory: this.items.inv.map(s => (s ? this.uiStack(s) : null)),
-      bank: this.items.bank.map(s => this.uiStack(s)),
-      bankOpen: this.bankOpen,
+      bagStacks: this.items.bag.map(s => this.uiStack(s)),
       herbPouch: this.uiHerbPouch(),
       potionStock: this.uiPotionStock(),
       herbloreLevel: this.herbloreLevel,
@@ -3409,8 +3405,8 @@ export class GameEngine {
    *  what to do with it — spend it raw for one wave, or brew it into something
    *  that lasts several — is the choice Herblore exists to offer, and a herb that
    *  armed itself on the way out of the ground would have made it already. With no
-   *  slot free it goes to the bank instead, so a full inventory costs the herb a
-   *  trip rather than losing it. */
+   *  slot free it goes to the looting bag instead, so a full inventory costs the
+   *  herb a trip rather than losing it. */
   harvestPatch(patchId: string) {
     if (this.gameOver) return;
     const patch = this.farmPatches.find(p => p.id === patchId);
@@ -3423,46 +3419,27 @@ export class GameEngine {
     const where = addItem(this.items, 'herb', def.id);
     this.herbsHarvested += 1;
     this.sound.play('farm_harvest');
-    this.notify(`${def.herbName} to the ${where === 'bank' ? 'bank' : 'inventory'}`, def.herbIcon);
+    this.notify(`${def.herbName} to the ${where === 'bag' ? 'loot bag' : 'inventory'}`, def.herbIcon);
     this.emit();
   }
 
   // ---------------------------------------------------------------- inventory
-  // Twenty-eight slots and a bank behind them. See systems/inventory for the rules;
-  // the engine's whole job here is when the bank may be opened and what it says
-  // when a move is refused.
+  // Twenty-eight slots that never stack, and the looting bag behind them. See
+  // systems/inventory for the rules; the engine's whole job here is moving one
+  // stack across that line and saying so when a move is refused.
 
-  /** Open the bank. What to carry into a wave is a loadout decision, so the bank
-   *  is a between-waves interface, like the seed menu and the bench. */
-  openBank() {
-    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
-    if (this.bankOpen) return;
-    this.bankOpen = true;
-    this.sound.play('interface_open');
-    this.emit();
-  }
-
-  closeBank() {
-    if (!this.bankOpen) return;
-    this.bankOpen = false;
-    this.sound.play('interface_close');
-    this.emit();
-  }
-
-  /** Store some of a carried stack. Silent when nothing moves — a click on an
-   *  empty stack is a misclick, not something to announce. */
-  depositStack(kind: StackKind, id: string, qty: MoveQty) {
-    if (!this.bankOpen) return;
-    if (deposit(this.items, kind, id, qty) < 1) return;
+  /** Send a whole carried stack to the looting bag. Silent when nothing moves — a
+   *  click on something no longer carried is a misclick, not news. */
+  storeInBag(kind: StackKind, id: string) {
+    if (toBag(this.items, kind, id, 'all') < 1) return;
     this.sound.play('click');
     this.emit();
   }
 
-  /** Take some back out. A full inventory refuses it outright, and that one does
-   *  need saying: the button looked live and nothing happened. */
-  withdrawStack(kind: StackKind, id: string, qty: MoveQty) {
-    if (!this.bankOpen) return;
-    if (withdraw(this.items, kind, id, qty) < 1) {
+  /** Pull one back out of the bag. A full inventory refuses it outright, and that
+   *  one does need saying: the slot looked live and nothing happened. */
+  takeFromBag(kind: StackKind, id: string) {
+    if (toInv(this.items, kind, id, 1) < 1) {
       if (freeSlots(this.items) < 1) this.notify('Inventory full');
       return;
     }
@@ -3511,14 +3488,14 @@ export class GameEngine {
     if (def.herb) takeItem(this.items, 'herb', def.herb);
     if (def.potionInput) takeItem(this.items, 'potion', def.potionInput);
     this.money -= def.cost;
-    // The herb it just spent usually frees the slot the potion lands in — but not
-    // when that herb was a stack of several, so the brew can still overflow.
+    // The herb it just spent frees the slot the potion lands in, so this normally
+    // cannot overflow — but the store decides that, not this line.
     const where = addItem(this.items, 'potion', potionId);
     const gain = gainHerbloreXp(this.herbloreLevel, this.herbloreXp, def.xp);
     this.herbloreLevel = gain.level;
     this.herbloreXp = gain.xp;
     this.sound.play('farm_harvest');
-    this.notify(where === 'bank' ? `${def.name} brewed, to the bank` : `${def.name} brewed`, def.icon);
+    this.notify(where === 'bag' ? `${def.name} brewed, to the loot bag` : `${def.name} brewed`, def.icon);
     if (gain.levels > 0) {
       this.sound.play('level_up');
       this.notify(`Herblore level ${gain.level}`, ASSETS.misc.skill_herblore);
@@ -3577,7 +3554,6 @@ export class GameEngine {
     // to be dealt with, and it never gets in the way of the wave.
     this.diversions = [];
     this.pendingSow = null; // the seed menu is a between-waves interface
-    this.bankOpen = false;   // and so is the bank
     this.steadySaid = false; // a new wave may say the Antipoison held again
     const configs = computeWaveConfigs(this);
     // A boss wave stays the headline act — no event rolls on it (see wave-events).
@@ -3931,7 +3907,7 @@ export class GameEngine {
       // slots from those, so an old Continue keeps its herbs.
       items: {
         inv: this.items.inv.map(s => (s ? { ...s } : null)),
-        bank: this.items.bank.map(s => ({ ...s })),
+        bag: this.items.bag.map(s => ({ ...s })),
       },
       herbloreLevel: this.herbloreLevel,
       herbloreXp: this.herbloreXp,
@@ -4055,9 +4031,8 @@ export class GameEngine {
     this.farmBuffs = [...(save.farmBuffs ?? [])];
     this.items = {
       inv: save.items.inv.map(s => (s ? { ...s } : null)),
-      bank: save.items.bank.map(s => ({ ...s })),
+      bag: save.items.bag.map(s => ({ ...s })),
     };
-    this.bankOpen = false;
     this.herbloreLevel = save.herbloreLevel ?? HERBLORE_START_LEVEL;
     this.herbloreXp = save.herbloreXp ?? 0;
     this.activePotions = (save.activePotions ?? []).map(a => ({ ...a }));
@@ -4210,7 +4185,6 @@ export class GameEngine {
     this.herbsHarvested = 0;
     this.farmBuffs = [];
     this.items = emptyStore();
-    this.bankOpen = false;
     this.herbloreLevel = HERBLORE_START_LEVEL;
     this.herbloreXp = 0;
     this.activePotions = [];
@@ -4310,7 +4284,7 @@ export class GameEngine {
   /** One of every herb. Same reason as debugGiveGear: the bench is otherwise
    *  thirty waves of farming away, and a random handful would make "does the
    *  Zamorak row work" a coin flip. Fourteen herbs is half the inventory, which is
-   *  also the fastest way to see the bank take an overflow. */
+   *  also the fastest way to see the looting bag take an overflow. */
   debugGiveHerbs() {
     for (const s of SEEDS) addItem(this.items, 'herb', s.id);
     this.notify(`${SEEDS.length} herbs added`, ASSETS.misc.skill_herblore);
