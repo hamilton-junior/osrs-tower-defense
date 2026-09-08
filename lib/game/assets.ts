@@ -520,6 +520,26 @@ export const ASSETS = {
     // laid flush against one another the way the client rails them.
     tab_stone: `${LOCAL}/ui/tab_stone.png`,
     tab_stone_on: `${LOCAL}/ui/tab_stone_on.png`,
+    // The wooden posts the resizeable client stands the backpack between (1175 /
+    // 1176), 26x261 — `invback`'s own height, so the three sprites tile into one
+    // panel at their native sizes and none of them is ever stretched.
+    inv_post_left: `${LOCAL}/ui/inv_post_left.png`,
+    inv_post_right: `${LOCAL}/ui/inv_post_right.png`,
+    // The bank's chrome, at the client's metrics: its tab plates (1120 / 1121,
+    // 40x36, lit under the open tab), the rounded plates its quantity row sits on
+    // (1110 / 1111, 35x25), the deposit-everything chest (1108, 26x35) and the X
+    // every OSRS window closes with (535 / 536, 21x21).
+    bank_tab: `${LOCAL}/ui/bank_tab.png`,
+    bank_tab_on: `${LOCAL}/ui/bank_tab_on.png`,
+    bank_button: `${LOCAL}/ui/bank_button.png`,
+    bank_button_on: `${LOCAL}/ui/bank_button_on.png`,
+    bank_deposit: `${LOCAL}/ui/bank_deposit.png`,
+    window_close: `${LOCAL}/ui/window_close.png`,
+    window_close_on: `${LOCAL}/ui/window_close_on.png`,
+    // The world map's bank marker (1453, 15x15) — the gold pound sign the map puts
+    // on a bank booth. It names the bank everywhere the interface does, because it
+    // is what a player already reads as "bank" on the map.
+    map_bank: `${LOCAL}/ui/map_bank.png`,
     // The game's red circle-slash (940), stamped over a tower that has been knocked
     // offline. The other cache circle-slashes are world-map key icons and carry the
     // thing being prohibited baked in; this one is the bare sign.

@@ -1,17 +1,23 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { GEAR_ICONS } from '@/lib/game/assets';
+import { ASSETS, GEAR_ICONS } from '@/lib/game/assets';
 import type { Item, Tower } from '@/lib/game/types';
 import { canEquip, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/tower-gear';
 import { GearCompare, GearHeader, GearStats, gearTooltip } from './gear-ui';
 import { HoverTip } from './HoverTip';
 import { towerIcon, towerListName, wizardStaffUrl } from './tower-ui';
-import { hideBrokenImg, ItemSlot, loadBool, SlotGrid } from './ui-kit';
+import { hideBrokenImg, InvGrid, ItemSlot, loadBool } from './ui-kit';
 
 /**
  * The **loot bag** — every gear piece dropped this run, and the other half of the
  * equip flow.
+ *
+ * The bag itself is the backpack again: the client's own panel between its two
+ * posts, four squares to a row. A real looting bag holds twenty-eight, so that is
+ * how many squares one panel draws and a longer haul stacks a second panel under
+ * the first — the sprite keeps its own proportions instead of being stretched to
+ * whatever the run happens to be carrying.
  *
  * A tower's own slot asks "which piece?"; a piece here asks "which tower?" — the
  * same picker read from the other end, so neither question makes the player walk
@@ -19,6 +25,16 @@ import { hideBrokenImg, ItemSlot, loadBool, SlotGrid } from './ui-kit';
  * roguelite drops no gear), because a bag is a bag: what a run picked up belongs
  * behind the same stone as what it carries.
  */
+
+/** What a looting bag holds in OSRS, and so how many squares one panel draws. */
+const BAG_SLOTS = 28;
+
+/** Cut the shown pieces into bag-sized pages. */
+function pages<T>(all: T[]): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < all.length; i += BAG_SLOTS) out.push(all.slice(i, i + BAG_SLOTS));
+  return out;
+}
 
 export interface LootBagViewProps {
   bag: Item[];
@@ -82,25 +98,33 @@ export function LootBagView({ bag, towers: towersOnBoard, hoverTowerId, onHoverT
           high a level, or beaten by what is already worn. Untick to see it all.
         </div>
       ) : (
-        <SlotGrid
-          cols={4}
-          maxHeight="13em"
-          label="Unequipped gear"
-          right={hiddenCount > 0 ? `${shown.length}/${bag.length}` : bag.length}
-        >
-          {shown.map(({ g, i }) => (
-            <HoverTip key={i} content={gearTooltip(g)}>
-              <ItemSlot
-                icon={GEAR_ICONS[g.id]}
-                name={g.name}
-                title={`Equip ${g.name}`}
-                selected={pick === i}
-                signature={g.rarity === 'signature'}
-                onClick={() => setPick((cur) => (cur === i ? null : i))}
-              />
-            </HoverTip>
-          ))}
-        </SlotGrid>
+        pages(shown).map((page, p) => (
+          <InvGrid
+            key={p}
+            background={ASSETS.misc.inventory_background}
+            postLeft={ASSETS.misc.inv_post_left}
+            postRight={ASSETS.misc.inv_post_right}
+          >
+            {Array.from({ length: BAG_SLOTS }, (_, j) => {
+              const cell = page[j];
+              if (!cell) return <ItemSlot key={`e${j}`} osrs />;
+              const { g, i } = cell;
+              return (
+                <HoverTip key={i} content={gearTooltip(g)}>
+                  <ItemSlot
+                    osrs
+                    icon={GEAR_ICONS[g.id]}
+                    name={g.name}
+                    title={`Equip ${g.name}`}
+                    selected={pick === i}
+                    signature={g.rarity === 'signature'}
+                    onClick={() => setPick((cur) => (cur === i ? null : i))}
+                  />
+                </HoverTip>
+              );
+            })}
+          </InvGrid>
+        ))
       )}
 
       {/* Which tower takes this piece. A tower whose level is too low is listed but

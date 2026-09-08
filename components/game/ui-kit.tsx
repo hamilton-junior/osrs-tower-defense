@@ -262,12 +262,16 @@ function TabRail({ tabs, activeTab, onTab }: {
   );
 }
 
-/** The frame: title bar, optional tab strip, and whatever the page puts inside. */
-export function ShopFrame({ icon, title, right, tabs, activeTab, onTab, children }: {
-  icon: string;
-  title: string;
-  /** The one number that belongs beside the title — gold held, slots free. */
-  right?: React.ReactNode;
+/**
+ * The frame: the page, and the tab rail under it.
+ *
+ * No title bar. The interface opens *upward* out of a stone in the bottom bar, so
+ * its own rail belongs on the bottom edge — the stones stay where the click came
+ * from and the panel grows away from them. Nothing is left to caption either: the
+ * lit stone says which page is open, and every count the title used to carry now
+ * rides the tab it counts.
+ */
+export function ShopFrame({ tabs, activeTab, onTab, children }: {
   tabs?: ShopTab[];
   activeTab?: string;
   onTab?: (id: string) => void;
@@ -275,64 +279,46 @@ export function ShopFrame({ icon, title, right, tabs, activeTab, onTab, children
 }) {
   return (
     <>
-      <div className="rs-panel-title flex items-center gap-2">
-        <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-        <span className="flex-1">{title}</span>
-        {right != null && <span className="text-[0.8em] text-osrs-yellow font-bold">{right}</span>}
-      </div>
-      {tabs && tabs.length > 0 && <TabRail tabs={tabs} activeTab={activeTab} onTab={onTab} />}
       {children}
-    </>
-  );
-}
-
-/** The stock: a fixed-column grid of squares in its own scroll box, so a shop
- *  that grows past the panel scrolls rather than shoving the buttons off-screen. */
-export function SlotGrid({ cols, maxHeight = '13em', label, right, children }: {
-  cols: number;
-  maxHeight?: string;
-  label?: string;
-  right?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      {(label || right != null) && (
-        <div className="flex items-center justify-between gap-2 mt-[0.5em] px-[0.2em] text-[0.78em]">
-          <span className="text-[#cdbe91] uppercase tracking-wide">{label}</span>
-          {right != null && <span className="text-osrs-yellow font-bold">{right}</span>}
-        </div>
-      )}
-      <div className="rs-panel-inset mt-[0.3em] p-[0.3em] overflow-y-auto" style={{ maxHeight }}>
-        <div className="grid gap-[0.25em]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-          {children}
-        </div>
-      </div>
+      {tabs && tabs.length > 0 && <TabRail tabs={tabs} activeTab={activeTab} onTab={onTab} />}
     </>
   );
 }
 
 /** The twenty-eight slots at OSRS's own metrics: a 4×7 grid of 42×36 cells on the
- *  client's `invback` panel, which is exactly 190×261 — that grid plus its border.
- *  Every number is the client's, multiplied by `--ui-scale` in CSS, so the whole
- *  thing grows with the UI control and nothing else about it moves.
+ *  client's `invback` panel, which is exactly 190×261 — that grid plus its border —
+ *  standing between the two wooden posts resizeable mode frames it with, each 26×261
+ *  and so exactly as tall as the panel. Every number is the client's, multiplied by
+ *  `--ui-scale` in CSS, so the whole thing grows with the UI control and nothing
+ *  else about it moves; no sprite is ever scaled off its own proportions.
  *
- *  The background comes in as a prop rather than an import, the same way
+ *  The three sprites come in as props rather than imports, the same way
  *  {@link Vital} takes its orb: this file stays free of the game's asset table. */
-export function InvGrid({ background, children }: { background: string; children: React.ReactNode }) {
+export function InvGrid({ background, postLeft, postRight, className = '', children }: {
+  background: string;
+  postLeft: string;
+  postRight: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div
-      className="rs-inv mx-auto mt-[0.4em]"
-      style={{ '--rs-invback': `url(${background})` } as React.CSSProperties}
+      className={`rs-invframe ${className}`}
+      style={{
+        '--rs-post-left': `url(${postLeft})`,
+        '--rs-post-right': `url(${postRight})`,
+      } as React.CSSProperties}
     >
-      {children}
+      <div className="rs-inv" style={{ '--rs-invback': `url(${background})` } as React.CSSProperties}>
+        {children}
+      </div>
     </div>
   );
 }
 
 /** One square. With no icon it is an empty slot — drawn, not skipped, because the
  *  shape of the grid is what tells the player how much room is left. */
-export function ItemSlot({ icon, name, count, selected = false, dim = false, signature = false, osrs = false, title, onClick }: {
+export function ItemSlot({ icon, name, count, selected = false, dim = false, signature = false, osrs = false, title, onClick, onContextMenu }: {
   icon?: string;
   name?: string;
   count?: number;
@@ -344,7 +330,9 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
    *  36×32 icon — instead of the panel's own bordered slot. */
   osrs?: boolean;
   title?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
+  /** Right-click the square. The inventory opens its Choose Option menu here. */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const base = osrs ? 'rs-inv-slot' : 'rs-slot';
   if (!icon) return <div className={base} />;
@@ -354,6 +342,7 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
       title={title ?? name}
       aria-label={name}
       onClick={onClick}
+      onContextMenu={onContextMenu}
       className={`${base} ${selected ? 'selected' : ''} ${signature ? 'signature' : ''} ${dim ? 'rs-slot-unafford' : ''}`}
     >
       <img src={icon} alt="" onError={hideBrokenImg} />
@@ -362,84 +351,5 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
   );
 }
 
-/** The detail strip: what is selected, the one line that says what it does, and
- *  its buttons. With nothing selected it shows the hint instead, so the strip
- *  never collapses and the buttons never move. */
-export function DetailPane({ icon, name, line, hint, children }: {
-  icon?: string;
-  name?: string;
-  line?: string;
-  /** Shown when nothing is selected. */
-  hint: string;
-  children?: React.ReactNode;
-}) {
-  if (!name) {
-    return (
-      <div className="rs-panel-inset mt-[0.5em] p-[0.5em] text-[0.75em] text-[#8f8158] leading-snug">
-        {hint}
-      </div>
-    );
-  }
-  return (
-    <div className="rs-panel-inset mt-[0.5em] p-[0.5em]">
-      <div className="flex items-center gap-[0.5em]">
-        {icon && <img src={icon} alt="" className="w-[1.6em] h-[1.6em] object-contain shrink-0" onError={hideBrokenImg} />}
-        <div className="min-w-0">
-          <div className="text-osrs-yellow font-bold text-[0.85em] truncate">{name}</div>
-          {line && <div className="text-[0.72em] text-[#d3c3a0] leading-snug">{line}</div>}
-        </div>
-      </div>
-      {children && <div className="flex items-center gap-[0.3em] mt-[0.45em]">{children}</div>}
-    </div>
-  );
-}
-
 /** How many a click moves. OSRS's own row, X included. */
 export type ShopQty = number | 'all';
-
-export function QtyBar({ value, onChange, label = 'Quantity' }: {
-  value: ShopQty;
-  onChange: (q: ShopQty) => void;
-  label?: string;
-}) {
-  const [custom, setCustom] = useState(25);
-  const preset = (n: ShopQty, text: string) => (
-    <button
-      key={text}
-      type="button"
-      onClick={() => onChange(n)}
-      className={`rs-btn px-[0.55em] py-[0.15em] text-[0.72em] ${value === n ? 'rs-btn-primary' : ''}`}
-    >
-      {text}
-    </button>
-  );
-  const customOn = typeof value === 'number' && value !== 1 && value !== 5 && value !== 10;
-  return (
-    <div className="flex items-center gap-[0.3em] mt-[0.4em] px-[0.2em]">
-      <span className="text-[0.7em] text-[#8f8158] uppercase tracking-wide mr-auto">{label}</span>
-      {preset(1, '1')}
-      {preset(5, '5')}
-      {preset(10, '10')}
-      <button
-        type="button"
-        onClick={() => onChange(Math.max(1, custom))}
-        className={`rs-btn px-[0.55em] py-[0.15em] text-[0.72em] ${customOn ? 'rs-btn-primary' : ''}`}
-      >
-        X
-      </button>
-      <input
-        type="number"
-        min={1}
-        value={custom}
-        onChange={(e) => {
-          const n = Math.max(1, Math.floor(Number(e.target.value) || 1));
-          setCustom(n);
-          if (customOn) onChange(n);
-        }}
-        className="rs-num w-[3.2em] text-[0.72em]"
-        aria-label="Custom quantity"
-      />
-      {preset('all', 'All')}
-    </div>
-  );
-}

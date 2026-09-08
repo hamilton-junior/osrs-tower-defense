@@ -20,6 +20,7 @@ import { tipHeader, WavePreviewCard, DRAFT_FLY_MS, WaveEventChip } from './wave-
 import type { BiomeId } from '@/lib/game/data/biomes';
 import { TravelCardView } from './travel-ui';
 import { CARD_BY_ID, BOON_GROUP_META, SYNERGY_CARD_ID, MAGE_CARD_ID, RelicStrip, RunBuild, BuyCardRoll, RelicCardView, OwnedRelicTray, type BoonGroupId, type BoonSource } from './relics-ui';
+import { BankWindow } from './bank-ui';
 import { CollectionLog, type LogTab } from './collection-log';
 import { weaknessTag, enemySpriteStyle } from './enemy-ui';
 import { StartScreen } from './start-screen';
@@ -3105,6 +3106,19 @@ export default function GameRoot() {
         />
       )}
 
+      {/* The bank, a window of its own over the board the way OSRS opens it —
+          not a page of the Inventory panel. The Inventory's third stone is the
+          switch; the engine keeps it shut once a wave is running. */}
+      {ui.bankOpen && (
+        <BankWindow
+          ui={ui}
+          onWithdraw={(kind, id, qty) => engineRef.current?.withdrawStack(kind, id, qty)}
+          onDeposit={(kind, id, qty) => engineRef.current?.depositStack(kind, id, qty)}
+          onClose={() => engineRef.current?.closeBank()}
+          globalLock={uiLocked}
+        />
+      )}
+
       {/* Collection Log / Boss Log — lifetime kills per enemy, account-wide. */}
       {logOpen && (
         <CollectionLog
@@ -3461,7 +3475,7 @@ export default function GameRoot() {
           key={tab}
           ref={tabBodyRef}
           onContextMenu={(e) => { e.preventDefault(); setTab(null); }}
-          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 ${tab === 'skills' || (tab === 'inventory' && ui.bankOpen) ? 'w-[clamp(24em,46vw,40em)]' : 'w-[clamp(20em,34vw,30em)]'} max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${duckPanel ? ' rs-duck' : ''}`}
+          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 ${tab === 'skills' ? 'w-[clamp(24em,46vw,40em)]' : 'w-[clamp(20em,34vw,30em)]'} max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${tab === 'inventory' ? ' rs-tab-bare' : ''}${duckPanel ? ' rs-duck' : ''}`}
         >
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
@@ -3729,9 +3743,9 @@ export default function GameRoot() {
         {/* ── SKILLS: what every skill this run has going on, in one place. It
             mirrors the board — every button here is a button that already exists
             out there — so nothing moves out of the world and into a menu. ── */}
-        {/* ── INVENTORY: the twenty-eight slots, the bank behind them, and the
-            loot bag one tab across. Everything a run carries is in here, and the
-            Herblore bench reads these same slots. ── */}
+        {/* ── INVENTORY: the twenty-eight slots, the loot bag one tab across,
+            and a third stone that opens the bank in its own window. Everything a
+            run carries is in here, and the Herblore bench reads these slots. ── */}
         {tab === 'inventory' && (
           <InventoryView
             ui={ui}
@@ -3742,9 +3756,8 @@ export default function GameRoot() {
             onEquipGear={(towerId, gearId) => engineRef.current?.equipGear(towerId, gearId)}
             onOpenBank={() => engineRef.current?.openBank()}
             onCloseBank={() => engineRef.current?.closeBank()}
-            onDeposit={(kind, id, qty) => engineRef.current?.depositStack(kind, id, qty)}
-            onWithdraw={(kind, id, qty) => engineRef.current?.withdrawStack(kind, id, qty)}
             onUseHerb={(id) => engineRef.current?.useHerb(id)}
+            onBrewPotion={(id) => engineRef.current?.brewPotion(id)}
             onDrinkPotion={(id) => engineRef.current?.drinkPotion(id)}
           />
         )}

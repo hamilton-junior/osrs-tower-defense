@@ -461,6 +461,153 @@ body {
 .rs-inv-slot.selected { background: rgba(255, 152, 31, 0.28); box-shadow: inset 0 0 0 1px var(--osrs-orange); }
 .rs-inv-slot.signature:not(.selected) { box-shadow: inset 0 0 0 1px var(--osrs-yellow); }
 
+/* ── The frame the resizeable client hangs the backpack on ─────────────────
+   Modern mode stands the inventory between two wooden posts (sprites 1175 and
+   1176), each 26x261 — exactly `invback`'s height. So the panel is three
+   sprites laid side by side at their own sizes: post, bag, post. None of them is
+   ever stretched, and the backpack stops floating on bare wood. The posts arrive
+   through `--rs-post-left` / `--rs-post-right`, set inline for the app's own
+   basePath, the same way the panel behind the grid does.                     */
+.rs-invframe {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  width: fit-content;
+  margin: calc(6px * var(--ui-scale, 1)) auto 0;
+}
+.rs-invframe::before,
+.rs-invframe::after {
+  content: '';
+  flex: none;
+  width: calc(26px * var(--ui-scale, 1));
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+.rs-invframe::before { background-image: var(--rs-post-left); }
+.rs-invframe::after { background-image: var(--rs-post-right); }
+
+/* ── The bank, at the client's own metrics ─────────────────────────────────
+   OSRS's bank is a titled window: the counts top-left, the name across the
+   middle, the close X top-right, a row of tab plates, the stored items eight to
+   a row, and the quantity buttons under them. Every piece of chrome here is the
+   client's own sprite at its native size (tab plates 1120/1121 at 40x36, the
+   quantity plates 1110/1111 at 35x25, the deposit chest 1108 at 26x35, the
+   close box 535/536 at 21x21), times `--ui-scale`.
+
+   The stored grid is the one part with no sprite behind it, because the client
+   has none either — it draws that area as flat ground and stamps the item icons
+   on it. Stretching `invback` to eight columns would distort a sprite, so the
+   flat ground is both the faithful answer and the honest one; the backpack half
+   below keeps its real panel.                                                */
+.rs-bank {
+  width: fit-content;
+  margin: 0 auto;
+  user-select: none;
+}
+.rs-bank-head {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale, 1));
+  padding-bottom: calc(3px * var(--ui-scale, 1));
+}
+.rs-bank-count {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  font-size: calc(10px * var(--ui-scale, 1));
+  text-shadow: 1px 1px 0 #000;
+}
+.rs-bank-count b { color: var(--osrs-yellow); font-weight: normal; }
+.rs-bank-count i { color: #7ce0ff; font-style: normal; }
+.rs-bank-name {
+  flex: 1;
+  text-align: center;
+  color: var(--osrs-orange);
+  font-size: calc(13px * var(--ui-scale, 1));
+  text-shadow: 1px 1px 0 #000;
+}
+.rs-bank-close {
+  flex: none;
+  width: calc(21px * var(--ui-scale, 1));
+  height: calc(21px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  background: var(--rs-close) no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+.rs-bank-close:hover { background-image: var(--rs-close-on); }
+.rs-bank-tabs { display: flex; gap: 0; }
+.rs-bank-tab {
+  width: calc(40px * var(--ui-scale, 1));
+  height: calc(36px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  background-image: var(--rs-bank-tab);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.rs-bank-tab.rs-bank-tab-on { background-image: var(--rs-bank-tab-on); }
+.rs-bank-tab:hover { filter: brightness(1.2); }
+.rs-bank-tab img {
+  width: calc(24px * var(--ui-scale, 1));
+  height: calc(24px * var(--ui-scale, 1));
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.rs-bank-scroll {
+  max-height: calc(252px * var(--ui-scale, 1));
+  overflow-y: auto;
+  background: #4a4136;
+  box-shadow: inset 0 0 0 1px #000;
+}
+.rs-bank-grid {
+  display: grid;
+  grid-template-columns: repeat(8, calc(42px * var(--ui-scale, 1)));
+  grid-auto-rows: calc(36px * var(--ui-scale, 1));
+}
+.rs-bank-foot {
+  display: flex;
+  align-items: center;
+  gap: calc(2px * var(--ui-scale, 1));
+  padding-top: calc(3px * var(--ui-scale, 1));
+}
+.rs-bank-btn {
+  width: calc(35px * var(--ui-scale, 1));
+  height: calc(25px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  background-image: var(--rs-bank-btn);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  color: #e8dcc0;
+  font-size: calc(11px * var(--ui-scale, 1));
+  text-shadow: 1px 1px 0 #000;
+  cursor: pointer;
+}
+.rs-bank-btn:hover { filter: brightness(1.15); }
+/* The client marks the live quantity by lighting its plate and turning the number
+   red — the same two-sprite state the tab plates use. */
+.rs-bank-btn.rs-bank-btn-on { background-image: var(--rs-bank-btn-on); color: var(--osrs-red); }
+.rs-bank-dep {
+  width: calc(26px * var(--ui-scale, 1));
+  height: calc(35px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.rs-bank-dep img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.rs-bank-dep:hover img { filter: brightness(1.2); }
+
 /* ── The interface tab rail, as resizable mode draws it ────────────────────
    OSRS puts each tab on its own stone square (sprite 1180, 33x36), flush against
    its neighbours with no gap, and swaps that stone for the red one (1181) under
@@ -476,9 +623,16 @@ body {
   gap: 0;
   margin-top: calc(6px * var(--ui-scale, 1));
 }
-/* The rail sits *on* the panel it opens, the way the client hangs its tabs off the
-   inventory's top edge — so the backpack drops its own top margin behind one. */
-.rs-tabrail + .rs-inv { margin-top: 0; }
+/* The rail hangs off the panel's *bottom* edge: the interface opens upward out of a
+   stone in the bottom bar, so its own stones sit where the click came from. The
+   backpack above drops the gap, so the rail rests on it the way the client's tabs
+   rest on the inventory. */
+.rs-invframe + .rs-tabrail { margin-top: 0; }
+/* A page that is only the backpack is 242px wide — the panel plus its two posts —
+   so the panel holding it hugs the frame instead of keeping the width the text
+   pages need, otherwise the squares float in a hand's width of empty wood on
+   either side. */
+.rs-tab-body:has(> .rs-inv-page) { width: fit-content; }
 .rs-tabstone {
   position: relative;
   width: calc(33px * var(--ui-scale, 1));
@@ -633,11 +787,76 @@ body {
   line-height: 1;
   pointer-events: none;
 }
+/* On a rail stone the count is the tab's own number — slots in use, gear held —
+   so it sits across the bottom of the icon rather than hanging off a corner, and
+   reads a size up from the bar's little corner badges. */
+.rs-tabstone .rs-tab-badge {
+  left: 0;
+  right: 0;
+  bottom: calc(1px * var(--ui-scale, 1));
+  text-align: center;
+  font-size: 0.7em;
+}
+
+/* ── The Choose Option menu ────────────────────────────────────────────────
+   OSRS's own right-click box: a black-edged brown panel, "Choose Option" over a
+   rule, one line per thing that can be done, Cancel last. The verb is white and
+   what it acts on is the client's item orange. It is painted onto document.body
+   through a portal, so it carries its own font size off `--ui-scale` rather than
+   inheriting one from the panel it was opened over.                          */
+.rs-menu {
+  position: fixed;
+  z-index: 2100;
+  min-width: 9em;
+  background: #5d5447;
+  border: 1px solid #000;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+  padding-bottom: 1px;
+  user-select: none;
+}
+.rs-menu-title {
+  color: #fff;
+  font-size: 0.95em;
+  line-height: 1.35;
+  padding: 0.15em 0.4em;
+  border-bottom: 1px solid #000;
+  text-shadow: 1px 1px 0 #000;
+}
+.rs-menu-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.12em 0.4em;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: 0.95em;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-shadow: 1px 1px 0 #000;
+  cursor: pointer;
+}
+.rs-menu-row:hover:not(:disabled) { background: rgba(255, 255, 255, 0.18); }
+.rs-menu-row:disabled { color: #a39a89; cursor: not-allowed; }
+.rs-menu-target { color: #ff9040; }
+.rs-menu-row:disabled .rs-menu-target { color: #9a7a56; }
+.rs-menu-why { color: #b0a894; font-size: 0.82em; }
 
 /* Soft fade + slight slide-up when the sidebar tab body switches. The wrapper is
    keyed by the active tab, so React re-mounts it on each change and replays this. */
 .rs-tab-body {
   animation: rs-tab-in 160ms ease-out both;
+}
+/* The Inventory pages carry the client's own chrome already — the `invback`
+   panel, a wooden post down each side, and the stone rail under it. A wood box
+   around that is a second frame the client never draws, so the backpack pages
+   drop it: no wall, no bevel, no padding, only OSRS's own sprites. The bank
+   keeps the box, because a bank window *is* a framed window in the client. */
+.rs-tab-body.rs-tab-bare {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
 }
 @keyframes rs-tab-in {
   from { opacity: 0; transform: translateY(4px); }
