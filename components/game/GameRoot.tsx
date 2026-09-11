@@ -568,6 +568,16 @@ export default function GameRoot() {
     };
   }, []);
 
+  // The CSS above refuses a native drag on every sprite; this refuses it everywhere
+  // else — a text selection, a link, a browser that does not honour `-webkit-user-drag`.
+  // The game has no drag-and-drop of its own, so nothing legitimate is ever cancelled,
+  // and a drag that never starts cannot leave the page unclickable.
+  useEffect(() => {
+    const noDrag = (e: DragEvent) => e.preventDefault();
+    window.addEventListener('dragstart', noDrag, true);
+    return () => window.removeEventListener('dragstart', noDrag, true);
+  }, []);
+
   useEffect(() => {
     if (!canvasRef.current) return;
     const engine = new GameEngine(canvasRef.current, (patch) => setUi((prev) => ({ ...prev, ...patch })), loadSave());

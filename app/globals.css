@@ -82,6 +82,18 @@ body {
   object-fit: contain;
 }
 
+/* Nothing here is dragged the browser's way. The game uses no HTML5 drag-and-drop,
+   and a native drag only gets in the way: while one runs, Chrome routes every mouse
+   event to the drag session instead of to the page, so a session that never gets its
+   drop leaves the board running but unclickable — and reloading does not clear it,
+   because the stuck session belongs to the browser rather than to us. Players found
+   it by dragging a sprite around the board. */
+img,
+a,
+canvas {
+  -webkit-user-drag: none;
+}
+
 /* OSRS Button - Standard Button Style */
 .osrs-button {
   background: linear-gradient(to bottom, #5d5245, #3e3529);
