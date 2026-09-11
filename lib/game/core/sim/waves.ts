@@ -508,7 +508,7 @@ export function moveEnemies(eng: GameEngine, dt: number) {
         }
         // Name the price out loud. The flash alone said "something got through";
         // it never said a boss had just taken five lives off the total.
-        eng.notify(`${e.name} escaped: ${cost} ${cost === 1 ? 'life' : 'lives'}`, ASSETS.misc.hp_icon);
+        eng.notify(`${e.name} escaped, −${cost} ${cost === 1 ? 'life' : 'lives'}`, ASSETS.misc.hp_icon);
         eng.baseFlash = 1;
         eng.sound.play('base_hit', 90); // player taking damage with no armour (OSRS take-damage splat)
         eng.checkLethal();
