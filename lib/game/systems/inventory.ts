@@ -31,15 +31,16 @@
 
 import type { SeedId } from '../data/farming';
 import type { PotionId } from '../data/herblore';
+import type { FishId } from '../data/fishing';
 
 /** OSRS's own twenty-eight, less the square the looting bag itself sits in: the bag
  *  is an item in the backpack now, not a page beside it, so twenty-seven squares are
  *  left to carry with. */
 export const INVENTORY_SLOTS = 27;
 
-/** The two things that can sit in a slot today. Tower gear is deliberately absent
- *  from this store: it rides in the looting bag as an `Item`, which the engine owns. */
-export type StackKind = 'herb' | 'potion';
+/** What a stack is. Herbs and potions come out of Farming and Herblore; food is
+ *  the fish Fishing pulls out of the water, and the only stack that pays lives. */
+export type StackKind = 'herb' | 'potion' | 'food';
 
 /** A stack of one thing. In the inventory `count` is always 1 — nothing stacks
  *  there — and in the bag it is however many piled up. `id` is a {@link SeedId} for
@@ -72,7 +73,7 @@ export function parseKey(key: string): { kind: StackKind; id: string } | null {
   if (cut < 1) return null;
   const kind = key.slice(0, cut);
   const id = key.slice(cut + 1);
-  if ((kind !== 'herb' && kind !== 'potion') || !id) return null;
+  if ((kind !== 'herb' && kind !== 'potion' && kind !== 'food') || !id) return null;
   return { kind, id };
 }
 
@@ -176,7 +177,7 @@ export function toInv(store: ItemStore, kind: StackKind, id: string, qty: MoveQt
 /** Everything carried, as counts per id of one kind — the shape the older skill
  *  code reads (a `HerbPouch`, a `PotionStock`). Built fresh on each call, so a
  *  caller that needs it more than once should hold on to the result. */
-export function countsOfKind<K extends SeedId | PotionId>(
+export function countsOfKind<K extends SeedId | PotionId | FishId>(
   store: ItemStore, kind: StackKind, base: Record<K, number>,
 ): Record<K, number> {
   const out = { ...base };

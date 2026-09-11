@@ -256,3 +256,21 @@ describe('sanitizeStore', () => {
     expect(invCount(clean, 'herb', 'guam')).toBe(0);
   });
 });
+
+describe('food stacks', () => {
+  it('parses a food key back out', () => {
+    expect(parseKey(stackKey('food', 'shark'))).toEqual({ kind: 'food', id: 'shark' });
+  });
+
+  it('rejects a key with no kind the game knows', () => {
+    expect(parseKey('rune:shark')).toBeNull();
+  });
+
+  it('carries a fish in the inventory like anything else', () => {
+    const store = emptyStore();
+    addItem(store, 'food', 'shark', 2);
+    expect(countsOfKind(store, 'food', { shrimps: 0, trout: 0, lobster: 0, shark: 0, manta_ray: 0 }).shark).toBe(2);
+    expect(takeItem(store, 'food', 'shark')).toBe(true);
+    expect(countsOfKind(store, 'food', { shrimps: 0, trout: 0, lobster: 0, shark: 0, manta_ray: 0 }).shark).toBe(1);
+  });
+});
