@@ -4,6 +4,20 @@
     {
       "kind": "updated",
       "scope": "game",
+      "text": "The backpack is the modern client's, ringed in stone with pale corner caps",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Dragging on the board no longer freezes the game on Chrome",
+      "fromFeedback": false,
+      "date": "2026-09-10"
+    },
+    {
+      "kind": "updated",
+      "scope": "game",
       "text": "The looting bag is the inventory's last slot, and the backpack opens over its own stone",
       "fromFeedback": false,
       "date": "2026-09-10"
@@ -264,20 +278,6 @@
       "kind": "new",
       "scope": "game",
       "text": "An archer and a cannon fuse into a bow whose shot runs the whole road, hitting everyone on it",
-      "fromFeedback": false,
-      "date": "2026-09-03"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "A silenced tower now wears the spell's impact, not its orb — blood runs down it and smoke curls off it",
-      "fromFeedback": false,
-      "date": "2026-09-03"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "A tower an acolyte silenced now wears that Ancient's own spell, looping over it",
       "fromFeedback": false,
       "date": "2026-09-03"
     }
