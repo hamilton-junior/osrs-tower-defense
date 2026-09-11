@@ -55,6 +55,9 @@ export interface HunterTrap {
   charges: number;
   /** Seconds until it can fire again. */
   rearm: number;
+  /** `snare` only: the enemies this trap has already gripped, so it never
+   *  spends a second charge holding the same one. See {@link snareTargets}. */
+  held?: string[];
 }
 
 /**
@@ -184,6 +187,36 @@ export function trapTriggeredBy(
 ): boolean {
   if (trap.charges <= 0 || trap.rearm > 0) return false;
   return Math.hypot(trap.x - enemy.x, trap.y - enemy.y) <= TRAP_TRIGGER_RADIUS;
+}
+
+/**
+ * Everything a snare grips this frame.
+ *
+ * A snare is a rope on the ground, not a gun. What it does is hold whatever is
+ * standing in it, so the thing it caught is still standing on it while the hold
+ * lasts — and holding something already held is not a second catch. The trap
+ * writes down what it has gripped and never spends another charge on the same
+ * enemy: a bird snare holds for twice as long as the rearm, so without that
+ * memory all three charges landed on the first enemy to arrive and the trap was
+ * gone before the rest of the pack reached it.
+ *
+ * The same pass takes every fresh enemy standing on it, up to the charges left.
+ * One trap holding two enemies at once is the point of laying it in front of a
+ * group.
+ */
+export function snareTargets<T extends { id: string; x: number; y: number; spawnAnim?: number }>(
+  trap: { x: number; y: number; rearm: number; charges: number; held?: readonly string[] },
+  enemies: readonly T[],
+): T[] {
+  const out: T[] = [];
+  if (trap.charges <= 0) return out;
+  for (const e of enemies) {
+    if (out.length >= trap.charges) break;
+    if ((e.spawnAnim ?? 0) > 0) continue;
+    if (trap.held?.includes(e.id)) continue;
+    if (trapTriggeredBy(trap, e)) out.push(e);
+  }
+  return out;
 }
 
 /**

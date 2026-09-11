@@ -7,6 +7,7 @@ import {
   chinBlastDamage,
   enemiesInBlast,
   gainHunterXp,
+  snareTargets,
   trapTriggeredBy,
   type HunterTrap,
 } from '../../systems/hunter-traps';
@@ -39,6 +40,13 @@ export function updateTraps(eng: GameEngine, dt: number) {
     if (trap.rearm > 0) trap.rearm = Math.max(0, trap.rearm - dt);
     if (trap.charges <= 0 || trap.rearm > 0) continue;
     const def = HUNTER_TRAP_BY_ID[trap.defId];
+    // A snare holds rather than removes, so it runs its own pass: it grips several
+    // enemies at once and never re-grips one it is already holding.
+    if (def.kind === 'snare') {
+      springSnare(eng, trap, def);
+      if (trap.charges <= 0) spent = true;
+      continue;
+    }
     // One trap answers one tread per firing, so a pack crossing it is worn down
     // rather than deleted — except a chinchompa, whose whole point is the pack.
     const stepped = eng.enemies.find(e => (e.spawnAnim ?? 0) <= 0 && trapTriggeredBy(trap, e));
@@ -59,29 +67,55 @@ export function updateTraps(eng: GameEngine, dt: number) {
 }
 
 /**
+ * Spring a snare on everything fresh standing in it.
+ *
+ * The other two kinds take their target off the board, so their tile is clear again
+ * on the next frame. A snare leaves the thing it caught exactly where it is — which
+ * made "one target per firing, then rearm" spend every charge on the same enemy,
+ * because the hold outlasts the rearm and that enemy was still standing there. So a
+ * snare spends one charge per *enemy*, writes down who it has gripped, and takes the
+ * whole pack in one pass. That is also the only way one trap holds two things at
+ * once, which is what a player is buying when they lay one in front of a group.
+ */
+function springSnare(eng: GameEngine, trap: HunterTrap, def: HunterTrapDef) {
+  let gripped = 0;
+  for (const e of snareTargets(trap, eng.enemies)) {
+    // Warded — and a General Graardor slam — shrug off every hold in the game, and
+    // this is a hold. The charge stays, and the enemy is not written down as held,
+    // so the trap tries it again if the affix ever lifts.
+    if (ignoresCc(e)) continue;
+    const eff = def.hold * (1 - tenacity(eng, e));
+    if (eff <= 0) continue;
+    noteDebuffHit(eng, e);
+    e.stunTimer = Math.max(e.stunTimer, eff);
+    (trap.held ??= []).push(e.id);
+    trap.charges -= 1;
+    gripped++;
+    // No owning tower, so the DPS panel books it under Run Effects, next to the
+    // other board-wide control.
+    eng.stats.recordEffect(RUN_FX_ID, eng.wave, { stunCount: 1, stunSeconds: eff });
+    awardHunterXp(eng, def);
+  }
+  // One ring and one click for the pass, however many it caught: a rope going taut
+  // is one sound, and three of them on the same frame is noise.
+  if (gripped > 0) {
+    addRing(eng, trap.x, trap.y, 4, 22, '#c9a227', 0.35, 3);
+    eng.sound.play('select', 45);
+  }
+}
+
+/**
  * Spring one trap on the thing standing on it.
  *
  * Returns whether the charge was actually spent: a box trap that finds a healthy
  * enemy on its tile has not caught anything, and stays armed for the next one down
- * the road. Every other kind always fires.
+ * the road. A chinchompa always fires. A snare never comes through here — it has
+ * its own pass above.
  */
 function fire(eng: GameEngine, trap: HunterTrap, def: HunterTrapDef, e: Enemy): boolean {
   switch (def.kind) {
-    case 'snare': {
-      // Warded — and a General Graardor slam — shrug off every hold in the game, and
-      // this is a hold. The trap keeps its charge for the next thing down the road.
-      if (ignoresCc(e)) return false;
-      const eff = def.hold * (1 - tenacity(eng, e));
-      noteDebuffHit(eng, e);
-      if (eff <= 0) return false;
-      e.stunTimer = Math.max(e.stunTimer, eff);
-      // No owning tower, so the DPS panel books it under Run Effects, next to the
-      // other board-wide control.
-      eng.stats.recordEffect(RUN_FX_ID, eng.wave, { stunCount: 1, stunSeconds: eff });
-      addRing(eng, trap.x, trap.y, 4, 22, '#c9a227', 0.35, 3);
-      eng.sound.play('select', 45);
-      return true;
-    }
+    case 'snare':
+      return false;
     case 'catch': {
       if (!canCatch(def, e)) return false;
       const bonus = catchBonusGold(def, eng.killGoldPreReward(e.type));

@@ -14,6 +14,7 @@ import {
   maxActiveTraps,
   snapTrapSpot,
   trapAtPoint,
+  snareTargets,
   trapCost,
   trapSpotFree,
   trapTriggeredBy,
@@ -194,6 +195,33 @@ describe('setting one off', () => {
   it('will not fire while it is resetting, or once it is spent', () => {
     expect(trapTriggeredBy({ ...trap, rearm: 0.4 }, { x: 100, y: 100 })).toBe(false);
     expect(trapTriggeredBy({ ...trap, charges: 0 }, { x: 100, y: 100 })).toBe(false);
+  });
+});
+
+describe('what a snare grips', () => {
+  const trap = { x: 100, y: 100, rearm: 0, charges: 3, held: [] as string[] };
+  const on = (id: string, dx = 0) => ({ id, x: 100 + dx, y: 100 });
+
+  it('takes everything standing on it at once, not one at a time', () => {
+    const ids = snareTargets(trap, [on('a'), on('b', 4), on('c', -6)]).map(e => e.id);
+    expect(ids).toEqual(['a', 'b', 'c']);
+  });
+
+  it('never spends a second charge on one it is already holding', () => {
+    const gripped = { ...trap, held: ['a', 'c'] };
+    const ids = snareTargets(gripped, [on('a'), on('b', 4), on('c', -6)]).map(e => e.id);
+    expect(ids).toEqual(['b']);
+  });
+
+  it('grips no more than the charges it has left', () => {
+    const last = { ...trap, charges: 1 };
+    expect(snareTargets(last, [on('a'), on('b', 4)])).toHaveLength(1);
+    expect(snareTargets({ ...trap, charges: 0 }, [on('a')])).toEqual([]);
+  });
+
+  it('ignores what is walking past, and what has not finished spawning', () => {
+    expect(snareTargets(trap, [on('a', TRAP_TRIGGER_RADIUS + 2)])).toEqual([]);
+    expect(snareTargets(trap, [{ ...on('a'), spawnAnim: 0.3 }])).toEqual([]);
   });
 });
 
