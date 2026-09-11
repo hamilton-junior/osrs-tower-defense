@@ -92,6 +92,7 @@ const MISC_IDS = {
   // The Smithing anvil — the skill OSRS makes weapons at, so it heads the tower
   // shop's "Forge" section. Verified by eyeballing 209..211: pickaxe, anvil, fish.
   skill_smithing: 210,
+  skill_fishing: 211,
   // The Hunter paw print — the skill the road traps belong to.
   hunter_icon: 220,
   // The Construction saw over a crate — OSRS's own symbol for a thing you build.

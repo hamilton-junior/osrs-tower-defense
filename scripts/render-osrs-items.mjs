@@ -272,6 +272,11 @@ const TARGETS = {
   scythe_of_vitur: { name: 'Scythe of vitur' },
   seers_ring: { name: 'Seers ring' },
   shark: { name: 'Shark' },
+  // ---- Fishing skill: the ladder in lib/game/data/fishing.ts ----
+  shrimps: { id: 315 },
+  trout: { id: 333 },
+  lobster: { id: 379 },
+  manta_ray: { id: 391 },
   slayer_helmet: { name: 'Slayer helmet' },
   // Slayer-rewards shop: each unlock wears the item it actually is in game.
   slayer_helmet_i: { name: 'Slayer helmet (i)' },

@@ -489,6 +489,9 @@ export const ASSETS = {
     // The Herblore pestle and mortar (cache sprite 202) — heads the potion bench,
     // and marks a Herblore level-up.
     skill_herblore: `${LOCAL}/misc/skill_herblore.png`,
+    // The Fishing rod and fish (cache sprite 211) — heads the Fishing page, and
+    // marks a Fishing level-up.
+    skill_fishing: `${LOCAL}/misc/skill_fishing.png`,
     slayer_crossbow: `${LOCAL}/misc/slayer_icon.png`,
     // OSRS "Stats" (Skills) tab icon — the bar-chart glyph. It heads the Skills
     // interface, which is what the tab is in OSRS; the DPS meter, being damage
