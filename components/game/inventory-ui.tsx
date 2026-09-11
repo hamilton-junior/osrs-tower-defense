@@ -10,7 +10,7 @@ import { brewBlocker, emptyPouch, emptyStock } from '@/lib/game/systems/herblore
 import type { StackKind } from '@/lib/game/systems/inventory';
 import { LootBagView } from './lootbag-ui';
 import { OptionMenu, type MenuOption } from './OptionMenu';
-import { InvGrid, ItemSlot } from './ui-kit';
+import { hideBrokenImg, InvGrid, ItemSlot } from './ui-kit';
 
 /**
  * The **Inventory** interface — twenty-eight squares, the last of which is the
@@ -114,6 +114,16 @@ export function InventoryView(props: InventoryViewProps) {
 
   return (
     <>
+      {/* The same row the loot bag draws, so the two pages measure the same and
+          the panel holds still when one is swapped for the other. What it says
+          is the one thing to know about a backpack: how much room is left. */}
+      <div className="rs-inv-head text-[0.75em]">
+        <img src={ASSETS.misc.inventory_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+        <span className="flex-1">Inventory</span>
+        <span className={free > 0 ? 'text-[#8a7c5c]' : 'text-[var(--osrs-red)]'}>
+          {free > 0 ? `${free} free` : 'Full'}
+        </span>
+      </div>
       {/* Twenty-seven carried squares and the bag, at the client's metrics.
           `rs-inv-page` marks the page that is *only* the backpack, so the panel
           around it can shrink to the grid. Nothing carried here has a count: one

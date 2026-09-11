@@ -101,144 +101,160 @@ export function LootBagView({
   const padding = Math.max(BAG_SLOTS, Math.ceil(filled / COLUMNS) * COLUMNS) - filled;
   const picked = pick ? bag.find((g) => g.id === pick) : undefined;
 
+  // Which tower takes this piece. A tower whose level is too low is listed but
+  // disabled, and one whose slot is full says what it would replace (equipping
+  // swaps — the old piece falls back into this bag). Hovering a row rings that
+  // tower on the board.
+  //
+  // It is drawn *over* the squares rather than above them. A floating dropdown
+  // would be clipped by the scrolling grid, and a block stacked on the page would
+  // make the panel taller the moment a square was clicked — the backpack would
+  // change size under the hand using it. Covering the grid keeps the page one
+  // fixed shape and puts the answer where the question was asked.
+  const picker = picked && (() => {
+    const g = picked;
+    const slot: 'ammo' | 'jewellery' = g.type === 'ammo' ? 'ammo' : 'jewellery';
+    const all = towersOnBoard
+      .map((t) => ({ t, check: canEquip(t, g), upgrade: isUpgradeFor(t, g) }))
+      .filter(({ check }) => check.ok || check.reason === 'level');
+    // Best first: a free slot, then a real gain, then the ones listed only so
+    // you can see why they are not worth it.
+    const ordered = [...all].sort((a, b) => {
+      const rank = (x: typeof a) => (x.upgrade ? (x.t.equipment[slot] ? 1 : 0) : 2);
+      return rank(a) - rank(b) || towerListName(a.t).localeCompare(towerListName(b.t));
+    });
+    const towers = hideDowngrades ? ordered.filter((x) => x.upgrade) : ordered;
+    const buried = ordered.length - towers.length;
+    const hovered = towers.find(({ t }) => t.id === hoverTowerId)?.t;
+    const worn = hovered?.equipment[slot];
+    return (
+      <>
+        {/* The picked piece's stats stay on screen for as long as the picker is
+            open — the decision is "is this worth a slot?", and you cannot answer
+            it from a tooltip you have to keep summoning. Hovering a tower that
+            already wears something turns the same block into that swap's
+            before/after. The way out is a button, because the square that opened
+            the picker is under the picker now. */}
+        <div className="flex items-start gap-[0.4em]">
+          <div className="flex-1 min-w-0">
+            <GearHeader item={g} note={worn ? `Replacing ${worn.name}` : undefined} />
+          </div>
+          <button
+            type="button"
+            className="rs-btn px-[0.4em] py-0 text-[0.7em] shrink-0"
+            title="Back to the bag"
+            onClick={() => { setPick(null); onHoverTower(null); }}
+          >
+            ✕
+          </button>
+        </div>
+        {g.rarity === 'signature' && g.description && (
+          <p className="mt-[0.3em] text-[0.72em] text-[#c9b78c] leading-snug">{g.description}</p>
+        )}
+        <div className="mt-[0.35em]">
+          {worn ? <GearCompare from={worn} to={g} /> : <GearStats item={g} />}
+        </div>
+        <div className="flex items-center justify-between gap-2 mt-[0.45em] pt-[0.35em] border-t border-[var(--rs-keyline)]">
+          <span className="text-[0.68em] uppercase tracking-wide text-[#9d8f6a]">Equip on</span>
+          <label
+            className="flex items-center gap-[0.35em] text-[0.7em] text-[#d3c3a0] cursor-pointer select-none"
+            title="Hide towers this piece would not improve: a full slot with something better in it, or a level you have not reached"
+          >
+            <input
+              type="checkbox"
+              className="rs-check"
+              checked={hideDowngrades}
+              onChange={(e) => setHideDowngrades(e.target.checked)}
+            />
+            Hide downgrades
+            {buried > 0 && <span className="text-[#8a7c5c]">({buried})</span>}
+          </label>
+        </div>
+        {towers.length === 0 ? (
+          <div className="text-[0.7em] text-[#8a7c5c] px-[0.2em] py-[0.15em] leading-snug">
+            {ordered.length === 0
+              ? 'No tower on the board can take this piece.'
+              : 'No tower would gain from it. Untick the filter to equip it anyway.'}
+          </div>
+        ) : (
+          <div className="space-y-[0.1em] mt-[0.25em]">
+            {towers.map(({ t, check, upgrade }) => {
+              const wornHere = t.equipment[slot];
+              const icon = t.type === 'wizard' ? wizardStaffUrl(t) : towerIcon(t.type);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  disabled={!check.ok}
+                  onMouseEnter={() => onHoverTower(t)}
+                  onMouseLeave={() => onHoverTower(null)}
+                  onFocus={() => onHoverTower(t)}
+                  onBlur={() => onHoverTower(null)}
+                  onClick={() => {
+                    onEquip(t.id, g.id);
+                    onHoverTower(null);
+                    setPick(null);
+                  }}
+                  className={`w-full flex items-center gap-[0.4em] px-[0.3em] py-[0.25em] text-left text-[0.72em] ${
+                    check.ok ? 'hover:bg-[#3a3122] text-[#d3c3a0]' : 'opacity-45 cursor-not-allowed text-[#d3c3a0]'
+                  }`}
+                >
+                  {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />}
+                  <span className="flex-1 truncate">{towerListName(t)}</span>
+                  {!check.ok ? (
+                    <span className="text-[0.9em] text-osrs-red whitespace-nowrap">Requires Lv {g.levelReq}</span>
+                  ) : wornHere ? (
+                    <span className={`flex items-center gap-[0.25em] text-[0.9em] whitespace-nowrap ${upgrade ? 'text-[#9d8f6a]' : 'text-[#6f6449]'}`}>
+                      {upgrade ? 'swaps' : 'worse'}
+                      <img src={GEAR_ICONS[wornHere.id]} alt={wornHere.name} title={wornHere.name} className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+                    </span>
+                  ) : (
+                    <span className="text-[0.9em] text-osrs-green whitespace-nowrap">empty</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </>
+    );
+  })();
+
   return (
     <>
-      {/* With the tab rail gone there is nothing else on the page to say which of
-          the two backpacks this is, so the bag names itself — and says how to leave:
-          the Inventory stone that opened it is also the way back out of it. */}
-      <div
-        className="rs-inv-col flex items-center gap-[0.4em] px-[0.2em] text-[0.75em] text-[#d3c3a0]"
-        title="Click the Inventory stone to go back to the backpack"
-      >
-        <img src={ASSETS.misc.loot_bag} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
-        <span className="flex-1">Looting bag</span>
-        <span className="text-[0.85em] text-[#8a7c5c]">Inventory stone goes back</span>
+      {/* The one row above the squares, and the same row the inventory page draws,
+          so the two pages are the same size and the panel does not move when one is
+          swapped for the other. The bag names itself — with the tab rail gone there
+          is nothing else to say which backpack this is — and carries the only
+          question this page can be asked. How to leave is in the row's tooltip: the
+          Inventory stone that opened the bag is also the way back out of it. */}
+      <div className="rs-inv-head text-[0.75em]" title="Click the Inventory stone to go back to the backpack">
+        <img src={ASSETS.misc.loot_bag} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+        <span className="flex-1 truncate">Looting bag</span>
+        <label
+          className="flex items-center gap-[0.3em] shrink-0 cursor-pointer select-none"
+          title="Show only the pieces that would improve a tower on the board. The rest stay in the bag — nothing can wear them, or what those towers already wear is better."
+        >
+          <input
+            type="checkbox"
+            className="rs-check"
+            checked={hideJunk}
+            onChange={(e) => setHideJunk(e.target.checked)}
+          />
+          Upgrades only
+          {hiddenCount > 0 && <span className="text-[#8a7c5c]">({hiddenCount})</span>}
+        </label>
       </div>
-
-      {/* Which tower takes this piece. A tower whose level is too low is listed but
-          disabled, and one whose slot is full says what it would replace (equipping
-          swaps — the old piece falls back into this bag). Hovering a row rings that
-          tower on the board. Inline rather than a floating dropdown: this panel
-          scrolls, and `overflow-y-auto` would clip one. It sits above the bag rather
-          than under it, so the answer to "which tower?" is not pushed off the bottom
-          of a panel by the squares that asked the question. */}
-      {picked && (() => {
-        const g = picked;
-        const slot: 'ammo' | 'jewellery' = g.type === 'ammo' ? 'ammo' : 'jewellery';
-        const all = towersOnBoard
-          .map((t) => ({ t, check: canEquip(t, g), upgrade: isUpgradeFor(t, g) }))
-          .filter(({ check }) => check.ok || check.reason === 'level');
-        // Best first: a free slot, then a real gain, then the ones listed only so
-        // you can see why they are not worth it.
-        const ordered = [...all].sort((a, b) => {
-          const rank = (x: typeof a) => (x.upgrade ? (x.t.equipment[slot] ? 1 : 0) : 2);
-          return rank(a) - rank(b) || towerListName(a.t).localeCompare(towerListName(b.t));
-        });
-        const towers = hideDowngrades ? ordered.filter((x) => x.upgrade) : ordered;
-        const buried = ordered.length - towers.length;
-        const hovered = towers.find(({ t }) => t.id === hoverTowerId)?.t;
-        const worn = hovered?.equipment[slot];
-        return (
-          <div className="rs-inv-col mt-[0.5em] rs-panel-inset p-[0.5em]">
-            {/* The picked piece's stats stay on screen for as long as the picker is
-                open — the decision is "is this worth a slot?", and you cannot answer
-                it from a tooltip you have to keep summoning. Hovering a tower that
-                already wears something turns the same block into that swap's
-                before/after. */}
-            <GearHeader item={g} note={worn ? `Replacing ${worn.name}` : undefined} />
-            {g.rarity === 'signature' && g.description && (
-              <p className="mt-[0.3em] text-[0.72em] text-[#c9b78c] leading-snug">{g.description}</p>
-            )}
-            <div className="mt-[0.35em]">
-              {worn ? <GearCompare from={worn} to={g} /> : <GearStats item={g} />}
-            </div>
-            <div className="flex items-center justify-between gap-2 mt-[0.45em] pt-[0.35em] border-t border-[var(--rs-keyline)]">
-              <span className="text-[0.68em] uppercase tracking-wide text-[#9d8f6a]">Equip on</span>
-              <label
-                className="flex items-center gap-[0.35em] text-[0.7em] text-[#d3c3a0] cursor-pointer select-none"
-                title="Hide towers this piece would not improve: a full slot with something better in it, or a level you have not reached"
-              >
-                <input
-                  type="checkbox"
-                  className="rs-check"
-                  checked={hideDowngrades}
-                  onChange={(e) => setHideDowngrades(e.target.checked)}
-                />
-                Hide downgrades
-                {buried > 0 && <span className="text-[#8a7c5c]">({buried})</span>}
-              </label>
-            </div>
-            {towers.length === 0 ? (
-              <div className="text-[0.7em] text-[#8a7c5c] px-[0.2em] py-[0.15em] leading-snug">
-                {ordered.length === 0
-                  ? 'No tower on the board can take this piece.'
-                  : 'No tower would gain from it. Untick the filter to equip it anyway.'}
-              </div>
-            ) : (
-              <div className="max-h-[12em] overflow-y-auto space-y-[0.1em] pr-[0.1em] mt-[0.25em]">
-                {towers.map(({ t, check, upgrade }) => {
-                  const wornHere = t.equipment[slot];
-                  const icon = t.type === 'wizard' ? wizardStaffUrl(t) : towerIcon(t.type);
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      disabled={!check.ok}
-                      onMouseEnter={() => onHoverTower(t)}
-                      onMouseLeave={() => onHoverTower(null)}
-                      onFocus={() => onHoverTower(t)}
-                      onBlur={() => onHoverTower(null)}
-                      onClick={() => {
-                        onEquip(t.id, g.id);
-                        onHoverTower(null);
-                        setPick(null);
-                      }}
-                      className={`w-full flex items-center gap-[0.4em] px-[0.3em] py-[0.25em] text-left text-[0.72em] ${
-                        check.ok ? 'hover:bg-[#3a3122] text-[#d3c3a0]' : 'opacity-45 cursor-not-allowed text-[#d3c3a0]'
-                      }`}
-                    >
-                      {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />}
-                      <span className="flex-1 truncate">{towerListName(t)}</span>
-                      {!check.ok ? (
-                        <span className="text-[0.9em] text-osrs-red whitespace-nowrap">Requires Lv {g.levelReq}</span>
-                      ) : wornHere ? (
-                        <span className={`flex items-center gap-[0.25em] text-[0.9em] whitespace-nowrap ${upgrade ? 'text-[#9d8f6a]' : 'text-[#6f6449]'}`}>
-                          {upgrade ? 'swaps' : 'worse'}
-                          <img src={GEAR_ICONS[wornHere.id]} alt={wornHere.name} title={wornHere.name} className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-                        </span>
-                      ) : (
-                        <span className="text-[0.9em] text-osrs-green whitespace-nowrap">empty</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      <label
-        className="rs-inv-col flex flex-wrap items-center gap-[0.4em] mt-[0.5em] px-[0.2em] text-[0.72em] text-[#d3c3a0] cursor-pointer select-none"
-        title="Hide pieces that would not improve any tower on the board: nothing can wear them, or what those towers already wear is better"
-      >
-        <input
-          type="checkbox"
-          className="rs-check"
-          checked={hideJunk}
-          onChange={(e) => setHideJunk(e.target.checked)}
-        />
-        Hide non-upgrades
-        {hiddenCount > 0 && <span className="text-[#8a7c5c]">({hiddenCount} hidden)</span>}
-      </label>
 
       {/* The grid is drawn whether or not anything is in it — an empty backpack is
           still the backpack, and a page that vanishes into a paragraph reads as a
           broken panel. The line goes *inside* the squares, centred, and says which
           kind of empty this is: nothing found yet, or everything filtered out. It
-          overlays rather than stacks so the page is one backpack tall either way. */}
+          overlays rather than stacks so the page is one backpack tall either way,
+          and the picker covers the same squares for the same reason. */}
       <InvGrid
         className="rs-inv-page rs-inv-scroll"
+        cover={picker || undefined}
         overlay={filled === 0 ? (
           allPiles.length === 0 && stacks.length === 0
             ? 'Empty. Monsters drop gear as they die, and bosses drop the signature jewellery. Whatever will not fit in the inventory waits here too.'

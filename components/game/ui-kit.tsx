@@ -216,19 +216,26 @@ export function Stat({ icon, label, value }: { icon?: string; label: string; val
  *  draws it. The only chrome around that wash is the stone frame the client rings a
  *  panel with, corner caps and all: Modern has no leather panel and no wooden posts, so
  *  the wash, the frame and the item icons are the whole of it. */
-export function InvGrid({ className = '', overlay, children }: {
+export function InvGrid({ className = '', overlay, cover, children }: {
   className?: string;
   /** Drawn centred over the squares. A page with nothing in its grid says so here,
    *  inside the backpack, rather than under it — the panel is the backpack's size
    *  whatever it holds, and a paragraph hung below would make an empty page the
    *  tallest one. */
   overlay?: React.ReactNode;
+  /** Drawn over the squares, filling the backpack. What a square opens — the gear
+   *  picker the loot bag puts behind every piece — belongs here rather than above
+   *  the grid, so asking a question about one item never changes the size of the
+   *  page that asked it. The frame positions it and the frame never scrolls, so
+   *  this is not clipped the way a dropdown inside the scrolling grid would be. */
+  cover?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className={`rs-invframe ${className}`}>
       <div className="rs-inv">{children}</div>
       {overlay != null && <div className="rs-inv-empty">{overlay}</div>}
+      {cover != null && <div className="rs-inv-cover">{cover}</div>}
     </div>
   );
 }

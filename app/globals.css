@@ -430,6 +430,7 @@ body {
   grid-auto-rows: var(--rs-cell-h);
   justify-content: center;
   width: 100%;
+  height: 100%;
 }
 .rs-inv-slot {
   position: relative;
@@ -455,17 +456,21 @@ body {
 .rs-inv-slot.signature:not(.selected) { box-shadow: inset 0 0 0 1px var(--osrs-yellow); }
 
 /* ── The grid's own frame ──────────────────────────────────────────────────
-   Only a width and a centre: 168px is the four columns, and the loot bag's
-   copy is 12px wider because its scrollbar takes that out of the grid — without
-   it the fourth column loses a sliver. The ground both sit on belongs to the
-   page, not to the grid (see `.rs-tab-bare`), because the loot bag stacks a
-   name, a filter and a footnote around its squares and the client lays all of
-   that on the same wash.                                                     */
+   One box, and the same box on both pages: 180px is the four columns plus the
+   12px a scrollbar takes out of the loot bag's grid, and 252px is seven rows —
+   a full backpack. The inventory does not scroll, so its columns centre in that
+   width with the difference to spare; the loot bag scrolls a longer haul inside
+   the same height. Neither page can change the shape of the panel, and moving
+   between them never moves it. The ground both sit on belongs to the page, not
+   to the grid (see `.rs-tab-bare`), because each page carries a name row above
+   its squares and the client lays all of that on the same wash.             */
 .rs-invframe {
-  --rs-inv-w: calc(168px * var(--ui-scale, 1));
+  --rs-inv-w: calc(180px * var(--ui-scale, 1));
   width: var(--rs-inv-w);
+  height: calc(252px * var(--ui-scale, 1));
   margin-inline: auto;
-  /* The empty-page line is laid over the squares, not under them. */
+  /* The empty-page line and the gear picker are laid over the squares, not
+     under them. */
   position: relative;
 }
 
@@ -488,11 +493,9 @@ body {
 }
 
 /* The loot bag is the same backpack, unbounded: past twenty-eight it scrolls
-   inside one panel rather than stacking a second one. The grid keeps seven rows
-   of 36px visible. */
-.rs-invframe.rs-inv-scroll { --rs-inv-w: calc(180px * var(--ui-scale, 1)); }
+   inside the frame rather than stacking a second panel or stretching this one.
+   The frame already gives it seven rows of 36px. */
 .rs-invframe.rs-inv-scroll > .rs-inv {
-  height: calc(252px * var(--ui-scale, 1));
   overflow-y: auto;
   /* Four columns is the panel's whole width, so there is never anything to the
      side to scroll to — and a stray horizontal bar would eat a row of squares. */
@@ -501,13 +504,40 @@ body {
   scrollbar-color: #6f6449 transparent;
 }
 
-/* Everything the loot-bag page stacks above or below the backpack keeps the
-   backpack's own width, so the page reads as one column of the client's chrome
-   rather than a sentence running wider than the squares under it. It is the
-   scrolling frame's width, since that is the frame the loot bag uses.        */
-.rs-inv-col {
+/* The one row a backpack page carries above its squares: which backpack this is
+   on the left, and on the right the single thing that page can be asked — how
+   many squares are free, or whether the bag is hiding what no tower wants. Both
+   pages draw it, at the backpack's own width and at a fixed height, so the two
+   measure the same and a filter that finds nothing cannot wrap onto a second
+   line and push the squares down.                                            */
+.rs-inv-head {
   width: calc(180px * var(--ui-scale, 1));
+  height: 1.75em;
   margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding-inline: 0.2em;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #d3c3a0;
+}
+
+/* The picker a bag square opens, laid over the squares instead of above them.
+   The frame is the positioned ancestor and the frame never scrolls — only the
+   grid inside it does — so this covers the backpack exactly and no panel grows
+   to hold it. A picker longer than the backpack scrolls within it. */
+.rs-inv-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: calc(5px * var(--ui-scale, 1));
+  background: rgba(16, 13, 9, 0.97);
+  box-shadow: inset 0 0 0 1px var(--rs-keyline);
+  scrollbar-width: thin;
+  scrollbar-color: #6f6449 transparent;
 }
 
 /* A backpack page is as wide as the backpack, so the panel holding it hugs the
@@ -712,16 +742,20 @@ body {
      it while it was missing would only double the stone's own inner edge. */
   box-shadow: none;
   image-rendering: pixelated;
+  /* The page is exactly as wide as the backpack, so there is never anything
+     beside it to scroll to — and `overflow-y: auto` on its own would promote
+     the horizontal axis nobody touched into a second scrollbar. */
+  overflow-x: hidden;
 }
 /* The backpack opens out of the Inventory stone, so it hangs over that stone rather
    than over the right-hand end of the bar. `--rs-inv-anchor` is set in GameRoot: the
    measured distance from the bar's right edge to the middle of the stone. Half the
-   page's own width brings the page's centre onto it — 192px, being the backpack's 168px
-   of squares plus 6px of ground and 6px of stone on each side — and `max()` keeps it on
-   screen if the stone ever sits closer to the edge than that. The loot bag's page runs
-   12px wider, for the scrollbar its grid gives up, so it hangs that far off centre. */
+   page's own width brings the page's centre onto it — 204px, being the backpack's 180px
+   plus 6px of ground and 6px of stone on each side — and `max()` keeps it on screen if
+   the stone ever sits closer to the edge than that. Both pages measure the same, so the
+   panel holds still when the loot bag is opened.                                     */
 .rs-tab-body.rs-tab-inv {
-  right: max(0px, calc(var(--rs-inv-anchor, 0px) - 96px * var(--ui-scale, 1)));
+  right: max(0px, calc(var(--rs-inv-anchor, 0px) - 102px * var(--ui-scale, 1)));
 }
 @keyframes rs-tab-in {
   from { opacity: 0; transform: translateY(4px); }
