@@ -565,30 +565,43 @@ export class GameEngine {
     this.lastTime = performance.now();
     const loop = () => {
       this.inLoop = true;
-      const now = performance.now();
-      const dt = Math.min((now - this.lastTime) / 1000, 0.1); // clamp big gaps
-      this.lastTime = now;
-      // Sub-step for fast-forward: run the sim `gameSpeed` times at the real
-      // per-step dt, so speeding up never causes large-dt tunneling.
-      if (!this.gameOver && !this.paused) {
-        for (let s = 0; s < this.gameSpeed; s++) this.update(dt);
-        // Wall-clock, so these must sit outside the sub-step loop and take the raw
-        // dt. Inside it, `dt` would be counted `gameSpeed` times and the run timer
-        // would measure simulated seconds again — the very thing it isn't.
-        this.realTime += dt;
-        this.tickAutoplay(dt);
-        this.tickAutoUpgrade();
-        // Wall-clock, outside the sub-step loop: the DPS meter refreshes at a fixed
-        // ~4 Hz regardless of game speed. Inside the loop it took the simulated dt
-        // `gameSpeed` times, so at 5× it fired ~5× as often, and each push forces a
-        // React render — the fast-forward stutter players hit with the panel open.
-        this.pushDpsStats(dt);
+      try {
+        const now = performance.now();
+        const dt = Math.min((now - this.lastTime) / 1000, 0.1); // clamp big gaps
+        this.lastTime = now;
+        // Sub-step for fast-forward: run the sim `gameSpeed` times at the real
+        // per-step dt, so speeding up never causes large-dt tunneling.
+        if (!this.gameOver && !this.paused) {
+          for (let s = 0; s < this.gameSpeed; s++) this.update(dt);
+          // Wall-clock, so these must sit outside the sub-step loop and take the raw
+          // dt. Inside it, `dt` would be counted `gameSpeed` times and the run timer
+          // would measure simulated seconds again — the very thing it isn't.
+          this.realTime += dt;
+          this.tickAutoplay(dt);
+          this.tickAutoUpgrade();
+          // Wall-clock, outside the sub-step loop: the DPS meter refreshes at a fixed
+          // ~4 Hz regardless of game speed. Inside the loop it took the simulated dt
+          // `gameSpeed` times, so at 5× it fired ~5× as often, and each push forces a
+          // React render — the fast-forward stutter players hit with the panel open.
+          this.pushDpsStats(dt);
+        }
+        this.renderer.draw();
+        // One UI push per frame, after the sim has settled — see `emit`/`flush`.
+        this.flush();
+      } catch (err) {
+        // A frame that throws must not end the run. The re-schedule used to be the
+        // last statement of the loop, so anything thrown by `update`, `draw` or
+        // `flush` broke the rAF chain for good: the board stopped dead, every
+        // control that waits on a UI push went with it, and only a reload brought
+        // the game back. Report the frame and keep the loop running.
+        console.error('[engine] frame failed', err);
+      } finally {
+        // Both in `finally`, and for the same reason: `inLoop` gates whether `emit`
+        // flushes synchronously, so leaving it true would mute every UI update from
+        // here on.
+        this.inLoop = false;
+        this.rafId = requestAnimationFrame(loop);
       }
-      this.renderer.draw();
-      // One UI push per frame, after the sim has settled — see `emit`/`flush`.
-      this.flush();
-      this.inLoop = false;
-      this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);
   }

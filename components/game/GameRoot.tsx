@@ -202,6 +202,19 @@ export default function GameRoot() {
   const marqueeStart = useRef<{ cx: number; cy: number } | null>(null);
   const marqueeDragged = useRef(false);
   const [marqueeBox, setMarqueeBox] = useState<{ l: number; t: number; w: number; h: number } | null>(null);
+  // Chrome delivers one mousemove per hardware sample — a 1000 Hz mouse means a
+  // thousand a second — where Firefox folds them onto the frame before the page
+  // ever sees them. Doing the work per event therefore cost a React render and a
+  // forced layout per sample on Chrome and roughly one per frame on Firefox: the
+  // same code, an order of magnitude apart, which is why the board locked up
+  // mid-drag for Chrome players and never for us. Both drag paths now bank their
+  // samples and do the work once, on the next frame.
+  const moveSamples = useRef<{ cx: number; cy: number; shift: boolean; buttons: number }[]>([]);
+  const moveRaf = useRef(0);
+  const marqueeSample = useRef<{ cx: number; cy: number } | null>(null);
+  const marqueeRaf = useRef(0);
+  /** Takes down whatever window listeners the live marquee drag put up. */
+  const marqueeDetach = useRef<(() => void) | null>(null);
   // Bottom bar: which interface a stone has popped open *above* the bar, or null
   // for none — the default, so the map starts unobstructed. The shop-style
   // interfaces (Home, Essence, Slayer Rewards, DPS) share that one popup;
@@ -1024,16 +1037,41 @@ export default function GameRoot() {
     };
   }, [paintedBox]);
 
-  const onMove = useCallback((e: React.MouseEvent) => {
-    const { x, y } = toLogic(e.clientX, e.clientY);
-    engineRef.current?.setPointer(x, y);
+  /** Everything a frame's worth of pointer samples adds up to, done once.
+   *
+   *  Every sample is kept rather than thinned down to the last one, because a
+   *  Shift-drag paints the tile under each: dropping the ones in between would
+   *  leave holes in a fast stroke. They are cheap held this way — the painted box
+   *  is measured once for the whole batch instead of once per event, which is what
+   *  made the old per-event path force a layout on every mouse sample. */
+  const flushMove = useCallback(() => {
+    moveRaf.current = 0;
+    const samples = moveSamples.current;
+    if (!samples.length) return;
+    const eng = engineRef.current;
+    const box = paintedBox();
+    if (!eng || !box) { samples.length = 0; return; }
+    const toX = (cx: number) => ((cx - box.left) / box.width) * eng.width;
+    const toY = (cy: number) => ((cy - box.top) / box.height) * eng.height;
+    const last = samples[samples.length - 1];
+    eng.setPointer(toX(last.cx), toY(last.cy));
     // Shift-drag paints a line of towers to build. Held button only, so hovering
     // with Shift down (e.g. on the way to a button) doesn't smear a queue.
-    if (e.shiftKey && (e.buttons & 1) && engineRef.current?.selectedTowerType) {
-      engineRef.current.queuePlacement(x, y);
-      return;
+    if (eng.selectedTowerType) {
+      for (const s of samples) {
+        if (s.shift && (s.buttons & 1)) eng.queuePlacement(toX(s.cx), toY(s.cy));
+      }
     }
-  }, [toLogic]);
+    samples.length = 0;
+  }, [paintedBox]);
+
+  const onMove = useCallback((e: React.MouseEvent) => {
+    const samples = moveSamples.current;
+    // A frame that never arrives (a backgrounded tab) must not grow this for ever.
+    if (samples.length >= 240) samples.shift();
+    samples.push({ cx: e.clientX, cy: e.clientY, shift: e.shiftKey, buttons: e.buttons });
+    if (!moveRaf.current) moveRaf.current = requestAnimationFrame(flushMove);
+  }, [flushMove]);
 
   // Grow the box to the pointer, wherever it is. Once past a small threshold the
   // drag is real and the click that follows it gets swallowed.
@@ -1076,18 +1114,61 @@ export default function GameRoot() {
     const eng = engineRef.current;
     if (e.button !== 0 || !eng || eng.selectedTowerType || eng.movingTowerId
         || eng.movingGroupIds.length || eng.pasting) return;
+    // A drag whose release we never saw would otherwise leave its listeners up, and
+    // the next press would stack another pair on top of them.
+    marqueeDetach.current?.();
     marqueeStart.current = { cx: e.clientX, cy: e.clientY };
     marqueeDragged.current = false;
-    const move = (ev: MouseEvent) => dragMarquee(ev.clientX, ev.clientY);
-    const up = (ev: MouseEvent) => {
-      if (ev.button !== 0) return;
+    let lx = e.clientX, ly = e.clientY;
+    const flush = () => {
+      marqueeRaf.current = 0;
+      const s = marqueeSample.current;
+      marqueeSample.current = null;
+      if (s) dragMarquee(s.cx, s.cy);
+    };
+    const detach = () => {
+      marqueeDetach.current = null;
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
-      endMarquee(ev.clientX, ev.clientY, !!boardRef.current?.contains(ev.target as Node));
+      window.removeEventListener('blur', onWindowBlur);
+      if (marqueeRaf.current) cancelAnimationFrame(marqueeRaf.current);
+      marqueeRaf.current = 0;
+      marqueeSample.current = null;
     };
+    const finish = (cx: number, cy: number, inside: boolean) => {
+      detach();
+      endMarquee(cx, cy, inside);
+    };
+    const move = (ev: MouseEvent) => {
+      lx = ev.clientX; ly = ev.clientY;
+      // The button is back up and we were never told: released over the browser's
+      // own chrome, or swallowed by a native drag. Without this the box hung on the
+      // screen, the next click was eaten as the drag's own, and every further press
+      // left one more listener pair on the window.
+      if (!(ev.buttons & 1)) { finish(ev.clientX, ev.clientY, false); return; }
+      marqueeSample.current = { cx: ev.clientX, cy: ev.clientY };
+      if (!marqueeRaf.current) marqueeRaf.current = requestAnimationFrame(flush);
+    };
+    const up = (ev: MouseEvent) => {
+      // Another button releasing mid-drag is not our release. Ours is whichever one
+      // leaves the left button up.
+      if (ev.button !== 0 && (ev.buttons & 1)) return;
+      const onBoard = ev.target instanceof Node && !!boardRef.current?.contains(ev.target);
+      finish(ev.clientX, ev.clientY, onBoard);
+    };
+    const onWindowBlur = () => finish(lx, ly, false);
+    marqueeDetach.current = detach;
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
+    window.addEventListener('blur', onWindowBlur);
   }, [dragMarquee, endMarquee]);
+
+  // A drag interrupted by an unmount leaves its window listeners and its pending
+  // frame behind.
+  useEffect(() => () => {
+    marqueeDetach.current?.();
+    if (moveRaf.current) cancelAnimationFrame(moveRaf.current);
+  }, []);
 
   const onClick = useCallback((e: React.MouseEvent) => {
     // A real marquee drag already handled selection on mouse-up; swallow the click.

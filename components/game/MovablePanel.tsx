@@ -114,16 +114,37 @@ export function MovablePanel({ id, className, style, globalLock = false, tut, ch
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }, [canDrag, offset]);
 
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
+  // Chrome hands the page one pointermove per hardware sample, so a 1000 Hz mouse
+  // re-rendered this panel a thousand times a second while it was being dragged;
+  // Firefox folds them onto the frame first, which is why the same drag only ever
+  // stuttered on Chrome. Keep the latest sample and move the panel once a frame —
+  // it can only be painted that often anyway.
+  const sample = useRef<{ cx: number; cy: number } | null>(null);
+  const raf = useRef(0);
+
+  const applyDrag = useCallback(() => {
+    raf.current = 0;
     const d = drag.current;
-    if (!d) return;
-    const nx = d.ox + (e.clientX - d.sx);
-    const ny = d.oy + (e.clientY - d.sy);
+    const s = sample.current;
+    sample.current = null;
+    if (!d || !s) return;
     // Constrain to the viewport so a panel can never be dragged off the playable area.
-    setOffset(clampOffset(nx, ny, d.baseLeft, d.baseTop, d.w, d.h));
+    setOffset(clampOffset(d.ox + (s.cx - d.sx), d.oy + (s.cy - d.sy), d.baseLeft, d.baseTop, d.w, d.h));
   }, []);
 
-  const endDrag = useCallback(() => { drag.current = null; }, []);
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!drag.current) return;
+    sample.current = { cx: e.clientX, cy: e.clientY };
+    if (!raf.current) raf.current = requestAnimationFrame(applyDrag);
+  }, [applyDrag]);
+
+  const endDrag = useCallback(() => {
+    // Spend the sample the pending frame was going to use, so the panel ends up
+    // where the pointer was released rather than a frame short of it.
+    if (raf.current) { cancelAnimationFrame(raf.current); applyDrag(); }
+    drag.current = null;
+    sample.current = null;
+  }, [applyDrag]);
 
   const onContextMenu = useCallback((e: React.MouseEvent) => {
     // Right-click anywhere on the panel snaps it back to its anchor.
