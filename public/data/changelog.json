@@ -2,6 +2,27 @@
   "generatedAt": "2026-09-11",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "A snare now holds several enemies at once instead of spending every charge on the first one",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Hunter trap details now show on hover during a wave",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Dragging a sprite no longer leaves the board unclickable on Chrome",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
+    {
       "kind": "updated",
       "scope": "game",
       "text": "A leak now reads \"Skeleton escaped, −1 life\"",
@@ -259,27 +280,6 @@
       "text": "The map now deals allotments — sow a seed between waves and the herb it grows buffs the whole next one",
       "fromFeedback": false,
       "date": "2026-09-04"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "A third signature amulet drops from bosses, and every signature now scales with the tower wearing it",
-      "fromFeedback": true,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "The Collection Log now keeps a Forge page listing every fusion, what two towers make it and how many you have built",
-      "fromFeedback": false,
-      "date": "2026-09-03"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "An archer and a tzhaar fuse into a thrown dart that shoves harder with every one that lands",
-      "fromFeedback": false,
-      "date": "2026-09-03"
     }
   ]
 }
