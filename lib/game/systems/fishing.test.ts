@@ -3,6 +3,7 @@ import type { TerrainField } from './terrain-generation';
 import {
   buildFishingSpots, spotStage, restockSpots, rollCatch, catchesUnlockedAt,
   catchChance, fishingXpForLevel, gainFishingXp, spotId, parseSpotId, spotAtPoint,
+  wavesUntilRestock,
 } from './fishing';
 import { SPOT_CASTS, SPOT_REST_WAVES, CATCH_CHANCE_MAX, FISHING_MAX_LEVEL } from '../data/fishing';
 
@@ -54,6 +55,20 @@ describe('fishing spots', () => {
     expect(spot.rested).toBe(0);
   });
 
+  it('counts down the waves left to restock, and bottoms out at zero', () => {
+    const [spot] = buildFishingSpots(field([{ col: 1, row: 1 }]), GRID);
+    expect(wavesUntilRestock(spot)).toBe(0); // ready — nothing to wait for
+
+    spot.casts = SPOT_CASTS; // spent, no rest banked yet
+    expect(wavesUntilRestock(spot)).toBe(SPOT_REST_WAVES);
+
+    spot.rested = SPOT_REST_WAVES - 1; // mid-rest
+    expect(wavesUntilRestock(spot)).toBe(1);
+
+    spot.rested = SPOT_REST_WAVES; // its last resting wave, about to flip back
+    expect(wavesUntilRestock(spot)).toBe(0);
+  });
+
   it('finds the spot under a click, and nothing outside the tile', () => {
     const spots = buildFishingSpots(field([{ col: 2, row: 2 }]), GRID);
     expect(spotAtPoint(spots, 2 * GRID + 4, 2 * GRID + 4, GRID)?.id).toBe('s2_2');
@@ -93,6 +108,12 @@ describe('fishing xp', () => {
   it('costs more per level as the level climbs', () => {
     expect(fishingXpForLevel(10)).toBeLessThan(fishingXpForLevel(50));
     expect(fishingXpForLevel(50)).toBeLessThan(fishingXpForLevel(90));
+  });
+
+  it('pins the curve itself, so the tuned exponent cannot drift silently', () => {
+    expect(fishingXpForLevel(1)).toBeCloseTo(12, 3);
+    expect(fishingXpForLevel(40)).toBeCloseTo(61, 3);
+    expect(fishingXpForLevel(FISHING_MAX_LEVEL)).toBeCloseTo(260, 3);
   });
 
   it('banks xp without levelling when the bank is short', () => {
