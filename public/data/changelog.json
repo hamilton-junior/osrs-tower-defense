@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "game",
+      "text": "The farming patch picks a seed from a grid of herbs with a detail card",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
+    {
+      "kind": "updated",
+      "scope": "game",
       "text": "The backpack is the modern client's, ringed in stone with pale corner caps",
       "fromFeedback": false,
       "date": "2026-09-11"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "game",
       "text": "A tzhaar and a toxic fuse into a halberd that swings at everything in reach and smears the worst venom across all of it",
-      "fromFeedback": false,
-      "date": "2026-09-03"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "An archer and a cannon fuse into a bow whose shot runs the whole road, hitting everyone on it",
       "fromFeedback": false,
       "date": "2026-09-03"
     }
