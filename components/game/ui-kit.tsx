@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { coinsIcon } from '@/lib/game/assets';
 
 /**
  * Small presentational primitives and formatters shared across the interface.
@@ -88,6 +89,29 @@ export const fmt = (n: number) =>
  *  agree, so the tint reports an order of magnitude before you've read a digit. */
 export const stackClass = (n: number) =>
   n >= 10_000_000 ? 'text-osrs-green' : n >= 100_000 ? 'text-osrs-white' : 'text-osrs-yellow';
+
+/**
+ * What something costs, written the way the client writes gold: the coin pile
+ * OSRS would draw for that many coins, then the number. The pile changes at the
+ * game's own stack sizes, so a price reads as small or steep before the digits
+ * are parsed — and a button with one of these on it needs no "gp" to say what
+ * the number is.
+ *
+ * `afford` false paints the number red. It is a price the run cannot pay, which
+ * is the one thing about a price worth seeing from across the screen.
+ */
+export function Price({ amount, afford = true, className = '' }: {
+  amount: number;
+  afford?: boolean;
+  className?: string;
+}) {
+  return (
+    <span className={`inline-flex items-center gap-[0.3em] ${className}`}>
+      <img src={coinsIcon(amount)} alt="" className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />
+      <span className={`tabular-nums ${afford ? 'text-osrs-yellow' : 'text-osrs-red'}`}>{fmt(amount)}</span>
+    </span>
+  );
+}
 
 /** Seconds → `m:ss` (or `h:mm:ss` past an hour) for the run-summary timer. */
 export const fmtTime = (s: number) => {

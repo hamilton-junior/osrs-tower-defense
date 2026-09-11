@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ASSETS } from '@/lib/game/assets';
+import { ASSETS, coinsIcon } from '@/lib/game/assets';
 import type { UIState } from '@/lib/game/core/engine';
 import { SEEDS, SEED_BY_ID, type SeedDef, type SeedId } from '@/lib/game/data/farming';
 import type { CombatStyle } from '@/lib/game/types';
 import { MovablePanel } from './MovablePanel';
-import { fmt, fs, hideBrokenImg, pct } from './ui-kit';
+import { fmt, fs, hideBrokenImg, pct, Price } from './ui-kit';
 
 /**
  * The **farming patch** interface — what opens when an allotment is clicked.
@@ -71,12 +71,16 @@ function HerbHeading({ seed }: { seed: SeedDef }) {
   );
 }
 
-/** One label/value line of the detail card's stat block. */
-function Row({ label, value, tone }: { label: string; value: string; tone?: string }) {
+/** One label/value line of the detail card's stat block. A row whose value is
+ *  gold carries the coin pile for it, the same as every price in the game. */
+function Row({ label, value, tone, icon }: { label: string; value: string; tone?: string; icon?: string }) {
   return (
     <>
       <span className="text-[0.68em] text-[#b3a585]">{label}</span>
-      <span className={`text-[0.68em] text-right tabular-nums ${tone ?? 'text-osrs-yellow'}`}>{value}</span>
+      <span className={`text-[0.68em] text-right tabular-nums flex items-center justify-end gap-[0.25em] ${tone ?? 'text-osrs-yellow'}`}>
+        {icon && <img src={icon} alt="" className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />}
+        {value}
+      </span>
     </>
   );
 }
@@ -259,7 +263,7 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
                 <HerbHeading seed={seed} />
                 <p className="text-[0.66em] text-[#cdbe91] leading-snug mt-[0.3em]">{seed.tip}</p>
                 <div className="grid grid-cols-2 gap-x-[0.5em] gap-y-[0.15em] mt-[0.35em] items-center">
-                  <Row label="Cost" value={`${fmt(seed.cost)} gp`} tone={broke ? 'text-osrs-red' : 'text-osrs-yellow'} />
+                  <Row label="Cost" value={fmt(seed.cost)} icon={coinsIcon(seed.cost)} tone={broke ? 'text-osrs-red' : 'text-osrs-yellow'} />
                   <Row label="Ready in" value={`${seed.waves} waves`} />
                   <Row label="Boost" value={boostOf(seed)} />
                   <Row label="Affects" value={scopeOf(seed)} tone="text-[#cdbe91]" />
@@ -274,7 +278,7 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
             >
               <img src={seed.seedIcon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
               <span>Sow the {seed.seedName}</span>
-              <span className={`tabular-nums ${broke ? 'text-osrs-red' : 'text-osrs-yellow'}`}>{fmt(seed.cost)}</span>
+              <Price amount={seed.cost} afford={!broke} />
             </button>
           </>
         )}
@@ -300,7 +304,7 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
             onClick={onBuyPlot}
           >
             <span>Buy plot</span>
-            <span className={`tabular-nums ${ui.money < ui.plotCost ? 'text-osrs-red' : 'text-osrs-yellow'}`}>{fmt(ui.plotCost)}</span>
+            <Price amount={ui.plotCost} afford={ui.money >= ui.plotCost} />
           </button>
         </div>
       </MovablePanel>

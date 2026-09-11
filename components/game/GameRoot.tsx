@@ -39,7 +39,7 @@ import { trapCost, blastProfile } from '@/lib/game/systems/hunter-traps';
 import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, TOWER_COMBAT, towerSignature } from './tower-ui';
 import { gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, type Victories, type DifficultyProgress } from './save';
-import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Vital, GoStat, StatLabel, Stat } from './ui-kit';
+import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Price, Vital, GoStat, StatLabel, Stat } from './ui-kit';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl, coinsIcon, GEAR_ICONS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
@@ -1669,7 +1669,7 @@ export default function GameRoot() {
               >
                 <span className="text-[#5bd75b] font-bold">⬆</span>
                 Upgrade {info.count > 0 ? `(${info.count})` : ''}
-                {info.count > 0 && <span style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>{fmt(info.cost)} gp</span>}
+                {info.count > 0 && <Price amount={info.cost} afford={afford} />}
                 <span className="rs-key">U</span>
               </button>
 
@@ -1699,7 +1699,7 @@ export default function GameRoot() {
                 onClick={() => eng?.beginMoveGroup()}
               >
                 <span className="text-[#cdbe91]">✥</span>
-                Move ({fmt(move.cost)} gp)
+                Move <Price amount={move.cost} afford={ui.money >= move.cost} />
               </button>
 
               {/* Selling a whole box is the most destructive thing this panel can
@@ -1734,7 +1734,7 @@ export default function GameRoot() {
                   title={`Sell all ${sell.count} selected towers for ${fmt(sell.refund)} gp (75% refund). Asks to confirm (S)`}
                   onClick={() => setSellConfirm(MULTI_SELL)}
                 >
-                  Sell ({fmt(sell.refund)} gp)
+                  Sell <Price amount={sell.refund} />
                   <span className="rs-key">S</span>
                 </button>
               )}
@@ -2138,7 +2138,7 @@ export default function GameRoot() {
           <div className="rs-hint absolute left-1/2 bottom-[23%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap flex items-center gap-[0.4em] justify-center">
             <span className="text-osrs-orange">▸</span>
             {ui.placeQueue.length} queued
-            <span style={{ color: short ? 'var(--osrs-red)' : 'var(--osrs-yellow)' }}>{fmt(cost)} gp</span>
+            <Price amount={cost} afford={!short} />
             {short && <span className="text-osrs-warn">(only {afford} affordable)</span>}
             <span className="text-[#d3c3a0]">· release Shift to price it up</span>
           </div>
@@ -2172,7 +2172,7 @@ export default function GameRoot() {
               <div className="flex items-center justify-center gap-[0.4em] text-[0.78em] mb-[0.45em]">
                 <img src={towerIcon(type)} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
                 <span className="text-[#e7d9b0]">Build {n} {name} tower{n > 1 ? 's' : ''}</span>
-                <span className={short ? 'text-osrs-warn' : 'text-osrs-yellow'}>{fmt(cost)} gp</span>
+                <Price amount={cost} afford={!short} />
               </div>
               {short && (
                 <div className="text-center text-[0.62em] text-osrs-warn mb-[0.4em]">
@@ -2213,7 +2213,7 @@ export default function GameRoot() {
                   title={`Build the painted line for ${fmt(cost)} gp`}
                   onClick={() => engineRef.current?.confirmPlaceQueue()}
                 >
-                  Build ({fmt(cost)} gp)
+                  Build <Price amount={cost} afford={!short} />
                 </button>
               )}
 
@@ -2234,7 +2234,7 @@ export default function GameRoot() {
           <div className="rs-hint absolute left-1/2 bottom-[23%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap flex items-center gap-[0.4em] justify-center">
             <span className="text-osrs-orange">▸</span>
             Pasting {ui.clipboard.length} tower{ui.clipboard.length > 1 ? 's' : ''}
-            <span style={{ color: short ? 'var(--osrs-red)' : 'var(--osrs-yellow)' }}>{fmt(cost)} gp</span>
+            <Price amount={cost} afford={!short} />
             <span className="text-[#d3c3a0]">· click to build · Esc cancels</span>
           </div>
         );
@@ -3096,7 +3096,7 @@ export default function GameRoot() {
                     title={`Sell this tower for ${sellValue} gp (75% refund). Asks to confirm (S)`}
                     onClick={() => setSellConfirm(selectedTower.id)}
                   >
-                    Sell ({sellValue} gp)
+                    Sell <Price amount={sellValue} />
                     <span className="rs-key">S</span>
                   </button>
                 </div>

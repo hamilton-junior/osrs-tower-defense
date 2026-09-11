@@ -5,7 +5,7 @@ import { ASSETS } from '@/lib/game/assets';
 import type { UIState } from '@/lib/game/core/engine';
 import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard, type DraftEffect } from '@/lib/game/systems/roguelite-draft';
 import type { Relic, RelicTier } from '@/lib/game/systems/relics';
-import { fs, fmt, hideBrokenImg, usePersistedCollapse } from './ui-kit';
+import { fs, fmt, hideBrokenImg, Price, usePersistedCollapse } from './ui-kit';
 import { RARITY_COLOR, TIER_COLOR, TIER_LABEL, RELIC_BY_ID, effectTag, bandStyle } from './draft-cards';
 
 /**
@@ -179,7 +179,7 @@ export function BuyCardRoll({ ui, onBuy, disabledReason = null }: { ui: UIState;
       <span className="text-[0.8em] font-bold">Buy Card Roll</span>
       {blocked
         ? <span className="text-[0.7em] text-[#cdbe91] italic">{disabledReason}</span>
-        : <span className={`text-[0.75em] tabular-nums ${afford ? 'text-osrs-yellow' : 'text-[#ff6b6b]'}`}>{fmt(cost)} gp</span>}
+        : <Price amount={cost} afford={afford} className="text-[0.75em]" />}
     </button>
   );
 }

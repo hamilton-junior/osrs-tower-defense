@@ -8,7 +8,7 @@ import { trapCost } from '@/lib/game/systems/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
 import { brewDamageMult } from '@/lib/game/systems/herblore';
-import { hideBrokenImg, fmt } from './ui-kit';
+import { hideBrokenImg, fmt, Price } from './ui-kit';
 
 /**
  * The **Skills** interface — OSRS's Stats tab, doing the job it does in the game:
@@ -413,9 +413,10 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                       title={ui.herbloreLevel < potion.level
                         ? `${potion.name} needs Herblore ${potion.level}`
                         : `Brew a ${potion.name}: ${potion.secondary?.name ?? 'no second ingredient'}, ${fmt(potion.cost)} gp`}
-                      className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
+                      className="rs-btn flex items-center gap-[0.3em] px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
                     >
                       Brew
+                      <Price amount={potion.cost} afford={ui.money >= potion.cost} />
                     </button>
                   )}
                 </div>
@@ -435,9 +436,7 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
         >
           <img src={ASSETS.misc.farming_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
           <span>Buy plot</span>
-          <span className="tabular-nums" style={{ color: afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
-            {fmt(ui.plotCost)}
-          </span>
+          <Price amount={ui.plotCost} afford={afford} />
         </button>
       </Section>
 
