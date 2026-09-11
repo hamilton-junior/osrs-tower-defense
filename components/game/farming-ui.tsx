@@ -224,10 +224,11 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
                     type="button"
                     onClick={() => setPicked(s.id)}
                     title={cant
-                      ? `${s.seedName} — ${s.cost} gp, more than you have`
-                      : `${s.seedName} — ${s.cost} gp, ready in ${s.waves} waves`}
+                      ? `${s.seedName} — ${s.signature.label}, ${s.cost} gp, more than you have`
+                      : `${s.seedName} — ${s.signature.label}, ${s.cost} gp, ready in ${s.waves} waves`}
                     className={`rs-log-entry rs-log-sm ${cant ? 'rs-log-locked' : ''} ${s.id === picked ? 'rs-log-pick' : ''}`}
                   >
+                    <img src={s.signature.icon} alt="" className="rs-log-sig" onError={hideBrokenImg} />
                     <div className="rs-log-sprite">
                       <img
                         src={s.herbIcon}

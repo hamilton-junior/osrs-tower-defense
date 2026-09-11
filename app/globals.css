@@ -1156,11 +1156,29 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
    tile is the same height whether its herb name wraps or not, so the grid reads
    as one block rather than four ragged rows. */
 .rs-log-entry.rs-log-sm {
+  position: relative;
   height: 5.1em;
   justify-content: flex-start;
   padding: 0.3em 0.15em 0.25em;
   overflow: hidden;
 }
+/* The buff the tile is really offering, pinned to its top corner. A herb is
+   picked for what it does to the towers, not for the leaf, and fourteen leaves
+   is more than anyone scans by name — the sword, the heart, the coin pile sort
+   the grid at a glance. It floats over the sprite rather than taking a row, so
+   every tile keeps the same height it had before. */
+.rs-log-sig {
+  position: absolute;
+  top: 0.15em;
+  left: 0.15em;
+  width: 1.15em;
+  height: 1.15em;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(1px 1px 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 -1px 0 #000);
+  pointer-events: none;
+}
+.rs-log-locked .rs-log-sig { opacity: 0.4; filter: grayscale(1) brightness(0.6); }
 .rs-log-sm .rs-log-sprite { width: 2.5em; height: 2.5em; font-size: 1em; }
 .rs-log-sm .rs-log-name { font-size: 0.56em; }
 .rs-log-sm .rs-log-kc { font-size: 0.6em; margin-top: auto; }
