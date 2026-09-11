@@ -15,11 +15,10 @@ import { hideBrokenImg, InvGrid, ItemSlot, loadBool } from './ui-kit';
  * The **loot bag** — everything the run picked up and is not carrying: the gear
  * that dropped, and whatever overflowed the backpack's twenty-seven slots.
  *
- * The bag itself is the backpack again: the client's own panel between its two
- * posts, four squares to a row ({@link InvGrid}). A real looting bag holds
- * twenty-eight, so that is the height one panel draws — but this one is unbounded,
- * so a longer haul scrolls inside that panel instead of paging. The sprite behind
- * the squares stays put while they move, and keeps its own proportions.
+ * The bag itself is the backpack again: the Modern client's translucent ground,
+ * four squares to a row ({@link InvGrid}). A real looting bag holds twenty-eight,
+ * so that is the height one panel draws — but this one is unbounded, so a longer
+ * haul scrolls inside that panel instead of paging.
  *
  * It stacks where the inventory does not. Two of the same gear piece are one square
  * with a 2 on it, and every herb or potion pushed out here piles into one square,
@@ -233,11 +232,18 @@ export function LootBagView({
         {hiddenCount > 0 && <span className="text-[#8a7c5c]">({hiddenCount} hidden)</span>}
       </label>
 
+      {/* The grid is drawn whether or not anything is in it — an empty backpack is
+          still the backpack, and a page that vanishes into a paragraph reads as a
+          broken panel. The line goes *inside* the squares, centred, and says which
+          kind of empty this is: nothing found yet, or everything filtered out. It
+          overlays rather than stacks so the page is one backpack tall either way. */}
       <InvGrid
-        background={ASSETS.misc.inventory_background}
-        postLeft={ASSETS.misc.inv_post_left}
-        postRight={ASSETS.misc.inv_post_right}
         className="rs-inv-page rs-inv-scroll"
+        overlay={filled === 0 ? (
+          allPiles.length === 0 && stacks.length === 0
+            ? 'Empty. Monsters drop gear as they die, and bosses drop the signature jewellery. Whatever will not fit in the inventory waits here too.'
+            : 'Nothing here would improve a tower on the board: wrong style, too high a level, or beaten by what is already worn. Untick to see it all.'
+        ) : undefined}
       >
         {piles.map(({ item, count }) => (
           <HoverTip key={item.id} content={gearTooltip(item)}>
@@ -269,18 +275,6 @@ export function LootBagView({
         ))}
         {Array.from({ length: padding }, (_, j) => <ItemSlot key={`e${j}`} osrs />)}
       </InvGrid>
-
-      {/* The grid is drawn whether or not anything is in it — an empty backpack is
-          still the backpack, and a page that vanishes into a paragraph reads as a
-          broken panel. The paragraph goes under it instead, and says which kind of
-          empty this is: nothing found yet, or everything filtered out. */}
-      {filled === 0 && (
-        <div className="rs-inv-col mt-[0.5em] px-[0.2em] text-[0.72em] text-[#8f8158] leading-snug">
-          {allPiles.length === 0 && stacks.length === 0
-            ? 'Empty. Monsters drop gear as they die, and bosses drop the signature jewellery. Whatever will not fit in the inventory waits here too.'
-            : 'Nothing here would improve a tower on the board: wrong style, too high a level, or beaten by what is already worn. Untick to see it all.'}
-        </div>
-      )}
     </>
   );
 }

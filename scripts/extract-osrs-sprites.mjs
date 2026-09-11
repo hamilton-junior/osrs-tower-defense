@@ -158,12 +158,6 @@ const UI_IDS = {
   // (rocks, a blob) baked into the sprite; 940 is the bare sign on transparency, so
   // it overlays a tower without dragging a second subject onto the board.
   blocked: 940,
-  // "invback" — the leather panel the client draws the inventory's 4x7 grid on
-  // (190x261, the exact size of that grid plus its border). Found by scanning the
-  // sprite index for that size; it is the only one, and nothing else in the cache
-  // is the inventory's own ground. The interface copies OSRS's metrics on top of
-  // it: 42x36 cells, item icons 36x32.
-  inventory_background: 1031,
   // The interface tab buttons themselves, as resizable mode draws them: a stone
   // square per tab, grey while idle and red once that tab is the open one. Found
   // by scanning the whole sprite index for 26-48px squares — 1180/1181 are the
@@ -172,13 +166,28 @@ const UI_IDS = {
   // stamps the backpack or the prayer book onto its stone.
   tab_stone: 1180,
   tab_stone_on: 1181,
-  // The two wooden posts the resizeable client stands the backpack between —
-  // 26x261 each, exactly `invback`'s height, which is how they were found: the
-  // only pair in the cache that tall, and they only make sense flanking it. The
-  // client draws them either side of the inventory in Modern mode, so the panel
-  // reads as a bag hung on a frame rather than a floating rectangle.
-  inv_post_left: 1175,
-  inv_post_right: 1176,
+};
+
+/**
+ * The stone frame resizable mode rings a side panel with — a nine-slice of nine
+ * sprites (1141-1149: four 6x6 corners, four edges and a tiling centre) the client
+ * stretches around whatever panel it is framing. 1150-1158 are the same nine shapes
+ * in red, which is how to tell this set apart from its neighbours in a --dump.
+ *
+ * They bake as one 24x24 image laid out the way CSS border-image reads it (columns
+ * 6/12/6, rows 6/12/6), so a single rule draws the whole frame at any size. The
+ * centre tile is written too, though the backpack keeps its own translucent ground
+ * and never fills with it.
+ */
+const STONE_FRAME = {
+  slug: 'stone_frame',
+  slices: [1141, 1142, 1143, 1144, 1145, 1146, 1147, 1148, 1149],
+  // Each of the frame's four corner tiles has its outer corner cut away on a diagonal;
+  // the client fills that chamfer with a second, paler sprite laid over the corner. Bake
+  // them in rather than layer them in CSS: an element can only carry one border-image, and
+  // the panel these ring is a scroll container, so an overlay pinned to it would drift.
+  corners: [2903, 2904, 2905, 2906],
+  out: 'public/assets/ui/stone_frame.png',
 };
 
 /**
@@ -232,6 +241,7 @@ const TARGETS = [
   ...group(ORB_IDS, 'orbs'),
   ...group(HITSPLAT_IDS, 'hitsplats'),
   ...group(UI_IDS, 'ui'),
+  STONE_FRAME,
   ...group(CA_TIER_IDS, 'achievements'),
 ];
 
@@ -245,7 +255,7 @@ const TARGETS = [
 const BLACK_BG_IDS = new Set([319, 320, 321]);
 
 /** Encode one Sprite (ARGB pixels on a maxWidth×maxHeight canvas) to a PNG buffer. */
-function spriteToPng(sprite, spriteId) {
+function spriteToRaw(sprite, spriteId) {
   const w = sprite.maxWidth || sprite.width;
   const h = sprite.maxHeight || sprite.height;
   const png = new PNG({ width: w, height: h }); // zero-filled = transparent
@@ -267,7 +277,66 @@ function spriteToPng(sprite, spriteId) {
       png.data[di + 3] = a;
     }
   }
-  return PNG.sync.write(png);
+  return png;
+}
+
+/** Encode one Sprite to a PNG buffer. */
+function spriteToPng(sprite, spriteId) {
+  return PNG.sync.write(spriteToRaw(sprite, spriteId));
+}
+
+/**
+ * Stitch a nine-slice set into one border-image source: the nine sprites are laid
+ * out in a 3x3 whose column widths and row heights come from the pieces themselves,
+ * so the corners keep their own size and the edges keep the length the client tiles.
+ * An optional set of four corner caps is then laid over the outer corners.
+ */
+async function writeNineSlice(cache, t) {
+  const raw = async (id) => {
+    const def = await cache.getDef(IndexType.SPRITES, id);
+    const s = def?.sprites?.[0];
+    if (!s) throw new Error(`sprite ${id} (${t.slug}) is empty`);
+    return spriteToRaw(s, id);
+  };
+  const parts = [];
+  for (const id of t.slices) parts.push(await raw(id));
+  const colW = [parts[0].width, parts[1].width, parts[2].width];
+  const rowH = [parts[0].height, parts[3].height, parts[6].height];
+  const png = new PNG({ width: colW[0] + colW[1] + colW[2], height: rowH[0] + rowH[1] + rowH[2] });
+  parts.forEach((src, i) => {
+    const ox = colW.slice(0, i % 3).reduce((a, b) => a + b, 0);
+    const oy = rowH.slice(0, Math.floor(i / 3)).reduce((a, b) => a + b, 0);
+    PNG.bitblt(src, png, 0, 0, src.width, src.height, ox, oy);
+  });
+  // Corner caps sit flush with the outer corner of their tile, which is where the
+  // chamfer they fill is. They are drawn over the frame, so transparent pixels have to
+  // stay transparent -- PNG.bitblt would stamp them straight over the stone underneath.
+  if (t.corners) {
+    const caps = [];
+    for (const id of t.corners) caps.push(await raw(id));
+    const spots = [
+      [0, 0],
+      [png.width - caps[1].width, 0],
+      [0, png.height - caps[2].height],
+      [png.width - caps[3].width, png.height - caps[3].height],
+    ];
+    caps.forEach((cap, i) => {
+      const [ox, oy] = spots[i];
+      for (let y = 0; y < cap.height; y++) {
+        for (let x = 0; x < cap.width; x++) {
+          const si = (y * cap.width + x) * 4;
+          if (cap.data[si + 3] === 0) continue;
+          const di = ((y + oy) * png.width + (x + ox)) * 4;
+          for (let c = 0; c < 4; c++) png.data[di + c] = cap.data[si + c];
+        }
+      }
+    });
+  }
+  const outPath = join(REPO, t.out);
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, PNG.sync.write(png));
+  const capNote = t.corners ? ` + corners ${t.corners.join('/')}` : '';
+  console.log(`OK ${t.slug}: sprites ${t.slices.join('/')}${capNote} -> ${t.out} (${png.width}x${png.height})`);
 }
 
 async function main() {
@@ -298,6 +367,8 @@ async function main() {
   }
 
   for (const t of TARGETS) {
+    // A nine-slice target is nine sprites stitched into one image, not a single bake.
+    if (t.slices) { await writeNineSlice(cache, t); continue; }
     const def = await cache.getDef(IndexType.SPRITES, t.spriteId);
     // Most targets are single-sprite ids, but some are *archives* of many frames
     // (the prayer headicons all live in one). `frame` picks which one; default 0.

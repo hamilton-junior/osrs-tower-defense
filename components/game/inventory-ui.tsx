@@ -16,13 +16,14 @@ import { InvGrid, ItemSlot } from './ui-kit';
  * The **Inventory** interface — twenty-eight squares, the last of which is the
  * looting bag itself.
  *
- * It is OSRS's arrangement down to the pixel: a 4×7 grid of 42×36 cells on the
- * client's own `invback` panel ({@link InvGrid}), borderless, because that is what
- * the backpack looks like. And it is here for OSRS's reason: nothing stacks in
- * these slots, so a herb is one square and a potion is one square, and by the late
- * run what to carry is a question with an answer. The inventory is what the rest of
- * the game reads — the bench brews from these slots, and a herb in the loot bag is
- * a herb left at home.
+ * It is OSRS's arrangement down to the pixel: a 4×7 grid of 42×36 cells, borderless
+ * ({@link InvGrid}), on the dark translucent ground the resizable Modern client lays its
+ * side panel over the world as, ringed by that client's own stone frame, because that is
+ * what the backpack looks like. And it is here for OSRS's reason: nothing stacks in these
+ * slots, so a herb is one square and a potion is one square, and by the late run what to
+ * carry is a question with an answer.
+ * The inventory is what the rest of the game reads — the bench brews from these slots,
+ * and a herb in the loot bag is a herb left at home.
  *
  * There is no tab rail and no title bar. The panel is the backpack, and nothing
  * else: it opens upward out of the Inventory stone in the bottom bar, the slots in
@@ -117,12 +118,7 @@ export function InventoryView(props: InventoryViewProps) {
           `rs-inv-page` marks the page that is *only* the backpack, so the panel
           around it can shrink to the grid. Nothing carried here has a count: one
           square is one item. */}
-      <InvGrid
-        background={ASSETS.misc.inventory_background}
-        postLeft={ASSETS.misc.inv_post_left}
-        postRight={ASSETS.misc.inv_post_right}
-        className="rs-inv-page"
-      >
+      <InvGrid className="rs-inv-page">
         {ui.inventory.map((s, i) => (
           s
             ? (

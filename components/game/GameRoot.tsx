@@ -333,6 +333,13 @@ export default function GameRoot() {
     // for the renderer.
     engineRef.current?.setUiScale(uiScale);
   }, [uiScale]);
+  // The stone frame the resizable client rings its panels with, handed to CSS as a url
+  // once on mount. Every other asset in this project is addressed through `assets.ts`
+  // because that is where NEXT_PUBLIC_BASE_PATH is applied, and a stylesheet cannot
+  // read it — so the sheet declares the frame and this names the file.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--rs-stone-frame', `url(${ASSETS.misc.stone_frame})`);
+  }, []);
   // How far the interface can actually grow is a property of the SCREEN, not a
   // constant: measured, the bar's run-controls start clipping at 93% on a 1366px
   // display, 107% at 1920 and 130% at 2560. A single hard-coded ceiling is therefore

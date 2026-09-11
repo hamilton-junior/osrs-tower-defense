@@ -508,20 +508,18 @@ export const ASSETS = {
     // priority buttons pair with a dimension icon.
     arrow_up: `${LOCAL}/ui/arrow_up.png`,
     arrow_down: `${LOCAL}/ui/arrow_down.png`,
-    // `invback` (1031) — the leather panel the client draws the backpack's 4x7 grid
-    // on. It is 190x261: the grid's 168x252 plus its border, which is what makes it
-    // the one sprite that can carry OSRS's exact slot metrics without guessing.
-    inventory_background: `${LOCAL}/ui/inventory_background.png`,
     // The interface tab buttons (1180 / 1181) — the stone squares resizable mode
     // puts a tab's icon on, grey while idle and red under the open tab. 33x36 each,
     // laid flush against one another the way the client rails them.
     tab_stone: `${LOCAL}/ui/tab_stone.png`,
     tab_stone_on: `${LOCAL}/ui/tab_stone_on.png`,
-    // The wooden posts the resizeable client stands the backpack between (1175 /
-    // 1176), 26x261 — `invback`'s own height, so the three sprites tile into one
-    // panel at their native sizes and none of them is ever stretched.
-    inv_post_left: `${LOCAL}/ui/inv_post_left.png`,
-    inv_post_right: `${LOCAL}/ui/inv_post_right.png`,
+    // The stone frame resizable mode rings a side panel with (the 1141-1149 nine-slice,
+    // with the pale corner caps 2903-2906 baked over its four chamfered corners),
+    // baked as one 24x24 image laid out the way CSS `border-image` reads it: columns and
+    // rows of 6/12/6, so the corners keep their own size and the edges tile to whatever
+    // the panel measures. CSS reaches it through `--rs-stone-frame`, which GameRoot sets
+    // from here — a stylesheet cannot see NEXT_PUBLIC_BASE_PATH.
+    stone_frame: `${LOCAL}/ui/stone_frame.png`,
     // The game's red circle-slash (940), stamped over a tower that has been knocked
     // offline. The other cache circle-slashes are world-map key icons and carry the
     // thing being prohibited baked in; this one is the bare sign.

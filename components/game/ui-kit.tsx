@@ -205,33 +205,30 @@ export function Stat({ icon, label, value }: { icon?: string; label: string; val
  * couple of handlers, not a new layout.
  */
 
-/** The twenty-eight slots at OSRS's own metrics: a 4×7 grid of 42×36 cells on the
- *  client's `invback` panel, which is exactly 190×261 — that grid plus its border —
- *  standing between the two wooden posts resizeable mode frames it with, each 26×261
- *  and so exactly as tall as the panel. Every number is the client's, multiplied by
+/** The twenty-eight slots at the Modern client's own metrics: a 4×7 grid of 42×36
+ *  cells, each holding a 36×32 icon. Every number is the client's, multiplied by
  *  `--ui-scale` in CSS, so the whole thing grows with the UI control and nothing
- *  else about it moves; no sprite is ever scaled off its own proportions.
+ *  else about it moves.
  *
- *  The three sprites come in as props rather than imports, the same way
- *  {@link Vital} takes its orb: this file stays free of the game's asset table. */
-export function InvGrid({ background, postLeft, postRight, className = '', children }: {
-  background: string;
-  postLeft: string;
-  postRight: string;
+ *  The dark translucent ground Resizable · Modern lays its side panel over the
+ *  world as belongs to the page around this (`.rs-tab-bare`), not to the grid, so
+ *  a page that stacks text around its squares sits on one wash the way the client
+ *  draws it. The only chrome around that wash is the stone frame the client rings a
+ *  panel with, corner caps and all: Modern has no leather panel and no wooden posts, so
+ *  the wash, the frame and the item icons are the whole of it. */
+export function InvGrid({ className = '', overlay, children }: {
   className?: string;
+  /** Drawn centred over the squares. A page with nothing in its grid says so here,
+   *  inside the backpack, rather than under it — the panel is the backpack's size
+   *  whatever it holds, and a paragraph hung below would make an empty page the
+   *  tallest one. */
+  overlay?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className={`rs-invframe ${className}`}
-      style={{
-        '--rs-post-left': `url(${postLeft})`,
-        '--rs-post-right': `url(${postRight})`,
-      } as React.CSSProperties}
-    >
-      <div className="rs-inv" style={{ '--rs-invback': `url(${background})` } as React.CSSProperties}>
-        {children}
-      </div>
+    <div className={`rs-invframe ${className}`}>
+      <div className="rs-inv">{children}</div>
+      {overlay != null && <div className="rs-inv-empty">{overlay}</div>}
     </div>
   );
 }

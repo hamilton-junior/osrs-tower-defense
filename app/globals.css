@@ -415,28 +415,21 @@ body {
 /* A boss's own drop, marked before it is picked (the loot bag's signature gear). */
 .rs-slot.signature:not(.selected) { border-color: var(--osrs-yellow); }
 
-/* ── The inventory, at the client's own metrics ─────────────────────────────
-   OSRS draws the backpack as a 4x7 grid of 42x36 cells on `invback`, a leather
-   panel that is exactly 190x261 — that grid plus 11px of border either side and
-   4.5px top and bottom — with each item icon 36x32 inside its cell. Those are the
-   numbers here, times `--ui-scale` so the whole thing grows with the UI control.
-   The cells carry no border of their own: in OSRS the grid is the background's
-   own texture, and a box drawn around every square is a thing the client never
-   does. The panel sprite comes in through `--rs-invback` (set inline, so the
-   basePath is the app's own).                                                */
+/* ── The inventory, at the Modern client's own metrics ─────────────────────
+   Resizable · Modern draws the backpack straight over the scene: no leather
+   panel, no posts, just OSRS's 4x7 grid of 42x36 cells, each holding a 36x32
+   icon. Those numbers are the client's, times `--ui-scale`, so the whole thing
+   grows with the UI control and nothing inside it moves. The cells carry no
+   border of their own — in OSRS the grid is the ground's own texture, and a box
+   drawn around every square is a thing the client never does.                */
 .rs-inv {
   --rs-cell-w: calc(42px * var(--ui-scale, 1));
   --rs-cell-h: calc(36px * var(--ui-scale, 1));
-  width: calc(190px * var(--ui-scale, 1));
   display: grid;
   grid-template-columns: repeat(4, var(--rs-cell-w));
   grid-auto-rows: var(--rs-cell-h);
   justify-content: center;
-  padding: calc(4.5px * var(--ui-scale, 1)) calc(11px * var(--ui-scale, 1));
-  background-image: var(--rs-invback);
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  image-rendering: pixelated;
+  width: 100%;
 }
 .rs-inv-slot {
   position: relative;
@@ -461,65 +454,65 @@ body {
 .rs-inv-slot.selected { background: rgba(255, 152, 31, 0.28); box-shadow: inset 0 0 0 1px var(--osrs-orange); }
 .rs-inv-slot.signature:not(.selected) { box-shadow: inset 0 0 0 1px var(--osrs-yellow); }
 
-/* ── The frame the resizeable client hangs the backpack on ─────────────────
-   Modern mode stands the inventory between two wooden posts (sprites 1175 and
-   1176), each 26x261 — exactly `invback`'s height. So the panel is three
-   sprites laid side by side at their own sizes: post, bag, post. None of them is
-   ever stretched, and the backpack stops floating on bare wood. The posts arrive
-   through `--rs-post-left` / `--rs-post-right`, set inline for the app's own
-   basePath, the same way the panel behind the grid does.                     */
+/* ── The grid's own frame ──────────────────────────────────────────────────
+   Only a width and a centre: 168px is the four columns, and the loot bag's
+   copy is 12px wider because its scrollbar takes that out of the grid — without
+   it the fourth column loses a sliver. The ground both sit on belongs to the
+   page, not to the grid (see `.rs-tab-bare`), because the loot bag stacks a
+   name, a filter and a footnote around its squares and the client lays all of
+   that on the same wash.                                                     */
 .rs-invframe {
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  width: fit-content;
-  margin: calc(6px * var(--ui-scale, 1)) auto 0;
+  --rs-inv-w: calc(168px * var(--ui-scale, 1));
+  width: var(--rs-inv-w);
+  margin-inline: auto;
+  /* The empty-page line is laid over the squares, not under them. */
+  position: relative;
 }
-.rs-invframe::before,
-.rs-invframe::after {
-  content: '';
-  flex: none;
-  width: calc(26px * var(--ui-scale, 1));
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  image-rendering: pixelated;
-}
-.rs-invframe::before { background-image: var(--rs-post-left); }
-.rs-invframe::after { background-image: var(--rs-post-right); }
 
-/* The loot bag is the same panel, but unbounded: past twenty-eight it scrolls
-   inside one backpack rather than stacking a second one. The panel keeps its own
-   261px height (4.5px of border, seven 36px rows, 4.5px again), and the sprite
-   behind the squares stays still while they move — `background-attachment` is
-   `scroll`, which paints the background against the box and not the content.   */
+/* What a page with nothing in its grid says, centred in the backpack it would have
+   filled. It covers the squares rather than stacking under them, so an empty page is
+   exactly as tall as a full one and the panel never grows to hold a sentence. */
+.rs-inv-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: calc(10px * var(--ui-scale, 1));
+  text-align: center;
+  text-wrap: balance;
+  font-size: 0.72em;
+  line-height: 1.35;
+  color: #8f8158;
+  pointer-events: none;
+}
+
+/* The loot bag is the same backpack, unbounded: past twenty-eight it scrolls
+   inside one panel rather than stacking a second one. The grid keeps seven rows
+   of 36px visible. */
+.rs-invframe.rs-inv-scroll { --rs-inv-w: calc(180px * var(--ui-scale, 1)); }
 .rs-invframe.rs-inv-scroll > .rs-inv {
-  height: calc(261px * var(--ui-scale, 1));
+  height: calc(252px * var(--ui-scale, 1));
   overflow-y: auto;
   /* Four columns is the panel's whole width, so there is never anything to the
      side to scroll to — and a stray horizontal bar would eat a row of squares. */
   overflow-x: hidden;
-  /* The scrollbar takes its width out of the content box, and the static page's
-     11px side border leaves the four columns fitting to the pixel — so on the
-     scrolling page the border narrows to the panel's own 4.5px and the squares
-     stay whole instead of losing a sliver of the fourth column. */
-  padding-inline: calc(4.5px * var(--ui-scale, 1));
   scrollbar-width: thin;
   scrollbar-color: #6f6449 transparent;
 }
 
 /* Everything the loot-bag page stacks above or below the backpack keeps the
-   backpack's own width — 190px of panel between two 26px posts — so the page reads
-   as one column of the client's chrome, instead of a sentence's worth of invisible
-   panel with the squares floating in the middle of it.                          */
+   backpack's own width, so the page reads as one column of the client's chrome
+   rather than a sentence running wider than the squares under it. It is the
+   scrolling frame's width, since that is the frame the loot bag uses.        */
 .rs-inv-col {
-  width: calc(242px * var(--ui-scale, 1));
+  width: calc(180px * var(--ui-scale, 1));
   margin-inline: auto;
 }
 
-/* A page that is only the backpack is 242px wide — the panel plus its two posts —
-   so the panel holding it hugs the frame instead of keeping the width the text
-   pages need, otherwise the squares float in a hand's width of empty wood on
-   either side. */
+/* A backpack page is as wide as the backpack, so the panel holding it hugs the
+   frame instead of keeping the width the text pages need, otherwise the squares
+   float in a hand's width of empty ground on either side. */
 .rs-tab-body:has(> .rs-inv-page) { width: fit-content; }
 /* Unaffordable: dimmed but still hoverable so stats can be previewed. */
 .rs-slot-unafford { opacity: 0.5; }
@@ -692,24 +685,43 @@ body {
 .rs-tab-body {
   animation: rs-tab-in 160ms ease-out both;
 }
-/* The Inventory pages carry the client's own chrome already — the `invback`
-   panel, a wooden post down each side, and the stone rail under it. A wood box
-   around that is a second frame the client never draws, so the backpack pages
-   drop it: no wall, no bevel, no padding, only OSRS's own sprites. */
+/* Modern's side panel is a dark translucent wash over the world, ringed by the stone
+   frame the resizable client draws around every panel it opens — glass laid on the
+   scene inside the client's own masonry, rather than a slab of leather nailed over it.
+   That wash is the whole ground of a backpack page — no wood wall, no bevel — and it is
+   the page that carries it, so the loot bag's name, filter and footnote sit on the same
+   ground its squares do.
+
+   The frame is one 24x24 bake of cache sprites 1141-1149, laid out the way border-image
+   reads it (columns and rows of 6/12/6), so the corners draw at their own size and the
+   edges tile however tall the page turns out. Each corner tile is cut away on a diagonal
+   at its outer corner, and the bake fills that chamfer with the pale cap the client lays
+   over it (sprites 2903-2906) — the little white detail on a panel's corners. The url arrives as --rs-stone-frame from
+   GameRoot instead of being written here, because a stylesheet cannot see
+   NEXT_PUBLIC_BASE_PATH. At any UI scale the page is the frame's width plus 6px of
+   ground and 6px of stone either side. */
 .rs-tab-body.rs-tab-bare {
-  background: none;
-  border: 0;
+  border: calc(6px * var(--ui-scale, 1)) solid transparent;
+  border-image: var(--rs-stone-frame) 6 repeat;
+  padding: calc(6px * var(--ui-scale, 1));
+  background: rgba(12, 10, 7, 0.62);
+  /* The stone owns the border box, so the wash stops at its inner edge — left to
+     spread under it, the translucent ground only tints the frame's own corners. */
+  background-clip: padding-box;
+  /* The frame is the whole chrome now; the keyline and hairline that stood in for
+     it while it was missing would only double the stone's own inner edge. */
   box-shadow: none;
-  padding: 0;
+  image-rendering: pixelated;
 }
 /* The backpack opens out of the Inventory stone, so it hangs over that stone rather
    than over the right-hand end of the bar. `--rs-inv-anchor` is set in GameRoot: the
    measured distance from the bar's right edge to the middle of the stone. Half the
-   page's own width (242px, the panel plus its two posts) brings the page's centre
-   onto it, and `max()` keeps it on screen if the stone ever sits closer to the edge
-   than that. */
+   page's own width brings the page's centre onto it — 192px, being the backpack's 168px
+   of squares plus 6px of ground and 6px of stone on each side — and `max()` keeps it on
+   screen if the stone ever sits closer to the edge than that. The loot bag's page runs
+   12px wider, for the scrollbar its grid gives up, so it hangs that far off centre. */
 .rs-tab-body.rs-tab-inv {
-  right: max(0px, calc(var(--rs-inv-anchor, 0px) - 121px * var(--ui-scale, 1)));
+  right: max(0px, calc(var(--rs-inv-anchor, 0px) - 96px * var(--ui-scale, 1)));
 }
 @keyframes rs-tab-in {
   from { opacity: 0; transform: translateY(4px); }
