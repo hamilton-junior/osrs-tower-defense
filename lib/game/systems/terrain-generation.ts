@@ -19,7 +19,7 @@ import type { Point } from '../types';
 import { pointToSegmentDistance } from './geometry';
 import { makeRng } from './map-generation';
 
-export type TileFlag = 'open' | 'blocked' | 'unbuildable' | 'farming';
+export type TileFlag = 'open' | 'blocked' | 'unbuildable' | 'farming' | 'water';
 
 /** A cosmetic prop placed on an open tile (no gameplay effect). `kind` selects the
  *  shape/palette slot the renderer draws. */
@@ -37,6 +37,11 @@ export interface TerrainPatch {
   row: number;
 }
 
+/** A fishing spot: the one tile of a water pool the player can cast into.
+ *  The pool's other tiles are water too, and just as unbuildable — this list is
+ *  only the tiles that hold fish. */
+export interface TerrainSpot { col: number; row: number; }
+
 export interface TerrainField {
   cols: number;
   rows: number;
@@ -44,6 +49,7 @@ export interface TerrainField {
   tiles: TileFlag[];
   decorations: TerrainDecoration[];
   patches: TerrainPatch[];
+  spots: TerrainSpot[];
 }
 
 /** A tile counts as *road* if its centre is within this many px of the road
@@ -65,6 +71,13 @@ export const MAX_PATCHES = 2;
 /** Two patches never sit within this Chebyshev distance of each other, so the
  *  pair reads as two plots rather than one double-wide one. */
 const PATCH_SPACING = 5;
+/** How many water pools a run's field carries, at most. */
+export const MAX_POOLS = 2;
+/** A pool's tile count is randomised between these two bounds, inclusive. */
+export const POOL_MIN_TILES = 2;
+export const POOL_MAX_TILES = 4;
+/** Two pools never sit within this Chebyshev distance of each other. */
+const POOL_SPACING = 6;
 /** Seed offset so terrain varies independently of the road, still per-run stable. */
 const TERRAIN_SEED_XOR = 0x9e3779b9;
 
@@ -246,6 +259,62 @@ export function generateTerrain(
   }
   patches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
 
+  // ── water pools ──
+  // Same bargain the allotments strike, and for the same reason: a pool only ever
+  // replaces ground that was already taken, so the corridor, the coverage cap and
+  // the defensibility repair all still see the field they were computed on. A pool
+  // is a small blob rather than a single tile — water reads as water only when it
+  // has some width — but only one tile of it carries a fishing spot.
+  const spots: TerrainSpot[] = [];
+  const wet: number[] = [];
+  for (let i = 0; i < flags.length; i++) if (flags[i] !== 'open' && flags[i] !== 'farming') wet.push(i);
+  const wetEdging = wet.filter(idx => {
+    const c = idx % cols;
+    const r = (idx / cols) | 0;
+    let open = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+        if (flags[nr * cols + nc] === 'open') open++;
+      }
+    }
+    return open >= 3;
+  });
+  const wetPool = wetEdging.length > 0 ? wetEdging : wet;
+  const poolsWanted = wetPool.length === 0 ? 0 : 1 + Math.floor(rng() * MAX_POOLS);
+  let poolTries = 0;
+  while (spots.length < poolsWanted && poolTries++ < 200) {
+    const seedIdx = wetPool[Math.floor(rng() * wetPool.length)];
+    const col = seedIdx % cols;
+    const row = (seedIdx / cols) | 0;
+    if (flags[seedIdx] === 'farming' || flags[seedIdx] === 'water') continue;
+    if (spots.some(s => Math.max(Math.abs(s.col - col), Math.abs(s.row - row)) < POOL_SPACING)) continue;
+    // Grow the blob outward from the seed, four-connected, taking only tiles that
+    // were already unusable. A pool that can only reach its own seed tile is still
+    // a pool — it is simply a small one.
+    const blob = [seedIdx];
+    flags[seedIdx] = 'water';
+    const target = POOL_MIN_TILES + Math.floor(rng() * (POOL_MAX_TILES - POOL_MIN_TILES + 1));
+    let grow = 0;
+    while (blob.length < target && grow++ < 40) {
+      const from = blob[Math.floor(rng() * blob.length)];
+      const fc = from % cols;
+      const fr = (from / cols) | 0;
+      const dir = Math.floor(rng() * 4);
+      const nc = fc + (dir === 0 ? 1 : dir === 1 ? -1 : 0);
+      const nr = fr + (dir === 2 ? 1 : dir === 3 ? -1 : 0);
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      const nIdx = nr * cols + nc;
+      if (flags[nIdx] === 'open' || flags[nIdx] === 'farming' || flags[nIdx] === 'water') continue;
+      flags[nIdx] = 'water';
+      blob.push(nIdx);
+    }
+    spots.push({ col, row });
+  }
+  spots.sort((a, b) => (a.row - b.row) || (a.col - b.col));
+
   // ── cosmetic decorations on open, non-corridor tiles ──
   const decorations: TerrainDecoration[] = [];
   for (const idx of eligible) {
@@ -255,5 +324,5 @@ export function generateTerrain(
     }
   }
 
-  return { cols, rows, tiles: flags, decorations, patches };
+  return { cols, rows, tiles: flags, decorations, patches, spots };
 }

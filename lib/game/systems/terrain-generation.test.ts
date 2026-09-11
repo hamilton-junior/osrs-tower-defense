@@ -8,6 +8,8 @@ import {
   REPAIR_RADIUS,
   MIN_OPEN_NEAR,
   MAX_PATCHES,
+  MAX_POOLS,
+  POOL_MAX_TILES,
 } from './terrain-generation';
 
 // The board's fixed resolution (mirrors the engine constants).
@@ -52,7 +54,7 @@ describe('generateTerrain', () => {
       expect(t.cols).toBe(COLS);
       expect(t.rows).toBe(ROWS);
       expect(t.tiles).toHaveLength(COLS * ROWS);
-      for (const f of t.tiles) expect(['open', 'blocked', 'unbuildable', 'farming']).toContain(f);
+      for (const f of t.tiles) expect(['open', 'blocked', 'unbuildable', 'farming', 'water']).toContain(f);
     }
   });
 
@@ -177,6 +179,53 @@ describe('generateTerrain', () => {
         const [a, b] = patches;
         expect(Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row)), `seed ${seed}`)
           .toBeGreaterThanOrEqual(5);
+      }
+    });
+  });
+
+  describe('water pools', () => {
+    it('deals one or two pools, each with a spot on a water tile', () => {
+      for (const { seed, path } of PATHS) {
+        const t = generateTerrain(seed, path, COLS, ROWS, GRID);
+        expect(t.spots.length, `seed ${seed}`).toBeGreaterThanOrEqual(1);
+        expect(t.spots.length, `seed ${seed}`).toBeLessThanOrEqual(MAX_POOLS);
+        for (const s of t.spots) {
+          expect(t.tiles[s.row * COLS + s.col], `seed ${seed} @${s.col},${s.row}`).toBe('water');
+        }
+        const water = t.tiles.filter(f => f === 'water').length;
+        expect(water, `seed ${seed} water tiles`).toBeGreaterThanOrEqual(t.spots.length);
+        expect(water, `seed ${seed} water tiles`).toBeLessThanOrEqual(t.spots.length * POOL_MAX_TILES);
+      }
+    });
+
+    it('never takes open ground, the road, or the build corridor', () => {
+      for (const { seed, path } of PATHS) {
+        const t = generateTerrain(seed, path, COLS, ROWS, GRID);
+        const road = computeRoadTiles(path, COLS, ROWS, GRID);
+        for (let i = 0; i < t.tiles.length; i++) {
+          if (t.tiles[i] !== 'water') continue;
+          const col = i % COLS;
+          const row = (i / COLS) | 0;
+          expect(road[i], `seed ${seed} water on road`).toBe(false);
+          let nearRoad = false;
+          for (let dr = -CORRIDOR_RADIUS; dr <= CORRIDOR_RADIUS && !nearRoad; dr++) {
+            for (let dc = -CORRIDOR_RADIUS; dc <= CORRIDOR_RADIUS; dc++) {
+              const nr = row + dr; const nc = col + dc;
+              if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+              if (road[nr * COLS + nc]) { nearRoad = true; break; }
+            }
+          }
+          expect(nearRoad, `seed ${seed} water in corridor`).toBe(false);
+        }
+      }
+    });
+
+    it('never floods an allotment', () => {
+      for (const { seed, path } of PATHS) {
+        const t = generateTerrain(seed, path, COLS, ROWS, GRID);
+        for (const p of t.patches) {
+          expect(t.tiles[p.row * COLS + p.col], `seed ${seed} patch @${p.col},${p.row}`).toBe('farming');
+        }
       }
     });
   });

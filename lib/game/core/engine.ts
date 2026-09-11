@@ -105,7 +105,7 @@ export class GameEngine {
   private mapLayout: MapLayout = { points: [], entry: 'left', exit: 'right', archetype: 'serpentine', orientation: 0 };
   /** Per-run terrain: obstacle / non-buildable / decoration flags over the tile grid.
    *  Rebuilt with the map each run; the renderer draws it and placement consults it. */
-  terrain: TerrainField = { cols: 0, rows: 0, tiles: [], decorations: [], patches: [] };
+  terrain: TerrainField = { cols: 0, rows: 0, tiles: [], decorations: [], patches: [], spots: [] };
 
   /** Does the terrain forbid building on the tile at `(x, y)` (obstacle or
    *  non-buildable zone)? Public so the renderer's placement ghost can turn red
