@@ -4019,7 +4019,9 @@ export default function GameRoot() {
                     <p className="text-[0.7em] text-[#b3a585] leading-snug mt-[0.4em] pt-[0.35em] px-[0.1em] border-t border-[var(--rs-keyline)]">
                       {locked
                         ? `Hunter ${def.level} unlocks this. The skill levels every time a trap of yours goes off.`
-                        : 'Laid on the road between waves, and picked back up with a click. Enemies walk over it, so it never blocks the way.'}
+                        : ui.waveActive
+                          ? 'Traps go down between waves, not during one.'
+                          : 'Laid on the road between waves, and picked back up with a click. Enemies walk over it, so it never blocks the way.'}
                     </p>
                   </div>
                 );
@@ -4136,14 +4138,20 @@ export default function GameRoot() {
                       const afford = ui.money >= cost;
                       const active = ui.selectedTrapId === def.id;
                       const full = ui.traps.length >= ui.maxTraps;
+                      // Dim mid-wave, but never `disabled`: a disabled button fires no
+                      // mouse events at all, so the hover panel — which is the only
+                      // place the trap's damage, its cost and the Hunter bar are
+                      // written down — went dark for the whole fight, exactly when a
+                      // player is working out what to lay in the next gap. The slot
+                      // stays alive and only the click is refused.
                       return (
                         <button
                           key={def.id}
-                          onClick={() => engineRef.current?.selectTrapType(active ? null : def.id)}
+                          onClick={() => { if (!ui.waveActive) engineRef.current?.selectTrapType(active ? null : def.id); }}
                           onMouseEnter={() => setHoverTrap(def.id)}
                           onMouseLeave={() => setHoverTrap((h) => (h === def.id ? null : h))}
-                          disabled={ui.waveActive}
-                          className={`rs-slot ${active ? 'selected' : ''} ${locked || !afford || full ? 'rs-slot-unafford' : ''} disabled:opacity-40`}
+                          aria-disabled={ui.waveActive}
+                          className={`rs-slot ${active ? 'selected' : ''} ${locked || !afford || full ? 'rs-slot-unafford' : ''} ${ui.waveActive ? 'opacity-40 cursor-default' : ''}`}
                         >
                           <img src={def.sprite} alt={def.name} onError={hideBrokenImg} />
                           <span className="rs-slot-key">{i + 1}</span>
