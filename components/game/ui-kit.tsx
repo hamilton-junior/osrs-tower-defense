@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ASSETS } from '@/lib/game/assets';
 
 /**
  * Small presentational primitives and formatters shared across the interface.
@@ -196,94 +195,15 @@ export function Stat({ icon, label, value }: { icon?: string; label: string; val
 
 /* ══════════════════════════════ the shop standard ═════════════════════════
  * OSRS's minigame shops — Nightmare Zone, Barbarian Assault, the Mage Arena —
- * are all the same interface wearing different stock: a titled frame, a strip of
- * tabs when there is more than one page, a scrolling grid of item squares, and a
- * detail strip under it that names whatever is selected and carries its buttons.
+ * are all the same interface wearing different stock: a titled frame, a scrolling
+ * grid of item squares, and a detail strip under it that names whatever is
+ * selected and carries its buttons.
  * Nothing is hidden behind a hover and nothing is one click deep: every option
  * the player has is on the screen.
  *
- * These four pieces are that interface. A new shop should be a list of items and
- * a couple of handlers, not a new layout.
+ * These pieces are that interface. A new shop should be a list of items and a
+ * couple of handlers, not a new layout.
  */
-
-/** One page of a {@link ShopFrame}. */
-export interface ShopTab {
-  id: string;
-  label: string;
-  icon?: string;
-  /** A count in the corner, drawn only when above zero. */
-  badge?: number;
-  title?: string;
-  disabled?: boolean;
-}
-
-/**
- * The tab rail, built the way resizable mode builds it: one stone square per tab,
- * flush against its neighbours, the open one wearing the red stone instead of the
- * grey. The client's own sprites (1180 / 1181) are the whole button — there is no
- * border or bevel of ours on top — and the tab's icon is stamped in the middle,
- * with the name in the tooltip, because that is all a real interface tab shows.
- *
- * A count rides the bottom-right corner the way the client stacks a quantity, and
- * a tab that cannot be opened right now stays on the rail, greyed: a missing stone
- * would say the page does not exist rather than "not yet".
- */
-function TabRail({ tabs, activeTab, onTab }: {
-  tabs: ShopTab[];
-  activeTab?: string;
-  onTab?: (id: string) => void;
-}) {
-  return (
-    <div
-      className="rs-tabrail"
-      style={{
-        '--rs-tab-off': `url(${ASSETS.misc.tab_stone})`,
-        '--rs-tab-on': `url(${ASSETS.misc.tab_stone_on})`,
-      } as React.CSSProperties}
-    >
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          title={t.title ?? t.label}
-          aria-label={t.label}
-          aria-pressed={t.id === activeTab}
-          disabled={t.disabled}
-          onClick={() => onTab?.(t.id)}
-          className={`rs-tabstone ${t.id === activeTab ? 'rs-tabstone-on' : ''}`}
-        >
-          {t.icon
-            ? <img src={t.icon} alt="" onError={hideBrokenImg} />
-            : <span className="rs-tabstone-label">{t.label}</span>}
-          {t.badge != null && t.badge > 0 && <span className="rs-tab-badge">{t.badge}</span>}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/**
- * The frame: the page, and the tab rail under it.
- *
- * No title bar. The interface opens *upward* out of a stone in the bottom bar, so
- * its own rail belongs on the bottom edge — the stones stay where the click came
- * from and the panel grows away from them. Nothing is left to caption either: the
- * lit stone says which page is open, and every count the title used to carry now
- * rides the tab it counts.
- */
-export function ShopFrame({ tabs, activeTab, onTab, children }: {
-  tabs?: ShopTab[];
-  activeTab?: string;
-  onTab?: (id: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      {children}
-      {tabs && tabs.length > 0 && <TabRail tabs={tabs} activeTab={activeTab} onTab={onTab} />}
-    </>
-  );
-}
 
 /** The twenty-eight slots at OSRS's own metrics: a 4×7 grid of 42×36 cells on the
  *  client's `invback` panel, which is exactly 190×261 — that grid plus its border —

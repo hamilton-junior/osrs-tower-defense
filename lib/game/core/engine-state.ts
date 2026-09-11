@@ -439,7 +439,7 @@ export interface UIState {
    *  stack like doses, but each herb appears once; the list empties every time a
    *  wave is cleared, since a herb lasts exactly one wave. */
   farmBuffs: { seedId: SeedId; herbName: string; icon: string; label: string; labelIcon: string; tip: string }[];
-  /** The twenty-eight slots, in order, with a null for every empty one. Nothing
+  /** The twenty-seven carried slots, in order, with a null for every empty one. Nothing
    *  stacks here — every entry is one item — and positions matter: taking one out
    *  leaves its hole where it was, the way OSRS does. */
   inventory: (UiStack | null)[];

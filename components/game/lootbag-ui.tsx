@@ -13,7 +13,7 @@ import { hideBrokenImg, InvGrid, ItemSlot, loadBool } from './ui-kit';
 
 /**
  * The **loot bag** — everything the run picked up and is not carrying: the gear
- * that dropped, and whatever overflowed the twenty-eight slots.
+ * that dropped, and whatever overflowed the backpack's twenty-seven slots.
  *
  * The bag itself is the backpack again: the client's own panel between its two
  * posts, four squares to a row ({@link InvGrid}). A real looting bag holds
@@ -28,8 +28,9 @@ import { hideBrokenImg, InvGrid, ItemSlot, loadBool } from './ui-kit';
  * A tower's own slot asks "which piece?"; a piece here asks "which tower?" — the
  * same picker read from the other end, so neither question makes the player walk to
  * the other panel. A herb or a potion has no such question: clicking one pulls a
- * single item back into a free slot. The page lives inside the inventory interface
- * (classic only: the roguelite drops no gear), because a bag is a bag.
+ * single item back into a free slot. The bag itself is a square in the backpack —
+ * always the twenty-eighth — and clicking that square opens this page in the same
+ * panel, because a bag is a bag.
  */
 
 /** What a looting bag holds in OSRS, and so how tall one panel of it draws. */
@@ -92,15 +93,6 @@ export function LootBagView({
   // never gets a chance to leave the row it was on.
   useEffect(() => () => onHoverTower(null), [onHoverTower]);
 
-  if (bag.length === 0 && stacks.length === 0) {
-    return (
-      <div className="mt-[0.6em] px-[0.2em] text-[0.75em] text-[#8f8158] leading-relaxed">
-        Empty. Monsters drop gear as they die, and bosses drop the signature
-        jewellery. Whatever will not fit in the inventory waits here too.
-      </div>
-    );
-  }
-
   const allPiles = pileGear(bag);
   const piles = allPiles.filter(({ item }) => !hideJunk || isUpgradeForAny(towersOnBoard, item));
   const hiddenCount = allPiles.length - piles.length;
@@ -112,69 +104,25 @@ export function LootBagView({
 
   return (
     <>
-      <label
-        className="rs-inv-col flex flex-wrap items-center gap-[0.4em] mt-[0.5em] px-[0.2em] text-[0.72em] text-[#d3c3a0] cursor-pointer select-none"
-        title="Hide pieces that would not improve any tower on the board: nothing can wear them, or what those towers already wear is better"
+      {/* With the tab rail gone there is nothing else on the page to say which of
+          the two backpacks this is, so the bag names itself — and says how to leave:
+          the Inventory stone that opened it is also the way back out of it. */}
+      <div
+        className="rs-inv-col flex items-center gap-[0.4em] px-[0.2em] text-[0.75em] text-[#d3c3a0]"
+        title="Click the Inventory stone to go back to the backpack"
       >
-        <input
-          type="checkbox"
-          className="rs-check"
-          checked={hideJunk}
-          onChange={(e) => setHideJunk(e.target.checked)}
-        />
-        Hide non-upgrades
-        {hiddenCount > 0 && <span className="text-[#8a7c5c]">({hiddenCount} hidden)</span>}
-      </label>
-
-      {filled === 0 ? (
-        <div className="rs-inv-col mt-[0.5em] px-[0.2em] text-[0.72em] text-[#8f8158] leading-snug">
-          Nothing here would improve a tower on the board: wrong style, too
-          high a level, or beaten by what is already worn. Untick to see it all.
-        </div>
-      ) : (
-        <InvGrid
-          background={ASSETS.misc.inventory_background}
-          postLeft={ASSETS.misc.inv_post_left}
-          postRight={ASSETS.misc.inv_post_right}
-          className="rs-inv-page rs-inv-scroll"
-        >
-          {piles.map(({ item, count }) => (
-            <HoverTip key={item.id} content={gearTooltip(item)}>
-              <ItemSlot
-                osrs
-                icon={GEAR_ICONS[item.id]}
-                name={item.name}
-                count={count > 1 ? count : undefined}
-                title={`Equip ${item.name}`}
-                selected={pick === item.id}
-                signature={item.rarity === 'signature'}
-                onClick={() => setPick((cur) => (cur === item.id ? null : item.id))}
-              />
-            </HoverTip>
-          ))}
-          {/* A herb or a potion has one thing to ask, so it is a click and not a
-              picker: one comes back, into the first free square. */}
-          {stacks.map((s) => (
-            <ItemSlot
-              key={`${s.kind}:${s.id}`}
-              osrs
-              icon={s.icon}
-              name={s.name}
-              count={s.count}
-              dim={invFull}
-              title={invFull ? 'Inventory full' : `Take one ${s.name}`}
-              onClick={() => onTake(s.kind, s.id)}
-            />
-          ))}
-          {Array.from({ length: padding }, (_, j) => <ItemSlot key={`e${j}`} osrs />)}
-        </InvGrid>
-      )}
+        <img src={ASSETS.misc.loot_bag} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+        <span className="flex-1">Looting bag</span>
+        <span className="text-[0.85em] text-[#8a7c5c]">Inventory stone goes back</span>
+      </div>
 
       {/* Which tower takes this piece. A tower whose level is too low is listed but
           disabled, and one whose slot is full says what it would replace (equipping
           swaps — the old piece falls back into this bag). Hovering a row rings that
           tower on the board. Inline rather than a floating dropdown: this panel
-          scrolls, and `overflow-y-auto` would clip one. */}
+          scrolls, and `overflow-y-auto` would clip one. It sits above the bag rather
+          than under it, so the answer to "which tower?" is not pushed off the bottom
+          of a panel by the squares that asked the question. */}
       {picked && (() => {
         const g = picked;
         const slot: 'ammo' | 'jewellery' = g.type === 'ammo' ? 'ammo' : 'jewellery';
@@ -270,6 +218,69 @@ export function LootBagView({
           </div>
         );
       })()}
+
+      <label
+        className="rs-inv-col flex flex-wrap items-center gap-[0.4em] mt-[0.5em] px-[0.2em] text-[0.72em] text-[#d3c3a0] cursor-pointer select-none"
+        title="Hide pieces that would not improve any tower on the board: nothing can wear them, or what those towers already wear is better"
+      >
+        <input
+          type="checkbox"
+          className="rs-check"
+          checked={hideJunk}
+          onChange={(e) => setHideJunk(e.target.checked)}
+        />
+        Hide non-upgrades
+        {hiddenCount > 0 && <span className="text-[#8a7c5c]">({hiddenCount} hidden)</span>}
+      </label>
+
+      <InvGrid
+        background={ASSETS.misc.inventory_background}
+        postLeft={ASSETS.misc.inv_post_left}
+        postRight={ASSETS.misc.inv_post_right}
+        className="rs-inv-page rs-inv-scroll"
+      >
+        {piles.map(({ item, count }) => (
+          <HoverTip key={item.id} content={gearTooltip(item)}>
+            <ItemSlot
+              osrs
+              icon={GEAR_ICONS[item.id]}
+              name={item.name}
+              count={count > 1 ? count : undefined}
+              title={`Equip ${item.name}`}
+              selected={pick === item.id}
+              signature={item.rarity === 'signature'}
+              onClick={() => setPick((cur) => (cur === item.id ? null : item.id))}
+            />
+          </HoverTip>
+        ))}
+        {/* A herb or a potion has one thing to ask, so it is a click and not a
+            picker: one comes back, into the first free square. */}
+        {stacks.map((s) => (
+          <ItemSlot
+            key={`${s.kind}:${s.id}`}
+            osrs
+            icon={s.icon}
+            name={s.name}
+            count={s.count}
+            dim={invFull}
+            title={invFull ? 'Inventory full' : `Take one ${s.name}`}
+            onClick={() => onTake(s.kind, s.id)}
+          />
+        ))}
+        {Array.from({ length: padding }, (_, j) => <ItemSlot key={`e${j}`} osrs />)}
+      </InvGrid>
+
+      {/* The grid is drawn whether or not anything is in it — an empty backpack is
+          still the backpack, and a page that vanishes into a paragraph reads as a
+          broken panel. The paragraph goes under it instead, and says which kind of
+          empty this is: nothing found yet, or everything filtered out. */}
+      {filled === 0 && (
+        <div className="rs-inv-col mt-[0.5em] px-[0.2em] text-[0.72em] text-[#8f8158] leading-snug">
+          {allPiles.length === 0 && stacks.length === 0
+            ? 'Empty. Monsters drop gear as they die, and bosses drop the signature jewellery. Whatever will not fit in the inventory waits here too.'
+            : 'Nothing here would improve a tower on the board: wrong style, too high a level, or beaten by what is already worn. Untick to see it all.'}
+        </div>
+      )}
     </>
   );
 }

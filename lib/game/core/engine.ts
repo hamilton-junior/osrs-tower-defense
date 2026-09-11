@@ -420,8 +420,8 @@ export class GameEngine {
   }
 
   // ---------------------------------------------------------------- inventory
-  /** Everything the run carries and everything it has stored: twenty-eight slots
-   *  that never stack, and the looting bag behind them for the overflow. The
+  /** Everything the run carries and everything it has stored: twenty-seven slots
+   *  that never stack, and the looting bag in the twenty-eighth for the overflow. The
    *  inventory is what the rest of the game reads — a herb in the bag is a herb
    *  left at home — and a harvest with no room goes to the bag rather than being
    *  dropped. See systems/inventory for the rules. */

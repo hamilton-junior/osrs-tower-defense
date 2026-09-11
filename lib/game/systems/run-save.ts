@@ -218,7 +218,7 @@ const knownStack = (kind: StackKind, id: string): boolean =>
 
 /** The slots, out of whichever shape the save was written in. A save from before
  *  the inventory has two `{ id: count }` piles instead; those are poured back in
- *  one item at a time, which fills the twenty-eight slots first and sends whatever
+ *  one item at a time, which fills the twenty-seven slots first and sends whatever
  *  does not fit to the looting bag — the same rule a harvest follows. A save from
  *  the short-lived bank build carried an `items.bank` that no longer has a home;
  *  it is dropped, and the run resumes with whatever it was actually carrying. */

@@ -25,7 +25,7 @@ import { weaknessTag, enemySpriteStyle } from './enemy-ui';
 import { StartScreen } from './start-screen';
 import { DpsView } from './dps-view';
 import { SkillsView, type SkillId } from './skills-ui';
-import { InventoryView } from './inventory-ui';
+import { InventoryView, type InventoryPage } from './inventory-ui';
 import { FeedbackModal } from './feedback-modal';
 import { SaveCodeModal } from './save-code';
 import { LEARN_STEPS, LearnAsYouGo, HowToPlay } from './tutorial';
@@ -207,6 +207,15 @@ export default function GameRoot() {
   // interfaces (Home, Essence, Slayer Rewards, DPS) share that one popup;
   // Collection Log and Debug still open their own larger windows.
   const [tab, setTab] = useState<SideTab | null>(null);
+  /** Which page the Inventory stone is showing: the backpack, or the looting bag
+   *  the backpack's last square opens. It lives out here because the way *back*
+   *  out of the bag is the stone in the bar, which the panel cannot reach. */
+  const [invPage, setInvPage] = useState<InventoryPage>('inventory');
+  /** The bottom bar's wrapper and the Inventory stone inside it: the backpack
+   *  opens over that stone, and the offset between the two is measured, not
+   *  guessed — the row's contents differ by game mode. */
+  const barWrapRef = useRef<HTMLDivElement | null>(null);
+  const invTabRef = useRef<HTMLButtonElement>(null);
   const [logOpen, setLogOpen] = useState(false);
   // Highest Combat Achievement tier cleared in full — a cosmetic title and nothing
   // more: it gates no control, mode or difficulty tier.
@@ -400,7 +409,41 @@ export default function GameRoot() {
   // ever stuck on-screen. The popup floats above the bar (absolutely positioned),
   // so opening it never resizes the canvas — which would rebuild the path and
   // re-anchor every tower mid-run.
-  const onSideTab = useCallback((t: SideTab) => setTab((cur) => (cur === t ? null : t)), []);
+  // The one exception is the Inventory, which has two pages: the looting bag is
+  // reached from a square in the backpack, and its stone is the way back out. So
+  // that stone closes the panel only from the backpack itself.
+  const onSideTab = useCallback((t: SideTab) => {
+    if (t === 'inventory' && invPage === 'lootbag') {
+      setInvPage('inventory');
+      setTab('inventory');
+      return;
+    }
+    setTab((cur) => (cur === t ? null : t));
+  }, [invPage]);
+  // Closing the panel leaves the backpack open, so reopening it never lands in the
+  // bag a player already walked out of.
+  useEffect(() => {
+    if (tab !== 'inventory') setInvPage('inventory');
+  }, [tab]);
+  // Where the Inventory stone sits, as a distance from the bar's right edge to the
+  // middle of the stone. `.rs-tab-inv` subtracts half the backpack's own width from
+  // it, so the page opens centred over the stone that opened it. Measured rather
+  // than written down: the loadout stone beside it only exists in roguelite, and
+  // the whole row is `em`-sized off `--ui-scale`.
+  useLayoutEffect(() => {
+    const wrap = barWrapRef.current;
+    const stone = invTabRef.current;
+    if (!wrap || !stone) return;
+    const measure = () => {
+      const w = wrap.getBoundingClientRect();
+      const s = stone.getBoundingClientRect();
+      wrap.style.setProperty('--rs-inv-anchor', `${Math.round(w.right - (s.left + s.width / 2))}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, [tab, uiScale, ui.gameMode]);
   // Which skill's page the Skills stone is showing, or null for the grid. It lives
   // out here rather than inside the view so the panel reopens where it was left —
   // a player checking their allotments between waves shouldn't have to walk back in.
@@ -3438,13 +3481,15 @@ export default function GameRoot() {
           The bar's own height is constant (`em`, so it tracks the UI-scale control
           rather than its contents): a bar that grew or shrank mid-run would shrink
           the play area and letterbox the board. */}
-      <div className="relative shrink-0 w-full" style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}>
+      <div ref={barWrapRef} className="relative shrink-0 w-full" style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}>
 
         {/* The interface a stone has popped open: expands upward over the map, and
             closes when its stone is clicked again — or on a right-click anywhere on
             the panel (there is no ✕; the stone is the toggle). `key` re-mounts it on
             a switch so the fade/slide-in replays. Right-aligned beneath the stones
-            that open it; scrolls internally when taller than the space allowed.
+            that open it — except the backpack, which `.rs-tab-inv` slides along the
+            bar until it sits over the Inventory stone itself; scrolls internally when
+            taller than the space allowed.
 
             Skills opens wider than the rest: its rows are a whole recipe — icon,
             name, what it does, every ingredient held, and a price — and at the
@@ -3454,7 +3499,7 @@ export default function GameRoot() {
           key={tab}
           ref={tabBodyRef}
           onContextMenu={(e) => { e.preventDefault(); setTab(null); }}
-          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 ${tab === 'skills' ? 'w-[clamp(24em,46vw,40em)]' : 'w-[clamp(20em,34vw,30em)]'} max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${tab === 'inventory' ? ' rs-tab-bare' : ''}${duckPanel ? ' rs-duck' : ''}`}
+          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 ${tab === 'skills' ? 'w-[clamp(24em,46vw,40em)]' : 'w-[clamp(20em,34vw,30em)]'} max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${tab === 'inventory' ? ' rs-tab-bare rs-tab-inv' : ''}${duckPanel ? ' rs-duck' : ''}`}
         >
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (
@@ -3722,13 +3767,15 @@ export default function GameRoot() {
         {/* ── SKILLS: what every skill this run has going on, in one place. It
             mirrors the board — every button here is a button that already exists
             out there — so nothing moves out of the world and into a menu. ── */}
-        {/* ── INVENTORY: the twenty-eight slots, and the loot bag one tab across
-            holding everything that did not fit. Everything a run carries is in
-            here, and the Herblore bench reads these slots. ── */}
+        {/* ── INVENTORY: twenty-seven carried squares, and the looting bag in the
+            twenty-eighth. Everything a run carries is in here, and the Herblore
+            bench reads these slots. The bag square opens the bag in this same
+            panel; the stone below walks back out of it. ── */}
         {tab === 'inventory' && (
           <InventoryView
             ui={ui}
-            showLootBag={ui.gameMode === 'classic'}
+            page={invPage}
+            onPage={setInvPage}
             towers={engineRef.current?.towers ?? []}
             hoverTowerId={hoverTowerId}
             onHoverTower={hoverTowerRow}
@@ -4260,17 +4307,18 @@ export default function GameRoot() {
 
             <div data-tut="stones" className="flex items-center gap-[0.4em]">
               {/* The roguelite's loadout: relics and boons. Classic drafts nothing, so
-                  it has no loadout stone at all; classic's gear lives on the
-                  Inventory's loot-bag tab instead. */}
+                  it has no loadout stone at all; classic's gear lives in the looting
+                  bag, inside the Inventory. */}
               {ui.gameMode === 'roguelite' && (
                 <button ref={boonsTabRef} onClick={() => onSideTab('home')} title="Run loadout: relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
                   <img src={ASSETS.misc.cards_icon} alt="Run loadout" onError={hideBrokenImg} />
                 </button>
               )}
-              {/* The inventory sits beside the bag it now holds a tab for: one is
-                  what gets used, the other what gets equipped. The badge counts the
-                  loot bag, since the slots themselves are on the panel. */}
-              <button onClick={() => onSideTab('inventory')} title="Inventory: what this run carries, and the loot bag" className={`rs-tab ${tab === 'inventory' ? 'rs-tab-on' : ''}`}>
+              {/* One stone for everything the run carries: the backpack, and the
+                  looting bag riding in its last square. The badge counts the bag,
+                  since the slots themselves are on the panel. Clicking it while the
+                  bag is open walks back to the backpack instead of closing. */}
+              <button ref={invTabRef} onClick={() => onSideTab('inventory')} title="Inventory: what this run carries, and the looting bag in its last slot" className={`rs-tab ${tab === 'inventory' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.inventory_icon} alt="Inventory" onError={hideBrokenImg} />
                 {ui.lootBag.length + ui.bagStacks.length > 0 && (
                   <span className="rs-tab-badge">{ui.lootBag.length + ui.bagStacks.length}</span>

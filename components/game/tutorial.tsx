@@ -109,12 +109,12 @@ export const LEARN_STEPS: LearnStep[] = [
   // Fires the first time the slots actually have something in them: three tips
   // about carrying, in the order the player meets them.
   { id: 'inventory', target: 'stones', icon: ASSETS.misc.inventory_icon, title: 'Where it all goes',
-    body: 'The Inventory stone holds 28 slots. Everything you harvest or brew lands there.',
+    body: 'The Inventory stone holds 27 slots. Everything you harvest or brew lands there.',
     when: (ui) => !ui.waveActive && ui.inventory.some((s) => s !== null) },
   // Fires the first time something actually overflowed, which is the only moment
   // the loot bag is a thing that happened rather than a thing that might.
-  { id: 'overflow', target: 'stones', icon: ASSETS.misc.loot_bag, title: 'The loot bag caught it',
-    body: 'A full inventory sends the rest to the loot bag. Take one back once a slot frees up.',
+  { id: 'overflow', target: 'stones', icon: ASSETS.misc.loot_bag, title: 'The looting bag caught it',
+    body: 'A full inventory sends the rest to the looting bag, the last slot. Click it to look inside.',
     when: (ui) => !ui.waveActive && ui.bagStacks.length > 0 },
   // The bench tip is about a choice, and there is no choice to explain until the
   // player is holding a herb.
@@ -268,8 +268,8 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.spade, text: 'A stretch of road slides whole by the grip near its bend, straightening the bend or growing it back.' },
     { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },
     { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
-    { icon: ASSETS.misc.inventory_icon, text: 'The Inventory stone is your 28 slots. Herbs and potions live there.' },
-    { icon: ASSETS.misc.loot_bag, text: 'Fill all 28 and the rest goes to the loot bag, the second tab of the Inventory.' },
+    { icon: ASSETS.misc.inventory_icon, text: 'The Inventory stone is your 27 slots. Herbs and potions live there.' },
+    { icon: ASSETS.misc.loot_bag, text: 'The last slot is the looting bag. Click it for your gear, and for whatever did not fit.' },
     { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows goes into your inventory.' },
     { icon: ASSETS.misc.farming_icon, text: 'A ripe allotment glows green. Click it any time to pull the herb.' },
     { icon: ASSETS.misc.farming_icon, text: 'Move an allotment for free, or buy another. Each one costs double the last.' },

@@ -3,17 +3,18 @@
  *
  * Before this, each skill kept its own pile: a herb pouch for Farming, a shelf for
  * Herblore. Nothing capped either, so a long run ended with thirty stacks of
- * everything and no decision anywhere. OSRS answers that with twenty-eight slots,
- * and so does this: the inventory is the stock the run actually reads from, and the
- * looting bag holds everything that did not fit.
+ * everything and no decision anywhere. OSRS answers that with twenty-eight squares,
+ * and so does this: twenty-seven of them are the stock the run actually reads from,
+ * the twenty-eighth is the looting bag itself, and the bag holds everything that did
+ * not fit.
  *
  * Three rules, all of them OSRS's:
  *
  * 1. **The inventory is the truth.** Brewing, drinking and every count the
- *    interface shows read the twenty-eight slots. A herb in the bag is a herb you
+ *    interface shows read the twenty-seven slots. A herb in the bag is a herb you
  *    left at home.
  * 2. **Nothing stacks in the inventory.** A herb is one slot and a potion is one
- *    slot, the way an unnoted item is in OSRS. Twenty-eight is therefore a real
+ *    slot, the way an unnoted item is in OSRS. Twenty-seven is therefore a real
  *    wall, and what to carry is a real question by the late run.
  * 3. **The overflow goes to the looting bag**, which is unbounded and *does* stack.
  *    Nothing is ever lost — an item pulled with no room waits in the bag instead of
@@ -31,8 +32,10 @@
 import type { SeedId } from '../data/farming';
 import type { PotionId } from '../data/herblore';
 
-/** OSRS's own number, and the whole point of the feature. */
-export const INVENTORY_SLOTS = 28;
+/** OSRS's own twenty-eight, less the square the looting bag itself sits in: the bag
+ *  is an item in the backpack now, not a page beside it, so twenty-seven squares are
+ *  left to carry with. */
+export const INVENTORY_SLOTS = 27;
 
 /** The two things that can sit in a slot today. Tower gear is deliberately absent
  *  from this store: it rides in the looting bag as an `Item`, which the engine owns. */

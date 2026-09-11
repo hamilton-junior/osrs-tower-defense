@@ -495,6 +495,14 @@ body {
 .rs-invframe.rs-inv-scroll > .rs-inv {
   height: calc(261px * var(--ui-scale, 1));
   overflow-y: auto;
+  /* Four columns is the panel's whole width, so there is never anything to the
+     side to scroll to — and a stray horizontal bar would eat a row of squares. */
+  overflow-x: hidden;
+  /* The scrollbar takes its width out of the content box, and the static page's
+     11px side border leaves the four columns fitting to the pixel — so on the
+     scrolling page the border narrows to the panel's own 4.5px and the squares
+     stay whole instead of losing a sliver of the fourth column. */
+  padding-inline: calc(4.5px * var(--ui-scale, 1));
   scrollbar-width: thin;
   scrollbar-color: #6f6449 transparent;
 }
@@ -508,64 +516,11 @@ body {
   margin-inline: auto;
 }
 
-/* ── The interface tab rail, as resizable mode draws it ────────────────────
-   OSRS puts each tab on its own stone square (sprite 1180, 33x36), flush against
-   its neighbours with no gap, and swaps that stone for the red one (1181) under
-   whichever tab is open. So the button *is* the stone: no border, no bevel of
-   ours, and the tab's icon stamped in the middle of it — which is why the two
-   sprites arrive through `--rs-tab-off` / `--rs-tab-on` (set inline, for the
-   app's basePath) rather than being drawn in CSS. Sized in px times
-   `--ui-scale`, like the backpack above, because the art has one true size and
-   stretching it would distort a sprite.                                      */
-.rs-tabrail {
-  display: flex;
-  justify-content: center;
-  gap: 0;
-  margin-top: calc(6px * var(--ui-scale, 1));
-}
-/* The rail hangs off the panel's *bottom* edge: the interface opens upward out of a
-   stone in the bottom bar, so its own stones sit where the click came from. The
-   backpack above drops the gap, so the rail rests on it the way the client's tabs
-   rest on the inventory. */
-.rs-invframe + .rs-tabrail { margin-top: 0; }
 /* A page that is only the backpack is 242px wide — the panel plus its two posts —
    so the panel holding it hugs the frame instead of keeping the width the text
    pages need, otherwise the squares float in a hand's width of empty wood on
    either side. */
 .rs-tab-body:has(> .rs-inv-page) { width: fit-content; }
-.rs-tabstone {
-  position: relative;
-  width: calc(33px * var(--ui-scale, 1));
-  height: calc(36px * var(--ui-scale, 1));
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background-image: var(--rs-tab-off);
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  image-rendering: pixelated;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: filter 0.08s;
-}
-.rs-tabstone:hover:not(:disabled) { filter: brightness(1.25); }
-.rs-tabstone:disabled { filter: grayscale(0.7) brightness(0.75); cursor: not-allowed; }
-.rs-tabstone.rs-tabstone-on { background-image: var(--rs-tab-on); }
-.rs-tabstone img {
-  width: calc(22px * var(--ui-scale, 1));
-  height: calc(22px * var(--ui-scale, 1));
-  object-fit: contain;
-  image-rendering: pixelated;
-}
-/* A tab with no icon falls back to its name, so the stone is never blank. */
-.rs-tabstone span.rs-tabstone-label {
-  font-size: calc(9px * var(--ui-scale, 1));
-  line-height: 1;
-  color: #e8dcc0;
-  text-shadow: 1px 1px 0 #000;
-}
-
 /* Unaffordable: dimmed but still hoverable so stats can be previewed. */
 .rs-slot-unafford { opacity: 0.5; }
 .rs-slot-unafford img { filter: grayscale(0.6); }
@@ -687,16 +642,6 @@ body {
   line-height: 1;
   pointer-events: none;
 }
-/* On a rail stone the count is the tab's own number — slots in use, gear held —
-   so it sits across the bottom of the icon rather than hanging off a corner, and
-   reads a size up from the bar's little corner badges. */
-.rs-tabstone .rs-tab-badge {
-  left: 0;
-  right: 0;
-  bottom: calc(1px * var(--ui-scale, 1));
-  text-align: center;
-  font-size: 0.7em;
-}
 
 /* ── The Choose Option menu ────────────────────────────────────────────────
    OSRS's own right-click box: a black-edged brown panel, "Choose Option" over a
@@ -756,6 +701,15 @@ body {
   border: 0;
   box-shadow: none;
   padding: 0;
+}
+/* The backpack opens out of the Inventory stone, so it hangs over that stone rather
+   than over the right-hand end of the bar. `--rs-inv-anchor` is set in GameRoot: the
+   measured distance from the bar's right edge to the middle of the stone. Half the
+   page's own width (242px, the panel plus its two posts) brings the page's centre
+   onto it, and `max()` keeps it on screen if the stone ever sits closer to the edge
+   than that. */
+.rs-tab-body.rs-tab-inv {
+  right: max(0px, calc(var(--rs-inv-anchor, 0px) - 121px * var(--ui-scale, 1)));
 }
 @keyframes rs-tab-in {
   from { opacity: 0; transform: translateY(4px); }

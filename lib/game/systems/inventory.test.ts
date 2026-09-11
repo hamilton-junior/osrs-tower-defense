@@ -25,7 +25,7 @@ describe('stack keys', () => {
 });
 
 describe('carrying', () => {
-  it('starts with twenty-eight empty slots', () => {
+  it('starts with twenty-seven empty slots', () => {
     const store = emptyStore();
     expect(store.inv).toHaveLength(INVENTORY_SLOTS);
     expect(freeSlots(store)).toBe(INVENTORY_SLOTS);
@@ -248,7 +248,7 @@ describe('sanitizeStore', () => {
     expect(clean.bag).toEqual([{ kind: 'herb', id: 'guam', count: 7 }]);
   });
 
-  it('ignores slots past the twenty-eighth', () => {
+  it('ignores slots past the twenty-seventh', () => {
     const store = emptyStore();
     store.inv.push({ kind: 'herb', id: 'guam', count: 1 });
     const clean = sanitizeStore(store, known);

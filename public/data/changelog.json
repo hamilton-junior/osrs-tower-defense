@@ -1,6 +1,13 @@
 {
-  "generatedAt": "2026-09-08",
+  "generatedAt": "2026-09-11",
   "entries": [
+    {
+      "kind": "updated",
+      "scope": "game",
+      "text": "The bank is gone, and the inventory's 28 slots each hold one herb or one potion",
+      "fromFeedback": false,
+      "date": "2026-09-08"
+    },
     {
       "kind": "new",
       "scope": "game",
@@ -271,13 +278,6 @@
       "kind": "balanced",
       "scope": "game",
       "text": "Nex's acolytes now silence within a second and a half of arriving, and reach out every 4s instead of 6.5s",
-      "fromFeedback": false,
-      "date": "2026-09-02"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "A tower silenced by one of Nex's acolytes now wears that element, and each acolyte calls out when your board has none of its own",
       "fromFeedback": false,
       "date": "2026-09-02"
     }

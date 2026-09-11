@@ -7,16 +7,14 @@ import type { SeedId } from '@/lib/game/data/farming';
 import { POTIONS, type PotionId } from '@/lib/game/data/herblore';
 import type { Tower } from '@/lib/game/types';
 import { brewBlocker, emptyPouch, emptyStock } from '@/lib/game/systems/herblore';
-import { INVENTORY_SLOTS, type StackKind } from '@/lib/game/systems/inventory';
+import type { StackKind } from '@/lib/game/systems/inventory';
 import { LootBagView } from './lootbag-ui';
 import { OptionMenu, type MenuOption } from './OptionMenu';
-import {
-  InvGrid, ItemSlot, ShopFrame, type ShopTab,
-} from './ui-kit';
+import { InvGrid, ItemSlot } from './ui-kit';
 
 /**
- * The **Inventory** interface — twenty-eight slots, and the loot bag on the second
- * tab.
+ * The **Inventory** interface — twenty-eight squares, the last of which is the
+ * looting bag itself.
  *
  * It is OSRS's arrangement down to the pixel: a 4×7 grid of 42×36 cells on the
  * client's own `invback` panel ({@link InvGrid}), borderless, because that is what
@@ -26,27 +24,31 @@ import {
  * the game reads — the bench brews from these slots, and a herb in the loot bag is
  * a herb left at home.
  *
- * The panel is the backpack and the tab rail under it, and nothing else. It opens
- * upward out of a stone in the bottom bar, so its own stones sit on its bottom
- * edge, where the click came from. There is no title bar: the lit stone says which
- * page is open, the slots in use are counted on the Inventory stone itself, and a
- * square is acted on through OSRS's **Choose Option** menu ({@link OptionMenu}) —
- * left-click or right-click it and the menu lists what can be done with it, which
- * is a herb consumed, a potion drunk, every recipe those can finish right now, and
- * moving the lot into the loot bag.
+ * There is no tab rail and no title bar. The panel is the backpack, and nothing
+ * else: it opens upward out of the Inventory stone in the bottom bar, the slots in
+ * use are counted on that stone, and a square is acted on through OSRS's **Choose
+ * Option** menu ({@link OptionMenu}) — left-click or right-click it and the menu
+ * lists what can be done with it, which is a herb consumed, a potion drunk, every
+ * recipe those can finish right now, and moving the lot into the loot bag.
  *
- * The two pages are two different bags, not two views of one: the inventory holds
- * what a full run can carry, and the loot bag ({@link LootBagView}) holds
- * everything that did not fit — the gear that dropped, and whatever overflowed
- * these slots. It is unbounded and it stacks, so nothing a run picks up is ever
- * lost for want of a square.
+ * The looting bag is carried the way OSRS carries one: as an item in the backpack,
+ * always in the twenty-eighth square, which is why the run has twenty-seven slots
+ * to fill rather than twenty-eight. Clicking that square opens the bag
+ * ({@link LootBagView}) — the same backpack again, holding the gear that dropped
+ * and everything that overflowed these slots. It is unbounded and it stacks, so
+ * nothing a run picks up is ever lost for want of a square. Clicking the Inventory
+ * stone comes back here; clicking it again closes the panel.
  */
+
+/** Which of the two backpacks is on screen. */
+export type InventoryPage = 'inventory' | 'lootbag';
 
 export interface InventoryViewProps {
   ui: UIState;
-  /** Classic only: the roguelite drops no gear, so it has no loot bag of its own.
-   *  Overflow can still open one — see `showBag` below. */
-  showLootBag: boolean;
+  /** The open page, owned by `GameRoot`: the Inventory stone is the way back out of
+   *  the loot bag, and the stone is not inside this component. */
+  page: InventoryPage;
+  onPage: (p: InventoryPage) => void;
   /** The board's towers, live off the engine — the loot bag equips them. */
   towers: Tower[];
   hoverTowerId: string | null;
@@ -63,112 +65,96 @@ export interface InventoryViewProps {
 
 export function InventoryView(props: InventoryViewProps) {
   const {
-    ui, showLootBag, towers, hoverTowerId, onHoverTower, onEquipGear,
+    ui, page, onPage, towers, hoverTowerId, onHoverTower, onEquipGear,
     onStoreStack, onTakeStack, onUseHerb, onBrewPotion, onDrinkPotion,
   } = props;
-  const [page, setPage] = useState<'inventory' | 'lootbag'>('inventory');
   // The open Choose Option menu: where the click landed, and the square it landed
   // on. Held by the stack itself rather than by the slot index, because acting on
   // one moves the rest around.
   const [menu, setMenu] = useState<{ x: number; y: number; stack: UiStack } | null>(null);
-
-  // The bag tab is classic's gear bag, and it is also where anything that did not
-  // fit ends up — so the roguelite, which drops no gear, still needs the tab the
-  // moment the bag holds anything at all, or what is in there is unreachable.
-  const showBag = showLootBag || ui.bagStacks.length > 0 || ui.lootBag.length > 0;
 
   const free = useMemo(() => ui.inventory.reduce((n, s) => n + (s ? 0 : 1), 0), [ui.inventory]);
   const options = useMemo(
     () => (menu ? stackOptions(menu.stack, ui, onUseHerb, onBrewPotion, onDrinkPotion, onStoreStack) : []),
     [menu, ui, onUseHerb, onBrewPotion, onDrinkPotion, onStoreStack],
   );
-
-  const tabs: ShopTab[] = [
-    {
-      id: 'inventory',
-      label: 'Inventory',
-      icon: ASSETS.misc.inventory_icon,
-      // The one number the title bar used to carry, moved onto the stone it
-      // belongs to: slots in use, the way the client counts a bag.
-      badge: INVENTORY_SLOTS - free,
-      title: 'What this run carries',
-    },
-    ...(showBag
-      ? [{
-        id: 'lootbag',
-        label: 'Loot bag',
-        icon: ASSETS.misc.loot_bag,
-        badge: ui.lootBag.length + ui.bagStacks.length,
-        title: 'Gear dropped this run, and whatever did not fit',
-      } as ShopTab]
-      : []),
-  ];
-
-  const onTab = (id: string) => {
-    setMenu(null);
-    setPage(id === 'lootbag' ? 'lootbag' : 'inventory');
-  };
-
-  /** The 28 slots, at the client's metrics. `rs-inv-page` marks the page that is
-   *  *only* the backpack, so the panel around it can shrink to the grid. Nothing
-   *  here carries a count: one square is one item. */
-  const backpack = (onSlot: (s: UiStack, e: React.MouseEvent) => void) => (
-    <InvGrid
-      background={ASSETS.misc.inventory_background}
-      postLeft={ASSETS.misc.inv_post_left}
-      postRight={ASSETS.misc.inv_post_right}
-      className="rs-inv-page"
-    >
-      {ui.inventory.map((s, i) => (
-        s
-          ? (
-            <ItemSlot
-              key={`i${i}`}
-              osrs
-              icon={s.icon}
-              name={s.name}
-              title={s.tip}
-              onClick={(e) => onSlot(s, e)}
-              onContextMenu={(e) => onSlot(s, e)}
-            />
-          )
-          : <ItemSlot key={`i${i}`} osrs />
-      ))}
-    </InvGrid>
-  );
+  const bagCount = ui.lootBag.length + ui.bagStacks.length;
 
   // ──────────────────────────── the loot bag ─────────────────────────────
-  if (page === 'lootbag' && showBag) {
+  if (page === 'lootbag') {
     return (
-      <ShopFrame tabs={tabs} activeTab="lootbag" onTab={onTab}>
-        <LootBagView
-          bag={ui.lootBag}
-          stacks={ui.bagStacks}
-          invFull={free < 1}
-          towers={towers}
-          hoverTowerId={hoverTowerId}
-          onHoverTower={onHoverTower}
-          onEquip={onEquipGear}
-          onTake={onTakeStack}
-        />
-      </ShopFrame>
+      <LootBagView
+        bag={ui.lootBag}
+        stacks={ui.bagStacks}
+        invFull={free < 1}
+        towers={towers}
+        hoverTowerId={hoverTowerId}
+        onHoverTower={onHoverTower}
+        onEquip={onEquipGear}
+        onTake={onTakeStack}
+      />
     );
   }
 
   // ──────────────────────────── the inventory ────────────────────────────
+  /* The bar-stone panel closes itself on right-click; a square inside it must keep
+     that gesture for its own menu, so the event stops here. */
+  const onSlot = (s: UiStack, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({ x: e.clientX, y: e.clientY, stack: s });
+  };
+  const onBag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu(null);
+    onPage('lootbag');
+  };
+
   return (
-    <ShopFrame tabs={tabs} activeTab="inventory" onTab={onTab}>
-      {/* The bar-stone panel closes itself on right-click; a square inside it must
-          keep that gesture for its own menu, so the event stops here. */}
-      {backpack((s, e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setMenu({ x: e.clientX, y: e.clientY, stack: s });
-      })}
+    <>
+      {/* Twenty-seven carried squares and the bag, at the client's metrics.
+          `rs-inv-page` marks the page that is *only* the backpack, so the panel
+          around it can shrink to the grid. Nothing carried here has a count: one
+          square is one item. */}
+      <InvGrid
+        background={ASSETS.misc.inventory_background}
+        postLeft={ASSETS.misc.inv_post_left}
+        postRight={ASSETS.misc.inv_post_right}
+        className="rs-inv-page"
+      >
+        {ui.inventory.map((s, i) => (
+          s
+            ? (
+              <ItemSlot
+                key={`i${i}`}
+                osrs
+                icon={s.icon}
+                name={s.name}
+                title={s.tip}
+                onClick={(e) => onSlot(s, e)}
+                onContextMenu={(e) => onSlot(s, e)}
+              />
+            )
+            : <ItemSlot key={`i${i}`} osrs />
+        ))}
+        {/* The last square is the bag itself, the way a real looting bag rides in a
+            real inventory. It carries what it holds as its count, so the panel says
+            there is something in there without being opened. */}
+        <ItemSlot
+          osrs
+          icon={ASSETS.misc.loot_bag}
+          name="Looting bag"
+          count={bagCount > 0 ? bagCount : undefined}
+          title="Looting bag: the gear this run has found, and whatever did not fit"
+          onClick={onBag}
+          onContextMenu={onBag}
+        />
+      </InvGrid>
       {menu && (
         <OptionMenu x={menu.x} y={menu.y} options={options} onClose={() => setMenu(null)} />
       )}
-    </ShopFrame>
+    </>
   );
 }
 
