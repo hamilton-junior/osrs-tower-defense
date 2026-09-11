@@ -41,6 +41,10 @@ export interface BiomeDef {
     rockHi: string;
     flowers: string[];
   };
+  /** The pools the map deals. `deep` is the body of the water, `shallow` its rim,
+   *  `foam` the line where it meets the ground, `ripple` the moving highlight the
+   *  fishing spot draws with. */
+  water: { deep: string; shallow: string; foam: string; ripple: string };
   /** Faint tile-grid line colour (rgba). */
   grid: string;
 }
@@ -55,6 +59,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(120,170,70,0.18)', 'rgba(60,95,39,0.5)'],
     road: { shadow: '#1c2f12', border: '#3d2b1f', mid: '#6d4c33', walked: '#8a6646', centre: '#9c7a55', dash: 'rgba(60,40,24,0.5)' },
     decor: { bush: '#2c5018', rock: '#6b6b6b', rockHi: '#888888', flowers: ['#e7d34b', '#e06b6b', '#d7d7e6', '#c98ad6'] },
+    water: { deep: '#22506b', shallow: '#336f8e', foam: '#8fc6cf', ripple: '#bfe6ef' },
     grid: 'rgba(255,255,255,0.03)',
   },
 
@@ -67,6 +72,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(232,208,150,0.28)', 'rgba(150,120,70,0.4)'],
     road: { shadow: '#7a5a2e', border: '#6a4a24', mid: '#9c7838', walked: '#c2a45c', centre: '#d8bd77', dash: 'rgba(90,66,30,0.5)' },
     decor: { bush: '#8a8a3a', rock: '#b7a078', rockHi: '#d8c49a', flowers: ['#d98f3a', '#e0c060', '#c56b4a'] },
+    water: { deep: '#1f6f74', shallow: '#3d9b96', foam: '#b6dcc9', ripple: '#dff2e4' },
     grid: 'rgba(0,0,0,0.04)',
   },
 
@@ -79,6 +85,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(120,140,90,0.15)', 'rgba(40,55,45,0.6)'],
     road: { shadow: '#171f18', border: '#241c2a', mid: '#3a3140', walked: '#4b4453', centre: '#5a5566', dash: 'rgba(20,16,26,0.5)' },
     decor: { bush: '#26361f', rock: '#4a4550', rockHi: '#6a6472', flowers: ['#9d86b8', '#b7c0a0', '#6f8f6a'] },
+    water: { deep: '#1e3226', shallow: '#2f4a33', foam: '#6d8460', ripple: '#93a882' },
     grid: 'rgba(180,160,200,0.04)',
   },
 
@@ -91,6 +98,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(150,120,80,0.2)', 'rgba(70,50,35,0.5)'],
     road: { shadow: '#2a1e14', border: '#3a2a1c', mid: '#5a4330', walked: '#6e5238', centre: '#7d5f42', dash: 'rgba(40,26,16,0.5)' },
     decor: { bush: '#4a3320', rock: '#5a4a3a', rockHi: '#7a6a55', flowers: ['#8a1f1f', '#b0a090', '#6a3020'] },
+    water: { deep: '#28323a', shallow: '#3c4a52', foam: '#7c8a90', ripple: '#9fadb2' },
     grid: 'rgba(120,40,30,0.05)',
   },
 
@@ -103,6 +111,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,255,255,0.4)', 'rgba(170,190,210,0.4)'],
     road: { shadow: '#8fa2b4', border: '#7a8ea0', mid: '#a9bccd', walked: '#cfdde9', centre: '#e6eef5', dash: 'rgba(120,140,160,0.5)' },
     decor: { bush: '#6f8a72', rock: '#9aa8b5', rockHi: '#c4cdd6', flowers: ['#bcd8f0', '#e8f2fb', '#a9c8e6'] },
+    water: { deep: '#3f6d92', shallow: '#6fa0c4', foam: '#d6ecf8', ripple: '#f2fafd' },
     grid: 'rgba(80,110,140,0.05)',
   },
 
@@ -115,6 +124,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(90,170,60,0.2)', 'rgba(30,70,25,0.6)'],
     road: { shadow: '#14240f', border: '#35291a', mid: '#574029', walked: '#6f5334', centre: '#7d5f3c', dash: 'rgba(30,44,20,0.5)' },
     decor: { bush: '#1c4517', rock: '#5b5546', rockHi: '#7d745e', flowers: ['#e04f7a', '#f0b93a', '#c65ad6'] },
+    water: { deep: '#11534f', shallow: '#1f7a6d', foam: '#79c3ac', ripple: '#a8e0cb' },
     grid: 'rgba(255,255,255,0.03)',
   },
 
@@ -127,6 +137,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,120,40,0.15)', 'rgba(60,40,35,0.6)'],
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
     decor: { bush: '#3a2018', rock: '#2a2422', rockHi: '#4a4038', flowers: ['#ff7a1f', '#ffb03a', '#e0401a'] },
+    water: { deep: '#1a1210', shallow: '#3a1f16', foam: '#8a4426', ripple: '#ff9b4a' },
     grid: 'rgba(255,90,30,0.05)',
   },
 };
