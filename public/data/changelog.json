@@ -4,6 +4,27 @@
     {
       "kind": "updated",
       "scope": "game",
+      "text": "A leak now reads \"Skeleton escaped, −1 life\"",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
+    {
+      "kind": "updated",
+      "scope": "game",
+      "text": "Each seed tile shows the buff it grows",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
+    {
+      "kind": "updated",
+      "scope": "game",
+      "text": "Every price now carries the coin pile OSRS would draw for it",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
+    {
+      "kind": "updated",
+      "scope": "game",
       "text": "The inventory and the looting bag hold one size, and a piece's towers open over the bag",
       "fromFeedback": false,
       "date": "2026-09-11"
@@ -257,27 +278,6 @@
       "kind": "new",
       "scope": "game",
       "text": "An archer and a tzhaar fuse into a thrown dart that shoves harder with every one that lands",
-      "fromFeedback": false,
-      "date": "2026-09-03"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "A toxic and a wizard fuse into a staff that hands its venom to every tower standing near it",
-      "fromFeedback": false,
-      "date": "2026-09-03"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "The moment you earn the forge, the game tells you what it means — two maxed towers side by side become one weapon",
-      "fromFeedback": false,
-      "date": "2026-09-03"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "Every tower now tells you what it can be forged into, before you own either half",
       "fromFeedback": false,
       "date": "2026-09-03"
     }
