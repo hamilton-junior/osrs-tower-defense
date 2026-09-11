@@ -1117,6 +1117,25 @@ kbd {
 button.rs-log-entry { cursor: pointer; text-align: center; }
 button.rs-log-entry:hover { border-color: var(--osrs-orange); }
 
+/* A tighter log tile, for a grid that feeds a detail card of its own — the
+   farming patch’s seed grid. The sprite shrinks so five fit across, and every
+   tile is the same height whether its herb name wraps or not, so the grid reads
+   as one block rather than four ragged rows. */
+.rs-log-entry.rs-log-sm {
+  height: 5.1em;
+  justify-content: flex-start;
+  padding: 0.3em 0.15em 0.25em;
+  overflow: hidden;
+}
+.rs-log-sm .rs-log-sprite { width: 2.5em; height: 2.5em; font-size: 1em; }
+.rs-log-sm .rs-log-name { font-size: 0.56em; }
+.rs-log-sm .rs-log-kc { font-size: 0.6em; margin-top: auto; }
+/* The tile the detail card is reading out. */
+.rs-log-entry.rs-log-pick {
+  border-color: var(--osrs-orange);
+  background: #2a2216;
+}
+
 /* OSRS-flavoured volume slider. Track and thumb in `em` so it follows the bar's
    fs() font — the UI size control must resize it along with the buttons beside it. */
 .rs-volume {

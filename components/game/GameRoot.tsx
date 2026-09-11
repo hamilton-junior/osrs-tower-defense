@@ -21,6 +21,7 @@ import type { BiomeId } from '@/lib/game/data/biomes';
 import { TravelCardView } from './travel-ui';
 import { CARD_BY_ID, BOON_GROUP_META, SYNERGY_CARD_ID, MAGE_CARD_ID, RelicStrip, RunBuild, BuyCardRoll, RelicCardView, OwnedRelicTray, type BoonGroupId, type BoonSource } from './relics-ui';
 import { CollectionLog, type LogTab } from './collection-log';
+import { SowPanel } from './farming-ui';
 import { weaknessTag, enemySpriteStyle } from './enemy-ui';
 import { StartScreen } from './start-screen';
 import { DpsView } from './dps-view';
@@ -31,7 +32,7 @@ import { SaveCodeModal } from './save-code';
 import { LEARN_STEPS, LearnAsYouGo, HowToPlay } from './tutorial';
 import { effectTag, DraftCardView } from './draft-cards';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '@/lib/game/data/hunter-traps';
-import { SEEDS, SEED_BY_ID } from '@/lib/game/data/farming';
+import { SEED_BY_ID } from '@/lib/game/data/farming';
 import { POTION_BY_ID } from '@/lib/game/data/herblore';
 import { brewDamageMult } from '@/lib/game/systems/herblore';
 import { trapCost, blastProfile } from '@/lib/game/systems/hunter-traps';
@@ -2500,138 +2501,23 @@ export default function GameRoot() {
         </div>
       )}
 
-      {/* Patch menu — an allotment was clicked. Bare ground gets the seed list;
-          ground with something in it gets what is growing, how much longer, and the
-          spade. It floats over the board rather than living in the bar because the
-          patch it is filling is on the board, and it is a between-waves interface:
-          pressing Start Wave closes it. Movable like every other floating panel, so
-          it never has to sit on top of the patch. */}
-      {ui.pendingSow !== null && (() => {
-        const plot = ui.farmPatches.find((p) => p.id === ui.pendingSow) ?? null;
-        const growing = plot?.seedId ? SEED_BY_ID[plot.seedId] : null;
-        return (
-        <div
-          className="absolute left-1/2 bottom-[19%] -translate-x-1/2 z-30"
-          style={{ fontSize: fs('clamp(14px, 0.95vw, 20px)') }}
-        >
-          <MovablePanel id="sow" globalLock={uiLocked} className="rs-panel relative p-[0.6em] w-[20em]">
-            <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
-              <img
-                src={growing ? growing.herbIcon : ASSETS.misc.farming_icon}
-                alt=""
-                className="w-[1.3em] h-[1.3em] object-contain"
-                onError={hideBrokenImg}
-              />
-              <span>{growing ? growing.herbName : 'Sow a seed'}</span>
-            </div>
-            {growing && plot ? (
-              <>
-                <p className="text-[0.68em] text-[#b3a585] leading-snug mt-[0.3em] px-[0.1em]">
-                  It grows while you fight. Dig it up if you want the plot back.
-                </p>
-                <div className="rs-panel-inset mt-[0.45em] px-[0.45em] py-[0.35em] flex flex-col gap-[0.25em]">
-                  <div className="flex items-center justify-between text-[0.72em]">
-                    <span className="text-[#b3a585]">Ready in</span>
-                    <span className="text-osrs-yellow tabular-nums">
-                      {plot.wavesLeft} wave{plot.wavesLeft === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[0.72em]">
-                    <span className="text-[#b3a585]">Buffs</span>
-                    <span className="flex items-center gap-[0.25em] text-osrs-orange">
-                      <img src={growing.signature.icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                      <span>{growing.signature.label}</span>
-                    </span>
-                  </div>
-                </div>
-                <button
-                  className="rs-btn w-full py-[0.3em] text-[0.72em] mt-[0.5em] flex items-center justify-center gap-[0.4em]"
-                  title={`Dig up the ${growing.seedName}. You lose the ${growing.cost} gp it cost`}
-                  onClick={() => { if (ui.pendingSow) engineRef.current?.clearPatch(ui.pendingSow); }}
-                >
-                  <img src={growing.seedIcon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-                  <span>Dig it up</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-[0.68em] text-[#b3a585] leading-snug mt-[0.3em] px-[0.1em]">
-                  It grows while you fight. The herb goes into your pouch.
-                </p>
-                <div className="flex flex-col gap-[0.25em] mt-[0.45em]">
-                  {SEEDS.map((s) => {
-                    const broke = ui.money < s.cost;
-                    return (
-                      <HoverTip
-                        key={s.id}
-                        side="top"
-                        content={tipHeader(
-                          <span className="text-[0.85em] font-bold text-osrs-orange">{s.herbName}</span>,
-                          s.tip,
-                          <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">Farming {s.level}</span>,
-                        )}
-                      >
-                        <button
-                          type="button"
-                          disabled={broke}
-                          title={broke ? `${s.seedName} costs ${s.cost} gp` : `Sow a ${s.seedName}, ready in ${s.waves} waves`}
-                          onClick={() => { if (ui.pendingSow) engineRef.current?.sowSeed(ui.pendingSow, s.id); }}
-                          className="rs-panel-inset w-full flex items-center gap-[0.5em] px-[0.45em] py-[0.3em] text-left hover:border-[var(--osrs-orange)] disabled:opacity-50 disabled:hover:border-[var(--rs-keyline)]"
-                        >
-                          <img src={s.seedIcon} alt="" className="w-[1.6em] h-[1.6em] object-contain shrink-0" onError={hideBrokenImg} />
-                          <span className="flex-1 min-w-0">
-                            <span className="block text-[0.76em] text-[#e7d9b0] truncate">{s.herbName}</span>
-                            <span className="flex items-center gap-[0.25em] text-[0.6em] uppercase tracking-wide text-osrs-orange">
-                              <img src={s.signature.icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                              <span className="truncate">{s.signature.label}</span>
-                            </span>
-                          </span>
-                          <span className="shrink-0 text-right">
-                            <span className={`block text-[0.72em] tabular-nums ${broke ? 'text-osrs-warn' : 'text-osrs-yellow'}`}>{s.cost} gp</span>
-                            <span className="block text-[0.6em] text-[#b3a585] tabular-nums">{s.waves} waves</span>
-                          </span>
-                        </button>
-                      </HoverTip>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-            {/* The ground, rather than what is in it. Moving a plot is free — an
-                allotment the map dealt behind a boulder is the map's fault, not a
-                thing to charge for — and a second one is the expensive half. */}
-            <div className="flex gap-[0.35em] mt-[0.5em]">
-              <button
-                className="rs-btn flex-1 py-[0.3em] text-[0.72em] flex items-center justify-center gap-[0.35em]"
-                title="Move this allotment somewhere else, free of charge"
-                onClick={() => { if (ui.pendingSow) engineRef.current?.beginMovePlot(ui.pendingSow); }}
-              >
-                <img src={ASSETS.misc.farming_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-                <span>Move plot</span>
-              </button>
-              <button
-                className="rs-btn flex-1 py-[0.3em] text-[0.72em] flex items-center justify-center gap-[0.35em] disabled:opacity-50"
-                disabled={ui.money < ui.plotCost}
-                title={ui.money < ui.plotCost
-                  ? `Another allotment costs ${fmt(ui.plotCost)} gp`
-                  : `Buy another allotment for ${fmt(ui.plotCost)} gp. The next one costs double`}
-                onClick={() => engineRef.current?.buyPlot()}
-              >
-                <span>Buy plot</span>
-                <span className={`tabular-nums ${ui.money < ui.plotCost ? 'text-osrs-red' : 'text-osrs-yellow'}`}>{fmt(ui.plotCost)}</span>
-              </button>
-            </div>
-            <button
-              className="rs-btn w-full py-[0.3em] text-[0.72em] mt-[0.35em]"
-              title={growing ? 'Leave it growing' : 'Leave the patch empty'}
-              onClick={() => engineRef.current?.closeSow()}
-            >
-              Close (Esc)
-            </button>
-          </MovablePanel>
-        </div>
-        );
-      })()}
+      {/* Patch menu — an allotment was clicked. It floats over the board rather
+          than living in the bottom bar because the patch it is filling is on the
+          board, and it is a between-waves interface: pressing Start Wave closes it.
+          Keyed on the patch so clicking a second allotment starts its own read. */}
+      {ui.pendingSow !== null && (
+        <SowPanel
+          key={ui.pendingSow}
+          ui={ui}
+          patchId={ui.pendingSow}
+          globalLock={uiLocked}
+          onSow={(id, seedId) => engineRef.current?.sowSeed(id, seedId)}
+          onDigUp={(id) => engineRef.current?.clearPatch(id)}
+          onMovePlot={(id) => engineRef.current?.beginMovePlot(id)}
+          onBuyPlot={() => engineRef.current?.buyPlot()}
+          onClose={() => engineRef.current?.closeSow()}
+        />
+      )}
 
       {/* Selected tower panel (top-left) */}
       {selectedTower && (

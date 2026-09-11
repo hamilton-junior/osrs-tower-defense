@@ -99,7 +99,7 @@ export const LEARN_STEPS: LearnStep[] = [
     body: 'The grip near a bend slides that whole stretch across. Push it far enough and the bend goes.',
     when: (ui) => !ui.waveActive && ui.wave === 8 },
   { id: 'farming', target: 'map', icon: ASSETS.misc.farming_icon, title: 'Sow the allotment',
-    body: 'Click a bare patch between waves and pick a seed. The herb it grows goes into your inventory.',
+    body: 'Click a bare patch between waves, pick a seed and sow it. The herb goes into your inventory.',
     when: (ui) => !ui.waveActive && ui.wave === 5 && ui.farmPatches.length > 0 },
   // Fires the first time a herb ripens, wave or no wave — the harvest is the one
   // thing on this board with no clock on it.
