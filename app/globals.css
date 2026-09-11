@@ -94,6 +94,22 @@ canvas {
   -webkit-user-drag: none;
 }
 
+/* A hitsplat sprite is a 25x25 tile whose splat only fills the top-left 24x23 of
+   it — the cache stores it that way because the game draws it from a corner, not
+   from its middle. Dropped into a UI slot as a plain icon it therefore sits half a
+   pixel to the left of every icon beside it, and a pixel above them, which on the
+   bar's DPS stone reads as a crooked stone. Push each sprite back by the gap it
+   leaves. Visual only: a transform moves nothing in the layout. */
+img[src*="/hitsplats/"] {
+  transform: translate(2%, 4%);
+}
+
+/* The shield splat is the one drawn the other way round — 19x22 of ink, tight to
+   the left and the top rather than to the right and the bottom. */
+img[src*="/hitsplats/shield"] {
+  transform: translate(4%, 2%);
+}
+
 /* OSRS Button - Standard Button Style */
 .osrs-button {
   background: linear-gradient(to bottom, #5d5245, #3e3529);
