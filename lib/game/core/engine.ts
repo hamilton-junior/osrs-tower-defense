@@ -3654,8 +3654,9 @@ export class GameEngine {
     if (!def) return;
     if (this.lives >= this.maxLives) {
       if (!takeItem(this.items, 'food', id)) return;
-      this.money += def.gold;
-      this.notify(`You are in no need of food. You sell it for ${def.gold} gp.`, def.icon);
+      // Nothing to heal — the fish is worth gold, on the kebab diversion’s terms.
+      const gold = this.awardGold(def.gold);
+      this.notify(`You are in no need of food. You sell it for ${gold} gp.`, def.icon);
       this.emit();
       return;
     }
