@@ -7,6 +7,7 @@ import { HUNTER_TRAPS, type HunterTrapId } from '@/lib/game/data/hunter-traps';
 import { trapCost } from '@/lib/game/systems/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
+import { FISH } from '@/lib/game/data/fishing';
 import { brewDamageMult } from '@/lib/game/systems/herblore';
 import { hideBrokenImg, fmt, Price } from './ui-kit';
 
@@ -32,7 +33,7 @@ import { hideBrokenImg, fmt, Price } from './ui-kit';
  * Adding a skill is one entry in {@link SKILLS} plus its page in {@link SkillPage}.
  */
 
-export type SkillId = 'hunter' | 'farming' | 'herblore';
+export type SkillId = 'hunter' | 'farming' | 'herblore' | 'fishing';
 
 interface SkillMeta {
   id: SkillId;
@@ -75,6 +76,14 @@ const SKILLS: readonly SkillMeta[] = [
     progress: (ui) => (ui.herbloreXpNeeded > 0 ? Math.min(1, ui.herbloreXp / ui.herbloreXpNeeded) : 1),
     tip: 'Herbs brew into potions that last several waves.',
   },
+  {
+    id: 'fishing',
+    name: 'Fishing',
+    icon: ASSETS.misc.skill_fishing,
+    headline: (ui) => `Level ${ui.fishingLevel}`,
+    progress: (ui) => (ui.fishingXpNeeded > 0 ? Math.min(1, ui.fishingXp / ui.fishingXpNeeded) : 1),
+    tip: 'Cast into a pool between waves and eat what you catch.',
+  },
 ];
 
 export interface SkillsViewProps {
@@ -94,6 +103,8 @@ export interface SkillsViewProps {
   onBrewPotion: (potionId: PotionId) => void;
   /** Drink a brewed potion — several waves, and the reason to brew at all. */
   onDrinkPotion: (potionId: PotionId) => void;
+  /** Cast a line into a pool. */
+  onCast: (spotId: string) => void;
 }
 
 export function SkillsView(props: SkillsViewProps) {
@@ -156,6 +167,7 @@ export function SkillsView(props: SkillsViewProps) {
 function SkillPage(props: SkillsViewProps & { skill: SkillId }) {
   if (props.skill === 'hunter') return <HunterPage {...props} />;
   if (props.skill === 'herblore') return <HerblorePage {...props} />;
+  if (props.skill === 'fishing') return <FishingPage {...props} />;
   return <FarmingPage {...props} />;
 }
 
@@ -615,5 +627,61 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
         )}
       </Section>
     </>
+  );
+}
+
+// ───────────────────────────────── Fishing ─────────────────────────────────
+
+/**
+ * The pools this map dealt, and the ladder of fish they hold. A pool mirrors the
+ * board the same way a Hunter trap does: casting here is the same cast as
+ * clicking the water, just with the level and the catch table alongside it.
+ */
+function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => void }) {
+  return (
+    <div className="flex flex-col gap-[0.4em]">
+      <Section label="Pools">
+        {ui.fishingSpots.length === 0 ? (
+          <div className="text-[0.72em] text-[#cdbe91] p-[0.4em]">This map has no water.</div>
+        ) : (
+          <ScrollList max="8em">
+            {ui.fishingSpots.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => onCast(s.id)}
+                disabled={ui.waveActive || s.stage === 'spent'}
+                title={s.stage === 'spent' ? 'The fish come back in a few waves' : 'Cast a line'}
+                className="rs-panel-inset flex items-center justify-between gap-[0.5em] p-[0.4em] w-full text-left hover:brightness-125 disabled:opacity-50"
+              >
+                <span className="text-[0.76em] text-osrs-orange">Fishing spot</span>
+                <span className="text-[0.72em] tabular-nums" style={{ color: s.stage === 'spent' ? 'var(--osrs-red)' : '#cdbe91' }}>
+                  {s.stage === 'spent' ? `${s.wavesLeft} waves` : `${s.casts} / 3 casts`}
+                </span>
+              </button>
+            ))}
+          </ScrollList>
+        )}
+      </Section>
+      <Section label="Catches">
+        <ScrollList max="12em">
+          {FISH.map((f) => {
+            const locked = f.level > ui.fishingLevel;
+            return (
+              <div key={f.id} className="rs-panel-inset flex items-center gap-[0.5em] p-[0.4em]">
+                <img
+                  src={f.icon} alt="" onError={hideBrokenImg}
+                  className="w-[1.5em] h-[1.5em] object-contain shrink-0"
+                  style={locked ? { filter: 'grayscale(1)', opacity: 0.6 } : undefined}
+                />
+                <span className="min-w-0 flex-1 text-[0.76em] text-osrs-orange truncate">{f.name}</span>
+                {locked
+                  ? <span className="text-[0.72em] tabular-nums" style={{ color: 'var(--osrs-red)' }}>L{f.level}</span>
+                  : <span className="text-[0.72em] text-[#cdbe91] tabular-nums">+{f.lives}</span>}
+              </div>
+            );
+          })}
+        </ScrollList>
+      </Section>
+    </div>
   );
 }

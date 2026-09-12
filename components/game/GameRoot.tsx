@@ -3770,6 +3770,7 @@ export default function GameRoot() {
             onUseHerb={(id) => engineRef.current?.useHerb(id)}
             onBrewPotion={(id) => engineRef.current?.brewPotion(id)}
             onDrinkPotion={(id) => engineRef.current?.drinkPotion(id)}
+            onEatFood={(id) => engineRef.current?.eatFood(id)}
           />
         )}
 
@@ -3785,6 +3786,7 @@ export default function GameRoot() {
             onUseHerb={(id) => engineRef.current?.useHerb(id)}
             onBrewPotion={(id) => engineRef.current?.brewPotion(id)}
             onDrinkPotion={(id) => engineRef.current?.drinkPotion(id)}
+            onCast={(id) => engineRef.current?.castLine(id)}
           />
         )}
         </div>
@@ -4323,7 +4325,7 @@ export default function GameRoot() {
               <button onClick={() => onSideTab('dps')} title="DPS meter: damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.hit_splat} alt="DPS meter" onError={hideBrokenImg} />
               </button>
-              <button onClick={() => onSideTab('skills')} title="Skills: Hunter, Farming, Herblore" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
+              <button onClick={() => onSideTab('skills')} title="Skills: Hunter, Farming, Herblore, Fishing" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
                 <img src={ASSETS.misc.stats_icon} alt="Skills" onError={hideBrokenImg} />
               </button>
               <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>

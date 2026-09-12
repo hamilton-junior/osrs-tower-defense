@@ -5,6 +5,7 @@ import { ASSETS } from '@/lib/game/assets';
 import type { UIState, UiStack } from '@/lib/game/core/engine';
 import type { SeedId } from '@/lib/game/data/farming';
 import { POTIONS, type PotionId } from '@/lib/game/data/herblore';
+import type { FishId } from '@/lib/game/data/fishing';
 import type { Tower } from '@/lib/game/types';
 import { brewBlocker, emptyPouch, emptyStock } from '@/lib/game/systems/herblore';
 import type { StackKind } from '@/lib/game/systems/inventory';
@@ -62,12 +63,13 @@ export interface InventoryViewProps {
   onUseHerb: (id: SeedId) => void;
   onBrewPotion: (id: PotionId) => void;
   onDrinkPotion: (id: PotionId) => void;
+  onEatFood: (id: FishId) => void;
 }
 
 export function InventoryView(props: InventoryViewProps) {
   const {
     ui, page, onPage, towers, hoverTowerId, onHoverTower, onEquipGear,
-    onStoreStack, onTakeStack, onUseHerb, onBrewPotion, onDrinkPotion,
+    onStoreStack, onTakeStack, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood,
   } = props;
   // The open Choose Option menu: where the click landed, and the square it landed
   // on. Held by the stack itself rather than by the slot index, because acting on
@@ -76,8 +78,8 @@ export function InventoryView(props: InventoryViewProps) {
 
   const free = useMemo(() => ui.inventory.reduce((n, s) => n + (s ? 0 : 1), 0), [ui.inventory]);
   const options = useMemo(
-    () => (menu ? stackOptions(menu.stack, ui, onUseHerb, onBrewPotion, onDrinkPotion, onStoreStack) : []),
-    [menu, ui, onUseHerb, onBrewPotion, onDrinkPotion, onStoreStack],
+    () => (menu ? stackOptions(menu.stack, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onStoreStack) : []),
+    [menu, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onStoreStack],
   );
   const bagCount = ui.lootBag.length + ui.bagStacks.length;
 
@@ -166,8 +168,8 @@ export function InventoryView(props: InventoryViewProps) {
 
 /**
  * The lines OSRS would put on that square, and only those: a herb is consumed, a
- * potion is drunk, either grows a Brew line for every recipe it can finish right
- * now, and anything can be pushed into the loot bag. A recipe the run cannot pay
+ * potion is drunk, a fish is eaten, either grows a Brew line for every recipe it
+ * can finish right now, and anything can be pushed into the loot bag. A recipe the run cannot pay
  * for — the level, the second ingredient, the coins — is not a greyed line here;
  * the Herblore bench is where a locked potion is read.
  *
@@ -182,6 +184,7 @@ function stackOptions(
   onUseHerb: (id: SeedId) => void,
   onBrewPotion: (id: PotionId) => void,
   onDrinkPotion: (id: PotionId) => void,
+  onEatFood: (id: FishId) => void,
   onStoreStack: (kind: StackKind, id: string) => void,
 ): MenuOption[] {
   const disabled = ui.waveActive;
@@ -195,14 +198,23 @@ function stackOptions(
       title: 'Eat it raw: its effect rides the next wave',
       onSelect: () => onUseHerb(stack.id as SeedId),
     }]
-    : [{
-      action: 'Drink',
-      target: stack.name,
-      disabled,
-      note,
-      title: stack.tip,
-      onSelect: () => onDrinkPotion(stack.id as PotionId),
-    }];
+    : stack.kind === 'food'
+      ? [{
+        action: 'Eat',
+        target: stack.name,
+        disabled,
+        note,
+        title: stack.tip,
+        onSelect: () => onEatFood(stack.id as FishId),
+      }]
+      : [{
+        action: 'Drink',
+        target: stack.name,
+        disabled,
+        note,
+        title: stack.tip,
+        onSelect: () => onDrinkPotion(stack.id as PotionId),
+      }];
 
   // The engine brews out of the pouch and the shelf, so the menu asks the same
   // two the same way — `brewBlocker` is the one answer to "can this be made".
