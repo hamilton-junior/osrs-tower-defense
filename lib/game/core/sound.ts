@@ -57,6 +57,14 @@ export const GAME_SOUNDS: Record<string, string> = {
   // Pulling a herb out of an allotment: the cache's own item-pickup plop, which is
   // literally the sound OSRS makes when a picked herb lands in the inventory.
   farm_harvest: ASSETS.sounds.misc.pick_up,
+  // Fishing (Task 7): casting a line, landing a catch, and eating it. Each is its
+  // own cache-decoded clip (see extract-osrs-sounds.mjs), not a borrowed stand-in.
+  // Named `fish_cast` rather than `cast_line`: soundCategory() below treats any
+  // `cast_`-prefixed key as combat, which fadeCombat() mutes for the whole
+  // between-waves window — exactly when a cast is ever playable.
+  fish_cast: ASSETS.sounds.misc.cast_line,
+  fish_caught: ASSETS.sounds.misc.fish_caught,
+  eat: ASSETS.sounds.misc.eat,
 };
 
 // --- Per-prayer activation sounds ----------------------------------------

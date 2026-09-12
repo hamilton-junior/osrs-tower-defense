@@ -17,6 +17,7 @@ import { enemyLeakCost } from '../../systems/leak-cost';
 import { healingDenied } from '../../systems/tower-fusion';
 import { farmLivesOnClear, ripenPatches } from '../../systems/farming';
 import { SEED_BY_ID } from '../../data/farming';
+import { restockSpots } from '../../systems/fishing';
 import {
   burningPotion, dropBurningPotions, potionLivesOnClear, potionLivesPerWave, pouringPotion, tickPotions,
 } from '../../systems/herblore';
@@ -624,6 +625,9 @@ export function checkWaveEnd(eng: GameEngine) {
   // being cleared: same clock as the allotments, for the same reason.
   eng.activePotions = tickPotions(eng.activePotions);
   ripenPatches(eng.farmPatches);
+  // The pools run on the same clock the allotments do, and for the same reason: a
+  // wave was fought, so the fish have had a wave to come back.
+  restockSpots(eng.fishingSpots);
   eng.wave += 1;
   eng.caStats.maxWaveReached = Math.max(eng.caStats.maxWaveReached, eng.wave);
   eng.caStats.runPhase = eng.runPhase;

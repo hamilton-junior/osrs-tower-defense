@@ -471,6 +471,13 @@ export interface UIState {
    *  costs every boostable tower a slice of its damage until a Super restore or a
    *  Sanfew serum washes it out, so the interface has to show the debt. */
   brewStacks: number;
+  /** Every pool the map dealt, as the interface draws them. */
+  fishingSpots: { id: string; stage: 'ready' | 'spent'; casts: number; wavesLeft: number }[];
+  fishingLevel: number;
+  fishingXp: number;
+  fishingXpNeeded: number;
+  /** 0 when no line is out, otherwise 0–1 through the current cast. */
+  castProgress: number;
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 11);

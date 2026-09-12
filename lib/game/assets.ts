@@ -638,6 +638,11 @@ export const ASSETS = {
       game_over: `${SND}/game_over.ogg`,
       magic_splash: `${LOCAL}/sounds/magic_splash.wav`, // splash (227)
       block: `${LOCAL}/sounds/combat_block.wav`,        // take-damage hitsplat (510)
+      // Fishing (Task 7): a cast, a catch, and eating the catch — each its own
+      // cache-decoded clip, none of them a stand-in for another sound.
+      cast_line: `${LOCAL}/sounds/cast_line.wav`,       // fishing_cast (2600) — the line going in
+      fish_caught: `${LOCAL}/sounds/fish_caught.wav`,   // varlamore_pm_fish_catch_01 (7904)
+      eat: `${LOCAL}/sounds/eat.wav`,                   // eat (2393)
     },
     // Per-prayer activation clips, decoded from the cache. Prayers OSRS gives a
     // unique activation sound get their own; the rest fall back to `misc.prayer_on`

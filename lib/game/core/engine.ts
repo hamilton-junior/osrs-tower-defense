@@ -74,6 +74,11 @@ import {
   addItem, countsOfKind, emptyStore, freeSlots, invCount, takeItem, toBag, toInv,
   type ItemStore, type Stack, type StackKind,
 } from '../systems/inventory';
+import { FISH_BY_ID, CAST_SECONDS, CAST_XP, SPOT_CASTS, FISHING_SPOT_ICON, type FishId } from '../data/fishing';
+import {
+  buildFishingSpots, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
+  wavesUntilRestock, type FishingSpot,
+} from '../systems/fishing';
 import { multiplyStyleMods, scaleAllStyles, type StyleMods } from '../systems/style-mods';
 import {
   HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
@@ -419,6 +424,14 @@ export class GameEngine {
     return this.farmBuffs;
   }
 
+  // Fishing is a per-run skill like Hunter: the level, the bank, the pools the map
+  // dealt, and whichever line is in the water right now.
+  fishingSpots: FishingSpot[] = [];
+  fishingLevel = 1;
+  fishingXp = 0;
+  castSpotId: string | null = null;
+  castProgress = 0;
+
   // ---------------------------------------------------------------- inventory
   /** Everything the run carries and everything it has stored: twenty-seven slots
    *  that never stack, and the looting bag in the twenty-eighth for the overflow. The
@@ -578,6 +591,7 @@ export class GameEngine {
           // would measure simulated seconds again — the very thing it isn't.
           this.realTime += dt;
           this.tickAutoplay(dt);
+          this.tickCast(dt);
           this.tickAutoUpgrade();
           // Wall-clock, outside the sub-step loop: the DPS meter refreshes at a fixed
           // ~4 Hz regardless of game speed. Inside the loop it took the simulated dt
@@ -731,6 +745,13 @@ export class GameEngine {
    *  side that knows a 'guam' is a Guam leaf and which icon that is, so the name and
    *  the picture are attached here rather than looked up again in React. */
   private uiStack(s: Stack): UiStack {
+    if (s.kind === 'food') {
+      const def = FISH_BY_ID[s.id as FishId];
+      return {
+        kind: 'food', id: s.id, name: def.name, icon: def.icon, count: s.count,
+        tip: `Eat it between waves: +${def.lives} life${def.lives === 1 ? '' : 's'}`,
+      };
+    }
     if (s.kind === 'herb') {
       const def = SEED_BY_ID[s.id as SeedId];
       return { kind: 'herb', id: s.id, name: def.herbName, icon: def.herbIcon, count: s.count, tip: def.tip };
@@ -864,6 +885,13 @@ export class GameEngine {
           wavesLeft: wavesLeft(p),
         };
       }),
+      fishingSpots: this.fishingSpots.map(s => ({
+        id: s.id, stage: spotStage(s), casts: s.casts, wavesLeft: wavesUntilRestock(s),
+      })),
+      fishingLevel: this.fishingLevel,
+      fishingXp: Math.round(this.fishingXp),
+      fishingXpNeeded: fishingXpForLevel(this.fishingLevel),
+      castProgress: this.castProgress,
       pendingSow: this.pendingSow,
       movingPatchId: this.movingPatchId,
       placingPlot: this.placingPlot,
@@ -1343,6 +1371,8 @@ export class GameEngine {
       // Bandos's sigil, drawn under anything his General's slam has made immune to
       // crowd control.
       bandos_symbol: ASSETS.misc.bandos_symbol,
+      // The fishing spot's own ripple — one model, every pool the map deals.
+      fishing_spot: FISHING_SPOT_ICON,
       // Distractions & Diversions: the cast that turns up between waves, keyed
       // `diversion_<id>` (baked NPC models and one item icon), plus the back and
       // side views a walker turns to — `diversion_<id>_back` / `_side`.
@@ -1413,6 +1443,10 @@ export class GameEngine {
     );
     // Fresh road, fresh ground: nothing sown on the old map carries over.
     this.farmPatches = buildFarmPatches(this.terrain, GRID);
+    // Fresh ground, fresh water: the pools belong to the map that dealt them.
+    this.fishingSpots = buildFishingSpots(this.terrain, GRID);
+    this.castSpotId = null;
+    this.castProgress = 0;
     // Plots that were *bought* do carry over. They were paid for at a doubling price
     // and the run is one run: losing them at a border would make the purchase a rent.
     // The new map deals them ground of its own, since it has no idea where the last
@@ -2420,6 +2454,10 @@ export class GameEngine {
     // click that reached it wanted the patch and nothing underneath it.
     const plot = patchAtPoint(this.farmPatches, x, y, GRID);
     if (plot) { this.clickPatch(plot); return; }
+    // A pool stands on ground the board already refused to build on, so a click
+    // that reached it wanted the water — same reasoning as the allotment above.
+    const spot = spotAtPoint(this.fishingSpots, x, y, GRID);
+    if (spot) { this.castLine(spot.id); return; }
     const hit = this.towers.find(t => distance(t.x, t.y, x, y) <= TOWER_RADIUS + 4);
     const hadPanel = this.selectedTowerId !== null || this.inspectedEnemyId !== null;
     if (hit) {
@@ -3550,6 +3588,82 @@ export class GameEngine {
     this.bumpCombatEpoch(); // a damage potion changes every tower's stats
     this.sound.play('farm_harvest');
     this.notify(`${def.name}: ${def.signature.label}`, def.icon);
+    this.emit();
+  }
+
+  /** Put a line in the water. Between waves only, one line at a time, and only
+   *  into a spot that still has fish in it. */
+  castLine(spotId: string) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    if (this.castSpotId) return;
+    const spot = this.fishingSpots.find(s => s.id === spotId);
+    if (!spot) return;
+    if (spotStage(spot) === 'spent') {
+      this.notify('The fish have moved on', ASSETS.misc.skill_fishing);
+      return;
+    }
+    this.castSpotId = spot.id;
+    this.castProgress = 0;
+    this.sound.play('fish_cast');
+    this.emit();
+  }
+
+  /** The cast bar. Driven by the rAF loop's own wall-clock dt, outside the
+   *  game-speed sub-step loop: three seconds is three seconds at any speed. */
+  private tickCast(dt: number) {
+    if (!this.castSpotId) return;
+    if (this.waveActive || this.gameOver) { this.castSpotId = null; this.castProgress = 0; this.emit(); return; }
+    this.castProgress += dt / CAST_SECONDS;
+    if (this.castProgress >= 1) this.landCatch();
+    this.emit();
+  }
+
+  /** The cast finished. XP always; a fish usually. */
+  private landCatch() {
+    const spot = this.fishingSpots.find(s => s.id === this.castSpotId);
+    this.castSpotId = null;
+    this.castProgress = 0;
+    if (!spot) return;
+    spot.casts = Math.min(SPOT_CASTS, spot.casts + 1);
+
+    const gain = gainFishingXp(this.fishingLevel, this.fishingXp, CAST_XP);
+    this.fishingLevel = gain.level;
+    this.fishingXp = gain.xp;
+
+    const fish = rollCatch(this.fishingLevel, Math.random);
+    if (fish) {
+      addItem(this.items, 'food', fish.id, 1);
+      this.sound.play('fish_caught');
+      this.notify(`You catch a ${fish.name.toLowerCase()}`, fish.icon);
+    } else {
+      this.notify('You fail to catch anything', ASSETS.misc.skill_fishing);
+    }
+
+    if (gain.levels > 0) {
+      this.sound.play('level_up');
+      this.notify(`Fishing level ${gain.level}`, ASSETS.misc.skill_fishing);
+    }
+    this.emit();
+  }
+
+  /** Eat a fish. Lives, never past the cap — and at the cap it is sold rather than
+   *  wasted, the same bargain the kebab diversion strikes. */
+  eatFood(id: FishId) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    const def = FISH_BY_ID[id];
+    if (!def) return;
+    if (this.lives >= this.maxLives) {
+      if (!takeItem(this.items, 'food', id)) return;
+      this.money += def.gold;
+      this.notify(`You are in no need of food. You sell it for ${def.gold} gp.`, def.icon);
+      this.emit();
+      return;
+    }
+    if (!takeItem(this.items, 'food', id)) return;
+    this.lives = Math.min(this.maxLives, this.lives + def.lives);
+    this.baseFlash = 1;
+    this.sound.play('eat');
+    this.notify(`${def.name}: +${def.lives} life${def.lives === 1 ? '' : 's'}`, def.icon);
     this.emit();
   }
 

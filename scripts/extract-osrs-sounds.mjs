@@ -66,6 +66,10 @@ const TARGETS = {
   vorkath_shield: 1511,
   special_attack: 2537,        // puncture — the dragon dagger special
   fireworks: 2396,             // firework — relic-pickup celebration burst
+  // --- Fishing (config names from osrs-sound-names.tsv) ---
+  cast_line: 2600,             // fishing_cast — the plop of a line going into the water
+  eat: 2393,                   // eat — a fish going down, for the lives it pays back
+  fish_caught: 7904,           // varlamore_pm_fish_catch_01 — landing a catch
   // --- prayer activations (OSRS has a unique clip for these) ---
   prayer_ultimate_strength: 2691,
   prayer_protect_magic: 2675,
