@@ -1,6 +1,55 @@
 {
-  "generatedAt": "2026-09-11",
+  "generatedAt": "2026-09-12",
   "entries": [
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Fishing joins the Skills stone, and fish can be eaten from the pack",
+      "fromFeedback": false,
+      "date": "2026-09-12"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Continue now brings your Fishing level and your pools back",
+      "fromFeedback": false,
+      "date": "2026-09-12"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Water and its fishing spots now draw on the board",
+      "fromFeedback": false,
+      "date": "2026-09-12"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Selling a fish you cannot eat now pays your reward multiplier",
+      "fromFeedback": false,
+      "date": "2026-09-12"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Cast a line between waves and eat what you pull out",
+      "fromFeedback": false,
+      "date": "2026-09-12"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "Every region now has water of its own colour",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "The map now deals water pools you can fish",
+      "fromFeedback": false,
+      "date": "2026-09-11"
+    },
     {
       "kind": "updated",
       "scope": "game",
@@ -230,55 +279,6 @@
       "scope": "ui",
       "text": "A Skills stone on the bar now gathers Hunter and Farming in one place",
       "fromFeedback": false,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "Allotments can be picked up and moved for free, and you can buy as many more as you can afford",
-      "fromFeedback": false,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "The volume slider comes out of the mute button again, as a flyout above the bar",
-      "fromFeedback": false,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Seeds now count the waves you actually fight, so jumping waves in the debug menu no longer ages them",
-      "fromFeedback": false,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The volume slider now waits under the mute button until you hover it",
-      "fromFeedback": true,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "An allotment now looks like one — raked soil with your own seed growing in it, and you can dig it up",
-      "fromFeedback": true,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "The road's slide grips move the road again — almost every one of them was refusing to budge",
-      "fromFeedback": true,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Dawn no longer doubles back over a road leg you shifted",
-      "fromFeedback": true,
       "date": "2026-09-04"
     }
   ]
