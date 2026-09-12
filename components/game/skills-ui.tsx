@@ -7,7 +7,7 @@ import { HUNTER_TRAPS, type HunterTrapId } from '@/lib/game/data/hunter-traps';
 import { trapCost } from '@/lib/game/systems/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
-import { FISH } from '@/lib/game/data/fishing';
+import { FISH, SPOT_CASTS } from '@/lib/game/data/fishing';
 import { brewDamageMult } from '@/lib/game/systems/herblore';
 import { hideBrokenImg, fmt, Price } from './ui-kit';
 
@@ -649,13 +649,13 @@ function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => 
               <button
                 key={s.id}
                 onClick={() => onCast(s.id)}
-                disabled={ui.waveActive || s.stage === 'spent'}
-                title={s.stage === 'spent' ? 'The fish come back in a few waves' : 'Cast a line'}
-                className="rs-panel-inset flex items-center justify-between gap-[0.5em] p-[0.4em] w-full text-left hover:brightness-125 disabled:opacity-50"
+                disabled={ui.waveActive || s.stage === 'spent' || ui.castSpotId !== null}
+                title={s.stage === 'spent' ? 'The fish come back in a few waves' : ui.castSpotId !== null ? 'Your line is already out' : 'Cast a line'}
+                className="rs-panel-inset flex items-center justify-between gap-[0.5em] p-[0.4em] w-full text-left hover:brightness-125 disabled:opacity-40"
               >
                 <span className="text-[0.76em] text-osrs-orange">Fishing spot</span>
                 <span className="text-[0.72em] tabular-nums" style={{ color: s.stage === 'spent' ? 'var(--osrs-red)' : '#cdbe91' }}>
-                  {s.stage === 'spent' ? `${s.wavesLeft} waves` : `${s.casts} / 3 casts`}
+                  {s.stage === 'spent' ? `${s.wavesLeft} waves` : `${s.casts} / ${SPOT_CASTS} casts`}
                 </span>
               </button>
             ))}

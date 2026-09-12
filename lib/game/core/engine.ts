@@ -891,6 +891,7 @@ export class GameEngine {
       fishingLevel: this.fishingLevel,
       fishingXp: Math.round(this.fishingXp),
       fishingXpNeeded: fishingXpForLevel(this.fishingLevel),
+      castSpotId: this.castSpotId,
       castProgress: this.castProgress,
       pendingSow: this.pendingSow,
       movingPatchId: this.movingPatchId,

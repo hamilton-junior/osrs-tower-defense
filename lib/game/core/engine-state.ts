@@ -476,6 +476,8 @@ export interface UIState {
   fishingLevel: number;
   fishingXp: number;
   fishingXpNeeded: number;
+  /** The pool the line is in right now, or null when no line is out. */
+  castSpotId: string | null;
   /** 0 when no line is out, otherwise 0–1 through the current cast. */
   castProgress: number;
 }
