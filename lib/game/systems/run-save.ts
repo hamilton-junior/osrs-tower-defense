@@ -5,7 +5,7 @@ import { BIOMES, type BiomeId } from '../data/biomes';
 import { HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '../data/farming';
 import { POTION_BY_ID, type PotionId } from '../data/herblore';
-import { FISH_BY_ID } from '../data/fishing';
+import { FISH_BY_ID, FISHING_MAX_LEVEL, SPOT_CASTS, SPOT_REST_WAVES } from '../data/fishing';
 import { HERBLORE_START_LEVEL } from './herblore';
 import { addItem, emptyStore, sanitizeStore, type ItemStore, type StackKind } from './inventory';
 import { GEAR } from '../data/gear';
@@ -131,6 +131,13 @@ export interface RunSave {
    *  next one. Optional like the fields above — RUN_SAVE_VERSION stays 3, and a save
    *  written before traps existed resumes at Hunter 1, as a fresh run does. */
   hunter?: { level: number; xp: number };
+  /** The run's own Fishing skill, the same bargain Hunter strikes: the level it
+   *  reached and the XP banked toward the next. Optional — RUN_SAVE_VERSION stays
+   *  5, and a save written before fishing existed resumes at Fishing 1. */
+  fishing?: { level: number; xp: number };
+  /** How far into each pool the run got. Casts are spent and waves are rested, so
+   *  a resume that dropped them would hand the player a full pool back. */
+  fishingSpots?: { id: string; casts: number; rested: number }[];
   /** Traps still lying on the road when the run was put down. A between-waves
    *  checkpoint saves them because they were paid for between waves: losing them on
    *  a resume would quietly charge the player for nothing. */
@@ -389,6 +396,25 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
         xp: Math.max(0, num(raw.hunter.xp, 0)),
       }
       : undefined,
+    fishing: isObj(raw.fishing)
+      ? {
+        level: Math.min(FISHING_MAX_LEVEL, Math.max(1, Math.floor(num(raw.fishing.level, 1)))),
+        xp: Math.max(0, num(raw.fishing.xp, 0)),
+      }
+      : undefined,
+    // A spot id is a tile, and a tile is two numbers — anything else in this list
+    // is not a spot, exactly as it is not a plot in the list above.
+    fishingSpots: Array.isArray(raw.fishingSpots)
+      ? raw.fishingSpots
+        .filter(isObj)
+        .filter((s) => typeof s.id === 'string' && /^s\d+_\d+$/.test(s.id))
+        .map((s) => ({
+          id: s.id as string,
+          casts: Math.min(SPOT_CASTS, Math.max(0, Math.floor(num(s.casts, 0)))),
+          rested: Math.min(SPOT_REST_WAVES, Math.max(0, Math.floor(num(s.rested, 0)))),
+        }))
+        .slice(0, 64)
+      : [],
     // An unknown trap id is one this build no longer has — drop that trap rather
     // than the save, exactly as a malformed road bend is dropped.
     traps: Array.isArray(raw.traps)

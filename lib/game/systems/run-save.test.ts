@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sanitizeRunSave, isResumable, RUN_SAVE_VERSION, type RunSave } from './run-save';
+import { SPOT_CASTS, SPOT_REST_WAVES } from '../data/fishing';
 import { GEAR } from '../data/gear';
 import { emptyRunStats } from './combat-achievements';
 
@@ -343,5 +344,42 @@ describe('the run\'s boss ladder', () => {
 
   it('sits at 5 — these fields are optional; the bump came from the potion table', () => {
     expect(RUN_SAVE_VERSION).toBe(5);
+  });
+});
+
+describe('fishing in a run save', () => {
+  it('keeps a level and a bank it believes', () => {
+    const save = sanitizeRunSave(makeSave({ fishing: { level: 40, xp: 120 } }));
+    expect(save?.fishing).toEqual({ level: 40, xp: 120 });
+  });
+
+  it('clamps a level the ladder does not have', () => {
+    expect(sanitizeRunSave(makeSave({ fishing: { level: 999, xp: -5 } }))?.fishing)
+      .toEqual({ level: 99, xp: 0 });
+  });
+
+  it('resumes a save written before fishing existed', () => {
+    const save = sanitizeRunSave(makeSave());
+    expect(save?.fishing).toBeUndefined();
+    expect(save?.fishingSpots).toEqual([]);
+  });
+
+  it('drops a spot whose id is not a tile', () => {
+    const save = sanitizeRunSave(makeSave({
+      fishingSpots: [
+        { id: 's3_4', casts: 2, rested: 1 },
+        { id: 'p3_4', casts: 1, rested: 0 },
+        { id: 'nonsense', casts: 1, rested: 0 },
+      ],
+    }));
+    expect(save?.fishingSpots).toEqual([{ id: 's3_4', casts: 2, rested: 1 }]);
+  });
+
+  it('clamps a spot that claims more casts than a spot holds', () => {
+    const save = sanitizeRunSave(makeSave({
+      fishingSpots: [{ id: 's1_1', casts: 99, rested: 99 }],
+    }));
+    expect(save?.fishingSpots?.[0].casts).toBe(SPOT_CASTS);
+    expect(save?.fishingSpots?.[0].rested).toBe(SPOT_REST_WAVES);
   });
 });

@@ -4073,6 +4073,11 @@ export class GameEngine {
       // Hunter is a per-run skill and the traps on the road were paid for out of
       // this run's gold, so both travel with it.
       hunter: { level: this.hunterLevel, xp: this.hunterXp },
+      // Fishing is a per-run skill and the pools were worked by this run, so both
+      // travel with it. An in-flight cast is never serialized: the checkpoint sits
+      // between waves, and a line in the water is a thing in progress.
+      fishing: { level: this.fishingLevel, xp: this.fishingXp },
+      fishingSpots: this.fishingSpots.map(s => ({ id: s.id, casts: s.casts, rested: s.rested })),
       traps: this.traps.map(t => ({ defId: t.defId, x: t.x, y: t.y, charges: t.charges })),
       slayer: this.slayer.snapshot(),
       prayer: { points: this.prayer.points, active: [...this.prayer.active] },
@@ -4215,6 +4220,18 @@ export class GameEngine {
     // a save from before they existed resumes at level 1 with a clear road.
     this.hunterLevel = save.hunter?.level ?? 1;
     this.hunterXp = save.hunter?.xp ?? 0;
+    // Fishing and the pools it worked come back with the run that earned them; a
+    // save from before they existed resumes at level 1 on untouched water.
+    this.fishingLevel = save.fishing?.level ?? 1;
+    this.fishingXp = save.fishing?.xp ?? 0;
+    this.castSpotId = null;
+    this.castProgress = 0;
+    for (const s of save.fishingSpots ?? []) {
+      const spot = this.fishingSpots.find(f => f.id === s.id);
+      if (!spot) continue;
+      spot.casts = s.casts;
+      spot.rested = s.rested;
+    }
     this.trapSeq = 0;
     this.traps = (save.traps ?? []).map(t => ({
       id: `tr${++this.trapSeq}`,
