@@ -123,6 +123,41 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   }
   ctx.globalAlpha = 1;
 
+  // ── water ── Baked into the static background beside the rough ground, because
+  // the pool itself never moves; only the fishing spot on it does, and that draws
+  // per frame in `render/fishing.ts`. The rim is the tile's own edge tested against
+  // its neighbours, so a blob of water reads as one pool rather than four squares.
+  const { deep, shallow, foam } = gr.e.biome.water;
+  const isWater = (c: number, r: number) =>
+    c >= 0 && r >= 0 && c < cols && r < t.rows && t.tiles[r * cols + c] === 'water';
+  for (let i = 0; i < t.tiles.length; i++) {
+    if (t.tiles[i] !== 'water') continue;
+    const c = i % cols;
+    const r = (i / cols) | 0;
+    const x0 = c * GRID;
+    const y0 = r * GRID;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = deep;
+    ctx.fillRect(x0, y0, GRID, GRID);
+    // A lighter inner square where the pool has depth on every side, so the middle
+    // of a blob reads shallower than its rim rather than flat.
+    ctx.fillStyle = shallow;
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(x0 + 5, y0 + 5, GRID - 10, GRID - 10);
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = foam;
+    if (!isWater(c, r - 1)) ctx.fillRect(x0, y0, GRID, 2);
+    if (!isWater(c, r + 1)) ctx.fillRect(x0, y0 + GRID - 2, GRID, 2);
+    if (!isWater(c - 1, r)) ctx.fillRect(x0, y0, 2, GRID);
+    if (!isWater(c + 1, r)) ctx.fillRect(x0 + GRID - 2, y0, 2, GRID);
+    // Two still highlights, placed by the tile's own hash so they do not march.
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = foam;
+    ctx.fillRect(x0 + 4 + hash2(c, r) * 16, y0 + 8 + hash2(r, c) * 12, 7, 2);
+    ctx.fillRect(x0 + 6 + hash2(c + 1, r) * 14, y0 + 16 + hash2(r, c + 1) * 8, 5, 2);
+  }
+  ctx.globalAlpha = 1;
+
   // ── Hard obstacles: shaded boulders that fill the tile (impassable). Per-tile
   // variation keeps a cluster of tiles reading as one lumpy rock formation. ──
   for (let i = 0; i < t.tiles.length; i++) {
