@@ -46,9 +46,13 @@ export function makeSpot(col: number, row: number, grid: number): FishingSpot {
   };
 }
 
-/** Every spot the map dealt, in the order the terrain listed them. */
+/** Every spot the map dealt, in the order the terrain listed them. A tile an
+ *  allotment already holds is skipped: farming and fishing share the board and
+ *  never a square, and the plot was there first. */
 export function buildFishingSpots(field: TerrainField, grid: number): FishingSpot[] {
-  return field.spots.map(s => makeSpot(s.col, s.row, grid));
+  return field.spots
+    .filter(s => field.tiles[s.row * field.cols + s.col] !== 'farming')
+    .map(s => makeSpot(s.col, s.row, grid));
 }
 
 export function spotStage(spot: FishingSpot): 'ready' | 'spent' {
@@ -113,12 +117,18 @@ export function rollCatch(level: number, rng: () => number): FishDef | null {
 }
 
 /**
- * The XP one level costs. Deliberately flatter than Hunter's curve: a run is
- * forty waves and a pool is worth a few casts a wave, so the top rungs have to
- * be reachable inside one run or they are decoration.
+ * The XP one level costs, cut to the casts a run actually deals rather than to
+ * OSRS's own curve. A map holds one or two pools and a pool is worth 33 casts
+ * over forty waves, so the whole ladder has to fit inside roughly 33-66 casts.
+ *
+ * The floor is what makes it a climb. Below level 44 the power term is smaller
+ * than 70, so every early level costs the same 70 xp — a hair over two casts —
+ * instead of being crossed for free on the first one. Trout lands around cast 8,
+ * lobster 16, shark 39 and manta ray 44: the top of the ladder is most of a
+ * two-pool run, and a one-pool map tops out short of it.
  */
 export function fishingXpForLevel(level: number): number {
-  return Math.max(12, Math.round(Math.pow(Math.max(1, level), 1.6) / 6));
+  return Math.max(70, Math.round(Math.pow(Math.max(1, level), 1.6) / 6));
 }
 
 export interface FishingGain {

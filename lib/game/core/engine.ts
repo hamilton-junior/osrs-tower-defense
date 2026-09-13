@@ -4158,11 +4158,24 @@ export class GameEngine {
       const cols = this.terrain.cols;
       for (const p of this.farmPatches) this.terrain.tiles[p.row * cols + p.col] = 'unbuildable';
       this.farmPatches = [];
+      let restored = 0;
       for (const id of save.plots) {
         const at = parsePlotId(id);
         if (!at || at.col >= cols || at.row >= this.terrain.rows) continue;
+        // The tile still has to be ground an allotment may stand on. A save written
+        // before the pools existed can name a square this map has since given to a
+        // fishing spot, and stamping it 'farming' would bury the spot under a plot.
+        if (!canPlacePlot(this.terrain, at.col, at.row)) continue;
         this.terrain.tiles[at.row * cols + at.col] = 'farming';
         this.farmPatches.push(makePatch(at.col, at.row, GRID));
+        restored++;
+      }
+      // Whatever the map could not honour is dealt fresh ground instead, so a plot
+      // that was paid for is never lost to a tile that changed under it. The tiles
+      // above are already flagged, so this never picks one of them twice.
+      for (const tile of pickPlotTiles(this.terrain, save.plots.length - restored)) {
+        this.terrain.tiles[tile.row * cols + tile.col] = 'farming';
+        this.farmPatches.push(makePatch(tile.col, tile.row, GRID));
       }
       this.farmPatches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
     }

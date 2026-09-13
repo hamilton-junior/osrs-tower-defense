@@ -91,6 +91,11 @@ export function canPlacePlot(
 ): boolean {
   if (col < 0 || row < 0 || col >= field.cols || row >= field.rows) return false;
   if (from && from.col === col && from.row === row) return false; // already there
+  // Never on a fishing spot. Water is not a flag a plot accepts anyway, but the spot
+  // is asked about by name so the two skills can never end up on one tile however the
+  // flag was written — a save restoring plots onto a map that has since grown pools is
+  // the case that used to slip through.
+  if (field.spots.some(s => s.col === col && s.row === row)) return false;
   const flag = field.tiles[row * field.cols + col];
   return flag === 'blocked' || flag === 'unbuildable';
 }

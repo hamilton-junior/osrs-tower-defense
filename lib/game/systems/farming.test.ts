@@ -244,20 +244,23 @@ describe('what a herb is worth', () => {
 
 // ───────────────────────── moving and buying allotments ─────────────────────────
 // A tiny hand-drawn field: `.` open, `#` blocked, `-` unbuildable, `F` a plot already
-// standing. Rows are written the way the board reads them, top to bottom.
+// standing, `~` water carrying a fishing spot. Rows are written the way the board
+// reads them, top to bottom.
 const draw = (rows: string[]): TerrainField => {
   const cols = rows[0].length;
   const tiles: TerrainField['tiles'] = [];
   const patches: { col: number; row: number }[] = [];
+  const spots: { col: number; row: number }[] = [];
   rows.forEach((line, row) => {
     [...line].forEach((ch, col) => {
       if (ch === '#') tiles.push('blocked');
       else if (ch === '-') tiles.push('unbuildable');
       else if (ch === 'F') { tiles.push('farming'); patches.push({ col, row }); }
+      else if (ch === '~') { tiles.push('water'); spots.push({ col, row }); }
       else tiles.push('open');
     });
   });
-  return { cols, rows: rows.length, tiles, decorations: [], patches, spots: [] };
+  return { cols, rows: rows.length, tiles, decorations: [], patches, spots };
 };
 
 describe('plot ids', () => {
@@ -322,6 +325,30 @@ describe('where a plot may be put down', () => {
 
   it('lists every legal tile in board order', () => {
     expect(plotTargets(f)).toEqual([{ col: 2, row: 0 }, { col: 3, row: 0 }, { col: 2, row: 1 }]);
+  });
+});
+
+// The two skills share a board and must never share a tile, in either direction.
+describe('a plot and a fishing spot never meet', () => {
+  const f = draw([
+    '.~#',
+    '.-.',
+  ]);
+
+  it('refuses the tile a fishing spot works', () => {
+    expect(canPlacePlot(f, 1, 0)).toBe(false);
+  });
+
+  it('refuses it even when the flag under the spot says otherwise', () => {
+    // The flag is what a stale save rewrites; the spot list is what the board
+    // actually holds, so the spot is asked about by name.
+    const stale: TerrainField = { ...f, tiles: f.tiles.map((t, i) => (i === 1 ? 'unbuildable' : t)) };
+    expect(canPlacePlot(stale, 1, 0)).toBe(false);
+  });
+
+  it('keeps spot tiles out of the targets and out of the bought-plot deal', () => {
+    for (const t of plotTargets(f)) expect(t).not.toEqual({ col: 1, row: 0 });
+    for (const t of pickPlotTiles(f, 99)) expect(t).not.toEqual({ col: 1, row: 0 });
   });
 });
 

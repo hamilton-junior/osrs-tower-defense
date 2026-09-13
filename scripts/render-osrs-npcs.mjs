@@ -45,7 +45,9 @@ const MARGIN = 0.12; // fraction of the canvas kept empty around the model
  */
 const TARGETS = {
   // npc: id is required; everything else optional (yaw/pitch in degrees).
-  fishing_spot: { npc: 1525, pitch: 70 },
+  // The bubbles fill barely half the frame and are near-transparent in the cache;
+  // zoomed and boosted they read as a fishing spot on a 32px board tile.
+  fishing_spot: { npc: 1525, pitch: 70, zoom: 1.9, alphaBoost: 4.6 },
   superior_bloodveld: { npc: 7397 },     // Insatiable Bloodveld
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon
   // The common Gargoyle is NPC 412 — the level-111 Slayer Tower one. Its def carries
@@ -198,7 +200,9 @@ async function buildNpcModel(cache, def) {
  * client backface culling, real cache textures with the face-lightness rule,
  * unsigned face alpha). Base-pose vertices, 3/4 view by default.
  */
-function renderNpc(model, { yaw = 30, pitch = 12, zoom = 1, cullBelowGround = false } = {}, textures) {
+function renderNpc(
+  model, { yaw = 30, pitch = 12, zoom = 1, alphaBoost = 1, cullBelowGround = false } = {}, textures,
+) {
   // Sub-ground decoration (shadow/contact discs sit just below the feet at
   // model-Y > 4): mark hidden so the shared renderer skips them.
   if (cullBelowGround) {
@@ -219,6 +223,16 @@ function renderNpc(model, { yaw = 30, pitch = 12, zoom = 1, cullBelowGround = fa
   const fit = computeFit([verts], sy, cy, sp, cp, SIZE, MARGIN);
   fit.scale *= zoom;
   const img = renderModelFrame(model, verts, fit, sy, cy, sp, cp, SIZE, textures, undefined, true, SS);
+  // A few models are drawn nearly transparent because the client layers them over a
+  // lit scene — the fishing spot's bubbles peak at alpha 55 of 255 and disappear on a
+  // flat board. `alphaBoost` scales the alpha the cache gave us and clamps it; the
+  // geometry and the colours stay exactly what the model holds.
+  if (alphaBoost !== 1) {
+    const d = img.data;
+    for (let i = 3; i < d.length; i += 4) {
+      if (d[i] > 0) d[i] = Math.min(255, Math.round(d[i] * alphaBoost));
+    }
+  }
   const canvas = createCanvas(SIZE, SIZE);
   canvas.getContext('2d').putImageData(img, 0, 0);
   return canvas.toBuffer('image/png');
@@ -252,9 +266,13 @@ async function main() {
   // CLI camera overrides for tuning (apply to every rendered target).
   const yawIdx = argv.indexOf('--yaw');
   const pitchIdx = argv.indexOf('--pitch');
+  const zoomIdx = argv.indexOf('--zoom');
+  const alphaIdx = argv.indexOf('--alpha');
   const camOverride = {};
   if (yawIdx !== -1) camOverride.yaw = Number(argv[yawIdx + 1]);
   if (pitchIdx !== -1) camOverride.pitch = Number(argv[pitchIdx + 1]);
+  if (zoomIdx !== -1) camOverride.zoom = Number(argv[zoomIdx + 1]);
+  if (alphaIdx !== -1) camOverride.alphaBoost = Number(argv[alphaIdx + 1]);
 
   const entries = Object.entries(TARGETS).filter(([slug]) => !only || slug === only);
   if (!entries.length) { console.warn('No TARGETS to render (fill in NPC ids via --find).'); process.exit(0); }

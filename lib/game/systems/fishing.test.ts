@@ -5,7 +5,9 @@ import {
   catchChance, fishingXpForLevel, gainFishingXp, spotId, parseSpotId, spotAtPoint,
   wavesUntilRestock,
 } from './fishing';
-import { SPOT_CASTS, SPOT_REST_WAVES, CATCH_CHANCE_MAX, FISHING_MAX_LEVEL } from '../data/fishing';
+import {
+  SPOT_CASTS, SPOT_REST_WAVES, CATCH_CHANCE_MAX, FISHING_MAX_LEVEL, CAST_XP,
+} from '../data/fishing';
 
 const GRID = 32;
 
@@ -21,6 +23,13 @@ function seq(values: number[]): () => number {
 }
 
 describe('fishing spots', () => {
+  it('never stands a spot on a tile an allotment already holds', () => {
+    const f = field([{ col: 3, row: 4 }, { col: 7, row: 1 }]);
+    f.tiles[4 * f.cols + 3] = 'farming';
+    const spots = buildFishingSpots(f, GRID);
+    expect(spots.map(s => s.id)).toEqual(['s7_1']);
+  });
+
   it('stands one spot per water spot, at the tile centre', () => {
     const spots = buildFishingSpots(field([{ col: 3, row: 4 }, { col: 7, row: 1 }]), GRID);
     expect(spots).toHaveLength(2);
@@ -111,9 +120,30 @@ describe('fishing xp', () => {
   });
 
   it('pins the curve itself, so the tuned exponent cannot drift silently', () => {
-    expect(fishingXpForLevel(1)).toBeCloseTo(12, 3);
-    expect(fishingXpForLevel(40)).toBeCloseTo(61, 3);
+    expect(fishingXpForLevel(1)).toBeCloseTo(70, 3);
+    expect(fishingXpForLevel(40)).toBeCloseTo(70, 3); // still on the floor
+    expect(fishingXpForLevel(60)).toBeCloseTo(117, 3);
     expect(fishingXpForLevel(FISHING_MAX_LEVEL)).toBeCloseTo(260, 3);
+  });
+
+  it('paces the fish ladder against the casts a run actually deals', () => {
+    // A pool is worth 33 casts over forty waves and a map deals one or two of
+    // them, so these counts are the whole balance: manta ray has to cost most of
+    // a two-pool run, and a one-pool map has to fall short of it.
+    const castsToReach = (target: number) => {
+      let level = 1;
+      let xp = 0;
+      let casts = 0;
+      while (level < target && casts < 1000) {
+        casts++;
+        ({ level, xp } = gainFishingXp(level, xp, CAST_XP));
+      }
+      return casts;
+    };
+    expect(castsToReach(20)).toBe(8);  // trout
+    expect(castsToReach(40)).toBe(16); // lobster
+    expect(castsToReach(76)).toBe(39); // shark
+    expect(castsToReach(81)).toBe(44); // manta ray
   });
 
   it('banks xp without levelling when the bank is short', () => {

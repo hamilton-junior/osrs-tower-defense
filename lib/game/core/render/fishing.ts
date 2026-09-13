@@ -24,17 +24,33 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + spot.x * 0.03 + spot.y * 0.05);
     const bob = ready ? Math.sin(t * 1.8 + spot.x * 0.05) * 1.6 : 0;
 
-    // The bubbles themselves, off the cache-rendered NPC.
+    // A dark well under the spot. The cache model is near-white foam and the water
+    // it stands on is bright, so the bubbles only read once something dark sits
+    // behind them; the well doubles as the shadow a break in the surface casts.
+    const wellR = GRID * 0.46;
+    const well = ctx.createRadialGradient(spot.x, spot.y, 0, spot.x, spot.y, wellR);
+    well.addColorStop(0, `rgba(0,0,0,${ready ? 0.42 : 0.24})`);
+    well.addColorStop(0.6, `rgba(0,0,0,${ready ? 0.22 : 0.13})`);
+    well.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = well;
+    ctx.beginPath();
+    ctx.arc(spot.x, spot.y, wellR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // The bubbles themselves, off the cache-rendered NPC. Full alpha now that the
+    // well backs them: the pulse breathes the sprite's size instead of fading it,
+    // so a ready spot is never less visible than a spent one.
     if (img) {
-      ctx.globalAlpha = ready ? 0.85 + pulse * 0.15 : 0.3;
+      ctx.globalAlpha = ready ? 1 : 0.5;
       if (ready) {
         ctx.save();
-        ctx.shadowColor = ripple;
-        ctx.shadowBlur = 4;
-        drawImageContain(gr, ctx, img, spot.x, spot.y + bob, GRID * 0.82);
+        ctx.shadowColor = foam;
+        ctx.shadowBlur = 6;
+        drawImageContain(gr, ctx, img, spot.x, spot.y + bob, GRID * (0.9 + pulse * 0.06));
         ctx.restore();
+      } else {
+        drawImageContain(gr, ctx, img, spot.x, spot.y + bob, GRID * 0.86);
       }
-      drawImageContain(gr, ctx, img, spot.x, spot.y + bob, GRID * 0.82);
       ctx.globalAlpha = 1;
     }
 
