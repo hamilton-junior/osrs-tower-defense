@@ -117,6 +117,41 @@ const enemyTypes: string[] = (() => {
   return [...body.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
 })();
 
+/**
+ * Fishing's own assets. `data/fishing.ts` names them through `itemIcon` and
+ * `npcModel` directly — a path built from a slug, not a lookup through a wiki-
+ * keyed table like `iconUrl`/`geIcon` above — so the coverage scan up there
+ * never sees them. Same two-step shape as the death-sound guard below: read
+ * the slugs the source actually passes, then check a bake exists for each.
+ */
+const fishingSlugs: { items: string[]; models: string[] } = (() => {
+  const src = readFileSync(join(__dirname, 'data/fishing.ts'), 'utf8');
+  const items = [...src.matchAll(/itemIcon\('([^']+)'\)/g)].map((m) => m[1]);
+  const models = [...src.matchAll(/npcModel\('([^']+)'\)/g)].map((m) => m[1]);
+  return { items, models };
+})();
+
+describe('fishing asset coverage', () => {
+  it('finds the slugs it means to check', () => {
+    expect(fishingSlugs.items.length).toBeGreaterThan(0);
+    expect(fishingSlugs.models.length).toBeGreaterThan(0);
+  });
+
+  it('backs every fish icon with a baked item sprite', () => {
+    const missing = fishingSlugs.items.filter(
+      (slug) => !existsSync(join(__dirname, '../../public/assets/items', `${slug}.png`)),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it('backs the fishing spot model with a baked render', () => {
+    const missing = fishingSlugs.models.filter(
+      (slug) => !existsSync(join(__dirname, '../../public/assets/models', `${slug}.png`)),
+    );
+    expect(missing).toEqual([]);
+  });
+});
+
 const deathSounds = ASSETS.sounds.death as Record<string, string>;
 
 /** `/assets/sounds/death_rat.wav` → `public/assets/sounds/death_rat.wav`. */
