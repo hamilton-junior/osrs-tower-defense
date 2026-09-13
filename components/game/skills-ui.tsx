@@ -645,12 +645,17 @@ function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => 
           <div className="text-[0.72em] text-[#cdbe91] p-[0.4em]">This map has no water.</div>
         ) : (
           <ScrollList max="8em">
-            {ui.fishingSpots.map((s) => (
+            {ui.fishingSpots.map((s) => {
+              const linedHere = ui.castSpotId === s.id;
+              const lineElsewhere = ui.castSpotId !== null && !linedHere;
+              return (
               <button
                 key={s.id}
                 onClick={() => onCast(s.id)}
-                disabled={ui.waveActive || s.stage === 'spent' || ui.castSpotId !== null}
-                title={s.stage === 'spent' ? 'The fish come back in a few waves' : ui.castSpotId !== null ? 'Your line is already out' : 'Cast a line'}
+                disabled={ui.waveActive || s.stage === 'spent' || lineElsewhere}
+                title={lineElsewhere ? 'Your line is already out'
+                  : linedHere ? 'Pull your line back in'
+                  : s.stage === 'spent' ? 'The fish come back in a few waves' : 'Cast a line'}
                 className="rs-panel-inset flex items-center justify-between gap-[0.5em] p-[0.4em] w-full text-left hover:brightness-125 disabled:opacity-40"
               >
                 <span className="text-[0.76em] text-osrs-orange">Fishing spot</span>
@@ -658,7 +663,8 @@ function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => 
                   {s.stage === 'spent' ? `${s.wavesLeft} waves` : `${s.casts} / ${SPOT_CASTS} casts`}
                 </span>
               </button>
-            ))}
+              );
+            })}
           </ScrollList>
         )}
       </Section>
@@ -667,7 +673,11 @@ function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => 
           {FISH.map((f) => {
             const locked = f.level > ui.fishingLevel;
             return (
-              <div key={f.id} className="rs-panel-inset flex items-center gap-[0.5em] p-[0.4em]">
+              <div
+                key={f.id}
+                className="rs-panel-inset flex items-center gap-[0.5em] p-[0.4em]"
+                title={locked ? `Needs Fishing ${f.level}` : 'Eat it for lives, or sell it once your lives are full.'}
+              >
                 <img
                   src={f.icon} alt="" onError={hideBrokenImg}
                   className="w-[1.5em] h-[1.5em] object-contain shrink-0"
@@ -676,7 +686,17 @@ function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => 
                 <span className="min-w-0 flex-1 text-[0.76em] text-osrs-orange truncate">{f.name}</span>
                 {locked
                   ? <span className="text-[0.72em] tabular-nums" style={{ color: 'var(--osrs-red)' }}>L{f.level}</span>
-                  : <span className="text-[0.72em] text-[#cdbe91] tabular-nums">+{f.lives}</span>}
+                  : (
+                    // The heal caps at maxLives and does not happen at all once lives are
+                    // already full — a plain "+{n}" overpromises both times — so the life
+                    // count reads "at most" rather than a guaranteed add. Gold is the other
+                    // half of the same fish (paid instead, at full lives) and rides beside
+                    // it; flex-wrap drops it to its own line if a scale is too narrow for both.
+                    <span className="flex flex-wrap items-center justify-end gap-[0.3em] shrink-0">
+                      <span className="text-[0.72em] text-[#cdbe91] tabular-nums whitespace-nowrap">&le;{f.lives}</span>
+                      <Price amount={f.gold} className="text-[0.72em] whitespace-nowrap" />
+                    </span>
+                  )}
               </div>
             );
           })}
