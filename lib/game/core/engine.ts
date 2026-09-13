@@ -892,7 +892,6 @@ export class GameEngine {
       fishingXp: Math.round(this.fishingXp),
       fishingXpNeeded: fishingXpForLevel(this.fishingLevel),
       castSpotId: this.castSpotId,
-      castProgress: this.castProgress,
       pendingSow: this.pendingSow,
       movingPatchId: this.movingPatchId,
       placingPlot: this.placingPlot,
@@ -3596,7 +3595,19 @@ export class GameEngine {
    *  into a spot that still has fish in it. */
   castLine(spotId: string) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
-    if (this.castSpotId) return;
+    if (this.castSpotId) {
+      if (this.castSpotId === spotId) {
+        // Same spot clicked again: reel it back in. No sound — there is no
+        // reel-in clip baked, and the brief is explicit not to invent one.
+        this.castSpotId = null;
+        this.castProgress = 0;
+        this.notify('You pull your line back in', ASSETS.misc.skill_fishing);
+        this.emit();
+      } else {
+        this.notify('Your line is already out', ASSETS.misc.skill_fishing);
+      }
+      return;
+    }
     const spot = this.fishingSpots.find(s => s.id === spotId);
     if (!spot) return;
     if (spotStage(spot) === 'spent') {
@@ -4348,6 +4359,8 @@ export class GameEngine {
     this.selectedTrapId = null;
     this.hunterLevel = 1;
     this.hunterXp = 0;
+    this.fishingLevel = 1;
+    this.fishingXp = 0;
     this.bumpCombatEpoch();
     this.sandboxWave = false;
     this.lastWaveSandbox = false;

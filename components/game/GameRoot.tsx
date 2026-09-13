@@ -122,7 +122,7 @@ const INITIAL: UIState = {
   inventory: Array.from({ length: 28 }, () => null), bagStacks: [],
   herbPouch: [], potionStock: [], herbloreLevel: 3, herbloreXp: 0, herbloreXpNeeded: 10, activePotions: [],
   brewStacks: 0,
-  fishingSpots: [], fishingLevel: 1, fishingXp: 0, fishingXpNeeded: 12, castSpotId: null, castProgress: 0,
+  fishingSpots: [], fishingLevel: 1, fishingXp: 0, fishingXpNeeded: 12, castSpotId: null,
 };
 
 /** How long a loot-drop toast stays in the corner. Matches the CSS animation in

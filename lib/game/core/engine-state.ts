@@ -476,10 +476,10 @@ export interface UIState {
   fishingLevel: number;
   fishingXp: number;
   fishingXpNeeded: number;
-  /** The pool the line is in right now, or null when no line is out. */
+  /** The pool the line is in right now, or null when no line is out. The cast's
+   *  own progress (0–1) is read live off the engine by the renderer instead —
+   *  it changes every frame, which is not a shape UIState should carry. */
   castSpotId: string | null;
-  /** 0 when no line is out, otherwise 0–1 through the current cast. */
-  castProgress: number;
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 11);
