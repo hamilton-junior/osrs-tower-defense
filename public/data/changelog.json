@@ -1,6 +1,34 @@
 {
-  "generatedAt": "2026-09-12",
+  "generatedAt": "2026-09-13",
   "entries": [
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Fishing pools explain why they're off-limits, and a catch's card shows its full worth",
+      "fromFeedback": false,
+      "date": "2026-09-12"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Fishing's icons and spot model now have to prove they're actually baked",
+      "fromFeedback": false,
+      "date": "2026-09-12"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Restarting resets your Fishing level, and re-casting a line reels it back in",
+      "fromFeedback": false,
+      "date": "2026-09-12"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "A second fishing spot no longer swallows your click while a line is out",
+      "fromFeedback": false,
+      "date": "2026-09-12"
+    },
     {
       "kind": "new",
       "scope": "game",
@@ -250,34 +278,6 @@
       "kind": "new",
       "scope": "game",
       "text": "Herbs stack like potions now, so a second one rides the wave alongside the first instead of replacing it",
-      "fromFeedback": false,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "Traps are back to inventory size in the Hunter page instead of stretching across the row",
-      "fromFeedback": false,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "The DPS and Skills stones swapped places on the bar",
-      "fromFeedback": false,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "Herbs go into a pouch now, and a Herblore bench brews them into potions that last several waves",
-      "fromFeedback": false,
-      "date": "2026-09-04"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "A Skills stone on the bar now gathers Hunter and Farming in one place",
       "fromFeedback": false,
       "date": "2026-09-04"
     }
