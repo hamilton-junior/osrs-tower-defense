@@ -45,6 +45,7 @@ const MARGIN = 0.12; // fraction of the canvas kept empty around the model
  */
 const TARGETS = {
   // npc: id is required; everything else optional (yaw/pitch in degrees).
+  fishing_spot: { npc: 1525, pitch: 70 },
   superior_bloodveld: { npc: 7397 },     // Insatiable Bloodveld
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon
   // The common Gargoyle is NPC 412 — the level-111 Slayer Tower one. Its def carries
