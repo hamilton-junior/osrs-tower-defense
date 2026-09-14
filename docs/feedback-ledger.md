@@ -403,12 +403,13 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     `d815c10`): twelve entries plus "+N more". That cap stopped it swallowing clicks; it did
     not make it small.
 
-26. **The skill screens want a real design.** Fishing, Farming and Hunter share a layout the
-    user calls odd-looking. It has to stay plainly readable — a player should never have to
-    learn the screen — but it should look like something OSRS shipped. The user asked for
-    research first: study the Collection Log and the interfaces the minigames use (Tempoross,
-    Wintertodt, Barbarian Assault, Pest Control, Soul Wars, the Blast Furnace), then come back
-    with suggestions and ask before building any of them.
+26. **The skill screens want a real design.** — **shipped** (2026-09-14, `718450e`). Research
+    covered the Collection Log and the minigame interfaces (Tempoross, Wintertodt, Barbarian
+    Assault, Pest Control, Soul Wars, the Blast Furnace); the user picked the Collection Log
+    frame over a minigame status board and a two-column bench. The panel is now a strip of
+    skill tabs, an x/y counter, one header and progress bar, and one scrolling body of
+    `rs-log-entry` sprite tiles — the opening menu, the back arrow and the nested scrollers
+    are gone.
 
 27. **A tower may be fused more than once.** The one-fusion-per-tower rule goes: if the player
     owns the two towers and the gold, the forge is open. The closed roster is untouched — a
