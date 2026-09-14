@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { ASSETS, GEAR_ICONS } from '@/lib/game/assets';
 import type { UiStack } from '@/lib/game/core/engine';
-import { stackKey, type StackKind } from '@/lib/game/systems/inventory';
+import { moveKey, stackKey, type StackKind } from '@/lib/game/systems/inventory';
 import type { Item, Tower } from '@/lib/game/types';
 import { canEquip, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/tower-gear';
 import { GearCompare, GearHeader, GearStats, gearTooltip } from './gear-ui';
@@ -23,6 +23,12 @@ import { hideBrokenImg, InvGrid, ItemSlot, loadBool } from './ui-kit';
  * It stacks where the inventory does not. Two of the same gear piece are one square
  * with a 2 on it, and every herb or potion pushed out here piles into one square,
  * so a deep run reads as what it found rather than as a wall of repeats.
+ *
+ * The squares can be dragged around each other, the way the backpack's can. The
+ * grid is built out of the bag's key order rather than out of fixed slots, so a drop
+ * rewrites that order instead of swapping two positions — and a square the filter is
+ * hiding keeps its place in it, so turning the filter off never scrambles an
+ * arrangement made with it on.
  *
  * A tower's own slot asks "which piece?"; a piece here asks "which tower?" — the
  * same picker read from the other end, so neither question makes the player walk to
@@ -74,6 +80,8 @@ export interface LootBagViewProps {
   onHoverTower: (t: Tower | null) => void;
   onEquip: (towerId: string, gearId: string) => void;
   onTake: (kind: StackKind, id: string) => void;
+  /** A drag landed: the bag's whole key list, in the order it should hang in now. */
+  onReorder: (keys: string[]) => void;
 }
 
 /** One square of the bag's grid: a pile of gear, or a stack of herbs or potions.
@@ -84,9 +92,12 @@ type BagCell =
   | { key: string; kind: 'stack'; stack: UiStack };
 
 export function LootBagView({
-  bag, stacks, order, invFull, towers: towersOnBoard, hoverTowerId, onHoverTower, onEquip, onTake,
+  bag, stacks, order, invFull, towers: towersOnBoard, hoverTowerId, onHoverTower, onEquip, onTake, onReorder,
 }: LootBagViewProps) {
   const [pick, setPick] = useState<string | null>(null);
+  // The square a drag started on, held by key rather than by position: the grid
+  // re-ranks underneath a drag, and an empty drag payload reads back as slot 0.
+  const [dragKey, setDragKey] = useState<string | null>(null);
   // Both filters default on: a deep run's bag fills with pieces nothing wants, and
   // every tower is listed for every piece. The useful answer is the short list —
   // the long one stays a click away.
@@ -103,21 +114,50 @@ export function LootBagView({
   useEffect(() => () => onHoverTower(null), [onHoverTower]);
 
   const allPiles = pileGear(bag);
-  const piles = allPiles.filter(({ item }) => !hideJunk || isUpgradeForAny(towersOnBoard, item));
-  const hiddenCount = allPiles.length - piles.length;
-  const filled = piles.length + stacks.length;
+  const hidden = new Set(
+    allPiles
+      .filter(({ item }) => hideJunk && !isUpgradeForAny(towersOnBoard, item))
+      .map(({ item }) => `gear:${item.id}`),
+  );
+  const hiddenCount = hidden.size;
   // The grid is one list: whatever arrived last hangs first, of either kind. A key
   // the engine no longer tracks sorts to the end, where a stable sort leaves gear
   // ahead of stacks — the grouping the bag falls back to.
-  const cells: BagCell[] = [
-    ...piles.map((pile) => ({ key: `gear:${pile.item.id}`, kind: 'gear' as const, pile })),
+  const allCells: BagCell[] = [
+    ...allPiles.map((pile) => ({ key: `gear:${pile.item.id}`, kind: 'gear' as const, pile })),
     ...stacks.map((stack) => ({ key: stackKey(stack.kind, stack.id), kind: 'stack' as const, stack })),
   ];
   const rank = (k: string) => {
     const i = order.indexOf(k);
     return i < 0 ? order.length : i;
   };
-  cells.sort((a, b) => rank(a.key) - rank(b.key));
+  allCells.sort((a, b) => rank(a.key) - rank(b.key));
+  // The filter takes squares off the page; it never re-orders them. A drag is
+  // resolved against the full list, so the pieces it is hiding keep their places.
+  const cells = allCells.filter((c) => !hidden.has(c.key));
+  const filled = cells.length;
+  // Every square is a handle. The drop rewrites the whole order rather than swapping
+  // two squares, because there are no slots here to swap.
+  const dragProps = (key: string) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      setDragKey(key);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', key);
+    },
+    onDragOver: (e: React.DragEvent) => {
+      if (dragKey === null || dragKey === key) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      if (dragKey === null || dragKey === key) return;
+      onReorder(moveKey(allCells.map((c) => c.key), dragKey, key));
+      setDragKey(null);
+    },
+    onDragEnd: () => setDragKey(null),
+  });
   // Keep the panel a full backpack tall, and every row full, so the scrolling grid
   // stays the shape the client draws rather than a ragged half-page.
   const padding = Math.max(BAG_SLOTS, Math.ceil(filled / COLUMNS) * COLUMNS) - filled;
@@ -296,6 +336,7 @@ export function LootBagView({
                   title={`Equip ${item.name}`}
                   selected={pick === item.id}
                   signature={item.rarity === 'signature'}
+                  drag={dragProps(cell.key)}
                   onClick={() => setPick((cur) => (cur === item.id ? null : item.id))}
                 />
               </HoverTip>
@@ -313,6 +354,7 @@ export function LootBagView({
               count={s.count}
               dim={invFull}
               title={invFull ? 'Inventory full' : `Take one ${s.name}`}
+              drag={dragProps(cell.key)}
               onClick={() => onTake(s.kind, s.id)}
             />
           );

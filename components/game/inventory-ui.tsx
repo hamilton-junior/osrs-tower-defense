@@ -5,7 +5,7 @@ import { ASSETS } from '@/lib/game/assets';
 import type { UIState, UiStack } from '@/lib/game/core/engine';
 import type { SeedId } from '@/lib/game/data/farming';
 import { POTIONS, type PotionId } from '@/lib/game/data/herblore';
-import type { FishId } from '@/lib/game/data/fishing';
+import { FISH_BY_ID, type FishId } from '@/lib/game/data/fishing';
 import type { Tower } from '@/lib/game/types';
 import { brewBlocker, emptyPouch, emptyStock } from '@/lib/game/systems/herblore';
 import type { StackKind } from '@/lib/game/systems/inventory';
@@ -66,13 +66,17 @@ export interface InventoryViewProps {
   onBrewPotion: (id: PotionId) => void;
   onDrinkPotion: (id: PotionId) => void;
   onEatFood: (id: FishId) => void;
+  /** Sell one instead of eating it, for a run that would rather have the gold. */
+  onSellFood: (id: FishId) => void;
+  /** A drag rearranged the looting bag: its whole key list, newly ordered. */
+  onReorderBag: (keys: string[]) => void;
 }
 
 export function InventoryView(props: InventoryViewProps) {
   const {
     ui, page, onPage, towers, hoverTowerId, onHoverTower, onEquipGear,
     onStoreStack, onTakeStack, onMoveSlot, onUseHerb, onBrewPotion, onDrinkPotion,
-    onEatFood,
+    onEatFood, onSellFood, onReorderBag,
   } = props;
   // The open Choose Option menu: where the click landed, and the square it landed
   // on. Held by the stack itself rather than by the slot index, because acting on
@@ -84,8 +88,8 @@ export function InventoryView(props: InventoryViewProps) {
 
   const free = useMemo(() => ui.inventory.reduce((n, s) => n + (s ? 0 : 1), 0), [ui.inventory]);
   const options = useMemo(
-    () => (menu ? stackOptions(menu.stack, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onStoreStack) : []),
-    [menu, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onStoreStack],
+    () => (menu ? stackOptions(menu.stack, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onStoreStack) : []),
+    [menu, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onStoreStack],
   );
   const bagCount = ui.lootBag.length + ui.bagStacks.length;
 
@@ -102,6 +106,7 @@ export function InventoryView(props: InventoryViewProps) {
         onHoverTower={onHoverTower}
         onEquip={onEquipGear}
         onTake={onTakeStack}
+        onReorder={onReorderBag}
       />
     );
   }
@@ -219,6 +224,7 @@ function stackOptions(
   onBrewPotion: (id: PotionId) => void,
   onDrinkPotion: (id: PotionId) => void,
   onEatFood: (id: FishId) => void,
+  onSellFood: (id: FishId) => void,
   onStoreStack: (kind: StackKind, id: string) => void,
 ): MenuOption[] {
   const disabled = ui.waveActive;
@@ -240,6 +246,15 @@ function stackOptions(
         note,
         title: stack.tip,
         onSelect: () => onEatFood(stack.id as FishId),
+      }, {
+        // Ungated, the way Store is: gold moving changes nothing about a fight. The
+        // price is on the line, so the choice between a life and the coins is made
+        // without leaving the menu.
+        action: 'Sell',
+        target: stack.name,
+        coins: FISH_BY_ID[stack.id as FishId]?.gold,
+        title: 'Sell one for gold instead of eating it',
+        onSelect: () => onSellFood(stack.id as FishId),
       }]
       : [{
         action: 'Drink',

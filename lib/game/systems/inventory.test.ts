@@ -1,9 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import {
   INVENTORY_SLOTS, addItem, bagCount, countsOfKind, emptyStore, freeSlots,
-  invCount, moveSlot, parseKey, sanitizeStore, stackKey, takeItem, toBag, toInv,
+  invCount, moveKey, moveSlot, parseKey, sanitizeStore, stackKey, takeItem, toBag, toInv,
   type ItemStore,
 } from './inventory';
+
+describe('moveKey', () => {
+  const keys = ['a', 'b', 'c', 'd'];
+
+  it('drops a key in at the target and shuffles the rest along', () => {
+    expect(moveKey(keys, 'd', 'a')).toEqual(['d', 'a', 'b', 'c']);
+    expect(moveKey(keys, 'a', 'c')).toEqual(['b', 'c', 'a', 'd']);
+  });
+
+  it('leaves the list alone when the drag goes nowhere', () => {
+    expect(moveKey(keys, 'b', 'b')).toBe(keys);
+    expect(moveKey(keys, 'z', 'a')).toBe(keys);
+    expect(moveKey(keys, 'a', 'z')).toBe(keys);
+  });
+
+  it('never loses or repeats a key', () => {
+    const out = moveKey(keys, 'c', 'b');
+    expect([...out].sort()).toEqual([...keys].sort());
+  });
+});
 
 /** Fill every slot with a different herb, so the next add has nowhere to go. */
 function fullStore(): ItemStore {

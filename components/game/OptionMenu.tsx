@@ -2,6 +2,8 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { coinsIcon } from '@/lib/game/assets';
+import { fmt } from './ui-kit';
 
 /** `calc(base * var(--ui-scale, 1))` — the hookup every panel in `GameRoot` uses
  *  (`fs()` there), repeated here so this file has no import cycle back into it.
@@ -19,6 +21,9 @@ export interface MenuOption {
   /** Why it is greyed, printed after the target so the reason is on screen and
    *  not only in a tooltip a disabled button may never show. */
   note?: string;
+  /** What the line pays, printed after the target in brackets. The number comes
+   *  first and the coins follow it, the way every price in this interface reads. */
+  coins?: number;
   title?: string;
   onSelect: () => void;
 }
@@ -110,6 +115,13 @@ export function OptionMenu({ x, y, options, onClose }: OptionMenuProps) {
         >
           <span>{o.action}</span>
           {o.target && <span className="rs-menu-target"> {o.target}</span>}
+          {o.coins != null && (
+            <span className="rs-menu-coins">
+              {' ('}{fmt(o.coins)}
+              <img src={coinsIcon(o.coins)} alt="gp" />
+              {')'}
+            </span>
+          )}
           {o.disabled && o.note && <span className="rs-menu-why"> — {o.note}</span>}
         </button>
       ))}

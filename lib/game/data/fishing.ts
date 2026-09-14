@@ -76,7 +76,9 @@ export const FISHING_MAX_LEVEL = 99;
  * The spot itself, in the two states the board has to tell apart. Both are baked
  * from the cache as eight frames of the spot's own stand animation (seq 7634)
  * rather than a still: a fishing spot in OSRS is water breaking, and a frozen
- * ripple reads as a decal painted on the sea.
+ * ripple reads as a decal painted on the sea. Only the active one plays those
+ * frames — a spent pool holds the first of them, because still water is what tells
+ * the player the fish have gone.
  *
  * A pool with fish left in it is the Tempoross Cove spot (NPC 10565) — the
  * brighter, busier water the game uses where the fishing is on. A spent one is the

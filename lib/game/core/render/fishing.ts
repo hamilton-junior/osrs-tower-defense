@@ -15,11 +15,11 @@ const GLOW = '120,226,255';
  * The fishing spots and the cast bar — the only parts of the water that move.
  * The pool underneath is baked into the static background (`render/terrain.ts`).
  *
- * The spot is a strip of frames baked from the cache, played on a loop, and which
- * strip it is carries the whole state: a pool with fish left in it breaks the
- * water like a Tempoross Cove spot and takes a faint cyan glow; a spent one is an
- * ordinary quiet spot with no glow at all, carrying the wave count it is waiting
- * on in the same corner and the same type as an allotment's.
+ * The spot is a strip of frames baked from the cache, and which strip it is
+ * carries the whole state: a pool with fish left in it breaks the water like a
+ * Tempoross Cove spot, plays its loop and takes a faint cyan glow; a spent one
+ * holds the strip's first frame with no glow at all, and carries the wave count it
+ * is waiting on in the same corner and the same type as an allotment's.
  */
 export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const spots = gr.e.fishingSpots;
@@ -44,7 +44,10 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     if (img) {
       const cell = img.height;
       const frames = Math.max(1, Math.round(img.width / cell));
-      const f = Math.floor((t * 1000) / FRAME_MS) % frames;
+      // Only a pool with fish in it moves. A spent one holds frame 0: water that
+      // has gone still is what says the fish have left, and bubbles over an empty
+      // pool invite a cast that cannot happen.
+      const f = ready ? Math.floor((t * 1000) / FRAME_MS) % frames : 0;
       const size = GRID * (ready ? 0.9 + pulse * 0.06 : 0.86);
       const dx = spot.x - size / 2;
       const dy = spot.y - size / 2 + bob;

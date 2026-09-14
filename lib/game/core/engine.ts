@@ -3520,6 +3520,17 @@ export class GameEngine {
     this.emit();
   }
 
+  /** Rearrange the looting bag: the page hands back the whole key list in its new
+   *  order. The bag's grid is built out of this order, so a drag has nothing to swap
+   *  and everything to re-rank. Keys the page did not draw — a stack that left the
+   *  bag while the drag was in the air — keep their places behind the new list. */
+  setBagOrder(keys: string[]) {
+    const seen = new Set(keys);
+    this.bagOrder = [...keys, ...this.bagOrder.filter((k) => !seen.has(k))];
+    this.sound.play('click');
+    this.emit();
+  }
+
   /** Send a whole carried stack to the looting bag. Silent when nothing moves — a
    *  click on something no longer carried is a misclick, not news. */
   storeInBag(kind: StackKind, id: string) {
@@ -3720,6 +3731,20 @@ export class GameEngine {
     this.baseFlash = 1;
     this.sound.play('eat');
     this.notify(`${def.name}: +${def.lives} life${def.lives === 1 ? '' : 's'}`, def.icon);
+    this.emit();
+  }
+
+  /** Sell a fish rather than eat it, for a player who would rather have the gold
+   *  than the life. The same bargain {@link eatFood} strikes at full lives, offered
+   *  on purpose — and ungated, like storing: coins moving changes nothing about a
+   *  fight, and the price is printed on the menu line that leads here. */
+  sellFood(id: FishId) {
+    const def = FISH_BY_ID[id];
+    if (!def) return;
+    if (!takeItem(this.items, 'food', id)) return;
+    const gold = this.awardGold(def.gold);
+    this.sound.play('sell');
+    this.notify(`You sell the ${def.name.toLowerCase()} for ${gold} gp.`, def.icon);
     this.emit();
   }
 

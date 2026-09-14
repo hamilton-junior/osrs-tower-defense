@@ -161,6 +161,22 @@ export function moveSlot(store: ItemStore, from: number, to: number): boolean {
   return true;
 }
 
+/** Drag one bag key onto another. The looting bag has no fixed slots — its grid is
+ *  built out of this key order — so a drag is a re-ordering rather than a swap: the
+ *  dragged key is lifted out and dropped in at the target's place, and everything
+ *  between the two shuffles up by one. An unknown key on either end leaves the list
+ *  exactly as it was. */
+export function moveKey(keys: string[], from: string, to: string): string[] {
+  if (from === to) return keys;
+  const i = keys.indexOf(from);
+  const j = keys.indexOf(to);
+  if (i < 0 || j < 0) return keys;
+  const out = [...keys];
+  out.splice(i, 1);
+  out.splice(j, 0, from);
+  return out;
+}
+
 /** A quantity a bag button asks for: OSRS's 1 / 5 / 10 / X, or the whole stack. */
 export type MoveQty = number | 'all';
 

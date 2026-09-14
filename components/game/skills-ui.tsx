@@ -676,7 +676,7 @@ function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => 
               <div
                 key={f.id}
                 className="rs-panel-inset flex items-center gap-[0.5em] p-[0.4em]"
-                title={locked ? `Needs Fishing ${f.level}` : 'Eat it for lives, or sell it once your lives are full.'}
+                title={locked ? `Needs Fishing ${f.level}` : 'Eat it for lives, or sell it for gold.'}
               >
                 <img
                   src={f.icon} alt="" onError={hideBrokenImg}
