@@ -80,7 +80,7 @@ import {
 } from '../data/fishing';
 import {
   buildFishingSpots, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
-  wavesUntilRestock, type FishingSpot,
+  wavesUntilRestock, placeSpot, type FishingSpot,
 } from '../systems/fishing';
 import { multiplyStyleMods, scaleAllStyles, type StyleMods } from '../systems/style-mods';
 import {
@@ -4133,7 +4133,9 @@ export class GameEngine {
       // travel with it. An in-flight cast is never serialized: the checkpoint sits
       // between waves, and a line in the water is a thing in progress.
       fishing: { level: this.fishingLevel, xp: this.fishingXp },
-      fishingSpots: this.fishingSpots.map(s => ({ id: s.id, casts: s.casts, rested: s.rested })),
+      // The tile travels with the spot: a pool's fish wander between its water
+      // tiles, and a resume that dropped the tile would put them back on the seed.
+      fishingSpots: this.fishingSpots.map(s => ({ id: s.id, casts: s.casts, rested: s.rested, col: s.col, row: s.row })),
       traps: this.traps.map(t => ({ defId: t.defId, x: t.x, y: t.y, charges: t.charges })),
       slayer: this.slayer.snapshot(),
       prayer: { points: this.prayer.points, active: [...this.prayer.active] },
@@ -4301,6 +4303,9 @@ export class GameEngine {
       if (!spot) continue;
       spot.casts = s.casts;
       spot.rested = s.rested;
+      // `placeSpot` refuses a tile outside the pool, so a save carrying a tile
+      // this map's water no longer covers leaves the spot on its seed.
+      if (s.col !== undefined && s.row !== undefined) placeSpot(spot, s.col, s.row, GRID);
     }
     this.trapSeq = 0;
     this.traps = (save.traps ?? []).map(t => ({

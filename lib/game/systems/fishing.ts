@@ -7,24 +7,36 @@ import type { TerrainField } from './terrain-generation';
 /**
  * **Fishing spots** — the water's half of the skill.
  *
- * A spot is a tile, the same way an allotment is, and carries its tile in its id
- * so a save can name it without storing coordinates. It holds a few casts; when
- * they are spent the fish move on, and they come back after a set number of
- * *waves* — not seconds and not wave numbers, because the debug wave control
- * jumps the counter and a spot that read it would restock for free.
+ * A spot is a pool, named in its id after the tile the terrain seeded it on. It
+ * holds a few casts; when they are spent the fish move on, and they come back
+ * after a set number of *waves* — not seconds and not wave numbers, because the
+ * debug wave control jumps the counter and a spot that read it would restock for
+ * free. They also come back somewhere else: the spot hops between the pool's own
+ * water tiles, and never onto a square the map did not flood.
  */
 export interface FishingSpot {
-  /** `s<col>_<row>`, mirroring farming's plot id. */
+  /** `s<col>_<row>` of the tile the pool was seeded on, mirroring farming's plot
+   *  id. It names the pool, not the square the fish are in this wave, so it
+   *  survives the spot moving. */
   id: string;
   col: number;
   row: number;
-  /** Board coordinates, derived once from the grid. */
+  /** Board coordinates of the tile the spot is standing on right now. */
   x: number;
   y: number;
   /** Casts spent, up to `SPOT_CASTS`. */
   casts: number;
   /** Waves survived since the spot was spent. */
   rested: number;
+  /** Every water tile the pool is made of, its seed first. The spot moves between
+   *  these and nowhere else. */
+  tiles: SpotTile[];
+}
+
+/** One tile of a pool. */
+export interface SpotTile {
+  col: number;
+  row: number;
 }
 
 export const spotId = (col: number, row: number): string => `s${col}_${row}`;
@@ -35,7 +47,7 @@ export function parseSpotId(id: string): { col: number; row: number } | null {
   return { col: Number(m[1]), row: Number(m[2]) };
 }
 
-export function makeSpot(col: number, row: number, grid: number): FishingSpot {
+export function makeSpot(col: number, row: number, grid: number, tiles?: SpotTile[]): FishingSpot {
   return {
     id: spotId(col, row),
     col, row,
@@ -43,7 +55,59 @@ export function makeSpot(col: number, row: number, grid: number): FishingSpot {
     y: row * grid + grid / 2,
     casts: 0,
     rested: 0,
+    tiles: tiles && tiles.length > 0 ? tiles : [{ col, row }],
   };
+}
+
+/**
+ * The water tiles one pool is made of, four-connected out from the tile the
+ * terrain seeded it on.
+ *
+ * The generator records only that seed, so the rest of the blob has to be walked
+ * back out of `tiles` — and walking it is also the guarantee the spot asks for:
+ * it can only ever stand somewhere this fill returned, which is water the map
+ * already dealt. The seed itself is always in the list, whatever it is flagged,
+ * because that is where the spot starts.
+ */
+export function poolTiles(field: TerrainField, col: number, row: number): SpotTile[] {
+  const seen = new Set<number>([row * field.cols + col]);
+  const out: SpotTile[] = [{ col, row }];
+  const steps: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (let i = 0; i < out.length; i++) {
+    const here = out[i];
+    for (const [dc, dr] of steps) {
+      const nc = here.col + dc;
+      const nr = here.row + dr;
+      if (nc < 0 || nr < 0 || nc >= field.cols || nr >= field.rows) continue;
+      const idx = nr * field.cols + nc;
+      if (seen.has(idx)) continue;
+      seen.add(idx);
+      if (field.tiles[idx] !== 'water') continue;
+      out.push({ col: nc, row: nr });
+    }
+  }
+  return out;
+}
+
+/** Stand a spot on one of its own pool's tiles, refusing anything else. The id
+ *  does not travel with it — it names the pool. */
+export function placeSpot(spot: FishingSpot, col: number, row: number, grid: number): boolean {
+  if (!spot.tiles.some(t => t.col === col && t.row === row)) return false;
+  spot.col = col;
+  spot.row = row;
+  spot.x = col * grid + grid / 2;
+  spot.y = row * grid + grid / 2;
+  return true;
+}
+
+/** The fish surface somewhere else in the same pool. A plain uniform roll, so a
+ *  small pool sometimes deals the tile it was already on — that is the water
+ *  being water rather than the spot being stuck. */
+export function moveSpot(spot: FishingSpot, grid: number, rng: () => number): void {
+  if (spot.tiles.length < 2) return;
+  const i = Math.min(spot.tiles.length - 1, Math.max(0, Math.floor(rng() * spot.tiles.length)));
+  const pick = spot.tiles[i];
+  placeSpot(spot, pick.col, pick.row, grid);
 }
 
 /** Every spot the map dealt, in the order the terrain listed them. A tile an
@@ -52,7 +116,7 @@ export function makeSpot(col: number, row: number, grid: number): FishingSpot {
 export function buildFishingSpots(field: TerrainField, grid: number): FishingSpot[] {
   return field.spots
     .filter(s => field.tiles[s.row * field.cols + s.col] !== 'farming')
-    .map(s => makeSpot(s.col, s.row, grid));
+    .map(s => makeSpot(s.col, s.row, grid, poolTiles(field, s.col, s.row)));
 }
 
 export function spotStage(spot: FishingSpot): 'ready' | 'spent' {
@@ -74,14 +138,17 @@ export function wavesUntilRestock(spot: FishingSpot): number {
   return Math.max(0, SPOT_REST_WAVES - spot.rested);
 }
 
-/** One wave went by. Called from `checkWaveEnd`, beside `ripenPatches`. */
-export function restockSpots(spots: FishingSpot[]): void {
+/** One wave went by. Called from `checkWaveEnd`, beside `ripenPatches`. A pool
+ *  that comes back also moves: the fish left this square and surfaced on another
+ *  of the pool's own tiles. */
+export function restockSpots(spots: FishingSpot[], grid: number, rng: () => number): void {
   for (const spot of spots) {
     if (spotStage(spot) === 'ready') continue;
     spot.rested++;
     if (spot.rested >= SPOT_REST_WAVES) {
       spot.casts = 0;
       spot.rested = 0;
+      moveSpot(spot, grid, rng);
     }
   }
 }

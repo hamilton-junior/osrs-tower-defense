@@ -139,9 +139,11 @@ export interface RunSave {
    *  reached and the XP banked toward the next. Optional — RUN_SAVE_VERSION stays
    *  5, and a save written before fishing existed resumes at Fishing 1. */
   fishing?: { level: number; xp: number };
-  /** How far into each pool the run got. Casts are spent and waves are rested, so
-   *  a resume that dropped them would hand the player a full pool back. */
-  fishingSpots?: { id: string; casts: number; rested: number }[];
+  /** How far into each pool the run got, and which of the pool's water tiles its
+   *  fish were last on. Casts are spent and waves are rested, so a resume that
+   *  dropped them would hand the player a full pool back; the tile rides along so
+   *  the spot resumes where the player left it rather than back on its seed. */
+  fishingSpots?: { id: string; casts: number; rested: number; col?: number; row?: number }[];
   /** Traps still lying on the road when the run was put down. A between-waves
    *  checkpoint saves them because they were paid for between waves: losing them on
    *  a resume would quietly charge the player for nothing. */
@@ -419,6 +421,10 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
           id: s.id as string,
           casts: Math.min(SPOT_CASTS, Math.max(0, Math.floor(num(s.casts, 0)))),
           rested: Math.min(SPOT_REST_WAVES, Math.max(0, Math.floor(num(s.rested, 0)))),
+          // A tile is two whole non-negative numbers or it is not a tile. The
+          // engine checks it against the pool as well before standing on it.
+          col: typeof s.col === 'number' && Number.isFinite(s.col) ? Math.max(0, Math.floor(s.col)) : undefined,
+          row: typeof s.row === 'number' && Number.isFinite(s.row) ? Math.max(0, Math.floor(s.row)) : undefined,
         }))
         .slice(0, 64)
       : [],

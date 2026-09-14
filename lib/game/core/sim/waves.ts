@@ -24,7 +24,7 @@ import {
 import { bodyY } from '../../systems/enemy-anchor';
 import { laneLeg } from '../../systems/geometry';
 import { freshBossState, moleIsBurrowing, stallHealMult, MECHANIC_BOSSES, brutusIsRampaging, scurriusIsSqueaking, kbdIsHalted, graardorIsSlamming, type BossId } from '../../systems/boss-mechanics';
-import { uid, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT, HITSPLAT_LIFE } from '../engine-state';
+import { uid, GRID, GENERAL_GOLD_FACTOR, DOT_KINDS, ANCIENT_HIT_FIT, HITSPLAT_LIFE } from '../engine-state';
 import type { WavePreviewEntry } from '../engine-state';
 import type { GameEngine } from '../engine';
 import { stepStallClock, stallStacksOf, updateEscortFollow } from './bosses';
@@ -627,7 +627,7 @@ export function checkWaveEnd(eng: GameEngine) {
   ripenPatches(eng.farmPatches);
   // The pools run on the same clock the allotments do, and for the same reason: a
   // wave was fought, so the fish have had a wave to come back.
-  restockSpots(eng.fishingSpots);
+  restockSpots(eng.fishingSpots, GRID, Math.random);
   eng.wave += 1;
   eng.caStats.maxWaveReached = Math.max(eng.caStats.maxWaveReached, eng.wave);
   eng.caStats.runPhase = eng.runPhase;

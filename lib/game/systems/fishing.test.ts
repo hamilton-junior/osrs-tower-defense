@@ -3,7 +3,7 @@ import type { TerrainField } from './terrain-generation';
 import {
   buildFishingSpots, spotStage, restockSpots, rollCatch, catchesUnlockedAt,
   catchChance, fishingXpForLevel, gainFishingXp, spotId, parseSpotId, spotAtPoint,
-  wavesUntilRestock,
+  wavesUntilRestock, poolTiles, placeSpot, moveSpot,
 } from './fishing';
 import {
   SPOT_CASTS, SPOT_REST_WAVES, CATCH_CHANCE_MAX, FISHING_MAX_LEVEL, CAST_XP,
@@ -55,10 +55,10 @@ describe('fishing spots', () => {
     expect(spotStage(spot)).toBe('spent');
 
     for (let w = 0; w < SPOT_REST_WAVES - 1; w++) {
-      restockSpots([spot]);
+      restockSpots([spot], GRID, () => 0);
       expect(spotStage(spot)).toBe('spent');
     }
-    restockSpots([spot]);
+    restockSpots([spot], GRID, () => 0);
     expect(spotStage(spot)).toBe('ready');
     expect(spot.casts).toBe(0);
     expect(spot.rested).toBe(0);
@@ -82,6 +82,73 @@ describe('fishing spots', () => {
     const spots = buildFishingSpots(field([{ col: 2, row: 2 }]), GRID);
     expect(spotAtPoint(spots, 2 * GRID + 4, 2 * GRID + 4, GRID)?.id).toBe('s2_2');
     expect(spotAtPoint(spots, 5 * GRID, 5 * GRID, GRID)).toBeNull();
+  });
+});
+
+/** A field whose listed tiles are water, so a pool has somewhere to wander. */
+function pool(water: { col: number; row: number }[], spots = [water[0]]): TerrainField {
+  const f = field(spots);
+  for (const t of water) f.tiles[t.row * f.cols + t.col] = 'water';
+  return f;
+}
+
+describe('a pool the spot roams', () => {
+  it('walks the whole four-connected blob of water, and stops at its edge', () => {
+    // An L of four water tiles, plus one water tile a diagonal away that is not
+    // part of the blob, plus dry ground either side.
+    const f = pool([{ col: 2, row: 2 }, { col: 3, row: 2 }, { col: 3, row: 3 }, { col: 3, row: 4 }, { col: 5, row: 5 }]);
+    const tiles = poolTiles(f, 2, 2);
+    expect(tiles).toHaveLength(4);
+    expect(tiles[0]).toEqual({ col: 2, row: 2 }); // the seed leads
+    expect(tiles).toContainEqual({ col: 3, row: 4 });
+    expect(tiles).not.toContainEqual({ col: 5, row: 5 });
+  });
+
+  it('keeps the seed even when the seed tile is not flagged water', () => {
+    expect(poolTiles(field([{ col: 1, row: 1 }]), 1, 1)).toEqual([{ col: 1, row: 1 }]);
+  });
+
+  it('hands every spot its own pool', () => {
+    const f = pool([{ col: 2, row: 2 }, { col: 2, row: 3 }]);
+    const [spot] = buildFishingSpots(f, GRID);
+    expect(spot.tiles).toHaveLength(2);
+    expect(spot.col).toBe(2);
+    expect(spot.row).toBe(2);
+  });
+
+  it('moves the fish to another tile of the pool when they come back', () => {
+    const f = pool([{ col: 2, row: 2 }, { col: 2, row: 3 }]);
+    const [spot] = buildFishingSpots(f, GRID);
+    spot.casts = SPOT_CASTS;
+    for (let w = 0; w < SPOT_REST_WAVES; w++) restockSpots([spot], GRID, () => 0.9);
+
+    expect(spot.id).toBe('s2_2');      // the id names the pool, not the square
+    expect(spot.row).toBe(3);          // 0.9 of two tiles is the second one
+    expect(spot.y).toBe(3 * GRID + GRID / 2);
+  });
+
+  it('never leaves the pool, whatever the roll', () => {
+    const f = pool([{ col: 2, row: 2 }, { col: 2, row: 3 }, { col: 3, row: 3 }]);
+    const [spot] = buildFishingSpots(f, GRID);
+    for (const r of [0, 0.34, 0.67, 0.999999, 1]) {
+      moveSpot(spot, GRID, () => r);
+      expect(spot.tiles).toContainEqual({ col: spot.col, row: spot.row });
+    }
+  });
+
+  it('leaves a one-tile pool where it is', () => {
+    const [spot] = buildFishingSpots(field([{ col: 4, row: 4 }]), GRID);
+    moveSpot(spot, GRID, () => 0.99);
+    expect({ col: spot.col, row: spot.row }).toEqual({ col: 4, row: 4 });
+  });
+
+  it('refuses to stand on a tile outside the pool', () => {
+    const f = pool([{ col: 2, row: 2 }, { col: 2, row: 3 }]);
+    const [spot] = buildFishingSpots(f, GRID);
+    expect(placeSpot(spot, 9, 9, GRID)).toBe(false);
+    expect({ col: spot.col, row: spot.row }).toEqual({ col: 2, row: 2 });
+    expect(placeSpot(spot, 2, 3, GRID)).toBe(true);
+    expect(spot.x).toBe(2 * GRID + GRID / 2);
   });
 });
 
