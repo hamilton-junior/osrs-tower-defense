@@ -49,17 +49,25 @@ const TARGETS = {
   // rather than a still: a fishing spot in OSRS is water breaking, and a frozen
   // ripple reads as a decal painted on the sea.
   //
-  // The bubbles fill barely half the frame and are near-transparent in the cache;
-  // zoomed and boosted they read as a fishing spot on a 32px board tile. The boost
-  // is per model, sized to bring that model's own peak alpha up to full: the plain
-  // spot (41238) peaks at 55 of 255, the Tempoross one (41967) at 105.
+  // The bubbles fill barely half the frame, so both are zoomed to read on a 32px
+  // board tile. Only one of them is boosted, and that is the whole point.
   //
-  // Two spots because the board has two states to tell apart. A spot with fish left
-  // is the Tempoross Cove spot (NPC 10565 → model 41967), the brighter, busier water
-  // OSRS uses where the fishing is on; a spent one is the ordinary spot (NPC 1525 →
-  // model 41238). Same geometry, and that is the cache's own answer — in game the
-  // "double" spot is two of these NPCs standing on adjacent tiles.
-  fishing_spot: { npc: 1525, pitch: 70, zoom: 1.15, alphaBoost: 4.6, anim: 7634 },
+  // Two spots because the board has two states to tell apart, and the cache already
+  // draws them apart. A spot with fish left is the Tempoross Cove spot (NPC 10565
+  // → model 41967); a spent one is the ordinary spot (NPC 1525 → model 41238). The
+  // mesh is the same one twice — 84 faces of bubbles and rings, identical colours,
+  // and in game the "double" spot is two of these NPCs on adjacent tiles — but the
+  // ordinary spot carries it at face alpha 200 of 255 and the Tempoross one at 150:
+  // 55 against 105 of opacity. Over water that gap is the difference the player
+  // sees. At 55 the blue reads straight through the rings and they come out dark,
+  // which is what an ordinary fishing spot looks like; at 105 they are the bright
+  // white bubble of a pool worth casting at.
+  //
+  // So the busy spot is boosted to the full 255 its own peak implies, and the
+  // ordinary one keeps exactly the alpha the cache gave it. Boosting that one too
+  // was what made the two bakes come out pixel-identical, and its darkness is what
+  // makes a spent pool read as water rather than an offer.
+  fishing_spot: { npc: 1525, pitch: 70, zoom: 1.15, alphaBoost: 1, anim: 7634 },
   fishing_spot_active: { npc: 10565, pitch: 70, zoom: 1.15, alphaBoost: 2.4, anim: 7634 },
   superior_bloodveld: { npc: 7397 },     // Insatiable Bloodveld
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon

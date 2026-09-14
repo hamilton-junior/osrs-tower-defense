@@ -17,12 +17,13 @@ const GLOW = '120,226,255';
 const FADE_MS = 600;
 
 /**
- * One spot, in one of the two looks a pool has. Both play the same strip of frames —
- * the cache bakes the ordinary spot and the Tempoross one off the same bubble model,
- * and the two are the same water — so what separates them is how loud that water is.
- * A pool with fish left in it glows, breathes and bobs. A spent one is the bare dots
- * an ordinary fishing spot leaves on the surface: no halo to invite a cast, one pass
- * rather than two, smaller, and faint enough to read as water rather than an offer.
+ * One spot, in one of the two looks a pool has, each off its own sheet. The cache
+ * bakes the ordinary spot and the Tempoross one from the same bubble model but at
+ * different alpha, so the sprites already differ the way the game differs them: the
+ * busy pool is white foam, the spent one dark ripples the water reads through.
+ * The drawing leans the rest of the way. A pool with fish left in it glows, breathes
+ * and bobs, and gets a second pass to carry the halo. A spent one gets one pass, no
+ * halo to invite a cast, and sits smaller and still.
  */
 function drawSpot(
   ctx: CanvasRenderingContext2D,
@@ -57,7 +58,9 @@ function drawSpot(
     ctx.shadowBlur = 0;
     ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
   } else {
-    ctx.globalAlpha = alpha * 0.5;
+    // No dimming here: the plain sheet is already faint, because that faintness is
+    // the cache's own answer for what a spot with nothing in it looks like.
+    ctx.globalAlpha = alpha;
     ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
   }
   ctx.restore();
@@ -68,9 +71,9 @@ function drawSpot(
  * The pool underneath is baked into the static background (`render/terrain.ts`).
  *
  * A pool with fish left in it breaks the water like a Tempoross Cove spot; a spent
- * one keeps breaking it, quietly, the way any ordinary fishing spot does, and carries
- * the wave count it is waiting on in the same corner and the same type as an
- * allotment's. Neither look ever cuts to the other: a pool crosses between them over
+ * one keeps breaking it, quietly, the way any ordinary fishing spot does — its own
+ * sprite, not a dimmed copy of the busy one — and carries the wave count it is
+ * waiting on in the same corner and the same type as an allotment's. Neither look ever cuts to the other: a pool crosses between them over
  * one tick, the old one fading out on the tile it was standing on while the new one
  * fades in on the tile the pool holds now.
  */
@@ -80,7 +83,9 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const t = performance.now() / 1000;
   const idle = !gr.e.waveActive && !gr.e.gameOver;
   const { ripple, foam } = gr.e.biome.water;
-  const sheet = gr.e.imageOk('fishing_spot_active') ? gr.e.images.get('fishing_spot_active') : null;
+  const busy = gr.e.imageOk('fishing_spot_active') ? gr.e.images.get('fishing_spot_active') : null;
+  const spent = gr.e.imageOk('fishing_spot') ? gr.e.images.get('fishing_spot') : null;
+  const sheetFor = (r: boolean) => (r ? busy : spent);
   const now = performance.now();
 
   // A new run brings new pools under new ids. Drop the fade state of any that have
@@ -115,13 +120,15 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       if (k >= 1) fade.from = null;
     }
 
-    // The water breaking, off the cache-rendered NPC — the busy look while there are
-    // fish left to break it, the quiet one once there are not, and both at once while
-    // the pool is crossing from one to the other.
-    if (sheet) {
-      if (fade.from) drawSpot(ctx, sheet, fade.from.x, fade.from.y, fade.from.ready, t, 1 - k);
-      drawSpot(ctx, sheet, spot.x, spot.y, ready, t, k);
+    // The water breaking, off the cache-rendered NPC — the Tempoross spot while there
+    // are fish left to break it, the ordinary one once there are not, and both at once
+    // while the pool is crossing from one to the other.
+    const ghost = fade.from ? sheetFor(fade.from.ready) : null;
+    if (fade.from && ghost) {
+      drawSpot(ctx, ghost, fade.from.x, fade.from.y, fade.from.ready, t, 1 - k);
     }
+    const sheet = sheetFor(ready);
+    if (sheet) drawSpot(ctx, sheet, spot.x, spot.y, ready, t, k);
 
     // A ring of expanding ripples while the line is out, so the bar on the tile
     // and the water agree about what is happening.

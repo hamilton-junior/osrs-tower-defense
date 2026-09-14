@@ -365,8 +365,10 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     same spawner as **F1**/**F5** wearing a third mood — one system, three payload kinds — so it
     should not get its own timer, its own click handler or its own spawn scan.
 
-23. **F7 fishing spots** — **adiado** (user, 2026-09-03), kept alongside **F2** as the other
-    live Fun-Content item. Water terrain finally does something (user, 2026-08-21). A water tile
+23. **F7 fishing spots** — **shipped** (2026-09-11 to 2026-09-14), which leaves **F2** as the
+    section's one live Fun-Content item. What follows is the sketch it was built from; the
+    detail that arrived during the build lives in the commits and in backlog round 4 below.
+    Water terrain finally does something (user, 2026-08-21). A water tile
     grows an animated bubble spot; clicking it **between waves** fishes for ~3s on a simple
     progress bar and yields food that restores lives when eaten between waves: shrimp +1, trout
     +2, lobster +3, shark +5, manta ray +8 (very rare). A spot is exhausted after one or two
@@ -387,3 +389,66 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
     be built after them: with F2/F3 unbuilt the house is a rug and nothing else. **F3 is
     descartado** as of 2026-09-03, so a Trophy Hall room here would have to bring its own
     reason to exist — or the room simply drops and the other five carry the house.
+
+---
+
+## Backlog round 4 (user, 2026-09-14)
+
+Thirteen items handed over in one message, in the order the user wrote them. None of them is
+designed yet; each entry is the brief plus whatever the user already decided about it.
+
+25. **The next-wave preview takes too much room.** The strip that shows what the coming wave
+    brings eats a lot of the board and reads as clutter. Shrink it or restate it — the
+    information stays, the footprint does not. It was already capped once (item **3**, B1,
+    `d815c10`): twelve entries plus "+N more". That cap stopped it swallowing clicks; it did
+    not make it small.
+
+26. **The skill screens want a real design.** Fishing, Farming and Hunter share a layout the
+    user calls odd-looking. It has to stay plainly readable — a player should never have to
+    learn the screen — but it should look like something OSRS shipped. The user asked for
+    research first: study the Collection Log and the interfaces the minigames use (Tempoross,
+    Wintertodt, Barbarian Assault, Pest Control, Soul Wars, the Blast Furnace), then come back
+    with suggestions and ask before building any of them.
+
+27. **A tower may be fused more than once.** The one-fusion-per-tower rule goes: if the player
+    owns the two towers and the gold, the forge is open. The closed roster is untouched — a
+    fusion still consumes both halves rather than adding a seventh buyable tower.
+
+28. **Herb prices scale with the wave, lightly.** The same per-wave treatment the Hunter traps
+    already carry, tuned gentler, so a wave-sixty board cannot buy herbs at wave-one prices.
+
+29. **The fishing spot's own animation fades in and out.** The bubbles should breathe rather
+    than pop. Separate from the cross-fade between the busy and the spent treatment, which
+    shipped in `5ae377e`: this is about the clip itself, each loop easing in and out instead of
+    cutting between frames.
+
+30. **Fishing gets faster as the level climbs.** The cast is a flat bar today. Scale it with
+    the run's Fishing level so 99 casts 50% faster than 1; the curve between is open.
+
+31. **A higher-tier potion replaces the lower one.** Same effect, better tier: Super Energy
+    overwrites Energy instead of stacking with it, and the replacement carries the *full*
+    duration of the new tier. Applies to every ladder where the game holds two tiers of one
+    effect.
+
+32. **The Toxic Staff of the Dead's venom aura is far too wide.** It should reach about 3×3
+    from the tower's own tile. Today it covers the board, and the utility tower's range buff
+    makes that worse — decide whether the aura should take range buffs at all.
+
+33. **"around wave 90" is out of date.** The copy that tells the player where a run is won
+    still quotes wave 90; the victory wave moved. Find every line that names a number and make
+    it name the real one.
+
+34. **The sell sound still plays when a fish is sold instead of eaten.** Trying to eat at full
+    hitpoints sells the fish — that is a sale, and it should sound like one.
+
+35. **Saradomin brew overheals.** Food taking over the healing job left the brew as dead
+    content. Give it back its OSRS identity: it heals past maximum hitpoints, up to a cap
+    derived from the maximum.
+
+36. **Confirm a brew drunk at the overheal cap**, the same way the game already confirms an
+    action that would be wasted.
+
+37. **Validate traps at 5× speed.** Enemies look like they walk over Hunter traps without
+    springing them when the game runs at 5×. Reproduce it before assuming it is a bug — a
+    per-frame trap test that samples position rather than the segment travelled would explain
+    exactly this.
