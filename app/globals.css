@@ -82,16 +82,25 @@ body {
   object-fit: contain;
 }
 
-/* Nothing here is dragged the browser's way. The game uses no HTML5 drag-and-drop,
-   and a native drag only gets in the way: while one runs, Chrome routes every mouse
-   event to the drag session instead of to the page, so a session that never gets its
-   drop leaves the board running but unclickable — and reloading does not clear it,
-   because the stuck session belongs to the browser rather than to us. Players found
-   it by dragging a sprite around the board. */
+/* Nothing here is dragged the browser's way unless it asks to be. A native drag
+   otherwise only gets in the way: while one runs, Chrome routes every mouse event to
+   the drag session instead of to the page, so a session that never gets its drop
+   leaves the board running but unclickable — and reloading does not clear it, because
+   the stuck session belongs to the browser rather than to us. Players found it by
+   dragging a sprite around the board. */
 img,
 a,
 canvas {
   -webkit-user-drag: none;
+}
+
+/* The exception: a square the player rearranges. The backpack and the looting bag
+   are the one place the game does use the browser's drag-and-drop, so a square that
+   opts in gets its drag back — and so does the icon inside it, which is the part the
+   pointer is actually over when the drag starts. */
+[draggable='true'],
+[draggable='true'] img {
+  -webkit-user-drag: element;
 }
 
 /* A hitsplat sprite is a 25x25 tile whose splat only fills the top-left 24x23 of

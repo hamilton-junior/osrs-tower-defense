@@ -571,10 +571,16 @@ export default function GameRoot() {
 
   // The CSS above refuses a native drag on every sprite; this refuses it everywhere
   // else — a text selection, a link, a browser that does not honour `-webkit-user-drag`.
-  // The game has no drag-and-drop of its own, so nothing legitimate is ever cancelled,
-  // and a drag that never starts cannot leave the page unclickable.
+  // Everywhere but the squares that ask for a drag: the backpack and the looting bag
+  // are rearranged with the browser's own drag-and-drop, and they mark themselves with
+  // `draggable`. Anything else that starts a drag can strand the mouse in a session
+  // that never ends, which leaves the board running but unclickable.
   useEffect(() => {
-    const noDrag = (e: DragEvent) => e.preventDefault();
+    const noDrag = (e: DragEvent) => {
+      const el = e.target instanceof Element ? e.target : null;
+      if (el?.closest('[draggable="true"]')) return;
+      e.preventDefault();
+    };
     window.addEventListener('dragstart', noDrag, true);
     return () => window.removeEventListener('dragstart', noDrag, true);
   }, []);
