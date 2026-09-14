@@ -11,16 +11,68 @@ const FRAME_MS = 100;
  *  Morytania's foam is swamp-olive, and a green halo would read as a ripe herb. */
 const GLOW = '120,226,255';
 
+/** How long a pool takes to change its look: one OSRS tick. A spot that has just been
+ *  fished out fades from the busy treatment into the quiet one, and a restocked pool
+ *  fades back. This is presentation, not simulation, so it runs off the wall clock. */
+const FADE_MS = 600;
+
+/**
+ * One spot, in one of the two looks a pool has. Both play the same strip of frames —
+ * the cache bakes the ordinary spot and the Tempoross one off the same bubble model,
+ * and the two are the same water — so what separates them is how loud that water is.
+ * A pool with fish left in it glows, breathes and bobs. A spent one is the bare dots
+ * an ordinary fishing spot leaves on the surface: no halo to invite a cast, one pass
+ * rather than two, smaller, and faint enough to read as water rather than an offer.
+ */
+function drawSpot(
+  ctx: CanvasRenderingContext2D,
+  sheet: HTMLImageElement,
+  x: number,
+  y: number,
+  ready: boolean,
+  t: number,
+  alpha: number,
+): void {
+  if (alpha <= 0.01) return;
+  // The strip is square cells laid left to right, so its own geometry gives the frame
+  // count — nothing records how many there are, and a re-bake with a longer clip
+  // cannot fall out of step.
+  const cell = sheet.height;
+  const frames = Math.max(1, Math.round(sheet.width / cell));
+  const f = Math.floor((t * 1000) / FRAME_MS) % frames;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + x * 0.03 + y * 0.05);
+  const size = GRID * (ready ? 0.9 + pulse * 0.06 : 0.78);
+  const dx = x - size / 2;
+  const dy = y - size / 2 + (ready ? Math.sin(t * 1.8 + x * 0.05) * 1.6 : 0);
+
+  ctx.save();
+  if (ready) {
+    // Faint, and deliberately fainter than a ripe herb's halo: fish in a pool is an
+    // invitation, not the alarm a crop about to be lost is. One pass, where the
+    // allotment stacks three.
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = `rgba(${GLOW},${0.28 + pulse * 0.18})`;
+    ctx.shadowBlur = 5;
+    ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
+    ctx.shadowBlur = 0;
+    ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
+  } else {
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
+  }
+  ctx.restore();
+}
+
 /**
  * The fishing spots and the cast bar — the only parts of the water that move.
  * The pool underneath is baked into the static background (`render/terrain.ts`).
  *
- * A pool with fish left in it breaks the water like a Tempoross Cove spot: a strip
- * of frames baked from the cache, played on a loop under a faint cyan glow. A spent
- * one draws no spot at all — every frame of the strip is foam, so there is no still
- * frame to hold, and one frozen bubble over an empty pool invites a cast that cannot
- * happen. What is left is the water baked into the terrain and the wave count it is
- * waiting on, in the same corner and the same type as an allotment's.
+ * A pool with fish left in it breaks the water like a Tempoross Cove spot; a spent
+ * one keeps breaking it, quietly, the way any ordinary fishing spot does, and carries
+ * the wave count it is waiting on in the same corner and the same type as an
+ * allotment's. Neither look ever cuts to the other: a pool crosses between them over
+ * one tick, the old one fading out on the tile it was standing on while the new one
+ * fades in on the tile the pool holds now.
  */
 export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const spots = gr.e.fishingSpots;
@@ -29,32 +81,46 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const idle = !gr.e.waveActive && !gr.e.gameOver;
   const { ripple, foam } = gr.e.biome.water;
   const sheet = gr.e.imageOk('fishing_spot_active') ? gr.e.images.get('fishing_spot_active') : null;
+  const now = performance.now();
+
+  // A new run brings new pools under new ids. Drop the fade state of any that have
+  // gone, so a long session's worth of restarts cannot pile up in the map.
+  if (gr.spotFade.size > spots.length) {
+    const live = new Set(spots.map((s) => s.id));
+    for (const id of gr.spotFade.keys()) if (!live.has(id)) gr.spotFade.delete(id);
+  }
 
   for (const spot of spots) {
     const ready = spotStage(spot) === 'ready' && !gr.e.gameOver;
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + spot.x * 0.03 + spot.y * 0.05);
-    const bob = ready ? Math.sin(t * 1.8 + spot.x * 0.05) * 1.6 : 0;
 
-    // The water breaking, off the cache-rendered NPC, and only while there are fish
-    // left to break it. The strip is square cells laid left to right, so its own
-    // geometry gives the frame count — nothing records how many there are, and a
-    // re-bake with a longer clip cannot fall out of step.
-    if (ready && sheet) {
-      const cell = sheet.height;
-      const frames = Math.max(1, Math.round(sheet.width / cell));
-      const f = Math.floor((t * 1000) / FRAME_MS) % frames;
-      const size = GRID * (0.9 + pulse * 0.06);
-      const dx = spot.x - size / 2;
-      const dy = spot.y - size / 2 + bob;
-      // Faint, and deliberately fainter than a ripe herb's halo: fish in a pool is
-      // an invitation, not the alarm a crop about to be lost is. One pass, where
-      // the allotment stacks three.
-      ctx.save();
-      ctx.shadowColor = `rgba(${GLOW},${0.28 + pulse * 0.18})`;
-      ctx.shadowBlur = 5;
-      ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
-      ctx.restore();
-      ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
+    // Where this pool is in the crossing between its two looks. A spot seen for the
+    // first time starts already arrived — the board should not fade itself in on the
+    // first frame of a run — and every later change of look or tile starts a fade,
+    // with the old look and the old tile kept as the ghost to fade out.
+    let fade = gr.spotFade.get(spot.id);
+    if (!fade) {
+      fade = { ready, x: spot.x, y: spot.y, from: null, at: 0 };
+      gr.spotFade.set(spot.id, fade);
+    } else if (fade.ready !== ready || fade.x !== spot.x || fade.y !== spot.y) {
+      fade.from = { ready: fade.ready, x: fade.x, y: fade.y };
+      fade.ready = ready;
+      fade.x = spot.x;
+      fade.y = spot.y;
+      fade.at = now;
+    }
+    let k = 1;
+    if (fade.from) {
+      k = Math.min(1, (now - fade.at) / FADE_MS);
+      if (k >= 1) fade.from = null;
+    }
+
+    // The water breaking, off the cache-rendered NPC — the busy look while there are
+    // fish left to break it, the quiet one once there are not, and both at once while
+    // the pool is crossing from one to the other.
+    if (sheet) {
+      if (fade.from) drawSpot(ctx, sheet, fade.from.x, fade.from.y, fade.from.ready, t, 1 - k);
+      drawSpot(ctx, sheet, spot.x, spot.y, ready, t, k);
     }
 
     // A ring of expanding ripples while the line is out, so the bar on the tile
@@ -85,7 +151,7 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 
     if (ready) {
       // The same dashed invitation ring an empty allotment draws.
-      ctx.globalAlpha = 0.14 + pulse * 0.16;
+      ctx.globalAlpha = (0.14 + pulse * 0.16) * k;
       ctx.strokeStyle = ripple;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([3, 3]);
@@ -102,8 +168,9 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       const ty = spot.y + GRID / 2 - 1;
       ctx.lineWidth = 2.5;
       ctx.strokeStyle = '#000';
+      ctx.globalAlpha = k;
       ctx.strokeText(`${left}`, tx, ty);
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = 0.85 * k;
       ctx.fillStyle = '#ffd45e';
       ctx.fillText(`${left}`, tx, ty);
       ctx.globalAlpha = 1;

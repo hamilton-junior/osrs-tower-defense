@@ -66,6 +66,18 @@ export class GameRenderer {
    *  the fix for the frame-rate collapse with many buffed towers. */
   glowCache = new Map<string, HTMLCanvasElement>();
 
+  /** Which look each fishing spot is wearing, and the one it is fading out of.
+   *  Presentation only: the engine's `FishingSpot` already says whether a pool has
+   *  fish left in it, and this remembers just long enough to cross-fade between the
+   *  busy treatment and the quiet one. The old position is kept with it because a
+   *  pool that comes back also moves — `restockSpots` hops it to another of its own
+   *  water tiles — so the outgoing sprite has to fade out where it stood, not where
+   *  the pool has just reappeared. */
+  spotFade = new Map<
+    string,
+    { ready: boolean; x: number; y: number; from: { ready: boolean; x: number; y: number } | null; at: number }
+  >();
+
   draw() {
     const { ctx } = this.e;
     if (!ctx || this.e.canvas.width === 0) return;
