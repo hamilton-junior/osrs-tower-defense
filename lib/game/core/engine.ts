@@ -3645,20 +3645,13 @@ export class GameEngine {
   }
 
   /** Put a line in the water. Between waves only, one line at a time, and only
-   *  into a spot that still has fish in it. */
+   *  into a spot that still has fish in it. A cast runs to its end: three seconds
+   *  costs the player nothing they could want back, so clicking again — on this
+   *  spot or another — only says the line is already out. */
   castLine(spotId: string) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
     if (this.castSpotId) {
-      if (this.castSpotId === spotId) {
-        // Same spot clicked again: reel it back in. No sound — there is no
-        // reel-in clip baked, and the brief is explicit not to invent one.
-        this.castSpotId = null;
-        this.castProgress = 0;
-        this.notify('You pull your line back in', ASSETS.misc.skill_fishing);
-        this.emit();
-      } else {
-        this.notify('Your line is already out', ASSETS.misc.skill_fishing);
-      }
+      this.notify('Your line is already out', ASSETS.misc.skill_fishing);
       return;
     }
     const spot = this.fishingSpots.find(s => s.id === spotId);

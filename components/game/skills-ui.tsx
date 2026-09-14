@@ -646,15 +646,15 @@ function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => 
         ) : (
           <ScrollList max="8em">
             {ui.fishingSpots.map((s) => {
-              const linedHere = ui.castSpotId === s.id;
-              const lineElsewhere = ui.castSpotId !== null && !linedHere;
+              // A cast runs to its end, so while one is out every pool is closed —
+              // the one holding the line included.
+              const lineOut = ui.castSpotId !== null;
               return (
               <button
                 key={s.id}
                 onClick={() => onCast(s.id)}
-                disabled={ui.waveActive || s.stage === 'spent' || lineElsewhere}
-                title={lineElsewhere ? 'Your line is already out'
-                  : linedHere ? 'Pull your line back in'
+                disabled={ui.waveActive || s.stage === 'spent' || lineOut}
+                title={lineOut ? 'Your line is already out'
                   : s.stage === 'spent' ? 'The fish come back in a few waves' : 'Cast a line'}
                 className="rs-panel-inset flex items-center justify-between gap-[0.5em] p-[0.4em] w-full text-left hover:brightness-125 disabled:opacity-40"
               >
