@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   INVENTORY_SLOTS, addItem, bagCount, countsOfKind, emptyStore, freeSlots,
-  invCount, parseKey, sanitizeStore, stackKey, takeItem, toBag, toInv, type ItemStore,
+  invCount, moveSlot, parseKey, sanitizeStore, stackKey, takeItem, toBag, toInv,
+  type ItemStore,
 } from './inventory';
 
 /** Fill every slot with a different herb, so the next add has nowhere to go. */
@@ -272,5 +273,71 @@ describe('food stacks', () => {
     expect(countsOfKind(store, 'food', { shrimps: 0, trout: 0, lobster: 0, shark: 0, manta_ray: 0 }).shark).toBe(2);
     expect(takeItem(store, 'food', 'shark')).toBe(true);
     expect(countsOfKind(store, 'food', { shrimps: 0, trout: 0, lobster: 0, shark: 0, manta_ray: 0 }).shark).toBe(1);
+  });
+});
+
+describe('moveSlot', () => {
+  it('swaps two carried squares', () => {
+    const store = emptyStore();
+    addItem(store, 'herb', 'guam');
+    addItem(store, 'herb', 'ranarr');
+    expect(moveSlot(store, 0, 1)).toBe(true);
+    expect(store.inv[0]?.id).toBe('ranarr');
+    expect(store.inv[1]?.id).toBe('guam');
+  });
+
+  it('leaves a hole behind when the target square is empty', () => {
+    const store = emptyStore();
+    addItem(store, 'herb', 'guam');
+    expect(moveSlot(store, 0, 5)).toBe(true);
+    expect(store.inv[0]).toBeNull();
+    expect(store.inv[5]?.id).toBe('guam');
+  });
+
+  it('refuses a drag that starts on an empty square', () => {
+    const store = emptyStore();
+    addItem(store, 'herb', 'guam');
+    expect(moveSlot(store, 3, 0)).toBe(false);
+    expect(store.inv[0]?.id).toBe('guam');
+  });
+
+  it('refuses the same square, and anything off the grid', () => {
+    const store = emptyStore();
+    addItem(store, 'herb', 'guam');
+    expect(moveSlot(store, 0, 0)).toBe(false);
+    expect(moveSlot(store, 0, INVENTORY_SLOTS)).toBe(false);
+    expect(moveSlot(store, -1, 0)).toBe(false);
+  });
+});
+
+describe('the bag keeps the newest first', () => {
+  /** Carry some of a herb, then push the whole stack into the bag. */
+  const stash = (store: ItemStore, id: string, n = 1) => {
+    addItem(store, 'herb', id, n);
+    toBag(store, 'herb', id, 'all');
+  };
+
+  it('puts the stack that arrived last at the front', () => {
+    const store = emptyStore();
+    stash(store, 'guam');
+    stash(store, 'ranarr');
+    expect(store.bag.map(s => s.id)).toEqual(['ranarr', 'guam']);
+  });
+
+  it('moves a stack back to the front when it is topped up', () => {
+    const store = emptyStore();
+    stash(store, 'guam');
+    stash(store, 'ranarr');
+    stash(store, 'guam');
+    expect(store.bag.map(s => s.id)).toEqual(['guam', 'ranarr']);
+    expect(bagCount(store, 'herb', 'guam')).toBe(2);
+  });
+
+  it('keeps that order through a save round-trip', () => {
+    const store = emptyStore();
+    stash(store, 'guam');
+    stash(store, 'ranarr');
+    const known = (kind: string, id: string) => kind === 'herb' && (id === 'guam' || id === 'ranarr');
+    expect(sanitizeStore(store, known).bag.map(s => s.id)).toEqual(['ranarr', 'guam']);
   });
 });

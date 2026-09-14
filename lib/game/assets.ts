@@ -583,6 +583,13 @@ export const ASSETS = {
   farming: {
     soil: `${LOCAL}/objects/patch_empty.png`, // Allotment (8573)
   },
+  // The sea a fishing spot breaks, and the allotment soil's counterpart: OSRS has
+  // no water model to bake, because water is a ground overlay. What a player
+  // recognises is the texture the client scrolls over every river and shoreline —
+  // id 1, tiled edge-to-edge by scripts/render-osrs-objects.mjs.
+  fishing: {
+    water: `${LOCAL}/objects/water.png`, // Ground texture 1
+  },
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
   debuffs: {
     // slow = Giant snail, an NPC *model* rendered from the cache

@@ -60,6 +60,8 @@ export interface InventoryViewProps {
   onStoreStack: (kind: StackKind, id: string) => void;
   /** Pull one back out of it, if a slot is free. */
   onTakeStack: (kind: StackKind, id: string) => void;
+  /** Drag one carried square onto another: the two swap. */
+  onMoveSlot: (from: number, to: number) => void;
   onUseHerb: (id: SeedId) => void;
   onBrewPotion: (id: PotionId) => void;
   onDrinkPotion: (id: PotionId) => void;
@@ -69,12 +71,16 @@ export interface InventoryViewProps {
 export function InventoryView(props: InventoryViewProps) {
   const {
     ui, page, onPage, towers, hoverTowerId, onHoverTower, onEquipGear,
-    onStoreStack, onTakeStack, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood,
+    onStoreStack, onTakeStack, onMoveSlot, onUseHerb, onBrewPotion, onDrinkPotion,
+    onEatFood,
   } = props;
   // The open Choose Option menu: where the click landed, and the square it landed
   // on. Held by the stack itself rather than by the slot index, because acting on
   // one moves the rest around.
   const [menu, setMenu] = useState<{ x: number; y: number; stack: UiStack } | null>(null);
+  // The square a drag started on. Read from here on drop rather than from the drag
+  // payload, because an empty payload reads back as slot 0.
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
 
   const free = useMemo(() => ui.inventory.reduce((n, s) => n + (s ? 0 : 1), 0), [ui.inventory]);
   const options = useMemo(
@@ -89,6 +95,7 @@ export function InventoryView(props: InventoryViewProps) {
       <LootBagView
         bag={ui.lootBag}
         stacks={ui.bagStacks}
+        order={ui.bagOrder}
         invFull={free < 1}
         towers={towers}
         hoverTowerId={hoverTowerId}
@@ -113,6 +120,32 @@ export function InventoryView(props: InventoryViewProps) {
     setMenu(null);
     onPage('lootbag');
   };
+  /* Rearranging the backpack, the way the client allows it: pick a square up and
+     drop it on another, and the two swap. A drop on an empty square leaves a hole
+     where the item was — nothing stacks here, so that is all "moved it there" can
+     mean. Only a filled square can be picked up. */
+  const dragProps = (i: number, filled: boolean) => ({
+    draggable: filled,
+    onDragStart: (e: React.DragEvent) => {
+      if (!filled) return;
+      setDragFrom(i);
+      e.dataTransfer.effectAllowed = 'move';
+      // Firefox starts no drag at all without a payload, even one nothing reads.
+      e.dataTransfer.setData('text/plain', String(i));
+    },
+    onDragOver: (e: React.DragEvent) => {
+      if (dragFrom === null || dragFrom === i) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      if (dragFrom === null || dragFrom === i) return;
+      onMoveSlot(dragFrom, i);
+      setDragFrom(null);
+    },
+    onDragEnd: () => setDragFrom(null),
+  });
 
   return (
     <>
@@ -140,11 +173,12 @@ export function InventoryView(props: InventoryViewProps) {
                 icon={s.icon}
                 name={s.name}
                 title={s.tip}
+                drag={dragProps(i, true)}
                 onClick={(e) => onSlot(s, e)}
                 onContextMenu={(e) => onSlot(s, e)}
               />
             )
-            : <ItemSlot key={`i${i}`} osrs />
+            : <ItemSlot key={`i${i}`} osrs drag={dragProps(i, false)} />
         ))}
         {/* The last square is the bag itself, the way a real looting bag rides in a
             real inventory. It carries what it holds as its count, so the panel says

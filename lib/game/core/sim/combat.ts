@@ -1603,7 +1603,7 @@ function awardKill(
       luck: enemy.caughtBy ? CATCH_DROP_LUCK : 1,
     });
     if (gear.length) {
-      eng.lootBag = [...eng.lootBag, ...gear];
+      eng.bagAdd(gear);
       eng.gearDrops = mergeUnlockBatch(eng.gearDrops, gear, eng.gearDropsDrained);
       eng.gearDropsDrained = false;
       eng.gearDropSeq++;

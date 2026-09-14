@@ -57,9 +57,10 @@ export interface ItemStore {
   /** Exactly {@link INVENTORY_SLOTS} entries, `null` for an empty slot. Each filled
    *  slot is one item — a second herb of the same kind takes a second slot. */
   inv: (Stack | null)[];
-  /** The looting bag's herbs and potions. Unbounded, stacking, in the order stacks
-   *  first reached it — a bag that re-sorted itself under the player would lose the
-   *  one thing a bag is good at. */
+  /** The looting bag's herbs and potions. Unbounded and stacking, newest first:
+   *  what went in last is what a player is looking for, and topping a stack up
+   *  counts as going in. Gear hangs in the same grid and shares that order, which
+   *  the engine keeps — this array only has to agree with it. */
   bag: Stack[];
 }
 
@@ -101,11 +102,15 @@ export function freeSlots(store: ItemStore): number {
   return store.inv.reduce((n, s) => n + (s ? 0 : 1), 0);
 }
 
-/** Pile `n` of something into the bag, joining a stack already there. */
+/** Pile `n` of something into the bag, joining a stack already there. Either way the
+ *  stack ends up at the front: a top-up is news too, and the bag's own order has to
+ *  agree with the arrival order the engine hands the interface. */
 function pileInBag(store: ItemStore, kind: StackKind, id: string, n: number): void {
-  const held = store.bag.find(s => same(s, kind, id));
-  if (held) held.count += n;
-  else store.bag.push({ kind, id, count: n });
+  const i = store.bag.findIndex(s => same(s, kind, id));
+  if (i < 0) { store.bag.unshift({ kind, id, count: n }); return; }
+  const [held] = store.bag.splice(i, 1);
+  held.count += n;
+  store.bag.unshift(held);
 }
 
 /**
@@ -139,6 +144,20 @@ export function takeItem(store: ItemStore, kind: StackKind, id: string, n = 1): 
   for (let i = 0; i < store.inv.length && left > 0; i++) {
     if (same(store.inv[i], kind, id)) { store.inv[i] = null; left -= 1; }
   }
+  return true;
+}
+
+/** Drag one carried square onto another, the way the client lets a player arrange a
+ *  backpack. A swap either way: dropping onto an empty square leaves a hole behind,
+ *  which is what "moved it there" means when nothing stacks. False when nothing
+ *  happened, so a caller can skip the click and the patch. */
+export function moveSlot(store: ItemStore, from: number, to: number): boolean {
+  if (from === to) return false;
+  if (from < 0 || to < 0 || from >= store.inv.length || to >= store.inv.length) return false;
+  const moved = store.inv[from];
+  if (!moved) return false;
+  store.inv[from] = store.inv[to];
+  store.inv[to] = moved;
   return true;
 }
 
@@ -199,7 +218,10 @@ export function sanitizeStore(
     if (!s || !known(s.kind, s.id)) return;
     if (Math.floor(s.count) > 0) clean.inv[i] = { kind: s.kind, id: s.id, count: 1 };
   });
-  for (const s of store.bag) {
+  // Back to front: pileInBag puts each stack at the head, so replaying a saved bag
+  // forwards would hand it back reversed.
+  for (let i = store.bag.length - 1; i >= 0; i--) {
+    const s = store.bag[i];
     if (!known(s.kind, s.id)) continue;
     const count = Math.floor(s.count);
     if (count > 0) pileInBag(clean, s.kind, s.id, count);

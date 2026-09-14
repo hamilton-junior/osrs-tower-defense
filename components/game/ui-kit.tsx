@@ -92,10 +92,12 @@ export const stackClass = (n: number) =>
 
 /**
  * What something costs, written the way the client writes gold: the coin pile
- * OSRS would draw for that many coins, then the number. The pile changes at the
+ * OSRS would draw for that many coins, after the number. The pile changes at the
  * game's own stack sizes, so a price reads as small or steep before the digits
  * are parsed — and a button with one of these on it needs no "gp" to say what
- * the number is.
+ * the number is. The number leads because a price is a quantity, and the coins
+ * are its unit; only the purse in the bottom bar keeps its pile on the left,
+ * where a player's eye already expects to find how much they are carrying.
  *
  * `afford` false paints the number red. It is a price the run cannot pay, which
  * is the one thing about a price worth seeing from across the screen.
@@ -107,8 +109,8 @@ export function Price({ amount, afford = true, className = '' }: {
 }) {
   return (
     <span className={`inline-flex items-center gap-[0.3em] ${className}`}>
-      <img src={coinsIcon(amount)} alt="" className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />
       <span className={`tabular-nums ${afford ? 'text-osrs-yellow' : 'text-osrs-red'}`}>{fmt(amount)}</span>
+      <img src={coinsIcon(amount)} alt="" className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />
     </span>
   );
 }
@@ -266,7 +268,7 @@ export function InvGrid({ className = '', overlay, cover, children }: {
 
 /** One square. With no icon it is an empty slot — drawn, not skipped, because the
  *  shape of the grid is what tells the player how much room is left. */
-export function ItemSlot({ icon, name, count, selected = false, dim = false, signature = false, osrs = false, title, onClick, onContextMenu }: {
+export function ItemSlot({ icon, name, count, selected = false, dim = false, signature = false, osrs = false, title, onClick, onContextMenu, drag }: {
   icon?: string;
   name?: string;
   count?: number;
@@ -281,9 +283,19 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
   onClick?: (e: React.MouseEvent) => void;
   /** Right-click the square. The inventory opens its Choose Option menu here. */
   onContextMenu?: (e: React.MouseEvent) => void;
+  /** Drag handlers, spread onto the square as they are. The inventory hands these
+   *  down so a player can rearrange the backpack; every other grid leaves them off
+   *  and the square is not draggable at all. */
+  drag?: {
+    draggable?: boolean;
+    onDragStart?: (e: React.DragEvent) => void;
+    onDragOver?: (e: React.DragEvent) => void;
+    onDrop?: (e: React.DragEvent) => void;
+    onDragEnd?: (e: React.DragEvent) => void;
+  };
 }) {
   const base = osrs ? 'rs-inv-slot' : 'rs-slot';
-  if (!icon) return <div className={base} />;
+  if (!icon) return <div className={base} {...(drag ?? {})} />;
   return (
     <button
       type="button"
@@ -291,6 +303,7 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
       aria-label={name}
       onClick={onClick}
       onContextMenu={onContextMenu}
+      {...(drag ?? {})}
       className={`${base} ${selected ? 'selected' : ''} ${signature ? 'signature' : ''} ${dim ? 'rs-slot-unafford' : ''}`}
     >
       <img src={icon} alt="" onError={hideBrokenImg} />

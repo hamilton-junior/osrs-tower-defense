@@ -72,5 +72,16 @@ export const SPOT_REST_WAVES = 4;
 /** Fishing is a per-run skill, but the ladder it climbs is OSRS's. */
 export const FISHING_MAX_LEVEL = 99;
 
-/** The bubbling fishing spot itself — NPC 1525, rendered out of the cache. */
+/**
+ * The spot itself, in the two states the board has to tell apart. Both are baked
+ * from the cache as eight frames of the spot's own stand animation (seq 7634)
+ * rather than a still: a fishing spot in OSRS is water breaking, and a frozen
+ * ripple reads as a decal painted on the sea.
+ *
+ * A pool with fish left in it is the Tempoross Cove spot (NPC 10565) — the
+ * brighter, busier water the game uses where the fishing is on. A spent one is the
+ * ordinary spot (NPC 1525). Same geometry, so the two states differ in how loud
+ * the water is, not in what it is.
+ */
 export const FISHING_SPOT_ICON = npcModel('fishing_spot');
+export const FISHING_SPOT_ACTIVE_ICON = npcModel('fishing_spot_active');

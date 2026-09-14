@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { renderModelFrame, loadTextures, modelTextureIds, computeFit } from './lib/rs-raster.mjs';
+import { renderModelFrame, loadTextures, modelTextureIds, computeFit, loadAnimationWithAlpha } from './lib/rs-raster.mjs';
 import { parseNpcDef } from './lib/npc-def.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -45,9 +45,22 @@ const MARGIN = 0.12; // fraction of the canvas kept empty around the model
  */
 const TARGETS = {
   // npc: id is required; everything else optional (yaw/pitch in degrees).
+  // The two fishing spots, both baked as their stand animation (seq 7634, 8 frames)
+  // rather than a still: a fishing spot in OSRS is water breaking, and a frozen
+  // ripple reads as a decal painted on the sea.
+  //
   // The bubbles fill barely half the frame and are near-transparent in the cache;
-  // zoomed and boosted they read as a fishing spot on a 32px board tile.
-  fishing_spot: { npc: 1525, pitch: 70, zoom: 1.9, alphaBoost: 4.6 },
+  // zoomed and boosted they read as a fishing spot on a 32px board tile. The boost
+  // is per model, sized to bring that model's own peak alpha up to full: the plain
+  // spot (41238) peaks at 55 of 255, the Tempoross one (41967) at 105.
+  //
+  // Two spots because the board has two states to tell apart. A spot with fish left
+  // is the Tempoross Cove spot (NPC 10565 → model 41967), the brighter, busier water
+  // OSRS uses where the fishing is on; a spent one is the ordinary spot (NPC 1525 →
+  // model 41238). Same geometry, and that is the cache's own answer — in game the
+  // "double" spot is two of these NPCs standing on adjacent tiles.
+  fishing_spot: { npc: 1525, pitch: 70, zoom: 1.15, alphaBoost: 4.6, anim: 7634 },
+  fishing_spot_active: { npc: 10565, pitch: 70, zoom: 1.15, alphaBoost: 2.4, anim: 7634 },
   superior_bloodveld: { npc: 7397 },     // Insatiable Bloodveld
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon
   // The common Gargoyle is NPC 412 — the level-111 Slayer Tower one. Its def carries
@@ -238,6 +251,48 @@ function renderNpc(
   return canvas.toBuffer('image/png');
 }
 
+/**
+ * The same portrait, but every frame of one sequence tiled left-to-right into a
+ * single strip — the cheap sheet format the board already knows how to read.
+ *
+ * One `computeFit` over every frame's vertices, so the subject never jitters in
+ * scale between cells, and each frame carries the sequence's own type-5 alpha
+ * transform (the fishing spot's bubbles fade in and out; without it the whole clip
+ * renders at the model's static alpha and the water stops moving).
+ *
+ * Frame count is not written anywhere: the drawing code divides the strip's width
+ * by its height, so a re-bake with a different sequence cannot silently desync.
+ */
+function renderNpcStrip(
+  model, anim, { yaw = 30, pitch = 12, zoom = 1, alphaBoost = 1 } = {}, textures,
+) {
+  // loadAnimation hands back (X, -Y, Z) — Y up-positive — while the canvas is
+  // down-positive. Negate it back or the whole clip bakes upside down.
+  const frames = anim.vertexData.map((fr) => fr.map(([x, y, z]) => [x, -y, z]));
+  const yawR = (yaw * Math.PI) / 180, pitchR = (pitch * Math.PI) / 180;
+  const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
+  const fit = computeFit(frames, sy, cy, sp, cp, SIZE, MARGIN);
+  fit.scale *= zoom;
+
+  const strip = createCanvas(SIZE * frames.length, SIZE);
+  const sctx = strip.getContext('2d');
+  for (let f = 0; f < frames.length; f++) {
+    const img = renderModelFrame(
+      model, frames[f], fit, sy, cy, sp, cp, SIZE, textures, anim.alphaData?.[f] ?? undefined, true, SS,
+    );
+    if (alphaBoost !== 1) {
+      const d = img.data;
+      for (let i = 3; i < d.length; i += 4) {
+        if (d[i] > 0) d[i] = Math.min(255, Math.round(d[i] * alphaBoost));
+      }
+    }
+    const cell = createCanvas(SIZE, SIZE);
+    cell.getContext('2d').putImageData(img, 0, 0);
+    sctx.drawImage(cell, f * SIZE, 0);
+  }
+  return { buf: strip.toBuffer('image/png'), frames: frames.length };
+}
+
 // ----------------------------------------------------------------------- main
 async function main() {
   if (!existsSync(join(CACHE_DIR, 'main_file_cache.dat2'))) {
@@ -284,11 +339,20 @@ async function main() {
     const model = await buildNpcModel(cache, def);
     if (!model) { console.warn(`! ${slug}: no model geometry`); continue; }
     const textures = await loadTextures(cache, modelTextureIds(model));
-    const buf = renderNpc(model, { ...cfg, ...camOverride }, textures);
+    let buf, note = '';
+    if (cfg.anim !== undefined) {
+      const anim = await loadAnimationWithAlpha(cache, model, cfg.anim);
+      if (!anim?.vertexData?.length) { console.warn(`! ${slug}: sequence ${cfg.anim} produced no frames`); continue; }
+      const strip = renderNpcStrip(model, anim, { ...cfg, ...camOverride }, textures);
+      buf = strip.buf;
+      note = ` anim ${cfg.anim} ×${strip.frames}`;
+    } else {
+      buf = renderNpc(model, { ...cfg, ...camOverride }, textures);
+    }
     const outPath = join(REPO, 'public', 'assets', 'models', `${slug}.png`);
     mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, buf);
-    console.log(`✓ ${slug}: NPC ${cfg.npc} "${def.name}" → public/assets/models/${slug}.png`);
+    console.log(`✓ ${slug}: NPC ${cfg.npc} "${def.name}"${note} → public/assets/models/${slug}.png`);
   }
   process.exit(0);
 }

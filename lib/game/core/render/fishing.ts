@@ -1,15 +1,25 @@
 import type { GameRenderer } from '../renderer';
 import { GRID } from '../engine-state';
 import { spotStage, wavesUntilRestock } from '../../systems/fishing';
-import { drawImageContain } from './shared';
+
+/** How long one frame of a spot's strip holds. Sequence 7634 runs eight frames of
+ *  five game units each, and a unit is 20 ms — so the loop closes in 800 ms, the
+ *  speed the client itself plays the water at. */
+const FRAME_MS = 100;
+
+/** The glow a pool with fish in it carries. Cyan rather than the biome's own foam:
+ *  Morytania's foam is swamp-olive, and a green halo would read as a ripe herb. */
+const GLOW = '120,226,255';
 
 /**
  * The fishing spots and the cast bar — the only parts of the water that move.
  * The pool underneath is baked into the static background (`render/terrain.ts`).
  *
- * A ready spot bubbles and glows the way a ripe allotment does; a spent one sits
- * flat and carries the wave count it is waiting on, in the same corner and the
- * same type as an allotment's.
+ * The spot is a strip of frames baked from the cache, played on a loop, and which
+ * strip it is carries the whole state: a pool with fish left in it breaks the
+ * water like a Tempoross Cove spot and takes a faint cyan glow; a spent one is an
+ * ordinary quiet spot with no glow at all, carrying the wave count it is waiting
+ * on in the same corner and the same type as an allotment's.
  */
 export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const spots = gr.e.fishingSpots;
@@ -17,41 +27,38 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const t = performance.now() / 1000;
   const idle = !gr.e.waveActive && !gr.e.gameOver;
   const { ripple, foam } = gr.e.biome.water;
-  const img = gr.e.imageOk('fishing_spot') ? gr.e.images.get('fishing_spot') : null;
+  const sheets = {
+    ready: gr.e.imageOk('fishing_spot_active') ? gr.e.images.get('fishing_spot_active') : null,
+    spent: gr.e.imageOk('fishing_spot') ? gr.e.images.get('fishing_spot') : null,
+  };
 
   for (const spot of spots) {
     const ready = spotStage(spot) === 'ready' && !gr.e.gameOver;
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + spot.x * 0.03 + spot.y * 0.05);
     const bob = ready ? Math.sin(t * 1.8 + spot.x * 0.05) * 1.6 : 0;
 
-    // A dark well under the spot. The cache model is near-white foam and the water
-    // it stands on is bright, so the bubbles only read once something dark sits
-    // behind them; the well doubles as the shadow a break in the surface casts.
-    const wellR = GRID * 0.46;
-    const well = ctx.createRadialGradient(spot.x, spot.y, 0, spot.x, spot.y, wellR);
-    well.addColorStop(0, `rgba(0,0,0,${ready ? 0.42 : 0.24})`);
-    well.addColorStop(0.6, `rgba(0,0,0,${ready ? 0.22 : 0.13})`);
-    well.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = well;
-    ctx.beginPath();
-    ctx.arc(spot.x, spot.y, wellR, 0, Math.PI * 2);
-    ctx.fill();
-
-    // The bubbles themselves, off the cache-rendered NPC. Full alpha now that the
-    // well backs them: the pulse breathes the sprite's size instead of fading it,
-    // so a ready spot is never less visible than a spent one.
+    // The water breaking, off the cache-rendered NPC. The strip is square cells laid
+    // left to right, so its own geometry gives the frame count — nothing records how
+    // many there are, and a re-bake with a longer clip cannot fall out of step.
+    const img = ready ? sheets.ready : sheets.spent;
     if (img) {
-      ctx.globalAlpha = ready ? 1 : 0.5;
+      const cell = img.height;
+      const frames = Math.max(1, Math.round(img.width / cell));
+      const f = Math.floor((t * 1000) / FRAME_MS) % frames;
+      const size = GRID * (ready ? 0.9 + pulse * 0.06 : 0.86);
+      const dx = spot.x - size / 2;
+      const dy = spot.y - size / 2 + bob;
       if (ready) {
+        // Faint, and deliberately fainter than a ripe herb's halo: fish in a pool is
+        // an invitation, not the alarm a crop about to be lost is. One pass, where
+        // the allotment stacks three.
         ctx.save();
-        ctx.shadowColor = foam;
-        ctx.shadowBlur = 6;
-        drawImageContain(gr, ctx, img, spot.x, spot.y + bob, GRID * (0.9 + pulse * 0.06));
+        ctx.shadowColor = `rgba(${GLOW},${0.28 + pulse * 0.18})`;
+        ctx.shadowBlur = 5;
+        ctx.drawImage(img, f * cell, 0, cell, cell, dx, dy, size, size);
         ctx.restore();
-      } else {
-        drawImageContain(gr, ctx, img, spot.x, spot.y + bob, GRID * 0.86);
       }
-      ctx.globalAlpha = 1;
+      ctx.drawImage(img, f * cell, 0, cell, cell, dx, dy, size, size);
     }
 
     // A ring of expanding ripples while the line is out, so the bar on the tile

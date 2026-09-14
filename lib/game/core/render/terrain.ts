@@ -16,7 +16,8 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
   if (
     gr.bgCache === null || gr.bgCtx === null ||
     gr.bgTerrain !== gr.e.terrain || gr.bgBiome !== gr.e.biome.id ||
-    gr.bgW !== w || gr.bgH !== h || gr.bgScale !== scale
+    gr.bgW !== w || gr.bgH !== h || gr.bgScale !== scale ||
+    gr.bgWater !== gr.e.imageOk('fishing_water')
   ) {
     if (!gr.bgCache) {
       gr.bgCache = document.createElement('canvas');
@@ -35,6 +36,7 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     gr.bgW = w;
     gr.bgH = h;
     gr.bgScale = scale;
+    gr.bgWater = gr.e.imageOk('fishing_water');
   }
   // The parent ctx is already scaled by `deviceScale`; draw the buffer back into
   // the logic rect so it lands 1:1 on the backing store.
@@ -127,7 +129,16 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   // the pool itself never moves; only the fishing spot on it does, and that draws
   // per frame in `render/fishing.ts`. The rim is the tile's own edge tested against
   // its neighbours, so a blob of water reads as one pool rather than four squares.
+  //
+  // The surface is the client's own water texture, laid one texture square per
+  // board tile the way OSRS itself maps it to the ground — the same deal the
+  // farming allotment gets from its soil sprite. The bake is that texture tiled
+  // 2×2 (`public/assets/objects/water.png`), so half the sheet is one square.
+  // A biome tint goes over the top: Morytania's swamp and Al Kharid's lagoon are
+  // the same water lit differently, and the palette is what tells them apart.
   const { deep, shallow, foam } = gr.e.biome.water;
+  const water = gr.e.imageOk('fishing_water') ? gr.e.images.get('fishing_water') : null;
+  const src = water ? water.width / 2 : 0;
   const isWater = (c: number, r: number) =>
     c >= 0 && r >= 0 && c < cols && r < t.rows && t.tiles[r * cols + c] === 'water';
   for (let i = 0; i < t.tiles.length; i++) {
@@ -137,24 +148,27 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     const x0 = c * GRID;
     const y0 = r * GRID;
     ctx.globalAlpha = 1;
-    ctx.fillStyle = deep;
-    ctx.fillRect(x0, y0, GRID, GRID);
-    // A lighter inner square where the pool has depth on every side, so the middle
-    // of a blob reads shallower than its rim rather than flat.
-    ctx.fillStyle = shallow;
-    ctx.globalAlpha = 0.35;
-    ctx.fillRect(x0 + 5, y0 + 5, GRID - 10, GRID - 10);
+    if (water) {
+      ctx.drawImage(water, 0, 0, src, src, x0, y0, GRID, GRID);
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = deep;
+      ctx.fillRect(x0, y0, GRID, GRID);
+    } else {
+      // Until the texture loads — and on the frame the board is first dealt — the
+      // pool is flat biome colour with a lighter middle, so it still reads as
+      // water with depth rather than as a hole in the map.
+      ctx.fillStyle = deep;
+      ctx.fillRect(x0, y0, GRID, GRID);
+      ctx.fillStyle = shallow;
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(x0 + 5, y0 + 5, GRID - 10, GRID - 10);
+    }
     ctx.globalAlpha = 0.8;
     ctx.fillStyle = foam;
     if (!isWater(c, r - 1)) ctx.fillRect(x0, y0, GRID, 2);
     if (!isWater(c, r + 1)) ctx.fillRect(x0, y0 + GRID - 2, GRID, 2);
     if (!isWater(c - 1, r)) ctx.fillRect(x0, y0, 2, GRID);
     if (!isWater(c + 1, r)) ctx.fillRect(x0 + GRID - 2, y0, 2, GRID);
-    // Two still highlights, placed by the tile's own hash so they do not march.
-    ctx.globalAlpha = 0.18;
-    ctx.fillStyle = foam;
-    ctx.fillRect(x0 + 4 + hash2(c, r) * 16, y0 + 8 + hash2(r, c) * 12, 7, 2);
-    ctx.fillRect(x0 + 6 + hash2(c + 1, r) * 14, y0 + 16 + hash2(r, c + 1) * 8, 5, 2);
   }
   ctx.globalAlpha = 1;
 

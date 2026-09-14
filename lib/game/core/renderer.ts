@@ -53,6 +53,10 @@ export class GameRenderer {
   bgW = 0;
   bgH = 0;
   bgScale = 0;
+  /** Whether the water texture had arrived when the buffer was last baked. Pools
+   *  are painted with it, and images load after the first frame — without this the
+   *  board would keep a run's worth of untextured water. */
+  bgWater = false;
 
   /** Padding (logic px) around a baked glow sprite so its blurred halo isn't clipped. */
   readonly GLOW_PAD = 12;

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { ASSETS, GEAR_ICONS } from '@/lib/game/assets';
 import type { UiStack } from '@/lib/game/core/engine';
-import type { StackKind } from '@/lib/game/systems/inventory';
+import { stackKey, type StackKind } from '@/lib/game/systems/inventory';
 import type { Item, Tower } from '@/lib/game/types';
 import { canEquip, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/tower-gear';
 import { GearCompare, GearHeader, GearStats, gearTooltip } from './gear-ui';
@@ -62,6 +62,9 @@ export interface LootBagViewProps {
   bag: Item[];
   /** The herbs and potions that overflowed the inventory, or were pushed out here. */
   stacks: UiStack[];
+  /** Bag keys newest first, gear and stacks in one list: the order the squares hang
+   *  in. A square whose key is missing sorts last and keeps its own array's order. */
+  order: string[];
   /** No free slot, so nothing can come back out right now. */
   invFull: boolean;
   /** Read live off the engine rather than `UIState` — the picker equips real towers. */
@@ -73,8 +76,15 @@ export interface LootBagViewProps {
   onTake: (kind: StackKind, id: string) => void;
 }
 
+/** One square of the bag's grid: a pile of gear, or a stack of herbs or potions.
+ *  The two arrive in separate arrays and hang in the same grid, so they are merged
+ *  into one list before the bag's order decides where each one sits. */
+type BagCell =
+  | { key: string; kind: 'gear'; pile: GearPile }
+  | { key: string; kind: 'stack'; stack: UiStack };
+
 export function LootBagView({
-  bag, stacks, invFull, towers: towersOnBoard, hoverTowerId, onHoverTower, onEquip, onTake,
+  bag, stacks, order, invFull, towers: towersOnBoard, hoverTowerId, onHoverTower, onEquip, onTake,
 }: LootBagViewProps) {
   const [pick, setPick] = useState<string | null>(null);
   // Both filters default on: a deep run's bag fills with pieces nothing wants, and
@@ -96,6 +106,18 @@ export function LootBagView({
   const piles = allPiles.filter(({ item }) => !hideJunk || isUpgradeForAny(towersOnBoard, item));
   const hiddenCount = allPiles.length - piles.length;
   const filled = piles.length + stacks.length;
+  // The grid is one list: whatever arrived last hangs first, of either kind. A key
+  // the engine no longer tracks sorts to the end, where a stable sort leaves gear
+  // ahead of stacks — the grouping the bag falls back to.
+  const cells: BagCell[] = [
+    ...piles.map((pile) => ({ key: `gear:${pile.item.id}`, kind: 'gear' as const, pile })),
+    ...stacks.map((stack) => ({ key: stackKey(stack.kind, stack.id), kind: 'stack' as const, stack })),
+  ];
+  const rank = (k: string) => {
+    const i = order.indexOf(k);
+    return i < 0 ? order.length : i;
+  };
+  cells.sort((a, b) => rank(a.key) - rank(b.key));
   // Keep the panel a full backpack tall, and every row full, so the scrolling grid
   // stays the shape the client draws rather than a ragged half-page.
   const padding = Math.max(BAG_SLOTS, Math.ceil(filled / COLUMNS) * COLUMNS) - filled;
@@ -261,34 +283,40 @@ export function LootBagView({
             : 'Nothing here would improve a tower on the board: wrong style, too high a level, or beaten by what is already worn. Untick to see it all.'
         ) : undefined}
       >
-        {piles.map(({ item, count }) => (
-          <HoverTip key={item.id} content={gearTooltip(item)}>
+        {cells.map((cell) => {
+          if (cell.kind === 'gear') {
+            const { item, count } = cell.pile;
+            return (
+              <HoverTip key={cell.key} content={gearTooltip(item)}>
+                <ItemSlot
+                  osrs
+                  icon={GEAR_ICONS[item.id]}
+                  name={item.name}
+                  count={count > 1 ? count : undefined}
+                  title={`Equip ${item.name}`}
+                  selected={pick === item.id}
+                  signature={item.rarity === 'signature'}
+                  onClick={() => setPick((cur) => (cur === item.id ? null : item.id))}
+                />
+              </HoverTip>
+            );
+          }
+          // A herb or a potion has one thing to ask, so it is a click and not a
+          // picker: one comes back, into the first free square.
+          const s = cell.stack;
+          return (
             <ItemSlot
+              key={cell.key}
               osrs
-              icon={GEAR_ICONS[item.id]}
-              name={item.name}
-              count={count > 1 ? count : undefined}
-              title={`Equip ${item.name}`}
-              selected={pick === item.id}
-              signature={item.rarity === 'signature'}
-              onClick={() => setPick((cur) => (cur === item.id ? null : item.id))}
+              icon={s.icon}
+              name={s.name}
+              count={s.count}
+              dim={invFull}
+              title={invFull ? 'Inventory full' : `Take one ${s.name}`}
+              onClick={() => onTake(s.kind, s.id)}
             />
-          </HoverTip>
-        ))}
-        {/* A herb or a potion has one thing to ask, so it is a click and not a
-            picker: one comes back, into the first free square. */}
-        {stacks.map((s) => (
-          <ItemSlot
-            key={`${s.kind}:${s.id}`}
-            osrs
-            icon={s.icon}
-            name={s.name}
-            count={s.count}
-            dim={invFull}
-            title={invFull ? 'Inventory full' : `Take one ${s.name}`}
-            onClick={() => onTake(s.kind, s.id)}
-          />
-        ))}
+          );
+        })}
         {Array.from({ length: padding }, (_, j) => <ItemSlot key={`e${j}`} osrs />)}
       </InvGrid>
     </>

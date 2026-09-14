@@ -93,6 +93,17 @@ const TARGETS = {
   // soil is that seed's own item icon (core/render/farming.ts), not scenery.
   patch_empty: { obj: 8573, pitch: 90, yaw: 0, models: [8223], cull: false, margin: 0, groundTex: 32, groundTile: 128 },
 
+  // The water a fishing spot sits in — the farming patch's soil, for the sea.
+  //
+  // There is no LOC to render here: water in OSRS is a **ground overlay**, and its
+  // look is texture 1, the classic blue the client scrolls across every river and
+  // shoreline. So this target names a texture instead of an object, and what comes
+  // out is that texture tiled edge-to-edge over the same 256 square every other
+  // ground bake fills. No model means no silhouette to clip to and no flat colour to
+  // multiply back, which is the point: the patch's olive tint is what makes soil read
+  // as soil, and the same treatment turned the sea brown.
+  water: { tex: 1, tile: 128 },
+
   // The wooden direction signpost — the one standing beside the Lumbridge Guide,
   // and OSRS's own symbol for "the road splits here". Model 1402 is shared by every
   // classic signpost def; 15522 is just the shell we read it out of. Yaw 0 on
@@ -176,6 +187,21 @@ export async function objectModelById(cache, objId, modelOverride) {
   const file = await cache.getFile(IndexType.CONFIGS, ConfigType.OBJECT, objId);
   if (!file?.content) return null;
   return buildObjectModel(cache, parseObjectDef(file.content), modelOverride);
+}
+
+/**
+ * One cache texture, tiled edge-to-edge over the standard square — a floor with no
+ * object standing on it. The drawing code stretches the whole PNG across one board
+ * tile, so this is full-bleed by construction; `tile` decides how many times the
+ * texture repeats inside that tile.
+ */
+function renderTextureTile(tex, tile) {
+  const canvas = createCanvas(SIZE, SIZE);
+  const ctx = canvas.getContext('2d');
+  for (let y = 0; y < SIZE; y += tile) {
+    for (let x = 0; x < SIZE; x += tile) ctx.drawImage(tex.canvas, x, y, tile, tile);
+  }
+  return canvas.toBuffer('image/png');
 }
 
 function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true, crop, margin = MARGIN, groundTex, groundTile = 128 } = {}, textures) {
@@ -273,7 +299,22 @@ async function main() {
   if (pitchIdx !== -1) camOverride.pitch = Number(argv[pitchIdx + 1]);
 
   const entries = Object.entries(TARGETS).filter(([slug]) => !only || slug === only);
+  const write = (slug, cfg, buf) => {
+    const dir = cfg.dir ?? 'objects';
+    const outPath = join(REPO, 'public', 'assets', dir, `${slug}.png`);
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, buf);
+    return `public/assets/${dir}/${slug}.png`;
+  };
   for (const [slug, cfg] of entries) {
+    // Texture-only target (a ground overlay): no object def, no model, no camera.
+    if (cfg.tex !== undefined) {
+      const tex = (await loadTextures(cache, [cfg.tex])).get(cfg.tex);
+      if (!tex) { console.warn(`! texture ${cfg.tex} (${slug}) not found`); continue; }
+      const out = write(slug, cfg, renderTextureTile(tex, cfg.tile ?? 128));
+      console.log(`✓ ${slug}: texture ${cfg.tex} ${tex.w}x${tex.h} → ${out}`);
+      continue;
+    }
     const file = await cache.getFile(IndexType.CONFIGS, ConfigType.OBJECT, cfg.obj);
     if (!file?.content) { console.warn(`! object ${cfg.obj} (${slug}) not found`); continue; }
     const def = parseObjectDef(file.content);
@@ -282,12 +323,8 @@ async function main() {
     const texIds = modelTextureIds(model);
     if (cfg.groundTex !== undefined) texIds.push(cfg.groundTex);
     const textures = await loadTextures(cache, texIds);
-    const buf = renderObject(model, { ...cfg, ...camOverride }, textures);
-    const dir = cfg.dir ?? 'objects';
-    const outPath = join(REPO, 'public', 'assets', dir, `${slug}.png`);
-    mkdirSync(dirname(outPath), { recursive: true });
-    writeFileSync(outPath, buf);
-    console.log(`✓ ${slug}: object ${cfg.obj} "${def.name}" models=[${def.models}] → public/assets/${dir}/${slug}.png`);
+    const out = write(slug, cfg, renderObject(model, { ...cfg, ...camOverride }, textures));
+    console.log(`✓ ${slug}: object ${cfg.obj} "${def.name}" models=[${def.models}] → ${out}`);
   }
   process.exit(0);
 }

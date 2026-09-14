@@ -203,6 +203,12 @@ img[src*="/hitsplats/shield"] {
 /* Shared OSRS bevels, applied via box-shadow so borders stay a single dark keyline.
    Raised = light top-left + dark bottom-right; sunken inverts it. */
 :root {
+  /* One size for every caption the board paints over itself — the mode hints and
+     the blocked-action toast. A caption is read once and then lived with, so it
+     sits a step under panel text, and it tracks the player's own interface
+     control rather than the viewport: --ui-scale is set on the root element, so
+     this resolves wherever the rule lands. */
+  --rs-caption-size: calc(13px * var(--ui-scale, 1));
   --rs-keyline: #100d09;
   --rs-bevel-light: #6f6250;
   --rs-bevel-dark: #1b1610;
@@ -1004,14 +1010,14 @@ kbd {
 /* Transient blocked-action toast (e.g. "Not enough gold") */
 .rs-toast {
   font-family: var(--font-osrs);
-  font-size: clamp(15px, 1.5vw, 22px);
+  font-size: var(--rs-caption-size);
   color: #ff6b6b;
-  background: linear-gradient(180deg, rgba(44, 22, 22, 0.94), rgba(28, 14, 14, 0.96));
-  border: 2px solid var(--rs-keyline);
+  background: linear-gradient(180deg, rgba(44, 22, 22, 0.9), rgba(28, 14, 14, 0.93));
+  border: 1px solid var(--rs-keyline);
   border-radius: 0;
-  padding: 0.35em 0.9em;
+  padding: 0.24em 0.7em;
   text-shadow: 1px 1px 0 #000;
-  box-shadow: inset 1px 1px 0 0 #7a4a3a, inset -1px -1px 0 0 #3a1414, 0 3px 9px rgba(0, 0, 0, 0.6);
+  box-shadow: inset 1px 1px 0 0 #7a4a3a, inset -1px -1px 0 0 #3a1414, 0 2px 6px rgba(0, 0, 0, 0.55);
   animation: rs-toast-pop 1.4s ease-out forwards;
 }
 /* Y only. The toast centres itself with Tailwind's `-translate-x-1/2`, which in
@@ -1032,14 +1038,23 @@ kbd {
    must stay as long as the mode does. */
 .rs-hint {
   font-family: var(--font-osrs);
-  font-size: clamp(15px, 1.5vw, 22px);
+  font-size: var(--rs-caption-size);
   color: var(--osrs-yellow);
-  background: linear-gradient(180deg, rgba(38, 31, 20, 0.94), rgba(24, 19, 12, 0.96));
-  border: 2px solid var(--rs-keyline);
+  background: linear-gradient(180deg, rgba(38, 31, 20, 0.9), rgba(24, 19, 12, 0.93));
+  border: 1px solid var(--rs-keyline);
   border-radius: 0;
-  padding: 0.35em 0.9em;
+  padding: 0.24em 0.7em;
   text-shadow: 1px 1px 0 #000;
-  box-shadow: var(--rs-raised), 0 3px 9px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--rs-raised), 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+
+/* The quiet half of a caption: what the click does, and how to back out. A line
+   the player reads once and then stops seeing, so it is set smaller and duller
+   than the lead it hangs off. */
+.rs-hint-sub,
+.rs-toast .rs-hint-sub {
+  font-size: 0.86em;
+  color: #cbbc97;
 }
 
 /* Collection-log "unlock" popup: an ornate gold frame over a dark panel, shown

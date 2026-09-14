@@ -114,7 +114,7 @@ const INITIAL: UIState = {
   pendingTravel: null,
   lifestealSeq: 0,
   towerConfigSeq: 0,
-  lootBag: [],
+  lootBag: [], bagOrder: [],
   gearDrops: [], gearDropSeq: 0,
   diversions: [],
   traps: [], selectedTrapId: null, hunterLevel: 1, hunterXp: 0, hunterXpNeeded: 10, maxTraps: 1,
@@ -2130,9 +2130,9 @@ export default function GameRoot() {
       {(ui.movingPatchId || ui.placingPlot) && (
         <div className="rs-hint absolute left-1/2 bottom-[23%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap flex items-center gap-[0.4em] justify-center">
           <img src={ASSETS.misc.farming_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-          {ui.placingPlot ? 'New allotment' : 'Moving the allotment'}
-          <span className="text-[#d3c3a0]">
-            · click any marked tile · right‑click to cancel{ui.placingPlot ? ' and refund' : ''}
+          {ui.placingPlot ? 'New allotment' : 'Moving allotment'}
+          <span className="rs-hint-sub">
+            · click a marked tile · right‑click cancels{ui.placingPlot ? ' and refunds' : ''}
           </span>
         </div>
       )}
@@ -2151,7 +2151,7 @@ export default function GameRoot() {
             {ui.placeQueue.length} queued
             <Price amount={cost} afford={!short} />
             {short && <span className="text-osrs-warn">(only {afford} affordable)</span>}
-            <span className="text-[#d3c3a0]">· release Shift to price it up</span>
+            <span className="rs-hint-sub">· release Shift to price it up</span>
           </div>
         );
       })()}
@@ -2246,7 +2246,7 @@ export default function GameRoot() {
             <span className="text-osrs-orange">▸</span>
             Pasting {ui.clipboard.length} tower{ui.clipboard.length > 1 ? 's' : ''}
             <Price amount={cost} afford={!short} />
-            <span className="text-[#d3c3a0]">· click to build · Esc cancels</span>
+            <span className="rs-hint-sub">· click to build · Esc cancels</span>
           </div>
         );
       })()}
@@ -3767,6 +3767,7 @@ export default function GameRoot() {
             onEquipGear={(towerId, gearId) => engineRef.current?.equipGear(towerId, gearId)}
             onStoreStack={(kind, id) => engineRef.current?.storeInBag(kind, id)}
             onTakeStack={(kind, id) => engineRef.current?.takeFromBag(kind, id)}
+            onMoveSlot={(from, to) => engineRef.current?.moveInventorySlot(from, to)}
             onUseHerb={(id) => engineRef.current?.useHerb(id)}
             onBrewPotion={(id) => engineRef.current?.brewPotion(id)}
             onDrinkPotion={(id) => engineRef.current?.drinkPotion(id)}
@@ -3986,7 +3987,7 @@ export default function GameRoot() {
                       {def.kind === 'blast' && <Stat icon={ASSETS.misc.multicombat_icon} label="Blast" value={`${Math.round(def.radius / TILE_PX)} tiles`} />}
                       {blast && <Stat icon={ASSETS.misc.strength_icon} label="Damage" value={`${blast.flat} + ${Math.round(blast.share * 100)}% HP`} />}
                       {blast && <Stat icon={ASSETS.misc.hp_icon} label="Max hit" value={String(blast.cap)} />}
-                      <Stat icon={ASSETS.misc.coins_icon} label="Cost" value={`${fmt(trapCost(def, ui.wave))} gp`} />
+                      <Stat label="Cost" value={<Price amount={trapCost(def, ui.wave)} afford={ui.money >= trapCost(def, ui.wave)} />} />
                       {/* How many the current level allows. It used to sit under the
                           dock as a standing counter, where it shifted the bar every
                           time the player switched tabs; it belongs with the trap it
@@ -4063,7 +4064,7 @@ export default function GameRoot() {
                       <Stat icon={combat.icon} label={`Damage (${combat.label})`} value={dmg} />
                       <Stat icon={ASSETS.misc.attack_icon} label="Attack speed" value={attackSpeed(t0.cooldown)} />
                       <Stat icon={ASSETS.misc.multicombat_icon} label="Range" value={`${Math.round(t0.range / TILE_PX)} tiles`} />
-                      <Stat icon={ASSETS.misc.coins_icon} label="Cost" value={`${fmt(ui.towerPrices[hoverShop])} gp`} />
+                      <Stat label="Cost" value={<Price amount={ui.towerPrices[hoverShop]} afford={ui.money >= ui.towerPrices[hoverShop]} />} />
                     </div>
                     {/* What this tower can be forged into, before either half is on
                         the board. It belongs here because this is where the plot is

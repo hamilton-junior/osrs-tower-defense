@@ -71,10 +71,13 @@ import {
   type ActivePotion, type HerbPouch, type PotionStock,
 } from '../systems/herblore';
 import {
-  addItem, countsOfKind, emptyStore, freeSlots, invCount, takeItem, toBag, toInv,
-  type ItemStore, type Stack, type StackKind,
+  addItem, countsOfKind, emptyStore, freeSlots, invCount, moveSlot, stackKey, takeItem,
+  toBag, toInv, type ItemStore, type Stack, type StackKind,
 } from '../systems/inventory';
-import { FISH_BY_ID, CAST_SECONDS, CAST_XP, SPOT_CASTS, FISHING_SPOT_ICON, type FishId } from '../data/fishing';
+import {
+  FISH_BY_ID, CAST_SECONDS, CAST_XP, SPOT_CASTS,
+  FISHING_SPOT_ICON, FISHING_SPOT_ACTIVE_ICON, type FishId,
+} from '../data/fishing';
 import {
   buildFishingSpots, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
   wavesUntilRestock, type FishingSpot,
@@ -232,6 +235,11 @@ export class GameEngine {
   /** Classic-mode gear dropped this run and not yet equipped. Per-run: cleared in
    *  restart(), never persisted. Empty in roguelite (gear never drops there). */
   lootBag: Item[] = [];
+  /** What reached the looting bag when, newest first. A gear pile is keyed
+   *  `gear:<item id>` and a stack by its own key, because the two live in separate
+   *  arrays and hang in one grid. A key whose square is gone stays in place: it
+   *  ranks nothing, and pruning would cost a sweep of the bag on every pickup. */
+  bagOrder: string[] = [];
   /** Roguelite: relic choice offered by a defeated boss, awaiting a pick. */
   pendingRelics: Relic[] | null = null;
   /** Relics owned this run, in pick order (each relic is unique). */
@@ -954,6 +962,7 @@ export class GameEngine {
       lifestealSeq: this.lifestealSeq,
       towerConfigSeq: this.towerConfigSeq,
       lootBag: this.lootBag.map(g => ({ ...g })),
+      bagOrder: [...this.bagOrder],
     };
   }
 
@@ -1371,8 +1380,13 @@ export class GameEngine {
       // Bandos's sigil, drawn under anything his General's slam has made immune to
       // crowd control.
       bandos_symbol: ASSETS.misc.bandos_symbol,
-      // The fishing spot's own ripple — one model, every pool the map deals.
+      // The fishing spot's own ripple, in both the states a pool has: the busy
+      // Tempoross spot while there are fish in it, the quiet one once they have
+      // moved on. Each is an eight-frame strip of the spot's stand animation.
       fishing_spot: FISHING_SPOT_ICON,
+      fishing_spot_active: FISHING_SPOT_ACTIVE_ICON,
+      // …and the water they break, which is the client's own ground texture.
+      fishing_water: ASSETS.fishing.water,
       // Distractions & Diversions: the cast that turns up between waves, keyed
       // `diversion_<id>` (baked NPC models and one item icon), plus the back and
       // side views a walker turns to — `diversion_<id>_back` / `_side`.
@@ -2708,7 +2722,7 @@ export class GameEngine {
     const prev = tower.equipment[slot];
     this.lootBag = this.lootBag.filter((_, i) => i !== idx);
     tower.equipment[slot] = { ...gear };
-    if (prev) this.lootBag = [...this.lootBag, prev];
+    if (prev) this.bagAdd([prev]);
     this.bumpTowerConfig();
     this.bumpCombatEpoch();
   }
@@ -2721,7 +2735,7 @@ export class GameEngine {
     const prev = tower.equipment[slot];
     if (!prev) return;
     tower.equipment[slot] = null;
-    this.lootBag = [...this.lootBag, prev];
+    this.bagAdd([prev]);
     this.bumpTowerConfig();
     this.bumpCombatEpoch();
   }
@@ -2979,8 +2993,8 @@ export class GameEngine {
       supportSpell: undefined,
     };
     if (this.gameMode === 'classic') {
-      if (b.equipment.ammo) this.lootBag = [...this.lootBag, b.equipment.ammo];
-      if (b.equipment.jewellery) this.lootBag = [...this.lootBag, b.equipment.jewellery];
+      if (b.equipment.ammo) this.bagAdd([b.equipment.ammo]);
+      if (b.equipment.jewellery) this.bagAdd([b.equipment.jewellery]);
     }
     this.towers = this.towers.flatMap(t => (t === a ? [fused] : t === b ? [] : [t]));
     this.fusedThisLeg = true;
@@ -3005,8 +3019,8 @@ export class GameEngine {
     this.money += this.sellValue(tower);
     // Classic gear on a sold tower returns to the loot bag, not the void.
     if (this.gameMode === 'classic') {
-      if (tower.equipment.ammo) this.lootBag = [...this.lootBag, tower.equipment.ammo];
-      if (tower.equipment.jewellery) this.lootBag = [...this.lootBag, tower.equipment.jewellery];
+      if (tower.equipment.ammo) this.bagAdd([tower.equipment.ammo]);
+      if (tower.equipment.jewellery) this.bagAdd([tower.equipment.jewellery]);
     }
     this.towers.splice(i, 1);
     this.caStats.towersSold += 1;
@@ -3468,6 +3482,7 @@ export class GameEngine {
     patch.grown = 0;
     this.pendingSow = null;
     const where = addItem(this.items, 'herb', def.id);
+    if (where === 'bag') this.bagBump(stackKey('herb', def.id));
     this.herbsHarvested += 1;
     this.sound.play('farm_harvest');
     this.notify(`${def.herbName} to the ${where === 'bag' ? 'loot bag' : 'inventory'}`, def.herbIcon);
@@ -3479,10 +3494,37 @@ export class GameEngine {
   // systems/inventory for the rules; the engine's whole job here is moving one
   // stack across that line and saying so when a move is refused.
 
+  /** Move one bag key to the front of the order. The bag draws one grid out of two
+   *  arrays, so where a square hangs is decided here rather than in either of them. */
+  private bagBump(key: string) {
+    const i = this.bagOrder.indexOf(key);
+    if (i >= 0) this.bagOrder.splice(i, 1);
+    this.bagOrder.unshift(key);
+  }
+
+  /** Drop gear into the looting bag. Every path that fills it — a kill, an unequip,
+   *  a sold tower — comes through here, so what the player sees first is what
+   *  arrived last. */
+  bagAdd(gear: Item[]) {
+    if (gear.length === 0) return;
+    this.lootBag = [...gear, ...this.lootBag];
+    // Backwards, so the first piece of a batch ends up at the very front.
+    for (let i = gear.length - 1; i >= 0; i--) this.bagBump(`gear:${gear[i].id}`);
+  }
+
+  /** Drag one carried square onto another; the two swap. A misdrag — the same
+   *  square, an empty one, anything off the grid — is a no-op rather than news. */
+  moveInventorySlot(from: number, to: number) {
+    if (!moveSlot(this.items, from, to)) return;
+    this.sound.play('click');
+    this.emit();
+  }
+
   /** Send a whole carried stack to the looting bag. Silent when nothing moves — a
    *  click on something no longer carried is a misclick, not news. */
   storeInBag(kind: StackKind, id: string) {
     if (toBag(this.items, kind, id, 'all') < 1) return;
+    this.bagBump(stackKey(kind, id));
     this.sound.play('click');
     this.emit();
   }
@@ -3542,6 +3584,7 @@ export class GameEngine {
     // The herb it just spent frees the slot the potion lands in, so this normally
     // cannot overflow — but the store decides that, not this line.
     const where = addItem(this.items, 'potion', potionId);
+    if (where === 'bag') this.bagBump(stackKey('potion', potionId));
     const gain = gainHerbloreXp(this.herbloreLevel, this.herbloreXp, def.xp);
     this.herbloreLevel = gain.level;
     this.herbloreXp = gain.xp;
@@ -3644,7 +3687,7 @@ export class GameEngine {
 
     const fish = rollCatch(this.fishingLevel, Math.random);
     if (fish) {
-      addItem(this.items, 'food', fish.id, 1);
+      if (addItem(this.items, 'food', fish.id, 1) === 'bag') this.bagBump(stackKey('food', fish.id));
       this.sound.play('fish_caught');
       this.notify(`You catch a ${fish.name.toLowerCase()}`, fish.icon);
     } else {
@@ -4060,6 +4103,7 @@ export class GameEngine {
       realTime: this.realTime,
       towers: structuredClone(this.towers),
       lootBag: structuredClone(this.lootBag),
+      bagOrder: [...this.bagOrder],
       runMods: cloneRunMods(this.runMods),
       runFx: structuredClone(this.runFx),
       relicFx: { ...this.relicFx },
@@ -4140,6 +4184,7 @@ export class GameEngine {
     this.difficultyTier = save.difficultyTier;
     this.towers = structuredClone(save.towers);
     this.lootBag = save.lootBag ? structuredClone(save.lootBag) : [];
+    this.bagOrder = save.bagOrder ? [...save.bagOrder] : [];
     this.bumpTowerLayout();
     this.money = save.money;
     this.maxLives = save.maxLives;
@@ -4340,6 +4385,7 @@ export class GameEngine {
     this.draftedUnique.clear();
     this.runCards = [];
     this.lootBag = [];
+    this.bagOrder = [];
     this.pendingDraft = null;
     this.relicFx = freshRelicEffects();
     this.ownedRelics = [];
@@ -4458,7 +4504,9 @@ export class GameEngine {
    *  Zamorak row work" a coin flip. Fourteen herbs is half the inventory, which is
    *  also the fastest way to see the looting bag take an overflow. */
   debugGiveHerbs() {
-    for (const s of SEEDS) addItem(this.items, 'herb', s.id);
+    for (const s of SEEDS) {
+      if (addItem(this.items, 'herb', s.id) === 'bag') this.bagBump(stackKey('herb', s.id));
+    }
     this.notify(`${SEEDS.length} herbs added`, ASSETS.misc.skill_herblore);
     this.emit();
   }
@@ -4662,7 +4710,7 @@ export class GameEngine {
   debugGiveGear() {
     const gear = Object.values(GEAR);
     if (gear.length === 0) return;
-    this.lootBag = [...this.lootBag, ...gear];
+    this.bagAdd(gear);
     this.gearDrops = mergeUnlockBatch(this.gearDrops, gear, this.gearDropsDrained);
     this.gearDropsDrained = false;
     this.gearDropSeq++;
@@ -4678,6 +4726,7 @@ export class GameEngine {
     if (this.lootBag.length === 0) { this.notify('Bag already empty'); return; }
     const n = this.lootBag.length;
     this.lootBag = [];
+    this.bagOrder = this.bagOrder.filter(k => !k.startsWith('gear:'));
     this.notify(`Cleared ${n} item${n === 1 ? '' : 's'}`);
     this.emit();
   }

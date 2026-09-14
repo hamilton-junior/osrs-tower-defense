@@ -398,6 +398,11 @@ export interface UIState {
   /** Classic-mode loot bag: gear dropped this run, awaiting a tower. Empty/omitted
    *  in roguelite. Cloneable (plain `Item`s). */
   lootBag: Item[];
+  /** What reached the looting bag when, newest first. A gear pile is keyed
+   *  `gear:<item id>`, a herb or potion stack by its own stack key: the bag draws
+   *  one grid out of two arrays, and this is the order the squares hang in. A key
+   *  the bag no longer holds sorts last and ranks nothing. */
+  bagOrder: string[];
   /** The gear that fell since the UI last read this — what the corner toast
    *  announces. Batched like `unlocks`: two pieces off one kill arrive together. */
   gearDrops: Item[];
@@ -443,8 +448,8 @@ export interface UIState {
    *  stacks here — every entry is one item — and positions matter: taking one out
    *  leaves its hole where it was, the way OSRS does. */
   inventory: (UiStack | null)[];
-  /** The herbs and potions the looting bag holds. Unbounded and stacking, in the
-   *  order stacks first reached it. */
+  /** The herbs and potions the looting bag holds. Unbounded and stacking; where
+   *  each one hangs in the bag's grid is {@link bagOrder}, newest first. */
   bagStacks: UiStack[];
   /** Herbs pulled and not yet spent, only the stacks actually held — the same
    *  slots as {@link inventory}, counted the way the bench reads them. A harvest

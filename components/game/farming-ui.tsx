@@ -72,14 +72,14 @@ function HerbHeading({ seed }: { seed: SeedDef }) {
 }
 
 /** One label/value line of the detail card's stat block. A row whose value is
- *  gold carries the coin pile for it, the same as every price in the game. */
+ *  gold carries the coin pile after it, the same as every price in the game. */
 function Row({ label, value, tone, icon }: { label: string; value: string; tone?: string; icon?: string }) {
   return (
     <>
       <span className="text-[0.68em] text-[#b3a585]">{label}</span>
       <span className={`text-[0.68em] text-right tabular-nums flex items-center justify-end gap-[0.25em] ${tone ?? 'text-osrs-yellow'}`}>
-        {icon && <img src={icon} alt="" className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />}
         {value}
+        {icon && <img src={icon} alt="" className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />}
       </span>
     </>
   );

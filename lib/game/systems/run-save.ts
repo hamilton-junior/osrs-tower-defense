@@ -91,6 +91,10 @@ export interface RunSave {
    *  gear existed lack it and resume with an empty bag. Equipped gear rides in
    *  `towers`. Cleared on a new run (never survives restart / clearRunSave). */
   lootBag?: Item[];
+  /** The order the bag's squares hang in, newest first. Optional: a save written
+   *  before the bag kept an order resumes with none, which reads as "everything
+   *  arrived at once" — gear first, then stacks. */
+  bagOrder?: string[];
   runMods: RunModifiers;
   runFx: RunEffects;
   relicFx: RelicEffects;
@@ -365,6 +369,9 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
       ? raw.lootBag
           .filter((g): g is Item => isObj(g) && typeof g.id === 'string' && (g.type === 'ammo' || g.type === 'jewellery'))
           .map(refreshGear)
+      : [],
+    bagOrder: Array.isArray(raw.bagOrder)
+      ? raw.bagOrder.filter((k): k is string => typeof k === 'string')
       : [],
     runMods: raw.runMods as unknown as RunModifiers,
     runFx: raw.runFx as unknown as RunEffects,
