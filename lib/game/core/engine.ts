@@ -76,7 +76,7 @@ import {
 } from '../systems/inventory';
 import {
   FISH_BY_ID, CAST_SECONDS, CAST_XP, SPOT_CASTS,
-  FISHING_SPOT_ICON, FISHING_SPOT_ACTIVE_ICON, type FishId,
+  FISHING_SPOT_ACTIVE_ICON, type FishId,
 } from '../data/fishing';
 import {
   buildFishingSpots, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
@@ -1380,10 +1380,9 @@ export class GameEngine {
       // Bandos's sigil, drawn under anything his General's slam has made immune to
       // crowd control.
       bandos_symbol: ASSETS.misc.bandos_symbol,
-      // The fishing spot's own ripple, in both the states a pool has: the busy
-      // Tempoross spot while there are fish in it, the quiet one once they have
-      // moved on. Each is an eight-frame strip of the spot's stand animation.
-      fishing_spot: FISHING_SPOT_ICON,
+      // The fishing spot's own ripple: the busy Tempoross spot, an eight-frame strip
+      // of its stand animation, drawn only while there are fish in the pool. A spent
+      // pool shows no spot at all, so there is nothing to load for that state.
       fishing_spot_active: FISHING_SPOT_ACTIVE_ICON,
       // …and the water they break, which is the client's own ground texture.
       fishing_water: ASSETS.fishing.water,

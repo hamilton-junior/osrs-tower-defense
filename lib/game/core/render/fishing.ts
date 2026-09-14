@@ -15,11 +15,12 @@ const GLOW = '120,226,255';
  * The fishing spots and the cast bar — the only parts of the water that move.
  * The pool underneath is baked into the static background (`render/terrain.ts`).
  *
- * The spot is a strip of frames baked from the cache, and which strip it is
- * carries the whole state: a pool with fish left in it breaks the water like a
- * Tempoross Cove spot, plays its loop and takes a faint cyan glow; a spent one
- * holds the strip's first frame with no glow at all, and carries the wave count it
- * is waiting on in the same corner and the same type as an allotment's.
+ * A pool with fish left in it breaks the water like a Tempoross Cove spot: a strip
+ * of frames baked from the cache, played on a loop under a faint cyan glow. A spent
+ * one draws no spot at all — every frame of the strip is foam, so there is no still
+ * frame to hold, and one frozen bubble over an empty pool invites a cast that cannot
+ * happen. What is left is the water baked into the terrain and the wave count it is
+ * waiting on, in the same corner and the same type as an allotment's.
  */
 export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const spots = gr.e.fishingSpots;
@@ -27,41 +28,33 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const t = performance.now() / 1000;
   const idle = !gr.e.waveActive && !gr.e.gameOver;
   const { ripple, foam } = gr.e.biome.water;
-  const sheets = {
-    ready: gr.e.imageOk('fishing_spot_active') ? gr.e.images.get('fishing_spot_active') : null,
-    spent: gr.e.imageOk('fishing_spot') ? gr.e.images.get('fishing_spot') : null,
-  };
+  const sheet = gr.e.imageOk('fishing_spot_active') ? gr.e.images.get('fishing_spot_active') : null;
 
   for (const spot of spots) {
     const ready = spotStage(spot) === 'ready' && !gr.e.gameOver;
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + spot.x * 0.03 + spot.y * 0.05);
     const bob = ready ? Math.sin(t * 1.8 + spot.x * 0.05) * 1.6 : 0;
 
-    // The water breaking, off the cache-rendered NPC. The strip is square cells laid
-    // left to right, so its own geometry gives the frame count — nothing records how
-    // many there are, and a re-bake with a longer clip cannot fall out of step.
-    const img = ready ? sheets.ready : sheets.spent;
-    if (img) {
-      const cell = img.height;
-      const frames = Math.max(1, Math.round(img.width / cell));
-      // Only a pool with fish in it moves. A spent one holds frame 0: water that
-      // has gone still is what says the fish have left, and bubbles over an empty
-      // pool invite a cast that cannot happen.
-      const f = ready ? Math.floor((t * 1000) / FRAME_MS) % frames : 0;
-      const size = GRID * (ready ? 0.9 + pulse * 0.06 : 0.86);
+    // The water breaking, off the cache-rendered NPC, and only while there are fish
+    // left to break it. The strip is square cells laid left to right, so its own
+    // geometry gives the frame count — nothing records how many there are, and a
+    // re-bake with a longer clip cannot fall out of step.
+    if (ready && sheet) {
+      const cell = sheet.height;
+      const frames = Math.max(1, Math.round(sheet.width / cell));
+      const f = Math.floor((t * 1000) / FRAME_MS) % frames;
+      const size = GRID * (0.9 + pulse * 0.06);
       const dx = spot.x - size / 2;
       const dy = spot.y - size / 2 + bob;
-      if (ready) {
-        // Faint, and deliberately fainter than a ripe herb's halo: fish in a pool is
-        // an invitation, not the alarm a crop about to be lost is. One pass, where
-        // the allotment stacks three.
-        ctx.save();
-        ctx.shadowColor = `rgba(${GLOW},${0.28 + pulse * 0.18})`;
-        ctx.shadowBlur = 5;
-        ctx.drawImage(img, f * cell, 0, cell, cell, dx, dy, size, size);
-        ctx.restore();
-      }
-      ctx.drawImage(img, f * cell, 0, cell, cell, dx, dy, size, size);
+      // Faint, and deliberately fainter than a ripe herb's halo: fish in a pool is
+      // an invitation, not the alarm a crop about to be lost is. One pass, where
+      // the allotment stacks three.
+      ctx.save();
+      ctx.shadowColor = `rgba(${GLOW},${0.28 + pulse * 0.18})`;
+      ctx.shadowBlur = 5;
+      ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
+      ctx.restore();
+      ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
     }
 
     // A ring of expanding ripples while the line is out, so the bar on the tile

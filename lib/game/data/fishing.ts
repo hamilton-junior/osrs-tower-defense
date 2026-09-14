@@ -73,17 +73,15 @@ export const SPOT_REST_WAVES = 4;
 export const FISHING_MAX_LEVEL = 99;
 
 /**
- * The spot itself, in the two states the board has to tell apart. Both are baked
- * from the cache as eight frames of the spot's own stand animation (seq 7634)
- * rather than a still: a fishing spot in OSRS is water breaking, and a frozen
- * ripple reads as a decal painted on the sea. Only the active one plays those
- * frames — a spent pool holds the first of them, because still water is what tells
- * the player the fish have gone.
+ * The spot itself: the Tempoross Cove spot (NPC 10565), the brighter, busier water
+ * the game uses where the fishing is on. It is baked as eight frames of the spot's
+ * own stand animation (seq 7634) rather than a still, because a fishing spot in
+ * OSRS is water breaking, and a frozen ripple reads as a decal painted on the sea.
  *
- * A pool with fish left in it is the Tempoross Cove spot (NPC 10565) — the
- * brighter, busier water the game uses where the fishing is on. A spent one is the
- * ordinary spot (NPC 1525). Same geometry, so the two states differ in how loud
- * the water is, not in what it is.
+ * There is no second sprite for a spent pool. Every frame of the strip is foam, so
+ * the quietest one is still a bubble sitting over water with nothing in it — a
+ * spent pool is bare water and the wave count it is waiting on. The ordinary spot
+ * (NPC 1525) is still baked under `fishing_spot` by `scripts/render-osrs-npcs.mjs`,
+ * which is where to start if that state ever wants a sprite of its own again.
  */
-export const FISHING_SPOT_ICON = npcModel('fishing_spot');
 export const FISHING_SPOT_ACTIVE_ICON = npcModel('fishing_spot_active');
