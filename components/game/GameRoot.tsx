@@ -3482,15 +3482,18 @@ export default function GameRoot() {
             bar until it sits over the Inventory stone itself; scrolls internally when
             taller than the space allowed.
 
-            Skills opens wider than the rest: its rows are a whole recipe — icon,
-            name, what it does, every ingredient held, and a price — and at the
-            narrow width they all truncated into each other. */}
+            Skills opens wider than the rest, and is the one tab that does not
+            scroll as a whole. It is a Collection Log frame: a strip of tabs, a
+            grid of sprite tiles, and a tip line. The tabs and the tip stay put
+            while the tiles scroll under them, so the panel is a bounded flex
+            column and the scrolling belongs to the body inside it. The width is
+            what fits a row of tiles rather than one tile per line. */}
         {tab && (
         <div
           key={tab}
           ref={tabBodyRef}
           onContextMenu={(e) => { e.preventDefault(); setTab(null); }}
-          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 ${tab === 'skills' ? 'w-[clamp(24em,46vw,40em)]' : 'w-[clamp(20em,34vw,30em)]'} max-h-[min(62vh,34em)] overflow-y-auto p-[0.6em] pr-[0.5em]${tab === 'inventory' ? ' rs-tab-bare rs-tab-inv' : ''}${duckPanel ? ' rs-duck' : ''}`}
+          className={`rs-panel rs-tab-body absolute bottom-full right-0 mb-[0.4em] z-20 ${tab === 'skills' ? 'w-[clamp(24em,46vw,40em)]' : 'w-[clamp(20em,34vw,30em)]'} max-h-[min(62vh,34em)] ${tab === 'skills' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'} p-[0.6em] pr-[0.5em]${tab === 'inventory' ? ' rs-tab-bare rs-tab-inv' : ''}${duckPanel ? ' rs-duck' : ''}`}
         >
         {/* ── HOME: wave control + Slayer task summary ── */}
         {tab === 'home' && (

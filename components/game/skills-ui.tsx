@@ -12,23 +12,29 @@ import { brewDamageMult } from '@/lib/game/systems/herblore';
 import { hideBrokenImg, fmt, Price } from './ui-kit';
 
 /**
- * The **Skills** interface — OSRS's Stats tab, doing the job it does in the game:
- * one place that says what every skill this run has going on, and how far each has
- * come. It opens on the skills grid; clicking a skill turns the panel into that
- * skill's own page.
+ * The **Skills** interface, built in the frame the Collection Log already uses: a row
+ * of tabs, a counter in the corner, and one scrolling body underneath. There is no
+ * front page and no back button — the tabs *are* the navigation, the way the log's
+ * are, so a skill is always one click from any other skill.
  *
- * Every page is the same four parts, so the skills read as one family rather than
- * as separate screens:
+ * Under the tabs, every skill is the same three parts:
  *
  * 1. a header — the skill's icon, what it has reached, and its progress bar;
- * 2. **resources** — the slots holding what this skill has to work with;
- * 3. the **bench** — the skill's one interaction; and
- * 4. one short line at the bottom saying what the skill is for.
+ * 2. the body — labelled bands of **sprite tiles**, one tile per thing the skill is
+ *    holding or offering; and
+ * 3. one short line at the bottom saying what the skill is for.
  *
- * It **mirrors** the board, it does not replace it. Every button here is a button
- * that already exists somewhere else — a trap in the dock, an allotment on the
- * grass — so nothing moves out of the world and into a menu. What the panel adds
- * is the overview: the level, the XP, the whole inventory at once.
+ * The tile is the whole idiom. A trap, an allotment, a herb, a potion, a fish: each
+ * is a square with its own sprite, its name, and one number at the foot — the price,
+ * the count, the waves left. That is what the log does with a boss drop and what the
+ * planting screen does with a seed, and it is why the panel now fills its width
+ * instead of running one column of full-width rows down the middle of forty ems.
+ * Tiles also killed the nested scroll: there is exactly one scrolling region here.
+ *
+ * It **mirrors** the board, it does not replace it. Every tile is a button that
+ * already exists somewhere else — a trap in the dock, an allotment on the grass — so
+ * nothing moves out of the world and into a menu. What the panel adds is the
+ * overview: the level, the XP, the whole inventory at once.
  *
  * Adding a skill is one entry in {@link SKILLS} plus its page in {@link SkillPage}.
  */
@@ -39,12 +45,20 @@ interface SkillMeta {
   id: SkillId;
   name: string;
   icon: string;
-  /** The big line in the grid box: a level where the skill has one, and what the
+  /** The big line in the header: a level where the skill has one, and what the
    *  skill is holding where it does not. */
   headline: (ui: UIState) => string;
+  /** The quieter half of the header — the XP into the current level, where there is
+   *  one. This is what used to be a whole "XP" band at the top of every page. */
+  detail: (ui: UIState) => string | null;
   /** How far into the current level, 0–1. Skills without a level fill by what they
-   *  have out on the board instead, so no box is ever a dead grey bar. */
+   *  have out on the board instead, so no bar is ever a dead grey strip. */
   progress: (ui: UIState) => number;
+  /** The corner counter, in the log's own shape: how many of a thing this skill has
+   *  against how many there are to have. */
+  counter: (ui: UIState) => { obtained: number; total: number; noun: string };
+  /** One line explaining what that counter is counting, on its tooltip. */
+  counterTip: string;
   /** One short plain sentence. Same standard as a tower's signature. */
   tip: string;
 }
@@ -55,7 +69,10 @@ const SKILLS: readonly SkillMeta[] = [
     name: 'Hunter',
     icon: ASSETS.misc.hunter_icon,
     headline: (ui) => `Level ${ui.hunterLevel}`,
+    detail: (ui) => `${fmt(ui.hunterXp)} / ${fmt(ui.hunterXpNeeded)} xp`,
     progress: (ui) => (ui.hunterXpNeeded > 0 ? Math.min(1, ui.hunterXp / ui.hunterXpNeeded) : 1),
+    counter: (ui) => ({ obtained: ui.traps.length, total: ui.maxTraps, noun: 'traps' }),
+    counterTip: 'Springing a trap is what levels Hunter, and a higher level allows more traps out at once.',
     tip: 'Traps on the road catch what walks into them.',
   },
   {
@@ -63,9 +80,16 @@ const SKILLS: readonly SkillMeta[] = [
     name: 'Farming',
     icon: ASSETS.misc.farming_icon,
     headline: (ui) => `${ui.farmPatches.length} allotment${ui.farmPatches.length === 1 ? '' : 's'}`,
+    detail: (ui) => `${ui.herbPouch.reduce((n, h) => n + h.count, 0)} herbs held`,
     // No Farming level yet — the bar shows how much of your ground is working.
     progress: (ui) => (ui.farmPatches.length === 0 ? 0
       : ui.farmPatches.filter(p => p.stage !== 'empty').length / ui.farmPatches.length),
+    counter: (ui) => ({
+      obtained: ui.farmPatches.filter(p => p.stage !== 'empty').length,
+      total: ui.farmPatches.length,
+      noun: 'patches',
+    }),
+    counterTip: 'How much of your ground has something in it.',
     tip: 'Seeds grow into herbs you pull out of the ground.',
   },
   {
@@ -73,7 +97,14 @@ const SKILLS: readonly SkillMeta[] = [
     name: 'Herblore',
     icon: ASSETS.misc.skill_herblore,
     headline: (ui) => `Level ${ui.herbloreLevel}`,
+    detail: (ui) => `${fmt(ui.herbloreXp)} / ${fmt(ui.herbloreXpNeeded)} xp`,
     progress: (ui) => (ui.herbloreXpNeeded > 0 ? Math.min(1, ui.herbloreXp / ui.herbloreXpNeeded) : 1),
+    counter: (ui) => ({
+      obtained: POTIONS.filter(p => p.level <= ui.herbloreLevel).length,
+      total: POTIONS.length,
+      noun: 'potions',
+    }),
+    counterTip: 'How much of the bench your level has opened.',
     tip: 'Herbs brew into potions that last several waves.',
   },
   {
@@ -81,15 +112,22 @@ const SKILLS: readonly SkillMeta[] = [
     name: 'Fishing',
     icon: ASSETS.misc.skill_fishing,
     headline: (ui) => `Level ${ui.fishingLevel}`,
+    detail: (ui) => `${fmt(ui.fishingXp)} / ${fmt(ui.fishingXpNeeded)} xp`,
     progress: (ui) => (ui.fishingXpNeeded > 0 ? Math.min(1, ui.fishingXp / ui.fishingXpNeeded) : 1),
+    counter: (ui) => ({
+      obtained: FISH.filter(f => f.level <= ui.fishingLevel).length,
+      total: FISH.length,
+      noun: 'fish',
+    }),
+    counterTip: 'How much of the catch table your level has opened.',
     tip: 'Cast into a pool between waves and eat what you catch.',
   },
 ];
 
 export interface SkillsViewProps {
   ui: UIState;
-  /** The skill whose page is open, or null for the grid. Held by GameRoot so the
-   *  panel reopens where it was left. */
+  /** The skill whose page is open. Held by GameRoot so the panel reopens where it
+   *  was left; null means it has never been opened, and lands on the first tab. */
   open: SkillId | null;
   onOpen: (id: SkillId | null) => void;
   onSelectTrap: (id: HunterTrapId | null) => void;
@@ -109,57 +147,72 @@ export interface SkillsViewProps {
 
 export function SkillsView(props: SkillsViewProps) {
   const { ui, open, onOpen } = props;
-  const meta = open ? SKILLS.find((s) => s.id === open) ?? null : null;
-
-  if (!meta) {
-    return (
-      <div className="flex flex-col gap-[0.4em]">
-        <div className="text-[0.72em] text-[#cdbe91] uppercase tracking-wide">Skills</div>
-        <div className="grid grid-cols-3 gap-[0.4em]">
-          {SKILLS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => onOpen(s.id)}
-              title={s.tip}
-              className="rs-panel-inset flex items-center gap-[0.5em] p-[0.45em] text-left hover:brightness-125"
-            >
-              <img src={s.icon} alt="" className="w-[1.7em] h-[1.7em] object-contain shrink-0" onError={hideBrokenImg} />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[0.8em] text-osrs-orange truncate">{s.name}</span>
-                <span className="block text-[0.72em] text-[#cdbe91] tabular-nums truncate">{s.headline(ui)}</span>
-                <span className="rs-progress mt-[0.25em] block">
-                  <span className="rs-progress-fill block" style={{ width: `${Math.round(s.progress(ui) * 100)}%` }} />
-                </span>
-              </span>
-            </button>
-          ))}
-        </div>
-        <div className="text-[0.68em] text-[#9d8f6e] mt-[0.1em]">
-          Click a skill to see what it is holding.
-        </div>
-      </div>
-    );
-  }
-
+  const meta = SKILLS.find((s) => s.id === open) ?? SKILLS[0];
+  const counter = meta.counter(ui);
+  const detail = meta.detail(ui);
   return (
-    <div className="flex flex-col gap-[0.45em]">
-      {/* One header for every skill: back out, the icon, the name, the headline. */}
-      <div className="flex items-center gap-[0.45em]">
-        <button onClick={() => onOpen(null)} title="Back to the skills" className="rs-btn px-[0.5em] py-[0.15em] text-[0.7em]">
-          ‹
-        </button>
-        <img src={meta.icon} alt="" className="w-[1.5em] h-[1.5em] object-contain" onError={hideBrokenImg} />
+    <div className="flex flex-col flex-1 min-h-0 gap-[0.35em]">
+      <SkillTabStrip tab={meta.id} onPick={onOpen} counter={counter} counterTip={meta.counterTip} />
+
+      {/* One header for every skill: the icon, the name, what it has reached. */}
+      <div className="flex items-baseline gap-[0.45em]">
+        <img src={meta.icon} alt="" className="w-[1.3em] h-[1.3em] object-contain self-center" onError={hideBrokenImg} />
         <span className="text-[0.82em] text-osrs-orange">{meta.name}</span>
         <span className="ml-auto text-[0.72em] text-[#cdbe91] tabular-nums">{meta.headline(ui)}</span>
+        {detail && <span className="text-[0.66em] text-[#9d8f6e] tabular-nums">{detail}</span>}
       </div>
       <div className="rs-progress">
         <div className="rs-progress-fill" style={{ width: `${Math.round(meta.progress(ui) * 100)}%` }} />
       </div>
-      <SkillPage {...props} skill={meta.id} />
+
+      {/* The one scrolling region in the panel. Everything above and below it holds
+          still while the page under it moves, the way the log's body does. */}
+      <div className="overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0 py-[0.1em]">
+        <SkillPage {...props} skill={meta.id} />
+      </div>
+
       <div className="text-[0.68em] text-[#9d8f6e] flex items-center gap-[0.35em]">
         <img src={meta.icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
         {meta.tip}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The row of tabs, one per skill, plus the counter in the corner — the Collection
+ * Log's own header, down to the colours. The strip wraps rather than spilling, so it
+ * survives every UI scale the panel can be set to.
+ */
+function SkillTabStrip({ tab, onPick, counter, counterTip }: {
+  tab: SkillId;
+  onPick: (id: SkillId) => void;
+  counter: { obtained: number; total: number; noun: string };
+  counterTip: string;
+}) {
+  const complete = counter.total > 0 && counter.obtained >= counter.total;
+  return (
+    <div className="flex items-center justify-between gap-[0.4em]">
+      <div className="flex flex-wrap gap-[0.3em] min-w-0">
+        {SKILLS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onPick(s.id)}
+            title={s.tip}
+            className={`rs-btn flex items-center gap-[0.3em] px-[0.6em] py-[0.15em] text-[0.76em] ${s.id === tab ? 'rs-btn-primary' : ''}`}
+          >
+            <img src={s.icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+            {s.name}
+          </button>
+        ))}
+      </div>
+      <span
+        title={counterTip}
+        className="text-[0.78em] font-bold shrink-0 whitespace-nowrap self-start tabular-nums"
+        style={{ color: complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}
+      >
+        {counter.obtained}/{counter.total} {counter.noun}
+      </span>
     </div>
   );
 }
@@ -170,6 +223,8 @@ function SkillPage(props: SkillsViewProps & { skill: SkillId }) {
   if (props.skill === 'fishing') return <FishingPage {...props} />;
   return <FarmingPage {...props} />;
 }
+
+// ───────────────────────────────── The tile ─────────────────────────────────
 
 /** What the pouch holds, as a lookup — the emitted list only carries the stacks
  *  that are actually there, so anything absent is a zero. */
@@ -208,33 +263,69 @@ function Section({ label, right, children }: { label: string; right?: React.Reac
 }
 
 /**
- * A list that scrolls inside its own box, instead of pushing everything below it
- * off the panel. The bench is a rung per potion — twenty of them — so without
- * this the brewed stock and the running doses sat under a fold nobody found.
- * `max` is in `em`, so it tracks the UI scale like the rest of the panel.
+ * A band of tiles. `auto-fill` rather than a fixed column count, because the panel's
+ * width is a clamp and the em is the UI scale — a grid of five would be cramped at
+ * one end of that range and stretched at the other. `min` is the narrowest a tile may
+ * be before the row drops one.
  */
-function ScrollList({ max, children }: { max: string; children: React.ReactNode }) {
+function TileGrid({ min = '5.4em', children }: { min?: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-[0.25em] overflow-y-auto pr-[0.25em]" style={{ maxHeight: max }}>
+    <div className="grid gap-[0.3em]" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${min}, 1fr))` }}>
       {children}
     </div>
   );
 }
 
+interface TileFaceProps {
+  /** The small corner glyph — a buff icon, a trap's signature. Top left. */
+  sig?: string;
+  /** The tile's own sprite. */
+  icon?: string;
+  /** Drawn instead of a sprite, in the log's own "nothing here" type: the `+` of the
+   *  buy-a-plot tile. */
+  glyph?: React.ReactNode;
+  name: string;
+  foot: React.ReactNode;
+  footColor?: string;
+  /** Anything absolutely positioned over the tile — the bench's ingredient counts,
+   *  the fish ladder's healing. Badges only: a button cannot nest in a button. */
+  corner?: React.ReactNode;
+}
+
+function TileFace({ sig, icon, glyph, name, foot, footColor, corner }: TileFaceProps) {
+  return (
+    <>
+      {sig && <img src={sig} alt="" className="rs-log-sig" onError={hideBrokenImg} />}
+      {corner}
+      <div className="rs-log-sprite">
+        {icon
+          ? <img src={icon} alt="" className="w-full h-full object-contain"
+              style={{ imageRendering: 'pixelated' }} onError={hideBrokenImg} />
+          : glyph}
+      </div>
+      <span className="rs-log-name">{name}</span>
+      <span className="rs-log-kc" style={footColor ? { color: footColor } : undefined}>{foot}</span>
+    </>
+  );
+}
+
 /**
- * A `rs-btn` that asks once before it spends something for nothing. `confirm` is
- * what makes it ask, so the extra click only ever appears where there is a reason
- * — a herb already riding the wave, a dose still running — and every other press
- * is the single click it has always been. Armed, it says **Sure?** in red and
- * disarms itself after a few seconds, or the moment the reason to ask goes away.
+ * A tile you can press. `confirm` is what makes it ask first, so the extra click only
+ * ever appears where there is a reason — a herb already riding the wave, a dose still
+ * running — and every other press is the single click it has always been. Armed, the
+ * foot says **Sure?** in red and disarms itself after a few seconds, or the moment the
+ * reason to ask goes away.
  */
-function ConfirmButton({ confirm, onPress, disabled, title, confirmTitle, children }: {
-  confirm: boolean;
+function Tile({ onPress, disabled, locked, picked, title, confirm, confirmTitle, ...face }: TileFaceProps & {
   onPress: () => void;
   disabled?: boolean;
+  /** Out of reach: too low a level, or too little gold. */
+  locked?: boolean;
+  /** Armed for the board — the selected trap. */
+  picked?: boolean;
   title?: string;
-  confirmTitle: string;
-  children: React.ReactNode;
+  confirm?: boolean;
+  confirmTitle?: string;
 }) {
   const [armed, setArmed] = React.useState(false);
   React.useEffect(() => {
@@ -245,17 +336,55 @@ function ConfirmButton({ confirm, onPress, disabled, title, confirmTitle, childr
   }, [armed, confirm, disabled]);
   return (
     <button
+      type="button"
       onClick={() => {
         if (confirm && !armed) { setArmed(true); return; }
         setArmed(false);
         onPress();
       }}
       disabled={disabled}
-      title={confirm ? confirmTitle : title}
-      className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
-      style={armed ? { color: 'var(--osrs-red)' } : undefined}
+      title={armed ? confirmTitle : title}
+      className={`rs-log-entry rs-log-sm w-full disabled:opacity-40 ${locked ? 'rs-log-locked' : ''} ${picked ? 'rs-log-pick' : ''}`}
     >
-      {armed ? 'Sure?' : children}
+      <TileFace
+        {...face}
+        foot={armed ? 'Sure?' : face.foot}
+        footColor={armed ? 'var(--osrs-red)' : face.footColor}
+      />
+    </button>
+  );
+}
+
+/**
+ * A tile that is only a record — what is out on the road, what is riding this wave.
+ * A `<div>` rather than a disabled `<button>`, because a disabled button greys itself
+ * to 40% and these are the things that *are* working.
+ */
+function TileStatic({ title, ...face }: TileFaceProps & { title?: string }) {
+  return (
+    <div className="rs-log-entry rs-log-sm" title={title}>
+      <TileFace {...face} />
+    </div>
+  );
+}
+
+/** The second action a tile carries, as a sibling rather than a child — a button
+ *  cannot nest in a button, and `rs-log-sm` clips its own overflow. */
+function TileCorner({ onPress, disabled, title, children }: {
+  onPress: () => void;
+  disabled?: boolean;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPress}
+      disabled={disabled}
+      title={title}
+      className="rs-btn absolute top-[0.15em] right-[0.15em] z-10 px-[0.3em] py-[0.05em] text-[0.5em] leading-none disabled:opacity-40"
+    >
+      {children}
     </button>
   );
 }
@@ -265,16 +394,10 @@ function ConfirmButton({ confirm, onPress, disabled, title, confirmTitle, childr
 function HunterPage({ ui, onSelectTrap }: SkillsViewProps) {
   return (
     <>
-      <Section label="XP" right={`${fmt(ui.hunterXp)} / ${fmt(ui.hunterXpNeeded)}`}>
-        <div className="text-[0.7em] text-[#cdbe91]">
-          Springing a trap is what levels it. A higher level allows more traps out at once.
-        </div>
-      </Section>
-
-      {/* The bench: the same five traps the dock offers, with the level and the
-          price each one is actually asking for. Clicking arms it for the road. */}
+      {/* The bench: the same five traps the dock offers, with the level and the price
+          each one is actually asking for. Clicking arms it for the road. */}
       <Section label="Traps" right={`${ui.traps.length} / ${ui.maxTraps} out`}>
-        <div className="flex flex-col gap-[0.25em]">
+        <TileGrid min="6em">
           {HUNTER_TRAPS.map((def) => {
             const locked = ui.hunterLevel < def.level;
             const cost = trapCost(def, ui.wave);
@@ -282,28 +405,21 @@ function HunterPage({ ui, onSelectTrap }: SkillsViewProps) {
             const full = ui.traps.length >= ui.maxTraps;
             const active = ui.selectedTrapId === def.id;
             return (
-              <button
+              <Tile
                 key={def.id}
-                onClick={() => onSelectTrap(active ? null : def.id)}
+                sig={def.signature.icon}
+                icon={def.sprite}
+                name={def.name}
+                foot={locked ? `L${def.level}` : <Price amount={cost} afford={afford && !full} />}
+                locked={locked}
+                picked={active}
                 disabled={ui.waveActive || locked}
                 title={locked ? `Needs Hunter ${def.level}` : def.tip}
-                className={`rs-panel-inset flex items-center gap-[0.45em] p-[0.35em] text-left disabled:opacity-40 ${active ? 'brightness-150' : 'hover:brightness-125'}`}
-              >
-                <img src={def.sprite} alt="" className={`w-[1.4em] h-[1.4em] object-contain shrink-0 ${locked ? 'grayscale' : ''}`} onError={hideBrokenImg} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[0.74em] text-osrs-orange truncate">{def.name}</span>
-                  <span className="block text-[0.68em] text-[#cdbe91] truncate">{def.tip}</span>
-                </span>
-                <span
-                  className="text-[0.72em] tabular-nums shrink-0"
-                  style={{ color: !locked && afford && !full ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}
-                >
-                  {locked ? `L${def.level}` : fmt(cost)}
-                </span>
-              </button>
+                onPress={() => onSelectTrap(active ? null : def.id)}
+              />
             );
           })}
-        </div>
+        </TileGrid>
       </Section>
 
       {/* Resources: what is actually lying on the road right now, and how much
@@ -312,19 +428,17 @@ function HunterPage({ ui, onSelectTrap }: SkillsViewProps) {
         {ui.traps.length === 0 ? (
           <div className="text-[0.7em] text-[#9d8f6e]">Nothing set. Pick a trap, then click the road.</div>
         ) : (
-          <div className="flex flex-wrap gap-[0.3em]">
-            {/* `.rs-slot` is width:100% + a square aspect, so it takes its size from
-                whatever holds it. Without this wrapper each trap stretched to the
-                whole row and came out enormous. */}
+          <TileGrid min="6em">
             {ui.traps.map((t) => (
-              <div key={t.id} className="w-[2.6em]">
-                <div className="rs-slot" title={`${t.name}: ${t.charges} of ${t.maxCharges} catches left`}>
-                  <img src={t.icon} alt={t.name} onError={hideBrokenImg} />
-                  <span className="rs-slot-cost" style={{ color: 'var(--osrs-yellow)' }}>{t.charges}</span>
-                </div>
-              </div>
+              <TileStatic
+                key={t.id}
+                icon={t.icon}
+                name={t.name}
+                foot={`${t.charges}/${t.maxCharges}`}
+                title={`${t.name}: ${t.charges} of ${t.maxCharges} catches left`}
+              />
             ))}
-          </div>
+          </TileGrid>
         )}
       </Section>
     </>
@@ -347,47 +461,44 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
   const afford = ui.money >= ui.plotCost;
   return (
     <>
-      {/* Resources: the ground itself. A ready plot is the one thing here worth
-          walking back to the board for, so it says so in green. */}
+      {/* Resources: the ground itself, plus the tile that buys more of it. A ready
+          plot is the one thing here worth walking back to the board for, so it says
+          so in green. */}
       <Section label="Allotments" right={`${ui.farmPatches.filter((p) => p.stage === 'ready').length} ready`}>
-        {ui.farmPatches.length === 0 ? (
-          <div className="text-[0.7em] text-[#9d8f6e]">This map dealt no ground. Buy a plot below.</div>
-        ) : (
-          <ScrollList max="11em">
-            {ui.farmPatches.map((p) => (
-              <div key={p.id} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
-                <img src={p.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[0.74em] text-osrs-orange truncate">{p.name}</span>
-                  <span
-                    className="block text-[0.68em] truncate"
-                    style={{ color: p.stage === 'ready' ? '#4dff4d' : '#cdbe91' }}
-                  >
-                    {STAGE_LABEL[p.stage] ?? p.stage}
-                    {p.wavesLeft > 0 && ` · ${p.wavesLeft} wave${p.wavesLeft === 1 ? '' : 's'} left`}
-                  </span>
-                </span>
-                <button
-                  onClick={() => onOpenPatch(p.id)}
-                  disabled={p.stage === 'ready' ? ui.gameOver : busy}
-                  title={p.stage === 'ready' ? 'Pull the herb'
-                    : p.stage === 'empty' ? 'Sow a seed' : 'See what is growing'}
-                  className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
-                >
-                  {p.stage === 'ready' ? 'Harvest' : p.stage === 'empty' ? 'Sow' : 'Open'}
-                </button>
-                <button
-                  onClick={() => onMovePlot(p.id)}
-                  disabled={busy}
-                  title="Move this allotment somewhere else, free of charge"
-                  className="rs-btn px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
-                >
-                  Move
-                </button>
-              </div>
-            ))}
-          </ScrollList>
-        )}
+        <TileGrid min="5.8em">
+          {ui.farmPatches.map((p) => (
+            <div key={p.id} className="relative">
+              <Tile
+                icon={p.icon}
+                name={p.name}
+                foot={p.wavesLeft > 0 ? `${p.wavesLeft}w` : STAGE_LABEL[p.stage] ?? p.stage}
+                footColor={p.stage === 'ready' ? '#4dff4d' : undefined}
+                disabled={p.stage === 'ready' ? ui.gameOver : busy}
+                title={p.stage === 'ready' ? 'Pull the herb'
+                  : p.stage === 'empty' ? 'Sow a seed' : 'See what is growing'}
+                onPress={() => onOpenPatch(p.id)}
+              />
+              <TileCorner
+                onPress={() => onMovePlot(p.id)}
+                disabled={busy}
+                title="Move this allotment somewhere else, free of charge"
+              >
+                Move
+              </TileCorner>
+            </div>
+          ))}
+          {/* The bench: buying more ground. The price is the only cap there is, and
+              the empty square is the log's own way of saying "not yet". */}
+          <Tile
+            glyph="+"
+            name="Buy plot"
+            foot={<Price amount={ui.plotCost} afford={afford} />}
+            locked={!afford}
+            disabled={busy || !afford}
+            title={afford ? 'Buy another allotment. The next one costs double' : `Another allotment costs ${fmt(ui.plotCost)} gp`}
+            onPress={onBuyPlot}
+          />
+        </TileGrid>
       </Section>
 
       {/* The pouch. Every herb here is a fork: spend it on the next wave, or put it
@@ -396,79 +507,64 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
         {ui.herbPouch.length === 0 ? (
           <div className="text-[0.7em] text-[#9d8f6e]">Empty. Harvest a ready allotment.</div>
         ) : (
-          <ScrollList max="13em">
+          <TileGrid min="5.8em">
             {ui.herbPouch.map((h) => {
               const potion = herbPotion(h.seedId, ui.herbloreLevel);
               const riding = ui.farmBuffs.some((b) => b.seedId === h.seedId);
+              const canBrew = !!potion && !busy && ui.herbloreLevel >= potion.level && ui.money >= potion.cost;
               return (
-                <div key={h.seedId} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
-                  <img src={h.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[0.74em] text-osrs-orange truncate">
-                      {h.name} <span className="text-[#cdbe91] tabular-nums">×{h.count}</span>
-                    </span>
-                    <span className="block text-[0.68em] text-[#cdbe91] truncate">{h.tip}</span>
-                  </span>
-                  <ConfirmButton
-                    confirm={riding}
-                    onPress={() => onUseHerb(h.seedId)}
+                <div key={h.seedId} className="relative">
+                  <Tile
+                    sig={h.labelIcon}
+                    icon={h.icon}
+                    name={h.name}
+                    foot={`×${h.count}`}
                     disabled={busy}
+                    confirm={riding}
                     title={`Drink it raw: ${h.label} for the next wave`}
                     confirmTitle={`${h.name} is already riding this wave. A second one adds nothing.`}
-                  >
-                    Use
-                  </ConfirmButton>
+                    onPress={() => onUseHerb(h.seedId)}
+                  />
                   {potion && (
                     <button
+                      type="button"
                       onClick={() => onBrewPotion(potion.id)}
-                      disabled={busy || ui.herbloreLevel < potion.level || ui.money < potion.cost}
+                      disabled={!canBrew}
                       title={ui.herbloreLevel < potion.level
                         ? `${potion.name} needs Herblore ${potion.level}`
                         : `Brew a ${potion.name}: ${potion.secondary?.name ?? 'no second ingredient'}, ${fmt(potion.cost)} gp`}
-                      className="rs-btn flex items-center gap-[0.3em] px-[0.45em] py-[0.1em] text-[0.65em] shrink-0 disabled:opacity-40"
+                      className="rs-btn absolute top-[0.15em] right-[0.15em] z-10 p-[0.1em] leading-none disabled:opacity-40"
                     >
-                      Brew
-                      <Price amount={potion.cost} afford={ui.money >= potion.cost} />
+                      <img src={potion.icon} alt="" className="w-[1.1em] h-[1.1em] object-contain block" onError={hideBrokenImg} />
                     </button>
                   )}
                 </div>
               );
             })}
-          </ScrollList>
+          </TileGrid>
         )}
-      </Section>
-
-      {/* The bench: buying more ground. The price is the only cap there is. */}
-      <Section label="Buy ground">
-        <button
-          onClick={onBuyPlot}
-          disabled={busy || !afford}
-          title={afford ? 'Buy another allotment. The next one costs double' : `Another allotment costs ${fmt(ui.plotCost)} gp`}
-          className="rs-btn w-full flex items-center justify-center gap-[0.4em] py-[0.2em] text-[0.7em] disabled:opacity-50"
-        >
-          <img src={ASSETS.misc.farming_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-          <span>Buy plot</span>
-          <Price amount={ui.plotCost} afford={afford} />
-        </button>
       </Section>
 
       <Section label="Riding this wave" right={ui.farmBuffs.length > 0 ? `${ui.farmBuffs.length} up` : undefined}>
         {ui.farmBuffs.length === 0 ? (
           <div className="text-[0.7em] text-[#9d8f6e]">No herb drunk. Use one from the pouch.</div>
         ) : (
-          <div className="flex flex-col gap-[0.25em]">
+          <TileGrid min="6.4em">
             {ui.farmBuffs.map((h) => (
-              <div key={h.seedId} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
-                <img src={h.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[0.74em] text-osrs-orange truncate">{h.herbName}</span>
-                  <span className="block text-[0.68em] text-[#cdbe91] truncate">{h.tip}</span>
-                </span>
-                <img src={h.labelIcon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
-                <span className="text-[0.68em] text-[#cdbe91] shrink-0">{h.label}</span>
-              </div>
+              <TileStatic
+                key={h.seedId}
+                icon={h.icon}
+                name={h.herbName}
+                title={h.tip}
+                foot={
+                  <span className="inline-flex items-center gap-[0.2em]">
+                    <img src={h.labelIcon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+                    {h.label}
+                  </span>
+                }
+              />
             ))}
-          </div>
+          </TileGrid>
         )}
       </Section>
     </>
@@ -479,9 +575,10 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
 
 /**
  * The potion bench. Farming decides what the pouch holds; this decides what it is
- * worth. Every row is the same bargain — one herb and some gold now, for a buff
- * that outlives the wave you drink it on — and the level is what opens the better
- * halves of that trade.
+ * worth. Every tile is the same bargain — one herb and some gold now, for a buff that
+ * outlives the wave you drink it on — and the level is what opens the better halves
+ * of that trade. What each rung wants rides in its corner, so a glance at the grid
+ * says which potions you can actually make right now.
  */
 function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
   const busy = ui.waveActive || ui.gameOver;
@@ -489,23 +586,17 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
   const stock = new Map(ui.potionStock.map((p) => [p.id, p.count]));
   return (
     <>
-      <Section label="XP" right={`${fmt(ui.herbloreXp)} / ${fmt(ui.herbloreXpNeeded)}`}>
-        <div className="text-[0.7em] text-[#cdbe91]">
-          Brewing is what levels it. A higher level opens the stronger potions.
-        </div>
-      </Section>
-
-      {/* The bench: the whole ladder, locked rungs included, so the skill says up
-          front what it is going to be worth growing herbs for. */}
+      {/* The whole ladder, locked rungs included, so the skill says up front what it
+          is going to be worth growing herbs for. */}
       <Section label="Bench">
-        <ScrollList max="15em">
+        <TileGrid min="6.6em">
           {POTIONS.map((def) => {
             const locked = ui.herbloreLevel < def.level;
             const herb = def.herb ? SEED_BY_ID[def.herb] : null;
             const herbs = def.herb ? held[def.herb] ?? 0 : 0;
             // A few rungs are brewed out of a finished potion rather than a herb —
             // a Sanfew serum out of a Super restore, a Super combat out of a Super
-            // strength — so the row shows whichever inputs it actually wants.
+            // strength — so the tile shows whichever inputs it actually wants.
             const base = def.potionInput ? POTION_BY_ID[def.potionInput] : null;
             const bases = base ? stock.get(base.id) ?? 0 : 0;
             const afford = ui.money >= def.cost;
@@ -516,47 +607,42 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
             ].filter((i): i is { icon: string; name: string; count: number } => i !== null);
             const recipe = [herb?.herbName, base?.name, def.secondary?.name].filter(Boolean).join(' + ');
             return (
-              <button
+              <Tile
                 key={def.id}
-                onClick={() => onBrewPotion(def.id)}
+                icon={def.icon}
+                name={def.name}
+                foot={locked ? `L${def.level}` : <Price amount={def.cost} afford={afford} />}
+                locked={locked}
                 disabled={busy || locked || missing || !afford}
                 title={locked
                   ? `Needs Herblore ${def.level}`
                   : `${recipe}: ${def.waves > 0 ? `${def.waves} waves` : 'one drink'}`}
-                className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em] text-left disabled:opacity-40 hover:brightness-125"
-              >
-                <img src={def.icon} alt="" className={`w-[1.4em] h-[1.4em] object-contain shrink-0 ${locked ? 'grayscale' : ''}`} onError={hideBrokenImg} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[0.74em] text-osrs-orange truncate">{def.name}</span>
-                  <span className="block text-[0.68em] text-[#cdbe91] truncate">{def.tip}</span>
-                </span>
-                {inputs.map((i) => (
-                  <span key={i.name} className="flex items-center gap-[0.15em] shrink-0" title={`${i.count} ${i.name} held`}>
-                    <img src={i.icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                    <span className="text-[0.68em] tabular-nums" style={{ color: i.count > 0 ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
-                      {i.count}
-                    </span>
+                onPress={() => onBrewPotion(def.id)}
+                corner={inputs.length > 0 && (
+                  <span className="absolute top-[0.1em] right-[0.15em] z-10 flex flex-col items-end gap-[0.05em] pointer-events-none">
+                    {inputs.map((i) => (
+                      <span key={i.name} className="flex items-center gap-[0.1em] leading-none">
+                        <img src={i.icon} alt="" className="w-[0.9em] h-[0.9em] object-contain" onError={hideBrokenImg} />
+                        <span className="text-[0.55em] tabular-nums" style={{ color: i.count > 0 ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}>
+                          {i.count}
+                        </span>
+                      </span>
+                    ))}
                   </span>
-                ))}
-                <span
-                  className="text-[0.72em] tabular-nums shrink-0"
-                  style={{ color: !locked && afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}
-                >
-                  {locked ? `L${def.level}` : fmt(def.cost)}
-                </span>
-              </button>
+                )}
+              />
             );
           })}
-        </ScrollList>
+        </TileGrid>
       </Section>
 
-      {/* Resources: what is brewed and waiting. Nothing here does anything until
-          it is drunk — that is the whole point of a stock. */}
+      {/* Resources: what is brewed and waiting. Nothing here does anything until it
+          is drunk — that is the whole point of a stock. */}
       <Section label="Brewed" right={`${ui.potionStock.reduce((n, p) => n + p.count, 0)} held`}>
         {ui.potionStock.length === 0 ? (
           <div className="text-[0.7em] text-[#9d8f6e]">Nothing brewed. The bench is above.</div>
         ) : (
-          <ScrollList max="13em">
+          <TileGrid min="6.6em">
             {ui.potionStock.map((p) => {
               const def = POTIONS.find((d) => d.id === p.id);
               const cost = def?.lifeCost ?? 0;
@@ -566,31 +652,20 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
               const idle = !!def?.clearsBrew && ui.brewStacks < 1;
               const short = cost > 0 && ui.lives <= cost;
               return (
-                <div key={p.id} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
-                  <img src={p.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[0.74em] text-osrs-orange truncate">
-                      {p.name} <span className="text-[#cdbe91] tabular-nums">×{p.count}</span>
-                    </span>
-                    <span className="block text-[0.68em] text-[#cdbe91] truncate">
-                      {def ? (def.waves > 0 ? `${def.waves} waves` : 'one drink') : ''}
-                      {cost > 0 && ` · costs ${cost} life`}
-                      {(def?.livesPerWave ?? 0) > 0 && ' · a life every wave'}
-                    </span>
-                  </span>
-                  <ConfirmButton
-                    confirm={!!running}
-                    onPress={() => onDrinkPotion(p.id)}
-                    disabled={busy || short || idle}
-                    title={short ? 'Too few lives to drink that' : idle ? 'No brew to clear' : def?.tip}
-                    confirmTitle={`${p.name} still has ${running?.wavesLeft ?? 0} wave${running?.wavesLeft === 1 ? '' : 's'} left. Another dose only starts it over.`}
-                  >
-                    Drink
-                  </ConfirmButton>
-                </div>
+                <Tile
+                  key={p.id}
+                  icon={p.icon}
+                  name={p.name}
+                  foot={`×${p.count}`}
+                  disabled={busy || short || idle}
+                  confirm={!!running}
+                  title={short ? 'Too few lives to drink that' : idle ? 'No brew to clear' : def?.tip}
+                  confirmTitle={`${p.name} still has ${running?.wavesLeft ?? 0} wave${running?.wavesLeft === 1 ? '' : 's'} left. Another dose only starts it over.`}
+                  onPress={() => onDrinkPotion(p.id)}
+                />
               );
             })}
-          </ScrollList>
+          </TileGrid>
         )}
       </Section>
 
@@ -609,21 +684,18 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
         {ui.activePotions.length === 0 ? (
           <div className="text-[0.7em] text-[#9d8f6e]">Nothing drunk. A dose runs for several waves.</div>
         ) : (
-          <div className="flex flex-col gap-[0.25em]">
+          <TileGrid min="6.4em">
             {ui.activePotions.map((a) => (
-              <div key={a.id} className="rs-panel-inset flex items-center gap-[0.45em] p-[0.35em]">
-                <img src={a.icon} alt="" className="w-[1.4em] h-[1.4em] object-contain shrink-0" onError={hideBrokenImg} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[0.74em] text-osrs-orange truncate">{a.name}</span>
-                  <span className="block text-[0.68em] text-[#cdbe91] truncate">{a.tip}</span>
-                </span>
-                <img src={a.labelIcon} alt="" className="w-[1em] h-[1em] object-contain shrink-0" onError={hideBrokenImg} />
-                <span className="text-[0.68em] text-[#cdbe91] tabular-nums shrink-0">
-                  {a.wavesLeft} wave{a.wavesLeft === 1 ? '' : 's'}
-                </span>
-              </div>
+              <TileStatic
+                key={a.id}
+                sig={a.labelIcon}
+                icon={a.icon}
+                name={a.name}
+                title={`${a.tip} · ${a.label}`}
+                foot={`${a.wavesLeft} wave${a.wavesLeft === 1 ? '' : 's'}`}
+              />
             ))}
-          </div>
+          </TileGrid>
         )}
       </Section>
     </>
@@ -634,74 +706,71 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
 
 /**
  * The pools this map dealt, and the ladder of fish they hold. A pool mirrors the
- * board the same way a Hunter trap does: casting here is the same cast as
- * clicking the water, just with the level and the catch table alongside it.
+ * board the same way a Hunter trap does: casting here is the same cast as clicking
+ * the water, just with the level and the catch table alongside it.
  */
 function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => void }) {
   return (
-    <div className="flex flex-col gap-[0.4em]">
-      <Section label="Pools">
+    <>
+      <Section label="Pools" right={`${ui.fishingSpots.filter((s) => s.stage === 'ready').length} ready`}>
         {ui.fishingSpots.length === 0 ? (
-          <div className="text-[0.72em] text-[#cdbe91] p-[0.4em]">This map has no water.</div>
+          <div className="text-[0.7em] text-[#9d8f6e]">This map has no water.</div>
         ) : (
-          <ScrollList max="8em">
+          <TileGrid min="6em">
             {ui.fishingSpots.map((s) => {
               // A cast runs to its end, so while one is out every pool is closed —
               // the one holding the line included.
               const lineOut = ui.castSpotId !== null;
+              const spent = s.stage === 'spent';
               return (
-              <button
-                key={s.id}
-                onClick={() => onCast(s.id)}
-                disabled={ui.waveActive || s.stage === 'spent' || lineOut}
-                title={lineOut ? 'Your line is already out'
-                  : s.stage === 'spent' ? 'The fish come back in a few waves' : 'Cast a line'}
-                className="rs-panel-inset flex items-center justify-between gap-[0.5em] p-[0.4em] w-full text-left hover:brightness-125 disabled:opacity-40"
-              >
-                <span className="text-[0.76em] text-osrs-orange">Fishing spot</span>
-                <span className="text-[0.72em] tabular-nums" style={{ color: s.stage === 'spent' ? 'var(--osrs-red)' : '#cdbe91' }}>
-                  {s.stage === 'spent' ? `${s.wavesLeft} waves` : `${s.casts} / ${SPOT_CASTS} casts`}
-                </span>
-              </button>
+                <Tile
+                  key={s.id}
+                  // The baked spot sprite is an eight-frame strip, so an <img> of it
+                  // would show all eight at once. The skill's own icon stands in.
+                  icon={ASSETS.misc.skill_fishing}
+                  name="Fishing spot"
+                  foot={spent ? `${s.wavesLeft}w` : `${s.casts} / ${SPOT_CASTS}`}
+                  footColor={spent ? 'var(--osrs-red)' : undefined}
+                  locked={spent}
+                  disabled={ui.waveActive || spent || lineOut}
+                  title={lineOut ? 'Your line is already out'
+                    : spent ? 'The fish come back in a few waves' : 'Cast a line'}
+                  onPress={() => onCast(s.id)}
+                />
               );
             })}
-          </ScrollList>
+          </TileGrid>
         )}
       </Section>
+
       <Section label="Catches">
-        <ScrollList max="12em">
+        <TileGrid min="6.6em">
           {FISH.map((f) => {
             const locked = f.level > ui.fishingLevel;
             return (
-              <div
+              <TileStatic
                 key={f.id}
-                className="rs-panel-inset flex items-center gap-[0.5em] p-[0.4em]"
+                icon={f.icon}
+                name={f.name}
                 title={locked ? `Needs Fishing ${f.level}` : 'Eat it for lives, or sell it for gold.'}
-              >
-                <img
-                  src={f.icon} alt="" onError={hideBrokenImg}
-                  className="w-[1.5em] h-[1.5em] object-contain shrink-0"
-                  style={locked ? { filter: 'grayscale(1)', opacity: 0.6 } : undefined}
-                />
-                <span className="min-w-0 flex-1 text-[0.76em] text-osrs-orange truncate">{f.name}</span>
-                {locked
-                  ? <span className="text-[0.72em] tabular-nums" style={{ color: 'var(--osrs-red)' }}>L{f.level}</span>
-                  : (
-                    // The heal caps at maxLives and does not happen at all once lives are
-                    // already full — a plain "+{n}" overpromises both times — so the life
-                    // count reads "at most" rather than a guaranteed add. Gold is the other
-                    // half of the same fish (paid instead, at full lives) and rides beside
-                    // it; flex-wrap drops it to its own line if a scale is too narrow for both.
-                    <span className="flex flex-wrap items-center justify-end gap-[0.3em] shrink-0">
-                      <span className="text-[0.72em] text-[#cdbe91] tabular-nums whitespace-nowrap">&le;{f.lives}</span>
-                      <Price amount={f.gold} className="text-[0.72em] whitespace-nowrap" />
+                foot={locked ? `L${f.level}` : <Price amount={f.gold} />}
+                {...(locked ? {} : {
+                  // The heal caps at maxLives and does not happen at all once lives
+                  // are already full — a plain "+{n}" overpromises both times — so the
+                  // life count reads "at most". Gold is the other half of the same
+                  // fish, paid instead at full lives, and rides at the foot.
+                  corner: (
+                    <span className="absolute top-[0.1em] right-[0.15em] z-10 flex items-center gap-[0.1em] leading-none pointer-events-none">
+                      <img src={ASSETS.misc.orb_hitpoints} alt="" className="w-[0.9em] h-[0.9em] object-contain" onError={hideBrokenImg} />
+                      <span className="text-[0.55em] tabular-nums text-[#cdbe91]">&le;{f.lives}</span>
                     </span>
-                  )}
-              </div>
+                  ),
+                })}
+              />
             );
           })}
-        </ScrollList>
+        </TileGrid>
       </Section>
-    </div>
+    </>
   );
 }
