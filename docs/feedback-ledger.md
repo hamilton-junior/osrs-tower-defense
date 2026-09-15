@@ -432,10 +432,15 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     remembers what was paid for what is in it (`FarmPatch.paid`, saved as an optional field), so
     the dig-up warning quotes the gold that actually left the purse rather than today's price.
 
-29. **The fishing spot's own animation fades in and out.** The bubbles should breathe rather
-    than pop. Separate from the cross-fade between the busy and the spent treatment, which
-    shipped in `5ae377e`: this is about the clip itself, each loop easing in and out instead of
-    cutting between frames.
+29. **The fishing spot's own animation fades in and out.** — **shipped** (2026-09-15). Two
+    changes in `render/fishing.ts`, both inside `drawSpot`, so they reach the busy sheet, the
+    spent one and the ghost of a pool mid-cross-fade alike. The strip is no longer stepped: the
+    frame that is up is drawn, then the next one over it at how far the clip has travelled, so
+    one frame dissolves into the next. And the loop rides a shallow swell of opacity
+    (0.78–1.00) taken from a cosine of its own phase — continuous across the wrap, lowest
+    exactly at the seam — so the water breathes and the last frame has nothing to pop against
+    when it meets the first. Separate from the busy/spent cross-fade in `5ae377e`, which is
+    untouched.
 
 30. **Fishing gets faster as the level climbs.** The cast is a flat bar today. Scale it with
     the run's Fishing level so 99 casts 50% faster than 1; the curve between is open.

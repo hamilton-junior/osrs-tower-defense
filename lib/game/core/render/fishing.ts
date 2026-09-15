@@ -24,6 +24,12 @@ const FADE_MS = 600;
  * The drawing leans the rest of the way. A pool with fish left in it glows, breathes
  * and bobs, and gets a second pass to carry the halo. A spent one gets one pass, no
  * halo to invite a cast, and sits smaller and still.
+ *
+ * The clip itself is played as a continuous thing rather than eight slides. Each
+ * frame dissolves into the next instead of replacing it, and the loop rides a slow
+ * swell of opacity that is at its lowest exactly where the strip wraps — so the
+ * water breathes, and the seam where the last frame meets the first has nothing to
+ * pop against.
  */
 function drawSpot(
   ctx: CanvasRenderingContext2D,
@@ -40,28 +46,48 @@ function drawSpot(
   // cannot fall out of step.
   const cell = sheet.height;
   const frames = Math.max(1, Math.round(sheet.width / cell));
-  const f = Math.floor((t * 1000) / FRAME_MS) % frames;
+  // Where the loop stands, as one continuous number: which frame is up, how far it
+  // has travelled towards the next one, and where the whole loop is in its breath.
+  const pos = ((t * 1000) / FRAME_MS) % frames;
+  const f = Math.floor(pos);
+  const blend = pos - f;
+  const next = (f + 1) % frames;
+  // A cosine of the loop's own phase, so the swell is continuous across the wrap:
+  // it bottoms out at the seam and is fullest halfway through the clip. Shallow on
+  // purpose — this is water moving, not a thing blinking on and off.
+  const breath = 0.78 + 0.22 * (0.5 - 0.5 * Math.cos((pos / frames) * Math.PI * 2));
+  const a = alpha * breath;
   const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + x * 0.03 + y * 0.05);
   const size = GRID * (ready ? 0.9 + pulse * 0.06 : 0.78);
   const dx = x - size / 2;
   const dy = y - size / 2 + (ready ? Math.sin(t * 1.8 + x * 0.05) * 1.6 : 0);
+
+  // One frame dissolving into the next: the frame that is up, then the one after it
+  // laid over at how far the clip has come, which is a cross-dissolve cheap enough to
+  // run twice for the halo pass.
+  const paint = () => {
+    ctx.globalAlpha = a;
+    ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
+    if (blend > 0.001) {
+      ctx.globalAlpha = a * blend;
+      ctx.drawImage(sheet, next * cell, 0, cell, cell, dx, dy, size, size);
+    }
+  };
 
   ctx.save();
   if (ready) {
     // Faint, and deliberately fainter than a ripe herb's halo: fish in a pool is an
     // invitation, not the alarm a crop about to be lost is. One pass, where the
     // allotment stacks three.
-    ctx.globalAlpha = alpha;
     ctx.shadowColor = `rgba(${GLOW},${0.28 + pulse * 0.18})`;
     ctx.shadowBlur = 5;
-    ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
+    paint();
     ctx.shadowBlur = 0;
-    ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
+    paint();
   } else {
     // No dimming here: the plain sheet is already faint, because that faintness is
     // the cache's own answer for what a spot with nothing in it looks like.
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(sheet, f * cell, 0, cell, cell, dx, dy, size, size);
+    paint();
   }
   ctx.restore();
 }
