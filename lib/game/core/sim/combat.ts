@@ -99,8 +99,10 @@ function siphonShot(eng: GameEngine, tower: Tower, stats: ComputedTowerStats) {
  */
 
 /** The tower's stat line, recomputed only when something that feeds it moved
- *  (see `combatEpoch`) — every other frame it comes straight back out of the cache. */
-function towerStats(eng: GameEngine, tower: Tower): ComputedTowerStats {
+ *  (see `combatEpoch`) — every other frame it comes straight back out of the cache.
+ *  Exported for `GameEngine.rangeMultOf`, which needs the same cached answer off
+ *  the per-frame path. */
+export function towerStats(eng: GameEngine, tower: Tower): ComputedTowerStats {
   let cached = eng.statsCache.get(tower.id);
   if (!cached || cached.epoch !== eng.combatEpoch) {
     cached = {
@@ -229,11 +231,11 @@ function shotLoadout(eng: GameEngine, tower: Tower, target: Enemy, damage: numbe
   // of its own range square, so it carries that square rather than a blast radius.
   if (tower.type === 'noxious_halberd') lo.sweepHalf = half;
   // The Toxic staff of the dead poisons through OTHER towers, so the question it
-  // asks is about the firing tower, not the target: is it standing in a staff's
-  // field? Resolved here, at fire time, and carried on the bolt — the same rule
+  // asks is about the firing tower, not the target: is it standing in the 3×3 a
+  // staff holds? Resolved here, at fire time, and carried on the bolt — the same rule
   // the Venator's road sweep follows, so a staff sold while a shot is in the air
   // cannot unmake a shot already loosed.
-  const staff = envenomStaffFor(tower, eng.towers);
+  const staff = envenomStaffFor(tower, eng.towers, s => eng.rangeMultOf(s));
   if (staff) lo.envenom = { ...envenomAura(staff.damage, eng.wave), staffId: staff.id };
   if (tower.type !== 'wizard') return lo;
 

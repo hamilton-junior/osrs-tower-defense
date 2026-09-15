@@ -300,10 +300,10 @@ export function towerSignature(
       return {
         label: 'Envenom',
         icon: ASSETS.debuffs.venom,
-        desc: 'Every tower in its range poisons whatever it hits.',
+        desc: 'Every tower next to it poisons whatever it hits.',
         notes: [
           { text: 'Its own shots count too', active: true },
-          { text: 'Put it where the board shoots from, not where it can reach', active: true },
+          { text: 'A range buff on the staff widens the field', active: true },
         ],
       };
     default:

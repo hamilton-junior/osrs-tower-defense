@@ -89,7 +89,7 @@ import {
 } from '../systems/hunter-traps';
 import { handleBossMechanics, updateScorches } from './sim/bosses';
 import { updateTraps } from './sim/traps';
-import { fireTowers, updateUtilityTowers, towerIdentity, moveProjectiles, tenacity } from './sim/combat';
+import { fireTowers, updateUtilityTowers, towerIdentity, moveProjectiles, tenacity, towerStats } from './sim/combat';
 import { computeWaveConfigs, wavePreview, buildWaveEnemies, makeEnemy, spawn, moveEnemies, damageOverTime, updateEffects, addRing, checkWaveEnd, recordCombatTime } from './sim/waves';
 import type { UnlockItem, GameMode, PerStyle, RunModifiers, RunEffects, RelicEffects, UIState, Hitsplat, DebuffId, EnemyHoverInfo, DeathFx, Particle, RuneFx, Scorch, UiStack } from './engine-state';
 
@@ -1218,8 +1218,18 @@ export class GameEngine {
   towerAuraGlow(tower: Tower): { intensity: number; color: string } | null {
     const syn = this.towerSynergyAura(tower);
     if (syn) return { intensity: Math.min(1, (syn.mult - 1) / 0.6), color: syn.color };
-    if (envenomStaffFor(tower, this.towers)) return { intensity: 0.55, color: '#6abe30' };
+    if (envenomStaffFor(tower, this.towers, s => this.rangeMultOf(s))) return { intensity: 0.55, color: '#6abe30' };
     return null;
+  }
+
+  /** How much wider than its own tier's range a tower currently reaches, after
+   *  utility auras, relics, potions and the rest — 1 for a tower nothing is
+   *  helping. The Toxic staff's venom field is measured in tiles and then scaled
+   *  by this, so everything that widens a range widens the field with it. Reads
+   *  the same per-epoch cache the firing path does, so asking once a frame per
+   *  tower costs nothing. */
+  rangeMultOf(tower: Tower): number {
+    return tower.range > 0 ? towerStats(this, tower).range / tower.range : 1;
   }
 
   /** The cached placement-synergy damage multiplier (≥1) for a tower — the value

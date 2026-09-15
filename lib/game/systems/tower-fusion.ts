@@ -77,7 +77,7 @@ export const FUSIONS: readonly FusionDef[] = [
     type: 'toxic_staff_of_the_dead',
     name: 'Toxic staff of the dead',
     parents: ['toxic', 'wizard'],
-    blurb: 'Every tower standing in its range poisons whatever it hits.',
+    blurb: 'Every tower standing next to it poisons whatever it hits.',
   },
   {
     type: 'eclipse_atlatl',

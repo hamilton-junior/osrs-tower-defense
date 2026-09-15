@@ -203,13 +203,14 @@ export const TOWERS: Record<string, TowerDef> = {
   },
   // Toxic staff of the dead = the Trident of the Swamp's venom welded into a
   // wizard's staff, and the only tower in the game whose weapon is the OTHER
-  // towers. It carries no venom special of its own: instead every tower firing
-  // from inside its range — archer, cannon, halberd, the staff itself — leaves
-  // venom on what it hits (see envenomAura). The fang's problem was always that
-  // its venom ramps on whatever one enemy it happened to be pointed at; the
-  // staff hands that venom to the whole board's rate of fire. So its range is
-  // the widest on the board, because the range IS the weapon, and where it
-  // stands matters more than what it shoots.
+  // towers. It carries no venom special of its own: instead every tower standing
+  // in the 3×3 block around it — archer, cannon, halberd, the staff itself —
+  // leaves venom on what it hits (see envenomAura). The fang's problem was always
+  // that its venom ramps on whatever one enemy it happened to be pointed at; the
+  // staff hands that venom to a whole corner of the board's rate of fire. That
+  // field is deliberately small: the staff is paid for by the towers it is built
+  // beside, so where it stands matters more than what it shoots — which is also
+  // why its own range is wide, since it still has to shoot something.
   toxic_staff_of_the_dead: {
     type: 'toxic_staff_of_the_dead',
     baseName: 'Toxic',

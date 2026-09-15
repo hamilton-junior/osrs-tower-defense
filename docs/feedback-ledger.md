@@ -465,9 +465,20 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     both buy their strength with lives, and that bargain is worth keeping drinkable beside
     whatever else is up.
 
-32. **The Toxic Staff of the Dead's venom aura is far too wide.** It should reach about 3×3
-    from the tower's own tile. Today it covers the board, and the utility tower's range buff
-    makes that worse — decide whether the aura should take range buffs at all.
+32. **The Toxic Staff of the Dead's venom aura is far too wide.** — **shipped** (2026-09-15).
+    The field no longer has anything to do with how far the staff shoots. `envenomAuraRadius`
+    in `systems/tower-identity` measures it from `ENVENOM_AURA_TILES` (1.5 tiles), which is the
+    3×3 block around the staff with its diagonals (√2 ≈ 1.41 tiles) and nothing past it, and
+    `envenomStaffFor` tests that radius instead of `tower.range` — which left `AuraSource` with
+    no use for a range at all. Per the user's ruling the field still takes range buffs: the
+    radius is multiplied by the staff's live range multiplier, read off the same per-epoch stat
+    cache the firing path uses (`towerStats` is now exported from `core/sim/combat` and
+    `GameEngine.rangeMultOf` divides the buffed range by the tier's own). So a utility tower, a
+    relic or a potion still widens the venom, starting from a 3×3 rather than from the board.
+    The staff's own range is unchanged — it still has to shoot something — so the prose that
+    claimed "the range IS the weapon" was rewritten in `data/towers`, in the aura's doc comment,
+    in the fusion blurb, and in the player-facing signature ("Every tower next to it poisons
+    whatever it hits", with a note that a range buff widens the field).
 
 33. **"around wave 90" is out of date.** The copy that tells the player where a run is won
     still quotes wave 90; the victory wave moved. Find every line that names a number and make

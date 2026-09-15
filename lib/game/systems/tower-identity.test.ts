@@ -17,6 +17,7 @@ import {
   venatorMultAt,
   VENATOR_BENDS,
   envenomAura,
+  envenomAuraRadius,
   envenomStaffFor,
   eclipseStacksAfter,
   eclipseShove,
@@ -24,9 +25,11 @@ import {
   ECLIPSE_MAX_STACKS,
   ECLIPSE_SHOVE_STEP,
   ENVENOM_AURA_FRAC,
+  ENVENOM_AURA_TILES,
   type AuraSource,
 } from './tower-identity';
 import { roadStretches } from './geometry';
+import { GRID } from '../core/engine-state';
 
 describe('archerArrowCount', () => {
   it('looses one arrow until the Dark Bow (tier 3), then two', () => {
@@ -317,15 +320,36 @@ describe('envenomAura', () => {
   });
 });
 
-describe('envenomStaffFor', () => {
-  const staff = (over: Partial<AuraSource> = {}): AuraSource => ({
-    id: 's1', type: 'toxic_staff_of_the_dead', x: 0, y: 0, range: 200, damage: 70, ...over,
+describe('the venom field', () => {
+  // The systems layer keeps its own copy of the tile size, because it cannot
+  // value-import the core. This is the pin that keeps the copy honest.
+  it('is measured in real board tiles', () => {
+    expect(envenomAuraRadius()).toBeCloseTo(ENVENOM_AURA_TILES * GRID, 10);
   });
 
-  it('covers a tower inside its range and nothing outside it', () => {
+  it('grows with a range buff, and never shrinks below nothing', () => {
+    expect(envenomAuraRadius(2)).toBeCloseTo(envenomAuraRadius() * 2, 10);
+    expect(envenomAuraRadius(-1)).toBe(0);
+  });
+});
+
+describe('envenomStaffFor', () => {
+  const staff = (over: Partial<AuraSource> = {}): AuraSource => ({
+    id: 's1', type: 'toxic_staff_of_the_dead', x: 0, y: 0, damage: 70, ...over,
+  });
+
+  it('covers the 3×3 around the staff, diagonals included, and nothing past it', () => {
     const towers = [staff()];
-    expect(envenomStaffFor({ x: 100, y: 0 }, towers)?.id).toBe('s1');
-    expect(envenomStaffFor({ x: 300, y: 0 }, towers)).toBeNull();
+    expect(envenomStaffFor({ x: GRID, y: 0 }, towers)?.id).toBe('s1');
+    expect(envenomStaffFor({ x: GRID, y: GRID }, towers)?.id).toBe('s1');
+    expect(envenomStaffFor({ x: GRID * 2, y: 0 }, towers)).toBeNull();
+  });
+
+  it('widens with a range buff on the staff, and only on the staff', () => {
+    const towers = [staff()];
+    const out = { x: GRID * 2.5, y: 0 };
+    expect(envenomStaffFor(out, towers)).toBeNull();
+    expect(envenomStaffFor(out, towers, () => 2)?.id).toBe('s1');
   });
 
   it('covers itself, which is how its own shots get envenomed', () => {
@@ -343,7 +367,7 @@ describe('envenomStaffFor', () => {
 
   it('picks the strongest of two overlapping staves, so a second one only ever helps', () => {
     const weak = staff({ id: 'weak', damage: 70 });
-    const strong = staff({ id: 'strong', damage: 120, x: 50 });
+    const strong = staff({ id: 'strong', damage: 120, x: GRID });
     expect(envenomStaffFor({ x: 10, y: 0 }, [weak, strong])?.id).toBe('strong');
     expect(envenomStaffFor({ x: 10, y: 0 }, [strong, weak])?.id).toBe('strong');
   });

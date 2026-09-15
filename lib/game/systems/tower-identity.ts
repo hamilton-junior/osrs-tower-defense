@@ -297,22 +297,49 @@ export function halberdSeedDps(rampStep: number): number {
 
 /**
  * **The Toxic staff of the dead's aura.** The staff does not out-damage the
- * Trident it was made from — it hands the Trident's venom to every other tower
- * standing near it. Anything that fires from inside the staff's range envenoms
- * what it hits: the archer's volley, the cannon's splash, a barrage, the staff
- * itself. A fang can only ever ramp venom on whatever one enemy it happens to
- * be pointed at; the staff spends the whole board's rate of fire on it instead.
+ * Trident it was made from — it hands the Trident's venom to the towers standing
+ * around it. Anything that fires from inside that field envenoms what it hits:
+ * the archer's volley, the cannon's splash, a barrage, the staff itself. A fang
+ * can only ever ramp venom on whatever one enemy it happens to be pointed at;
+ * the staff spends a whole corner of the board's rate of fire on it instead.
  *
- * Two deliberate constraints keep that from being a free upgrade. The step is a
- * fraction ({@link ENVENOM_AURA_FRAC}) of one Toxic ramp step, so a covered
- * board is slower onto a full stack than a fang firing into one target. And it
- * is computed from the *staff's* damage, never the firing tower's, so a fast
- * weak tower and a slow heavy one arm exactly the same venom — the aura is a
- * property of where the staff stands, not of what it happens to cover.
+ * Three deliberate constraints keep that from being a free upgrade. The field is
+ * small — {@link ENVENOM_AURA_TILES} tiles from the staff's own tile, which is
+ * the 3×3 block around it and nothing else — so the staff buys the towers it was
+ * built beside rather than every tower on the board. The step is a fraction
+ * ({@link ENVENOM_AURA_FRAC}) of one Toxic ramp step, so a covered board is
+ * slower onto a full stack than a fang firing into one target. And it is
+ * computed from the *staff's* damage, never the firing tower's, so a fast weak
+ * tower and a slow heavy one arm exactly the same venom — the aura is a property
+ * of where the staff stands, not of what it happens to cover.
  *
  * The ceiling is the fang's own, so the aura tops a stack up and never past it.
+ *
+ * The field is not the staff's range. The range is where the staff shoots, and it
+ * is still one of the widest on the board; the field is a question about
+ * neighbours. What the two share is every buff that widens a range: the field is
+ * measured in tiles and then multiplied by the staff's live range multiplier, so
+ * a utility tower, a relic or a potion that reaches the staff reaches its venom
+ * too.
  */
 export const ENVENOM_AURA_FRAC = 0.5;
+
+/** One board tile, in pixels — a copy of `GRID` in `core/engine-state`. The
+ *  systems layer cannot value-import the core (engine-state imports systems, so
+ *  the edge would close a runtime cycle), and `tower-identity.test.ts` pins the
+ *  two numbers to each other. */
+const TILE = 32;
+
+/** How far the venom field reaches from the staff's own tile, in tiles, before any
+ *  range buff. 1.5 covers the whole 3×3 block around the staff, diagonals included
+ *  (√2 ≈ 1.41 tiles), and nothing past it. */
+export const ENVENOM_AURA_TILES = 1.5;
+
+/** The venom field's radius in pixels. `rangeMult` is the staff's live range
+ *  multiplier — 1 for a staff nothing is helping. See `GameEngine.rangeMultOf`. */
+export function envenomAuraRadius(rangeMult = 1): number {
+  return ENVENOM_AURA_TILES * TILE * Math.max(0, rangeMult);
+}
 
 export interface EnvenomAura {
   /** Venom dps one covered hit adds. */
@@ -328,13 +355,14 @@ export function envenomAura(staffDamage: number, wave: number): EnvenomAura {
   return { step: Math.max(1, Math.round(step * ENVENOM_AURA_FRAC)), cap, dur };
 }
 
-/** The least a tower has to look like to be tested as an aura source. */
+/** The least a tower has to look like to be tested as an aura source. Its own
+ *  range is not on the list: the field is measured from {@link ENVENOM_AURA_TILES},
+ *  not from how far the staff shoots. */
 export interface AuraSource {
   id: string;
   type: string;
   x: number;
   y: number;
-  range: number;
   damage: number;
   disabledTimer?: number;
 }
@@ -347,16 +375,21 @@ export interface AuraSource {
  * its own: its shots are envenomed by exactly the rule everyone else's are, and
  * there is only ever one number to reason about. A staff knocked offline covers
  * nothing, so the field goes out with the tower rather than outliving it.
+ *
+ * `rangeMult` reports a staff's live range multiplier, so the field grows with
+ * everything that grows a range. It defaults to 1, which is the right answer
+ * wherever those buffs are not to hand — a test, or a staff nothing is helping.
  */
 export function envenomStaffFor<T extends AuraSource>(
   at: { x: number; y: number },
   towers: readonly T[],
+  rangeMult: (staff: T) => number = () => 1,
 ): T | null {
   let best: T | null = null;
   for (const t of towers) {
     if (t.type !== 'toxic_staff_of_the_dead') continue;
     if ((t.disabledTimer ?? 0) > 0) continue;
-    if (distance(t.x, t.y, at.x, at.y) > t.range) continue;
+    if (distance(t.x, t.y, at.x, at.y) > envenomAuraRadius(rangeMult(t))) continue;
     if (!best || t.damage > best.damage) best = t;
   }
   return best;
