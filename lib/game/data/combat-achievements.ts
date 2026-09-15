@@ -194,9 +194,14 @@ export const CA_TASKS: readonly CaTask[] = [
     check: (s) => s.won && s.stylesUsed.length === 1,
   },
   {
+    // Wave 160, not 120: Endless only starts past the victory wave
+    // (`EARLIEST_VICTORY_WAVE` in `systems/wave-generation`, one boss wave per
+    // schedulable boss), so the old number completed itself the moment a won run
+    // carried on. The literal is deliberate — this file may only *type*-import from
+    // `systems/`, see the header.
     id: 'deep-cut', tier: 'elite', name: 'Deep Cut',
-    desc: 'Reach wave 120 in Endless.',
-    check: (s) => s.runPhase === 'endless' && s.maxWaveReached >= 120,
+    desc: 'Reach wave 160 in Endless.',
+    check: (s) => s.runPhase === 'endless' && s.maxWaveReached >= 160,
   },
 
   // --- Master ---

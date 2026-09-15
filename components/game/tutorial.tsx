@@ -6,6 +6,7 @@ import { ASSETS, iconUrl, itemIcon } from '@/lib/game/assets';
 import { fs, hideBrokenImg } from './ui-kit';
 import { DIVERSION_BY_ID } from '@/lib/game/data/diversions';
 import { FUSION_UNLOCK_CA } from '@/lib/game/systems/tower-fusion';
+import { EARLIEST_VICTORY_WAVE } from '@/lib/game/systems/wave-generation';
 
 /**
  * Everything that teaches the game: the contextual tips (`LEARN_STEPS` +
@@ -143,7 +144,7 @@ export const LEARN_STEPS: LearnStep[] = [
     body: 'A boss has one mechanic to answer. Watch the caption under its health bar.',
     when: (ui) => ui.bossWave },
   { id: 'victory', target: 'hud', icon: itemIcon('collection_log'), title: 'Runs can be won',
-    body: 'Beat every boss, around wave 90, and you win. Endless carries on from there.',
+    body: `Beat every boss, around wave ${EARLIEST_VICTORY_WAVE}, and you win. Endless carries on from there.`,
     when: (ui) => ui.wave >= 60 && !ui.waveActive },
   // The 'travel' tip is taught *inside* the fork overlay itself (the two region
   // cards carry the land they show and the monsters that live there), for the same
@@ -266,7 +267,7 @@ export const TLDR: TldrTab[] = [
     { icon: ASSETS.misc.orb_hitpoints, text: 'Enemies walk the path. Each one that reaches your base costs a life.' },
     { icon: ASSETS.misc.coins_icon, text: 'Every kill pays gold. Gold buys and upgrades towers.' },
     { icon: ASSETS.misc.multicombat_icon, text: 'Nothing spawns until you press Start Wave. Between waves is free build time.' },
-    { icon: itemIcon('collection_log'), text: 'Beat every boss, around wave 90, to win the run, then carry on in Endless.' },
+    { icon: itemIcon('collection_log'), text: `Beat every boss, around wave ${EARLIEST_VICTORY_WAVE}, to win the run, then carry on in Endless.` },
     { icon: ASSETS.misc.spade, text: 'Pay to pull a square of road aside, again and again; the other arrow fills it back in.' },
     { icon: ASSETS.misc.spade, text: 'A stretch of road slides whole by the grip near its bend, straightening the bend or growing it back.' },
     { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },

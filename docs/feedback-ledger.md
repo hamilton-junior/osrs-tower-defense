@@ -480,9 +480,20 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     in the fusion blurb, and in the player-facing signature ("Every tower next to it poisons
     whatever it hits", with a note that a range buff widens the field).
 
-33. **"around wave 90" is out of date.** The copy that tells the player where a run is won
-    still quotes wave 90; the victory wave moved. Find every line that names a number and make
-    it name the real one.
+33. **"around wave 90" is out of date.** — **shipped** (2026-09-15). The real number is
+    **130**, and it was read off the schedule rather than guessed: a boss wave is due exactly
+    one boss while any is still unmet this run, the extras roll is gated behind an empty unmet
+    list, and there are 13 `SCHEDULABLE_BOSSES` — so the last introduction lands on wave 130
+    and the victory latch fires when it dies. `systems/wave-generation` now exports that as
+    `EARLIEST_VICTORY_WAVE` (`SCHEDULABLE_BOSSES.length * BOSS_WAVE_INTERVAL`), the two tutorial
+    lines interpolate it instead of quoting a literal, and a new test walks every wave to 130 to
+    prove the last boss really arrives there. The stale wave-90 claims in `systems/leveling` and
+    its test now name the constant rather than a number that can rot again. The same move had
+    quietly broken a Combat Achievement: **Deep Cut** asked for wave 120 in Endless, but Endless
+    only begins past the victory wave, so it completed itself the moment a won run carried on —
+    it asks for 160 now, between the win and the master task's 200. Its literal stays a literal
+    because `data/` may only type-import from `systems/`; the test pins it above
+    `EARLIEST_VICTORY_WAVE` so the two can never cross again.
 
 34. **The sell sound still plays when a fish is sold instead of eaten.** Trying to eat at full
     hitpoints sells the fish — that is a sale, and it should sound like one.

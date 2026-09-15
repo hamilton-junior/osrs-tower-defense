@@ -10,11 +10,13 @@ export function playerXpForLevel(level: number): number {
  *
  * The exponent decides whether the top of the gear ladder is content or decoration.
  * At 1.8 it took 844k XP to reach level 40 — and a tower taking a sixth of a normal
- * board's damage, wasting nothing and placed on wave 1, only banked that by wave 83,
- * while a run ends at wave 90 at the earliest. So dragon darts, the amulet of torture
- * and the blood fury were items no run ever reached. At 1.6 the same tower is there
- * by wave 55, and the tier-4 unlock (level 15) moves from wave 37 to wave 26 — the
- * ladder is paced to the run instead of running past its end.
+ * board's damage, wasting nothing and placed on wave 1, only banked that by wave 83.
+ * Measured against the wave-90 run of the day, that made dragon darts, the amulet of
+ * torture and the blood fury items no run ever reached. The victory wave has since
+ * moved out to `EARLIEST_VICTORY_WAVE` (`systems/wave-generation`), which buys the old
+ * curve room it did not have, but leaves the pacing untouched: gear that lands in the
+ * closing stretch of a run is gear nobody gets to play with. At 1.6 the same tower is
+ * there by wave 55, and the tier-4 unlock (level 15) moves from wave 37 to wave 26.
  */
 export function towerXpForLevel(level: number): number {
   return Math.floor(Math.pow(level, 1.6) * 80);

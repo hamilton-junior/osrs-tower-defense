@@ -64,6 +64,22 @@ export function allSchedulableBossesCleared(killedThisRun: Record<string, number
 }
 
 /**
+ * The earliest wave a run can be won on: one boss wave per schedulable boss.
+ *
+ * A boss wave is due exactly one boss while any is still unmet this run, and the
+ * extras roll is gated behind an empty unmet list — so the schedule can never hand
+ * a run two of its introductions in one wave. The last one lands on boss wave
+ * number `SCHEDULABLE_BOSSES.length`, and the victory latch fires when it dies. A
+ * run only ends later than this if a boss walks past the board and has to be met
+ * again.
+ *
+ * Derived rather than written down because the copy quoting it rotted once already:
+ * it still said wave 90 long after the roster grew. Every line that tells the player
+ * where a run is won reads this.
+ */
+export const EARLIEST_VICTORY_WAVE = SCHEDULABLE_BOSSES.length * BOSS_WAVE_INTERVAL;
+
+/**
  * The bosses a wave brings.
  *
  * - Nothing before {@link BOSS_WAVE_INTERVAL}: the early game stays boss-free.

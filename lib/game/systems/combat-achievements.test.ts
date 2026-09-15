@@ -4,6 +4,7 @@ import {
   CA_TIERS, type RunStats,
 } from './combat-achievements';
 import { CA_TASKS, CA_BOSS_ROSTER } from '../data/combat-achievements';
+import { EARLIEST_VICTORY_WAVE } from './wave-generation';
 
 /** A RunStats with the given fields overridden — every test starts from empty. */
 const stats = (over: Partial<RunStats> = {}): RunStats => ({ ...emptyRunStats('classic', 0), ...over });
@@ -210,10 +211,11 @@ describe('elite tier', () => {
     expect(evaluate(win({ stylesUsed: ['ranged'] }), none)).toContain('one-true-style');
   });
 
-  it('deep-cut needs Endless wave 120', () => {
-    expect(evaluate(stats({ maxWaveReached: 120, runPhase: 'normal' }), none)).not.toContain('deep-cut');
-    expect(evaluate(stats({ maxWaveReached: 119, runPhase: 'endless' }), none)).not.toContain('deep-cut');
-    expect(evaluate(stats({ maxWaveReached: 120, runPhase: 'endless' }), none)).toContain('deep-cut');
+  it('deep-cut needs Endless wave 160, which is past the victory wave', () => {
+    expect(EARLIEST_VICTORY_WAVE).toBeLessThan(160); // or the task completes itself
+    expect(evaluate(stats({ maxWaveReached: 160, runPhase: 'normal' }), none)).not.toContain('deep-cut');
+    expect(evaluate(stats({ maxWaveReached: 159, runPhase: 'endless' }), none)).not.toContain('deep-cut');
+    expect(evaluate(stats({ maxWaveReached: 160, runPhase: 'endless' }), none)).toContain('deep-cut');
   });
 });
 

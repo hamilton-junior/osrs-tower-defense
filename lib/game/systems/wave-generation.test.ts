@@ -7,6 +7,7 @@ import {
   unseenBosses,
   isBossWave,
   BOSS_WAVE_INTERVAL,
+  EARLIEST_VICTORY_WAVE,
   EXTRA_BOSS_MAX,
   EXTRA_BOSS_MIN_WAVE,
 } from './wave-generation';
@@ -320,6 +321,21 @@ describe('per-run boss march', () => {
     for (const b of SCHEDULABLE_BOSSES.slice(0, -1)) killed[b] = 1;
     expect(allSchedulableBossesCleared(killed)).toBe(false);
     killed[SCHEDULABLE_BOSSES[SCHEDULABLE_BOSSES.length - 1]] = 1;
+    expect(allSchedulableBossesCleared(killed)).toBe(true);
+  });
+
+  it('meets its last boss on EARLIEST_VICTORY_WAVE, so the copy can quote it', () => {
+    // Walk every wave, not only the boss waves, so an extras roll that unlocked
+    // early would show up as a boss met ahead of schedule.
+    const killed: Record<string, number> = {};
+    let lastBossWave = 0;
+    for (let wave = 1; wave <= EARLIEST_VICTORY_WAVE; wave++) {
+      const bosses = rollWaveBosses(wave, ALL_SEEN, rng, killed);
+      for (const b of bosses) killed[b] = 1;
+      if (bosses.length) lastBossWave = wave;
+    }
+    expect(lastBossWave).toBe(EARLIEST_VICTORY_WAVE);
+    expect(Object.keys(killed)).toHaveLength(SCHEDULABLE_BOSSES.length);
     expect(allSchedulableBossesCleared(killed)).toBe(true);
   });
 
