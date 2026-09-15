@@ -64,6 +64,13 @@ Static content lives under [`lib/game/data/`](lib/game/data/): `enemies.ts`, `to
 
 Every sprite and sound comes from **OSRS itself**, baked out of the local game cache by the scripts in `scripts/` into `public/assets/` — never hot-linked from the wiki or any other external host. `lib/game/assets.ts` maps names to those local files; `assets.test.ts` fails the build if a data table names an icon with no bake behind it.
 
+**Looking an id up:** the OSRS cache is already extracted and browsable at
+**https://abextm.github.io/cache2/#/viewer** (repo: **https://github.com/abextm/cache2**). Use it
+to find NPC, item, sprite and animation ids and to read a def's fields, instead of loading the
+local cache and sweeping id ranges by hand. It answers *which id* only — the bytes that ship
+still come out of the local cache through `scripts/render-osrs-*.mjs`. Never download an asset
+from the viewer or the repo into `public/assets/`.
+
 ### Styling
 
 OSRS look-and-feel is hand-rolled CSS in [`app/globals.css`](app/globals.css): CSS variables (`--osrs-brown`, `--osrs-orange`, `--rs-keyline`, …) and the `rs-*` utility classes (`.rs-panel`, `.rs-btn`, `.rs-slot`, `.rs-tab`, …). Tailwind v4 (via `@tailwindcss/postcss`) is available for layout. The OSRS pixel fonts are self-hosted in `app/fonts/` (RuneStar recreations, CC0), registered as `@font-face` with relative `url()`s so the build bundles them basePath-safely. No Google fonts.
