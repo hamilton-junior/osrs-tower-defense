@@ -4,7 +4,7 @@ import {
   buildFarmPatches, patchStage, wavesLeft, patchAtPoint, harvestable, ripenPatches,
   farmTowerMods, farmGoldMult, farmPrayerDrainMult, farmLivesOnClear,
   plotId, parsePlotId, makePatch, canPlacePlot, plotTargets, pickPlotTiles,
-  plotCost, PLOT_BASE_COST,
+  plotCost, PLOT_BASE_COST, seedCost,
   type FarmPatch,
 } from './farming';
 import type { TerrainField } from './terrain-generation';
@@ -16,13 +16,13 @@ const field = (patches: { col: number; row: number }[]): TerrainField => ({
 });
 
 const patch = (over: Partial<FarmPatch> = {}): FarmPatch => ({
-  id: 'p0_0', col: 0, row: 0, x: 16, y: 16, seedId: null, grown: 0, ...over,
+  id: 'p0_0', col: 0, row: 0, x: 16, y: 16, seedId: null, grown: 0, paid: 0, ...over,
 });
 
 describe('buildFarmPatches', () => {
   it('puts a bare plot at the centre of each patch tile', () => {
     const [a, b] = buildFarmPatches(field([{ col: 3, row: 4 }, { col: 10, row: 2 }]), GRID);
-    expect(a).toEqual({ id: 'p3_4', col: 3, row: 4, x: 112, y: 144, seedId: null, grown: 0 });
+    expect(a).toEqual({ id: 'p3_4', col: 3, row: 4, x: 112, y: 144, seedId: null, grown: 0, paid: 0 });
     expect(b.x).toBe(336);
     expect(b.y).toBe(80);
   });
@@ -278,7 +278,7 @@ describe('plot ids', () => {
 
   it('names a fresh plot after the tile it stands on', () => {
     expect(makePatch(4, 2, GRID)).toEqual({
-      id: 'p4_2', col: 4, row: 2, x: 144, y: 80, seedId: null, grown: 0,
+      id: 'p4_2', col: 4, row: 2, x: 144, y: 80, seedId: null, grown: 0, paid: 0,
     });
   });
 });
@@ -385,6 +385,29 @@ describe('standing bought plots on a new map', () => {
 
   it('never deals a tile a plot could not stand on', () => {
     for (const t of pickPlotTiles(f, 99)) expect(canPlacePlot(f, t.col, t.row)).toBe(true);
+  });
+});
+
+describe('what a seed costs', () => {
+  const guam = SEED_BY_ID['guam'];
+  const torstol = SEED_BY_ID['torstol'];
+
+  it('charges the listed price on wave one', () => {
+    expect(seedCost(guam, 1)).toBe(guam.cost);
+    expect(seedCost(torstol, 1)).toBe(torstol.cost);
+  });
+
+  // The surcharge is half the Hunter traps' 3%: at wave sixty a herb is worth
+  // roughly twice its wave-one price, where a trap is worth nearly three times.
+  it('adds 1.5% of the base price per wave, to the nearest 5 gp', () => {
+    expect(seedCost(torstol, 61)).toBe(190); // 100 * 1.9
+    expect(seedCost(torstol, 101)).toBe(250); // 100 * 2.5
+    expect(seedCost(guam, 101)).toBe(25); // 10 * 2.5
+  });
+
+  it('never charges less than the listed price', () => {
+    expect(seedCost(torstol, 0)).toBe(torstol.cost);
+    expect(seedCost(torstol, -20)).toBe(torstol.cost);
   });
 });
 

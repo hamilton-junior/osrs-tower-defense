@@ -423,8 +423,14 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     the whole gate, and a run may forge as many weapons as it can pay for. The closed roster is
     untouched — a fusion still eats both halves.
 
-28. **Herb prices scale with the wave, lightly.** The same per-wave treatment the Hunter traps
-    already carry, tuned gentler, so a wave-sixty board cannot buy herbs at wave-one prices.
+28. **Herb prices scale with the wave, lightly.** — **shipped** (2026-09-15). `seedCost` in
+    `systems/farming` charges the listed price plus 1.5% of it per wave, rounded to 5 gp — half
+    the Hunter traps' 3%. A Torstol is 100 gp on wave one, 190 on wave sixty-one and 250 on wave
+    a hundred; a Guam goes 10 → 25 over the same stretch. The prices stay tiny on purpose (the
+    patch is what a seed costs you, not the gold), so this is about a wave-sixty purse paying
+    wave-sixty money, not about turning the ladder into a decision about coins. A patch now
+    remembers what was paid for what is in it (`FarmPatch.paid`, saved as an optional field), so
+    the dig-up warning quotes the gold that actually left the purse rather than today's price.
 
 29. **The fishing spot's own animation fades in and out.** The bubbles should breathe rather
     than pop. Separate from the cross-fade between the busy and the spent treatment, which

@@ -146,7 +146,7 @@ export interface RunSave {
    *  a resume would quietly charge the player for nothing. */
   traps?: { defId: HunterTrapId; x: number; y: number; charges: number }[];
   /** What is growing in the allotments, addressed by the plot's tile-derived id. */
-  farmPatches?: { id: string; seedId: SeedId; grown: number }[];
+  farmPatches?: { id: string; seedId: SeedId; grown: number; paid?: number }[];
   /** Where every plot stands — one tile-derived id each (`p<col>_<row>`), which is
    *  the whole board, since a plot's id *is* its tile. The map's own seed no longer
    *  answers this: plots can be moved and bought. Absent in saves written before
@@ -452,6 +452,9 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
           grown: 'grown' in p
             ? Math.max(0, Math.floor(num(p.grown, 0)))
             : Math.max(0, Math.floor(num(raw.wave, 1)) - Math.floor(num(p.sownAtWave, 0))),
+          // Optional: a save from before the price moved with the wave leaves the
+          // engine to fall back to the seed's base price.
+          ...('paid' in p ? { paid: Math.max(0, Math.round(num(p.paid, 0))) } : {}),
         }))
       : [],
     // A plot id is a tile, and a tile is two numbers — anything else in this list is

@@ -428,6 +428,9 @@ export interface UIState {
   farmPatches: {
     id: string; stage: PatchStage; seedId: SeedId | null;
     name: string; icon: string; wavesLeft: number;
+    /** What the seed in this patch cost when it went in — the number the dig-up
+     *  warning quotes. Zero on bare ground. */
+    paid: number;
   }[];
   /** The patch whose seed menu is open, or null. Set by clicking a bare patch. */
   pendingSow: string | null;

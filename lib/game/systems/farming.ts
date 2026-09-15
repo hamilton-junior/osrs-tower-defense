@@ -41,6 +41,25 @@ export interface FarmPatch {
   /** Waves this seed has sat through, counted one at a time as they are cleared.
    *  Meaningless while `seedId` is null, and reset by every sowing. */
   grown: number;
+  /** What the seed in the ground actually cost, in gold. The price moves with the
+   *  wave (see {@link seedCost}), so the sunk cost the dig-up warning quotes has to
+   *  be the one that was paid, not the one the same seed would cost today. Zero on
+   *  bare ground. */
+  paid: number;
+}
+
+/**
+ * What a seed costs right now.
+ *
+ * Gold is not what a seed costs you — the patch is — so the base prices are tiny
+ * and the surcharge is gentler than the one the Hunter traps carry: half a trap's
+ * rate, 1.5% of the base per wave. It is there so a wave-sixty purse, which buys
+ * towers by the handful, still pays wave-sixty money for a herb; it is not there to
+ * make the ladder a decision about coins.
+ */
+export function seedCost(def: SeedDef, wave: number): number {
+  const scaled = def.cost * (1 + Math.max(0, wave - 1) * 0.015);
+  return Math.round(scaled / 5) * 5;
 }
 
 /** A plot's name from its tile. */
@@ -65,6 +84,7 @@ export function makePatch(col: number, row: number, grid: number): FarmPatch {
     y: (row + 0.5) * grid,
     seedId: null,
     grown: 0,
+    paid: 0,
   };
 }
 

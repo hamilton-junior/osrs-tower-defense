@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { ASSETS, coinsIcon } from '@/lib/game/assets';
 import type { UIState } from '@/lib/game/core/engine';
 import { SEEDS, SEED_BY_ID, type SeedDef, type SeedId } from '@/lib/game/data/farming';
+import { seedCost } from '@/lib/game/systems/farming';
 import type { CombatStyle } from '@/lib/game/types';
 import { MovablePanel } from './MovablePanel';
 import { fmt, fs, hideBrokenImg, pct, Price } from './ui-kit';
@@ -110,7 +111,11 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
   // first, the way OSRS asks before it destroys an item.
   const [confirmDig, setConfirmDig] = useState(false);
   const seed = SEED_BY_ID[picked];
-  const broke = ui.money < seed.cost;
+  // Seeds cost a little more the deeper the run goes, so every price on this panel
+  // is the price *now* — except the one in the dig-up warning, which is the gold
+  // the player actually handed over for what is in the ground.
+  const price = seedCost(seed, ui.wave);
+  const broke = ui.money < price;
   // A patch mid-growth: how many of its waves are behind it.
   const grown = growing && plot ? growing.waves - plot.wavesLeft : 0;
 
@@ -174,7 +179,7 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
             {confirmDig ? (
               <div className="rs-panel-inset mt-[0.55em] p-[0.45em]">
                 <p className="text-[0.68em] text-[#cdbe91] leading-snug text-center">
-                  Dig up the {growing.herbName}? You lose the {fmt(growing.cost)} gp it cost.
+                  Dig up the {growing.herbName}? You lose the {fmt(plot?.paid ?? growing.cost)} gp it cost.
                 </p>
                 <div className="flex gap-[0.35em] mt-[0.4em]">
                   <button
@@ -197,7 +202,7 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
             ) : (
               <button
                 className="rs-btn w-full py-[0.35em] text-[0.74em] mt-[0.55em] flex items-center justify-center gap-[0.4em]"
-                title={`Dig up the ${growing.seedName}. You lose the ${growing.cost} gp it cost`}
+                title={`Dig up the ${growing.seedName}. You lose the ${plot?.paid ?? growing.cost} gp it cost`}
                 onClick={() => setConfirmDig(true)}
               >
                 <img src={ASSETS.misc.spade} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
@@ -217,15 +222,16 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
                 seed keeps its own icon on the Sow button below, where it belongs. */}
             <div className="grid grid-cols-5 gap-[0.3em] mt-[0.45em] overflow-y-auto custom-scrollbar pr-[0.15em] min-h-0">
               {SEEDS.map((s) => {
-                const cant = ui.money < s.cost;
+                const cost = seedCost(s, ui.wave);
+                const cant = ui.money < cost;
                 return (
                   <button
                     key={s.id}
                     type="button"
                     onClick={() => setPicked(s.id)}
                     title={cant
-                      ? `${s.seedName} — ${s.signature.label}, ${s.cost} gp, more than you have`
-                      : `${s.seedName} — ${s.signature.label}, ${s.cost} gp, ready in ${s.waves} waves`}
+                      ? `${s.seedName} — ${s.signature.label}, ${cost} gp, more than you have`
+                      : `${s.seedName} — ${s.signature.label}, ${cost} gp, ready in ${s.waves} waves`}
                     className={`rs-log-entry rs-log-sm ${cant ? 'rs-log-locked' : ''} ${s.id === picked ? 'rs-log-pick' : ''}`}
                   >
                     <img src={s.signature.icon} alt="" className="rs-log-sig" onError={hideBrokenImg} />
@@ -264,7 +270,7 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
                 <HerbHeading seed={seed} />
                 <p className="text-[0.66em] text-[#cdbe91] leading-snug mt-[0.3em]">{seed.tip}</p>
                 <div className="grid grid-cols-2 gap-x-[0.5em] gap-y-[0.15em] mt-[0.35em] items-center">
-                  <Row label="Cost" value={fmt(seed.cost)} icon={coinsIcon(seed.cost)} tone={broke ? 'text-osrs-red' : 'text-osrs-yellow'} />
+                  <Row label="Cost" value={fmt(price)} icon={coinsIcon(price)} tone={broke ? 'text-osrs-red' : 'text-osrs-yellow'} />
                   <Row label="Ready in" value={`${seed.waves} waves`} />
                   <Row label="Boost" value={boostOf(seed)} />
                   <Row label="Affects" value={scopeOf(seed)} tone="text-[#cdbe91]" />
@@ -274,12 +280,12 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
             <button
               className="rs-btn rs-btn-primary w-full py-[0.35em] text-[0.74em] mt-[0.45em] flex items-center justify-center gap-[0.4em] disabled:opacity-50"
               disabled={broke}
-              title={broke ? `${seed.seedName} costs ${fmt(seed.cost)} gp` : `Sow a ${seed.seedName}, ready in ${seed.waves} waves`}
+              title={broke ? `${seed.seedName} costs ${fmt(price)} gp` : `Sow a ${seed.seedName}, ready in ${seed.waves} waves`}
               onClick={() => onSow(patchId, seed.id)}
             >
               <img src={seed.seedIcon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
               <span>Sow the {seed.seedName}</span>
-              <Price amount={seed.cost} afford={!broke} />
+              <Price amount={price} afford={!broke} />
             </button>
           </>
         )}

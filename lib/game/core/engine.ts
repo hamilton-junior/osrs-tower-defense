@@ -61,7 +61,7 @@ import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunt
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
   buildFarmPatches, canPlacePlot, farmGoldMult, farmTowerMods, harvestable, makePatch, parsePlotId,
-  patchAtPoint, patchStage, pickPlotTiles, plotCost, plotId, wavesLeft,
+  patchAtPoint, patchStage, pickPlotTiles, plotCost, plotId, seedCost, wavesLeft,
   type FarmPatch,
 } from '../systems/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '../data/herblore';
@@ -888,6 +888,7 @@ export class GameEngine {
           name: def ? def.herbName : 'Allotment',
           icon: def ? def.herbIcon : ASSETS.misc.farming_icon,
           wavesLeft: wavesLeft(p),
+          paid: p.paid,
         };
       }),
       fishingSpots: this.fishingSpots.map(s => ({
@@ -3345,10 +3346,12 @@ export class GameEngine {
     if (!patch) return;
     if (patch.seedId) { this.notify('Something is already growing there'); return; }
     const def = SEED_BY_ID[seedId];
-    if (this.money < def.cost) { this.notify('Not enough gold'); return; }
-    this.money -= def.cost;
+    const price = seedCost(def, this.wave);
+    if (this.money < price) { this.notify('Not enough gold'); return; }
+    this.money -= price;
     patch.seedId = seedId;
     patch.grown = 0;
+    patch.paid = price;
     this.seedsSown += 1;
     this.pendingSow = null;
     this.sound.play('sell'); // the coin-shuffle: gold left the purse
@@ -3368,6 +3371,7 @@ export class GameEngine {
     const def = SEED_BY_ID[patch.seedId];
     patch.seedId = null;
     patch.grown = 0;
+    patch.paid = 0;
     this.pendingSow = null;
     this.sound.play('interface_close');
     this.notify(`${def.seedName} dug up, no refund`, def.seedIcon);
@@ -3475,6 +3479,7 @@ export class GameEngine {
     if (!def) return;
     patch.seedId = null;
     patch.grown = 0;
+    patch.paid = 0;
     this.pendingSow = null;
     const where = addItem(this.items, 'herb', def.id);
     if (where === 'bag') this.bagBump(stackKey('herb', def.id));
@@ -4086,7 +4091,7 @@ export class GameEngine {
       // What is actually in the ground...
       farmPatches: this.farmPatches
         .filter(p => p.seedId)
-        .map(p => ({ id: p.id, seedId: p.seedId!, grown: p.grown })),
+        .map(p => ({ id: p.id, seedId: p.seedId!, grown: p.grown, paid: p.paid })),
       // ...and where every plot stands, which the map alone no longer says: the
       // player can move a plot and buy more of them. A plot's id *is* its tile, so
       // this list is the board. A save written before plots could move has no such
@@ -4244,6 +4249,8 @@ export class GameEngine {
       if (!plot) continue;
       plot.seedId = s.seedId;
       plot.grown = s.grown;
+      // A save written before the price moved with the wave paid the base price.
+      plot.paid = s.paid ?? SEED_BY_ID[s.seedId].cost;
     }
     this.farmBuffs = [...(save.farmBuffs ?? [])];
     this.items = {
