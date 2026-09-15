@@ -442,8 +442,15 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     when it meets the first. Separate from the busy/spent cross-fade in `5ae377e`, which is
     untouched.
 
-30. **Fishing gets faster as the level climbs.** The cast is a flat bar today. Scale it with
-    the run's Fishing level so 99 casts 50% faster than 1; the curve between is open.
+30. **Fishing gets faster as the level climbs.** — **shipped** (2026-09-15). `castSeconds` in
+    `systems/fishing` runs straight from the old flat `CAST_SECONDS` (3s) at Fishing 1 to the
+    new `CAST_SECONDS_AT_MAX` (1.5s) at 99 — half the bar, so a maxed fisher lands two casts
+    for every one a beginner lands. Linear, the same shape the catch chance already climbs on:
+    about fifteen milliseconds a level, which is deliberately too little to feel one level at a
+    time. The engine reads it every frame inside `tickCast`, so a level-up shortens the bar the
+    player is already watching, and the bar stays wall-clock — game speed still does not move
+    it. The Fishing panel's Pools header now carries the number the ladder is buying
+    ("2 ready · 2.4s cast").
 
 31. **A higher-tier potion replaces the lower one.** Same effect, better tier: Super Energy
     overwrites Energy instead of stacking with it, and the replacement carries the *full*

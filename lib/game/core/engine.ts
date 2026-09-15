@@ -75,11 +75,11 @@ import {
   toBag, toInv, type ItemStore, type Stack, type StackKind,
 } from '../systems/inventory';
 import {
-  FISH_BY_ID, CAST_SECONDS, CAST_XP, SPOT_CASTS,
+  FISH_BY_ID, CAST_XP, SPOT_CASTS,
   FISHING_SPOT_ACTIVE_ICON, FISHING_SPOT_ICON, type FishId,
 } from '../data/fishing';
 import {
-  buildFishingSpots, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
+  buildFishingSpots, castSeconds, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
   wavesUntilRestock, placeSpot, type FishingSpot,
 } from '../systems/fishing';
 import { multiplyStyleMods, scaleAllStyles, type StyleMods } from '../systems/style-mods';
@@ -3646,7 +3646,7 @@ export class GameEngine {
   }
 
   /** Put a line in the water. Between waves only, one line at a time, and only
-   *  into a spot that still has fish in it. A cast runs to its end: three seconds
+   *  into a spot that still has fish in it. A cast runs to its end: a few seconds
    *  costs the player nothing they could want back, so clicking again — on this
    *  spot or another — only says the line is already out. */
   castLine(spotId: string) {
@@ -3668,11 +3668,14 @@ export class GameEngine {
   }
 
   /** The cast bar. Driven by the rAF loop's own wall-clock dt, outside the
-   *  game-speed sub-step loop: three seconds is three seconds at any speed. */
+   *  game-speed sub-step loop: a cast's seconds are wall-clock seconds at any
+   *  game speed. How many of them there are is the Fishing level's business
+   *  (`castSeconds`), read at every frame so a level-up shortens the bar the
+   *  player is already watching. */
   private tickCast(dt: number) {
     if (!this.castSpotId) return;
     if (this.waveActive || this.gameOver) { this.castSpotId = null; this.castProgress = 0; this.emit(); return; }
-    this.castProgress += dt / CAST_SECONDS;
+    this.castProgress += dt / castSeconds(this.fishingLevel);
     if (this.castProgress >= 1) this.landCatch();
     this.emit();
   }

@@ -1,5 +1,6 @@
 import {
   FISH, type FishDef, SPOT_CASTS, SPOT_REST_WAVES,
+  CAST_SECONDS, CAST_SECONDS_AT_MAX,
   CATCH_CHANCE_BASE, CATCH_CHANCE_PER_LEVEL, CATCH_CHANCE_MAX, FISHING_MAX_LEVEL,
 } from '../data/fishing';
 import type { TerrainField } from './terrain-generation';
@@ -162,6 +163,21 @@ export function catchesUnlockedAt(level: number): FishDef[] {
 export function catchChance(level: number): number {
   const lv = Math.max(1, Math.floor(level));
   return Math.min(CATCH_CHANCE_MAX, CATCH_CHANCE_BASE + lv * CATCH_CHANCE_PER_LEVEL);
+}
+
+/**
+ * How long one cast takes at this level, in wall-clock seconds.
+ *
+ * Straight from `CAST_SECONDS` at level 1 to `CAST_SECONDS_AT_MAX` at 99, the
+ * same shape the catch chance already climbs on. Every level shortens the bar by
+ * about fifteen milliseconds — too little to notice one at a time, which is the
+ * point: the reward for the ladder is that a late run fishes at twice the rate an
+ * early one does, not that any single level feels like a threshold.
+ */
+export function castSeconds(level: number): number {
+  const lv = Math.min(FISHING_MAX_LEVEL, Math.max(1, Math.floor(level)));
+  const climbed = (lv - 1) / (FISHING_MAX_LEVEL - 1);
+  return CAST_SECONDS + (CAST_SECONDS_AT_MAX - CAST_SECONDS) * climbed;
 }
 
 /**

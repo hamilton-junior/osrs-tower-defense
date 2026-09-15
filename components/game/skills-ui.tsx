@@ -8,6 +8,7 @@ import { trapCost } from '@/lib/game/systems/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
 import { FISH, SPOT_CASTS } from '@/lib/game/data/fishing';
+import { castSeconds } from '@/lib/game/systems/fishing';
 import { brewDamageMult } from '@/lib/game/systems/herblore';
 import { hideBrokenImg, fmt, Price } from './ui-kit';
 
@@ -712,7 +713,12 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
 function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => void }) {
   return (
     <>
-      <Section label="Pools" right={`${ui.fishingSpots.filter((s) => s.stage === 'ready').length} ready`}>
+      {/* The bar shortens as the level climbs, so the header carries the number
+          the ladder is buying: three seconds at Fishing 1, half that at 99. */}
+      <Section
+        label="Pools"
+        right={`${ui.fishingSpots.filter((s) => s.stage === 'ready').length} ready · ${castSeconds(ui.fishingLevel).toFixed(1)}s cast`}
+      >
         {ui.fishingSpots.length === 0 ? (
           <div className="text-[0.7em] text-[#9d8f6e]">This map has no water.</div>
         ) : (

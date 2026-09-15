@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { TerrainField } from './terrain-generation';
 import {
-  buildFishingSpots, spotStage, restockSpots, rollCatch, catchesUnlockedAt,
+  buildFishingSpots, castSeconds, spotStage, restockSpots, rollCatch, catchesUnlockedAt,
   catchChance, fishingXpForLevel, gainFishingXp, spotId, parseSpotId, spotAtPoint,
   wavesUntilRestock, poolTiles, placeSpot, moveSpot,
 } from './fishing';
 import {
   SPOT_CASTS, SPOT_REST_WAVES, CATCH_CHANCE_MAX, FISHING_MAX_LEVEL, CAST_XP,
+  CAST_SECONDS, CAST_SECONDS_AT_MAX,
 } from '../data/fishing';
 
 const GRID = 32;
@@ -177,6 +178,30 @@ describe('the catch roll', () => {
     expect(catchChance(1)).toBeCloseTo(0.553, 3);
     expect(catchChance(FISHING_MAX_LEVEL)).toBeLessThanOrEqual(CATCH_CHANCE_MAX);
     expect(catchChance(500)).toBe(CATCH_CHANCE_MAX);
+  });
+});
+
+describe('how long a cast takes', () => {
+  it('is the whole bar at level one', () => {
+    expect(castSeconds(1)).toBe(CAST_SECONDS);
+  });
+
+  it('is half the bar at 99', () => {
+    expect(castSeconds(FISHING_MAX_LEVEL)).toBeCloseTo(CAST_SECONDS / 2, 10);
+    expect(castSeconds(FISHING_MAX_LEVEL)).toBeCloseTo(CAST_SECONDS_AT_MAX, 10);
+  });
+
+  // Straight between the two ends, so halfway up the ladder is halfway down the
+  // bar: level 50 is 49 of the 98 levels, and 2.25s is 0.75s off 3.
+  it('runs straight between the two ends', () => {
+    expect(castSeconds(50)).toBeCloseTo(2.25, 10);
+    expect(castSeconds(25)).toBeCloseTo(3 - 1.5 * (24 / 98), 10);
+  });
+
+  it('clamps at both ends of the ladder', () => {
+    expect(castSeconds(0)).toBe(CAST_SECONDS);
+    expect(castSeconds(-20)).toBe(CAST_SECONDS);
+    expect(castSeconds(FISHING_MAX_LEVEL + 40)).toBeCloseTo(CAST_SECONDS_AT_MAX, 10);
   });
 });
 

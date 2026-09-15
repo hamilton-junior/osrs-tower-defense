@@ -3,8 +3,8 @@ import { itemIcon, npcModel } from '../assets';
 /**
  * **Fishing** — the run's fourth skill, and the only one that hands back a life.
  *
- * A cast is three seconds on a bar between waves. It always pays XP; it usually,
- * not always, lands a fish. The fish is eaten out of the inventory for lives, up
+ * A cast is a bar between waves — three seconds of it at Fishing 1, half that at
+ * 99. It always pays XP; it usually, not always, lands a fish. The fish is eaten out of the inventory for lives, up
  * to `maxLives` — a supply the run tops up itself rather than a way to outgrow
  * the health bar.
  *
@@ -54,8 +54,12 @@ export const FISH: readonly FishDef[] = [
 export const FISH_BY_ID: Record<FishId, FishDef> =
   Object.fromEntries(FISH.map(f => [f.id, f])) as Record<FishId, FishDef>;
 
-/** How long one cast takes, in wall-clock seconds. */
+/** How long one cast takes at Fishing 1, in wall-clock seconds. */
 export const CAST_SECONDS = 3;
+/** …and at 99. Half the bar, so a maxed fisher lands two casts in the time a
+ *  beginner lands one. The climb between the two is straight — see `castSeconds`
+ *  in systems/fishing. */
+export const CAST_SECONDS_AT_MAX = 1.5;
 /** XP for the cast itself — paid whether or not a fish comes up. */
 export const CAST_XP = 175;
 /** The share of casts that land a fish at level 1… */
