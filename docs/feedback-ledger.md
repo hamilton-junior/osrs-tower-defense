@@ -495,8 +495,13 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     because `data/` may only type-import from `systems/`; the test pins it above
     `EARLIEST_VICTORY_WAVE` so the two can never cross again.
 
-34. **The sell sound still plays when a fish is sold instead of eaten.** Trying to eat at full
-    hitpoints sells the fish — that is a sale, and it should sound like one.
+34. **The sell sound still plays when a fish is sold instead of eaten.** — **shipped**
+    (2026-09-15). `eatFood`'s full-lives branch awarded the gold and printed the line in
+    silence: only the healing branch had a sound, so the one outcome the player did not ask
+    for was also the one with no feedback. It plays `sell` now, the same coin-shuffle
+    `sellFood` plays, because it is the same transaction reached by a different button. The
+    kebab diversion's full-lives sale was left alone on purpose — its sound belongs to the
+    diversion opening, not to the payload.
 
 35. **Saradomin brew overheals.** Food taking over the healing job left the brew as dead
     content. Give it back its OSRS identity: it heals past maximum hitpoints, up to a cap

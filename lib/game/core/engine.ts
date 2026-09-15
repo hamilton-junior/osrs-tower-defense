@@ -3733,7 +3733,10 @@ export class GameEngine {
     if (this.lives >= this.maxLives) {
       if (!takeItem(this.items, 'food', id)) return;
       // Nothing to heal — the fish is worth gold, on the kebab diversion’s terms.
+      // It sounds like the sale it is, not like eating: the player pressed Eat and
+      // got gold, and the coin-shuffle is what tells them so.
       const gold = this.awardGold(def.gold);
+      this.sound.play('sell');
       this.notify(`You are in no need of food. You sell it for ${gold} gp.`, def.icon);
       this.emit();
       return;
