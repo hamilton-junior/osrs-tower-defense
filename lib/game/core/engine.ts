@@ -67,7 +67,7 @@ import {
 import { POTIONS, POTION_BY_ID, type PotionId } from '../data/herblore';
 import {
   HERBLORE_MAX_LEVEL, HERBLORE_START_LEVEL, brewBlocker, brewDamageMult, drinkPotion as drinkDose,
-  emptyPouch, emptyStock, gainHerbloreXp, herbloreXpForLevel, potionTowerMods, steadyPotion,
+  emptyPouch, emptyStock, gainHerbloreXp, herbloreXpForLevel, outrankedBy, potionTowerMods, steadyPotion,
   type ActivePotion, type HerbPouch, type PotionStock,
 } from '../systems/herblore';
 import {
@@ -3610,7 +3610,9 @@ export class GameEngine {
 
   /** Drink one. Most run for the potion's own count of waves, and a second dose of
    *  the same potion refills that clock rather than stacking on it — so nothing is
-   *  ever gained by saving five of one and drinking them back to back. Two pay out
+   *  ever gained by saving five of one and drinking them back to back. A better
+   *  tier of the same effect counts as that same dose: it replaces the weaker one
+   *  at its own full duration, and the weaker one is refused while it runs. Two pay out
    *  the moment they go down instead: a Saradomin brew buys a life against a
    *  permanent damage debt, and a Super restore pays part of that debt off. */
   drinkPotion(potionId: PotionId) {
@@ -3623,6 +3625,10 @@ export class GameEngine {
     if (cost > 0 && this.lives <= cost) { this.notify('Too few lives to drink that'); return; }
     // A Super restore with no brew debt to clear would pour itself away for nothing.
     if (def.clearsBrew && this.brewStacks < 1) { this.notify('No brew to clear', def.icon); return; }
+    // Neither would a tier the board is already getting a better version of. The
+    // dose stays in the pouch for the wave the better potion runs out on.
+    const covers = outrankedBy(this.activePotions, def);
+    if (covers) { this.notify(`${covers.name} already covers that`, covers.icon); return; }
     takeItem(this.items, 'potion', potionId);
     if (cost > 0) {
       this.lives -= cost;

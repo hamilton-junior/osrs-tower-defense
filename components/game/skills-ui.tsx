@@ -9,7 +9,7 @@ import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
 import { FISH, SPOT_CASTS } from '@/lib/game/data/fishing';
 import { castSeconds } from '@/lib/game/systems/fishing';
-import { brewDamageMult } from '@/lib/game/systems/herblore';
+import { brewDamageMult, outrankedBy } from '@/lib/game/systems/herblore';
 import { hideBrokenImg, fmt, Price } from './ui-kit';
 
 /**
@@ -652,15 +652,21 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
               // out: drinking it would spend the stock and change nothing.
               const idle = !!def?.clearsBrew && ui.brewStacks < 1;
               const short = cost > 0 && ui.lives <= cost;
+              // A better tier of the same effect is already up: the engine refuses
+              // the dose rather than spending it, so the tile says so first.
+              const covered = def ? outrankedBy(ui.activePotions, def) : null;
               return (
                 <Tile
                   key={p.id}
                   icon={p.icon}
                   name={p.name}
                   foot={`×${p.count}`}
-                  disabled={busy || short || idle}
+                  disabled={busy || short || idle || !!covered}
                   confirm={!!running}
-                  title={short ? 'Too few lives to drink that' : idle ? 'No brew to clear' : def?.tip}
+                  title={short ? 'Too few lives to drink that'
+                    : idle ? 'No brew to clear'
+                    : covered ? `${covered.name} already covers that`
+                    : def?.tip}
                   confirmTitle={`${p.name} still has ${running?.wavesLeft ?? 0} wave${running?.wavesLeft === 1 ? '' : 's'} left. Another dose only starts it over.`}
                   onPress={() => onDrinkPotion(p.id)}
                 />

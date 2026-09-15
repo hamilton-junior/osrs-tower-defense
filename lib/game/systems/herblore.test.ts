@@ -22,6 +22,8 @@ import {
   steadyPotion,
   tickPotions,
   brewDamageMult,
+  outranks,
+  outrankedBy,
   type ActivePotion,
 } from './herblore';
 import { POTIONS, POTION_BY_ID } from '../data/herblore';
@@ -173,6 +175,57 @@ describe('what is up', () => {
     active = drinkPotion(active, def);
     expect(active).toHaveLength(1);
     expect(active[0].wavesLeft).toBe(def.waves);
+  });
+
+  it('replaces a weaker tier of the same effect, at the full duration of the new one', () => {
+    const low = POTION_BY_ID.energy;
+    const high = POTION_BY_ID.super_energy;
+    let active = drinkPotion([], low);
+    active = tickPotions(active);
+    active = drinkPotion(active, high);
+    expect(active).toEqual([{ id: 'super_energy', wavesLeft: high.waves }]);
+  });
+
+  it('treats the melee potions as one line, not three pairs', () => {
+    const line = [
+      POTION_BY_ID.attack, POTION_BY_ID.strength, POTION_BY_ID.combat,
+      POTION_BY_ID.super_attack, POTION_BY_ID.super_strength,
+    ];
+    const active = line.reduce<ActivePotion[]>((a, def) => drinkPotion(a, def), []);
+    // Every one of them is a weaker tier of the Super combat, so it clears the lot.
+    expect(drinkPotion(active, POTION_BY_ID.super_combat))
+      .toEqual([{ id: 'super_combat', wavesLeft: POTION_BY_ID.super_combat.waves }]);
+    // ...and going up the line one rung at a time never leaves two melee doses up.
+    expect(active).toHaveLength(1);
+    expect(active[0].id).toBe('super_strength');
+  });
+
+  it('leaves the potions that pay in lives off the ladders', () => {
+    const active = drinkPotion(drinkPotion([], POTION_BY_ID.super_combat), POTION_BY_ID.zamorak);
+    expect(active.map(a => a.id).sort()).toEqual(['super_combat', 'zamorak']);
+    expect(outranks('super_combat', 'zamorak')).toBe(false);
+    expect(outranks('overload', 'super_combat')).toBe(false);
+  });
+
+  it('names the better dose that refuses a weaker one, and only down the line', () => {
+    const up = drinkPotion([], POTION_BY_ID.bastion);
+    expect(outrankedBy(up, POTION_BY_ID.ranging)?.id).toBe('bastion');
+    // The same dose again is a refresh, not a refusal, and so is the way up.
+    expect(outrankedBy(up, POTION_BY_ID.bastion)).toBeNull();
+    expect(outrankedBy(drinkPotion([], POTION_BY_ID.ranging), POTION_BY_ID.bastion)).toBeNull();
+    // A different effect never blocks: a Ranging potion says nothing about magic.
+    expect(outrankedBy(up, POTION_BY_ID.battlemage)).toBeNull();
+  });
+
+  it('picks the best of several running doses to name', () => {
+    // Nothing puts two rungs of one line up any more, but a save written before the
+    // ladders existed can, and the refusal has to name the strongest of them.
+    const active: ActivePotion[] = [
+      { id: 'attack', wavesLeft: 2 },
+      { id: 'super_strength', wavesLeft: 1 },
+      { id: 'combat', wavesLeft: 3 },
+    ];
+    expect(outrankedBy(active, POTION_BY_ID.attack)?.id).toBe('super_strength');
   });
 
   it('runs out after exactly the waves it promised', () => {

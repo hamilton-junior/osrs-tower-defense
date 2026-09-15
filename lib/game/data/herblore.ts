@@ -394,6 +394,33 @@ export const POTION_BY_ID: Record<PotionId, PotionDef> = Object.fromEntries(
   POTIONS.map(p => [p.id, p]),
 ) as Record<PotionId, PotionDef>;
 
+/**
+ * The tier ladders — one effect, worst tier to best.
+ *
+ * OSRS holds several tiers of the same potion, and running two of them at once was
+ * never what they are for: a Super energy *is* an Energy potion, brewed better. So
+ * a dose displaces every weaker dose on its line and enters at its own full
+ * duration, and a weaker dose is refused while a better one is up rather than
+ * poured away for nothing. Both halves live in `systems/herblore` — `drinkPotion`
+ * and `outrankedBy`.
+ *
+ * The melee potions are one line, not three pairs. Attack, Strength and Combat are
+ * the same argument about the same towers, Super combat is where that argument
+ * ends, and one melee potion runs at a time.
+ *
+ * Three potions stay off the ladders. A Zamorak brew and an Overload each buy
+ * their strength with lives, so they are worth keeping drinkable beside whatever
+ * else is up; a Saradomin brew and a Super restore never join the running list at
+ * all.
+ */
+export const POTION_LADDERS: readonly (readonly PotionId[])[] = [
+  ['attack', 'strength', 'combat', 'super_attack', 'super_strength', 'super_combat'],
+  ['energy', 'super_energy'],
+  ['antidote', 'superantipoison', 'sanfew'],
+  ['ranging', 'bastion'],
+  ['magic', 'battlemage'],
+];
+
 /** How much a Saradomin brew's stack takes off every boostable tower's damage.
  *  Multiplicative, so stacks pile up towards nothing rather than through it. */
 export const BREW_DAMAGE_PENALTY = 0.08;

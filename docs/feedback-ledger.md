@@ -452,10 +452,18 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     it. The Fishing panel's Pools header now carries the number the ladder is buying
     ("2 ready · 2.4s cast").
 
-31. **A higher-tier potion replaces the lower one.** Same effect, better tier: Super Energy
-    overwrites Energy instead of stacking with it, and the replacement carries the *full*
-    duration of the new tier. Applies to every ladder where the game holds two tiers of one
-    effect.
+31. **A higher-tier potion replaces the lower one.** — **shipped** (2026-09-15).
+    `POTION_LADDERS` in `data/herblore` names the five lines the game holds more than one tier
+    of, worst to best: the melee line (Attack, Strength, Combat, Super attack, Super strength,
+    Super combat), Energy, the Antidote line, Ranging and Magic. `drinkPotion` drops every
+    weaker dose on the line and enters at the new tier's own full duration, and `outrankedBy`
+    refuses the weaker dose while a better one runs — **without spending it**: the potion stays
+    in the pouch for the wave the better one runs out on, and the Herblore panel greys the tile
+    and names the potion that covers it. The user's ruling made the melee potions **one line**
+    rather than three same-name pairs, so only one melee potion runs at a time and Super combat
+    displaces all five below it. Zamorak brew and Overload stay off the ladders on purpose —
+    both buy their strength with lives, and that bargain is worth keeping drinkable beside
+    whatever else is up.
 
 32. **The Toxic Staff of the Dead's venom aura is far too wide.** It should reach about 3×3
     from the tower's own tile. Today it covers the board, and the utility tower's range buff

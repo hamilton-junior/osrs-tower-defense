@@ -19,7 +19,9 @@
  *    `systems/style-mods`.
  */
 
-import { POTIONS, POTION_BY_ID, BREW_DAMAGE_PENALTY, type PotionDef, type PotionId } from '../data/herblore';
+import {
+  POTIONS, POTION_BY_ID, POTION_LADDERS, BREW_DAMAGE_PENALTY, type PotionDef, type PotionId,
+} from '../data/herblore';
 import { SEEDS, type SeedId } from '../data/farming';
 import { applyStyleBoost, identityStyleMods, type StyleMods } from './style-mods';
 
@@ -135,7 +137,8 @@ export function brewBlocker(
 // A dose is a countdown in waves. Several may be up at once — they are different
 // potions doing different things — but a second dose of the *same* potion refills
 // its clock rather than stacking on top of itself, so nothing is ever gained by
-// hoarding five of one and drinking them back to back.
+// hoarding five of one and drinking them back to back. Two tiers of one effect are
+// the same case: the better dose replaces the worse (see `POTION_LADDERS`).
 //
 // Two potions never join this list at all: a Super restore and a Saradomin brew do
 // their whole job on the way down (`waves: 0`), and the engine reads `lives`,
@@ -146,9 +149,44 @@ export interface ActivePotion {
   wavesLeft: number;
 }
 
-/** Drink one: refresh it if it is already up, otherwise add it. */
+/** Which ladder a potion is on and how high, for every potion on one. */
+const RUNG: Map<PotionId, { line: number; rung: number }> = new Map();
+POTION_LADDERS.forEach((ladder, line) => ladder.forEach((id, rung) => RUNG.set(id, { line, rung })));
+
+/** Whether `higher` is a better tier of the same effect as `lower`. False for any
+ *  pair the ladders don't put on one line — a Zamorak brew outranks nothing. */
+export function outranks(higher: PotionId, lower: PotionId): boolean {
+  const a = RUNG.get(higher);
+  const b = RUNG.get(lower);
+  return !!a && !!b && a.line === b.line && a.rung > b.rung;
+}
+
+/**
+ * The dose already running that makes this one pointless, or null if the drink may
+ * go ahead.
+ *
+ * Drinking down the ladder is refused rather than spent. A dose the board is
+ * already getting a better version of would be poured away for nothing, and the
+ * player is far likelier to have misread the pouch than to have meant it — so the
+ * potion stays in the pouch for the wave the better one runs out on.
+ */
+export function outrankedBy(active: readonly ActivePotion[], def: PotionDef): PotionDef | null {
+  let best: PotionDef | null = null;
+  for (const a of active) {
+    if (!outranks(a.id, def.id)) continue;
+    if (!best || outranks(a.id, best.id)) best = POTION_BY_ID[a.id];
+  }
+  return best;
+}
+
+/** Drink one: refresh it if it is already up, otherwise add it — and either way
+ *  drop every weaker tier of the same effect, which this dose now covers. The new
+ *  dose always enters at its own full duration, never the remains of the old
+ *  one's. */
 export function drinkPotion(active: readonly ActivePotion[], def: PotionDef): ActivePotion[] {
-  const out = active.map(a => (a.id === def.id ? { ...a, wavesLeft: def.waves } : a));
+  const out = active
+    .filter(a => !outranks(def.id, a.id))
+    .map(a => (a.id === def.id ? { ...a, wavesLeft: def.waves } : a));
   if (!out.some(a => a.id === def.id)) out.push({ id: def.id, wavesLeft: def.waves });
   return out;
 }
