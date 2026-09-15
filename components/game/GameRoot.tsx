@@ -93,7 +93,6 @@ const INITIAL: UIState = {
   unlocks: [], unlockSeq: 0,
   killCounts: {},
   achievements: [],
-  fusedThisLeg: false,
   cardCounts: {},
   bossesSeen: {},
   diversionsMet: {},

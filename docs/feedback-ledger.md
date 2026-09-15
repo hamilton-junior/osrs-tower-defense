@@ -416,9 +416,12 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     `rs-log-entry` sprite tiles — the opening menu, the back arrow and the nested scrollers
     are gone.
 
-27. **A tower may be fused more than once.** The one-fusion-per-tower rule goes: if the player
-    owns the two towers and the gold, the forge is open. The closed roster is untouched — a
-    fusion still consumes both halves rather than adding a seventh buyable tower.
+27. **A tower may be fused more than once.** — **shipped** (2026-09-15). The rule in the code
+    was one fusion per leg of the road, reset by travelling; it is gone, along with
+    `fusedThisLeg` (the engine field, the `UIState` key, the run-save field and the `leg` block
+    reason). Two maxed towers on adjacent tiles, The Forge cleared and the 2000gp fee are now
+    the whole gate, and a run may forge as many weapons as it can pay for. The closed roster is
+    untouched — a fusion still eats both halves.
 
 28. **Herb prices scale with the wave, lightly.** The same per-wave treatment the Hunter traps
     already carry, tuned gentler, so a wave-sixty board cannot buy herbs at wave-one prices.

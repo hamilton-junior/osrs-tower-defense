@@ -74,9 +74,6 @@ export interface RunSave {
    *  a save written before farming existed resumes with both at 0. */
   seedsSown?: number;
   herbsHarvested?: number;
-  /** Whether this leg has already spent its one tower fusion. Optional: a save
-   *  written before fusion existed simply resumes with its forge unspent. */
-  fusedThisLeg?: boolean;
   essenceEarnedThisRun: number;
   /** Simulated seconds elapsed — every tower cooldown is stamped against this. */
   gameTime: number;
@@ -359,7 +356,6 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     kills: Math.max(0, Math.floor(num(raw.kills, 0))),
     goldEarned: Math.max(0, Math.floor(num(raw.goldEarned, 0))),
     towersBuilt: Math.max(0, Math.floor(num(raw.towersBuilt, 0))),
-    fusedThisLeg: raw.fusedThisLeg === true,
     essenceEarnedThisRun: Math.max(0, Math.floor(num(raw.essenceEarnedThisRun, 0))),
     gameTime: Math.max(0, num(raw.gameTime, 0)),
     realTime: Math.max(0, num(raw.realTime, 0)),

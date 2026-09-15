@@ -30,7 +30,6 @@ const ctx = (over: Partial<FusionContext> = {}): FusionContext => ({
   grid: GRID,
   money: 10_000,
   completed: new Set([FUSION_UNLOCK_CA]),
-  fusedThisLeg: false,
   ...over,
 });
 
@@ -132,7 +131,6 @@ describe('checkFusion', () => {
       [tower('a', 'archer', 100, 100, 1), b(), {}, 'tier'],
       [a(), tower('b', 'slayer', 400, 400), {}, 'adjacent'],
       [a(), b(), { completed: new Set<string>() }, 'locked'],
-      [a(), b(), { fusedThisLeg: true }, 'leg'],
       [a(), b(), { money: 0 }, 'gold'],
     ];
     for (const [x, y, over, reason] of cases) {
@@ -154,7 +152,7 @@ describe('checkFusion', () => {
   });
 
   it('every block has copy', () => {
-    for (const k of ['pair', 'tier', 'adjacent', 'locked', 'leg', 'gold'] as const) {
+    for (const k of ['pair', 'tier', 'adjacent', 'locked', 'gold'] as const) {
       expect(FUSION_BLOCK_TEXT[k].length).toBeGreaterThan(0);
     }
   });

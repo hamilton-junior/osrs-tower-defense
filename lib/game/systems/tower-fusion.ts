@@ -10,8 +10,11 @@
  *      climbs is the only currency.
  *   2. In the run: two towers of the right **pair**, both at **max tier**,
  *      standing on **adjacent tiles**, and a fusion fee in gold.
- *   3. **One fusion per leg of the road** (reset when the run travels), so the
- *      board can't be collapsed into a wall of fused weapons in a single stop.
+ *
+ * There is no cap on how many a run may forge. The run used to get one fusion
+ * per leg of the road, which turned a player who had earned the parts into a
+ * player waiting for a signpost. What a fusion already costs is enough: two
+ * finished towers and the fee, paid again in full for every weapon.
  *
  * The cost is structural: two damage sources become one, and a plot is freed.
  * So a fusion must do something no quantity of its parents can — never just
@@ -188,7 +191,7 @@ export function areAdjacent(
 }
 
 /** Why a fusion the player can see is not available yet. */
-export type FusionBlock = 'pair' | 'tier' | 'adjacent' | 'locked' | 'leg' | 'gold';
+export type FusionBlock = 'pair' | 'tier' | 'adjacent' | 'locked' | 'gold';
 
 /** One short plain sentence per block, shown on the panel and in a notification. */
 export const FUSION_BLOCK_TEXT: Record<FusionBlock, string> = {
@@ -196,14 +199,13 @@ export const FUSION_BLOCK_TEXT: Record<FusionBlock, string> = {
   tier: 'Both towers must be fully upgraded.',
   adjacent: 'The two towers must stand side by side.',
   locked: 'Complete The Forge to unlock fusing.',
-  leg: 'This leg already has its fusion. Travel on for another.',
   gold: 'Not enough gold.',
 };
 
 /** How close a blocked offer is to being fusable, so the panel can lead with the
  *  near miss instead of an arbitrary one. Mirrors the order of `checkFusion`. */
 const BLOCK_PROGRESS: Record<FusionBlock, number> = {
-  pair: 0, tier: 1, adjacent: 2, locked: 3, leg: 4, gold: 5,
+  pair: 0, tier: 1, adjacent: 2, locked: 3, gold: 4,
 };
 
 export type FusionCheck =
@@ -216,8 +218,6 @@ export interface FusionContext {
   money: number;
   /** The account's cleared Combat Achievements. */
   completed: ReadonlySet<string>;
-  /** Whether this leg of the road has already had its one fusion. */
-  fusedThisLeg: boolean;
   cost?: number;
 }
 
@@ -231,7 +231,6 @@ export function checkFusion(a: Tower, b: Tower, ctx: FusionContext): FusionCheck
   if (!isFusionReady(a) || !isFusionReady(b)) return { ok: false, def, reason: 'tier' };
   if (!areAdjacent(a, b, ctx.grid)) return { ok: false, def, reason: 'adjacent' };
   if (!ctx.completed.has(FUSION_UNLOCK_CA)) return { ok: false, def, reason: 'locked' };
-  if (ctx.fusedThisLeg) return { ok: false, def, reason: 'leg' };
   const cost = ctx.cost ?? FUSION_COST;
   if (ctx.money < cost) return { ok: false, def, reason: 'gold' };
   return { ok: true, def, cost };

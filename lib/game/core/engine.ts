@@ -321,9 +321,6 @@ export class GameEngine {
    *  They differ whenever a run ends with something still growing. */
   seedsSown = 0;
   herbsHarvested = 0;
-  /** Whether this leg of the road has already spent its one tower fusion. Reset
-   *  by {@link travelTo} — the run earns another forge by moving on. */
-  fusedThisLeg = false;
   /** Rune Essence awarded *during this run* (wave clears + essence cards), kept
    *  separate from the persistent {@link MetaSystem} balance so the summary can
    *  show what the run earned. Reset on {@link restart}. */
@@ -928,7 +925,6 @@ export class GameEngine {
       }),
       killCounts: this.killCounts,
       achievements: [...this.achievements],
-      fusedThisLeg: this.fusedThisLeg,
       cardCounts: this.cardCounts,
       bossesSeen: this.bossesSeen,
       diversionsMet: this.diversionsMet,
@@ -2926,14 +2922,13 @@ export class GameEngine {
   // --------------------------------------------------------------- fusion
   // Two finished towers become one weapon that does something neither could.
   // The gate itself is pure and lives in systems/tower-fusion; the engine only
-  // owns the mutation and the one per-leg budget.
+  // owns the mutation.
 
   private fusionContext(): FusionContext {
     return {
       grid: GRID,
       money: this.money,
       completed: this.achievements,
-      fusedThisLeg: this.fusedThisLeg,
     };
   }
 
@@ -2998,7 +2993,6 @@ export class GameEngine {
       if (b.equipment.jewellery) this.bagAdd([b.equipment.jewellery]);
     }
     this.towers = this.towers.flatMap(t => (t === a ? [fused] : t === b ? [] : [t]));
-    this.fusedThisLeg = true;
     // A new object, not a mutation: the UI diff compares references, so forging
     // the same weapon twice has to look like a change to reach the Log.
     this.fusionsMade = { ...this.fusionsMade, [res.def.type]: (this.fusionsMade[res.def.type] ?? 0) + 1 };
@@ -4115,7 +4109,6 @@ export class GameEngine {
       herbloreXp: this.herbloreXp,
       activePotions: this.activePotions.map(a => ({ ...a })),
       brewStacks: this.brewStacks,
-      fusedThisLeg: this.fusedThisLeg,
       essenceEarnedThisRun: this.essenceEarnedThisRun,
       // Tower cooldowns are stamped against this clock, so it travels with them.
       gameTime: this.gameTime,
@@ -4263,8 +4256,6 @@ export class GameEngine {
     this.brewStacks = save.brewStacks ?? 0;
     this.steadySaid = false;
     this.pendingSow = null;
-    // A save from before fusion existed resumes with its forge unspent.
-    this.fusedThisLeg = save.fusedThisLeg ?? false;
     this.essenceEarnedThisRun = save.essenceEarnedThisRun;
     this.gameTime = save.gameTime;
     this.realTime = save.realTime;
@@ -4431,7 +4422,6 @@ export class GameEngine {
     this.brewStacks = 0;
     this.steadySaid = false;
     this.pendingSow = null;
-    this.fusedThisLeg = false;
     this.essenceEarnedThisRun = 0;
     this.caStats = emptyRunStats(this.gameMode, this.difficultyTier);
     this.waveTotal = 0;
@@ -4695,7 +4685,6 @@ export class GameEngine {
     this.biome = BIOMES[id];
     this.previewCache = null; // the next wave's roster is the new region's
     this.slayer.rerollForRegion(); // a task this region cannot supply is reassigned free
-    this.fusedThisLeg = false; // a new leg of the road, a new forge
     this.notify(`You travel to ${this.biome.name}`);
     this.sound.play('interface_open');
     this.emit();
