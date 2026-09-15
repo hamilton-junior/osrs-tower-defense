@@ -174,7 +174,23 @@ export default function GameRoot() {
   // (and re-collapsed each wave) so the panel's footprint over the board stays
   // the same in wave 500 as in wave 5 — see `capWavePreview`.
   const [previewExpanded, setPreviewExpanded] = useState(false);
-  useEffect(() => { setPreviewExpanded(false); }, [ui.wave]);
+  // At rest the strip is a single chip; the roster opens under it while the
+  // pointer is on it, and a click pins it open for a player who wants to read it
+  // with the mouse somewhere else. A new wave drops all three back to the chip.
+  const [previewPinned, setPreviewPinned] = useState(false);
+  const [previewHover, setPreviewHover] = useState(false);
+  const previewOpen = previewPinned || previewHover;
+  // The one thing the chip cannot leave to the hover: a boss is the reason to
+  // read the roster at all, so the chip says so before it is opened.
+  const previewBosses = useMemo(() => {
+    const bosses = ui.wavePreview.filter((m) => m.isBoss);
+    return { count: bosses.reduce((s, m) => s + m.count, 0), name: bosses[0]?.name ?? '' };
+  }, [ui.wavePreview]);
+  useEffect(() => {
+    setPreviewExpanded(false);
+    setPreviewPinned(false);
+    setPreviewHover(false);
+  }, [ui.wave]);
   const unlockIdRef = useRef(0);
   const lastUnlockSeq = useRef(0);
   // Loot-bag drop toasts: a small stack in the corner over the interface stones,
@@ -2362,12 +2378,40 @@ export default function GameRoot() {
                   </div>
                 </>
               ) : (
-                <>
-                  <div className="text-center text-[0.62em] text-[#d3c3a0] uppercase tracking-wide mb-[0.25em]">
-                    {ui.runPhase === 'endless' && <span className="text-osrs-orange">Endless · </span>}
-                    Next: Wave {ui.wave} · {ui.wavePreview.reduce((s, m) => s + m.count, 0)} incoming
-                  </div>
-                  <div className="flex items-center justify-center gap-[0.7em] flex-wrap">
+                // Hover lives on this wrapper rather than on the chip, because the
+                // roster is a DOM child of it: React only reports a leave once the
+                // pointer is out of the element and everything inside it, so moving
+                // from the chip down into the roster never closes it.
+                <div
+                  onMouseEnter={() => setPreviewHover(true)}
+                  onMouseLeave={() => setPreviewHover(false)}
+                >
+                  {/* The strip at rest: one line saying which wave is next, how many
+                      it brings, and — in red — whether a boss is among them. That is
+                      the whole footprint over the board until the player asks for
+                      more. The button is the ask: a click pins the roster open. */}
+                  <button
+                    type="button"
+                    data-no-drag
+                    className="flex w-full items-center justify-center gap-[0.4em] text-[0.62em] text-[#d3c3a0] uppercase tracking-wide"
+                    onClick={() => setPreviewPinned((v) => !v)}
+                    title={previewOpen ? 'Hide what this wave brings' : 'Show what this wave brings'}
+                  >
+                    {ui.runPhase === 'endless' && <span className="text-osrs-orange">Endless ·</span>}
+                    <span>Next: Wave {ui.wave} · {ui.wavePreview.reduce((s, m) => s + m.count, 0)} incoming</span>
+                    {previewBosses.count > 0 && (
+                      <span className="text-osrs-red font-bold">
+                        ⚠ {previewBosses.count === 1 ? previewBosses.name : `${previewBosses.count} bosses`}
+                      </span>
+                    )}
+                    <span className="text-[0.8em] text-[#b3a585]">{previewOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {/* The roster hangs off the chip as an overlay instead of growing it,
+                      so the event chip and the infoboxes below keep their place when it
+                      opens. It sits flush against the chip's bottom edge on purpose:
+                      a gap there is board, and crossing board would close it. */}
+                  {previewOpen && (
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 z-30 rs-panel px-[0.7em] py-[0.4em] w-max max-w-[46em] flex items-center justify-center gap-[0.7em] flex-wrap">
                     {(previewExpanded ? ui.wavePreview : capWavePreview(ui.wavePreview)).map((m) => {
                       const style = enemySpriteStyle(m.type);
                       return (
@@ -2406,7 +2450,8 @@ export default function GameRoot() {
                       );
                     })()}
                   </div>
-                </>
+                  )}
+                </div>
               )}
             </MovablePanel>
           )}

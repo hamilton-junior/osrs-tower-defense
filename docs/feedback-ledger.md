@@ -397,11 +397,16 @@ the OSRS cache as always ([[assets-from-osrs-only]] / `lib/game/assets.ts`).
 Thirteen items handed over in one message, in the order the user wrote them. None of them is
 designed yet; each entry is the brief plus whatever the user already decided about it.
 
-25. **The next-wave preview takes too much room.** The strip that shows what the coming wave
-    brings eats a lot of the board and reads as clutter. Shrink it or restate it — the
-    information stays, the footprint does not. It was already capped once (item **3**, B1,
-    `d815c10`): twelve entries plus "+N more". That cap stopped it swallowing clicks; it did
-    not make it small.
+25. **The next-wave preview takes too much room.** — **shipped** (2026-09-15). The user chose
+    the chip over a row of RuneLite-style infoboxes and over moving the preview into the bottom
+    bar. At rest the strip is one line — the wave, how many it brings, and a red warning naming
+    the boss if one is coming — and the roster opens under it while the pointer is on it; a
+    click pins it open, and the next wave drops it back to the chip. The roster is an absolute
+    overlay flush against the chip's bottom edge, so the event chip and the infoboxes below keep
+    their place, and nothing covers the board until the player asks. Measured headless at wave
+    1201 with 513 incoming: the chip is 255×30 whatever the wave holds, against the 734×98 the
+    roster took as a permanent fixture. The cap from item **3** (B1, `d815c10`) still governs the
+    open roster — twelve entries plus "+N more".
 
 26. **The skill screens want a real design.** — **shipped** (2026-09-14, `718450e`). Research
     covered the Collection Log and the minigame interfaces (Tempoross, Wintertodt, Barbarian
