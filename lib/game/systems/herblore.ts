@@ -280,3 +280,26 @@ export function potionsSteady(active: readonly ActivePotion[]): boolean {
 export function brewDamageMult(stacks: number): number {
   return Math.pow(1 - BREW_DAMAGE_PENALTY, Math.max(0, Math.floor(stacks)));
 }
+
+/**
+ * How far past the run's maximum a Saradomin brew heals, as a share of that
+ * maximum. A fifth: enough to be worth the brew debt on any board, never enough to
+ * be a second health bar.
+ */
+export const OVERHEAL_FRAC = 0.2;
+
+/**
+ * The ceiling a Saradomin brew heals to — above the run's own maximum, which is the
+ * potion's OSRS identity and the reason it still has a job now that food does the
+ * ordinary healing.
+ *
+ * Read off the maximum rather than written down, so a run that drafted extra lives
+ * gets a proportional cushion instead of a flat one. Rounded up, with a floor of one,
+ * so the smallest board still gains a life. Nothing decays the overheal: it sits there
+ * until a leak takes it, which is what makes brewing ahead of a boss wave a decision
+ * rather than a stopwatch.
+ */
+export function overhealCap(maxLives: number): number {
+  const max = Math.max(0, Math.floor(maxLives));
+  return max + Math.max(1, Math.ceil(max * OVERHEAL_FRAC));
+}

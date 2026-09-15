@@ -77,6 +77,12 @@ function stubEngine() {
     }),
     killGoldPreReward: () => 10,
     awardGold: (n: number) => { gold += n; },
+    // Mirrors GameEngine.healLives: up to the cap, never downwards. A kill can pay a
+    // life back (Soul Eater), so the stub needs the real arithmetic, not a setter.
+    healLives: (n: number, cap?: number) => {
+      const c = cap ?? e.maxLives;
+      e.lives = Math.min(Math.max(c, e.lives), e.lives + n);
+    },
     checkAchievements: () => {},
     steadyHeld: () => false,
     emit: () => {},

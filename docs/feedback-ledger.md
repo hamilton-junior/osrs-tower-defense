@@ -503,9 +503,25 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     kebab diversion's full-lives sale was left alone on purpose — its sound belongs to the
     diversion opening, not to the payload.
 
-35. **Saradomin brew overheals.** Food taking over the healing job left the brew as dead
-    content. Give it back its OSRS identity: it heals past maximum hitpoints, up to a cap
-    derived from the maximum.
+35. **Saradomin brew overheals.** — **shipped** (2026-09-15). The cap is
+    `overhealCap(maxLives)` in `systems/herblore`: the maximum plus a fifth of it, rounded up
+    with a floor of one life, so a 20-life run brews up to 24 and the smallest board still
+    gains something. Per the user's ruling nothing decays it — the extra life sits there until
+    a leak takes it, which is what makes brewing ahead of a boss wave a decision rather than a
+    stopwatch. The brew carries a new data flag (`overheals` on `PotionDef`) rather than being
+    named in the engine, so the cap belongs to the potion.
+
+    The work was not the cap but the clamps. Every heal in the game read
+    `Math.min(maxLives, lives + n)`, which is identical arithmetic until the count sits above
+    the maximum — and then the next fish eaten, Ranarr life restored, Sanfew pour, Soul Eater
+    kill or draft card would have silently clipped the overheal away. They all route through a
+    new `GameEngine.healLives(n, cap = this.maxLives)` that heals towards the larger of the cap
+    and the current count, so a heal can top a run up and can never be the thing that spends
+    the brew's life. `sanitizeRunSave` clamps to the overheal cap too, or a reload would drink
+    it. The debug console's life setter follows, so the state can be reached without brewing.
+    In the bottom bar the count turns OSRS's boosted-stat green above the maximum — the gauge
+    itself clamps to full, so the colour is the only thing that can report a life riding above
+    the bar.
 
 36. **Confirm a brew drunk at the overheal cap**, the same way the game already confirms an
     action that would be wasted.

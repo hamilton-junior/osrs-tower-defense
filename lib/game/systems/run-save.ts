@@ -6,7 +6,7 @@ import { HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '../data/farming';
 import { POTION_BY_ID, type PotionId } from '../data/herblore';
 import { FISH_BY_ID, FISHING_MAX_LEVEL, SPOT_CASTS, SPOT_REST_WAVES } from '../data/fishing';
-import { HERBLORE_START_LEVEL } from './herblore';
+import { HERBLORE_START_LEVEL, overhealCap } from './herblore';
 import { addItem, emptyStore, sanitizeStore, type ItemStore, type StackKind } from './inventory';
 import { GEAR } from '../data/gear';
 import type { RunStats } from './combat-achievements';
@@ -350,8 +350,10 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
     difficultyTier: clampTier(num(raw.difficultyTier, 0)),
     wave,
     money: Math.max(0, Math.floor(num(raw.money, 0))),
-    // A save with 0 lives would resume straight into a game over.
-    lives: Math.min(maxLives, Math.max(1, Math.floor(num(raw.lives, maxLives)))),
+    // A save with 0 lives would resume straight into a game over. The ceiling is the
+    // Saradomin brew's overheal cap rather than the maximum: a run put down holding
+    // the brew's extra life has to come back holding it.
+    lives: Math.min(overhealCap(maxLives), Math.max(1, Math.floor(num(raw.lives, maxLives)))),
     maxLives,
     kills: Math.max(0, Math.floor(num(raw.kills, 0))),
     goldEarned: Math.max(0, Math.floor(num(raw.goldEarned, 0))),

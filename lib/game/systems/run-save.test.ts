@@ -3,6 +3,7 @@ import { sanitizeRunSave, isResumable, RUN_SAVE_VERSION, type RunSave } from './
 import { SPOT_CASTS, SPOT_REST_WAVES } from '../data/fishing';
 import { GEAR } from '../data/gear';
 import { emptyRunStats } from './combat-achievements';
+import { overhealCap } from './herblore';
 
 /** A minimal, valid save — the tests below bend one field at a time from this. */
 function makeSave(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -74,8 +75,10 @@ describe('sanitizeRunSave', () => {
   it('never resumes into an instant game over', () => {
     expect(sanitizeRunSave(makeSave({ lives: 0 }))!.lives).toBe(1);
     expect(sanitizeRunSave(makeSave({ lives: -5 }))!.lives).toBe(1);
-    // Lives can't exceed the cap the run had.
-    expect(sanitizeRunSave(makeSave({ lives: 99, maxLives: 10 }))!.lives).toBe(10);
+    // Lives can't exceed the cap the run had — which is the Saradomin brew's
+    // overheal cap, not maxLives, or a reload would drink the overheal.
+    expect(sanitizeRunSave(makeSave({ lives: 99, maxLives: 10 }))!.lives).toBe(overhealCap(10));
+    expect(sanitizeRunSave(makeSave({ lives: 12, maxLives: 10 }))!.lives).toBe(12);
   });
 
   it('coerces nonsense numbers to sane ones rather than discarding the run', () => {

@@ -24,6 +24,8 @@ import {
   brewDamageMult,
   outranks,
   outrankedBy,
+  OVERHEAL_FRAC,
+  overhealCap,
   type ActivePotion,
 } from './herblore';
 import { POTIONS, POTION_BY_ID } from '../data/herblore';
@@ -342,5 +344,28 @@ describe('the brew debt', () => {
   it('never takes the towers down to nothing', () => {
     // A player who drinks brew after brew keeps paying, and keeps shooting.
     expect(brewDamageMult(50)).toBeGreaterThan(0);
+  });
+});
+
+describe('the overheal cap', () => {
+  it('sits a fifth above the maximum', () => {
+    expect(OVERHEAL_FRAC).toBe(0.2);
+    expect(overhealCap(20)).toBe(24);
+    expect(overhealCap(50)).toBe(60);
+  });
+
+  it('rounds up, so a fraction of a life is still a life', () => {
+    expect(overhealCap(7)).toBe(9); // 1.4 rounded up to 2
+    expect(overhealCap(11)).toBe(14);
+  });
+
+  it('is worth at least one life however small the board', () => {
+    for (let max = 1; max <= 10; max++) {
+      expect(overhealCap(max), `maxLives ${max}`).toBeGreaterThan(max);
+    }
+  });
+
+  it('belongs to the Saradomin brew alone', () => {
+    expect(POTIONS.filter((p) => p.overheals).map((p) => p.id)).toEqual(['brew']);
   });
 });

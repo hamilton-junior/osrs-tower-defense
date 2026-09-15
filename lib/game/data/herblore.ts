@@ -86,6 +86,10 @@ export interface PotionDef {
   lives?: number;
   /** Permanent weakness stacks the dose leaves on the board. */
   brewStacks?: number;
+  /** Whether the dose heals past the run's maximum, up to `overhealCap`
+   *  (`systems/herblore`). The Saradomin brew's alone: it is what gives the brew a
+   *  reason to exist beside a ladder of fish that heal for free. */
+  overheals?: boolean;
   /** Brew stacks the dose washes out, or `'all'` for the lot. */
   clearsBrew?: number | 'all';
   /** Lives drinking it costs. Only the Zamorak brew asks for any — that is its
@@ -341,8 +345,9 @@ export const POTIONS: PotionDef[] = [
     waves: 0,
     lives: 1,
     brewStacks: 1,
+    overheals: true,
     icon: itemIcon('saradomin_brew'),
-    tip: 'Hands you a life now, and leaves every tower weaker for the rest of the run.',
+    tip: 'Heals you past your maximum, and leaves every tower weaker for the rest of the run.',
     signature: { label: 'Bulwark', icon: ASSETS.misc.orb_hitpoints },
   },
   {

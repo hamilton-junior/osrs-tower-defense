@@ -4323,12 +4323,17 @@ export default function GameRoot() {
               <div data-tut="hud" className="flex flex-1 items-center gap-[0.6em]">
               <div className="relative flex-1 min-w-0">
                 <div key={ui.lifestealSeq} className={ui.lifestealSeq > 0 ? 'rs-vital-blip' : undefined}>
+                  {/* Lives above the maximum — the Saradomin brew's overheal — read in
+                      OSRS's own boosted-stat green, the way a raised skill level reads in
+                      the client. The gauge clamps to full, so the colour is the only
+                      thing that can say a life is riding above the bar. */}
                   <Vital
                     icon={ASSETS.misc.orb_hitpoints}
                     orb={ASSETS.misc.orb_background}
                     title="Lives"
                     value={ui.lives}
-                    valueColor={ui.lives <= 5 ? '#ff4b4b' : undefined}
+                    valueColor={ui.lives > ui.maxLives ? 'var(--osrs-green)'
+                      : ui.lives <= 5 ? '#ff4b4b' : undefined}
                     fill={ui.lives / ui.maxLives}
                     fillColor="linear-gradient(90deg, #8a0000, #e23a3a)"
                     orbColor="linear-gradient(180deg, #e23a3a, #8a0000)"

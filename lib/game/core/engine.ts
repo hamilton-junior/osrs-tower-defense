@@ -67,7 +67,8 @@ import {
 import { POTIONS, POTION_BY_ID, type PotionId } from '../data/herblore';
 import {
   HERBLORE_MAX_LEVEL, HERBLORE_START_LEVEL, brewBlocker, brewDamageMult, drinkPotion as drinkDose,
-  emptyPouch, emptyStock, gainHerbloreXp, herbloreXpForLevel, outrankedBy, potionTowerMods, steadyPotion,
+  emptyPouch, emptyStock, gainHerbloreXp, herbloreXpForLevel, outrankedBy, overhealCap, potionTowerMods,
+  steadyPotion,
   type ActivePotion, type HerbPouch, type PotionStock,
 } from '../systems/herblore';
 import {
@@ -1981,6 +1982,24 @@ export class GameEngine {
     return gold;
   }
 
+  /**
+   * Hand `n` lives back, up to `cap`, and never take one away.
+   *
+   * Every heal in the game used to read `Math.min(maxLives, lives + n)`, which is the
+   * same arithmetic right up to the moment a Saradomin brew pushes the count *above*
+   * the maximum — and then the next fish eaten, life restored or soul stolen would
+   * quietly clamp the overheal off again. Healing towards the larger of the cap and
+   * the count keeps a heal a heal: it can top a run up to its cap, and it can never
+   * be the thing that spends the brew's extra life. Only a leak does that.
+   *
+   * `cap` defaults to the run's maximum, so the only caller that passes one is the
+   * brew.
+   */
+  healLives(n: number, cap = this.maxLives) {
+    if (n <= 0) return;
+    this.lives = Math.min(Math.max(cap, this.lives), this.lives + n);
+  }
+
   /** Total gp invested in a tower (base + all upgrades to its current level). */
   private investedValue(tower: Tower): number {
     const def = TOWERS[tower.type];
@@ -3645,7 +3664,9 @@ export class GameEngine {
       this.baseFlash = 1;
     }
     if (def.lives) {
-      this.lives = Math.min(this.maxLives, this.lives + def.lives);
+      // The Saradomin brew is the one dose that heals past the maximum; every other
+      // potion stops there.
+      this.healLives(def.lives, def.overheals ? overhealCap(this.maxLives) : this.maxLives);
       this.baseFlash = 1;
     }
     if (def.brewStacks) this.brewStacks += def.brewStacks;
@@ -3742,7 +3763,7 @@ export class GameEngine {
       return;
     }
     if (!takeItem(this.items, 'food', id)) return;
-    this.lives = Math.min(this.maxLives, this.lives + def.lives);
+    this.healLives(def.lives);
     this.baseFlash = 1;
     this.sound.play('eat');
     this.notify(`${def.name}: +${def.lives} life${def.lives === 1 ? '' : 's'}`, def.icon);
@@ -4003,7 +4024,7 @@ export class GameEngine {
     switch (e.kind) {
       case 'slayerPoints': this.slayer.points += e.amount; break;
       case 'essence': this.meta.award(e.amount); this.essenceEarnedThisRun += e.amount; break;
-      case 'life': this.lives = Math.min(this.maxLives, this.lives + e.amount); break;
+      case 'life': this.healLives(e.amount); break;
       case 'maxLife': this.maxLives += e.amount; this.lives += e.amount; break;
       case 'damage': this.applyStyleMult(this.runMods.damage, e.mult, e.style); break;
       case 'range': this.applyStyleMult(this.runMods.range, e.mult, e.style); break;
@@ -4554,9 +4575,10 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Set remaining lives (clamped to the max). */
+  /** Set remaining lives (clamped to the Saradomin brew's overheal cap, so the
+   *  overheal can be tested without brewing one). */
   debugSetLives(n: number) {
-    this.lives = Math.max(0, Math.min(this.maxLives, Math.floor(n) || 0));
+    this.lives = Math.max(0, Math.min(overhealCap(this.maxLives), Math.floor(n) || 0));
     if (this.lives <= 0) this.endGame(); else if (this.gameOver) this.gameOver = false;
     this.emit();
   }

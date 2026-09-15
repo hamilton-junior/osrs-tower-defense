@@ -586,7 +586,7 @@ export function checkWaveEnd(eng: GameEngine) {
   // the run's own maximum so it heals rather than inflates.
   const restored = farmLivesOnClear(eng.activeFarmBuffs());
   if (restored > 0 && eng.lives < eng.maxLives) {
-    eng.lives = Math.min(eng.maxLives, eng.lives + restored);
+    eng.healLives(restored);
     eng.notify(`${SEED_BY_ID.ranarr.herbName}: a life restored`, SEED_BY_ID.ranarr.herbIcon);
   }
   // A Sanfew serum does the same, every wave it is up for rather than once. The
@@ -594,7 +594,7 @@ export function checkWaveEnd(eng: GameEngine) {
   const poured = potionLivesOnClear(eng.activePotions);
   const pourer = pouringPotion(eng.activePotions);
   if (poured > 0 && pourer && eng.lives < eng.maxLives) {
-    eng.lives = Math.min(eng.maxLives, eng.lives + poured);
+    eng.healLives(poured);
     eng.notify(`${pourer.name}: a life restored`, pourer.icon);
   }
   // The Overload's bill, read after the two potions that pay lives out so a wave
