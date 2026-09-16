@@ -587,3 +587,12 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     Checked headless with a stand-in `.rs-infobox` under the card: hit-testing reaches the card
     at three points with `z-20`, and the infobox at all three without it. Worth remembering for
     any other popover hung inside a MovablePanel: its z-index only competes inside that panel.
+
+40. **Eating food must not look like taking damage.**
+    — **shipped** (2026-09-16). `eatFood` and the life-giving potions both set `baseFlash`,
+    the red board wash and flaring exit a leak uses. They now call `showLifeGain(n)`, the heal
+    the lives orb already had for a Blood-barrage life steal: the orb blips and a ❤ rises
+    beside it, now carrying the real gain (`+N` after the cap) rather than a fixed `+1`.
+    `lifestealSeq` became `lifeGainSeq` with a `lifeGainAmount` beside it. The Zamorak brew's
+    life cost keeps the red flash, since that one is a loss. Not driven headless: no debug
+    cheat hands out fish, and the pop is the life-steal one already in the game.
