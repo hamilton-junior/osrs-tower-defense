@@ -9,6 +9,7 @@ import {
   gainHunterXp,
   snareTargets,
   trapTriggeredBy,
+  trapXp,
   type HunterTrap,
 } from '../../systems/hunter-traps';
 import { ignoresCc } from '../../systems/affixes';
@@ -174,7 +175,7 @@ function fire(eng: GameEngine, trap: HunterTrap, def: HunterTrapDef, e: Enemy): 
  */
 function awardHunterXp(eng: GameEngine, def: HunterTrapDef) {
   const before = eng.hunterLevel;
-  const g = gainHunterXp(eng.hunterLevel, eng.hunterXp, def.xp);
+  const g = gainHunterXp(eng.hunterLevel, eng.hunterXp, trapXp(def));
   eng.hunterLevel = g.level;
   eng.hunterXp = g.xp;
   if (g.level > before) {

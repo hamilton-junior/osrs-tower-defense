@@ -13,9 +13,10 @@
  *    go. They never block passage — enemies walk over them.
  * 2. **How many you can have out is a Hunter level, not a purse.** OSRS's own table:
  *    one trap to start, and another at 20, 40, 60 and 80.
- * 3. **The skill levels by catching.** The XP per catch is the real OSRS figure; the
- *    level curve is not, because OSRS wants 814k XP for level 71 and a run is ninety
- *    waves long. See {@link hunterXpForLevel}.
+ * 3. **The skill levels by catching.** The XP per catch starts from the real OSRS
+ *    figure and pays a third more on top ({@link trapXp}); the level curve is not
+ *    OSRS's, because OSRS wants 814k XP for level 71 and a run is ninety waves long.
+ *    See {@link hunterXpForLevel}.
  */
 
 import type { Point } from '../types';
@@ -365,6 +366,16 @@ export function catchBonusGold(def: HunterTrapDef, killGold: number): number {
   return Math.round(killGold);
 }
 
+/** How much richer a firing is than the OSRS figure it starts from. The real
+ *  numbers levelled the skill too slowly for a run to reach its later traps. */
+export const HUNTER_XP_MULT = 1.33;
+
+/** The Hunter XP one firing of this trap pays: its real OSRS XP, a third richer.
+ *  The data table keeps the real figure; this is the one place it is scaled. */
+export function trapXp(def: HunterTrapDef): number {
+  return Math.round(def.xp * HUNTER_XP_MULT);
+}
+
 export interface HunterGain {
   level: number;
   xp: number;
@@ -377,7 +388,7 @@ export interface HunterGain {
  * Bank a catch's XP, crossing as many thresholds as it reaches.
  *
  * Multi-level on purpose, unlike a tower's single-step gain: the first levels cost
- * ten XP each and one bird snare pays thirty-four, so a single-step version would
+ * ten XP each and one bird snare pays forty-five, so a single-step version would
  * silently throw most of the first catch away.
  */
 export function gainHunterXp(level: number, xp: number, gain: number): HunterGain {

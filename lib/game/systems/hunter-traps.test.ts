@@ -20,6 +20,7 @@ import {
   trapSpotFree,
   trapTriggeredBy,
   trapUnlocked,
+  trapXp,
   trapsUnlockedAt,
 } from './hunter-traps';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID } from '../data/hunter-traps';
@@ -60,6 +61,13 @@ describe('the trap ladder', () => {
   it('pays more for the harder catch', () => {
     const xp = HUNTER_TRAPS.map(t => t.xp);
     for (let i = 1; i < xp.length; i++) expect(xp[i]).toBeGreaterThan(xp[i - 1]);
+  });
+
+  it('pays a third more than the OSRS figure for every firing', () => {
+    expect(trapXp(HUNTER_TRAP_BY_ID.bird_snare)).toBe(45);
+    expect(trapXp(HUNTER_TRAP_BY_ID.box_trap)).toBe(153);
+    expect(trapXp(HUNTER_TRAP_BY_ID.magic_box)).toBe(599);
+    for (const t of HUNTER_TRAPS) expect(trapXp(t)).toBeGreaterThan(t.xp);
   });
 
   it('opens one rung at a time', () => {
