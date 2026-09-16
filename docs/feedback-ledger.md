@@ -565,3 +565,16 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     `updateTraps` offers every enemy standing on the trap instead of the first, since `fire`
     spends nothing when it refuses. The rearm and the catch threshold are deliberate and
     unchanged. A phase-sweep regression test pins the guarantee at step lengths up to 48 px.
+
+## Backlog round 5 (user, 2026-09-15)
+
+38. **The active effects must move down when the enemy list expands**, not sit under it.
+    — **shipped** (2026-09-15). Round 4's item 27 opened the roster as an absolute overlay
+    hanging off the chip, on the reasoning that the event chip and the buff infoboxes below
+    should keep their place. They did — behind the roster. The potion timers are exactly what
+    a player checks before pulling a wave, so covering them is worse than moving them. The
+    roster is now an in-flow block inside the strip, separated by a keyline rather than a
+    second panel border; the strip grows (255×30 closed, 734×124 open at wave 120, measured
+    headless) and the flex column pushes everything under it down by that much. Still no gap
+    between chip and roster, so the pointer never crosses board on the way down and the hover
+    holds.
