@@ -226,7 +226,7 @@ describe('setting one off', () => {
 });
 
 describe('what a snare grips', () => {
-  const trap = { x: 100, y: 100, rearm: 0, charges: 3, held: [] as string[] };
+  const trap = { x: 100, y: 100, rearm: 0, charges: 3, gripped: [] as string[] };
   const on = (id: string, dx = 0) => ({ id, x: 100 + dx, y: 100 });
 
   it('takes everything standing on it at once, not one at a time', () => {
@@ -234,10 +234,21 @@ describe('what a snare grips', () => {
     expect(ids).toEqual(['a', 'b', 'c']);
   });
 
-  it('never spends a second charge on one it is already holding', () => {
-    const gripped = { ...trap, held: ['a', 'c'] };
-    const ids = snareTargets(gripped, [on('a'), on('b', 4), on('c', -6)]).map(e => e.id);
+  it('never spends a charge on one that is still held', () => {
+    const ids = snareTargets(trap, [{ ...on('a'), stunTimer: 1.5 }, on('b', 4)]).map(e => e.id);
     expect(ids).toEqual(['b']);
+  });
+
+  it('grips the same enemy again once it is free', () => {
+    const before = { ...trap, gripped: ['a'] };
+    expect(snareTargets(before, [on('a')]).map(e => e.id)).toEqual(['a']);
+  });
+
+  it('holds a newcomer before gripping an old catch again', () => {
+    const last = { ...trap, charges: 1, gripped: ['a'] };
+    expect(snareTargets(last, [on('a'), on('b', 4)]).map(e => e.id)).toEqual(['b']);
+    const two = { ...trap, charges: 2, gripped: ['a'] };
+    expect(snareTargets(two, [on('a'), on('b', 4)]).map(e => e.id)).toEqual(['b', 'a']);
   });
 
   it('grips no more than the charges it has left', () => {

@@ -56,9 +56,10 @@ export interface HunterTrap {
   charges: number;
   /** Seconds until it can fire again. */
   rearm: number;
-  /** `snare` only: the enemies this trap has already gripped, so it never
-   *  spends a second charge holding the same one. See {@link snareTargets}. */
-  held?: string[];
+  /** `snare` only: the enemies this trap has gripped before. It may grip one of
+   *  them again once it is free, but anything it has not held yet goes first.
+   *  See {@link snareTargets}. */
+  gripped?: string[];
 }
 
 /**
@@ -212,31 +213,31 @@ export function trapTriggeredBy(
  *
  * A snare is a rope on the ground, not a gun. What it does is hold whatever is
  * standing in it, so the thing it caught is still standing on it while the hold
- * lasts — and holding something already held is not a second catch. The trap
- * writes down what it has gripped and never spends another charge on the same
- * enemy: a bird snare holds for twice as long as the rearm, so without that
- * memory all three charges landed on the first enemy to arrive and the trap was
- * gone before the rest of the pack reached it.
+ * lasts, and gripping it again then would spend a charge on a hold it already has.
+ * So the snare passes over anything still held, by this rope or by anything else.
+ * Once that enemy is free, a snare it is still standing in may take it again.
  *
- * The same pass takes every fresh enemy standing on it, up to the charges left.
- * One trap holding two enemies at once is the point of laying it in front of a
- * group.
+ * The same pass takes every enemy standing on it, up to the charges left, so one
+ * trap holds a whole group at once. When the rope has fewer charges than takers,
+ * the ones it has never held go first. A snare that kept re-gripping its first
+ * catch would spend every charge on that one enemy while the rest walked past.
  */
 export function snareTargets<T extends {
-  id: string; x: number; y: number; prevX?: number; prevY?: number; spawnAnim?: number;
+  id: string; x: number; y: number; prevX?: number; prevY?: number; spawnAnim?: number; stunTimer?: number;
 }>(
-  trap: { x: number; y: number; rearm: number; charges: number; held?: readonly string[] },
+  trap: { x: number; y: number; rearm: number; charges: number; gripped?: readonly string[] },
   enemies: readonly T[],
 ): T[] {
-  const out: T[] = [];
-  if (trap.charges <= 0) return out;
+  if (trap.charges <= 0) return [];
+  const fresh: T[] = [];
+  const again: T[] = [];
   for (const e of enemies) {
-    if (out.length >= trap.charges) break;
     if ((e.spawnAnim ?? 0) > 0) continue;
-    if (trap.held?.includes(e.id)) continue;
-    if (trapTriggeredBy(trap, e)) out.push(e);
+    if ((e.stunTimer ?? 0) > 0) continue;
+    if (!trapTriggeredBy(trap, e)) continue;
+    (trap.gripped?.includes(e.id) ? again : fresh).push(e);
   }
-  return out;
+  return [...fresh, ...again].slice(0, trap.charges);
 }
 
 /**

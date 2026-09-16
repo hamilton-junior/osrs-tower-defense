@@ -41,7 +41,7 @@ export function updateTraps(eng: GameEngine, dt: number) {
     if (trap.charges <= 0 || trap.rearm > 0) continue;
     const def = HUNTER_TRAP_BY_ID[trap.defId];
     // A snare holds rather than removes, so it runs its own pass: it grips several
-    // enemies at once and never re-grips one it is already holding.
+    // enemies at once and never re-grips one while it is still held.
     if (def.kind === 'snare') {
       springSnare(eng, trap, def);
       if (trap.charges <= 0) spent = true;
@@ -83,22 +83,26 @@ export function updateTraps(eng: GameEngine, dt: number) {
  * on the next frame. A snare leaves the thing it caught exactly where it is — which
  * made "one target per firing, then rearm" spend every charge on the same enemy,
  * because the hold outlasts the rearm and that enemy was still standing there. So a
- * snare spends one charge per *enemy*, writes down who it has gripped, and takes the
+ * snare spends one charge per grip, passes over anything still held, and takes the
  * whole pack in one pass. That is also the only way one trap holds two things at
  * once, which is what a player is buying when they lay one in front of a group.
+ *
+ * An enemy it has let go may be gripped again if it is still standing in the rope.
+ * The snare writes down who it has held, so a newcomer always goes first.
  */
 function springSnare(eng: GameEngine, trap: HunterTrap, def: HunterTrapDef) {
   let gripped = 0;
   for (const e of snareTargets(trap, eng.enemies)) {
     // Warded — and a General Graardor slam — shrug off every hold in the game, and
-    // this is a hold. The charge stays, and the enemy is not written down as held,
-    // so the trap tries it again if the affix ever lifts.
+    // this is a hold. The charge stays, and the enemy is not written down as gripped,
+    // so it still counts as a newcomer if the affix ever lifts.
     if (ignoresCc(e)) continue;
     const eff = def.hold * (1 - tenacity(eng, e));
     if (eff <= 0) continue;
     noteDebuffHit(eng, e);
     e.stunTimer = Math.max(e.stunTimer, eff);
-    (trap.held ??= []).push(e.id);
+    const seen = (trap.gripped ??= []);
+    if (!seen.includes(e.id)) seen.push(e.id);
     trap.charges -= 1;
     gripped++;
     // No owning tower, so the DPS panel books it under Run Effects, next to the
