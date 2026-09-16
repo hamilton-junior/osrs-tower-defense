@@ -2352,12 +2352,19 @@ export default function GameRoot() {
               Draggable like the other interfaces — so it captures pointer events,
               and a player who wants the ground under it just moves it aside
               (right-click snaps it back). Reads a size up from the chips below it:
-              it is the one panel you check before every wave. */}
+              it is the one panel you check before every wave.
+
+              `z-20` lifts the whole strip over the infobox row beneath it. A
+              MovablePanel always carries a `translate`, and a transform opens a
+              stacking context — so the monster card's own `z-40` is sealed inside
+              this panel and cannot reach past it. Without the lift the card lost to
+              the potion infoboxes, which are positioned and come later in the DOM,
+              and scouting a monster hid its numbers behind a timer. */}
           {(ui.waveActive || ui.wavePreview.length > 0) && (
             <MovablePanel
               id="wavestrip"
               globalLock={uiLocked}
-              className="rs-panel relative px-[0.7em] py-[0.35em] min-w-[16em] max-w-[46em]"
+              className="rs-panel relative z-20 px-[0.7em] py-[0.35em] min-w-[16em] max-w-[46em]"
               style={{ fontSize: fs('clamp(16px, 1.05vw, 23px)') }}
             >
               {ui.waveActive ? (
