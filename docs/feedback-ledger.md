@@ -629,3 +629,12 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     so it still tracks `--ui-scale`. Padding and icon are in em and grow with it. Measured
     headless with stand-ins: at 1920×1080 the toast is 35px tall, 25px under the build hint
     and 52px over the prayer bar; at 1366×768 the gaps are 12px and 24px. Nothing overlaps.
+
+45. **Notices should stay up longer, scaled to how much text they carry.**
+    — **shipped** (2026-09-16). New pure `noticeMs(text)` in `systems/notice-timing.ts`
+    (with tests): 1000ms plus 60ms per character, clamped to 2000..6000ms, against the old
+    flat 1.4s. "Not enough gold" holds 2s, "Ranarr weed: a life restored" 2.7s, a 60-character
+    line 4.6s. GameRoot times the toast with it and passes `--rs-toast-ms` inline. The single
+    `rs-toast-pop` keyframe became `rs-toast-in` (170ms) and `rs-toast-out` (280ms, delayed to
+    end at the hold), so a long notice does not crawl in. Checked headless with a 3000ms
+    stand-in: the fade-out delay resolves to 2.72s and opacity holds at 1 until then.
