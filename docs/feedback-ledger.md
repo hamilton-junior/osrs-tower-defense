@@ -615,3 +615,11 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     so a fish eaten while paused still clears and 5× speed does not cut it short. Every
     life steal in combat flashes too. `baseFlash` itself still freezes while paused; nothing
     asked for that to change.
+
+43. **The red leak flash must not freeze on a paused board.**
+    — **shipped** (2026-09-16). Found while building item 42: `baseFlash` decayed in
+    `updateEffects`, which only runs inside the unpaused sim sub-steps. A Zamorak brew drunk
+    while paused left the red wash up until you resumed, and 5× speed cut every flash to a
+    fifth. The decay moved into the frame loop beside `healFlash`, on the raw frame `dt`, so
+    both flashes now fade the same way whatever the pause or the speed. The exit flare reads
+    the same pulse and gets the same fix.
