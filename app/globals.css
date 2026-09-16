@@ -1035,17 +1035,25 @@ kbd {
   padding: 0.24em 0.7em;
   text-shadow: 1px 1px 0 #000;
   box-shadow: inset 1px 1px 0 0 #7a4a3a, inset -1px -1px 0 0 #3a1414, 0 2px 6px rgba(0, 0, 0, 0.55);
-  animation: rs-toast-pop 1.4s ease-out forwards;
+  /* The hold scales with the text (`noticeMs`), which sets `--rs-toast-ms` inline.
+     The fades stay fixed, so a long notice does not crawl in: the fade-out is
+     delayed to end exactly when the toast is removed. */
+  --rs-toast-ms: 2000ms;
+  animation:
+    rs-toast-in 170ms ease-out both,
+    rs-toast-out 280ms ease-in calc(var(--rs-toast-ms) - 280ms) forwards;
 }
 /* Y only. The toast centres itself with Tailwind's `-translate-x-1/2`, which in
    v4 writes the `translate` property rather than `transform` — so a `-50%` in
    here would be a *second* half-width shift, and the notice sat a full width off
    to the left. Move it vertically, and let the utility own the centring. */
-@keyframes rs-toast-pop {
-  0% { opacity: 0; transform: translateY(10px); }
-  12% { opacity: 1; transform: translateY(0); }
-  80% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-6px); }
+@keyframes rs-toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes rs-toast-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-6px); }
 }
 
 /* Persistent on-board caption for a mode that is still running (e.g. the tiles a

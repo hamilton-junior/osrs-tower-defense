@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { GameEngine, LOGIC_WIDTH, LOGIC_HEIGHT, type UIState, type EnemyHoverInfo, type DebuffId, type UnlockItem } from '@/lib/game/core/engine';
 import { CARD_ROLL_BASE_COST } from '@/lib/game/systems/roguelite-draft';
 import { unlockDwellMs } from '@/lib/game/systems/unlock-queue';
+import { noticeMs } from '@/lib/game/systems/notice-timing';
 import { CA_TIER_NAMES, highestTitle } from '@/lib/game/systems/combat-achievements';
 import { AFFIX_DEFS } from '@/lib/game/systems/affixes';
 import { bossTip } from '@/lib/game/systems/boss-tips';
@@ -167,7 +168,7 @@ export default function GameRoot() {
   const [boardSize, setBoardSize] = useState<{ w: number; h: number } | null>(null);
   const [ui, setUi] = useState<UIState>(INITIAL);
   const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' | 'boss' } | null>(null);
-  const [toast, setToast] = useState<{ text: string; icon: string | null } | null>(null);
+  const [toast, setToast] = useState<{ text: string; icon: string | null; ms: number } | null>(null);
   // Collection-log unlock popups, shown one at a time from a queue.
   const [unlockQueue, setUnlockQueue] = useState<{ id: number; item: UnlockItem }[]>([]);
   // Whether the next-wave strip is showing its full roster. Collapsed by default
@@ -813,11 +814,13 @@ export default function GameRoot() {
     return () => clearTimeout(t);
   }, [banner]);
 
-  // Show a transient toast whenever the engine reports a blocked action.
+  // Show a transient toast whenever the engine reports a blocked action. It holds
+  // for as long as its text takes to read, and hands that length to the CSS fade.
   useEffect(() => {
     if (!ui.noticeSeq || !ui.notice) return;
-    setToast({ text: ui.notice, icon: ui.noticeIcon });
-    const t = setTimeout(() => setToast(null), 1400);
+    const ms = noticeMs(ui.notice);
+    setToast({ text: ui.notice, icon: ui.noticeIcon, ms });
+    const t = setTimeout(() => setToast(null), ms);
     return () => clearTimeout(t);
   }, [ui.noticeSeq, ui.notice, ui.noticeIcon]);
 
@@ -2278,6 +2281,7 @@ export default function GameRoot() {
         <div
           key={ui.noticeSeq}
           className="rs-toast absolute left-1/2 bottom-[16%] -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap flex items-center gap-[0.4em] justify-center"
+          style={{ '--rs-toast-ms': `${toast.ms}ms` } as React.CSSProperties}
         >
           {toast.icon ? (
             <img src={toast.icon} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
