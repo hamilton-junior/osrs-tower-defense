@@ -386,3 +386,20 @@ describe('fishing in a run save', () => {
     expect(save?.fishingSpots?.[0].rested).toBe(SPOT_REST_WAVES);
   });
 });
+
+describe('traps in a run save', () => {
+  it('keeps what a trap was bought for', () => {
+    const save = sanitizeRunSave(makeSave({ traps: [{ defId: 'bird_snare', x: 96, y: 128, charges: 2, paid: 65 }] }));
+    expect(save?.traps).toEqual([{ defId: 'bird_snare', x: 96, y: 128, charges: 2, paid: 65 }]);
+  });
+
+  it('resumes a trap saved before refunds, with no price on it', () => {
+    const save = sanitizeRunSave(makeSave({ traps: [{ defId: 'bird_snare', x: 96, y: 128, charges: 2 }] }));
+    expect(save?.traps?.[0]).not.toHaveProperty('paid');
+  });
+
+  it('reads a nonsense price as nothing paid', () => {
+    const save = sanitizeRunSave(makeSave({ traps: [{ defId: 'box_trap', x: 0, y: 0, charges: 1, paid: -40 }] }));
+    expect(save?.traps?.[0].paid).toBe(0);
+  });
+});

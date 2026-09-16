@@ -85,7 +85,7 @@ import {
 } from '../systems/fishing';
 import { multiplyStyleMods, scaleAllStyles, type StyleMods } from '../systems/style-mods';
 import {
-  HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapSpotFree, trapUnlocked,
+  HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapRefund, trapSpotFree, trapUnlocked,
   type HunterTrap,
 } from '../systems/hunter-traps';
 import { handleBossMechanics, updateScorches } from './sim/bosses';
@@ -881,7 +881,7 @@ export class GameEngine {
         const def = HUNTER_TRAP_BY_ID[t.defId];
         return {
           id: t.id, defId: t.defId, name: def.name, icon: def.sprite,
-          charges: t.charges, maxCharges: def.charges,
+          charges: t.charges, maxCharges: def.charges, refund: this.trapRefundOf(t),
         };
       }),
       selectedTrapId: this.selectedTrapId,
@@ -3327,6 +3327,7 @@ export class GameEngine {
       y: spot.y,
       charges: def.charges,
       rearm: 0,
+      paid: price,
     });
     this.sound.play('sell'); // the coin-shuffle: gold left the purse
     this.notify(`${def.name} set for ${price} gp`, def.sprite);
@@ -3340,18 +3341,30 @@ export class GameEngine {
   /**
    * Pick a laid trap back up.
    *
-   * No refund — the gold is spent the moment it is laid. What it gives back is the
-   * slot, which is the resource that actually matters: a player who fills every
-   * slot with traps facing the wrong way is never stuck with them.
+   * It gives back the slot, so a player who fills every slot with traps facing the
+   * wrong way is never stuck with them. It also gives back gold for the charges it
+   * still holds: an untouched trap returns its whole price, and one with a third of
+   * its charges left returns a third (`trapRefund`).
    */
   pickUpTrap(id: string) {
     if (this.waveActive) { this.notify('Only between waves'); return; }
     const i = this.traps.findIndex(t => t.id === id);
     if (i < 0) return;
     const [gone] = this.traps.splice(i, 1);
-    this.sound.play('select');
-    this.notify(`${HUNTER_TRAP_BY_ID[gone.defId].name} picked up`);
+    const def = HUNTER_TRAP_BY_ID[gone.defId];
+    const refund = this.trapRefundOf(gone);
+    this.money += refund;
+    this.sound.play(refund > 0 ? 'sell' : 'select');
+    this.notify(`${def.name} picked up for ${refund} gp`, def.sprite);
     this.emit();
+  }
+
+  /** The gold lifting this trap would hand back right now. A trap from a save
+   *  written before refunds has no price on it, so it counts at the base price,
+   *  the least that trap ever costs. */
+  private trapRefundOf(t: HunterTrap): number {
+    const def = HUNTER_TRAP_BY_ID[t.defId];
+    return trapRefund(t.paid ?? def.cost, t.charges, def.charges);
   }
 
   // ------------------------------------------------------------------ farming
@@ -4225,7 +4238,7 @@ export class GameEngine {
       // The tile travels with the spot: a pool's fish wander between its water
       // tiles, and a resume that dropped the tile would put them back on the seed.
       fishingSpots: this.fishingSpots.map(s => ({ id: s.id, casts: s.casts, rested: s.rested, col: s.col, row: s.row })),
-      traps: this.traps.map(t => ({ defId: t.defId, x: t.x, y: t.y, charges: t.charges })),
+      traps: this.traps.map(t => ({ defId: t.defId, x: t.x, y: t.y, charges: t.charges, paid: t.paid })),
       slayer: this.slayer.snapshot(),
       prayer: { points: this.prayer.points, active: [...this.prayer.active] },
     };
@@ -4404,6 +4417,7 @@ export class GameEngine {
       y: t.y,
       charges: t.charges,
       rearm: 0,
+      paid: t.paid,
     }));
     this.bumpCombatEpoch();
     this.sandboxWave = false;

@@ -16,6 +16,7 @@ import {
   trapAtPoint,
   snareTargets,
   trapCost,
+  trapRefund,
   trapSpotFree,
   trapTriggeredBy,
   trapUnlocked,
@@ -395,5 +396,27 @@ describe('banking the XP', () => {
   it('shrugs off nonsense', () => {
     expect(gainHunterXp(0, -5, -10).level).toBe(1);
     expect(gainHunterXp(1, 0, 0)).toEqual({ level: 1, xp: 0, levels: 0 });
+  });
+});
+
+describe('picking a trap back up', () => {
+  it('returns the whole price for a trap that never fired', () => {
+    expect(trapRefund(60, 3, 3)).toBe(60);
+  });
+
+  it('returns a share by the charges left', () => {
+    expect(trapRefund(60, 1, 3)).toBe(20);
+    expect(trapRefund(60, 2, 3)).toBe(40);
+  });
+
+  it('rounds down, so it never pays more than its share', () => {
+    expect(trapRefund(520, 2, 3)).toBe(346);
+  });
+
+  it('never returns more than was paid, whatever the charges claim', () => {
+    expect(trapRefund(150, 5, 1)).toBe(150);
+    expect(trapRefund(150, -1, 1)).toBe(0);
+    expect(trapRefund(150, 1, 0)).toBe(0);
+    expect(trapRefund(0, 3, 3)).toBe(0);
   });
 });

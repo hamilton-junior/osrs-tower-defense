@@ -143,8 +143,9 @@ export interface RunSave {
   fishingSpots?: { id: string; casts: number; rested: number; col?: number; row?: number }[];
   /** Traps still lying on the road when the run was put down. A between-waves
    *  checkpoint saves them because they were paid for between waves: losing them on
-   *  a resume would quietly charge the player for nothing. */
-  traps?: { defId: HunterTrapId; x: number; y: number; charges: number }[];
+   *  a resume would quietly charge the player for nothing. `paid` is what a pick-up
+   *  refunds a share of; a save from before refunds has none. */
+  traps?: { defId: HunterTrapId; x: number; y: number; charges: number; paid?: number }[];
   /** What is growing in the allotments, addressed by the plot's tile-derived id. */
   farmPatches?: { id: string; seedId: SeedId; grown: number; paid?: number }[];
   /** Where every plot stands — one tile-derived id each (`p<col>_<row>`), which is
@@ -437,6 +438,9 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
           x: num(t.x, 0),
           y: num(t.y, 0),
           charges: Math.max(1, Math.floor(num(t.charges, 1))),
+          // Optional, like an allotment's price: the engine falls back to the trap's
+          // base price when a save carries none.
+          ...('paid' in t ? { paid: Math.max(0, Math.round(num(t.paid, 0))) } : {}),
         }))
       : [],
     // A seed id this build no longer grows takes its patch out of the save rather

@@ -415,8 +415,9 @@ export interface UIState {
    *  the engine keeps the real list, this is what the interface needs to draw it. */
   diversions: { id: string; defId: DiversionId; mood: DiversionMood; name: string; icon: string; tip: string }[];
   /** Hunter traps lying on the road, flattened for drawing the slot row. The engine
-   *  keeps the real list (the renderer reads it live); this is what the panel needs. */
-  traps: { id: string; defId: HunterTrapId; name: string; icon: string; charges: number; maxCharges: number }[];
+   *  keeps the real list (the renderer reads it live); this is what the panel needs.
+   *  `refund` is the gold picking one up would hand back right now. */
+  traps: { id: string; defId: HunterTrapId; name: string; icon: string; charges: number; maxCharges: number; refund: number }[];
   /** The trap armed in the build panel, waiting for a click on the road. */
   selectedTrapId: HunterTrapId | null;
   /** The run's own Hunter skill: what it has reached, how far into the next level

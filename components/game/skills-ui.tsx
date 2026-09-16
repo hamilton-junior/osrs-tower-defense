@@ -437,7 +437,7 @@ function HunterPage({ ui, onSelectTrap }: SkillsViewProps) {
                 icon={t.icon}
                 name={t.name}
                 foot={`${t.charges}/${t.maxCharges}`}
-                title={`${t.name}: ${t.charges} of ${t.maxCharges} catches left`}
+                title={`${t.name}: ${t.charges} of ${t.maxCharges} catches left. Picking it up returns ${t.refund} gp.`}
               />
             ))}
           </TileGrid>

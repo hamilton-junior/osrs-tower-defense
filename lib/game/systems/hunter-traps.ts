@@ -60,6 +60,9 @@ export interface HunterTrap {
    *  them again once it is free, but anything it has not held yet goes first.
    *  See {@link snareTargets}. */
   gripped?: string[];
+  /** The gold paid to lay it. A pick-up hands back a share of this. A trap from a
+   *  save written before refunds has none. */
+  paid?: number;
 }
 
 /**
@@ -105,6 +108,20 @@ export function trapUnlocked(id: HunterTrapId, level: number): boolean {
 export function trapCost(def: HunterTrapDef, wave: number): number {
   const scaled = def.cost * (1 + Math.max(0, wave - 1) * 0.03);
   return Math.round(scaled / 5) * 5;
+}
+
+/**
+ * The gold a trap hands back when it is picked up.
+ *
+ * A share of its price, by the charges it still holds: a three-charge trap lifted
+ * with one charge left returns a third. The share comes off what the player paid,
+ * not today's price. That price climbs every wave, so a trap laid early and lifted
+ * late would otherwise sell for more than it cost. Rounded down for the same reason.
+ */
+export function trapRefund(paid: number, charges: number, maxCharges: number): number {
+  if (maxCharges <= 0 || paid <= 0) return 0;
+  const left = Math.min(maxCharges, Math.max(0, Math.floor(charges)));
+  return Math.floor((paid * left) / maxCharges);
 }
 
 /**
