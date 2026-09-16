@@ -638,3 +638,17 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     `rs-toast-pop` keyframe became `rs-toast-in` (170ms) and `rs-toast-out` (280ms, delayed to
     end at the hold), so a long notice does not crawl in. Checked headless with a 3000ms
     stand-in: the fade-out delay resolves to 2.72s and opacity holds at 1 until then.
+
+46. **Snares may grip the same NPC again, still holding a group at once, and a trap picked
+    up refunds its price by the charges left.**
+    — **shipped** (2026-09-16, `3f1a6cc` + `e8d6fba`). Re-grip: `snareTargets` no longer
+    bars an enemy it held before. It skips one still held (`stunTimer > 0`, from any source)
+    and takes it again once free if it still stands in the rope. The snare records who it
+    has gripped (`gripped`), and newcomers go ahead of old catches when charges run short, so
+    one enemy cannot hog the trap while a pack walks past. A lone enemy can spend all three
+    bird snare charges back to back. Box traps and chinchompas remove what they catch, so this
+    only concerns snares. Refund: new pure `trapRefund(paid, charges, max)` returns
+    `floor(paid × left / max)`. A trap now stores `paid`, the price at the wave it was laid,
+    because `trapCost` climbs 3% a wave and today's price would let an early trap sell at a
+    profit. Saves without `paid` fall back to the base price; `RUN_SAVE_VERSION` stays 5. The
+    pick-up notice names the gold, and the "On the road" tile title shows it beforehand.
