@@ -385,8 +385,11 @@ export interface UIState {
    *  monsters native to it, or null between turns. Blocks Start Wave until answered
    *  (like {@link pendingDraft}) — the next wave's roster is the chosen region's. */
   pendingTravel: { id: string; name: string; locals: { type: string; name: string }[] }[] | null;
-  /** Bumps once per Blood-barrage life steal — the UI keys its ❤ pop off it. */
-  lifestealSeq: number;
+  /** Bumps once per life won back — a life steal, a fish eaten, a brew drunk. The
+   *  UI keys the lives-orb blip and its ❤ pop off it. */
+  lifeGainSeq: number;
+  /** How many lives that last gain was worth, for the pop's `+N`. */
+  lifeGainAmount: number;
   /** Bumps whenever a placed tower's displayed config changes (target priority,
    *  a wizard's element/barrage/field). The selected-/multi-tower panels read
    *  those fields straight off the live engine object, so this counter is what

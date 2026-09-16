@@ -1202,14 +1202,14 @@ export function applyEnvenomAura(eng: GameEngine, e: Enemy, p: Projectile) {
 }
 
 /** Blood barrage lifesteal: a level-scaled chance to restore one life. On a
- *  success, ring the casting tower red and bump `lifestealSeq` so the UI can
- *  celebrate it (lives-orb blip + floating heart). */
+ *  success, ring the casting tower red and let the UI celebrate it (lives-orb
+ *  blip + floating heart). */
 export function tryLifesteal(eng: GameEngine, sourceTowerId?: string) {
   if (eng.lives >= eng.maxLives) return;
   const tower = sourceTowerId ? eng.towers.find(t => t.id === sourceTowerId) : null;
   if (Math.random() >= lifestealChance(tower?.level ?? 1)) return;
   eng.lives += 1;
-  eng.lifestealSeq += 1;
+  eng.showLifeGain(1);
   eng.stats.recordEffect(sourceTowerId ?? RUN_FX_ID, eng.wave, { lifeStealHeals: 1 });
   if (tower) addRing(eng, tower.x, tower.y, 4, 26, '#c81e1e', 0.5, 3);
   eng.emit();
@@ -1227,7 +1227,7 @@ function tryBloodFuryLife(eng: GameEngine, sourceTowerId?: string) {
   if (Math.random() >= BLOOD_FURY_CHANCE) return;
   eng.bloodFuryWave = eng.wave;
   eng.lives += 1;
-  eng.lifestealSeq += 1;
+  eng.showLifeGain(1);
   eng.stats.recordEffect(tower.id, eng.wave, { lifeStealHeals: 1 });
   addRing(eng, tower.x, tower.y, 4, 26, '#c81e1e', 0.5, 3);
   eng.emit();

@@ -258,8 +258,9 @@ export class GameEngine {
   autoplay = false;
   autoplaySecs = 3;
   private autoplayTimer = 0;
-  /** Bumps once per Blood-barrage life steal — the UI keys its ❤ pop off it. */
-  lifestealSeq = 0;
+  /** Bumps once per life won back — see {@link showLifeGain}. */
+  lifeGainSeq = 0;
+  lifeGainAmount = 0;
   /** The wave an Amulet of blood fury last won a life back on (-1 = never). The
    *  amulet pays out at most once a wave, so a board wearing several of them can't
    *  turn a good wave into an unlimited supply of lives. */
@@ -957,7 +958,8 @@ export class GameEngine {
               .map((t) => ({ type: t, name: ENEMIES[t]?.name ?? t })),
           }))
         : null,
-      lifestealSeq: this.lifestealSeq,
+      lifeGainSeq: this.lifeGainSeq,
+      lifeGainAmount: this.lifeGainAmount,
       towerConfigSeq: this.towerConfigSeq,
       lootBag: this.lootBag.map(g => ({ ...g })),
       bagOrder: [...this.bagOrder],
@@ -1998,6 +2000,15 @@ export class GameEngine {
   healLives(n: number, cap = this.maxLives) {
     if (n <= 0) return;
     this.lives = Math.min(Math.max(cap, this.lives), this.lives + n);
+  }
+
+  /** Celebrate lives won back on the lives orb: a blip and a rising ❤ +N. A gain
+   *  must never borrow `baseFlash` — that red wash and the flaring exit are how the
+   *  board says a life was *lost*, and eating a fish under it read as taking a hit. */
+  showLifeGain(n: number) {
+    if (n <= 0) return;
+    this.lifeGainAmount = n;
+    this.lifeGainSeq += 1;
   }
 
   /** Total gp invested in a tower (base + all upgrades to its current level). */
@@ -3666,8 +3677,9 @@ export class GameEngine {
     if (def.lives) {
       // The Saradomin brew is the one dose that heals past the maximum; every other
       // potion stops there.
+      const before = this.lives;
       this.healLives(def.lives, def.overheals ? overhealCap(this.maxLives) : this.maxLives);
-      this.baseFlash = 1;
+      this.showLifeGain(this.lives - before);
     }
     if (def.brewStacks) this.brewStacks += def.brewStacks;
     if (def.clearsBrew) {
@@ -3763,8 +3775,9 @@ export class GameEngine {
       return;
     }
     if (!takeItem(this.items, 'food', id)) return;
+    const before = this.lives;
     this.healLives(def.lives);
-    this.baseFlash = 1;
+    this.showLifeGain(this.lives - before);
     this.sound.play('eat');
     this.notify(`${def.name}: +${def.lives} life${def.lives === 1 ? '' : 's'}`, def.icon);
     this.emit();

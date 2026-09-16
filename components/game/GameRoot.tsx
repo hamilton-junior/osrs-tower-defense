@@ -111,7 +111,8 @@ const INITIAL: UIState = {
   autoplay: false, autoplaySecs: 3,
   biomeName: 'Misthalin Plains',
   pendingTravel: null,
-  lifestealSeq: 0,
+  lifeGainSeq: 0,
+  lifeGainAmount: 0,
   towerConfigSeq: 0,
   lootBag: [], bagOrder: [],
   gearDrops: [], gearDropSeq: 0,
@@ -4331,7 +4332,7 @@ export default function GameRoot() {
             <div data-fit="min" className="flex flex-1 items-center min-w-[7em]">
               <div data-tut="hud" className="flex flex-1 items-center gap-[0.6em]">
               <div className="relative flex-1 min-w-0">
-                <div key={ui.lifestealSeq} className={ui.lifestealSeq > 0 ? 'rs-vital-blip' : undefined}>
+                <div key={ui.lifeGainSeq} className={ui.lifeGainSeq > 0 ? 'rs-vital-blip' : undefined}>
                   {/* Lives above the maximum — the Saradomin brew's overheal — read in
                       OSRS's own boosted-stat green, the way a raised skill level reads in
                       the client. The gauge clamps to full, so the colour is the only
@@ -4349,9 +4350,9 @@ export default function GameRoot() {
                     wide
                   />
                 </div>
-                {ui.lifestealSeq > 0 && (
-                  <span key={`h${ui.lifestealSeq}`} className="rs-lifesteal-pop" aria-hidden>
-                    ❤ +1
+                {ui.lifeGainSeq > 0 && (
+                  <span key={`h${ui.lifeGainSeq}`} className="rs-life-gain-pop" aria-hidden>
+                    ❤ +{ui.lifeGainAmount}
                   </span>
                 )}
               </div>
