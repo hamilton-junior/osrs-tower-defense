@@ -19,7 +19,7 @@
  * baking a range and eyeballing (a collapse-to-ground clip is the death).
  * Build-time/offline only (osrscachereader can't run in a static export).
  */
-import { RSCache, IndexType, ConfigType, ModelGroup } from 'osrscachereader';
+import { RSCache, IndexType, ModelGroup } from 'osrscachereader';
 import { createCanvas } from 'canvas';
 import { PNG } from 'pngjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -27,7 +27,7 @@ import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { readAnimConfig } from './lib/anim-source.mjs';
-import { parseNpcDef } from './lib/npc-def.mjs';
+import { npcDef } from './lib/npc-def.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -117,9 +117,8 @@ function isFlatPlane(m) {
 
 /** Build an NPC's merged + recoloured model. */
 export async function buildNpcModel(cache, npcId) {
-  const file = await cache.getFile(IndexType.CONFIGS, ConfigType.NPC, npcId);
-  if (!file?.content) return null;
-  const def = parseNpcDef(file.content);
+  const def = await npcDef(npcId);
+  if (!def) return null;
   const models = [];
   for (const mid of def.models) {
     const m = await cache.getDef(IndexType.MODELS, mid).catch(() => null);

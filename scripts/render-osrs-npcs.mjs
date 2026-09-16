@@ -13,16 +13,17 @@
  *   node scripts/render-osrs-npcs.mjs --only goblin   # render one TARGET
  *   node scripts/render-osrs-npcs.mjs --find bloodveld # discover NPC ids by name
  *
- * NPC ids come from the cache itself (--find scans names), not hard-coded guesses.
+ * NPC ids come from the cache itself (--find searches NPC names), not hard-coded
+ * guesses.
  */
-import { RSCache, IndexType, ConfigType, ModelGroup } from 'osrscachereader';
+import { RSCache, IndexType, ModelGroup } from 'osrscachereader';
 import { createCanvas } from 'canvas';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { renderModelFrame, loadTextures, modelTextureIds, computeFit, loadAnimationWithAlpha } from './lib/rs-raster.mjs';
-import { parseNpcDef } from './lib/npc-def.mjs';
+import { npcDef, findNpcs } from './lib/npc-def.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -314,12 +315,8 @@ async function main() {
   const argv = process.argv;
   const findIdx = argv.indexOf('--find');
   if (findIdx !== -1) {
-    const needle = (argv[findIdx + 1] || '').toLowerCase();
-    const defs = await cache.getAllDefs(IndexType.CONFIGS, ConfigType.NPC);
-    for (const d of defs) {
-      if (d?.name && d.name.toLowerCase().includes(needle)) {
-        console.log(`${String(d.id).padStart(6)}  ${d.name}  models=[${d.models}]`);
-      }
+    for (const d of await findNpcs(argv[findIdx + 1] || '')) {
+      console.log(`${String(d.id).padStart(6)}  ${d.name}  models=[${d.models}]`);
     }
     process.exit(0);
   }
@@ -341,9 +338,8 @@ async function main() {
   if (!entries.length) { console.warn('No TARGETS to render (fill in NPC ids via --find).'); process.exit(0); }
 
   for (const [slug, cfg] of entries) {
-    const file = await cache.getFile(IndexType.CONFIGS, ConfigType.NPC, cfg.npc);
-    if (!file?.content) { console.warn(`! NPC ${cfg.npc} (${slug}) not found`); continue; }
-    const def = { name: file.def?.name, ...parseNpcDef(file.content) };
+    const def = await npcDef(cfg.npc);
+    if (!def) { console.warn(`! NPC ${cfg.npc} (${slug}) not found`); continue; }
     const model = await buildNpcModel(cache, def);
     if (!model) { console.warn(`! ${slug}: no model geometry`); continue; }
     const textures = await loadTextures(cache, modelTextureIds(model));

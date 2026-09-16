@@ -29,6 +29,7 @@
     "react-dom": "^19.2.1"
   },
   "devDependencies": {
+    "@abextm/cache2": "^0.1.9",
     "@tailwindcss/postcss": "4.1.11",
     "@types/node": "^20",
     "@types/react": "^19",

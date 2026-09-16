@@ -23,7 +23,7 @@ import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { computeFit, renderModelFrame, loadTextures, modelTextureIds, loadAnimationWithAlpha } from './lib/rs-raster.mjs';
-import { parseNpcDef } from './lib/npc-def.mjs';
+import { npcDef } from './lib/npc-def.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -218,9 +218,8 @@ function parseSpotAnimDef(content) {
 
 /** Build an NPC's (merged + recoloured) model and its standing-animation id. */
 async function buildNpcModel(cache, npcId) {
-  const file = await cache.getFile(IndexType.CONFIGS, ConfigType.NPC, npcId);
-  if (!file?.content) return null;
-  const def = parseNpcDef(file.content);
+  const def = await npcDef(npcId);
+  if (!def) return null;
   const models = [];
   for (const mid of def.models) {
     const m = await cache.getDef(IndexType.MODELS, mid).catch(() => null);
