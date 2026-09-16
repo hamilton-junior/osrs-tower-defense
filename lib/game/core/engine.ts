@@ -3218,6 +3218,7 @@ export class GameEngine {
       case 'life': {
         if (this.lives < this.maxLives) {
           this.lives += 1;
+          this.showLifeGain(1);
         } else {
           // Nothing to heal — he is not going to take it back, so it is worth gold.
           const gold = this.awardGold(diversionGold(this.wave, this.towers.length));
@@ -3962,7 +3963,10 @@ export class GameEngine {
   pickDraftCard(id: string) {
     const card = this.pendingDraft?.find(c => c.id === id);
     if (!card) return;
+    // A life card heals, and a max-life card fills the slot it adds: both pop.
+    const livesBefore = this.lives;
     this.applyDraftEffect(card);
+    this.showLifeGain(this.lives - livesBefore);
     this.bumpTowerLayout(); // a synergy card changes the aura glows
     // Unique (build-defining) cards are spent: keep them out of this run's later hands.
     if (card.unique) this.draftedUnique.add(card.id);
@@ -3998,7 +4002,9 @@ export class GameEngine {
   pickRelic(id: string) {
     const relic = this.pendingRelics?.find(r => r.id === id);
     if (!relic) return;
+    const livesBefore = this.lives;
     this.applyRelicEffect(relic.effect);
+    this.showLifeGain(this.lives - livesBefore);
     this.bumpCombatEpoch(); // a relic can raise runMods (damage/range/fireRate)
     this.ownedRelics.push(relic);
     this.pendingRelics = null;

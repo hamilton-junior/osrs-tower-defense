@@ -589,6 +589,7 @@ export function checkWaveEnd(eng: GameEngine) {
   // A Ranarr hands a life back for surviving the wave it was pulled for. Read
   // before `wave` advances, while the herbs are still the live ones, and capped at
   // the run's own maximum so it heals rather than inflates.
+  const livesBefore = eng.lives;
   const restored = farmLivesOnClear(eng.activeFarmBuffs());
   if (restored > 0 && eng.lives < eng.maxLives) {
     eng.healLives(restored);
@@ -602,6 +603,8 @@ export function checkWaveEnd(eng: GameEngine) {
     eng.healLives(poured);
     eng.notify(`${pourer.name}: a life restored`, pourer.icon);
   }
+  // One pop for both, so a Ranarr and a Sanfew on the same clear read as +2.
+  eng.showLifeGain(eng.lives - livesBefore);
   // The Overload's bill, read after the two potions that pay lives out so a wave
   // never both heals and burns the same life. It never takes the last one — a
   // potion is not allowed to end the run, so an Overload with nothing left to

@@ -1751,7 +1751,9 @@ export function onKillChains(eng: GameEngine, x: number, y: number, dealt: numbe
       ? fx.soulSteal.bossHeal
       : (Math.random() < soulStealAddChance(fx.soulSteal.addKills, eng.wave) ? 1 : 0);
     if (heal > 0) {
+      const before = eng.lives;
       eng.healLives(heal);
+      eng.showLifeGain(eng.lives - before);
       spawnHealFx(eng, x, y);
     }
   }

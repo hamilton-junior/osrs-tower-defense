@@ -83,6 +83,7 @@ function stubEngine() {
       const c = cap ?? e.maxLives;
       e.lives = Math.min(Math.max(c, e.lives), e.lives + n);
     },
+    showLifeGain: () => {},
     checkAchievements: () => {},
     steadyHeld: () => false,
     emit: () => {},
