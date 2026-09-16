@@ -245,7 +245,6 @@ export function recordCombatTime(eng: GameEngine, dt: number) {
 
 /** Advance purely-visual effects (no gameplay impact). */
 export function updateEffects(eng: GameEngine, dt: number) {
-  if (eng.baseFlash > 0) eng.baseFlash = Math.max(0, eng.baseFlash - dt * 1.6);
   for (let i = eng.spotEffects.length - 1; i >= 0; i--) {
     const fx = eng.spotEffects[i];
     fx.age += dt;

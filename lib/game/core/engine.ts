@@ -310,11 +310,11 @@ export class GameEngine {
    *  mouse move clears it (the mouse takes back over). It mirrors itself onto
    *  `pointer` so the existing placement ghost renders at the cursor for free. */
   placeCursor: Point | null = null;
-  /** Pulse (1 → 0) when the base takes a leak, for the renderer's hit flash. */
+  /** Pulse (1 → 0) when the base takes a leak, for the renderer's hit flash. Both
+   *  flashes fade on wall-clock time in the frame loop, so a brew drunk while paused
+   *  still clears off the board. */
   baseFlash = 0;
-  /** Pulse (1 → 0) when lives are won back: the green twin of {@link baseFlash}. It
-   *  fades on wall-clock time in the frame loop, so a fish eaten while paused still
-   *  clears off the board. */
+  /** Pulse (1 → 0) when lives are won back: the green twin of {@link baseFlash}. */
   healFlash = 0;
 
   // --- run stats (read directly by the UI, e.g. the game-over screen) ---
@@ -610,6 +610,9 @@ export class GameEngine {
           // React render — the fast-forward stutter players hit with the panel open.
           this.pushDpsStats(dt);
         }
+        // The two board flashes run on the raw frame dt, outside the pause gate and the
+        // sub-steps: in `update` they froze while paused and ran short at 5× speed.
+        if (this.baseFlash > 0) this.baseFlash = Math.max(0, this.baseFlash - dt * 1.6);
         if (this.healFlash > 0) this.healFlash = Math.max(0, this.healFlash - dt * 1.6);
         this.renderer.draw();
         // One UI push per frame, after the sim has settled — see `emit`/`flush`.
