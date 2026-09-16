@@ -335,23 +335,29 @@ export default function GameRoot() {
   useEffect(() => { engineRef.current?.setDpsPanelOpen(dpsVisible); }, [dpsVisible]);
   // Stable so DpsView's unmount-cleanup effect doesn't re-fire every stats tick.
   const highlightTower = useCallback((id: string | null) => engineRef.current?.setHighlightTower(id), []);
-  // Global UI text scale — a manual multiplier on top of the viewport-adaptive
+  // Global UI text scale: a manual multiplier on top of the viewport-adaptive
   // base font-size (globals.css), applied as the `--ui-scale` CSS var the body
   // reads. Lets the player dial the whole em-based interface up/down for their
-  // display without touching the browser zoom. Persisted; default 1.0 (100%).
-  // Clamped on read as well as on click: a value saved before these bounds existed
-  // (or hand-edited in localStorage) would otherwise restore a layout the bar cannot
-  // hold, with no way to see the control that fixes it.
-  const [uiScale, setUiScale] = useState(() =>
-    Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, loadNum('ui_scale', 1))));
+  // display without touching the browser zoom.
+  //
+  // Two numbers, on purpose. `uiScalePref` is the size the player asked for: 100%
+  // until they press - or +, and the only one that is saved. `uiScale` is the size
+  // actually drawn, the preference held under what this screen can fit
+  // (`maxUiScale`, below). The old code kept one number and wrote the clamp back
+  // over it, so a ceiling misread at load (the pixel font not in yet) was saved as
+  // the player's own choice and came back on every visit. It is saved under a new
+  // key for that reason: the old one holds those misreads, not choices.
+  //
+  // Clamped on read: a hand-edited value would otherwise restore a layout the bar
+  // cannot hold, with no way to see the control that fixes it.
+  const [uiScalePref, setUiScalePref] = useState(() =>
+    Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, loadNum('ui_scale_pref', 1))));
   useEffect(() => {
-    try { localStorage.setItem('ui_scale', String(uiScale)); } catch { /* ignore */ }
-    document.documentElement.style.setProperty('--ui-scale', String(uiScale));
-    // The board's canvas draws interface too (the tower level/XP strip), and it has
-    // to grow with the control like every panel does — the engine mirrors the scale
-    // for the renderer.
-    engineRef.current?.setUiScale(uiScale);
-  }, [uiScale]);
+    try {
+      localStorage.setItem('ui_scale_pref', String(uiScalePref));
+      localStorage.removeItem('ui_scale');
+    } catch { /* ignore */ }
+  }, [uiScalePref]);
   // The stone frame the resizable client rings its panels with, handed to CSS as a url
   // once on mount. Every other asset in this project is addressed through `assets.ts`
   // because that is where NEXT_PUBLIC_BASE_PATH is applied, and a stylesheet cannot
@@ -366,11 +372,23 @@ export default function GameRoot() {
   // got reported.
   //
   // So measure instead: `maxUiScale` is the largest scale this window can hold, solved
-  // from the bar's own natural width. "+" stops there, and a scale inherited from a
-  // bigger window is pulled down to it. It re-measures on resize, so widening the
-  // window re-opens the larger sizes.
+  // from the bar's own natural width. "+" stops there, and the drawn scale is held
+  // under it. It re-measures whenever anything in the bar changes size, not only the
+  // bar itself: the bar is always the window's width, so watching its box alone
+  // missed the pixel font swapping in after the first measure, which shrinks every
+  // label and left the ceiling a few percent too low until the player pressed "-".
   const barRef = useRef<HTMLElement | null>(null);
   const [maxUiScale, setMaxUiScale] = useState(UI_SCALE_MAX);
+  const uiScale = Math.min(uiScalePref, maxUiScale);
+  // A layout effect, so the scale is on the page before the measurement below reads it
+  // and before anything paints at the old size.
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty('--ui-scale', String(uiScale));
+    // The board's canvas draws interface too (the tower level/XP strip), and it has
+    // to grow with the control like every panel does — the engine mirrors the scale
+    // for the renderer.
+    engineRef.current?.setUiScale(uiScale);
+  }, [uiScale]);
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
@@ -432,18 +450,37 @@ export default function GameRoot() {
       // step so the leftover room is actually reachable; 1e-3 off keeps a rounding
       // sliver between the ceiling and the width it was solved from.
       const room = Math.floor((fits - 1e-3) * 100) / 100;
-      setMaxUiScale(Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, room)));
+      const next = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, room));
+      // A lower ceiling always lands. A higher one needs two whole percent: the drawn
+      // scale follows the ceiling, and a reading a hair off at one size could otherwise
+      // flip the next reading back, stepping the bar between two sizes forever.
+      setMaxUiScale((prev) => (next < prev || Math.round((next - prev) * 100) >= 2 ? next : prev));
     };
     measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(bar);
-    return () => ro.disconnect();
-  }, [uiScale]);
-  // Pull an inherited-too-large scale (a smaller window, or a value saved on another
-  // machine) down to what this screen can actually hold.
-  useEffect(() => {
-    if (uiScale > maxUiScale) setUiScale(maxUiScale);
-  }, [uiScale, maxUiScale]);
+    let frame = 0;
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure(); });
+    };
+    const ro = new ResizeObserver(schedule);
+    const watch = () => {
+      ro.disconnect();
+      ro.observe(bar);
+      bar.querySelectorAll('*').forEach((el) => ro.observe(el));
+    };
+    watch();
+    // A stone or a tower joining the bar is a new element to watch as well.
+    const mo = new MutationObserver(() => { watch(); schedule(); });
+    mo.observe(bar, { childList: true, subtree: true });
+    const fonts = document.fonts;
+    fonts?.ready.then(schedule);
+    fonts?.addEventListener('loadingdone', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+      mo.disconnect();
+      fonts?.removeEventListener('loadingdone', schedule);
+    };
+  }, []);
   // A stone toggles its interface: clicking the lit one closes it, so no panel is
   // ever stuck on-screen. The popup floats above the bar (absolutely positioned),
   // so opening it never resizes the canvas — which would rebuild the path and
@@ -3516,7 +3553,7 @@ export default function GameRoot() {
           onSeen={markTipSeen}
           onSkipAll={skipAllTips}
           uiScale={uiScale}
-          onNudgeUiScale={(d) => setUiScale((v) => stepScale(v, d, maxUiScale))}
+          onNudgeUiScale={(d) => setUiScalePref(stepScale(uiScale, d, maxUiScale))}
         />
       )}
       </div>{/* board — floating overlays anchor to the map, never the dock bar */}
@@ -3943,7 +3980,7 @@ export default function GameRoot() {
             <div data-tut="uiscale" className="shrink-0 flex items-center gap-[0.25em]">
               <span className="text-[0.6em] text-[#d3c3a0] ml-[0.4em] mr-[0.4em] uppercase tracking-wide select-none">UI</span>
               <button
-                onClick={() => setUiScale((v) => stepScale(v, -1, maxUiScale))}
+                onClick={() => setUiScalePref(stepScale(uiScale, -1, maxUiScale))}
                 disabled={uiScale <= UI_SCALE_MIN}
                 title="Smaller interface"
                 className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
@@ -3954,7 +3991,7 @@ export default function GameRoot() {
                 {Math.round(uiScale * 100)}%
               </span>
               <button
-                onClick={() => setUiScale((v) => stepScale(v, 1, maxUiScale))}
+                onClick={() => setUiScalePref(stepScale(uiScale, 1, maxUiScale))}
                 disabled={uiScale >= maxUiScale}
                 title={uiScale >= maxUiScale && maxUiScale < UI_SCALE_MAX
                   ? 'This screen has no room for a larger interface. Widen the window for more'
