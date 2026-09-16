@@ -596,3 +596,22 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     `lifestealSeq` became `lifeGainSeq` with a `lifeGainAmount` beside it. The Zamorak brew's
     life cost keeps the red flash, since that one is a loss. Not driven headless: no debug
     cheat hands out fish, and the pop is the life-steal one already in the game.
+
+41. **Every life gain gets the lives-orb pop, not just food, brews and life steal.**
+    — **shipped** (2026-09-16). `showLifeGain` now also runs for the Ranarr herb and the
+    Sanfew serum on a wave clear, the life and max-life draft cards, the max-life relic, a
+    Soul Eater kill and the kebab. The two wave-clear heals share one before/after, so a
+    Ranarr and a Sanfew on the same clear pop once as `+2`. Draft and relic wrap the pick,
+    not the effect helper, which covers `multi` effects too. The Last Recall save stays
+    silent: it pulls you back from a lethal leak, and a heal pop there would read wrong.
+    The combat test stub gained a no-op `showLifeGain`.
+
+42. **A full-board flash for a life gain, the twin of the red leak flash.**
+    — **shipped** (2026-09-16). `showLifeGain` sets a new `healFlash` pulse, and
+    `drawHealFlash` in `render/hud.ts` washes the board in the heal ring's green
+    (`rgba(124,252,106,0.12)` at full pulse), drawn under the leak flash so a leak on the same
+    frame still reads red. It leaves the exit flare alone. Unlike `baseFlash`, it decays in
+    the frame loop on wall-clock `dt`, outside the pause gate and the fast-forward sub-steps,
+    so a fish eaten while paused still clears and 5× speed does not cut it short. Every
+    life steal in combat flashes too. `baseFlash` itself still freezes while paused; nothing
+    asked for that to change.
