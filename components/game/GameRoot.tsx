@@ -2405,12 +2405,14 @@ export default function GameRoot() {
                     )}
                     <span className="text-[0.8em] text-[#b3a585]">{previewOpen ? '▲' : '▼'}</span>
                   </button>
-                  {/* The roster hangs off the chip as an overlay instead of growing it,
-                      so the event chip and the infoboxes below keep their place when it
-                      opens. It sits flush against the chip's bottom edge on purpose:
-                      a gap there is board, and crossing board would close it. */}
+                  {/* The roster grows the strip rather than floating over the board,
+                      so the event chip and the potion infoboxes underneath are pushed
+                      down by exactly what opened above them — nothing the player is
+                      reading ends up behind the roster. A rule separates the two
+                      instead of a second panel border, and there is no gap: crossing
+                      board on the way down would close it. */}
                   {previewOpen && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 z-30 rs-panel px-[0.7em] py-[0.4em] w-max max-w-[46em] flex items-center justify-center gap-[0.7em] flex-wrap">
+                  <div className="mt-[0.35em] pt-[0.4em] border-t border-[var(--rs-keyline)] flex items-center justify-center gap-[0.7em] flex-wrap">
                     {(previewExpanded ? ui.wavePreview : capWavePreview(ui.wavePreview)).map((m) => {
                       const style = enemySpriteStyle(m.type);
                       return (
