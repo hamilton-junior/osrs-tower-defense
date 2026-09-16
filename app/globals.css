@@ -1022,10 +1022,12 @@ kbd {
   box-shadow: var(--rs-sunken), inset 0 2px 5px rgba(0, 0, 0, 0.55);
 }
 
-/* Transient blocked-action toast (e.g. "Not enough gold") */
+/* Transient blocked-action toast (e.g. "Not enough gold"). A third larger than the
+   caption it grew from: it is gone in 1.4s, so it has to be read at a glance. The
+   padding and the icon are in em, so they grow with it. */
 .rs-toast {
   font-family: var(--font-osrs);
-  font-size: var(--rs-caption-size);
+  font-size: calc(var(--rs-caption-size) * 1.33);
   color: #ff6b6b;
   background: linear-gradient(180deg, rgba(44, 22, 22, 0.9), rgba(28, 14, 14, 0.93));
   border: 1px solid var(--rs-keyline);
