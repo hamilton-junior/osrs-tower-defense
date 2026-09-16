@@ -12,7 +12,7 @@ import { drawFishing } from './render/fishing';
 import { drawTraps } from './render/hunter-traps';
 import { drawRoadShaping } from './render/road-shaping';
 import { drawProjectiles, drawParticles, drawFx, drawHitsplats } from './render/effects';
-import { drawVignette, drawBossBar, drawLowHealthWarning, drawLeakFlash } from './render/hud';
+import { drawVignette, drawBossBar, drawLowHealthWarning, drawLeakFlash, drawHealFlash } from './render/hud';
 
 /**
  * All Canvas 2D drawing for a frame.
@@ -115,6 +115,7 @@ export class GameRenderer {
     drawVignette(this, ctx);
     drawBossBar(this, ctx);
     drawLowHealthWarning(this, ctx);
+    drawHealFlash(this, ctx); // under the leak flash, so a leak on the same frame still reads red
     drawLeakFlash(this, ctx);
     ctx.restore();
   }

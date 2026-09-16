@@ -312,6 +312,10 @@ export class GameEngine {
   placeCursor: Point | null = null;
   /** Pulse (1 → 0) when the base takes a leak, for the renderer's hit flash. */
   baseFlash = 0;
+  /** Pulse (1 → 0) when lives are won back: the green twin of {@link baseFlash}. It
+   *  fades on wall-clock time in the frame loop, so a fish eaten while paused still
+   *  clears off the board. */
+  healFlash = 0;
 
   // --- run stats (read directly by the UI, e.g. the game-over screen) ---
   kills = 0;
@@ -606,6 +610,7 @@ export class GameEngine {
           // React render — the fast-forward stutter players hit with the panel open.
           this.pushDpsStats(dt);
         }
+        if (this.healFlash > 0) this.healFlash = Math.max(0, this.healFlash - dt * 1.6);
         this.renderer.draw();
         // One UI push per frame, after the sim has settled — see `emit`/`flush`.
         this.flush();
@@ -2002,13 +2007,15 @@ export class GameEngine {
     this.lives = Math.min(Math.max(cap, this.lives), this.lives + n);
   }
 
-  /** Celebrate lives won back on the lives orb: a blip and a rising ❤ +N. A gain
-   *  must never borrow `baseFlash` — that red wash and the flaring exit are how the
-   *  board says a life was *lost*, and eating a fish under it read as taking a hit. */
+  /** Celebrate lives won back: a green wash over the board (`healFlash`), and on the
+   *  lives orb a blip and a rising ❤ +N. A gain must never borrow `baseFlash` —
+   *  that red wash and the flaring exit are how the board says a life was *lost*,
+   *  and eating a fish under it read as taking a hit. */
   showLifeGain(n: number) {
     if (n <= 0) return;
     this.lifeGainAmount = n;
     this.lifeGainSeq += 1;
+    this.healFlash = 1;
   }
 
   /** Total gp invested in a tower (base + all upgrades to its current level). */
@@ -4399,6 +4406,7 @@ export class GameEngine {
     this.sandboxWave = false;
     this.lastWaveSandbox = false;
     this.baseFlash = 0;
+    this.healFlash = 0;
     this.selectedTowerType = null;
     this.selectedTowerId = null;
     this.multiSelectedIds = [];
@@ -4507,6 +4515,7 @@ export class GameEngine {
     this.sandboxWave = false;
     this.lastWaveSandbox = false;
     this.baseFlash = 0;
+    this.healFlash = 0;
     this.paused = false;
     this.waveActive = false;
     // Auto-wave never carries into a new run — a fresh run always starts hands-on.

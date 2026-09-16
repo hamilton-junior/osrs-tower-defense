@@ -3,7 +3,8 @@ import type { GameRenderer } from '../renderer';
 import { GUARDIAN_LINK_COLOR, CORP_LINK_COLOR } from './shared';
 
 /**
- * On-canvas HUD: the boss health bar, the low-health warning and the leak flash.
+ * On-canvas HUD: the boss health bar, the low-health warning and the leak and heal
+ * flashes.
  * Everything else in the interface is React (see components/game).
  */
 
@@ -12,6 +13,15 @@ export function drawLeakFlash(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const bf = gr.e.baseFlash;
   if (bf <= 0) return;
   ctx.fillStyle = `rgba(180,0,0,${bf * 0.14})`;
+  ctx.fillRect(0, 0, gr.e.width, gr.e.height);
+}
+
+/** The leak flash's twin for lives won back: a brief green wash, in the heal ring's
+ *  colour. It leaves the exit alone, since that flare only ever means a leak. */
+export function drawHealFlash(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  const hf = gr.e.healFlash;
+  if (hf <= 0) return;
+  ctx.fillStyle = `rgba(124,252,106,${hf * 0.12})`;
   ctx.fillRect(0, 0, gr.e.width, gr.e.height);
 }
 
