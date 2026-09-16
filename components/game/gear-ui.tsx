@@ -69,10 +69,12 @@ export function GearStats({ item }: { item: Item }) {
 }
 
 /**
- * What a swap actually costs or buys: every stat either piece carries, as
- * `worn → incoming` with the difference. A drop that looks like an upgrade
+ * What a swap actually costs or buys: every stat either piece carries, as the
+ * incoming piece's value with the difference from the worn one after it, the way
+ * RuneLite's item stats read (`+15% (+5%)`). A drop that looks like an upgrade
  * because it is shinier can easily be a downgrade on the stat that matters, so
- * the delta is the point — green for better, red for worse.
+ * the difference is the point: green for better, red for worse. One short value
+ * keeps each row on one line in the narrow bag panel.
  */
 export function GearCompare({ from, to }: { from: Item; to: Item }) {
   const rows = GEAR_STAT_DEFS.filter((d) => from.bonus[d.key] || to.bonus[d.key]);
@@ -88,10 +90,8 @@ export function GearCompare({ from, to }: { from: Item; to: Item }) {
             icon={d.icon}
             label={d.label}
             value={
-              <span className="flex items-center gap-[0.35em]">
-                <span className="text-[#9d8f6a]">{a}{d.unit}</span>
-                <span className="text-[#6f6449]">→</span>
-                <span>{b}{d.unit}</span>
+              <span className="flex items-center gap-[0.3em]">
+                <span>{b > 0 ? '+' : ''}{b}{d.unit}</span>
                 {diff !== 0 && (
                   <span className={diff > 0 ? 'text-osrs-green' : 'text-osrs-red'}>
                     ({diff > 0 ? '+' : ''}{diff}{d.unit})

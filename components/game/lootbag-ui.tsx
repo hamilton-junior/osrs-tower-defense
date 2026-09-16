@@ -189,6 +189,13 @@ export function LootBagView({
     const buried = ordered.length - towers.length;
     const hovered = towers.find(({ t }) => t.id === hoverTowerId)?.t;
     const worn = hovered?.equipment[slot];
+    // Every piece a listed tower already wears, once each. Each one is a
+    // before/after the stat block may be asked to show.
+    const wornPieces: Item[] = [];
+    for (const { t } of towers) {
+      const w = t.equipment[slot];
+      if (w && !wornPieces.some((p) => p.id === w.id)) wornPieces.push(w);
+    }
     return (
       <>
         {/* The picked piece's stats stay on screen for as long as the picker is
@@ -213,8 +220,20 @@ export function LootBagView({
         {g.rarity === 'signature' && g.description && (
           <p className="mt-[0.3em] text-[0.72em] text-[#c9b78c] leading-snug">{g.description}</p>
         )}
-        <div className="mt-[0.35em]">
-          {worn ? <GearCompare from={worn} to={g} /> : <GearStats item={g} />}
+        {/* Every block it can show, stacked in one grid cell with only the live one
+            visible. The cell is as tall as the tallest of them whatever is hovered,
+            so moving the mouse along the list below never moves the list. A block
+            that changed height under the cursor would move the row out from under
+            it, un-hover it, shrink back and hover it again, over and over. */}
+        <div className="mt-[0.35em] grid">
+          {[null, ...wornPieces].map((w) => {
+            const live = (w?.id ?? null) === (worn?.id ?? null);
+            return (
+              <div key={w?.id ?? 'own'} className={`col-start-1 row-start-1 ${live ? '' : 'invisible'}`} aria-hidden={!live}>
+                {w ? <GearCompare from={w} to={g} /> : <GearStats item={g} />}
+              </div>
+            );
+          })}
         </div>
         <div className="flex items-center justify-between gap-2 mt-[0.45em] pt-[0.35em] border-t border-[var(--rs-keyline)]">
           <span className="text-[0.68em] uppercase tracking-wide text-[#9d8f6a]">Equip on</span>
