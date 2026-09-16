@@ -497,6 +497,19 @@ img[src*="/hitsplats/shield"] {
    marks a slot it is acting on. */
 .rs-inv-slot.selected { background: rgba(255, 152, 31, 0.28); box-shadow: inset 0 0 0 1px var(--osrs-orange); }
 .rs-inv-slot.signature:not(.selected) { box-shadow: inset 0 0 0 1px var(--osrs-yellow); }
+/* The copy of a square that rides under the cursor while its item is dragged
+   (ItemSlot). Half alpha, the way the client draws an item it is carrying; the
+   square it came from shows empty until the item lands. */
+.rs-drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 3000;
+  opacity: 0.5;
+  pointer-events: none;
+}
+[data-dragging] > img,
+[data-dragging] > .rs-slot-count { visibility: hidden; }
 
 /* ── The grid's own frame ──────────────────────────────────────────────────
    One box, and the same box on both pages: 180px is the four columns plus the

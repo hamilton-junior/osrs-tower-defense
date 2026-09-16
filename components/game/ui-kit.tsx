@@ -266,6 +266,70 @@ export function InvGrid({ className = '', overlay, cover, children }: {
   );
 }
 
+/* Carrying an item. The client drags a see-through copy of the icon under the
+   cursor and leaves the square it came from empty until the item lands. The
+   browser's own drag picture is a faded snapshot with a badge on it, so it gets a
+   blank image instead and the copy is a clone of the square on document.body,
+   moved by every dragover. Only one drag exists at a time, so the state lives here. */
+
+let blankDragImg: HTMLImageElement | null = null;
+/** A 1×1 transparent GIF for `setDragImage`. It has to be decoded before the first
+ *  drag or the browser falls back to its own picture, so a draggable square warms
+ *  it on mount rather than on dragstart. */
+function blankDragImage(): HTMLImageElement {
+  if (!blankDragImg) {
+    blankDragImg = new Image(1, 1);
+    blankDragImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  }
+  return blankDragImg;
+}
+
+let dragGhost: { node: HTMLElement; source: HTMLElement; dx: number; dy: number } | null = null;
+
+function moveDragGhost(e: DragEvent) {
+  if (!dragGhost) return;
+  // Firefox reports 0,0 on the last dragover as the cursor leaves the window.
+  if (e.clientX === 0 && e.clientY === 0) return;
+  dragGhost.node.style.transform = `translate(${e.clientX - dragGhost.dx}px, ${e.clientY - dragGhost.dy}px)`;
+}
+
+// `drop` ends it as well as `dragend`: a drop that moves the item remounts the
+// square it left, and a detached square's dragend never reaches the document.
+function endDragGhost() {
+  if (!dragGhost) return;
+  dragGhost.node.remove();
+  dragGhost.source.removeAttribute('data-dragging');
+  dragGhost = null;
+  document.removeEventListener('dragover', moveDragGhost, true);
+  document.removeEventListener('drop', endDragGhost, true);
+  document.removeEventListener('dragend', endDragGhost, true);
+}
+
+function startDragGhost(e: React.DragEvent<HTMLElement>) {
+  endDragGhost();
+  const source = e.currentTarget;
+  const rect = source.getBoundingClientRect();
+  const node = source.cloneNode(true) as HTMLElement;
+  for (const attr of ['title', 'aria-label', 'draggable']) node.removeAttribute(attr);
+  node.setAttribute('aria-hidden', 'true');
+  // The square's own class sizes the icon and the stack number; selected,
+  // signature and dim are marks on the square, not on the item being carried.
+  node.className = `${source.classList.contains('rs-inv-slot') ? 'rs-inv-slot' : 'rs-slot'} rs-drag-ghost`;
+  node.style.width = `${rect.width}px`;
+  node.style.height = `${rect.height}px`;
+  document.body.appendChild(node);
+  const ghost = { node, source, dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+  dragGhost = ghost;
+  moveDragGhost(e.nativeEvent);
+  e.dataTransfer.setDragImage(blankDragImage(), 0, 0);
+  document.addEventListener('dragover', moveDragGhost, true);
+  document.addEventListener('drop', endDragGhost, true);
+  document.addEventListener('dragend', endDragGhost, true);
+  // Changing the dragged element inside dragstart itself can cancel the drag in
+  // Chrome, so the square empties a frame later.
+  requestAnimationFrame(() => { if (dragGhost === ghost) source.setAttribute('data-dragging', ''); });
+}
+
 /** One square. With no icon it is an empty slot — drawn, not skipped, because the
  *  shape of the grid is what tells the player how much room is left. */
 export function ItemSlot({ icon, name, count, selected = false, dim = false, signature = false, osrs = false, title, onClick, onContextMenu, drag }: {
@@ -295,7 +359,16 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
   };
 }) {
   const base = osrs ? 'rs-inv-slot' : 'rs-slot';
+  const draggable = !!drag?.draggable;
+  useEffect(() => { if (draggable) blankDragImage(); }, [draggable]);
   if (!icon) return <div className={base} {...(drag ?? {})} />;
+  const dragWithGhost = drag && {
+    ...drag,
+    onDragStart: (e: React.DragEvent<HTMLElement>) => {
+      drag.onDragStart?.(e);
+      if (drag.draggable) startDragGhost(e);
+    },
+  };
   return (
     <button
       type="button"
@@ -303,7 +376,7 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
       aria-label={name}
       onClick={onClick}
       onContextMenu={onContextMenu}
-      {...(drag ?? {})}
+      {...(dragWithGhost ?? {})}
       className={`${base} ${selected ? 'selected' : ''} ${signature ? 'signature' : ''} ${dim ? 'rs-slot-unafford' : ''}`}
     >
       <img src={icon} alt="" onError={hideBrokenImg} />
