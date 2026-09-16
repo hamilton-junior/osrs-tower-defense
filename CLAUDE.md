@@ -65,11 +65,17 @@ Static content lives under [`lib/game/data/`](lib/game/data/): `enemies.ts`, `to
 Every sprite and sound comes from **OSRS itself**, baked out of the local game cache by the scripts in `scripts/` into `public/assets/` — never hot-linked from the wiki or any other external host. `lib/game/assets.ts` maps names to those local files; `assets.test.ts` fails the build if a data table names an icon with no bake behind it.
 
 **Looking an id up:** the OSRS cache is already extracted and browsable at
-**https://abextm.github.io/cache2/#/viewer** (repo: **https://github.com/abextm/cache2**). Use it
-to find NPC, item, sprite and animation ids and to read a def's fields, instead of loading the
-local cache and sweeping id ranges by hand. It answers *which id* only — the bytes that ship
-still come out of the local cache through `scripts/render-osrs-*.mjs`. Never download an asset
-from the viewer or the repo into `public/assets/`.
+**https://abextm.github.io/cache2/#/viewer** (repo: **https://github.com/abextm/cache2**, library
+`@abextm/cache2` on npm). It decodes **defs and ids, not geometry or audio** — it has no model,
+frame, texture or sound loader, so models, animations and sounds live there only as ids. Read it
+instead of sweeping id ranges by hand: `GameVal` (index 24) resolves name↔id for NPCs, objects,
+items and animations; `NPC` carries the real stat block (`attack`, `defence`, `strength`,
+`hitpoints`, `ranged`, `magic`, `size`, `combatLevel`) plus `multiChildren` for variants;
+`Animation` carries `frameIDs` (the framemap) and `sounds`, a `SoundEffectID` per frame; `Item`
+carries the inventory-icon camera (`zoom2d`, `xan2d`, `yan2d`, `zan2d`, `offsetX2d`,
+`offsetY2d`). It answers *which id* and *what the def says* — the bytes that ship still come out
+of the local cache through `scripts/render-osrs-*.mjs`. Never download an asset from the viewer
+or the repo into `public/assets/`.
 
 ### Styling
 
