@@ -24,6 +24,10 @@ export interface MenuOption {
   /** What the line pays, printed after the target in brackets. The number comes
    *  first and the coins follow it, the way every price in this interface reads. */
   coins?: number;
+  /** Why this line is worth a second click — a few words, printed in red after
+   *  **Sure?** until the press that commits. Set it only where the action would
+   *  spend something for nothing; every other line stays one click. */
+  confirm?: string;
   title?: string;
   onSelect: () => void;
 }
@@ -55,6 +59,10 @@ export interface OptionMenuProps {
 export function OptionMenu({ x, y, options, onClose }: OptionMenuProps) {
   const [mounted, setMounted] = useState(false);
   const [pos, setPos] = useState({ left: x, top: y });
+  // Which line is armed, if any. No timer disarms it the way the skills tile's does:
+  // this menu is gone the moment the cursor commits anywhere else, so closing already
+  // is the disarm.
+  const [armed, setArmed] = useState(-1);
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => setMounted(true), []);
@@ -111,7 +119,11 @@ export function OptionMenu({ x, y, options, onClose }: OptionMenuProps) {
           disabled={o.disabled}
           title={o.title}
           className="rs-menu-row"
-          onClick={() => { o.onSelect(); onClose(); }}
+          onClick={() => {
+            if (o.confirm && armed !== i) { setArmed(i); return; }
+            o.onSelect();
+            onClose();
+          }}
         >
           <span>{o.action}</span>
           {o.target && <span className="rs-menu-target"> {o.target}</span>}
@@ -123,6 +135,7 @@ export function OptionMenu({ x, y, options, onClose }: OptionMenuProps) {
             </span>
           )}
           {o.disabled && o.note && <span className="rs-menu-why"> — {o.note}</span>}
+          {armed === i && o.confirm && <span className="rs-menu-sure"> — Sure? {o.confirm}</span>}
         </button>
       ))}
       <button type="button" role="menuitem" className="rs-menu-row" onClick={onClose}>

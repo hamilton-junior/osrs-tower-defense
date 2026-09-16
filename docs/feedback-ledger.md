@@ -524,7 +524,16 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     the bar.
 
 36. **Confirm a brew drunk at the overheal cap**, the same way the game already confirms an
-    action that would be wasted.
+    action that would be wasted. — **shipped** (2026-09-15). Per the user's ruling the dose is
+    not refused: the press arms, and only the press after it pours. A brew at the ceiling is the
+    one drink that costs something for nothing — it heals zero and still leaves its permanent
+    brew debt — so both places a potion can be drunk now ask first. The Herblore tile reuses
+    `Tile`'s own `confirm`/`confirmTitle`, the pair that already catches a dose still running.
+    The inventory's right-click **Drink** had no such machinery, so `MenuOption` gained a
+    `confirm` string: an armed line prints **Sure?** and the reason in `--osrs-red`, and no timer
+    disarms it because the menu is gone the moment the cursor commits elsewhere. Both read the
+    same condition — `def.overheals && lives >= overhealCap(maxLives)` — off the data flag
+    item 35 added, so nothing names the Saradomin brew.
 
 37. **Validate traps at 5× speed.** Enemies look like they walk over Hunter traps without
     springing them when the game runs at 5×. Reproduce it before assuming it is a bug — a

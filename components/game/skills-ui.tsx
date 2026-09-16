@@ -9,7 +9,7 @@ import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
 import { FISH, SPOT_CASTS } from '@/lib/game/data/fishing';
 import { castSeconds } from '@/lib/game/systems/fishing';
-import { brewDamageMult, outrankedBy } from '@/lib/game/systems/herblore';
+import { brewDamageMult, outrankedBy, overhealCap } from '@/lib/game/systems/herblore';
 import { hideBrokenImg, fmt, Price } from './ui-kit';
 
 /**
@@ -313,7 +313,8 @@ function TileFace({ sig, icon, glyph, name, foot, footColor, corner }: TileFaceP
 /**
  * A tile you can press. `confirm` is what makes it ask first, so the extra click only
  * ever appears where there is a reason — a herb already riding the wave, a dose still
- * running — and every other press is the single click it has always been. Armed, the
+ * running, a brew that would heal nothing — and every other press is the single click
+ * it has always been. Armed, the
  * foot says **Sure?** in red and disarms itself after a few seconds, or the moment the
  * reason to ask goes away.
  */
@@ -655,6 +656,10 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
               // A better tier of the same effect is already up: the engine refuses
               // the dose rather than spending it, so the tile says so first.
               const covered = def ? outrankedBy(ui.activePotions, def) : null;
+              // A Saradomin brew at the overheal ceiling still spends itself and still
+              // leaves its permanent debt behind — the one drink that costs the player
+              // something for nothing, so it asks before it pours.
+              const capped = !!def?.overheals && ui.lives >= overhealCap(ui.maxLives);
               return (
                 <Tile
                   key={p.id}
@@ -662,12 +667,14 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                   name={p.name}
                   foot={`×${p.count}`}
                   disabled={busy || short || idle || !!covered}
-                  confirm={!!running}
+                  confirm={!!running || capped}
                   title={short ? 'Too few lives to drink that'
                     : idle ? 'No brew to clear'
                     : covered ? `${covered.name} already covers that`
                     : def?.tip}
-                  confirmTitle={`${p.name} still has ${running?.wavesLeft ?? 0} wave${running?.wavesLeft === 1 ? '' : 's'} left. Another dose only starts it over.`}
+                  confirmTitle={running
+                    ? `${p.name} still has ${running.wavesLeft} wave${running.wavesLeft === 1 ? '' : 's'} left. Another dose only starts it over.`
+                    : 'You are already at the overheal cap. This heals nothing and still leaves a brew.'}
                   onPress={() => onDrinkPotion(p.id)}
                 />
               );

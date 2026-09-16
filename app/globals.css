@@ -752,6 +752,8 @@ img[src*="/hitsplats/shield"] {
 .rs-menu-target { color: #ff9040; }
 .rs-menu-row:disabled .rs-menu-target { color: #9a7a56; }
 .rs-menu-why { color: #b0a894; font-size: 0.82em; }
+/* An armed line's warning, in the same red the skills tile says Sure? in. */
+.rs-menu-sure { color: var(--osrs-red); font-size: 0.82em; }
 /* What a line pays, read the way every other price is: the number, then the coins. */
 .rs-menu-coins { color: var(--osrs-yellow); font-size: 0.88em; }
 .rs-menu-coins img { display: inline-block; width: 1em; height: 1em; margin-left: 0.2em; vertical-align: -0.1em; object-fit: contain; }

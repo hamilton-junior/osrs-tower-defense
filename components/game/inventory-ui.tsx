@@ -4,10 +4,10 @@ import React, { useMemo, useState } from 'react';
 import { ASSETS } from '@/lib/game/assets';
 import type { UIState, UiStack } from '@/lib/game/core/engine';
 import type { SeedId } from '@/lib/game/data/farming';
-import { POTIONS, type PotionId } from '@/lib/game/data/herblore';
+import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
 import { FISH_BY_ID, type FishId } from '@/lib/game/data/fishing';
 import type { Tower } from '@/lib/game/types';
-import { brewBlocker, emptyPouch, emptyStock } from '@/lib/game/systems/herblore';
+import { brewBlocker, emptyPouch, emptyStock, overhealCap } from '@/lib/game/systems/herblore';
 import type { StackKind } from '@/lib/game/systems/inventory';
 import { LootBagView } from './lootbag-ui';
 import { OptionMenu, type MenuOption } from './OptionMenu';
@@ -261,6 +261,11 @@ function stackOptions(
         target: stack.name,
         disabled,
         note,
+        // A Saradomin brew at the overheal ceiling heals nothing and still leaves its
+        // permanent debt, so this line asks the way the Herblore tile does.
+        confirm: POTION_BY_ID[stack.id as PotionId]?.overheals && ui.lives >= overhealCap(ui.maxLives)
+          ? 'it heals nothing and still leaves a brew'
+          : undefined,
         title: stack.tip,
         onSelect: () => onDrinkPotion(stack.id as PotionId),
       }];
