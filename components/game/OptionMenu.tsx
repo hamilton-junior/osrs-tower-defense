@@ -52,9 +52,10 @@ export interface OptionMenuProps {
  * child to that panel instead of the viewport. On `document.body` the maths stays
  * in plain viewport coordinates either way.
  *
- * Only lines that mean something right now are listed — that is the whole point
- * of the menu over a row of buttons. A recipe the run cannot finish is not a
- * greyed line here; it is a rung on the Herblore bench.
+ * Only lines that mean something for this item are listed, which is the whole point
+ * of the menu over a row of buttons. A line that is real but blocked right now, like
+ * a recipe short of its level, stays greyed with the wall printed after it, so a herb
+ * that goes into two potions shows both.
  */
 export function OptionMenu({ x, y, options, onClose }: OptionMenuProps) {
   const [mounted, setMounted] = useState(false);

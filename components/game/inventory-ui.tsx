@@ -3,15 +3,15 @@
 import React, { useMemo, useState } from 'react';
 import { ASSETS } from '@/lib/game/assets';
 import type { UIState, UiStack } from '@/lib/game/core/engine';
-import type { SeedId } from '@/lib/game/data/farming';
-import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
+import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
+import { POTIONS, POTION_BY_ID, type PotionDef, type PotionId } from '@/lib/game/data/herblore';
 import { FISH_BY_ID, type FishId } from '@/lib/game/data/fishing';
 import type { Tower } from '@/lib/game/types';
-import { brewBlocker, emptyPouch, emptyStock, overhealCap } from '@/lib/game/systems/herblore';
+import { brewBlocker, emptyPouch, emptyStock, outrankedBy, overhealCap, type BrewBlocker } from '@/lib/game/systems/herblore';
 import type { StackKind } from '@/lib/game/systems/inventory';
 import { LootBagView } from './lootbag-ui';
 import { OptionMenu, type MenuOption } from './OptionMenu';
-import { hideBrokenImg, InvGrid, ItemSlot } from './ui-kit';
+import { fmt, hideBrokenImg, InvGrid, ItemSlot } from './ui-kit';
 
 /**
  * The **Inventory** interface — twenty-eight squares, the last of which is the
@@ -31,7 +31,7 @@ import { hideBrokenImg, InvGrid, ItemSlot } from './ui-kit';
  * use are counted on that stone, and a square is acted on through OSRS's **Choose
  * Option** menu ({@link OptionMenu}) — left-click or right-click it and the menu
  * lists what can be done with it, which is a herb consumed, a potion drunk, every
- * recipe those can finish right now, and moving the lot into the loot bag.
+ * recipe it goes into, and moving the lot into the loot bag.
  *
  * The looting bag is carried the way OSRS carries one: as an item in the backpack,
  * always in the twenty-eighth square, which is why the run has twenty-seven slots
@@ -207,10 +207,11 @@ export function InventoryView(props: InventoryViewProps) {
 
 /**
  * The lines OSRS would put on that square, and only those: a herb is consumed, a
- * potion is drunk, a fish is eaten, either grows a Brew line for every recipe it
- * can finish right now, and anything can be pushed into the loot bag. A recipe the run cannot pay
- * for — the level, the second ingredient, the coins — is not a greyed line here;
- * the Herblore bench is where a locked potion is read.
+ * potion is drunk, a fish is eaten, a herb or potion grows a Brew line for every
+ * recipe it goes into, and anything can be pushed into the loot bag. A Harralander
+ * makes an Energy potion and a Combat potion, so both are listed. A recipe the run
+ * cannot finish yet stays on the menu greyed, with the wall it is against (the
+ * level, the other ingredient, the coins) printed after it.
  *
  * Using a thing is a between-waves action, so during a fight those lines stay and
  * grey out rather than vanishing: the option existing is what says it will be back
@@ -256,19 +257,7 @@ function stackOptions(
         title: 'Sell one for gold instead of eating it',
         onSelect: () => onSellFood(stack.id as FishId),
       }]
-      : [{
-        action: 'Drink',
-        target: stack.name,
-        disabled,
-        note,
-        // A Saradomin brew at the overheal ceiling heals nothing and still leaves its
-        // permanent debt, so this line asks the way the Herblore tile does.
-        confirm: POTION_BY_ID[stack.id as PotionId]?.overheals && ui.lives >= overhealCap(ui.maxLives)
-          ? 'it heals nothing and still leaves a brew'
-          : undefined,
-        title: stack.tip,
-        onSelect: () => onDrinkPotion(stack.id as PotionId),
-      }];
+      : [drinkOption(stack, ui, onDrinkPotion)];
 
   // The engine brews out of the pouch and the shelf, so the menu asks the same
   // two the same way — `brewBlocker` is the one answer to "can this be made".
@@ -280,12 +269,14 @@ function stackOptions(
   for (const def of POTIONS) {
     const usesThis = stack.kind === 'herb' ? def.herb === stack.id : def.potionInput === stack.id;
     if (!usesThis) continue;
-    if (brewBlocker(def, ui.herbloreLevel, pouch, stock, ui.money) !== null) continue;
+    const blocker = brewBlocker(def, ui.herbloreLevel, pouch, stock, ui.money);
     out.push({
       action: 'Brew',
       target: def.name,
-      disabled,
-      note,
+      disabled: disabled || blocker !== null,
+      // The recipe's own wall comes first: "only between waves" is over in a
+      // minute, a missing level is not.
+      note: blocker ? brewWall(blocker, def) : note,
       title: def.tip,
       onSelect: () => onBrewPotion(def.id),
     });
@@ -301,4 +292,47 @@ function stackOptions(
     onSelect: () => onStoreStack(stack.kind, stack.id),
   });
   return out;
+}
+
+/**
+ * The Drink line, held to the same rules as the Herblore bench's tile so the two
+ * places a potion is drunk from never disagree.
+ *
+ * It greys out on the walls the engine would refuse it at, with the reason on the
+ * line. And it asks before the two drinks that spend a dose for little: another of
+ * a potion that is still running only starts its clock over, and a Saradomin brew
+ * at the overheal ceiling heals nothing and still leaves its debt.
+ */
+function drinkOption(stack: UiStack, ui: UIState, onDrinkPotion: (id: PotionId) => void): MenuOption {
+  const def = POTION_BY_ID[stack.id as PotionId];
+  const lifeCost = def?.lifeCost ?? 0;
+  const covered = def ? outrankedBy(ui.activePotions, def) : null;
+  const wall = lifeCost > 0 && ui.lives <= lifeCost ? 'too few lives'
+    : def?.clearsBrew && ui.brewStacks < 1 ? 'no brew to clear'
+    : covered ? `${covered.name} already covers it`
+    : null;
+  const running = ui.activePotions.find((a) => a.id === stack.id);
+  const capped = !!def?.overheals && ui.lives >= overhealCap(ui.maxLives);
+  return {
+    action: 'Drink',
+    target: stack.name,
+    disabled: ui.waveActive || wall !== null,
+    note: wall ?? (ui.waveActive ? 'only between waves' : undefined),
+    confirm: running
+      ? `it still has ${running.wavesLeft} wave${running.wavesLeft === 1 ? '' : 's'} left`
+      : capped ? 'it heals nothing and still leaves a brew'
+      : undefined,
+    title: stack.tip,
+    onSelect: () => onDrinkPotion(stack.id as PotionId),
+  };
+}
+
+/** What a greyed Brew line says it is missing, a few words long. */
+function brewWall(blocker: BrewBlocker, def: PotionDef): string {
+  switch (blocker) {
+    case 'level': return `needs Herblore ${def.level}`;
+    case 'herb': return def.herb ? `needs ${SEED_BY_ID[def.herb].herbName}` : 'needs its herb';
+    case 'potion': return def.potionInput ? `needs ${POTION_BY_ID[def.potionInput].name}` : 'needs its potion';
+    case 'gold': return `needs ${fmt(def.cost)} gp`;
+  }
 }
