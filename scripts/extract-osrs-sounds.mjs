@@ -116,7 +116,13 @@ const TARGETS = {
   death_goblin: 471, death_rat: 711, death_cow: 370, death_imp: 535,
   death_spider: 3606, death_skeleton: 777, death_zombie: 922, death_ghost: 438,
   death_hellhound: 6952, death_scorpion: 3610, death_fire_giant: 450,
-  death_bloodveld: 313, death_hill_giant: 450, death_black_demon: 398,
+  death_bloodveld: 313, death_hill_giant: 450,
+  // The black demon dies to the demon family's own long cry (demon_death), the one the
+  // lesser demon uses, on the same rig (death anim 4677). The table also files a
+  // `black_demon_death` (398), but that 1.2 s clip was flagged in play as the cry of a
+  // smaller demon that dies faster, against this one's 4 s roar. No def in the cache
+  // ties either id to NPC 240 (checked: no sequence embeds 397-404).
+  death_black_demon: 403,
   death_gargoyle: 429, death_blue_dragon: 409, death_nechryael: 646,
   death_abyssal_demon: 277, death_lesser_demon: 403, death_dark_beast: 390,
   death_green_dragon: 409, death_jad: 256, death_vorkath: 1523,
