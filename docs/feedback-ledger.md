@@ -623,3 +623,9 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     fifth. The decay moved into the frame loop beside `healFlash`, on the raw frame `dt`, so
     both flashes now fade the same way whatever the pause or the speed. The exit flare reads
     the same pulse and gets the same fix.
+
+44. **The notices above the prayer bar should be about a third larger.**
+    — **shipped** (2026-09-16). `.rs-toast` now sets `calc(var(--rs-caption-size) * 1.33)`,
+    so it still tracks `--ui-scale`. Padding and icon are in em and grow with it. Measured
+    headless with stand-ins: at 1920×1080 the toast is 35px tall, 25px under the build hint
+    and 52px over the prayer bar; at 1366×768 the gaps are 12px and 24px. Nothing overlaps.
