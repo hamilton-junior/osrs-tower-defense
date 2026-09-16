@@ -76,7 +76,7 @@ import {
   toBag, toInv, type ItemStore, type Stack, type StackKind,
 } from '../systems/inventory';
 import {
-  FISH_BY_ID, CAST_XP, SPOT_CASTS,
+  FISH, FISH_BY_ID, CAST_XP, SPOT_CASTS,
   FISHING_SPOT_ACTIVE_ICON, FISHING_SPOT_ICON, type FishId,
 } from '../data/fishing';
 import {
@@ -4617,6 +4617,15 @@ export class GameEngine {
       if (addItem(this.items, 'herb', s.id) === 'bag') this.bagBump(stackKey('herb', s.id));
     }
     this.notify(`${SEEDS.length} herbs added`, ASSETS.misc.skill_herblore);
+    this.emit();
+  }
+
+  /** One of every fish, for the eat preview and the sell-at-full-lives path. */
+  debugGiveFish() {
+    for (const f of FISH) {
+      if (addItem(this.items, 'food', f.id) === 'bag') this.bagBump(stackKey('food', f.id));
+    }
+    this.notify(`${FISH.length} fish added`, ASSETS.misc.skill_fishing);
     this.emit();
   }
 

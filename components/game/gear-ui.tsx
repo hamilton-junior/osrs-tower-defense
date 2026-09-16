@@ -69,6 +69,30 @@ export function GearStats({ item }: { item: Item }) {
 }
 
 /**
+ * The same stats, summed up for a hover card: an icon and its value per bonus, then
+ * the level gate, run together on as few lines as the card allows. RuneLite's item
+ * stats overlay reads a piece at a glance the same way. The labelled rows stay in the
+ * loot bag's stat block, which is where a player learns what each icon means.
+ */
+export function GearStatChips({ item }: { item: Item }) {
+  const rows = GEAR_STAT_DEFS.filter((d) => item.bonus[d.key]);
+  return (
+    <div className="flex flex-wrap items-center gap-x-[0.8em] gap-y-[0.2em] text-[0.8em] whitespace-nowrap">
+      {rows.map((d) => (
+        <span key={d.key} className="flex items-center gap-[0.3em]">
+          <img src={d.icon} alt={d.label} className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+          <span className="text-osrs-green">+{item.bonus[d.key]}{d.unit}</span>
+        </span>
+      ))}
+      <span className="flex items-center gap-[0.3em] text-[#cdbe91]">
+        <img src={ASSETS.misc.stats_icon} alt="Requires" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+        Lvl {item.levelReq ?? 1}
+      </span>
+    </div>
+  );
+}
+
+/**
  * What a swap actually costs or buys: every stat either piece carries, as the
  * incoming piece's value with the difference from the worn one after it, the way
  * RuneLite's item stats read (`+15% (+5%)`). A drop that looks like an upgrade
@@ -109,10 +133,10 @@ export function GearCompare({ from, to }: { from: Item; to: Item }) {
 
 /**
  * Classic gear: the hover card for a piece, shown from the equipment slots, the
- * equip picker, the tower picker and the loot bag. Reads like the tower panel —
- * an icon + name header, then one stat row each (icon, what it is, how much) —
- * so a bow's stats and an arrow's stats are read the same way. Signature pieces
- * (a boss-drop `gearEffect`) lead with what the effect does.
+ * equip picker, the tower picker and the loot bag. An icon + name header, then the
+ * stats as icons and values, so a bow's stats and an arrow's stats are read the
+ * same way. Signature pieces (a boss-drop `gearEffect`) also say what the effect
+ * does, since no icon can.
  */
 export function gearTooltip(item: Item): React.ReactNode {
   return (
@@ -121,7 +145,7 @@ export function gearTooltip(item: Item): React.ReactNode {
       {item.rarity === 'signature' && item.description && (
         <p className="text-[0.74em] text-[#c9b78c] leading-snug">{item.description}</p>
       )}
-      <GearStats item={item} />
+      <GearStatChips item={item} />
     </div>
   );
 }

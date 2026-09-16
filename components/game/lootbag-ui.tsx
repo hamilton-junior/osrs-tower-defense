@@ -7,7 +7,7 @@ import { moveKey, stackKey, type StackKind } from '@/lib/game/systems/inventory'
 import type { Item, Tower } from '@/lib/game/types';
 import { canEquip, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/tower-gear';
 import { GearCompare, GearHeader, GearStats, gearTooltip } from './gear-ui';
-import { HoverTip } from './HoverTip';
+import { stackTip, type StackTipContext } from './stack-tip';
 import { towerIcon, towerListName, wizardStaffUrl } from './tower-ui';
 import { hideBrokenImg, InvGrid, ItemSlot, loadBool } from './ui-kit';
 
@@ -73,6 +73,8 @@ export interface LootBagViewProps {
   order: string[];
   /** No free slot, so nothing can come back out right now. */
   invFull: boolean;
+  /** Lives and wave state, for the hover card's preview of a bagged fish. */
+  vitals: StackTipContext;
   /** Read live off the engine rather than `UIState` — the picker equips real towers. */
   towers: Tower[];
   /** Which tower row the pointer is on, so the board can ring that tower. */
@@ -92,7 +94,7 @@ type BagCell =
   | { key: string; kind: 'stack'; stack: UiStack };
 
 export function LootBagView({
-  bag, stacks, order, invFull, towers: towersOnBoard, hoverTowerId, onHoverTower, onEquip, onTake, onReorder,
+  bag, stacks, order, invFull, vitals, towers: towersOnBoard, hoverTowerId, onHoverTower, onEquip, onTake, onReorder,
 }: LootBagViewProps) {
   const [pick, setPick] = useState<string | null>(null);
   // The square a drag started on, held by key rather than by position: the grid
@@ -346,19 +348,18 @@ export function LootBagView({
           if (cell.kind === 'gear') {
             const { item, count } = cell.pile;
             return (
-              <HoverTip key={cell.key} content={gearTooltip(item)}>
-                <ItemSlot
-                  osrs
-                  icon={GEAR_ICONS[item.id]}
-                  name={item.name}
-                  count={count > 1 ? count : undefined}
-                  title={`Equip ${item.name}`}
-                  selected={pick === item.id}
-                  signature={item.rarity === 'signature'}
-                  drag={dragProps(cell.key)}
-                  onClick={() => setPick((cur) => (cur === item.id ? null : item.id))}
-                />
-              </HoverTip>
+              <ItemSlot
+                key={cell.key}
+                osrs
+                icon={GEAR_ICONS[item.id]}
+                name={item.name}
+                count={count > 1 ? count : undefined}
+                tip={gearTooltip(item)}
+                selected={pick === item.id}
+                signature={item.rarity === 'signature'}
+                drag={dragProps(cell.key)}
+                onClick={() => setPick((cur) => (cur === item.id ? null : item.id))}
+              />
             );
           }
           // A herb or a potion has one thing to ask, so it is a click and not a
@@ -372,7 +373,7 @@ export function LootBagView({
               name={s.name}
               count={s.count}
               dim={invFull}
-              title={invFull ? 'Inventory full' : `Take one ${s.name}`}
+              tip={stackTip(s, { lives: vitals.lives, maxLives: vitals.maxLives, waveActive: vitals.waveActive, warn: invFull ? 'Inventory full' : undefined })}
               drag={dragProps(cell.key)}
               onClick={() => onTake(s.kind, s.id)}
             />

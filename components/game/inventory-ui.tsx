@@ -11,6 +11,7 @@ import { brewBlocker, emptyPouch, emptyStock, outrankedBy, overhealCap, type Bre
 import type { StackKind } from '@/lib/game/systems/inventory';
 import { LootBagView } from './lootbag-ui';
 import { OptionMenu, type MenuOption } from './OptionMenu';
+import { stackTip } from './stack-tip';
 import { fmt, hideBrokenImg, InvGrid, ItemSlot } from './ui-kit';
 
 /**
@@ -101,6 +102,7 @@ export function InventoryView(props: InventoryViewProps) {
         stacks={ui.bagStacks}
         order={ui.bagOrder}
         invFull={free < 1}
+        vitals={ui}
         towers={towers}
         hoverTowerId={hoverTowerId}
         onHoverTower={onHoverTower}
@@ -177,7 +179,7 @@ export function InventoryView(props: InventoryViewProps) {
                 osrs
                 icon={s.icon}
                 name={s.name}
-                title={s.tip}
+                tip={menu ? null : stackTip(s, ui)}
                 drag={dragProps(i, true)}
                 onClick={(e) => onSlot(s, e)}
                 onContextMenu={(e) => onSlot(s, e)}

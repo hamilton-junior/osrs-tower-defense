@@ -124,6 +124,7 @@ export function HoverTip({ content, children, side = 'top', show = false, widthE
   const prevMove = childProps.onMouseMove as ((e: React.MouseEvent) => void) | undefined;
   const prevFocus = childProps.onFocus as ((e: React.FocusEvent) => void) | undefined;
   const prevBlur = childProps.onBlur as ((e: React.FocusEvent) => void) | undefined;
+  const prevDragStart = childProps.onDragStart as ((e: React.DragEvent) => void) | undefined;
 
   const trigger = React.cloneElement(children, {
     ref: (node: HTMLElement | null) => { triggerRef.current = node; },
@@ -149,6 +150,10 @@ export function HoverTip({ content, children, side = 'top', show = false, widthE
       if (keyboard) setFocus(true);
     },
     onBlur: (e: React.FocusEvent) => { prevBlur?.(e); setFocus(false); },
+    // A drag swallows every mouse event until the drop, mouseleave included, so a
+    // card left open would ride along over the drop target. Picking the item up
+    // closes it; the next move over a square opens that square's card.
+    onDragStart: (e: React.DragEvent) => { prevDragStart?.(e); setHover(false); setFocus(false); },
   });
 
   return (

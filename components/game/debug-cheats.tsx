@@ -315,6 +315,7 @@ function ToolButtons({ engineRef, ui }: CheatProps) {
     { label: '📖 Seed log', title: 'Fill the Collection Log with sample kill counts', run: () => eng()?.debugSeedLog() },
     { label: '🎒 Give gear', title: 'Drop one of every Classic gear piece into the loot bag', run: () => eng()?.debugGiveGear() },
     { label: '🌿 Give herbs', title: 'Put one of every herb into the pouch, for the Herblore bench', run: () => eng()?.debugGiveHerbs() },
+    { label: '🐟 Give fish', title: 'Put one of every fish into the inventory, to test eating and selling', run: () => eng()?.debugGiveFish() },
     { label: `🧹 Clear items (${ui.lootBag.length})`, title: 'Empty the loot bag (worn gear stays equipped)', run: () => eng()?.debugClearItems() },
   ];
   return (

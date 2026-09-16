@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { coinsIcon } from '@/lib/game/assets';
+import { HoverTip } from './HoverTip';
 
 /**
  * Small presentational primitives and formatters shared across the interface.
@@ -310,7 +311,7 @@ function startDragGhost(e: React.DragEvent<HTMLElement>) {
   const source = e.currentTarget;
   const rect = source.getBoundingClientRect();
   const node = source.cloneNode(true) as HTMLElement;
-  for (const attr of ['title', 'aria-label', 'draggable']) node.removeAttribute(attr);
+  for (const attr of ['title', 'aria-label', 'aria-describedby', 'draggable', 'tabindex']) node.removeAttribute(attr);
   node.setAttribute('aria-hidden', 'true');
   // The square's own class sizes the icon and the stack number; selected,
   // signature and dim are marks on the square, not on the item being carried.
@@ -332,7 +333,7 @@ function startDragGhost(e: React.DragEvent<HTMLElement>) {
 
 /** One square. With no icon it is an empty slot — drawn, not skipped, because the
  *  shape of the grid is what tells the player how much room is left. */
-export function ItemSlot({ icon, name, count, selected = false, dim = false, signature = false, osrs = false, title, onClick, onContextMenu, drag }: {
+export function ItemSlot({ icon, name, count, selected = false, dim = false, signature = false, osrs = false, title, tip, onClick, onContextMenu, drag }: {
   icon?: string;
   name?: string;
   count?: number;
@@ -344,6 +345,10 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
    *  36×32 icon — instead of the panel's own bordered slot. */
   osrs?: boolean;
   title?: string;
+  /** A hover card in place of the browser's plain `title`: what the item is and what
+   *  using it would do right now. `null` keeps the card shut without remounting the
+   *  square, for while a menu is open over it. Leave it off to keep the plain line. */
+  tip?: React.ReactNode;
   onClick?: (e: React.MouseEvent) => void;
   /** Right-click the square. The inventory opens its Choose Option menu here. */
   onContextMenu?: (e: React.MouseEvent) => void;
@@ -369,10 +374,10 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
       if (drag.draggable) startDragGhost(e);
     },
   };
-  return (
+  const button = (
     <button
       type="button"
-      title={title ?? name}
+      title={tip !== undefined ? undefined : (title ?? name)}
       aria-label={name}
       onClick={onClick}
       onContextMenu={onContextMenu}
@@ -383,6 +388,9 @@ export function ItemSlot({ icon, name, count, selected = false, dim = false, sig
       {count != null && <span className={`rs-slot-count ${stackClass(count)}`}>{fmt(count)}</span>}
     </button>
   );
+  // The card wraps the button itself, not this component: HoverTip hangs its hover
+  // handlers and its measuring ref on its one child, and a component would drop them.
+  return tip !== undefined ? <HoverTip content={tip}>{button}</HoverTip> : button;
 }
 
 /** How many a click moves. OSRS's own row, X included. */
