@@ -578,3 +578,12 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     headless) and the flex column pushes everything under it down by that much. Still no gap
     between chip and roster, so the pointer never crosses board on the way down and the hover
     holds.
+
+39. **The hover card on a roster NPC must draw over the potion infoboxes.**
+    — **shipped** (2026-09-16). The card already carried `z-40`, but the wave strip is a
+    MovablePanel and always has a `translate`; a transform opens a stacking context, so that
+    `z-40` never left the panel. The infoboxes are positioned and come later in the DOM, so
+    they painted over it. The strip itself now takes `z-20` inside the top-centre cluster.
+    Checked headless with a stand-in `.rs-infobox` under the card: hit-testing reaches the card
+    at three points with `z-20`, and the infobox at all three without it. Worth remembering for
+    any other popover hung inside a MovablePanel: its z-index only competes inside that panel.
