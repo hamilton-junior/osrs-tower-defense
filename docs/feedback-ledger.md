@@ -652,3 +652,65 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     because `trapCost` climbs 3% a wave and today's price would let an early trap sell at a
     profit. Saves without `paid` fall back to the base price; `RUN_SAVE_VERSION` stays 5. The
     pick-up notice names the gold, and the "On the road" tile title shows it beforehand.
+
+47. **Hovering the loot bag's tower list makes the stat block flicker.** On a row that would
+    be an upgrade, the Attack Speed comparison wrapped to a second line. The block grew, the
+    row moved out from under the pointer, the block shrank again, and the hover flipped
+    between the two forever.
+    **Shipped** (2026-09-16, `2d885d4`). The block keeps the height of its tallest
+    comparison, and a compare row now reads the RuneLite way, `+15% (+5%)`, so it stays on
+    one line. No ellipsis was needed.
+
+48. **The interface opens at 96% with the + button blocked.** Stepping down to 95% then
+    allowed 100% and even 101%.
+    **Shipped** (2026-09-16, `3611137`). The size the player picks is now saved apart from
+    the ceiling the screen allows, and the ceiling is measured again once the pixel font has
+    loaded. The 96% came from a ceiling read before the font arrived, which then stuck as
+    the saved size. Existing saved sizes were reset once so nobody keeps the bad value.
+
+49. **Hovering an item previews what it gives, like RuneLite's item stats overlay.**
+    **Shipped** (2026-09-16, `1538654`). A fish reads `+N (after/max)` beside the lives orb:
+    green when every life lands, yellow when part spills past the maximum, red at full lives
+    with the price the sale pays instead. Gear cards swap their labelled rows for icon and
+    value chips, compact everywhere the gear tooltip is used. Herbs and potions keep their
+    own line in the same bubble. The loot bag's hover cards had never opened at all:
+    `ItemSlot` dropped the handlers `HoverTip` hung on it, so the card now wraps the button.
+    A drag or an open menu keeps the card shut. Debug tools gained **Give fish** to check it.
+
+50. **Drinking a potion from the inventory menu skips the confirm when it is already running.**
+    **Shipped** (2026-09-16, `b171db6`). Drink greys out on the same walls as the Herblore
+    bench, and it asks first (the menu's red "Sure?") when the potion is still running or an
+    overheal would heal nothing.
+
+51. **Sweep every NPC death sound against the new sound catalog; the black demon sounds like
+    a smaller demon that dies faster.**
+    **Shipped** (2026-09-16, `83c7e51`). All 67 baked death clips match a fresh render of
+    the id in `TARGETS`, and every catalog name fits its NPC. The shared ids are all
+    deliberate: the giants on 450, skeleton and skeletal mage on 777, the chromatic dragons
+    and the KBD on 409, the gargoyle family on 429, the orc sergeants on 649, the chaos druid
+    and fumus on the human cry 512, and superiors on their base NPC. The black demon moved from 398
+    (`black_demon_death`, 1.2 s) to 403 (`demon_death`, 4 s), the lesser demon's clip on the
+    same death rig (anim 4677). That call rests on the user's ear, not the catalog: the name
+    points at 398, and no def in the cache ties either id to NPC 240. Reverting is one line
+    in `scripts/extract-osrs-sounds.mjs` and a re-bake. Also seen and left alone: Nex's death
+    anim embeds 5180 (we ship 5283, both hers), and the Hydra's embeds 4075 (we ship 4080,
+    already the user's call).
+
+52. **Brainstorm the D&Ds: make their rewards clear, give the empty ones a purpose, revise
+    the rest.** Delivered in chat on 2026-09-16. Nothing picked yet, so nothing built.
+
+53. **Dragging an item should carry a see-through copy under the cursor, as in the client.**
+    **Shipped** (2026-09-16, `ed0161e`). The browser's drag picture is swapped for a blank
+    image, a translucent copy follows the pointer, and the square the item left shows empty
+    until it lands.
+
+54. **Hunter traps pay 33% more XP.**
+    **Shipped** (2026-09-16, `9794488`). `trapXp(def)` in `systems/hunter-traps.ts` applies
+    `HUNTER_XP_MULT = 1.33` to the OSRS figure, which the data table keeps unscaled. The ask
+    named the NPC-catching traps; every trap kind got it, since each one pays per firing
+    through the same call. A bird snare now pays 45, a box trap 153, a magic box 599.
+
+55. **A herb that brews two potions only offers one in the inventory menu.** Harralander
+    offered Energy potion and not Combat potion.
+    **Shipped** (2026-09-16, `b171db6`). The menu lists every potion the herb brews. A
+    recipe the player cannot make yet stays greyed, with what it is missing printed after it.
