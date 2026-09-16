@@ -406,6 +406,11 @@ export function damageOverTime(eng: GameEngine, dt: number) {
 export function moveEnemies(eng: GameEngine, dt: number) {
   for (let i = eng.enemies.length - 1; i >= 0; i--) {
     const e = eng.enemies[i];
+    // Taken before anything in this frame moves — including the bosses, which are
+    // stepped later by `handleBossMechanics`, and the escorts below. A trap asks
+    // what line an enemy walked this frame, and this is where that line starts.
+    e.prevX = e.x;
+    e.prevY = e.y;
     if (e.isBoss && eng.caStats.bossSpawnSeconds[e.type] === undefined) {
       eng.caStats.bossSpawnSeconds[e.type] = eng.runSeconds;
     }

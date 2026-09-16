@@ -171,6 +171,12 @@ export interface Enemy extends EnemyDef {
   shakeY?: number;
   /** Brief scale-pop timer set when the enemy takes a hit (visual only). */
   flashTimer?: number;
+  /** Where this enemy stood at the top of the frame, before anything moved it.
+   *  A Hunter trap tests the line walked rather than the point landed on, so a
+   *  long step can never carry an enemy over a trap between two frames. Written
+   *  in `moveEnemies`, read in `systems/hunter-traps`. */
+  prevX?: number;
+  prevY?: number;
   /** Counts down from {@link SPAWN_ANIM_SECONDS} right after the enemy emerges
    *  from the portal; drives a fade-in + scale-up "materialise" effect. Visual
    *  only — decremented in `moveEnemies`, read by the renderer. */

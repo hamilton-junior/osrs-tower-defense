@@ -538,4 +538,30 @@ designed yet; each entry is the brief plus whatever the user already decided abo
 37. **Validate traps at 5× speed.** Enemies look like they walk over Hunter traps without
     springing them when the game runs at 5×. Reproduce it before assuming it is a bug — a
     per-frame trap test that samples position rather than the segment travelled would explain
-    exactly this.
+    exactly this. — **shipped** (2026-09-15), after measuring it rather than assuming it.
+
+    **What the measurement said.** Fast-forward does not enlarge a step: the loop sub-steps
+    it, `for (let s = 0; s < this.gameSpeed; s++) this.update(dt)` at the real per-step dt,
+    so 5× only lowers the frame rate. A point sample can therefore only miss when one
+    sub-step is longer than the trap's 32 px diameter. Sweeping the starting phase across a
+    step and counting misses: 0% at speed 120 (base), 254 (wave 90 × Grandmaster) and 320,
+    at every frame rate down to the 0.1 s dt clamp; 18% at speed 400 and 32% at speed 480
+    (wave 90 × Grandmaster × hasted × the Berserker-necklace event — the worst stack in the
+    game), and both only at ≤10 fps. So the tunneling is real but needs an extreme enemy
+    *and* a struggling frame rate; it is not what a healthy 5× does.
+
+    **What the player was more likely seeing**, all of it speed-independent and all of it
+    far more visible at 5× because so many more enemies cross per wall-second: a box trap
+    only takes a wounded non-boss (`catchAt` 0.3, magic box 0.45), and a healthy one walking
+    over it produces no ring, no sound and no spent charge; `TRAP_REARM_SECONDS` is 1.2, so
+    one tread per firing and the rest of the pack walks through; and `updateTraps` looked at
+    only the **first** enemy within radius each frame, so a healthy enemy sharing the tile
+    stood in front of the wounded one the trap was laid for.
+
+    **Shipped anyway**, because two of those three are fixable without touching the feel:
+    `trapTriggeredBy` now measures `pointToSegmentDistance` against the line the enemy walked
+    this frame (`prevX`/`prevY`, written at the top of `moveEnemies` before anything — bosses
+    included — moves), so the trigger is independent of frame rate and of game speed; and
+    `updateTraps` offers every enemy standing on the trap instead of the first, since `fire`
+    spends nothing when it refuses. The rearm and the catch threshold are deliberate and
+    unchanged. A phase-sweep regression test pins the guarantee at step lengths up to 48 px.

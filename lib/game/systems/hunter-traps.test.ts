@@ -190,6 +190,33 @@ describe('setting one off', () => {
 
   it('ignores whatever walks past it', () => {
     expect(trapTriggeredBy(trap, { x: 100 + TRAP_TRIGGER_RADIUS + 2, y: 100 })).toBe(false);
+    // A whole step that stays off to one side is still a miss — the segment test
+    // widens *when* the trap fires, never *what* sets it off.
+    expect(trapTriggeredBy(trap, {
+      x: 140, y: 100 + TRAP_TRIGGER_RADIUS + 2,
+      prevX: 60, prevY: 100 + TRAP_TRIGGER_RADIUS + 2,
+    })).toBe(false);
+  });
+
+  // The regression this pins: a step longer than the trap is wide must not be able
+  // to straddle it. Fast-forward is sub-stepped in the engine loop, so 5× never
+  // lengthens a step — but the worst speed the game can stack (wave 90, Grandmaster,
+  // hasted, Berserker-necklace event: 480 px/s) against the 0.1 s dt clamp walks
+  // 48 px, half again the 32 px diameter. Sampling the landing point missed a third
+  // of the phases at that step; the segment misses none of them.
+  it('never lets a long step straddle it, at any frame rate', () => {
+    for (const step of [12, 25.4, 32, 40, 48]) {
+      for (let phase = 0; phase < 1; phase += 0.02) {
+        let x = 60 + phase * step;
+        let sprung = false;
+        while (x <= 140) {
+          const next = x + step;
+          if (trapTriggeredBy(trap, { x: next, y: 100, prevX: x, prevY: 100 })) sprung = true;
+          x = next;
+        }
+        expect(sprung, `step ${step}px, phase ${phase.toFixed(2)}`).toBe(true);
+      }
+    }
   });
 
   it('will not fire while it is resetting, or once it is spent', () => {

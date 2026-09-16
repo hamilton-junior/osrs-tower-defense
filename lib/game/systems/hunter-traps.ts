@@ -28,7 +28,8 @@ import { hpScaleForWave } from './enemy-scaling';
 export const HUNTER_MAX_LEVEL = 99;
 
 /** How close an enemy's centre has to come to a trap for it to go off, in px.
- *  Half a tile: the enemy has to actually tread on the thing. */
+ *  Half a tile: the enemy has to actually tread on the thing. Measured against the
+ *  line it walked this frame — see {@link trapTriggeredBy}. */
 export const TRAP_TRIGGER_RADIUS = 16;
 
 /** Two game ticks between one firing and the next. Without it a single trap with
@@ -180,13 +181,30 @@ export function trapAtPoint<T extends { x: number; y: number }>(
   return traps.find(t => Math.hypot(t.x - x, t.y - y) <= grid * 0.6) ?? null;
 }
 
-/** Did this enemy just tread on the trap? */
+/**
+ * Did this enemy just tread on the trap?
+ *
+ * The test is the **line walked this frame**, not the point the enemy happens to
+ * stand on now. Sampling the point misses whenever one step is longer than the
+ * trap's 32 px diameter, and the miss looks exactly like a trap ignoring what
+ * crossed it. Fast-forward never produces such a step — the engine sub-steps it,
+ * running the sim `gameSpeed` times at the real per-step dt — but the top of the
+ * speed ladder on a struggling frame rate does: 480 px/s against the 0.1 s dt clamp
+ * is 48 px in one step. Measuring the segment makes the trigger independent of both
+ * frame rate and game speed, which is the only version of "it goes off when
+ * something treads on it" a player can rely on.
+ *
+ * `prevX`/`prevY` are absent for anything that has not moved yet, and then the
+ * segment is a point and this is the old test exactly.
+ */
 export function trapTriggeredBy(
   trap: { x: number; y: number; rearm: number; charges: number },
-  enemy: { x: number; y: number },
+  enemy: { x: number; y: number; prevX?: number; prevY?: number },
 ): boolean {
   if (trap.charges <= 0 || trap.rearm > 0) return false;
-  return Math.hypot(trap.x - enemy.x, trap.y - enemy.y) <= TRAP_TRIGGER_RADIUS;
+  const from = { x: enemy.prevX ?? enemy.x, y: enemy.prevY ?? enemy.y };
+  const to = { x: enemy.x, y: enemy.y };
+  return pointToSegmentDistance(trap.x, trap.y, from, to) <= TRAP_TRIGGER_RADIUS;
 }
 
 /**
@@ -204,7 +222,9 @@ export function trapTriggeredBy(
  * One trap holding two enemies at once is the point of laying it in front of a
  * group.
  */
-export function snareTargets<T extends { id: string; x: number; y: number; spawnAnim?: number }>(
+export function snareTargets<T extends {
+  id: string; x: number; y: number; prevX?: number; prevY?: number; spawnAnim?: number;
+}>(
   trap: { x: number; y: number; rearm: number; charges: number; held?: readonly string[] },
   enemies: readonly T[],
 ): T[] {

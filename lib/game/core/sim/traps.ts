@@ -49,9 +49,19 @@ export function updateTraps(eng: GameEngine, dt: number) {
     }
     // One trap answers one tread per firing, so a pack crossing it is worn down
     // rather than deleted — except a chinchompa, whose whole point is the pack.
-    const stepped = eng.enemies.find(e => (e.spawnAnim ?? 0) <= 0 && trapTriggeredBy(trap, e));
-    if (!stepped) continue;
-    const fired = fire(eng, trap, def, stepped);
+    //
+    // Every enemy on it is offered, not only the first: a box trap takes what is
+    // already wounded, so a healthy enemy sharing the tile used to stand in front
+    // of the one the trap was laid for and waste the whole frame. `fire` spends
+    // nothing when it refuses, so walking the list costs a charge only once.
+    let fired = false;
+    for (const e of eng.enemies) {
+      if ((e.spawnAnim ?? 0) > 0) continue;
+      if (!trapTriggeredBy(trap, e)) continue;
+      if (!fire(eng, trap, def, e)) continue;
+      fired = true;
+      break;
+    }
     if (!fired) continue;
     trap.charges -= 1;
     trap.rearm = TRAP_REARM_SECONDS;
