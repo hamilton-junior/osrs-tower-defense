@@ -110,7 +110,8 @@ export const DRILL_LEVELS = 2;
 /**
  * Something one does on the board by itself, the moment it reaches its tile, with
  * no click asked for. `mend_trap` re-sets the most worn hunter trap; `drop_balloons`
- * leaves a handful of balloons around the tile to pop; `tend_patch` grows the herb
+ * leaves a handful of balloons around the tile to pop, and he stays to dance until
+ * the last one is gone; `tend_patch` grows the herb
  * with the longest wait left in the allotments by a wave.
  */
 export type DiversionJob = 'mend_trap' | 'drop_balloons' | 'tend_patch';

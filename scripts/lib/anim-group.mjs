@@ -43,8 +43,8 @@ export const GROUPS = {
     typeName: 'DiversionAnimSet',
     typeModule: './diversion-anims',
     urlBase: '/assets/diversions',
-    clipOrder: ['stand', 'walk'],
-    defaults: { yaw: 30, pitch: 12, loop: { stand: true, walk: true } },
+    clipOrder: ['stand', 'walk', 'dance'],
+    defaults: { yaw: 30, pitch: 12, loop: { stand: true, walk: true, dance: true } },
     views: { front: 30, side: 90, back: 180 },
   },
 };

@@ -8,10 +8,12 @@ import type { EnemyClip } from './enemy-anims';
 export type DiversionView = 'front' | 'side' | 'back';
 
 /** What one view can play. `stand` is the idle every diversion has; `walk` is absent
- *  on the ones that never walk anywhere (the Strange Plant grows where it stands). */
+ *  on the ones that never walk anywhere (the Strange Plant grows where it stands).
+ *  `dance` replaces `stand` once they reach their tile, for the one who came to party. */
 export interface DiversionViewClips {
   stand: EnemyClip;
   walk?: EnemyClip;
+  dance?: EnemyClip;
 }
 
 /**
@@ -21,7 +23,8 @@ export interface DiversionViewClips {
  *
  * Every sequence id is the NPC's **own** `standingAnimation`/`walkingAnimation` out of
  * its cache def — nobody here borrows a generic human loop
- * (scripts/diversion-anims.config.json).
+ * (scripts/diversion-anims.config.json). Party Pete's `dance` is the one exception: his
+ * def has no dance, so it is the player's Dance emote (866), which his human rig plays.
  */
 export interface DiversionAnimSet {
   frameW: number;

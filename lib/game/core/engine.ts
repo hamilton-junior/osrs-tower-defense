@@ -57,7 +57,7 @@ import { DIVERSION_BY_ID, DIVERSION_REWARD_META, GENIE_LAMP, LAMP_SKILL_META, ty
 import { FOOD_BY_ID, type FoodId } from '../data/food';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
-import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, drillXp, lampXp, offBoardPoint, payloadReward, diversionGiftText, rewardImageKey, rollDiversionGift, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
+import { BALLOON_BODY_LIFT, DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, drillXp, lampXp, offBoardPoint, payloadReward, diversionGiftText, rewardImageKey, rollDiversionGift, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
@@ -3401,13 +3401,24 @@ export class GameEngine {
         born: now + n * 90,
       });
     });
+    // No free ground for a single one: he has nothing to wait around for.
+    this.sendPeteOffIfDone();
   }
 
-  /** The balloon under a click, if it has landed. Measured from the balloon's body,
-   *  which floats above the point it is tied to. */
+  /** Party Pete dances on his tile while his balloons lie there, and heads off by
+   *  himself once the last one is gone, popped or built over. */
+  private sendPeteOffIfDone() {
+    if (this.balloons.length) return;
+    for (const d of this.diversions) {
+      if (d.phase !== 'here' || !d.jobDone || DIVERSION_BY_ID[d.defId].job !== 'drop_balloons') continue;
+      sendDiversionOff(d, this.width, this.height);
+    }
+  }
+
+  /** The balloon under a click, if it has landed. Measured from the balloon's body. */
   balloonAt(x: number, y: number): PartyBalloon | null {
     const now = performance.now();
-    return this.balloons.find(b => now >= b.born && distance(b.x, b.y - 8, x, y) <= 16) ?? null;
+    return this.balloons.find(b => now >= b.born && distance(b.x, b.y - BALLOON_BODY_LIFT, x, y) <= 16) ?? null;
   }
 
   /** Pop one: half the time it was empty, otherwise a little gold or essence. */
@@ -3421,11 +3432,12 @@ export class GameEngine {
     if (reward) {
       this.payDiversionReward(reward);
       this.recordDiversionGain('party_pete', reward);
-      this.pushDiversionPop(b.x, b.y - 8, reward);
+      this.pushDiversionPop(b.x, b.y - BALLOON_BODY_LIFT, reward);
       this.notify('There was something inside!', icon, reward);
     } else {
       this.notify('It was empty!', icon);
     }
+    this.sendPeteOffIfDone();
     this.emit();
   }
 
@@ -3460,6 +3472,7 @@ export class GameEngine {
       this.balloons = this.balloons.filter(
         b => !this.towers.some(t => distance(t.x, t.y, b.x, b.y) <= TOWER_RADIUS + 4),
       );
+      this.sendPeteOffIfDone();
     }
     for (const d of this.diversions) {
       if (d.phase === 'leaving') continue;

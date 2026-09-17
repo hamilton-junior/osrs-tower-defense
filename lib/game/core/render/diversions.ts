@@ -1,6 +1,6 @@
 import type { GameRenderer } from '../renderer';
 import { DIVERSION_BY_ID } from '../../data/diversions';
-import { DIVERSION_POP_MS, rewardImageKey } from '../../systems/diversions';
+import { BALLOON_BODY_LIFT, DIVERSION_POP_MS, rewardImageKey } from '../../systems/diversions';
 import { DIVERSION_ANIMS, diversionAnimKey, type DiversionView } from '../../data/diversion-anims';
 import { clipFrame } from '../../data/enemy-anims';
 import { drawImageContain } from './shared';
@@ -61,13 +61,14 @@ export function drawDiversions(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     // The NPC's own animation, baked from its own cache def — its standing loop while
     // it waits, its walking loop while it travels — from the camera yaw that faces the
     // way it is going. Someone standing on their tile is always `front`, looking at the
-    // player. A view that wasn't baked falls back to `front`, and an NPC with no rig at
-    // all (the bird nest is an item on the floor) falls through to its portrait below.
+    // player, and dances there instead if they have a dance. A view that wasn't baked
+    // falls back to `front`, and an NPC with no rig at all (the bird nest is an item on
+    // the floor) falls through to its portrait below.
     const set = DIVERSION_ANIMS[d.defId];
     const view: DiversionView = set?.views[d.facing] ? d.facing : 'front';
     const clips = set?.views[view];
-    const clipName = walking && clips?.walk ? 'walk' : 'stand';
-    const clip = clipName === 'walk' ? clips!.walk! : clips?.stand;
+    const clipName = walking && clips?.walk ? 'walk' : d.phase === 'here' && clips?.dance ? 'dance' : 'stand';
+    const clip = clipName === 'walk' ? clips!.walk! : clipName === 'dance' ? clips!.dance! : clips?.stand;
     const animKey = clip ? diversionAnimKey(d.defId, view, clipName) : '';
     const animated = !!clip && gr.e.imageOk(animKey);
 
@@ -128,37 +129,32 @@ export function drawDiversions(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
   }
 }
 
-/** How long a balloon takes to drift down onto its spot, ms. */
-const BALLOON_FALL_MS = 450;
+/** How long a balloon takes to fade in on its spot, ms. */
+const BALLOON_FADE_MS = 200;
 /** Box a balloon is drawn in, logic px: smaller than a visitor, so a handful of them
  *  reads as what Pete left behind rather than a second crowd. */
 const BALLOON_BOX = 28;
 
 /**
- * Party Pete's balloons, lying where he left them until someone pops one. Each one
- * drifts down onto its spot, the way the Party Room drops them from the ceiling, and
- * then sways on its string. Drawn first, under the payouts and the visitors.
+ * Party Pete's balloons, lying on the ground where he left them until someone pops
+ * one: the pose the Party Room's own drop animation lands them in. They fade in one
+ * after another. Drawn first, under the payouts and the visitors.
  */
 function drawPartyBalloons(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const list = gr.e.balloons;
   if (list.length === 0) return;
   const now = performance.now();
-  const t = now / 1000;
   for (const b of list) {
     if (now < b.born) continue;
-    const k = Math.min(1, (now - b.born) / BALLOON_FALL_MS);
-    const drop = (1 - k) * (1 - k) * 36;
-    const sway = Math.sin(t * 1.6 + b.x * 0.07 + b.y * 0.03);
+    const k = Math.min(1, (now - b.born) / BALLOON_FADE_MS);
     ctx.save();
-    // Its shadow on the ground darkens as it comes down to meet it.
     ctx.globalAlpha = 0.25 * k;
     ctx.fillStyle = '#000';
     ctx.beginPath();
-    ctx.ellipse(b.x, b.y + 4, 7, 2.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(b.x, b.y + 3, 11, 3, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = k;
-    ctx.translate(b.x, b.y - 10 - drop + sway * 1.5);
-    ctx.rotate(sway * 0.06);
+    ctx.translate(b.x, b.y - BALLOON_BODY_LIFT);
     const key = `party_balloon_${b.variant}`;
     const img = gr.e.images.get(key);
     if (gr.e.imageOk(key) && img) {
@@ -166,7 +162,7 @@ function drawPartyBalloons(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     } else {
       ctx.fillStyle = '#e04040';
       ctx.beginPath();
-      ctx.arc(0, -4, 8, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, 9, 6, 0, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();

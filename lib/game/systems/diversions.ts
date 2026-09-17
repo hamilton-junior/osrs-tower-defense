@@ -388,7 +388,7 @@ export function diversionLine(def: DiversionDef, rand: () => number, hint?: stri
 // --- Party Pete's balloons -------------------------------------------------
 
 /** One balloon Party Pete left on the board. `variant` picks the colour bake;
- *  `born` is `performance.now()` ms, for the drop-in. */
+ *  `born` is `performance.now()` ms, when it shows up on its spot. */
 export interface PartyBalloon {
   id: string;
   x: number;
@@ -399,6 +399,11 @@ export interface PartyBalloon {
 
 /** How many balloon colours are baked (`party_balloon_0..5`). */
 export const PARTY_BALLOON_VARIANTS = 6;
+
+/** How far above its spot a balloon's body sits, logic px. The baked balloon lies on
+ *  its side, so this rests its underside on the spot. The renderer draws it there and
+ *  the engine aims the click test and the payout at the same point. */
+export const BALLOON_BODY_LIFT = 4;
 
 /** How many balloons one visit leaves: 3 to 7. */
 export function balloonCount(rand: () => number): number {

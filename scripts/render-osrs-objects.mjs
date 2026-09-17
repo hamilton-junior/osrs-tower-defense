@@ -129,16 +129,18 @@ const TARGETS = {
    * 116 to 120 are the same model recoloured, so the six cover every colour the room
    * throws. Each def lists three models for three placement shapes; a balloon standing
    * on a tile is shape 10, model 2228, so that is the one rendered. The mesh lies on
-   * its side with the knot along +x (the room's animation stands it up), so `roll: 90`
-   * turns the knot to the floor. Party Pete leaves a handful of these behind, each a
+   * its side with the knot along +x, and that is how it rests on the floor: the def's
+   * animation (498) is the drop from the ceiling, and its last frame lands the balloon
+   * in exactly the pose the cache stores. So no `roll`: standing it on its knot drew a
+   * balloon hanging in the air. Party Pete leaves a handful of these behind, each a
    * random colour.
    */
-  party_balloon_0: { obj: 115, models: [2228], roll: 90 },
-  party_balloon_1: { obj: 116, models: [2228], roll: 90 },
-  party_balloon_2: { obj: 117, models: [2228], roll: 90 },
-  party_balloon_3: { obj: 118, models: [2228], roll: 90 },
-  party_balloon_4: { obj: 119, models: [2228], roll: 90 },
-  party_balloon_5: { obj: 120, models: [2228], roll: 90 },
+  party_balloon_0: { obj: 115, models: [2228] },
+  party_balloon_1: { obj: 116, models: [2228] },
+  party_balloon_2: { obj: 117, models: [2228] },
+  party_balloon_3: { obj: 118, models: [2228] },
+  party_balloon_4: { obj: 119, models: [2228] },
+  party_balloon_5: { obj: 120, models: [2228] },
 };
 
 // -------------------------------------------------------- object def parsing
