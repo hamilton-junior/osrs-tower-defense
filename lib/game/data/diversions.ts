@@ -1,4 +1,5 @@
 import { ASSETS, itemIcon, npcModel } from '../assets';
+import { SEED_BY_ID, type SeedId } from './farming';
 
 /** The two extra yaws baked for a walker (`scripts/render-osrs-npcs.mjs`). The side
  *  bake walks right; the renderer mirrors it for the other direction. */
@@ -29,9 +30,10 @@ export type DiversionId =
 /**
  * What clicking one pays out. `none` is the walkbys — they are scenery with dialogue.
  * `surprise` is the bird nest, which rolls one of the nest's payloads when it is
- * opened. `kebab` and `lamp` are items, and land in the inventory.
+ * opened. `kebab` and `lamp` are items, and land in the inventory. `plant` is the
+ * Strange Plant's, decided the moment it grows: an Overload or a herb seed.
  */
-export type DiversionPayload = 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'potion' | 'surprise';
+export type DiversionPayload = 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'potion' | 'surprise' | 'plant';
 
 /**
  * What a click actually lands in the player's hands. The tooltip, the toast, the
@@ -40,9 +42,9 @@ export type DiversionPayload = 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 
  * into a trap on the road. `life` is paid by nobody any more, since the kebab became
  * something to carry; it stays so an account's old kebab totals still show.
  */
-export type DiversionRewardKind = 'life' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'overload' | 'charges';
+export type DiversionRewardKind = 'life' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'overload' | 'seed' | 'charges';
 
-export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'kebab', 'lamp', 'gold', 'essence', 'overload', 'charges'];
+export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'kebab', 'lamp', 'gold', 'essence', 'overload', 'seed', 'charges'];
 
 /** Each reward's own icon, and the name it goes by on hover. */
 export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; label: string }> = {
@@ -52,8 +54,18 @@ export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; 
   gold: { icon: ASSETS.misc.coins_icon, label: 'Gold' },
   essence: { icon: ASSETS.misc.rune_essence_icon, label: 'Essence' },
   overload: { icon: itemIcon('overload_4'), label: 'Overload' },
+  // Every herb seed is the same speck in OSRS, so one stands for all of them in a
+  // total. A single seed names itself through rewardLook.
+  seed: { icon: SEED_BY_ID.guam.seedIcon, label: 'Herb seeds' },
   charges: { icon: ASSETS.misc.hunter_icon, label: 'Trap charges' },
 };
+
+/** A reward's icon and hover name. A seed is the one kind with several members, so
+ *  it answers with the seed it is rather than the kind's own. */
+export function rewardLook(reward: { kind: DiversionRewardKind; id?: string }): { icon: string; label: string } {
+  const seed = reward.kind === 'seed' && reward.id ? SEED_BY_ID[reward.id as SeedId] : undefined;
+  return seed ? { icon: seed.seedIcon, label: seed.seedName } : DIVERSION_REWARD_META[reward.kind];
+}
 
 /** The genie's lamp, as the inventory carries it. OSRS calls it just "Lamp". */
 export const GENIE_LAMP = { id: 'genie_lamp', name: 'Lamp', icon: itemIcon('genie_lamp') } as const;
@@ -216,12 +228,13 @@ export const DIVERSIONS: DiversionDef[] = [
     mood: 'event',
     name: 'Strange Plant',
     sprite: npcModel('strange_plant'),
-    payload: 'potion',
+    payload: 'plant',
     arrival: 'appear',
-    tip: 'Click for a free potion.',
+    // The live tip and line name what it grew (plantGiftText); these are what the
+    // Collection Log reads, and the fallback.
+    tip: 'Click to pick what it grew.',
     lines: [
-      'The plant bears one fruit, and it is definitely a potion.',
-      'You pick the fruit. It tastes like the Grand Exchange.',
+      'You pick what the plant grew.',
     ],
   },
   {

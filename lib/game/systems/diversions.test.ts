@@ -33,6 +33,11 @@ import {
   BALLOON_ESSENCE_SHARE,
   lampXp,
   lampLevelTo,
+  rollPlantGift,
+  plantGiftText,
+  rewardImageKey,
+  PLANT_OVERLOAD_CHANCE,
+  PLANT_SEED_MIN_LEVEL,
   type Diversion,
   type RunFacts,
 } from './diversions';
@@ -40,6 +45,7 @@ import { DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, LAMP_LEVELS, MAX_DIVERSI
 import { HUNTER_MAX_LEVEL, gainHunterXp, hunterXpForLevel } from './hunter-traps';
 import { gainFishingXp, fishingXpForLevel } from './fishing';
 import { FISHING_MAX_LEVEL } from '../data/fishing';
+import { SEEDS, SEED_BY_ID } from '../data/farming';
 import { waveClearBonus } from './rewards';
 import { essenceForWave } from './meta-progression';
 
@@ -383,6 +389,11 @@ describe('rewards', () => {
     expect(diversionRewardOptions('hans', ctx)).toEqual([]);
   });
 
+  it("leaves the plant's gift to the plant", () => {
+    expect(payloadReward('plant', ctx)).toBeNull();
+    expect(diversionRewardOptions('strange_plant', ctx)).toEqual([]);
+  });
+
   it('lists everything a nest might hold, in the order it rolls them', () => {
     expect(diversionRewardOptions('bird_nest', ctx).map(r => r.kind)).toEqual(['gold', 'essence', 'overload']);
     expect(NEST_PAYLOADS).toHaveLength(3);
@@ -390,9 +401,46 @@ describe('rewards', () => {
 
   it('gives every other paying diversion exactly one answer', () => {
     for (const def of DIVERSIONS) {
-      if (def.payload === 'none' || def.payload === 'surprise') continue;
+      if (def.payload === 'none' || def.payload === 'surprise' || def.payload === 'plant') continue;
       expect(diversionRewardOptions(def.id, ctx)).toHaveLength(1);
     }
+  });
+});
+
+describe('the Strange Plant', () => {
+  const seq = (...xs: number[]) => { let i = 0; return () => xs[i++]; };
+
+  it('grows an Overload on the low half of the roll', () => {
+    expect(rollPlantGift(() => 0)).toEqual({ kind: 'overload', amount: 1 });
+    expect(rollPlantGift(() => PLANT_OVERLOAD_CHANCE - 0.001).kind).toBe('overload');
+  });
+
+  it('otherwise drops one seed from the top of the ladder, ends included', () => {
+    const pool = SEEDS.filter(s => s.level >= PLANT_SEED_MIN_LEVEL);
+    expect(rollPlantGift(seq(PLANT_OVERLOAD_CHANCE, 0))).toEqual({ kind: 'seed', amount: 1, id: pool[0].id });
+    expect(rollPlantGift(seq(0.9, 0.999999)).id).toBe(pool[pool.length - 1].id);
+    for (let r = 0; r < 1; r += 0.05) {
+      const gift = rollPlantGift(seq(0.9, r));
+      expect(SEED_BY_ID[gift.id as keyof typeof SEED_BY_ID].level).toBeGreaterThanOrEqual(PLANT_SEED_MIN_LEVEL);
+    }
+  });
+
+  it('names the gift, with the right article', () => {
+    expect(plantGiftText({ kind: 'overload', amount: 1 })).toEqual({
+      tip: 'Click to pick an Overload.',
+      line: 'The plant bears an Overload.',
+    });
+    expect(plantGiftText({ kind: 'seed', amount: 1, id: 'avantoe' }).tip).toBe('Click to pick an Avantoe seed.');
+    expect(plantGiftText({ kind: 'seed', amount: 1, id: 'torstol' }).line).toBe('The plant bears a Torstol seed.');
+  });
+
+  it("floats a seed off the board as that seed's own icon", () => {
+    expect(rewardImageKey({ kind: 'seed', amount: 1, id: 'kwuarm' })).toBe('reward_seed_kwuarm');
+    expect(rewardImageKey({ kind: 'overload', amount: 1 })).toBe('reward_overload');
+  });
+
+  it('keeps its seed totals in the Collection Log', () => {
+    expect(sanitizeDiversionGains({ 'strange_plant:seed': 2 })).toEqual({ 'strange_plant:seed': 2 });
   });
 });
 

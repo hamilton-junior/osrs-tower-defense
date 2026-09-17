@@ -3,6 +3,7 @@ import {
   DIVERSION_BY_ID,
   DIVERSION_CHANCE,
   DIVERSION_REWARD_KINDS,
+  DIVERSION_REWARD_META,
   LAMP_LEVELS,
   MAX_DIVERSIONS,
   type DiversionDef,
@@ -11,6 +12,7 @@ import {
   type DiversionPayload,
   type DiversionRewardKind,
 } from '../data/diversions';
+import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import { essenceForWave } from './meta-progression';
 import { waveClearBonus } from './rewards';
 
@@ -69,6 +71,9 @@ export interface Diversion {
   trapId?: string;
   /** Set once its {@link DiversionDef.job} has run, so it only ever runs once. */
   jobDone?: boolean;
+  /** The Strange Plant only: what it grew, rolled at spawn so the hover card can
+   *  name it. See {@link rollPlantGift}. */
+  gift?: DiversionReward;
 }
 
 /** Walking speed, logic px per second — a stroll, a touch slower than the things
@@ -478,6 +483,8 @@ export function resolvePayload(defId: DiversionId, rand: () => number): Diversio
 export interface DiversionReward {
   kind: DiversionRewardKind;
   amount: number;
+  /** Which one, for the kind that has several: a seed's {@link SeedId}. */
+  id?: string;
 }
 
 /**
@@ -538,7 +545,7 @@ export function payloadReward(payload: DiversionPayload, ctx: DiversionRewardCon
 /**
  * Everything a click on one of `defId` might pay, for the tooltip. One entry for
  * everyone but the nest, which lists each thing it could turn out to hold, and none
- * for a walkby.
+ * for a walkby. None for the plant either: its gift lives on the plant itself.
  */
 export function diversionRewardOptions(defId: DiversionId, ctx: DiversionRewardContext): DiversionReward[] {
   const payload = DIVERSION_BY_ID[defId].payload;
@@ -556,6 +563,41 @@ export interface DiversionPop {
   y: number;
   reward: DiversionReward;
   born: number;
+}
+
+/** The image a payout rises off the board as: its kind's own, or for a seed, that
+ *  seed's. The engine registers one of each under these keys. */
+export function rewardImageKey(reward: DiversionReward): string {
+  return reward.kind === 'seed' && reward.id ? `reward_seed_${reward.id}` : `reward_${reward.kind}`;
+}
+
+// --- The Strange Plant -------------------------------------------------------
+
+/** The chance a Strange Plant grows an Overload rather than a herb seed. */
+export const PLANT_OVERLOAD_CHANCE = 0.5;
+
+/** The lowest Farming level a plant's seed comes from. A free Guam saves ten gold,
+ *  which is no event at all; from Avantoe up, a seed is a herb worth sowing. */
+export const PLANT_SEED_MIN_LEVEL = 50;
+
+/**
+ * What a Strange Plant grew: an Overload, or one herb seed off the top of the ladder
+ * to sow for free. Rolled when the plant appears rather than when it is picked, so
+ * the hover card names exactly what is on it.
+ */
+export function rollPlantGift(rand: () => number): DiversionReward {
+  if (rand() < PLANT_OVERLOAD_CHANCE) return { kind: 'overload', amount: 1 };
+  const pool = SEEDS.filter(s => s.level >= PLANT_SEED_MIN_LEVEL);
+  const seed = pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))];
+  return { kind: 'seed', amount: 1, id: seed.id };
+}
+
+/** The plant's tip and its payout line, both naming the gift. */
+export function plantGiftText(gift: DiversionReward): { tip: string; line: string } {
+  const seed = gift.kind === 'seed' && gift.id ? SEED_BY_ID[gift.id as SeedId] : undefined;
+  const name = seed ? seed.seedName : DIVERSION_REWARD_META[gift.kind].label;
+  const named = `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
+  return { tip: `Click to pick ${named}.`, line: `The plant bears ${named}.` };
 }
 
 /** How long a payout floats before it is gone. */

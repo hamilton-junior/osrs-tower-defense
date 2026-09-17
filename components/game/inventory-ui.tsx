@@ -282,7 +282,11 @@ function stackOptions(
           keepOpen: true,
           onSelect: onOpenLamp,
         }]
-        : [drinkOption(stack, ui, onDrinkPotion)];
+        // A seed is used from the patch it goes into, so all the square offers is
+        // the bag.
+        : stack.kind === 'seed'
+          ? []
+          : [drinkOption(stack, ui, onDrinkPotion)];
 
   // The engine brews out of the pouch and the shelf, so the menu asks the same
   // two the same way — `brewBlocker` is the one answer to "can this be made".
@@ -292,7 +296,7 @@ function stackOptions(
   for (const p of ui.potionStock) stock[p.id] = p.count;
 
   for (const def of POTIONS) {
-    const usesThis = stack.kind === 'herb' ? def.herb === stack.id : def.potionInput === stack.id;
+    const usesThis = stack.kind === 'herb' ? def.herb === stack.id : stack.kind === 'potion' && def.potionInput === stack.id;
     if (!usesThis) continue;
     const blocker = brewBlocker(def, ui.herbloreLevel, pouch, stock, ui.money);
     out.push({

@@ -40,8 +40,9 @@ export const INVENTORY_SLOTS = 27;
 
 /** What a stack is. Herbs and potions come out of Farming and Herblore; food is
  *  the fish Fishing pulls out of the water (and the Drunken Dwarf's kebab), and the
- *  only stack that pays lives. A lamp is the genie's, rubbed for skill levels. */
-export type StackKind = 'herb' | 'potion' | 'food' | 'lamp';
+ *  only stack that pays lives. A lamp is the genie's, rubbed for skill levels. A seed
+ *  is the Strange Plant's, sown into a patch for free. */
+export type StackKind = 'herb' | 'potion' | 'food' | 'lamp' | 'seed';
 
 /** A stack of one thing. In the inventory `count` is always 1 — nothing stacks
  *  there — and in the bag it is however many piled up. `id` is a {@link SeedId} for
@@ -75,7 +76,7 @@ export function parseKey(key: string): { kind: StackKind; id: string } | null {
   if (cut < 1) return null;
   const kind = key.slice(0, cut);
   const id = key.slice(cut + 1);
-  if ((kind !== 'herb' && kind !== 'potion' && kind !== 'food' && kind !== 'lamp') || !id) return null;
+  if ((kind !== 'herb' && kind !== 'potion' && kind !== 'food' && kind !== 'lamp' && kind !== 'seed') || !id) return null;
   return { kind, id };
 }
 

@@ -1,6 +1,6 @@
 import type { GameRenderer } from '../renderer';
 import { DIVERSION_BY_ID } from '../../data/diversions';
-import { DIVERSION_POP_MS } from '../../systems/diversions';
+import { DIVERSION_POP_MS, rewardImageKey } from '../../systems/diversions';
 import { DIVERSION_ANIMS, diversionAnimKey, type DiversionView } from '../../data/diversion-anims';
 import { clipFrame } from '../../data/enemy-anims';
 import { drawImageContain } from './shared';
@@ -193,7 +193,7 @@ function drawDiversionPops(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     const k = (now - p.born) / DIVERSION_POP_MS;
     if (k < 0 || k >= 1) continue;
     const text = `+${p.reward.amount}`;
-    const key = `reward_${p.reward.kind}`;
+    const key = rewardImageKey(p.reward);
     const img = gr.e.imageOk(key) ? gr.e.images.get(key) : undefined;
     ctx.save();
     ctx.globalAlpha = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;

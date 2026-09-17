@@ -57,7 +57,7 @@ import { DIVERSION_BY_ID, DIVERSION_REWARD_META, GENIE_LAMP, LAMP_SKILL_META, ty
 import { FOOD_BY_ID, type FoodId } from '../data/food';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
-import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, lampXp, offBoardPoint, payloadReward, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
+import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, lampXp, offBoardPoint, payloadReward, plantGiftText, rewardImageKey, rollPlantGift, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
@@ -790,6 +790,13 @@ export class GameEngine {
         tip: 'Rub it between waves to gain levels in a skill.',
       };
     }
+    if (s.kind === 'seed') {
+      const def = SEED_BY_ID[s.id as SeedId];
+      return {
+        kind: 'seed', id: s.id, name: def.seedName, icon: def.seedIcon, count: s.count,
+        tip: 'Sow it in a patch for free.',
+      };
+    }
     const def = POTION_BY_ID[s.id as PotionId];
     return { kind: 'potion', id: s.id, name: def.name, icon: def.icon, count: s.count, tip: def.tip };
   }
@@ -896,9 +903,10 @@ export class GameEngine {
       diversions: this.diversions.filter(d => d.phase !== 'leaving').map(d => {
         const def = DIVERSION_BY_ID[d.defId];
         return {
-          id: d.id, defId: d.defId, mood: d.mood, name: def.name, icon: def.sprite, tip: def.tip,
+          id: d.id, defId: d.defId, mood: d.mood, name: def.name, icon: def.sprite,
+          tip: d.gift ? plantGiftText(d.gift).tip : def.tip,
           line: d.mood === 'walkby' ? d.line : null,
-          rewards: diversionRewardOptions(d.defId, this.diversionRewardContext()),
+          rewards: d.gift ? [d.gift] : diversionRewardOptions(d.defId, this.diversionRewardContext()),
         };
       }),
       traps: this.traps.map(t => {
@@ -1446,10 +1454,12 @@ export class GameEngine {
       ),
       // Party Pete's balloons, one bake per colour, keyed `party_balloon_<n>`.
       ...Object.fromEntries(ASSETS.partyBalloons.map((url, n) => [`party_balloon_${n}`, url])),
-      // What a payout rises off the board as, keyed `reward_<kind>`.
+      // What a payout rises off the board as, keyed `reward_<kind>`, plus each herb
+      // seed the Strange Plant can drop under its own `reward_seed_<id>`.
       ...Object.fromEntries(
         Object.entries(DIVERSION_REWARD_META).map(([kind, meta]) => [`reward_${kind}`, meta.icon]),
       ),
+      ...Object.fromEntries(SEEDS.map(s => [rewardImageKey({ kind: 'seed', amount: 1, id: s.id }), s.seedIcon])),
       // ...and their baked animation sheets, keyed `divanim_<id>_<view>_<clip>`: one
       // stand/walk loop per camera yaw, from the NPC's own cache animations. The
       // portraits above stay loaded as the fallback while these arrive.
@@ -3165,6 +3175,8 @@ export class GameEngine {
       // anywhere, so those two simply appear where they are.
       const walks = (def.arrival ?? 'walk') === 'walk';
       const from = walks ? offBoardPoint(spot.x, spot.y, this.width, this.height) : spot;
+      // The plant's gift is grown now, so its hover card and its line can name it.
+      const gift = def.payload === 'plant' ? rollPlantGift(Math.random) : undefined;
       const dv: Diversion = {
         id: `dv${++this.diversionSeq}`,
         defId: def.id,
@@ -3177,8 +3189,9 @@ export class GameEngine {
         exit: null,
         facing: 'front',
         facingLeft: false,
-        line: diversionLine(def, Math.random, hint),
+        line: gift ? plantGiftText(gift).line : diversionLine(def, Math.random, hint),
         trapId: def.job === 'mend_trap' ? worn?.trapId : undefined,
+        gift,
       };
       // Turned before the first frame, or a walker coming in from the left would
       // spend that frame facing the player and then snap round.
@@ -3413,7 +3426,7 @@ export class GameEngine {
     // The nest is the one payload decided on opening rather than on landing: that
     // is the whole appeal of a nest.
     const payload = resolvePayload(found.defId, Math.random);
-    const reward = payloadReward(payload, this.diversionRewardContext());
+    const reward = found.gift ?? payloadReward(payload, this.diversionRewardContext());
     if (reward) {
       this.payDiversionReward(reward);
       this.recordDiversionGain(found.defId, reward);
@@ -3461,6 +3474,12 @@ export class GameEngine {
         // The one style-agnostic buff in the shop: a gift has to be worth something
         // whatever the player happens to have built.
         for (let n = 0; n < reward.amount; n++) this.ge.grant('overload');
+        break;
+      case 'seed':
+        // Carried until a patch is free: sowing it costs nothing.
+        if (reward.id && reward.id in SEED_BY_ID) {
+          if (addItem(this.items, 'seed', reward.id, reward.amount) === 'bag') this.bagBump(stackKey('seed', reward.id));
+        }
         break;
       case 'charges':
         // Put straight into a trap by the Hunting expert's own job: nothing to credit.
@@ -3620,15 +3639,18 @@ export class GameEngine {
     if (!patch) return;
     if (patch.seedId) { this.notify('Something is already growing there'); return; }
     const def = SEED_BY_ID[seedId];
-    const price = seedCost(def, this.wave);
+    // A carried seed of this kind (the Strange Plant's) goes in first, for nothing.
+    const held = invCount(this.items, 'seed', seedId) > 0;
+    const price = held ? 0 : seedCost(def, this.wave);
     if (this.money < price) { this.notify('Not enough gold'); return; }
-    this.money -= price;
+    if (held) takeItem(this.items, 'seed', seedId);
+    else this.money -= price;
     patch.seedId = seedId;
     patch.grown = 0;
     patch.paid = price;
     this.seedsSown += 1;
     this.pendingSow = null;
-    this.sound.play('sell'); // the coin-shuffle: gold left the purse
+    this.sound.play(held ? 'select' : 'sell'); // the coin-shuffle when gold left the purse
     this.notify(`${def.seedName} sown, ready in ${def.waves} waves`, def.seedIcon);
     this.emit();
   }

@@ -286,6 +286,7 @@ describe('food stacks', () => {
 
   it("parses the genie's lamp back out", () => {
     expect(parseKey(stackKey('lamp', 'genie_lamp'))).toEqual({ kind: 'lamp', id: 'genie_lamp' });
+    expect(parseKey(stackKey('seed', 'torstol'))).toEqual({ kind: 'seed', id: 'torstol' });
   });
 
   it('rejects a key with no kind the game knows', () => {

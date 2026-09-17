@@ -232,7 +232,8 @@ const knownStack = (kind: StackKind, id: string): boolean =>
     : kind === 'potion' ? id in POTION_BY_ID
       : kind === 'food' ? id in FOOD_BY_ID
         : kind === 'lamp' ? id === GENIE_LAMP.id
-          : false;
+          : kind === 'seed' ? id in SEED_BY_ID
+            : false;
 
 /** The slots, out of whichever shape the save was written in. A save from before
  *  the inventory has two `{ id: count }` piles instead; those are poured back in
