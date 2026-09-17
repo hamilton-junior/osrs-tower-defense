@@ -12,7 +12,9 @@ import { MovablePanel } from './MovablePanel';
 import { fs, fmt, fmtTime, hideBrokenImg, GoStat } from './ui-kit';
 import { weaknessTag, enemySpriteStyle, enemySlugSpriteStyle, diversionSpriteStyle } from './enemy-ui';
 import { LOOK_BY_SLUG, LOOKS_BY_TYPE, defaultLookSlug } from '@/lib/game/data/enemy-variants';
-import { DIVERSIONS, type DiversionDef } from '@/lib/game/data/diversions';
+import { DIVERSIONS, DIVERSION_REWARD_KINDS, type DiversionDef } from '@/lib/game/data/diversions';
+import { diversionGainKey } from '@/lib/game/systems/diversions';
+import { RewardChip } from './diversion-reward';
 import { FUSIONS, FUSION_UNLOCK_CA, type FusionDef } from '@/lib/game/systems/tower-fusion';
 import { towerIcon } from './tower-ui';
 import type { EnemyType, TowerType } from '@/lib/game/types';
@@ -390,7 +392,7 @@ function VictoriesBody({ victories }: { victories: Victories }) {
 /** Distractions & Diversions. No drill-down: a diversion is one sprite, one line
  *  and one payout, and all three fit on the card. What the log is for here is the
  *  checklist — who has turned up on your board, and how often. */
-function DiversionsBody({ list, met }: { list: DiversionDef[]; met: Record<string, number> }) {
+function DiversionsBody({ list, met, gains }: { list: DiversionDef[]; met: Record<string, number>; gains: Record<string, number> }) {
   if (list.length === 0) return <LogEmpty />;
   return (
     <div className="grid grid-cols-3 gap-[0.4em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
@@ -405,6 +407,7 @@ function DiversionsBody({ list, met }: { list: DiversionDef[]; met: Record<strin
             <div className="rs-log-sprite" style={diversionSpriteStyle(d.id, n > 0)} />
             <span className="rs-log-name">{d.name}</span>
             <span className="rs-log-kc">{n > 0 ? `× ${fmt(n)}` : '0'}</span>
+            <DiversionTotals id={d.id} gains={gains} />
           </div>
         );
       })}
@@ -412,6 +415,19 @@ function DiversionsBody({ list, met }: { list: DiversionDef[]; met: Record<strin
   );
 }
 
+
+/** What one diversion has paid out over the account's lifetime, one chip per kind. */
+function DiversionTotals({ id, gains }: { id: DiversionDef['id']; gains: Record<string, number> }) {
+  const totals = DIVERSION_REWARD_KINDS
+    .map((kind) => ({ kind, amount: gains[diversionGainKey(id, kind)] ?? 0 }))
+    .filter((r) => r.amount > 0);
+  if (totals.length === 0) return null;
+  return (
+    <span className="flex flex-wrap items-center justify-center gap-x-[0.5em] text-[0.6em]">
+      {totals.map((r) => <RewardChip key={r.kind} reward={r} sign={false} />)}
+    </span>
+  );
+}
 
 /** The Forge tab: every fused weapon, what two towers make it, and what it does
  *  that neither of them can. A recipe book as much as a log — the blurb stays
@@ -584,13 +600,15 @@ function EnemiesBody({ list, entries, killCounts, selected, setSelected }: {
  *
  *  This function is the window: the tab strip, the list controls and whichever
  *  page's body is showing. Each body is its own component above. */
-export function CollectionLog({ killCounts, cardCounts, diversionsMet, fusionsMade, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
+export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversionGains, fusionsMade, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
   /** Lifetime forges per fusion type. */
   fusionsMade: Record<string, number>;
   /** Lifetime meetings per Distraction & Diversion id. */
   diversionsMet: Record<string, number>;
+  /** Lifetime payouts per Distraction & Diversion, keyed `<id>:<reward kind>`. */
+  diversionGains: Record<string, number>;
   /** Completed Combat Achievement ids, account-wide. */
   achievements: string[];
   victories: Victories;
@@ -675,7 +693,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, fusionsMa
         : tab === 'difficulty' ? <DifficultyBody difficulty={difficulty} />
         : tab === 'victories' ? <VictoriesBody victories={victories} />
         : tab === 'forge' ? <ForgeBody list={dispFusions} made={fusionsMade} unlocked={caDone.has(FUSION_UNLOCK_CA)} />
-        : tab === 'diversions' ? <DiversionsBody list={dispDiversions} met={diversionsMet} />
+        : tab === 'diversions' ? <DiversionsBody list={dispDiversions} met={diversionsMet} gains={diversionGains} />
         : tab === 'cards' ? <CardsBody list={dispCards} counts={cardCounts} selected={selected} setSelected={setSelected} />
         : <EnemiesBody list={dispEnemies} entries={entries} killCounts={killCounts} selected={selected} setSelected={setSelected} />}
     </MovablePanel>

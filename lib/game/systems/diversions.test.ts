@@ -11,7 +11,12 @@ import {
   resolvePayload,
   rollDiversionMoods,
   sanitizeDiversionsMet,
+  sanitizeDiversionGains,
+  diversionGainKey,
+  diversionRewardOptions,
+  payloadReward,
   rollNestPayload,
+  NEST_PAYLOADS,
   sendDiversionOff,
   stepDiversion,
   turnDiversion,
@@ -191,6 +196,68 @@ describe('nests', () => {
     expect(resolvePayload('bird_nest', () => 0.9)).toBe('potion');
     expect(resolvePayload('genie', () => 0.9)).toBe('essence');
     expect(resolvePayload('hans', () => 0.9)).toBe('none');
+  });
+});
+
+describe('rewards', () => {
+  const ctx = { gold: 180, essence: 42, lives: 17, maxLives: 20 };
+
+  it('pays each payload in its own kind, at the live amount', () => {
+    expect(payloadReward('life', ctx)).toEqual({ kind: 'life', amount: 1 });
+    expect(payloadReward('gold', ctx)).toEqual({ kind: 'gold', amount: 180 });
+    expect(payloadReward('essence', ctx)).toEqual({ kind: 'essence', amount: 42 });
+    expect(payloadReward('potion', ctx)).toEqual({ kind: 'overload', amount: 1 });
+  });
+
+  it('sells the kebab when there is nothing to heal', () => {
+    expect(payloadReward('life', { ...ctx, lives: 20 })).toEqual({ kind: 'gold', amount: 180 });
+    // An overhealed run is still full.
+    expect(payloadReward('life', { ...ctx, lives: 21 })).toEqual({ kind: 'gold', amount: 180 });
+  });
+
+  it('promises nothing for a walkby or an unopened nest', () => {
+    expect(payloadReward('none', ctx)).toBeNull();
+    expect(payloadReward('surprise', ctx)).toBeNull();
+    expect(diversionRewardOptions('hans', ctx)).toEqual([]);
+  });
+
+  it('lists everything a nest might hold, in the order it rolls them', () => {
+    expect(diversionRewardOptions('bird_nest', ctx).map(r => r.kind)).toEqual(['gold', 'essence', 'overload']);
+    expect(NEST_PAYLOADS).toHaveLength(3);
+  });
+
+  it('gives every other paying diversion exactly one answer', () => {
+    for (const def of DIVERSIONS) {
+      if (def.payload === 'none' || def.payload === 'surprise') continue;
+      expect(diversionRewardOptions(def.id, ctx)).toHaveLength(1);
+    }
+  });
+});
+
+describe('sanitizeDiversionGains', () => {
+  it('keeps totals whose diversion and kind both still exist', () => {
+    const genie = diversionGainKey('genie', 'essence');
+    expect(genie).toBe('genie:essence');
+    expect(sanitizeDiversionGains({ [genie]: 120, 'bird_nest:overload': 2 }))
+      .toEqual({ 'genie:essence': 120, 'bird_nest:overload': 2 });
+  });
+
+  it('drops retired ids, unknown kinds, malformed keys and non-counts', () => {
+    expect(sanitizeDiversionGains({
+      'wise_old_man:gold': 5,
+      'genie:xp': 5,
+      genie: 5,
+      'genie:gold:extra': 5,
+      'constructor:gold': 5,
+      'bird_nest:gold': 0,
+      'drunken_dwarf:life': 'lots',
+      'drunken_dwarf:gold': 99.9,
+    })).toEqual({ 'drunken_dwarf:gold': 99 });
+  });
+
+  it('reads garbage as no totals', () => {
+    expect(sanitizeDiversionGains(null)).toEqual({});
+    expect(sanitizeDiversionGains([1, 2])).toEqual({});
   });
 });
 

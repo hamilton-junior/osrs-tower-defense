@@ -1,5 +1,6 @@
 import type { GameRenderer } from '../renderer';
 import { DIVERSION_BY_ID } from '../../data/diversions';
+import { DIVERSION_POP_MS } from '../../systems/diversions';
 import { DIVERSION_ANIMS, diversionAnimKey, type DiversionView } from '../../data/diversion-anims';
 import { clipFrame } from '../../data/enemy-anims';
 import { drawImageContain } from './shared';
@@ -29,6 +30,7 @@ const CLIP_BOX = 30;
  * frame whose whole rule is that it never asks for their attention.
  */
 export function drawDiversions(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  drawDiversionPops(gr, ctx);
   const list = gr.e.diversions;
   if (list.length === 0) return;
 
@@ -121,6 +123,51 @@ export function drawDiversions(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     ctx.fillText(text, d.x + 1, ty + 1);
     ctx.fillStyle = '#ffff00';
     ctx.fillText(text, d.x, ty);
+    ctx.restore();
+  }
+}
+
+/** How far a payout rises over its whole life, logic px. */
+const POP_RISE = 24;
+
+/**
+ * What a click just paid, rising off the spot it was paid at: the reward's own icon
+ * and a green `+N`, fading out over the back half of its rise. Drawn before the
+ * visitors so a payout never hides the next one to click. Gold reads number first,
+ * then coins, like every price in the game.
+ */
+function drawDiversionPops(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  const pops = gr.e.diversionPops;
+  if (pops.length === 0) return;
+  const now = performance.now();
+  const s = gr.e.uiScale;
+  const icon = 16 * s;
+  const gap = 3 * s;
+  for (const p of pops) {
+    const k = (now - p.born) / DIVERSION_POP_MS;
+    if (k < 0 || k >= 1) continue;
+    const text = `+${p.reward.amount}`;
+    const key = `reward_${p.reward.kind}`;
+    const img = gr.e.imageOk(key) ? gr.e.images.get(key) : undefined;
+    ctx.save();
+    ctx.globalAlpha = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+    ctx.font = `bold ${13 * s}px 'RuneScape', Arial`;
+    ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(text).width;
+    const w = img ? tw + gap + icon : tw;
+    const y = p.y - 30 - POP_RISE * k;
+    let x = p.x - w / 2;
+    const iconFirst = p.reward.kind !== 'gold';
+    if (img && iconFirst) {
+      drawImageContain(gr, ctx, img, x + icon / 2, y, icon);
+      x += icon + gap;
+    }
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#000';
+    ctx.fillText(text, x + 1, y + 1);
+    ctx.fillStyle = '#4be23c';
+    ctx.fillText(text, x, y);
+    if (img && !iconFirst) drawImageContain(gr, ctx, img, x + tw + gap + icon / 2, y, icon);
     ctx.restore();
   }
 }

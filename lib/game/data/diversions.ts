@@ -1,4 +1,4 @@
-import { itemIcon, npcModel } from '../assets';
+import { ASSETS, itemIcon, npcModel } from '../assets';
 
 /** The two extra yaws baked for a walker (`scripts/render-osrs-npcs.mjs`). The side
  *  bake walks right; the renderer mirrors it for the other direction. */
@@ -32,6 +32,24 @@ export type DiversionId =
  */
 export type DiversionPayload = 'none' | 'life' | 'gold' | 'essence' | 'potion' | 'surprise';
 
+/**
+ * What a click actually lands in the player's hands, once the payload has met the
+ * board: a kebab eaten at full lives is a kebab sold, so `life` can arrive as `gold`.
+ * The tooltip, the toast, the number that rises off the sprite and the Collection
+ * Log's totals all speak in these.
+ */
+export type DiversionRewardKind = 'life' | 'gold' | 'essence' | 'overload';
+
+export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'gold', 'essence', 'overload'];
+
+/** Each reward's own icon, and the name it goes by on hover. */
+export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; label: string }> = {
+  life: { icon: ASSETS.misc.orb_hitpoints, label: 'Lives' },
+  gold: { icon: ASSETS.misc.coins_icon, label: 'Gold' },
+  essence: { icon: ASSETS.misc.rune_essence_icon, label: 'Essence' },
+  overload: { icon: itemIcon('overload_4'), label: 'Overload' },
+};
+
 export interface DiversionDef {
   id: DiversionId;
   mood: DiversionMood;
@@ -49,7 +67,8 @@ export interface DiversionDef {
    *  and walks back off it — the default — except the things that were never
    *  walking anywhere: a nest falls out of a tree, a plant grows where it stands. */
   arrival?: 'walk' | 'appear';
-  /** One short plain sentence: what this is worth. Icon-led, no numbers. */
+  /** One short plain sentence: what this is worth. No numbers: what a click pays
+   *  is worked out live and shown beside it as icon chips. */
   tip: string;
   /** What it says. Walkbys pick one at spawn; the rest say theirs on payout. */
   lines: string[];
@@ -70,7 +89,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('hans'),
     turned: turned('hans'),
     payload: 'none',
-    tip: '💬 Just passing through.',
+    tip: 'Just passing through.',
     lines: [
       "I've been here for 20 years and I'm still not sure what this tower does.",
       'Mind the road. Things come down it.',
@@ -85,7 +104,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('bob'),
     turned: turned('bob'),
     payload: 'none',
-    tip: '💬 Just passing through.',
+    tip: 'Just passing through.',
     lines: [
       'Axes! Finest axes! ...no? Suit yourself.',
       'I could sharpen that for you. For a price.',
@@ -100,7 +119,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('lumbridge_guide'),
     turned: turned('lumbridge_guide'),
     payload: 'none',
-    tip: '💬 He has a read on the next wave.',
+    tip: 'He has a read on the next wave.',
     lines: [
       'Keep your towers spread. Crowds punish a corner.',
       'A tower with nothing in range is gold sat idle.',
@@ -115,7 +134,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('party_pete'),
     turned: turned('party_pete'),
     payload: 'none',
-    tip: '💬 Just passing through.',
+    tip: 'Just passing through.',
     lines: [
       'Party! Party! Party!',
       'Someone put a tune on!',
@@ -130,7 +149,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('drunken_dwarf'),
     turned: turned('drunken_dwarf'),
     payload: 'life',
-    tip: '🍢 Click for a kebab.',
+    tip: 'Click for a kebab.',
     lines: [
       'The dwarf presses a kebab into your hands and wanders off.',
       "'Ere, you look like you need this more than I do.",
@@ -143,7 +162,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('genie'),
     turned: turned('genie'),
     payload: 'essence',
-    tip: '🪔 Click for a lamp.',
+    tip: 'Click for a lamp.',
     lines: [
       'The genie hands you a lamp and vanishes.',
       'Your wish is granted. Do try to spend it well.',
@@ -156,7 +175,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('strange_plant'),
     payload: 'potion',
     arrival: 'appear',
-    tip: '🌱 Click for a free potion.',
+    tip: 'Click for a free potion.',
     lines: [
       'The plant bears one fruit, and it is definitely a potion.',
       'You pick the fruit. It tastes like the Grand Exchange.',
@@ -169,7 +188,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('rick_turpentine'),
     turned: turned('rick_turpentine'),
     payload: 'gold',
-    tip: '👊 Click to send him packing.',
+    tip: 'Click to send him packing.',
     lines: [
       'Your towers see him off. He drops his purse on the way out.',
       'Rick picks a fight with a wall of siege weaponry. It goes badly for Rick.',
@@ -182,7 +201,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: itemIcon('bird_nest'),
     payload: 'surprise',
     arrival: 'appear',
-    tip: "🪺 Click to see what's inside.",
+    tip: "Click to see what's inside.",
     lines: ['Something falls out of the tree with a soft pop.'],
   },
 ];

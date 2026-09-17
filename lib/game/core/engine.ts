@@ -53,10 +53,10 @@ import { localTypes } from '../systems/enemy-regions';
 import { travelOffer } from '../systems/travel';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
-import { DIVERSION_BY_ID } from '../data/diversions';
+import { DIVERSION_BY_ID, DIVERSION_REWARD_META } from '../data/diversions';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
-import { diversionEssence, diversionGold, diversionLine, offBoardPoint, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion } from '../systems/diversions';
+import { DIVERSION_POP_MS, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, offBoardPoint, payloadReward, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
@@ -362,6 +362,9 @@ export class GameEngine {
    *  tallies above). Purely a Collection Log record — nothing in the game reads it
    *  to gate, scale or reward anything. */
   diversionsMet: Record<string, number> = {};
+  /** What each diversion has paid out over the account's lifetime, keyed
+   *  `<id>:<reward kind>`. A Collection Log record, like the meetings above. */
+  diversionGains: Record<string, number> = {};
   /** Weapons forged at least once (lifetime, persisted like the tallies above).
    *  A Collection Log record only — what a player may forge is gated by one
    *  Combat Achievement, never by having forged it before. */
@@ -377,6 +380,7 @@ export class GameEngine {
 
   private notice: string | null = null;
   private noticeIcon: string | null = null;
+  private noticeReward: DiversionReward | null = null;
   private noticeSeq = 0;
   /** Latest unlock batch + a bump counter, drained into a popup queue by the UI. */
   private unlocks: UnlockItem[] = [];
@@ -395,6 +399,9 @@ export class GameEngine {
    *  Start Wave, so nothing here can ever block a build spot or a shot. */
   diversions: Diversion[] = [];
   private diversionSeq = 0;
+  /** Payouts still floating up off the board, newest last. The renderer draws them
+   *  and skips any past {@link DIVERSION_POP_MS}; a new payout sweeps the old ones. */
+  diversionPops: DiversionPop[] = [];
   /** Hunter traps lying on the road. Laid between waves, spent during one, gone
    *  when their charges are — they never block passage, and nothing but the run's
    *  own Hunter level limits how many may be out. */
@@ -562,7 +569,7 @@ export class GameEngine {
   constructor(
     canvas: HTMLCanvasElement,
     onState: (patch: Partial<UIState>) => void,
-    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown; bossesSeen?: unknown; diversionsMet?: unknown; fusionsMade?: unknown },
+    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown; bossesSeen?: unknown; diversionsMet?: unknown; diversionGains?: unknown; fusionsMade?: unknown },
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -572,6 +579,7 @@ export class GameEngine {
     this.cardCounts = sanitizeCardCounts(save?.cardCounts);
     this.bossesSeen = sanitizeBossesSeen(save?.bossesSeen);
     this.diversionsMet = sanitizeDiversionsMet(save?.diversionsMet);
+    this.diversionGains = sanitizeDiversionGains(save?.diversionGains);
     this.fusionsMade = sanitizeFusionsMade(save?.fusionsMade);
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.renderer = new GameRenderer(this);
@@ -843,6 +851,7 @@ export class GameEngine {
       volume: this.sound.level,
       notice: this.notice,
       noticeIcon: this.noticeIcon,
+      noticeReward: this.noticeReward,
       noticeSeq: this.noticeSeq,
       slayerTask: this.slayer.task
         ? {
@@ -875,7 +884,11 @@ export class GameEngine {
       // off, and an infobox for them would be offering something already spent.
       diversions: this.diversions.filter(d => d.phase !== 'leaving').map(d => {
         const def = DIVERSION_BY_ID[d.defId];
-        return { id: d.id, defId: d.defId, mood: d.mood, name: def.name, icon: def.sprite, tip: def.tip };
+        return {
+          id: d.id, defId: d.defId, mood: d.mood, name: def.name, icon: def.sprite, tip: def.tip,
+          line: d.mood === 'walkby' ? d.line : null,
+          rewards: diversionRewardOptions(d.defId, this.diversionRewardContext()),
+        };
       }),
       traps: this.traps.map(t => {
         const def = HUNTER_TRAP_BY_ID[t.defId];
@@ -939,6 +952,7 @@ export class GameEngine {
       cardCounts: this.cardCounts,
       bossesSeen: this.bossesSeen,
       diversionsMet: this.diversionsMet,
+      diversionGains: this.diversionGains,
       fusionsMade: this.fusionsMade,
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
@@ -1031,10 +1045,12 @@ export class GameEngine {
   }
 
   /** Flash a transient message to the UI (e.g. an action that couldn't run).
-   *  Pass `icon` (a URL) to show an icon alongside it instead of the default. */
-  notify(text: string, icon?: string) {
+   *  Pass `icon` (a URL) to show an icon alongside it instead of the default, and
+   *  `reward` to show what was just paid out after the text. */
+  notify(text: string, icon?: string, reward?: DiversionReward) {
     this.notice = text;
     this.noticeIcon = icon ?? null;
+    this.noticeReward = reward ?? null;
     this.noticeSeq++;
     this.emit();
   }
@@ -1416,6 +1432,10 @@ export class GameEngine {
             ? [[`diversion_${d.id}_back`, d.turned.back], [`diversion_${d.id}_side`, d.turned.side]]
             : []),
         ]),
+      ),
+      // What a payout rises off the board as, keyed `reward_<kind>`.
+      ...Object.fromEntries(
+        Object.entries(DIVERSION_REWARD_META).map(([kind, meta]) => [`reward_${kind}`, meta.icon]),
       ),
       // ...and their baked animation sheets, keyed `divanim_<id>_<view>_<clip>`: one
       // stand/walk loop per camera yaw, from the NPC's own cache animations. The
@@ -1986,10 +2006,16 @@ export class GameEngine {
   /** Add gold from a kill or wave clear, scaled by the rewardMultiplier upgrade,
    *  and track it for the game-over "earned" tally. Returns the gold granted. */
   awardGold(base: number): number {
-    const gold = Math.round(base * this.meta.upgrades.rewardMultiplier * farmGoldMult(this.activeFarmBuffs()));
+    const gold = this.goldValue(base);
     this.money += gold;
     this.goldEarned += gold;
     return gold;
+  }
+
+  /** What `base` gold is worth once it lands: the same scaling {@link awardGold}
+   *  applies, without paying it. For anything that promises gold before paying it. */
+  goldValue(base: number): number {
+    return Math.round(base * this.meta.upgrades.rewardMultiplier * farmGoldMult(this.activeFarmBuffs()));
   }
 
   /**
@@ -3218,44 +3244,64 @@ export class GameEngine {
     } else {
       this.diversions = this.diversions.filter(d => d.id !== id);
     }
-    // The nest is the one payload decided on opening rather than on landing — that
+    // The nest is the one payload decided on opening rather than on landing: that
     // is the whole appeal of a nest.
     const payload = resolvePayload(found.defId, Math.random);
+    const reward = payloadReward(payload, this.diversionRewardContext());
     let message = found.line;
-    switch (payload) {
-      case 'none':
-        break; // a walkby: the click is just acknowledging them, and off they go
-      case 'life': {
-        if (this.lives < this.maxLives) {
-          this.lives += 1;
-          this.showLifeGain(1);
-        } else {
-          // Nothing to heal — he is not going to take it back, so it is worth gold.
-          const gold = this.awardGold(diversionGold(this.wave, this.towers.length));
-          message = `You are in no need of a kebab. You sell it for ${gold} gp.`;
-        }
-        break;
+    if (reward) {
+      if (payload === 'life' && reward.kind === 'gold') {
+        message = 'You are in no need of a kebab, so you sell it.';
       }
-      case 'gold':
-        this.awardGold(diversionGold(this.wave, this.towers.length));
-        break;
-      case 'essence': {
-        const essence = diversionEssence(
-          this.wave, essenceMultiplier(this.gameMode, this.runPhase),
-        );
-        this.meta.award(essence);
-        this.essenceEarnedThisRun += essence;
-        break;
-      }
-      case 'potion':
-        // The one style-agnostic buff in the shop: a gift has to be worth something
-        // whatever the player happens to have built.
-        this.ge.grant('overload');
-        break;
+      this.payDiversionReward(reward);
+      const key = diversionGainKey(found.defId, reward.kind);
+      this.diversionGains = { ...this.diversionGains, [key]: (this.diversionGains[key] ?? 0) + reward.amount };
+      // The payout rises off the spot it was paid at, so the click answers where the
+      // player was looking and not only down in the toast.
+      const now = performance.now();
+      this.diversionPops = [
+        ...this.diversionPops.filter(p => now - p.born < DIVERSION_POP_MS),
+        { x: found.x, y: found.y, reward, born: now },
+      ];
     }
-    this.notify(message, def.sprite);
+    this.notify(message, def.sprite, reward ?? undefined);
     this.sound.play(payload === 'none' ? 'select' : 'interface_open');
     this.emit();
+  }
+
+  /** The live numbers every diversion payout is sized by: gold through the same
+   *  scaling a wave clear goes through, essence through the mode faucet. The tooltip
+   *  and the click both read this, so what one promises is what the other pays. */
+  private diversionRewardContext(): DiversionRewardContext {
+    return {
+      gold: this.goldValue(diversionGold(this.wave, this.towers.length)),
+      essence: diversionEssence(this.wave, essenceMultiplier(this.gameMode, this.runPhase)),
+      lives: this.lives,
+      maxLives: this.maxLives,
+    };
+  }
+
+  private payDiversionReward(reward: DiversionReward) {
+    switch (reward.kind) {
+      case 'life':
+        this.healLives(reward.amount);
+        this.showLifeGain(reward.amount);
+        break;
+      case 'gold':
+        // Already scaled by goldValue, so it is credited as it stands.
+        this.money += reward.amount;
+        this.goldEarned += reward.amount;
+        break;
+      case 'essence':
+        this.meta.award(reward.amount);
+        this.essenceEarnedThisRun += reward.amount;
+        break;
+      case 'overload':
+        // The one style-agnostic buff in the shop: a gift has to be worth something
+        // whatever the player happens to have built.
+        for (let n = 0; n < reward.amount; n++) this.ge.grant('overload');
+        break;
+    }
   }
 
   // -------------------------------------------------------------- hunter traps
@@ -3834,6 +3880,7 @@ export class GameEngine {
     // pick up is simply gone — that is the frame's whole bargain: it never demands
     // to be dealt with, and it never gets in the way of the wave.
     this.diversions = [];
+    this.diversionPops = [];
     this.pendingSow = null; // the seed menu is a between-waves interface
     this.steadySaid = false; // a new wave may say the Antipoison held again
     const configs = computeWaveConfigs(this);
@@ -4389,6 +4436,7 @@ export class GameEngine {
     this.bossWave = false;
     this.activeEvent = null;
     this.diversions = [];
+    this.diversionPops = [];
     this.selectedTrapId = null;
     // Hunter and the traps on the road come back with the run that earned them;
     // a save from before they existed resumes at level 1 with a clear road.
@@ -4522,6 +4570,7 @@ export class GameEngine {
     this.bossWave = false;
     this.activeEvent = null;
     this.diversions = [];
+    this.diversionPops = [];
     this.traps = [];
     this.selectedTrapId = null;
     this.hunterLevel = 1;

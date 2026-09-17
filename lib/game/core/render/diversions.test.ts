@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { drawDiversions } from './diversions';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../../data/diversion-anims';
 import type { GameRenderer } from '../renderer';
-import type { Diversion } from '../../systems/diversions';
+import { DIVERSION_POP_MS, type Diversion, type DiversionPop } from '../../systems/diversions';
 
 /**
  * The one thing about this layer that is worth pinning: a diversion draws the sheet
@@ -21,17 +21,18 @@ function fakeCtx() {
     drawn, scales,
     save() {}, restore() {}, translate() {}, rotate() {}, beginPath() {},
     ellipse() {}, stroke() {}, arc() {}, fill() {}, fillText() {},
+    measureText: (text: string) => ({ width: text.length * 7 }),
     scale(x: number, y: number) { scales.push([x, y]); },
     drawImage(...args: Call) { drawn.push(args); },
-    globalAlpha: 1, strokeStyle: '', fillStyle: '', lineWidth: 1, font: '', textAlign: '',
+    globalAlpha: 1, strokeStyle: '', fillStyle: '', lineWidth: 1, font: '', textAlign: '', textBaseline: '',
   };
   return ctx as unknown as CanvasRenderingContext2D & typeof ctx;
 }
 
 /** An engine stub holding one loaded image per key it is told about. */
-function fakeRenderer(list: Diversion[], loaded: string[]) {
+function fakeRenderer(list: Diversion[], loaded: string[], pops: DiversionPop[] = []) {
   const images = new Map<string, unknown>(loaded.map((k) => [k, { key: k }]));
-  return { e: { diversions: list, images, imageOk: (k: string) => images.has(k) } } as unknown as GameRenderer;
+  return { e: { diversions: list, diversionPops: pops, uiScale: 1, images, imageOk: (k: string) => images.has(k) } } as unknown as GameRenderer;
 }
 
 function diversion(over: Partial<Diversion>): Diversion {
@@ -70,5 +71,18 @@ describe('drawDiversions', () => {
     const ctx = fakeCtx();
     drawDiversions(fakeRenderer([diversion({})], ['diversion_hans']), ctx);
     expect((ctx.drawn[0][0] as { key: string }).key).toBe('diversion_hans');
+  });
+
+  it('floats a payout with its own icon once the board is empty, and drops it when it expires', () => {
+    const now = performance.now();
+    const pop = (born: number): DiversionPop => ({ x: 100, y: 200, reward: { kind: 'essence', amount: 12 }, born });
+    const live = fakeCtx();
+    drawDiversions(fakeRenderer([], ['reward_essence'], [pop(now)]), live);
+    expect(live.drawn).toHaveLength(1);
+    expect((live.drawn[0][0] as { key: string }).key).toBe('reward_essence');
+
+    const gone = fakeCtx();
+    drawDiversions(fakeRenderer([], ['reward_essence'], [pop(now - DIVERSION_POP_MS - 1)]), gone);
+    expect(gone.drawn).toHaveLength(0);
   });
 });

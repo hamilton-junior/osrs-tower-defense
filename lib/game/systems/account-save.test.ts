@@ -53,6 +53,8 @@ function makeAccount(over: Record<string, unknown> = {}): Record<string, unknown
     killCounts: { goblin: 400, jad: 2 },
     cardCounts: { card_a: 5 },
     bossesSeen: { jad: 2 },
+    diversionsMet: { genie: 3 },
+    diversionGains: { 'genie:essence': 120 },
     victories: { total: 3, fastestSeconds: 1800, highestEndlessWave: 112, byMode: { classic: 1, roguelite: 2 } },
     difficulty: { highestCleared: { classic: 1, roguelite: -1 }, records: { 'classic:1': { fastestSeconds: 1800, highestEndlessWave: 112 } } },
     achievements: ['ca_first_blood', 'ca_jad'],
@@ -67,6 +69,7 @@ describe('sanitizeAccountSave', () => {
     expect(save).not.toBeNull();
     expect(save!.essence).toBe(4200);
     expect(save!.killCounts.goblin).toBe(400);
+    expect(save!.diversionGains['genie:essence']).toBe(120);
     expect(save!.victories.byMode.roguelite).toBe(2);
     expect(save!.difficulty.highestCleared.classic).toBe(1);
     expect(save!.achievements).toEqual(['ca_first_blood', 'ca_jad']);

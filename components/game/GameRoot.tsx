@@ -39,6 +39,8 @@ import { brewDamageMult } from '@/lib/game/systems/herblore';
 import { trapCost, blastProfile } from '@/lib/game/systems/hunter-traps';
 import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButton, PRIORITY_ORDER, PRIORITY_TIPS, PriorityGlyph, towerIcon, towerTierIcon, spellIconUrl, WIZARD_STAVES, WIZARD_SCEPTRES, WIZARD_UTILITY_STAFF, WIZARD_SLOT_KEYS, wizardStaffUrl, spellbookIcon, SHOW_TOWER_PICKER, TOWER_COMBAT, towerSignature } from './tower-ui';
 import { gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
+import { RewardChip, RewardOptions } from './diversion-reward';
+import type { DiversionReward } from '@/lib/game/systems/diversions';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, type Victories, type DifficultyProgress } from './save';
 import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Price, Vital, GoStat, StatLabel, Stat } from './ui-kit';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
@@ -86,7 +88,7 @@ const INITIAL: UIState = {
   towersOnBoard: 0,
   multiSelectedIds: [], movingGroupIds: [], placeQueue: [], queueArmed: false, clipboard: [], pasting: false,
   movingTowerId: null, pendingPlacement: null, pendingMageMode: 'elemental', gameSpeed: 1, paused: false, muted: false, volume: 0.75,
-  notice: null, noticeIcon: null, noticeSeq: 0,
+  notice: null, noticeIcon: null, noticeReward: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false, slayerUnlocks: [], slayerBlocked: [],
   prayerPoints: 10, prayerMax: 10, prayerFrac: 1, activePrayers: [], prayerLock: 0,
   geOffers: [],
@@ -97,6 +99,7 @@ const INITIAL: UIState = {
   cardCounts: {},
   bossesSeen: {},
   diversionsMet: {},
+  diversionGains: {},
   fusionsMade: {},
   dpsStats: null,
   lastWaveSandbox: false,
@@ -168,7 +171,7 @@ export default function GameRoot() {
   const [boardSize, setBoardSize] = useState<{ w: number; h: number } | null>(null);
   const [ui, setUi] = useState<UIState>(INITIAL);
   const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' | 'boss' } | null>(null);
-  const [toast, setToast] = useState<{ text: string; icon: string | null; ms: number } | null>(null);
+  const [toast, setToast] = useState<{ text: string; icon: string | null; reward: DiversionReward | null; ms: number } | null>(null);
   // Collection-log unlock popups, shown one at a time from a queue.
   const [unlockQueue, setUnlockQueue] = useState<{ id: number; item: UnlockItem }[]>([]);
   // Whether the next-wave strip is showing its full roster. Collapsed by default
@@ -722,6 +725,13 @@ export default function GameRoot() {
     try { localStorage.setItem(SAVE_KEYS.diversionsMet, JSON.stringify(ui.diversionsMet)); } catch { /* ignore */ }
   }, [ui.diversionsMet]);
 
+  // ...and what each of them has paid out, for the totals on the same tab.
+  const dgLoaded = useRef(false);
+  useEffect(() => {
+    if (!dgLoaded.current) { dgLoaded.current = true; return; }
+    try { localStorage.setItem(SAVE_KEYS.diversionGains, JSON.stringify(ui.diversionGains)); } catch { /* ignore */ }
+  }, [ui.diversionGains]);
+
   // Persist what the account has forged (the Collection Log's Forge tab). Same
   // shape as the logs above, and read back only to fill in that page.
   const fuLoaded = useRef(false);
@@ -856,10 +866,10 @@ export default function GameRoot() {
   useEffect(() => {
     if (!ui.noticeSeq || !ui.notice) return;
     const ms = noticeMs(ui.notice);
-    setToast({ text: ui.notice, icon: ui.noticeIcon, ms });
+    setToast({ text: ui.notice, icon: ui.noticeIcon, reward: ui.noticeReward, ms });
     const t = setTimeout(() => setToast(null), ms);
     return () => clearTimeout(t);
-  }, [ui.noticeSeq, ui.notice, ui.noticeIcon]);
+  }, [ui.noticeSeq, ui.notice, ui.noticeIcon, ui.noticeReward]);
 
   // Enqueue each new unlock batch (a wave can unlock several prayers at once),
   // then show them one at a time as collection-log popups.
@@ -2326,6 +2336,7 @@ export default function GameRoot() {
             <span>⚠</span>
           )}
           {toast.text}
+          {toast.reward && <RewardChip reward={toast.reward} />}
         </div>
       )}
 
@@ -2535,11 +2546,17 @@ export default function GameRoot() {
                 <HoverTip
                   key={d.id}
                   side="bottom"
-                  content={tipHeader(
-                    <span className="text-[0.85em] font-bold text-osrs-orange">{d.name}</span>,
-                    d.tip,
-                    <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">Click</span>,
-                  )}
+                  content={
+                    <>
+                      {tipHeader(
+                        <span className="text-[0.85em] font-bold text-osrs-orange">{d.name}</span>,
+                        d.tip,
+                        <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">Click</span>,
+                      )}
+                      {d.line && <span className="block text-[0.68em] text-osrs-yellow mt-[0.25em] leading-tight">&ldquo;{d.line}&rdquo;</span>}
+                      {d.rewards.length > 0 && <span className="block mt-[0.35em]"><RewardOptions rewards={d.rewards} /></span>}
+                    </>
+                  }
                 >
                   <button
                     type="button"
@@ -3233,6 +3250,7 @@ export default function GameRoot() {
           killCounts={ui.killCounts}
           cardCounts={ui.cardCounts}
           diversionsMet={ui.diversionsMet}
+          diversionGains={ui.diversionGains}
           fusionsMade={ui.fusionsMade}
           achievements={ui.achievements}
           victories={victories}

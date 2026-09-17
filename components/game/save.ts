@@ -18,7 +18,7 @@ import { EMPTY_DIFFICULTY, EMPTY_VICTORIES, buildAccountSave, type AccountSave, 
 export { EMPTY_VICTORIES, EMPTY_DIFFICULTY };
 export type { Victories, DifficultyProgress };
 
-export const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', diversionsMet: 'osrs_td_diversions', fusionsMade: 'osrs_td_fusions', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty', achievements: 'osrs_td_achievements' } as const;
+export const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', diversionsMet: 'osrs_td_diversions', diversionGains: 'osrs_td_diversion_gains', fusionsMade: 'osrs_td_fusions', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty', achievements: 'osrs_td_achievements' } as const;
 
 export function loadVictories(): Victories {
   if (typeof window === 'undefined') return EMPTY_VICTORIES;
@@ -90,14 +90,15 @@ export function agoLabel(ms: number): string {
 
 /** Read the persisted account save (meta-progression + Collection Log) from
  *  localStorage, tolerating absent/corrupt data — the engine re-clamps it. */
-export function loadSave(): { essence: number; upgrades: unknown; killCounts: unknown; cardCounts: unknown; bossesSeen: unknown; diversionsMet: unknown; fusionsMade: unknown } {
-  if (typeof window === 'undefined') return { essence: 0, upgrades: undefined, killCounts: undefined, cardCounts: undefined, bossesSeen: undefined, diversionsMet: undefined, fusionsMade: undefined };
+export function loadSave(): { essence: number; upgrades: unknown; killCounts: unknown; cardCounts: unknown; bossesSeen: unknown; diversionsMet: unknown; diversionGains: unknown; fusionsMade: unknown } {
+  if (typeof window === 'undefined') return { essence: 0, upgrades: undefined, killCounts: undefined, cardCounts: undefined, bossesSeen: undefined, diversionsMet: undefined, diversionGains: undefined, fusionsMade: undefined };
   let essence = 0;
   let upgrades: unknown;
   let killCounts: unknown;
   let cardCounts: unknown;
   let bossesSeen: unknown;
   let diversionsMet: unknown;
+  let diversionGains: unknown;
   let fusionsMade: unknown;
   try { essence = parseInt(localStorage.getItem(SAVE_KEYS.essence) ?? '0', 10) || 0; } catch { /* ignore */ }
   try { upgrades = JSON.parse(localStorage.getItem(SAVE_KEYS.upgrades) ?? 'null'); } catch { /* ignore */ }
@@ -105,8 +106,9 @@ export function loadSave(): { essence: number; upgrades: unknown; killCounts: un
   try { cardCounts = JSON.parse(localStorage.getItem(SAVE_KEYS.cardCounts) ?? 'null'); } catch { /* ignore */ }
   try { bossesSeen = JSON.parse(localStorage.getItem(SAVE_KEYS.bossesSeen) ?? 'null'); } catch { /* ignore */ }
   try { diversionsMet = JSON.parse(localStorage.getItem(SAVE_KEYS.diversionsMet) ?? 'null'); } catch { /* ignore */ }
+  try { diversionGains = JSON.parse(localStorage.getItem(SAVE_KEYS.diversionGains) ?? 'null'); } catch { /* ignore */ }
   try { fusionsMade = JSON.parse(localStorage.getItem(SAVE_KEYS.fusionsMade) ?? 'null'); } catch { /* ignore */ }
-  return { essence, upgrades, killCounts, cardCounts, bossesSeen, diversionsMet, fusionsMade };
+  return { essence, upgrades, killCounts, cardCounts, bossesSeen, diversionsMet, diversionGains, fusionsMade };
 }
 
 /**
@@ -124,6 +126,7 @@ export function readAccountSave(): AccountSave {
     cardCounts: meta.cardCounts,
     bossesSeen: meta.bossesSeen,
     diversionsMet: meta.diversionsMet,
+    diversionGains: meta.diversionGains,
     fusionsMade: meta.fusionsMade,
     victories: loadVictories(),
     difficulty: loadDifficulty(),
@@ -151,6 +154,7 @@ export function applyAccountSave(save: AccountSave) {
     localStorage.setItem(SAVE_KEYS.cardCounts, JSON.stringify(save.cardCounts));
     localStorage.setItem(SAVE_KEYS.bossesSeen, JSON.stringify(save.bossesSeen));
     localStorage.setItem(SAVE_KEYS.diversionsMet, JSON.stringify(save.diversionsMet));
+    localStorage.setItem(SAVE_KEYS.diversionGains, JSON.stringify(save.diversionGains));
     localStorage.setItem(SAVE_KEYS.fusionsMade, JSON.stringify(save.fusionsMade));
     localStorage.setItem(SAVE_KEYS.victories, JSON.stringify(save.victories));
     localStorage.setItem(SAVE_KEYS.difficulty, JSON.stringify(save.difficulty));

@@ -2,11 +2,13 @@ import {
   DIVERSIONS,
   DIVERSION_BY_ID,
   DIVERSION_CHANCE,
+  DIVERSION_REWARD_KINDS,
   MAX_DIVERSIONS,
   type DiversionDef,
   type DiversionId,
   type DiversionMood,
   type DiversionPayload,
+  type DiversionRewardKind,
 } from '../data/diversions';
 import { essenceForWave } from './meta-progression';
 import { waveClearBonus } from './rewards';
@@ -244,9 +246,12 @@ export function diversionEssence(wave: number, multiplier = 1): number {
   return Math.max(3, Math.round(essenceForWave(wave) * 2.5 * multiplier));
 }
 
+/** Everything a nest can hold, in the order its roll checks them. */
+export const NEST_PAYLOADS = ['gold', 'essence', 'potion'] as const;
+
 /** What a nest actually held. Gold most of the time, because gold is the payout that
  *  is never useless; the other two are the moments worth telling someone about. */
-export function rollNestPayload(rand: () => number): Exclude<DiversionPayload, 'none' | 'surprise'> {
+export function rollNestPayload(rand: () => number): (typeof NEST_PAYLOADS)[number] {
   const r = rand();
   if (r < 0.55) return 'gold';
   if (r < 0.85) return 'essence';
@@ -257,6 +262,95 @@ export function rollNestPayload(rand: () => number): Exclude<DiversionPayload, '
 export function resolvePayload(defId: DiversionId, rand: () => number): DiversionPayload {
   const payload = DIVERSION_BY_ID[defId].payload;
   return payload === 'surprise' ? rollNestPayload(rand) : payload;
+}
+
+/** What one click paid, or will pay: a kind and how much of it. */
+export interface DiversionReward {
+  kind: DiversionRewardKind;
+  amount: number;
+}
+
+/**
+ * The live numbers a payout is sized by, which only the engine knows. `gold` and
+ * `essence` have already been through every multiplier the wave's own award goes
+ * through, so the number a tooltip promises is the number that lands.
+ */
+export interface DiversionRewardContext {
+  gold: number;
+  essence: number;
+  lives: number;
+  maxLives: number;
+}
+
+/** What one payload is worth on this board. A walkby pays nothing, and an unopened
+ *  nest has no single answer yet, so both come back null. */
+export function payloadReward(payload: DiversionPayload, ctx: DiversionRewardContext): DiversionReward | null {
+  switch (payload) {
+    case 'life':
+      // Nothing to heal: the dwarf will not take the kebab back, so it is sold.
+      return ctx.lives < ctx.maxLives ? { kind: 'life', amount: 1 } : { kind: 'gold', amount: ctx.gold };
+    case 'gold':
+      return { kind: 'gold', amount: ctx.gold };
+    case 'essence':
+      return { kind: 'essence', amount: ctx.essence };
+    case 'potion':
+      return { kind: 'overload', amount: 1 };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Everything a click on one of `defId` might pay, for the tooltip. One entry for
+ * everyone but the nest, which lists each thing it could turn out to hold, and none
+ * for a walkby.
+ */
+export function diversionRewardOptions(defId: DiversionId, ctx: DiversionRewardContext): DiversionReward[] {
+  const payload = DIVERSION_BY_ID[defId].payload;
+  const payloads: readonly DiversionPayload[] = payload === 'surprise' ? NEST_PAYLOADS : [payload];
+  return payloads.map(p => payloadReward(p, ctx)).filter((r): r is DiversionReward => r !== null);
+}
+
+/**
+ * A payout rising off the spot it was paid at: the icon and the amount, floating up
+ * and fading. `born` is `performance.now()` ms, because it runs on the real-world
+ * clock like the walk cycles do.
+ */
+export interface DiversionPop {
+  x: number;
+  y: number;
+  reward: DiversionReward;
+  born: number;
+}
+
+/** How long a payout floats before it is gone. */
+export const DIVERSION_POP_MS = 1400;
+
+/** The Collection Log's key for what one diversion has paid out in one kind. */
+export function diversionGainKey(defId: DiversionId, kind: DiversionRewardKind): string {
+  return `${defId}:${kind}`;
+}
+
+/**
+ * Clean a persisted "diversion gains" blob: the lifetime total each diversion has
+ * paid, per kind of reward, keyed by {@link diversionGainKey}.
+ *
+ * Same trust model as {@link sanitizeDiversionsMet}. A key survives only when both
+ * halves still name something real, so retiring a diversion or a reward kind costs
+ * its own totals and nothing else.
+ */
+export function sanitizeDiversionGains(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [key, v] of Object.entries(raw as Record<string, unknown>)) {
+    const parts = key.split(':');
+    if (parts.length !== 2) continue;
+    const [defId, kind] = parts;
+    if (!Object.prototype.hasOwnProperty.call(DIVERSION_BY_ID, defId)) continue;
+    if (!DIVERSION_REWARD_KINDS.includes(kind as DiversionRewardKind)) continue;
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 1) out[key] = Math.floor(v);
+  }
+  return out;
 }
 
 /**

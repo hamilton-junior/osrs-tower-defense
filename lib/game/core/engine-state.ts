@@ -8,6 +8,7 @@ import { DRAFT_POOL, type DraftCard } from '../systems/roguelite-draft';
 import { type EnemyAffix } from '../systems/affixes';
 import { MECHANIC_BOSSES } from '../systems/boss-mechanics';
 import { type DiversionId, type DiversionMood } from '../data/diversions';
+import { type DiversionReward } from '../systems/diversions';
 import { type HunterTrapId } from '../data/hunter-traps';
 import { type SeedId } from '../data/farming';
 import { type PotionId } from '../data/herblore';
@@ -285,6 +286,9 @@ export interface UIState {
   noticeIcon: string | null;
   /** Bumped every time a notice fires so the UI can re-trigger on repeats. */
   noticeSeq: number;
+  /** What the notice just paid out, drawn after its text as an icon chip. Null for
+   *  every notice that is not a payout. */
+  noticeReward: DiversionReward | null;
   /** Active Slayer task (null when none assigned), as a cloneable view. */
   slayerTask: { type: EnemyType; name: string; count: number; total: number; reward: number } | null;
   /** Accumulated Slayer points (spendable in the Slayer Rewards shop). */
@@ -343,6 +347,9 @@ export interface UIState {
    *  "Diversions" tab). Counted when one turns up on the board, not when it is
    *  clicked — a walkby has nothing to click, and meeting one is the whole event. */
   diversionsMet: Record<string, number>;
+  /** Lifetime payouts per Distraction & Diversion, keyed `<id>:<reward kind>`
+   *  (`diversionGainKey`): what the Collection Log totals under each entry. */
+  diversionGains: Record<string, number>;
   /** Lifetime forges per fusion type (the Collection Log "Forge" tab). Counted
    *  when a weapon is actually forged, so the tab is a record of what the account
    *  has built — not of what it is allowed to build, which is one achievement. */
@@ -413,7 +420,20 @@ export interface UIState {
    *  Each one is drawn on the map *and* listed as a corner infobox, so a player who
    *  is looking at their build panel still knows something turned up. Plain data:
    *  the engine keeps the real list, this is what the interface needs to draw it. */
-  diversions: { id: string; defId: DiversionId; mood: DiversionMood; name: string; icon: string; tip: string }[];
+  diversions: {
+    id: string;
+    defId: DiversionId;
+    mood: DiversionMood;
+    name: string;
+    icon: string;
+    tip: string;
+    /** What a walkby is saying, so the infobox carries the Lumbridge Guide's read on
+     *  the next wave too. Null for everyone else: they say theirs on payout. */
+    line: string | null;
+    /** What a click pays right now, at live amounts. Empty for a walkby; a nest
+     *  lists everything it might hold. */
+    rewards: DiversionReward[];
+  }[];
   /** Hunter traps lying on the road, flattened for drawing the slot row. The engine
    *  keeps the real list (the renderer reads it live); this is what the panel needs.
    *  `refund` is the gold picking one up would hand back right now. */
