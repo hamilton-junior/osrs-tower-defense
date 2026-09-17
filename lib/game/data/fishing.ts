@@ -14,14 +14,17 @@ import { itemIcon, npcModel } from '../assets';
  * | Fish       | Fishing | Lives | What it is in OSRS          |
  * |------------|---------|-------|------------------------------|
  * | Shrimps    | 1       | +1    | The first thing anyone nets |
- * | Trout      | 20      | +1    | Fly fishing, Lumbridge      |
- * | Lobster    | 40      | +2    | Karamja cage                |
- * | Shark      | 76      | +3    | Harpoon, the classic top    |
+ * | Trout      | 20      | +2    | Fly fishing, Lumbridge      |
+ * | Lobster    | 40      | +3    | Karamja cage                |
+ * | Shark      | 76      | +4    | Harpoon, the classic top    |
  * | Manta ray  | 81      | +5    | Fishing Trawler             |
  *
  * (Anglerfish sits at 82 and heals more than a manta ray in OSRS, but it is a
  * one-rung-higher version of the same reward, so the ladder stops at five rungs
  * rather than paying twice for the same climb.)
+ *
+ * Every rung heals one life more than the rung below it, so each Fishing unlock is
+ * worth the same step up.
  *
  * The weights halve up the ladder, so the fish you are most likely to pull is the
  * one you unlocked first — levelling widens the table rather than replacing it.
@@ -45,9 +48,9 @@ export interface FishDef {
 
 export const FISH: readonly FishDef[] = [
   { id: 'shrimps', name: 'Shrimps', level: 1, lives: 1, gold: 8, weight: 100, icon: itemIcon('shrimps') },
-  { id: 'trout', name: 'Trout', level: 20, lives: 1, gold: 18, weight: 60, icon: itemIcon('trout') },
-  { id: 'lobster', name: 'Lobster', level: 40, lives: 2, gold: 45, weight: 40, icon: itemIcon('lobster') },
-  { id: 'shark', name: 'Shark', level: 76, lives: 3, gold: 120, weight: 20, icon: itemIcon('shark') },
+  { id: 'trout', name: 'Trout', level: 20, lives: 2, gold: 18, weight: 60, icon: itemIcon('trout') },
+  { id: 'lobster', name: 'Lobster', level: 40, lives: 3, gold: 45, weight: 40, icon: itemIcon('lobster') },
+  { id: 'shark', name: 'Shark', level: 76, lives: 4, gold: 120, weight: 20, icon: itemIcon('shark') },
   { id: 'manta_ray', name: 'Manta ray', level: 81, lives: 5, gold: 220, weight: 10, icon: itemIcon('manta_ray') },
 ];
 

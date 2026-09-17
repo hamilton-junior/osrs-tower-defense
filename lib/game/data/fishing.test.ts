@@ -9,10 +9,8 @@ describe('the fish ladder', () => {
     }
   });
 
-  it('never pays fewer lives than the rung below it', () => {
-    for (let i = 1; i < FISH.length; i++) {
-      expect(FISH[i].lives, FISH[i].id).toBeGreaterThanOrEqual(FISH[i - 1].lives);
-    }
+  it('heals one life more on every rung', () => {
+    expect(FISH.map(f => f.lives)).toEqual([1, 2, 3, 4, 5]);
   });
 
   it('gets rarer as it climbs', () => {
