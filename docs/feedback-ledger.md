@@ -756,3 +756,22 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     - New D&Ds: *Dr Jekyll* (a herb), *Tool Leprechaun* (a patch grows one wave sooner,
       with a clear sign it happened), *Penguin Hide and Seek*.
     - *Tears of Guthix*: no, not for now.
+
+    **Status (2026-09-17), on `wip`, not pushed:**
+    - Clarity: **shipped** (32afb48). Hans's fact, the hunter NPC and Party Pete's
+      balloons: **shipped** (a6b04ec).
+    - Kebab and lamp to the inventory: **shipped** (0b525b8). Kebab holds 2 lives or 20 gp,
+      the lamp gives 3 levels.
+    - Strange Plant: **shipped** (ec57b0d). 50% Overload, else a seed of level 50 or more.
+    - Rick replaced by *Sergeant Damien*: **shipped** (2840b90). A click drills every tower
+      up 2 levels, and only for a board with a level left to gain.
+    - Event bad-luck protection: **shipped** (1c7b37f). +0.01 per wave without one, capped
+      at 0.20, reset when one turns up.
+    - Dr Jekyll: **shipped** (d2d287f). A herb of level 50 or more.
+    - Tool Leprechaun: **shipped** (8cfc48e). The herb with the longest wait left grows one
+      wave. The sign is a toast, a +1 pop, a face mark on the patch, and a line in the patch
+      panel and the Skills tile.
+    - Nest rings: **open, needs a call (user)**. Not built.
+    - Penguin Hide and Seek: **open, needs a call (user)**. The minigame is RS3-only. The
+      cache has only Penguin 830, Macaroni Penguin 233 and the penguin suit 846, so the
+      stand-in needs approval before anything is baked.
