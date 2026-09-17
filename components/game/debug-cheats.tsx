@@ -118,17 +118,39 @@ export function PickTile({ name, sprite, img, foot, nameColor, picked, disabled,
   );
 }
 
-/** Three cells of a `NumberGrid`: label, field, Set. Enter commits too. */
-function NumberRow({ label, icon, value, onCommit, min = 0, max, disabled }: {
+/** Three cells of a `NumberGrid`: label, field, Set. Enter commits too.
+ *
+ *  A `live` row has no Set: every valid keystroke commits, and the third cell is
+ *  a pair of arrows that step the value by one. */
+function NumberRow({ label, icon, value, onCommit, min = 0, max, disabled, live }: {
   label: string; icon?: string; value: number; onCommit: (n: number) => void;
-  min?: number; max?: number; disabled?: boolean;
+  min?: number; max?: number; disabled?: boolean; live?: boolean;
 }) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => { setDraft(String(value)); }, [value]);
-  const commit = () => {
-    const n = Number(draft);
-    if (!Number.isFinite(n)) return;
-    onCommit(Math.min(max ?? Infinity, Math.max(min, Math.floor(n))));
+  const clamp = (n: number) => Math.min(max ?? Infinity, Math.max(min, Math.floor(n)));
+  const commitText = (text: string) => {
+    const n = Number(text);
+    if (text.trim() === '' || !Number.isFinite(n)) return;
+    onCommit(clamp(n));
+  };
+  const commit = () => commitText(draft);
+  const arrow = (dir: 1 | -1) => {
+    const next = clamp(value + dir);
+    return (
+      <button
+        onClick={() => onCommit(next)}
+        disabled={disabled || next === value}
+        title={dir > 0 ? 'Increase' : 'Decrease'}
+        aria-label={`${dir > 0 ? 'Increase' : 'Decrease'} ${label}`}
+        className="rs-btn w-[1.4em] h-[0.95em] flex items-center justify-center"
+        // `.rs-btn` padding is unlayered and outranks a `p-0` utility; at this size it
+        // would crush the arrow to nothing.
+        style={{ padding: 0 }}
+      >
+        <img src={dir > 0 ? ASSETS.misc.arrow_up : ASSETS.misc.arrow_down} alt="" className="w-[0.7em] h-[0.7em] object-contain" onError={hideBrokenImg} />
+      </button>
+    );
   };
   return (
     <>
@@ -144,11 +166,26 @@ function NumberRow({ label, icon, value, onCommit, min = 0, max, disabled }: {
         max={max}
         disabled={disabled}
         aria-label={label}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
+        onChange={(e) => { setDraft(e.target.value); if (live) commitText(e.target.value); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          else if (live && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            e.preventDefault();
+            onCommit(clamp(value + (e.key === 'ArrowUp' ? 1 : -1)));
+          }
+        }}
+        // A live field that was left empty or out of range shows the value it holds.
+        onBlur={live ? () => setDraft(String(value)) : undefined}
         className="rs-num w-[6.5em] text-[0.74em] tabular-nums"
       />
-      <button onClick={commit} disabled={disabled} className="rs-btn px-[0.55em] py-[0.1em] text-[0.7em]">Set</button>
+      {live ? (
+        <span className="flex flex-col gap-[0.1em]">
+          {arrow(1)}
+          {arrow(-1)}
+        </span>
+      ) : (
+        <button onClick={commit} disabled={disabled} className="rs-btn px-[0.55em] py-[0.1em] text-[0.7em]">Set</button>
+      )}
     </>
   );
 }
@@ -244,7 +281,7 @@ function CustomWaveCard({ engineRef, ui, picks }: CheatProps & { picks: SpawnPic
         </TileGrid>
       </div>
       <NumberGrid>
-        <NumberRow label="Count each" value={countEach} min={1} onCommit={picks.setCountEach} />
+        <NumberRow live label="Count each" value={countEach} min={1} onCommit={picks.setCountEach} />
       </NumberGrid>
       <div className="grid grid-cols-[2fr_1fr] gap-[0.35em]">
         <ActionButton
