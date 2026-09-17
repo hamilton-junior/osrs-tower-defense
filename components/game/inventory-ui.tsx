@@ -68,6 +68,8 @@ export interface InventoryViewProps {
   /** Drag one carried square onto another: the two swap. */
   onMoveSlot: (from: number, to: number) => void;
   onUseHerb: (id: SeedId) => void;
+  /** Sow a carried seed into the first empty plot. */
+  onPlantSeed: (id: SeedId) => void;
   onBrewPotion: (id: PotionId) => void;
   onDrinkPotion: (id: PotionId) => void;
   onEatFood: (id: FoodId) => void;
@@ -82,7 +84,7 @@ export interface InventoryViewProps {
 export function InventoryView(props: InventoryViewProps) {
   const {
     ui, page, onPage, towers, hoverTowerId, onHoverTower, onEquipGear,
-    onStoreStack, onTakeStack, onMoveSlot, onUseHerb, onBrewPotion, onDrinkPotion,
+    onStoreStack, onTakeStack, onMoveSlot, onUseHerb, onPlantSeed, onBrewPotion, onDrinkPotion,
     onEatFood, onSellFood, onRubLamp, onReorderBag,
   } = props;
   // The open Choose Option menu: where the click landed, and the square it landed
@@ -100,8 +102,8 @@ export function InventoryView(props: InventoryViewProps) {
     if (!menu) return [];
     if (menu.lamp) return lampOptions(ui, onRubLamp);
     const openLamp = () => setMenu(m => (m ? { ...m, lamp: true } : m));
-    return stackOptions(menu.stack, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, openLamp, onStoreStack);
-  }, [menu, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onRubLamp, onStoreStack]);
+    return stackOptions(menu.stack, ui, onUseHerb, onPlantSeed, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, openLamp, onStoreStack);
+  }, [menu, ui, onUseHerb, onPlantSeed, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onRubLamp, onStoreStack]);
   const bagCount = ui.lootBag.length + ui.bagStacks.length;
 
   // ──────────────────────────── the loot bag ─────────────────────────────
@@ -234,6 +236,7 @@ function stackOptions(
   stack: UiStack,
   ui: UIState,
   onUseHerb: (id: SeedId) => void,
+  onPlantSeed: (id: SeedId) => void,
   onBrewPotion: (id: PotionId) => void,
   onDrinkPotion: (id: PotionId) => void,
   onEatFood: (id: FoodId) => void,
@@ -282,10 +285,10 @@ function stackOptions(
           keepOpen: true,
           onSelect: onOpenLamp,
         }]
-        // A seed is used from the patch it goes into, so all the square offers is
-        // the bag.
+        // A seed goes into the first bare plot, so it never needs a trip to the
+        // patch. With every plot growing, the line stays and says why it is grey.
         : stack.kind === 'seed'
-          ? []
+          ? [plantOption(stack, ui, disabled, note, onPlantSeed)]
           : [drinkOption(stack, ui, onDrinkPotion)];
 
   // The engine brews out of the pouch and the shelf, so the menu asks the same
@@ -348,6 +351,24 @@ function lampOptions(ui: UIState, onRubLamp: (skill: LampSkill) => void): MenuOp
       onSelect: () => onRubLamp(skill),
     };
   });
+}
+
+/** The Plant line: the seed goes into the first bare plot, the way the engine sows
+ *  it. The wave note comes first, as on every other line; with no bare plot left it
+ *  says so instead. */
+function plantOption(
+  stack: UiStack, ui: UIState, disabled: boolean, note: string | undefined,
+  onPlantSeed: (id: SeedId) => void,
+): MenuOption {
+  const bare = ui.farmPatches.some(p => !p.seedId);
+  return {
+    action: 'Plant',
+    target: stack.name,
+    disabled: disabled || !bare,
+    note: note ?? (bare ? undefined : 'no empty plot'),
+    title: 'Sow it in the first empty plot',
+    onSelect: () => onPlantSeed(stack.id as SeedId),
+  };
 }
 
 /**

@@ -3740,6 +3740,16 @@ export class GameEngine {
     this.emit();
   }
 
+  /** Plant a carried seed from the inventory, without a trip to the patch: it goes
+   *  into the first bare plot, in the order the patches are listed. */
+  plantHeldSeed(seedId: SeedId) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    if (invCount(this.items, 'seed', seedId) === 0) return;
+    const patch = this.farmPatches.find(p => !p.seedId);
+    if (!patch) { this.notify('No empty plot'); return; }
+    this.sowSeed(patch.id, seedId);
+  }
+
   /** Dig a seed back out of the ground. It is a mistake being undone, not a trade:
    *  the gold is spent and stays spent, so this can never be a way to make money —
    *  it only hands the plot back so a better herb can go in. A ripe one is harvested

@@ -3895,6 +3895,7 @@ export default function GameRoot() {
             onDrinkPotion={(id) => engineRef.current?.drinkPotion(id)}
             onEatFood={(id) => engineRef.current?.eatFood(id)}
             onSellFood={(id) => engineRef.current?.sellFood(id)}
+            onPlantSeed={(id) => engineRef.current?.plantHeldSeed(id)}
             onRubLamp={(skill) => engineRef.current?.rubLamp(skill)}
             onReorderBag={(keys) => engineRef.current?.setBagOrder(keys)}
           />
