@@ -284,6 +284,13 @@ export const DIVERSION_CHANCE: Record<DiversionMood, number> = {
   nest: 0.15,
 };
 
+/** Bad-luck protection for events: each wave that ends without one adds this much to
+ *  the next wave's event chance, and an event turning up starts the count again. */
+export const EVENT_CHANCE_STEP = 0.01;
+
+/** The most an event's chance can climb to, however long the dry spell. */
+export const EVENT_CHANCE_CAP = 0.2;
+
 /** How many may stand on the board at once, across every mood. Two, so the board
  *  never turns into a fairground while the player is trying to read their defences. */
 export const MAX_DIVERSIONS = 2;

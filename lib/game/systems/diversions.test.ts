@@ -10,6 +10,7 @@ import {
   pickDiversionSpot,
   resolvePayload,
   rollDiversionMoods,
+  eventChance,
   sanitizeDiversionsMet,
   sanitizeDiversionGains,
   diversionGainKey,
@@ -42,7 +43,10 @@ import {
   type Diversion,
   type RunFacts,
 } from './diversions';
-import { DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, DRILL_LEVELS, LAMP_LEVELS, MAX_DIVERSIONS } from '../data/diversions';
+import {
+  DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, DRILL_LEVELS, EVENT_CHANCE_CAP, EVENT_CHANCE_STEP, LAMP_LEVELS,
+  MAX_DIVERSIONS,
+} from '../data/diversions';
 import { HUNTER_MAX_LEVEL, gainHunterXp, hunterXpForLevel } from './hunter-traps';
 import { gainFishingXp, fishingXpForLevel } from './fishing';
 import { FISHING_MAX_LEVEL } from '../data/fishing';
@@ -96,6 +100,34 @@ describe('rollDiversionMoods', () => {
       expect(DIVERSION_CHANCE[mood]).toBeGreaterThan(0);
       expect(DIVERSION_CHANCE[mood]).toBeLessThan(1);
     }
+  });
+
+  it('lets a dry spell turn a missed event roll into a hit', () => {
+    const roll = DIVERSION_CHANCE.event + EVENT_CHANCE_STEP * 2.5;
+    expect(rollDiversionMoods(scripted(roll, 0.99, 0.99), [], false, 2)).toEqual([]);
+    expect(rollDiversionMoods(scripted(roll, 0.99, 0.99), [], false, 3)).toEqual(['event']);
+  });
+
+  it('still bars an overdue event before a boss', () => {
+    expect(rollDiversionMoods(scripted(0, 0.99, 0.99), [], true, 50)).toEqual([]);
+  });
+});
+
+describe('eventChance', () => {
+  it('starts at the base chance and rises a step per wave without an event', () => {
+    expect(eventChance(0)).toBe(DIVERSION_CHANCE.event);
+    expect(eventChance(4)).toBeCloseTo(DIVERSION_CHANCE.event + 4 * EVENT_CHANCE_STEP);
+  });
+
+  it('stops at the cap', () => {
+    expect(eventChance(1000)).toBe(EVENT_CHANCE_CAP);
+    expect(EVENT_CHANCE_CAP).toBeGreaterThan(DIVERSION_CHANCE.event);
+    expect(EVENT_CHANCE_CAP).toBeLessThan(1);
+  });
+
+  it('reads a bad count as no dry spell at all', () => {
+    expect(eventChance(-3)).toBe(DIVERSION_CHANCE.event);
+    expect(eventChance(Number.NaN)).toBe(DIVERSION_CHANCE.event);
   });
 });
 

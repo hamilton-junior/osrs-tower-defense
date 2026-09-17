@@ -5,6 +5,8 @@ import {
   DIVERSION_REWARD_KINDS,
   DIVERSION_REWARD_META,
   DRILL_LEVELS,
+  EVENT_CHANCE_CAP,
+  EVENT_CHANCE_STEP,
   LAMP_LEVELS,
   MAX_DIVERSIONS,
   type DiversionDef,
@@ -180,20 +182,36 @@ export const DIVERSION_MOOD_PRIORITY: DiversionMood[] = ['event', 'nest', 'walkb
  * Events are the only mood barred before a boss: a boss wave is the headline act and
  * shouldn't share the stage with a genie. A passing townsperson still may — that is
  * exactly when the Lumbridge Guide has something worth saying.
+ *
+ * `wavesWithoutEvent` is the dry spell so far, which raises the event's chance
+ * ({@link eventChance}).
  */
 export function rollDiversionMoods(
   rand: () => number,
   present: ReadonlyArray<DiversionMood>,
   bossNext: boolean,
+  wavesWithoutEvent = 0,
 ): DiversionMood[] {
   const won: DiversionMood[] = [];
   for (const mood of DIVERSION_MOOD_PRIORITY) {
     const roll = rand();
     if (present.includes(mood)) continue;
     if (bossNext && mood === 'event') continue;
-    if (roll < DIVERSION_CHANCE[mood]) won.push(mood);
+    const chance = mood === 'event' ? eventChance(wavesWithoutEvent) : DIVERSION_CHANCE[mood];
+    if (roll < chance) won.push(mood);
   }
   return won.slice(0, Math.max(0, MAX_DIVERSIONS - present.length));
+}
+
+/**
+ * An event's chance after `wavesWithoutEvent` waves in a row without one: the base
+ * chance, plus {@link EVENT_CHANCE_STEP} for each of those waves, up to
+ * {@link EVENT_CHANCE_CAP}. A long run of bad luck gets likelier to end, and the
+ * usual rate stays what it was.
+ */
+export function eventChance(wavesWithoutEvent: number): number {
+  const dry = Math.max(0, Math.floor(wavesWithoutEvent) || 0);
+  return Math.min(EVENT_CHANCE_CAP, DIVERSION_CHANCE.event + dry * EVENT_CHANCE_STEP);
 }
 
 /**

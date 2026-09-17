@@ -400,6 +400,9 @@ export class GameEngine {
    *  Start Wave, so nothing here can ever block a build spot or a shot. */
   diversions: Diversion[] = [];
   private diversionSeq = 0;
+  /** Waves ended in a row without an event turning up. Each one raises the next
+   *  event's chance (eventChance); an event arriving resets it. Per run, unsaved. */
+  private wavesWithoutEvent = 0;
   /** Payouts still floating up off the board, newest last. The renderer draws them
    *  and skips any past {@link DIVERSION_POP_MS}; a new payout sweeps the old ones. */
   diversionPops: DiversionPop[] = [];
@@ -3150,7 +3153,8 @@ export class GameEngine {
     const present = this.diversions.map(d => d.mood);
     const configs = computeWaveConfigs(this);
     const bossNext = configs.some(c => ENEMIES[c.type]?.isBoss);
-    const moods = rollDiversionMoods(Math.random, present, bossNext);
+    const moods = rollDiversionMoods(Math.random, present, bossNext, this.wavesWithoutEvent);
+    this.wavesWithoutEvent += 1; // reset below if an event does turn up
     if (moods.length === 0) return;
     const cols = Math.floor(this.width / GRID);
     const rows = Math.floor(this.height / GRID);
@@ -3200,6 +3204,7 @@ export class GameEngine {
       // spend that frame facing the player and then snap round.
       if (walks) turnDiversion(dv, spot.x - from.x, spot.y - from.y);
       this.diversions.push(dv);
+      if (mood === 'event') this.wavesWithoutEvent = 0;
       // Met, for the Collection Log — on arrival, because turning up IS the event.
       // A walkby is never clicked and would otherwise never be recorded at all.
       this.diversionsMet = { ...this.diversionsMet, [def.id]: (this.diversionsMet[def.id] ?? 0) + 1 };
@@ -4654,6 +4659,7 @@ export class GameEngine {
     this.diversions = [];
     this.diversionPops = [];
     this.balloons = [];
+    this.wavesWithoutEvent = 0;
     this.selectedTrapId = null;
     // Hunter and the traps on the road come back with the run that earned them;
     // a save from before they existed resumes at level 1 with a clear road.
@@ -4789,6 +4795,7 @@ export class GameEngine {
     this.diversions = [];
     this.diversionPops = [];
     this.balloons = [];
+    this.wavesWithoutEvent = 0;
     this.traps = [];
     this.selectedTrapId = null;
     this.hunterLevel = 1;
