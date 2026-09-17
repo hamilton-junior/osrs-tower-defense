@@ -4,6 +4,8 @@ import React from 'react';
 import { ASSETS, coinsIcon } from '@/lib/game/assets';
 import type { UiStack } from '@/lib/game/core/engine';
 import { FISH_BY_ID, type FishId } from '@/lib/game/data/fishing';
+import { POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
+import { potionTooltip } from './potion-tip';
 import { fmt, hideBrokenImg } from './ui-kit';
 
 export interface StackTipContext {
@@ -24,10 +26,19 @@ export interface StackTipContext {
  * full lives the engine sells the fish instead of wasting it, so the card also
  * prints what the sale pays.
  *
- * A herb or a potion has no single number to preview and shows its own line.
+ * A potion gets the potion card (`potion-tip`), the same one the Herblore bench
+ * shows. A herb has no number to preview and shows its own line.
  */
 export function stackTip(s: UiStack, ctx: StackTipContext): React.ReactNode {
   const fish = s.kind === 'food' ? FISH_BY_ID[s.id as FishId] : undefined;
+  const potion = s.kind === 'potion' ? POTION_BY_ID[s.id as PotionId] : undefined;
+  if (potion) {
+    return potionTooltip(potion, {
+      vitals: { lives: ctx.lives, maxLives: ctx.maxLives },
+      note: ctx.waveActive ? 'Only between waves' : undefined,
+      warn: ctx.warn,
+    });
+  }
   return (
     <div className="flex flex-col gap-[0.25em]">
       <span className="text-white">{s.name}</span>

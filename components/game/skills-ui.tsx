@@ -11,6 +11,8 @@ import { FISH, SPOT_CASTS } from '@/lib/game/data/fishing';
 import { castSeconds } from '@/lib/game/systems/fishing';
 import { brewDamageMult, outrankedBy, overhealCap } from '@/lib/game/systems/herblore';
 import { hideBrokenImg, fmt, Price } from './ui-kit';
+import { HoverTip } from './HoverTip';
+import { potionTooltip } from './potion-tip';
 
 /**
  * The **Skills** interface, built in the frame the Collection Log already uses: a row
@@ -318,7 +320,7 @@ function TileFace({ sig, icon, glyph, name, foot, footColor, corner }: TileFaceP
  * foot says **Sure?** in red and disarms itself after a few seconds, or the moment the
  * reason to ask goes away.
  */
-function Tile({ onPress, disabled, locked, picked, title, confirm, confirmTitle, ...face }: TileFaceProps & {
+function Tile({ onPress, disabled, locked, picked, title, tip, confirm, confirmTitle, ...face }: TileFaceProps & {
   onPress: () => void;
   disabled?: boolean;
   /** Out of reach: too low a level, or too little gold. */
@@ -326,6 +328,9 @@ function Tile({ onPress, disabled, locked, picked, title, confirm, confirmTitle,
   /** Armed for the board — the selected trap. */
   picked?: boolean;
   title?: string;
+  /** A hover card in place of the plain `title`. Armed, the card gains the
+   *  `confirmTitle` line in red. */
+  tip?: React.ReactNode;
   confirm?: boolean;
   confirmTitle?: string;
 }) {
@@ -336,7 +341,7 @@ function Tile({ onPress, disabled, locked, picked, title, confirm, confirmTitle,
     const t = window.setTimeout(() => setArmed(false), 3000);
     return () => window.clearTimeout(t);
   }, [armed, confirm, disabled]);
-  return (
+  const button = (
     <button
       type="button"
       onClick={() => {
@@ -345,7 +350,7 @@ function Tile({ onPress, disabled, locked, picked, title, confirm, confirmTitle,
         onPress();
       }}
       disabled={disabled}
-      title={armed ? confirmTitle : title}
+      title={tip ? undefined : armed ? confirmTitle : title}
       className={`rs-log-entry rs-log-sm w-full disabled:opacity-40 ${locked ? 'rs-log-locked' : ''} ${picked ? 'rs-log-pick' : ''}`}
     >
       <TileFace
@@ -355,6 +360,22 @@ function Tile({ onPress, disabled, locked, picked, title, confirm, confirmTitle,
       />
     </button>
   );
+  if (!tip) return button;
+  // The card hangs off a wrapper, not the button: a disabled button swallows the
+  // mouse events the card opens on, and a locked rung is the tile most worth reading.
+  return (
+    <HoverTip
+      widthEm={17}
+      content={armed && confirmTitle ? (
+        <div className="flex flex-col gap-[0.4em]">
+          {tip}
+          <span className="text-[0.8em] text-osrs-red">{confirmTitle}</span>
+        </div>
+      ) : tip}
+    >
+      <div className="flex w-full min-w-0" tabIndex={-1}>{button}</div>
+    </HoverTip>
+  );
 }
 
 /**
@@ -362,12 +383,13 @@ function Tile({ onPress, disabled, locked, picked, title, confirm, confirmTitle,
  * A `<div>` rather than a disabled `<button>`, because a disabled button greys itself
  * to 40% and these are the things that *are* working.
  */
-function TileStatic({ title, ...face }: TileFaceProps & { title?: string }) {
-  return (
-    <div className="rs-log-entry rs-log-sm" title={title}>
+function TileStatic({ title, tip, ...face }: TileFaceProps & { title?: string; tip?: React.ReactNode }) {
+  const tile = (
+    <div className="rs-log-entry rs-log-sm" title={tip ? undefined : title}>
       <TileFace {...face} />
     </div>
   );
+  return tip ? <HoverTip widthEm={17} content={tip}>{tile}</HoverTip> : tile;
 }
 
 /** The second action a tile carries, as a sibling rather than a child — a button
@@ -619,6 +641,10 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                 title={locked
                   ? `Needs Herblore ${def.level}`
                   : `${recipe}: ${def.waves > 0 ? `${def.waves} waves` : 'one drink'}`}
+                tip={potionTooltip(def, {
+                  recipe: { herbs, bases, money: ui.money, level: ui.herbloreLevel },
+                  note: busy ? 'Only between waves' : undefined,
+                })}
                 onPress={() => onBrewPotion(def.id)}
                 corner={inputs.length > 0 && (
                   <span className="absolute top-[0.1em] right-[0.15em] z-10 flex flex-col items-end gap-[0.05em] pointer-events-none">
@@ -672,6 +698,14 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                     : idle ? 'No brew to clear'
                     : covered ? `${covered.name} already covers that`
                     : def?.tip}
+                  tip={def && potionTooltip(def, {
+                    vitals: { lives: ui.lives, maxLives: ui.maxLives },
+                    note: busy ? 'Only between waves' : undefined,
+                    warn: short ? 'Too few lives to drink that'
+                      : idle ? 'No brew to clear'
+                      : covered ? `${covered.name} already covers that`
+                      : undefined,
+                  })}
                   confirmTitle={running
                     ? `${p.name} still has ${running.wavesLeft} wave${running.wavesLeft === 1 ? '' : 's'} left. Another dose only starts it over.`
                     : 'You are already at the overheal cap. This heals nothing and still leaves a brew.'}
@@ -706,6 +740,7 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                 icon={a.icon}
                 name={a.name}
                 title={`${a.tip} · ${a.label}`}
+                tip={POTION_BY_ID[a.id] && potionTooltip(POTION_BY_ID[a.id], { wavesLeft: a.wavesLeft })}
                 foot={`${a.wavesLeft} wave${a.wavesLeft === 1 ? '' : 's'}`}
               />
             ))}
