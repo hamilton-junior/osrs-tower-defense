@@ -18,10 +18,11 @@ export interface StackTipContext {
  * The hover card for a carried or bagged stack of herbs, potions or fish.
  *
  * A fish previews what eating it now would do, the way RuneLite's item stats overlay
- * previews food: the lives it gives back, then where that leaves the orb against its
- * maximum. Green when every life lands, yellow when part of it spills past the
- * maximum, red when there is nothing to heal. At full lives the engine sells the
- * fish instead of wasting it, so the red card also prints what the sale pays.
+ * previews food: the lives it heals, always green, then where eating it leaves the
+ * orb against its maximum. That second half is green when every life lands, yellow
+ * when part of it spills past the maximum, red when there is nothing to heal. At
+ * full lives the engine sells the fish instead of wasting it, so the card also
+ * prints what the sale pays.
  *
  * A herb or a potion has no single number to preview and shows its own line.
  */
@@ -41,12 +42,13 @@ export function stackTip(s: UiStack, ctx: StackTipContext): React.ReactNode {
 function FoodPreview({ heal, gold, lives, maxLives, waveActive }: Omit<StackTipContext, 'warn'> & { heal: number; gold: number }) {
   const full = lives >= maxLives;
   const gain = full ? 0 : Math.min(heal, maxLives - lives);
-  const tone = full ? 'text-osrs-red' : gain < heal ? 'text-osrs-yellow' : 'text-osrs-green';
+  const after = full ? 'text-osrs-red' : gain < heal ? 'text-osrs-yellow' : 'text-osrs-green';
   return (
     <>
       <span className="flex items-center gap-[0.35em] text-[0.85em]">
         <img src={ASSETS.misc.orb_hitpoints} alt="Lives" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
-        <span className={tone}>+{gain} ({lives + gain}/{maxLives})</span>
+        <span className="text-osrs-green">+{heal}</span>
+        <span className={after}>({lives + gain}/{maxLives})</span>
       </span>
       {full && (
         <span className="flex items-center gap-[0.3em] text-[0.8em] text-[#c9b78c]">
