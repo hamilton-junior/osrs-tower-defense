@@ -1,4 +1,6 @@
 import { itemIcon, npcModel } from '../assets';
+import type { BiomeId } from './biomes';
+import type { LiquidKind } from '../systems/terrain-generation';
 
 /**
  * **Fishing** — the run's fourth skill, and the only one that hands back a life.
@@ -28,30 +30,69 @@ import { itemIcon, npcModel } from '../assets';
  *
  * The weights halve up the ladder, so the fish you are most likely to pull is the
  * one you unlocked first — levelling widens the table rather than replacing it.
+ *
+ * **Lava is its own water.** A pool the map rolled as lava deals a second, shorter
+ * ladder, and the two never mix — the ladder above is what a water pool holds and
+ * nothing in it comes out of lava:
+ *
+ * | Fish          | Fishing | Where          | What it pays              |
+ * |---------------|---------|----------------|---------------------------|
+ * | Lava eel      | 53      | any lava pool  | +3 lives                  |
+ * | Infernal eel  | 80      | TzHaar only    | 14-20 essence, cracked    |
+ *
+ * Both are OSRS's: the lava eel is the Wilderness lava-maze catch, and the infernal
+ * eel is Mor Ul Rek's, which is not food there either — it is cracked open for what
+ * is inside it.
  */
 
-export type FishId = 'shrimps' | 'trout' | 'lobster' | 'shark' | 'manta_ray';
+export type FishId =
+  | 'shrimps' | 'trout' | 'lobster' | 'shark' | 'manta_ray'
+  | 'lava_eel' | 'infernal_eel';
+
+/** What a cracked catch pays, as the range the crack rolls inside. */
+export interface EssenceYield {
+  min: number;
+  max: number;
+}
 
 export interface FishDef {
   id: FishId;
   name: string;
   /** The real OSRS Fishing level the catch is gated behind. */
   level: number;
-  /** Lives restored when it is eaten, never past `maxLives`. */
+  /** Lives restored when it is eaten, never past `maxLives`. Zero for a catch that
+   *  is not food — the infernal eel is cracked, not eaten. */
   lives: number;
   /** What it sells for when eaten at full health — a fish is never wasted. */
   gold: number;
   /** Relative roll weight among the fish unlocked at the current level. */
   weight: number;
+  /** Which surface it comes out of. A pool deals only its own liquid's fish. */
+  liquid: LiquidKind;
+  /** Set on a catch only one region holds. The infernal eel is Mor Ul Rek's, so it
+   *  is TzHaar's here and nowhere else. */
+  biome?: BiomeId;
+  /** Set on a catch that is cracked open rather than eaten, and what that pays. */
+  essence?: EssenceYield;
   icon: string;
 }
 
 export const FISH: readonly FishDef[] = [
-  { id: 'shrimps', name: 'Shrimps', level: 1, lives: 1, gold: 8, weight: 100, icon: itemIcon('shrimps') },
-  { id: 'trout', name: 'Trout', level: 20, lives: 2, gold: 18, weight: 60, icon: itemIcon('trout') },
-  { id: 'lobster', name: 'Lobster', level: 40, lives: 3, gold: 45, weight: 40, icon: itemIcon('lobster') },
-  { id: 'shark', name: 'Shark', level: 76, lives: 4, gold: 120, weight: 20, icon: itemIcon('shark') },
-  { id: 'manta_ray', name: 'Manta ray', level: 81, lives: 5, gold: 220, weight: 10, icon: itemIcon('manta_ray') },
+  { id: 'shrimps', name: 'Shrimps', level: 1, lives: 1, gold: 8, weight: 100, liquid: 'water', icon: itemIcon('shrimps') },
+  { id: 'trout', name: 'Trout', level: 20, lives: 2, gold: 18, weight: 60, liquid: 'water', icon: itemIcon('trout') },
+  { id: 'lobster', name: 'Lobster', level: 40, lives: 3, gold: 45, weight: 40, liquid: 'water', icon: itemIcon('lobster') },
+  { id: 'shark', name: 'Shark', level: 76, lives: 4, gold: 120, weight: 20, liquid: 'water', icon: itemIcon('shark') },
+  { id: 'manta_ray', name: 'Manta ray', level: 81, lives: 5, gold: 220, weight: 10, liquid: 'water', icon: itemIcon('manta_ray') },
+  // Lava's own two. The eel heals like a lobster because it sits between the lobster
+  // and the shark on OSRS's own ladder, and it is the only thing most lava pools ever
+  // deal — a lava map fishes for lives more slowly than a water one, not for less.
+  { id: 'lava_eel', name: 'Lava eel', level: 53, lives: 3, gold: 60, weight: 100, liquid: 'lava', icon: itemIcon('lava_eel') },
+  // The bonus at the top of the TzHaar map: rare, late, and paid in essence rather
+  // than lives or coins, so a run that lands one carries it out of the run.
+  {
+    id: 'infernal_eel', name: 'Infernal eel', level: 80, lives: 0, gold: 0, weight: 12,
+    liquid: 'lava', biome: 'tzhaar', essence: { min: 14, max: 20 }, icon: itemIcon('infernal_eel'),
+  },
 ];
 
 export const FISH_BY_ID: Record<FishId, FishDef> =
@@ -96,3 +137,11 @@ export const FISHING_MAX_LEVEL = 99;
  */
 export const FISHING_SPOT_ICON = npcModel('fishing_spot');
 export const FISHING_SPOT_ACTIVE_ICON = npcModel('fishing_spot_active');
+/**
+ * Lava's spot, off the same eight frames of seq 7634. The cache draws it with its
+ * own model (2331, the bubbling lava spot NPC 4928 stands on) rather than tinting
+ * the water one, so what breaks the surface over lava is lava. One sheet, not two:
+ * the cache holds a single lava spot, so a spent pool is that sprite drawn quieter
+ * rather than a second bake that would come out pixel-identical.
+ */
+export const FISHING_SPOT_LAVA_ICON = npcModel('fishing_spot_lava');

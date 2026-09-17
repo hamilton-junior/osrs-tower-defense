@@ -93,16 +93,34 @@ const TARGETS = {
   // soil is that seed's own item icon (core/render/farming.ts), not scenery.
   patch_empty: { obj: 8573, pitch: 90, yaw: 0, models: [8223], cull: false, margin: 0, groundTex: 32, groundTile: 128 },
 
-  // The water a fishing spot sits in — the farming patch's soil, for the sea.
+  // ── The board's ground and its two liquids ─────────────────────────────────
   //
-  // There is no LOC to render here: water in OSRS is a **ground overlay**, and its
-  // look is texture 1, the classic blue the client scrolls across every river and
-  // shoreline. So this target names a texture instead of an object, and what comes
-  // out is that texture tiled edge-to-edge over the same 256 square every other
-  // ground bake fills. No model means no silhouette to clip to and no flat colour to
-  // multiply back, which is the point: the patch's olive tint is what makes soil read
-  // as soil, and the same treatment turned the sea brown.
-  water: { tex: 1, tile: 128 },
+  // There is no LOC to render for any of these: ground in OSRS is a **floor
+  // overlay**, so what a player recognises is the texture itself, not a model.
+  // These targets therefore name a texture instead of an object, and `raw` writes
+  // it at its own size with no repeat — the board tiles it as a canvas pattern,
+  // one texture square per tile, the way the client maps it to the terrain.
+  //
+  // Which id is which ground was picked by eye off a contact sheet of the whole
+  // texture index (three passes, tiled 2x2 so the seams showed). Every one of them
+  // tiles cleanly; the busy foliage sheets that only work as tree canopy were
+  // rejected for exactly that reason.
+  ground_lumbridge: { tex: 129, raw: true, dir: 'terrain' },  // flat meadow grass
+  ground_alkharid: { tex: 38, raw: true, dir: 'terrain' },    // desert dunes
+  ground_morytania: { tex: 214, raw: true, dir: 'terrain' },  // dark swamp mud
+  ground_wilderness: { tex: 201, raw: true, dir: 'terrain' }, // dead scrub
+  ground_trollweiss: { tex: 91, raw: true, dir: 'terrain' },  // snow and ice
+  ground_karamja: { tex: 203, raw: true, dir: 'terrain' },    // jungle moss
+  ground_tzhaar: { tex: 11, raw: true, dir: 'terrain' },      // obsidian rock
+  //
+  // The two liquids a pool can hold. Both are textures the client *animates*:
+  // it scrolls their u/v by `animationSpeed` pixels per 20ms tick along
+  // `animationDirection`, and `core/render/liquid.ts` reproduces that scroll.
+  // Water is 24 (the rippled blue, not the flat 1 this used to bake) and lava is
+  // 59 (black crust with glowing veins), which is what Mor Ul Rek and the Lava
+  // Maze are paved with.
+  liquid_water: { tex: 24, raw: true, dir: 'terrain' },
+  liquid_lava: { tex: 59, raw: true, dir: 'terrain' },
 
   // The wooden direction signpost — the one standing beside the Lumbridge Guide,
   // and OSRS's own symbol for "the road splits here". Model 1402 is shared by every
@@ -213,6 +231,12 @@ export async function objectModelById(cache, objId, modelOverride) {
  * tile, so this is full-bleed by construction; `tile` decides how many times the
  * texture repeats inside that tile.
  */
+function renderTextureRaw(tex) {
+  const canvas = createCanvas(tex.w, tex.h);
+  canvas.getContext('2d').drawImage(tex.canvas, 0, 0);
+  return canvas.toBuffer('image/png');
+}
+
 function renderTextureTile(tex, tile) {
   const canvas = createCanvas(SIZE, SIZE);
   const ctx = canvas.getContext('2d');
@@ -333,7 +357,7 @@ async function main() {
     if (cfg.tex !== undefined) {
       const tex = (await loadTextures(cache, [cfg.tex])).get(cfg.tex);
       if (!tex) { console.warn(`! texture ${cfg.tex} (${slug}) not found`); continue; }
-      const out = write(slug, cfg, renderTextureTile(tex, cfg.tile ?? 128));
+      const out = write(slug, cfg, cfg.raw ? renderTextureRaw(tex) : renderTextureTile(tex, cfg.tile ?? 128));
       console.log(`✓ ${slug}: texture ${cfg.tex} ${tex.w}x${tex.h} → ${out}`);
       continue;
     }

@@ -1,7 +1,21 @@
 import { SPOTANIMS, spotAnimDurationS } from '../../data/spotanims';
 import { distance } from '../../systems/geometry';
 import type { GameRenderer } from '../renderer';
+import { LAVA_PALETTE } from '../../data/biomes';
+import { buildLiquidBodies } from './liquid';
+import type { LiquidKind } from '../../systems/terrain-generation';
 import { GRID, shade, hash2 } from './shared';
+
+/** How much board a single ground-texture square covers, in logic px. */
+export const GROUND_TILE = 64;
+/** How hard the region's gradient is pushed back over its own floor texture. */
+const GROUND_TINT = 0.42;
+
+/** The palette a pool is drawn with: the region's water, or the one lava wears
+ *  everywhere. Both shapes are identical, so nothing downstream branches. */
+export function liquidPalette(gr: GameRenderer, kind: LiquidKind) {
+  return kind === 'lava' ? LAVA_PALETTE : gr.e.biome.water;
+}
 
 /**
  * The board itself: biome ground, terrain features, the road and its gravel, and
@@ -17,7 +31,8 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     gr.bgCache === null || gr.bgCtx === null ||
     gr.bgTerrain !== gr.e.terrain || gr.bgBiome !== gr.e.biome.id ||
     gr.bgW !== w || gr.bgH !== h || gr.bgScale !== scale ||
-    gr.bgWater !== gr.e.imageOk('fishing_water')
+    gr.bgWater !== gr.e.imageOk('liquid_water') ||
+    gr.bgGround !== gr.e.imageOk(`ground_${gr.e.biome.id}`)
   ) {
     if (!gr.bgCache) {
       gr.bgCache = document.createElement('canvas');
@@ -36,7 +51,12 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     gr.bgW = w;
     gr.bgH = h;
     gr.bgScale = scale;
-    gr.bgWater = gr.e.imageOk('fishing_water');
+    gr.bgWater = gr.e.imageOk('liquid_water');
+    gr.bgGround = gr.e.imageOk(`ground_${gr.e.biome.id}`);
+    // Same invalidation, same moment: the pools' welded outlines are only ever
+    // rebuilt when the map that dealt them changes.
+    gr.liquidBodies = buildLiquidBodies(gr);
+    gr.liquidPatterns.clear();
   }
   // The parent ctx is already scaled by `deviceScale`; draw the buffer back into
   // the logic rect so it lands 1:1 on the backing store.
@@ -46,12 +66,37 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
 export function renderStaticBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D, w: number, h: number) {
   const biome = gr.e.biome;
 
-  // Ground base with a soft vertical gradient (biome-themed).
+  // Ground base with a soft vertical gradient (biome-themed). It is the whole floor
+  // until the region's texture arrives, and the lighting over it afterwards.
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   grad.addColorStop(0, biome.bgTop);
   grad.addColorStop(1, biome.bgBottom);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
+
+  // …then the region's own floor, out of the cache: one texture square per
+  // `GROUND_TILE` px of board. OSRS maps one square per game tile, but a game tile
+  // is far bigger on screen than our 32px board tile, so a 1:1 mapping squeezed a
+  // 128px texture into 32 and turned every ground into noise. Two board tiles per
+  // square is the compromise that keeps the grain legible.
+  //
+  // The gradient goes back over the top at a low alpha instead of under it: that is
+  // what keeps Morytania's mud sickly and Al Kharid's sand sun-bleached, when the
+  // same texture would otherwise read as its raw cache colour in every region.
+  const ground = gr.e.imageOk(`ground_${biome.id}`) ? gr.e.images.get(`ground_${biome.id}`) : null;
+  if (ground) {
+    const pat = ctx.createPattern(ground, 'repeat');
+    if (pat) {
+      const k = GROUND_TILE / ground.width;
+      pat.setTransform(new DOMMatrix([k, 0, 0, GROUND_TILE / ground.height, 0, 0]));
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = GROUND_TINT;
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 1;
+    }
+  }
 
   // Texture: scattered ground tufts (two tones) for a less flat field.
   for (let i = 0; i < 220; i++) {
@@ -125,20 +170,16 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   }
   ctx.globalAlpha = 1;
 
-  // ── water ── Baked into the static background beside the rough ground, because
-  // the pool itself never moves; only the fishing spot on it does, and that draws
-  // per frame in `render/fishing.ts`. The rim is the tile's own edge tested against
-  // its neighbours, so a blob of water reads as one pool rather than four squares.
+  // ── pools ── Baked into the static background beside the rough ground, because
+  // a pool's outline never moves; only its surface does, and that scrolls per frame
+  // in `render/liquid.ts`. The rim is the tile's own edge tested against its
+  // neighbours, so a blob reads as one pool rather than four squares.
   //
-  // The surface is the client's own water texture, laid one texture square per
-  // board tile the way OSRS itself maps it to the ground — the same deal the
-  // farming allotment gets from its soil sprite. The bake is that texture tiled
-  // 2×2 (`public/assets/objects/water.png`), so half the sheet is one square.
-  // A biome tint goes over the top: Morytania's swamp and Al Kharid's lagoon are
-  // the same water lit differently, and the palette is what tells them apart.
-  const { deep, shallow, foam } = gr.e.biome.water;
-  const water = gr.e.imageOk('fishing_water') ? gr.e.images.get('fishing_water') : null;
-  const src = water ? water.width / 2 : 0;
+  // The surface is the client's own liquid texture — water (24) or lava (59),
+  // whichever this pool rolled — laid one texture square per board tile, the same
+  // deal the farming allotment gets from its soil sprite. A palette tint goes over
+  // the top: Morytania's swamp and Al Kharid's lagoon are the same water lit
+  // differently, and the palette is what tells them apart.
   const isWater = (c: number, r: number) =>
     c >= 0 && r >= 0 && c < cols && r < t.rows && t.tiles[r * cols + c] === 'water';
   for (let i = 0; i < t.tiles.length; i++) {
@@ -147,9 +188,15 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     const r = (i / cols) | 0;
     const x0 = c * GRID;
     const y0 = r * GRID;
+    const { deep, shallow, foam } = liquidPalette(gr, t.liquid[i]);
+    const kindKey = t.liquid[i] === 'lava' ? 'liquid_lava' : 'liquid_water';
+    const surface = gr.e.imageOk(kindKey) ? gr.e.images.get(kindKey) : null;
     ctx.globalAlpha = 1;
-    if (water) {
-      ctx.drawImage(water, 0, 0, src, src, x0, y0, GRID, GRID);
+    if (surface) {
+      // The still version of the pool. `render/liquid.ts` scrolls the same texture
+      // over the top every frame; this is what the board falls back to on the frames
+      // before that layer has a pattern, and it means a pool is never a bare hole.
+      ctx.drawImage(surface, x0, y0, GRID, GRID);
       ctx.globalAlpha = 0.28;
       ctx.fillStyle = deep;
       ctx.fillRect(x0, y0, GRID, GRID);

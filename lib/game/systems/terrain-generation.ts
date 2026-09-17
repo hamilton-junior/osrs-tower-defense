@@ -21,6 +21,13 @@ import { makeRng } from './map-generation';
 
 export type TileFlag = 'open' | 'blocked' | 'unbuildable' | 'farming' | 'water';
 
+/** What a `'water'` tile actually holds. Rolled per pool from the region's
+ *  `lavaChance` (data/biomes.ts), so one Wilderness board can deal a lake and a
+ *  lava flow at once. Lava is still `'water'` as far as `tiles` is concerned —
+ *  it blocks building and holds a fishing spot exactly the same way — which is
+ *  what keeps placement, flood-fill and the run save unchanged. */
+export type LiquidKind = 'water' | 'lava';
+
 /** A cosmetic prop placed on an open tile (no gameplay effect). `kind` selects the
  *  shape/palette slot the renderer draws. */
 export interface TerrainDecoration {
@@ -47,6 +54,9 @@ export interface TerrainField {
   rows: number;
   /** Row-major, length `cols * rows`. */
   tiles: TileFlag[];
+  /** Row-major, parallel to {@link tiles} and the same length. Meaningful only
+   *  where `tiles[i] === 'water'`; every other entry is `'water'` filler. */
+  liquid: LiquidKind[];
   decorations: TerrainDecoration[];
   patches: TerrainPatch[];
   spots: TerrainSpot[];
@@ -155,12 +165,17 @@ export function generateTerrain(
   cols: number,
   rows: number,
   grid: number,
+  /** The active region's {@link BiomeDef.lavaChance}. Each pool rolls against it
+   *  separately, off the same seeded stream, so the field stays reproducible from
+   *  the map seed alone and the run save never has to store it. */
+  lavaChance = 0,
 ): TerrainField {
   const rng = makeRng((seed ^ TERRAIN_SEED_XOR) >>> 0);
   const road = computeRoadTiles(path, cols, rows, grid);
   const corridor = dilate(road, cols, rows, CORRIDOR_RADIUS); // includes the road itself
 
   const flags: TileFlag[] = new Array<TileFlag>(cols * rows).fill('open');
+  const liquid: LiquidKind[] = new Array<LiquidKind>(cols * rows).fill('water');
   const eligible: number[] = [];
   for (let i = 0; i < flags.length; i++) if (!corridor[i]) eligible.push(i);
 
@@ -296,6 +311,10 @@ export function generateTerrain(
     // a pool — it is simply a small one.
     const blob = [seedIdx];
     flags[seedIdx] = 'water';
+    // One roll for the whole pool: a body of water is water or it is lava, never
+    // a mix, so the roll happens here rather than per tile.
+    const kind: LiquidKind = rng() < lavaChance ? 'lava' : 'water';
+    liquid[seedIdx] = kind;
     const target = POOL_MIN_TILES + Math.floor(rng() * (POOL_MAX_TILES - POOL_MIN_TILES + 1));
     let grow = 0;
     while (blob.length < target && grow++ < 40) {
@@ -309,6 +328,7 @@ export function generateTerrain(
       const nIdx = nr * cols + nc;
       if (flags[nIdx] === 'open' || flags[nIdx] === 'farming' || flags[nIdx] === 'water') continue;
       flags[nIdx] = 'water';
+      liquid[nIdx] = kind;
       blob.push(nIdx);
     }
     spots.push({ col, row });
@@ -324,5 +344,5 @@ export function generateTerrain(
     }
   }
 
-  return { cols, rows, tiles: flags, decorations, patches, spots };
+  return { cols, rows, tiles: flags, liquid, decorations, patches, spots };
 }

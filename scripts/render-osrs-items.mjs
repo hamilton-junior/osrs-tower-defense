@@ -277,6 +277,8 @@ const TARGETS = {
   trout: { id: 333 },
   lobster: { id: 379 },
   manta_ray: { id: 391 },
+  lava_eel: { id: 2149 },        // the lava-maze catch, cooked
+  infernal_eel: { id: 21293 },   // Mor Ul Rek's, cracked open rather than eaten
   slayer_helmet: { name: 'Slayer helmet' },
   // Slayer-rewards shop: each unlock wears the item it actually is in game.
   slayer_helmet_i: { name: 'Slayer helmet (i)' },

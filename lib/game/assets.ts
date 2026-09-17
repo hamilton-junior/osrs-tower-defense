@@ -604,12 +604,27 @@ export const ASSETS = {
   farming: {
     soil: `${LOCAL}/objects/patch_empty.png`, // Allotment (8573)
   },
-  // The sea a fishing spot breaks, and the allotment soil's counterpart: OSRS has
-  // no water model to bake, because water is a ground overlay. What a player
-  // recognises is the texture the client scrolls over every river and shoreline —
-  // id 1, tiled edge-to-edge by scripts/render-osrs-objects.mjs.
-  fishing: {
-    water: `${LOCAL}/objects/water.png`, // Ground texture 1
+  // The board's own ground, and the two liquids a pool can hold. OSRS has no
+  // model to bake for any of this, because terrain there is a floor overlay —
+  // what a player recognises is the texture itself. Each one is baked at its own
+  // size by scripts/render-osrs-objects.mjs and tiled as a canvas pattern, one
+  // texture square per 2x2 board tiles (core/render/terrain.ts).
+  //
+  // Water and lava are textures the client *animates*, scrolling their u/v along
+  // a fixed direction; core/render/liquid.ts reproduces that scroll, which is why
+  // they are the only part of the board that does not live in the static bake.
+  terrain: {
+    ground: {
+      lumbridge: `${LOCAL}/terrain/ground_lumbridge.png`,   // texture 129, meadow grass
+      alkharid: `${LOCAL}/terrain/ground_alkharid.png`,     // texture 38, desert dunes
+      morytania: `${LOCAL}/terrain/ground_morytania.png`,   // texture 214, swamp mud
+      wilderness: `${LOCAL}/terrain/ground_wilderness.png`, // texture 201, dead scrub
+      trollweiss: `${LOCAL}/terrain/ground_trollweiss.png`, // texture 91, snow and ice
+      karamja: `${LOCAL}/terrain/ground_karamja.png`,       // texture 203, jungle moss
+      tzhaar: `${LOCAL}/terrain/ground_tzhaar.png`,         // texture 11, obsidian rock
+    },
+    water: `${LOCAL}/terrain/liquid_water.png`, // texture 24
+    lava: `${LOCAL}/terrain/liquid_lava.png`,   // texture 59
   },
   // Party Pete's balloons: the Party Room balloon (LOC 115) and its five recolours
   // (116-120), stood upright by scripts/render-osrs-objects.mjs. Indexed by the

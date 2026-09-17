@@ -1,6 +1,7 @@
 import type { GameRenderer } from '../renderer';
 import { GRID } from '../engine-state';
 import { spotStage, wavesUntilRestock } from '../../systems/fishing';
+import { liquidPalette } from './terrain';
 
 /** How long one frame of a spot's strip holds. Sequence 7634 runs eight frames of
  *  five game units each, and a unit is 20 ms — so the loop closes in 800 ms, the
@@ -8,8 +9,10 @@ import { spotStage, wavesUntilRestock } from '../../systems/fishing';
 const FRAME_MS = 100;
 
 /** The glow a pool with fish in it carries. Cyan rather than the biome's own foam:
- *  Morytania's foam is swamp-olive, and a green halo would read as a ripe herb. */
+ *  Morytania's foam is swamp-olive, and a green halo would read as a ripe herb.
+ *  Lava takes its own, because cyan over molten rock reads as a bug. */
 const GLOW = '120,226,255';
+const GLOW_LAVA = '255,176,58';
 
 /** How long a pool takes to change its look: one OSRS tick. A spot that has just been
  *  fished out fades from the busy treatment into the quiet one, and a restocked pool
@@ -39,6 +42,7 @@ function drawSpot(
   ready: boolean,
   t: number,
   alpha: number,
+  glow: string,
 ): void {
   if (alpha <= 0.01) return;
   // The strip is square cells laid left to right, so its own geometry gives the frame
@@ -79,7 +83,7 @@ function drawSpot(
     // Faint, and deliberately fainter than a ripe herb's halo: fish in a pool is an
     // invitation, not the alarm a crop about to be lost is. One pass, where the
     // allotment stacks three.
-    ctx.shadowColor = `rgba(${GLOW},${0.28 + pulse * 0.18})`;
+    ctx.shadowColor = `rgba(${glow},${0.28 + pulse * 0.18})`;
     ctx.shadowBlur = 5;
     paint();
     ctx.shadowBlur = 0;
@@ -108,10 +112,12 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   if (spots.length === 0) return;
   const t = performance.now() / 1000;
   const idle = !gr.e.waveActive && !gr.e.gameOver;
-  const { ripple, foam } = gr.e.biome.water;
   const busy = gr.e.imageOk('fishing_spot_active') ? gr.e.images.get('fishing_spot_active') : null;
   const spent = gr.e.imageOk('fishing_spot') ? gr.e.images.get('fishing_spot') : null;
-  const sheetFor = (r: boolean) => (r ? busy : spent);
+  // Lava holds one sheet where water holds two, so a spent lava pool is the same
+  // sprite drawn quieter — `drawSpot` already sits it smaller and still.
+  const lava = gr.e.imageOk('fishing_spot_lava') ? gr.e.images.get('fishing_spot_lava') : null;
+  const sheetFor = (r: boolean, molten: boolean) => (molten ? lava : r ? busy : spent);
   const now = performance.now();
 
   // A new run brings new pools under new ids. Drop the fade state of any that have
@@ -123,6 +129,11 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
 
   for (const spot of spots) {
     const ready = spotStage(spot) === 'ready' && !gr.e.gameOver;
+    const molten = spot.liquid === 'lava';
+    // Every ring, bar and halo on this tile takes the pool's own colours, so a lava
+    // spot is never outlined in the region's water blue.
+    const { ripple, foam } = liquidPalette(gr, spot.liquid);
+    const glow = molten ? GLOW_LAVA : GLOW;
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + spot.x * 0.03 + spot.y * 0.05);
 
     // Where this pool is in the crossing between its two looks. A spot seen for the
@@ -149,12 +160,12 @@ export function drawFishing(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     // The water breaking, off the cache-rendered NPC — the Tempoross spot while there
     // are fish left to break it, the ordinary one once there are not, and both at once
     // while the pool is crossing from one to the other.
-    const ghost = fade.from ? sheetFor(fade.from.ready) : null;
+    const ghost = fade.from ? sheetFor(fade.from.ready, molten) : null;
     if (fade.from && ghost) {
-      drawSpot(ctx, ghost, fade.from.x, fade.from.y, fade.from.ready, t, 1 - k);
+      drawSpot(ctx, ghost, fade.from.x, fade.from.y, fade.from.ready, t, 1 - k, glow);
     }
-    const sheet = sheetFor(ready);
-    if (sheet) drawSpot(ctx, sheet, spot.x, spot.y, ready, t, k);
+    const sheet = sheetFor(ready, molten);
+    if (sheet) drawSpot(ctx, sheet, spot.x, spot.y, ready, t, k, glow);
 
     // A ring of expanding ripples while the line is out, so the bar on the tile
     // and the water agree about what is happening.

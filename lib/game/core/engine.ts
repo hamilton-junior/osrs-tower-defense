@@ -78,7 +78,7 @@ import {
 } from '../systems/inventory';
 import {
   FISH, CAST_XP, FISHING_MAX_LEVEL, SPOT_CASTS,
-  FISHING_SPOT_ACTIVE_ICON, FISHING_SPOT_ICON,
+  FISHING_SPOT_ACTIVE_ICON, FISHING_SPOT_ICON, FISHING_SPOT_LAVA_ICON,
 } from '../data/fishing';
 import {
   buildFishingSpots, castSeconds, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
@@ -115,7 +115,7 @@ export class GameEngine {
   private mapLayout: MapLayout = { points: [], entry: 'left', exit: 'right', archetype: 'serpentine', orientation: 0 };
   /** Per-run terrain: obstacle / non-buildable / decoration flags over the tile grid.
    *  Rebuilt with the map each run; the renderer draws it and placement consults it. */
-  terrain: TerrainField = { cols: 0, rows: 0, tiles: [], decorations: [], patches: [], spots: [] };
+  terrain: TerrainField = { cols: 0, rows: 0, tiles: [], liquid: [], decorations: [], patches: [], spots: [] };
 
   /** Does the terrain forbid building on the tile at `(x, y)` (obstacle or
    *  non-buildable zone)? Public so the renderer's placement ghost can turn red
@@ -780,7 +780,9 @@ export class GameEngine {
       const def = FOOD_BY_ID[s.id as FoodId];
       return {
         kind: 'food', id: s.id, name: def.name, icon: def.icon, count: s.count,
-        tip: `Eat it between waves: +${def.lives} life${def.lives === 1 ? '' : 's'}`,
+        tip: def.essence
+          ? `Crack it open between waves: ${def.essence.min}-${def.essence.max} essence`
+          : `Eat it between waves: +${def.lives} life${def.lives === 1 ? '' : 's'}`,
       };
     }
     if (s.kind === 'herb') {
@@ -1443,8 +1445,16 @@ export class GameEngine {
       // there are not.
       fishing_spot_active: FISHING_SPOT_ACTIVE_ICON,
       fishing_spot: FISHING_SPOT_ICON,
-      // …and the water they break, which is the client's own ground texture.
-      fishing_water: ASSETS.fishing.water,
+      // Lava's spot is its own model, not the water one tinted: what breaks the
+      // surface of a lava pool has to be lava.
+      fishing_spot_lava: FISHING_SPOT_LAVA_ICON,
+      // …and the two liquids they break, which are the client's own animated
+      // ground textures, plus the seven region grounds the board is tiled with.
+      liquid_water: ASSETS.terrain.water,
+      liquid_lava: ASSETS.terrain.lava,
+      ...Object.fromEntries(
+        Object.entries(ASSETS.terrain.ground).map(([id, url]) => [`ground_${id}`, url]),
+      ),
       // Distractions & Diversions: the cast that turns up between waves, keyed
       // `diversion_<id>` (baked NPC models and one item icon), plus the back and
       // side views a walker turns to — `diversion_<id>_back` / `_side`.
@@ -1524,6 +1534,7 @@ export class GameEngine {
     this.buildPath();
     this.terrain = generateTerrain(
       this.mapSeed, this.path, Math.floor(this.width / GRID), Math.floor(this.height / GRID), GRID,
+      this.biome.lavaChance,
     );
     // Fresh road, fresh ground: nothing sown on the old map carries over.
     this.farmPatches = buildFarmPatches(this.terrain, GRID);
@@ -4107,7 +4118,7 @@ export class GameEngine {
     this.fishingLevel = gain.level;
     this.fishingXp = gain.xp;
 
-    const fish = rollCatch(this.fishingLevel, Math.random);
+    const fish = rollCatch(this.fishingLevel, Math.random, spot.liquid, this.biome.id);
     if (fish) {
       if (addItem(this.items, 'food', fish.id, 1) === 'bag') this.bagBump(stackKey('food', fish.id));
       this.sound.play('fish_caught');
@@ -4128,7 +4139,7 @@ export class GameEngine {
   eatFood(id: FoodId) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
     const def = FOOD_BY_ID[id];
-    if (!def) return;
+    if (!def || def.essence) return; // a cracked catch is never eaten
     if (this.lives >= this.maxLives) {
       if (!takeItem(this.items, 'food', id)) return;
       // Nothing to heal, so it is worth its gold instead.
@@ -4155,11 +4166,31 @@ export class GameEngine {
    *  fight, and the price is printed on the menu line that leads here. */
   sellFood(id: FoodId) {
     const def = FOOD_BY_ID[id];
-    if (!def) return;
+    if (!def || def.essence) return; // cracked, not sold — its worth is inside it
     if (!takeItem(this.items, 'food', id)) return;
     const gold = this.awardGold(def.gold);
     this.sound.play('sell');
     this.notify(`You sell the ${def.name.toLowerCase()} for ${gold} gp.`, def.icon);
+    this.emit();
+  }
+
+  /**
+   * Crack an infernal eel open. It is not food in OSRS and it is not food here: what
+   * is inside it is the reward, and here that is essence — the one currency that
+   * outlives the run. Between waves, like eating, and the amount is rolled inside the
+   * eel's own range so two eels are never worth exactly the same.
+   */
+  crackFood(id: FoodId) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    const def = FOOD_BY_ID[id];
+    if (!def?.essence) return;
+    if (!takeItem(this.items, 'food', id)) return;
+    const { min, max } = def.essence;
+    const amount = min + Math.floor(Math.random() * (max - min + 1));
+    this.meta.award(amount);
+    this.essenceEarnedThisRun += amount;
+    this.sound.play('sell');
+    this.notify(`You crack the eel open: ${amount} essence`, def.icon);
     this.emit();
   }
 

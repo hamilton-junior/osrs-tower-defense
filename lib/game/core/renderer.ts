@@ -1,6 +1,7 @@
 import type { GameEngine } from './engine';
 import type { TerrainField } from '../systems/terrain-generation';
 import { drawBackground, drawPath, drawSpawnPortal, drawEffects } from './render/terrain';
+import { drawLiquid } from './render/liquid';
 import { drawDangerZone, drawHoverRange, drawBuildOverlay, drawPlacementGhost } from './render/build-overlay';
 import { drawTowers } from './render/towers';
 import { drawScorches } from './render/scorch';
@@ -57,6 +58,16 @@ export class GameRenderer {
    *  are painted with it, and images load after the first frame — without this the
    *  board would keep a run's worth of untextured water. */
   bgWater = false;
+  /** Whether the active region's floor texture had arrived when the buffer was last
+   *  baked — same reason as `bgWater`, for the ground under it. */
+  bgGround = false;
+
+  /** Each pool welded into one outline, by liquid kind (at most two: water and
+   *  lava). Rebuilt with the background, so the animated surface costs a clip and a
+   *  fill per kind rather than per tile — see `render/liquid.ts`. */
+  liquidBodies: ReturnType<typeof import('./render/liquid').buildLiquidBodies> = [];
+  /** The repeating pattern each kind is filled with, made once per texture. */
+  liquidPatterns = new Map<string, CanvasPattern>();
 
   /** Padding (logic px) around a baked glow sprite so its blurred halo isn't clipped. */
   readonly GLOW_PAD = 12;
@@ -90,6 +101,7 @@ export class GameRenderer {
     ctx.setTransform(this.e.deviceScale, 0, 0, this.e.deviceScale, 0, 0);
     ctx.imageSmoothingEnabled = false;
     drawBackground(this, ctx);
+    drawLiquid(this, ctx); // the one part of the board that moves under everything else
     drawPath(this, ctx);
     drawScorches(this, ctx); // dragonfire on the road — under the towers and enemies that stand in it
     drawDangerZone(this, ctx);

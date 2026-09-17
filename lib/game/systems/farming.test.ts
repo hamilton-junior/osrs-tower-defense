@@ -13,7 +13,7 @@ import type { TerrainField } from './terrain-generation';
 const GRID = 32;
 
 const field = (patches: { col: number; row: number }[]): TerrainField => ({
-  cols: 45, rows: 20, tiles: [], decorations: [], patches, spots: [],
+  cols: 45, rows: 20, tiles: [], liquid: [], decorations: [], patches, spots: [],
 });
 
 const patch = (over: Partial<FarmPatch> = {}): FarmPatch => ({
@@ -304,7 +304,7 @@ const draw = (rows: string[]): TerrainField => {
       else tiles.push('open');
     });
   });
-  return { cols, rows: rows.length, tiles, decorations: [], patches, spots };
+  return { cols, rows: rows.length, tiles, liquid: tiles.map(() => 'water' as const), decorations: [], patches, spots };
 };
 
 describe('plot ids', () => {

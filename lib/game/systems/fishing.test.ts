@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { TerrainField } from './terrain-generation';
+import type { LiquidKind, TerrainField } from './terrain-generation';
 import {
   buildFishingSpots, castSeconds, spotStage, restockSpots, rollCatch, catchesUnlockedAt,
   catchChance, fishingXpForLevel, gainFishingXp, spotId, parseSpotId, spotAtPoint,
@@ -13,8 +13,13 @@ import {
 const GRID = 32;
 
 /** A bare field carrying nothing but the two water spots the tests care about. */
-function field(spots: { col: number; row: number }[]): TerrainField {
-  return { cols: 10, rows: 10, tiles: new Array(100).fill('open'), decorations: [], patches: [], spots };
+function field(
+  spots: { col: number; row: number }[], liquid: LiquidKind = 'water',
+): TerrainField {
+  return {
+    cols: 10, rows: 10, tiles: new Array(100).fill('open'),
+    liquid: new Array(100).fill(liquid), decorations: [], patches: [], spots,
+  };
 }
 
 /** A deterministic stand-in for Math.random: replays the numbers it is given. */
@@ -153,11 +158,41 @@ describe('a pool the spot roams', () => {
   });
 });
 
+describe('a pool carries its own liquid', () => {
+  it('takes the kind off the tile the terrain seeded it on', () => {
+    expect(buildFishingSpots(field([{ col: 2, row: 2 }]), GRID)[0].liquid).toBe('water');
+    expect(buildFishingSpots(field([{ col: 2, row: 2 }], 'lava'), GRID)[0].liquid).toBe('lava');
+  });
+});
+
 describe('the catch roll', () => {
   it('only ever offers fish the level has unlocked', () => {
     expect(catchesUnlockedAt(1).map(f => f.id)).toEqual(['shrimps']);
     expect(catchesUnlockedAt(40).map(f => f.id)).toEqual(['shrimps', 'trout', 'lobster']);
     expect(catchesUnlockedAt(99)).toHaveLength(5);
+  });
+
+  it('deals a lava pool its own ladder and never the water one', () => {
+    expect(catchesUnlockedAt(99, 'lava', 'wilderness').map(f => f.id)).toEqual(['lava_eel']);
+    expect(catchesUnlockedAt(52, 'lava', 'tzhaar')).toEqual([]);
+    expect(catchesUnlockedAt(99, 'water', 'tzhaar').every(f => f.liquid === 'water')).toBe(true);
+  });
+
+  it('keeps the infernal eel inside TzHaar', () => {
+    expect(catchesUnlockedAt(99, 'lava', 'tzhaar').map(f => f.id)).toEqual(['lava_eel', 'infernal_eel']);
+    expect(catchesUnlockedAt(99, 'lava', 'karamja').map(f => f.id)).toEqual(['lava_eel']);
+  });
+
+  it('never lands a water fish out of lava, however the weight roll falls', () => {
+    for (const r of [0, 0.25, 0.5, 0.75, 0.999]) {
+      const fish = rollCatch(99, seq([0, r]), 'lava', 'tzhaar');
+      expect(fish, `roll ${r}`).not.toBeNull();
+      expect(fish!.liquid, `roll ${r}`).toBe('lava');
+    }
+  });
+
+  it('comes up empty in a lava pool below the eel level', () => {
+    expect(rollCatch(40, seq([0, 0]), 'lava', 'tzhaar')).toBeNull();
   });
 
   it('comes up empty when the chance roll misses', () => {

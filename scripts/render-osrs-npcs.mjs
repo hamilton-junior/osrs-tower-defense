@@ -70,6 +70,12 @@ const TARGETS = {
   // makes a spent pool read as water rather than an offer.
   fishing_spot: { npc: 1525, pitch: 70, zoom: 1.15, alphaBoost: 1, anim: 7634 },
   fishing_spot_active: { npc: 10565, pitch: 70, zoom: 1.15, alphaBoost: 2.4, anim: 7634 },
+  // Lava's spot. Model 2331 is the cache's own bubbling-lava spot — NPC 4928 in the
+  // Wilderness lava maze, NPC 7676 in Mor Ul Rek — posed by the same eight frames of
+  // seq 7634, so it breaks the surface on the beat the water spots do. One bake, not
+  // a pair: the cache holds a single lava spot, and a spent pool is this sprite drawn
+  // quieter rather than a second bake that would come out pixel-identical.
+  fishing_spot_lava: { npc: 4928, pitch: 70, zoom: 1.15, alphaBoost: 1.6, anim: 7634 },
   superior_bloodveld: { npc: 7397 },     // Insatiable Bloodveld
   superior_abyssal_demon: { npc: 7410 }, // Greater abyssal demon
   // The common Gargoyle is NPC 412 — the level-111 Slayer Tower one. Its def carries

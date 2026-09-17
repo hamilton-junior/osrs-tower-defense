@@ -6,7 +6,7 @@ import type { UIState, UiStack } from '@/lib/game/core/engine';
 import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
 import { POTIONS, POTION_BY_ID, type PotionDef, type PotionId } from '@/lib/game/data/herblore';
 import { FISHING_MAX_LEVEL } from '@/lib/game/data/fishing';
-import { FOOD_BY_ID, type FoodId } from '@/lib/game/data/food';
+import { FOOD_BY_ID, isCracked, type FoodId } from '@/lib/game/data/food';
 import { LAMP_LEVELS, LAMP_SKILLS, LAMP_SKILL_META, type LampSkill } from '@/lib/game/data/diversions';
 import { lampLevelTo } from '@/lib/game/systems/diversions';
 import { HUNTER_MAX_LEVEL } from '@/lib/game/systems/hunter-traps';
@@ -75,6 +75,8 @@ export interface InventoryViewProps {
   onEatFood: (id: FoodId) => void;
   /** Sell one instead of eating it, for a run that would rather have the gold. */
   onSellFood: (id: FoodId) => void;
+  /** Crack an infernal eel open for essence. It is never eaten and never sold. */
+  onCrackFood: (id: FoodId) => void;
   /** Rub one genie lamp for levels in the skill picked off its menu. */
   onRubLamp: (skill: LampSkill) => void;
   /** A drag rearranged the looting bag: its whole key list, newly ordered. */
@@ -85,7 +87,7 @@ export function InventoryView(props: InventoryViewProps) {
   const {
     ui, page, onPage, towers, hoverTowerId, onHoverTower, onEquipGear,
     onStoreStack, onTakeStack, onMoveSlot, onUseHerb, onPlantSeed, onBrewPotion, onDrinkPotion,
-    onEatFood, onSellFood, onRubLamp, onReorderBag,
+    onEatFood, onSellFood, onCrackFood, onRubLamp, onReorderBag,
   } = props;
   // The open Choose Option menu: where the click landed, and the square it landed
   // on. Held by the stack itself rather than by the slot index, because acting on
@@ -102,8 +104,8 @@ export function InventoryView(props: InventoryViewProps) {
     if (!menu) return [];
     if (menu.lamp) return lampOptions(ui, onRubLamp);
     const openLamp = () => setMenu(m => (m ? { ...m, lamp: true } : m));
-    return stackOptions(menu.stack, ui, onUseHerb, onPlantSeed, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, openLamp, onStoreStack);
-  }, [menu, ui, onUseHerb, onPlantSeed, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onRubLamp, onStoreStack]);
+    return stackOptions(menu.stack, ui, onUseHerb, onPlantSeed, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onCrackFood, openLamp, onStoreStack);
+  }, [menu, ui, onUseHerb, onPlantSeed, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onCrackFood, onRubLamp, onStoreStack]);
   const bagCount = ui.lootBag.length + ui.bagStacks.length;
 
   // ──────────────────────────── the loot bag ─────────────────────────────
@@ -241,6 +243,7 @@ function stackOptions(
   onDrinkPotion: (id: PotionId) => void,
   onEatFood: (id: FoodId) => void,
   onSellFood: (id: FoodId) => void,
+  onCrackFood: (id: FoodId) => void,
   onOpenLamp: () => void,
   onStoreStack: (kind: StackKind, id: string) => void,
 ): MenuOption[] {
@@ -256,23 +259,34 @@ function stackOptions(
       onSelect: () => onUseHerb(stack.id as SeedId),
     }]
     : stack.kind === 'food'
-      ? [{
-        action: 'Eat',
-        target: stack.name,
-        disabled,
-        note,
-        title: stack.tip,
-        onSelect: () => onEatFood(stack.id as FoodId),
-      }, {
-        // Ungated, the way Store is: gold moving changes nothing about a fight. The
-        // price is on the line, so the choice between a life and the coins is made
-        // without leaving the menu.
-        action: 'Sell',
-        target: stack.name,
-        coins: FOOD_BY_ID[stack.id as FoodId]?.gold,
-        title: 'Sell one for gold instead of eating it',
-        onSelect: () => onSellFood(stack.id as FoodId),
-      }]
+      ? isCracked(FOOD_BY_ID[stack.id as FoodId])
+        // The infernal eel. One line and no Sell: what it is worth is inside it, and
+        // OSRS does not let you eat one either.
+        ? [{
+          action: 'Crack',
+          target: stack.name,
+          disabled,
+          note,
+          title: stack.tip,
+          onSelect: () => onCrackFood(stack.id as FoodId),
+        }]
+        : [{
+          action: 'Eat',
+          target: stack.name,
+          disabled,
+          note,
+          title: stack.tip,
+          onSelect: () => onEatFood(stack.id as FoodId),
+        }, {
+          // Ungated, the way Store is: gold moving changes nothing about a fight. The
+          // price is on the line, so the choice between a life and the coins is made
+          // without leaving the menu.
+          action: 'Sell',
+          target: stack.name,
+          coins: FOOD_BY_ID[stack.id as FoodId]?.gold,
+          title: 'Sell one for gold instead of eating it',
+          onSelect: () => onSellFood(stack.id as FoodId),
+        }]
       : stack.kind === 'lamp'
         ? [{
           // Opens the skill list in place rather than rubbing: the genie asks which

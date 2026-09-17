@@ -3,7 +3,8 @@ import {
   CAST_SECONDS, CAST_SECONDS_AT_MAX,
   CATCH_CHANCE_BASE, CATCH_CHANCE_PER_LEVEL, CATCH_CHANCE_MAX, FISHING_MAX_LEVEL,
 } from '../data/fishing';
-import type { TerrainField } from './terrain-generation';
+import type { LiquidKind, TerrainField } from './terrain-generation';
+import type { BiomeId } from '../data/biomes';
 
 /**
  * **Fishing spots** — the water's half of the skill.
@@ -32,6 +33,9 @@ export interface FishingSpot {
   /** Every water tile the pool is made of, its seed first. The spot moves between
    *  these and nowhere else. */
   tiles: SpotTile[];
+  /** What this pool is filled with. Rolled per pool by the terrain, so one map can
+   *  hold water in one corner and lava in the other, and each deals its own fish. */
+  liquid: LiquidKind;
 }
 
 /** One tile of a pool. */
@@ -48,7 +52,9 @@ export function parseSpotId(id: string): { col: number; row: number } | null {
   return { col: Number(m[1]), row: Number(m[2]) };
 }
 
-export function makeSpot(col: number, row: number, grid: number, tiles?: SpotTile[]): FishingSpot {
+export function makeSpot(
+  col: number, row: number, grid: number, tiles?: SpotTile[], liquid: LiquidKind = 'water',
+): FishingSpot {
   return {
     id: spotId(col, row),
     col, row,
@@ -57,6 +63,7 @@ export function makeSpot(col: number, row: number, grid: number, tiles?: SpotTil
     casts: 0,
     rested: 0,
     tiles: tiles && tiles.length > 0 ? tiles : [{ col, row }],
+    liquid,
   };
 }
 
@@ -117,7 +124,11 @@ export function moveSpot(spot: FishingSpot, grid: number, rng: () => number): vo
 export function buildFishingSpots(field: TerrainField, grid: number): FishingSpot[] {
   return field.spots
     .filter(s => field.tiles[s.row * field.cols + s.col] !== 'farming')
-    .map(s => makeSpot(s.col, s.row, grid, poolTiles(field, s.col, s.row)));
+    .map(s => makeSpot(
+      s.col, s.row, grid,
+      poolTiles(field, s.col, s.row),
+      field.liquid[s.row * field.cols + s.col] ?? 'water',
+    ));
 }
 
 export function spotStage(spot: FishingSpot): 'ready' | 'spent' {
@@ -154,9 +165,21 @@ export function restockSpots(spots: FishingSpot[], grid: number, rng: () => numb
   }
 }
 
-/** Every fish this level can land — the table widens as the level climbs. */
-export function catchesUnlockedAt(level: number): FishDef[] {
-  return FISH.filter(f => f.level <= Math.max(1, level));
+/**
+ * Every fish this level can land out of *this* pool — the table widens as the level
+ * climbs, and it is a different table over lava than over water.
+ *
+ * Three gates, all of them hard: the Fishing level, the liquid the pool holds, and
+ * the region, for the one catch that belongs to a single region. A lava pool
+ * outside TzHaar therefore tops out at the lava eel however high the level goes.
+ */
+export function catchesUnlockedAt(
+  level: number, liquid: LiquidKind = 'water', biome?: BiomeId,
+): FishDef[] {
+  return FISH.filter(f =>
+    f.level <= Math.max(1, level)
+    && f.liquid === liquid
+    && (f.biome === undefined || f.biome === biome));
 }
 
 /** The share of casts that land anything, capped short of certainty. */
@@ -186,9 +209,11 @@ export function castSeconds(level: number): number {
  * was, by weight. The weights halve up the ladder, so the fish you unlocked
  * first stays the one you pull most.
  */
-export function rollCatch(level: number, rng: () => number): FishDef | null {
+export function rollCatch(
+  level: number, rng: () => number, liquid: LiquidKind = 'water', biome?: BiomeId,
+): FishDef | null {
   if (rng() >= catchChance(level)) return null;
-  const pool = catchesUnlockedAt(level);
+  const pool = catchesUnlockedAt(level, liquid, biome);
   if (pool.length === 0) return null;
   const total = pool.reduce((sum, f) => sum + f.weight, 0);
   let roll = rng() * total;
