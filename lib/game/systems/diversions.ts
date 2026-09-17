@@ -3,19 +3,19 @@ import {
   DIVERSION_BY_ID,
   DIVERSION_CHANCE,
   DIVERSION_REWARD_KINDS,
-  DIVERSION_REWARD_META,
   DRILL_LEVELS,
   EVENT_CHANCE_CAP,
   EVENT_CHANCE_STEP,
   LAMP_LEVELS,
   MAX_DIVERSIONS,
+  rewardLook,
   type DiversionDef,
   type DiversionId,
   type DiversionMood,
   type DiversionPayload,
   type DiversionRewardKind,
 } from '../data/diversions';
-import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
+import { SEEDS, type SeedId } from '../data/farming';
 import { towerXpForLevel } from './leveling';
 import { essenceForWave } from './meta-progression';
 import { waveClearBonus } from './rewards';
@@ -76,8 +76,8 @@ export interface Diversion {
   trapId?: string;
   /** Set once its {@link DiversionDef.job} has run, so it only ever runs once. */
   jobDone?: boolean;
-  /** The Strange Plant only: what it grew, rolled at spawn so the hover card can
-   *  name it. See {@link rollPlantGift}. */
+  /** What the Strange Plant grew or which herb Dr Jekyll brought, rolled at spawn so
+   *  the hover card can name it. See {@link rollDiversionGift}. */
   gift?: DiversionReward;
 }
 
@@ -504,7 +504,7 @@ export function resolvePayload(defId: DiversionId, rand: () => number): Diversio
 export interface DiversionReward {
   kind: DiversionRewardKind;
   amount: number;
-  /** Which one, for the kind that has several: a seed's {@link SeedId}. */
+  /** Which one, for the kinds that have several: a seed's or a herb's {@link SeedId}. */
   id?: string;
 }
 
@@ -600,10 +600,12 @@ export interface DiversionPop {
   born: number;
 }
 
-/** The image a payout rises off the board as: its kind's own, or for a seed, that
- *  seed's. The engine registers one of each under these keys. */
+/** The image a payout rises off the board as: its kind's own, or for a seed or a
+ *  herb, that one's. The engine registers one of each under these keys. */
 export function rewardImageKey(reward: DiversionReward): string {
-  return reward.kind === 'seed' && reward.id ? `reward_seed_${reward.id}` : `reward_${reward.kind}`;
+  return (reward.kind === 'seed' || reward.kind === 'herb') && reward.id
+    ? `reward_${reward.kind}_${reward.id}`
+    : `reward_${reward.kind}`;
 }
 
 // --- The Strange Plant -------------------------------------------------------
@@ -611,9 +613,16 @@ export function rewardImageKey(reward: DiversionReward): string {
 /** The chance a Strange Plant grows an Overload rather than a herb seed. */
 export const PLANT_OVERLOAD_CHANCE = 0.5;
 
-/** The lowest Farming level a plant's seed comes from. A free Guam saves ten gold,
- *  which is no event at all; from Avantoe up, a seed is a herb worth sowing. */
-export const PLANT_SEED_MIN_LEVEL = 50;
+/** The lowest Farming level a gifted seed or herb comes from. A free Guam saves ten
+ *  gold, which is no event at all; from Avantoe up, it is a herb worth having. */
+export const GIFT_HERB_MIN_LEVEL = 50;
+
+/** One rung off the top of the herb ladder, from {@link GIFT_HERB_MIN_LEVEL} up, each
+ *  as likely as the next. */
+function pickGiftHerb(rand: () => number): SeedId {
+  const pool = SEEDS.filter(s => s.level >= GIFT_HERB_MIN_LEVEL);
+  return pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))].id;
+}
 
 /**
  * What a Strange Plant grew: an Overload, or one herb seed off the top of the ladder
@@ -622,17 +631,42 @@ export const PLANT_SEED_MIN_LEVEL = 50;
  */
 export function rollPlantGift(rand: () => number): DiversionReward {
   if (rand() < PLANT_OVERLOAD_CHANCE) return { kind: 'overload', amount: 1 };
-  const pool = SEEDS.filter(s => s.level >= PLANT_SEED_MIN_LEVEL);
-  const seed = pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))];
-  return { kind: 'seed', amount: 1, id: seed.id };
+  return { kind: 'seed', amount: 1, id: pickGiftHerb(rand) };
+}
+
+// --- Dr Jekyll ---------------------------------------------------------------
+
+/** Dr Jekyll's herb: a clean one off the same top rungs as the plant's seeds, ready
+ *  to use or brew the moment it is in the inventory. */
+export function rollJekyllHerb(rand: () => number): DiversionReward {
+  return { kind: 'herb', amount: 1, id: pickGiftHerb(rand) };
+}
+
+/** The gift a diversion carries from the moment it turns up, for the payloads that
+ *  decide theirs at spawn. Undefined for everyone else. */
+export function rollDiversionGift(payload: DiversionPayload, rand: () => number): DiversionReward | undefined {
+  if (payload === 'plant') return rollPlantGift(rand);
+  if (payload === 'herb') return rollJekyllHerb(rand);
+  return undefined;
+}
+
+/** A gift's name with its article: "an Overload", "a Torstol seed". */
+function namedGift(gift: DiversionReward): string {
+  const name = rewardLook(gift).label;
+  return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
 }
 
 /** The plant's tip and its payout line, both naming the gift. */
 export function plantGiftText(gift: DiversionReward): { tip: string; line: string } {
-  const seed = gift.kind === 'seed' && gift.id ? SEED_BY_ID[gift.id as SeedId] : undefined;
-  const name = seed ? seed.seedName : DIVERSION_REWARD_META[gift.kind].label;
-  const named = `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
+  const named = namedGift(gift);
   return { tip: `Click to pick ${named}.`, line: `The plant bears ${named}.` };
+}
+
+/** A gift-carrying diversion's tip and payout line, both naming what it carries. */
+export function diversionGiftText(payload: DiversionPayload, gift: DiversionReward): { tip: string; line: string } {
+  if (payload !== 'herb') return plantGiftText(gift);
+  const named = namedGift(gift);
+  return { tip: `Click for ${named} to use later.`, line: `Dr Jekyll hands you ${named}.` };
 }
 
 /** How long a payout floats before it is gone. */

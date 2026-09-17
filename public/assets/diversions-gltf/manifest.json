@@ -53,5 +53,12 @@
       "stand",
       "walk"
     ]
+  },
+  "dr_jekyll": {
+    "npc": 307,
+    "clips": [
+      "stand",
+      "walk"
+    ]
   }
 }

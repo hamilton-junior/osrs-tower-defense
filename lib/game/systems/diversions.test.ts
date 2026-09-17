@@ -36,16 +36,19 @@ import {
   lampLevelTo,
   drillXp,
   rollPlantGift,
+  rollJekyllHerb,
+  rollDiversionGift,
   plantGiftText,
+  diversionGiftText,
   rewardImageKey,
   PLANT_OVERLOAD_CHANCE,
-  PLANT_SEED_MIN_LEVEL,
+  GIFT_HERB_MIN_LEVEL,
   type Diversion,
   type RunFacts,
 } from './diversions';
 import {
   DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, DRILL_LEVELS, EVENT_CHANCE_CAP, EVENT_CHANCE_STEP, LAMP_LEVELS,
-  MAX_DIVERSIONS,
+  MAX_DIVERSIONS, rewardLook,
 } from '../data/diversions';
 import { HUNTER_MAX_LEVEL, gainHunterXp, hunterXpForLevel } from './hunter-traps';
 import { gainFishingXp, fishingXpForLevel } from './fishing';
@@ -425,9 +428,11 @@ describe('rewards', () => {
     expect(diversionRewardOptions('hans', ctx)).toEqual([]);
   });
 
-  it("leaves the plant's gift to the plant", () => {
+  it("leaves the plant's gift to the plant, and Dr Jekyll's herb to him", () => {
     expect(payloadReward('plant', ctx)).toBeNull();
     expect(diversionRewardOptions('strange_plant', ctx)).toEqual([]);
+    expect(payloadReward('herb', ctx)).toBeNull();
+    expect(diversionRewardOptions('dr_jekyll', ctx)).toEqual([]);
   });
 
   it('lists everything a nest might hold, in the order it rolls them', () => {
@@ -437,7 +442,7 @@ describe('rewards', () => {
 
   it('gives every other paying diversion exactly one answer', () => {
     for (const def of DIVERSIONS) {
-      if (def.payload === 'none' || def.payload === 'surprise' || def.payload === 'plant') continue;
+      if (['none', 'surprise', 'plant', 'herb'].includes(def.payload)) continue;
       expect(diversionRewardOptions(def.id, ctx)).toHaveLength(1);
     }
   });
@@ -452,12 +457,12 @@ describe('the Strange Plant', () => {
   });
 
   it('otherwise drops one seed from the top of the ladder, ends included', () => {
-    const pool = SEEDS.filter(s => s.level >= PLANT_SEED_MIN_LEVEL);
+    const pool = SEEDS.filter(s => s.level >= GIFT_HERB_MIN_LEVEL);
     expect(rollPlantGift(seq(PLANT_OVERLOAD_CHANCE, 0))).toEqual({ kind: 'seed', amount: 1, id: pool[0].id });
     expect(rollPlantGift(seq(0.9, 0.999999)).id).toBe(pool[pool.length - 1].id);
     for (let r = 0; r < 1; r += 0.05) {
       const gift = rollPlantGift(seq(0.9, r));
-      expect(SEED_BY_ID[gift.id as keyof typeof SEED_BY_ID].level).toBeGreaterThanOrEqual(PLANT_SEED_MIN_LEVEL);
+      expect(SEED_BY_ID[gift.id as keyof typeof SEED_BY_ID].level).toBeGreaterThanOrEqual(GIFT_HERB_MIN_LEVEL);
     }
   });
 
@@ -477,6 +482,45 @@ describe('the Strange Plant', () => {
 
   it('keeps its seed totals in the Collection Log', () => {
     expect(sanitizeDiversionGains({ 'strange_plant:seed': 2 })).toEqual({ 'strange_plant:seed': 2 });
+  });
+});
+
+describe("Dr Jekyll's herb", () => {
+  it('hands over one clean herb from the top of the ladder, ends included', () => {
+    const pool = SEEDS.filter(s => s.level >= GIFT_HERB_MIN_LEVEL);
+    expect(rollJekyllHerb(() => 0)).toEqual({ kind: 'herb', amount: 1, id: pool[0].id });
+    expect(rollJekyllHerb(() => 0.999999).id).toBe(pool[pool.length - 1].id);
+    for (let r = 0; r < 1; r += 0.05) {
+      const herb = rollJekyllHerb(() => r);
+      expect(SEED_BY_ID[herb.id as keyof typeof SEED_BY_ID].level).toBeGreaterThanOrEqual(GIFT_HERB_MIN_LEVEL);
+    }
+  });
+
+  it('decides a gift at spawn only for the payloads that carry one', () => {
+    expect(rollDiversionGift('herb', () => 0)?.kind).toBe('herb');
+    expect(rollDiversionGift('plant', () => 0)?.kind).toBe('overload');
+    for (const p of ['none', 'kebab', 'lamp', 'gold', 'essence', 'potion', 'surprise', 'drill'] as const) {
+      expect(rollDiversionGift(p, () => 0)).toBeUndefined();
+    }
+  });
+
+  it('names the herb, with the right article', () => {
+    expect(diversionGiftText('herb', { kind: 'herb', amount: 1, id: 'avantoe' })).toEqual({
+      tip: 'Click for an Avantoe to use later.',
+      line: 'Dr Jekyll hands you an Avantoe.',
+    });
+    expect(diversionGiftText('herb', { kind: 'herb', amount: 1, id: 'dwarf' }).line).toBe('Dr Jekyll hands you a Dwarf weed.');
+    expect(diversionGiftText('plant', { kind: 'overload', amount: 1 }).line).toBe('The plant bears an Overload.');
+  });
+
+  it("shows and floats the herb as that herb's own icon", () => {
+    expect(rewardLook({ kind: 'herb', id: 'torstol' })).toEqual({ icon: SEED_BY_ID.torstol.herbIcon, label: 'Torstol' });
+    expect(rewardLook({ kind: 'seed', id: 'torstol' }).label).toBe('Torstol seed');
+    expect(rewardImageKey({ kind: 'herb', amount: 1, id: 'kwuarm' })).toBe('reward_herb_kwuarm');
+  });
+
+  it('keeps its herb totals in the Collection Log', () => {
+    expect(sanitizeDiversionGains({ 'dr_jekyll:herb': 3 })).toEqual({ 'dr_jekyll:herb': 3 });
   });
 });
 

@@ -24,7 +24,7 @@ export type DiversionMood = 'walkby' | 'event' | 'nest';
 
 export type DiversionId =
   | 'hans' | 'hunting_expert' | 'lumbridge_guide' | 'party_pete'
-  | 'drunken_dwarf' | 'genie' | 'strange_plant' | 'sergeant_damien'
+  | 'drunken_dwarf' | 'genie' | 'strange_plant' | 'sergeant_damien' | 'dr_jekyll'
   | 'bird_nest';
 
 /**
@@ -33,8 +33,10 @@ export type DiversionId =
  * opened. `kebab` and `lamp` are items, and land in the inventory. `plant` is the
  * Strange Plant's, decided the moment it grows: an Overload or a herb seed. `drill` is
  * Sergeant Damien's: every tower on the board climbs {@link DRILL_LEVELS} levels.
+ * `herb` is Dr Jekyll's: one clean herb for the inventory, picked when he turns up.
  */
-export type DiversionPayload = 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'potion' | 'surprise' | 'plant' | 'drill';
+export type DiversionPayload =
+  | 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'potion' | 'surprise' | 'plant' | 'drill' | 'herb';
 
 /**
  * What a click actually lands in the player's hands. The tooltip, the toast, the
@@ -43,9 +45,12 @@ export type DiversionPayload = 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 
  * into a trap on the road. `life` is paid by nobody any more, since the kebab became
  * something to carry; it stays so an account's old kebab totals still show.
  */
-export type DiversionRewardKind = 'life' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'overload' | 'seed' | 'levels' | 'charges';
+export type DiversionRewardKind =
+  | 'life' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'overload' | 'seed' | 'herb' | 'levels' | 'charges';
 
-export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'kebab', 'lamp', 'gold', 'essence', 'overload', 'seed', 'levels', 'charges'];
+export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = [
+  'life', 'kebab', 'lamp', 'gold', 'essence', 'overload', 'seed', 'herb', 'levels', 'charges',
+];
 
 /** Each reward's own icon, and the name it goes by on hover. */
 export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; label: string }> = {
@@ -58,16 +63,23 @@ export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; 
   // Every herb seed is the same speck in OSRS, so one stands for all of them in a
   // total. A single seed names itself through rewardLook.
   seed: { icon: SEED_BY_ID.guam.seedIcon, label: 'Herb seeds' },
+  // Herbs differ, so a total shows the first rung's. A single herb names itself.
+  herb: { icon: SEED_BY_ID.guam.herbIcon, label: 'Herbs' },
   // The amount is per tower: a drill lifts every tower on the board by it.
   levels: { icon: ASSETS.misc.stats_icon, label: 'Levels for every tower' },
   charges: { icon: ASSETS.misc.hunter_icon, label: 'Trap charges' },
 };
 
-/** A reward's icon and hover name. A seed is the one kind with several members, so
- *  it answers with the seed it is rather than the kind's own. */
+/** A reward's icon and hover name. Seeds and herbs are the kinds with several
+ *  members, so they answer with the one they are rather than the kind's own. */
 export function rewardLook(reward: { kind: DiversionRewardKind; id?: string }): { icon: string; label: string } {
-  const seed = reward.kind === 'seed' && reward.id ? SEED_BY_ID[reward.id as SeedId] : undefined;
-  return seed ? { icon: seed.seedIcon, label: seed.seedName } : DIVERSION_REWARD_META[reward.kind];
+  const def = reward.id && (reward.kind === 'seed' || reward.kind === 'herb')
+    ? SEED_BY_ID[reward.id as SeedId]
+    : undefined;
+  if (!def) return DIVERSION_REWARD_META[reward.kind];
+  return reward.kind === 'seed'
+    ? { icon: def.seedIcon, label: def.seedName }
+    : { icon: def.herbIcon, label: def.herbName };
 }
 
 /** The genie's lamp, as the inventory carries it. OSRS calls it just "Lamp". */
@@ -256,6 +268,20 @@ export const DIVERSIONS: DiversionDef[] = [
     lines: [
       'Sergeant Damien runs your towers through drills until they hit harder.',
       'Call that a defence, maggot? Again! And again! Better.',
+    ],
+  },
+  {
+    id: 'dr_jekyll',
+    mood: 'event',
+    name: 'Dr Jekyll',
+    sprite: npcModel('dr_jekyll'),
+    turned: turned('dr_jekyll'),
+    payload: 'herb',
+    // The live tip and line name the herb (diversionGiftText); these are what the
+    // Collection Log reads, and the fallback.
+    tip: 'Click for a herb to use later.',
+    lines: [
+      'Dr Jekyll hands you a herb from his bag.',
     ],
   },
   {

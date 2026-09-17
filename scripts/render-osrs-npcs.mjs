@@ -159,6 +159,8 @@ const TARGETS = {
   strange_plant: { npc: 323 },
   // 6743 is the random-event Sergeant Damien; 337 is the same model at the camp.
   sergeant_damien: { npc: 6743 },
+  // 307 is the random-event Dr Jekyll (Talk-to, Dismiss).
+  dr_jekyll: { npc: 307 },
 
   // Turned round, so a walker can face the way it is going: the default render
   // above is the front (a ¾ view, which is what the infobox icon wants too),
@@ -181,6 +183,8 @@ const TARGETS = {
   genie_back: { npc: 326, yaw: 180 },
   sergeant_damien_side: { npc: 6743, yaw: 90 },
   sergeant_damien_back: { npc: 6743, yaw: 180 },
+  dr_jekyll_side: { npc: 307, yaw: 90 },
+  dr_jekyll_back: { npc: 307, yaw: 180 },
 
   // --- Misc NPC-model icons ---
   giant_snail: { npc: 5628 },            // "slow" debuff icon

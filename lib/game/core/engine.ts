@@ -57,7 +57,7 @@ import { DIVERSION_BY_ID, DIVERSION_REWARD_META, GENIE_LAMP, LAMP_SKILL_META, ty
 import { FOOD_BY_ID, type FoodId } from '../data/food';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
-import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, drillXp, lampXp, offBoardPoint, payloadReward, plantGiftText, rewardImageKey, rollPlantGift, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
+import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, drillXp, lampXp, offBoardPoint, payloadReward, diversionGiftText, rewardImageKey, rollDiversionGift, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
@@ -907,7 +907,7 @@ export class GameEngine {
         const def = DIVERSION_BY_ID[d.defId];
         return {
           id: d.id, defId: d.defId, mood: d.mood, name: def.name, icon: def.sprite,
-          tip: d.gift ? plantGiftText(d.gift).tip : def.tip,
+          tip: d.gift ? diversionGiftText(def.payload, d.gift).tip : def.tip,
           line: d.mood === 'walkby' ? d.line : null,
           rewards: d.gift ? [d.gift] : diversionRewardOptions(d.defId, this.diversionRewardContext()),
         };
@@ -1458,11 +1458,15 @@ export class GameEngine {
       // Party Pete's balloons, one bake per colour, keyed `party_balloon_<n>`.
       ...Object.fromEntries(ASSETS.partyBalloons.map((url, n) => [`party_balloon_${n}`, url])),
       // What a payout rises off the board as, keyed `reward_<kind>`, plus each herb
-      // seed the Strange Plant can drop under its own `reward_seed_<id>`.
+      // seed the Strange Plant can drop and each herb Dr Jekyll can bring, under
+      // their own `reward_seed_<id>` and `reward_herb_<id>`.
       ...Object.fromEntries(
         Object.entries(DIVERSION_REWARD_META).map(([kind, meta]) => [`reward_${kind}`, meta.icon]),
       ),
-      ...Object.fromEntries(SEEDS.map(s => [rewardImageKey({ kind: 'seed', amount: 1, id: s.id }), s.seedIcon])),
+      ...Object.fromEntries(SEEDS.flatMap(s => [
+        [rewardImageKey({ kind: 'seed', amount: 1, id: s.id }), s.seedIcon],
+        [rewardImageKey({ kind: 'herb', amount: 1, id: s.id }), s.herbIcon],
+      ])),
       // ...and their baked animation sheets, keyed `divanim_<id>_<view>_<clip>`: one
       // stand/walk loop per camera yaw, from the NPC's own cache animations. The
       // portraits above stay loaded as the fallback while these arrive.
@@ -3182,8 +3186,9 @@ export class GameEngine {
       // anywhere, so those two simply appear where they are.
       const walks = (def.arrival ?? 'walk') === 'walk';
       const from = walks ? offBoardPoint(spot.x, spot.y, this.width, this.height) : spot;
-      // The plant's gift is grown now, so its hover card and its line can name it.
-      const gift = def.payload === 'plant' ? rollPlantGift(Math.random) : undefined;
+      // The plant's gift is grown now, and Jekyll's herb picked, so the hover card
+      // and the line can name it.
+      const gift = rollDiversionGift(def.payload, Math.random);
       const dv: Diversion = {
         id: `dv${++this.diversionSeq}`,
         defId: def.id,
@@ -3196,7 +3201,7 @@ export class GameEngine {
         exit: null,
         facing: 'front',
         facingLeft: false,
-        line: gift ? plantGiftText(gift).line : diversionLine(def, Math.random, hint),
+        line: gift ? diversionGiftText(def.payload, gift).line : diversionLine(def, Math.random, hint),
         trapId: def.job === 'mend_trap' ? worn?.trapId : undefined,
         gift,
       };
@@ -3487,6 +3492,12 @@ export class GameEngine {
         // Carried until a patch is free: sowing it costs nothing.
         if (reward.id && reward.id in SEED_BY_ID) {
           if (addItem(this.items, 'seed', reward.id, reward.amount) === 'bag') this.bagBump(stackKey('seed', reward.id));
+        }
+        break;
+      case 'herb':
+        // Clean and ready: used on a wave or brewed like any harvested herb.
+        if (reward.id && reward.id in SEED_BY_ID) {
+          if (addItem(this.items, 'herb', reward.id, reward.amount) === 'bag') this.bagBump(stackKey('herb', reward.id));
         }
         break;
       case 'levels':
