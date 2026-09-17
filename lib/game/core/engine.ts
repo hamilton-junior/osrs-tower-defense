@@ -5001,6 +5001,15 @@ export class GameEngine {
     this.emit();
   }
 
+  /** One of every seed, to test planting straight from the inventory. */
+  debugGiveSeeds() {
+    for (const s of SEEDS) {
+      if (addItem(this.items, 'seed', s.id) === 'bag') this.bagBump(stackKey('seed', s.id));
+    }
+    this.notify(`${SEEDS.length} seeds added`, ASSETS.misc.farming_icon);
+    this.emit();
+  }
+
   /** Set remaining lives (clamped to the Saradomin brew's overheal cap, so the
    *  overheal can be tested without brewing one). */
   debugSetLives(n: number) {

@@ -74,7 +74,7 @@ export function EnemyModelViewer({ slug, initialClip }: { slug: string; initialC
       try {
         gltf = await new GLTFLoader().loadAsync(url);
       } catch (e) {
-        if (!disposed) { setErr('Falha ao carregar modelo'); setLoading(false); }
+        if (!disposed) { setErr('Could not load the model'); setLoading(false); }
         renderer.dispose();
         renderer.domElement.remove();
         return;
@@ -188,51 +188,45 @@ export function EnemyModelViewer({ slug, initialClip }: { slug: string; initialC
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-      <div
-        ref={mountRef}
-        style={{ width: '100%', aspectRatio: '1 / 1', background: 'rgba(0,0,0,0.35)', borderRadius: 6, position: 'relative', cursor: 'grab' }}
-      >
+    <div className="flex flex-col gap-[0.45em] w-full">
+      <div ref={mountRef} className="rs-panel-inset relative w-full aspect-square cursor-grab overflow-hidden">
         {loading && !err && (
-          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#caa86a', fontFamily: 'var(--font-osrs)' }}>
-            Carregando modelo 3D…
-          </div>
+          <div className="absolute inset-0 grid place-items-center text-[0.8em] text-osrs-yellow">Loading 3D model…</div>
         )}
         {err && (
-          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#d66', fontFamily: 'var(--font-osrs)' }}>
-            {err}
-          </div>
+          <div className="absolute inset-0 grid place-items-center text-[0.8em] text-osrs-red">{err}</div>
         )}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+      <div className="flex flex-wrap items-center gap-[0.3em]">
+        <button onClick={() => setPlaying((p) => !p)} className="rs-btn px-[0.6em] py-[0.15em] text-[0.8em]" title={playing ? 'Pause' : 'Play'}>
+          {playing ? '❚❚' : '▶'}
+        </button>
         {clips.map((c) => (
           <button
             key={c}
             onClick={() => setClip(c)}
-            className="osrs-button"
-            style={{ padding: '2px 8px', fontSize: 12, opacity: c === clip ? 1 : 0.6, textTransform: 'capitalize' }}
+            className={`rs-btn px-[0.55em] py-[0.15em] text-[0.7em] capitalize ${c === clip ? 'rs-btn-primary' : ''}`}
           >
             {c}
           </button>
         ))}
-        <button onClick={() => setPlaying((p) => !p)} className="osrs-button" style={{ padding: '2px 10px', fontSize: 12 }}>
-          {playing ? '⏸' : '▶'}
-        </button>
       </div>
 
-      <input
-        type="range"
-        min={0}
-        max={dur || 1}
-        step={0.001}
-        value={time}
-        onChange={(e) => scrub(Number(e.target.value))}
-        style={{ width: '100%' }}
-      />
-      <div style={{ fontSize: 11, color: '#9a8a6a', textAlign: 'center', fontFamily: 'var(--font-osrs)' }}>
-        arraste p/ girar · {time.toFixed(2)}s / {dur.toFixed(2)}s
+      <div className="flex items-center gap-[0.4em]">
+        <input
+          type="range"
+          min={0}
+          max={dur || 1}
+          step={0.001}
+          value={time}
+          onChange={(e) => scrub(Number(e.target.value))}
+          className="rs-volume flex-1 min-w-0"
+          aria-label="Time"
+        />
+        <span className="text-[0.7em] text-osrs-yellow tabular-nums">{time.toFixed(2)}s / {dur.toFixed(2)}s</span>
       </div>
+      <div className="text-[0.66em] text-[#b3a585] text-center">Drag to rotate.</div>
     </div>
   );
 }

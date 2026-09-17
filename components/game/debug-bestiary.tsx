@@ -6,7 +6,11 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { LOOK_BY_SLUG, LOOKS_BY_TYPE, defaultLookSlug, type EnemyLookDef } from '@/lib/game/data/enemy-variants';
 import { BIOMES } from '@/lib/game/data/biomes';
 import { GRID } from '@/lib/game/core/engine-state';
+import { ASSETS } from '@/lib/game/assets';
 import { EnemyModelViewer } from './EnemyModelViewer';
+import { fs, hideBrokenImg } from './ui-kit';
+import { enemySlugSpriteStyle } from './enemy-ui';
+import { Caption, DebugCard, PickTile, TileGrid } from './debug-cheats';
 import type { EnemyType } from '@/lib/game/types';
 
 export const CLIP_NAMES = ['walk', 'hurt', 'death', 'burrow', 'emerge'] as const;
@@ -38,7 +42,8 @@ function boardSize(def: EnemyDef): number {
 }
 
 /** Plays a single baked clip on a loop in a small canvas. One-shot clips
- *  (hurt/death) replay after a short pause so the preview never freezes. */
+ *  (hurt/death) replay after a short pause so the preview never freezes. The
+ *  backing store is fixed; CSS sizes it in `em`, so it follows the UI size. */
 function AnimPreview({ set, clipName, size = 112 }: { set: EnemyAnimSet; clipName: ClipName; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const clip = set.clips[clipName];
@@ -78,7 +83,7 @@ function AnimPreview({ set, clipName, size = 112 }: { set: EnemyAnimSet; clipNam
       ref={ref}
       width={size}
       height={size}
-      className="bg-[#1a1712] rounded-[3px] border border-[#3a2f1d]"
+      className="w-full aspect-square"
       // Baked clips face RIGHT (canonical space) — same as the map default
       // (enemies travel rightward), so no mirror here.
       style={{ imageRendering: 'pixelated' }}
@@ -143,30 +148,32 @@ function AnimViewer({ set, clipName, size = 320 }: { set: EnemyAnimSet; clipName
   const step = (d: number) => { setPlaying(false); setFrame((f) => (f + d + clip.frames) % clip.frames); };
 
   return (
-    <div className="flex flex-col items-center gap-[0.5em]">
-      <canvas
-        ref={canvasRef}
-        width={size}
-        height={size}
-        className="bg-[#15120d] rounded-[3px] border border-[#3a2f1d]"
-        style={{ imageRendering: 'pixelated' }}
-      />
-      <div className="flex items-center gap-[0.5em] w-full">
-        <button onClick={() => setPlaying((p) => !p)} className="rs-btn px-[0.6em] py-[0.2em] text-[0.8em]" title={playing ? 'Pause' : 'Play'}>
+    <div className="flex flex-col gap-[0.45em]">
+      <div className="rs-panel-inset">
+        <canvas
+          ref={canvasRef}
+          width={size}
+          height={size}
+          className="block w-full aspect-square"
+          style={{ imageRendering: 'pixelated' }}
+        />
+      </div>
+      <div className="flex items-center gap-[0.4em] w-full">
+        <button onClick={() => setPlaying((p) => !p)} className="rs-btn px-[0.6em] py-[0.15em] text-[0.8em]" title={playing ? 'Pause' : 'Play'}>
           {playing ? '❚❚' : '▶'}
         </button>
-        <button onClick={() => step(-1)} className="rs-btn px-[0.5em] py-[0.2em] text-[0.8em]" title="Previous frame">◀</button>
+        <button onClick={() => step(-1)} className="rs-btn px-[0.5em] py-[0.15em] text-[0.8em]" title="Previous frame">◀</button>
         <input
           type="range"
           min={0}
           max={clip.frames - 1}
           value={frame}
           onChange={(e) => { setPlaying(false); setFrame(Number(e.target.value)); }}
-          className="rs-volume flex-1"
+          className="rs-volume flex-1 min-w-0"
           aria-label="Frame"
         />
-        <button onClick={() => step(1)} className="rs-btn px-[0.5em] py-[0.2em] text-[0.8em]" title="Next frame">▶</button>
-        <span className="text-[0.72em] text-osrs-yellow tabular-nums w-[3.2em] text-right">{frame + 1}/{clip.frames}</span>
+        <button onClick={() => step(1)} className="rs-btn px-[0.5em] py-[0.15em] text-[0.8em]" title="Next frame">▶</button>
+        <span className="text-[0.7em] text-osrs-yellow tabular-nums w-[3.4em] text-right">{frame + 1}/{clip.frames}</span>
       </div>
     </div>
   );
@@ -182,7 +189,7 @@ type BestiarySection = { key: string; label: string; types: EnemyType[] };
  * are rendered on opposite sides of the panel's own frame — the lightbox covers
  * the whole board, so it cannot sit inside a `MovablePanel` — and both halves have
  * to agree on which clip is open. Keeping it in the shell also means the selection
- * survives a trip to the Cheats tab and back, which it always has.
+ * survives a trip to another tab and back.
  */
 export interface BestiaryState {
   sections: BestiarySection[];
@@ -193,7 +200,7 @@ export interface BestiaryState {
   expanded: ClipName | null;
   setExpanded: (c: ClipName | null) => void;
   lightboxMode: '3d' | 'sprite';
-  toggleLightboxMode: () => void;
+  setLightboxMode: (m: '3d' | 'sprite') => void;
   /** The baked clip set for the look on screen — undefined if nothing is baked. */
   set: EnemyAnimSet | undefined;
   def: EnemyDef | undefined;
@@ -205,9 +212,9 @@ export interface BestiaryState {
 }
 
 export function useBestiary(): BestiaryState {
-  // The list is one row per *monster*, grouped by where it lives; the several
+  // The list is one tile per *monster*, grouped by where it lives; the several
   // bodies one monster can wear (the Barrows brothers, Cerberus's souls) hang off
-  // its own entry instead of crowding the list with lookalikes.
+  // its own card instead of crowding the list with lookalikes.
   const sections = useMemo<BestiarySection[]>(() => {
     const groups = new Map<string, EnemyType[]>();
     for (const def of Object.values(ENEMIES)) {
@@ -240,7 +247,7 @@ export function useBestiary(): BestiaryState {
     expanded,
     setExpanded,
     lightboxMode,
-    toggleLightboxMode: () => setLightboxMode((m) => (m === '3d' ? 'sprite' : '3d')),
+    setLightboxMode,
     set: ENEMY_ANIMS[viewingSlug],
     def,
     look,
@@ -252,103 +259,108 @@ export function useBestiary(): BestiaryState {
   };
 }
 
-/** The scrolling monster list, grouped by region. */
+/** The scrolling monster list, grouped by region, one Collection Log tile each. */
 function MonsterList({ st }: { st: BestiaryState }) {
+  const total = st.sections.reduce((n, sec) => n + sec.types.length, 0);
   return (
-    <div className="max-h-[14em] overflow-y-auto custom-scrollbar pr-[0.2em] space-y-[0.35em]">
-      {st.sections.map((sec) => (
-        <div key={sec.key}>
-          <div className="text-[0.62em] uppercase tracking-wide text-[#9d8b63] mb-[0.15em]">
-            {sec.label} <span className="text-[#6b5836]">({sec.types.length})</span>
+    <DebugCard title="Monsters" icon={ASSETS.misc.slayer_crossbow} aside={`${total}`}>
+      <div className="max-h-[16.5em] overflow-y-auto custom-scrollbar pr-[0.2em] space-y-[0.45em]">
+        {st.sections.map((sec) => (
+          <div key={sec.key} className="space-y-[0.2em]">
+            <Caption>{sec.label} <span className="text-[#6b5f48]">({sec.types.length})</span></Caption>
+            <TileGrid>
+              {sec.types.map((t) => (
+                <PickTile
+                  key={t}
+                  name={ENEMIES[t].name}
+                  sprite={enemySlugSpriteStyle(defaultLookSlug(t))}
+                  picked={st.viewingType === t}
+                  onClick={() => st.showMonster(t)}
+                />
+              ))}
+            </TileGrid>
           </div>
-          <div className="flex flex-wrap gap-[0.25em]">
-            {sec.types.map((t) => (
-              <button
-                key={t}
-                onClick={() => st.showMonster(t)}
-                className={`px-[0.4em] py-[0.15em] rounded-[3px] border text-[0.66em] capitalize ${st.viewingType === t ? 'border-osrs-orange bg-osrs-orange/20 text-osrs-yellow' : 'border-[#3a2f1d] text-[#cdbe91] hover:border-[#6b5836]'}`}
-              >
-                {ENEMIES[t].name}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </DebugCard>
   );
 }
 
-/** The stat block beside the clips — the same numbers the board runs on. */
-function MonsterStats({ st, set }: { st: BestiaryState; set: EnemyAnimSet }) {
-  const { def, look, kind } = st;
+/** A label and its value, the patch panel's stat line. */
+function Row({ label, value, tone, icon }: { label: string; value: string; tone?: string; icon?: string }) {
   return (
-    <div className="grid grid-cols-2 gap-x-[0.6em] gap-y-[0.2em] text-[0.74em] flex-1">
-      {def && (
-        <>
-          <span className="text-[#d3c3a0]">HP</span>
-          <span className="text-right text-white">{def.hp}</span>
-          <span className="text-[#d3c3a0]">Speed</span>
-          <span className="text-right text-white">{def.speed}</span>
-          <span className="text-[#d3c3a0]">Weakness</span>
-          <span className="text-right capitalize text-white">{def.weakness ?? 'None'}</span>
-          <span className="text-[#d3c3a0]">Reward</span>
-          <span className="text-right text-osrs-yellow">{def.reward}</span>
-          <span className="text-[#d3c3a0]">Size</span>
-          <span className="text-right text-white">{boardSize(def)}px · {(boardSize(def) / GRID).toFixed(2)} tiles</span>
-          <span className="text-[#d3c3a0]">Region</span>
-          <span className="text-right text-white">{def.region ? BIOMES[def.region].name : 'Anywhere'}</span>
-        </>
-      )}
-      {kind && (
-        <>
-          <span className="text-[#d3c3a0]">Type</span>
-          <span className={`text-right ${def?.isBoss && !look ? 'text-osrs-red uppercase' : 'text-white'}`}>{kind}</span>
-        </>
-      )}
-      <span className="text-[#d3c3a0]">Clips</span>
-      <span className="text-right text-white">{CLIP_NAMES.filter((c) => set.clips[c]).join(', ')}</span>
-    </div>
+    <>
+      <span className="text-[0.68em] text-[#b3a585]">{label}</span>
+      <span className={`text-[0.68em] text-right tabular-nums flex items-center justify-end gap-[0.25em] ${tone ?? 'text-osrs-yellow'}`}>
+        {value}
+        {icon && <img src={icon} alt="" className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />}
+      </span>
+    </>
   );
 }
 
-/** The card under the list: the look picker, every baked clip playing, and the stats. */
+/** The card under the list: who it is, the numbers the board runs on, the bodies
+ *  it can wear, and every baked clip playing. */
 function MonsterCard({ st, set }: { st: BestiaryState; set: EnemyAnimSet }) {
-  const { looks, viewingSlug, viewingName } = st;
+  const { def, look, looks, kind, viewingSlug, viewingName } = st;
+  const region = def?.region ? BIOMES[def.region].name : 'Anywhere';
+  const clips = CLIP_NAMES.filter((c) => set.clips[c]);
+  const sprite = enemySlugSpriteStyle(viewingSlug, true);
   return (
-    <div className="rs-panel-inset p-[0.6em]">
-      <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.4em]">{viewingName}</div>
+    <div className="rs-panel-inset p-[0.55em] space-y-[0.5em]">
+      <div className="flex gap-[0.6em] items-start">
+        {/* The full-size sprite, walking: its loop is cut for exactly this box. */}
+        <div className="rs-log-sprite shrink-0" style={sprite}>{sprite ? null : '?'}</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[0.82em] text-osrs-orange font-bold truncate">{viewingName}</div>
+          <div className="text-[0.62em] uppercase tracking-wide text-osrs-yellow mb-[0.3em]">
+            {kind && <span className={def?.isBoss && !look ? 'text-osrs-red' : undefined}>{kind} · </span>}
+            {region}
+          </div>
+          {def && (
+            <div className="grid grid-cols-2 gap-x-[0.5em] gap-y-[0.15em]">
+              <Row label="Hitpoints" value={`${def.hp}`} icon={ASSETS.misc.hp_icon} />
+              <Row label="Speed" value={`${def.speed}`} />
+              <Row label="Weakness" value={def.weakness ?? 'None'} tone="text-osrs-yellow capitalize" />
+              <Row label="Reward" value={`${def.reward}`} icon={ASSETS.misc.coins_icon} />
+              <Row label="Size" value={`${boardSize(def)}px · ${(boardSize(def) / GRID).toFixed(2)} tiles`} />
+            </div>
+          )}
+        </div>
+      </div>
+
       {looks && looks.length > 1 && (
-        <div className="flex flex-wrap gap-[0.25em] mb-[0.45em]">
-          {looks.map((l) => (
-            <button
-              key={l.slug}
-              onClick={() => st.setViewingSlug(l.slug)}
-              title={l.name}
-              className={`px-[0.4em] py-[0.1em] rounded-[3px] border text-[0.62em] ${viewingSlug === l.slug ? 'border-osrs-orange bg-osrs-orange/20 text-osrs-yellow' : 'border-[#3a2f1d] text-[#cdbe91] hover:border-[#6b5836]'}`}
-            >
-              {l.name}
-            </button>
-          ))}
+        <div className="space-y-[0.2em]">
+          <Caption>Looks ({looks.length})</Caption>
+          <TileGrid>
+            {looks.map((l) => (
+              <PickTile
+                key={l.slug}
+                name={l.name}
+                sprite={enemySlugSpriteStyle(l.slug)}
+                picked={viewingSlug === l.slug}
+                onClick={() => st.setViewingSlug(l.slug)}
+              />
+            ))}
+          </TileGrid>
         </div>
       )}
-      <div className="flex gap-[0.6em] items-start">
-        <div className="flex flex-col gap-[0.4em] max-h-[17em] overflow-y-auto custom-scrollbar pr-[0.2em]">
-          {CLIP_NAMES.filter((c) => set.clips[c]).map((c) => (
+
+      <div className="space-y-[0.2em]">
+        <Caption>Clips · click one to enlarge</Caption>
+        <TileGrid>
+          {clips.map((c) => (
             <button
               key={c}
               onClick={() => st.setExpanded(c)}
-              title={`Click to enlarge ${c}`}
-              className="flex flex-col items-center group"
+              title={`Enlarge ${c}`}
+              className="rs-log-entry w-full min-w-0"
             >
-              <span className="relative">
-                <AnimPreview set={set} clipName={c} />
-                <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 rounded-[3px] text-osrs-yellow text-[1.2em]">⛶</span>
-              </span>
-              <span className="text-[0.6em] text-[#cdbb91] capitalize mt-[0.1em]">{c}</span>
+              <AnimPreview set={set} clipName={c} />
+              <span className="rs-log-name capitalize">{c}</span>
             </button>
           ))}
-        </div>
-        <MonsterStats st={st} set={set} />
+        </TileGrid>
       </div>
     </div>
   );
@@ -357,10 +369,10 @@ function MonsterCard({ st, set }: { st: BestiaryState; set: EnemyAnimSet }) {
 /** The Bestiary tab itself: pick a monster, watch its baked clips, read its stats. */
 export function BestiaryTab({ st }: { st: BestiaryState }) {
   return (
-    <div className="space-y-[0.6em]">
+    <>
       <MonsterList st={st} />
       {st.set && <MonsterCard st={st} set={st.set} />}
-    </div>
+    </>
   );
 }
 
@@ -378,17 +390,26 @@ export function BestiaryLightbox({ st }: { st: BestiaryState }) {
       className="absolute inset-0 z-40 flex items-center justify-center bg-black/70"
       onClick={() => st.setExpanded(null)}
     >
-      <div className="rs-panel p-4 w-[24em]" onClick={(e) => e.stopPropagation()} style={{ fontSize: 'clamp(13px, 0.9vw, 18px)' }}>
-        <div className="rs-panel-title flex items-center justify-between mb-[0.6em]">
-          <span className="capitalize">{viewingName}: {expanded}</span>
-          <span className="flex items-center gap-[0.3em]">
-            <button
-              onClick={st.toggleLightboxMode}
-              title="Toggle 3D model / baked sprite"
-              className="rs-btn px-[0.5em] py-0 text-[0.7em]"
-            >
-              {lightboxMode === '3d' ? '3D' : 'Sprite'}
-            </button>
+      <div
+        className="rs-panel p-[0.6em] w-[24em] flex flex-col gap-[0.45em]"
+        onClick={(e) => e.stopPropagation()}
+        style={{ fontSize: fs('clamp(14px, 0.95vw, 20px)') }}
+      >
+        <div className="rs-panel-title flex items-center justify-between gap-[0.5em]" style={{ fontSize: '1em' }}>
+          <span className="min-w-0 truncate">
+            {viewingName} <span className="text-[0.8em] text-osrs-yellow capitalize">· {expanded}</span>
+          </span>
+          <span className="flex items-center gap-[0.3em] shrink-0">
+            {(['3d', 'sprite'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => st.setLightboxMode(m)}
+                title={m === '3d' ? 'The live 3D model' : 'The baked sprite sheet'}
+                className={`rs-btn px-[0.5em] py-0 text-[0.7em] ${lightboxMode === m ? 'rs-btn-primary' : ''}`}
+              >
+                {m === '3d' ? '3D' : 'Sprite'}
+              </button>
+            ))}
             <button onClick={() => st.setExpanded(null)} title="Close" className="rs-btn px-[0.5em] py-0 text-[0.8em]">✕</button>
           </span>
         </div>
