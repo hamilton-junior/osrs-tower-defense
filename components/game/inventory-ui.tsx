@@ -5,9 +5,13 @@ import { ASSETS } from '@/lib/game/assets';
 import type { UIState, UiStack } from '@/lib/game/core/engine';
 import { SEED_BY_ID, type SeedId } from '@/lib/game/data/farming';
 import { POTIONS, POTION_BY_ID, type PotionDef, type PotionId } from '@/lib/game/data/herblore';
-import { FISH_BY_ID, type FishId } from '@/lib/game/data/fishing';
+import { FISHING_MAX_LEVEL } from '@/lib/game/data/fishing';
+import { FOOD_BY_ID, type FoodId } from '@/lib/game/data/food';
+import { LAMP_LEVELS, LAMP_SKILLS, LAMP_SKILL_META, type LampSkill } from '@/lib/game/data/diversions';
+import { lampLevelTo } from '@/lib/game/systems/diversions';
+import { HUNTER_MAX_LEVEL } from '@/lib/game/systems/hunter-traps';
 import type { Tower } from '@/lib/game/types';
-import { brewBlocker, emptyPouch, emptyStock, outrankedBy, overhealCap, type BrewBlocker } from '@/lib/game/systems/herblore';
+import { HERBLORE_MAX_LEVEL, brewBlocker, emptyPouch, emptyStock, outrankedBy, overhealCap, type BrewBlocker } from '@/lib/game/systems/herblore';
 import type { StackKind } from '@/lib/game/systems/inventory';
 import { LootBagView } from './lootbag-ui';
 import { OptionMenu, type MenuOption } from './OptionMenu';
@@ -66,9 +70,11 @@ export interface InventoryViewProps {
   onUseHerb: (id: SeedId) => void;
   onBrewPotion: (id: PotionId) => void;
   onDrinkPotion: (id: PotionId) => void;
-  onEatFood: (id: FishId) => void;
+  onEatFood: (id: FoodId) => void;
   /** Sell one instead of eating it, for a run that would rather have the gold. */
-  onSellFood: (id: FishId) => void;
+  onSellFood: (id: FoodId) => void;
+  /** Rub one genie lamp for levels in the skill picked off its menu. */
+  onRubLamp: (skill: LampSkill) => void;
   /** A drag rearranged the looting bag: its whole key list, newly ordered. */
   onReorderBag: (keys: string[]) => void;
 }
@@ -77,21 +83,25 @@ export function InventoryView(props: InventoryViewProps) {
   const {
     ui, page, onPage, towers, hoverTowerId, onHoverTower, onEquipGear,
     onStoreStack, onTakeStack, onMoveSlot, onUseHerb, onBrewPotion, onDrinkPotion,
-    onEatFood, onSellFood, onReorderBag,
+    onEatFood, onSellFood, onRubLamp, onReorderBag,
   } = props;
   // The open Choose Option menu: where the click landed, and the square it landed
   // on. Held by the stack itself rather than by the slot index, because acting on
   // one moves the rest around.
-  const [menu, setMenu] = useState<{ x: number; y: number; stack: UiStack } | null>(null);
+  // `lamp` marks the second page a lamp's menu turns to once Rub is picked: the
+  // skills it can go into, the way the genie's own interface asks.
+  const [menu, setMenu] = useState<{ x: number; y: number; stack: UiStack; lamp?: boolean } | null>(null);
   // The square a drag started on. Read from here on drop rather than from the drag
   // payload, because an empty payload reads back as slot 0.
   const [dragFrom, setDragFrom] = useState<number | null>(null);
 
   const free = useMemo(() => ui.inventory.reduce((n, s) => n + (s ? 0 : 1), 0), [ui.inventory]);
-  const options = useMemo(
-    () => (menu ? stackOptions(menu.stack, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onStoreStack) : []),
-    [menu, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onStoreStack],
-  );
+  const options = useMemo(() => {
+    if (!menu) return [];
+    if (menu.lamp) return lampOptions(ui, onRubLamp);
+    const openLamp = () => setMenu(m => (m ? { ...m, lamp: true } : m));
+    return stackOptions(menu.stack, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, openLamp, onStoreStack);
+  }, [menu, ui, onUseHerb, onBrewPotion, onDrinkPotion, onEatFood, onSellFood, onRubLamp, onStoreStack]);
   const bagCount = ui.lootBag.length + ui.bagStacks.length;
 
   // ──────────────────────────── the loot bag ─────────────────────────────
@@ -209,7 +219,7 @@ export function InventoryView(props: InventoryViewProps) {
 
 /**
  * The lines OSRS would put on that square, and only those: a herb is consumed, a
- * potion is drunk, a fish is eaten, a herb or potion grows a Brew line for every
+ * potion is drunk, food is eaten, a lamp is rubbed, a herb or potion grows a Brew line for every
  * recipe it goes into, and anything can be pushed into the loot bag. A Harralander
  * makes an Energy potion and a Combat potion, so both are listed. A recipe the run
  * cannot finish yet stays on the menu greyed, with the wall it is against (the
@@ -226,8 +236,9 @@ function stackOptions(
   onUseHerb: (id: SeedId) => void,
   onBrewPotion: (id: PotionId) => void,
   onDrinkPotion: (id: PotionId) => void,
-  onEatFood: (id: FishId) => void,
-  onSellFood: (id: FishId) => void,
+  onEatFood: (id: FoodId) => void,
+  onSellFood: (id: FoodId) => void,
+  onOpenLamp: () => void,
   onStoreStack: (kind: StackKind, id: string) => void,
 ): MenuOption[] {
   const disabled = ui.waveActive;
@@ -248,18 +259,30 @@ function stackOptions(
         disabled,
         note,
         title: stack.tip,
-        onSelect: () => onEatFood(stack.id as FishId),
+        onSelect: () => onEatFood(stack.id as FoodId),
       }, {
         // Ungated, the way Store is: gold moving changes nothing about a fight. The
         // price is on the line, so the choice between a life and the coins is made
         // without leaving the menu.
         action: 'Sell',
         target: stack.name,
-        coins: FISH_BY_ID[stack.id as FishId]?.gold,
+        coins: FOOD_BY_ID[stack.id as FoodId]?.gold,
         title: 'Sell one for gold instead of eating it',
-        onSelect: () => onSellFood(stack.id as FishId),
+        onSelect: () => onSellFood(stack.id as FoodId),
       }]
-      : [drinkOption(stack, ui, onDrinkPotion)];
+      : stack.kind === 'lamp'
+        ? [{
+          // Opens the skill list in place rather than rubbing: the genie asks which
+          // skill before anything is spent.
+          action: 'Rub',
+          target: stack.name,
+          disabled,
+          note,
+          title: stack.tip,
+          keepOpen: true,
+          onSelect: onOpenLamp,
+        }]
+        : [drinkOption(stack, ui, onDrinkPotion)];
 
   // The engine brews out of the pouch and the shelf, so the menu asks the same
   // two the same way — `brewBlocker` is the one answer to "can this be made".
@@ -294,6 +317,33 @@ function stackOptions(
     onSelect: () => onStoreStack(stack.kind, stack.id),
   });
   return out;
+}
+
+/**
+ * The genie lamp's second page: one line per skill it can be rubbed for, each with
+ * its own icon and the level it would reach. A maxed skill stays listed and greyed,
+ * so the list reads the same every time.
+ */
+function lampOptions(ui: UIState, onRubLamp: (skill: LampSkill) => void): MenuOption[] {
+  const levels: Record<LampSkill, [level: number, max: number]> = {
+    hunter: [ui.hunterLevel, HUNTER_MAX_LEVEL],
+    herblore: [ui.herbloreLevel, HERBLORE_MAX_LEVEL],
+    fishing: [ui.fishingLevel, FISHING_MAX_LEVEL],
+  };
+  return LAMP_SKILLS.map(skill => {
+    const meta = LAMP_SKILL_META[skill];
+    const [level, max] = levels[skill];
+    const maxed = level >= max;
+    return {
+      icon: meta.icon,
+      action: meta.name,
+      target: maxed ? undefined : `level ${level} \u2192 ${lampLevelTo(level, max)}`,
+      disabled: ui.waveActive || maxed,
+      note: maxed ? 'already maxed' : ui.waveActive ? 'only between waves' : undefined,
+      title: `Gain ${LAMP_LEVELS} ${meta.name} levels`,
+      onSelect: () => onRubLamp(skill),
+    };
+  });
 }
 
 /**

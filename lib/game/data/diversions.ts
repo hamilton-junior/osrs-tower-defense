@@ -28,29 +28,50 @@ export type DiversionId =
 
 /**
  * What clicking one pays out. `none` is the walkbys — they are scenery with dialogue.
- * `surprise` is the bird nest, which rolls one of the other three when it is opened.
+ * `surprise` is the bird nest, which rolls one of the nest's payloads when it is
+ * opened. `kebab` and `lamp` are items, and land in the inventory.
  */
-export type DiversionPayload = 'none' | 'life' | 'gold' | 'essence' | 'potion' | 'surprise';
+export type DiversionPayload = 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'potion' | 'surprise';
 
 /**
- * What a click actually lands in the player's hands, once the payload has met the
- * board: a kebab eaten at full lives is a kebab sold, so `life` can arrive as `gold`.
- * The tooltip, the toast, the number that rises off the sprite and the Collection
- * Log's totals all speak in these. `charges` is the one nobody clicks for: the
- * Hunting expert puts them back into a trap on the road.
+ * What a click actually lands in the player's hands. The tooltip, the toast, the
+ * number that rises off the sprite and the Collection Log's totals all speak in
+ * these. `charges` is the one nobody clicks for: the Hunting expert puts them back
+ * into a trap on the road. `life` is paid by nobody any more, since the kebab became
+ * something to carry; it stays so an account's old kebab totals still show.
  */
-export type DiversionRewardKind = 'life' | 'gold' | 'essence' | 'overload' | 'charges';
+export type DiversionRewardKind = 'life' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'overload' | 'charges';
 
-export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'gold', 'essence', 'overload', 'charges'];
+export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'kebab', 'lamp', 'gold', 'essence', 'overload', 'charges'];
 
 /** Each reward's own icon, and the name it goes by on hover. */
 export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; label: string }> = {
   life: { icon: ASSETS.misc.orb_hitpoints, label: 'Lives' },
+  kebab: { icon: itemIcon('kebab'), label: 'Kebab' },
+  lamp: { icon: itemIcon('genie_lamp'), label: 'Lamp' },
   gold: { icon: ASSETS.misc.coins_icon, label: 'Gold' },
   essence: { icon: ASSETS.misc.rune_essence_icon, label: 'Essence' },
   overload: { icon: itemIcon('overload_4'), label: 'Overload' },
   charges: { icon: ASSETS.misc.hunter_icon, label: 'Trap charges' },
 };
+
+/** The genie's lamp, as the inventory carries it. OSRS calls it just "Lamp". */
+export const GENIE_LAMP = { id: 'genie_lamp', name: 'Lamp', icon: itemIcon('genie_lamp') } as const;
+
+/** The skills a lamp can be rubbed for: the three this game levels during a run. */
+export type LampSkill = 'hunter' | 'herblore' | 'fishing';
+
+export const LAMP_SKILLS: readonly LampSkill[] = ['hunter', 'herblore', 'fishing'];
+
+export const LAMP_SKILL_META: Record<LampSkill, { name: string; icon: string }> = {
+  hunter: { name: 'Hunter', icon: ASSETS.misc.hunter_icon },
+  herblore: { name: 'Herblore', icon: ASSETS.misc.skill_herblore },
+  fishing: { name: 'Fishing', icon: ASSETS.misc.skill_fishing },
+};
+
+/** How many levels one rub is worth. Levels rather than XP, so a lamp means the same
+ *  on wave 3 as on wave 60 whichever skill it goes into. */
+export const LAMP_LEVELS = 3;
 
 /**
  * Something one does on the board by itself, the moment it reaches its tile, with
@@ -170,8 +191,8 @@ export const DIVERSIONS: DiversionDef[] = [
     name: 'Drunken Dwarf',
     sprite: npcModel('drunken_dwarf'),
     turned: turned('drunken_dwarf'),
-    payload: 'life',
-    tip: 'Click for a kebab.',
+    payload: 'kebab',
+    tip: 'Click for a kebab to eat later.',
     lines: [
       'The dwarf presses a kebab into your hands and wanders off.',
       "'Ere, you look like you need this more than I do.",
@@ -183,8 +204,8 @@ export const DIVERSIONS: DiversionDef[] = [
     name: 'Genie',
     sprite: npcModel('genie'),
     turned: turned('genie'),
-    payload: 'essence',
-    tip: 'Click for a lamp.',
+    payload: 'lamp',
+    tip: 'Click for a lamp to rub for skill levels.',
     lines: [
       'The genie hands you a lamp and vanishes.',
       'Your wish is granted. Do try to spend it well.',

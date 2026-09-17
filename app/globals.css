@@ -771,6 +771,8 @@ img[src*="/hitsplats/shield"] {
 .rs-menu-coins { color: var(--osrs-yellow); font-size: 0.88em; }
 .rs-menu-coins img { display: inline-block; width: 1em; height: 1em; margin-left: 0.2em; vertical-align: -0.1em; object-fit: contain; }
 .rs-menu-row:disabled .rs-menu-coins { color: #9a8f5a; }
+.rs-menu-icon { display: inline-block; width: 1.1em; height: 1.1em; margin-right: 0.3em; vertical-align: -0.2em; object-fit: contain; }
+.rs-menu-row:disabled .rs-menu-icon { opacity: 0.5; }
 
 /* Soft fade + slight slide-up when the sidebar tab body switches. The wrapper is
    keyed by the active tab, so React re-mounts it on each change and replays this. */

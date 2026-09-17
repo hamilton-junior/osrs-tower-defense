@@ -5,7 +5,9 @@ import { BIOMES, type BiomeId } from '../data/biomes';
 import { HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEED_BY_ID, type SeedId } from '../data/farming';
 import { POTION_BY_ID, type PotionId } from '../data/herblore';
-import { FISH_BY_ID, FISHING_MAX_LEVEL, SPOT_CASTS, SPOT_REST_WAVES } from '../data/fishing';
+import { FISHING_MAX_LEVEL, SPOT_CASTS, SPOT_REST_WAVES } from '../data/fishing';
+import { FOOD_BY_ID } from '../data/food';
+import { GENIE_LAMP } from '../data/diversions';
 import { HERBLORE_START_LEVEL, overhealCap } from './herblore';
 import { addItem, emptyStore, sanitizeStore, type ItemStore, type StackKind } from './inventory';
 import { GEAR } from '../data/gear';
@@ -228,8 +230,9 @@ const countsOf = <K extends string>(v: unknown, table: Record<K, unknown>): Part
 const knownStack = (kind: StackKind, id: string): boolean =>
   kind === 'herb' ? id in SEED_BY_ID
     : kind === 'potion' ? id in POTION_BY_ID
-      : kind === 'food' ? id in FISH_BY_ID
-        : false;
+      : kind === 'food' ? id in FOOD_BY_ID
+        : kind === 'lamp' ? id === GENIE_LAMP.id
+          : false;
 
 /** The slots, out of whichever shape the save was written in. A save from before
  *  the inventory has two `{ id: count }` piles instead; those are poured back in

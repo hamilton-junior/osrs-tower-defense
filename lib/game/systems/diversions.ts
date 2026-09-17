@@ -3,6 +3,7 @@ import {
   DIVERSION_BY_ID,
   DIVERSION_CHANCE,
   DIVERSION_REWARD_KINDS,
+  LAMP_LEVELS,
   MAX_DIVERSIONS,
   type DiversionDef,
   type DiversionId,
@@ -430,9 +431,9 @@ export function rollBalloonGift(rand: () => number): BalloonGift {
   return 'essence';
 }
 
-/** A balloon's gold, as a share of a Rick's purse ({@link DiversionRewardContext.gold}). */
+/** A balloon's gold, as a share of a purse ({@link DiversionRewardContext.gold}). */
 export const BALLOON_GOLD_SHARE = 0.25;
-/** A balloon's essence, as a share of a lamp ({@link DiversionRewardContext.essence}). */
+/** A balloon's essence, as a share of a nest's ({@link DiversionRewardContext.essence}). */
 export const BALLOON_ESSENCE_SHARE = 0.2;
 
 // --- Payouts ---------------------------------------------------------------
@@ -448,8 +449,8 @@ export function diversionGold(wave: number, towers = 0): number {
   return Math.max(20, Math.round(waveClearBonus(wave) * 0.6 * crowd));
 }
 
-/** A lamp is worth about two and a half wave clears' essence. `multiplier` is the
- *  mode/phase faucet the wave award already goes through, so a lamp can't be a way
+/** A nest's essence is worth about two and a half wave clears'. `multiplier` is the
+ *  mode/phase faucet the wave award already goes through, so a nest can't be a way
  *  round Endless's tenth-rate essence. */
 export function diversionEssence(wave: number, multiplier = 1): number {
   return Math.max(3, Math.round(essenceForWave(wave) * 2.5 * multiplier));
@@ -487,8 +488,25 @@ export interface DiversionReward {
 export interface DiversionRewardContext {
   gold: number;
   essence: number;
-  lives: number;
-  maxLives: number;
+}
+
+/**
+ * The XP one rub of the genie's lamp puts into a skill: exactly what the next
+ * {@link LAMP_LEVELS} levels cost, so the skill climbs that many levels whatever it
+ * has already banked towards the next one (the bank is below one level's cost, and
+ * the costs never shrink as the level rises). Fewer near the cap, nothing at it.
+ */
+export function lampXp(level: number, maxLevel: number, xpForLevel: (level: number) => number): number {
+  const from = Math.max(1, Math.floor(level));
+  const to = Math.min(maxLevel, from + LAMP_LEVELS);
+  let xp = 0;
+  for (let l = from; l < to; l++) xp += xpForLevel(l);
+  return xp;
+}
+
+/** The level a rub lifts a skill to, for the menu that offers it. */
+export function lampLevelTo(level: number, maxLevel: number): number {
+  return Math.min(maxLevel, Math.max(1, Math.floor(level)) + LAMP_LEVELS);
 }
 
 /** What one popped balloon pays on this board, or null for an empty one. */
@@ -502,9 +520,10 @@ export function balloonReward(gift: BalloonGift, ctx: DiversionRewardContext): D
  *  nest has no single answer yet, so both come back null. */
 export function payloadReward(payload: DiversionPayload, ctx: DiversionRewardContext): DiversionReward | null {
   switch (payload) {
-    case 'life':
-      // Nothing to heal: the dwarf will not take the kebab back, so it is sold.
-      return ctx.lives < ctx.maxLives ? { kind: 'life', amount: 1 } : { kind: 'gold', amount: ctx.gold };
+    case 'kebab':
+      return { kind: 'kebab', amount: 1 };
+    case 'lamp':
+      return { kind: 'lamp', amount: 1 };
     case 'gold':
       return { kind: 'gold', amount: ctx.gold };
     case 'essence':

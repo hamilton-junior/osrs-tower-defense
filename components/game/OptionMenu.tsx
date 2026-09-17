@@ -11,6 +11,9 @@ import { fmt } from './ui-kit';
 const fs = (base: string) => `calc(${base} * var(--ui-scale, 1))`;
 
 export interface MenuOption {
+  /** A small picture before the verb, for a line that names a thing better shown
+   *  than spelled, like the skill a lamp is rubbed for. */
+  icon?: string;
   /** The verb, in white — "Drink", "Consume", "Brew". */
   action: string;
   /** What the verb acts on, in the client's item orange. */
@@ -29,6 +32,9 @@ export interface MenuOption {
    *  spend something for nothing; every other line stays one click. */
   confirm?: string;
   title?: string;
+  /** Leave the menu open after the line runs, for a line whose `onSelect` swaps in
+   *  the next set of options rather than doing the thing. */
+  keepOpen?: boolean;
   onSelect: () => void;
 }
 
@@ -123,9 +129,10 @@ export function OptionMenu({ x, y, options, onClose }: OptionMenuProps) {
           onClick={() => {
             if (o.confirm && armed !== i) { setArmed(i); return; }
             o.onSelect();
-            onClose();
+            if (!o.keepOpen) onClose();
           }}
         >
+          {o.icon && <img className="rs-menu-icon" src={o.icon} alt="" />}
           <span>{o.action}</span>
           {o.target && <span className="rs-menu-target"> {o.target}</span>}
           {o.coins != null && (

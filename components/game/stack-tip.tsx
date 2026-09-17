@@ -3,7 +3,7 @@
 import React from 'react';
 import { ASSETS, coinsIcon } from '@/lib/game/assets';
 import type { UiStack } from '@/lib/game/core/engine';
-import { FISH_BY_ID, type FishId } from '@/lib/game/data/fishing';
+import { FOOD_BY_ID, type FoodId } from '@/lib/game/data/food';
 import { POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
 import { potionTooltip } from './potion-tip';
 import { fmt, hideBrokenImg } from './ui-kit';
@@ -30,7 +30,7 @@ export interface StackTipContext {
  * shows. A herb has no number to preview and shows its own line.
  */
 export function stackTip(s: UiStack, ctx: StackTipContext): React.ReactNode {
-  const fish = s.kind === 'food' ? FISH_BY_ID[s.id as FishId] : undefined;
+  const fish = s.kind === 'food' ? FOOD_BY_ID[s.id as FoodId] : undefined;
   const potion = s.kind === 'potion' ? POTION_BY_ID[s.id as PotionId] : undefined;
   if (potion) {
     return potionTooltip(potion, {

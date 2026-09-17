@@ -31,10 +31,15 @@ import {
   balloonReward,
   BALLOON_GOLD_SHARE,
   BALLOON_ESSENCE_SHARE,
+  lampXp,
+  lampLevelTo,
   type Diversion,
   type RunFacts,
 } from './diversions';
-import { DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, MAX_DIVERSIONS } from '../data/diversions';
+import { DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, LAMP_LEVELS, MAX_DIVERSIONS } from '../data/diversions';
+import { HUNTER_MAX_LEVEL, gainHunterXp, hunterXpForLevel } from './hunter-traps';
+import { gainFishingXp, fishingXpForLevel } from './fishing';
+import { FISHING_MAX_LEVEL } from '../data/fishing';
 import { waveClearBonus } from './rewards';
 import { essenceForWave } from './meta-progression';
 
@@ -232,11 +237,11 @@ describe("Party Pete's balloons", () => {
     expect(pickBalloonSpots(Math.random, cx, cy, () => false, 45, 20, GRID, 5)).toEqual([]);
   });
 
-  it('is empty half the time, and pays a slice of a purse or a lamp otherwise', () => {
+  it("is empty half the time, and pays a slice of a purse or a nest's essence otherwise", () => {
     expect(rollBalloonGift(() => 0.49)).toBe('none');
     expect(rollBalloonGift(() => 0.5)).toBe('gold');
     expect(rollBalloonGift(() => 0.95)).toBe('essence');
-    const ctx = { gold: 200, essence: 30, lives: 10, maxLives: 20 };
+    const ctx = { gold: 200, essence: 30 };
     expect(balloonReward('none', ctx)).toBeNull();
     expect(balloonReward('gold', ctx)).toEqual({ kind: 'gold', amount: Math.round(200 * BALLOON_GOLD_SHARE) });
     expect(balloonReward('essence', ctx)).toEqual({ kind: 'essence', amount: Math.round(30 * BALLOON_ESSENCE_SHARE) });
@@ -338,7 +343,7 @@ describe('payouts', () => {
     expect(diversionEssence(60, 0.1)).toBeLessThan(diversionEssence(60, 1));
   });
 
-  it('never hands out an empty lamp', () => {
+  it('never hands out an empty nest of essence', () => {
     expect(diversionEssence(1, 0.1)).toBeGreaterThanOrEqual(3);
   });
 });
@@ -356,25 +361,20 @@ describe('nests', () => {
   it('resolves the nest to something real and leaves the rest alone', () => {
     expect(resolvePayload('bird_nest', () => 0)).toBe('gold');
     expect(resolvePayload('bird_nest', () => 0.9)).toBe('potion');
-    expect(resolvePayload('genie', () => 0.9)).toBe('essence');
+    expect(resolvePayload('genie', () => 0.9)).toBe('lamp');
     expect(resolvePayload('hans', () => 0.9)).toBe('none');
   });
 });
 
 describe('rewards', () => {
-  const ctx = { gold: 180, essence: 42, lives: 17, maxLives: 20 };
+  const ctx = { gold: 180, essence: 42 };
 
   it('pays each payload in its own kind, at the live amount', () => {
-    expect(payloadReward('life', ctx)).toEqual({ kind: 'life', amount: 1 });
+    expect(payloadReward('kebab', ctx)).toEqual({ kind: 'kebab', amount: 1 });
+    expect(payloadReward('lamp', ctx)).toEqual({ kind: 'lamp', amount: 1 });
     expect(payloadReward('gold', ctx)).toEqual({ kind: 'gold', amount: 180 });
     expect(payloadReward('essence', ctx)).toEqual({ kind: 'essence', amount: 42 });
     expect(payloadReward('potion', ctx)).toEqual({ kind: 'overload', amount: 1 });
-  });
-
-  it('sells the kebab when there is nothing to heal', () => {
-    expect(payloadReward('life', { ...ctx, lives: 20 })).toEqual({ kind: 'gold', amount: 180 });
-    // An overhealed run is still full.
-    expect(payloadReward('life', { ...ctx, lives: 21 })).toEqual({ kind: 'gold', amount: 180 });
   });
 
   it('promises nothing for a walkby or an unopened nest', () => {
@@ -393,6 +393,27 @@ describe('rewards', () => {
       if (def.payload === 'none' || def.payload === 'surprise') continue;
       expect(diversionRewardOptions(def.id, ctx)).toHaveLength(1);
     }
+  });
+});
+
+describe('the genie lamp', () => {
+  it('costs exactly the next few levels, so a fresh skill climbs that many', () => {
+    const xp = lampXp(1, HUNTER_MAX_LEVEL, hunterXpForLevel);
+    expect(xp).toBe(hunterXpForLevel(1) + hunterXpForLevel(2) + hunterXpForLevel(3));
+    expect(gainHunterXp(1, 0, xp)).toMatchObject({ level: 1 + LAMP_LEVELS, levels: LAMP_LEVELS });
+  });
+
+  it('climbs the same number of levels whatever is already banked', () => {
+    const banked = fishingXpForLevel(40) - 1;
+    const gain = gainFishingXp(40, banked, lampXp(40, FISHING_MAX_LEVEL, fishingXpForLevel));
+    expect(gain).toMatchObject({ level: 40 + LAMP_LEVELS, levels: LAMP_LEVELS, xp: banked });
+  });
+
+  it('stops at the cap, and is worth nothing there', () => {
+    expect(lampXp(98, 99, hunterXpForLevel)).toBe(hunterXpForLevel(98));
+    expect(lampXp(99, 99, hunterXpForLevel)).toBe(0);
+    expect(lampLevelTo(10, 99)).toBe(10 + LAMP_LEVELS);
+    expect(lampLevelTo(98, 99)).toBe(99);
   });
 });
 

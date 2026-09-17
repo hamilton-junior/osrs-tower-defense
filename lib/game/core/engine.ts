@@ -53,10 +53,11 @@ import { localTypes } from '../systems/enemy-regions';
 import { travelOffer } from '../systems/travel';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
-import { DIVERSION_BY_ID, DIVERSION_REWARD_META, type DiversionId } from '../data/diversions';
+import { DIVERSION_BY_ID, DIVERSION_REWARD_META, GENIE_LAMP, LAMP_SKILL_META, type DiversionId, type LampSkill } from '../data/diversions';
+import { FOOD_BY_ID, type FoodId } from '../data/food';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
-import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, offBoardPoint, payloadReward, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
+import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, lampXp, offBoardPoint, payloadReward, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
@@ -76,8 +77,8 @@ import {
   toBag, toInv, type ItemStore, type Stack, type StackKind,
 } from '../systems/inventory';
 import {
-  FISH, FISH_BY_ID, CAST_XP, SPOT_CASTS,
-  FISHING_SPOT_ACTIVE_ICON, FISHING_SPOT_ICON, type FishId,
+  FISH, CAST_XP, FISHING_MAX_LEVEL, SPOT_CASTS,
+  FISHING_SPOT_ACTIVE_ICON, FISHING_SPOT_ICON,
 } from '../data/fishing';
 import {
   buildFishingSpots, castSeconds, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
@@ -85,7 +86,7 @@ import {
 } from '../systems/fishing';
 import { multiplyStyleMods, scaleAllStyles, type StyleMods } from '../systems/style-mods';
 import {
-  HUNTER_MAX_LEVEL, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapRefund, trapSpotFree, trapUnlocked,
+  HUNTER_MAX_LEVEL, gainHunterXp, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapRefund, trapSpotFree, trapUnlocked,
   type HunterTrap,
 } from '../systems/hunter-traps';
 import { handleBossMechanics, updateScorches } from './sim/bosses';
@@ -773,7 +774,7 @@ export class GameEngine {
    *  the picture are attached here rather than looked up again in React. */
   private uiStack(s: Stack): UiStack {
     if (s.kind === 'food') {
-      const def = FISH_BY_ID[s.id as FishId];
+      const def = FOOD_BY_ID[s.id as FoodId];
       return {
         kind: 'food', id: s.id, name: def.name, icon: def.icon, count: s.count,
         tip: `Eat it between waves: +${def.lives} life${def.lives === 1 ? '' : 's'}`,
@@ -782,6 +783,12 @@ export class GameEngine {
     if (s.kind === 'herb') {
       const def = SEED_BY_ID[s.id as SeedId];
       return { kind: 'herb', id: s.id, name: def.herbName, icon: def.herbIcon, count: s.count, tip: def.tip };
+    }
+    if (s.kind === 'lamp') {
+      return {
+        kind: 'lamp', id: s.id, name: GENIE_LAMP.name, icon: GENIE_LAMP.icon, count: s.count,
+        tip: 'Rub it between waves to gain levels in a skill.',
+      };
     }
     const def = POTION_BY_ID[s.id as PotionId];
     return { kind: 'potion', id: s.id, name: def.name, icon: def.icon, count: s.count, tip: def.tip };
@@ -3407,16 +3414,12 @@ export class GameEngine {
     // is the whole appeal of a nest.
     const payload = resolvePayload(found.defId, Math.random);
     const reward = payloadReward(payload, this.diversionRewardContext());
-    let message = found.line;
     if (reward) {
-      if (payload === 'life' && reward.kind === 'gold') {
-        message = 'You are in no need of a kebab, so you sell it.';
-      }
       this.payDiversionReward(reward);
       this.recordDiversionGain(found.defId, reward);
       this.pushDiversionPop(found.x, found.y, reward);
     }
-    this.notify(message, def.sprite, reward ?? undefined);
+    this.notify(found.line, def.sprite, reward ?? undefined);
     this.sound.play(payload === 'none' ? 'select' : 'interface_open');
     this.emit();
   }
@@ -3428,16 +3431,22 @@ export class GameEngine {
     return {
       gold: this.goldValue(diversionGold(this.wave, this.towers.length)),
       essence: diversionEssence(this.wave, essenceMultiplier(this.gameMode, this.runPhase)),
-      lives: this.lives,
-      maxLives: this.maxLives,
     };
   }
 
   private payDiversionReward(reward: DiversionReward) {
     switch (reward.kind) {
       case 'life':
+        // No diversion pays lives any more; kept so the kind stays exhaustive.
         this.healLives(reward.amount);
         this.showLifeGain(reward.amount);
+        break;
+      case 'kebab':
+        // Carried, not eaten on the spot: the player picks the wave it saves.
+        if (addItem(this.items, 'food', 'kebab', reward.amount) === 'bag') this.bagBump(stackKey('food', 'kebab'));
+        break;
+      case 'lamp':
+        if (addItem(this.items, 'lamp', GENIE_LAMP.id, reward.amount) === 'bag') this.bagBump(stackKey('lamp', GENIE_LAMP.id));
         break;
       case 'gold':
         // Already scaled by goldValue, so it is credited as it stands.
@@ -3982,15 +3991,15 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Eat a fish. Lives, never past the cap — and at the cap it is sold rather than
-   *  wasted, the same bargain the kebab diversion strikes. */
-  eatFood(id: FishId) {
+  /** Eat a fish or a kebab. Lives, never past the cap — and at the cap it is sold
+   *  rather than wasted. */
+  eatFood(id: FoodId) {
     if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
-    const def = FISH_BY_ID[id];
+    const def = FOOD_BY_ID[id];
     if (!def) return;
     if (this.lives >= this.maxLives) {
       if (!takeItem(this.items, 'food', id)) return;
-      // Nothing to heal — the fish is worth gold, on the kebab diversion’s terms.
+      // Nothing to heal, so it is worth its gold instead.
       // It sounds like the sale it is, not like eating: the player pressed Eat and
       // got gold, and the coin-shuffle is what tells them so.
       const gold = this.awardGold(def.gold);
@@ -4012,13 +4021,34 @@ export class GameEngine {
    *  than the life. The same bargain {@link eatFood} strikes at full lives, offered
    *  on purpose — and ungated, like storing: coins moving changes nothing about a
    *  fight, and the price is printed on the menu line that leads here. */
-  sellFood(id: FishId) {
-    const def = FISH_BY_ID[id];
+  sellFood(id: FoodId) {
+    const def = FOOD_BY_ID[id];
     if (!def) return;
     if (!takeItem(this.items, 'food', id)) return;
     const gold = this.awardGold(def.gold);
     this.sound.play('sell');
     this.notify(`You sell the ${def.name.toLowerCase()} for ${gold} gp.`, def.icon);
+    this.emit();
+  }
+
+  /** Rub the genie's lamp for {@link LAMP_LEVELS} levels in one skill. Between waves,
+   *  like eating: a level mid-fight would change the trap cap under a live wave. */
+  rubLamp(skill: LampSkill) {
+    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
+    if (invCount(this.items, 'lamp', GENIE_LAMP.id) < 1) return;
+    const meta = LAMP_SKILL_META[skill];
+    const gain = skill === 'hunter'
+      ? gainHunterXp(this.hunterLevel, this.hunterXp, lampXp(this.hunterLevel, HUNTER_MAX_LEVEL, hunterXpForLevel))
+      : skill === 'herblore'
+        ? gainHerbloreXp(this.herbloreLevel, this.herbloreXp, lampXp(this.herbloreLevel, HERBLORE_MAX_LEVEL, herbloreXpForLevel))
+        : gainFishingXp(this.fishingLevel, this.fishingXp, lampXp(this.fishingLevel, FISHING_MAX_LEVEL, fishingXpForLevel));
+    if (gain.levels === 0) { this.notify(`Your ${meta.name} is already maxed`, meta.icon); return; }
+    if (!takeItem(this.items, 'lamp', GENIE_LAMP.id)) return;
+    if (skill === 'hunter') { this.hunterLevel = gain.level; this.hunterXp = gain.xp; }
+    else if (skill === 'herblore') { this.herbloreLevel = gain.level; this.herbloreXp = gain.xp; }
+    else { this.fishingLevel = gain.level; this.fishingXp = gain.xp; }
+    this.sound.play('level_up');
+    this.notify(`You rub the lamp. ${meta.name} level ${gain.level}`, meta.icon);
     this.emit();
   }
 

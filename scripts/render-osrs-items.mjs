@@ -369,6 +369,8 @@ const TARGETS = {
   amulet_of_the_damned: { name: 'Amulet of the Damned' },
   // ---- Distractions & Diversions ----
   bird_nest: { name: 'Bird nest' }, // the nest that drops between waves
+  kebab: { id: 1971 }, // the Drunken Dwarf's, carried as food
+  genie_lamp: { id: 2528 }, // the genie's 'Lamp', rubbed for skill XP
   // ---- the Champion mark ----
   // The Gold speedrun trophy (27422): OSRS's own two-handled gold cup. It replaces
   // the typographic star beside "Champion" on the start screen and in the log.

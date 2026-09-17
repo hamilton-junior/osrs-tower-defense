@@ -281,6 +281,11 @@ describe('sanitizeStore', () => {
 describe('food stacks', () => {
   it('parses a food key back out', () => {
     expect(parseKey(stackKey('food', 'shark'))).toEqual({ kind: 'food', id: 'shark' });
+    expect(parseKey(stackKey('food', 'kebab'))).toEqual({ kind: 'food', id: 'kebab' });
+  });
+
+  it("parses the genie's lamp back out", () => {
+    expect(parseKey(stackKey('lamp', 'genie_lamp'))).toEqual({ kind: 'lamp', id: 'genie_lamp' });
   });
 
   it('rejects a key with no kind the game knows', () => {

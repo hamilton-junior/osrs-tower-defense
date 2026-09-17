@@ -39,8 +39,9 @@ import type { FishId } from '../data/fishing';
 export const INVENTORY_SLOTS = 27;
 
 /** What a stack is. Herbs and potions come out of Farming and Herblore; food is
- *  the fish Fishing pulls out of the water, and the only stack that pays lives. */
-export type StackKind = 'herb' | 'potion' | 'food';
+ *  the fish Fishing pulls out of the water (and the Drunken Dwarf's kebab), and the
+ *  only stack that pays lives. A lamp is the genie's, rubbed for skill levels. */
+export type StackKind = 'herb' | 'potion' | 'food' | 'lamp';
 
 /** A stack of one thing. In the inventory `count` is always 1 — nothing stacks
  *  there — and in the bag it is however many piled up. `id` is a {@link SeedId} for
@@ -74,7 +75,7 @@ export function parseKey(key: string): { kind: StackKind; id: string } | null {
   if (cut < 1) return null;
   const kind = key.slice(0, cut);
   const id = key.slice(cut + 1);
-  if ((kind !== 'herb' && kind !== 'potion' && kind !== 'food') || !id) return null;
+  if ((kind !== 'herb' && kind !== 'potion' && kind !== 'food' && kind !== 'lamp') || !id) return null;
   return { kind, id };
 }
 
