@@ -106,25 +106,43 @@ const TARGETS = {
   // one texture square per tile, the way the client maps it to the terrain.
   //
   // Which id is which ground was picked by eye off a contact sheet of the whole
-  // texture index (three passes, tiled 2x2 so the seams showed). Every one of them
-  // tiles cleanly; the busy foliage sheets that only work as tree canopy were
-  // rejected for exactly that reason.
-  ground_lumbridge: { tex: 129, raw: true, dir: 'terrain' },  // flat meadow grass
-  ground_alkharid: { tex: 38, raw: true, dir: 'terrain' },    // desert dunes
-  ground_morytania: { tex: 214, raw: true, dir: 'terrain' },  // dark swamp mud
-  ground_wilderness: { tex: 201, raw: true, dir: 'terrain' }, // dead scrub
-  ground_trollweiss: { tex: 91, raw: true, dir: 'terrain' },  // snow and ice
-  ground_karamja: { tex: 203, raw: true, dir: 'terrain' },    // jungle moss
-  ground_tzhaar: { tex: 11, raw: true, dir: 'terrain' },      // obsidian rock
+  // texture index (three passes, tiled 2x2 so the seams showed, then a zoom pass
+  // over the shortlist tiled 3x3). Two rules came out of it and both are load
+  // bearing: a texture whose palette holds the transparent slot (the black in the
+  // sheet) is a *detail overlay* the client lays over a colour, so tiling it as a
+  // floor reads as noise rather than as ground; and a floor has to stay low in
+  // contrast, because the board repeats it 225 times.
   //
-  // The two liquids a pool can hold. Both are textures the client *animates*:
-  // it scrolls their u/v by `animationSpeed` pixels per 20ms tick along
-  // `animationDirection`, and `core/render/liquid.ts` reproduces that scroll.
-  // Water is 24 (the rippled blue, not the flat 1 this used to bake) and lava is
-  // 59 (black crust with glowing veins), which is what Mor Ul Rek and the Lava
-  // Maze are paved with.
+  // Each region names two, an `a` it is mostly paved with and a `b` the board
+  // deals as the odd square, and `core/render/terrain.ts` turns each square by a
+  // quarter-turn hashed from its own coordinates. That is where the variation
+  // comes from: one 128px square repeated flat across 1440x640 is what made the
+  // first pass read as wallpaper.
+  ground_lumbridge_a: { tex: 129, raw: true, dir: 'terrain' },  // meadow grass
+  ground_lumbridge_b: { tex: 25, raw: true, dir: 'terrain' },   // deep pasture
+  ground_alkharid_a: { tex: 38, raw: true, dir: 'terrain' },    // desert dunes
+  ground_alkharid_b: { tex: 118, raw: true, dir: 'terrain' },   // wind-packed sand
+  ground_morytania_a: { tex: 119, raw: true, dir: 'terrain' },  // swamp silt
+  ground_morytania_b: { tex: 11, raw: true, dir: 'terrain' },   // wet stone
+  ground_wilderness_a: { tex: 118, raw: true, dir: 'terrain' }, // dry dust
+  ground_wilderness_b: { tex: 15, raw: true, dir: 'terrain' },  // cracked stone
+  ground_trollweiss_a: { tex: 91, raw: true, dir: 'terrain' },  // snow
+  ground_trollweiss_b: { tex: 1, raw: true, dir: 'terrain' },   // packed ice
+  ground_karamja_a: { tex: 129, raw: true, dir: 'terrain' },    // jungle floor
+  ground_karamja_b: { tex: 25, raw: true, dir: 'terrain' },     // jade moss
+  ground_tzhaar_a: { tex: 210, raw: true, dir: 'terrain' },     // cooled obsidian
+  ground_tzhaar_b: { tex: 119, raw: true, dir: 'terrain' },     // basalt gravel
+  //
+  // The two liquids a pool can hold. The client animates both, scrolling their u/v
+  // along `animationDirection` — the board does not: a scrolling pool under a
+  // fixed camera reads as the whole board sliding, so `core/render/terrain.ts`
+  // bakes them still, into the same buffer as the ground.
+  //
+  // Water is 24, the rippled blue (not the flat 1 this used to bake). Lava is 31,
+  // molten rock seen from above; 59 is the honeycomb crust the infernal cape is
+  // made of, which is a garment texture and read as one on the floor.
   liquid_water: { tex: 24, raw: true, dir: 'terrain' },
-  liquid_lava: { tex: 59, raw: true, dir: 'terrain' },
+  liquid_lava: { tex: 31, raw: true, dir: 'terrain' },
 
   // The wooden direction signpost — the one standing beside the Lumbridge Guide,
   // and OSRS's own symbol for "the road splits here". Model 1402 is shared by every
@@ -449,7 +467,14 @@ async function main() {
     const texIds = modelTextureIds(model);
     if (cfg.groundTex !== undefined) texIds.push(cfg.groundTex);
     const textures = await loadTextures(cache, texIds);
-    const out = write(slug, cfg, renderObject(model, { ...cfg, ...camOverride }, textures));
+    // A prop is stood on the bottom edge of its tile, so what has to meet the
+    // ground is its *painted* base, not the image box: the fit leaves a model
+    // whose bounding box is wider than it is tall with up to 41% of the square
+    // empty below it, and the board then drew that prop hovering over its own
+    // contact shadow. Trimming the bake to its content is the fix, and it is the
+    // bake's job — the board cannot know where the paint stops.
+    const cfg2 = cfg.dir === 'scenery' && !cfg.crop ? { ...cfg, crop: [0, 0, SIZE, SIZE] } : cfg;
+    const out = write(slug, cfg, renderObject(model, { ...cfg2, ...camOverride }, textures));
     console.log(`✓ ${slug}: object ${cfg.obj} "${def.name}" models=[${def.models}] → ${out}`);
   }
   process.exit(0);

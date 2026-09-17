@@ -4,34 +4,21 @@ import type { LiquidKind } from '../../systems/terrain-generation';
 import type { GameRenderer } from '../renderer';
 
 /**
- * **The moving surface of every pool.** Everything else about the board is static
- * and lives in the background bake; water and lava are the exception, because the
- * client animates their textures — it scrolls the u/v of texture 24 and 59 by
- * `animationSpeed` pixels every 20ms engine tick along `animationDirection`.
+ * **The surface of every pool.** Water and lava are textures the client animates,
+ * scrolling their u/v along a fixed direction — the board does not. The camera
+ * here never moves, and a floor that slides under a fixed camera reads as the
+ * whole board sliding rather than as water flowing, so both liquids are painted
+ * still and baked into the static background with the ground.
  *
- * The cost of that has to be O(1) in pool size, not O(tiles): at 5× speed the
- * simulation already runs five times per frame and the render budget is at its
- * tightest. So each liquid kind's tiles are welded once into a single `Path2D`
- * when the background is baked, and a frame is then a clip, a translate and one
- * `fillRect` of a repeating pattern — about six canvas calls no matter how much
- * water the map dealt. The foam rim stays in the bake, where it costs nothing.
+ * The cost of that is still worth keeping O(1) in pool size, because the bake runs
+ * again on every re-skin: each kind's tiles are welded into a single `Path2D`, and
+ * painting it is a clip and two `fillRect`s no matter how much water the map
+ * dealt. The foam rim is drawn per tile by the terrain pass, over which this goes.
  */
 
 /** How much board one liquid-texture square covers, in logic px — the same square
  *  the ground is tiled at, so a shoreline reads at one scale. */
 const LIQUID_TILE = 64;
-
-/**
- * Scroll rate in logic px per second, per kind, straight off the cache: texture 24
- * (water) carries `animationSpeed` 2 and texture 59 (lava) carries 1, both on
- * direction 1. The client applies that per 20ms tick over the texture's own 128px,
- * which is `speed * 50` texture-px per second; mapping the square onto
- * `LIQUID_TILE` px of board scales it by `LIQUID_TILE / 128`.
- */
-const SCROLL: Record<LiquidKind, number> = {
-  water: 2 * 50 * (LIQUID_TILE / 128),
-  lava: 1 * 50 * (LIQUID_TILE / 128),
-};
 
 interface LiquidBody {
   kind: LiquidKind;
@@ -64,36 +51,25 @@ export function buildLiquidBodies(gr: GameRenderer): LiquidBody[] {
   return [...byKind.values()];
 }
 
-export function drawLiquid(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
-  const bodies = gr.liquidBodies;
-  if (bodies.length === 0) return;
-  // `runSeconds` is the engine's wall clock: it takes the raw frame dt outside the
-  // sub-step loop and stops while paused. Driving the scroll from it is what keeps
-  // 5× from strobing the lava and what freezes the board when combat is paused.
-  const time = gr.e.runSeconds;
-  for (const body of bodies) {
+export function paintLiquid(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  for (const body of gr.liquidBodies) {
     const key = body.kind === 'lava' ? 'liquid_lava' : 'liquid_water';
     if (!gr.e.imageOk(key)) continue;
     const img = gr.e.images.get(key);
     if (!img) continue;
-    let pat = gr.liquidPatterns.get(body.kind);
-    if (!pat) {
-      const made = ctx.createPattern(img, 'repeat');
-      if (!made) continue;
-      made.setTransform(new DOMMatrix([
-        LIQUID_TILE / img.width, 0, 0, LIQUID_TILE / img.height, 0, 0,
-      ]));
-      pat = made;
-      gr.liquidPatterns.set(body.kind, pat);
-    }
-    const off = (time * SCROLL[body.kind]) % LIQUID_TILE;
+    const pat = ctx.createPattern(img, 'repeat');
+    if (!pat) continue;
+    pat.setTransform(new DOMMatrix([
+      LIQUID_TILE / img.width, 0, 0, LIQUID_TILE / img.height, 0, 0,
+    ]));
     const { deep } = liquidPalette(gr, body.kind);
     ctx.save();
     ctx.clip(body.path);
-    ctx.translate(off, 0);
     ctx.fillStyle = pat;
-    ctx.fillRect(body.x0 - LIQUID_TILE, body.y0, body.x1 - body.x0 + LIQUID_TILE, body.y1 - body.y0);
-    ctx.translate(-off, 0);
+    ctx.fillRect(body.x0, body.y0, body.x1 - body.x0, body.y1 - body.y0);
+    // The region's own deep tone over the cache texture, at the same low alpha the
+    // ground wears its gradient: it is what makes Morytania's water swamp-green and
+    // Trollweiss's meltwater blue out of one texture.
     ctx.globalAlpha = 0.28;
     ctx.fillStyle = deep;
     ctx.fillRect(body.x0, body.y0, body.x1 - body.x0, body.y1 - body.y0);

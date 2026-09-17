@@ -1,4 +1,4 @@
-import type { SceneryId } from './data/biomes';
+import type { BiomeId, SceneryId } from './data/biomes';
 
 // Locally-bundled assets extracted from the game cache (see
 // scripts/extract-osrs-sprites.mjs). Served from `public/`, base-path aware so
@@ -609,24 +609,27 @@ export const ASSETS = {
   // The board's own ground, and the two liquids a pool can hold. OSRS has no
   // model to bake for any of this, because terrain there is a floor overlay —
   // what a player recognises is the texture itself. Each one is baked at its own
-  // size by scripts/render-osrs-objects.mjs and tiled as a canvas pattern, one
-  // texture square per 2x2 board tiles (core/render/terrain.ts).
+  // size by scripts/render-osrs-objects.mjs.
   //
-  // Water and lava are textures the client *animates*, scrolling their u/v along
-  // a fixed direction; core/render/liquid.ts reproduces that scroll, which is why
-  // they are the only part of the board that does not live in the static bake.
+  // Each region carries **two** floors rather than one: the board squares are 64
+  // logic px and the field is 225 of them, so a single texture repeated flat read
+  // as wallpaper. `core/render/terrain.ts` deals the second one as the odd square
+  // and turns every square by a hashed quarter-turn (see `paintGround`).
   terrain: {
     ground: {
-      lumbridge: `${LOCAL}/terrain/ground_lumbridge.png`,   // texture 129, meadow grass
-      alkharid: `${LOCAL}/terrain/ground_alkharid.png`,     // texture 38, desert dunes
-      morytania: `${LOCAL}/terrain/ground_morytania.png`,   // texture 214, swamp mud
-      wilderness: `${LOCAL}/terrain/ground_wilderness.png`, // texture 201, dead scrub
-      trollweiss: `${LOCAL}/terrain/ground_trollweiss.png`, // texture 91, snow and ice
-      karamja: `${LOCAL}/terrain/ground_karamja.png`,       // texture 203, jungle moss
-      tzhaar: `${LOCAL}/terrain/ground_tzhaar.png`,         // texture 11, obsidian rock
-    },
+      lumbridge: [`${LOCAL}/terrain/ground_lumbridge_a.png`, `${LOCAL}/terrain/ground_lumbridge_b.png`],    // 129 grass, 25 pasture
+      alkharid: [`${LOCAL}/terrain/ground_alkharid_a.png`, `${LOCAL}/terrain/ground_alkharid_b.png`],        // 38 dunes, 118 packed sand
+      morytania: [`${LOCAL}/terrain/ground_morytania_a.png`, `${LOCAL}/terrain/ground_morytania_b.png`],     // 119 silt, 11 wet stone
+      wilderness: [`${LOCAL}/terrain/ground_wilderness_a.png`, `${LOCAL}/terrain/ground_wilderness_b.png`],  // 118 dust, 15 cracked stone
+      trollweiss: [`${LOCAL}/terrain/ground_trollweiss_a.png`, `${LOCAL}/terrain/ground_trollweiss_b.png`],  // 91 snow, 1 packed ice
+      karamja: [`${LOCAL}/terrain/ground_karamja_a.png`, `${LOCAL}/terrain/ground_karamja_b.png`],           // 25 moss, 129 clearing grass
+      tzhaar: [`${LOCAL}/terrain/ground_tzhaar_a.png`, `${LOCAL}/terrain/ground_tzhaar_b.png`],              // 210 obsidian, 119 basalt
+    } as Record<BiomeId, string[]>,
+    // Both liquids are baked into the static background with the ground: the
+    // client scrolls their u/v, but a scrolling pool under a camera that never
+    // moves reads as the whole board sliding.
     water: `${LOCAL}/terrain/liquid_water.png`, // texture 24
-    lava: `${LOCAL}/terrain/liquid_lava.png`,   // texture 59
+    lava: `${LOCAL}/terrain/liquid_lava.png`,   // texture 31, molten rock
     // The props standing on the board, one entry per {@link SceneryId}. Each is a
     // LOC model rendered side-on out of the cache, and the board stands it on the
     // bottom edge of its tile the way the client stands a LOC on the ground.

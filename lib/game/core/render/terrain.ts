@@ -2,7 +2,7 @@ import { SPOTANIMS, spotAnimDurationS } from '../../data/spotanims';
 import { distance } from '../../systems/geometry';
 import type { GameRenderer } from '../renderer';
 import { LAVA_PALETTE, type SceneryId } from '../../data/biomes';
-import { buildLiquidBodies } from './liquid';
+import { buildLiquidBodies, paintLiquid } from './liquid';
 import type { LiquidKind } from '../../systems/terrain-generation';
 import { GRID, shade, hash2 } from './shared';
 
@@ -10,14 +10,23 @@ import { GRID, shade, hash2 } from './shared';
 export const GROUND_TILE = 64;
 /** How hard the region's gradient is pushed back over its own floor texture. */
 const GROUND_TINT = 0.42;
+/** How wide one blot of the region's second floor texture is, in logic px — two
+ *  ground squares across, so a patch of it spans a few board tiles. */
+const ACCENT_BLOT = GROUND_TILE * 2;
 
 /**
  * **Stand one of the region's props on a tile.**
  *
- * The prop is drawn *bottom-anchored*: the sprite's base sits on the tile's bottom
- * edge and the rest of it rises into the tile above, the way the client stands a
- * LOC on the ground. Centring it in the square instead made a tree look like it
- * floated over the road behind it, and a tall prop could never overhang.
+ * The prop is drawn *bottom-anchored*: the sprite's base sits on the tile's
+ * ground line and the rest of it rises into the tile above, the way the client
+ * stands a LOC on the ground. Centring it in the square instead made a tree look
+ * like it floated over the road behind it, and a tall prop could never overhang.
+ *
+ * The base is the shadow's line, not the bottom of the image box, and the two are
+ * the same thing only because the bakes are trimmed to their painted pixels
+ * (`crop` in scripts/render-osrs-objects.mjs). Before that trim a prop stood on
+ * the bottom edge of a 256px square holding up to 41% empty below it, which is
+ * exactly how far it floated over its own shadow.
  *
  * `pick` chooses which of the region's props this tile gets — the caller hashes
  * the tile's own coordinates for it, so the same seed deals the same board twice.
@@ -46,14 +55,16 @@ function drawProp(
   const w = GRID * scale;
   const h = w * (img.height / img.width);
   const cx = col * GRID + GRID / 2 + jx;
-  const baseY = (row + 1) * GRID + jy;
+  // Where the prop meets the ground: a little above the tile's bottom edge, so it
+  // reads as standing *in* its square rather than on the line below it.
+  const groundY = (row + 1) * GRID + jy - GRID * 0.12;
   ctx.globalAlpha = 0.22;
   ctx.fillStyle = '#000';
   ctx.beginPath();
-  ctx.ellipse(cx, baseY - GRID * 0.12, w * 0.3, w * 0.12, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, groundY, w * 0.3, w * 0.12, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
-  ctx.drawImage(img, cx - w / 2, baseY - h, w, h);
+  ctx.drawImage(img, cx - w / 2, groundY - h, w, h);
   return true;
 }
 
@@ -63,6 +74,23 @@ function drawProp(
  * and a board baked halfway through would keep whichever tiles missed out drawn as
  * procedural rock for the rest of the run.
  */
+/**
+ * The region's floor textures, in the order it lists them, and only the ones that
+ * have arrived. A region carries more than one (see `paintGround`), and they load
+ * one at a time like every other sprite — the background bake keys on the count.
+ */
+export function groundImages(gr: GameRenderer): HTMLImageElement[] {
+  const out: HTMLImageElement[] = [];
+  for (let i = 0; i < 4; i++) {
+    const key = `ground_${gr.e.biome.id}_${i}`;
+    if (!gr.e.imageOk(key)) break;
+    const img = gr.e.images.get(key);
+    if (!img) break;
+    out.push(img);
+  }
+  return out;
+}
+
 export function sceneryLoaded(gr: GameRenderer): number {
   const { block, rough, prop } = gr.e.biome.scenery;
   let n = 0;
@@ -95,7 +123,7 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     gr.bgTerrain !== gr.e.terrain || gr.bgBiome !== gr.e.biome.id ||
     gr.bgW !== w || gr.bgH !== h || gr.bgScale !== scale ||
     gr.bgWater !== gr.e.imageOk('liquid_water') ||
-    gr.bgGround !== gr.e.imageOk(`ground_${gr.e.biome.id}`) ||
+    gr.bgGround !== groundImages(gr).length ||
     gr.bgScenery !== sceneryLoaded(gr)
   ) {
     if (!gr.bgCache) {
@@ -106,6 +134,10 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     // crisp too, then scale the buffer's context so it still draws in logic units.
     gr.bgCache.width = Math.round(w * scale);
     gr.bgCache.height = Math.round(h * scale);
+    // The pools' welded outlines come first: the bake paints their surface, so it
+    // needs them. Same invalidation, same moment — they are only ever rebuilt when
+    // the map that dealt them changes.
+    gr.liquidBodies = buildLiquidBodies(gr);
     if (gr.bgCtx) {
       gr.bgCtx.setTransform(scale, 0, 0, scale, 0, 0);
       renderStaticBackground(gr, gr.bgCtx, w, h);
@@ -116,12 +148,8 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     gr.bgH = h;
     gr.bgScale = scale;
     gr.bgWater = gr.e.imageOk('liquid_water');
-    gr.bgGround = gr.e.imageOk(`ground_${gr.e.biome.id}`);
+    gr.bgGround = groundImages(gr).length;
     gr.bgScenery = sceneryLoaded(gr);
-    // Same invalidation, same moment: the pools' welded outlines are only ever
-    // rebuilt when the map that dealt them changes.
-    gr.liquidBodies = buildLiquidBodies(gr);
-    gr.liquidPatterns.clear();
   }
   // The parent ctx is already scaled by `deviceScale`; draw the buffer back into
   // the logic rect so it lands 1:1 on the backing store.
@@ -144,24 +172,7 @@ export function renderStaticBackground(gr: GameRenderer, ctx: CanvasRenderingCon
   // is far bigger on screen than our 32px board tile, so a 1:1 mapping squeezed a
   // 128px texture into 32 and turned every ground into noise. Two board tiles per
   // square is the compromise that keeps the grain legible.
-  //
-  // The gradient goes back over the top at a low alpha instead of under it: that is
-  // what keeps Morytania's mud sickly and Al Kharid's sand sun-bleached, when the
-  // same texture would otherwise read as its raw cache colour in every region.
-  const ground = gr.e.imageOk(`ground_${biome.id}`) ? gr.e.images.get(`ground_${biome.id}`) : null;
-  if (ground) {
-    const pat = ctx.createPattern(ground, 'repeat');
-    if (pat) {
-      const k = GROUND_TILE / ground.width;
-      pat.setTransform(new DOMMatrix([k, 0, 0, GROUND_TILE / ground.height, 0, 0]));
-      ctx.fillStyle = pat;
-      ctx.fillRect(0, 0, w, h);
-      ctx.globalAlpha = GROUND_TINT;
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
-      ctx.globalAlpha = 1;
-    }
-  }
+  paintGround(gr, ctx, w, h, grad);
 
   // Texture: scattered ground tufts (two tones) for a less flat field.
   for (let i = 0; i < 220; i++) {
@@ -189,6 +200,124 @@ export function renderStaticBackground(gr: GameRenderer, ctx: CanvasRenderingCon
     ctx.lineTo(w, y);
     ctx.stroke();
   }
+
+  // The pools go on last, over the grid — where the moving layer used to sit over
+  // the blitted buffer. Baking them changed when they are drawn, not where.
+  paintLiquid(gr, ctx);
+}
+
+/**
+ * **The region's floor.** One texture square per {@link GROUND_TILE} px of board,
+ * dealt from the region's own small set instead of filled as one repeating
+ * pattern.
+ *
+ * A pattern fill is a single canvas call, which is why the first pass used one —
+ * but 225 copies of the same square in the same orientation read as wallpaper, and
+ * the busier the texture the worse it got. So the base floor draws itself square by
+ * square, half of them turned end for end on a hash of their own board coordinates:
+ * the same board comes out the same way twice, and neighbouring squares rarely
+ * repeat.
+ *
+ * The region's *second* texture never fills a square. Two cache textures that both
+ * suit a region still differ in brightness far more than two patches of the same
+ * ground do, so dealing them square for square paved every region with a quilt —
+ * and dropping the odd one to half alpha only made a fainter quilt, because the
+ * eye reads the straight edge, not the contrast. It is stamped instead as a round
+ * soft-edged blot ({@link accentBrush}), scattered and turned, so the variation has
+ * no edge to read.
+ *
+ * The region's gradient goes back over the top at a low alpha instead of under it:
+ * that is what keeps Morytania's silt sickly and Al Kharid's sand sun-bleached,
+ * when the same texture would otherwise read as its raw cache colour everywhere.
+ *
+ * It costs ~280 `drawImage` calls once per bake and nothing per frame.
+ */
+function paintGround(
+  gr: GameRenderer,
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  grad: CanvasGradient,
+) {
+  const floors = groundImages(gr);
+  if (floors.length === 0) return;
+  const half = GROUND_TILE / 2;
+  for (let y = 0; y < h; y += GROUND_TILE) {
+    for (let x = 0; x < w; x += GROUND_TILE) {
+      const n = hash2(x * 0.37 + 11.3, y * 0.53 + 4.7);
+      ctx.save();
+      ctx.translate(x + half, y + half);
+      // Half-turns only, never quarter-turns. A quarter-turn breaks the repeat
+      // hardest, but it also turns a directional texture across its neighbour — and
+      // Al Kharid's sand is nothing but ripple lines, so the board came out woven
+      // into a basket. A half-turn keeps every line running the way the region's
+      // ground runs, and the blots below carry the variation instead.
+      if (n > 0.5) ctx.rotate(Math.PI);
+      // Half a pixel of overdraw on each side: a turned square lands its edges on
+      // fractional device pixels, and without it every seam shows as a hairline of
+      // the gradient underneath.
+      ctx.drawImage(floors[0], -half - 0.5, -half - 0.5, GROUND_TILE + 1, GROUND_TILE + 1);
+      ctx.restore();
+    }
+  }
+
+  // …then the second texture, blotted over it. One blot per two-tile cell, jittered
+  // off its cell so the scatter keeps no grid of its own, and skipped on a little
+  // over half of them so there is bare ground between the patches.
+  const brush = floors.length > 1 ? accentBrush(floors[1]) : null;
+  if (brush) {
+    const step = ACCENT_BLOT;
+    for (let y = -step; y < h + step; y += step) {
+      for (let x = -step; x < w + step; x += step) {
+        const n = hash2(x * 0.21 + 3.1, y * 0.17 + 9.4);
+        if (n < 0.46) continue;
+        const jx = (hash2(x * 0.71 + 5.5, y * 0.31 + 2.2) - 0.5) * step;
+        const jy = (hash2(x * 0.13 + 8.8, y * 0.91 + 6.4) - 0.5) * step;
+        ctx.save();
+        ctx.globalAlpha = 0.3 + n * 0.3;
+        ctx.translate(x + step / 2 + jx, y + step / 2 + jy);
+        ctx.rotate(n * Math.PI * 2);
+        ctx.drawImage(brush, -step / 2, -step / 2, step, step);
+        ctx.restore();
+      }
+    }
+  }
+
+  ctx.globalAlpha = GROUND_TINT;
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * One blot of a floor texture: the texture tiled across a square, then masked with
+ * a radial gradient so it fades to nothing well before the square's edge. Stamped
+ * by {@link paintGround} to vary a region's ground without laying an edge anywhere.
+ *
+ * Built fresh per bake rather than cached: it is two fills of a 128px canvas, and a
+ * cache would have to be keyed on the region and invalidated with the background it
+ * is drawn into.
+ */
+function accentBrush(img: HTMLImageElement): HTMLCanvasElement | null {
+  const size = ACCENT_BLOT;
+  const cv = document.createElement('canvas');
+  cv.width = size;
+  cv.height = size;
+  const c = cv.getContext('2d');
+  if (!c) return null;
+  const pat = c.createPattern(img, 'repeat');
+  if (!pat) return null;
+  pat.setTransform(new DOMMatrix([GROUND_TILE / img.width, 0, 0, GROUND_TILE / img.height, 0, 0]));
+  c.fillStyle = pat;
+  c.fillRect(0, 0, size, size);
+  const mask = c.createRadialGradient(size / 2, size / 2, size * 0.08, size / 2, size / 2, size / 2);
+  mask.addColorStop(0, 'rgba(0,0,0,1)');
+  mask.addColorStop(0.55, 'rgba(0,0,0,0.75)');
+  mask.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalCompositeOperation = 'destination-in';
+  c.fillStyle = mask;
+  c.fillRect(0, 0, size, size);
+  return cv;
 }
 
 /**

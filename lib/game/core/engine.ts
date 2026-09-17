@@ -1448,12 +1448,15 @@ export class GameEngine {
       // Lava's spot is its own model, not the water one tinted: what breaks the
       // surface of a lava pool has to be lava.
       fishing_spot_lava: FISHING_SPOT_LAVA_ICON,
-      // …and the two liquids they break, which are the client's own animated
-      // ground textures, plus the seven region grounds the board is tiled with.
+      // …and the two liquids they break, plus every region's floor. A region
+      // carries more than one floor texture (the board deals them per square), so
+      // they are keyed `ground_<region>_<n>` in the order the region lists them.
       liquid_water: ASSETS.terrain.water,
       liquid_lava: ASSETS.terrain.lava,
       ...Object.fromEntries(
-        Object.entries(ASSETS.terrain.ground).map(([id, url]) => [`ground_${id}`, url]),
+        Object.entries(ASSETS.terrain.ground).flatMap(([id, urls]) =>
+          urls.map((url, i) => [`ground_${id}_${i}`, url] as const),
+        ),
       ),
       // Every board prop, keyed `scenery_<id>`. All of them, not the active
       // region's set: the debug skinner cycles regions on a live board, and a

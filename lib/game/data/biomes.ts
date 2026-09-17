@@ -92,7 +92,7 @@ export interface BiomeDef {
 /**
  * Lava's palette, shared by every region that can deal it rather than repeated per
  * biome: molten rock looks the same in the Wilderness as it does in Mor Ul Rek, and
- * the texture under it (59) already carries the crust. Same shape as
+ * the texture under it (31) already carries the crust. Same shape as
  * {@link BiomeDef.water} so the renderer can take either without branching.
  */
 export const LAVA_PALETTE = {

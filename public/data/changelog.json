@@ -1,285 +1,285 @@
 {
-  "generatedAt": "2026-09-13",
+  "generatedAt": "2026-09-17",
   "entries": [
     {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Fishing pools explain why they're off-limits, and a catch's card shows its full worth",
+      "kind": "new",
+      "scope": "board",
+      "text": "Every region stands its own trees, rocks and ruins on the board",
       "fromFeedback": false,
-      "date": "2026-09-12"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Fishing's icons and spot model now have to prove they're actually baked",
-      "fromFeedback": false,
-      "date": "2026-09-12"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Restarting resets your Fishing level, and re-casting a line reels it back in",
-      "fromFeedback": false,
-      "date": "2026-09-12"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "A second fishing spot no longer swallows your click while a line is out",
-      "fromFeedback": false,
-      "date": "2026-09-12"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "Fishing joins the Skills stone, and fish can be eaten from the pack",
+      "scope": "board",
+      "text": "Regions get their own ground texture, flowing water and lava pools you can fish",
       "fromFeedback": false,
-      "date": "2026-09-12"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Continue now brings your Fishing level and your pools back",
-      "fromFeedback": false,
-      "date": "2026-09-12"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "Water and its fishing spots now draw on the board",
+      "scope": "enemies",
+      "text": "Twelve new monsters, so every region fields at least five of its own",
       "fromFeedback": false,
-      "date": "2026-09-12"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Selling a fish you cannot eat now pays your reward multiplier",
-      "fromFeedback": false,
-      "date": "2026-09-12"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "Cast a line between waves and eat what you pull out",
+      "scope": "diversions",
+      "text": "Party Pete dances by his balloons on the ground and leaves once they are all popped",
       "fromFeedback": false,
-      "date": "2026-09-12"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "Every region now has water of its own colour",
+      "scope": "farming",
+      "text": "Plant a carried seed straight from the inventory",
       "fromFeedback": false,
-      "date": "2026-09-11"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "The map now deals water pools you can fish",
+      "scope": "diversions",
+      "text": "The Tool Leprechaun tends your slowest herb so it is ready a wave sooner",
       "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The DPS stone's hitsplat icon sits straight in its stone",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "A snare now holds several enemies at once instead of spending every charge on the first one",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Hunter trap details now show on hover during a wave",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Dragging a sprite no longer leaves the board unclickable on Chrome",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "A leak now reads \"Skeleton escaped, −1 life\"",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "Each seed tile shows the buff it grows",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "Every price now carries the coin pile OSRS would draw for it",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The inventory and the looting bag hold one size, and a piece's towers open over the bag",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The farming patch picks a seed from a grid of herbs with a detail card",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The backpack is the modern client's, ringed in stone with pale corner caps",
-      "fromFeedback": false,
-      "date": "2026-09-11"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Dragging on the board no longer freezes the game on Chrome",
-      "fromFeedback": false,
-      "date": "2026-09-10"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The looting bag is the inventory's last slot, and the backpack opens over its own stone",
-      "fromFeedback": false,
-      "date": "2026-09-10"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The bank is gone, and the inventory's 28 slots each hold one herb or one potion",
-      "fromFeedback": false,
-      "date": "2026-09-08"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "The bank opens in its own window, and the Inventory wears the client's own frame",
+      "scope": "diversions",
+      "text": "Dr Jekyll turns up with a high-level herb for your inventory",
       "fromFeedback": false,
-      "date": "2026-09-08"
+      "date": "2026-09-17"
     },
     {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The inventory's tabs are the client's own stone buttons, red under the open page",
+      "kind": "balanced",
+      "scope": "diversions",
+      "text": "Random events get likelier with every wave that passes without one, and the odds reset when one turns up",
       "fromFeedback": false,
-      "date": "2026-09-07"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "The loot bag moves inside the Inventory, and the slots are the client's own",
-      "fromFeedback": false,
-      "date": "2026-09-07"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "A ripe herb comes out of the ground whenever you click it, wave or no wave",
-      "fromFeedback": false,
-      "date": "2026-09-07"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "An Inventory tab holds the 28 slots a run carries, and a bank takes whatever overflows",
+      "scope": "diversions",
+      "text": "Sergeant Damien replaces Rick Turpentine, and a click drills every tower up 2 levels",
       "fromFeedback": false,
-      "date": "2026-09-06"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "A ripe herb only comes out of the ground during a wave",
+      "scope": "diversions",
+      "text": "The Strange Plant says what it grew, an Overload or a high-level herb seed you can sow for free",
       "fromFeedback": false,
-      "date": "2026-09-06"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The allotment is OSRS's own raked soil, baked edge to edge under the game's dirt texture, with a cut border a seed reads against",
-      "fromFeedback": false,
-      "date": "2026-09-06"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "The Farming and Herblore lists scroll in their own boxes, and the Skills panel opens wide enough to read a whole recipe",
-      "fromFeedback": false,
-      "date": "2026-09-06"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "The Overload lifts every tower at once, and charges a life at the end of every wave it is up",
+      "scope": "diversions",
+      "text": "The Drunken Dwarf's kebab and the genie's lamp go in your inventory, and rubbing the lamp gains 3 levels in Hunter, Herblore or Fishing",
       "fromFeedback": false,
-      "date": "2026-09-06"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "The potion that slows prayer drain is the real Prayer regeneration potion, brewed from a Super restore at 84",
-      "fromFeedback": false,
-      "date": "2026-09-06"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "A plot's ripe glow and its countdown stay inside their own tile instead of sitting over whatever you built above it",
-      "fromFeedback": false,
-      "date": "2026-09-06"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
-      "scope": "game",
-      "text": "The Herblore bench brews nineteen real OSRS potions, and each one only lifts the towers of its own style",
+      "scope": "diversions",
+      "text": "Hans tells you something about your run, a Hunting expert comes to re-set your most worn trap, and Party Pete leaves balloons to pop",
       "fromFeedback": false,
-      "date": "2026-09-06"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "Every tip, hint and boss caption now reads like a line somebody wrote",
-      "fromFeedback": false,
-      "date": "2026-09-06"
+      "date": "2026-09-17"
     },
     {
       "kind": "new",
       "scope": "ui",
-      "text": "A tower's panel now names the herbs and potions boosting it, beside its prayers",
+      "text": "Visitors between waves show what a click pays, float it off the board when you take it, and the Collection Log totals what each one has given you",
       "fromFeedback": false,
-      "date": "2026-09-04"
+      "date": "2026-09-17"
+    },
+    {
+      "kind": "balanced",
+      "scope": "fishing",
+      "text": "Fish heal on an even ladder: shrimps 1 life, trout 2, lobster 3, shark 4 and manta ray 5",
+      "fromFeedback": false,
+      "date": "2026-09-16"
     },
     {
       "kind": "new",
       "scope": "ui",
-      "text": "Drinking a herb or potion that is already running now asks you to confirm first",
+      "text": "Hovering a potion sums up what it does in icons, and the Herblore bench shows the herbs and gold each brew needs",
       "fromFeedback": false,
-      "date": "2026-09-04"
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "A fish's hover card always shows its full heal in green, and only the lives it would leave you at turn red when you are already full",
+      "fromFeedback": false,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "audio",
+      "text": "The black demon dies with the long demon roar instead of a smaller demon's short cry",
+      "fromFeedback": false,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Hovering a fish previews the lives it gives back, and hovering gear sums up its stats in icons",
+      "fromFeedback": false,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "new",
+      "scope": "ui",
+      "text": "Dragging an item in the inventory or loot bag carries a see-through copy of it under the cursor",
+      "fromFeedback": false,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "The interface opens at 100%, or the largest size your screen fits, instead of a few percent under it",
+      "fromFeedback": false,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "The loot bag's stat block no longer jumps while you hover its tower list",
+      "fromFeedback": false,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "The inventory menu lists every potion a herb brews and asks before drinking a potion still running",
+      "fromFeedback": false,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "balanced",
+      "scope": "game",
+      "text": "Hunter traps pay a third more XP for every firing",
+      "fromFeedback": false,
+      "date": "2026-09-16"
     },
     {
       "kind": "new",
       "scope": "game",
-      "text": "Herbs stack like potions now, so a second one rides the wave alongside the first instead of replacing it",
-      "fromFeedback": false,
-      "date": "2026-09-04"
+      "text": "Picking up a trap refunds its price by the charges it has left",
+      "fromFeedback": true,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "balanced",
+      "scope": "game",
+      "text": "Snares can grip the same enemy again once it breaks free, and newcomers still come first",
+      "fromFeedback": true,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "Notices stay up long enough to read, and longer ones stay up longer",
+      "fromFeedback": true,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "Notices above the prayer bar are a third larger",
+      "fromFeedback": true,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "The red flash from a Zamorak brew drunk while paused fades instead of staying on the board",
+      "fromFeedback": true,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "A life won back washes the board green, the way a leak washes it red",
+      "fromFeedback": true,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Every life you win back pops on the lives orb",
+      "fromFeedback": true,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Eating food or drinking a brew shows the lives you gained, not a flash like a hit",
+      "fromFeedback": true,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Hovering a monster in the wave roster shows its card over the potion timers",
+      "fromFeedback": true,
+      "date": "2026-09-16"
+    },
+    {
+      "kind": "updated",
+      "scope": "game",
+      "text": "Opening the wave roster pushes the potion timers down instead of covering them",
+      "fromFeedback": true,
+      "date": "2026-09-15"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "A trap springs on what walked over it, not on where it landed",
+      "fromFeedback": true,
+      "date": "2026-09-15"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "A brew at your overheal cap asks before it pours",
+      "fromFeedback": true,
+      "date": "2026-09-15"
+    },
+    {
+      "kind": "new",
+      "scope": "game",
+      "text": "The Saradomin brew heals past your maximum, and the extra life stays",
+      "fromFeedback": true,
+      "date": "2026-09-15"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "Eating a fish you have no room for sounds like the sale it is",
+      "fromFeedback": true,
+      "date": "2026-09-15"
+    },
+    {
+      "kind": "fixed",
+      "scope": "game",
+      "text": "The tips say wave 130, the wave a run is actually won on",
+      "fromFeedback": true,
+      "date": "2026-09-15"
+    },
+    {
+      "kind": "balanced",
+      "scope": "game",
+      "text": "The Toxic staff's venom field is the squares around it, not the board",
+      "fromFeedback": true,
+      "date": "2026-09-15"
+    },
+    {
+      "kind": "balanced",
+      "scope": "game",
+      "text": "A better potion replaces the weaker one instead of stacking with it",
+      "fromFeedback": true,
+      "date": "2026-09-15"
     }
   ]
 }
