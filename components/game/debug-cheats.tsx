@@ -118,13 +118,14 @@ export function PickTile({ name, sprite, img, foot, nameColor, picked, disabled,
   );
 }
 
-/** Three cells of a `NumberGrid`: label, field, Set. Enter commits too.
+/** Four cells of a `NumberGrid`: label, field, arrows, Set. Enter commits too, and
+ *  a cell a row does not use is left empty so the columns still line up.
  *
- *  A `live` row has no Set: every valid keystroke commits, and the third cell is
- *  a pair of arrows that step the value by one. */
-function NumberRow({ label, icon, value, onCommit, min = 0, max, disabled, live }: {
+ *  `arrows` steps the field by one and leaves applying it to Set. A `live` row has
+ *  arrows and no Set: every valid keystroke and every arrow commits at once. */
+function NumberRow({ label, icon, value, onCommit, min = 0, max, disabled, arrows, live }: {
   label: string; icon?: string; value: number; onCommit: (n: number) => void;
-  min?: number; max?: number; disabled?: boolean; live?: boolean;
+  min?: number; max?: number; disabled?: boolean; arrows?: boolean; live?: boolean;
 }) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => { setDraft(String(value)); }, [value]);
@@ -135,23 +136,28 @@ function NumberRow({ label, icon, value, onCommit, min = 0, max, disabled, live 
     onCommit(clamp(n));
   };
   const commit = () => commitText(draft);
-  const arrow = (dir: 1 | -1) => {
-    const next = clamp(value + dir);
-    return (
-      <button
-        onClick={() => onCommit(next)}
-        disabled={disabled || next === value}
-        title={dir > 0 ? 'Increase' : 'Decrease'}
-        aria-label={`${dir > 0 ? 'Increase' : 'Decrease'} ${label}`}
-        className="rs-btn w-[1.4em] h-[0.95em] flex items-center justify-center"
-        // `.rs-btn` padding is unlayered and outranks a `p-0` utility; at this size it
-        // would crush the arrow to nothing.
-        style={{ padding: 0 }}
-      >
-        <img src={dir > 0 ? ASSETS.misc.arrow_up : ASSETS.misc.arrow_down} alt="" className="w-[0.7em] h-[0.7em] object-contain" onError={hideBrokenImg} />
-      </button>
-    );
+  // A live row steps what it holds; a row with Set steps what is typed, if that is
+  // a number, so a few clicks can build on a half-typed value.
+  const drafted = Number(draft);
+  const base = live || draft.trim() === '' || !Number.isFinite(drafted) ? value : clamp(drafted);
+  const step = (dir: 1 | -1) => {
+    const next = clamp(base + dir);
+    if (live) onCommit(next); else setDraft(String(next));
   };
+  const arrow = (dir: 1 | -1) => (
+    <button
+      onClick={() => step(dir)}
+      disabled={disabled || clamp(base + dir) === base}
+      title={dir > 0 ? 'Increase' : 'Decrease'}
+      aria-label={`${dir > 0 ? 'Increase' : 'Decrease'} ${label}`}
+      className="rs-btn w-[1.4em] h-[0.95em] flex items-center justify-center"
+      // `.rs-btn` padding is unlayered and outranks a `p-0` utility; at this size it
+      // would crush the arrow to nothing.
+      style={{ padding: 0 }}
+    >
+      <img src={dir > 0 ? ASSETS.misc.arrow_up : ASSETS.misc.arrow_down} alt="" className="w-[0.7em] h-[0.7em] object-contain" onError={hideBrokenImg} />
+    </button>
+  );
   return (
     <>
       <span className="min-w-0 flex items-center gap-[0.35em] text-[0.7em] text-[#b3a585]">
@@ -171,27 +177,29 @@ function NumberRow({ label, icon, value, onCommit, min = 0, max, disabled, live 
           if (e.key === 'Enter') commit();
           else if (live && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
             e.preventDefault();
-            onCommit(clamp(value + (e.key === 'ArrowUp' ? 1 : -1)));
+            step(e.key === 'ArrowUp' ? 1 : -1);
           }
         }}
         // A live field that was left empty or out of range shows the value it holds.
         onBlur={live ? () => setDraft(String(value)) : undefined}
-        className="rs-num w-[6.5em] text-[0.74em] tabular-nums"
+        className="ml-[0.4em] rs-num w-[6.5em] text-[0.74em] tabular-nums"
       />
-      {live ? (
-        <span className="flex flex-col gap-[0.1em]">
+      {/* Spacing sits on the cells, not a column gap, so an unused cell takes no room. */}
+      {arrows || live ? (
+        <span className="ml-[0.3em] flex flex-col gap-[0.1em]">
           {arrow(1)}
           {arrow(-1)}
         </span>
-      ) : (
-        <button onClick={commit} disabled={disabled} className="rs-btn px-[0.55em] py-[0.1em] text-[0.7em]">Set</button>
+      ) : <span />}
+      {live ? <span /> : (
+        <button onClick={commit} disabled={disabled} className="ml-[0.4em] rs-btn px-[0.55em] py-[0.1em] text-[0.7em]">Set</button>
       )}
     </>
   );
 }
 
 function NumberGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-[0.4em] gap-y-[0.3em]">{children}</div>;
+  return <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-y-[0.3em]">{children}</div>;
 }
 
 // ─── Run ────────────────────────────────────────────────────────────────────
@@ -206,7 +214,7 @@ export function RunTab({ engineRef, ui }: CheatProps) {
         <NumberRow label="Gold" icon={ASSETS.misc.coins_icon} value={ui.money} onCommit={(n) => eng()?.debugSetGold(n)} />
         <NumberRow label="Essence" icon={ASSETS.misc.rune_essence_icon} value={ui.essence} onCommit={(n) => eng()?.debugSetEssence(n)} />
         <NumberRow label="Slayer points" icon={ASSETS.misc.slayer_crossbow} value={ui.slayerPoints} onCommit={(n) => eng()?.debugSetSlayerPoints(n)} />
-        <NumberRow label="Lives" icon={ASSETS.misc.hp_icon} value={ui.lives} onCommit={(n) => eng()?.debugSetLives(n)} />
+        <NumberRow arrows label="Lives" icon={ASSETS.misc.hp_icon} value={ui.lives} onCommit={(n) => eng()?.debugSetLives(n)} />
       </NumberGrid>
       {ui.waveActive && <Note>The wave number is locked mid-wave.</Note>}
     </DebugCard>
@@ -418,6 +426,7 @@ export function SkillsTab({ engineRef, ui }: CheatProps) {
         {RUN_SKILLS.map((sk) => (
           <NumberRow
             key={sk.key}
+            arrows
             label={sk.label}
             icon={sk.icon}
             value={sk.read(ui)}
