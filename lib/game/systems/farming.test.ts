@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
   buildFarmPatches, patchStage, wavesLeft, patchAtPoint, harvestable, ripenPatches,
+  patchToTend, tendPatch,
   farmTowerMods, farmGoldMult, farmPrayerDrainMult, farmLivesOnClear,
   plotId, parsePlotId, makePatch, canPlacePlot, plotTargets, pickPlotTiles,
   plotCost, PLOT_BASE_COST, seedCost,
@@ -103,6 +104,49 @@ describe('wavesLeft', () => {
 
   it('is zero for a bare patch, which is not waiting on anything', () => {
     expect(wavesLeft(patch())).toBe(0);
+  });
+});
+
+describe('the Tool Leprechaun', () => {
+  it('picks the herb with the longest wait left', () => {
+    const a = patch({ id: 'a', seedId: 'guam', grown: 0 });
+    const b = patch({ id: 'b', seedId: 'torstol', grown: 1 });
+    const c = patch({ id: 'c', seedId: 'ranarr', grown: 0 });
+    expect(patchToTend([a, b, c])?.id).toBe('b');
+  });
+
+  it('goes to the first in board order on a tie', () => {
+    const a = patch({ id: 'a', seedId: 'ranarr', grown: 1 });
+    const b = patch({ id: 'b', seedId: 'irit', grown: 1 });
+    expect(patchToTend([a, b])?.id).toBe('a');
+  });
+
+  it('passes over bare ground and ripe herbs, and finds nothing when nothing grows', () => {
+    const bare = patch({ id: 'bare' });
+    const ripe = patch({ id: 'ripe', seedId: 'guam', grown: 3 });
+    expect(patchToTend([bare, ripe])).toBeNull();
+    expect(patchToTend([])).toBeNull();
+    const growing = patch({ id: 'growing', seedId: 'guam', grown: 2 });
+    expect(patchToTend([bare, ripe, growing])?.id).toBe('growing');
+  });
+
+  it('grows a herb one wave and marks it tended', () => {
+    const p = patch({ seedId: 'ranarr', grown: 1 });
+    expect(tendPatch(p)).toBe(true);
+    expect(p.grown).toBe(2);
+    expect(p.tended).toBe(true);
+    expect(wavesLeft(p)).toBe(2);
+  });
+
+  it('leaves bare ground and a ripe herb alone', () => {
+    const bare = patch();
+    const ripe = patch({ seedId: 'guam', grown: 3 });
+    expect(tendPatch(bare)).toBe(false);
+    expect(tendPatch(ripe)).toBe(false);
+    expect(bare.grown).toBe(0);
+    expect(ripe.grown).toBe(3);
+    expect(bare.tended).toBeUndefined();
+    expect(ripe.tended).toBeUndefined();
   });
 });
 

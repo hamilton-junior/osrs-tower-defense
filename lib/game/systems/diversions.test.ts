@@ -569,8 +569,8 @@ describe('sanitizeDiversionGains', () => {
   it('keeps totals whose diversion and kind both still exist', () => {
     const genie = diversionGainKey('genie', 'essence');
     expect(genie).toBe('genie:essence');
-    expect(sanitizeDiversionGains({ [genie]: 120, 'bird_nest:overload': 2 }))
-      .toEqual({ 'genie:essence': 120, 'bird_nest:overload': 2 });
+    expect(sanitizeDiversionGains({ [genie]: 120, 'bird_nest:overload': 2, 'tool_leprechaun:growth': 3 }))
+      .toEqual({ 'genie:essence': 120, 'bird_nest:overload': 2, 'tool_leprechaun:growth': 3 });
   });
 
   it('drops retired ids, unknown kinds, malformed keys and non-counts', () => {

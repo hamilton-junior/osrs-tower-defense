@@ -62,8 +62,8 @@ import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunt
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
   buildFarmPatches, canPlacePlot, farmGoldMult, farmTowerMods, harvestable, makePatch, parsePlotId,
-  patchAtPoint, patchStage, pickPlotTiles, plotCost, plotId, seedCost, wavesLeft,
-  type FarmPatch,
+  patchAtPoint, patchStage, patchToTend, pickPlotTiles, plotCost, plotId, seedCost, tendPatch,
+  wavesLeft, type FarmPatch,
 } from '../systems/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '../data/herblore';
 import {
@@ -934,6 +934,7 @@ export class GameEngine {
           icon: def ? def.herbIcon : ASSETS.misc.farming_icon,
           wavesLeft: wavesLeft(p),
           paid: p.paid,
+          tended: p.tended === true,
         };
       }),
       fishingSpots: this.fishingSpots.map(s => ({
@@ -3164,18 +3165,24 @@ export class GameEngine {
     const rows = Math.floor(this.height / GRID);
     const ground = (x: number, y: number) => this.diversionGroundFree(x, y);
     for (const mood of moods) {
-      // The Hunting expert only turns up for a worn trap, and stands beside it.
-      // Sergeant Damien only for a tower with a level left to gain.
+      // The Hunting expert only turns up for a worn trap, and stands beside it; the
+      // Tool Leprechaun only for a growing herb, beside its patch. Sergeant Damien
+      // only for a tower with a level left to gain.
       const worn = this.wornTrapSpot(ground, cols, rows);
+      const tend = this.tendSpot(ground, cols, rows);
       const drillable = this.towers.some(t => towerCombatLevel(t) < MAX_TOWER_LEVEL);
       const def = pickDiversionDef(mood, Math.random, d =>
-        (d.job !== 'mend_trap' || worn !== null) && (d.payload !== 'drill' || drillable));
+        (d.job !== 'mend_trap' || worn !== null)
+        && (d.job !== 'tend_patch' || tend !== null)
+        && (d.payload !== 'drill' || drillable));
       if (!def) continue;
       // Everyone else stands exactly where a tower could have — off the road, off the
       // obstacles, clear of what is already built — so they can never be in the way.
       const spot = def.job === 'mend_trap' && worn
         ? worn.spot
-        : pickDiversionSpot(Math.random, ground, cols, rows, GRID);
+        : def.job === 'tend_patch' && tend
+          ? tend.spot
+          : pickDiversionSpot(Math.random, ground, cols, rows, GRID);
       if (!spot) continue; // no room left on the board: the world stays away
       const hint = def.briefing === 'wave'
         ? this.waveHint(configs)
@@ -3203,6 +3210,7 @@ export class GameEngine {
         facingLeft: false,
         line: gift ? diversionGiftText(def.payload, gift).line : diversionLine(def, Math.random, hint),
         trapId: def.job === 'mend_trap' ? worn?.trapId : undefined,
+        patchId: def.job === 'tend_patch' ? tend?.patchId : undefined,
         gift,
       };
       // Turned before the first frame, or a walker coming in from the left would
@@ -3256,6 +3264,17 @@ export class GameEngine {
     return spot ? { trapId: trap.id, spot } : null;
   }
 
+  /** The herb the Tool Leprechaun would come for, and the free tile beside its patch
+   *  to work from. Null when nothing is growing, or that patch has no room beside it. */
+  private tendSpot(
+    isFree: (x: number, y: number) => boolean, cols: number, rows: number,
+  ): { patchId: string; spot: { x: number; y: number } } | null {
+    const patch = patchToTend(this.farmPatches);
+    if (!patch) return null;
+    const spot = nearestDiversionSpot(patch.x, patch.y, isFree, cols, rows, GRID);
+    return spot ? { patchId: patch.id, spot } : null;
+  }
+
   /** What Hans picks a fact from: the run's own counters, nothing new tracked. */
   private runFacts(): RunFacts {
     let topTower: RunFacts['topTower'] = null;
@@ -3307,6 +3326,7 @@ export class GameEngine {
     if (!def.job || d.jobDone) return;
     d.jobDone = true;
     if (def.job === 'mend_trap') this.mendTrap(d);
+    else if (def.job === 'tend_patch') this.tendAllotment(d);
     else this.dropBalloons(d);
   }
 
@@ -3326,6 +3346,25 @@ export class GameEngine {
     const trapDef = HUNTER_TRAP_BY_ID[trap.defId];
     this.notify(`Your ${trapDef.name.toLowerCase()} is back to full charges.`, trapDef.sprite, reward);
     this.sound.play('trap_mend');
+  }
+
+  /** The Tool Leprechaun grows the herb it came for by a wave, or whichever herb has
+   *  the longest wait now if that one was pulled or dug up on the way. */
+  private tendAllotment(d: Diversion) {
+    const stored = this.farmPatches.find(p => p.id === d.patchId);
+    const patch = stored && wavesLeft(stored) > 0 ? stored : patchToTend(this.farmPatches);
+    if (!patch?.seedId || !tendPatch(patch)) return;
+    const seed = SEED_BY_ID[patch.seedId];
+    const reward: DiversionReward = { kind: 'growth', amount: 1 };
+    this.recordDiversionGain(d.defId, reward);
+    this.pushDiversionPop(patch.x, patch.y, reward);
+    this.notify(
+      wavesLeft(patch) > 0
+        ? `The Tool Leprechaun tended your ${seed.herbName}.`
+        : `Your ${seed.herbName} is ready to pick, thanks to the Tool Leprechaun.`,
+      seed.herbIcon, reward,
+    );
+    this.sound.play('farm_harvest');
   }
 
   /** Party Pete leaves three to seven balloons on free ground around his tile. */
@@ -3431,10 +3470,11 @@ export class GameEngine {
       this.diversions = this.diversions.filter(d => d.id !== id);
     }
     // Clicked before reaching its tile: it still does what it came to do. The
-    // Hunting expert's toast is the trap's, so it stands in for the small talk.
+    // Hunting expert's toast is the trap's, and the Tool Leprechaun's the herb's, so
+    // each stands in for the small talk.
     if (def.job && !found.jobDone) {
       this.runDiversionJob(found);
-      if (def.job === 'mend_trap') { this.emit(); return; }
+      if (def.job === 'mend_trap' || def.job === 'tend_patch') { this.emit(); return; }
     }
     // The nest is the one payload decided on opening rather than on landing: that
     // is the whole appeal of a nest.
@@ -3507,6 +3547,9 @@ export class GameEngine {
         break;
       case 'charges':
         // Put straight into a trap by the Hunting expert's own job: nothing to credit.
+        break;
+      case 'growth':
+        // Grown straight into a patch by the Tool Leprechaun's own job: the same.
         break;
     }
   }
@@ -3672,6 +3715,7 @@ export class GameEngine {
     patch.seedId = seedId;
     patch.grown = 0;
     patch.paid = price;
+    patch.tended = false;
     this.seedsSown += 1;
     this.pendingSow = null;
     this.sound.play(held ? 'select' : 'sell'); // the coin-shuffle when gold left the purse
@@ -3692,6 +3736,7 @@ export class GameEngine {
     patch.seedId = null;
     patch.grown = 0;
     patch.paid = 0;
+    patch.tended = false;
     this.pendingSow = null;
     this.sound.play('interface_close');
     this.notify(`${def.seedName} dug up, no refund`, def.seedIcon);
@@ -3800,6 +3845,7 @@ export class GameEngine {
     patch.seedId = null;
     patch.grown = 0;
     patch.paid = 0;
+    patch.tended = false;
     this.pendingSow = null;
     const where = addItem(this.items, 'herb', def.id);
     if (where === 'bag') this.bagBump(stackKey('herb', def.id));
@@ -4455,7 +4501,7 @@ export class GameEngine {
       // What is actually in the ground...
       farmPatches: this.farmPatches
         .filter(p => p.seedId)
-        .map(p => ({ id: p.id, seedId: p.seedId!, grown: p.grown, paid: p.paid })),
+        .map(p => ({ id: p.id, seedId: p.seedId!, grown: p.grown, paid: p.paid, ...(p.tended ? { tended: true } : {}) })),
       // ...and where every plot stands, which the map alone no longer says: the
       // player can move a plot and buy more of them. A plot's id *is* its tile, so
       // this list is the board. A save written before plots could move has no such
@@ -4615,6 +4661,7 @@ export class GameEngine {
       plot.grown = s.grown;
       // A save written before the price moved with the wave paid the base price.
       plot.paid = s.paid ?? SEED_BY_ID[s.seedId].cost;
+      plot.tended = s.tended === true;
     }
     this.farmBuffs = [...(save.farmBuffs ?? [])];
     this.items = {

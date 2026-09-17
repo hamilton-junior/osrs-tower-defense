@@ -455,6 +455,8 @@ export interface UIState {
     /** What the seed in this patch cost when it went in — the number the dig-up
      *  warning quotes. Zero on bare ground. */
     paid: number;
+    /** The Tool Leprechaun grew this herb along, so the patch shows who helped. */
+    tended: boolean;
   }[];
   /** The patch whose seed menu is open, or null. Set by clicking a bare patch. */
   pendingSow: string | null;

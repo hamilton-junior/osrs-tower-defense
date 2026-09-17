@@ -60,5 +60,12 @@
       "stand",
       "walk"
     ]
+  },
+  "tool_leprechaun": {
+    "npc": 0,
+    "clips": [
+      "stand",
+      "walk"
+    ]
   }
 }

@@ -149,7 +149,7 @@ export interface RunSave {
    *  refunds a share of; a save from before refunds has none. */
   traps?: { defId: HunterTrapId; x: number; y: number; charges: number; paid?: number }[];
   /** What is growing in the allotments, addressed by the plot's tile-derived id. */
-  farmPatches?: { id: string; seedId: SeedId; grown: number; paid?: number }[];
+  farmPatches?: { id: string; seedId: SeedId; grown: number; paid?: number; tended?: boolean }[];
   /** Where every plot stands — one tile-derived id each (`p<col>_<row>`), which is
    *  the whole board, since a plot's id *is* its tile. The map's own seed no longer
    *  answers this: plots can be moved and bought. Absent in saves written before
@@ -465,6 +465,8 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
           // Optional: a save from before the price moved with the wave leaves the
           // engine to fall back to the seed's base price.
           ...('paid' in p ? { paid: Math.max(0, Math.round(num(p.paid, 0))) } : {}),
+          // Optional: only a herb the Tool Leprechaun grew along carries it.
+          ...(p.tended === true ? { tended: true } : {}),
         }))
       : [],
     // A plot id is a tile, and a tile is two numbers — anything else in this list is

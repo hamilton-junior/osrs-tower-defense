@@ -7,5 +7,6 @@
   "genie": { "npc": 326, "anims": { "stand": 792, "walk": 792 } },
   "strange_plant": { "npc": 323, "anims": { "stand": 349 } },
   "sergeant_damien": { "npc": 6743, "anims": { "stand": 808, "walk": 819 } },
-  "dr_jekyll": { "npc": 307, "anims": { "stand": 808, "walk": 819 } }
+  "dr_jekyll": { "npc": 307, "anims": { "stand": 808, "walk": 819 } },
+  "tool_leprechaun": { "npc": 0, "anims": { "stand": 2904, "walk": 12042 } }
 }

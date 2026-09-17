@@ -46,6 +46,9 @@ export interface FarmPatch {
    *  be the one that was paid, not the one the same seed would cost today. Zero on
    *  bare ground. */
   paid: number;
+  /** Set when the Tool Leprechaun has grown this herb along, so the patch can show
+   *  who helped. Cleared by everything that empties or re-sows the ground. */
+  tended?: boolean;
 }
 
 /**
@@ -193,6 +196,27 @@ export function ripenPatches(patches: readonly FarmPatch[]): void {
 export function wavesLeft(patch: FarmPatch): number {
   if (!patch.seedId) return 0;
   return Math.max(0, SEED_BY_ID[patch.seedId].waves - patch.grown);
+}
+
+/** The herb the Tool Leprechaun would come for: the one with the longest wait left,
+ *  the first in board order on a tie. Null when nothing is growing. */
+export function patchToTend(patches: readonly FarmPatch[]): FarmPatch | null {
+  let best: FarmPatch | null = null;
+  for (const p of patches) {
+    const left = wavesLeft(p);
+    if (left <= 0) continue;
+    if (!best || left > wavesLeft(best)) best = p;
+  }
+  return best;
+}
+
+/** Grow a herb along by one wave, as a cleared wave would. False, and nothing
+ *  touched, for bare ground or a herb that is already ripe. */
+export function tendPatch(patch: FarmPatch): boolean {
+  if (wavesLeft(patch) <= 0) return false;
+  patch.grown += 1;
+  patch.tended = true;
+  return true;
 }
 
 /** The four looks a patch can have. The middle two split the wait in half, so a

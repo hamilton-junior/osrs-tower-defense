@@ -74,6 +74,8 @@ export interface Diversion {
   line: string;
   /** The Hunting expert only: the trap it came to re-set, picked at spawn. */
   trapId?: string;
+  /** The Tool Leprechaun only: the allotment it came to tend, picked at spawn. */
+  patchId?: string;
   /** Set once its {@link DiversionDef.job} has run, so it only ever runs once. */
   jobDone?: boolean;
   /** What the Strange Plant grew or which herb Dr Jekyll brought, rolled at spawn so

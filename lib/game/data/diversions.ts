@@ -23,7 +23,7 @@ const turned = (slug: string) => ({ back: npcModel(`${slug}_back`), side: npcMod
 export type DiversionMood = 'walkby' | 'event' | 'nest';
 
 export type DiversionId =
-  | 'hans' | 'hunting_expert' | 'lumbridge_guide' | 'party_pete'
+  | 'hans' | 'hunting_expert' | 'lumbridge_guide' | 'party_pete' | 'tool_leprechaun'
   | 'drunken_dwarf' | 'genie' | 'strange_plant' | 'sergeant_damien' | 'dr_jekyll'
   | 'bird_nest';
 
@@ -46,10 +46,12 @@ export type DiversionPayload =
  * something to carry; it stays so an account's old kebab totals still show.
  */
 export type DiversionRewardKind =
-  | 'life' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'overload' | 'seed' | 'herb' | 'levels' | 'charges';
+  | 'life' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'overload' | 'seed' | 'herb' | 'levels' | 'charges'
+  | 'growth';
 
 export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = [
   'life', 'kebab', 'lamp', 'gold', 'essence', 'overload', 'seed', 'herb', 'levels', 'charges',
+  'growth',
 ];
 
 /** Each reward's own icon, and the name it goes by on hover. */
@@ -68,6 +70,7 @@ export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; 
   // The amount is per tower: a drill lifts every tower on the board by it.
   levels: { icon: ASSETS.misc.stats_icon, label: 'Levels for every tower' },
   charges: { icon: ASSETS.misc.hunter_icon, label: 'Trap charges' },
+  growth: { icon: ASSETS.misc.farming_icon, label: 'Waves of growth' },
 };
 
 /** A reward's icon and hover name. Seeds and herbs are the kinds with several
@@ -107,9 +110,10 @@ export const DRILL_LEVELS = 2;
 /**
  * Something one does on the board by itself, the moment it reaches its tile, with
  * no click asked for. `mend_trap` re-sets the most worn hunter trap; `drop_balloons`
- * leaves a handful of balloons around the tile to pop.
+ * leaves a handful of balloons around the tile to pop; `tend_patch` grows the herb
+ * with the longest wait left in the allotments by a wave.
  */
-export type DiversionJob = 'mend_trap' | 'drop_balloons';
+export type DiversionJob = 'mend_trap' | 'drop_balloons' | 'tend_patch';
 
 export interface DiversionDef {
   id: DiversionId;
@@ -214,6 +218,24 @@ export const DIVERSIONS: DiversionDef[] = [
       'Someone put a tune on!',
       'Balloons! Pop them, go on!',
       "Best siege I've ever been to, this.",
+    ],
+  },
+  {
+    // Only turns up when a herb is growing and there is free ground beside its
+    // patch: the spawner picks the tile, not the dice.
+    id: 'tool_leprechaun',
+    mood: 'walkby',
+    name: 'Tool Leprechaun',
+    sprite: npcModel('tool_leprechaun'),
+    turned: turned('tool_leprechaun'),
+    payload: 'none',
+    job: 'tend_patch',
+    tip: 'Helps your slowest herb along.',
+    lines: [
+      "Ah, 'tis a fine patch you've got there.",
+      "A drop of water and a kind word, that's the trick.",
+      "I'll mind your tools. And your herbs, while I'm at it.",
+      'Weeds? Not on my watch.',
     ],
   },
   {

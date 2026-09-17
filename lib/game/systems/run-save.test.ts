@@ -268,6 +268,20 @@ describe('the allotments', () => {
     expect(spent?.farmBuffs).toEqual([]);
   });
 
+  it("keeps the Tool Leprechaun's mark on a herb it tended, and nothing else", () => {
+    const save = makeSave({
+      farmPatches: [
+        { id: 'p3_4', seedId: 'guam', grown: 2, tended: true },
+        { id: 'p4_4', seedId: 'guam', grown: 1, tended: 'yes' },
+      ],
+    });
+    const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));
+    expect(back?.farmPatches).toEqual([
+      { id: 'p3_4', seedId: 'guam', grown: 2, tended: true },
+      { id: 'p4_4', seedId: 'guam', grown: 1 },
+    ]);
+  });
+
   it('drops a seed this build no longer grows, rather than the save', () => {
     const save = makeSave({ farmPatches: [{ id: 'p3_4', seedId: 'nettle', grown: 1 }] });
     const back = sanitizeRunSave(JSON.parse(JSON.stringify(save)));

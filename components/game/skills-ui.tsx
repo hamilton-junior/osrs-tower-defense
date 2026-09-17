@@ -499,7 +499,8 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                 footColor={p.stage === 'ready' ? '#4dff4d' : undefined}
                 disabled={p.stage === 'ready' ? ui.gameOver : busy}
                 title={p.stage === 'ready' ? 'Pull the herb'
-                  : p.stage === 'empty' ? 'Sow a seed' : 'See what is growing'}
+                  : p.stage === 'empty' ? 'Sow a seed'
+                  : p.tended ? 'See what is growing. The Tool Leprechaun tended it' : 'See what is growing'}
                 onPress={() => onOpenPatch(p.id)}
               />
               <TileCorner

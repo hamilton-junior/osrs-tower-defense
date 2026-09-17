@@ -121,6 +121,25 @@ export function drawFarming(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       }
     }
 
+    // Grown along by the Tool Leprechaun: his own face, cropped from his bake, in
+    // the plot's top-left corner. The waves-left count owns the bottom-right, and a
+    // mark over the tile above would sit on whatever stands there.
+    if (p.tended && stage !== 'empty') {
+      const lep = gr.e.imageOk('diversion_tool_leprechaun') ? gr.e.images.get('diversion_tool_leprechaun') : null;
+      if (lep) {
+        // The head of the 256px bake; scaled, so a re-bake at another size still lands.
+        const k = lep.naturalWidth / 256;
+        const size = 14;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.beginPath();
+        ctx.arc(left + 1 + size / 2, top + 1 + size / 2, size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.drawImage(lep, 88 * k, 6 * k, 88 * k, 88 * k, left + 1, top + 1, size, size);
+        ctx.restore();
+      }
+    }
+
     if (!idle) continue;
 
     if (stage === 'empty') {

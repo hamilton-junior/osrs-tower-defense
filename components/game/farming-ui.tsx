@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ASSETS, coinsIcon } from '@/lib/game/assets';
 import type { UIState } from '@/lib/game/core/engine';
+import { DIVERSION_BY_ID } from '@/lib/game/data/diversions';
 import { SEEDS, SEED_BY_ID, type SeedDef, type SeedId } from '@/lib/game/data/farming';
 import { seedCost } from '@/lib/game/systems/farming';
 import type { CombatStyle } from '@/lib/game/types';
@@ -183,6 +184,17 @@ export function SowPanel({ ui, patchId, globalLock, onSow, onDigUp, onMovePlot, 
                 <div className="rs-progress-fill" style={{ width: `${(grown / growing.waves) * 100}%` }} />
               </div>
             </div>
+            {plot.tended && (
+              <p className="flex items-center gap-[0.35em] text-[0.66em] text-[#cdbe91] leading-snug mt-[0.35em] px-[0.1em]">
+                <img
+                  src={DIVERSION_BY_ID.tool_leprechaun.sprite}
+                  alt=""
+                  className="w-[1.3em] h-[1.3em] object-contain shrink-0"
+                  onError={hideBrokenImg}
+                />
+                The Tool Leprechaun tended this herb.
+              </p>
+            )}
             {confirmDig ? (
               <div className="rs-panel-inset mt-[0.55em] p-[0.45em]">
                 <p className="text-[0.68em] text-[#cdbe91] leading-snug text-center">

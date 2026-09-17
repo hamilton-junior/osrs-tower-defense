@@ -161,6 +161,8 @@ const TARGETS = {
   sergeant_damien: { npc: 6743 },
   // 307 is the random-event Dr Jekyll (Talk-to, Dismiss).
   dr_jekyll: { npc: 307 },
+  // 0 is the Tool Leprechaun who minds every farming patch.
+  tool_leprechaun: { npc: 0 },
 
   // Turned round, so a walker can face the way it is going: the default render
   // above is the front (a ¾ view, which is what the infobox icon wants too),
@@ -185,6 +187,8 @@ const TARGETS = {
   sergeant_damien_back: { npc: 6743, yaw: 180 },
   dr_jekyll_side: { npc: 307, yaw: 90 },
   dr_jekyll_back: { npc: 307, yaw: 180 },
+  tool_leprechaun_side: { npc: 0, yaw: 90 },
+  tool_leprechaun_back: { npc: 0, yaw: 180 },
 
   // --- Misc NPC-model icons ---
   giant_snail: { npc: 5628 },            // "slow" debuff icon
