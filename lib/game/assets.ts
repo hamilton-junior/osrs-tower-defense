@@ -246,6 +246,15 @@ const DEATH_TYPES = [
   // runs locust / locust_mage / locust_rider in step.
   'mummy', 'scarab_mage', 'locust_rider', 'kalphite_worker', 'kalphite_guardian',
   'jackal', 'vulture', 'desert_lizard', 'dust_devil',
+  // The Wilderness, Karamja, Trollweiss and the Fight Caves. Four of these die with a
+  // clip filed under a neighbour's name rather than their own, because the cache holds
+  // no clip under theirs: the Ankou (the skeleton's cry, its own species'), the Tz-Kih
+  // (the caves' Hur cry — there is no kih or kek clip at all), the Cave horror (the
+  // horror family's death, whose only cave-variant entry is a howl) and the Giant
+  // mosquito (the one mosquito death the cache ships). Each was settled with the user.
+  'ankou', 'ent', 'giant_mosquito', 'cave_horror', 'bronze_dragon',
+  'wolf', 'thrower_troll', 'troll_general',
+  'tz_kih', 'tok_xil', 'yt_mejkot', 'ket_zek',
   // Misthalin. Both frogs are filed under `toad`, OSRS's own name for them.
   'cave_bug', 'cave_slime', 'giant_bat', 'big_frog', 'giant_frog',
   // The regional locals. The Ice troll is the one concession: OSRS gives it its
@@ -354,6 +363,18 @@ export const ASSETS = {
     locust_rider: `${LOCAL}/models/locust_rider.png`,
     dust_devil: `${LOCAL}/models/dust_devil.png`,
     kalphite_guardian: `${LOCAL}/models/kalphite_guardian.png`,
+    ankou: `${LOCAL}/models/ankou.png`,                                   // Wilderness
+    ent: `${LOCAL}/models/ent.png`,
+    giant_mosquito: `${LOCAL}/models/giant_mosquito.png`,                 // Karamja
+    cave_horror: `${LOCAL}/models/cave_horror.png`,
+    bronze_dragon: `${LOCAL}/models/bronze_dragon.png`,
+    wolf: `${LOCAL}/models/wolf.png`,                                     // Trollweiss
+    thrower_troll: `${LOCAL}/models/thrower_troll.png`,
+    troll_general: `${LOCAL}/models/troll_general.png`,
+    tz_kih: `${LOCAL}/models/tz_kih.png`,                                 // TzHaar
+    tok_xil: `${LOCAL}/models/tok_xil.png`,
+    yt_mejkot: `${LOCAL}/models/yt_mejkot.png`,
+    ket_zek: `${LOCAL}/models/ket_zek.png`,
   },
   // Combat Achievement tier icons — the game's own CaTierSwords sprites (3393-3398),
   // one blade per tier, bronze for Easy up to the last for Grandmaster.

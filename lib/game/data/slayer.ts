@@ -23,9 +23,9 @@ export interface SlayerMaster {
  *  so those three are placed by difficulty band instead, and the Kalphite Guardian
  *  rides up to Duradel with the rest of its own hp bracket. */
 export const SLAYER_MASTERS: SlayerMaster[] = [
-  { id: 'turael', name: 'Turael', levelReq: 1, taskPool: ['goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost', 'cave_bug', 'cave_slime', 'giant_bat', 'vulture', 'desert_lizard', 'jackal', 'kalphite_worker'], bonusMultiplier: 1.0, pointsPerTask: 2 },
-  { id: 'mazchna', name: 'Mazchna', levelReq: 20, taskPool: ['scorpion', 'hill_giant', 'lesser_demon', 'hellhound', 'fire_giant', 'bloodveld', 'ice_warrior', 'jogre', 'harpie_bug_swarm', 'hobgoblin', 'moss_giant', 'scarab_mage', 'mummy', 'locust_rider'], bonusMultiplier: 1.2, pointsPerTask: 5 },
-  { id: 'duradel', name: 'Duradel', levelReq: 50, taskPool: ['abyssal_demon', 'dark_beast', 'hydra', 'gargoyle', 'nechryael', 'black_demon', 'blue_dragon', 'green_dragon', 'ice_troll', 'dust_devil', 'kalphite_guardian'], bonusMultiplier: 1.5, pointsPerTask: 15 },
+  { id: 'turael', name: 'Turael', levelReq: 1, taskPool: ['goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost', 'cave_bug', 'cave_slime', 'giant_bat', 'vulture', 'desert_lizard', 'jackal', 'kalphite_worker', 'wolf', 'giant_mosquito', 'tz_kih'], bonusMultiplier: 1.0, pointsPerTask: 2 },
+  { id: 'mazchna', name: 'Mazchna', levelReq: 20, taskPool: ['scorpion', 'hill_giant', 'lesser_demon', 'hellhound', 'fire_giant', 'bloodveld', 'ice_warrior', 'jogre', 'harpie_bug_swarm', 'hobgoblin', 'moss_giant', 'scarab_mage', 'mummy', 'locust_rider', 'ankou', 'cave_horror', 'thrower_troll', 'tok_xil', 'yt_mejkot'], bonusMultiplier: 1.2, pointsPerTask: 5 },
+  { id: 'duradel', name: 'Duradel', levelReq: 50, taskPool: ['abyssal_demon', 'dark_beast', 'hydra', 'gargoyle', 'nechryael', 'black_demon', 'blue_dragon', 'green_dragon', 'ice_troll', 'dust_devil', 'kalphite_guardian', 'ent', 'bronze_dragon', 'troll_general', 'ket_zek'], bonusMultiplier: 1.5, pointsPerTask: 15 },
 ];
 
 /** Tower-damage bonus vs the current task's monster while the Slayer Helmet is

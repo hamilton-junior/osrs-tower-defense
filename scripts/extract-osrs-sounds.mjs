@@ -229,6 +229,32 @@ const TARGETS = {
                                  // (849) and attack (2399) but no death of its own, so
                                  // the troll's is the clip the client itself falls back to
   death_harpie_bug_swarm: 2744,  // harpiebugswarm_death
+  // The Wilderness.
+  death_ankou: 777,              // skeleton_death — an Ankou is an undead humanoid and
+                                 // the cache files no ankou clip of its own; the skeleton
+                                 // is the voice its own species already dies with here
+  death_ent: 4755,               // lore_ent_death — the cache's only ent, and a complete
+                                 // family (attack 4647 / defend 4738 / death 4755)
+  // Karamja.
+  death_giant_mosquito: 4484,    // lore_mosquito_death — 637 is the mosquito's attack, and
+                                 // this family (attack/hit/death) carries the only death
+  death_cave_horror: 499,        // jungle_horror_death — 496-500 is one contiguous family
+                                 // with the cave variant's own entry (the howl, 497) sitting
+                                 // inside it; a cave horror is a jungle horror gone underground
+  death_bronze_dragon: 409,      // dragon_death — the clip every dragon in the cache dies
+                                 // with, the KBD and the green dragon included
+  // Trollweiss.
+  death_wolf: 911,               // wolf_death
+  death_thrower_troll: 866,      // troll_death — the family clip the Ice troll already uses
+  death_troll_general: 866,      // troll_death
+  // TzHaar. Each of the three named ones is its own race's cry, read the way the
+  // Yt-HurKot already is: a Tok-Xil is a TzHaar-Xil, a Yt-MejKot is a TzHaar-Mej and
+  // a Ket-Zek is a TzHaar-Ket. The Tz-Kih is the exception the user settled: the cache
+  // files no kih or kek clip at all, so the caves' own Hur cry stands in for it.
+  death_tz_kih: 252,             // tzhaar_hur_death
+  death_tok_xil: 270,            // tzhaar_xil_death
+  death_yt_mejkot: 263,          // tzhaar_mej_death
+  death_ket_zek: 256,            // tzhaar_ket_death
 };
 
 /**

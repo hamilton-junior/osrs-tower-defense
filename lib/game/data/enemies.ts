@@ -220,6 +220,152 @@ export const ENEMIES: Record<string, EnemyDef> = {
     reward: 40,
     waveUnlock: 9
   },
+  // ── The Wilderness ─────────────────────────────────────────────────────────
+  // Two bodies the region had no silhouette for: a reaper and a walking tree.
+  ankou: {
+    type: 'ankou',
+    region: 'wilderness',
+    name: 'Ankou',
+    hp: 60,
+    speed: 50,
+    color: '#3b3446',
+    reward: 18,
+    waveUnlock: 6
+  },
+  ent: {
+    type: 'ent',
+    region: 'wilderness',
+    renderScale: 1.45,
+    name: 'Ent',
+    hp: 75,
+    speed: 28,
+    color: '#4f6b3a',
+    reward: 22,
+    waveUnlock: 7
+  },
+  // ── Karamja Jungle ─────────────────────────────────────────────────────────
+  // The jungle played on two mid bodies and the backbone. These give it a swarm
+  // rung at the bottom and the metal dragon line at the top.
+  giant_mosquito: {
+    type: 'giant_mosquito',
+    region: 'karamja',
+    renderScale: 0.7,
+    name: 'Giant mosquito',
+    hp: 3,
+    speed: 135,
+    color: '#7b6a4a',
+    reward: 2,
+    waveUnlock: 1
+  },
+  cave_horror: {
+    type: 'cave_horror',
+    region: 'karamja',
+    renderScale: 1.05,
+    name: 'Cave horror',
+    hp: 55,
+    speed: 60,
+    color: '#2f3a33',
+    reward: 16,
+    waveUnlock: 6
+  },
+  bronze_dragon: {
+    type: 'bronze_dragon',
+    region: 'karamja',
+    renderScale: 1.3,
+    name: 'Bronze dragon',
+    hp: 122,
+    speed: 40,
+    color: '#a9752f',
+    reward: 38,
+    waveUnlock: 10
+  },
+  // ── Trollweiss Snow ────────────────────────────────────────────────────────
+  // A fast pack under the two bodies already here, then the troll family's own
+  // two rungs above them.
+  wolf: {
+    type: 'wolf',
+    region: 'trollweiss',
+    renderScale: 0.9,
+    name: 'Wolf',
+    hp: 34,
+    speed: 125,
+    color: '#9aa0a8',
+    reward: 9,
+    waveUnlock: 3
+  },
+  thrower_troll: {
+    type: 'thrower_troll',
+    region: 'trollweiss',
+    renderScale: 1.2,
+    name: 'Thrower troll',
+    hp: 95,
+    speed: 45,
+    color: '#6f6350',
+    reward: 24,
+    waveUnlock: 7
+  },
+  troll_general: {
+    type: 'troll_general',
+    region: 'trollweiss',
+    renderScale: 1.5,
+    name: 'Troll general',
+    hp: 140,
+    speed: 35,
+    color: '#7a6a4f',
+    reward: 42,
+    waveUnlock: 10
+  },
+  // ── TzHaar Caverns ─────────────────────────────────────────────────────────
+  // The Fight Caves ladder, deliberately: the city TzHaar are already towers in
+  // this game, so the cavern's enemies are the monsters Jad brings with him. The
+  // Yt-HurKot is already here as his healer — Yt-MejKot is the wave-borne one.
+  tz_kih: {
+    type: 'tz_kih',
+    region: 'tzhaar',
+    // Baked bigger than its size in the caves suggests: the cache model hovers, so
+    // the bat itself only fills the top third of its cell and the rest is the air
+    // it flies over. A smaller scale drew a speck.
+    renderScale: 1.6,
+    name: 'Tz-Kih',
+    hp: 10,
+    speed: 115,
+    color: '#7a2d22',
+    reward: 4,
+    waveUnlock: 2
+  },
+  tok_xil: {
+    type: 'tok_xil',
+    region: 'tzhaar',
+    renderScale: 1.2,
+    name: 'Tok-Xil',
+    hp: 40,
+    speed: 55,
+    color: '#8c3a1e',
+    reward: 12,
+    waveUnlock: 5
+  },
+  yt_mejkot: {
+    type: 'yt_mejkot',
+    region: 'tzhaar',
+    renderScale: 1.5,
+    name: 'Yt-MejKot',
+    hp: 80,
+    speed: 45,
+    color: '#b34a2a',
+    reward: 26,
+    waveUnlock: 7
+  },
+  ket_zek: {
+    type: 'ket_zek',
+    region: 'tzhaar',
+    renderScale: 1.75,
+    name: 'Ket-Zek',
+    hp: 160,
+    speed: 35,
+    color: '#d2442a',
+    reward: 48,
+    waveUnlock: 11
+  },
   // ───────────────────────────────────────────────────────────────────────────
   imp: {
     type: 'imp',
@@ -956,6 +1102,9 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   hellhound: 'water', fire_giant: 'water', lesser_demon: 'water',
   black_demon: 'water', abyssal_demon: 'water', superior_abyssal_demon: 'water',
   nechryael: 'water', superior_nechryael: 'water',
+  // The Fight Caves: a Tz-Kih is a living ember and a Ket-Zek is the cavern's fire
+  // mage, so both answer the way every other fire creature on the board does.
+  tz_kih: 'water', ket_zek: 'water',
   // The one monster OSRS itself hands you the answer to: an ice cooler is what
   // kills a desert lizard, and water is this game's cold.
   desert_lizard: 'water',
@@ -970,6 +1119,9 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   // Kharidian: a mummy is undead and a locust is an insect — the bucket's two
   // readings again, one on each of the desert's heavy bodies.
   mummy: 'fire', locust_rider: 'fire',
+  // The Wilderness' reaper is undead, and Karamja's mosquito is an insect — the
+  // same two readings, one per region.
+  ankou: 'fire', giant_mosquito: 'fire',
   // Earth — dragons, stone & burrowers
   blue_dragon: 'earth', green_dragon: 'earth', giant_mole: 'earth',
   // The dragon bucket's boss: the same answer as every other dragon on the board, so
@@ -981,6 +1133,11 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   // Living statues: stone answers to earth. Both halves read the same, so the pair
   // never splits the player's answer — the fight is about order, not element.
   dusk: 'earth', dawn: 'earth',
+  // Karamja's metal dragon line opens here, and it answers like every other dragon.
+  bronze_dragon: 'earth',
+  // The TzHaar are living rock, which is the bucket's other half. Tok-Xil is the
+  // armoured one, so he is where that reading lands.
+  tok_xil: 'earth',
   // Earth, straight off the wiki: Brutus carries a 25% elemental weakness to it.
   brutus: 'earth',
   // Air — agile, magical & ethereal
@@ -990,6 +1147,9 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   // The desert's flyer, and its whirlwind: a vulture circles and a dust devil is
   // literally moving air.
   vulture: 'air', dust_devil: 'air',
+  // The snowfield's pack: a wolf is the fastest body in the region and armoured
+  // by nothing, which is the agile half of this bucket exactly.
+  wolf: 'air',
   // A deviation: OSRS gives Scurrius no elemental weakness at all. Leaving him blank
   // would make him the one boss the table skips, and it would read as an oversight
   // rather than a decision — every rat in the game is Air, including the ones he
@@ -1014,8 +1174,14 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   // has meleed more than any other, so melee is where they read.
   goblin: 'melee', hill_giant: 'melee', bloodveld: 'melee', superior_bloodveld: 'melee',
   // A troll takes its lowest defence to crush in OSRS, and a troll is the monster
-  // the word "crush" was invented for.
-  ice_troll: 'melee',
+  // the word "crush" was invented for. The whole family reads the same on purpose:
+  // meet one troll on the snowfield and you know the answer to the other two.
+  ice_troll: 'melee', thrower_troll: 'melee', troll_general: 'melee',
+  // Ours, and the oldest OSRS reading there is: you cut down a tree with an axe.
+  ent: 'melee',
+  // Ours: a cave horror is unarmoured and slow enough to meet, and it hides behind
+  // a magic level of 80 — the one style you would not bring.
+  cave_horror: 'melee',
   // Misthalin, and all three ours: OSRS ties every defence on these. A hobgoblin is
   // the rung an OSRS player meleed straight after the goblin, and a slime and a
   // giant frog are both soft, slow bodies you walk up to rather than kite.
@@ -1032,8 +1198,9 @@ const STYLE_WEAKNESSES: Partial<Record<string, StyleWeakness>> = {
   // the melee answer: the same lesson, in the vocabulary this game has.
   corporeal_beast: 'melee',
   // The healers are 0 melee defence and 100 to everything else — reach them or
-  // watch Jad drink. It is the mechanic, stated as a stat.
-  yt_hurkot: 'melee',
+  // watch Jad drink. It is the mechanic, stated as a stat. Yt-MejKot heals the same
+  // way and carries the same hole.
+  yt_hurkot: 'melee', yt_mejkot: 'melee',
   // ── Ranged ──
   // The only monster in the roster OSRS itself makes ranged-weak: dranged 45
   // against dstab 75 / dmagic 150.

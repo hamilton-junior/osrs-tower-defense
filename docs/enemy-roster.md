@@ -140,7 +140,8 @@ Superiors: Marble Gargoyle, Nechryarch).
 
 ### The Wilderness
 
-*Already here:* Green Dragon · Chaos Druid · Hellhound.
+*Already here:* Green Dragon · Chaos Druid · Hellhound · Ankou · Ent (the last two shipped
+in phase 4).
 
 | Candidate | id | HP | Why it belongs | Band |
 |---|---|---|---|---|
@@ -157,7 +158,8 @@ Superiors: Marble Gargoyle, Nechryarch).
 
 ### Trollweiss Snow
 
-*Already here:* Ice Warrior · Ice Troll (both shipped in phase 1).
+*Already here:* Ice Warrior · Ice Troll (phase 1) · Wolf · Thrower Troll · Troll General
+(phase 4).
 
 | Candidate | id | HP | Why it belongs | Band |
 |---|---|---|---|---|
@@ -172,8 +174,8 @@ Superiors: Marble Gargoyle, Nechryarch).
 
 ### Karamja Jungle
 
-*Already here:* Jogre · Harpie Bug Swarm (both shipped in phase 1). Zulrah is Karamja's
-boss, but a boss belongs to no region.
+*Already here:* Jogre · Harpie Bug Swarm (phase 1) · Giant Mosquito · Cave Horror · Bronze
+Dragon (phase 4). Zulrah is Karamja's boss, but a boss belongs to no region.
 
 | Candidate | id | HP | Why it belongs | Band |
 |---|---|---|---|---|
@@ -191,18 +193,20 @@ boss, but a boss belongs to no region.
 Karamja's two locals are both early-to-mid, so a late Karamja run still reads as the generic
 backbone in jungle paint. The metal dragon line is the missing top.
 
-### TzHaar Caverns — held
+### TzHaar Caverns
 
-*Already here:* Fire Giant (by the decision above).
+*Already here:* Fire Giant (by the decision above) · Tz-Kih · Tok-Xil · Yt-MejKot · Ket-Zek
+(the Fight Caves four, shipped in phase 4).
 
-**On hold at the user's request:** the TzHaar are already *towers* in this game, so putting
-them on the board as enemies is a design call to settle before any of it is built. The
-research stands in case the call goes the other way — three complete ladders exist in the
-cache:
+**The design call went to the Fight Caves.** The TzHaar are already *towers* in this game,
+so the city races stay on the tower side and the cavern sends what Jad brings with him:
+the Fight Caves ladder, which the player fights rather than hires. The other two ladders
+stay researched here and unbuilt:
 
-- **Fight Caves** — Tz-Kih `2189` (hp 10) · Tz-Kek `2191` (hp 20), which splits into `3120`
-  (hp 10) · Tok-Xil `2193` (hp 40, rng 120) · Yt-MejKot `3123` (hp 80 — the healer, and the
-  pair of the Yt-HurKot `3128` already baked) · Ket-Zek `3125` (hp 160).
+- **Fight Caves — built.** Tz-Kih `2189` (hp 10) · Tok-Xil `2193` (hp 40, rng 120) ·
+  Yt-MejKot `3123` (hp 80, the pair of the Yt-HurKot `3128` already baked) · Ket-Zek `3125`
+  (hp 160). Tz-Kek `2191` (hp 20) and its split `3120` (hp 10) are left out: splitting on
+  death is a mechanic, not a stat block, and the region reads full without it.
 - **TzHaar city** — Hur `2161` (hp 80) · Mej `2154` (hp 100, mag 120) · Xil `2167` (hp 120,
   rng 120) · Ket `2173` (hp 140). A clean melee / mage / ranged / tank quartet.
 - **The Inferno** (endgame) — Jal-Nib `7691` (hp 10) · Jal-MejRah `7692` (hp 25) · Jal-Ak
@@ -318,9 +322,9 @@ from the cache (walk/hurt/death + bestiary portrait), answered on one axis each 
 = fire + melee, Karamja = fire + ranged) and placed in the Slayer pools Mazchna and Duradel
 draw from. Neither region plays on the backbone alone any more.
 
-**Phase 2 — TzHaar. ⏸ Held.** The set writes itself, but the TzHaar are already towers here
-and being both is a design decision, not a content one. Nothing is built until that call is
-made.
+**Phase 2 — TzHaar. ✅ Done.** The call was made in favour of the Fight Caves: the city races
+stay towers, and the cavern fields Tz-Kih, Tok-Xil, Yt-MejKot and Ket-Zek — the monsters Jad
+brings with him. Shipped alongside phase 4.
 
 **Phase 3 — the split itself. ✅ Done, and taken first.** The existing roster is tagged (17
 local after phase 1, 15 generic), wave generation builds from `generic ∪ region`, the scripted opening
@@ -328,9 +332,9 @@ waves are rewritten into local equivalents rather than importing foreign monster
 Slayer masters filter their pools. No new art — this was the systems change, and it is what
 makes phases 1 and 2 mean anything.
 
-**Phase 4 — the thin regions, one region per commit.** Misthalin first, then Kharidian —
-today they play on one local monster each, which is to say on the backbone in paint. Then
-Morytania and Wilderness top-ups, which are already deep enough to wait. Humans are skipped
-throughout (see the held-back note above).
+**Phase 4 — the thin regions. ✅ Done.** Misthalin and Kharidian went first, then the
+Wilderness, Trollweiss, Karamja and TzHaar top-ups. Every region now fields at least five
+locals of its own: Misthalin 8, Kharidian 10, Morytania 7, Wilderness 5, Karamja 5,
+Trollweiss 5, TzHaar 5. Humans are still skipped throughout (see the held-back note above).
 
 Phases 1, 2 and 4 are pure content and ship without touching a system.

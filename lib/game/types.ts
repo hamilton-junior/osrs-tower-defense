@@ -39,6 +39,10 @@ export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion'
   | 'cave_bug' | 'cave_slime' | 'big_frog' | 'giant_frog' | 'hobgoblin' | 'giant_bat' | 'moss_giant'
   | 'vulture' | 'desert_lizard' | 'jackal' | 'kalphite_worker' | 'scarab_mage' | 'mummy'
   | 'locust_rider' | 'dust_devil' | 'kalphite_guardian'
+  | 'ankou' | 'ent'
+  | 'giant_mosquito' | 'cave_horror' | 'bronze_dragon'
+  | 'wolf' | 'thrower_troll' | 'troll_general'
+  | 'tz_kih' | 'tok_xil' | 'yt_mejkot' | 'ket_zek'
   // General Graardor and his bodyguards. The three sergeants are adds, but each is
   // its own type rather than one shared skin: they have different stats, and the
   // variants rule is for same-stat skins only.

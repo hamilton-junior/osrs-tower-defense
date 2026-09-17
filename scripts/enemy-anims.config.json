@@ -636,5 +636,98 @@
       "hurt": 424,
       "death": 836
     }
+  },
+  "wolf": {
+    "npc": 110,
+    "anims": {
+      "walk": 6556,
+      "hurt": 6559,
+      "death": 6558
+    }
+  },
+  "thrower_troll": {
+    "npc": 931,
+    "anims": {
+      "walk": 283,
+      "death": 287
+    }
+  },
+  "troll_general": {
+    "npc": 4120,
+    "anims": {
+      "walk": 1141,
+      "death": 287
+    }
+  },
+  "ankou": {
+    "npc": 2514,
+    "anims": {
+      "walk": 819,
+      "hurt": 425,
+      "death": 836
+    }
+  },
+  "tz_kih": {
+    "npc": 2189,
+    "anims": {
+      "walk": 2619,
+      "hurt": 2621,
+      "death": 2620
+    }
+  },
+  "tok_xil": {
+    "npc": 2193,
+    "anims": {
+      "walk": 2632,
+      "hurt": 2633,
+      "death": 2630
+    }
+  },
+  "yt_mejkot": {
+    "npc": 3123,
+    "anims": {
+      "walk": 2634,
+      "hurt": 2635,
+      "death": 2638
+    }
+  },
+  "ket_zek": {
+    "npc": 3125,
+    "anims": {
+      "walk": 2643,
+      "hurt": 2645,
+      "death": 2646
+    }
+  },
+  "giant_mosquito": {
+    "npc": 1041,
+    "anims": {
+      "walk": 2396,
+      "hurt": 2399,
+      "death": 2398
+    }
+  },
+  "cave_horror": {
+    "npc": 1049,
+    "anims": {
+      "walk": 4236,
+      "hurt": 4237
+    }
+  },
+  "bronze_dragon": {
+    "npc": 270,
+    "anims": {
+      "walk": 79,
+      "hurt": 89,
+      "death": 92
+    }
+  },
+  "ent": {
+    "npc": 7234,
+    "anims": {
+      "walk": 12500,
+      "hurt": 12504,
+      "death": 12508
+    }
   }
 }
