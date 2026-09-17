@@ -8,6 +8,8 @@ import { ALL_AFFIXES, AFFIX_DEFS, type EnemyAffix } from '@/lib/game/systems/aff
 import { SCHEDULABLE_BOSSES } from '@/lib/game/systems/boss-mechanics';
 import { styleSkillKey, MAX_TOWER_LEVEL } from '@/lib/game/systems/tower-xp';
 import { TOWER_STYLES } from '@/lib/game/data/towers';
+import { DIVERSIONS, type DiversionMood } from '@/lib/game/data/diversions';
+import { hideBrokenImg } from './ui-kit';
 
 /** The slice of `UIState` the panel reads. It is handed the whole thing, but
  *  naming the fields keeps the table below honest about what it needs. */
@@ -329,6 +331,48 @@ function ToolButtons({ engineRef, ui }: CheatProps) {
   );
 }
 
+/** The three kinds of Distraction & Diversion, in the order the player meets them. */
+const DIVERSION_MOODS: ReadonlyArray<{ mood: DiversionMood; label: string }> = [
+  { mood: 'walkby', label: 'Walk-bys' },
+  { mood: 'event', label: 'Random events' },
+  { mood: 'nest', label: 'Nests' },
+];
+
+/** Summon any Distraction & Diversion. The engine refuses one with nothing to do,
+ *  such as the Hunting expert with no worn trap, and says why in a notice. */
+function DiversionCheats({ engineRef, ui }: CheatProps) {
+  return (
+    <>
+      {DIVERSION_MOODS.map(({ mood, label }) => (
+        <div key={mood} className="rs-panel-inset p-[0.5em]">
+          <div className="text-[0.72em] text-osrs-orange uppercase tracking-wide mb-[0.4em]">{label}</div>
+          <div className="grid grid-cols-2 gap-[0.4em]">
+            {DIVERSIONS.filter((d) => d.mood === mood).map((d) => (
+              <button
+                key={d.id}
+                disabled={ui.waveActive}
+                title={d.tip}
+                onClick={() => engineRef.current?.debugSpawnDiversion(d.id)}
+                className="rs-btn min-w-0 flex items-center gap-[0.35em] px-[0.3em] py-[0.25em] text-[0.72em] disabled:opacity-50"
+              >
+                <img src={d.sprite} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={hideBrokenImg} />
+                <span className="truncate">{d.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {ui.waveActive && <p className="text-[0.66em] text-[#b3a585]">Only between waves.</p>}
+      <button
+        onClick={() => engineRef.current?.debugClearDiversions()}
+        className="rs-btn w-full py-[0.35em] text-[0.8em]"
+      >
+        Clear diversions
+      </button>
+    </>
+  );
+}
+
 function ToolCheats(props: CheatProps) {
   return (
     <>
@@ -339,11 +383,11 @@ function ToolCheats(props: CheatProps) {
   );
 }
 
-const CHEAT_TABS = ['run', 'spawn', 'levels', 'tools'] as const;
+const CHEAT_TABS = ['run', 'spawn', 'd&d', 'levels', 'tools'] as const;
 type CheatTab = (typeof CHEAT_TABS)[number];
 
 /**
- * The Cheats tab: four groups behind four subtabs, because one column of every
+ * The Cheats tab: five groups behind five subtabs, because one column of every
  * cheat in the game grew taller than the screen.
  *
  * It stays mounted while the Bestiary is showing (hidden, not unmounted) so the
@@ -376,20 +420,21 @@ export function CheatsTab({ engineRef, ui, active }: CheatProps & { active: bool
   return (
     <div className="space-y-[0.5em]" hidden={!active}>
       {/* Subcategories keep each group compact instead of one tall column. */}
-      <div className="grid grid-cols-4 gap-[0.3em]">
+      <div className="grid grid-cols-5 gap-[0.3em]">
         {CHEAT_TABS.map((ct) => (
           <button
             key={ct}
             onClick={() => setTab(ct)}
             className={`rs-btn py-[0.25em] text-[0.72em] capitalize ${tab === ct ? 'rs-btn-primary' : ''}`}
           >
-            {ct}
+            {ct === 'd&d' ? 'D&D' : ct}
           </button>
         ))}
       </div>
 
       {tab === 'run' && <RunCheats engineRef={engineRef} ui={ui} />}
       {tab === 'spawn' && <SpawnCheats engineRef={engineRef} ui={ui} picks={picks} />}
+      {tab === 'd&d' && <DiversionCheats engineRef={engineRef} ui={ui} />}
       {tab === 'levels' && <LevelCheats engineRef={engineRef} ui={ui} />}
       {tab === 'tools' && <ToolCheats engineRef={engineRef} ui={ui} />}
     </div>

@@ -53,7 +53,7 @@ import { localTypes } from '../systems/enemy-regions';
 import { travelOffer } from '../systems/travel';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
-import { DIVERSION_BY_ID, DIVERSION_REWARD_META, GENIE_LAMP, LAMP_SKILL_META, type DiversionId, type LampSkill } from '../data/diversions';
+import { DIVERSION_BY_ID, DIVERSION_REWARD_META, GENIE_LAMP, LAMP_SKILL_META, type DiversionDef, type DiversionId, type LampSkill } from '../data/diversions';
 import { FOOD_BY_ID, type FoodId } from '../data/food';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
@@ -3161,68 +3161,85 @@ export class GameEngine {
     const moods = rollDiversionMoods(Math.random, present, bossNext, this.wavesWithoutEvent);
     this.wavesWithoutEvent += 1; // reset below if an event does turn up
     if (moods.length === 0) return;
-    const cols = Math.floor(this.width / GRID);
-    const rows = Math.floor(this.height / GRID);
-    const ground = (x: number, y: number) => this.diversionGroundFree(x, y);
     for (const mood of moods) {
-      // The Hunting expert only turns up for a worn trap, and stands beside it; the
-      // Tool Leprechaun only for a growing herb, beside its patch. Sergeant Damien
-      // only for a tower with a level left to gain.
-      const worn = this.wornTrapSpot(ground, cols, rows);
-      const tend = this.tendSpot(ground, cols, rows);
-      const drillable = this.towers.some(t => towerCombatLevel(t) < MAX_TOWER_LEVEL);
-      const def = pickDiversionDef(mood, Math.random, d =>
-        (d.job !== 'mend_trap' || worn !== null)
-        && (d.job !== 'tend_patch' || tend !== null)
-        && (d.payload !== 'drill' || drillable));
-      if (!def) continue;
-      // Everyone else stands exactly where a tower could have — off the road, off the
-      // obstacles, clear of what is already built — so they can never be in the way.
-      const spot = def.job === 'mend_trap' && worn
-        ? worn.spot
-        : def.job === 'tend_patch' && tend
-          ? tend.spot
-          : pickDiversionSpot(Math.random, ground, cols, rows, GRID);
-      if (!spot) continue; // no room left on the board: the world stays away
-      const hint = def.briefing === 'wave'
-        ? this.waveHint(configs)
-        : def.briefing === 'run' ? hansLine(this.runFacts(), Math.random) : undefined;
-      // Whoever can walk, walks: they come on from the nearest edge and cross to
-      // the tile they picked, so the board is somewhere people arrive at rather
-      // than a place things blink into. A nest and a plant were never walking
-      // anywhere, so those two simply appear where they are.
-      const walks = (def.arrival ?? 'walk') === 'walk';
-      const from = walks ? offBoardPoint(spot.x, spot.y, this.width, this.height) : spot;
-      // The plant's gift is grown now, and Jekyll's herb picked, so the hover card
-      // and the line can name it.
-      const gift = rollDiversionGift(def.payload, Math.random);
-      const dv: Diversion = {
-        id: `dv${++this.diversionSeq}`,
-        defId: def.id,
-        mood,
-        x: from.x,
-        y: from.y,
-        homeX: spot.x,
-        homeY: spot.y,
-        phase: walks ? 'arriving' : 'here',
-        exit: null,
-        facing: 'front',
-        facingLeft: false,
-        line: gift ? diversionGiftText(def.payload, gift).line : diversionLine(def, Math.random, hint),
-        trapId: def.job === 'mend_trap' ? worn?.trapId : undefined,
-        patchId: def.job === 'tend_patch' ? tend?.patchId : undefined,
-        gift,
-      };
-      // Turned before the first frame, or a walker coming in from the left would
-      // spend that frame facing the player and then snap round.
-      if (walks) turnDiversion(dv, spot.x - from.x, spot.y - from.y);
-      this.diversions.push(dv);
-      if (mood === 'event') this.wavesWithoutEvent = 0;
-      // Met, for the Collection Log — on arrival, because turning up IS the event.
-      // A walkby is never clicked and would otherwise never be recorded at all.
-      this.diversionsMet = { ...this.diversionsMet, [def.id]: (this.diversionsMet[def.id] ?? 0) + 1 };
+      const def = pickDiversionDef(mood, Math.random, d => this.diversionBlocked(d) === null);
+      if (def) this.spawnDiversion(def, configs);
     }
     if (this.diversions.length) this.sound.play('select');
+  }
+
+  /** The board as a diversion sees it: its size in tiles, and the ground it may take. */
+  private diversionBoard() {
+    return {
+      cols: Math.floor(this.width / GRID),
+      rows: Math.floor(this.height / GRID),
+      free: (x: number, y: number) => this.diversionGroundFree(x, y),
+    };
+  }
+
+  /** Why a diversion has nothing to come for right now, or null when it has. The
+   *  Hunting expert only turns up for a worn trap, the Tool Leprechaun only for a
+   *  growing herb, and Sergeant Damien only for a tower with a level left to gain. */
+  private diversionBlocked(def: DiversionDef): string | null {
+    const { cols, rows, free } = this.diversionBoard();
+    if (def.job === 'mend_trap' && !this.wornTrapSpot(free, cols, rows)) return 'no worn trap to mend';
+    if (def.job === 'tend_patch' && !this.tendSpot(free, cols, rows)) return 'nothing growing to tend';
+    if (def.payload === 'drill' && !this.towers.some(t => towerCombatLevel(t) < MAX_TOWER_LEVEL)) {
+      return 'no tower with a level left to gain';
+    }
+    return null;
+  }
+
+  /** Put one diversion on the board and send it to its tile. False when the board
+   *  has no room left for it, and then the world stays away. */
+  private spawnDiversion(def: DiversionDef, configs: WaveConfig[]): boolean {
+    const { cols, rows, free } = this.diversionBoard();
+    // The Hunting expert stands beside the worn trap, the Tool Leprechaun beside the
+    // growing herb.
+    const worn = def.job === 'mend_trap' ? this.wornTrapSpot(free, cols, rows) : null;
+    const tend = def.job === 'tend_patch' ? this.tendSpot(free, cols, rows) : null;
+    // Everyone else stands exactly where a tower could have — off the road, off the
+    // obstacles, clear of what is already built — so they can never be in the way.
+    const spot = worn?.spot ?? tend?.spot ?? pickDiversionSpot(Math.random, free, cols, rows, GRID);
+    if (!spot) return false;
+    const hint = def.briefing === 'wave'
+      ? this.waveHint(configs)
+      : def.briefing === 'run' ? hansLine(this.runFacts(), Math.random) : undefined;
+    // Whoever can walk, walks: they come on from the nearest edge and cross to
+    // the tile they picked, so the board is somewhere people arrive at rather
+    // than a place things blink into. A nest and a plant were never walking
+    // anywhere, so those two simply appear where they are.
+    const walks = (def.arrival ?? 'walk') === 'walk';
+    const from = walks ? offBoardPoint(spot.x, spot.y, this.width, this.height) : spot;
+    // The plant's gift is grown now, and Jekyll's herb picked, so the hover card
+    // and the line can name it.
+    const gift = rollDiversionGift(def.payload, Math.random);
+    const dv: Diversion = {
+      id: `dv${++this.diversionSeq}`,
+      defId: def.id,
+      mood: def.mood,
+      x: from.x,
+      y: from.y,
+      homeX: spot.x,
+      homeY: spot.y,
+      phase: walks ? 'arriving' : 'here',
+      exit: null,
+      facing: 'front',
+      facingLeft: false,
+      line: gift ? diversionGiftText(def.payload, gift).line : diversionLine(def, Math.random, hint),
+      trapId: worn?.trapId,
+      patchId: tend?.patchId,
+      gift,
+    };
+    // Turned before the first frame, or a walker coming in from the left would
+    // spend that frame facing the player and then snap round.
+    if (walks) turnDiversion(dv, spot.x - from.x, spot.y - from.y);
+    this.diversions.push(dv);
+    if (def.mood === 'event') this.wavesWithoutEvent = 0;
+    // Met, for the Collection Log — on arrival, because turning up IS the event.
+    // A walkby is never clicked and would otherwise never be recorded at all.
+    this.diversionsMet = { ...this.diversionsMet, [def.id]: (this.diversionsMet[def.id] ?? 0) + 1 };
+    return true;
   }
 
   /** The Lumbridge Guide's read on the coming wave — his one job in OSRS is telling
@@ -5189,6 +5206,32 @@ export class GameEngine {
       desc: def.description,
       icon: (ASSETS.prayers as Record<string, string>)[def.id] ?? '',
     }]);
+    this.emit();
+  }
+
+  /** Any Distraction & Diversion on demand, so its arrival, job and payout can be
+   *  tried without waiting on the dice. The real rules still hold: between waves
+   *  only, and only when its job has something to do. */
+  debugSpawnDiversion(id: DiversionId) {
+    const def = DIVERSION_BY_ID[id];
+    if (!def) return;
+    if (this.gameOver || this.waveActive) { this.notify('Only between waves'); return; }
+    const blocked = this.diversionBlocked(def);
+    if (blocked) { this.notify(`${def.name}: ${blocked}`, def.sprite); return; }
+    if (!this.spawnDiversion(def, computeWaveConfigs(this))) {
+      this.notify(`${def.name}: no free ground left`, def.sprite);
+      return;
+    }
+    this.sound.play('select');
+    this.emit();
+  }
+
+  /** Clears the board of diversions the way Start Wave does, for a clean next try. */
+  debugClearDiversions() {
+    this.diversions = [];
+    this.diversionPops = [];
+    this.balloons = [];
+    this.notify('Diversions cleared');
     this.emit();
   }
 }
