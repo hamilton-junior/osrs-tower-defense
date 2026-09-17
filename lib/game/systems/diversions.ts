@@ -4,6 +4,7 @@ import {
   DIVERSION_CHANCE,
   DIVERSION_REWARD_KINDS,
   DIVERSION_REWARD_META,
+  DRILL_LEVELS,
   LAMP_LEVELS,
   MAX_DIVERSIONS,
   type DiversionDef,
@@ -13,8 +14,10 @@ import {
   type DiversionRewardKind,
 } from '../data/diversions';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
+import { towerXpForLevel } from './leveling';
 import { essenceForWave } from './meta-progression';
 import { waveClearBonus } from './rewards';
+import { MAX_TOWER_LEVEL } from './tower-xp';
 
 /**
  * The maths and the dice behind Distractions & Diversions — everything about the
@@ -447,8 +450,8 @@ export const BALLOON_ESSENCE_SHARE = 0.2;
 // reason to play one. Gold in particular is deliberately a fraction of a wave clear:
 // this game does not inflate gold.
 
-/** A purse is worth a bit over half a wave clear, nudged up by how many towers were
- *  there to help — Rick picks the fight, the towers finish it. */
+/** A purse is worth a bit over half a wave clear, nudged up by how many towers stand
+ *  on the board, so it keeps pace with a defence that has grown. */
 export function diversionGold(wave: number, towers = 0): number {
   const crowd = 1 + Math.min(10, Math.max(0, towers)) * 0.05;
   return Math.max(20, Math.round(waveClearBonus(wave) * 0.6 * crowd));
@@ -502,13 +505,25 @@ export interface DiversionRewardContext {
  * {@link LAMP_LEVELS} levels cost, so the skill climbs that many levels whatever it
  * has already banked towards the next one (the bank is below one level's cost, and
  * the costs never shrink as the level rises). Fewer near the cap, nothing at it.
+ * `levels` lets a drill reuse the same rule for its own count.
  */
-export function lampXp(level: number, maxLevel: number, xpForLevel: (level: number) => number): number {
+export function lampXp(
+  level: number,
+  maxLevel: number,
+  xpForLevel: (level: number) => number,
+  levels = LAMP_LEVELS,
+): number {
   const from = Math.max(1, Math.floor(level));
-  const to = Math.min(maxLevel, from + LAMP_LEVELS);
+  const to = Math.min(maxLevel, from + levels);
   let xp = 0;
   for (let l = from; l < to; l++) xp += xpForLevel(l);
   return xp;
+}
+
+/** The XP Sergeant Damien's drill puts into one tower at `level`: exactly its next
+ *  {@link DRILL_LEVELS} levels, by the lamp's rule. Nothing for a maxed tower. */
+export function drillXp(level: number): number {
+  return lampXp(level, MAX_TOWER_LEVEL, towerXpForLevel, DRILL_LEVELS);
 }
 
 /** The level a rub lifts a skill to, for the menu that offers it. */
@@ -537,6 +552,8 @@ export function payloadReward(payload: DiversionPayload, ctx: DiversionRewardCon
       return { kind: 'essence', amount: ctx.essence };
     case 'potion':
       return { kind: 'overload', amount: 1 };
+    case 'drill':
+      return { kind: 'levels', amount: DRILL_LEVELS };
     default:
       return null;
   }

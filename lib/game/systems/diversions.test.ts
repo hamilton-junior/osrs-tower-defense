@@ -33,6 +33,7 @@ import {
   BALLOON_ESSENCE_SHARE,
   lampXp,
   lampLevelTo,
+  drillXp,
   rollPlantGift,
   plantGiftText,
   rewardImageKey,
@@ -41,13 +42,15 @@ import {
   type Diversion,
   type RunFacts,
 } from './diversions';
-import { DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, LAMP_LEVELS, MAX_DIVERSIONS } from '../data/diversions';
+import { DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, DRILL_LEVELS, LAMP_LEVELS, MAX_DIVERSIONS } from '../data/diversions';
 import { HUNTER_MAX_LEVEL, gainHunterXp, hunterXpForLevel } from './hunter-traps';
 import { gainFishingXp, fishingXpForLevel } from './fishing';
 import { FISHING_MAX_LEVEL } from '../data/fishing';
 import { SEEDS, SEED_BY_ID } from '../data/farming';
 import { waveClearBonus } from './rewards';
 import { essenceForWave } from './meta-progression';
+import { towerXpForLevel } from './leveling';
+import { MAX_TOWER_LEVEL, trainSkill } from './tower-xp';
 
 /** A rand that hands out a fixed script, then repeats its last value — so a test only
  *  has to spell out the rolls it actually cares about. */
@@ -381,6 +384,7 @@ describe('rewards', () => {
     expect(payloadReward('gold', ctx)).toEqual({ kind: 'gold', amount: 180 });
     expect(payloadReward('essence', ctx)).toEqual({ kind: 'essence', amount: 42 });
     expect(payloadReward('potion', ctx)).toEqual({ kind: 'overload', amount: 1 });
+    expect(payloadReward('drill', ctx)).toEqual({ kind: 'levels', amount: DRILL_LEVELS });
   });
 
   it('promises nothing for a walkby or an unopened nest', () => {
@@ -462,6 +466,26 @@ describe('the genie lamp', () => {
     expect(lampXp(99, 99, hunterXpForLevel)).toBe(0);
     expect(lampLevelTo(10, 99)).toBe(10 + LAMP_LEVELS);
     expect(lampLevelTo(98, 99)).toBe(99);
+  });
+});
+
+describe("Sergeant Damien's drill", () => {
+  it('lifts a tower exactly its drill levels, whatever it has banked', () => {
+    const cases: [number, number][] = [[1, 0], [14, towerXpForLevel(14) - 1], [60, 1234]];
+    for (const [level, banked] of cases) {
+      expect(trainSkill({ level, xp: banked }, drillXp(level))).toEqual({
+        level: level + DRILL_LEVELS, xp: banked, leveledUp: true,
+      });
+    }
+  });
+
+  it('stops at the cap, and is worth nothing there', () => {
+    expect(trainSkill({ level: MAX_TOWER_LEVEL - 1, xp: 0 }, drillXp(MAX_TOWER_LEVEL - 1)).level).toBe(MAX_TOWER_LEVEL);
+    expect(drillXp(MAX_TOWER_LEVEL)).toBe(0);
+  });
+
+  it('keeps its totals in the Collection Log', () => {
+    expect(sanitizeDiversionGains({ 'sergeant_damien:levels': 4 })).toEqual({ 'sergeant_damien:levels': 4 });
   });
 });
 

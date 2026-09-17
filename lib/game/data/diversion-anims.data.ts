@@ -124,20 +124,20 @@ export const DIVERSION_ANIMS: Record<string, DiversionAnimSet> = {
       },
     },
   },
-  rick_turpentine: {
+  sergeant_damien: {
     frameW: 128, frameH: 128,
     views: {
       front: {
-        stand: { url: `${B}/rick_turpentine/front-stand.png`, frames: 41, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 60, 60, 60, 60, 60, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
-        walk: { url: `${B}/rick_turpentine/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        stand: { url: `${B}/sergeant_damien/front-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
+        walk: { url: `${B}/sergeant_damien/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       },
       side: {
-        stand: { url: `${B}/rick_turpentine/side-stand.png`, frames: 41, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 60, 60, 60, 60, 60, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
-        walk: { url: `${B}/rick_turpentine/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        stand: { url: `${B}/sergeant_damien/side-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
+        walk: { url: `${B}/sergeant_damien/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       },
       back: {
-        stand: { url: `${B}/rick_turpentine/back-stand.png`, frames: 41, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 60, 60, 60, 60, 60, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
-        walk: { url: `${B}/rick_turpentine/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        stand: { url: `${B}/sergeant_damien/back-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
+        walk: { url: `${B}/sergeant_damien/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       },
     },
   },

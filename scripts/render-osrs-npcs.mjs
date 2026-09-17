@@ -157,7 +157,8 @@ const TARGETS = {
   drunken_dwarf: { npc: 322 },
   genie: { npc: 326 },
   strange_plant: { npc: 323 },
-  rick_turpentine: { npc: 375 },
+  // 6743 is the random-event Sergeant Damien; 337 is the same model at the camp.
+  sergeant_damien: { npc: 6743 },
 
   // Turned round, so a walker can face the way it is going: the default render
   // above is the front (a ¾ view, which is what the infobox icon wants too),
@@ -178,8 +179,8 @@ const TARGETS = {
   drunken_dwarf_back: { npc: 322, yaw: 180 },
   genie_side: { npc: 326, yaw: 90 },
   genie_back: { npc: 326, yaw: 180 },
-  rick_turpentine_side: { npc: 375, yaw: 90 },
-  rick_turpentine_back: { npc: 375, yaw: 180 },
+  sergeant_damien_side: { npc: 6743, yaw: 90 },
+  sergeant_damien_back: { npc: 6743, yaw: 180 },
 
   // --- Misc NPC-model icons ---
   giant_snail: { npc: 5628 },            // "slow" debuff icon

@@ -12,7 +12,7 @@ import { CombatStatsSystem } from '../systems/combat-stats';
 import { ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, upgradeCostFor } from '../systems/magic';
 import { goldForKill } from '../systems/rewards';
 import { upgradeOrder } from '../systems/upgrades';
-import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor, MAX_TOWER_LEVEL } from '../systems/tower-xp';
+import { styleSkillKey, xpFromHit, supportXpFromDamage, trainSkill, tierGateFor, towerCombatLevel, MAX_TOWER_LEVEL } from '../systems/tower-xp';
 import { canEquip } from '../systems/tower-gear';
 import { envenomStaffFor } from '../systems/tower-identity';
 import {
@@ -57,7 +57,7 @@ import { DIVERSION_BY_ID, DIVERSION_REWARD_META, GENIE_LAMP, LAMP_SKILL_META, ty
 import { FOOD_BY_ID, type FoodId } from '../data/food';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
-import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, lampXp, offBoardPoint, payloadReward, plantGiftText, rewardImageKey, rollPlantGift, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
+import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, drillXp, lampXp, offBoardPoint, payloadReward, plantGiftText, rewardImageKey, rollPlantGift, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
@@ -3157,8 +3157,11 @@ export class GameEngine {
     const ground = (x: number, y: number) => this.diversionGroundFree(x, y);
     for (const mood of moods) {
       // The Hunting expert only turns up for a worn trap, and stands beside it.
+      // Sergeant Damien only for a tower with a level left to gain.
       const worn = this.wornTrapSpot(ground, cols, rows);
-      const def = pickDiversionDef(mood, Math.random, d => d.job !== 'mend_trap' || worn !== null);
+      const drillable = this.towers.some(t => towerCombatLevel(t) < MAX_TOWER_LEVEL);
+      const def = pickDiversionDef(mood, Math.random, d =>
+        (d.job !== 'mend_trap' || worn !== null) && (d.payload !== 'drill' || drillable));
       if (!def) continue;
       // Everyone else stands exactly where a tower could have — off the road, off the
       // obstacles, clear of what is already built — so they can never be in the way.
@@ -3433,7 +3436,7 @@ export class GameEngine {
       this.pushDiversionPop(found.x, found.y, reward);
     }
     this.notify(found.line, def.sprite, reward ?? undefined);
-    this.sound.play(payload === 'none' ? 'select' : 'interface_open');
+    this.sound.play(payload === 'none' ? 'select' : payload === 'drill' ? 'level_up' : 'interface_open');
     this.emit();
   }
 
@@ -3480,6 +3483,11 @@ export class GameEngine {
         if (reward.id && reward.id in SEED_BY_ID) {
           if (addItem(this.items, 'seed', reward.id, reward.amount) === 'bag') this.bagBump(stackKey('seed', reward.id));
         }
+        break;
+      case 'levels':
+        // Each tower climbs the same number of levels in the one skill it trains,
+        // whatever it had banked. addTowerXp refreshes the cached stats.
+        for (const t of this.towers) this.addTowerXp(t, drillXp(towerCombatLevel(t)));
         break;
       case 'charges':
         // Put straight into a trap by the Hunting expert's own job: nothing to credit.

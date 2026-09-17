@@ -24,16 +24,17 @@ export type DiversionMood = 'walkby' | 'event' | 'nest';
 
 export type DiversionId =
   | 'hans' | 'hunting_expert' | 'lumbridge_guide' | 'party_pete'
-  | 'drunken_dwarf' | 'genie' | 'strange_plant' | 'rick_turpentine'
+  | 'drunken_dwarf' | 'genie' | 'strange_plant' | 'sergeant_damien'
   | 'bird_nest';
 
 /**
  * What clicking one pays out. `none` is the walkbys — they are scenery with dialogue.
  * `surprise` is the bird nest, which rolls one of the nest's payloads when it is
  * opened. `kebab` and `lamp` are items, and land in the inventory. `plant` is the
- * Strange Plant's, decided the moment it grows: an Overload or a herb seed.
+ * Strange Plant's, decided the moment it grows: an Overload or a herb seed. `drill` is
+ * Sergeant Damien's: every tower on the board climbs {@link DRILL_LEVELS} levels.
  */
-export type DiversionPayload = 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'potion' | 'surprise' | 'plant';
+export type DiversionPayload = 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'potion' | 'surprise' | 'plant' | 'drill';
 
 /**
  * What a click actually lands in the player's hands. The tooltip, the toast, the
@@ -42,9 +43,9 @@ export type DiversionPayload = 'none' | 'kebab' | 'lamp' | 'gold' | 'essence' | 
  * into a trap on the road. `life` is paid by nobody any more, since the kebab became
  * something to carry; it stays so an account's old kebab totals still show.
  */
-export type DiversionRewardKind = 'life' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'overload' | 'seed' | 'charges';
+export type DiversionRewardKind = 'life' | 'kebab' | 'lamp' | 'gold' | 'essence' | 'overload' | 'seed' | 'levels' | 'charges';
 
-export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'kebab', 'lamp', 'gold', 'essence', 'overload', 'seed', 'charges'];
+export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'kebab', 'lamp', 'gold', 'essence', 'overload', 'seed', 'levels', 'charges'];
 
 /** Each reward's own icon, and the name it goes by on hover. */
 export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; label: string }> = {
@@ -57,6 +58,8 @@ export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; 
   // Every herb seed is the same speck in OSRS, so one stands for all of them in a
   // total. A single seed names itself through rewardLook.
   seed: { icon: SEED_BY_ID.guam.seedIcon, label: 'Herb seeds' },
+  // The amount is per tower: a drill lifts every tower on the board by it.
+  levels: { icon: ASSETS.misc.stats_icon, label: 'Levels for every tower' },
   charges: { icon: ASSETS.misc.hunter_icon, label: 'Trap charges' },
 };
 
@@ -84,6 +87,10 @@ export const LAMP_SKILL_META: Record<LampSkill, { name: string; icon: string }> 
 /** How many levels one rub is worth. Levels rather than XP, so a lamp means the same
  *  on wave 3 as on wave 60 whichever skill it goes into. */
 export const LAMP_LEVELS = 3;
+
+/** How many levels Sergeant Damien's drill lifts each tower. Levels, for the lamp's
+ *  reason, and fewer than a lamp because every tower on the board gets them. */
+export const DRILL_LEVELS = 2;
 
 /**
  * Something one does on the board by itself, the moment it reaches its tile, with
@@ -238,16 +245,17 @@ export const DIVERSIONS: DiversionDef[] = [
     ],
   },
   {
-    id: 'rick_turpentine',
+    // Only turns up when some tower on the board still has a level to gain.
+    id: 'sergeant_damien',
     mood: 'event',
-    name: 'Rick Turpentine',
-    sprite: npcModel('rick_turpentine'),
-    turned: turned('rick_turpentine'),
-    payload: 'gold',
-    tip: 'Click to send him packing.',
+    name: 'Sergeant Damien',
+    sprite: npcModel('sergeant_damien'),
+    turned: turned('sergeant_damien'),
+    payload: 'drill',
+    tip: 'Click for a drill that levels up your towers.',
     lines: [
-      'Your towers see him off. He drops his purse on the way out.',
-      'Rick picks a fight with a wall of siege weaponry. It goes badly for Rick.',
+      'Sergeant Damien runs your towers through drills until they hit harder.',
+      'Call that a defence, maggot? Again! And again! Better.',
     ],
   },
   {
