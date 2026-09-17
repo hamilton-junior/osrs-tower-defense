@@ -1455,6 +1455,12 @@ export class GameEngine {
       ...Object.fromEntries(
         Object.entries(ASSETS.terrain.ground).map(([id, url]) => [`ground_${id}`, url]),
       ),
+      // Every board prop, keyed `scenery_<id>`. All of them, not the active
+      // region's set: the debug skinner cycles regions on a live board, and a
+      // half-loaded set would leave the new region's tiles empty.
+      ...Object.fromEntries(
+        Object.entries(ASSETS.terrain.scenery).map(([id, url]) => [`scenery_${id}`, url]),
+      ),
       // Distractions & Diversions: the cast that turns up between waves, keyed
       // `diversion_<id>` (baked NPC models and one item icon), plus the back and
       // side views a walker turns to — `diversion_<id>_back` / `_side`.

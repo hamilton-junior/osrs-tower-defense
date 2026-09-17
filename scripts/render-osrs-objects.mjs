@@ -10,6 +10,8 @@
  *
  *   node scripts/render-osrs-objects.mjs                # render every TARGET
  *   node scripts/render-osrs-objects.mjs --only tree    # render one TARGET
+ *   node scripts/render-osrs-objects.mjs --find oak    # search cache names
+ *   node scripts/render-osrs-objects.mjs --only a,b      # re-bake a subset
  *
  * Why a hand-rolled parser: osrscachereader 1.1.3's ObjectLoader desyncs on
  * the current cache (object model ids outgrew 16 bits; the old model opcodes
@@ -25,6 +27,8 @@ import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { renderModelFrame, loadTextures, modelTextureIds, computeFit } from './lib/rs-raster.mjs';
+import { Obj } from '@abextm/cache2';
+import { defsCache } from './lib/npc-def.mjs';
 
 // Survive the lib's opcode desync: getFile keeps the raw bytes we parse below.
 const ObjectLoader = (await import(pathToFileURL(join(dirname(fileURLToPath(import.meta.url)), '..', 'node_modules/osrscachereader/src/cacheReader/loaders/ObjectLoader.js')).href)).default;
@@ -159,6 +163,59 @@ const TARGETS = {
   party_balloon_3: { obj: 118, models: [2228] },
   party_balloon_4: { obj: 119, models: [2228] },
   party_balloon_5: { obj: 120, models: [2228] },
+
+  // ── Board scenery ─────────────────────────────────────────────────────────
+  //
+  // The props standing on the battlefield: one set per region, so a blocked tile
+  // in Mor Ul Rek is an obsidian statue and the same tile in Misthalin is a tree.
+  // `core/render/terrain.ts` bakes these into the static background and anchors
+  // each one at the bottom edge of its tile, the way the client stands a LOC on
+  // the ground rather than centring it in the square.
+  //
+  // Picked by eye off two contact sheets of ~45 candidate LOCs. The rejects were
+  // rejected for the same reasons every time: a model the flat rasteriser draws
+  // see-through (13843 Swamp tree), one that lands as a featureless blob (2919
+  // Boulder), or one that is a placeholder in the cache to begin with (1399
+  // Jungle plant). Every id here rendered as something a player can name.
+  //
+  // Slugs carry their region because the same object can stand in for different
+  // roles: `wild_boulder` and `lumb_rock` are both grey rock, and which one a
+  // tile gets is the region's business, not the renderer's.
+  lumb_tree: { obj: 1276, dir: 'scenery' },
+  lumb_rock: { obj: 2257, dir: 'scenery' },
+  lumb_bush: { obj: 1118, dir: 'scenery' },
+  lumb_pebbles: { obj: 10792, dir: 'scenery' },
+
+  khar_cactus: { obj: 6277, dir: 'scenery' },
+  khar_cactus_dry: { obj: 2671, dir: 'scenery' },
+  khar_rock: { obj: 2231, dir: 'scenery' },
+  khar_rubble: { obj: 12, dir: 'scenery' },
+
+  mory_dead_tree: { obj: 1282, dir: 'scenery' },
+  mory_grave: { obj: 404, dir: 'scenery' },
+  mory_mushroom: { obj: 1163, dir: 'scenery' },
+  mory_bones: { obj: 3665, dir: 'scenery' },
+
+  wild_boulder: { obj: 3753, dir: 'scenery' },
+  wild_boulder_big: { obj: 3754, dir: 'scenery' },
+  wild_stones: { obj: 26633, dir: 'scenery' },
+
+  troll_pine: { obj: 3037, dir: 'scenery' },
+  troll_ice_boulder: { obj: 5039, dir: 'scenery' },
+  troll_icicle: { obj: 554, dir: 'scenery' },
+  troll_snow: { obj: 15615, dir: 'scenery' },
+
+  kara_palm: { obj: 2577, dir: 'scenery' },
+  kara_jungle_tree: { obj: 2887, dir: 'scenery' },
+  kara_fern: { obj: 1298, dir: 'scenery' },
+
+  // Mor Ul Rek has no tree and no rock the cache calls obsidian, so its two
+  // blockers are the city's own furniture: the TzHaar statue (11968) and a
+  // stalagmite (3825). The sulphur mounds are the floor of the volcano.
+  tz_statue: { obj: 11968, dir: 'scenery' },
+  tz_stalagmite: { obj: 3825, dir: 'scenery' },
+  tz_sulphur: { obj: 3962, dir: 'scenery' },
+  tz_sulphur_mound: { obj: 28496, dir: 'scenery' },
 };
 
 // -------------------------------------------------------- object def parsing
@@ -246,7 +303,7 @@ function renderTextureTile(tex, tile) {
   return canvas.toBuffer('image/png');
 }
 
-function renderObject(model, { yaw = 30, pitch = 12, roll = 0, zoom = 1, cull = true, crop, margin = MARGIN, groundTex, groundTile = 128 } = {}, textures) {
+export function renderObject(model, { yaw = 30, pitch = 12, roll = 0, zoom = 1, cull = true, crop, margin = MARGIN, groundTex, groundTile = 128 } = {}, textures) {
   const n = model.vertexCount;
   const verts = new Array(n);
   // `roll` turns the model about the camera's depth axis before anything else, for
@@ -325,6 +382,24 @@ function cropToContent(canvas, [x0, y0, x1, y1]) {
   return out.toBuffer('image/png');
 }
 
+/**
+ * Name search over the object index — the counterpart of `--find` in
+ * render-osrs-items.mjs and render-osrs-npcs.mjs. Picking a LOC by sweeping ids by
+ * hand is how an afternoon disappears. `@abextm/cache2` already decodes every LOC
+ * def off the same local cache, so this asks it for the lot and prints every id
+ * whose name contains the needle, with the models it would render.
+ *
+ *   node scripts/render-osrs-objects.mjs --find "dead tree"
+ */
+async function findObjects(needle) {
+  const q = needle.toLowerCase();
+  if (!q) { console.error('--find needs a name'); return; }
+  const all = await Obj.all(await defsCache());
+  const hits = all.filter((d) => d.name && d.name !== 'null' && d.name.toLowerCase().includes(q));
+  for (const d of hits) console.log(`  ${d.id}	"${d.name}"	models=[${[...(d.models ?? [])].map((m) => m.id ?? m)}]`);
+  console.log(`${hits.length} match(es) of ${all.length} object defs`);
+}
+
 // ----------------------------------------------------------------------- main
 async function main() {
   if (!existsSync(join(CACHE_DIR, 'main_file_cache.dat2'))) {
@@ -336,6 +411,8 @@ async function main() {
   await cache.onload;
 
   const argv = process.argv;
+  const findIdx = argv.indexOf('--find');
+  if (findIdx !== -1) { await findObjects(argv[findIdx + 1] ?? ''); process.exit(0); }
   const onlyIdx = argv.indexOf('--only');
   const only = onlyIdx !== -1 ? argv[onlyIdx + 1] : null;
   const yawIdx = argv.indexOf('--yaw');
@@ -344,7 +421,10 @@ async function main() {
   if (yawIdx !== -1) camOverride.yaw = Number(argv[yawIdx + 1]);
   if (pitchIdx !== -1) camOverride.pitch = Number(argv[pitchIdx + 1]);
 
-  const entries = Object.entries(TARGETS).filter(([slug]) => !only || slug === only);
+  // `--only` takes one slug or a comma-separated list, so a themed set (the whole
+  // scenery pass) re-bakes in a single cache open instead of one per prop.
+  const wanted = only ? new Set(only.split(',')) : null;
+  const entries = Object.entries(TARGETS).filter(([slug]) => !wanted || wanted.has(slug));
   const write = (slug, cfg, buf) => {
     const dir = cfg.dir ?? 'objects';
     const outPath = join(REPO, 'public', 'assets', dir, `${slug}.png`);

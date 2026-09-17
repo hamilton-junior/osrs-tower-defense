@@ -1,3 +1,5 @@
+import type { SceneryId } from './data/biomes';
+
 // Locally-bundled assets extracted from the game cache (see
 // scripts/extract-osrs-sprites.mjs). Served from `public/`, base-path aware so
 // they resolve under a GitHub Pages project subpath too.
@@ -625,6 +627,37 @@ export const ASSETS = {
     },
     water: `${LOCAL}/terrain/liquid_water.png`, // texture 24
     lava: `${LOCAL}/terrain/liquid_lava.png`,   // texture 59
+    // The props standing on the board, one entry per {@link SceneryId}. Each is a
+    // LOC model rendered side-on out of the cache, and the board stands it on the
+    // bottom edge of its tile the way the client stands a LOC on the ground.
+    scenery: {
+      lumb_tree: `${LOCAL}/scenery/lumb_tree.png`,                 // 1276 Tree
+      lumb_rock: `${LOCAL}/scenery/lumb_rock.png`,                 // 2257 Rocks
+      lumb_bush: `${LOCAL}/scenery/lumb_bush.png`,                 // 1118 Bush
+      lumb_pebbles: `${LOCAL}/scenery/lumb_pebbles.png`,           // 10792 Stones
+      khar_cactus: `${LOCAL}/scenery/khar_cactus.png`,             // 6277 Cactus
+      khar_cactus_dry: `${LOCAL}/scenery/khar_cactus_dry.png`,     // 2671 Kharidian cactus (Dry)
+      khar_rock: `${LOCAL}/scenery/khar_rock.png`,                 // 2231 Rocks
+      khar_rubble: `${LOCAL}/scenery/khar_rubble.png`,             // 12 Rock pile
+      mory_dead_tree: `${LOCAL}/scenery/mory_dead_tree.png`,       // 1282 Dead tree
+      mory_grave: `${LOCAL}/scenery/mory_grave.png`,               // 404 Gravestone
+      mory_mushroom: `${LOCAL}/scenery/mory_mushroom.png`,         // 1163 Mushroom
+      mory_bones: `${LOCAL}/scenery/mory_bones.png`,               // 3665 Bones
+      wild_boulder: `${LOCAL}/scenery/wild_boulder.png`,           // 3753 Boulders
+      wild_boulder_big: `${LOCAL}/scenery/wild_boulder_big.png`,   // 3754 Boulders
+      wild_stones: `${LOCAL}/scenery/wild_stones.png`,             // 26633 Stones
+      troll_pine: `${LOCAL}/scenery/troll_pine.png`,               // 3037 Arctic pine tree
+      troll_ice_boulder: `${LOCAL}/scenery/troll_ice_boulder.png`, // 5039 Ice covered boulder
+      troll_icicle: `${LOCAL}/scenery/troll_icicle.png`,           // 554 Icicle
+      troll_snow: `${LOCAL}/scenery/troll_snow.png`,               // 15615 Snow
+      kara_palm: `${LOCAL}/scenery/kara_palm.png`,                 // 2577 Palm tree
+      kara_jungle_tree: `${LOCAL}/scenery/kara_jungle_tree.png`,   // 2887 Jungle tree
+      kara_fern: `${LOCAL}/scenery/kara_fern.png`,                 // 1298 Fern
+      tz_statue: `${LOCAL}/scenery/tz_statue.png`,                 // 11968 TzHaar statue
+      tz_stalagmite: `${LOCAL}/scenery/tz_stalagmite.png`,         // 3825 Stalagmite
+      tz_sulphur: `${LOCAL}/scenery/tz_sulphur.png`,               // 3962 Sulphur
+      tz_sulphur_mound: `${LOCAL}/scenery/tz_sulphur_mound.png`,   // 28496 Volcanic sulphur
+    } as Record<SceneryId, string>,
   },
   // Party Pete's balloons: the Party Room balloon (LOC 115) and its five recolours
   // (116-120), stood upright by scripts/render-osrs-objects.mjs. Indexed by the

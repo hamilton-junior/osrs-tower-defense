@@ -1,7 +1,7 @@
 import { SPOTANIMS, spotAnimDurationS } from '../../data/spotanims';
 import { distance } from '../../systems/geometry';
 import type { GameRenderer } from '../renderer';
-import { LAVA_PALETTE } from '../../data/biomes';
+import { LAVA_PALETTE, type SceneryId } from '../../data/biomes';
 import { buildLiquidBodies } from './liquid';
 import type { LiquidKind } from '../../systems/terrain-generation';
 import { GRID, shade, hash2 } from './shared';
@@ -10,6 +10,69 @@ import { GRID, shade, hash2 } from './shared';
 export const GROUND_TILE = 64;
 /** How hard the region's gradient is pushed back over its own floor texture. */
 const GROUND_TINT = 0.42;
+
+/**
+ * **Stand one of the region's props on a tile.**
+ *
+ * The prop is drawn *bottom-anchored*: the sprite's base sits on the tile's bottom
+ * edge and the rest of it rises into the tile above, the way the client stands a
+ * LOC on the ground. Centring it in the square instead made a tree look like it
+ * floated over the road behind it, and a tall prop could never overhang.
+ *
+ * `pick` chooses which of the region's props this tile gets — the caller hashes
+ * the tile's own coordinates for it, so the same seed deals the same board twice.
+ * A contact shadow goes down first: the bakes are cut out with no ground under
+ * them, and without it every prop looks pasted on.
+ *
+ * Returns false when the sprite has not loaded, so each caller can fall back to
+ * the procedural shape it drew before the bakes existed.
+ */
+function drawProp(
+  gr: GameRenderer,
+  ctx: CanvasRenderingContext2D,
+  list: readonly SceneryId[],
+  pick: number,
+  col: number,
+  row: number,
+  scale: number,
+  jx = 0,
+  jy = 0,
+): boolean {
+  if (list.length === 0) return false;
+  const key = `scenery_${list[pick % list.length]}`;
+  if (!gr.e.imageOk(key)) return false;
+  const img = gr.e.images.get(key);
+  if (!img || !img.width) return false;
+  const w = GRID * scale;
+  const h = w * (img.height / img.width);
+  const cx = col * GRID + GRID / 2 + jx;
+  const baseY = (row + 1) * GRID + jy;
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY - GRID * 0.12, w * 0.3, w * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.drawImage(img, cx - w / 2, baseY - h, w, h);
+  return true;
+}
+
+/**
+ * How many of the active region's props have loaded. The static bake keys on this
+ * (see `bgScenery`): the sprites arrive one at a time over the run's first frames,
+ * and a board baked halfway through would keep whichever tiles missed out drawn as
+ * procedural rock for the rest of the run.
+ */
+export function sceneryLoaded(gr: GameRenderer): number {
+  const { block, rough, prop } = gr.e.biome.scenery;
+  let n = 0;
+  // Counted with duplicates and no allocation: this runs on every frame, and all
+  // the comparison needs is a number that changes as each sprite lands.
+  for (const id of block) if (gr.e.imageOk(`scenery_${id}`)) n++;
+  for (const id of rough) if (gr.e.imageOk(`scenery_${id}`)) n++;
+  for (const id of prop) if (gr.e.imageOk(`scenery_${id}`)) n++;
+  return n;
+}
 
 /** The palette a pool is drawn with: the region's water, or the one lava wears
  *  everywhere. Both shapes are identical, so nothing downstream branches. */
@@ -32,7 +95,8 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     gr.bgTerrain !== gr.e.terrain || gr.bgBiome !== gr.e.biome.id ||
     gr.bgW !== w || gr.bgH !== h || gr.bgScale !== scale ||
     gr.bgWater !== gr.e.imageOk('liquid_water') ||
-    gr.bgGround !== gr.e.imageOk(`ground_${gr.e.biome.id}`)
+    gr.bgGround !== gr.e.imageOk(`ground_${gr.e.biome.id}`) ||
+    gr.bgScenery !== sceneryLoaded(gr)
   ) {
     if (!gr.bgCache) {
       gr.bgCache = document.createElement('canvas');
@@ -53,6 +117,7 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     gr.bgScale = scale;
     gr.bgWater = gr.e.imageOk('liquid_water');
     gr.bgGround = gr.e.imageOk(`ground_${gr.e.biome.id}`);
+    gr.bgScenery = sceneryLoaded(gr);
     // Same invalidation, same moment: the pools' welded outlines are only ever
     // rebuilt when the map that dealt them changes.
     gr.liquidBodies = buildLiquidBodies(gr);
@@ -137,14 +202,17 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const t = gr.e.terrain;
   if (t.cols === 0) return;
   const { bush, rock, rockHi, flowers } = gr.e.biome.decor;
+  const scenery = gr.e.biome.scenery;
   const rockDark = shade(rock, 0.6);
   const rockCrack = shade(rock, 0.45);
   const bushDark = shade(bush, 0.62);
   const bushLight = shade(bush, 1.28);
   const cols = t.cols;
 
-  // ── Non-buildable zones: rough ground — a soft tint plus scattered grass blades,
-  // so it reads as marshy/overgrown terrain you can't build on (not a flat wash). ──
+  // ── Non-buildable zones: rough ground — a soft tint, then one of the region's
+  // undergrowth props, so it reads as overgrown terrain you can't build on rather
+  // than a flat wash. The tint stays under the prop: it is what marks the tile's
+  // full square, and the prop only covers the middle of it. ──
   for (let i = 0; i < t.tiles.length; i++) {
     if (t.tiles[i] !== 'unbuildable') continue;
     const c = i % cols;
@@ -154,6 +222,9 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     ctx.globalAlpha = 0.16;
     ctx.fillStyle = bush;
     ctx.fillRect(x0, y0, GRID, GRID);
+    ctx.globalAlpha = 1;
+    if (drawProp(gr, ctx, scenery.rough, (hash2(c * 5.1, r * 3.9) * 97) | 0, c, r, 0.82)) continue;
+    // Fallback until the region's bake has loaded: a fan of grass blades.
     ctx.globalAlpha = 0.5;
     for (let b = 0; b < 5; b++) {
       const bx = x0 + hash2(c * 7.1 + b, r * 3.3) * GRID;
@@ -219,12 +290,17 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   }
   ctx.globalAlpha = 1;
 
-  // ── Hard obstacles: shaded boulders that fill the tile (impassable). Per-tile
-  // variation keeps a cluster of tiles reading as one lumpy rock formation. ──
+  // ── Hard obstacles: one of the region's two blockers per tile — a tree in
+  // Misthalin, an obsidian statue in Mor Ul Rek. They are drawn a little wider
+  // than their tile on purpose: a tree that stops dead at the square's edge reads
+  // as a token on a board, not as something standing on the ground. Row-major
+  // order means a lower prop overlaps the one behind it. ──
   for (let i = 0; i < t.tiles.length; i++) {
     if (t.tiles[i] !== 'blocked') continue;
     const c = i % cols;
     const r = (i / cols) | 0;
+    if (drawProp(gr, ctx, scenery.block, (hash2(c * 1.7, r * 2.3) * 97) | 0, c, r, 1.45)) continue;
+    // Fallback until the region's bake has loaded: a shaded procedural boulder.
     const cx = c * GRID + GRID / 2;
     const cy = r * GRID + GRID / 2;
     const s = 0.82 + hash2(c * 1.7, r * 2.3) * 0.24; // per-boulder size
@@ -274,12 +350,17 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     }
   }
 
-  // ── Cosmetic decorations on open ground, jittered off the grid. ──
+  // ── Cosmetic decorations on open ground, jittered off the grid. `kind` is what
+  // the generator dealt this spot, so it picks the prop: a tile keeps its own
+  // dressing when the region re-skins, and the scatter stays varied. ──
   for (const d of t.decorations) {
     const jx = (hash2(d.col * 12.9, d.row * 7.1) - 0.5) * GRID * 0.5;
     const jy = (hash2(d.col * 3.7, d.row * 19.3) - 0.5) * GRID * 0.5;
     const x = d.col * GRID + GRID / 2 + jx;
     const y = d.row * GRID + GRID / 2 + jy;
+    // Half a tile back up, because these props are bottom-anchored and the
+    // procedural shapes below are drawn around their centre.
+    if (drawProp(gr, ctx, scenery.prop, d.kind, d.col, d.row, 0.7, jx, jy - GRID * 0.4)) continue;
     if (d.kind === 0 || d.kind === 1) {
       // leafy bush: shaded underside, body, top highlight, a couple of berries
       ctx.fillStyle = bushDark;

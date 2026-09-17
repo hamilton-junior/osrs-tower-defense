@@ -61,6 +61,10 @@ export class GameRenderer {
   /** Whether the active region's floor texture had arrived when the buffer was last
    *  baked — same reason as `bgWater`, for the ground under it. */
   bgGround = false;
+  /** How many of the region's scenery props had arrived when the buffer was last
+   *  baked. A count, not a flag: the props load one at a time, so a board baked
+   *  with three of seven has to be rebaked when the other four land. */
+  bgScenery = -1;
 
   /** Each pool welded into one outline, by liquid kind (at most two: water and
    *  lava). Rebuilt with the background, so the animated surface costs a clip and a

@@ -24,9 +24,12 @@ import { join } from 'node:path';
 
 const DEFAULT_CACHE = join(homedir(), '.runelite', 'jagexcache', 'oldschool', 'LIVE');
 
-/** Opened once per process, on first use, against OSRS_CACHE_DIR or the RuneLite default. */
 let opening = null;
-function defsCache() {
+
+/** Opened once per process, on first use, against OSRS_CACHE_DIR or the RuneLite
+ *  default. Exported so a script reading a different def type out of the same cache
+ *  (scenery, in render-osrs-objects.mjs) shares this one handle. */
+export function defsCache() {
   opening ??= loadCache(process.env.OSRS_CACHE_DIR || DEFAULT_CACHE);
   return opening;
 }

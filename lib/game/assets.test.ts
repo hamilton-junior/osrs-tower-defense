@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ASSETS, coinsIcon, localIconNames } from './assets';
+import { BIOME_LIST } from './data/biomes';
 import { GE_OFFERS } from './data/ge';
 import { SLAYER_REWARDS } from './data/slayer';
 import { GLOBAL_UPGRADE_DEFS } from './systems/meta-progression';
@@ -149,6 +150,40 @@ describe('fishing asset coverage', () => {
       (slug) => !existsSync(join(__dirname, '../../public/assets/models', `${slug}.png`)),
     );
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * The board's scenery. Every region names its props by {@link SceneryId}, and the
+ * renderer resolves each one through `ASSETS.terrain.scenery` to a bake in
+ * `public/assets/scenery/`. A region that names a prop with no file behind it
+ * draws that tile as procedural rock for the whole run and says nothing, so the
+ * two links are checked here: the id has a path, and the path has a PNG.
+ */
+const sceneryIds = [
+  ...new Set(BIOME_LIST.flatMap((b) => [...b.scenery.block, ...b.scenery.rough, ...b.scenery.prop])),
+];
+
+describe('board scenery coverage', () => {
+  it('finds the props it means to check', () => {
+    expect(sceneryIds.length).toBeGreaterThan(10);
+  });
+
+  it('gives every region prop a baked sprite', () => {
+    const missing = sceneryIds.filter((id) => {
+      const url = ASSETS.terrain.scenery[id];
+      return !url || !existsSync(join(__dirname, '../../public', url.slice(url.indexOf('/assets/'))));
+    });
+    expect(missing).toEqual([]);
+  });
+
+  it('bakes no prop no region asks for', () => {
+    const named = new Set<string>(sceneryIds);
+    const orphans = readdirSync(join(__dirname, '../../public/assets/scenery'))
+      .filter((f) => f.endsWith('.png'))
+      .map((f) => f.replace('.png', ''))
+      .filter((slug) => !named.has(slug));
+    expect(orphans).toEqual([]);
   });
 });
 
