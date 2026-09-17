@@ -20,7 +20,19 @@ import {
   sendDiversionOff,
   stepDiversion,
   turnDiversion,
+  nearestDiversionSpot,
+  mostWornTrap,
+  formatPlayTime,
+  runFactLines,
+  hansLine,
+  balloonCount,
+  pickBalloonSpots,
+  rollBalloonGift,
+  balloonReward,
+  BALLOON_GOLD_SHARE,
+  BALLOON_ESSENCE_SHARE,
   type Diversion,
+  type RunFacts,
 } from './diversions';
 import { DIVERSIONS, DIVERSION_BY_ID, DIVERSION_CHANCE, MAX_DIVERSIONS } from '../data/diversions';
 import { waveClearBonus } from './rewards';
@@ -77,13 +89,158 @@ describe('pickDiversionDef', () => {
   it('only ever returns a member of the mood asked for', () => {
     for (const mood of DIVERSION_MOOD_PRIORITY) {
       for (const r of [0, 0.25, 0.5, 0.75, 0.999999]) {
-        expect(pickDiversionDef(mood, () => r).mood).toBe(mood);
+        expect(pickDiversionDef(mood, () => r)!.mood).toBe(mood);
       }
     }
   });
 
   it('cannot run off the end of the pool on a rand that returns 1', () => {
     expect(pickDiversionDef('event', () => 1)).toBeDefined();
+  });
+
+  it('leaves out whoever has nothing to do, so the rest share the visit', () => {
+    for (const r of [0, 0.3, 0.6, 0.999]) {
+      expect(pickDiversionDef('walkby', () => r, d => d.id !== 'hunting_expert')!.id).not.toBe('hunting_expert');
+    }
+  });
+
+  it('comes back empty when nobody in the mood is eligible', () => {
+    expect(pickDiversionDef('walkby', () => 0, () => false)).toBeNull();
+  });
+});
+
+describe('nearestDiversionSpot', () => {
+  const GRID = 32;
+  const centre = (col: number, row: number) => ({ x: col * GRID + GRID / 2, y: row * GRID + GRID / 2 });
+
+  it('stands beside the point, never on it', () => {
+    const p = centre(10, 10);
+    const spot = nearestDiversionSpot(p.x, p.y, () => true, 45, 20, GRID)!;
+    expect(spot).not.toEqual(p);
+    expect(Math.hypot(spot.x - p.x, spot.y - p.y)).toBe(GRID);
+  });
+
+  it('skips blocked tiles for the next nearest free one', () => {
+    const p = centre(10, 10);
+    const isFree = (x: number, y: number) => Math.abs(x - p.x) >= 2 * GRID || Math.abs(y - p.y) >= 2 * GRID;
+    const spot = nearestDiversionSpot(p.x, p.y, isFree, 45, 20, GRID)!;
+    expect(Math.hypot(spot.x - p.x, spot.y - p.y)).toBe(2 * GRID);
+  });
+
+  it('keeps off the border tiles and gives up past its reach', () => {
+    const p = centre(1, 1);
+    const spot = nearestDiversionSpot(p.x, p.y, () => true, 45, 20, GRID)!;
+    expect(spot.x).toBeGreaterThan(2 * GRID);
+    expect(spot.y).toBeGreaterThan(2 * GRID);
+    expect(nearestDiversionSpot(p.x, p.y, () => false, 45, 20, GRID)).toBeNull();
+  });
+});
+
+describe('mostWornTrap', () => {
+  it('picks the lowest share of charges left', () => {
+    expect(mostWornTrap([
+      { id: 'a', charges: 3, max: 4 },
+      { id: 'b', charges: 2, max: 6 },
+      { id: 'c', charges: 1, max: 2 },
+    ])).toBe('b');
+  });
+
+  it('breaks a tie on fewer charges left', () => {
+    expect(mostWornTrap([
+      { id: 'a', charges: 2, max: 4 },
+      { id: 'b', charges: 1, max: 2 },
+    ])).toBe('b');
+  });
+
+  it('ignores fresh traps and has nothing to say without a worn one', () => {
+    expect(mostWornTrap([{ id: 'a', charges: 4, max: 4 }])).toBeNull();
+    expect(mostWornTrap([])).toBeNull();
+  });
+});
+
+describe("Hans's run facts", () => {
+  const facts = (over: Partial<RunFacts> = {}): RunFacts => ({
+    seconds: 0, kills: 0, livesLost: 0, cleanStreak: 0, goldEarned: 0, topTower: null, ...over,
+  });
+
+  it('formats play time as m:ss, and h:mm:ss past the hour', () => {
+    expect(formatPlayTime(0)).toBe('0:00');
+    expect(formatPlayTime(75.9)).toBe('1:15');
+    expect(formatPlayTime(3725)).toBe('1:02:05');
+  });
+
+  it('always has the time to fall back on', () => {
+    expect(runFactLines(facts({ seconds: 90 }))).toEqual(["You've been defending this road for 1:30."]);
+  });
+
+  it('only mentions what has happened', () => {
+    const lines = runFactLines(facts({
+      kills: 1234, cleanStreak: 4, goldEarned: 5600, topTower: { name: 'Dwarf multicannon', kills: 88 },
+    }));
+    expect(lines).toContain('1,234 monsters have fallen on this road so far.');
+    expect(lines).toContain('Nothing has got past you yet.');
+    expect(lines).toContain('4 waves in a row without a leak.');
+    expect(lines).toContain('Your Dwarf multicannon has 88 kills.');
+    expect(lines).toContain("You've earned 5,600 gold this run.");
+    expect(lines.some(l => l.includes('lost'))).toBe(false);
+  });
+
+  it('counts leaks instead of praising a clean run once lives are lost', () => {
+    const lines = runFactLines(facts({ kills: 10, livesLost: 1, cleanStreak: 2, topTower: { name: 'Archer', kills: 4 } }));
+    expect(lines).toContain("You've lost one life this run.");
+    expect(lines).not.toContain('Nothing has got past you yet.');
+    expect(lines.some(l => l.includes('in a row'))).toBe(false);
+    expect(lines.some(l => l.includes('Archer'))).toBe(false);
+  });
+
+  it('picks one of them without running off the end', () => {
+    const f = facts({ kills: 3, goldEarned: 10 });
+    for (const r of [0, 0.5, 1]) expect(runFactLines(f)).toContain(hansLine(f, () => r));
+  });
+});
+
+describe("Party Pete's balloons", () => {
+  const GRID = 32;
+  const cx = 10 * GRID + GRID / 2;
+  const cy = 10 * GRID + GRID / 2;
+
+  it('drops three to seven', () => {
+    expect(balloonCount(() => 0)).toBe(3);
+    expect(balloonCount(() => 0.999)).toBe(7);
+    expect(balloonCount(() => 1)).toBe(7);
+  });
+
+  it('lands each on its own free tile near Pete, never on his own', () => {
+    const spots = pickBalloonSpots(Math.random, cx, cy, () => true, 45, 20, GRID, 7);
+    expect(spots).toHaveLength(7);
+    expect(new Set(spots.map(s => `${s.x},${s.y}`)).size).toBe(7);
+    for (const s of spots) {
+      expect(s).not.toEqual({ x: cx, y: cy });
+      expect(Math.max(Math.abs(s.x - cx), Math.abs(s.y - cy))).toBeLessThanOrEqual(2 * GRID);
+    }
+  });
+
+  it('spills into the outer ring only when the near tiles are taken', () => {
+    const isFree = (x: number, y: number) => Math.max(Math.abs(x - cx), Math.abs(y - cy)) !== GRID;
+    const spots = pickBalloonSpots(Math.random, cx, cy, isFree, 45, 20, GRID, 20);
+    expect(spots).toHaveLength(20);
+    expect(spots.slice(0, 16).every(s => Math.max(Math.abs(s.x - cx), Math.abs(s.y - cy)) === 2 * GRID)).toBe(true);
+    expect(spots.slice(16).every(s => Math.max(Math.abs(s.x - cx), Math.abs(s.y - cy)) === 3 * GRID)).toBe(true);
+  });
+
+  it('drops fewer when there is no room', () => {
+    expect(pickBalloonSpots(Math.random, cx, cy, () => false, 45, 20, GRID, 5)).toEqual([]);
+  });
+
+  it('is empty half the time, and pays a slice of a purse or a lamp otherwise', () => {
+    expect(rollBalloonGift(() => 0.49)).toBe('none');
+    expect(rollBalloonGift(() => 0.5)).toBe('gold');
+    expect(rollBalloonGift(() => 0.95)).toBe('essence');
+    const ctx = { gold: 200, essence: 30, lives: 10, maxLives: 20 };
+    expect(balloonReward('none', ctx)).toBeNull();
+    expect(balloonReward('gold', ctx)).toEqual({ kind: 'gold', amount: Math.round(200 * BALLOON_GOLD_SHARE) });
+    expect(balloonReward('essence', ctx)).toEqual({ kind: 'essence', amount: Math.round(30 * BALLOON_ESSENCE_SHARE) });
+    expect(balloonReward('essence', { ...ctx, essence: 1 })!.amount).toBe(1);
   });
 });
 
@@ -136,9 +293,14 @@ describe('diversionLine', () => {
     expect(guide.lines).toContain(diversionLine(guide, () => 0));
   });
 
+  it('hands Hans his fact about the run', () => {
+    expect(diversionLine(DIVERSION_BY_ID.hans, () => 0, 'Nothing has got past you yet.'))
+      .toBe('Nothing has got past you yet.');
+  });
+
   it('never lets a hint put words in anyone else\'s mouth', () => {
-    const hans = DIVERSION_BY_ID.hans;
-    expect(hans.lines).toContain(diversionLine(hans, () => 0.5, 'a boss is next'));
+    const pete = DIVERSION_BY_ID.party_pete;
+    expect(pete.lines).toContain(diversionLine(pete, () => 0.5, 'a boss is next'));
   });
 
   it('cannot run off the end of a line list', () => {

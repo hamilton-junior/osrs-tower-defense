@@ -30,6 +30,7 @@ const CLIP_BOX = 30;
  * frame whose whole rule is that it never asks for their attention.
  */
 export function drawDiversions(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  drawPartyBalloons(gr, ctx);
   drawDiversionPops(gr, ctx);
   const list = gr.e.diversions;
   if (list.length === 0) return;
@@ -123,6 +124,51 @@ export function drawDiversions(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
     ctx.fillText(text, d.x + 1, ty + 1);
     ctx.fillStyle = '#ffff00';
     ctx.fillText(text, d.x, ty);
+    ctx.restore();
+  }
+}
+
+/** How long a balloon takes to drift down onto its spot, ms. */
+const BALLOON_FALL_MS = 450;
+/** Box a balloon is drawn in, logic px: smaller than a visitor, so a handful of them
+ *  reads as what Pete left behind rather than a second crowd. */
+const BALLOON_BOX = 28;
+
+/**
+ * Party Pete's balloons, lying where he left them until someone pops one. Each one
+ * drifts down onto its spot, the way the Party Room drops them from the ceiling, and
+ * then sways on its string. Drawn first, under the payouts and the visitors.
+ */
+function drawPartyBalloons(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  const list = gr.e.balloons;
+  if (list.length === 0) return;
+  const now = performance.now();
+  const t = now / 1000;
+  for (const b of list) {
+    if (now < b.born) continue;
+    const k = Math.min(1, (now - b.born) / BALLOON_FALL_MS);
+    const drop = (1 - k) * (1 - k) * 36;
+    const sway = Math.sin(t * 1.6 + b.x * 0.07 + b.y * 0.03);
+    ctx.save();
+    // Its shadow on the ground darkens as it comes down to meet it.
+    ctx.globalAlpha = 0.25 * k;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(b.x, b.y + 4, 7, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = k;
+    ctx.translate(b.x, b.y - 10 - drop + sway * 1.5);
+    ctx.rotate(sway * 0.06);
+    const key = `party_balloon_${b.variant}`;
+    const img = gr.e.images.get(key);
+    if (gr.e.imageOk(key) && img) {
+      drawImageContain(gr, ctx, img, 0, 0, BALLOON_BOX);
+    } else {
+      ctx.fillStyle = '#e04040';
+      ctx.beginPath();
+      ctx.arc(0, -4, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 }

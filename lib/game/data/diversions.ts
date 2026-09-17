@@ -22,7 +22,7 @@ const turned = (slug: string) => ({ back: npcModel(`${slug}_back`), side: npcMod
 export type DiversionMood = 'walkby' | 'event' | 'nest';
 
 export type DiversionId =
-  | 'hans' | 'bob' | 'lumbridge_guide' | 'party_pete'
+  | 'hans' | 'hunting_expert' | 'lumbridge_guide' | 'party_pete'
   | 'drunken_dwarf' | 'genie' | 'strange_plant' | 'rick_turpentine'
   | 'bird_nest';
 
@@ -36,11 +36,12 @@ export type DiversionPayload = 'none' | 'life' | 'gold' | 'essence' | 'potion' |
  * What a click actually lands in the player's hands, once the payload has met the
  * board: a kebab eaten at full lives is a kebab sold, so `life` can arrive as `gold`.
  * The tooltip, the toast, the number that rises off the sprite and the Collection
- * Log's totals all speak in these.
+ * Log's totals all speak in these. `charges` is the one nobody clicks for: the
+ * Hunting expert puts them back into a trap on the road.
  */
-export type DiversionRewardKind = 'life' | 'gold' | 'essence' | 'overload';
+export type DiversionRewardKind = 'life' | 'gold' | 'essence' | 'overload' | 'charges';
 
-export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'gold', 'essence', 'overload'];
+export const DIVERSION_REWARD_KINDS: DiversionRewardKind[] = ['life', 'gold', 'essence', 'overload', 'charges'];
 
 /** Each reward's own icon, and the name it goes by on hover. */
 export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; label: string }> = {
@@ -48,7 +49,15 @@ export const DIVERSION_REWARD_META: Record<DiversionRewardKind, { icon: string; 
   gold: { icon: ASSETS.misc.coins_icon, label: 'Gold' },
   essence: { icon: ASSETS.misc.rune_essence_icon, label: 'Essence' },
   overload: { icon: itemIcon('overload_4'), label: 'Overload' },
+  charges: { icon: ASSETS.misc.hunter_icon, label: 'Trap charges' },
 };
+
+/**
+ * Something one does on the board by itself, the moment it reaches its tile, with
+ * no click asked for. `mend_trap` re-sets the most worn hunter trap; `drop_balloons`
+ * leaves a handful of balloons around the tile to pop.
+ */
+export type DiversionJob = 'mend_trap' | 'drop_balloons';
 
 export interface DiversionDef {
   id: DiversionId;
@@ -72,14 +81,21 @@ export interface DiversionDef {
   tip: string;
   /** What it says. Walkbys pick one at spawn; the rest say theirs on payout. */
   lines: string[];
+  /** Says something about the game instead of a line from {@link lines}: `wave` is
+   *  a read on the coming wave, `run` a fact about the run so far. The lines stay
+   *  as the fallback for when there is nothing to report. */
+  briefing?: 'wave' | 'run';
+  /** What it gets on with once it arrives. See {@link DiversionJob}. */
+  job?: DiversionJob;
 }
 
 /**
  * The cast. Walkbys first, because they are the mood the player meets most.
  *
- * Every line is deliberately small talk. The one exception is the Lumbridge Guide,
- * whose whole job in OSRS is telling you what you are about to walk into — the
- * spawner swaps his line for a read on the coming wave when it has one.
+ * Every line is deliberately small talk, with two exceptions that do in this game
+ * what they do in OSRS. The Lumbridge Guide tells you what you are about to walk
+ * into, and Hans, who in Lumbridge tells you how long you have played, tells you
+ * something about the run.
  */
 export const DIVERSIONS: DiversionDef[] = [
   {
@@ -89,7 +105,8 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('hans'),
     turned: turned('hans'),
     payload: 'none',
-    tip: 'Just passing through.',
+    briefing: 'run',
+    tip: 'Keeps count of your run.',
     lines: [
       "I've been here for 20 years and I'm still not sure what this tower does.",
       'Mind the road. Things come down it.',
@@ -98,18 +115,21 @@ export const DIVERSIONS: DiversionDef[] = [
     ],
   },
   {
-    id: 'bob',
+    // Only turns up when a trap on the road has fired some of its charges and there
+    // is free ground beside it: the spawner picks the tile, not the dice.
+    id: 'hunting_expert',
     mood: 'walkby',
-    name: 'Bob',
-    sprite: npcModel('bob'),
-    turned: turned('bob'),
+    name: 'Hunting expert',
+    sprite: npcModel('hunting_expert'),
+    turned: turned('hunting_expert'),
     payload: 'none',
-    tip: 'Just passing through.',
+    job: 'mend_trap',
+    tip: 'Re-sets your most worn trap.',
     lines: [
-      'Axes! Finest axes! ...no? Suit yourself.',
-      'I could sharpen that for you. For a price.',
-      "Bronze, iron, steel — I've got the lot.",
-      'Nobody ever buys the bronze one.',
+      'Whoever set this snare pulled the noose too tight.',
+      'A trap is only as good as its last re-set.',
+      "Tracks everywhere. You've got a busy road.",
+      'Leave it with me. Two minutes.',
     ],
   },
   {
@@ -119,6 +139,7 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('lumbridge_guide'),
     turned: turned('lumbridge_guide'),
     payload: 'none',
+    briefing: 'wave',
     tip: 'He has a read on the next wave.',
     lines: [
       'Keep your towers spread. Crowds punish a corner.',
@@ -134,11 +155,12 @@ export const DIVERSIONS: DiversionDef[] = [
     sprite: npcModel('party_pete'),
     turned: turned('party_pete'),
     payload: 'none',
-    tip: 'Just passing through.',
+    job: 'drop_balloons',
+    tip: 'Leaves balloons to pop.',
     lines: [
       'Party! Party! Party!',
       'Someone put a tune on!',
-      'You there — dance with me!',
+      'Balloons! Pop them, go on!',
       "Best siege I've ever been to, this.",
     ],
   },

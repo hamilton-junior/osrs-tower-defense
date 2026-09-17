@@ -53,6 +53,7 @@ const TARGETS = {
   // --- misc core SFX (config names verified against the wiki List_of_sound_IDs) ---
   pick_up: 2582,               // pick2 — item-pickup plop (RuneLite ITEM_PICKUP)
   potion: 2401,                // liquid — drinking a potion
+  balloon_pop: 2214,           // pop1 — a Party Pete balloon bursting
   death_human: 512,            // human_death — a life lost
   boss_attack: 1521,           // vorkath_attack — boss attack roar
   // Zulrah's morph cry. The cache has no Zulrah-specific clip (its NPC def carries

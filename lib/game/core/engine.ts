@@ -53,10 +53,10 @@ import { localTypes } from '../systems/enemy-regions';
 import { travelOffer } from '../systems/travel';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
-import { DIVERSION_BY_ID, DIVERSION_REWARD_META } from '../data/diversions';
+import { DIVERSION_BY_ID, DIVERSION_REWARD_META, type DiversionId } from '../data/diversions';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../data/diversion-anims';
 import { essenceMultiplier } from '../systems/meta-progression';
-import { DIVERSION_POP_MS, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, offBoardPoint, payloadReward, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
+import { DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCount, balloonReward, hansLine, mostWornTrap, nearestDiversionSpot, pickBalloonSpots, rollBalloonGift, diversionEssence, diversionGainKey, diversionGold, diversionLine, diversionRewardOptions, offBoardPoint, payloadReward, pickDiversionDef, pickDiversionSpot, resolvePayload, rollDiversionMoods, sanitizeDiversionGains, sanitizeDiversionsMet, sendDiversionOff, stepDiversion, turnDiversion, type Diversion, type DiversionPop, type PartyBalloon, type RunFacts, type DiversionReward, type DiversionRewardContext } from '../systems/diversions';
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
@@ -402,6 +402,10 @@ export class GameEngine {
   /** Payouts still floating up off the board, newest last. The renderer draws them
    *  and skips any past {@link DIVERSION_POP_MS}; a new payout sweeps the old ones. */
   diversionPops: DiversionPop[] = [];
+  /** Balloons Party Pete left on the board, waiting for a click. Swept at the next
+   *  wave start with everything else the world dropped off. */
+  balloons: PartyBalloon[] = [];
+  private balloonSeq = 0;
   /** Hunter traps lying on the road. Laid between waves, spent during one, gone
    *  when their charges are — they never block passage, and nothing but the run's
    *  own Hunter level limits how many may be out. */
@@ -1433,6 +1437,8 @@ export class GameEngine {
             : []),
         ]),
       ),
+      // Party Pete's balloons, one bake per colour, keyed `party_balloon_<n>`.
+      ...Object.fromEntries(ASSETS.partyBalloons.map((url, n) => [`party_balloon_${n}`, url])),
       // What a payout rises off the board as, keyed `reward_<kind>`.
       ...Object.fromEntries(
         Object.entries(DIVERSION_REWARD_META).map(([kind, meta]) => [`reward_${kind}`, meta.icon]),
@@ -2536,6 +2542,8 @@ export class GameEngine {
     if (this.tryShapeRoad(x, y)) return;
     // Something the world dropped off gets the click before the board does — it is
     // standing on empty ground, so nothing underneath it wanted the click anyway.
+    const balloon = this.balloonAt(x, y);
+    if (balloon) { this.popBalloon(balloon.id); return; }
     const diversion = this.diversionAt(x, y);
     if (diversion) { this.claimDiversion(diversion.id); return; }
     // An allotment stands on ground the board already refused to build on, so a
@@ -3127,19 +3135,23 @@ export class GameEngine {
     const bossNext = configs.some(c => ENEMIES[c.type]?.isBoss);
     const moods = rollDiversionMoods(Math.random, present, bossNext);
     if (moods.length === 0) return;
-    const hint = this.waveHint(configs);
+    const cols = Math.floor(this.width / GRID);
+    const rows = Math.floor(this.height / GRID);
+    const ground = (x: number, y: number) => this.diversionGroundFree(x, y);
     for (const mood of moods) {
-      const def = pickDiversionDef(mood, Math.random);
-      // A diversion stands exactly where a tower could have — off the road, off the
-      // obstacles, clear of what is already built — so it can never be in the way.
-      const spot = pickDiversionSpot(
-        Math.random,
-        (x, y) => isValidPlacement(x, y, this.path, this.towers, 40, 30, this.blockedTile),
-        Math.floor(this.width / GRID),
-        Math.floor(this.height / GRID),
-        GRID,
-      );
+      // The Hunting expert only turns up for a worn trap, and stands beside it.
+      const worn = this.wornTrapSpot(ground, cols, rows);
+      const def = pickDiversionDef(mood, Math.random, d => d.job !== 'mend_trap' || worn !== null);
+      if (!def) continue;
+      // Everyone else stands exactly where a tower could have — off the road, off the
+      // obstacles, clear of what is already built — so they can never be in the way.
+      const spot = def.job === 'mend_trap' && worn
+        ? worn.spot
+        : pickDiversionSpot(Math.random, ground, cols, rows, GRID);
       if (!spot) continue; // no room left on the board: the world stays away
+      const hint = def.briefing === 'wave'
+        ? this.waveHint(configs)
+        : def.briefing === 'run' ? hansLine(this.runFacts(), Math.random) : undefined;
       // Whoever can walk, walks: they come on from the nearest edge and cross to
       // the tile they picked, so the board is somewhere people arrive at rather
       // than a place things blink into. A nest and a plant were never walking
@@ -3159,6 +3171,7 @@ export class GameEngine {
         facing: 'front',
         facingLeft: false,
         line: diversionLine(def, Math.random, hint),
+        trapId: def.job === 'mend_trap' ? worn?.trapId : undefined,
       };
       // Turned before the first frame, or a walker coming in from the left would
       // spend that frame facing the player and then snap round.
@@ -3190,6 +3203,43 @@ export class GameEngine {
     );
   }
 
+  /** Ground a diversion or a balloon may take: somewhere a tower could go, that
+   *  nobody else from the world is already standing on or lying on. */
+  private diversionGroundFree(x: number, y: number): boolean {
+    if (!isValidPlacement(x, y, this.path, this.towers, 40, 30, this.blockedTile)) return false;
+    if (this.diversions.some(d => d.phase !== 'leaving' && distance(d.homeX, d.homeY, x, y) < GRID / 2)) return false;
+    return !this.balloons.some(b => distance(b.x, b.y, x, y) < GRID / 2);
+  }
+
+  /** The trap the Hunting expert would come for, and the free tile beside it to
+   *  work from. Null when no trap is worn, or the worn one has no room beside it. */
+  private wornTrapSpot(
+    isFree: (x: number, y: number) => boolean, cols: number, rows: number,
+  ): { trapId: string; spot: { x: number; y: number } } | null {
+    const id = mostWornTrap(this.traps.map(t => ({ id: t.id, charges: t.charges, max: HUNTER_TRAP_BY_ID[t.defId].charges })));
+    const trap = id ? this.traps.find(t => t.id === id) : undefined;
+    if (!trap) return null;
+    const spot = nearestDiversionSpot(trap.x, trap.y, isFree, cols, rows, GRID);
+    return spot ? { trapId: trap.id, spot } : null;
+  }
+
+  /** What Hans picks a fact from: the run's own counters, nothing new tracked. */
+  private runFacts(): RunFacts {
+    let topTower: RunFacts['topTower'] = null;
+    for (const t of this.towers) {
+      const kills = this.caStats.killsByTower[t.id] ?? 0;
+      if (kills > (topTower?.kills ?? 0)) topTower = { name: t.name, kills };
+    }
+    return {
+      seconds: this.runSeconds,
+      kills: this.kills,
+      livesLost: this.caStats.livesLostRun,
+      cleanStreak: this.caStats.cleanWaveStreak,
+      goldEarned: this.goldEarned,
+      topTower,
+    };
+  }
+
   /** The diversion under a click, if any. Generous radius — it is a small sprite on
    *  empty ground, and nothing underneath it wanted the click. */
   diversionAt(x: number, y: number): Diversion | null {
@@ -3204,8 +3254,106 @@ export class GameEngine {
   private moveDiversions(dt: number) {
     if (this.diversions.length === 0) return;
     const before = this.diversions.length;
-    this.diversions = this.diversions.filter(d => stepDiversion(d, dt));
-    if (this.diversions.length !== before) this.emit();
+    let arrived = false;
+    this.diversions = this.diversions.filter(d => {
+      const was = d.phase;
+      const keep = stepDiversion(d, dt);
+      if (was === 'arriving' && d.phase === 'here') {
+        this.runDiversionJob(d);
+        arrived = true;
+      }
+      return keep;
+    });
+    if (arrived || this.diversions.length !== before) this.emit();
+  }
+
+  /** What one with a {@link DiversionDef.job} gets on with, once it reaches its tile
+   *  or is clicked on the way there. Runs once per visit. */
+  private runDiversionJob(d: Diversion) {
+    const def = DIVERSION_BY_ID[d.defId];
+    if (!def.job || d.jobDone) return;
+    d.jobDone = true;
+    if (def.job === 'mend_trap') this.mendTrap(d);
+    else this.dropBalloons(d);
+  }
+
+  /** The Hunting expert puts every charge back into the trap it came for, or into
+   *  whichever trap is most worn now if that one has gone. */
+  private mendTrap(d: Diversion) {
+    const max = (t: HunterTrap) => HUNTER_TRAP_BY_ID[t.defId].charges;
+    const wear = (t: HunterTrap) => ({ id: t.id, charges: t.charges, max: max(t) });
+    const stored = this.traps.find(t => t.id === d.trapId);
+    const id = stored && mostWornTrap([wear(stored)]) ? stored.id : mostWornTrap(this.traps.map(wear));
+    const trap = id ? this.traps.find(t => t.id === id) : undefined;
+    if (!trap) return;
+    const reward: DiversionReward = { kind: 'charges', amount: max(trap) - trap.charges };
+    trap.charges = max(trap);
+    this.recordDiversionGain(d.defId, reward);
+    this.pushDiversionPop(trap.x, trap.y, reward);
+    const trapDef = HUNTER_TRAP_BY_ID[trap.defId];
+    this.notify(`Your ${trapDef.name.toLowerCase()} is back to full charges.`, trapDef.sprite, reward);
+    this.sound.play('trap_mend');
+  }
+
+  /** Party Pete leaves three to seven balloons on free ground around his tile. */
+  private dropBalloons(d: Diversion) {
+    const spots = pickBalloonSpots(
+      Math.random, d.homeX, d.homeY, (x, y) => this.diversionGroundFree(x, y),
+      Math.floor(this.width / GRID), Math.floor(this.height / GRID), GRID, balloonCount(Math.random),
+    );
+    const now = performance.now();
+    spots.forEach((s, n) => {
+      this.balloons.push({
+        id: `bl${++this.balloonSeq}`,
+        x: s.x + (Math.random() - 0.5) * 8,
+        y: s.y + (Math.random() - 0.5) * 8,
+        variant: Math.floor(Math.random() * PARTY_BALLOON_VARIANTS),
+        // They land one after another rather than all in the same frame.
+        born: now + n * 90,
+      });
+    });
+  }
+
+  /** The balloon under a click, if it has landed. Measured from the balloon's body,
+   *  which floats above the point it is tied to. */
+  balloonAt(x: number, y: number): PartyBalloon | null {
+    const now = performance.now();
+    return this.balloons.find(b => now >= b.born && distance(b.x, b.y - 8, x, y) <= 16) ?? null;
+  }
+
+  /** Pop one: half the time it was empty, otherwise a little gold or essence. */
+  popBalloon(id: string) {
+    const b = this.balloons.find(p => p.id === id);
+    if (!b) return;
+    this.balloons = this.balloons.filter(p => p.id !== id);
+    const reward = balloonReward(rollBalloonGift(Math.random), this.diversionRewardContext());
+    const icon = ASSETS.partyBalloons[b.variant] ?? ASSETS.partyBalloons[0];
+    this.sound.play('balloon_pop');
+    if (reward) {
+      this.payDiversionReward(reward);
+      this.recordDiversionGain('party_pete', reward);
+      this.pushDiversionPop(b.x, b.y - 8, reward);
+      this.notify('There was something inside!', icon, reward);
+    } else {
+      this.notify('It was empty!', icon);
+    }
+    this.emit();
+  }
+
+  /** Add a payout to the Collection Log's lifetime totals. */
+  private recordDiversionGain(defId: DiversionId, reward: DiversionReward) {
+    const key = diversionGainKey(defId, reward.kind);
+    this.diversionGains = { ...this.diversionGains, [key]: (this.diversionGains[key] ?? 0) + reward.amount };
+  }
+
+  /** Float a payout up off the spot it was paid at, so a click answers where the
+   *  player was looking and not only down in the toast. */
+  private pushDiversionPop(x: number, y: number, reward: DiversionReward) {
+    const now = performance.now();
+    this.diversionPops = [
+      ...this.diversionPops.filter(p => now - p.born < DIVERSION_POP_MS),
+      { x, y, reward, born: now },
+    ];
   }
 
   /**
@@ -3218,7 +3366,12 @@ export class GameEngine {
    * was never owed, and the board stays honest about what is clickable.
    */
   private stepAsideDiversions() {
-    if (this.diversions.length === 0) return;
+    // A balloon under a new tower is simply gone: nothing was owed for it.
+    if (this.balloons.length) {
+      this.balloons = this.balloons.filter(
+        b => !this.towers.some(t => distance(t.x, t.y, b.x, b.y) <= TOWER_RADIUS + 4),
+      );
+    }
     for (const d of this.diversions) {
       if (d.phase === 'leaving') continue;
       // Measured against where they are headed, not where they are: someone still
@@ -3244,6 +3397,12 @@ export class GameEngine {
     } else {
       this.diversions = this.diversions.filter(d => d.id !== id);
     }
+    // Clicked before reaching its tile: it still does what it came to do. The
+    // Hunting expert's toast is the trap's, so it stands in for the small talk.
+    if (def.job && !found.jobDone) {
+      this.runDiversionJob(found);
+      if (def.job === 'mend_trap') { this.emit(); return; }
+    }
     // The nest is the one payload decided on opening rather than on landing: that
     // is the whole appeal of a nest.
     const payload = resolvePayload(found.defId, Math.random);
@@ -3254,15 +3413,8 @@ export class GameEngine {
         message = 'You are in no need of a kebab, so you sell it.';
       }
       this.payDiversionReward(reward);
-      const key = diversionGainKey(found.defId, reward.kind);
-      this.diversionGains = { ...this.diversionGains, [key]: (this.diversionGains[key] ?? 0) + reward.amount };
-      // The payout rises off the spot it was paid at, so the click answers where the
-      // player was looking and not only down in the toast.
-      const now = performance.now();
-      this.diversionPops = [
-        ...this.diversionPops.filter(p => now - p.born < DIVERSION_POP_MS),
-        { x: found.x, y: found.y, reward, born: now },
-      ];
+      this.recordDiversionGain(found.defId, reward);
+      this.pushDiversionPop(found.x, found.y, reward);
     }
     this.notify(message, def.sprite, reward ?? undefined);
     this.sound.play(payload === 'none' ? 'select' : 'interface_open');
@@ -3300,6 +3452,9 @@ export class GameEngine {
         // The one style-agnostic buff in the shop: a gift has to be worth something
         // whatever the player happens to have built.
         for (let n = 0; n < reward.amount; n++) this.ge.grant('overload');
+        break;
+      case 'charges':
+        // Put straight into a trap by the Hunting expert's own job: nothing to credit.
         break;
     }
   }
@@ -3881,6 +4036,7 @@ export class GameEngine {
     // to be dealt with, and it never gets in the way of the wave.
     this.diversions = [];
     this.diversionPops = [];
+    this.balloons = [];
     this.pendingSow = null; // the seed menu is a between-waves interface
     this.steadySaid = false; // a new wave may say the Antipoison held again
     const configs = computeWaveConfigs(this);
@@ -4437,6 +4593,7 @@ export class GameEngine {
     this.activeEvent = null;
     this.diversions = [];
     this.diversionPops = [];
+    this.balloons = [];
     this.selectedTrapId = null;
     // Hunter and the traps on the road come back with the run that earned them;
     // a save from before they existed resumes at level 1 with a clear road.
@@ -4571,6 +4728,7 @@ export class GameEngine {
     this.activeEvent = null;
     this.diversions = [];
     this.diversionPops = [];
+    this.balloons = [];
     this.traps = [];
     this.selectedTrapId = null;
     this.hunterLevel = 1;

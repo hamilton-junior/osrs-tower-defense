@@ -64,6 +64,10 @@ export interface Diversion {
   facingLeft: boolean;
   /** What it says while it stands there. Chosen once, at spawn. */
   line: string;
+  /** The Hunting expert only: the trap it came to re-set, picked at spawn. */
+  trapId?: string;
+  /** Set once its {@link DiversionDef.job} has run, so it only ever runs once. */
+  jobDone?: boolean;
 }
 
 /** Walking speed, logic px per second — a stroll, a touch slower than the things
@@ -183,9 +187,20 @@ export function rollDiversionMoods(
   return won.slice(0, Math.max(0, MAX_DIVERSIONS - present.length));
 }
 
-/** Which member of a mood turned up. Uniform — none of them is rarer than the rest. */
-export function pickDiversionDef(mood: DiversionMood, rand: () => number): DiversionDef {
-  const pool = DIVERSIONS.filter(d => d.mood === mood);
+/**
+ * Which member of a mood turned up. Uniform: none of them is rarer than the rest.
+ *
+ * `eligible` drops the ones with nothing to do on this board (the Hunting expert with
+ * no worn trap to re-set), so the others share its chance instead of the visit being
+ * lost. Null when nobody in the mood is eligible.
+ */
+export function pickDiversionDef(
+  mood: DiversionMood,
+  rand: () => number,
+  eligible: (def: DiversionDef) => boolean = () => true,
+): DiversionDef | null {
+  const pool = DIVERSIONS.filter(d => d.mood === mood && eligible(d));
+  if (pool.length === 0) return null;
   return pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))];
 }
 
@@ -218,13 +233,207 @@ export function pickDiversionSpot(
 }
 
 /**
- * What it says. The Lumbridge Guide gets the caller's read on the coming wave when
- * there is one — he is the one NPC in this frame whose job is to know.
+ * The nearest free tile to (x, y), within `maxTiles` tiles, or null. Where the
+ * Hunting expert stands to work on a trap: beside it, never on it.
+ *
+ * Same border rule as {@link pickDiversionSpot}, and the same placement test, so a
+ * diversion sent to a particular spot still never takes a build spot anyone is using.
+ */
+export function nearestDiversionSpot(
+  x: number,
+  y: number,
+  isFree: (x: number, y: number) => boolean,
+  cols: number,
+  rows: number,
+  grid: number,
+  maxTiles = 4,
+): { x: number; y: number } | null {
+  const c0 = Math.floor(x / grid);
+  const r0 = Math.floor(y / grid);
+  let best: { x: number; y: number } | null = null;
+  let bestD = Infinity;
+  for (let dr = -maxTiles; dr <= maxTiles; dr++) {
+    for (let dc = -maxTiles; dc <= maxTiles; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const col = c0 + dc;
+      const row = r0 + dr;
+      if (col < 2 || row < 2 || col > cols - 3 || row > rows - 3) continue;
+      const cx = col * grid + grid / 2;
+      const cy = row * grid + grid / 2;
+      const d = Math.hypot(cx - x, cy - y);
+      if (d < bestD && isFree(cx, cy)) {
+        best = { x: cx, y: cy };
+        bestD = d;
+      }
+    }
+  }
+  return best;
+}
+
+/** A trap as the Hunting expert sees it: how many firings it has left of how many. */
+export interface TrapWear {
+  id: string;
+  charges: number;
+  max: number;
+}
+
+/**
+ * The trap most in need of a re-set, or null when none is. A trap counts once it has
+ * fired at least once and still has a charge left (a spent one has already gone).
+ * Most worn is the lowest share of its charges left; a tie goes to the one with
+ * fewer firings left.
+ */
+export function mostWornTrap(traps: ReadonlyArray<TrapWear>): string | null {
+  let best: TrapWear | null = null;
+  for (const t of traps) {
+    if (t.charges <= 0 || t.charges >= t.max) continue;
+    if (!best) { best = t; continue; }
+    const a = t.charges / t.max;
+    const b = best.charges / best.max;
+    if (a < b || (a === b && t.charges < best.charges)) best = t;
+  }
+  return best?.id ?? null;
+}
+
+/** What Hans knows about the run, all of it already counted by the engine. */
+export interface RunFacts {
+  /** Real time played this run, pauses excluded. */
+  seconds: number;
+  kills: number;
+  livesLost: number;
+  /** Waves cleared in a row without a leak. */
+  cleanStreak: number;
+  goldEarned: number;
+  /** The standing tower with the most kills, by its tier name. */
+  topTower: { name: string; kills: number } | null;
+}
+
+/** m:ss, or h:mm:ss once past the hour. */
+export function formatPlayTime(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
+}
+
+/**
+ * Every run fact Hans could mention right now. In Lumbridge he tells you how long you
+ * have played, so the time is always on the list; the rest only once there is
+ * something to say. One short sentence each.
+ */
+export function runFactLines(f: RunFacts): string[] {
+  const n = (v: number) => Math.round(v).toLocaleString('en-US');
+  const out = [`You've been defending this road for ${formatPlayTime(f.seconds)}.`];
+  if (f.kills > 0) {
+    out.push(f.kills === 1
+      ? 'One monster has fallen on this road so far.'
+      : `${n(f.kills)} monsters have fallen on this road so far.`);
+  }
+  if (f.kills > 0 && f.livesLost === 0) out.push('Nothing has got past you yet.');
+  if (f.livesLost > 0) {
+    out.push(f.livesLost === 1 ? "You've lost one life this run." : `You've lost ${n(f.livesLost)} lives this run.`);
+  }
+  if (f.cleanStreak >= 3) out.push(`${n(f.cleanStreak)} waves in a row without a leak.`);
+  if (f.topTower && f.topTower.kills >= 5) out.push(`Your ${f.topTower.name} has ${n(f.topTower.kills)} kills.`);
+  if (f.goldEarned > 0) out.push(`You've earned ${n(f.goldEarned)} gold this run.`);
+  return out;
+}
+
+/** One of {@link runFactLines}, picked uniformly. */
+export function hansLine(f: RunFacts, rand: () => number): string {
+  const lines = runFactLines(f);
+  return lines[Math.min(lines.length - 1, Math.floor(rand() * lines.length))];
+}
+
+/**
+ * What it says. A briefing NPC (see {@link DiversionDef.briefing}) says the caller's
+ * `hint` when there is one: the Lumbridge Guide's read on the wave, Hans's fact about
+ * the run. Everyone else, and a briefing NPC with nothing to report, picks a line.
  */
 export function diversionLine(def: DiversionDef, rand: () => number, hint?: string): string {
-  if (def.id === 'lumbridge_guide' && hint) return hint;
+  if (def.briefing && hint) return hint;
   return def.lines[Math.min(def.lines.length - 1, Math.floor(rand() * def.lines.length))];
 }
+
+// --- Party Pete's balloons -------------------------------------------------
+
+/** One balloon Party Pete left on the board. `variant` picks the colour bake;
+ *  `born` is `performance.now()` ms, for the drop-in. */
+export interface PartyBalloon {
+  id: string;
+  x: number;
+  y: number;
+  variant: number;
+  born: number;
+}
+
+/** How many balloon colours are baked (`party_balloon_0..5`). */
+export const PARTY_BALLOON_VARIANTS = 6;
+
+/** How many balloons one visit leaves: 3 to 7. */
+export function balloonCount(rand: () => number): number {
+  return 3 + Math.min(4, Math.floor(rand() * 5));
+}
+
+function shuffled<T>(list: T[], rand: () => number): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.min(i, Math.floor(rand() * (i + 1)));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * Up to `count` free tiles around (cx, cy) for balloons, one balloon a tile. The
+ * tiles within two of the centre come first, in a random order; the ring at three
+ * only fills in when the near ones are taken. The centre is Pete's own tile.
+ */
+export function pickBalloonSpots(
+  rand: () => number,
+  cx: number,
+  cy: number,
+  isFree: (x: number, y: number) => boolean,
+  cols: number,
+  rows: number,
+  grid: number,
+  count: number,
+): { x: number; y: number }[] {
+  const c0 = Math.floor(cx / grid);
+  const r0 = Math.floor(cy / grid);
+  const near: { x: number; y: number }[] = [];
+  const far: { x: number; y: number }[] = [];
+  for (let dr = -3; dr <= 3; dr++) {
+    for (let dc = -3; dc <= 3; dc++) {
+      const ring = Math.max(Math.abs(dr), Math.abs(dc));
+      if (ring === 0) continue;
+      const col = c0 + dc;
+      const row = r0 + dr;
+      if (col < 2 || row < 2 || col > cols - 3 || row > rows - 3) continue;
+      const x = col * grid + grid / 2;
+      const y = row * grid + grid / 2;
+      if (!isFree(x, y)) continue;
+      (ring <= 2 ? near : far).push({ x, y });
+    }
+  }
+  return [...shuffled(near, rand), ...shuffled(far, rand)].slice(0, Math.max(0, count));
+}
+
+/** What is inside one balloon. Half are empty, which is the joke. */
+export type BalloonGift = 'none' | 'gold' | 'essence';
+
+export function rollBalloonGift(rand: () => number): BalloonGift {
+  const r = rand();
+  if (r < 0.5) return 'none';
+  if (r < 0.9) return 'gold';
+  return 'essence';
+}
+
+/** A balloon's gold, as a share of a Rick's purse ({@link DiversionRewardContext.gold}). */
+export const BALLOON_GOLD_SHARE = 0.25;
+/** A balloon's essence, as a share of a lamp ({@link DiversionRewardContext.essence}). */
+export const BALLOON_ESSENCE_SHARE = 0.2;
 
 // --- Payouts ---------------------------------------------------------------
 // Sized against the wave's own rewards rather than picked out of the air, so a
@@ -280,6 +489,13 @@ export interface DiversionRewardContext {
   essence: number;
   lives: number;
   maxLives: number;
+}
+
+/** What one popped balloon pays on this board, or null for an empty one. */
+export function balloonReward(gift: BalloonGift, ctx: DiversionRewardContext): DiversionReward | null {
+  if (gift === 'gold') return { kind: 'gold', amount: Math.max(1, Math.round(ctx.gold * BALLOON_GOLD_SHARE)) };
+  if (gift === 'essence') return { kind: 'essence', amount: Math.max(1, Math.round(ctx.essence * BALLOON_ESSENCE_SHARE)) };
+  return null;
 }
 
 /** What one payload is worth on this board. A walkby pays nothing, and an unopened

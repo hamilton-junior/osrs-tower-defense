@@ -123,6 +123,22 @@ const TARGETS = {
    * interface mark that happens to be built from a piece of scenery.
    */
   bandos_symbol: { obj: 26366, yaw: 180, pitch: 0, crop: [78, 4, 182, 101], dir: 'ui' },
+
+  /**
+   * **Party balloons**, the ones the Party Room drops: LOC 115 is the plain balloon and
+   * 116 to 120 are the same model recoloured, so the six cover every colour the room
+   * throws. Each def lists three models for three placement shapes; a balloon standing
+   * on a tile is shape 10, model 2228, so that is the one rendered. The mesh lies on
+   * its side with the knot along +x (the room's animation stands it up), so `roll: 90`
+   * turns the knot to the floor. Party Pete leaves a handful of these behind, each a
+   * random colour.
+   */
+  party_balloon_0: { obj: 115, models: [2228], roll: 90 },
+  party_balloon_1: { obj: 116, models: [2228], roll: 90 },
+  party_balloon_2: { obj: 117, models: [2228], roll: 90 },
+  party_balloon_3: { obj: 118, models: [2228], roll: 90 },
+  party_balloon_4: { obj: 119, models: [2228], roll: 90 },
+  party_balloon_5: { obj: 120, models: [2228], roll: 90 },
 };
 
 // -------------------------------------------------------- object def parsing
@@ -204,11 +220,15 @@ function renderTextureTile(tex, tile) {
   return canvas.toBuffer('image/png');
 }
 
-function renderObject(model, { yaw = 30, pitch = 12, zoom = 1, cull = true, crop, margin = MARGIN, groundTex, groundTile = 128 } = {}, textures) {
+function renderObject(model, { yaw = 30, pitch = 12, roll = 0, zoom = 1, cull = true, crop, margin = MARGIN, groundTex, groundTile = 128 } = {}, textures) {
   const n = model.vertexCount;
   const verts = new Array(n);
+  // `roll` turns the model about the camera's depth axis before anything else, for
+  // a model the cache stores lying down that the board wants standing up.
+  const rollR = (roll * Math.PI) / 180, sr = Math.sin(rollR), cr = Math.cos(rollR);
   for (let i = 0; i < n; i++) {
-    verts[i] = [model.vertexPositionsX[i], model.vertexPositionsY[i], model.vertexPositionsZ[i]];
+    const x = model.vertexPositionsX[i], y = model.vertexPositionsY[i];
+    verts[i] = [x * cr - y * sr, x * sr + y * cr, model.vertexPositionsZ[i]];
   }
   const yawR = (yaw * Math.PI) / 180, pitchR = (pitch * Math.PI) / 180;
   const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);

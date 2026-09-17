@@ -590,6 +590,17 @@ export const ASSETS = {
   fishing: {
     water: `${LOCAL}/objects/water.png`, // Ground texture 1
   },
+  // Party Pete's balloons: the Party Room balloon (LOC 115) and its five recolours
+  // (116-120), stood upright by scripts/render-osrs-objects.mjs. Indexed by the
+  // balloon's colour variant.
+  partyBalloons: [
+    `${LOCAL}/objects/party_balloon_0.png`,
+    `${LOCAL}/objects/party_balloon_1.png`,
+    `${LOCAL}/objects/party_balloon_2.png`,
+    `${LOCAL}/objects/party_balloon_3.png`,
+    `${LOCAL}/objects/party_balloon_4.png`,
+    `${LOCAL}/objects/party_balloon_5.png`,
+  ],
   // Status-effect icons for the enemy hover panel (OSRS spell/status sprites).
   debuffs: {
     // slow = Giant snail, an NPC *model* rendered from the cache
@@ -637,6 +648,7 @@ export const ASSETS = {
       interface_open: `${LOCAL}/sounds/ge_offer.wav`,   // GE add-offer chime (3925)
       interface_close: `${LOCAL}/sounds/ge_collect.wav`,// GE collect (3928)
       pick_up: `${SND}/pick_up.wav`,                    // pick2 (2582) — item-pickup plop
+      balloon_pop: `${SND}/balloon_pop.wav`,            // pop1 (2214) — a Party Pete balloon bursting
       cannon_fire: `${SND}/fire_cannon.wav`,             // mcannon_fire (1667)
       death: `${SND}/death_human.wav`,                  // human_death (512) — a life lost
       // The "You Are Dead!" jingle — the music played when you die. It's a MIDI

@@ -65,6 +65,10 @@ export const GAME_SOUNDS: Record<string, string> = {
   fish_cast: ASSETS.sounds.misc.cast_line,
   fish_caught: ASSETS.sounds.misc.fish_caught,
   eat: ASSETS.sounds.misc.eat,
+  // Party Pete's balloons bursting, and the Hunting expert handing a trap back
+  // re-set (the same pickup plop as a harvest: something useful back in hand).
+  balloon_pop: ASSETS.sounds.misc.balloon_pop,
+  trap_mend: ASSETS.sounds.misc.pick_up,
 };
 
 // --- Per-prayer activation sounds ----------------------------------------

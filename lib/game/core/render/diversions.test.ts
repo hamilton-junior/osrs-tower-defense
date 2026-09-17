@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { drawDiversions } from './diversions';
 import { DIVERSION_ANIMS, diversionAnimKey } from '../../data/diversion-anims';
 import type { GameRenderer } from '../renderer';
-import { DIVERSION_POP_MS, type Diversion, type DiversionPop } from '../../systems/diversions';
+import { DIVERSION_POP_MS, type Diversion, type DiversionPop, type PartyBalloon } from '../../systems/diversions';
 
 /**
  * The one thing about this layer that is worth pinning: a diversion draws the sheet
@@ -30,9 +30,9 @@ function fakeCtx() {
 }
 
 /** An engine stub holding one loaded image per key it is told about. */
-function fakeRenderer(list: Diversion[], loaded: string[], pops: DiversionPop[] = []) {
+function fakeRenderer(list: Diversion[], loaded: string[], pops: DiversionPop[] = [], balloons: PartyBalloon[] = []) {
   const images = new Map<string, unknown>(loaded.map((k) => [k, { key: k }]));
-  return { e: { diversions: list, diversionPops: pops, uiScale: 1, images, imageOk: (k: string) => images.has(k) } } as unknown as GameRenderer;
+  return { e: { diversions: list, diversionPops: pops, balloons, uiScale: 1, images, imageOk: (k: string) => images.has(k) } } as unknown as GameRenderer;
 }
 
 function diversion(over: Partial<Diversion>): Diversion {
@@ -43,6 +43,14 @@ function diversion(over: Partial<Diversion>): Diversion {
 }
 
 describe('drawDiversions', () => {
+  it("draws each landed balloon in its own colour, and not one that hasn't landed yet", () => {
+    const ctx = fakeCtx();
+    const landed: PartyBalloon = { id: 'b1', x: 100, y: 100, variant: 3, born: 0 };
+    const later: PartyBalloon = { id: 'b2', x: 140, y: 100, variant: 1, born: performance.now() + 60_000 };
+    drawDiversions(fakeRenderer([], ['party_balloon_3', 'party_balloon_1'], [], [landed, later]), ctx);
+    expect(ctx.drawn.map((c) => (c[0] as { key: string }).key)).toEqual(['party_balloon_3']);
+  });
+
   it('draws one whole frame cell of the baked sheet', () => {
     const key = diversionAnimKey('hans', 'front', 'stand');
     const ctx = fakeCtx();

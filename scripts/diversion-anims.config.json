@@ -1,6 +1,6 @@
 {
   "hans": { "npc": 3105, "anims": { "stand": 808, "walk": 819 } },
-  "bob": { "npc": 4221, "anims": { "stand": 808, "walk": 819 } },
+  "hunting_expert": { "npc": 1504, "anims": { "stand": 808, "walk": 819 } },
   "lumbridge_guide": { "npc": 306, "anims": { "stand": 813, "walk": 1205 } },
   "party_pete": { "npc": 5792, "anims": { "stand": 808, "walk": 819 } },
   "drunken_dwarf": { "npc": 322, "anims": { "stand": 900, "walk": 104 } },

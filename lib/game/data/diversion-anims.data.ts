@@ -25,20 +25,20 @@ export const DIVERSION_ANIMS: Record<string, DiversionAnimSet> = {
       },
     },
   },
-  bob: {
+  hunting_expert: {
     frameW: 128, frameH: 128,
     views: {
       front: {
-        stand: { url: `${B}/bob/front-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/bob/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        stand: { url: `${B}/hunting_expert/front-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
+        walk: { url: `${B}/hunting_expert/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       },
       side: {
-        stand: { url: `${B}/bob/side-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/bob/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        stand: { url: `${B}/hunting_expert/side-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
+        walk: { url: `${B}/hunting_expert/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       },
       back: {
-        stand: { url: `${B}/bob/back-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/bob/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        stand: { url: `${B}/hunting_expert/back-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
+        walk: { url: `${B}/hunting_expert/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       },
     },
   },

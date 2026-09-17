@@ -150,7 +150,7 @@ const TARGETS = {
   // Walkbys: the townsfolk who wander across the board between waves and only
   // ever talk. Bob is 4221, the Lumbridge axe seller — 4231 is Bob the cat.
   hans: { npc: 3105 },
-  bob: { npc: 4221 },
+  hunting_expert: { npc: 1504 },
   lumbridge_guide: { npc: 306 },
   party_pete: { npc: 5792 },
   // Random events: the classic 2000s-era event NPCs, ids straight from the cache.
@@ -168,8 +168,8 @@ const TARGETS = {
   // walk anywhere.
   hans_side: { npc: 3105, yaw: 90 },
   hans_back: { npc: 3105, yaw: 180 },
-  bob_side: { npc: 4221, yaw: 90 },
-  bob_back: { npc: 4221, yaw: 180 },
+  hunting_expert_side: { npc: 1504, yaw: 90 },
+  hunting_expert_back: { npc: 1504, yaw: 180 },
   lumbridge_guide_side: { npc: 306, yaw: 90 },
   lumbridge_guide_back: { npc: 306, yaw: 180 },
   party_pete_side: { npc: 5792, yaw: 90 },
