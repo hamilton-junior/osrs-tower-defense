@@ -697,7 +697,7 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     already the user's call).
 
 52. **Brainstorm the D&Ds: make their rewards clear, give the empty ones a purpose, revise
-    the rest.** Delivered in chat on 2026-09-16. Nothing picked yet, so nothing built.
+    the rest.** Delivered in chat on 2026-09-16. The user's picks are item 60.
 
 53. **Dragging an item should carry a see-through copy under the cursor, as in the client.**
     **Shipped** (2026-09-16, `ed0161e`). The browser's drag picture is swapped for a blank
@@ -714,3 +714,45 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     offered Energy potion and not Combat potion.
     **Shipped** (2026-09-16, `b171db6`). The menu lists every potion the herb brews. A
     recipe the player cannot make yet stays greyed, with what it is missing printed after it.
+
+56. **A fish's hover card keeps its real heal in green even at full lives.** Only the
+    lives it would leave you at should turn red, to say eating it gains nothing.
+    **Shipped** (2026-09-16, `e485be8`). The card reads `+N` in green, then `(after/max)`
+    in green, yellow or red.
+
+57. **Potions show their benefits the way gear and fish do, as icons.**
+    **Shipped** (2026-09-16, `f1ee4ae`). One card in `components/game/potion-tip.tsx` serves
+    the inventory, the loot bag and the Herblore tab. Header: potion icon, name, then the
+    combat styles it reaches as icons and its duration. Chips use the tower panel's icons:
+    hit splat for damage, the multicombat cross for range, the Attack icon for attack
+    speed, the blocked sprite for knock-offline immunity, the prayer icon for drain. Lives
+    use the hitpoints orb, and a heal previews like a fish. Green is what the dose gives,
+    red what it takes: a brew's life cost, a Zamorak brew's damage debt.
+
+58. **Fish heal on a linear ladder: shrimps 1, trout 2, lobster 3, shark 4, manta ray 5.**
+    **Shipped** (2026-09-16, `174c58f`). Trout used to heal 1 like shrimps.
+
+59. **Hovering a potion on the Herblore bench shows the herbs and gold it needs, then its
+    buffs.** **Shipped** (2026-09-16, `f1ee4ae`). The same potion card, with a recipe row
+    on top: herb, base potion and secondary as icons with held counts (red at 0), the gold
+    (red when short) and the Herblore level while it is out of reach. Brewed and running
+    tiles use the card too.
+
+60. **D&D picks from the item 52 brainstorm** (user, 2026-09-16). Build order: clarity
+    first, then the empty walkbys, then Genie and kebab to the inventory, then the rest.
+    - *Clarity* (all approved): the tooltip shows each payout as an icon stat line, the
+      toast names what was paid, a number rises from the sprite on click, cache icons
+      replace emoji, the Guide's hint shows in the tooltip, and the Collection Log counts
+      totals per D&D.
+    - *Hans* shows a simple fact from the run.
+    - *Bob* is replaced by a hunter NPC who repairs the trap with the fewest charges. A new
+      bake is fine.
+    - *Party Pete* drops 3 to 7 balloons near where he appears, in random cache variants.
+    - *Genie* lamp and *Drunken Dwarf* kebab go to the inventory.
+    - *Strange Plant* rolls between its two rewards at random.
+    - *Rick* is replaced by a more interesting NPC.
+    - *Nest* stays. Rings are not in the game: ask before adding them.
+    - Events get bad-luck protection.
+    - New D&Ds: *Dr Jekyll* (a herb), *Tool Leprechaun* (a patch grows one wave sooner,
+      with a clear sign it happened), *Penguin Hide and Seek*.
+    - *Tears of Guthix*: no, not for now.
