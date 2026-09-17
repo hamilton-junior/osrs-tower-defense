@@ -771,7 +771,8 @@ designed yet; each entry is the brief plus whatever the user already decided abo
     - Tool Leprechaun: **shipped** (8cfc48e). The herb with the longest wait left grows one
       wave. The sign is a toast, a +1 pop, a face mark on the patch, and a line in the patch
       panel and the Skills tile.
-    - Nest rings: **open, needs a call (user)**. Not built.
-    - Penguin Hide and Seek: **open, needs a call (user)**. The minigame is RS3-only. The
-      cache has only Penguin 830, Macaroni Penguin 233 and the penguin suit 846, so the
-      stand-in needs approval before anything is baked.
+    - Nest rings: **declined** (user, 2026-09-17). The nest stays as it is.
+    - Penguin Hide and Seek: **dropped** (user, 2026-09-17). The minigame is RS3-only and
+      the OSRS cache has only Penguin 830, Macaroni Penguin 233 and the penguin suit 846.
+
+    Item 60 is **closed**: every pick is shipped, declined or dropped.
