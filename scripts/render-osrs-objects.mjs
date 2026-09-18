@@ -134,7 +134,10 @@ const TARGETS = {
   ground_trollweiss_b: { tex: 1, raw: true, dir: 'terrain' },   // packed ice
   ground_karamja_a: { tex: 32, raw: true, dir: 'terrain' },     // jungle mud
   ground_karamja_b: { tex: 129, raw: true, dir: 'terrain' },    // clearing grass
-  ground_karamja_c: { tex: 25, raw: true, dir: 'terrain' },     // jade moss
+  // Texture 25 used to sit here and cast the whole jungle floor teal — it is a
+  // blue-green moss, and against the mud base it read as swamp rather than
+  // rainforest. 195 is the warm olive leaf litter the jungle canopy drops.
+  ground_karamja_c: { tex: 195, raw: true, dir: 'terrain' },    // leaf litter
   ground_tzhaar_a: { tex: 89, raw: true, dir: 'terrain' },      // black basalt
   ground_tzhaar_b: { tex: 31, raw: true, dir: 'terrain' },      // lava seams
   ground_tzhaar_c: { tex: 210, raw: true, dir: 'terrain' },     // ember crust
@@ -227,6 +230,58 @@ const TARGETS = {
   // Mor Ul Rek has no tree and no rock the cache calls obsidian, so its two
   // blockers are the city's own furniture: the TzHaar statue (11968) and a
   // stalagmite (3825). The sulphur mounds are the floor of the volcano.
+  // ── More of each region, added so no board repeats four props all run ──────
+  //
+  // Same picking rule as the set above: rendered off a contact sheet first, and a
+  // model that reads as a blob, a flat overlay quad or a placeholder never makes
+  // it in. Which list a prop lands in (block / rough / prop, see data/biomes.ts)
+  // follows its size: a tree or an altar fills a tile, a mushroom scatters.
+  lumb_oak: { obj: 4540, dir: 'scenery' },
+  lumb_willow: { obj: 4541, dir: 'scenery' },
+  lumb_flowers: { obj: 1192, dir: 'scenery' },
+  lumb_haystack: { obj: 300, dir: 'scenery' },
+  lumb_stump: { obj: 1342, dir: 'scenery' },
+  lumb_reeds: { obj: 5139, dir: 'scenery' },
+
+  khar_palm: { obj: 8085, dir: 'scenery' },
+  khar_sandstone: { obj: 11386, dir: 'scenery' },
+  khar_cactus_tall: { obj: 1396, dir: 'scenery' },
+  khar_dead_tree: { obj: 1283, dir: 'scenery' },
+  khar_ruins: { obj: 11072, dir: 'scenery' },
+
+  mory_tombstone: { obj: 402, dir: 'scenery' },
+  mory_coffin: { obj: 398, dir: 'scenery' },
+  mory_toadstools: { obj: 1166, dir: 'scenery' },
+  mory_fungus: { obj: 1170, dir: 'scenery' },
+  mory_twisted_tree: { obj: 30852, dir: 'scenery' },
+
+  wild_chaos_altar: { obj: 411, dir: 'scenery' },
+  wild_pillar: { obj: 34795, dir: 'scenery' },
+  wild_skulls: { obj: 658, dir: 'scenery' },
+  wild_skull_pile: { obj: 12453, dir: 'scenery' },
+  wild_ruins: { obj: 3755, dir: 'scenery' },
+  wild_spire: { obj: 2704, dir: 'scenery' },
+
+  troll_ice_chunks: { obj: 6472, dir: 'scenery' },
+  troll_snow_mound: { obj: 15616, dir: 'scenery' },
+  troll_snowy_bush: { obj: 46511, dir: 'scenery' },
+  troll_dead_tree: { obj: 1291, dir: 'scenery' },
+
+  kara_banana: { obj: 2073, dir: 'scenery' },
+  kara_palm_young: { obj: 2578, dir: 'scenery' },
+  kara_tropical_palm: { obj: 57815, dir: 'scenery' },
+  kara_flowers: { obj: 1196, dir: 'scenery' },
+  kara_fungus: { obj: 21741, dir: 'scenery' },
+
+  // Mor Ul Rek's own furniture, which is what makes the cavern read as a city
+  // rather than a cave: the clan's banner, an obsidian fence panel, and the
+  // lava-lit stalagmite, plus a single fence post for the tiles a panel overfills.
+  tz_stalagmite_lit: { obj: 11188, dir: 'scenery' },
+  tz_flag: { obj: 10551, dir: 'scenery' },
+  tz_fence: { obj: 29267, dir: 'scenery' },
+  tz_sulphur_small: { obj: 28497, dir: 'scenery' },
+  tz_fence_post: { obj: 29268, dir: 'scenery' },
+
   tz_stalagmite: { obj: 3825, dir: 'scenery' },
   tz_sulphur: { obj: 3962, dir: 'scenery' },
   tz_sulphur_mound: { obj: 28496, dir: 'scenery' },

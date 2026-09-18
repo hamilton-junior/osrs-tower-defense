@@ -622,7 +622,7 @@ export const ASSETS = {
       morytania: [`${LOCAL}/terrain/ground_morytania_a.png`, `${LOCAL}/terrain/ground_morytania_b.png`, `${LOCAL}/terrain/ground_morytania_c.png`], // 60 swamp moss · 11 wet stone · 89 black rot
       wilderness: [`${LOCAL}/terrain/ground_wilderness_a.png`, `${LOCAL}/terrain/ground_wilderness_b.png`, `${LOCAL}/terrain/ground_wilderness_c.png`], // 11 cold stone · 89 burnt earth · 118 grit
       trollweiss: [`${LOCAL}/terrain/ground_trollweiss_a.png`, `${LOCAL}/terrain/ground_trollweiss_b.png`], // 91 snow · 1 packed ice
-      karamja: [`${LOCAL}/terrain/ground_karamja_a.png`, `${LOCAL}/terrain/ground_karamja_b.png`, `${LOCAL}/terrain/ground_karamja_c.png`], // 32 jungle mud · 129 clearing grass · 25 jade moss
+      karamja: [`${LOCAL}/terrain/ground_karamja_a.png`, `${LOCAL}/terrain/ground_karamja_b.png`, `${LOCAL}/terrain/ground_karamja_c.png`], // 32 jungle mud · 129 clearing grass · 195 leaf litter
       tzhaar: [`${LOCAL}/terrain/ground_tzhaar_a.png`, `${LOCAL}/terrain/ground_tzhaar_b.png`, `${LOCAL}/terrain/ground_tzhaar_c.png`], // 89 black basalt · 31 lava seams · 210 ember crust
     } as Record<BiomeId, string[]>,
     // Both liquids are baked into the static background with the ground: the
@@ -638,27 +638,63 @@ export const ASSETS = {
       lumb_rock: `${LOCAL}/scenery/lumb_rock.png`,                 // 2257 Rocks
       lumb_bush: `${LOCAL}/scenery/lumb_bush.png`,                 // 1118 Bush
       lumb_pebbles: `${LOCAL}/scenery/lumb_pebbles.png`,           // 10792 Stones
+      lumb_oak: `${LOCAL}/scenery/lumb_oak.png`,                   // 4540 Oak tree
+      lumb_willow: `${LOCAL}/scenery/lumb_willow.png`,             // 4541 Willow tree
+      lumb_flowers: `${LOCAL}/scenery/lumb_flowers.png`,           // 1192 Flowers
+      lumb_haystack: `${LOCAL}/scenery/lumb_haystack.png`,         // 300 Haystack
+      lumb_stump: `${LOCAL}/scenery/lumb_stump.png`,               // 1342 Tree stump
+      lumb_reeds: `${LOCAL}/scenery/lumb_reeds.png`,               // 5139 Reeds
       khar_cactus: `${LOCAL}/scenery/khar_cactus.png`,             // 6277 Cactus
       khar_cactus_dry: `${LOCAL}/scenery/khar_cactus_dry.png`,     // 2671 Kharidian cactus (Dry)
       khar_rock: `${LOCAL}/scenery/khar_rock.png`,                 // 2231 Rocks
       khar_rubble: `${LOCAL}/scenery/khar_rubble.png`,             // 12 Rock pile
+      khar_palm: `${LOCAL}/scenery/khar_palm.png`,                 // 8085 Palm tree
+      khar_sandstone: `${LOCAL}/scenery/khar_sandstone.png`,       // 11386 Sandstone rocks
+      khar_cactus_tall: `${LOCAL}/scenery/khar_cactus_tall.png`,   // 1396 Cactus
+      khar_dead_tree: `${LOCAL}/scenery/khar_dead_tree.png`,       // 1283 Dead tree
+      khar_ruins: `${LOCAL}/scenery/khar_ruins.png`,               // 11072 Ruins
       mory_dead_tree: `${LOCAL}/scenery/mory_dead_tree.png`,       // 1282 Dead tree
       mory_grave: `${LOCAL}/scenery/mory_grave.png`,               // 404 Gravestone
       mory_mushroom: `${LOCAL}/scenery/mory_mushroom.png`,         // 1163 Mushroom
       mory_bones: `${LOCAL}/scenery/mory_bones.png`,               // 3665 Bones
+      mory_tombstone: `${LOCAL}/scenery/mory_tombstone.png`,       // 402 Tombstone
+      mory_coffin: `${LOCAL}/scenery/mory_coffin.png`,             // 398 Coffin
+      mory_toadstools: `${LOCAL}/scenery/mory_toadstools.png`,     // 1166 Mushrooms
+      mory_fungus: `${LOCAL}/scenery/mory_fungus.png`,             // 1170 Fungus
+      mory_twisted_tree: `${LOCAL}/scenery/mory_twisted_tree.png`, // 30852 Burnt tree
       wild_boulder: `${LOCAL}/scenery/wild_boulder.png`,           // 3753 Boulders
       wild_boulder_big: `${LOCAL}/scenery/wild_boulder_big.png`,   // 3754 Boulders
       wild_stones: `${LOCAL}/scenery/wild_stones.png`,             // 26633 Stones
+      wild_chaos_altar: `${LOCAL}/scenery/wild_chaos_altar.png`,   // 411 Chaos altar
+      wild_pillar: `${LOCAL}/scenery/wild_pillar.png`,             // 34795 Ruined Pillar
+      wild_skulls: `${LOCAL}/scenery/wild_skulls.png`,             // 658 Pile of skulls
+      wild_skull_pile: `${LOCAL}/scenery/wild_skull_pile.png`,     // 12453 Skulls
+      wild_ruins: `${LOCAL}/scenery/wild_ruins.png`,               // 3755 Ruins
+      wild_spire: `${LOCAL}/scenery/wild_spire.png`,               // 2704 Rocks
       troll_pine: `${LOCAL}/scenery/troll_pine.png`,               // 3037 Arctic pine tree
       troll_ice_boulder: `${LOCAL}/scenery/troll_ice_boulder.png`, // 5039 Ice covered boulder
       troll_icicle: `${LOCAL}/scenery/troll_icicle.png`,           // 554 Icicle
       troll_snow: `${LOCAL}/scenery/troll_snow.png`,               // 15615 Snow
+      troll_ice_chunks: `${LOCAL}/scenery/troll_ice_chunks.png`,   // 6472 Ice chunks
+      troll_snow_mound: `${LOCAL}/scenery/troll_snow_mound.png`,   // 15616 Snow
+      troll_snowy_bush: `${LOCAL}/scenery/troll_snowy_bush.png`,   // 46511 Snowy Bush
+      troll_dead_tree: `${LOCAL}/scenery/troll_dead_tree.png`,     // 1291 Dead tree
       kara_palm: `${LOCAL}/scenery/kara_palm.png`,                 // 2577 Palm tree
       kara_jungle_tree: `${LOCAL}/scenery/kara_jungle_tree.png`,   // 2887 Jungle tree
       kara_fern: `${LOCAL}/scenery/kara_fern.png`,                 // 1298 Fern
+      kara_banana: `${LOCAL}/scenery/kara_banana.png`,             // 2073 Banana tree
+      kara_palm_young: `${LOCAL}/scenery/kara_palm_young.png`,     // 2578 Palm tree
+      kara_tropical_palm: `${LOCAL}/scenery/kara_tropical_palm.png`, // 57815 Tropical palm
+      kara_flowers: `${LOCAL}/scenery/kara_flowers.png`,           // 1196 Flowers
+      kara_fungus: `${LOCAL}/scenery/kara_fungus.png`,             // 21741 Fungus
       tz_stalagmite: `${LOCAL}/scenery/tz_stalagmite.png`,         // 3825 Stalagmite
       tz_sulphur: `${LOCAL}/scenery/tz_sulphur.png`,               // 3962 Sulphur
       tz_sulphur_mound: `${LOCAL}/scenery/tz_sulphur_mound.png`,   // 28496 Volcanic sulphur
+      tz_stalagmite_lit: `${LOCAL}/scenery/tz_stalagmite_lit.png`, // 11188 Stalagmites
+      tz_flag: `${LOCAL}/scenery/tz_flag.png`,                     // 10551 TzHaar Flag
+      tz_fence: `${LOCAL}/scenery/tz_fence.png`,                   // 29267 Obsidian fence
+      tz_sulphur_small: `${LOCAL}/scenery/tz_sulphur_small.png`,   // 28497 Volcanic sulphur
+      tz_fence_post: `${LOCAL}/scenery/tz_fence_post.png`,         // 29268 Obsidian fence post
     } as Record<SceneryId, string>,
   },
   // Party Pete's balloons: the Party Room balloon (LOC 115) and its five recolours

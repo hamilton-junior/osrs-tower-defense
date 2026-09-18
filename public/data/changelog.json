@@ -4,6 +4,20 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "Every region gets a smoother, more varied ground, and rough tiles stop drawing a grid",
+      "fromFeedback": false,
+      "date": "2026-09-17"
+    },
+    {
+      "kind": "fixed",
+      "scope": "farming",
+      "text": "A plot hides the tree it stands on, and the tree comes back when you move it",
+      "fromFeedback": false,
+      "date": "2026-09-17"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "Regions get varied ground, still water and props that stand on their shadows",
       "fromFeedback": false,
       "date": "2026-09-17"
@@ -264,20 +278,6 @@
       "kind": "fixed",
       "scope": "game",
       "text": "Eating a fish you have no room for sounds like the sale it is",
-      "fromFeedback": true,
-      "date": "2026-09-15"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "The tips say wave 130, the wave a run is actually won on",
-      "fromFeedback": true,
-      "date": "2026-09-15"
-    },
-    {
-      "kind": "balanced",
-      "scope": "game",
-      "text": "The Toxic staff's venom field is the squares around it, not the board",
       "fromFeedback": true,
       "date": "2026-09-15"
     }
