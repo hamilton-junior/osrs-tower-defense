@@ -909,6 +909,9 @@ export class GameEngine {
             count: this.slayer.task.count,
             total: this.slayer.task.total,
             reward: this.slayer.task.reward,
+            // Konar's region, already resolved to its name — the UI never looks a
+            // biome up, it only prints what the engine hands it.
+            where: this.slayer.task.biome ? BIOMES[this.slayer.task.biome].name : null,
           }
         : null,
       slayerPoints: this.slayer.points,

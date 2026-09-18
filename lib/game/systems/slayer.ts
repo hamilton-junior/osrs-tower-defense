@@ -63,7 +63,10 @@ export function rollSlayerTask(
       master.bonusMultiplier,
   );
 
-  return { type, count, total: count, reward };
+  // Konar hands out a place along with the monster. Every other master's task
+  // travels with the player; hers stays where she gave it.
+  const biome = master.locationBound ? opts.biome : undefined;
+  return biome ? { type, count, total: count, reward, biome } : { type, count, total: count, reward };
 }
 
 /**

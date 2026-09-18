@@ -3,6 +3,13 @@
   "entries": [
     {
       "kind": "new",
+      "scope": "slayer",
+      "text": "Vannaka and Konar join the masters, and Konar's tasks name a region",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "new",
       "scope": "pets",
       "text": "Fishing, Farming and Hunter drop their own OSRS pets",
       "fromFeedback": false,
@@ -271,13 +278,6 @@
       "kind": "fixed",
       "scope": "audio",
       "text": "The black demon dies with the long demon roar instead of a smaller demon's short cry",
-      "fromFeedback": false,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Hovering a fish previews the lives it gives back, and hovering gear sums up its stats in icons",
       "fromFeedback": false,
       "date": "2026-09-16"
     }

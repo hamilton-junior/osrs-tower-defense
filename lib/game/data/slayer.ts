@@ -11,11 +11,20 @@ export interface SlayerMaster {
   bonusMultiplier: number;
   /** Base Slayer points awarded for completing a task from this master. */
   pointsPerTask: number;
+  /** Konar's rule: the task names a place, and only kills made there count. The
+   *  region is stamped on the task when it is assigned, and travelling away from
+   *  it rerolls the task free — the same promise every other task keeps. */
+  locationBound?: boolean;
 }
 
 /** A pool may name a regional local (Ice warriors for Mazchna, Ice trolls for
  *  Duradel, as in OSRS): the roll filters by the run's region, so one is only ever
  *  assigned where it lives. See `systems/enemy-regions`. */
+/** Vannaka sits between Mazchna and Duradel, and Konar above both, the way OSRS
+ *  orders them by combat level. Their pools are real OSRS task lists narrowed to
+ *  this roster, and they overlap the neighbouring masters on purpose — OSRS masters
+ *  overlap heavily, and a master with nothing in common with the one below it would
+ *  make every promotion a cliff. Konar is the only one who names a place. */
 /** Kharidian placements: four of them are literal OSRS Turael tasks (Birds for the
  *  vulture, Dogs for the jackal, Desert lizards, Kalphites), so they sit where the
  *  real game puts them. The dust devil is a genuine Duradel task too. The tomb
@@ -25,7 +34,9 @@ export interface SlayerMaster {
 export const SLAYER_MASTERS: SlayerMaster[] = [
   { id: 'turael', name: 'Turael', levelReq: 1, taskPool: ['goblin', 'rat', 'cow', 'imp', 'spider', 'skeleton', 'zombie', 'ghost', 'cave_bug', 'cave_slime', 'giant_bat', 'vulture', 'desert_lizard', 'jackal', 'kalphite_worker', 'wolf', 'giant_mosquito', 'tz_kih'], bonusMultiplier: 1.0, pointsPerTask: 2 },
   { id: 'mazchna', name: 'Mazchna', levelReq: 20, taskPool: ['scorpion', 'hill_giant', 'lesser_demon', 'hellhound', 'fire_giant', 'bloodveld', 'ice_warrior', 'jogre', 'harpie_bug_swarm', 'hobgoblin', 'moss_giant', 'scarab_mage', 'mummy', 'locust_rider', 'ankou', 'cave_horror', 'thrower_troll', 'tok_xil', 'yt_mejkot'], bonusMultiplier: 1.2, pointsPerTask: 5 },
+  { id: 'vannaka', name: 'Vannaka', levelReq: 35, taskPool: ['bloodveld', 'lesser_demon', 'black_demon', 'blue_dragon', 'moss_giant', 'hobgoblin', 'ice_warrior', 'jogre', 'ankou', 'fire_giant', 'hellhound', 'green_dragon', 'gargoyle', 'nechryael', 'dust_devil', 'bronze_dragon', 'thrower_troll', 'cave_horror'], bonusMultiplier: 1.35, pointsPerTask: 9 },
   { id: 'duradel', name: 'Duradel', levelReq: 50, taskPool: ['abyssal_demon', 'dark_beast', 'hydra', 'gargoyle', 'nechryael', 'black_demon', 'blue_dragon', 'green_dragon', 'ice_troll', 'dust_devil', 'kalphite_guardian', 'ent', 'bronze_dragon', 'troll_general', 'ket_zek'], bonusMultiplier: 1.5, pointsPerTask: 15 },
+  { id: 'konar', name: 'Konar quo Maten', levelReq: 65, taskPool: ['abyssal_demon', 'dark_beast', 'black_demon', 'blue_dragon', 'bloodveld', 'gargoyle', 'nechryael', 'green_dragon', 'bronze_dragon', 'ice_troll', 'troll_general', 'dust_devil', 'kalphite_guardian', 'fire_giant', 'hellhound', 'ket_zek'], bonusMultiplier: 1.7, pointsPerTask: 22, locationBound: true },
 ];
 
 /** Tower-damage bonus vs the current task's monster while the Slayer Helmet is

@@ -2,6 +2,7 @@ import type { GameEngine } from '../core/engine';
 import type { EnemyType, SlayerTask } from '../types';
 import { ENEMIES } from '../data/enemies';
 import { isNative } from './enemy-regions';
+import { BIOMES } from '../data/biomes';
 import {
   SLAYER_MASTERS, SLAYER_REWARDS, SLAYER_HELMET_BONUS, SLAYER_HELMET_IMBUED_BONUS,
   SLAYER_ESSENCE_YIELD, SLAYER_ESSENCE_SACK_YIELD, BIGGER_BADDER_CHANCE, SUPERIOR_OF,
@@ -79,7 +80,8 @@ export class SlayerSystem {
     this.task = task;
     const name = ENEMIES[task.type]?.name ?? task.type;
     this.e.playSound('click');
-    this.e.notify(`${master.name}: kill ${task.count} ${name}`, SLAYER_ICON);
+    const where = task.biome ? ` in ${BIOMES[task.biome].name}` : '';
+    this.e.notify(`${master.name}: kill ${task.count} ${name}${where}`, SLAYER_ICON);
   }
 
   /** Tally a kill toward the active task; completes and rewards it at zero. A
@@ -87,6 +89,10 @@ export class SlayerSystem {
   recordKill(type: EnemyType) {
     const task = this.task;
     if (!task || taskMonsterType(type) !== task.type) return;
+    // Konar's task counts only where she set it. Travelling away rerolls the task
+    // (see {@link rerollForRegion}), so this guard is the belt to that brace — it
+    // catches a kill landing in the frame the run changes region.
+    if (task.biome && task.biome !== this.e.biome.id) return;
     task.count -= 1;
     if (task.count > 0) {
       this.e.requestEmit();
@@ -115,14 +121,20 @@ export class SlayerSystem {
   rerollForRegion() {
     const task = this.task;
     if (!task) return;
+    // Two ways a task can stop being completable here: its monster does not live
+    // in this region, or Konar tied it to a region the run has left.
+    const boundAway = task.biome !== undefined && task.biome !== this.e.biome.id;
     const def = ENEMIES[task.type];
-    if (def && isNative(def, this.e.biome.id)) return;
+    if (!boundAway && def && isNative(def, this.e.biome.id)) return;
     this.task = null;
     // Not remembered as the last task: it was never finished, and the player did
     // not choose to leave it, so it stays eligible if they return to its region.
     this.assignTask();
     if (this.task) {
-      this.e.notify(`${def?.name ?? task.type} does not live here, so here is a new task`, SLAYER_ICON);
+      const why = boundAway
+        ? `That task was set in ${BIOMES[task.biome!].name}, so here is a new one`
+        : `${def?.name ?? task.type} does not live here, so here is a new task`;
+      this.e.notify(why, SLAYER_ICON);
     }
   }
 

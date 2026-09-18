@@ -305,3 +305,52 @@ describe('SlayerSystem — moving between regions', () => {
     expect(sys.task).toBeNull();
   });
 });
+
+describe('SlayerSystem — Konar names a place', () => {
+  it('assigns a task bound to the region it was given in', () => {
+    const env = stubEngine(70, 'morytania');
+    const sys = new SlayerSystem(env.e);
+    expect(sys.masterName).toBe('Konar quo Maten');
+    sys.assignTask();
+    expect(sys.task?.biome).toBe('morytania');
+    expect(env.notices.some((n) => n.includes(BIOMES.morytania.name))).toBe(true);
+  });
+
+  it('counts no kill made outside the region it named', () => {
+    const env = stubEngine(70, 'karamja');
+    const sys = new SlayerSystem(env.e);
+    const task: SlayerTask = { type: 'bloodveld', count: 5, total: 5, reward: 10, biome: 'morytania' };
+    sys.task = task;
+    sys.recordKill('bloodveld');
+    expect(task.count).toBe(5);
+  });
+
+  it('counts the same kill inside it', () => {
+    const env = stubEngine(70, 'morytania');
+    const sys = new SlayerSystem(env.e);
+    const task: SlayerTask = { type: 'bloodveld', count: 5, total: 5, reward: 10, biome: 'morytania' };
+    sys.task = task;
+    sys.recordKill('bloodveld');
+    expect(task.count).toBe(4);
+  });
+
+  it('rerolls a bound task the run has travelled away from, free of charge', () => {
+    const env = stubEngine(70, 'karamja');
+    const sys = new SlayerSystem(env.e);
+    // A monster Karamja still supplies, so only the binding can force the reroll.
+    sys.task = { type: 'bloodveld', count: 5, total: 5, reward: 10, biome: 'morytania' };
+    sys.rerollForRegion();
+    expect(sys.task?.biome).toBe('karamja');
+    expect(sys.points).toBe(0);
+    expect(env.notices.some((n) => n.includes(BIOMES.morytania.name))).toBe(true);
+  });
+
+  it('leaves a bound task alone while the run stays where it was set', () => {
+    const env = stubEngine(70, 'morytania');
+    const sys = new SlayerSystem(env.e);
+    const task: SlayerTask = { type: 'bloodveld', count: 5, total: 5, reward: 10, biome: 'morytania' };
+    sys.task = task;
+    sys.rerollForRegion();
+    expect(sys.task).toBe(task);
+  });
+});

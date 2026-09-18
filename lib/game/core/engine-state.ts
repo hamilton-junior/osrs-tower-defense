@@ -290,7 +290,7 @@ export interface UIState {
    *  every notice that is not a payout. */
   noticeReward: DiversionReward | null;
   /** Active Slayer task (null when none assigned), as a cloneable view. */
-  slayerTask: { type: EnemyType; name: string; count: number; total: number; reward: number } | null;
+  slayerTask: { type: EnemyType; name: string; count: number; total: number; reward: number; where: string | null } | null;
   /** Accumulated Slayer points (spendable in the Slayer Rewards shop). */
   slayerPoints: number;
   /** Completed-task streak. */

@@ -511,6 +511,9 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
           count: Math.max(0, Math.floor(num(taskRaw.count, 0))),
           total: Math.max(1, Math.floor(num(taskRaw.total, 1))),
           reward: Math.max(0, Math.floor(num(taskRaw.reward, 0))),
+          // Konar's region lock. Optional, so RUN_SAVE_VERSION stays 5 and a run
+          // saved before she existed resumes with a task that counts anywhere.
+          ...(biomeId(taskRaw.biome) ? { biome: biomeId(taskRaw.biome)! } : {}),
         }
         : null,
       points: Math.max(0, Math.floor(num(slayerRaw.points, 0))),

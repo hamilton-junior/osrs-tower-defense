@@ -77,6 +77,25 @@ describe('rollSlayerTask', () => {
   });
 });
 
+describe('rollSlayerTask — a master who names a place', () => {
+  const konar: SlayerMaster = { ...master, id: 'konar', name: 'Konar quo Maten', locationBound: true };
+
+  it('stamps the region on the task', () => {
+    const task = rollSlayerTask(konar, baseOpts({ biome: 'morytania' }))!;
+    expect(task.biome).toBe('morytania');
+  });
+
+  it('leaves a task from any other master free to travel', () => {
+    const task = rollSlayerTask(master, baseOpts({ biome: 'morytania' }))!;
+    expect(task.biome).toBeUndefined();
+  });
+
+  it('stamps nothing when the caller names no region', () => {
+    const task = rollSlayerTask(konar, baseOpts())!;
+    expect(task.biome).toBeUndefined();
+  });
+});
+
 describe('slayerCompletionGold', () => {
   it('scales gold with task size and wave', () => {
     // 10 * (8 + 3*2) = 10 * 14 = 140, no streak

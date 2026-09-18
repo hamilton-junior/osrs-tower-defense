@@ -48,6 +48,13 @@ describe('sanitizeRunSave', () => {
     expect(save!.prayer.active).toEqual(['piety']);
   });
 
+  it('carries Konar’s region through the save, and drops a junk one', () => {
+    const bound = makeSave({ slayer: { task: { type: 'goblin', count: 3, total: 10, reward: 500, biome: 'morytania' }, points: 0, streak: 0, lastTaskType: null, masterId: 'konar' } });
+    expect(sanitizeRunSave(bound)!.slayer.task?.biome).toBe('morytania');
+    const junk = makeSave({ slayer: { task: { type: 'goblin', count: 3, total: 10, reward: 500, biome: 'falador' }, points: 0, streak: 0, lastTaskType: null, masterId: 'konar' } });
+    expect(sanitizeRunSave(junk)!.slayer.task?.biome).toBeUndefined();
+  });
+
   it('rejects a save from another format version', () => {
     expect(sanitizeRunSave(makeSave({ version: RUN_SAVE_VERSION + 1 }))).toBeNull();
     expect(sanitizeRunSave(makeSave({ version: undefined }))).toBeNull();

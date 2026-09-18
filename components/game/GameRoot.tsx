@@ -3894,6 +3894,10 @@ export default function GameRoot() {
                     aria-hidden
                   />
                   <span className="capitalize text-[#e7d9b0] truncate">{ui.slayerTask.name}</span>
+                  {/* Konar names a place, and only kills made there count. */}
+                  {ui.slayerTask.where && (
+                    <span className="text-[0.88em] text-[#9b8b6a] whitespace-nowrap">· {ui.slayerTask.where}</span>
+                  )}
                 </span>
                 <span className="text-osrs-yellow font-bold whitespace-nowrap">{ui.slayerTask.count}/{ui.slayerTask.total} left</span>
               </div>

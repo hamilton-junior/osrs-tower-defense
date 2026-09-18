@@ -552,6 +552,9 @@ export interface SlayerTask {
   count: number;
   total: number;
   reward: number;
+  /** Konar's tasks name a region, and only kills made there count toward them.
+   *  Absent on every other master's task, which counts anywhere. */
+  biome?: BiomeId;
 }
 
 export interface PrayerDef {
