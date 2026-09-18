@@ -721,7 +721,7 @@ export const ASSETS = {
       tz_brazier: `${LOCAL}/scenery/tz_brazier.png`,               // 11017 Brazier
       tz_lava_forge: `${LOCAL}/scenery/tz_lava_forge.png`,         // 11978 Lava forge
       tz_sulphur_vent: `${LOCAL}/scenery/tz_sulphur_vent.png`,     // 11851 Sulphur vent (model 9295)
-      tz_lava_seam: `${LOCAL}/scenery/tz_lava_seam.png`,           // 55995 Lava (cracked seam)
+      tz_lava_seam: `${LOCAL}/scenery/tz_lava_seam.png`,           // 11829 Mor Ul Rek floor slab (lava pool)
       tz_rock_pillar: `${LOCAL}/scenery/tz_rock_pillar.png`,       // 30284 Rocky support
       tz_lava_trough: `${LOCAL}/scenery/tz_lava_trough.png`,       // 18519 Lava trough
       tz_obsidian_rock: `${LOCAL}/scenery/tz_obsidian_rock.png`,   // 47241 Tzhaar-Ket-Rak Display

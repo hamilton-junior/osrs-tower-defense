@@ -348,14 +348,16 @@ const TARGETS = {
   // as smoke. What is left is the basalt cone with the molten crater, and the
   // crater only opens up above pitch ~20, so the camera looks down on it.
   tz_sulphur_vent: { obj: 11851, models: [9295], pitch: 26, dir: 'scenery' },
-  // The seam was 44601 "Lava pool" and no camera could save it: the def is two
-  // models, 44909 is the rock the pool sits in (a black box at every pitch and yaw
-  // swept, 90/70/50/30 against 0/30/60/90) and 14158 alone is only the pool's rim,
-  // which bakes as a hollow orange hoop lying on the floor. 55995 is a second
-  // molten splat from the same family as the pool with a different silhouette, and
-  // at pitch 70 its crust cracks open over two vents — a seam, not a puddle. Its
-  // shallow camera is what separates it from the vent, which stands up off the floor.
-  tz_lava_seam: { obj: 55995, pitch: 70, yaw: 60, dir: 'scenery' },
+  // The seam used to be 55995 "Lava", out of the same seasonal event set as the
+  // splat it replaced, and it baked as a knot of orange chain links. Mor Ul Rek
+  // already owns the shape: 11818-11829 are the cave's own floor slabs, black rock
+  // with the lava showing through. Most of them only crack — measured over the
+  // block, 11829 is the one where the lava actually pools (12.1% of its painted
+  // pixels are molten, against 2-4% for the rest), and a hairline crack is what a
+  // prop this size loses first. It needs no model override, and now that the walk
+  // reads past the ambient sound its recolour comes with it. The camera stays
+  // shallow so the pool faces us: this lies in the floor, the vent stands up off it.
+  tz_lava_seam: { obj: 11829, pitch: 55, yaw: 30, dir: 'scenery' },
   // 30284 is the Inferno's own roof support: a column of boulders with lava
   // showing between them, and at 45,41,41 darker than the 6950 boulder it
   // replaces. That boulder was one flat dark blob — the filler is the most
@@ -386,7 +388,15 @@ export function parseObjectDef(content) {
     else if (op === 7) { const n = u8(); for (let i = 0; i < n; i++) out.models.push(u32()); }
     else if (op === 14 || op === 15 || op === 19 || op === 28 || op === 29 || op === 39 || op === 69 || op === 75 || op === 81) p += 1;
     else if (op === 17 || op === 18 || op === 21 || op === 22 || op === 23 || op === 27 || op === 62 || op === 64 || op === 73 || op === 74 || op === 89) { /* flag */ }
-    else if (op === 24 || op === 61 || op === 65 || op === 66 || op === 67 || op === 68 || op === 70 || op === 71 || op === 72 || op === 78 || op === 82) p += 2;
+    else if (op === 24 || op === 61 || op === 65 || op === 66 || op === 67 || op === 68 || op === 70 || op === 71 || op === 72 || op === 82) p += 2;
+    // The ambient sound is four bytes, not two: id (u16), then the distance and the
+    // retain window (u8 each). Reading it as two left the cursor on the distance
+    // byte, the walk reported "unknown object opcode 3" and stopped there — which
+    // silently dropped everything after it, the recolour list (op 40) included. The
+    // sulphur vent is the case that found this: its def paints the cone black by
+    // recolouring 33676 to 0, and without that line it baked out in the model's own
+    // teal.
+    else if (op === 78) p += 4;
     else if (op >= 30 && op < 35) skipStr();
     else if (op === 40 || op === 41) { const n = u8(); for (let i = 0; i < n; i++) { const f = u16(), r = u16(); if (op === 40) { out.recolorToFind.push(f); out.recolorToReplace.push(r); } } }
     else if (op === 77 || op === 92) { u16(); u16(); if (op === 92) u16(); const n = u8(); p += 2 * (n + 1); }

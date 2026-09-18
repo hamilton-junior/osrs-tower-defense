@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "TzHaar's vents cool to black basalt and its floor pools lava instead of hairline cracks",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "The TzHaar cavern's floor bubbles through sulphur vents instead of flat lava splats",
       "fromFeedback": false,
       "date": "2026-09-18"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "game",
       "text": "Picking up a trap refunds its price by the charges it has left",
-      "fromFeedback": true,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "balanced",
-      "scope": "game",
-      "text": "Snares can grip the same enemy again once it breaks free, and newcomers still come first",
       "fromFeedback": true,
       "date": "2026-09-16"
     }
