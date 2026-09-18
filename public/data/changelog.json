@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "The tallest trees and stalagmites lose half their height, and TzHaar's fences are gone",
+      "fromFeedback": false,
+      "date": "2026-09-17"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "Fences, graves and toadstool beds stand in groups, and TzHaar's banner is gone",
       "fromFeedback": false,
       "date": "2026-09-17"
@@ -271,13 +278,6 @@
       "kind": "fixed",
       "scope": "game",
       "text": "A trap springs on what walked over it, not on where it landed",
-      "fromFeedback": true,
-      "date": "2026-09-15"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "A brew at your overheal cap asks before it pours",
       "fromFeedback": true,
       "date": "2026-09-15"
     }

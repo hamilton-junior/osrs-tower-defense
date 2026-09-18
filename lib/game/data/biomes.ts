@@ -34,10 +34,11 @@ export type SceneryId =
   | 'wild_chaos_altar' | 'wild_pillar' | 'wild_skulls' | 'wild_skull_pile' | 'wild_ruins' | 'wild_spire'
   | 'troll_pine' | 'troll_ice_boulder' | 'troll_icicle' | 'troll_snow'
   | 'troll_ice_chunks' | 'troll_snow_mound' | 'troll_snowy_bush' | 'troll_dead_tree'
+  | 'troll_snow_tree' | 'troll_snow_tree_tall'
   | 'kara_palm' | 'kara_jungle_tree' | 'kara_fern'
   | 'kara_banana' | 'kara_palm_young' | 'kara_tropical_palm' | 'kara_flowers' | 'kara_fungus'
-  | 'tz_stalagmite' | 'tz_sulphur' | 'tz_sulphur_mound'
-  | 'tz_stalagmite_lit' | 'tz_sulphur_small';
+  | 'tz_sulphur' | 'tz_sulphur_mound' | 'tz_sulphur_small'
+  | 'tz_statue' | 'tz_lava_trough' | 'tz_obsidian_rock';
 
 /**
  * **Props that only make sense in company.** One obsidian fence panel alone in the
@@ -55,9 +56,30 @@ export const CLUSTERED_SCENERY: ReadonlySet<SceneryId> = new Set<SceneryId>([
   'khar_cactus_dry', 'khar_ruins',
   'mory_grave', 'mory_tombstone', 'mory_mushroom', 'mory_toadstools', 'mory_fungus', 'mory_bones',
   'wild_pillar', 'wild_ruins', 'wild_skulls',
-  'troll_icicle', 'troll_snow_mound',
+  'troll_icicle', 'troll_snow_mound', 'troll_snow_tree', 'troll_snow_tree_tall',
   'kara_fern', 'kara_flowers', 'kara_fungus',
 ]);
+
+/**
+ * **How many of a prop one board may hold.** Some scenery is a landmark and stops
+ * reading as one the moment it repeats: the Wilderness has a single chaos altar,
+ * and Mor Ul Rek raised one statue to its champion, not a row of them. Others are
+ * simply out of place in bulk — a haystack behind every Lumbridge tree turns the
+ * region into a farmyard, and Morytania's headstones spread until the whole map
+ * was a graveyard instead of having one.
+ *
+ * A prop left out of this table is unlimited, which is most of them. When a tile's
+ * pick lands on a prop the board has already filled, `drawProp` walks on to the
+ * next entry in the region's list — the tile still gets scenery, just not that one.
+ */
+export const SCENERY_LIMIT: Partial<Record<SceneryId, number>> = {
+  wild_chaos_altar: 1,
+  tz_statue: 1,
+  lumb_haystack: 2,
+  mory_coffin: 2,
+  mory_tombstone: 4,
+  mory_grave: 5,
+};
 
 export interface BiomeDef {
   id: BiomeId;
@@ -218,7 +240,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,255,255,0.4)', 'rgba(170,190,210,0.4)'],
     road: { shadow: '#8fa2b4', border: '#7a8ea0', mid: '#a9bccd', walked: '#cfdde9', centre: '#e6eef5', dash: 'rgba(120,140,160,0.5)' },
     scenery: {
-      block: ['troll_pine', 'troll_ice_boulder', 'troll_dead_tree', 'troll_ice_chunks'],
+      block: ['troll_snow_tree', 'troll_pine', 'troll_snow_tree_tall', 'troll_ice_boulder', 'troll_dead_tree', 'troll_ice_chunks'],
       rough: ['troll_snow', 'troll_icicle', 'troll_snowy_bush'],
       prop: ['troll_snow', 'troll_icicle', 'troll_ice_boulder', 'troll_snow_mound'],
     },
@@ -256,9 +278,9 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,120,40,0.15)', 'rgba(60,40,35,0.6)'],
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
     scenery: {
-      block: ['tz_stalagmite', 'tz_stalagmite_lit'],
+      block: ['tz_obsidian_rock', 'tz_lava_trough', 'tz_statue'],
       rough: ['tz_sulphur', 'tz_sulphur_mound', 'tz_sulphur_small'],
-      prop: ['tz_sulphur', 'tz_sulphur_mound', 'wild_stones'],
+      prop: ['tz_sulphur', 'tz_sulphur_mound', 'wild_stones', 'tz_lava_trough'],
     },
     decor: { bush: '#3a2018', rock: '#2a2422', rockHi: '#4a4038', flowers: ['#ff7a1f', '#ffb03a', '#e0401a'] },
     water: { deep: '#1a1210', shallow: '#3a1f16', foam: '#8a4426', ripple: '#ff9b4a' },

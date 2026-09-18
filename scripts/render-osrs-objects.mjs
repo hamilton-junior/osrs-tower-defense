@@ -54,6 +54,7 @@ const MARGIN = 0.12;
  * Ground-plane scenery (farming patches) needs a high pitch to read at all.
  */
 const TARGETS = {
+
   tree: { obj: 1276 },                        // classic "Tree" (Chop down)
 
   // Cannon tower tier icons — four *distinct*, fully-built cannons (a
@@ -266,6 +267,10 @@ const TARGETS = {
   troll_snow_mound: { obj: 15616, dir: 'scenery' },
   troll_snowy_bush: { obj: 46511, dir: 'scenery' },
   troll_dead_tree: { obj: 1291, dir: 'scenery' },
+  // Trollweiss' two snow-laden firs — the same evergreen model in a taller and
+  // a squatter cut, so a stand of them doesn't read as one tree stamped twice.
+  troll_snow_tree: { obj: 46509, dir: 'scenery' },
+  troll_snow_tree_tall: { obj: 46510, dir: 'scenery' },
 
   kara_banana: { obj: 2073, dir: 'scenery' },
   kara_palm_young: { obj: 2578, dir: 'scenery' },
@@ -273,13 +278,17 @@ const TARGETS = {
   kara_flowers: { obj: 1196, dir: 'scenery' },
   kara_fungus: { obj: 21741, dir: 'scenery' },
 
-  // More of Mor Ul Rek's floor: the lava-lit stalagmite and a smaller sulphur
-  // mound. The obsidian fence panel and post were baked here too and dropped —
-  // a fence line read as a compound wall, which the cavern is not.
-  tz_stalagmite_lit: { obj: 11188, dir: 'scenery' },
+  // Mor Ul Rek's floor. Both stalagmites were baked here and dropped: a cave
+  // spike is what every other cavern in the game is made of, and TzHaar city
+  // is built, not eroded. What stands there now is city furniture — a lava
+  // trough, a champion's statue and a vein-lit obsidian outcrop. The obsidian
+  // fence panel and post went the same way as the stalagmites: a fence line
+  // read as a compound wall, which the cavern is not.
   tz_sulphur_small: { obj: 28497, dir: 'scenery' },
+  tz_statue: { obj: 11968, dir: 'scenery' },
+  tz_lava_trough: { obj: 18519, dir: 'scenery' },
+  tz_obsidian_rock: { obj: 47241, dir: 'scenery' },
 
-  tz_stalagmite: { obj: 3825, dir: 'scenery' },
   tz_sulphur: { obj: 3962, dir: 'scenery' },
   tz_sulphur_mound: { obj: 28496, dir: 'scenery' },
 };

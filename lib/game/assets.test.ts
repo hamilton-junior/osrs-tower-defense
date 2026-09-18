@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ASSETS, coinsIcon, localIconNames } from './assets';
-import { BIOME_LIST } from './data/biomes';
+import { BIOME_LIST, SCENERY_LIMIT } from './data/biomes';
 import { GE_OFFERS } from './data/ge';
 import { SLAYER_REWARDS } from './data/slayer';
 import { GLOBAL_UPGRADE_DEFS } from './systems/meta-progression';
@@ -175,6 +175,25 @@ describe('board scenery coverage', () => {
       return !url || !existsSync(join(__dirname, '../../public', url.slice(url.indexOf('/assets/'))));
     });
     expect(missing).toEqual([]);
+  });
+
+  /**
+   * `SCENERY_LIMIT` caps how many copies of a landmark one board may hold, and the
+   * renderer honours it by walking to the next prop in the same list. Two ways that
+   * goes wrong quietly: a cap on a prop no region places does nothing, and a list
+   * whose every entry is capped leaves tiles with no prop to walk to once the board
+   * is full, which draws them as procedural rock instead.
+   */
+  it('caps only props a region places, and never a whole list', () => {
+    const named = new Set<string>(sceneryIds);
+    expect(Object.keys(SCENERY_LIMIT).filter((id) => !named.has(id))).toEqual([]);
+
+    const exhausted = BIOME_LIST.flatMap((b) =>
+      ([b.scenery.block, b.scenery.rough, b.scenery.prop] as const)
+        .filter((list) => list.length > 0 && list.every((id) => SCENERY_LIMIT[id] !== undefined))
+        .map((list) => `${b.id}: ${list.join(', ')}`),
+    );
+    expect(exhausted).toEqual([]);
   });
 
   it('bakes no prop no region asks for', () => {

@@ -679,6 +679,8 @@ export const ASSETS = {
       troll_snow_mound: `${LOCAL}/scenery/troll_snow_mound.png`,   // 15616 Snow
       troll_snowy_bush: `${LOCAL}/scenery/troll_snowy_bush.png`,   // 46511 Snowy Bush
       troll_dead_tree: `${LOCAL}/scenery/troll_dead_tree.png`,     // 1291 Dead tree
+      troll_snow_tree: `${LOCAL}/scenery/troll_snow_tree.png`,     // 46509 Evergreen tree
+      troll_snow_tree_tall: `${LOCAL}/scenery/troll_snow_tree_tall.png`, // 46510 Evergreen tree
       kara_palm: `${LOCAL}/scenery/kara_palm.png`,                 // 2577 Palm tree
       kara_jungle_tree: `${LOCAL}/scenery/kara_jungle_tree.png`,   // 2887 Jungle tree
       kara_fern: `${LOCAL}/scenery/kara_fern.png`,                 // 1298 Fern
@@ -687,11 +689,12 @@ export const ASSETS = {
       kara_tropical_palm: `${LOCAL}/scenery/kara_tropical_palm.png`, // 57815 Tropical palm
       kara_flowers: `${LOCAL}/scenery/kara_flowers.png`,           // 1196 Flowers
       kara_fungus: `${LOCAL}/scenery/kara_fungus.png`,             // 21741 Fungus
-      tz_stalagmite: `${LOCAL}/scenery/tz_stalagmite.png`,         // 3825 Stalagmite
       tz_sulphur: `${LOCAL}/scenery/tz_sulphur.png`,               // 3962 Sulphur
       tz_sulphur_mound: `${LOCAL}/scenery/tz_sulphur_mound.png`,   // 28496 Volcanic sulphur
-      tz_stalagmite_lit: `${LOCAL}/scenery/tz_stalagmite_lit.png`, // 11188 Stalagmites
       tz_sulphur_small: `${LOCAL}/scenery/tz_sulphur_small.png`,   // 28497 Volcanic sulphur
+      tz_statue: `${LOCAL}/scenery/tz_statue.png`,                 // 11968 TzHaar statue
+      tz_lava_trough: `${LOCAL}/scenery/tz_lava_trough.png`,       // 18519 Lava trough
+      tz_obsidian_rock: `${LOCAL}/scenery/tz_obsidian_rock.png`,   // 47241 Tzhaar-Ket-Rak Display
     } as Record<SceneryId, string>,
   },
   // Party Pete's balloons: the Party Room balloon (LOC 115) and its five recolours

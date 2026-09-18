@@ -1,7 +1,7 @@
 import { SPOTANIMS, spotAnimDurationS } from '../../data/spotanims';
 import { distance } from '../../systems/geometry';
 import type { GameRenderer } from '../renderer';
-import { CLUSTERED_SCENERY, LAVA_PALETTE, type SceneryId } from '../../data/biomes';
+import { CLUSTERED_SCENERY, LAVA_PALETTE, SCENERY_LIMIT, type SceneryId } from '../../data/biomes';
 import { buildLiquidBodies, paintLiquid } from './liquid';
 import type { LiquidKind } from '../../systems/terrain-generation';
 import { GRID, shade, hash2 } from './shared';
@@ -48,7 +48,10 @@ function drawProp(
   jy = 0,
 ): boolean {
   if (list.length === 0) return false;
-  const key = `scenery_${list[pick % list.length]}`;
+  const idx = pickWithRoom(list, pick);
+  if (idx < 0) return false;
+  const id = list[idx];
+  const key = `scenery_${id}`;
   if (!gr.e.imageOk(key)) return false;
   const img = gr.e.images.get(key);
   if (!img || !img.width) return false;
@@ -75,7 +78,31 @@ function drawProp(
   ctx.fill();
   ctx.globalAlpha = 1;
   ctx.drawImage(img, cx - w / 2, groundY - h, w, h);
+  propUsed.set(id, (propUsed.get(id) ?? 0) + 1);
   return true;
+}
+
+/**
+ * Copies of each capped prop already standing on this board. `drawTerrain` bakes
+ * the whole board in one pass, so counting as we draw and clearing at the start of
+ * that pass is the entire bookkeeping — and a prop only counts once it is really
+ * on the canvas, never when its sprite was still loading.
+ */
+const propUsed = new Map<SceneryId, number>();
+
+/**
+ * The first prop at or after `pick` the board still has room for, or -1 when the
+ * whole list is spent. Walking on rather than giving up keeps the tile furnished:
+ * the Wilderness tile that would have been the second chaos altar gets the pillar
+ * next to it in the region's list instead (see `SCENERY_LIMIT`).
+ */
+function pickWithRoom(list: readonly SceneryId[], pick: number): number {
+  for (let i = 0; i < list.length; i++) {
+    const idx = (pick + i) % list.length;
+    const limit = SCENERY_LIMIT[list[idx]];
+    if (limit === undefined || (propUsed.get(list[idx]) ?? 0) < limit) return idx;
+  }
+  return -1;
 }
 
 /** The tallest a prop may be drawn, in tiles. See the cap in `drawProp`. */
@@ -405,6 +432,8 @@ function softSquare(color: string): HTMLCanvasElement | null {
 export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const t = gr.e.terrain;
   if (t.cols === 0) return;
+  // One pass over the board is one board's worth of landmarks (see `SCENERY_LIMIT`).
+  propUsed.clear();
   const { bush, rock, rockHi, flowers } = gr.e.biome.decor;
   const scenery = gr.e.biome.scenery;
   const rockDark = shade(rock, 0.6);
