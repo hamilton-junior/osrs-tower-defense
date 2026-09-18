@@ -349,7 +349,6 @@ const TARGETS = {
   // filler that keeps the blocked tiles from falling through to a procedural rock.
   tz_brazier: { obj: 11017, dir: 'scenery' },
   tz_lava_trough: { obj: 18519, dir: 'scenery' },
-  tz_obsidian_rock: { obj: 47241, dir: 'scenery' },
 
   // 9295 alone, not the def's pair: 9294 is the smoke above the vent, and the flat
   // rasteriser has no volume for it — it bakes as three near-white lumps floating
@@ -375,6 +374,19 @@ const TARGETS = {
   // basalt, shale, craters, vents, hewn steps, ash and every rockslide and rubble
   // pile, and they are pale granite, olive scree, gold ore or teal stone.
   tz_rock_pillar: { obj: 30284, yaw: 30, dir: 'scenery' },
+  // 47241 "Tzhaar-Ket-Rak Display" used to be the second blocker here and it was
+  // the wrong kind of object: a plinth with a glowing champion posed on it, which
+  // is a landmark, and a board that deals two of them reads as two landmarks. The
+  // cavern's own blockers are its architecture. 11937-11942 are the Mor Ul Rek
+  // columns, the same shape in six recolours. The three dark ones are the obvious
+  // pick for a black cavern and the wrong one: rendered over the floor's own
+  // gradient they are a silhouette you have to look for, and a blocked tile has to
+  // read at a glance. 11937 is the palest and the widest of the six.
+  tz_column: { obj: 11937, dir: 'scenery' },
+  // 11969 is the cavern's own crate, red like everything the TzHaar build. It is
+  // the only small piece of furniture down there that is not molten, which is what
+  // the floor needed between the vents and the seams.
+  tz_crate: { obj: 11969, dir: 'scenery' },
 };
 
 // -------------------------------------------------------- object def parsing

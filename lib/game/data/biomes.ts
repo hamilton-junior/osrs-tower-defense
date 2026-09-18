@@ -41,7 +41,7 @@ export type SceneryId =
   | 'kara_palm' | 'kara_jungle_tree' | 'kara_fern'
   | 'kara_banana' | 'kara_palm_young' | 'kara_tropical_palm' | 'kara_flowers' | 'kara_fungus'
   | 'tz_sulphur_vent' | 'tz_lava_seam' | 'tz_rock_pillar'
-  | 'tz_lava_trough' | 'tz_obsidian_rock' | 'tz_brazier';
+  | 'tz_lava_trough' | 'tz_brazier' | 'tz_column' | 'tz_crate';
 
 /**
  * **Props that only make sense in company.** One brazier alone in the middle of the
@@ -66,7 +66,7 @@ export const CLUSTERED_SCENERY: ReadonlySet<SceneryId> = new Set<SceneryId>([
   'wild_pillar', 'wild_ruins', 'wild_skull_heap',
   'troll_icicle', 'troll_snow_mound', 'troll_snow_tree', 'troll_snow_tree_tall',
   'kara_fern', 'kara_flowers', 'kara_fungus',
-  'tz_brazier', 'tz_lava_trough', 'tz_obsidian_rock',
+  'tz_brazier', 'tz_lava_trough', 'tz_crate',
 ]);
 
 /**
@@ -90,7 +90,12 @@ export const SCENERY_LIMIT: Partial<Record<SceneryId, number>> = {
   mory_mausoleum: 1,
   tz_brazier: 2,
   tz_lava_trough: 2,
-  tz_obsidian_rock: 2,
+  // The column is architecture, so it is allowed to repeat — a hall of them is what
+  // Mor Ul Rek looks like — but it is also a blocker, and past a handful the board
+  // stops being a road and starts being a maze. The crate is furniture and gets the
+  // tight cap furniture gets: a couple of stacks by the walk, not a warehouse.
+  tz_column: 6,
+  tz_crate: 3,
   // The vent is the only prop in three of its region's lists at once — it blocks a
   // tile, it roughs one up and it stands as plain furniture — so an uncapped board
   // grew a cone on nearly every free tile and the cavern read as a pincushion. The
@@ -322,14 +327,14 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,120,40,0.15)', 'rgba(60,40,35,0.6)'],
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
     scenery: {
-      block: ['tz_rock_pillar', 'tz_sulphur_vent', 'tz_obsidian_rock'],
+      block: ['tz_rock_pillar', 'tz_column', 'tz_sulphur_vent'],
       // The pebbles come from Lumbridge's set and carry the cavern once the vents
       // and the seams are spent: they are the only entry here with no cap, which is
       // what keeps the walk-on from running off the end of the list. They read as
       // loose basalt on this floor — dark, flat and worth nothing, which is exactly
       // what the rest of the cavern floor should be.
       rough: ['tz_sulphur_vent', 'tz_lava_seam', 'lumb_pebbles'],
-      prop: ['tz_sulphur_vent', 'tz_lava_seam', 'tz_brazier', 'tz_lava_trough', 'lumb_pebbles'],
+      prop: ['tz_sulphur_vent', 'tz_lava_seam', 'tz_brazier', 'tz_lava_trough', 'tz_crate', 'lumb_pebbles'],
     },
     decor: { bush: '#3a2018', rock: '#2a2422', rockHi: '#4a4038', flowers: ['#ff7a1f', '#ffb03a', '#e0401a'] },
     water: { deep: '#1a1210', shallow: '#3a1f16', foam: '#8a4426', ripple: '#ff9b4a' },

@@ -725,7 +725,8 @@ export const ASSETS = {
       tz_lava_seam: `${LOCAL}/scenery/tz_lava_seam.png`,           // 11829 Mor Ul Rek floor slab (lava pool)
       tz_rock_pillar: `${LOCAL}/scenery/tz_rock_pillar.png`,       // 30284 Rocky support
       tz_lava_trough: `${LOCAL}/scenery/tz_lava_trough.png`,       // 18519 Lava trough
-      tz_obsidian_rock: `${LOCAL}/scenery/tz_obsidian_rock.png`,   // 47241 Tzhaar-Ket-Rak Display
+      tz_column: `${LOCAL}/scenery/tz_column.png`,                 // 11937 Column (Mor Ul Rek)
+      tz_crate: `${LOCAL}/scenery/tz_crate.png`,                   // 11969 Crate
     } as Record<SceneryId, string>,
   },
   // Party Pete's balloons: the Party Room balloon (LOC 115) and its five recolours
