@@ -40,8 +40,8 @@ export type SceneryId =
   | 'troll_snow_tree' | 'troll_snow_tree_tall'
   | 'kara_palm' | 'kara_jungle_tree' | 'kara_fern'
   | 'kara_banana' | 'kara_palm_young' | 'kara_tropical_palm' | 'kara_flowers' | 'kara_fungus'
-  | 'tz_sulphur_vent' | 'tz_lava_seam' | 'tz_rock_pillar'
-  | 'tz_lava_trough' | 'tz_brazier' | 'tz_column' | 'tz_crate';
+  | 'tz_sulphur_vent' | 'tz_rock_pillar'
+  | 'tz_brazier' | 'tz_column' | 'tz_crate';
 
 /**
  * **Props that only make sense in company.** One brazier alone in the middle of the
@@ -66,7 +66,7 @@ export const CLUSTERED_SCENERY: ReadonlySet<SceneryId> = new Set<SceneryId>([
   'wild_pillar', 'wild_ruins', 'wild_skull_heap',
   'troll_icicle', 'troll_snow_mound', 'troll_snow_tree', 'troll_snow_tree_tall',
   'kara_fern', 'kara_flowers', 'kara_fungus',
-  'tz_brazier', 'tz_lava_trough', 'tz_crate',
+  'tz_brazier', 'tz_crate',
 ]);
 
 /**
@@ -89,7 +89,6 @@ export const SCENERY_LIMIT: Partial<Record<SceneryId, number>> = {
   mory_grave: 5,
   mory_mausoleum: 1,
   tz_brazier: 2,
-  tz_lava_trough: 2,
   // The column is architecture, so it is allowed to repeat — a hall of them is what
   // Mor Ul Rek looks like — but it is also a blocker, and past a handful the board
   // stops being a road and starts being a maze. The crate is furniture and gets the
@@ -101,16 +100,10 @@ export const SCENERY_LIMIT: Partial<Record<SceneryId, number>> = {
   // grew a cone on nearly every free tile and the cavern read as a pincushion. The
   // cap stays loose enough that a cavern still steams, and the tiles past it fall
   // through to whatever stands next in that list — the pillar on a blocked tile,
-  // the seam and then the pebbles on open ground. It is also no longer a clustered
+  // the pebbles on open ground. It is also no longer a clustered
   // prop: dealt per patch the survivors arrived in knots of four, and a vent is a
   // hole in the floor, not a stand. Per tile they spread out on their own.
   tz_sulphur_vent: 20,
-  // The seam needs the same cap and for the same reason, one step removed: capping
-  // the vent alone just handed every tile past the cap to the next entry in the
-  // list, and the cavern swapped a floor of cones for a floor of slabs. Past both
-  // caps the walk-on lands on the pebbles, which is the quiet floor the cavern
-  // wanted in the first place.
-  tz_lava_seam: 30,
   // The Wilderness is where people die, so its dead are not landmarks — but a board
   // paved in skeletons reads as a prop shop rather than a battlefield. Enough of
   // each to meet a few on a walk across the map, and no more.
@@ -333,8 +326,8 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
       // what keeps the walk-on from running off the end of the list. They read as
       // loose basalt on this floor — dark, flat and worth nothing, which is exactly
       // what the rest of the cavern floor should be.
-      rough: ['tz_sulphur_vent', 'tz_lava_seam', 'lumb_pebbles'],
-      prop: ['tz_sulphur_vent', 'tz_lava_seam', 'tz_brazier', 'tz_lava_trough', 'tz_crate', 'lumb_pebbles'],
+      rough: ['tz_sulphur_vent', 'lumb_pebbles'],
+      prop: ['tz_sulphur_vent', 'tz_brazier', 'tz_crate', 'lumb_pebbles'],
     },
     decor: { bush: '#3a2018', rock: '#2a2422', rockHi: '#4a4038', flowers: ['#ff7a1f', '#ffb03a', '#e0401a'] },
     water: { deep: '#1a1210', shallow: '#3a1f16', foam: '#8a4426', ripple: '#ff9b4a' },

@@ -722,9 +722,7 @@ export const ASSETS = {
       kara_fungus: `${LOCAL}/scenery/kara_fungus.png`,             // 21741 Fungus
       tz_brazier: `${LOCAL}/scenery/tz_brazier.png`,               // 11017 Brazier
       tz_sulphur_vent: `${LOCAL}/scenery/tz_sulphur_vent.png`,     // 11851 Sulphur vent (model 9295)
-      tz_lava_seam: `${LOCAL}/scenery/tz_lava_seam.png`,           // 11829 Mor Ul Rek floor slab (lava pool)
       tz_rock_pillar: `${LOCAL}/scenery/tz_rock_pillar.png`,       // 30284 Rocky support
-      tz_lava_trough: `${LOCAL}/scenery/tz_lava_trough.png`,       // 18519 Lava trough
       tz_column: `${LOCAL}/scenery/tz_column.png`,                 // 11937 Column (Mor Ul Rek)
       tz_crate: `${LOCAL}/scenery/tz_crate.png`,                   // 11969 Crate
     } as Record<SceneryId, string>,

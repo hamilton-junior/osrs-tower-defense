@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "The TzHaar cavern floor is bare basalt instead of a scatter of lava slabs and troughs",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "Mor Ul Rek trades the champion's display for the cavern's own columns and crates",
       "fromFeedback": false,
       "date": "2026-09-18"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "ui",
       "text": "Dragging an item in the inventory or loot bag carries a see-through copy of it under the cursor",
-      "fromFeedback": false,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "The interface opens at 100%, or the largest size your screen fits, instead of a few percent under it",
       "fromFeedback": false,
       "date": "2026-09-16"
     }

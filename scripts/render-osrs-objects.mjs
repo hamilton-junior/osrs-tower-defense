@@ -324,8 +324,8 @@ const TARGETS = {
 
   // Mor Ul Rek's floor. Both stalagmites were baked here and dropped: a cave
   // spike is what every other cavern in the game is made of, and TzHaar city
-  // is built, not eroded. What stands there now is city furniture — a lava
-  // trough and a vein-lit obsidian outcrop. The obsidian fence panel and post
+  // is built, not eroded. What stands there now is city furniture — a brazier,
+  // a column and a crate. The obsidian fence panel and post
   // went the same way as the stalagmites: a fence line read as a compound wall,
   // which the cavern is not. The champion's statue went too, on the same call:
   // one statue is a landmark and Mor Ul Rek's landmark is the fight pit.
@@ -348,7 +348,6 @@ const TARGETS = {
   // A lava forge is the one landmark and the Inferno's own roof pillar is the
   // filler that keeps the blocked tiles from falling through to a procedural rock.
   tz_brazier: { obj: 11017, dir: 'scenery' },
-  tz_lava_trough: { obj: 18519, dir: 'scenery' },
 
   // 9295 alone, not the def's pair: 9294 is the smoke above the vent, and the flat
   // rasteriser has no volume for it — it bakes as three near-white lumps floating
@@ -356,16 +355,6 @@ const TARGETS = {
   // as smoke. What is left is the basalt cone with the molten crater, and the
   // crater only opens up above pitch ~20, so the camera looks down on it.
   tz_sulphur_vent: { obj: 11851, models: [9295], pitch: 26, dir: 'scenery' },
-  // The seam used to be 55995 "Lava", out of the same seasonal event set as the
-  // splat it replaced, and it baked as a knot of orange chain links. Mor Ul Rek
-  // already owns the shape: 11818-11829 are the cave's own floor slabs, black rock
-  // with the lava showing through. Most of them only crack — measured over the
-  // block, 11829 is the one where the lava actually pools (12.1% of its painted
-  // pixels are molten, against 2-4% for the rest), and a hairline crack is what a
-  // prop this size loses first. It needs no model override, and now that the walk
-  // reads past the ambient sound its recolour comes with it. The camera stays
-  // shallow so the pool faces us: this lies in the floor, the vent stands up off it.
-  tz_lava_seam: { obj: 11829, pitch: 55, yaw: 30, dir: 'scenery' },
   // 30284 is the Inferno's own roof support: a column of boulders with lava
   // showing between them, and at 45,41,41 darker than the 6950 boulder it
   // replaces. That boulder was one flat dark blob — the filler is the most
