@@ -42,8 +42,8 @@ import { gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
 import { RewardChip, RewardOptions } from './diversion-reward';
 import type { DiversionReward } from '@/lib/game/systems/diversions';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, loadDailyBoard, type Victories, type DifficultyProgress } from './save';
-import { dailyKey, dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
-import { EMPTY_BOARD, recordDaily, type DailyBoard } from '@/lib/game/systems/daily-score';
+import { dailyKey, dayLabel, shiftKey, type DayKey } from '@/lib/game/systems/daily-seed';
+import { EMPTY_BOARD, dailyStreak, recordDaily, type DailyBoard } from '@/lib/game/systems/daily-score';
 import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Price, Vital, GoStat, StatLabel, Stat } from './ui-kit';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl, coinsIcon, GEAR_ICONS } from '@/lib/game/assets';
@@ -168,13 +168,56 @@ const geIcon = (wiki: string) => iconUrl(wiki);
  * The daily's line on an end-of-run screen: what today's board holds now that this
  * run has been filed, and whether this run is the one holding it.
  */
-function DailyEndLine({ day, best, isBest }: { day: string; best: { wave: number } | null; isBest: boolean }) {
+/**
+ * The last week of dailies, one cell per day: the wave that day's best run
+ * reached, a dash for a day nobody played. The day just finished is marked, so
+ * the run reads against the week it belongs to. The start screen has no room
+ * for this — its card is one row — so the week only ever shows up here.
+ */
+function DailyStrip({ day, board }: { day: DayKey; board: DailyBoard }) {
   return (
-    <div className="rs-panel-inset flex items-center justify-center gap-[0.5em] py-[0.5em] mb-4 text-[0.95em]">
-      <img src={ASSETS.misc.signpost} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-      <span className="text-[0.82em] text-[#d3c3a0] uppercase tracking-wide">{dayLabel(day)} best</span>
-      <span className="text-osrs-yellow font-bold">Wave {best ? best.wave : '–'}</span>
-      {isBest && <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide">new</span>}
+    <div className="flex items-end justify-center gap-[0.25em] mt-[0.55em]">
+      {Array.from({ length: 7 }, (_, i) => shiftKey(day, 6 - i)).map((key) => {
+        const score = board.days[key] ?? null;
+        const isDay = key === day;
+        return (
+          <div key={key} className="flex flex-col items-center gap-[0.15em] w-[2.3em]">
+            <div
+              className={`w-full py-[0.2em] text-center text-[0.8em] font-bold bg-[#1c1812] border ${
+                isDay ? 'border-[var(--osrs-orange)] text-osrs-orange'
+                  : score ? 'border-[var(--rs-keyline)] text-osrs-yellow'
+                  : 'border-[var(--rs-keyline)] text-[#6f6656]'
+              }`}
+              title={score ? `${dayLabel(key)} — wave ${score.wave}` : `${dayLabel(key)} — not played`}
+            >
+              {score ? score.wave : '–'}
+            </div>
+            {/* The day of the month alone: the month is already in the line above. */}
+            <span className="text-[0.6em] uppercase tracking-wide text-[#8f8574]">{dayLabel(key).split(' ')[0]}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DailyEndLine({ day, board, isBest }: { day: DayKey; board: DailyBoard; isBest: boolean }) {
+  const best = board.days[day] ?? null;
+  const streak = dailyStreak(board, day);
+  return (
+    <div className="rs-panel-inset px-[0.6em] py-[0.5em] mb-4 text-[0.95em]">
+      <div className="flex items-center justify-center gap-[0.5em]">
+        <img src={ASSETS.misc.signpost} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+        <span className="text-[0.82em] text-[#d3c3a0] uppercase tracking-wide">{dayLabel(day)} best</span>
+        <span className="text-osrs-yellow font-bold">Wave {best ? best.wave : '–'}</span>
+        {isBest && <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide">new</span>}
+      </div>
+      <DailyStrip day={day} board={board} />
+      {streak > 1 && (
+        <div className="text-center text-[0.72em] text-osrs-orange font-bold mt-[0.4em]" title="Days played in a row">
+          {streak}-day streak
+        </div>
+      )}
     </div>
   );
 }
@@ -3520,7 +3563,7 @@ export default function GameRoot() {
               <span className="text-osrs-yellow font-bold">+{fmt(engineRef.current?.essenceEarnedThisRun ?? 0)}</span>
               <span className="text-[0.82em] text-[#d3c3a0] uppercase tracking-wide">Rune Essence banked</span>
             </div>
-            {ui.daily && <DailyEndLine day={ui.daily} best={dailyBest} isBest={dailyIsBest} />}
+            {ui.daily && <DailyEndLine day={ui.daily} board={dailyBoard} isBest={dailyIsBest} />}
             {ui.gameMode === 'roguelite' && ui.ownedRelics.length > 0 && (
               <OwnedRelicTray ids={ui.ownedRelics} summary />
             )}
@@ -3573,7 +3616,7 @@ export default function GameRoot() {
                 </>
               )}
             </div>
-            {ui.daily && <DailyEndLine day={ui.daily} best={dailyBest} isBest={dailyIsBest} />}
+            {ui.daily && <DailyEndLine day={ui.daily} board={dailyBoard} isBest={dailyIsBest} />}
             {/* Endless is a victory lap: the threat accelerates and the essence
                 faucet drops to a tenth (see essenceMultiplier). Say so before the
                 player commits, so the smaller reward isn't a surprise. */}
