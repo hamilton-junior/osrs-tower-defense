@@ -65,7 +65,7 @@ export const CLUSTERED_SCENERY: ReadonlySet<SceneryId> = new Set<SceneryId>([
   'wild_pillar', 'wild_ruins', 'wild_skulls',
   'troll_icicle', 'troll_snow_mound', 'troll_snow_tree', 'troll_snow_tree_tall',
   'kara_fern', 'kara_flowers', 'kara_fungus',
-  'tz_brazier', 'tz_lava_trough', 'tz_lava_pool',
+  'tz_brazier', 'tz_lava_trough', 'tz_obsidian_rock', 'tz_lava_pool',
 ]);
 
 /**
@@ -90,6 +90,7 @@ export const SCENERY_LIMIT: Partial<Record<SceneryId, number>> = {
   tz_lava_forge: 1,
   tz_brazier: 2,
   tz_lava_trough: 2,
+  tz_obsidian_rock: 2,
 };
 
 export interface BiomeDef {
@@ -289,7 +290,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,120,40,0.15)', 'rgba(60,40,35,0.6)'],
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
     scenery: {
-      block: ['tz_obsidian_rock', 'tz_boulder', 'tz_lava_forge'],
+      block: ['tz_boulder', 'tz_lava_pool', 'tz_obsidian_rock', 'tz_lava_forge'],
       rough: ['tz_lava_pool', 'tz_lava_seam'],
       prop: ['tz_lava_pool', 'tz_lava_seam', 'tz_brazier', 'tz_lava_trough'],
     },
