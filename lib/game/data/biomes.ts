@@ -100,8 +100,8 @@ export const SCENERY_LIMIT: Partial<Record<SceneryId, number>> = {
   // grew a cone on nearly every free tile and the cavern read as a pincushion. The
   // cap stays loose enough that a cavern still steams, and the tiles past it fall
   // through to whatever stands next in that list — the pillar on a blocked tile,
-  // the pebbles on open ground. It is also no longer a clustered
-  // prop: dealt per patch the survivors arrived in knots of four, and a vent is a
+  // the pebbles on open ground. It is also no longer a clustered prop: dealt per
+  // patch the survivors arrived in knots of four, and a vent is a
   // hole in the floor, not a stand. Per tile they spread out on their own.
   tz_sulphur_vent: 20,
   // The Wilderness is where people die, so its dead are not landmarks — but a board

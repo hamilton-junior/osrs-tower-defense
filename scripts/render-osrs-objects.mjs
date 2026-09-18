@@ -324,9 +324,9 @@ const TARGETS = {
 
   // Mor Ul Rek's floor. Both stalagmites were baked here and dropped: a cave
   // spike is what every other cavern in the game is made of, and TzHaar city
-  // is built, not eroded. What stands there now is city furniture — a brazier,
-  // a column and a crate. The obsidian fence panel and post
-  // went the same way as the stalagmites: a fence line read as a compound wall,
+  // is built, not eroded. What stands there now is city furniture — a brazier, a
+  // column and a crate. The obsidian fence panel and post went the same way as
+  // the stalagmites: a fence line read as a compound wall,
   // which the cavern is not. The champion's statue went too, on the same call:
   // one statue is a landmark and Mor Ul Rek's landmark is the fight pit.
   //
@@ -374,7 +374,7 @@ const TARGETS = {
   tz_column: { obj: 11937, dir: 'scenery' },
   // 11969 is the cavern's own crate, red like everything the TzHaar build. It is
   // the only small piece of furniture down there that is not molten, which is what
-  // the floor needed between the vents and the seams.
+  // the floor needed between the vents and the pebbles.
   tz_crate: { obj: 11969, dir: 'scenery' },
 };
 
