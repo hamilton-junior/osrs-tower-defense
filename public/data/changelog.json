@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "Trees and rocks on a shoreline stand in front of the water instead of behind it",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "The Wilderness is strewn with real skeletons and Mor Ul Rek's floor is black rock under its lava",
       "fromFeedback": false,
       "date": "2026-09-18"
@@ -271,13 +278,6 @@
       "kind": "fixed",
       "scope": "ui",
       "text": "The loot bag's stat block no longer jumps while you hover its tower list",
-      "fromFeedback": false,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "fixed",
-      "scope": "ui",
-      "text": "The inventory menu lists every potion a herb brews and asks before drinking a potion still running",
       "fromFeedback": false,
       "date": "2026-09-16"
     }

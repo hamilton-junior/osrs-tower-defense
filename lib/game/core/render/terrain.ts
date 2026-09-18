@@ -260,9 +260,9 @@ export function renderStaticBackground(gr: GameRenderer, ctx: CanvasRenderingCon
     ctx.fillRect(x + 2, y + 2, 2, 4);
   }
 
-  drawTerrain(gr, ctx);
-
-  // Faint tile grid (biome-tinted).
+  // Faint tile grid (biome-tinted). It is the board's own ruling, so it goes down
+  // before anything that stands on a square: the pools have always covered it, and
+  // now the props do too.
   ctx.strokeStyle = biome.grid;
   ctx.lineWidth = 1;
   for (let x = 0; x <= w; x += GRID) {
@@ -278,9 +278,11 @@ export function renderStaticBackground(gr: GameRenderer, ctx: CanvasRenderingCon
     ctx.stroke();
   }
 
-  // The pools go on last, over the grid — where the moving layer used to sit over
-  // the blitted buffer. Baking them changed when they are drawn, not where.
-  paintLiquid(gr, ctx);
+  // Floor before furniture: the pools, and then everything that stands on the
+  // board. A prop is bottom-anchored and may be several tiles tall, so it has to
+  // be free to hang over the water behind it.
+  drawPools(gr, ctx);
+  drawTerrain(gr, ctx);
 }
 
 /**
@@ -433,6 +435,70 @@ function softSquare(color: string): HTMLCanvasElement | null {
 }
 
 /**
+ * **Every pool on the board.** Split out of `drawTerrain` and painted before it,
+ * because a pool is floor. The props that stand next to water are taller than
+ * their own tile and hang over the tiles above them, and while the pools went
+ * down last every one of those overhangs was cut off at the shoreline: a tree on
+ * the bank lost the half of its trunk that reached across. Floor first, then
+ * everything standing on it.
+ *
+ * The rim is the tile's own edge tested against its neighbours, so a blob reads
+ * as one pool rather than four squares.
+ *
+ * The surface is the client's own liquid texture — water (24) or lava (59),
+ * whichever this pool rolled — laid one texture square per board tile, the same
+ * deal the farming allotment gets from its soil sprite. A palette tint goes over
+ * the top: Morytania's swamp and Al Kharid's lagoon are the same water lit
+ * differently, and the palette is what tells them apart.
+ */
+export function drawPools(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
+  const t = gr.e.terrain;
+  if (t.cols === 0) return;
+  const cols = t.cols;
+  const isWater = (c: number, r: number) =>
+    c >= 0 && r >= 0 && c < cols && r < t.rows && t.tiles[r * cols + c] === 'water';
+  for (let i = 0; i < t.tiles.length; i++) {
+    if (t.tiles[i] !== 'water') continue;
+    const c = i % cols;
+    const r = (i / cols) | 0;
+    const x0 = c * GRID;
+    const y0 = r * GRID;
+    const { deep, shallow, foam } = liquidPalette(gr, t.liquid[i]);
+    const kindKey = t.liquid[i] === 'lava' ? 'liquid_lava' : 'liquid_water';
+    const surface = gr.e.imageOk(kindKey) ? gr.e.images.get(kindKey) : null;
+    ctx.globalAlpha = 1;
+    if (surface) {
+      // The still version of the pool. `render/liquid.ts` scrolls the same texture
+      // over the top every frame; this is what the board falls back to on the frames
+      // before that layer has a pattern, and it means a pool is never a bare hole.
+      ctx.drawImage(surface, x0, y0, GRID, GRID);
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = deep;
+      ctx.fillRect(x0, y0, GRID, GRID);
+    } else {
+      // Until the texture loads — and on the frame the board is first dealt — the
+      // pool is flat biome colour with a lighter middle, so it still reads as
+      // water with depth rather than as a hole in the map.
+      ctx.fillStyle = deep;
+      ctx.fillRect(x0, y0, GRID, GRID);
+      ctx.fillStyle = shallow;
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(x0 + 5, y0 + 5, GRID - 10, GRID - 10);
+    }
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = foam;
+    if (!isWater(c, r - 1)) ctx.fillRect(x0, y0, GRID, 2);
+    if (!isWater(c, r + 1)) ctx.fillRect(x0, y0 + GRID - 2, GRID, 2);
+    if (!isWater(c - 1, r)) ctx.fillRect(x0, y0, 2, GRID);
+    if (!isWater(c + 1, r)) ctx.fillRect(x0 + GRID - 2, y0, 2, GRID);
+  }
+  ctx.globalAlpha = 1;
+  // The welded pattern fill goes over the per-tile still fill and its foam — the
+  // order those two have always had. Only the whole stack moved, under the props.
+  paintLiquid(gr, ctx);
+}
+
+/**
  * Draw the run's terrain field (from the engine): non-buildable zones as textured
  * rough ground, hard obstacles as shaded boulders, and cosmetic scenery (bushes /
  * rocks / flowers / grass) on open ground — all derived from the active biome's
@@ -490,55 +556,6 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       ctx.lineTo(bx + lean, by - len);
       ctx.stroke();
     }
-  }
-  ctx.globalAlpha = 1;
-
-  // ── pools ── Baked into the static background beside the rough ground, because
-  // a pool's outline never moves; only its surface does, and that scrolls per frame
-  // in `render/liquid.ts`. The rim is the tile's own edge tested against its
-  // neighbours, so a blob reads as one pool rather than four squares.
-  //
-  // The surface is the client's own liquid texture — water (24) or lava (59),
-  // whichever this pool rolled — laid one texture square per board tile, the same
-  // deal the farming allotment gets from its soil sprite. A palette tint goes over
-  // the top: Morytania's swamp and Al Kharid's lagoon are the same water lit
-  // differently, and the palette is what tells them apart.
-  const isWater = (c: number, r: number) =>
-    c >= 0 && r >= 0 && c < cols && r < t.rows && t.tiles[r * cols + c] === 'water';
-  for (let i = 0; i < t.tiles.length; i++) {
-    if (t.tiles[i] !== 'water') continue;
-    const c = i % cols;
-    const r = (i / cols) | 0;
-    const x0 = c * GRID;
-    const y0 = r * GRID;
-    const { deep, shallow, foam } = liquidPalette(gr, t.liquid[i]);
-    const kindKey = t.liquid[i] === 'lava' ? 'liquid_lava' : 'liquid_water';
-    const surface = gr.e.imageOk(kindKey) ? gr.e.images.get(kindKey) : null;
-    ctx.globalAlpha = 1;
-    if (surface) {
-      // The still version of the pool. `render/liquid.ts` scrolls the same texture
-      // over the top every frame; this is what the board falls back to on the frames
-      // before that layer has a pattern, and it means a pool is never a bare hole.
-      ctx.drawImage(surface, x0, y0, GRID, GRID);
-      ctx.globalAlpha = 0.28;
-      ctx.fillStyle = deep;
-      ctx.fillRect(x0, y0, GRID, GRID);
-    } else {
-      // Until the texture loads — and on the frame the board is first dealt — the
-      // pool is flat biome colour with a lighter middle, so it still reads as
-      // water with depth rather than as a hole in the map.
-      ctx.fillStyle = deep;
-      ctx.fillRect(x0, y0, GRID, GRID);
-      ctx.fillStyle = shallow;
-      ctx.globalAlpha = 0.35;
-      ctx.fillRect(x0 + 5, y0 + 5, GRID - 10, GRID - 10);
-    }
-    ctx.globalAlpha = 0.8;
-    ctx.fillStyle = foam;
-    if (!isWater(c, r - 1)) ctx.fillRect(x0, y0, GRID, 2);
-    if (!isWater(c, r + 1)) ctx.fillRect(x0, y0 + GRID - 2, GRID, 2);
-    if (!isWater(c - 1, r)) ctx.fillRect(x0, y0, 2, GRID);
-    if (!isWater(c + 1, r)) ctx.fillRect(x0 + GRID - 2, y0, 2, GRID);
   }
   ctx.globalAlpha = 1;
 
