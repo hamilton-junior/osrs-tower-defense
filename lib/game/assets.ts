@@ -700,7 +700,7 @@ export const ASSETS = {
       wild_skull_pile: `${LOCAL}/scenery/wild_skull_pile.png`,     // 12453 Skulls
       wild_ruins: `${LOCAL}/scenery/wild_ruins.png`,               // 3755 Ruins
       wild_spire: `${LOCAL}/scenery/wild_spire.png`,               // 2704 Rocks
-      troll_pine: `${LOCAL}/scenery/troll_pine.png`,               // 3037 Arctic pine tree
+      troll_pine: `${LOCAL}/scenery/troll_pine.png`,               // 60091 Pine tree (frosted)
       troll_ice_boulder: `${LOCAL}/scenery/troll_ice_boulder.png`, // 5039 Ice covered boulder
       troll_icicle: `${LOCAL}/scenery/troll_icicle.png`,           // 554 Icicle
       troll_snow: `${LOCAL}/scenery/troll_snow.png`,               // 15615 Snow

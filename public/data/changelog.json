@@ -2,6 +2,20 @@
   "generatedAt": "2026-09-18",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "board",
+      "text": "Trollweiss' bare green pines are frosted over like the rest of the snowfield",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "new",
+      "scope": "daily",
+      "text": "The daily result screen now shows the last week of dailies and your streak",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
       "kind": "new",
       "scope": "daily",
       "text": "A Daily Challenge gives everyone the same map and the same waves each day, and keeps your best run",
@@ -264,20 +278,6 @@
       "kind": "updated",
       "scope": "ui",
       "text": "Notices stay up long enough to read, and longer ones stay up longer",
-      "fromFeedback": true,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "Notices above the prayer bar are a third larger",
-      "fromFeedback": true,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "The red flash from a Zamorak brew drunk while paused fades instead of staying on the board",
       "fromFeedback": true,
       "date": "2026-09-16"
     }

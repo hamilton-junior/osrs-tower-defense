@@ -237,7 +237,12 @@ const TARGETS = {
   wild_boulder_big: { obj: 3754, dir: 'scenery' },
   wild_stones: { obj: 26633, dir: 'scenery' },
 
-  troll_pine: { obj: 3037, dir: 'scenery' },
+  // 60091 Pine tree, not 3037 Arctic pine: the arctic pine's bake carries no snow at
+  // all, and a bare green conifer in a snowfield reads as the wrong biome. This one
+  // is frosted, and its tall thin silhouette keeps it apart from the two evergreens
+  // below — the cache has only two snowy evergreen models, and 1318/40932 bake byte
+  // for byte identical to 46510.
+  troll_pine: { obj: 60091, dir: 'scenery' },
   troll_ice_boulder: { obj: 5039, dir: 'scenery' },
   troll_icicle: { obj: 554, dir: 'scenery' },
   troll_snow: { obj: 15615, dir: 'scenery' },
