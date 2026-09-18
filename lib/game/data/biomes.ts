@@ -37,7 +37,7 @@ export type SceneryId =
   | 'kara_palm' | 'kara_jungle_tree' | 'kara_fern'
   | 'kara_banana' | 'kara_palm_young' | 'kara_tropical_palm' | 'kara_flowers' | 'kara_fungus'
   | 'tz_stalagmite' | 'tz_sulphur' | 'tz_sulphur_mound'
-  | 'tz_stalagmite_lit' | 'tz_fence' | 'tz_sulphur_small' | 'tz_fence_post';
+  | 'tz_stalagmite_lit' | 'tz_sulphur_small';
 
 /**
  * **Props that only make sense in company.** One obsidian fence panel alone in the
@@ -57,7 +57,6 @@ export const CLUSTERED_SCENERY: ReadonlySet<SceneryId> = new Set<SceneryId>([
   'wild_pillar', 'wild_ruins', 'wild_skulls',
   'troll_icicle', 'troll_snow_mound',
   'kara_fern', 'kara_flowers', 'kara_fungus',
-  'tz_fence', 'tz_fence_post',
 ]);
 
 export interface BiomeDef {
@@ -257,9 +256,9 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,120,40,0.15)', 'rgba(60,40,35,0.6)'],
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
     scenery: {
-      block: ['tz_stalagmite', 'tz_stalagmite_lit', 'tz_fence'],
+      block: ['tz_stalagmite', 'tz_stalagmite_lit'],
       rough: ['tz_sulphur', 'tz_sulphur_mound', 'tz_sulphur_small'],
-      prop: ['tz_sulphur', 'tz_sulphur_mound', 'wild_stones', 'tz_fence_post'],
+      prop: ['tz_sulphur', 'tz_sulphur_mound', 'wild_stones'],
     },
     decor: { bush: '#3a2018', rock: '#2a2422', rockHi: '#4a4038', flowers: ['#ff7a1f', '#ffb03a', '#e0401a'] },
     water: { deep: '#1a1210', shallow: '#3a1f16', foam: '#8a4426', ripple: '#ff9b4a' },

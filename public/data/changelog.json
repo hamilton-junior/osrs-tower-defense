@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "Fences, graves and toadstool beds stand in groups, and TzHaar's banner is gone",
+      "fromFeedback": false,
+      "date": "2026-09-17"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "Every region stands twice as many kinds of tree, rock and ruin, and Karamja's floor turns warm green",
       "fromFeedback": false,
       "date": "2026-09-17"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "game",
       "text": "A brew at your overheal cap asks before it pours",
-      "fromFeedback": true,
-      "date": "2026-09-15"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "The Saradomin brew heals past your maximum, and the extra life stays",
       "fromFeedback": true,
       "date": "2026-09-15"
     }

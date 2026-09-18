@@ -52,8 +52,18 @@ function drawProp(
   if (!gr.e.imageOk(key)) return false;
   const img = gr.e.images.get(key);
   if (!img || !img.width) return false;
-  const w = GRID * scale;
-  const h = w * (img.height / img.width);
+  let w = GRID * scale;
+  let h = w * (img.height / img.width);
+  // Nothing stands taller than `MAX_PROP_TILES`. `scale` sets a prop's *width*,
+  // so a bake that is narrow and tall — a dead arctic pine is 54×204 — came out
+  // five tiles high and swallowed the board behind it. Capping the height and
+  // taking the width down with it keeps the model's proportions and cuts the
+  // giants roughly in half, while a prop already under the cap is untouched.
+  const cap = GRID * MAX_PROP_TILES;
+  if (h > cap) {
+    w *= cap / h;
+    h = cap;
+  }
   const cx = col * GRID + GRID / 2 + jx;
   // Where the prop meets the ground: a little above the tile's bottom edge, so it
   // reads as standing *in* its square rather than on the line below it.
@@ -67,6 +77,9 @@ function drawProp(
   ctx.drawImage(img, cx - w / 2, groundY - h, w, h);
   return true;
 }
+
+/** The tallest a prop may be drawn, in tiles. See the cap in `drawProp`. */
+const MAX_PROP_TILES = 1.75;
 
 /** How wide and how deep one patch of ground is, in tiles. A clustered prop is
  *  dealt once per patch, so a run of fence spans a few tiles across and reads as

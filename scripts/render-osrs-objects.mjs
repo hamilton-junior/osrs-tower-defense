@@ -273,13 +273,11 @@ const TARGETS = {
   kara_flowers: { obj: 1196, dir: 'scenery' },
   kara_fungus: { obj: 21741, dir: 'scenery' },
 
-  // Mor Ul Rek's own furniture, which is what makes the cavern read as a city
-  // rather than a cave: an obsidian fence panel and the lava-lit stalagmite, plus
-  // a single fence post for the tiles a panel overfills.
+  // More of Mor Ul Rek's floor: the lava-lit stalagmite and a smaller sulphur
+  // mound. The obsidian fence panel and post were baked here too and dropped —
+  // a fence line read as a compound wall, which the cavern is not.
   tz_stalagmite_lit: { obj: 11188, dir: 'scenery' },
-  tz_fence: { obj: 29267, dir: 'scenery' },
   tz_sulphur_small: { obj: 28497, dir: 'scenery' },
-  tz_fence_post: { obj: 29268, dir: 'scenery' },
 
   tz_stalagmite: { obj: 3825, dir: 'scenery' },
   tz_sulphur: { obj: 3962, dir: 'scenery' },
