@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "TzHaar's lava seams crack open over the rock and the boulders become Inferno roof pillars",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "The TzHaar throne stands as a single pair and lava fills the floor it leaves behind",
       "fromFeedback": false,
       "date": "2026-09-18"
@@ -271,13 +278,6 @@
       "kind": "fixed",
       "scope": "game",
       "text": "Every life you win back pops on the lives orb",
-      "fromFeedback": true,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Eating food or drinking a brew shows the lives you gained, not a flash like a hit",
       "fromFeedback": true,
       "date": "2026-09-16"
     }

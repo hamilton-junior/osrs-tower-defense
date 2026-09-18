@@ -324,19 +324,31 @@ const TARGETS = {
   // The sulphur went with them. Mor Ul Rek does have sulphur vents, but the two
   // we had baked (28496/28497 "Volcanic sulphur") are Volcanic Mine props — pale
   // domes that read as sand dunes on a black floor. Lava took their slot: a
-  // molten splat pool for the open floor and a thin seam for the rock, with a
-  // lava forge as the one landmark and a dark boulder as the filler that keeps
-  // the blocked tiles from falling through to a procedural rock.
+  // molten splat pool for the open floor and a cracked-open seam for the rock, with a
+  // lava forge as the one landmark and the Inferno's own roof pillar as the filler
+  // that keeps the blocked tiles from falling through to a procedural rock.
   tz_brazier: { obj: 11017, dir: 'scenery' },
   tz_lava_trough: { obj: 18519, dir: 'scenery' },
   tz_obsidian_rock: { obj: 47241, dir: 'scenery' },
   tz_lava_forge: { obj: 11978, models: [9293], dir: 'scenery' },
 
   tz_lava_pool: { obj: 55993, dir: 'scenery' },
-  tz_lava_seam: { obj: 44601, dir: 'scenery' },
-  tz_boulder: { obj: 6950, dir: 'scenery' },
-
-
+  // The seam was 44601 "Lava pool" and no camera could save it: the def is two
+  // models, 44909 is the rock the pool sits in (a black box at every pitch and yaw
+  // swept, 90/70/50/30 against 0/30/60/90) and 14158 alone is only the pool's rim,
+  // which bakes as a hollow orange hoop lying on the floor. 55995 is a second
+  // molten splat from the same family as the pool with a different silhouette, and
+  // at pitch 70 its crust cracks open over two vents — a seam, not a puddle. Its
+  // shallow camera is what separates it from tz_lava_pool, which lies flat.
+  tz_lava_seam: { obj: 55995, pitch: 70, yaw: 60, dir: 'scenery' },
+  // 30284 is the Inferno's own roof support: a column of boulders with lava
+  // showing between them, and at 45,41,41 darker than the 6950 boulder it
+  // replaces. That boulder was one flat dark blob — the filler is the most
+  // repeated prop on the board, so it is the one that has to be worth looking at.
+  // Nothing else in the cache came close: swept lava/obsidian/molten by name, then
+  // basalt, shale, craters, vents, hewn steps, ash and every rockslide and rubble
+  // pile, and they are pale granite, olive scree, gold ore or teal stone.
+  tz_rock_pillar: { obj: 30284, yaw: 30, dir: 'scenery' },
 };
 
 // -------------------------------------------------------- object def parsing

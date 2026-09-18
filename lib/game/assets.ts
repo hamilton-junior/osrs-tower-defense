@@ -704,8 +704,8 @@ export const ASSETS = {
       tz_brazier: `${LOCAL}/scenery/tz_brazier.png`,               // 11017 Brazier
       tz_lava_forge: `${LOCAL}/scenery/tz_lava_forge.png`,         // 11978 Lava forge
       tz_lava_pool: `${LOCAL}/scenery/tz_lava_pool.png`,           // 55993 Lava
-      tz_lava_seam: `${LOCAL}/scenery/tz_lava_seam.png`,           // 44601 Lava pool
-      tz_boulder: `${LOCAL}/scenery/tz_boulder.png`,               // 6950 Boulder
+      tz_lava_seam: `${LOCAL}/scenery/tz_lava_seam.png`,           // 55995 Lava (cracked seam)
+      tz_rock_pillar: `${LOCAL}/scenery/tz_rock_pillar.png`,       // 30284 Rocky support
       tz_lava_trough: `${LOCAL}/scenery/tz_lava_trough.png`,       // 18519 Lava trough
       tz_obsidian_rock: `${LOCAL}/scenery/tz_obsidian_rock.png`,   // 47241 Tzhaar-Ket-Rak Display
     } as Record<SceneryId, string>,
