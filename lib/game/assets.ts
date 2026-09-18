@@ -611,19 +611,25 @@ export const ASSETS = {
   // what a player recognises is the texture itself. Each one is baked at its own
   // size by scripts/render-osrs-objects.mjs.
   //
-  // Each region carries **two** floors rather than one: the board squares are 64
-  // logic px and the field is 225 of them, so a single texture repeated flat read
-  // as wallpaper. `core/render/terrain.ts` deals the second one as the odd square
-  // and turns every square by a hashed quarter-turn (see `paintGround`).
+  // Each region carries **two to four** floors rather than one: the board squares
+  // are 64 logic px and the field is 225 of them, so a single texture repeated flat
+  // read as wallpaper. The first entry is the pattern the whole board is paved with
+  // and every entry after it is scattered over that as soft round blots, one
+  // scatter each (see `paintGround` in `core/render/terrain.ts`) — so a fourth
+  // texture is a fourth scatter, and the order here is the order they are laid.
+  //
+  // Two regions must never share a floor: Morytania and the Wilderness were dealt
+  // the same wet stone and black rot, and a player crossing between them saw one
+  // region with the lights turned down. They own their palettes outright now.
   terrain: {
     ground: {
-      lumbridge: [`${LOCAL}/terrain/ground_lumbridge_a.png`, `${LOCAL}/terrain/ground_lumbridge_b.png`, `${LOCAL}/terrain/ground_lumbridge_c.png`], // 129 meadow grass · 25 deep pasture · 32 trodden dirt
-      alkharid: [`${LOCAL}/terrain/ground_alkharid_a.png`, `${LOCAL}/terrain/ground_alkharid_b.png`, `${LOCAL}/terrain/ground_alkharid_c.png`], // 18 flat sand · 38 dune ripples · 118 wind-packed grit
-      morytania: [`${LOCAL}/terrain/ground_morytania_a.png`, `${LOCAL}/terrain/ground_morytania_b.png`, `${LOCAL}/terrain/ground_morytania_c.png`], // 60 swamp moss · 11 wet stone · 89 black rot
-      wilderness: [`${LOCAL}/terrain/ground_wilderness_a.png`, `${LOCAL}/terrain/ground_wilderness_b.png`, `${LOCAL}/terrain/ground_wilderness_c.png`], // 11 cold stone · 89 burnt earth · 118 grit
+      lumbridge: [`${LOCAL}/terrain/ground_lumbridge_a.png`, `${LOCAL}/terrain/ground_lumbridge_b.png`, `${LOCAL}/terrain/ground_lumbridge_c.png`, `${LOCAL}/terrain/ground_lumbridge_d.png`], // 129 meadow grass · 191 leafy grass · 32 trodden dirt · 203 dry grass tufts
+      alkharid: [`${LOCAL}/terrain/ground_alkharid_a.png`, `${LOCAL}/terrain/ground_alkharid_b.png`, `${LOCAL}/terrain/ground_alkharid_c.png`], // 18 flat sand · 42 drifted sand · 118 wind-packed grit
+      morytania: [`${LOCAL}/terrain/ground_morytania_a.png`, `${LOCAL}/terrain/ground_morytania_b.png`, `${LOCAL}/terrain/ground_morytania_c.png`, `${LOCAL}/terrain/ground_morytania_d.png`], // 190 swamp moss · 178 standing silt · 201 rotted mulch · 193 churned bog
+      wilderness: [`${LOCAL}/terrain/ground_wilderness_a.png`, `${LOCAL}/terrain/ground_wilderness_b.png`, `${LOCAL}/terrain/ground_wilderness_c.png`], // 117 burnt earth · 119 charred grit · 204 dead scrub
       trollweiss: [`${LOCAL}/terrain/ground_trollweiss_a.png`, `${LOCAL}/terrain/ground_trollweiss_b.png`], // 91 snow · 1 packed ice
-      karamja: [`${LOCAL}/terrain/ground_karamja_a.png`, `${LOCAL}/terrain/ground_karamja_b.png`, `${LOCAL}/terrain/ground_karamja_c.png`], // 32 jungle mud · 129 clearing grass · 195 leaf litter
-      tzhaar: [`${LOCAL}/terrain/ground_tzhaar_a.png`, `${LOCAL}/terrain/ground_tzhaar_b.png`, `${LOCAL}/terrain/ground_tzhaar_c.png`], // 89 black basalt · 31 lava seams · 210 ember crust
+      karamja: [`${LOCAL}/terrain/ground_karamja_a.png`, `${LOCAL}/terrain/ground_karamja_b.png`, `${LOCAL}/terrain/ground_karamja_c.png`, `${LOCAL}/terrain/ground_karamja_d.png`], // 32 jungle mud · 129 clearing grass · 192 leaf litter · 199 shaded undergrowth
+      tzhaar: [`${LOCAL}/terrain/ground_tzhaar_a.png`, `${LOCAL}/terrain/ground_tzhaar_b.png`, `${LOCAL}/terrain/ground_tzhaar_c.png`], // 119 black basalt · 59 cooling crust · 95 obsidian sheet
     } as Record<BiomeId, string[]>,
     // Both liquids are baked into the static background with the ground: the
     // client scrolls their u/v, but a scrolling pool under a camera that never
@@ -662,6 +668,12 @@ export const ASSETS = {
       mory_toadstools: `${LOCAL}/scenery/mory_toadstools.png`,     // 1166 Mushrooms
       mory_fungus: `${LOCAL}/scenery/mory_fungus.png`,             // 1170 Fungus
       mory_twisted_tree: `${LOCAL}/scenery/mory_twisted_tree.png`, // 30852 Burnt tree
+      mory_swamp_tree: `${LOCAL}/scenery/mory_swamp_tree.png`,     // 13847 Swamp tree
+      mory_dead_birch: `${LOCAL}/scenery/mory_dead_birch.png`,     // 13844 Swamp tree
+      mory_swamp_bubbles: `${LOCAL}/scenery/mory_swamp_bubbles.png`, // 684 Swamp bubbles
+      mory_rotting_log: `${LOCAL}/scenery/mory_rotting_log.png`,   // 3508 Rotting log
+      mory_rotten_stump: `${LOCAL}/scenery/mory_rotten_stump.png`, // 29737 Rotten stump
+      mory_mausoleum: `${LOCAL}/scenery/mory_mausoleum.png`,       // 10055 Mausoleum
       wild_boulder: `${LOCAL}/scenery/wild_boulder.png`,           // 3753 Boulders
       wild_boulder_big: `${LOCAL}/scenery/wild_boulder_big.png`,   // 3754 Boulders
       wild_stones: `${LOCAL}/scenery/wild_stones.png`,             // 26633 Stones
@@ -689,10 +701,11 @@ export const ASSETS = {
       kara_tropical_palm: `${LOCAL}/scenery/kara_tropical_palm.png`, // 57815 Tropical palm
       kara_flowers: `${LOCAL}/scenery/kara_flowers.png`,           // 1196 Flowers
       kara_fungus: `${LOCAL}/scenery/kara_fungus.png`,             // 21741 Fungus
-      tz_sulphur: `${LOCAL}/scenery/tz_sulphur.png`,               // 3962 Sulphur
-      tz_sulphur_mound: `${LOCAL}/scenery/tz_sulphur_mound.png`,   // 28496 Volcanic sulphur
-      tz_sulphur_small: `${LOCAL}/scenery/tz_sulphur_small.png`,   // 28497 Volcanic sulphur
-      tz_statue: `${LOCAL}/scenery/tz_statue.png`,                 // 11968 TzHaar statue
+      tz_brazier: `${LOCAL}/scenery/tz_brazier.png`,               // 11017 Brazier
+      tz_lava_forge: `${LOCAL}/scenery/tz_lava_forge.png`,         // 11978 Lava forge
+      tz_lava_pool: `${LOCAL}/scenery/tz_lava_pool.png`,           // 55993 Lava
+      tz_lava_seam: `${LOCAL}/scenery/tz_lava_seam.png`,           // 44601 Lava pool
+      tz_boulder: `${LOCAL}/scenery/tz_boulder.png`,               // 6950 Boulder
       tz_lava_trough: `${LOCAL}/scenery/tz_lava_trough.png`,       // 18519 Lava trough
       tz_obsidian_rock: `${LOCAL}/scenery/tz_obsidian_rock.png`,   // 47241 Tzhaar-Ket-Rak Display
     } as Record<SceneryId, string>,

@@ -4,6 +4,20 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "TzHaar trades its sulphur for lava pools and Morytania grows a dead swamp",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
+      "text": "One chaos altar per map, fewer graves, and TzHaar trades its stalagmites for city stone",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "The tallest trees and stalagmites lose half their height, and TzHaar's fences are gone",
       "fromFeedback": false,
       "date": "2026-09-17"
@@ -266,20 +280,6 @@
       "text": "Hovering a monster in the wave roster shows its card over the potion timers",
       "fromFeedback": true,
       "date": "2026-09-16"
-    },
-    {
-      "kind": "updated",
-      "scope": "game",
-      "text": "Opening the wave roster pushes the potion timers down instead of covering them",
-      "fromFeedback": true,
-      "date": "2026-09-15"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "A trap springs on what walked over it, not on where it landed",
-      "fromFeedback": true,
-      "date": "2026-09-15"
     }
   ]
 }

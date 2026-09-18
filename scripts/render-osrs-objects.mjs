@@ -119,29 +119,47 @@ const TARGETS = {
   // pattern fill now, so it wants the flattest, least directional texture of the set
   // — a texture with lines in it is fine as an accent and reads as a ruled seam when
   // it is the floor.
+  //
+  // A region's floors also have to differ from its neighbours'. Morytania and the
+  // Wilderness were paved from the same two textures and read as one region with
+  // the lights turned down; each now owns its palette outright — Morytania a wet
+  // swamp under the Slayer Tower, the Wilderness burnt earth and charred grit.
   ground_lumbridge_a: { tex: 129, raw: true, dir: 'terrain' },  // meadow grass
-  ground_lumbridge_b: { tex: 25, raw: true, dir: 'terrain' },   // deep pasture
+  // 25 stood here and paved the shire teal: it is a blue-green moss, not pasture.
+  ground_lumbridge_b: { tex: 191, raw: true, dir: 'terrain' },  // leafy grass
   ground_lumbridge_c: { tex: 32, raw: true, dir: 'terrain' },   // trodden dirt
+  ground_lumbridge_d: { tex: 203, raw: true, dir: 'terrain' },  // dry grass tufts
   ground_alkharid_a: { tex: 18, raw: true, dir: 'terrain' },    // flat sand
-  ground_alkharid_b: { tex: 38, raw: true, dir: 'terrain' },    // dune ripples
+  // 38 was the dune ripples, and ripples are ruled lines: every blot of it laid a
+  // streak across the desert and the eye joined the streaks into paths. 42 is the
+  // same sand with no direction in it at all, so a blot only ever reads as sand.
+  ground_alkharid_b: { tex: 42, raw: true, dir: 'terrain' },    // drifted sand
   ground_alkharid_c: { tex: 118, raw: true, dir: 'terrain' },   // wind-packed grit
-  ground_morytania_a: { tex: 60, raw: true, dir: 'terrain' },   // swamp moss
-  ground_morytania_b: { tex: 11, raw: true, dir: 'terrain' },   // wet stone
-  ground_morytania_c: { tex: 89, raw: true, dir: 'terrain' },   // black rot
-  ground_wilderness_a: { tex: 11, raw: true, dir: 'terrain' },  // cold stone
-  ground_wilderness_b: { tex: 89, raw: true, dir: 'terrain' },  // burnt earth
-  ground_wilderness_c: { tex: 118, raw: true, dir: 'terrain' }, // grit
+  ground_morytania_a: { tex: 190, raw: true, dir: 'terrain' },  // swamp moss
+  ground_morytania_b: { tex: 178, raw: true, dir: 'terrain' },  // standing silt
+  ground_morytania_c: { tex: 201, raw: true, dir: 'terrain' },  // rotted mulch
+  ground_morytania_d: { tex: 193, raw: true, dir: 'terrain' },  // churned bog
+  ground_wilderness_a: { tex: 117, raw: true, dir: 'terrain' }, // burnt earth
+  ground_wilderness_b: { tex: 119, raw: true, dir: 'terrain' }, // charred grit
+  ground_wilderness_c: { tex: 204, raw: true, dir: 'terrain' }, // dead scrub
   ground_trollweiss_a: { tex: 91, raw: true, dir: 'terrain' },  // snow
   ground_trollweiss_b: { tex: 1, raw: true, dir: 'terrain' },   // packed ice
   ground_karamja_a: { tex: 32, raw: true, dir: 'terrain' },     // jungle mud
   ground_karamja_b: { tex: 129, raw: true, dir: 'terrain' },    // clearing grass
   // Texture 25 used to sit here and cast the whole jungle floor teal — it is a
   // blue-green moss, and against the mud base it read as swamp rather than
-  // rainforest. 195 is the warm olive leaf litter the jungle canopy drops.
-  ground_karamja_c: { tex: 195, raw: true, dir: 'terrain' },    // leaf litter
-  ground_tzhaar_a: { tex: 89, raw: true, dir: 'terrain' },      // black basalt
-  ground_tzhaar_b: { tex: 31, raw: true, dir: 'terrain' },      // lava seams
-  ground_tzhaar_c: { tex: 210, raw: true, dir: 'terrain' },     // ember crust
+  // rainforest. 195 replaced it and went too far the other way: a high-contrast
+  // yellow lichen the jungle's own dark trees disappeared into. 192 and 199 are
+  // the quiet ones, so what the eye picks out of the floor is the tree on it.
+  ground_karamja_c: { tex: 192, raw: true, dir: 'terrain' },    // leaf litter
+  ground_karamja_d: { tex: 199, raw: true, dir: 'terrain' },    // shaded undergrowth
+  // Mor Ul Rek is black rock and molten seams, and it was paved with 89 — the same
+  // dark moss Morytania rots on — which under the cavern's own tint came out as
+  // recoloured sand. 119 is the basalt grit, 59 the cooling crust that cracks
+  // orange, 95 the obsidian sheet the city is cut from.
+  ground_tzhaar_a: { tex: 119, raw: true, dir: 'terrain' },     // black basalt
+  ground_tzhaar_b: { tex: 59, raw: true, dir: 'terrain' },      // cooling crust
+  ground_tzhaar_c: { tex: 95, raw: true, dir: 'terrain' },      // obsidian sheet
   liquid_water: { tex: 24, raw: true, dir: 'terrain' },
   liquid_lava: { tex: 31, raw: true, dir: 'terrain' },
 
@@ -256,6 +274,17 @@ const TARGETS = {
   mory_fungus: { obj: 1170, dir: 'scenery' },
   mory_twisted_tree: { obj: 30852, dir: 'scenery' },
 
+  // Mort Myre and the swamp under the Slayer Tower, not a generic boneyard: the
+  // vine-hung swamp trees and the bare white one are what actually grows there,
+  // the bubbles are the swamp's own idle scenery, and the rotting log and stump
+  // are what is left of everything else. The mausoleum is the one landmark.
+  mory_swamp_tree: { obj: 13847, dir: 'scenery' },
+  mory_dead_birch: { obj: 13844, dir: 'scenery' },
+  mory_swamp_bubbles: { obj: 684, dir: 'scenery' },
+  mory_rotting_log: { obj: 3508, dir: 'scenery' },
+  mory_rotten_stump: { obj: 29737, dir: 'scenery' },
+  mory_mausoleum: { obj: 10055, dir: 'scenery' },
+
   wild_chaos_altar: { obj: 411, dir: 'scenery' },
   wild_pillar: { obj: 34795, dir: 'scenery' },
   wild_skulls: { obj: 658, dir: 'scenery' },
@@ -281,16 +310,33 @@ const TARGETS = {
   // Mor Ul Rek's floor. Both stalagmites were baked here and dropped: a cave
   // spike is what every other cavern in the game is made of, and TzHaar city
   // is built, not eroded. What stands there now is city furniture — a lava
-  // trough, a champion's statue and a vein-lit obsidian outcrop. The obsidian
-  // fence panel and post went the same way as the stalagmites: a fence line
-  // read as a compound wall, which the cavern is not.
-  tz_sulphur_small: { obj: 28497, dir: 'scenery' },
-  tz_statue: { obj: 11968, dir: 'scenery' },
+  // trough and a vein-lit obsidian outcrop. The obsidian fence panel and post
+  // went the same way as the stalagmites: a fence line read as a compound wall,
+  // which the cavern is not. The champion's statue went too, on the same call:
+  // one statue is a landmark and Mor Ul Rek's landmark is the fight pit.
+  //
+  // The brazier is the one survivor of a 24-object sweep of the cache for forges,
+  // obsidian benches, lava-pool edges and hewn steps: six defs this parser cannot
+  // read at all, and of the eighteen that did render, everything else came out the
+  // wrong colour for a black-and-lava cavern — white and magenta crystals, pale
+  // ore veins, teal steps, a gilded torch.
+  //
+  // The sulphur went with them. Mor Ul Rek does have sulphur vents, but the two
+  // we had baked (28496/28497 "Volcanic sulphur") are Volcanic Mine props — pale
+  // domes that read as sand dunes on a black floor. Lava took their slot: a
+  // molten splat pool for the open floor and a thin seam for the rock, with a
+  // lava forge as the one landmark and a dark boulder as the filler that keeps
+  // the blocked tiles from falling through to a procedural rock.
+  tz_brazier: { obj: 11017, dir: 'scenery' },
   tz_lava_trough: { obj: 18519, dir: 'scenery' },
   tz_obsidian_rock: { obj: 47241, dir: 'scenery' },
+  tz_lava_forge: { obj: 11978, models: [9293], dir: 'scenery' },
 
-  tz_sulphur: { obj: 3962, dir: 'scenery' },
-  tz_sulphur_mound: { obj: 28496, dir: 'scenery' },
+  tz_lava_pool: { obj: 55993, dir: 'scenery' },
+  tz_lava_seam: { obj: 44601, dir: 'scenery' },
+  tz_boulder: { obj: 6950, dir: 'scenery' },
+
+
 };
 
 // -------------------------------------------------------- object def parsing
