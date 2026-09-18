@@ -58,6 +58,8 @@ function makeAccount(over: Record<string, unknown> = {}): Record<string, unknown
     victories: { total: 3, fastestSeconds: 1800, highestEndlessWave: 112, byMode: { classic: 1, roguelite: 2 } },
     difficulty: { highestCleared: { classic: 1, roguelite: -1 }, records: { 'classic:1': { fastestSeconds: 1800, highestEndlessWave: 112 } } },
     achievements: ['ca_first_blood', 'ca_jad'],
+    pets: { tzrek_jad: 2, vorki: 1 },
+    activePet: 'vorki',
     run: makeRun(),
     ...over,
   };
@@ -73,7 +75,26 @@ describe('sanitizeAccountSave', () => {
     expect(save!.victories.byMode.roguelite).toBe(2);
     expect(save!.difficulty.highestCleared.classic).toBe(1);
     expect(save!.achievements).toEqual(['ca_first_blood', 'ca_jad']);
+    expect(save!.pets).toEqual({ tzrek_jad: 2, vorki: 1 });
+    expect(save!.activePet).toBe('vorki');
     expect(save!.run?.wave).toBe(7);
+  });
+
+  // Pets joined the format after it shipped, so every account written before
+  // them has no such field. That is a save with no pets, not a broken save.
+  it('reads an account written before pets existed', () => {
+    const save = sanitizeAccountSave(makeAccount({ pets: undefined, activePet: undefined }));
+    expect(save).not.toBeNull();
+    expect(save!.pets).toEqual({});
+    expect(save!.activePet).toBeNull();
+  });
+
+  // The active pet is a pointer into the log: keeping one the account never
+  // dropped would walk a pet the player cannot own beside their base.
+  it('drops an active pet the account does not own', () => {
+    const save = sanitizeAccountSave(makeAccount({ pets: { vorki: 1 }, activePet: 'nexling' }));
+    expect(save!.activePet).toBeNull();
+    expect(sanitizeAccountSave(makeAccount({ pets: { vorki: 0 }, activePet: 'vorki' }))!.activePet).toBeNull();
   });
 
   it('rejects a blob that is not an account of this version', () => {

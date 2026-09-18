@@ -54,7 +54,7 @@ export const START_LIVES = 20;
  *  extension point — prayers fire today; towers/spells/achievements can reuse
  *  the same popup by adding a kind + a producer that calls `announceUnlocks`. */
 export interface UnlockItem {
-  kind: 'prayer' | 'achievement';
+  kind: 'prayer' | 'achievement' | 'pet';
   name: string;
   desc: string;
   icon: string;
@@ -350,6 +350,12 @@ export interface UIState {
   /** Lifetime payouts per Distraction & Diversion, keyed `<id>:<reward kind>`
    *  (`diversionGainKey`): what the Collection Log totals under each entry. */
   diversionGains: Record<string, number>;
+  /** Lifetime boss-pet drops per {@link PetId}, account-wide. A duplicate still
+   *  counts, because in OSRS a second pet is a real drop and the log says so. */
+  pets: Record<string, number>;
+  /** The pet that walks the board, or null for none. Cosmetic: a pet changes no
+   *  stat, so this is a preference, not run state. */
+  activePet: string | null;
   /** Lifetime forges per fusion type (the Collection Log "Forge" tab). Counted
    *  when a weapon is actually forged, so the tab is a record of what the account
    *  has built — not of what it is allowed to build, which is one achievement. */

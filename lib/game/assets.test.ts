@@ -13,6 +13,7 @@ import { BIOME_LIST, SCENERY_LIMIT } from './data/biomes';
 import { GE_OFFERS } from './data/ge';
 import { SLAYER_REWARDS } from './data/slayer';
 import { GLOBAL_UPGRADE_DEFS } from './systems/meta-progression';
+import { PETS } from './data/pets';
 
 /** `…/items/coins_25.png` → `coins_25`. */
 const slug = (n: number) => coinsIcon(n).split('/').pop()!.replace('.png', '');
@@ -150,6 +151,35 @@ describe('fishing asset coverage', () => {
       (slug) => !existsSync(join(__dirname, '../../public/assets/models', `${slug}.png`)),
     );
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * Boss pets. Every {@link PetId} needs a portrait: the Collection Log draws one
+ * per entry and the board draws the active one, so a pet with no bake behind it
+ * is an invisible reward for the rarest drop in the game.
+ */
+describe('pet portrait coverage', () => {
+  it('finds the pets it means to check', () => {
+    expect(PETS.length).toBeGreaterThan(0);
+  });
+
+  it('gives every pet a portrait', () => {
+    const missing = PETS.filter((pet) => !ASSETS.pets[pet.id]);
+    expect(missing.map((pet) => pet.id)).toEqual([]);
+  });
+
+  it('backs every portrait with a baked render', () => {
+    const missing = PETS.filter((pet) => {
+      const file = ASSETS.pets[pet.id].split('/').pop()!;
+      return !existsSync(join(__dirname, '../../public/assets/models', file));
+    });
+    expect(missing.map((pet) => pet.id)).toEqual([]);
+  });
+
+  it('maps nothing that is not a pet', () => {
+    const ids = new Set<string>(PETS.map((pet) => pet.id));
+    expect(Object.keys(ASSETS.pets).filter((id) => !ids.has(id))).toEqual([]);
   });
 });
 

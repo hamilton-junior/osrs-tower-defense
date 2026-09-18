@@ -10,7 +10,7 @@
  * this is build-time/offline only (osrscachereader can't run in a static export).
  *
  *   node scripts/render-osrs-npcs.mjs                 # render every TARGET
- *   node scripts/render-osrs-npcs.mjs --only goblin   # render one TARGET
+ *   node scripts/render-osrs-npcs.mjs --only goblin   # render one TARGET (csv for several)
  *   node scripts/render-osrs-npcs.mjs --find bloodveld # discover NPC ids by name
  *
  * NPC ids come from the cache itself (--find searches NPC names), not hard-coded
@@ -196,6 +196,25 @@ const TARGETS = {
   tool_leprechaun_side: { npc: 0, yaw: 90 },
   tool_leprechaun_back: { npc: 0, yaw: 180 },
 
+  // --- Boss pets (lib/game/data/pets.ts) ---
+  // One bake each, from the pet's own NPC id — the ¾ front view the Collection
+  // Log wants, and the same sprite the board mirrors when the pet walks left.
+  pet_tzrek_jad: { npc: 5892 },
+  pet_vorki: { npc: 8025 },
+  pet_snakeling: { npc: 2127 },
+  pet_ikkle_hydra: { npc: 8492 },
+  pet_smol_heredit: { npc: 12767 },
+  pet_scurry: { npc: 7219 },
+  pet_prince_black_dragon: { npc: 6636 },
+  pet_baby_mole: { npc: 5780 },
+  // Noon rides a purple shadow platform whose faces are near-transparent in the
+  // cache; without the boost the whole pet renders as one dark smudge.
+  pet_noon: { npc: 7891, alphaBoost: 3 },
+  pet_hellpuppy: { npc: 964 },
+  pet_dark_core: { npc: 318 },
+  pet_graardor_jr: { npc: 6632 },
+  pet_nexling: { npc: 11276 },
+
   // --- Misc NPC-model icons ---
   giant_snail: { npc: 5628 },            // "slow" debuff icon
   kalphite_larva: { npc: 966 },          // Swarm affix / wave-event icon
@@ -337,7 +356,9 @@ async function main() {
   }
 
   const onlyIdx = argv.indexOf('--only');
-  const only = onlyIdx !== -1 ? argv[onlyIdx + 1] : null;
+  // Comma-separated, like render-osrs-objects.mjs: opening the cache costs more
+  // than every render behind it, so a batch of slugs is one run, not N.
+  const only = onlyIdx !== -1 ? new Set((argv[onlyIdx + 1] || '').split(',').map(s => s.trim()).filter(Boolean)) : null;
   // CLI camera overrides for tuning (apply to every rendered target).
   const yawIdx = argv.indexOf('--yaw');
   const pitchIdx = argv.indexOf('--pitch');
@@ -349,7 +370,7 @@ async function main() {
   if (zoomIdx !== -1) camOverride.zoom = Number(argv[zoomIdx + 1]);
   if (alphaIdx !== -1) camOverride.alphaBoost = Number(argv[alphaIdx + 1]);
 
-  const entries = Object.entries(TARGETS).filter(([slug]) => !only || slug === only);
+  const entries = Object.entries(TARGETS).filter(([slug]) => !only || only.has(slug));
   if (!entries.length) { console.warn('No TARGETS to render (fill in NPC ids via --find).'); process.exit(0); }
 
   for (const [slug, cfg] of entries) {

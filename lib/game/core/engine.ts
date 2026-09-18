@@ -39,6 +39,8 @@ import { rollWaveEvent, resolveEventMods, type WaveEvent } from '../systems/wave
 import { waveHint as buildWaveHint } from '../systems/wave-preview';
 import type { VariantBag } from '../systems/model-variants';
 import { enemyLeakCost } from '../systems/leak-cost';
+import { PET_BY_ID, type PetId } from '../data/pets';
+import { sanitizePets, validActivePet } from '../systems/pets';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import { generateMapLayout, type MapLayout, type MapEdge } from '../systems/map-generation';
@@ -376,6 +378,12 @@ export class GameEngine {
    *  A Collection Log record only — what a player may forge is gated by one
    *  Combat Achievement, never by having forged it before. */
   fusionsMade: Record<string, number> = {};
+  /** Boss pets dropped over the account's lifetime, keyed by {@link PetId}. A
+   *  duplicate bumps the count — OSRS drops a second pet and so do we. */
+  pets: Record<string, number> = {};
+  /** The pet following the board, or null. Cosmetic only: no pet touches a stat,
+   *  so this survives a restart and never enters the run save. */
+  activePet: PetId | null = null;
 
   /** Hydrate the account's completed achievements from storage. Called by the UI
    *  once the localStorage blob is read; the constructor can't take it because the
@@ -583,7 +591,7 @@ export class GameEngine {
   constructor(
     canvas: HTMLCanvasElement,
     onState: (patch: Partial<UIState>) => void,
-    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown; bossesSeen?: unknown; diversionsMet?: unknown; diversionGains?: unknown; fusionsMade?: unknown },
+    save?: MetaLoad & { killCounts?: unknown; cardCounts?: unknown; bossesSeen?: unknown; diversionsMet?: unknown; diversionGains?: unknown; fusionsMade?: unknown; pets?: unknown; activePet?: unknown },
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -595,6 +603,8 @@ export class GameEngine {
     this.diversionsMet = sanitizeDiversionsMet(save?.diversionsMet);
     this.diversionGains = sanitizeDiversionGains(save?.diversionGains);
     this.fusionsMade = sanitizeFusionsMade(save?.fusionsMade);
+    this.pets = sanitizePets(save?.pets);
+    this.activePet = validActivePet(this.pets, save?.activePet);
     this.money = START_MONEY + this.meta.upgrades.startingMoney;
     this.renderer = new GameRenderer(this);
     this.dpr = this.computeDpr();
@@ -985,6 +995,8 @@ export class GameEngine {
       diversionsMet: this.diversionsMet,
       diversionGains: this.diversionGains,
       fusionsMade: this.fusionsMade,
+      pets: this.pets,
+      activePet: this.activePet,
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
       difficultyTier: this.difficultyTier,
@@ -1083,6 +1095,29 @@ export class GameEngine {
     this.noticeIcon = icon ?? null;
     this.noticeReward = reward ?? null;
     this.noticeSeq++;
+    this.emit();
+  }
+
+  /** Record a boss pet the account just earned. The first of a kind gets the
+   *  collection-log popup and takes the board, because a pet nobody sees is a
+   *  reward nobody got; a duplicate is a notice, since the walk is already taken. */
+  gainPet(id: PetId) {
+    const def = PET_BY_ID[id];
+    const had = (this.pets[id] ?? 0) > 0;
+    // A fresh object each drop, so the UI's persistence effect sees the change.
+    this.pets = { ...this.pets, [id]: (this.pets[id] ?? 0) + 1 };
+    if (had) {
+      this.notify(`Duplicate pet: ${def.name}`, ASSETS.pets[id]);
+      return;
+    }
+    if (!this.activePet) this.activePet = id;
+    this.announceUnlocks([{ kind: 'pet', name: def.name, desc: def.blurb, icon: ASSETS.pets[id] }]);
+    this.emit();
+  }
+
+  /** Choose which owned pet walks the board (null puts them all away). */
+  setActivePet(id: PetId | null) {
+    this.activePet = validActivePet(this.pets, id);
     this.emit();
   }
 
@@ -1412,6 +1447,10 @@ export class GameEngine {
         Object.entries(ASSETS.towers).flatMap(([type, variants]) =>
           Object.entries(variants as Record<string, string>).map(([v, url]) => [`${type}_${v}`, url]),
         ),
+      ),
+      // Boss pets (keyed `pet_<id>`) — the board draws the active one.
+      ...Object.fromEntries(
+        Object.entries(ASSETS.pets).map(([id, url]) => [`pet_${id}`, url]),
       ),
       // Spell icons double as the tower badge and the projectile sprite.
       ...Object.fromEntries(

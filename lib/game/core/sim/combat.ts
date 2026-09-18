@@ -13,6 +13,7 @@ import { ELEMENTS, ANCIENTS, SUPPORT_SPELLS, weaknessMultiplier, lifestealChance
 import { debuffTenacity, CC_BREAK_SHRED, CC_BREAK_SECS } from '../../systems/tenacity';
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch, noxiousSpread, halberdSeedDps, type VenomLevel, envenomAura, envenomStaffFor, eclipseStacksAfter, eclipseShove, eclipseBurnDps, ECLIPSE_MAX_STACKS, ECLIPSE_STACK_SECS } from '../../systems/tower-identity';
 import { rollGearDrops, gearDamageMult, wearsGearEffect } from '../../systems/tower-gear';
+import { rollPetDrop } from '../../systems/pets';
 import { fusionSpellFx, purgeDamageMult, PURGE_DENY_SECS } from '../../systems/tower-fusion';
 import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
 import { mergeUnlockBatch } from '../../systems/unlock-queue';
@@ -1595,6 +1596,12 @@ function awardKill(
   // Combat Achievements checkpoint: boss-kill tasks (speed/no-leak/mechanic)
   // are only ever true for the instant after the boss dies.
   if (enemy.isBoss) eng.checkAchievements();
+  // The pet chase. Every boss carries one, the roll is the kill's own, and the
+  // reward is cosmetic — a pet changes no stat, so this cannot swing a run.
+  if (enemy.isBoss) {
+    const pet = rollPetDrop(enemy.type, eng.difficultyTier);
+    if (pet) eng.gainPet(pet);
+  }
   // Classic gear drops fall straight into the run's loot bag (no ground loot in
   // the new core). Gated to Classic — roguelite gears its towers via drafts.
   if (eng.gameMode === 'classic') {

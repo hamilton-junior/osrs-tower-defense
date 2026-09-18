@@ -1,4 +1,5 @@
 import { sanitizeRunSave, type RunSave } from './run-save';
+import { sanitizePets, validActivePet } from './pets';
 
 /**
  * The **account** save: everything a player would lose by clearing their browser,
@@ -68,6 +69,12 @@ export interface AccountSave {
   /** Lifetime forges per fusion type. Added after the format was first shipped,
    *  so an older code carries none — which reads as "nothing forged yet". */
   fusionsMade: Record<string, number>;
+  /** Boss pets dropped, keyed by PetId. Added after the format was first shipped,
+   *  so an older code carries none — which reads as "no pet yet". */
+  pets: Record<string, number>;
+  /** Which owned pet walks the board, or null. Cosmetic, and a preference: an
+   *  imported account that names a pet it does not own simply shows none. */
+  activePet: string | null;
   victories: Victories;
   difficulty: DifficultyProgress;
   achievements: string[];
@@ -141,6 +148,8 @@ export interface AccountParts {
   diversionsMet?: unknown;
   diversionGains?: unknown;
   fusionsMade?: unknown;
+  pets?: unknown;
+  activePet?: unknown;
   victories?: unknown;
   difficulty?: unknown;
   achievements?: unknown;
@@ -166,6 +175,8 @@ export function buildAccountSave(parts: AccountParts): AccountSave {
     diversionsMet: tally(raw.diversionsMet),
     diversionGains: tally(raw.diversionGains),
     fusionsMade: tally(raw.fusionsMade),
+    pets: sanitizePets(raw.pets),
+    activePet: validActivePet(sanitizePets(raw.pets), raw.activePet),
     victories: sanitizeVictories(raw.victories),
     difficulty: sanitizeDifficulty(raw.difficulty),
     achievements: Array.isArray(raw.achievements) ? raw.achievements.filter((x): x is string => typeof x === 'string') : [],

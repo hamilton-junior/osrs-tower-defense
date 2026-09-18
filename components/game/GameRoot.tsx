@@ -101,6 +101,8 @@ const INITIAL: UIState = {
   diversionsMet: {},
   diversionGains: {},
   fusionsMade: {},
+  pets: {},
+  activePet: null,
   dpsStats: null,
   lastWaveSandbox: false,
   gameMode: 'roguelite', difficultyTier: 0, pendingDraft: null, draftBoosted: false,
@@ -137,6 +139,7 @@ const LOOT_TOAST_MS = 2600;
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = {
   prayer: 'Prayer Unlocked',
   achievement: 'Combat Achievement',
+  pet: 'Pet Drop',
 };
 
 /** One press of the interface-size − / +.
@@ -739,6 +742,19 @@ export default function GameRoot() {
     if (!fuLoaded.current) { fuLoaded.current = true; return; }
     try { localStorage.setItem(SAVE_KEYS.fusionsMade, JSON.stringify(ui.fusionsMade)); } catch { /* ignore */ }
   }, [ui.fusionsMade]);
+
+  // Persist the boss pets and which one walks the board. The active pet is a bare
+  // id rather than JSON: it is one string, and the reader in save.ts treats a name
+  // it no longer knows as "no pet".
+  const petLoaded = useRef(false);
+  useEffect(() => {
+    if (!petLoaded.current) { petLoaded.current = true; return; }
+    try {
+      localStorage.setItem(SAVE_KEYS.pets, JSON.stringify(ui.pets));
+      if (ui.activePet) localStorage.setItem(SAVE_KEYS.activePet, ui.activePet);
+      else localStorage.removeItem(SAVE_KEYS.activePet);
+    } catch { /* ignore */ }
+  }, [ui.pets, ui.activePet]);
 
   // Record a victory exactly once per win. `won` latches true for the whole victory
   // screen (and stays true through Endless), so a ref guards against re-counting; it
@@ -3252,6 +3268,10 @@ export default function GameRoot() {
           diversionsMet={ui.diversionsMet}
           diversionGains={ui.diversionGains}
           fusionsMade={ui.fusionsMade}
+          pets={ui.pets}
+          activePet={ui.activePet}
+          setActivePet={(id) => engineRef.current?.setActivePet(id)}
+          difficultyTier={ui.difficultyTier}
           achievements={ui.achievements}
           victories={victories}
           difficulty={difficulty}

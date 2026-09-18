@@ -16,6 +16,8 @@ import { DIVERSIONS, DIVERSION_REWARD_KINDS, type DiversionDef } from '@/lib/gam
 import { diversionGainKey } from '@/lib/game/systems/diversions';
 import { RewardChip } from './diversion-reward';
 import { FUSIONS, FUSION_UNLOCK_CA, type FusionDef } from '@/lib/game/systems/tower-fusion';
+import { PETS, type PetDef, type PetId } from '@/lib/game/data/pets';
+import { petDropChance } from '@/lib/game/systems/pets';
 import { towerIcon } from './tower-ui';
 import type { EnemyType, TowerType } from '@/lib/game/types';
 import { RARITY_COLOR, RARITY_LABEL, effectTag, renderWithStyleIcons, DraftCardView } from './draft-cards';
@@ -87,6 +89,13 @@ export const FUSION_SORTS: { key: string; label: string }[] = [
   { key: 'obtained', label: 'Logged first' },
   { key: 'missing', label: 'Missing first' },
 ];
+export const PET_SORTS: { key: string; label: string }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'count', label: 'Quantity' },
+  { key: 'rate', label: 'Drop rate' },
+  { key: 'obtained', label: 'Logged first' },
+  { key: 'missing', label: 'Missing first' },
+];
 export const CARD_SORTS: { key: string; label: string }[] = [
   { key: 'name', label: 'Name' },
   { key: 'rarity', label: 'Rarity' },
@@ -148,6 +157,23 @@ export function sortedFusions(made: Record<string, number>, filter: LogFilter, s
   })());
 }
 
+/** Apply the collection-log filter, then sort, to the boss pets. */
+export function sortedPets(pets: Record<string, number>, filter: LogFilter, sort: string, dir: 1 | -1): PetDef[] {
+  const n = (p: PetDef) => pets[p.id] ?? 0;
+  const list = PETS.filter((p) => filter === 'all' || (filter === 'obtained' ? n(p) > 0 : n(p) === 0));
+  const byName = (a: PetDef, b: PetDef) => a.name.localeCompare(b.name);
+  return [...list].sort((a, b) => dir * (() => {
+    switch (sort) {
+      case 'count': return n(b) - n(a) || byName(a, b);
+      // Rarest last, so the page reads the way the chase does.
+      case 'rate': return a.rate - b.rate || byName(a, b);
+      case 'obtained': return (n(b) > 0 ? 1 : 0) - (n(a) > 0 ? 1 : 0) || byName(a, b);
+      case 'missing': return (n(a) > 0 ? 1 : 0) - (n(b) > 0 ? 1 : 0) || byName(a, b);
+      default: return byName(a, b);
+    }
+  })());
+}
+
 /** Apply the collection-log filter, then sort, to the draft-card pool. */
 export function sortedCards(cardCounts: Record<string, number>, filter: LogFilter, sort: string, dir: 1 | -1): DraftCard[] {
   const cc = (c: DraftCard) => cardCounts[c.id] ?? 0;
@@ -177,13 +203,14 @@ export function LogEmpty() {
  *  every draft card with its lifetime pick count. Unobtained entries are darkened
  *  silhouettes (collection-log style). A completion counter per tab. */
 /** Which tab is showing. The Log's own vocabulary, so every helper below names
- *  the same eight pages the tab strip does. */
-export type LogTab = 'bosses' | 'monsters' | 'cards' | 'forge' | 'diversions' | 'victories' | 'difficulty' | 'achievements';
+ *  the same nine pages the tab strip does. */
+export type LogTab = 'bosses' | 'monsters' | 'pets' | 'cards' | 'forge' | 'diversions' | 'victories' | 'difficulty' | 'achievements';
 
-const LOG_TABS: readonly LogTab[] = ['bosses', 'monsters', 'cards', 'forge', 'diversions', 'victories', 'difficulty', 'achievements'];
+const LOG_TABS: readonly LogTab[] = ['bosses', 'monsters', 'pets', 'cards', 'forge', 'diversions', 'victories', 'difficulty', 'achievements'];
 
 function tabHint(t: LogTab): string {
   switch (t) {
+    case 'pets': return 'Boss pets: click one to walk it beside your base';
     case 'cards': return 'Reward cards collected';
     case 'forge': return 'Fused weapons: what makes each one, and what it does';
     case 'diversions': return 'Distractions & Diversions you have met';
@@ -416,6 +443,55 @@ function DiversionsBody({ list, met, gains }: { list: DiversionDef[]; met: Recor
 }
 
 
+/** The Pets tab: one boss, one pet, and the drop that proves you beat it enough
+ *  times. Clicking an owned pet is the whole interaction — it walks beside your
+ *  base and changes nothing else, so there is no cost and no confirmation. */
+function PetsBody({ list, pets, active, onPick, killCounts, tier }: {
+  list: PetDef[];
+  pets: Record<string, number>;
+  active: string | null;
+  onPick: (id: PetId | null) => void;
+  killCounts: Record<string, number>;
+  tier: number;
+}) {
+  if (list.length === 0) return <LogEmpty />;
+  return (
+    <div className="grid grid-cols-3 gap-[0.4em] overflow-y-auto custom-scrollbar pr-[0.2em] flex-1 min-h-0">
+      {list.map((p) => {
+        const n = pets[p.id] ?? 0;
+        const owned = n > 0;
+        const isActive = active === p.id;
+        // The bosses this pet drops from, and how often the player has killed them.
+        const kc = p.from.reduce((sum, boss) => sum + (killCounts[boss] ?? 0), 0);
+        // What the chance is at this account's difficulty, said the way OSRS says it.
+        const odds = Math.round(1 / petDropChance(p.rate, tier));
+        const title = owned
+          ? `${p.name}: ${p.blurb} · 1 in ${odds} · ${isActive ? 'walking with you' : 'click to walk with you'}`
+          : `${p.name}: 1 in ${odds} per boss kill · ${kc} kill${kc === 1 ? '' : 's'} so far`;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => owned && onPick(isActive ? null : p.id)}
+            title={title}
+            className={`rs-log-entry text-left ${owned ? '' : 'rs-log-locked'} ${isActive ? 'rs-btn-primary' : ''}`}
+          >
+            <img
+              src={ASSETS.pets[p.id]}
+              alt=""
+              className="rs-log-sprite object-contain"
+              style={owned ? undefined : { filter: 'brightness(0.18)' }}
+              onError={hideBrokenImg}
+            />
+            <span className="rs-log-name">{p.name}</span>
+            <span className="rs-log-kc">{owned ? `× ${fmt(n)}` : `1 / ${fmt(odds)}`}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** What one diversion has paid out over the account's lifetime, one chip per kind. */
 function DiversionTotals({ id, gains }: { id: DiversionDef['id']; gains: Record<string, number> }) {
   const totals = DIVERSION_REWARD_KINDS
@@ -600,7 +676,7 @@ function EnemiesBody({ list, entries, killCounts, selected, setSelected }: {
  *
  *  This function is the window: the tab strip, the list controls and whichever
  *  page's body is showing. Each body is its own component above. */
-export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversionGains, fusionsMade, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
+export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversionGains, fusionsMade, pets, activePet, setActivePet, difficultyTier, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
   /** Lifetime forges per fusion type. */
@@ -609,6 +685,13 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
   diversionsMet: Record<string, number>;
   /** Lifetime payouts per Distraction & Diversion, keyed `<id>:<reward kind>`. */
   diversionGains: Record<string, number>;
+  /** Lifetime boss-pet drops, keyed by PetId. */
+  pets: Record<string, number>;
+  /** Which pet walks the board, or null. */
+  activePet: string | null;
+  setActivePet: (id: PetId | null) => void;
+  /** The account's difficulty tier — the only thing that moves a pet's odds. */
+  difficultyTier: number;
   /** Completed Combat Achievement ids, account-wide. */
   achievements: string[];
   victories: Victories;
@@ -621,6 +704,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
   const isCards = tab === 'cards';
   const isDiversions = tab === 'diversions';
   const isForge = tab === 'forge';
+  const isPets = tab === 'pets';
   const isAchievements = tab === 'achievements';
   /** The two pages that are a record of runs, not a checklist of things. */
   const isRecord = tab === 'victories' || tab === 'difficulty';
@@ -631,7 +715,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
   // Memoised so the empty case is one stable array: a fresh literal per render would
   // re-run every list memo below on tabs that show no enemies at all.
   const entries = useMemo(() => (tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : []), [tab]);
-  const total = isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : isDiversions ? DIVERSIONS.length : isForge ? FUSIONS.length : entries.length;
+  const total = isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : isDiversions ? DIVERSIONS.length : isForge ? FUSIONS.length : isPets ? PETS.length : entries.length;
   const obtained = isAchievements
     ? CA_TASKS.filter((t) => caDone.has(t.id)).length
     : isCards
@@ -640,6 +724,8 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
     ? DIVERSIONS.filter((d) => (diversionsMet[d.id] ?? 0) > 0).length
     : isForge
     ? FUSIONS.filter((f) => (fusionsMade[f.type] ?? 0) > 0).length
+    : isPets
+    ? PETS.filter((p) => (pets[p.id] ?? 0) > 0).length
     : entries.filter((e) => (killCounts[e.type] ?? 0) > 0).length;
   // The clicked entry, shown as a detail card (stats + animated sprite). Enemy
   // and card tabs only — the rest are read straight off the page.
@@ -653,6 +739,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
   const dispCards = useMemo(() => sortedCards(cardCounts, filter, sort, dir), [cardCounts, filter, sort, dir]);
   const dispDiversions = useMemo(() => sortedDiversions(diversionsMet, filter, sort, dir), [diversionsMet, filter, sort, dir]);
   const dispFusions = useMemo(() => sortedFusions(fusionsMade, filter, sort, dir), [fusionsMade, filter, sort, dir]);
+  const dispPets = useMemo(() => sortedPets(pets, filter, sort, dir), [pets, filter, sort, dir]);
   return (
     <MovablePanel
       id="collection-log"
@@ -673,7 +760,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
         onPick={(t) => { setTab(t); setSelected(null); setSort('name'); }}
         counter={isRecord ? null : {
           obtained, total, complete: total > 0 && obtained === total,
-          noun: isAchievements ? 'done' : isForge ? 'forged' : 'found',
+          noun: isAchievements ? 'done' : isForge ? 'forged' : isPets ? 'tamed' : 'found',
         }}
       />
 
@@ -685,13 +772,14 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
           setSort={setSort}
           dir={dir}
           setDir={setDir}
-          options={isCards ? CARD_SORTS : isDiversions ? DIVERSION_SORTS : isForge ? FUSION_SORTS : ENEMY_SORTS}
+          options={isCards ? CARD_SORTS : isDiversions ? DIVERSION_SORTS : isForge ? FUSION_SORTS : isPets ? PET_SORTS : ENEMY_SORTS}
         />
       )}
 
       {tab === 'achievements' ? <AchievementsBody done={caDone} progress={caProgress} />
         : tab === 'difficulty' ? <DifficultyBody difficulty={difficulty} />
         : tab === 'victories' ? <VictoriesBody victories={victories} />
+        : tab === 'pets' ? <PetsBody list={dispPets} pets={pets} active={activePet} onPick={setActivePet} killCounts={killCounts} tier={difficultyTier} />
         : tab === 'forge' ? <ForgeBody list={dispFusions} made={fusionsMade} unlocked={caDone.has(FUSION_UNLOCK_CA)} />
         : tab === 'diversions' ? <DiversionsBody list={dispDiversions} met={diversionsMet} gains={diversionGains} />
         : tab === 'cards' ? <CardsBody list={dispCards} counts={cardCounts} selected={selected} setSelected={setSelected} />

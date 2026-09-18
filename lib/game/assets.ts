@@ -378,6 +378,23 @@ export const ASSETS = {
     yt_mejkot: `${LOCAL}/models/yt_mejkot.png`,
     ket_zek: `${LOCAL}/models/ket_zek.png`,
   },
+  // Boss pets — one portrait per PetId in lib/game/data/pets.ts, rendered from the
+  // pet's own NPC id by scripts/render-osrs-npcs.mjs (slug `pet_<id>`).
+  pets: {
+    tzrek_jad: `${LOCAL}/models/pet_tzrek_jad.png`,
+    vorki: `${LOCAL}/models/pet_vorki.png`,
+    snakeling: `${LOCAL}/models/pet_snakeling.png`,
+    ikkle_hydra: `${LOCAL}/models/pet_ikkle_hydra.png`,
+    smol_heredit: `${LOCAL}/models/pet_smol_heredit.png`,
+    scurry: `${LOCAL}/models/pet_scurry.png`,
+    prince_black_dragon: `${LOCAL}/models/pet_prince_black_dragon.png`,
+    baby_mole: `${LOCAL}/models/pet_baby_mole.png`,
+    noon: `${LOCAL}/models/pet_noon.png`,
+    hellpuppy: `${LOCAL}/models/pet_hellpuppy.png`,
+    dark_core: `${LOCAL}/models/pet_dark_core.png`,
+    graardor_jr: `${LOCAL}/models/pet_graardor_jr.png`,
+    nexling: `${LOCAL}/models/pet_nexling.png`,
+  } as Record<string, string>,
   // Combat Achievement tier icons — the game's own CaTierSwords sprites (3393-3398),
   // one blade per tier, bronze for Easy up to the last for Grandmaster.
   achievements: {

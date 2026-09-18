@@ -7,6 +7,7 @@ import { drawScorches } from './render/scorch';
 import { drawSiphonLinks } from './render/siphon';
 import { drawDeaths, drawEnemies } from './render/enemies';
 import { drawDiversions } from './render/diversions';
+import { drawActivePet } from './render/pet';
 import { drawFarming, drawPlotPlacement } from './render/farming';
 import { drawFishing } from './render/fishing';
 import { drawTraps } from './render/hunter-traps';
@@ -120,6 +121,7 @@ export class GameRenderer {
     drawRoadShaping(this, ctx); // road handles — between waves only, over the towers they must not hide behind
     drawDiversions(this, ctx); // the world between waves — always empty during a fight
     drawTraps(this, ctx); // on the road, under the enemies — a trap is walked over, never into
+    drawActivePet(this, ctx); // cosmetic only: no hitbox, never targeted, so it sits under the enemies
     drawDeaths(this, ctx);
     drawSpawnPortal(this, ctx); // before enemies → they materialise out of its face
     drawEnemies(this, ctx);

@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-18",
   "entries": [
     {
+      "kind": "new",
+      "scope": "pets",
+      "text": "Every boss now drops its own pet, and the one you pick walks beside your base",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
       "kind": "updated",
       "scope": "board",
       "text": "TzHaar's lava seams crack open over the rock and the boulders become Inferno roof pillars",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "game",
       "text": "A life won back washes the board green, the way a leak washes it red",
-      "fromFeedback": true,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "fixed",
-      "scope": "game",
-      "text": "Every life you win back pops on the lives orb",
       "fromFeedback": true,
       "date": "2026-09-16"
     }
