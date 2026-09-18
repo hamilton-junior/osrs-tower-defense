@@ -39,7 +39,7 @@ export type SceneryId =
   | 'troll_snow_tree' | 'troll_snow_tree_tall'
   | 'kara_palm' | 'kara_jungle_tree' | 'kara_fern'
   | 'kara_banana' | 'kara_palm_young' | 'kara_tropical_palm' | 'kara_flowers' | 'kara_fungus'
-  | 'tz_lava_pool' | 'tz_lava_seam' | 'tz_lava_forge' | 'tz_rock_pillar'
+  | 'tz_sulphur_vent' | 'tz_lava_seam' | 'tz_lava_forge' | 'tz_rock_pillar'
   | 'tz_lava_trough' | 'tz_obsidian_rock' | 'tz_brazier';
 
 /**
@@ -65,7 +65,7 @@ export const CLUSTERED_SCENERY: ReadonlySet<SceneryId> = new Set<SceneryId>([
   'wild_pillar', 'wild_ruins', 'wild_skulls',
   'troll_icicle', 'troll_snow_mound', 'troll_snow_tree', 'troll_snow_tree_tall',
   'kara_fern', 'kara_flowers', 'kara_fungus',
-  'tz_brazier', 'tz_lava_trough', 'tz_obsidian_rock', 'tz_lava_pool',
+  'tz_brazier', 'tz_lava_trough', 'tz_obsidian_rock', 'tz_sulphur_vent',
 ]);
 
 /**
@@ -290,9 +290,9 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,120,40,0.15)', 'rgba(60,40,35,0.6)'],
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
     scenery: {
-      block: ['tz_rock_pillar', 'tz_lava_pool', 'tz_obsidian_rock', 'tz_lava_forge'],
-      rough: ['tz_lava_pool', 'tz_lava_seam'],
-      prop: ['tz_lava_pool', 'tz_lava_seam', 'tz_brazier', 'tz_lava_trough'],
+      block: ['tz_rock_pillar', 'tz_sulphur_vent', 'tz_obsidian_rock', 'tz_lava_forge'],
+      rough: ['tz_sulphur_vent', 'tz_lava_seam'],
+      prop: ['tz_sulphur_vent', 'tz_lava_seam', 'tz_brazier', 'tz_lava_trough'],
     },
     decor: { bush: '#3a2018', rock: '#2a2422', rockHi: '#4a4038', flowers: ['#ff7a1f', '#ffb03a', '#e0401a'] },
     water: { deep: '#1a1210', shallow: '#3a1f16', foam: '#8a4426', ripple: '#ff9b4a' },

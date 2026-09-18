@@ -326,25 +326,35 @@ const TARGETS = {
   // wrong colour for a black-and-lava cavern — white and magenta crystals, pale
   // ore veins, teal steps, a gilded torch.
   //
-  // The sulphur went with them. Mor Ul Rek does have sulphur vents, but the two
-  // we had baked (28496/28497 "Volcanic sulphur") are Volcanic Mine props — pale
-  // domes that read as sand dunes on a black floor. Lava took their slot: a
-  // molten splat pool for the open floor and a cracked-open seam for the rock, with a
-  // lava forge as the one landmark and the Inferno's own roof pillar as the filler
-  // that keeps the blocked tiles from falling through to a procedural rock.
+  // The sulphur we had baked went with them: 28496/28497 "Volcanic sulphur" are
+  // Volcanic Mine props — pale domes that read as sand dunes on a black floor.
+  // The cavern's own vent is 11851 — the wiki's Sulphur vent is a Mor Ul Rek and
+  // Fight Cave object, shipped with Fight Pits in 2005, and lists both 11851 and
+  // 23725 under the one name. The cache agrees: both defs carry the same models
+  // (9294/9295), inside the 9288-9298 TzHaar range that also holds the lava forge
+  // (9293), the egg (9296) and the viewing orb (9298), and 11851 sits in the 118xx
+  // cave block beside the cave entrances and the hot vent doors. Kourend's vent is
+  // a different object entirely (34335, Mount Karuulm, 2019) and is not used here.
+  // A lava forge is the one landmark and the Inferno's own roof pillar is the
+  // filler that keeps the blocked tiles from falling through to a procedural rock.
   tz_brazier: { obj: 11017, dir: 'scenery' },
   tz_lava_trough: { obj: 18519, dir: 'scenery' },
   tz_obsidian_rock: { obj: 47241, dir: 'scenery' },
   tz_lava_forge: { obj: 11978, models: [9293], dir: 'scenery' },
 
-  tz_lava_pool: { obj: 55993, dir: 'scenery' },
+  // 9295 alone, not the def's pair: 9294 is the smoke above the vent, and the flat
+  // rasteriser has no volume for it — it bakes as three near-white lumps floating
+  // over the mound, which on black rock reads as a hole in the sprite rather than
+  // as smoke. What is left is the basalt cone with the molten crater, and the
+  // crater only opens up above pitch ~20, so the camera looks down on it.
+  tz_sulphur_vent: { obj: 11851, models: [9295], pitch: 26, dir: 'scenery' },
   // The seam was 44601 "Lava pool" and no camera could save it: the def is two
   // models, 44909 is the rock the pool sits in (a black box at every pitch and yaw
   // swept, 90/70/50/30 against 0/30/60/90) and 14158 alone is only the pool's rim,
   // which bakes as a hollow orange hoop lying on the floor. 55995 is a second
   // molten splat from the same family as the pool with a different silhouette, and
   // at pitch 70 its crust cracks open over two vents — a seam, not a puddle. Its
-  // shallow camera is what separates it from tz_lava_pool, which lies flat.
+  // shallow camera is what separates it from the vent, which stands up off the floor.
   tz_lava_seam: { obj: 55995, pitch: 70, yaw: 60, dir: 'scenery' },
   // 30284 is the Inferno's own roof support: a column of boulders with lava
   // showing between them, and at 45,41,41 darker than the 6950 boulder it

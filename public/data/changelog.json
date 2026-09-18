@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "The TzHaar cavern's floor bubbles through sulphur vents instead of flat lava splats",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "Trollweiss' bare green pines are frosted over like the rest of the snowfield",
       "fromFeedback": false,
       "date": "2026-09-18"
@@ -271,13 +278,6 @@
       "kind": "balanced",
       "scope": "game",
       "text": "Snares can grip the same enemy again once it breaks free, and newcomers still come first",
-      "fromFeedback": true,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "Notices stay up long enough to read, and longer ones stay up longer",
       "fromFeedback": true,
       "date": "2026-09-16"
     }
