@@ -215,6 +215,16 @@ const TARGETS = {
   pet_graardor_jr: { npc: 6632 },
   pet_nexling: { npc: 11276 },
 
+  // --- Skilling pets (lib/game/data/pets.ts) ---
+  // The run's own skills have pets too, and OSRS decides which: Fishing has the
+  // Heron, Farming the Tangleroot, and Hunter two — Herbi off the herbiboar and
+  // the Baby Chinchompa off the chins. Herblore has no pet in game, so it has
+  // none here; a fifth pet would have had to be invented.
+  pet_heron: { npc: 6722, anim: 6772, frame: 65 },
+  pet_tangleroot: { npc: 7352 },
+  pet_herbi: { npc: 7760 },
+  pet_baby_chinchompa: { npc: 6720 },
+
   // --- Misc NPC-model icons ---
   giant_snail: { npc: 5628 },            // "slow" debuff icon
   kalphite_larva: { npc: 966 },          // Swarm affix / wave-event icon
@@ -383,6 +393,14 @@ async function main() {
     if (cfg.anim !== undefined) {
       const anim = await loadAnimationWithAlpha(cache, model, cfg.anim);
       if (!anim?.vertexData?.length) { console.warn(`! ${slug}: sequence ${cfg.anim} produced no frames`); continue; }
+      // `frame` keeps a single pose out of the clip, for targets that want a
+      // portrait rather than a strip — a bird whose only upright pose is the
+      // first frame of its stand animation, say.
+      if (cfg.frame !== undefined) {
+        const f = Math.min(cfg.frame, anim.vertexData.length - 1);
+        anim.vertexData = [anim.vertexData[f]];
+        if (anim.alphaData) anim.alphaData = [anim.alphaData[f]];
+      }
       const strip = renderNpcStrip(model, anim, { ...cfg, ...camOverride }, textures);
       buf = strip.buf;
       note = ` anim ${cfg.anim} ×${strip.frames}`;

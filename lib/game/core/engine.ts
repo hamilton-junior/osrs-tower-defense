@@ -40,7 +40,7 @@ import { waveHint as buildWaveHint } from '../systems/wave-preview';
 import type { VariantBag } from '../systems/model-variants';
 import { enemyLeakCost } from '../systems/leak-cost';
 import { PET_BY_ID, type PetId } from '../data/pets';
-import { sanitizePets, validActivePet } from '../systems/pets';
+import { rollSkillPet, sanitizePets, validActivePet } from '../systems/pets';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
 import { generateMapLayout, makeRng, type MapLayout, type MapEdge } from '../systems/map-generation';
@@ -3980,6 +3980,8 @@ export class GameEngine {
     this.herbsHarvested += 1;
     this.sound.play('farm_harvest');
     this.notify(`${def.herbName} to the ${where === 'bag' ? 'loot bag' : 'inventory'}`, def.herbIcon);
+    const pet = rollSkillPet('farming', this.difficultyTier);
+    if (pet) this.gainPet(pet);
     this.emit();
   }
 
@@ -4208,6 +4210,10 @@ export class GameEngine {
       this.sound.play('level_up');
       this.notify(`Fishing level ${gain.level}`, ASSETS.misc.skill_fishing);
     }
+    // The Heron rolls off the cast, not off the fish — a blank line is still
+    // time spent fishing, and OSRS pays the pet for the attempt.
+    const pet = rollSkillPet('fishing', this.difficultyTier);
+    if (pet) this.gainPet(pet);
     this.emit();
   }
 

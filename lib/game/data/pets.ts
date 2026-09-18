@@ -13,6 +13,11 @@ import type { EnemyType } from '../types';
  * Collection Log, and it touches no stat, no economy and no wave. That is the
  * point: the ladder already pays in power, so the rarest thing in the game pays
  * in nothing but the fact that you have it.
+ *
+ * The run's own skills drop pets too, and OSRS decides which: Fishing has the
+ * Heron, Farming the Tangleroot, and Hunter two — Herbi and the Baby Chinchompa.
+ * Herblore has no pet in game, so it has none here either; inventing a fifth one
+ * would break the rule the rest of this table keeps.
  */
 
 export type PetId =
@@ -28,17 +33,46 @@ export type PetId =
   | 'hellpuppy'
   | 'dark_core'
   | 'graardor_jr'
-  | 'nexling';
+  | 'nexling'
+  | 'heron'
+  | 'tangleroot'
+  | 'herbi'
+  | 'baby_chinchompa';
+
+/**
+ * The skilling action a pet rolls off, for the four that no boss drops.
+ *
+ * Hunter splits in two because OSRS gives it two pets and the board gives it two
+ * kinds of trap: the chinchompa's own pet comes off the chinchompa trap, and
+ * Herbi — the herbiboar's pet, a hunt with no boss behind it — comes off the box
+ * and net traps that stand in for that hunt here.
+ */
+export type PetSource = 'fishing' | 'farming' | 'hunter_trap' | 'hunter_chin';
+
+/** How the log says a skilling pet's rate out loud. */
+export const PET_SOURCE_LABEL: Record<PetSource, string> = {
+  fishing: 'per cast',
+  farming: 'per harvest',
+  hunter_trap: 'per trap catch',
+  hunter_chin: 'per chinchompa',
+};
 
 export interface PetDef {
   id: PetId;
   /** The pet's own name in OSRS. */
   name: string;
-  /** The bosses that can drop it. Noon has two: Dusk and Dawn are one fight. */
+  /** The bosses that can drop it. Noon has two: Dusk and Dawn are one fight.
+   *  Empty for a skilling pet, which has a `source` instead. */
   from: readonly EnemyType[];
+  /** The skilling action that rolls for it, for a pet no boss drops. */
+  source?: PetSource;
   /** Drop chance is 1 in this, per boss kill, at Normal. Ranked by the pet's real
    *  OSRS rarity but compressed hard — a run meets each boss once, so a real
-   *  1/3000 would be a pet nobody ever sees. */
+   *  1/3000 would be a pet nobody ever sees.
+   *
+   *  A skilling pet counts the same way but per action, so its number is a
+   *  thousand-fold larger: a long run casts a few hundred times and harvests a
+   *  few dozen, and these are sized so one of the four over a run is lucky. */
   rate: number;
   /** One short sentence, shown under the name in the log. */
   blurb: string;
@@ -78,6 +112,16 @@ export const PETS: readonly PetDef[] = [
     blurb: 'A hole in the air that follows you around.' },
   { id: 'nexling', name: 'Nexling', from: ['nex'], rate: 120,
     blurb: 'Here already, and rather smug about it.' },
+  // The four skilling pets. They roll per action rather than per boss, so they
+  // are the one part of the chase a player who never kills a boss can still run.
+  { id: 'tangleroot', name: 'Tangleroot', from: [], source: 'farming', rate: 1000,
+    blurb: 'A sapling that pulled itself out of the patch.' },
+  { id: 'herbi', name: 'Herbi', from: [], source: 'hunter_trap', rate: 1500,
+    blurb: 'Finds herbs by smell and eats half of them.' },
+  { id: 'baby_chinchompa', name: 'Baby Chinchompa', from: [], source: 'hunter_chin', rate: 1500,
+    blurb: 'Puffs up when startled, which is always.' },
+  { id: 'heron', name: 'Heron', from: [], source: 'fishing', rate: 3000,
+    blurb: 'Watches the water for hours and catches nothing.' },
 ] as const;
 
 export const PET_BY_ID: Record<PetId, PetDef> =
@@ -89,3 +133,10 @@ export const PET_BY_BOSS: Partial<Record<EnemyType, PetId>> = PETS.reduce((acc, 
   for (const boss of p.from) acc[boss] = p.id;
   return acc;
 }, {} as Partial<Record<EnemyType, PetId>>);
+
+/** Which pet a skilling action can drop, if any. Built from `source`, for the
+ *  same reason `PET_BY_BOSS` is built from `from`. */
+export const PET_BY_SOURCE: Partial<Record<PetSource, PetId>> = PETS.reduce((acc, p) => {
+  if (p.source) acc[p.source] = p.id;
+  return acc;
+}, {} as Partial<Record<PetSource, PetId>>);

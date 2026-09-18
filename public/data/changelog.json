@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-18",
   "entries": [
     {
+      "kind": "new",
+      "scope": "pets",
+      "text": "Fishing, Farming and Hunter drop their own OSRS pets",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
       "kind": "updated",
       "scope": "board",
       "text": "The TzHaar cavern floor is bare basalt instead of a scatter of lava slabs and troughs",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "ui",
       "text": "Hovering a fish previews the lives it gives back, and hovering gear sums up its stats in icons",
-      "fromFeedback": false,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Dragging an item in the inventory or loot bag carries a see-through copy of it under the cursor",
       "fromFeedback": false,
       "date": "2026-09-16"
     }

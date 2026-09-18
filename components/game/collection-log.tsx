@@ -16,7 +16,7 @@ import { DIVERSIONS, DIVERSION_REWARD_KINDS, type DiversionDef } from '@/lib/gam
 import { diversionGainKey } from '@/lib/game/systems/diversions';
 import { RewardChip } from './diversion-reward';
 import { FUSIONS, FUSION_UNLOCK_CA, type FusionDef } from '@/lib/game/systems/tower-fusion';
-import { PETS, type PetDef, type PetId } from '@/lib/game/data/pets';
+import { PETS, PET_SOURCE_LABEL, type PetDef, type PetId } from '@/lib/game/data/pets';
 import { petDropChance } from '@/lib/game/systems/pets';
 import { towerIcon } from './tower-ui';
 import type { EnemyType, TowerType } from '@/lib/game/types';
@@ -462,12 +462,16 @@ function PetsBody({ list, pets, active, onPick, killCounts, tier }: {
         const owned = n > 0;
         const isActive = active === p.id;
         // The bosses this pet drops from, and how often the player has killed them.
+        // A skilling pet has no boss behind it, so it says what it rolls off instead.
         const kc = p.from.reduce((sum, boss) => sum + (killCounts[boss] ?? 0), 0);
+        const per = p.source ? PET_SOURCE_LABEL[p.source] : 'per boss kill';
         // What the chance is at this account's difficulty, said the way OSRS says it.
         const odds = Math.round(1 / petDropChance(p.rate, tier));
         const title = owned
           ? `${p.name}: ${p.blurb} · 1 in ${odds} · ${isActive ? 'walking with you' : 'click to walk with you'}`
-          : `${p.name}: 1 in ${odds} per boss kill · ${kc} kill${kc === 1 ? '' : 's'} so far`;
+          : p.source
+            ? `${p.name}: 1 in ${odds} ${per}`
+            : `${p.name}: 1 in ${odds} ${per} · ${kc} kill${kc === 1 ? '' : 's'} so far`;
         return (
           <button
             key={p.id}

@@ -394,6 +394,10 @@ export const ASSETS = {
     dark_core: `${LOCAL}/models/pet_dark_core.png`,
     graardor_jr: `${LOCAL}/models/pet_graardor_jr.png`,
     nexling: `${LOCAL}/models/pet_nexling.png`,
+    tangleroot: `${LOCAL}/models/pet_tangleroot.png`,
+    herbi: `${LOCAL}/models/pet_herbi.png`,
+    baby_chinchompa: `${LOCAL}/models/pet_baby_chinchompa.png`,
+    heron: `${LOCAL}/models/pet_heron.png`,
   } as Record<string, string>,
   // Combat Achievement tier icons — the game's own CaTierSwords sprites (3393-3398),
   // one blade per tier, bronze for Easy up to the last for Grandmaster.

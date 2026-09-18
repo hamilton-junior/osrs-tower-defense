@@ -1,4 +1,4 @@
-import { PET_BY_BOSS, PET_BY_ID, PETS, type PetId } from '../data/pets';
+import { PET_BY_BOSS, PET_BY_ID, PET_BY_SOURCE, PETS, type PetId, type PetSource } from '../data/pets';
 import type { EnemyType } from '../types';
 
 /**
@@ -37,6 +37,20 @@ export function petDropChance(rate: number, tier: number): number {
  */
 export function rollPetDrop(boss: EnemyType, tier: number, rng: () => number = Math.random): PetId | null {
   const id = PET_BY_BOSS[boss];
+  if (!id) return null;
+  return rng() < petDropChance(PET_BY_ID[id].rate, tier) ? id : null;
+}
+
+/**
+ * Roll one skilling action for its pet — a cast, a harvest, a sprung trap.
+ *
+ * Same shape as {@link rollPetDrop} and the same difficulty luck, because a pet is
+ * a pet: the only difference is that the action repeats hundreds of times in a run
+ * where a boss shows up once, which is why the rates in `data/pets` are so much
+ * larger on this side.
+ */
+export function rollSkillPet(source: PetSource, tier: number, rng: () => number = Math.random): PetId | null {
+  const id = PET_BY_SOURCE[source];
   if (!id) return null;
   return rng() < petDropChance(PET_BY_ID[id].rate, tier) ? id : null;
 }
