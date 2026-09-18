@@ -696,7 +696,9 @@ export const ASSETS = {
       wild_stones: `${LOCAL}/scenery/wild_stones.png`,             // 26633 Stones
       wild_chaos_altar: `${LOCAL}/scenery/wild_chaos_altar.png`,   // 411 Chaos altar
       wild_pillar: `${LOCAL}/scenery/wild_pillar.png`,             // 34795 Ruined Pillar
-      wild_skulls: `${LOCAL}/scenery/wild_skulls.png`,             // 658 Pile of skulls
+      wild_skeleton: `${LOCAL}/scenery/wild_skeleton.png`,         // 12245 Skeleton
+      wild_skeleton_curled: `${LOCAL}/scenery/wild_skeleton_curled.png`, // 12247 Skeleton
+      wild_skull_heap: `${LOCAL}/scenery/wild_skull_heap.png`,     // 42803 Skulls
       wild_skull_pile: `${LOCAL}/scenery/wild_skull_pile.png`,     // 12453 Skulls
       wild_ruins: `${LOCAL}/scenery/wild_ruins.png`,               // 3755 Ruins
       wild_spire: `${LOCAL}/scenery/wild_spire.png`,               // 2704 Rocks
@@ -719,7 +721,6 @@ export const ASSETS = {
       kara_flowers: `${LOCAL}/scenery/kara_flowers.png`,           // 1196 Flowers
       kara_fungus: `${LOCAL}/scenery/kara_fungus.png`,             // 21741 Fungus
       tz_brazier: `${LOCAL}/scenery/tz_brazier.png`,               // 11017 Brazier
-      tz_lava_forge: `${LOCAL}/scenery/tz_lava_forge.png`,         // 11978 Lava forge
       tz_sulphur_vent: `${LOCAL}/scenery/tz_sulphur_vent.png`,     // 11851 Sulphur vent (model 9295)
       tz_lava_seam: `${LOCAL}/scenery/tz_lava_seam.png`,           // 11829 Mor Ul Rek floor slab (lava pool)
       tz_rock_pillar: `${LOCAL}/scenery/tz_rock_pillar.png`,       // 30284 Rocky support

@@ -331,6 +331,16 @@ function paintGround(
     ctx.fillRect(0, 0, w, h);
   }
 
+  // A region may wash its base floor before anything is scattered over it (see
+  // `groundWash`). It goes here and not with the gradient at the end because it is
+  // the floor's own colour, not the region's light: Mor Ul Rek's basalt has to go
+  // black while its lava stays lit, and anything laid after the accents darkens
+  // both together.
+  if (gr.e.biome.groundWash) {
+    ctx.fillStyle = gr.e.biome.groundWash;
+    ctx.fillRect(0, 0, w, h);
+  }
+
   // One scatter per accent texture. A blot per two-tile cell, jittered off its cell
   // so the scatter keeps no grid of its own, skipped on a little over half of them
   // so there is bare ground between the patches, and salted per layer so a region's

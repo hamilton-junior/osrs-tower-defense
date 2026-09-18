@@ -33,13 +33,14 @@ export type SceneryId =
   | 'mory_swamp_tree' | 'mory_dead_birch' | 'mory_swamp_bubbles' | 'mory_rotting_log'
   | 'mory_rotten_stump' | 'mory_mausoleum'
   | 'wild_boulder' | 'wild_boulder_big' | 'wild_stones'
-  | 'wild_chaos_altar' | 'wild_pillar' | 'wild_skulls' | 'wild_skull_pile' | 'wild_ruins' | 'wild_spire'
+  | 'wild_chaos_altar' | 'wild_pillar' | 'wild_skull_pile' | 'wild_ruins' | 'wild_spire'
+  | 'wild_skeleton' | 'wild_skeleton_curled' | 'wild_skull_heap'
   | 'troll_pine' | 'troll_ice_boulder' | 'troll_icicle' | 'troll_snow'
   | 'troll_ice_chunks' | 'troll_snow_mound' | 'troll_snowy_bush' | 'troll_dead_tree'
   | 'troll_snow_tree' | 'troll_snow_tree_tall'
   | 'kara_palm' | 'kara_jungle_tree' | 'kara_fern'
   | 'kara_banana' | 'kara_palm_young' | 'kara_tropical_palm' | 'kara_flowers' | 'kara_fungus'
-  | 'tz_sulphur_vent' | 'tz_lava_seam' | 'tz_lava_forge' | 'tz_rock_pillar'
+  | 'tz_sulphur_vent' | 'tz_lava_seam' | 'tz_rock_pillar'
   | 'tz_lava_trough' | 'tz_obsidian_rock' | 'tz_brazier';
 
 /**
@@ -62,10 +63,10 @@ export const CLUSTERED_SCENERY: ReadonlySet<SceneryId> = new Set<SceneryId>([
   'khar_cactus_dry', 'khar_ruins',
   'mory_grave', 'mory_tombstone', 'mory_mushroom', 'mory_toadstools', 'mory_fungus', 'mory_bones',
   'mory_swamp_tree', 'mory_swamp_bubbles',
-  'wild_pillar', 'wild_ruins', 'wild_skulls',
+  'wild_pillar', 'wild_ruins', 'wild_skull_heap',
   'troll_icicle', 'troll_snow_mound', 'troll_snow_tree', 'troll_snow_tree_tall',
   'kara_fern', 'kara_flowers', 'kara_fungus',
-  'tz_brazier', 'tz_lava_trough', 'tz_obsidian_rock', 'tz_sulphur_vent',
+  'tz_brazier', 'tz_lava_trough', 'tz_obsidian_rock',
 ]);
 
 /**
@@ -87,24 +88,30 @@ export const SCENERY_LIMIT: Partial<Record<SceneryId, number>> = {
   mory_tombstone: 4,
   mory_grave: 5,
   mory_mausoleum: 1,
-  tz_lava_forge: 1,
   tz_brazier: 2,
   tz_lava_trough: 2,
   tz_obsidian_rock: 2,
   // The vent is the only prop in three of its region's lists at once — it blocks a
   // tile, it roughs one up and it stands as plain furniture — so an uncapped board
   // grew a cone on nearly every free tile and the cavern read as a pincushion. The
-  // cap is deliberately loose: a cavern should still steam, so it is a count the
-  // board reaches rather than one it bumps into, and the tiles past it fall through
-  // to whatever stands next in that list — the pillar on a blocked tile, the seam
-  // and then the pebbles on open ground.
-  tz_sulphur_vent: 30,
+  // cap stays loose enough that a cavern still steams, and the tiles past it fall
+  // through to whatever stands next in that list — the pillar on a blocked tile,
+  // the seam and then the pebbles on open ground. It is also no longer a clustered
+  // prop: dealt per patch the survivors arrived in knots of four, and a vent is a
+  // hole in the floor, not a stand. Per tile they spread out on their own.
+  tz_sulphur_vent: 20,
   // The seam needs the same cap and for the same reason, one step removed: capping
   // the vent alone just handed every tile past the cap to the next entry in the
   // list, and the cavern swapped a floor of cones for a floor of slabs. Past both
   // caps the walk-on lands on the pebbles, which is the quiet floor the cavern
   // wanted in the first place.
   tz_lava_seam: 30,
+  // The Wilderness is where people die, so its dead are not landmarks — but a board
+  // paved in skeletons reads as a prop shop rather than a battlefield. Enough of
+  // each to meet a few on a walk across the map, and no more.
+  wild_skeleton: 6,
+  wild_skeleton_curled: 6,
+  wild_skull_heap: 4,
 };
 
 export interface BiomeDef {
@@ -151,6 +158,17 @@ export interface BiomeDef {
   water: { deep: string; shallow: string; foam: string; ripple: string };
   /** Faint tile-grid line colour (rgba). */
   grid: string;
+  /**
+   * An optional wash laid over the region's base floor texture, and under the
+   * accents scattered on top of it (`paintGround` in core/render/terrain.ts).
+   *
+   * Mor Ul Rek's floor is black rock, and the cache has no black rock: every stone
+   * texture in it sits between grey and brown, so the cavern paved itself the
+   * colour of a quarry. Darkening the region's gradient does not fix that, because
+   * the gradient goes over the accents too and takes the lava down with the basalt.
+   * A wash under the accents blackens the floor and leaves the lava burning on it.
+   */
+  groundWash?: string;
   /**
    * The chance that any one pool this region deals holds **lava** instead of water.
    *
@@ -248,8 +266,8 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     road: { shadow: '#2a1e14', border: '#3a2a1c', mid: '#5a4330', walked: '#6e5238', centre: '#7d5f42', dash: 'rgba(40,26,16,0.5)' },
     scenery: {
       block: ['wild_boulder_big', 'mory_dead_tree', 'wild_chaos_altar', 'wild_pillar', 'wild_ruins', 'wild_spire'],
-      rough: ['mory_bones', 'wild_stones', 'wild_skulls'],
-      prop: ['wild_boulder', 'wild_stones', 'mory_bones', 'wild_skull_pile'],
+      rough: ['mory_bones', 'wild_skeleton', 'wild_stones'],
+      prop: ['wild_skeleton_curled', 'wild_skull_heap', 'wild_boulder', 'wild_stones', 'mory_bones', 'wild_skull_pile'],
     },
     decor: { bush: '#4a3320', rock: '#5a4a3a', rockHi: '#7a6a55', flowers: ['#8a1f1f', '#b0a090', '#6a3020'] },
     water: { deep: '#28323a', shallow: '#3c4a52', foam: '#7c8a90', ripple: '#9fadb2' },
@@ -304,7 +322,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,120,40,0.15)', 'rgba(60,40,35,0.6)'],
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
     scenery: {
-      block: ['tz_rock_pillar', 'tz_sulphur_vent', 'tz_obsidian_rock', 'tz_lava_forge'],
+      block: ['tz_rock_pillar', 'tz_sulphur_vent', 'tz_obsidian_rock'],
       // The pebbles come from Lumbridge's set and carry the cavern once the vents
       // and the seams are spent: they are the only entry here with no cap, which is
       // what keeps the walk-on from running off the end of the list. They read as
@@ -316,6 +334,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     decor: { bush: '#3a2018', rock: '#2a2422', rockHi: '#4a4038', flowers: ['#ff7a1f', '#ffb03a', '#e0401a'] },
     water: { deep: '#1a1210', shallow: '#3a1f16', foam: '#8a4426', ripple: '#ff9b4a' },
     grid: 'rgba(255,90,30,0.05)',
+    groundWash: 'rgba(5,4,4,0.72)',
     lavaChance: 1,
   },
 };

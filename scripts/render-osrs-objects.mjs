@@ -292,7 +292,17 @@ const TARGETS = {
 
   wild_chaos_altar: { obj: 411, dir: 'scenery' },
   wild_pillar: { obj: 34795, dir: 'scenery' },
-  wild_skulls: { obj: 658, dir: 'scenery' },
+  // 658 "Pile of skulls" used to stand here and came out of the flat rasteriser as
+  // three white blobs with a cartoon face punched into each — a snowman, not a
+  // relic. The Wilderness has real dead in it, so these take its place: two
+  // sprawled skeletons that fell in different poses, and a skull heap with actual
+  // bone in its shading.
+  // A body on the ground is the one prop the default camera cannot read: at the
+  // scenery pitch it is all foreshortened limb and the skull lands behind the
+  // ribs. Both skeletons get turned side-on and tipped until the pose is legible.
+  wild_skeleton: { obj: 12245, yaw: 90, pitch: 30, dir: 'scenery' },
+  wild_skeleton_curled: { obj: 12247, pitch: 30, dir: 'scenery' },
+  wild_skull_heap: { obj: 42803, dir: 'scenery' },
   wild_skull_pile: { obj: 12453, dir: 'scenery' },
   wild_ruins: { obj: 3755, dir: 'scenery' },
   wild_spire: { obj: 2704, dir: 'scenery' },
@@ -340,7 +350,6 @@ const TARGETS = {
   tz_brazier: { obj: 11017, dir: 'scenery' },
   tz_lava_trough: { obj: 18519, dir: 'scenery' },
   tz_obsidian_rock: { obj: 47241, dir: 'scenery' },
-  tz_lava_forge: { obj: 11978, models: [9293], dir: 'scenery' },
 
   // 9295 alone, not the def's pair: 9294 is the smoke above the vent, and the flat
   // rasteriser has no volume for it — it bakes as three near-white lumps floating
