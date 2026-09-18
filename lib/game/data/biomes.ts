@@ -37,7 +37,28 @@ export type SceneryId =
   | 'kara_palm' | 'kara_jungle_tree' | 'kara_fern'
   | 'kara_banana' | 'kara_palm_young' | 'kara_tropical_palm' | 'kara_flowers' | 'kara_fungus'
   | 'tz_stalagmite' | 'tz_sulphur' | 'tz_sulphur_mound'
-  | 'tz_stalagmite_lit' | 'tz_flag' | 'tz_fence' | 'tz_sulphur_small' | 'tz_fence_post';
+  | 'tz_stalagmite_lit' | 'tz_fence' | 'tz_sulphur_small' | 'tz_fence_post';
+
+/**
+ * **Props that only make sense in company.** One obsidian fence panel alone in the
+ * middle of the cavern reads as a mistake; four in a row read as the wall around a
+ * TzHaar forge. Same for a single grave, a lone pillar or one toadstool — those
+ * things grow and get built in stands, not one per field.
+ *
+ * A prop listed here is dealt by the *patch* of ground a tile belongs to rather
+ * than by the tile itself (`propPick` in core/render/terrain.ts), so it either
+ * fills a stretch of tiles or stays away from the whole stretch. Everything left
+ * out keeps the per-tile scatter, which is what a mixed wood should look like.
+ */
+export const CLUSTERED_SCENERY: ReadonlySet<SceneryId> = new Set<SceneryId>([
+  'lumb_flowers', 'lumb_reeds',
+  'khar_cactus_dry', 'khar_ruins',
+  'mory_grave', 'mory_tombstone', 'mory_mushroom', 'mory_toadstools', 'mory_fungus', 'mory_bones',
+  'wild_pillar', 'wild_ruins', 'wild_skulls',
+  'troll_icicle', 'troll_snow_mound',
+  'kara_fern', 'kara_flowers', 'kara_fungus',
+  'tz_fence', 'tz_fence_post',
+]);
 
 export interface BiomeDef {
   id: BiomeId;
@@ -236,7 +257,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     tuft: ['rgba(255,120,40,0.15)', 'rgba(60,40,35,0.6)'],
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
     scenery: {
-      block: ['tz_stalagmite', 'tz_stalagmite_lit', 'tz_flag', 'tz_fence'],
+      block: ['tz_stalagmite', 'tz_stalagmite_lit', 'tz_fence'],
       rough: ['tz_sulphur', 'tz_sulphur_mound', 'tz_sulphur_small'],
       prop: ['tz_sulphur', 'tz_sulphur_mound', 'wild_stones', 'tz_fence_post'],
     },

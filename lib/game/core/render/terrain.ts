@@ -1,7 +1,7 @@
 import { SPOTANIMS, spotAnimDurationS } from '../../data/spotanims';
 import { distance } from '../../systems/geometry';
 import type { GameRenderer } from '../renderer';
-import { LAVA_PALETTE, type SceneryId } from '../../data/biomes';
+import { CLUSTERED_SCENERY, LAVA_PALETTE, type SceneryId } from '../../data/biomes';
 import { buildLiquidBodies, paintLiquid } from './liquid';
 import type { LiquidKind } from '../../systems/terrain-generation';
 import { GRID, shade, hash2 } from './shared';
@@ -66,6 +66,41 @@ function drawProp(
   ctx.globalAlpha = 1;
   ctx.drawImage(img, cx - w / 2, groundY - h, w, h);
   return true;
+}
+
+/** How wide and how deep one patch of ground is, in tiles. A clustered prop is
+ *  dealt once per patch, so a run of fence spans a few tiles across and reads as
+ *  a wall rather than as posts someone dropped. */
+const PATCH_COLS = 4;
+const PATCH_ROWS = 2;
+
+/**
+ * **Which of the region's props this tile gets.**
+ *
+ * `tile` is the caller's own per-tile deal — every tile picks for itself, which is
+ * what a mixed wood should look like. Some props are not like that: a fence panel,
+ * a grave or a bed of toadstools only reads right with its own kind beside it (see
+ * `CLUSTERED_SCENERY`). Those are dealt once per patch of ground instead, so the
+ * whole patch agrees.
+ *
+ * A tile hands its own deal back only when neither deal is a clustered prop —
+ * otherwise the patch wins, which is also what keeps a clustered prop from ever
+ * standing alone: it can only arrive through a patch, and a patch brings its
+ * neighbours with it.
+ */
+function propPick(
+  list: readonly SceneryId[],
+  col: number,
+  row: number,
+  tile: number,
+  salt: number,
+): number {
+  if (list.length === 0) return tile;
+  const patch =
+    (hash2(Math.floor(col / PATCH_COLS) * 6.7 + salt * 3.1, Math.floor(row / PATCH_ROWS) * 4.3) * 97) | 0;
+  if (CLUSTERED_SCENERY.has(list[patch % list.length])) return patch;
+  if (CLUSTERED_SCENERY.has(list[tile % list.length])) return patch;
+  return tile;
 }
 
 /**
@@ -387,7 +422,8 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
       ctx.fillRect(x0, y0, GRID, GRID);
     }
     ctx.globalAlpha = 1;
-    if (drawProp(gr, ctx, scenery.rough, (hash2(c * 5.1, r * 3.9) * 97) | 0, c, r, 0.82)) continue;
+    const roughPick = propPick(scenery.rough, c, r, (hash2(c * 5.1, r * 3.9) * 97) | 0, 0);
+    if (drawProp(gr, ctx, scenery.rough, roughPick, c, r, 0.82)) continue;
     // Fallback until the region's bake has loaded: a fan of grass blades.
     ctx.globalAlpha = 0.5;
     for (let b = 0; b < 5; b++) {
@@ -463,7 +499,8 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     if (t.tiles[i] !== 'blocked') continue;
     const c = i % cols;
     const r = (i / cols) | 0;
-    if (drawProp(gr, ctx, scenery.block, (hash2(c * 1.7, r * 2.3) * 97) | 0, c, r, 1.45)) continue;
+    const blockPick = propPick(scenery.block, c, r, (hash2(c * 1.7, r * 2.3) * 97) | 0, 1);
+    if (drawProp(gr, ctx, scenery.block, blockPick, c, r, 1.45)) continue;
     // Fallback until the region's bake has loaded: a shaded procedural boulder.
     const cx = c * GRID + GRID / 2;
     const cy = r * GRID + GRID / 2;
@@ -524,7 +561,8 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     const y = d.row * GRID + GRID / 2 + jy;
     // Half a tile back up, because these props are bottom-anchored and the
     // procedural shapes below are drawn around their centre.
-    if (drawProp(gr, ctx, scenery.prop, d.kind, d.col, d.row, 0.7, jx, jy - GRID * 0.4)) continue;
+    const decorPick = propPick(scenery.prop, d.col, d.row, d.kind, 2);
+    if (drawProp(gr, ctx, scenery.prop, decorPick, d.col, d.row, 0.7, jx, jy - GRID * 0.4)) continue;
     if (d.kind === 0 || d.kind === 1) {
       // leafy bush: shaded underside, body, top highlight, a couple of berries
       ctx.fillStyle = bushDark;

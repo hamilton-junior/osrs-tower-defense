@@ -691,7 +691,6 @@ export const ASSETS = {
       tz_sulphur: `${LOCAL}/scenery/tz_sulphur.png`,               // 3962 Sulphur
       tz_sulphur_mound: `${LOCAL}/scenery/tz_sulphur_mound.png`,   // 28496 Volcanic sulphur
       tz_stalagmite_lit: `${LOCAL}/scenery/tz_stalagmite_lit.png`, // 11188 Stalagmites
-      tz_flag: `${LOCAL}/scenery/tz_flag.png`,                     // 10551 TzHaar Flag
       tz_fence: `${LOCAL}/scenery/tz_fence.png`,                   // 29267 Obsidian fence
       tz_sulphur_small: `${LOCAL}/scenery/tz_sulphur_small.png`,   // 28497 Volcanic sulphur
       tz_fence_post: `${LOCAL}/scenery/tz_fence_post.png`,         // 29268 Obsidian fence post

@@ -274,10 +274,9 @@ const TARGETS = {
   kara_fungus: { obj: 21741, dir: 'scenery' },
 
   // Mor Ul Rek's own furniture, which is what makes the cavern read as a city
-  // rather than a cave: the clan's banner, an obsidian fence panel, and the
-  // lava-lit stalagmite, plus a single fence post for the tiles a panel overfills.
+  // rather than a cave: an obsidian fence panel and the lava-lit stalagmite, plus
+  // a single fence post for the tiles a panel overfills.
   tz_stalagmite_lit: { obj: 11188, dir: 'scenery' },
-  tz_flag: { obj: 10551, dir: 'scenery' },
   tz_fence: { obj: 29267, dir: 'scenery' },
   tz_sulphur_small: { obj: 28497, dir: 'scenery' },
   tz_fence_post: { obj: 29268, dir: 'scenery' },
