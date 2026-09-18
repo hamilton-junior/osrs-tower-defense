@@ -1,6 +1,13 @@
 {
-  "generatedAt": "2026-09-17",
+  "generatedAt": "2026-09-18",
   "entries": [
+    {
+      "kind": "updated",
+      "scope": "board",
+      "text": "Regions get varied ground, still water and props that stand on their shadows",
+      "fromFeedback": false,
+      "date": "2026-09-17"
+    },
     {
       "kind": "new",
       "scope": "board",
@@ -271,13 +278,6 @@
       "kind": "balanced",
       "scope": "game",
       "text": "The Toxic staff's venom field is the squares around it, not the board",
-      "fromFeedback": true,
-      "date": "2026-09-15"
-    },
-    {
-      "kind": "balanced",
-      "scope": "game",
-      "text": "A better potion replaces the weaker one instead of stacking with it",
       "fromFeedback": true,
       "date": "2026-09-15"
     }

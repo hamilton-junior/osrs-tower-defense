@@ -30,7 +30,7 @@ export type SceneryId =
   | 'wild_boulder' | 'wild_boulder_big' | 'wild_stones'
   | 'troll_pine' | 'troll_ice_boulder' | 'troll_icicle' | 'troll_snow'
   | 'kara_palm' | 'kara_jungle_tree' | 'kara_fern'
-  | 'tz_statue' | 'tz_stalagmite' | 'tz_sulphur' | 'tz_sulphur_mound';
+  | 'tz_stalagmite' | 'tz_sulphur' | 'tz_sulphur_mound';
 
 export interface BiomeDef {
   id: BiomeId;
@@ -152,8 +152,11 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
   wilderness: {
     id: 'wilderness',
     name: 'The Wilderness',
-    bgTop: '#45372a',
-    bgBottom: '#332619',
+    // Darker than the dead-earth brown this used to be: the Wilderness's own house
+    // style is charcoal stone with dried-blood accents, and the old brown left it
+    // reading as a dustier Al Kharid.
+    bgTop: '#332a22',
+    bgBottom: '#1d1713',
     tuft: ['rgba(150,120,80,0.2)', 'rgba(70,50,35,0.5)'],
     road: { shadow: '#2a1e14', border: '#3a2a1c', mid: '#5a4330', walked: '#6e5238', centre: '#7d5f42', dash: 'rgba(40,26,16,0.5)' },
     scenery: { block: ['wild_boulder_big', 'mory_dead_tree'], rough: ['mory_bones', 'wild_stones'], prop: ['wild_boulder', 'wild_stones', 'mory_bones'] },
@@ -201,7 +204,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     bgBottom: '#17110f',
     tuft: ['rgba(255,120,40,0.15)', 'rgba(60,40,35,0.6)'],
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
-    scenery: { block: ['tz_statue', 'tz_stalagmite'], rough: ['tz_sulphur', 'tz_sulphur_mound'], prop: ['tz_sulphur', 'tz_sulphur_mound', 'wild_stones'] },
+    scenery: { block: ['tz_stalagmite'], rough: ['tz_sulphur', 'tz_sulphur_mound'], prop: ['tz_sulphur', 'tz_sulphur_mound', 'wild_stones'] },
     decor: { bush: '#3a2018', rock: '#2a2422', rockHi: '#4a4038', flowers: ['#ff7a1f', '#ffb03a', '#e0401a'] },
     water: { deep: '#1a1210', shallow: '#3a1f16', foam: '#8a4426', ripple: '#ff9b4a' },
     grid: 'rgba(255,90,30,0.05)',

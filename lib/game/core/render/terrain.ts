@@ -10,7 +10,7 @@ import { GRID, shade, hash2 } from './shared';
 export const GROUND_TILE = 64;
 /** How hard the region's gradient is pushed back over its own floor texture. */
 const GROUND_TINT = 0.42;
-/** How wide one blot of the region's second floor texture is, in logic px — two
+/** How wide one blot of a region's accent floor texture is, in logic px — two
  *  ground squares across, so a patch of it spans a few board tiles. */
 const ACCENT_BLOT = GROUND_TILE * 2;
 
@@ -120,7 +120,8 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
   const scale = gr.e.deviceScale;
   if (
     gr.bgCache === null || gr.bgCtx === null ||
-    gr.bgTerrain !== gr.e.terrain || gr.bgBiome !== gr.e.biome.id ||
+    gr.bgTerrain !== gr.e.terrain || gr.bgTerrainEpoch !== gr.e.terrainEpoch ||
+    gr.bgBiome !== gr.e.biome.id ||
     gr.bgW !== w || gr.bgH !== h || gr.bgScale !== scale ||
     gr.bgWater !== gr.e.imageOk('liquid_water') ||
     gr.bgGround !== groundImages(gr).length ||
@@ -143,6 +144,7 @@ export function drawBackground(gr: GameRenderer, ctx: CanvasRenderingContext2D) 
       renderStaticBackground(gr, gr.bgCtx, w, h);
     }
     gr.bgTerrain = gr.e.terrain;
+    gr.bgTerrainEpoch = gr.e.terrainEpoch;
     gr.bgBiome = gr.e.biome.id;
     gr.bgW = w;
     gr.bgH = h;
@@ -167,7 +169,7 @@ export function renderStaticBackground(gr: GameRenderer, ctx: CanvasRenderingCon
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  // …then the region's own floor, out of the cache: one texture square per
+  // …then the region's own floor, out of the cache, laid at one texture square per
   // `GROUND_TILE` px of board. OSRS maps one square per game tile, but a game tile
   // is far bigger on screen than our 32px board tile, so a 1:1 mapping squeezed a
   // 128px texture into 32 and turned every ground into noise. Two board tiles per
@@ -207,30 +209,33 @@ export function renderStaticBackground(gr: GameRenderer, ctx: CanvasRenderingCon
 }
 
 /**
- * **The region's floor.** One texture square per {@link GROUND_TILE} px of board,
- * dealt from the region's own small set instead of filled as one repeating
- * pattern.
+ * **The region's floor.** The first of the region's textures fills the whole board
+ * as one repeating pattern, and every texture after it is stamped over that as
+ * scattered soft-edged blots.
  *
- * A pattern fill is a single canvas call, which is why the first pass used one —
- * but 225 copies of the same square in the same orientation read as wallpaper, and
- * the busier the texture the worse it got. So the base floor draws itself square by
- * square, half of them turned end for end on a hash of their own board coordinates:
- * the same board comes out the same way twice, and neighbouring squares rarely
- * repeat.
+ * The base used to be drawn square by square, each square turned on a hash of its
+ * own coordinates, to break the repeat. It broke the repeat and it also left a
+ * seam: a turned square lands its edges on fractional device pixels, and on a
+ * texture with any direction to it — Al Kharid's sand is ripple lines and nothing
+ * else — every one of those edges read as a ruled line across the desert. A
+ * pattern fill has no edges at all, so the variation has to come from somewhere
+ * that cannot draw one.
  *
- * The region's *second* texture never fills a square. Two cache textures that both
- * suit a region still differ in brightness far more than two patches of the same
- * ground do, so dealing them square for square paved every region with a quilt —
- * and dropping the odd one to half alpha only made a fainter quilt, because the
- * eye reads the straight edge, not the contrast. It is stamped instead as a round
- * soft-edged blot ({@link accentBrush}), scattered and turned, so the variation has
- * no edge to read.
+ * That is what the blots are for. Two cache textures that both suit a region still
+ * differ in brightness far more than two patches of the same ground do, so dealing
+ * a second texture square for square paved every region with a quilt — and dropping
+ * the odd square to half alpha only made a fainter quilt, because the eye reads the
+ * straight edge, not the contrast. Each accent is laid instead as a round blot with
+ * a faded rim ({@link accentBrush}), scattered, turned and skipped at random, and a
+ * region can carry as many as it has textures: a third one is a third scatter with
+ * its own salt, which is how Misthalin gets its trodden dirt and Mor Ul Rek its
+ * lava seams.
  *
  * The region's gradient goes back over the top at a low alpha instead of under it:
  * that is what keeps Morytania's silt sickly and Al Kharid's sand sun-bleached,
  * when the same texture would otherwise read as its raw cache colour everywhere.
  *
- * It costs ~280 `drawImage` calls once per bake and nothing per frame.
+ * It costs one fill plus ~70 blots per accent, once per bake, and nothing per frame.
  */
 function paintGround(
   gr: GameRenderer,
@@ -241,38 +246,38 @@ function paintGround(
 ) {
   const floors = groundImages(gr);
   if (floors.length === 0) return;
-  const half = GROUND_TILE / 2;
-  for (let y = 0; y < h; y += GROUND_TILE) {
-    for (let x = 0; x < w; x += GROUND_TILE) {
-      const n = hash2(x * 0.37 + 11.3, y * 0.53 + 4.7);
-      ctx.save();
-      ctx.translate(x + half, y + half);
-      // Half-turns only, never quarter-turns. A quarter-turn breaks the repeat
-      // hardest, but it also turns a directional texture across its neighbour — and
-      // Al Kharid's sand is nothing but ripple lines, so the board came out woven
-      // into a basket. A half-turn keeps every line running the way the region's
-      // ground runs, and the blots below carry the variation instead.
-      if (n > 0.5) ctx.rotate(Math.PI);
-      // Half a pixel of overdraw on each side: a turned square lands its edges on
-      // fractional device pixels, and without it every seam shows as a hairline of
-      // the gradient underneath.
-      ctx.drawImage(floors[0], -half - 0.5, -half - 0.5, GROUND_TILE + 1, GROUND_TILE + 1);
-      ctx.restore();
-    }
+
+  const base = ctx.createPattern(floors[0], 'repeat');
+  if (base) {
+    base.setTransform(new DOMMatrix([
+      GROUND_TILE / floors[0].width, 0, 0, GROUND_TILE / floors[0].height, 0, 0,
+    ]));
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, w, h);
   }
 
-  // …then the second texture, blotted over it. One blot per two-tile cell, jittered
-  // off its cell so the scatter keeps no grid of its own, and skipped on a little
-  // over half of them so there is bare ground between the patches.
-  const brush = floors.length > 1 ? accentBrush(floors[1]) : null;
-  if (brush) {
-    const step = ACCENT_BLOT;
+  // One scatter per accent texture. A blot per two-tile cell, jittered off its cell
+  // so the scatter keeps no grid of its own, skipped on a little over half of them
+  // so there is bare ground between the patches, and salted per layer so a region's
+  // second and third textures never land on the same cells.
+  //
+  // Layer 0 is the base texture stamped back over itself. None of the cache floors
+  // tiles perfectly, and on the flattest of them — meadow grass, snow — the repeat
+  // reads as a faint grid across the whole board. Same texture means no quilt, and
+  // the random angle breaks the grid, so it is laid almost everywhere (it skips
+  // under a tenth of the cells) where a real accent covers about half.
+  const step = ACCENT_BLOT;
+  for (let f = 0; f < floors.length; f++) {
+    const brush = accentBrush(floors[f]);
+    if (!brush) continue;
+    const salt = f * 31.7;
+    const skip = f === 0 ? 0.08 : 0.46;
     for (let y = -step; y < h + step; y += step) {
       for (let x = -step; x < w + step; x += step) {
-        const n = hash2(x * 0.21 + 3.1, y * 0.17 + 9.4);
-        if (n < 0.46) continue;
-        const jx = (hash2(x * 0.71 + 5.5, y * 0.31 + 2.2) - 0.5) * step;
-        const jy = (hash2(x * 0.13 + 8.8, y * 0.91 + 6.4) - 0.5) * step;
+        const n = hash2(x * 0.21 + 3.1 + salt, y * 0.17 + 9.4 + salt);
+        if (n < skip) continue;
+        const jx = (hash2(x * 0.71 + 5.5 + salt, y * 0.31 + 2.2) - 0.5) * step;
+        const jy = (hash2(x * 0.13 + 8.8, y * 0.91 + 6.4 + salt) - 0.5) * step;
         ctx.save();
         ctx.globalAlpha = 0.3 + n * 0.3;
         ctx.translate(x + step / 2 + jx, y + step / 2 + jy);
@@ -321,6 +326,28 @@ function accentBrush(img: HTMLImageElement): HTMLCanvasElement | null {
 }
 
 /**
+ * One tile's worth of flat colour with its edges faded out, used for the rough-ground
+ * wash. Same trick as {@link accentBrush} at tile size: the square is filled, then a
+ * radial gradient masks it through `destination-in`.
+ */
+function softSquare(color: string): HTMLCanvasElement | null {
+  const cv = document.createElement('canvas');
+  cv.width = GRID;
+  cv.height = GRID;
+  const c = cv.getContext('2d');
+  if (!c) return null;
+  c.fillStyle = color;
+  c.fillRect(0, 0, GRID, GRID);
+  const mask = c.createRadialGradient(GRID / 2, GRID / 2, GRID * 0.2, GRID / 2, GRID / 2, GRID * 0.62);
+  mask.addColorStop(0, 'rgba(0,0,0,1)');
+  mask.addColorStop(1, 'rgba(0,0,0,0)');
+  c.globalCompositeOperation = 'destination-in';
+  c.fillStyle = mask;
+  c.fillRect(0, 0, GRID, GRID);
+  return cv;
+}
+
+/**
  * Draw the run's terrain field (from the engine): non-buildable zones as textured
  * rough ground, hard obstacles as shaded boulders, and cosmetic scenery (bushes /
  * rocks / flowers / grass) on open ground — all derived from the active biome's
@@ -337,6 +364,11 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   const bushDark = shade(bush, 0.62);
   const bushLight = shade(bush, 1.28);
   const cols = t.cols;
+  // The rough-ground wash, feathered rather than a flat square. A hard-edged tint
+  // turned every non-buildable tile into a grid cell you could count on pale ground
+  // — Trollweiss snow worst of all. The middle keeps the full tint, so the tile
+  // still reads as rough; only its border fades away.
+  const roughTint = softSquare(bush);
 
   // ── Non-buildable zones: rough ground — a soft tint, then one of the region's
   // undergrowth props, so it reads as overgrown terrain you can't build on rather
@@ -349,8 +381,11 @@ export function drawTerrain(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     const x0 = c * GRID;
     const y0 = r * GRID;
     ctx.globalAlpha = 0.16;
-    ctx.fillStyle = bush;
-    ctx.fillRect(x0, y0, GRID, GRID);
+    if (roughTint) ctx.drawImage(roughTint, x0, y0);
+    else {
+      ctx.fillStyle = bush;
+      ctx.fillRect(x0, y0, GRID, GRID);
+    }
     ctx.globalAlpha = 1;
     if (drawProp(gr, ctx, scenery.rough, (hash2(c * 5.1, r * 3.9) * 97) | 0, c, r, 0.82)) continue;
     // Fallback until the region's bake has loaded: a fan of grass blades.

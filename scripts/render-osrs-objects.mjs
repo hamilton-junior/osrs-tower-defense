@@ -113,34 +113,31 @@ const TARGETS = {
   // floor reads as noise rather than as ground; and a floor has to stay low in
   // contrast, because the board repeats it 225 times.
   //
-  // Each region names two, an `a` it is mostly paved with and a `b` the board
-  // deals as the odd square, and `core/render/terrain.ts` turns each square by a
-  // quarter-turn hashed from its own coordinates. That is where the variation
-  // comes from: one 128px square repeated flat across 1440x640 is what made the
-  // first pass read as wallpaper.
+  // Each region names the floor it is mostly paved with first, and then one or two
+  // accents `core/render/terrain.ts` scatters over it as soft blots. The base is a
+  // pattern fill now, so it wants the flattest, least directional texture of the set
+  // — a texture with lines in it is fine as an accent and reads as a ruled seam when
+  // it is the floor.
   ground_lumbridge_a: { tex: 129, raw: true, dir: 'terrain' },  // meadow grass
   ground_lumbridge_b: { tex: 25, raw: true, dir: 'terrain' },   // deep pasture
-  ground_alkharid_a: { tex: 38, raw: true, dir: 'terrain' },    // desert dunes
-  ground_alkharid_b: { tex: 118, raw: true, dir: 'terrain' },   // wind-packed sand
-  ground_morytania_a: { tex: 119, raw: true, dir: 'terrain' },  // swamp silt
+  ground_lumbridge_c: { tex: 32, raw: true, dir: 'terrain' },   // trodden dirt
+  ground_alkharid_a: { tex: 18, raw: true, dir: 'terrain' },    // flat sand
+  ground_alkharid_b: { tex: 38, raw: true, dir: 'terrain' },    // dune ripples
+  ground_alkharid_c: { tex: 118, raw: true, dir: 'terrain' },   // wind-packed grit
+  ground_morytania_a: { tex: 60, raw: true, dir: 'terrain' },   // swamp moss
   ground_morytania_b: { tex: 11, raw: true, dir: 'terrain' },   // wet stone
-  ground_wilderness_a: { tex: 118, raw: true, dir: 'terrain' }, // dry dust
-  ground_wilderness_b: { tex: 15, raw: true, dir: 'terrain' },  // cracked stone
+  ground_morytania_c: { tex: 89, raw: true, dir: 'terrain' },   // black rot
+  ground_wilderness_a: { tex: 11, raw: true, dir: 'terrain' },  // cold stone
+  ground_wilderness_b: { tex: 89, raw: true, dir: 'terrain' },  // burnt earth
+  ground_wilderness_c: { tex: 118, raw: true, dir: 'terrain' }, // grit
   ground_trollweiss_a: { tex: 91, raw: true, dir: 'terrain' },  // snow
   ground_trollweiss_b: { tex: 1, raw: true, dir: 'terrain' },   // packed ice
-  ground_karamja_a: { tex: 129, raw: true, dir: 'terrain' },    // jungle floor
-  ground_karamja_b: { tex: 25, raw: true, dir: 'terrain' },     // jade moss
-  ground_tzhaar_a: { tex: 210, raw: true, dir: 'terrain' },     // cooled obsidian
-  ground_tzhaar_b: { tex: 119, raw: true, dir: 'terrain' },     // basalt gravel
-  //
-  // The two liquids a pool can hold. The client animates both, scrolling their u/v
-  // along `animationDirection` — the board does not: a scrolling pool under a
-  // fixed camera reads as the whole board sliding, so `core/render/terrain.ts`
-  // bakes them still, into the same buffer as the ground.
-  //
-  // Water is 24, the rippled blue (not the flat 1 this used to bake). Lava is 31,
-  // molten rock seen from above; 59 is the honeycomb crust the infernal cape is
-  // made of, which is a garment texture and read as one on the floor.
+  ground_karamja_a: { tex: 32, raw: true, dir: 'terrain' },     // jungle mud
+  ground_karamja_b: { tex: 129, raw: true, dir: 'terrain' },    // clearing grass
+  ground_karamja_c: { tex: 25, raw: true, dir: 'terrain' },     // jade moss
+  ground_tzhaar_a: { tex: 89, raw: true, dir: 'terrain' },      // black basalt
+  ground_tzhaar_b: { tex: 31, raw: true, dir: 'terrain' },      // lava seams
+  ground_tzhaar_c: { tex: 210, raw: true, dir: 'terrain' },     // ember crust
   liquid_water: { tex: 24, raw: true, dir: 'terrain' },
   liquid_lava: { tex: 31, raw: true, dir: 'terrain' },
 
@@ -230,7 +227,6 @@ const TARGETS = {
   // Mor Ul Rek has no tree and no rock the cache calls obsidian, so its two
   // blockers are the city's own furniture: the TzHaar statue (11968) and a
   // stalagmite (3825). The sulphur mounds are the floor of the volcano.
-  tz_statue: { obj: 11968, dir: 'scenery' },
   tz_stalagmite: { obj: 3825, dir: 'scenery' },
   tz_sulphur: { obj: 3962, dir: 'scenery' },
   tz_sulphur_mound: { obj: 28496, dir: 'scenery' },

@@ -617,13 +617,13 @@ export const ASSETS = {
   // and turns every square by a hashed quarter-turn (see `paintGround`).
   terrain: {
     ground: {
-      lumbridge: [`${LOCAL}/terrain/ground_lumbridge_a.png`, `${LOCAL}/terrain/ground_lumbridge_b.png`],    // 129 grass, 25 pasture
-      alkharid: [`${LOCAL}/terrain/ground_alkharid_a.png`, `${LOCAL}/terrain/ground_alkharid_b.png`],        // 38 dunes, 118 packed sand
-      morytania: [`${LOCAL}/terrain/ground_morytania_a.png`, `${LOCAL}/terrain/ground_morytania_b.png`],     // 119 silt, 11 wet stone
-      wilderness: [`${LOCAL}/terrain/ground_wilderness_a.png`, `${LOCAL}/terrain/ground_wilderness_b.png`],  // 118 dust, 15 cracked stone
-      trollweiss: [`${LOCAL}/terrain/ground_trollweiss_a.png`, `${LOCAL}/terrain/ground_trollweiss_b.png`],  // 91 snow, 1 packed ice
-      karamja: [`${LOCAL}/terrain/ground_karamja_a.png`, `${LOCAL}/terrain/ground_karamja_b.png`],           // 25 moss, 129 clearing grass
-      tzhaar: [`${LOCAL}/terrain/ground_tzhaar_a.png`, `${LOCAL}/terrain/ground_tzhaar_b.png`],              // 210 obsidian, 119 basalt
+      lumbridge: [`${LOCAL}/terrain/ground_lumbridge_a.png`, `${LOCAL}/terrain/ground_lumbridge_b.png`, `${LOCAL}/terrain/ground_lumbridge_c.png`], // 129 meadow grass · 25 deep pasture · 32 trodden dirt
+      alkharid: [`${LOCAL}/terrain/ground_alkharid_a.png`, `${LOCAL}/terrain/ground_alkharid_b.png`, `${LOCAL}/terrain/ground_alkharid_c.png`], // 18 flat sand · 38 dune ripples · 118 wind-packed grit
+      morytania: [`${LOCAL}/terrain/ground_morytania_a.png`, `${LOCAL}/terrain/ground_morytania_b.png`, `${LOCAL}/terrain/ground_morytania_c.png`], // 60 swamp moss · 11 wet stone · 89 black rot
+      wilderness: [`${LOCAL}/terrain/ground_wilderness_a.png`, `${LOCAL}/terrain/ground_wilderness_b.png`, `${LOCAL}/terrain/ground_wilderness_c.png`], // 11 cold stone · 89 burnt earth · 118 grit
+      trollweiss: [`${LOCAL}/terrain/ground_trollweiss_a.png`, `${LOCAL}/terrain/ground_trollweiss_b.png`], // 91 snow · 1 packed ice
+      karamja: [`${LOCAL}/terrain/ground_karamja_a.png`, `${LOCAL}/terrain/ground_karamja_b.png`, `${LOCAL}/terrain/ground_karamja_c.png`], // 32 jungle mud · 129 clearing grass · 25 jade moss
+      tzhaar: [`${LOCAL}/terrain/ground_tzhaar_a.png`, `${LOCAL}/terrain/ground_tzhaar_b.png`, `${LOCAL}/terrain/ground_tzhaar_c.png`], // 89 black basalt · 31 lava seams · 210 ember crust
     } as Record<BiomeId, string[]>,
     // Both liquids are baked into the static background with the ground: the
     // client scrolls their u/v, but a scrolling pool under a camera that never
@@ -656,7 +656,6 @@ export const ASSETS = {
       kara_palm: `${LOCAL}/scenery/kara_palm.png`,                 // 2577 Palm tree
       kara_jungle_tree: `${LOCAL}/scenery/kara_jungle_tree.png`,   // 2887 Jungle tree
       kara_fern: `${LOCAL}/scenery/kara_fern.png`,                 // 1298 Fern
-      tz_statue: `${LOCAL}/scenery/tz_statue.png`,                 // 11968 TzHaar statue
       tz_stalagmite: `${LOCAL}/scenery/tz_stalagmite.png`,         // 3825 Stalagmite
       tz_sulphur: `${LOCAL}/scenery/tz_sulphur.png`,               // 3962 Sulphur
       tz_sulphur_mound: `${LOCAL}/scenery/tz_sulphur_mound.png`,   // 28496 Volcanic sulphur
