@@ -14,6 +14,7 @@ import {
 } from '../../systems/hunter-traps';
 import { ignoresCc } from '../../systems/affixes';
 import { rollSkillPet } from '../../systems/pets';
+import { regionTally } from '../../systems/combat-achievements';
 import { ASSETS } from '../../assets';
 import { RUN_FX_ID } from '../../systems/combat-stats';
 import type { GameEngine } from '../engine';
@@ -183,6 +184,7 @@ function awardHunterXp(eng: GameEngine, def: HunterTrapDef) {
     eng.notify(`Hunter level ${g.level}`, ASSETS.misc.hunter_icon);
     eng.sound.play('prayer_on', 50);
   }
+  regionTally(eng.caStats, eng.biome.id).traps += 1;
   // Hunter's two pets split the way its traps do: the chinchompa drops its own
   // baby, and everything you set on the road rolls for Herbi.
   const pet = rollSkillPet(def.kind === 'blast' ? 'hunter_chin' : 'hunter_trap', eng.difficultyTier);

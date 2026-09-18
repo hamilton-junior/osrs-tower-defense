@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  emptyRunStats, evaluate, tierProgress, earnedTitles, highestTitle,
+  emptyRunStats, evaluate, tierProgress, earnedTitles, highestTitle, regionTally, visitRegion,
   CA_TIERS, type RunStats,
 } from './combat-achievements';
 import { CA_TASKS, CA_BOSS_ROSTER } from '../data/combat-achievements';
@@ -335,5 +335,30 @@ describe('tier helpers', () => {
     const allEasy = new Set(CA_TASKS.filter((t) => t.tier === 'easy').map((t) => t.id));
     expect(earnedTitles(allEasy)).toEqual(['easy']);
     expect(highestTitle(allEasy)).toBe('easy');
+  });
+});
+
+describe('per-region tallies', () => {
+  it('opens a region on first use and keeps counting into the same one', () => {
+    const s = emptyRunStats('classic', 0);
+    expect(s.regions.morytania).toBeUndefined();
+    regionTally(s, 'morytania').kills += 2;
+    regionTally(s, 'morytania').kills += 1;
+    expect(s.regions.morytania!.kills).toBe(3);
+    expect(s.regions.karamja).toBeUndefined();
+  });
+
+  it('remembers a visit once, in the order the run made it', () => {
+    const s = emptyRunStats('classic', 0);
+    visitRegion(s, 'lumbridge');
+    visitRegion(s, 'karamja');
+    visitRegion(s, 'lumbridge');
+    expect(s.biomesVisited).toEqual(['lumbridge', 'karamja']);
+  });
+
+  it('opens the region tally on the visit, so an untouched region still reads zero', () => {
+    const s = emptyRunStats('classic', 0);
+    visitRegion(s, 'wilderness');
+    expect(s.regions.wilderness).toEqual({ kills: 0, wavesCleared: 0, cleanWaves: 0, livesLost: 0, bosses: [], fish: 0, herbs: 0, potions: 0, traps: 0 });
   });
 });

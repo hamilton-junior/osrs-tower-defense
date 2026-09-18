@@ -18,6 +18,7 @@ import { healingDenied } from '../../systems/tower-fusion';
 import { farmLivesOnClear, ripenPatches } from '../../systems/farming';
 import { SEED_BY_ID } from '../../data/farming';
 import { restockSpots } from '../../systems/fishing';
+import { regionTally } from '../../systems/combat-achievements';
 import {
   burningPotion, dropBurningPotions, potionLivesOnClear, potionLivesPerWave, pouringPotion, tickPotions,
 } from '../../systems/herblore';
@@ -509,6 +510,7 @@ export function moveEnemies(eng: GameEngine, dt: number) {
         eng.caStats.livesLostRun += cost;
         eng.caStats.livesLostThisWave += cost;
         eng.caStats.cleanWaveStreak = 0;
+        regionTally(eng.caStats, eng.biome.id).livesLost += cost;
         for (const boss of eng.enemies) {
           if (!boss.isBoss) continue;
           eng.caStats.livesLostDuringBoss[boss.type] =
@@ -585,6 +587,7 @@ export function checkWaveEnd(eng: GameEngine) {
     eng.caStats.livesLostRun += 1;
     eng.caStats.livesLostThisWave += 1;
     eng.caStats.cleanWaveStreak = 0;
+    regionTally(eng.caStats, eng.biome.id).livesLost += 1;
     eng.baseFlash = 1;
     if (eng.checkLethal()) { eng.emit(); return; }
   }
@@ -646,6 +649,11 @@ export function checkWaveEnd(eng: GameEngine) {
   eng.caStats.slayerTasksDone = eng.slayer.streak;
   if (eng.caStats.livesLostThisWave === 0) eng.caStats.cleanWaveStreak += 1;
   else eng.caStats.cleanWaveStreak = 0;
+  // The wave is credited to the region it was fought in, which is the region the run
+  // is still standing in — travel is offered after this, never during a wave.
+  const here = regionTally(eng.caStats, eng.biome.id);
+  here.wavesCleared += 1;
+  if (eng.caStats.livesLostThisWave === 0) here.cleanWaves += 1;
   eng.caStats.livesLostThisWave = 0;
   eng.checkPrayerUnlocks(); // celebrate any tower prayers gating on the new wave
   eng.prayer.refill(); // top up to the new wave's (possibly larger) pool

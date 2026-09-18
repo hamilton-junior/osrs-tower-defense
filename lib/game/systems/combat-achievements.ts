@@ -9,6 +9,7 @@
 import type { GameMode } from '../core/engine';
 import type { DifficultyTier } from './difficulty';
 import type { EnemyType, CombatStyle } from '../types';
+import type { BiomeId } from '../data/biomes';
 import { CA_TASKS } from '../data/combat-achievements';
 import { ASSETS } from '../assets';
 
@@ -38,6 +39,45 @@ export interface CaTask {
   /** Set only on the mode-exclusive tasks; absent means "either mode". */
   mode?: GameMode;
   check(s: RunStats, a: CaAccount): boolean;
+}
+
+/**
+ * What a run did inside one region. Every region-flavoured fact lives here rather
+ * than in a field of its own, so a task that asks "in Morytania" reads one object
+ * and nothing has to be added per region. Filled lazily by {@link regionTally}:
+ * a region the run never entered simply has no entry.
+ */
+export interface RegionStats {
+  kills: number;
+  /** Waves finished while the run was in this region. */
+  wavesCleared: number;
+  /** Of those, the ones that cost no life. */
+  cleanWaves: number;
+  livesLost: number;
+  /** Bosses put down here, by type — a set in spirit, an array so it clones. */
+  bosses: EnemyType[];
+  /** Skilling done here: fish landed, herbs pulled, traps sprung, potions brewed. */
+  fish: number;
+  herbs: number;
+  traps: number;
+  potions: number;
+}
+
+export function emptyRegionStats(): RegionStats {
+  return { kills: 0, wavesCleared: 0, cleanWaves: 0, livesLost: 0, bosses: [], fish: 0, herbs: 0, potions: 0, traps: 0 };
+}
+
+/** The region's tally, created on first use. The one way to reach `s.regions`:
+ *  every caller writes through it, so no site has to handle the empty case. */
+export function regionTally(s: RunStats, biome: BiomeId): RegionStats {
+  return (s.regions[biome] ??= emptyRegionStats());
+}
+
+/** Record that the run is now in `biome`: opens its tally and remembers the visit.
+ *  Idempotent, so every site that sets the region can call it without checking. */
+export function visitRegion(s: RunStats, biome: BiomeId) {
+  regionTally(s, biome);
+  if (!s.biomesVisited.includes(biome)) s.biomesVisited.push(biome);
 }
 
 /**
@@ -71,6 +111,12 @@ export interface RunStats {
   stylesUsed: CombatStyle[];
 
   slayerTasksDone: number;
+
+  /** Per-region tally — see {@link RegionStats}. The Achievement Diaries read it. */
+  regions: Partial<Record<BiomeId, RegionStats>>;
+  /** Every region the run has set foot in, in order of arrival and never repeated. */
+  biomesVisited: BiomeId[];
+
   prayerEverUsed: boolean;
   prayerActiveAtWaveEnd: boolean;
 
@@ -118,6 +164,7 @@ export function emptyRunStats(mode: GameMode, tier: DifficultyTier): RunStats {
     towersBuilt: 0, towersSold: 0, maxTowersOnField: 0, hadAllSixAtOnce: false, twoMaxedAtOnce: false,
     killsByTower: {}, stylesUsed: [],
     slayerTasksDone: 0, prayerEverUsed: false, prayerActiveAtWaveEnd: false,
+    regions: {}, biomesVisited: [],
     bossKillSeconds: {}, bossSpawnSeconds: {}, livesLostDuringBoss: {},
     bossFlags: {
       jadHealed: false, hydraVentsBroken: 0, hydraVentHealed: false,

@@ -4,6 +4,7 @@ import type { GameEngine } from '../engine';
 import { freshRunEffects, freshRelicEffects, freshRunMods } from '../engine-state';
 import { DEFAULT_UPGRADES } from '../../systems/meta-progression';
 import { emptyRunStats } from '../../systems/combat-achievements';
+import { BIOMES } from '../../data/biomes';
 import { fireTowers, damage, baseHit } from './combat';
 
 /**
@@ -48,6 +49,8 @@ function stubEngine() {
     runFx: freshRunEffects(),
     relicFx: freshRelicEffects(),
     caStats: emptyRunStats('roguelite', 0),
+    // Kills are tallied per region, so a stub engine has to stand somewhere.
+    biome: BIOMES.lumbridge,
     killCounts: {} as Record<string, number>,
     bossesKilledThisRun: {} as Record<string, number>,
     lootBag: [] as unknown[],

@@ -14,6 +14,7 @@ import { debuffTenacity, CC_BREAK_SHRED, CC_BREAK_SECS } from '../../systems/ten
 import { archerArrowCount, bowAntiTankMult, cannonBlastRadius, slayerWeaponBonus, isSlayerFavoredTarget, hasSlayerSpecialisation, favouredReachIsGlobal, towerMarkKind, venomRamp, venomCap, venatorReach, venatorMultAt, type VenatorStretch, noxiousSpread, halberdSeedDps, type VenomLevel, envenomAura, envenomStaffFor, eclipseStacksAfter, eclipseShove, eclipseBurnDps, ECLIPSE_MAX_STACKS, ECLIPSE_STACK_SECS } from '../../systems/tower-identity';
 import { rollGearDrops, gearDamageMult, wearsGearEffect } from '../../systems/tower-gear';
 import { rollPetDrop } from '../../systems/pets';
+import { regionTally } from '../../systems/combat-achievements';
 import { fusionSpellFx, purgeDamageMult, PURGE_DENY_SECS } from '../../systems/tower-fusion';
 import { CATCH_DROP_LUCK } from '../../systems/hunter-traps';
 import { mergeUnlockBatch } from '../../systems/unlock-queue';
@@ -1568,11 +1569,16 @@ function awardKill(
   // Moon's harder-wave payout) both scale the drop; both default to 1.
   eng.awardGold(eng.killGoldPreReward(enemy.type));
   eng.kills += 1;
+  // Where it died is a fact in its own right: the Achievement Diaries ask for kills
+  // in a named region, so the tally follows the run rather than the monster.
+  const here = regionTally(eng.caStats, eng.biome.id);
+  here.kills += 1;
   tryBloodFuryLife(eng, source?.towerId);
   if (source?.towerId) {
     eng.caStats.killsByTower[source.towerId] = (eng.caStats.killsByTower[source.towerId] ?? 0) + 1;
   }
   if (enemy.isBoss) {
+    if (!here.bosses.includes(enemy.type)) here.bosses.push(enemy.type);
     const spawned = eng.caStats.bossSpawnSeconds[enemy.type];
     eng.caStats.bossKillSeconds[enemy.type] =
       spawned === undefined ? eng.runSeconds : eng.runSeconds - spawned;
