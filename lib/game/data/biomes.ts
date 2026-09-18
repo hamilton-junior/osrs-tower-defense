@@ -91,6 +91,20 @@ export const SCENERY_LIMIT: Partial<Record<SceneryId, number>> = {
   tz_brazier: 2,
   tz_lava_trough: 2,
   tz_obsidian_rock: 2,
+  // The vent is the only prop in three of its region's lists at once — it blocks a
+  // tile, it roughs one up and it stands as plain furniture — so an uncapped board
+  // grew a cone on nearly every free tile and the cavern read as a pincushion. The
+  // cap is deliberately loose: a cavern should still steam, so it is a count the
+  // board reaches rather than one it bumps into, and the tiles past it fall through
+  // to whatever stands next in that list — the pillar on a blocked tile, the seam
+  // and then the pebbles on open ground.
+  tz_sulphur_vent: 30,
+  // The seam needs the same cap and for the same reason, one step removed: capping
+  // the vent alone just handed every tile past the cap to the next entry in the
+  // list, and the cavern swapped a floor of cones for a floor of slabs. Past both
+  // caps the walk-on lands on the pebbles, which is the quiet floor the cavern
+  // wanted in the first place.
+  tz_lava_seam: 30,
 };
 
 export interface BiomeDef {
@@ -291,8 +305,13 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     road: { shadow: '#120b09', border: '#2a120a', mid: '#5a1e0c', walked: '#8a2e10', centre: '#b8461a', dash: 'rgba(255,140,40,0.4)' },
     scenery: {
       block: ['tz_rock_pillar', 'tz_sulphur_vent', 'tz_obsidian_rock', 'tz_lava_forge'],
-      rough: ['tz_sulphur_vent', 'tz_lava_seam'],
-      prop: ['tz_sulphur_vent', 'tz_lava_seam', 'tz_brazier', 'tz_lava_trough'],
+      // The pebbles come from Lumbridge's set and carry the cavern once the vents
+      // and the seams are spent: they are the only entry here with no cap, which is
+      // what keeps the walk-on from running off the end of the list. They read as
+      // loose basalt on this floor — dark, flat and worth nothing, which is exactly
+      // what the rest of the cavern floor should be.
+      rough: ['tz_sulphur_vent', 'tz_lava_seam', 'lumb_pebbles'],
+      prop: ['tz_sulphur_vent', 'tz_lava_seam', 'tz_brazier', 'tz_lava_trough', 'lumb_pebbles'],
     },
     decor: { bush: '#3a2018', rock: '#2a2422', rockHi: '#4a4038', flowers: ['#ff7a1f', '#ffb03a', '#e0401a'] },
     water: { deep: '#1a1210', shallow: '#3a1f16', foam: '#8a4426', ripple: '#ff9b4a' },

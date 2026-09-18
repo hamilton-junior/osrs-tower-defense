@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "board",
+      "text": "The TzHaar cavern steams from a scatter of sulphur vents instead of one on every free tile",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
       "text": "TzHaar's vents cool to black basalt and its floor pools lava instead of hairline cracks",
       "fromFeedback": false,
       "date": "2026-09-18"
@@ -272,13 +279,6 @@
       "scope": "game",
       "text": "Hunter traps pay a third more XP for every firing",
       "fromFeedback": false,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "Picking up a trap refunds its price by the charges it has left",
-      "fromFeedback": true,
       "date": "2026-09-16"
     }
   ]
