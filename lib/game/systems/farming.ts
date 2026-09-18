@@ -18,7 +18,7 @@
  */
 
 import { SEED_BY_ID, type SeedDef, type SeedId } from '../data/farming';
-import type { TerrainField } from './terrain-generation';
+import type { TerrainField, TileFlag } from './terrain-generation';
 import { applyStyleBoost, identityStyleMods, type StyleMods } from './style-mods';
 
 /** What a patch looks like, and what clicking it does. `empty` offers the seed
@@ -49,6 +49,12 @@ export interface FarmPatch {
   /** Set when the Tool Leprechaun has grown this herb along, so the patch can show
    *  who helped. Cleared by everything that empties or re-sows the ground. */
   tended?: boolean;
+  /** The tile flag this plot is standing on top of, put back when it moves away.
+   *  A plot may be dropped on a boulder or a tree (see {@link canPlacePlot}), and
+   *  an allotment growing out of the middle of a cactus reads as a bug — so the
+   *  tile turns to plain farmland while the plot is there, and the prop comes back
+   *  the moment it leaves. Absent on a plot the map itself dealt. */
+  under?: TileFlag;
 }
 
 /**

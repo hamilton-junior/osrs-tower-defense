@@ -49,6 +49,10 @@ export class GameRenderer {
   bgCache: HTMLCanvasElement | null = null;
   bgCtx: CanvasRenderingContext2D | null = null;
   bgTerrain: TerrainField | null = null;
+  /** The engine's `terrainEpoch` when the buffer was last baked. The field is
+   *  mutated in place when a plot is put down or picked up, so the reference above
+   *  cannot see it — and the prop the plot covers would stay on the board. */
+  bgTerrainEpoch = -1;
   bgBiome = '';
   bgW = 0;
   bgH = 0;

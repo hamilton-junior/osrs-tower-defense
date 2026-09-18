@@ -116,6 +116,12 @@ export class GameEngine {
   /** Per-run terrain: obstacle / non-buildable / decoration flags over the tile grid.
    *  Rebuilt with the map each run; the renderer draws it and placement consults it. */
   terrain: TerrainField = { cols: 0, rows: 0, tiles: [], liquid: [], decorations: [], patches: [], spots: [] };
+  /** Bumped whenever a tile flag changes without the field itself being replaced —
+   *  which today means a plot put down or picked up. The static background bake is
+   *  keyed on it: the buffer holds the region's props, the field is mutated in
+   *  place, and nothing else would tell the renderer that the tree a plot now
+   *  stands on has to come off the board (and go back afterwards). */
+  terrainEpoch = 0;
 
   /** Does the terrain forbid building on the tile at `(x, y)` (obstacle or
    *  non-buildable zone)? Public so the renderer's placement ghost can turn red
@@ -1563,9 +1569,12 @@ export class GameEngine {
    *  their tiles so nothing else claims them. */
   private addOwnedPlots() {
     for (const tile of pickPlotTiles(this.terrain, this.plotsBought)) {
+      const patch = makePatch(tile.col, tile.row, GRID);
+      patch.under = this.terrain.tiles[tile.row * this.terrain.cols + tile.col];
       this.terrain.tiles[tile.row * this.terrain.cols + tile.col] = 'farming';
-      this.farmPatches.push(makePatch(tile.col, tile.row, GRID));
+      this.farmPatches.push(patch);
     }
+    this.terrainEpoch++;
     this.farmPatches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
   }
 
@@ -3858,10 +3867,13 @@ export class GameEngine {
     if (!canPlacePlot(this.terrain, col, row, moving)) return;
     const cols = this.terrain.cols;
     if (moving) {
-      // The ground the plot was standing on goes back to rough scrub. It was never
-      // buildable and still isn't, so no guarantee the terrain makes is disturbed —
-      // and a dug-over allotment looking like scrub is what it should look like.
-      this.terrain.tiles[moving.row * cols + moving.col] = 'unbuildable';
+      // The ground the plot was standing on goes back to exactly what it was: rough
+      // scrub if it was scrub, its tree or boulder again if it covered one. It was
+      // never buildable either way, so no guarantee the terrain makes is disturbed —
+      // and a plot that cleared the prop for good would let the player quarry the
+      // map one allotment at a time.
+      this.terrain.tiles[moving.row * cols + moving.col] = moving.under ?? 'unbuildable';
+      moving.under = this.terrain.tiles[row * cols + col];
       moving.col = col;
       moving.row = row;
       moving.x = (col + 0.5) * GRID;
@@ -3869,12 +3881,17 @@ export class GameEngine {
       moving.id = plotId(col, row);
       this.movingPatchId = null;
     } else {
-      this.farmPatches.push(makePatch(col, row, GRID));
+      const patch = makePatch(col, row, GRID);
+      // What the plot is covering, so putting one down on a tree hides the tree
+      // rather than felling it.
+      patch.under = this.terrain.tiles[row * cols + col];
+      this.farmPatches.push(patch);
       this.plotsBought += 1;
       this.placingPlot = false;
       this.notify('Allotment bought', ASSETS.misc.farming_icon);
     }
     this.terrain.tiles[row * cols + col] = 'farming';
+    this.terrainEpoch++; // props changed under the plot — the board has to rebake
     this.farmPatches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
     this.sound.play('farm_harvest');
     this.emit();
@@ -4710,7 +4727,7 @@ export class GameEngine {
     this.plotsBought = save.plotsBought ?? 0;
     if (save.plots && save.plots.length > 0) {
       const cols = this.terrain.cols;
-      for (const p of this.farmPatches) this.terrain.tiles[p.row * cols + p.col] = 'unbuildable';
+      for (const p of this.farmPatches) this.terrain.tiles[p.row * cols + p.col] = p.under ?? 'unbuildable';
       this.farmPatches = [];
       let restored = 0;
       for (const id of save.plots) {
@@ -4720,17 +4737,24 @@ export class GameEngine {
         // before the pools existed can name a square this map has since given to a
         // fishing spot, and stamping it 'farming' would bury the spot under a plot.
         if (!canPlacePlot(this.terrain, at.col, at.row)) continue;
+        // The map is dealt from the run's own seed, so the flag under a restored
+        // plot is the one it covered when the save was written — nothing to store.
+        const patch = makePatch(at.col, at.row, GRID);
+        patch.under = this.terrain.tiles[at.row * cols + at.col];
         this.terrain.tiles[at.row * cols + at.col] = 'farming';
-        this.farmPatches.push(makePatch(at.col, at.row, GRID));
+        this.farmPatches.push(patch);
         restored++;
       }
       // Whatever the map could not honour is dealt fresh ground instead, so a plot
       // that was paid for is never lost to a tile that changed under it. The tiles
       // above are already flagged, so this never picks one of them twice.
       for (const tile of pickPlotTiles(this.terrain, save.plots.length - restored)) {
+        const patch = makePatch(tile.col, tile.row, GRID);
+        patch.under = this.terrain.tiles[tile.row * cols + tile.col];
         this.terrain.tiles[tile.row * cols + tile.col] = 'farming';
-        this.farmPatches.push(makePatch(tile.col, tile.row, GRID));
+        this.farmPatches.push(patch);
       }
+      this.terrainEpoch++;
       this.farmPatches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
     }
     // What was growing in them. A patch the save no longer names has nothing sown.
