@@ -1,5 +1,6 @@
 import { sanitizeRunSave, type RunSave } from './run-save';
 import { sanitizePets, validActivePet } from './pets';
+import { EMPTY_BOARD, sanitizeDailyBoard, type DailyBoard } from './daily-score';
 
 /**
  * The **account** save: everything a player would lose by clearing their browser,
@@ -75,6 +76,10 @@ export interface AccountSave {
   /** Which owned pet walks the board, or null. Cosmetic, and a preference: an
    *  imported account that names a pet it does not own simply shows none. */
   activePet: string | null;
+  /** Every daily challenge this account has a score for. Added after the format was
+   *  first shipped, so an older code carries none — an empty board, which is what
+   *  "never played one" means. */
+  dailyBoard: DailyBoard;
   victories: Victories;
   difficulty: DifficultyProgress;
   achievements: string[];
@@ -150,6 +155,7 @@ export interface AccountParts {
   fusionsMade?: unknown;
   pets?: unknown;
   activePet?: unknown;
+  dailyBoard?: unknown;
   victories?: unknown;
   difficulty?: unknown;
   achievements?: unknown;
@@ -177,6 +183,7 @@ export function buildAccountSave(parts: AccountParts): AccountSave {
     fusionsMade: tally(raw.fusionsMade),
     pets: sanitizePets(raw.pets),
     activePet: validActivePet(sanitizePets(raw.pets), raw.activePet),
+    dailyBoard: raw.dailyBoard === undefined ? EMPTY_BOARD : sanitizeDailyBoard(raw.dailyBoard),
     victories: sanitizeVictories(raw.victories),
     difficulty: sanitizeDifficulty(raw.difficulty),
     achievements: Array.isArray(raw.achievements) ? raw.achievements.filter((x): x is string => typeof x === 'string') : [],

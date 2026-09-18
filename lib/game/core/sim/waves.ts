@@ -97,6 +97,9 @@ export function computeWaveConfigs(eng: GameEngine): WaveConfig[] {
     bossesSeen: eng.bossesSeen,
     // Per-run march: every run meets bosses gentle→hard and has a real "last boss".
     bossKillsThisRun: eng.bossesKilledThisRun,
+    // Math.random in an ordinary run; a stream off the day's seed in a daily, so
+    // every player fights the same roster in the same order.
+    rng: eng.waveRng(0),
   });
   eng.previewCache = { wave: eng.wave, task: taskType, biome, configs };
   return configs;
@@ -675,6 +678,9 @@ export function checkWaveEnd(eng: GameEngine) {
     eng.caStats.won = true;
     eng.caStats.runSeconds = eng.runSeconds;
     eng.victoryWave = eng.wave - 1; // the wave just cleared (wave already advanced)
+    // A won daily scores here: the run is over as far as the challenge goes, and
+    // Endless past it can only improve on the wave already filed.
+    eng.fileDailyScore(eng.victoryWave);
     eng.paused = true;
     eng.sound.play('interface_open');
   }

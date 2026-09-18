@@ -3,6 +3,13 @@
   "entries": [
     {
       "kind": "new",
+      "scope": "daily",
+      "text": "A Daily Challenge gives everyone the same map and the same waves each day, and keeps your best run",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "new",
       "scope": "pets",
       "text": "Every boss now drops its own pet, and the one you pick walks beside your base",
       "fromFeedback": false,
@@ -271,13 +278,6 @@
       "kind": "fixed",
       "scope": "game",
       "text": "The red flash from a Zamorak brew drunk while paused fades instead of staying on the board",
-      "fromFeedback": true,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "new",
-      "scope": "game",
-      "text": "A life won back washes the board green, the way a leak washes it red",
       "fromFeedback": true,
       "date": "2026-09-16"
     }

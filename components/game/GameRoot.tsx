@@ -41,7 +41,9 @@ import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButto
 import { gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
 import { RewardChip, RewardOptions } from './diversion-reward';
 import type { DiversionReward } from '@/lib/game/systems/diversions';
-import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, type Victories, type DifficultyProgress } from './save';
+import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, loadDailyBoard, type Victories, type DifficultyProgress } from './save';
+import { dailyKey, dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
+import { EMPTY_BOARD, recordDaily, type DailyBoard } from '@/lib/game/systems/daily-score';
 import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Price, Vital, GoStat, StatLabel, Stat } from './ui-kit';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl, coinsIcon, GEAR_ICONS } from '@/lib/game/assets';
@@ -116,6 +118,7 @@ const INITIAL: UIState = {
   pendingRelics: null, ownedRelics: [], draftRerolls: 0,
   autoplay: false, autoplaySecs: 3,
   biomeName: 'Misthalin Plains',
+  daily: null, dailyResult: null,
   pendingTravel: null,
   lifeGainSeq: 0,
   lifeGainAmount: 0,
@@ -160,6 +163,21 @@ const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>
 /** Icon for a GE offer / slayer reward / meta upgrade: resolves the data table's
  *  wiki filename to the cache-baked local asset (wiki hot-link as fallback). */
 const geIcon = (wiki: string) => iconUrl(wiki);
+
+/**
+ * The daily's line on an end-of-run screen: what today's board holds now that this
+ * run has been filed, and whether this run is the one holding it.
+ */
+function DailyEndLine({ day, best, isBest }: { day: string; best: { wave: number } | null; isBest: boolean }) {
+  return (
+    <div className="rs-panel-inset flex items-center justify-center gap-[0.5em] py-[0.5em] mb-4 text-[0.95em]">
+      <img src={ASSETS.misc.signpost} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
+      <span className="text-[0.82em] text-[#d3c3a0] uppercase tracking-wide">{dayLabel(day)} best</span>
+      <span className="text-osrs-yellow font-bold">Wave {best ? best.wave : '–'}</span>
+      {isBest && <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide">new</span>}
+    </div>
+  );
+}
 
 export default function GameRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -262,6 +280,18 @@ export default function GameRoot() {
   // The champion's win record (non-monetary meta reward). Read once on mount.
   const [victories, setVictories] = useState<Victories>(EMPTY_VICTORIES);
   useEffect(() => { setVictories(loadVictories()); }, []);
+  // This browser's daily scoreboard — best run per day, read once on mount.
+  const [dailyBoard, setDailyBoard] = useState<DailyBoard>(EMPTY_BOARD);
+  useEffect(() => { setDailyBoard(loadDailyBoard()); }, []);
+  // The day's best as the board holds it now — this run is already filed by the time
+  // an end screen renders, so `dailyIsBest` asks whether the row IS this run.
+  const dailyBest = ui.daily ? dailyBoard.days[ui.daily] ?? null : null;
+  const dailyIsBest = !!(dailyBest && ui.dailyResult
+    && dailyBest.wave === ui.dailyResult.wave && dailyBest.lives === ui.dailyResult.lives
+    && dailyBest.kills === ui.dailyResult.kills && dailyBest.seconds === ui.dailyResult.seconds);
+  // Today's UTC day. Re-read whenever the title screen comes back, so a session
+  // left open past midnight offers the new day's challenge rather than yesterday's.
+  const [today, setToday] = useState<DayKey>(() => dailyKey());
   // New Game+ progress (separate store from Victories — see DifficultyProgress).
   const [difficulty, setDifficulty] = useState<DifficultyProgress>(EMPTY_DIFFICULTY);
   useEffect(() => { setDifficulty(loadDifficulty()); }, []);
@@ -270,6 +300,7 @@ export default function GameRoot() {
   // The title / mode-select screen gates the very first wave; it returns on
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
+  useEffect(() => { if (!runStarted) setToday(dailyKey()); }, [runStarted]);
   // Returning players resume at the tier they've earned (freely lowerable); a
   // fresh mode switch re-seeds to that mode's own highest unlocked tier. Only
   // applies pre-run — the selector is start-screen-only.
@@ -792,6 +823,25 @@ export default function GameRoot() {
       return next;
     });
   }, [ui.won, ui.victory]);
+
+  // File a finished daily run exactly once. The engine latches `dailyResult` when the
+  // run ends (game over, or the moment the last boss falls), and it stays latched
+  // while the end screen is up — so a ref stamped with the run's own figures guards
+  // against re-filing, and re-arms when the next daily ends.
+  const recordedDaily = useRef<string | null>(null);
+  useEffect(() => {
+    const r = ui.dailyResult;
+    if (!r) { recordedDaily.current = null; return; }
+    const stamp = `${r.key}:${r.wave}:${r.kills}:${r.seconds}`;
+    if (recordedDaily.current === stamp) return;
+    recordedDaily.current = stamp;
+    setDailyBoard((b) => {
+      const next = recordDaily(b, r.key, { wave: r.wave, lives: r.lives, kills: r.kills, seconds: r.seconds, at: Date.now() });
+      if (next === b) return b; // the day already holds a better run
+      try { localStorage.setItem(SAVE_KEYS.daily, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, [ui.dailyResult]);
 
   // Endless is the only place a *loss* still writes the record: fold the furthest
   // wave reached into the champion's log when an Endless run finally ends.
@@ -3448,7 +3498,7 @@ export default function GameRoot() {
           <div className="rs-panel p-6 text-center w-[26em] max-w-full">
             <div className="rs-panel-title text-base">Game Over</div>
             <p className="text-[0.78em] text-[#d3c3a0] mt-2 uppercase tracking-wider">
-              {ui.gameMode === 'roguelite' ? 'Roguelite run' : 'Classic run'}
+              {ui.daily ? 'Daily challenge' : ui.gameMode === 'roguelite' ? 'Roguelite run' : 'Classic run'}
             </p>
             <p className="text-osrs-yellow mt-1 mb-0 text-[1.7em] font-bold leading-none">Wave {ui.wave}</p>
             <p className="text-[0.8em] text-[#d3c3a0] mb-4 uppercase tracking-wide">reached</p>
@@ -3470,6 +3520,7 @@ export default function GameRoot() {
               <span className="text-osrs-yellow font-bold">+{fmt(engineRef.current?.essenceEarnedThisRun ?? 0)}</span>
               <span className="text-[0.82em] text-[#d3c3a0] uppercase tracking-wide">Rune Essence banked</span>
             </div>
+            {ui.daily && <DailyEndLine day={ui.daily} best={dailyBest} isBest={dailyIsBest} />}
             {ui.gameMode === 'roguelite' && ui.ownedRelics.length > 0 && (
               <OwnedRelicTray ids={ui.ownedRelics} summary />
             )}
@@ -3493,7 +3544,7 @@ export default function GameRoot() {
           <div className="rs-panel p-6 text-center w-[26em] max-w-full">
             <div className="rs-panel-title text-base">Victory</div>
             <p className="text-[0.78em] text-[#d3c3a0] mt-2 uppercase tracking-wider">
-              {ui.victory.mode === 'roguelite' ? 'Roguelite run' : 'Classic run'}
+              {ui.daily ? 'Daily challenge' : ui.victory.mode === 'roguelite' ? 'Roguelite run' : 'Classic run'}
             </p>
             <p className="text-osrs-yellow mt-1 mb-0 text-[1.7em] font-bold leading-none">
               Every boss felled
@@ -3522,6 +3573,7 @@ export default function GameRoot() {
                 </>
               )}
             </div>
+            {ui.daily && <DailyEndLine day={ui.daily} best={dailyBest} isBest={dailyIsBest} />}
             {/* Endless is a victory lap: the threat accelerates and the essence
                 faucet drops to a tenth (see essenceMultiplier). Say so before the
                 player commits, so the smaller reward isn't a surprise. */}
@@ -3557,9 +3609,17 @@ export default function GameRoot() {
           caTitle={caTitle}
           difficulty={difficulty}
           selectedTier={selectedTier}
+          today={today}
+          dailyBoard={dailyBoard}
           onSelect={(m) => engineRef.current?.setMode(m)}
           onSelectTier={chooseTier}
-          onStart={() => { clearRunSave(); setSavedRun(null); setRunStarted(true); }}
+          onStart={() => { clearRunSave(); setSavedRun(null); engineRef.current?.leaveDaily(); setRunStarted(true); }}
+          onStartDaily={() => {
+            clearRunSave();
+            setSavedRun(null);
+            engineRef.current?.startDaily(today);
+            setRunStarted(true);
+          }}
           onContinue={() => {
             if (!savedRun) return;
             // A run that was already won banked its win when it was won. The guard

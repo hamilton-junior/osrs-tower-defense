@@ -8,6 +8,8 @@ import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { FEEDBACK_ENABLED } from '@/lib/game/feedback';
 import { essenceRateLabel } from '@/lib/game/systems/meta-progression';
 import { CA_TIER_NAMES, type CaTier } from '@/lib/game/systems/combat-achievements';
+import { dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
+import { dailyStreak, type DailyBoard } from '@/lib/game/systems/daily-score';
 import { fs, fmt, hideBrokenImg } from './ui-kit';
 import { agoLabel, type DifficultyProgress } from './save';
 
@@ -238,6 +240,52 @@ function ModePicker({ mode, onSelect, compact }: {
   );
 }
 
+/** How many days of the strip the card shows. A week is the stretch a streak is
+ *  read in, and seven pills fit the panel at its narrowest. */
+
+/**
+ * Today's daily challenge, as one row: the day, how far you got on it, and the
+ * button. It sits above the mode picker, so it stays a row — the mode cards, the
+ * difficulty ladder and Start have to keep their place on the screen.
+ */
+function DailyCard({ today, board, onStart }: {
+  today: DayKey;
+  board: DailyBoard;
+  onStart: () => void;
+}) {
+  const best = board.days[today] ?? null;
+  const streak = dailyStreak(board, today);
+  return (
+    <div
+      className="rs-panel-inset flex items-center gap-[0.6em] px-[0.6em] py-[0.45em] mt-[0.7em]"
+      title="Everyone gets the same map and the same waves today. Classic rules, Normal difficulty, as many tries as you like."
+    >
+      {/* The signpost: today everyone walks the same road. */}
+      <img src={ASSETS.misc.signpost} alt="" className="w-[1.6em] h-[1.6em] object-contain shrink-0" onError={hideBrokenImg} />
+      <div className="flex flex-col min-w-0">
+        <span className="text-osrs-yellow font-bold text-[0.95em] leading-tight">Daily Challenge</span>
+        <span className="text-[0.68em] text-[#cdbe91] uppercase tracking-wide truncate">
+          {dayLabel(today)} · {best ? `best wave ${best.wave}` : 'not played yet'}
+        </span>
+      </div>
+      <div className="ml-auto flex items-center gap-[0.6em] shrink-0">
+        {streak > 0 && (
+          <span className="text-[0.72em] text-osrs-orange font-bold" title={`Played ${streak} day${streak === 1 ? '' : 's'} in a row`}>
+            {streak}-day streak
+          </span>
+        )}
+        <button
+          className="rs-btn px-[0.9em] py-[0.3em] text-[0.85em]"
+          title={best ? "Play today's challenge again — only your best run counts" : "Play today's challenge"}
+          onClick={onStart}
+        >
+          ▶ {best ? 'Play again' : 'Play'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** New Game+ difficulty ladder. Unlocked tiers are selectable; locked ones show a
  *  🔒 and stay disabled. */
 function DifficultyPicker({ mode, difficulty, selectedTier, onSelectTier }: {
@@ -335,7 +383,7 @@ function StartActions({ saved, confirm, setConfirm, onStart, onHelp, onSaveCode 
  *
  *  This function is the panel and its running order; each block is its own
  *  component above. */
-export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, selectedTier, onSelect, onSelectTier, onStart, onContinue, onDiscard, onHelp, onSaveCode }: {
+export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, selectedTier, today, dailyBoard, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onHelp, onSaveCode }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back before mode select. */
   saved: RunSave | null;
@@ -349,9 +397,14 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
   difficulty: DifficultyProgress;
   /** The tier currently armed for the next run. */
   selectedTier: DifficultyTier;
+  /** Today's UTC day key — the daily challenge the card offers. */
+  today: DayKey;
+  /** This browser's daily scoreboard (best run per day). */
+  dailyBoard: DailyBoard;
   onSelect: (m: GameMode) => void;
   onSelectTier: (t: DifficultyTier) => void;
   onStart: () => void;
+  onStartDaily: () => void;
   onContinue: () => void;
   onDiscard: () => void;
   onHelp: () => void;
@@ -384,6 +437,10 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
         )}
 
         {saved && <div className="text-center text-[0.75em] text-[#cdbe91] mt-[0.8em] mb-[0.3em]">· or start a new run ·</div>}
+
+        <DailyCard today={today} board={dailyBoard} onStart={onStartDaily} />
+
+        <div className="text-center text-[0.75em] text-[#cdbe91] mt-[0.8em] mb-[0.3em]">· or play a run of your own ·</div>
 
         <ModePicker mode={mode} onSelect={onSelect} compact={compact} />
 

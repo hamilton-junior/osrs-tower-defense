@@ -368,6 +368,12 @@ export interface UIState {
   gameMode: GameMode;
   /** The New Game+ tier this run is played at (0 = Normal, today's game). */
   difficultyTier: DifficultyTier;
+  /** The daily challenge this run belongs to (a `YYYY-MM-DD` key), or null for an
+   *  ordinary run. */
+  daily: string | null;
+  /** A finished daily run, emitted once when it ends so the interface can file it
+   *  on the local board. Null the rest of the time. */
+  dailyResult: { key: string; wave: number; lives: number; kills: number; seconds: number } | null;
   /** Roguelite: the draft hand awaiting a pick — bought with gold, or a defeated
    *  boss's boosted hand (null when none). Blocks the next wave until resolved. */
   pendingDraft: DraftCard[] | null;

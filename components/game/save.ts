@@ -1,5 +1,6 @@
 import { sanitizeRunSave, isResumable, type RunSave } from '@/lib/game/systems/run-save';
 import { EMPTY_DIFFICULTY, EMPTY_VICTORIES, buildAccountSave, type AccountSave, type DifficultyProgress, type Victories } from '@/lib/game/systems/account-save';
+import { EMPTY_BOARD, sanitizeDailyBoard, type DailyBoard } from '@/lib/game/systems/daily-score';
 
 /**
  * Everything the interface keeps in localStorage: the key names themselves, the
@@ -18,7 +19,7 @@ import { EMPTY_DIFFICULTY, EMPTY_VICTORIES, buildAccountSave, type AccountSave, 
 export { EMPTY_VICTORIES, EMPTY_DIFFICULTY };
 export type { Victories, DifficultyProgress };
 
-export const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', diversionsMet: 'osrs_td_diversions', diversionGains: 'osrs_td_diversion_gains', fusionsMade: 'osrs_td_fusions', pets: 'osrs_td_pets', activePet: 'osrs_td_active_pet', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty', achievements: 'osrs_td_achievements' } as const;
+export const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', diversionsMet: 'osrs_td_diversions', diversionGains: 'osrs_td_diversion_gains', fusionsMade: 'osrs_td_fusions', pets: 'osrs_td_pets', activePet: 'osrs_td_active_pet', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty', achievements: 'osrs_td_achievements', daily: 'osrs_td_daily' } as const;
 
 export function loadVictories(): Victories {
   if (typeof window === 'undefined') return EMPTY_VICTORIES;
@@ -29,6 +30,15 @@ export function loadVictories(): Victories {
     }
   } catch { /* ignore */ }
   return EMPTY_VICTORIES;
+}
+
+/** The local daily scoreboard. Like every other reader here it falls back to the
+ *  empty board rather than throwing — a corrupt board costs the history, never the
+ *  game. */
+export function loadDailyBoard(): DailyBoard {
+  if (typeof window === 'undefined') return EMPTY_BOARD;
+  try { return sanitizeDailyBoard(JSON.parse(localStorage.getItem(SAVE_KEYS.daily) ?? 'null')); }
+  catch { return EMPTY_BOARD; }
 }
 
 export function loadDifficulty(): DifficultyProgress {
@@ -135,6 +145,7 @@ export function readAccountSave(): AccountSave {
     fusionsMade: meta.fusionsMade,
     pets: meta.pets,
     activePet: meta.activePet,
+    dailyBoard: loadDailyBoard(),
     victories: loadVictories(),
     difficulty: loadDifficulty(),
     achievements: loadAchievements(),
@@ -166,6 +177,7 @@ export function applyAccountSave(save: AccountSave) {
     localStorage.setItem(SAVE_KEYS.pets, JSON.stringify(save.pets));
     if (save.activePet) localStorage.setItem(SAVE_KEYS.activePet, save.activePet);
     else localStorage.removeItem(SAVE_KEYS.activePet);
+    localStorage.setItem(SAVE_KEYS.daily, JSON.stringify(save.dailyBoard));
     localStorage.setItem(SAVE_KEYS.victories, JSON.stringify(save.victories));
     localStorage.setItem(SAVE_KEYS.difficulty, JSON.stringify(save.difficulty));
     localStorage.setItem(SAVE_KEYS.achievements, JSON.stringify({ completed: save.achievements }));

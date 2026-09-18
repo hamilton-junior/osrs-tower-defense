@@ -43,7 +43,8 @@ import { PET_BY_ID, type PetId } from '../data/pets';
 import { sanitizePets, validActivePet } from '../systems/pets';
 import { PRAYERS, TOWER_PRAYERS } from '../data/prayers';
 import { prayerUnlockWave } from '../systems/prayer';
-import { generateMapLayout, type MapLayout, type MapEdge } from '../systems/map-generation';
+import { generateMapLayout, makeRng, type MapLayout, type MapEdge } from '../systems/map-generation';
+import { dailySeed } from '../systems/daily-seed';
 import { computeRoadTiles, generateTerrain, type TerrainField } from '../systems/terrain-generation';
 import {
   applyNotches, applyShifts, legGrabAt, legHandles, legOptions, legSpan, notchAt, notchedPath,
@@ -222,6 +223,15 @@ export class GameEngine {
    *  to the whole run: set before wave 1 via {@link setDifficultyTier} and it
    *  persists across {@link restart}. Tier 0 (Normal) is today's game exactly. */
   difficultyTier: DifficultyTier = 0;
+  /** The daily challenge this run belongs to (`2026-09-18`), or null for an ordinary
+   *  run. A daily is the Classic ruleset at tier Normal on a seeded map and a seeded
+   *  wave roster — the same board, in the same order, for everyone playing that day.
+   *  Set by {@link startDaily}; cleared by anything that picks a mode or a tier. */
+  dailyKey: string | null = null;
+  /** The finished daily run, for the interface to file on its local board. Written
+   *  once when a daily ends (lost or won) and cleared on the next restart, so the
+   *  UI can record it on the edge and never on a re-emit. */
+  dailyResult: { key: string; wave: number; lives: number; kills: number; seconds: number } | null = null;
   /** Roguelite: the draft hand awaiting a pick after a wave clear (null = none). */
   pendingDraft: DraftCard[] | null = null;
   /** Roguelite: run-scoped buff multipliers accumulated from drafts. */
@@ -1000,6 +1010,8 @@ export class GameEngine {
       lastWaveSandbox: this.lastWaveSandbox,
       gameMode: this.gameMode,
       difficultyTier: this.difficultyTier,
+      daily: this.dailyKey,
+      dailyResult: this.dailyResult,
       pendingDraft: this.pendingDraft,
       draftBoosted: this.draftBoosted,
       cardRollCost: this.cardRollCost,
@@ -4300,7 +4312,7 @@ export class GameEngine {
     const configs = computeWaveConfigs(this);
     // A boss wave stays the headline act — no event rolls on it (see wave-events).
     const bossWave = configs.some(c => ENEMIES[c.type]?.isBoss);
-    this.activeEvent = rollWaveEvent(this.wave, bossWave, Math.random);
+    this.activeEvent = rollWaveEvent(this.wave, bossWave, this.waveRng(1));
     this.bumpCombatEpoch(); // event tower mods change every tower's stats
     this.spawnQueue = buildWaveEnemies(this, configs, this.wave);
     this.waveTotal = this.spawnQueue.length;
@@ -4424,10 +4436,68 @@ export class GameEngine {
   /** Choose the game mode. Only switches before the run starts (wave 1, no wave
    *  running) and restarts to apply it cleanly; ignored mid-run. */
   setMode(mode: GameMode) {
-    if (mode === this.gameMode) return;
+    // Picking a mode leaves the daily, even when the mode itself does not change:
+    // a daily *is* a Classic run, so "Classic" next to an armed daily means the
+    // player wants the ordinary, freshly-rolled one.
+    if (mode === this.gameMode && !this.dailyKey) return;
     if (this.wave !== 1 || this.waveActive) { this.notify('Finish the run to switch modes'); return; }
+    this.dailyKey = null;
     this.gameMode = mode;
     this.restart();
+  }
+
+  /**
+   * Arm today's daily challenge and roll its board.
+   *
+   * The daily is the Classic ruleset at tier Normal, so it forces both rather than
+   * being a third mode — every `gameMode === 'classic'` gate in the engine (gear,
+   * the loot bag) keeps working, and every roguelite one keeps staying out of the
+   * way. What the day fixes is the map and the wave roster; attempts are unlimited
+   * and only the day's best is kept, which is the interface's business.
+   */
+  startDaily(key: string) {
+    if (this.wave !== 1 || this.waveActive) { this.notify('Finish the run to play the daily'); return; }
+    this.dailyKey = key;
+    this.gameMode = 'classic';
+    this.difficultyTier = 0;
+    this.restart();
+  }
+
+  /**
+   * Drop an armed daily without touching mode or tier — what the ordinary Start
+   * button does. The board is re-rolled: the armed one is the day's map, and a
+   * player who did not pick the daily card should not be playing it.
+   */
+  leaveDaily() {
+    if (!this.dailyKey) return;
+    this.dailyKey = null;
+    this.restart();
+  }
+
+  /**
+   * The random source for one wave's generated content. An ordinary run uses
+   * `Math.random`; a daily derives a stream from the day's seed so every player
+   * meets the same roster in the same order. `salt` separates the draws that share
+   * a wave (the roster from the event), and the stream is rebuilt per call because
+   * {@link computeWaveConfigs} is called from hovers and emits as well as from
+   * `startWave` — a shared generator would make the preview and the spawn disagree.
+   */
+  waveRng(salt: number): () => number {
+    if (!this.dailyKey) return Math.random;
+    return makeRng((dailySeed(this.dailyKey) ^ Math.imul(this.wave, 0x9e3779b1) ^ Math.imul(salt, 0x85ebca6b)) >>> 0);
+  }
+
+  /** File the finished daily run for the interface to record. Called once when a
+   *  daily ends — a loss or the victory latch — and a no-op outside one. */
+  fileDailyScore(wave: number) {
+    if (!this.dailyKey || this.dailyResult) return;
+    this.dailyResult = {
+      key: this.dailyKey,
+      wave,
+      lives: Math.max(0, this.lives),
+      kills: this.kills,
+      seconds: Math.round(this.runSeconds),
+    };
   }
 
   /** Choose the New Game+ tier for the next run. Like {@link setMode}, only
@@ -4436,8 +4506,11 @@ export class GameEngine {
   setDifficultyTier(tier: DifficultyTier, highestCleared: number) {
     const wanted = clampTier(tier);
     const allowed = Math.min(wanted, highestUnlockedTier(highestCleared)) as DifficultyTier;
-    if (allowed === this.difficultyTier) return;
+    // As in setMode: the daily is fixed at Normal, so touching the ladder at all
+    // means the player is choosing an ordinary run.
+    if (allowed === this.difficultyTier && !this.dailyKey) return;
     if (this.wave !== 1 || this.waveActive) { this.notify('Finish the run to change difficulty'); return; }
+    this.dailyKey = null;
     this.difficultyTier = allowed;
     this.restart();
   }
@@ -4582,6 +4655,7 @@ export class GameEngine {
   }
 
   private endGame() {
+    this.fileDailyScore(this.wave);
     this.gameOver = true;
     this.waveActive = false;
     this.sound.fadeCombat();
@@ -4610,6 +4684,10 @@ export class GameEngine {
    *   real save with an empty one.
    */
   snapshotRun(): RunSave | null {
+    // A daily is never checkpointed. Attempts at it are unlimited, so there is
+    // nothing to protect, and a resumed daily would have to prove on load that it
+    // still belongs to the day it was saved on.
+    if (this.dailyKey) return null;
     if (this.gameOver || this.waveActive) return null;
     if (this.wave <= 1 && this.towers.length === 0) return null;
     return {
@@ -4717,6 +4795,10 @@ export class GameEngine {
    * gets its default rather than `undefined`.
    */
   loadRun(save: RunSave) {
+    // Nothing daily is ever saved (see snapshotRun), so resuming is always a
+    // return to an ordinary run.
+    this.dailyKey = null;
+    this.dailyResult = null;
     this.generateMap(save.mapSeed);
     // The seed rebuilds the road the run was *dealt*; the slides and then the notches
     // rebuild the road the player paid to have. All of it goes in before anything is
@@ -4935,7 +5017,10 @@ export class GameEngine {
     this.plotsBought = 0;
     this.movingPatchId = null;
     this.placingPlot = false;
-    this.generateMap(); // fresh procedural map + biome for the new run
+    // A daily is the same board for everyone who plays it that day; every other
+    // run gets a map nobody has seen.
+    this.generateMap(this.dailyKey ? dailySeed(this.dailyKey) : undefined);
+    this.dailyResult = null;
     this.enemies = [];
     this.towers = [];
     this.bumpTowerLayout();
