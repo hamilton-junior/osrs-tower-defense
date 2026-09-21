@@ -132,6 +132,7 @@ const INITIAL: UIState = {
   inventory: Array.from({ length: 28 }, () => null), bagStacks: [],
   herbPouch: [], potionStock: [], herbloreLevel: 3, herbloreXp: 0, herbloreXpNeeded: 10, activePotions: [],
   brewStacks: 0,
+  sellMult: 1,
   fishingSpots: [], fishingLevel: 1, fishingXp: 0, fishingXpNeeded: 12, castSpotId: null,
 };
 

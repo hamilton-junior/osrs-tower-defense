@@ -221,6 +221,11 @@ export interface UiStack {
 
 export interface UIState {
   money: number;
+  /** Everything a promised payout gets multiplied by before it lands — the
+   *  rewardMultiplier upgrade and the farm's gold buff. Any price the interface
+   *  prints *before* the click (a fish's Sell line, the catch ladder) multiplies
+   *  by this, or the coins that arrive do not match the number that was read. */
+  sellMult: number;
   lives: number;
   maxLives: number;
   wave: number;

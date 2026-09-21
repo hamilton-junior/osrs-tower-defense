@@ -373,7 +373,7 @@ export function LootBagView({
               name={s.name}
               count={s.count}
               dim={invFull}
-              tip={stackTip(s, { lives: vitals.lives, maxLives: vitals.maxLives, waveActive: vitals.waveActive, warn: invFull ? 'Inventory full' : undefined })}
+              tip={stackTip(s, { ...vitals, warn: invFull ? 'Inventory full' : undefined })}
               drag={dragProps(cell.key)}
               onClick={() => onTake(s.kind, s.id)}
             />

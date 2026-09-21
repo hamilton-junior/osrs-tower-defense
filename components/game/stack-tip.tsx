@@ -12,6 +12,8 @@ export interface StackTipContext {
   lives: number;
   maxLives: number;
   waveActive: boolean;
+  /** `UIState.sellMult` — what the sale is really worth right now. */
+  sellMult: number;
   /** A red line under the card, for the one thing blocking the click right now. */
   warn?: string;
 }
@@ -45,7 +47,7 @@ export function stackTip(s: UiStack, ctx: StackTipContext): React.ReactNode {
   return (
     <div className="flex flex-col gap-[0.25em]">
       <span className="text-white">{s.name}</span>
-      {fish ? <FoodPreview heal={fish.lives} gold={fish.gold} lives={ctx.lives} maxLives={ctx.maxLives} waveActive={ctx.waveActive} /> : (
+      {fish ? <FoodPreview heal={fish.lives} gold={Math.round(fish.gold * ctx.sellMult)} lives={ctx.lives} maxLives={ctx.maxLives} waveActive={ctx.waveActive} /> : (
         <span className="text-[0.8em] text-[#c9b78c] leading-snug">{s.tip}</span>
       )}
       {ctx.warn && <span className="text-[0.8em] text-osrs-red">{ctx.warn}</span>}
@@ -53,7 +55,7 @@ export function stackTip(s: UiStack, ctx: StackTipContext): React.ReactNode {
   );
 }
 
-function FoodPreview({ heal, gold, lives, maxLives, waveActive }: Omit<StackTipContext, 'warn'> & { heal: number; gold: number }) {
+function FoodPreview({ heal, gold, lives, maxLives, waveActive }: Omit<StackTipContext, 'warn' | 'sellMult'> & { heal: number; gold: number }) {
   const full = lives >= maxLives;
   const gain = full ? 0 : Math.min(heal, maxLives - lives);
   const after = full ? 'text-osrs-red' : gain < heal ? 'text-osrs-yellow' : 'text-osrs-green';

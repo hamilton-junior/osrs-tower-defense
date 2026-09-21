@@ -821,7 +821,7 @@ function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => 
                 icon={f.icon}
                 name={f.name}
                 title={locked ? `Needs Fishing ${f.level}` : 'Eat it for lives, or sell it for gold.'}
-                foot={locked ? `L${f.level}` : <Price amount={f.gold} />}
+                foot={locked ? `L${f.level}` : <Price amount={Math.round(f.gold * ui.sellMult)} />}
                 {...(locked ? {} : {
                   // The heal caps at maxLives and does not happen at all once lives
                   // are already full — a plain "+{n}" overpromises both times — so the

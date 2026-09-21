@@ -868,6 +868,7 @@ export class GameEngine {
   private snapshot(): UIState {
     return {
       money: this.money,
+      sellMult: this.goldMultiplier(),
       lives: this.lives,
       maxLives: this.maxLives,
       wave: this.wave,
@@ -2189,7 +2190,14 @@ export class GameEngine {
   /** What `base` gold is worth once it lands: the same scaling {@link awardGold}
    *  applies, without paying it. For anything that promises gold before paying it. */
   goldValue(base: number): number {
-    return Math.round(base * this.meta.upgrades.rewardMultiplier * farmGoldMult(this.activeFarmBuffs()));
+    return Math.round(base * this.goldMultiplier());
+  }
+
+  /** The scaling itself, unrounded — the reward-multiplier upgrade and the farm's
+   *  gold buff. Emitted as `UIState.sellMult` so a price the interface prints
+   *  before the click is the number of coins the click actually pays. */
+  goldMultiplier(): number {
+    return this.meta.upgrades.rewardMultiplier * farmGoldMult(this.activeFarmBuffs());
   }
 
   /**

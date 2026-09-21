@@ -283,7 +283,10 @@ function stackOptions(
           // without leaving the menu.
           action: 'Sell',
           target: stack.name,
-          coins: FOOD_BY_ID[stack.id as FoodId]?.gold,
+          // Through `sellMult`, not the raw table price: the sale is scaled on the
+          // way out, and a line that promised 8 while the coins said 13 is a lie
+          // about the only number the line exists to show.
+          coins: Math.round((FOOD_BY_ID[stack.id as FoodId]?.gold ?? 0) * ui.sellMult),
           title: 'Sell one for gold instead of eating it',
           onSelect: () => onSellFood(stack.id as FoodId),
         }]
