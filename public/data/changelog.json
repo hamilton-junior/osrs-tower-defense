@@ -4,6 +4,13 @@
     {
       "kind": "new",
       "scope": "diaries",
+      "text": "Read every region's Achievement Diary in the Collection Log",
+      "fromFeedback": false,
+      "date": "2026-09-20"
+    },
+    {
+      "kind": "new",
+      "scope": "diaries",
       "text": "Every region keeps an Achievement Diary, and clearing a task announces itself",
       "fromFeedback": false,
       "date": "2026-09-20"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "ui",
       "text": "Hovering a potion sums up what it does in icons, and the Herblore bench shows the herbs and gold each brew needs",
-      "fromFeedback": false,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "A fish's hover card always shows its full heal in green, and only the lives it would leave you at turn red when you are already full",
       "fromFeedback": false,
       "date": "2026-09-16"
     }

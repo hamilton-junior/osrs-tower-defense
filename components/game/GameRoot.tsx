@@ -3376,6 +3376,7 @@ export default function GameRoot() {
           setActivePet={(id) => engineRef.current?.setActivePet(id)}
           difficultyTier={ui.difficultyTier}
           achievements={ui.achievements}
+          diaries={ui.diaries}
           victories={victories}
           difficulty={difficulty}
           tab={logTab}

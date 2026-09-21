@@ -6,6 +6,9 @@ import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard } from '@/lib/game/systems/roguelite-draft';
 import { CA_TIERS, CA_TIER_NAMES, tierProgress } from '@/lib/game/systems/combat-achievements';
 import { CA_TASKS } from '@/lib/game/data/combat-achievements';
+import { DIARY_TIERS, DIARY_TIER_NAMES, DIARY_TIER_ICON, diaryProgress, diaryTierReached, type Diary, type DiaryTier } from '@/lib/game/systems/diaries';
+import { DIARIES } from '@/lib/game/data/diaries';
+import { BIOMES } from '@/lib/game/data/biomes';
 import { DIFFICULTY_TIERS, tierLabel } from '@/lib/game/systems/difficulty';
 import { bossTip } from '@/lib/game/systems/boss-tips';
 import { MovablePanel } from './MovablePanel';
@@ -204,9 +207,9 @@ export function LogEmpty() {
  *  silhouettes (collection-log style). A completion counter per tab. */
 /** Which tab is showing. The Log's own vocabulary, so every helper below names
  *  the same nine pages the tab strip does. */
-export type LogTab = 'bosses' | 'monsters' | 'pets' | 'cards' | 'forge' | 'diversions' | 'victories' | 'difficulty' | 'achievements';
+export type LogTab = 'bosses' | 'monsters' | 'pets' | 'cards' | 'forge' | 'diversions' | 'victories' | 'difficulty' | 'achievements' | 'diaries';
 
-const LOG_TABS: readonly LogTab[] = ['bosses', 'monsters', 'pets', 'cards', 'forge', 'diversions', 'victories', 'difficulty', 'achievements'];
+const LOG_TABS: readonly LogTab[] = ['bosses', 'monsters', 'pets', 'cards', 'forge', 'diversions', 'victories', 'difficulty', 'achievements', 'diaries'];
 
 function tabHint(t: LogTab): string {
   switch (t) {
@@ -217,6 +220,7 @@ function tabHint(t: LogTab): string {
     case 'victories': return 'Runs won';
     case 'difficulty': return 'New Game+ progress';
     case 'achievements': return 'Combat Achievements: clear a tier for its title';
+    case 'diaries': return 'Achievement Diaries: tasks set in one region';
     default: return `${t === 'bosses' ? 'Bosses' : 'Monsters'} slain`;
   }
 }
@@ -341,6 +345,112 @@ function CaTier({ tier, done, progress }: {
         );
       })}
     </div>
+  );
+}
+
+/** One diary: its name, the tier it stands at, and its four tiers of tasks.
+ *  Collapsed to a header until it is opened — six diaries of sixteen tasks do
+ *  not read as a list, and a player comes here for one region at a time. */
+function DiaryEntry({ diary, done, open, onToggle }: {
+  diary: Diary;
+  done: Set<string>;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const progress = diaryProgress(diary, done);
+  const reached = diaryTierReached(diary, done);
+  const total = diary.tasks.length;
+  const got = diary.tasks.filter((t) => done.has(t.id)).length;
+  // The region's own road colour, as a bead beside its name — the log has no
+  // region icons, and the palette is what a player already reads the board by.
+  const swatch = BIOMES[diary.biomes[0]].road.centre;
+  return (
+    <div className="mb-2 last:mb-0">
+      <button
+        onClick={onToggle}
+        title={`${diary.name}: ${got}/${total} tasks`}
+        className="w-full flex items-center gap-[0.4em] text-left rounded px-[0.2em] py-[0.15em] transition-colors hover:bg-[#3a3327]"
+      >
+        <span className="text-[0.7em] text-[#b3a585] w-[0.8em] shrink-0">{open ? '▾' : '▸'}</span>
+        <span className="w-[0.55em] h-[0.55em] rounded-full shrink-0" style={{ background: swatch }} />
+        <span className={`flex-1 min-w-0 truncate ${got === total ? 'text-osrs-yellow font-bold' : 'text-[#e8dcc0]'}`}>
+          {diary.name}
+        </span>
+        {reached && (
+          <img
+            src={DIARY_TIER_ICON[reached]}
+            alt=""
+            title={`${DIARY_TIER_NAMES[reached]} diary complete`}
+            className="w-[1.1em] h-[1.1em] object-contain shrink-0"
+            onError={hideBrokenImg}
+          />
+        )}
+        <span className="text-[0.75em] tabular-nums shrink-0" style={{ color: got === total ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}>
+          {got}/{total}
+        </span>
+      </button>
+      <div className="rs-progress mt-[0.15em]"><div className="rs-progress-fill" style={{ width: `${(got / total) * 100}%` }} /></div>
+      {open && DIARY_TIERS.map((tier) => (
+        <DiaryTierRows key={tier} diary={diary} tier={tier} done={done} progress={progress[tier]} />
+      ))}
+    </div>
+  );
+}
+
+/** One tier inside an opened diary: its blade, its count, then its tasks. */
+function DiaryTierRows({ diary, tier, done, progress }: {
+  diary: Diary;
+  tier: DiaryTier;
+  done: Set<string>;
+  progress: { done: number; total: number };
+}) {
+  const cleared = progress.total > 0 && progress.done === progress.total;
+  return (
+    <div className="mt-[0.5em] pl-[1.1em]">
+      <div className="flex items-center justify-between mb-[0.15em]">
+        <span className="flex items-center gap-[0.35em]">
+          <img src={DIARY_TIER_ICON[tier]} alt="" className="w-[1.15em] h-[1.15em] object-contain" onError={hideBrokenImg} />
+          <span className="text-[0.64em] uppercase tracking-wide text-[#b3a585]">{DIARY_TIER_NAMES[tier]}</span>
+        </span>
+        <span className={`text-[0.7em] ${cleared ? 'text-osrs-yellow font-bold' : 'text-[#cdbe91]'}`}>
+          {progress.done}/{progress.total}
+        </span>
+      </div>
+      {diary.tasks.filter((t) => t.tier === tier).map((t) => {
+        const got = done.has(t.id);
+        return (
+          <div key={t.id} className="py-[0.2em]">
+            <div className={`text-[0.88em] ${got ? 'text-osrs-yellow font-bold' : 'text-[#8a7d5c]'}`}>
+              {got ? '★ ' : ''}{t.name}
+            </div>
+            {/* Same rule as a Combat Achievement: the line that says how to earn
+                it stays legible whether or not it has been earned. */}
+            <div className="text-[0.7em] text-[#b3a585] leading-snug">{t.desc}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The Diaries tab: six regions, each a ladder of four tiers. */
+function DiariesBody({ done }: { done: Set<string> }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <LogScroll>
+      <p className="text-[0.7em] text-[#9a8d70] leading-snug mb-[0.6em]">
+        Each diary is set in one region. A task counts what the run did while it was there.
+      </p>
+      {DIARIES.map((d) => (
+        <DiaryEntry
+          key={d.id}
+          diary={d}
+          done={done}
+          open={open === d.id}
+          onToggle={() => setOpen(open === d.id ? null : d.id)}
+        />
+      ))}
+    </LogScroll>
   );
 }
 
@@ -680,7 +790,7 @@ function EnemiesBody({ list, entries, killCounts, selected, setSelected }: {
  *
  *  This function is the window: the tab strip, the list controls and whichever
  *  page's body is showing. Each body is its own component above. */
-export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversionGains, fusionsMade, pets, activePet, setActivePet, difficultyTier, achievements, victories, difficulty, tab, setTab, onClose, globalLock }: {
+export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversionGains, fusionsMade, pets, activePet, setActivePet, difficultyTier, achievements, diaries, victories, difficulty, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
   /** Lifetime forges per fusion type. */
@@ -698,6 +808,8 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
   difficultyTier: number;
   /** Completed Combat Achievement ids, account-wide. */
   achievements: string[];
+  /** Completed Achievement Diary task ids, account-wide. */
+  diaries: string[];
   victories: Victories;
   difficulty: DifficultyProgress;
   tab: LogTab;
@@ -710,17 +822,22 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
   const isForge = tab === 'forge';
   const isPets = tab === 'pets';
   const isAchievements = tab === 'achievements';
+  const isDiaries = tab === 'diaries';
   /** The two pages that are a record of runs, not a checklist of things. */
   const isRecord = tab === 'victories' || tab === 'difficulty';
   // Unknown stored ids (a task retired in a later patch) are kept in the store but
   // never counted here — the ladder only knows the tasks that exist today.
   const caDone = useMemo(() => new Set(achievements), [achievements]);
   const caProgress = useMemo(() => tierProgress(caDone), [caDone]);
+  const diaryDone = useMemo(() => new Set(diaries), [diaries]);
+  const DIARY_TASK_COUNT = DIARIES.reduce((n, d) => n + d.tasks.length, 0);
   // Memoised so the empty case is one stable array: a fresh literal per render would
   // re-run every list memo below on tabs that show no enemies at all.
   const entries = useMemo(() => (tab === 'bosses' ? BOSS_ENTRIES : tab === 'monsters' ? MONSTER_ENTRIES : []), [tab]);
-  const total = isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : isDiversions ? DIVERSIONS.length : isForge ? FUSIONS.length : isPets ? PETS.length : entries.length;
-  const obtained = isAchievements
+  const total = isDiaries ? DIARY_TASK_COUNT : isAchievements ? CA_TASKS.length : isCards ? DRAFT_POOL.length : isDiversions ? DIVERSIONS.length : isForge ? FUSIONS.length : isPets ? PETS.length : entries.length;
+  const obtained = isDiaries
+    ? DIARIES.reduce((n, d) => n + d.tasks.filter((t) => diaryDone.has(t.id)).length, 0)
+    : isAchievements
     ? CA_TASKS.filter((t) => caDone.has(t.id)).length
     : isCards
     ? DRAFT_POOL.filter((c) => (cardCounts[c.id] ?? 0) > 0).length
@@ -764,11 +881,11 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
         onPick={(t) => { setTab(t); setSelected(null); setSort('name'); }}
         counter={isRecord ? null : {
           obtained, total, complete: total > 0 && obtained === total,
-          noun: isAchievements ? 'done' : isForge ? 'forged' : isPets ? 'tamed' : 'found',
+          noun: isAchievements || isDiaries ? 'done' : isForge ? 'forged' : isPets ? 'tamed' : 'found',
         }}
       />
 
-      {!selected && !isRecord && !isAchievements && (
+      {!selected && !isRecord && !isAchievements && !isDiaries && (
         <LogControls
           filter={filter}
           setFilter={setFilter}
@@ -780,7 +897,8 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
         />
       )}
 
-      {tab === 'achievements' ? <AchievementsBody done={caDone} progress={caProgress} />
+      {tab === 'diaries' ? <DiariesBody done={diaryDone} />
+        : tab === 'achievements' ? <AchievementsBody done={caDone} progress={caProgress} />
         : tab === 'difficulty' ? <DifficultyBody difficulty={difficulty} />
         : tab === 'victories' ? <VictoriesBody victories={victories} />
         : tab === 'pets' ? <PetsBody list={dispPets} pets={pets} active={activePet} onPick={setActivePet} killCounts={killCounts} tier={difficultyTier} />
