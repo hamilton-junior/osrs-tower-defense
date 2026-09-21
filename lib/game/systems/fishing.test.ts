@@ -3,7 +3,7 @@ import type { LiquidKind, TerrainField } from './terrain-generation';
 import {
   buildFishingSpots, castSeconds, spotStage, restockSpots, rollCatch, catchesUnlockedAt,
   catchChance, fishingXpForLevel, gainFishingXp, spotId, parseSpotId, spotAtPoint,
-  wavesUntilRestock, poolTiles, placeSpot, moveSpot,
+  wavesUntilRestock, poolTiles, placeSpot, moveSpot, relightPools,
 } from './fishing';
 import {
   SPOT_CASTS, SPOT_REST_WAVES, CATCH_CHANCE_MAX, FISHING_MAX_LEVEL, CAST_XP,
@@ -292,5 +292,53 @@ describe('fishing xp', () => {
     expect(g.level).toBe(FISHING_MAX_LEVEL);
     expect(g.xp).toBe(0);
     expect(g.levels).toBe(0);
+  });
+});
+
+describe('relightPools', () => {
+  /** A field whose one pool is a two-tile blob, so the whole body has to change. */
+  function pool(): TerrainField {
+    const f = field([{ col: 2, row: 2 }]);
+    f.tiles[2 * f.cols + 2] = 'water';
+    f.tiles[2 * f.cols + 3] = 'water';
+    return f;
+  }
+
+  it('sets every tile of the pool, and the spot, alight in a lava region', () => {
+    const f = pool();
+    const spots = buildFishingSpots(f, GRID);
+    relightPools(f, spots, 1, seq([0.5]));
+    expect(spots[0].liquid).toBe('lava');
+    expect(f.liquid[2 * f.cols + 2]).toBe('lava');
+    expect(f.liquid[2 * f.cols + 3]).toBe('lava');
+  });
+
+  it('puts the same pool out again when the run travels to a region with no lava', () => {
+    const f = pool();
+    const spots = buildFishingSpots(f, GRID);
+    relightPools(f, spots, 1, seq([0.5]));
+    relightPools(f, spots, 0, seq([0.5]));
+    expect(spots[0].liquid).toBe('water');
+    expect(f.liquid[2 * f.cols + 3]).toBe('water');
+  });
+
+  it('rolls once per pool, so a body is never half lava', () => {
+    const f = field([{ col: 1, row: 1 }, { col: 6, row: 6 }]);
+    f.tiles[1 * f.cols + 1] = 'water';
+    f.tiles[1 * f.cols + 2] = 'water';
+    f.tiles[6 * f.cols + 6] = 'water';
+    const spots = buildFishingSpots(f, GRID);
+    // Half the regions' pools burn: the first roll takes, the second does not.
+    relightPools(f, spots, 0.5, seq([0.1, 0.9]));
+    expect(spots.map(s => s.liquid)).toEqual(['lava', 'water']);
+    expect(f.liquid[1 * f.cols + 2]).toBe('lava');
+  });
+
+  it('relights a pool an allotment took the spot from', () => {
+    const f = pool();
+    const spots = buildFishingSpots(f, GRID);
+    f.tiles[2 * f.cols + 2] = 'farming'; // a bought plot landed on the seed tile
+    relightPools(f, spots.filter(s => s.id !== 's2_2'), 1, seq([0.5]));
+    expect(f.liquid[2 * f.cols + 2]).toBe('lava');
   });
 });

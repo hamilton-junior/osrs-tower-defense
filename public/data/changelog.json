@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-21",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "fishing",
+      "text": "A pool turns to lava when the run travels into the TzHaar city",
+      "fromFeedback": false,
+      "date": "2026-09-21"
+    },
+    {
       "kind": "new",
       "scope": "tzhaar",
       "text": "Kill a Tz-Kek and two smaller ones crawl out of it",
@@ -271,13 +278,6 @@
       "kind": "balanced",
       "scope": "diversions",
       "text": "Random events get likelier with every wave that passes without one, and the odds reset when one turns up",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "new",
-      "scope": "diversions",
-      "text": "Sergeant Damien replaces Rick Turpentine, and a click drills every tower up 2 levels",
       "fromFeedback": false,
       "date": "2026-09-17"
     }

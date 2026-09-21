@@ -52,7 +52,7 @@ import {
   notchHead, roadBendCost, roadGrabAt, shapeOptions, shiftedBy, shiftRoad, shiftTiles, withShift,
   type RoadGrab, type RoadMove, type RoadNotch, type RoadShift,
 } from '../systems/road-shaping';
-import { BIOMES, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
+import { BIOMES, BIOME_LIST, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
 import { localTypes } from '../systems/enemy-regions';
 import { travelOffer } from '../systems/travel';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
@@ -86,7 +86,7 @@ import {
 } from '../data/fishing';
 import {
   buildFishingSpots, castSeconds, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
-  wavesUntilRestock, placeSpot, type FishingSpot,
+  wavesUntilRestock, placeSpot, relightPools, type FishingSpot,
 } from '../systems/fishing';
 import { multiplyStyleMods, scaleAllStyles, type StyleMods } from '../systems/style-mods';
 import {
@@ -1691,6 +1691,25 @@ export class GameEngine {
     }
     this.terrainEpoch++;
     this.farmPatches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
+  }
+
+  /**
+   * Fill this map's pools with what the region the run stands in holds.
+   *
+   * Travelling leaves the map alone on purpose, but a pond is water only because the
+   * region around it is: marching into Mor Ul Rek has to set the board's water alight,
+   * and marching out has to put it out. Called on every move between regions and on
+   * restore, since a save rebuilds its terrain from the map seed — which knows the
+   * region the run was *dealt*, not the one it had travelled to.
+   *
+   * Seeded off the map seed and the region, so the same run always finds the same
+   * pools in the same place, however many times it leaves and comes back.
+   */
+  private relightPoolsForRegion() {
+    const i = BIOME_LIST.findIndex((b) => b.id === this.biome.id);
+    const rng = makeRng((this.mapSeed ^ Math.imul(i + 1, 0x9e3779b9)) >>> 0);
+    relightPools(this.terrain, this.fishingSpots, this.biome.lavaChance, rng);
+    this.terrainEpoch++; // the background bake paints the pools from `terrain.liquid`
   }
 
   private buildPath() {
@@ -4888,6 +4907,9 @@ export class GameEngine {
     // Where the run had marched to, which the seed does not describe. A save from
     // before travelling existed has none and simply keeps the region it was rolled.
     if (save.biome) this.biome = BIOMES[save.biome];
+    // `generateMap` filled the pools for the region the seed *dealt*; the run may have
+    // travelled since, so re-fill them for the region it is actually standing in.
+    this.relightPoolsForRegion();
     this.bumpCombatEpoch(); // restored region, restored diary reward
     this.previousBiome = save.previousBiome ?? null;
     this.pendingTravel = save.pendingTravel?.length ? [...save.pendingTravel] : null;
@@ -5445,6 +5467,7 @@ export class GameEngine {
     this.previousBiome = this.biome.id;
     this.biome = BIOMES[id];
     visitRegion(this.caStats, this.biome.id);
+    this.relightPoolsForRegion(); // the water this region holds — lava, in Mor Ul Rek
     this.bumpCombatEpoch(); // the diary reward worn here is the new region's
     this.previewCache = null; // the next wave's roster is the new region's
     this.slayer.rerollForRegion(); // a task this region cannot supply is reassigned free
@@ -5461,6 +5484,7 @@ export class GameEngine {
   debugCycleBiome() {
     this.biome = nextBiome(this.biome);
     visitRegion(this.caStats, this.biome.id);
+    this.relightPoolsForRegion();
     this.bumpCombatEpoch();
     this.previewCache = null;
     this.slayer.rerollForRegion();

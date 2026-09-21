@@ -131,6 +131,41 @@ export function buildFishingSpots(field: TerrainField, grid: number): FishingSpo
     ));
 }
 
+/**
+ * Re-roll what every pool on the board is filled with, against the region the run
+ * now stands in.
+ *
+ * Travelling keeps the map — the road, the ground beside it and the towers on it are
+ * the board the player has been building for a whole leg. The *liquid* is not part of
+ * that board: a pond is water because the region it sits in holds water, so marching
+ * into Mor Ul Rek has to turn it to lava, and marching back out has to turn it back.
+ * Without this a run that started in Lumbridge fishes trout in the middle of the
+ * TzHaar city, and the infernal eel it travelled for can never be caught.
+ *
+ * One roll per pool, the same rule the terrain generator uses: a body of water is
+ * water or it is lava, never a mix. Both halves are written — `field.liquid`, which
+ * the background bake paints from, and the spot's own `liquid`, which decides the
+ * sprite that breaks the surface and the ladder of fish it deals. Pools the terrain
+ * dealt but that carry no spot (a bought plot landed on the seed tile) are re-rolled
+ * too, so nothing on the board is left the colour of the region the run has left.
+ *
+ * Pure but for the two it is handed. Seed the rng off the run's map seed and the
+ * region so a save resumed in TzHaar comes back to the same pools it left.
+ */
+export function relightPools(
+  field: TerrainField, spots: FishingSpot[], lavaChance: number, rng: () => number,
+): void {
+  const byId = new Map(spots.map(s => [s.id, s]));
+  for (const seed of field.spots) {
+    const kind: LiquidKind = rng() < lavaChance ? 'lava' : 'water';
+    for (const t of poolTiles(field, seed.col, seed.row)) {
+      field.liquid[t.row * field.cols + t.col] = kind;
+    }
+    const spot = byId.get(spotId(seed.col, seed.row));
+    if (spot) spot.liquid = kind;
+  }
+}
+
 export function spotStage(spot: FishingSpot): 'ready' | 'spent' {
   return spot.casts >= SPOT_CASTS ? 'spent' : 'ready';
 }
