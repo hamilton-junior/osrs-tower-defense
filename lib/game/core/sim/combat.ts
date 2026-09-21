@@ -1662,8 +1662,46 @@ function killEnemy(eng: GameEngine, enemy: Enemy, dealt: number, depth: number, 
     eng.killCounts = { ...eng.killCounts, [enemy.type]: (eng.killCounts[enemy.type] ?? 0) + 1 };
   }
   if (!enemy.debug && !enemy.escort) awardKill(eng, enemy, killX, killY, dealt, overkillDmg, depth, source);
+  // The Fight Caves blob does not die once. Placed after the payout so the halves
+  // are the next thing on the board, not part of the kill that made them.
+  if (enemy.type === 'tz_kek') splitTzKek(eng, enemy);
   eng.emit();
   return true;
+}
+
+/** How far to either side of the corpse each half lands (px). Wide enough that the
+ *  two bodies read as separate the frame they appear, narrow enough that neither is
+ *  shoved off the road. */
+const TZ_KEK_SPLIT_OFFSET = 14;
+
+/**
+ * A Tz-Kek dies into two smaller Tz-Keks — the Fight Caves' own trick, and the
+ * reason the blob is a different problem from a Tok-Xil with the same health bar:
+ * the wave is not over when the bar empties.
+ *
+ * Both halves are `tz_kek_half`, which carries no split of its own, so the
+ * recursion is closed by the data rather than by a depth counter. They inherit the
+ * corpse's `pathIndex` and walk on from where it fell, one to each side, and they
+ * inherit `debug` so a sandbox Tz-Kek can be watched doing this without paying out.
+ */
+function splitTzKek(eng: GameEngine, fallen: Enemy) {
+  for (const side of [-1, 1]) {
+    const half = makeEnemy(eng, 'tz_kek_half', eng.wave);
+    if (!half) return;
+    half.x = fallen.x + side * TZ_KEK_SPLIT_OFFSET;
+    half.y = fallen.y;
+    half.pathIndex = fallen.pathIndex;
+    half.debug = fallen.debug;
+    // The field renderer resolves clips off `animType`, never the table's
+    // `animSlug` — carry the slug across or the half falls back to a static
+    // sprite and the bake it points at goes unused (same move as a sheared rat).
+    half.animType = ENEMIES.tz_kek_half.animSlug;
+    eng.enemies.push(half);
+  }
+  // One ring out of the corpse, in the blob's own colour: the split has to be
+  // visible even when the two halves spawn behind a wall of other bodies.
+  addRing(eng, fallen.x, fallen.y, 6, 44, ENEMIES.tz_kek.color, 0.45, 3);
+  eng.sound.play('hit', 45);
 }
 
 /** Deal damage to an enemy; returns true if it died from this hit. `kind`

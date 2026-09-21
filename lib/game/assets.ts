@@ -287,6 +287,16 @@ DEATH_SOUNDS.jogre = DEATH_SOUNDS.hill_giant;
 DEATH_SOUNDS.umbra = DEATH_SOUNDS.fumus;
 DEATH_SOUNDS.cruor = DEATH_SOUNDS.fumus;
 DEATH_SOUNDS.glacies = DEATH_SOUNDS.fumus;
+// The Fight Caves' Kek, and the smaller one it splits into. The cache ships no kek
+// clip at any name — `scripts/data/osrs-sound-names.tsv` holds hur, xil, mej and ket
+// and nothing else, and every one of the Kek's own animations carries an empty sound
+// map — so this is the same absence the Tz-Kih was settled on, answered the same way:
+// the caves' Hur cry, which is the file the Tz-Kih already bakes. It is also the lightest
+// of the four, and the other three are already spoken for by Ket-Zek, Yt-MejKot and
+// Tok-Xil. One clip, because the two Tz-Keks are one creature at two sizes. Settled with
+// the user, like the other four; see docs/enemy-roster.md.
+DEATH_SOUNDS.tz_kek = DEATH_SOUNDS.tz_kih;
+DEATH_SOUNDS.tz_kek_half = DEATH_SOUNDS.tz_kih;
 
 export const ASSETS = {
   spells: SPELL_ICONS,
@@ -377,6 +387,10 @@ export const ASSETS = {
     tok_xil: `${LOCAL}/models/tok_xil.png`,
     yt_mejkot: `${LOCAL}/models/yt_mejkot.png`,
     ket_zek: `${LOCAL}/models/ket_zek.png`,
+    // Both Tz-Keks are NPC 2191's model at two sizes, so the log's small one shows
+    // the big one's face — it is the same creature.
+    tz_kek: `${LOCAL}/models/tz_kek.png`,
+    tz_kek_half: `${LOCAL}/models/tz_kek.png`,
   },
   // Boss pets — one portrait per PetId in lib/game/data/pets.ts, rendered from the
   // pet's own NPC id by scripts/render-osrs-npcs.mjs (slug `pet_<id>`).

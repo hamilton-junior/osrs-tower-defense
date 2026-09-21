@@ -366,6 +366,48 @@ export const ENEMIES: Record<string, EnemyDef> = {
     reward: 48,
     waveUnlock: 11
   },
+  // The blob, and the pair it becomes. OSRS calls both of these Tz-Kek and tells
+  // them apart only by combat level, so the log does the same — the smaller one is
+  // nested under the bigger one, which is where the split reads from anyway.
+  tz_kek: {
+    type: 'tz_kek',
+    region: 'tzhaar',
+    // Size 2 in the cache, between the Tz-Kih it outgrows and the Tok-Xil it
+    // does not.
+    renderScale: 1.25,
+    name: 'Tz-Kek',
+    hp: 22,
+    speed: 50,
+    color: '#9c3520',
+    // The whole encounter is priced here and split three ways: 8 for the blob, 2
+    // for each half. The three together come to 12 — one Tok-Xil, the tier-normal
+    // beside it — so killing a Tz-Kek pays what killing one monster of its rung
+    // pays, however many bodies it took.
+    reward: 8,
+    // Between the Tz-Kih (2) and the Tok-Xil (5), which is the order the Fight
+    // Caves themselves send them in.
+    waveUnlock: 4
+  },
+  tz_kek_half: {
+    type: 'tz_kek_half',
+    // Not something a wave can send: it only ever exists because a Tz-Kek died.
+    // `summonedBy` is what keeps the allocator and the Slayer pools off it, and
+    // what nests it under the Tz-Kek in the Collection Log.
+    summonedBy: 'tz_kek',
+    // Same NPC model as the big one in the cache (9325), same walk — the level-22
+    // Tz-Kek is the level-45 one drawn smaller, so it points at that bake.
+    animSlug: 'tz_kek',
+    renderScale: 0.8,
+    name: 'Tz-Kek (level 22)',
+    hp: 9,
+    // Quicker than the blob it came out of: the split has to feel like something
+    // got loose, not like the same body twice.
+    speed: 62,
+    color: '#a83a24',
+    // A fraction, deliberately. The blob already paid for the encounter; a half
+    // that paid full price would make splitting the reward rather than the cost.
+    reward: 2
+  },
   // ───────────────────────────────────────────────────────────────────────────
   imp: {
     type: 'imp',
@@ -451,7 +493,6 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   fire_giant: {
     type: 'fire_giant',
-    region: 'tzhaar',
     renderScale: 1.55,
     name: 'Fire Giant',
     hp: 111,
@@ -1105,6 +1146,10 @@ const WEAKNESSES: Partial<Record<string, Element>> = {
   // The Fight Caves: a Tz-Kih is a living ember and a Ket-Zek is the cavern's fire
   // mage, so both answer the way every other fire creature on the board does.
   tz_kih: 'water', ket_zek: 'water',
+  // Ours: OSRS ties a Tz-Kek's defences, so nothing in its stat block picks for
+  // us. It is a walking blob of lava either way, so it answers the way its own
+  // family does.
+  tz_kek: 'water', tz_kek_half: 'water',
   // The one monster OSRS itself hands you the answer to: an ice cooler is what
   // kills a desert lizard, and water is this game's cold.
   desert_lizard: 'water',

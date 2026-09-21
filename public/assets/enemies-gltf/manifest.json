@@ -541,6 +541,195 @@
     "clips": [
       "walk",
       "hurt",
+      "death",
+      "breath"
+    ]
+  },
+  "corporeal_beast": {
+    "npc": 319,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "dark_core": {
+    "npc": 320,
+    "clips": [
+      "walk",
+      "death"
+    ]
+  },
+  "graardor": {
+    "npc": 2215,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "steelwill": {
+    "npc": 2217,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "strongstack": {
+    "npc": 2216,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "grimspike": {
+    "npc": 2218,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "nex": {
+    "npc": 11278,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "fumus": {
+    "npc": 11283,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "umbra": {
+    "npc": 11284,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "cruor": {
+    "npc": 11285,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "glacies": {
+    "npc": 11286,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "wolf": {
+    "npc": 110,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "thrower_troll": {
+    "npc": 931,
+    "clips": [
+      "walk",
+      "death"
+    ]
+  },
+  "troll_general": {
+    "npc": 4120,
+    "clips": [
+      "walk",
+      "death"
+    ]
+  },
+  "ankou": {
+    "npc": 2514,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "tz_kih": {
+    "npc": 2189,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "tok_xil": {
+    "npc": 2193,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "yt_mejkot": {
+    "npc": 3123,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "ket_zek": {
+    "npc": 3125,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "tz_kek": {
+    "npc": 2191,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "giant_mosquito": {
+    "npc": 1041,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "cave_horror": {
+    "npc": 1049,
+    "clips": [
+      "walk",
+      "hurt"
+    ]
+  },
+  "bronze_dragon": {
+    "npc": 270,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "ent": {
+    "npc": 7234,
+    "clips": [
+      "walk",
+      "hurt",
       "death"
     ]
   }

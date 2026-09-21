@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-21",
   "entries": [
     {
+      "kind": "new",
+      "scope": "tzhaar",
+      "text": "Kill a Tz-Kek and two smaller ones crawl out of it",
+      "fromFeedback": false,
+      "date": "2026-09-21"
+    },
+    {
       "kind": "updated",
       "scope": "ui",
       "text": "A level requirement shows the icon of the skill that grants it",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "diversions",
       "text": "Sergeant Damien replaces Rick Turpentine, and a click drills every tower up 2 levels",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "new",
-      "scope": "diversions",
-      "text": "The Strange Plant says what it grew, an Overload or a high-level herb seed you can sow for free",
       "fromFeedback": false,
       "date": "2026-09-17"
     }

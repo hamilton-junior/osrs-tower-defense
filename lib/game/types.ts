@@ -43,6 +43,12 @@ export type EnemyType = 'goblin' | 'rat' | 'cow' | 'imp' | 'spider' | 'scorpion'
   | 'giant_mosquito' | 'cave_horror' | 'bronze_dragon'
   | 'wolf' | 'thrower_troll' | 'troll_general'
   | 'tz_kih' | 'tok_xil' | 'yt_mejkot' | 'ket_zek'
+  // The Fight Caves blob and the two smaller ones it splits into. OSRS calls both
+  // of them Tz-Kek, and the ids keep them apart here because gold, threat weight
+  // and the Collection Log are all keyed by type. Keep this union free of the
+  // semicolon character, punctuation included: assets.test.ts reads the type by
+  // cutting the declaration at the first one.
+  | 'tz_kek' | 'tz_kek_half'
   // General Graardor and his bodyguards. The three sergeants are adds, but each is
   // its own type rather than one shared skin: they have different stats, and the
   // variants rule is for same-stat skins only.

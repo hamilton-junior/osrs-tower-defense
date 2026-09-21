@@ -56,8 +56,16 @@ local to Morytania, which is honest (both are Slayer Tower monsters) and still l
 reward two carriers on every map.
 
 Three current monsters have no clean home and are decided here rather than left dangling:
-**Fire Giant** → TzHaar (lava), **Hellhound** → Wilderness (the wildy hellhounds are
-real), **Blue Dragon** → generic (dungeon dragons are everywhere).
+**Fire Giant** → generic, **Hellhound** → Wilderness (the wildy hellhounds are real),
+**Blue Dragon** → generic (dungeon dragons are everywhere).
+
+The Fire Giant was TzHaar for one reason — it is on fire — and that was always the
+weakest of the three calls. It is not a TzHaar creature, it does not live in the caves,
+and the cavern only needed it while the Fight Caves ladder was short a body. The Tz-Kek
+fills that slot with something the caves actually send, so the Fire Giant went back to
+the backbone, where a giant that turns up in any dungeon belongs. It keeps its three
+Slayer pools, its Landmark wave and its Collection Log entry; it simply lost its
+`region`.
 
 ## The regional sets
 
@@ -195,18 +203,34 @@ backbone in jungle paint. The metal dragon line is the missing top.
 
 ### TzHaar Caverns
 
-*Already here:* Fire Giant (by the decision above) · Tz-Kih · Tok-Xil · Yt-MejKot · Ket-Zek
-(the Fight Caves four, shipped in phase 4).
+*Already here:* Tz-Kih · Tz-Kek · Tok-Xil · Yt-MejKot · Ket-Zek — the Fight Caves five,
+and nothing that is not from the caves.
 
 **The design call went to the Fight Caves.** The TzHaar are already *towers* in this game,
 so the city races stay on the tower side and the cavern sends what Jad brings with him:
 the Fight Caves ladder, which the player fights rather than hires. The other two ladders
 stay researched here and unbuilt:
 
-- **Fight Caves — built.** Tz-Kih `2189` (hp 10) · Tok-Xil `2193` (hp 40, rng 120) ·
-  Yt-MejKot `3123` (hp 80, the pair of the Yt-HurKot `3128` already baked) · Ket-Zek `3125`
-  (hp 160). Tz-Kek `2191` (hp 20) and its split `3120` (hp 10) are left out: splitting on
-  death is a mechanic, not a stat block, and the region reads full without it.
+- **Fight Caves — built.** Tz-Kih `2189` (hp 10) · Tz-Kek `2191` (hp 20) · Tok-Xil `2193`
+  (hp 40, rng 120) · Yt-MejKot `3123` (hp 80, the pair of the Yt-HurKot `3128` already
+  baked) · Ket-Zek `3125` (hp 160).
+
+  The **Tz-Kek** was the one held back, on the grounds that splitting on death is a
+  mechanic rather than a stat block. It was built anyway, because that mechanic is the
+  only thing in the region that changes how a wave is fought rather than how hard it
+  hits: the blob dies into two level-22 Tz-Keks (`3120`, hp 10) that keep walking from
+  where it fell, so a lane cleared on the last tick is not cleared. Both are NPC 2191's
+  model — OSRS draws the level 22 as the level 45 at size 1 — so they share one bake and
+  one portrait, and the log nests the small one under the big one.
+
+  They are two `EnemyType`s and not one because gold, threat weight and the Collection
+  Log are all keyed by type. The encounter is priced once and split three ways: 8 for the
+  blob, 2 for each half, 12 in total — a Tok-Xil, the tier-normal standing beside it. Its
+  40 hp across three bodies is a Tok-Xil too. So a Tz-Kek pays and costs what one monster
+  of its rung does, however many bodies it took to put down. The half carries
+  `summonedBy: 'tz_kek'`, which is what keeps the wave allocator and the Slayer pools off
+  it; it is deliberately **not** an `escort`, because an escort's kill records a
+  killcount and pays nothing.
 - **TzHaar city** — Hur `2161` (hp 80) · Mej `2154` (hp 100, mag 120) · Xil `2167` (hp 120,
   rng 120) · Ket `2173` (hp 140). A clean melee / mage / ranged / tank quartet.
 - **The Inferno** (endgame) — Jal-Nib `7691` (hp 10) · Jal-MejRah `7692` (hp 25) · Jal-Ak
@@ -306,6 +330,14 @@ Per monster, mirroring the boss checklist:
 
    Three shared clips are not aliases but the truth, because OSRS itself shares them:
    hobgoblin→goblin, moss_giant→hill_giant, giant_rat→rat.
+
+   **The Tz-Kek borrows the Tz-Kih's**, settled with the user (2026-09-21) the same way
+   the Tz-Kih itself was. OSRS ships four TzHaar death cries — hur `252`, ket `256`, mej
+   `263`, xil `270` — and no kek at any spelling; every one of NPC 2191's own animations
+   carries an empty sound map, and the four cries are already spoken for by the four
+   Fight Caves monsters that shipped before it. So the blob dies to the Hur cry, which is
+   the lightest of the four and the file the Tz-Kih already bakes, and both Tz-Keks point
+   at that one file because they are one creature at two sizes.
 
    **The one accepted exception is the Jogre**, and it is a closed decision (2026-08-28),
    not an open item: the named sound map holds no `jogre` and no plain ogre death at all —

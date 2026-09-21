@@ -699,6 +699,14 @@
       "death": 2646
     }
   },
+  "tz_kek": {
+    "npc": 2191,
+    "anims": {
+      "walk": 2623,
+      "hurt": 2626,
+      "death": 2627
+    }
+  },
   "giant_mosquito": {
     "npc": 1041,
     "anims": {
