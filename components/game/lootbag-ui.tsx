@@ -9,7 +9,7 @@ import { canEquip, isUpgradeFor, isUpgradeForAny } from '@/lib/game/systems/towe
 import { GearCompare, GearHeader, GearStats, gearTooltip } from './gear-ui';
 import { stackTip, type StackTipContext } from './stack-tip';
 import { towerIcon, towerListName, wizardStaffUrl } from './tower-ui';
-import { hideBrokenImg, InvGrid, ItemSlot, loadBool } from './ui-kit';
+import { hideBrokenImg, InvGrid, ItemSlot, LevelReq, loadBool } from './ui-kit';
 
 /**
  * The **loot bag** — everything the run picked up and is not carrying: the gear
@@ -285,7 +285,7 @@ export function LootBagView({
                   {icon && <img src={icon} alt="" className="w-[1.3em] h-[1.3em] object-contain shrink-0" onError={hideBrokenImg} />}
                   <span className="flex-1 truncate">{towerListName(t)}</span>
                   {!check.ok ? (
-                    <span className="text-[0.9em] text-osrs-red whitespace-nowrap">Requires Lv {g.levelReq}</span>
+                    <LevelReq icon={ASSETS.misc.stats_icon} level={g.levelReq ?? 1} title="Combat level" className="text-[0.9em] text-osrs-red" />
                   ) : wornHere ? (
                     <span className={`flex items-center gap-[0.25em] text-[0.9em] whitespace-nowrap ${upgrade ? 'text-[#9d8f6a]' : 'text-[#6f6449]'}`}>
                       {upgrade ? 'swaps' : 'worse'}

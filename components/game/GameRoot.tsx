@@ -44,7 +44,7 @@ import type { DiversionReward } from '@/lib/game/systems/diversions';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadDiaries, loadRunSave, clearRunSave, loadSave, loadDailyBoard, type Victories, type DifficultyProgress } from './save';
 import { dailyKey, dayLabel, shiftKey, type DayKey } from '@/lib/game/systems/daily-seed';
 import { EMPTY_BOARD, dailyStreak, recordDaily, type DailyBoard } from '@/lib/game/systems/daily-score';
-import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Price, Vital, GoStat, StatLabel, Stat } from './ui-kit';
+import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, LevelReq, Price, Vital, GoStat, StatLabel, Stat } from './ui-kit';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl, coinsIcon, GEAR_ICONS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
@@ -3161,9 +3161,12 @@ export default function GameRoot() {
                                     />
                                     <span className="flex-1 truncate">{g.name}</span>
                                     {disabled && (
-                                      <span className="text-[0.85em] text-osrs-red whitespace-nowrap">
-                                        Requires Lvl {g.levelReq}
-                                      </span>
+                                      <LevelReq
+                                        icon={ASSETS.misc.stats_icon}
+                                        level={g.levelReq ?? 1}
+                                        title="Combat level"
+                                        className="text-[0.85em] text-osrs-red"
+                                      />
                                     )}
                                   </button>
                                 </HoverTip>
@@ -3237,7 +3240,7 @@ export default function GameRoot() {
                     <span className="text-[#5bd75b] font-bold">⬆</span>
                     {towerGate?.ok
                       ? <>Upgrade · {selectedTower.upgradeCost} gp</>
-                      : <>Needs Lv {towerGate?.neededLevel}</>}
+                      : <LevelReq icon={ASSETS.misc.stats_icon} level={towerGate?.neededLevel ?? 1} title="Combat level" />}
                     <span className="rs-key">U</span>
                   </button>
                   <div className="flex items-center gap-[0.6em] mt-[0.3em] px-[0.1em]">
@@ -4456,7 +4459,12 @@ export default function GameRoot() {
                           <img src={def.sprite} alt={def.name} onError={hideBrokenImg} />
                           <span className="rs-slot-key">{i + 1}</span>
                           {/* A locked trap shows the level it wants rather than its price:
-                              the price is not what is stopping the player. */}
+                              the price is not what is stopping the player. Written
+                              `L27`, not as the Hunter icon the rest of the interface
+                              uses for a level: this corner is 0.5em, the icon lands at
+                              ten pixels on top of the trap sprite, and the dock is
+                              already the Hunter tab — the icon would say nothing the
+                              tab does not, illegibly. */}
                           <span
                             className="rs-slot-cost"
                             style={{ color: !locked && afford ? 'var(--osrs-yellow)' : 'var(--osrs-red)' }}

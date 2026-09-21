@@ -5,7 +5,7 @@ import { ASSETS } from '@/lib/game/assets';
 import { SEED_BY_ID } from '@/lib/game/data/farming';
 import { POTION_BY_ID, type PotionDef } from '@/lib/game/data/herblore';
 import { brewDamageMult, overhealCap } from '@/lib/game/systems/herblore';
-import { hideBrokenImg, Price } from './ui-kit';
+import { hideBrokenImg, LevelReq, Price } from './ui-kit';
 
 export interface PotionTipOptions {
   /** The bench's recipe row: herb, base potion and secondary as icons, then the
@@ -116,10 +116,7 @@ function RecipeChips({ def, herbs, bases, money, level }: { def: PotionDef } & N
       ))}
       <Price amount={def.cost} afford={money >= def.cost} />
       {level < def.level && (
-        <span className="flex items-center gap-[0.3em] text-osrs-red">
-          <img src={ASSETS.misc.skill_herblore} alt="Requires" className={ICON} onError={hideBrokenImg} />
-          Lvl {def.level}
-        </span>
+        <LevelReq icon={ASSETS.misc.skill_herblore} level={def.level} title="Herblore" className="text-osrs-red" />
       )}
     </div>
   );

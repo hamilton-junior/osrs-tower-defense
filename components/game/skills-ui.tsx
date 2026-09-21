@@ -10,7 +10,7 @@ import { POTIONS, POTION_BY_ID, type PotionId } from '@/lib/game/data/herblore';
 import { FISH, SPOT_CASTS } from '@/lib/game/data/fishing';
 import { castSeconds } from '@/lib/game/systems/fishing';
 import { brewDamageMult, outrankedBy, overhealCap } from '@/lib/game/systems/herblore';
-import { hideBrokenImg, fmt, Price } from './ui-kit';
+import { hideBrokenImg, fmt, LevelReq, Price } from './ui-kit';
 import { HoverTip } from './HoverTip';
 import { potionTooltip } from './potion-tip';
 
@@ -434,7 +434,9 @@ function HunterPage({ ui, onSelectTrap }: SkillsViewProps) {
                 sig={def.signature.icon}
                 icon={def.sprite}
                 name={def.name}
-                foot={locked ? `L${def.level}` : <Price amount={cost} afford={afford && !full} />}
+                foot={locked
+                  ? <LevelReq icon={ASSETS.misc.hunter_icon} level={def.level} title="Hunter" />
+                  : <Price amount={cost} afford={afford && !full} />}
                 locked={locked}
                 picked={active}
                 disabled={ui.waveActive || locked}
@@ -649,7 +651,9 @@ function HerblorePage({ ui, onBrewPotion, onDrinkPotion }: SkillsViewProps) {
                 key={def.id}
                 icon={def.icon}
                 name={def.name}
-                foot={locked ? `L${def.level}` : <Price amount={def.cost} afford={afford} />}
+                foot={locked
+                  ? <LevelReq icon={ASSETS.misc.skill_herblore} level={def.level} title="Herblore" />
+                  : <Price amount={def.cost} afford={afford} />}
                 locked={locked}
                 disabled={busy || locked || missing || !afford}
                 title={locked
@@ -821,7 +825,9 @@ function FishingPage({ ui, onCast }: { ui: UIState; onCast: (spotId: string) => 
                 icon={f.icon}
                 name={f.name}
                 title={locked ? `Needs Fishing ${f.level}` : 'Eat it for lives, or sell it for gold.'}
-                foot={locked ? `L${f.level}` : <Price amount={Math.round(f.gold * ui.sellMult)} />}
+                foot={locked
+                  ? <LevelReq icon={ASSETS.misc.skill_fishing} level={f.level} title="Fishing" />
+                  : <Price amount={Math.round(f.gold * ui.sellMult)} />}
                 {...(locked ? {} : {
                   // The heal caps at maxLives and does not happen at all once lives
                   // are already full — a plain "+{n}" overpromises both times — so the

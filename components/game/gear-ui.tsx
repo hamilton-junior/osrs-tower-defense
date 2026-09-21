@@ -3,7 +3,7 @@
 import React from 'react';
 import { ASSETS, GEAR_ICONS } from '@/lib/game/assets';
 import type { Item, AmmoClass } from '@/lib/game/types';
-import { hideBrokenImg, Stat } from './ui-kit';
+import { hideBrokenImg, LevelReq, Stat } from './ui-kit';
 
 /**
  * How a piece of Classic gear reads in the interface: its stat table, the hover
@@ -63,7 +63,7 @@ export function GearStats({ item }: { item: Item }) {
           <Stat key={d.key} icon={d.icon} label={d.label} value={`+${item.bonus[d.key]}${d.unit}`} />
         ))
       )}
-      <Stat icon={ASSETS.misc.stats_icon} label="Requires" value={`Lvl ${item.levelReq ?? 1}`} />
+      <Stat icon={ASSETS.misc.stats_icon} label="Requires" value={item.levelReq ?? 1} />
     </div>
   );
 }
@@ -84,10 +84,7 @@ export function GearStatChips({ item }: { item: Item }) {
           <span className="text-osrs-green">+{item.bonus[d.key]}{d.unit}</span>
         </span>
       ))}
-      <span className="flex items-center gap-[0.3em] text-[#cdbe91]">
-        <img src={ASSETS.misc.stats_icon} alt="Requires" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
-        Lvl {item.levelReq ?? 1}
-      </span>
+      <LevelReq icon={ASSETS.misc.stats_icon} level={item.levelReq ?? 1} title="Combat level" className="text-[#cdbe91]" />
     </div>
   );
 }
@@ -126,7 +123,7 @@ export function GearCompare({ from, to }: { from: Item; to: Item }) {
           />
         );
       })}
-      <Stat icon={ASSETS.misc.stats_icon} label="Requires" value={`Lvl ${to.levelReq ?? 1}`} />
+      <Stat icon={ASSETS.misc.stats_icon} label="Requires" value={to.levelReq ?? 1} />
     </div>
   );
 }

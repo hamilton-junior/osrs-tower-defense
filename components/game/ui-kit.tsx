@@ -116,6 +116,32 @@ export function Price({ amount, afford = true, className = '' }: {
   );
 }
 
+/**
+ * A level something is asking for, written the way the client writes one: the
+ * icon of the skill that grants it, then the number. The icon says *which* level,
+ * which "L26" never could — Herblore's leaf, Hunter's net, the stat block for a
+ * tower's own combat level — and it is the trick {@link Price} plays with the coin
+ * pile, the other way round: a price is a quantity followed by its unit, a level
+ * is a number that means nothing until you know whose it is.
+ *
+ * The colour is the parent's. A rung out of reach is painted red where it is used,
+ * and a requirement already met keeps whatever the row around it is wearing.
+ */
+export function LevelReq({ icon, level, title, className = '' }: {
+  icon: string;
+  level: number;
+  /** Names the skill for the mouse — an icon is not a word. */
+  title?: string;
+  className?: string;
+}) {
+  return (
+    <span className={`inline-flex items-center gap-[0.25em] ${className}`} title={title}>
+      <img src={icon} alt={title ?? 'Level'} className="w-[1.1em] h-[1.1em] object-contain shrink-0" onError={hideBrokenImg} />
+      <span className="tabular-nums">{level}</span>
+    </span>
+  );
+}
+
 /** Seconds → `m:ss` (or `h:mm:ss` past an hour) for the run-summary timer. */
 export const fmtTime = (s: number) => {
   const t = Math.max(0, Math.floor(s));
