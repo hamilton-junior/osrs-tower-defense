@@ -30,7 +30,7 @@ import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
 import { PrayerSystem, MAX_PRAYER_WARDS } from '../systems/prayer-system';
-import { GeSystem } from '../systems/ge-system';
+import { PotionBuffSystem } from '../systems/potion-buff-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { rollDraft, availableCards, cardRollCost, DRAFT_POOL, RARITY_WEIGHT, BOOSTED_RARITY_WEIGHT, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import { RELICS, type Relic, type RelicEffect } from '../systems/relics';
@@ -544,7 +544,7 @@ export class GameEngine {
   // --- composed subsystems ---
   readonly slayer = new SlayerSystem(this);
   readonly prayer = new PrayerSystem(this);
-  readonly ge = new GeSystem(this);
+  readonly buffs = new PotionBuffSystem(this);
   /** Per-run damage accounting for the DPS panel; identity is resolved live off
    *  the current tower so it tracks upgrades and survives a sold tower. */
   readonly stats = new CombatStatsSystem((id) => towerIdentity(this, id));
@@ -938,7 +938,7 @@ export class GameEngine {
       prayerFrac: this.prayer.frac,
       activePrayers: [...this.prayer.active],
       prayerLock: Math.ceil(this.prayer.lockTimer),
-      geOffers: this.ge.listing(),
+      potionBuffs: this.buffs.listing(),
       essence: this.meta.essence,
       upgrades: this.meta.upgrades,
       unlocks: this.unlocks,
@@ -1218,11 +1218,6 @@ export class GameEngine {
     this.emit(); // activePrayers changed — push it now (don't wait for an incidental frame)
   }
 
-  /** Buy a Grand Exchange consumable (UI button). */
-  buyGeOffer(id: string) {
-    this.ge.buy(id);
-  }
-
   /** Buy one step of a permanent meta-progression upgrade (Essence Shop). */
   buyEssenceUpgrade(id: keyof GlobalUpgrades) {
     this.meta.buy(id);
@@ -1289,7 +1284,7 @@ export class GameEngine {
     return calculateTowerStats(tower, {
       upgrades: this.meta.upgrades,
       activePrayers: this.prayer.active,
-      activePotions: this.ge.active,
+      activePotions: this.buffs.active,
       allTowers: this.towers,
       runMods: this.runMods,
       synergyMult: this.synergyMultFor(towerId),
@@ -1462,7 +1457,7 @@ export class GameEngine {
     return calculateTowerStats(ghost, {
       upgrades: this.meta.upgrades,
       activePrayers: this.prayer.active,
-      activePotions: this.ge.active,
+      activePotions: this.buffs.active,
       allTowers: this.towers,
       runMods: this.runMods,
       synergy: this.runFx.synergy,
@@ -3724,7 +3719,7 @@ export class GameEngine {
       case 'overload':
         // The one style-agnostic buff in the shop: a gift has to be worth something
         // whatever the player happens to have built.
-        for (let n = 0; n < reward.amount; n++) this.ge.grant('overload');
+        for (let n = 0; n < reward.amount; n++) this.buffs.grant('overload');
         break;
       case 'seed':
         // Carried until a patch is free: sowing it costs nothing.
@@ -4424,7 +4419,7 @@ export class GameEngine {
   private update(dt: number) {
     this.gameTime += dt;
     this.prayer.update(dt);
-    this.ge.update(dt);
+    this.buffs.update(dt);
     spawn(this, dt);
     damageOverTime(this, dt);
     moveEnemies(this, dt);
@@ -5062,10 +5057,10 @@ export class GameEngine {
     this.slayer.load(save.slayer);
     this.slayer.assignTask(); // no-op when the save already carried one
     this.prayer.load(save.prayer);
-    // The Grand Exchange is priced per run and its potions are timed — a resumed
-    // run gets a fresh board rather than potions that expired while the tab was
-    // closed. Damage accounting likewise starts over (its numbers are per-session).
-    this.ge.reset();
+    // Potion buffs are timed, so a resumed run starts clean rather than carrying
+    // buffs that expired while the tab was closed. Damage accounting likewise
+    // starts over (its numbers are per-session).
+    this.buffs.reset();
     this.stats.reset();
     if (this.dpsPanelOpen) this.onState({ dpsStats: this.stats.snapshot() });
     this.emit();
@@ -5188,7 +5183,7 @@ export class GameEngine {
     this.slayer.reset();
     this.slayer.assignTask(); // fresh task for the new run
     this.prayer.reset();
-    this.ge.reset();
+    this.buffs.reset();
     this.stats.reset();
     if (this.dpsPanelOpen) this.onState({ dpsStats: this.stats.snapshot() });
     this.emit();

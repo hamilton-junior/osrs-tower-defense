@@ -94,7 +94,7 @@ const INITIAL: UIState = {
   notice: null, noticeIcon: null, noticeReward: null, noticeSeq: 0,
   slayerTask: null, slayerPoints: 0, slayerStreak: 0, slayerMaster: 'Turael', slayerHelmet: false, slayerUnlocks: [], slayerBlocked: [],
   prayerPoints: 10, prayerMax: 10, prayerFrac: 1, activePrayers: [], prayerLock: 0,
-  geOffers: [],
+  potionBuffs: [],
   essence: 0, upgrades: { ...DEFAULT_UPGRADES },
   unlocks: [], unlockSeq: 0,
   killCounts: {},
@@ -1416,9 +1416,9 @@ export default function GameRoot() {
   };
   if (selectedTower) {
     if (towerStyle?.boostable) {
-      for (const o of ui.geOffers) {
-        if (o.kind === 'buff' && o.activeSecs > 0 && (!o.style || o.style === towerStyle.style)) {
-          towerBoosts.push({ key: `pot-${o.id}`, icon: geIcon(o.wiki), amount: pct(o.dmg ?? 0), title: `${o.name}: ${o.desc}` });
+      for (const b of ui.potionBuffs) {
+        if (!b.style || b.style === towerStyle.style) {
+          towerBoosts.push({ key: `pot-${b.id}`, icon: geIcon(b.wiki), amount: pct(b.dmg ?? 0), title: `${b.name}: ${b.desc}` });
         }
       }
       for (const p of TOWER_PRAYERS) {
@@ -1543,7 +1543,7 @@ export default function GameRoot() {
     }
   }
   // Active buffs anywhere, for the always-on infobox cluster (RuneLite-style).
-  const activeInfoboxes = ui.geOffers.filter((o) => o.activeSecs > 0);
+  const activeInfoboxes = ui.potionBuffs;
   // Which diaries are paying out here, for the Collection Log's "Worn here" mark.
   const diariesActive = useMemo(() => ui.diaryWorn.map((d) => d.id), [ui.diaryWorn]);
   // Ripe allotments, for that same cluster. The patch glows on the board, but a

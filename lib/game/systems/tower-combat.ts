@@ -3,7 +3,7 @@ import { distance } from './geometry';
 import { softCapMult, RANGE_MULT_CEILING, FIRE_RATE_MULT_CEILING } from './run-modifiers';
 import { TOWER_STYLES } from '../data/towers';
 import { TOWER_PRAYERS } from '../data/prayers';
-import { GE_OFFERS } from '../data/ge';
+import { POTION_BUFFS } from '../data/potion-buffs';
 import { levelStatBonus, styleSkillKey } from './tower-xp';
 import type { StyleMods } from './style-mods';
 
@@ -181,12 +181,12 @@ export function calculateTowerStats(
     // Potions: a style-less buff (Overload) boosts everything; a styled buff
     // only boosts its own style.
     for (const pot of activePotions) {
-      const offer = GE_OFFERS.find(o => o.id === pot.type);
-      if (!offer || offer.kind !== 'buff') continue;
-      if (offer.style && offer.style !== profile.style) continue;
-      damageMultiplier *= 1 + (offer.dmg ?? 0);
-      rangeMultiplier *= 1 + (offer.range ?? 0);
-      speedMultiplier *= 1 + (offer.speed ?? 0);
+      const buff = POTION_BUFFS.find(b => b.id === pot.type);
+      if (!buff) continue;
+      if (buff.style && buff.style !== profile.style) continue;
+      damageMultiplier *= 1 + (buff.dmg ?? 0);
+      rangeMultiplier *= 1 + (buff.range ?? 0);
+      speedMultiplier *= 1 + (buff.speed ?? 0);
     }
 
     // Farming herbs, Herblore potions and the brew debt they leave behind, already

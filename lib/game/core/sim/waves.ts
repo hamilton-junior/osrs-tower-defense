@@ -657,7 +657,6 @@ export function checkWaveEnd(eng: GameEngine) {
   eng.caStats.livesLostThisWave = 0;
   eng.checkPrayerUnlocks(); // celebrate any tower prayers gating on the new wave
   eng.prayer.refill(); // top up to the new wave's (possibly larger) pool
-  eng.ge.onWaveCleared(); // drift shop prices toward this wave's demand
   // Roguelite: beating a boss is the run's reward beat — it offers a run-defining
   // relic. Once every relic is owned the boss pays a *boosted* card hand instead,
   // so a late boss is still worth something. Ordinary waves pay nothing: cards are

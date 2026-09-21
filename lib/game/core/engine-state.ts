@@ -3,7 +3,7 @@ import { ENEMIES } from '../data/enemies';
 import { type DifficultyTier } from '../systems/difficulty';
 import { type TowerSynergy } from '../systems/tower-combat';
 import { type DpsSnapshot } from '../systems/combat-stats';
-import { type GeListing } from '../systems/ge-system';
+import { type PotionBuffListing } from '../systems/potion-buff-system';
 import { DRAFT_POOL, type DraftCard } from '../systems/roguelite-draft';
 import { type EnemyAffix } from '../systems/affixes';
 import { MECHANIC_BOSSES } from '../systems/boss-mechanics';
@@ -324,8 +324,8 @@ export interface UIState {
   /** Seconds left on a prayer shatter (General Graardor's slam), 0 when free. The panel
    *  greys itself out and counts this down. */
   prayerLock: number;
-  /** Grand Exchange stock with live prices + active-buff timers. */
-  geOffers: GeListing[];
+  /** The timed potion buffs running right now, with their countdowns. */
+  potionBuffs: PotionBuffListing[];
   /** Persistent Rune Essence balance (meta-progression currency). */
   essence: number;
   /** Bought global upgrades that seed every run (Essence Shop). */

@@ -10,7 +10,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ASSETS, coinsIcon, localIconNames } from './assets';
 import { BIOME_LIST, SCENERY_LIMIT } from './data/biomes';
-import { GE_OFFERS } from './data/ge';
+import { POTION_BUFFS } from './data/potion-buffs';
 import { SLAYER_REWARDS } from './data/slayer';
 import { GLOBAL_UPGRADE_DEFS } from './systems/meta-progression';
 import { PETS } from './data/pets';
@@ -75,7 +75,7 @@ const literalIconNames: string[] = (() => {
 
 describe('icon coverage', () => {
   it.each([
-    ['GE offers', GE_OFFERS.map((o) => o.wiki)],
+    ['potion buffs', POTION_BUFFS.map((b) => b.wiki)],
     ['slayer rewards', SLAYER_REWARDS.map((r) => r.icon)],
     ['meta upgrades', GLOBAL_UPGRADE_DEFS.map((d) => d.icon)],
     ['interface literals', literalIconNames],
@@ -89,7 +89,7 @@ describe('icon coverage', () => {
 
   it('bakes nothing no table asks for', () => {
     const asked = new Set([
-      ...GE_OFFERS.map((o) => o.wiki),
+      ...POTION_BUFFS.map((b) => b.wiki),
       ...SLAYER_REWARDS.map((r) => r.icon),
       ...GLOBAL_UPGRADE_DEFS.map((d) => d.icon),
       ...literalIconNames,

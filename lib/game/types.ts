@@ -25,7 +25,7 @@ export interface GlobalUpgrades {
 export type PrayerType = 'burst_of_strength' | 'sharp_eye' | 'mystic_will' | 'mystic_lore' | 'mystic_might' | 'hawk_eye' | 'ultimate_strength' | 'eagle_eye' | 'piety' | 'rigour' | 'augury' | 'protect_from_melee' | 'protect_from_missiles' | 'protect_from_magic';
 
 export interface ActivePotion {
-  type: 'overload' | 'super_restore' | 'prayer_potion' | 'ranging' | 'magic' | 'super_combat';
+  type: 'overload' | 'ranging' | 'magic' | 'super_combat';
   timer: number;
 }
 

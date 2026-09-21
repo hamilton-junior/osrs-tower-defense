@@ -44,7 +44,7 @@ function stubEngine() {
     combatEpoch: 1,
     meta: { upgrades: { ...DEFAULT_UPGRADES } },
     prayer: { active: new Set<string>() },
-    ge: { active: [] as unknown[] },
+    buffs: { active: [] as unknown[] },
     runMods: freshRunMods(),
     runFx: freshRunEffects(),
     relicFx: freshRelicEffects(),

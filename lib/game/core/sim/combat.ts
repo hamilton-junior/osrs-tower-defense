@@ -112,7 +112,7 @@ export function towerStats(eng: GameEngine, tower: Tower): ComputedTowerStats {
       stats: calculateTowerStats(tower, {
         upgrades: eng.meta.upgrades,
         activePrayers: eng.prayer.active,
-        activePotions: eng.ge.active,
+        activePotions: eng.buffs.active,
         allTowers: eng.towers,
         runMods: eng.runMods,
         synergyMult: eng.synergyMultFor(tower.id),

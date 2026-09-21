@@ -39,7 +39,7 @@ export const coinsIcon = (n: number): string => {
 };
 
 /**
- * Wiki-filename → locally-baked icon. Data tables (GE shop, slayer rewards,
+ * Wiki-filename → locally-baked icon. Data tables (potion buffs, slayer rewards,
  * meta upgrades) key icons by wiki filename; `iconUrl` resolves them to the
  * cache-baked local asset.
  *
@@ -48,12 +48,10 @@ export const coinsIcon = (n: number): string => {
  * a table grows a name with no bake behind it.
  */
 const LOCAL_BY_WIKI: Record<string, string> = {
-  // GE consumables (data/ge.ts `wiki` keys)
+  // Potion buffs (data/potion-buffs.ts `wiki` keys)
   'Ranging_potion(4)': itemIcon('ranging_potion'),
   'Magic_potion(4)': itemIcon('magic_potion'),
   'Super_combat_potion(4)': itemIcon('super_combat_potion'),
-  'Prayer_potion(4)': itemIcon('prayer_potion'),
-  'Super_restore(4)': itemIcon('super_restore'),
   'Overload_(4)': itemIcon('overload_4'),
   // Slayer rewards (data/slayer.ts `icon` keys) — each unlock wears the item it
   // actually is in game (the imbued helm, the bracelet that extends tasks, the
