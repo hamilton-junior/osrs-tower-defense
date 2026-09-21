@@ -53,3 +53,18 @@ export function travelOffer(
   }
   return pool.slice(0, Math.min(TRAVEL_CHOICES, pool.length));
 }
+
+/**
+ * The rng that decides where a region's pools sit, and which of them are lava.
+ *
+ * It is derived from the map seed **and the region**, never from a counter, so a run
+ * that walks into Mor Ul Rek and back out again finds its water exactly where it left
+ * it — the pools are re-rolled on every move and on every load, and all of those rolls
+ * have to agree. A save rebuilds its terrain from the map seed, which knows the region
+ * the run was *dealt* rather than the one it had travelled to, so the load path rolls
+ * this too.
+ */
+export function regionPoolRng(mapSeed: number, region: BiomeId): () => number {
+  const i = BIOME_LIST.findIndex(b => b.id === region);
+  return makeRng((mapSeed ^ Math.imul(i + 1, 0x9e3779b9)) >>> 0);
+}

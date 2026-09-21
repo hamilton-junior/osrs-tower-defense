@@ -45,6 +45,8 @@ Two kinds live outside the engine, both under [`lib/game/systems/`](lib/game/sys
 
 When you pull logic out of the engine, prefer a pure function with a matching `*.test.ts`.
 
+**No new feature grows `core/engine.ts` or `GameRoot.tsx`.** They are the two most-edited files in the repo and the only substantial code with no test coverage at all, so a change in them can only be verified by driving the browser. New logic belongs in `systems/` as a pure function with a `*.test.ts`, or in a `*-System` class; the two big files get the call site and nothing more. When a feature seems to need logic inside them, ask which part is a *rule* rather than wiring and extract that part first — `canCheckpoint` / `restoreRunBuild` (`systems/run-save.ts`) and `restorePlots` (`systems/farming.ts`) came out of `snapshotRun`/`loadRun` exactly that way, while the `this.x = save.x` bulk stayed put because moving it would buy nothing.
+
 ### Coordinate system & timing
 
 - The board is a **fixed** logical space, `LOGIC_WIDTH=1440 × LOGIC_HEIGHT=640` (45×20 tiles, 2.25:1) — the same board for every player. The game never derives from screen size; only the presentation does. See the `game-ui` skill for the full rule and its three easy-to-break consequences (`paintedBox()` for every screen↔logic conversion, the fixed bottom-bar height, blocked browser zoom).

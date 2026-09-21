@@ -170,6 +170,30 @@ export function spotStage(spot: FishingSpot): 'ready' | 'spent' {
   return spot.casts >= SPOT_CASTS ? 'spent' : 'ready';
 }
 
+export interface CastRequest {
+  spot: FishingSpot | undefined;
+  lineOut: boolean;
+  waveActive: boolean;
+  gameOver: boolean;
+}
+
+/**
+ * Why that cast is refused, or `null` when the line may go in.
+ *
+ * **The order is the rule**, the same as a trap's: the wave gate first, because it
+ * bars every spot on the board; then the line already out, because a second cast
+ * would be refused wherever it was aimed; and only then the state of the spot the
+ * player picked. A spot that does not exist is refused without a message — the
+ * click reached no spot at all, so there is nothing to tell the player about.
+ */
+export function castRefusal(req: CastRequest): string | null {
+  if (req.waveActive || req.gameOver) return 'Only between waves';
+  if (req.lineOut) return 'Your line is already out';
+  if (!req.spot) return '';
+  if (spotStage(req.spot) === 'spent') return 'The fish have moved on';
+  return null;
+}
+
 /** The spot under a board click, or null. A spot owns its whole tile. */
 export function spotAtPoint(
   spots: FishingSpot[], x: number, y: number, grid: number,

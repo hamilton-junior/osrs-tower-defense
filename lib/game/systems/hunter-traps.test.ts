@@ -12,6 +12,7 @@ import {
   gainHunterXp,
   hunterXpForLevel,
   maxActiveTraps,
+  placeTrapVerdict,
   snapTrapSpot,
   trapAtPoint,
   snareTargets,
@@ -426,5 +427,71 @@ describe('picking a trap back up', () => {
     expect(trapRefund(150, -1, 1)).toBe(0);
     expect(trapRefund(150, 1, 0)).toBe(0);
     expect(trapRefund(0, 3, 3)).toBe(0);
+  });
+});
+
+describe('placeTrapVerdict', () => {
+  const DEF = HUNTER_TRAPS[0];
+  /** A click square on the road, with everything else allowing it. */
+  const base = {
+    x: 500, y: 320, path: ROAD, grid: GRID, traps: [] as { x: number; y: number }[],
+    slots: 2, wave: 1, money: 10_000, waveActive: false, gameOver: false,
+  };
+
+  it('hands back the snapped spot and the wave price when everything allows it', () => {
+    const v = placeTrapVerdict(DEF, base);
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.spot).toEqual(snapTrapSpot(base.x, base.y, ROAD, GRID));
+    expect(v.price).toBe(trapCost(DEF, 1));
+  });
+
+  it('charges the wave price, not the base price', () => {
+    const v = placeTrapVerdict(DEF, { ...base, wave: 40 });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.price).toBe(trapCost(DEF, 40));
+    expect(v.price).toBeGreaterThan(trapCost(DEF, 1));
+  });
+
+  const refusal = (over: Partial<typeof base>): string => {
+    const v = placeTrapVerdict(DEF, { ...base, ...over });
+    return v.ok ? '' : v.why;
+  };
+
+  it('refuses during a wave and after a loss', () => {
+    expect(refusal({ waveActive: true })).toBe('Only between waves');
+    expect(refusal({ gameOver: true })).toBe('Only between waves');
+  });
+
+  it('refuses when every slot is full', () => {
+    expect(refusal({ slots: 1, traps: [{ x: 100, y: 320 }] })).toBe('No trap slots left');
+    expect(refusal({ slots: 0, traps: [] })).toBe('No trap slots left');
+  });
+
+  it('refuses a click off the road', () => {
+    expect(refusal({ y: 100 })).toBe('Traps go on the road');
+  });
+
+  it('refuses a spot a laid trap already holds', () => {
+    const spot = snapTrapSpot(base.x, base.y, ROAD, GRID)!;
+    expect(refusal({ traps: [spot] })).toBe('Already a trap there');
+  });
+
+  it('refuses when the purse is short by one coin', () => {
+    const price = trapCost(DEF, 1);
+    expect(refusal({ money: price - 1 })).toBe('Not enough gold');
+    expect(placeTrapVerdict(DEF, { ...base, money: price }).ok).toBe(true);
+  });
+
+  // The order is the rule: the player is always told the smallest correction that
+  // would work, so a refusal that bars every click outranks one about this click.
+  it('reports the broadest refusal first when several apply at once', () => {
+    const full = { slots: 0, y: 100, money: 0 };
+    expect(refusal({ ...full, waveActive: true })).toBe('Only between waves');
+    expect(refusal(full)).toBe('No trap slots left');
+    expect(refusal({ y: 100, money: 0 })).toBe('Traps go on the road');
+    const spot = snapTrapSpot(base.x, base.y, ROAD, GRID)!;
+    expect(refusal({ traps: [spot], slots: 5, money: 0 })).toBe('Already a trap there');
   });
 });

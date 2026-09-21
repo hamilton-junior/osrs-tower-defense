@@ -52,9 +52,9 @@ import {
   notchHead, roadBendCost, roadGrabAt, shapeOptions, shiftedBy, shiftRoad, shiftTiles, withShift,
   type RoadGrab, type RoadMove, type RoadNotch, type RoadShift,
 } from '../systems/road-shaping';
-import { BIOMES, BIOME_LIST, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
+import { BIOMES, pickBiome, nextBiome, type BiomeDef, type BiomeId } from '../data/biomes';
 import { localTypes } from '../systems/enemy-regions';
-import { travelOffer } from '../systems/travel';
+import { travelOffer, regionPoolRng } from '../systems/travel';
 import { SLAYER_REWARDS, type SlayerReward } from '../data/slayer';
 import { LOGIC_WIDTH, LOGIC_HEIGHT, GRID, TOWER_RADIUS, START_MONEY, START_LIVES, freshRunMods, cloneRunMods, SYNERGY_COLORS, freshRunEffects, freshRelicEffects, uid, GENERAL_GOLD_FACTOR, enemyRadius, sanitizeKillCounts, sanitizeCardCounts, sanitizeBossesSeen } from './engine-state';
 import { DIVERSION_BY_ID, DIVERSION_REWARD_META, GENIE_LAMP, LAMP_SKILL_META, type DiversionDef, type DiversionId, type LampSkill } from '../data/diversions';
@@ -85,12 +85,12 @@ import {
   FISHING_SPOT_ACTIVE_ICON, FISHING_SPOT_ICON, FISHING_SPOT_LAVA_ICON,
 } from '../data/fishing';
 import {
-  buildFishingSpots, castSeconds, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
+  buildFishingSpots, castRefusal, castSeconds, spotStage, spotAtPoint, restockSpots, rollCatch, fishingXpForLevel, gainFishingXp,
   wavesUntilRestock, placeSpot, relightPools, type FishingSpot,
 } from '../systems/fishing';
 import { multiplyStyleMods, scaleAllStyles, type StyleMods } from '../systems/style-mods';
 import {
-  HUNTER_MAX_LEVEL, gainHunterXp, hunterXpForLevel, maxActiveTraps, snapTrapSpot, trapAtPoint, trapCost, trapRefund, trapSpotFree, trapUnlocked,
+  HUNTER_MAX_LEVEL, gainHunterXp, hunterXpForLevel, maxActiveTraps, placeTrapVerdict, trapAtPoint, trapCost, trapRefund, trapUnlocked,
   type HunterTrap,
 } from '../systems/hunter-traps';
 import { handleBossMechanics, updateScorches } from './sim/bosses';
@@ -1706,9 +1706,7 @@ export class GameEngine {
    * pools in the same place, however many times it leaves and comes back.
    */
   private relightPoolsForRegion() {
-    const i = BIOME_LIST.findIndex((b) => b.id === this.biome.id);
-    const rng = makeRng((this.mapSeed ^ Math.imul(i + 1, 0x9e3779b9)) >>> 0);
-    relightPools(this.terrain, this.fishingSpots, this.biome.lavaChance, rng);
+    relightPools(this.terrain, this.fishingSpots, this.biome.lavaChance, regionPoolRng(this.mapSeed, this.biome.id));
     this.terrainEpoch++; // the background bake paints the pools from `terrain.liquid`
   }
 
@@ -3807,13 +3805,12 @@ export class GameEngine {
     const id = this.selectedTrapId;
     if (!id) return false;
     const def = HUNTER_TRAP_BY_ID[id];
-    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return false; }
-    if (this.traps.length >= this.trapSlots) { this.notify('No trap slots left'); return false; }
-    const spot = snapTrapSpot(x, y, this.path, GRID);
-    if (!spot) { this.notify('Traps go on the road'); return false; }
-    if (!trapSpotFree(spot, this.traps, GRID)) { this.notify('Already a trap there'); return false; }
-    const price = trapCost(def, this.wave);
-    if (this.money < price) { this.notify('Not enough gold'); return false; }
+    const verdict = placeTrapVerdict(def, {
+      x, y, path: this.path, grid: GRID, traps: this.traps, slots: this.trapSlots,
+      wave: this.wave, money: this.money, waveActive: this.waveActive, gameOver: this.gameOver,
+    });
+    if (!verdict.ok) { this.notify(verdict.why); return false; }
+    const { spot, price } = verdict;
 
     this.money -= price;
     this.traps.push({
@@ -4247,18 +4244,16 @@ export class GameEngine {
    *  costs the player nothing they could want back, so clicking again — on this
    *  spot or another — only says the line is already out. */
   castLine(spotId: string) {
-    if (this.waveActive || this.gameOver) { this.notify('Only between waves'); return; }
-    if (this.castSpotId) {
-      this.notify('Your line is already out', ASSETS.misc.skill_fishing);
-      return;
-    }
     const spot = this.fishingSpots.find(s => s.id === spotId);
-    if (!spot) return;
-    if (spotStage(spot) === 'spent') {
-      this.notify('The fish have moved on', ASSETS.misc.skill_fishing);
+    // What bars a cast, and in what order, lives with the skill.
+    const no = castRefusal({
+      spot, lineOut: !!this.castSpotId, waveActive: this.waveActive, gameOver: this.gameOver,
+    });
+    if (no !== null) {
+      if (no) this.notify(no, ASSETS.misc.skill_fishing);
       return;
     }
-    this.castSpotId = spot.id;
+    this.castSpotId = spot!.id;
     this.castProgress = 0;
     this.sound.play('fish_cast');
     this.emit();

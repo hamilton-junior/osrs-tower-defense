@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { LiquidKind, TerrainField } from './terrain-generation';
 import {
-  buildFishingSpots, castSeconds, spotStage, restockSpots, rollCatch, catchesUnlockedAt,
+  buildFishingSpots, castRefusal, castSeconds, spotStage, restockSpots, rollCatch, catchesUnlockedAt,
   catchChance, fishingXpForLevel, gainFishingXp, spotId, parseSpotId, spotAtPoint,
   wavesUntilRestock, poolTiles, placeSpot, moveSpot, relightPools,
 } from './fishing';
@@ -340,5 +340,46 @@ describe('relightPools', () => {
     f.tiles[2 * f.cols + 2] = 'farming'; // a bought plot landed on the seed tile
     relightPools(f, spots.filter(s => s.id !== 's2_2'), 1, seq([0.5]));
     expect(f.liquid[2 * f.cols + 2]).toBe('lava');
+  });
+});
+
+describe('castRefusal', () => {
+  const ready = () => buildFishingSpots(field([{ col: 2, row: 2 }]), GRID)[0];
+  const idle = { lineOut: false, waveActive: false, gameOver: false };
+
+  it('lets the line go in on a ready spot between waves', () => {
+    expect(castRefusal({ ...idle, spot: ready() })).toBeNull();
+  });
+
+  it('refuses during a wave and after a loss', () => {
+    expect(castRefusal({ ...idle, spot: ready(), waveActive: true })).toBe('Only between waves');
+    expect(castRefusal({ ...idle, spot: ready(), gameOver: true })).toBe('Only between waves');
+  });
+
+  it('refuses a second line while one is out', () => {
+    expect(castRefusal({ ...idle, spot: ready(), lineOut: true })).toBe('Your line is already out');
+  });
+
+  it('refuses a spot whose casts are spent', () => {
+    const spot = ready();
+    spot.casts = SPOT_CASTS;
+    expect(castRefusal({ ...idle, spot })).toBe('The fish have moved on');
+  });
+
+  // A click that reached no spot is not a refusal the player needs telling about,
+  // so it comes back as an empty message rather than null.
+  it('refuses a click that landed on no spot, silently', () => {
+    expect(castRefusal({ ...idle, spot: undefined })).toBe('');
+  });
+
+  it('reports the broadest refusal first when several apply at once', () => {
+    const spent = ready();
+    spent.casts = SPOT_CASTS;
+    expect(castRefusal({ spot: spent, lineOut: true, waveActive: true, gameOver: false }))
+      .toBe('Only between waves');
+    expect(castRefusal({ spot: spent, lineOut: true, waveActive: false, gameOver: false }))
+      .toBe('Your line is already out');
+    expect(castRefusal({ spot: undefined, lineOut: true, waveActive: false, gameOver: false }))
+      .toBe('Your line is already out');
   });
 });

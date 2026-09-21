@@ -176,6 +176,49 @@ export function trapSpotFree(spot: Point, traps: readonly { x: number; y: number
   return !traps.some(t => Math.hypot(t.x - spot.x, t.y - spot.y) < min);
 }
 
+export interface TrapPlacement {
+  x: number;
+  y: number;
+  path: readonly Point[];
+  grid: number;
+  traps: readonly { x: number; y: number }[];
+  slots: number;
+  wave: number;
+  money: number;
+  waveActive: boolean;
+  gameOver: boolean;
+}
+
+/** A refusal the player can act on, or the spot and the price the trap costs there. */
+export type TrapVerdict =
+  | { ok: false; why: string }
+  | { ok: true; spot: Point; price: number };
+
+/**
+ * May that trap go there, and for how much?
+ *
+ * Every refusal says why: a trap that silently fails to appear reads as a broken
+ * button, and the reasons it can fail are all things the player can act on.
+ *
+ * **The order the reasons are checked in is the rule.** They run cheapest-standing
+ * first: what the player must change to fix a refusal grows with each step, so the
+ * message they get is always the smallest correction that would work. A full slot
+ * bar is reported before the click's position, because no click anywhere would
+ * work; the road is reported before the gap to the next trap, because a spot off
+ * the road has no neighbour to be too near to; and gold is last, because a player
+ * told "not enough gold" has already been told their aim was good.
+ */
+export function placeTrapVerdict(def: HunterTrapDef, req: TrapPlacement): TrapVerdict {
+  if (req.waveActive || req.gameOver) return { ok: false, why: 'Only between waves' };
+  if (req.traps.length >= req.slots) return { ok: false, why: 'No trap slots left' };
+  const spot = snapTrapSpot(req.x, req.y, req.path, req.grid);
+  if (!spot) return { ok: false, why: 'Traps go on the road' };
+  if (!trapSpotFree(spot, req.traps, req.grid)) return { ok: false, why: 'Already a trap there' };
+  const price = trapCost(def, req.wave);
+  if (req.money < price) return { ok: false, why: 'Not enough gold' };
+  return { ok: true, spot, price };
+}
+
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
