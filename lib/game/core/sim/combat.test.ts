@@ -88,6 +88,7 @@ function stubEngine() {
     },
     showLifeGain: () => {},
     checkAchievements: () => {},
+    checkDiaries: () => {},
     steadyHeld: () => false,
     emit: () => {},
   };

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  emptyRunStats, evaluate, tierProgress, earnedTitles, highestTitle, regionTally, visitRegion,
+  emptyRunStats, evaluate, tierProgress, earnedTitles, highestTitle, regionTally, readRegion, visitRegion,
   CA_TIERS, type RunStats,
 } from './combat-achievements';
 import { CA_TASKS, CA_BOSS_ROSTER } from '../data/combat-achievements';
@@ -359,6 +359,30 @@ describe('per-region tallies', () => {
   it('opens the region tally on the visit, so an untouched region still reads zero', () => {
     const s = emptyRunStats('classic', 0);
     visitRegion(s, 'wilderness');
-    expect(s.regions.wilderness).toEqual({ kills: 0, wavesCleared: 0, cleanWaves: 0, livesLost: 0, bosses: [], fish: 0, herbs: 0, potions: 0, traps: 0 });
+    expect(s.regions.wilderness).toEqual({ kills: 0, killsByType: {}, wavesCleared: 0, cleanWaves: 0, livesLost: 0, bosses: [], fish: 0, herbs: 0, potions: 0, traps: 0 });
+  });
+
+  it('counts kills per monster, so a diary task can name a local one', () => {
+    const s = emptyRunStats('classic', 0);
+    const here = regionTally(s, 'morytania');
+    here.killsByType.gargoyle = (here.killsByType.gargoyle ?? 0) + 1;
+    here.killsByType.gargoyle = (here.killsByType.gargoyle ?? 0) + 1;
+    here.killsByType.nechryael = 1;
+    expect(s.regions.morytania!.killsByType).toEqual({ gargoyle: 2, nechryael: 1 });
+  });
+
+  it('reads an unvisited region as all zeroes without opening it', () => {
+    const s = emptyRunStats('classic', 0);
+    expect(readRegion(s, 'tzhaar').kills).toBe(0);
+    expect(readRegion(s, 'tzhaar').killsByType).toEqual({});
+    expect(readRegion(s, 'tzhaar').bosses).toEqual([]);
+    // Reading must not create the entry — a region is visited or it is not.
+    expect(s.regions.tzhaar).toBeUndefined();
+  });
+
+  it('reads the real tally once the region has been opened', () => {
+    const s = emptyRunStats('classic', 0);
+    regionTally(s, 'karamja').kills = 7;
+    expect(readRegion(s, 'karamja').kills).toBe(7);
   });
 });

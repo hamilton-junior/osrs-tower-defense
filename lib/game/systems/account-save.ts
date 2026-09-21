@@ -83,6 +83,10 @@ export interface AccountSave {
   victories: Victories;
   difficulty: DifficultyProgress;
   achievements: string[];
+  /** Completed Achievement Diary task ids. Optional in the wire format and empty
+   *  when absent, so ACCOUNT_SAVE_VERSION stays put: a code written before the
+   *  diaries existed still imports, it simply brings none. */
+  diaries: string[];
   /** The run in progress, so a player can move machines mid-run. Null when there
    *  is none, and null again if the code carries a run from an older format —
    *  `sanitizeRunSave` rejects those outright, and losing one run is a far smaller
@@ -159,6 +163,7 @@ export interface AccountParts {
   victories?: unknown;
   difficulty?: unknown;
   achievements?: unknown;
+  diaries?: unknown;
   run?: unknown;
 }
 
@@ -187,6 +192,7 @@ export function buildAccountSave(parts: AccountParts): AccountSave {
     victories: sanitizeVictories(raw.victories),
     difficulty: sanitizeDifficulty(raw.difficulty),
     achievements: Array.isArray(raw.achievements) ? raw.achievements.filter((x): x is string => typeof x === 'string') : [],
+    diaries: Array.isArray(raw.diaries) ? raw.diaries.filter((x): x is string => typeof x === 'string') : [],
     run: sanitizeRunSave(raw.run),
   };
 }
@@ -209,6 +215,8 @@ export interface AccountSummary {
   kills: number;
   victories: number;
   achievements: number;
+  /** Completed Achievement Diary tasks. */
+  diaries: number;
   /** Highest New Game+ tier cleared in either mode, or -1 for none. */
   bestTier: number;
   /** Wave of the run travelling with the code, or null when it carries none. */
@@ -223,6 +231,7 @@ export function summarizeAccount(save: AccountSave): AccountSummary {
     kills,
     victories: save.victories.total,
     achievements: save.achievements.length,
+    diaries: save.diaries.length,
     bestTier: Math.max(save.difficulty.highestCleared.classic, save.difficulty.highestCleared.roguelite),
     runWave: save.run ? save.run.wave : null,
   };

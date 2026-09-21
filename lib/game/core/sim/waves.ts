@@ -706,5 +706,6 @@ export function checkWaveEnd(eng: GameEngine) {
   if (!eng.gameOver) eng.offerTravel(bossCleared);
   if (!eng.gameOver) eng.rollDiversions();
   eng.checkAchievements();
+  eng.checkDiaries();
   eng.emit();
 }

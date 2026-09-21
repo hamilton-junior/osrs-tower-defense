@@ -1573,6 +1573,7 @@ function awardKill(
   // in a named region, so the tally follows the run rather than the monster.
   const here = regionTally(eng.caStats, eng.biome.id);
   here.kills += 1;
+  here.killsByType[enemy.type] = (here.killsByType[enemy.type] ?? 0) + 1;
   tryBloodFuryLife(eng, source?.towerId);
   if (source?.towerId) {
     eng.caStats.killsByTower[source.towerId] = (eng.caStats.killsByTower[source.towerId] ?? 0) + 1;
@@ -1601,7 +1602,10 @@ function awardKill(
   }
   // Combat Achievements checkpoint: boss-kill tasks (speed/no-leak/mechanic)
   // are only ever true for the instant after the boss dies.
-  if (enemy.isBoss) eng.checkAchievements();
+  if (enemy.isBoss) {
+    eng.checkAchievements();
+    eng.checkDiaries();
+  }
   // The pet chase. Every boss carries one, the roll is the kill's own, and the
   // reward is cosmetic — a pet changes no stat, so this cannot swing a run.
   if (enemy.isBoss) {

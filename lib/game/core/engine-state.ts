@@ -54,7 +54,7 @@ export const START_LIVES = 20;
  *  extension point — prayers fire today; towers/spells/achievements can reuse
  *  the same popup by adding a kind + a producer that calls `announceUnlocks`. */
 export interface UnlockItem {
-  kind: 'prayer' | 'achievement' | 'pet';
+  kind: 'prayer' | 'achievement' | 'diary' | 'pet';
   name: string;
   desc: string;
   icon: string;
@@ -337,6 +337,8 @@ export interface UIState {
   /** Completed Combat Achievement ids, account-wide. Plain array: the snapshot
    *  crosses the boundary structuredClone'd. */
   achievements: string[];
+  /** Completed Achievement Diary task ids. Account-wide, like the above. */
+  diaries: string[];
   /** Lifetime sighting count per boss type. A boss only rolls modifiers once it
    *  has appeared at least once, so a first encounter is always the "vanilla"
    *  fight; the count also ramps the lives a boss costs when it leaks. */

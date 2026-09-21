@@ -41,7 +41,7 @@ import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButto
 import { gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
 import { RewardChip, RewardOptions } from './diversion-reward';
 import type { DiversionReward } from '@/lib/game/systems/diversions';
-import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadRunSave, clearRunSave, loadSave, loadDailyBoard, type Victories, type DifficultyProgress } from './save';
+import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadDiaries, loadRunSave, clearRunSave, loadSave, loadDailyBoard, type Victories, type DifficultyProgress } from './save';
 import { dailyKey, dayLabel, shiftKey, type DayKey } from '@/lib/game/systems/daily-seed';
 import { EMPTY_BOARD, dailyStreak, recordDaily, type DailyBoard } from '@/lib/game/systems/daily-score';
 import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, Price, Vital, GoStat, StatLabel, Stat } from './ui-kit';
@@ -98,6 +98,7 @@ const INITIAL: UIState = {
   unlocks: [], unlockSeq: 0,
   killCounts: {},
   achievements: [],
+  diaries: [],
   cardCounts: {},
   bossesSeen: {},
   diversionsMet: {},
@@ -142,6 +143,7 @@ const LOOT_TOAST_MS = 2600;
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = {
   prayer: 'Prayer Unlocked',
   achievement: 'Combat Achievement',
+  diary: 'Diary Task',
   pet: 'Pet Drop',
 };
 
@@ -734,6 +736,7 @@ export default function GameRoot() {
     // constructor blob, because the store is read after mount like the rest of
     // the UI-owned saves.
     engine.seedAchievements(loadAchievements());
+    engine.seedDiaries(loadDiaries());
     // Seed the UI scale too: the effect that mirrors it runs before this one on
     // mount, when there is no engine yet to tell.
     engine.setUiScale(uiScale);
@@ -776,6 +779,13 @@ export default function GameRoot() {
     try { localStorage.setItem(SAVE_KEYS.achievements, JSON.stringify({ completed: ui.achievements })); }
     catch { /* ignore */ }
   }, [ui.achievements]);
+
+  // Persist completed Achievement Diary tasks. Same append-only contract.
+  useEffect(() => {
+    if (ui.diaries.length === 0) return;
+    try { localStorage.setItem(SAVE_KEYS.diaries, JSON.stringify({ completed: ui.diaries })); }
+    catch { /* ignore */ }
+  }, [ui.diaries]);
 
   // Persist the Cards collection log (lifetime draft-card picks) — like killCounts,
   // it changes mid-run (on each draft pick) so it gets its own effect.

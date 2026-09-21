@@ -58,6 +58,7 @@ function makeAccount(over: Record<string, unknown> = {}): Record<string, unknown
     victories: { total: 3, fastestSeconds: 1800, highestEndlessWave: 112, byMode: { classic: 1, roguelite: 2 } },
     difficulty: { highestCleared: { classic: 1, roguelite: -1 }, records: { 'classic:1': { fastestSeconds: 1800, highestEndlessWave: 112 } } },
     achievements: ['ca_first_blood', 'ca_jad'],
+    diaries: ['lumbridge-cow-herder'],
     pets: { tzrek_jad: 2, vorki: 1 },
     activePet: 'vorki',
     run: makeRun(),
@@ -75,9 +76,18 @@ describe('sanitizeAccountSave', () => {
     expect(save!.victories.byMode.roguelite).toBe(2);
     expect(save!.difficulty.highestCleared.classic).toBe(1);
     expect(save!.achievements).toEqual(['ca_first_blood', 'ca_jad']);
+    expect(save!.diaries).toEqual(['lumbridge-cow-herder']);
     expect(save!.pets).toEqual({ tzrek_jad: 2, vorki: 1 });
     expect(save!.activePet).toBe('vorki');
     expect(save!.run?.wave).toBe(7);
+  });
+
+  // Same for the Achievement Diaries: an account written before them carries no
+  // such field, and reads as an account that has finished no diary task.
+  it('reads an account written before the diaries existed', () => {
+    const save = sanitizeAccountSave(makeAccount({ diaries: undefined }));
+    expect(save).not.toBeNull();
+    expect(save!.diaries).toEqual([]);
   });
 
   // Pets joined the format after it shipped, so every account written before
@@ -192,6 +202,7 @@ describe('summarizeAccount', () => {
       kills: 402,
       victories: 3,
       achievements: 2,
+      diaries: 1,
       bestTier: 1,
       runWave: 7,
     });

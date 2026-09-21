@@ -19,7 +19,7 @@ import { EMPTY_BOARD, sanitizeDailyBoard, type DailyBoard } from '@/lib/game/sys
 export { EMPTY_VICTORIES, EMPTY_DIFFICULTY };
 export type { Victories, DifficultyProgress };
 
-export const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', diversionsMet: 'osrs_td_diversions', diversionGains: 'osrs_td_diversion_gains', fusionsMade: 'osrs_td_fusions', pets: 'osrs_td_pets', activePet: 'osrs_td_active_pet', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty', achievements: 'osrs_td_achievements', daily: 'osrs_td_daily' } as const;
+export const SAVE_KEYS = { essence: 'osrs_td_essence', upgrades: 'osrs_td_upgrades', killCounts: 'osrs_td_killcounts', cardCounts: 'osrs_td_cardcounts', bossesSeen: 'osrs_td_bosses_seen', diversionsMet: 'osrs_td_diversions', diversionGains: 'osrs_td_diversion_gains', fusionsMade: 'osrs_td_fusions', pets: 'osrs_td_pets', activePet: 'osrs_td_active_pet', victories: 'osrs_td_victories', run: 'osrs_td_run', difficulty: 'osrs_td_difficulty', achievements: 'osrs_td_achievements', diaries: 'osrs_td_diaries', daily: 'osrs_td_daily' } as const;
 
 export function loadVictories(): Victories {
   if (typeof window === 'undefined') return EMPTY_VICTORIES;
@@ -64,6 +64,19 @@ export function loadAchievements(): string[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = JSON.parse(localStorage.getItem(SAVE_KEYS.achievements) ?? 'null');
+    if (raw && Array.isArray(raw.completed)) {
+      return raw.completed.filter((id: unknown): id is string => typeof id === 'string');
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+/** Completed Achievement Diary task ids. Same contract as the Combat Achievement
+ *  list above: an unknown id is kept and simply never matches a task. */
+export function loadDiaries(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(SAVE_KEYS.diaries) ?? 'null');
     if (raw && Array.isArray(raw.completed)) {
       return raw.completed.filter((id: unknown): id is string => typeof id === 'string');
     }
@@ -149,6 +162,7 @@ export function readAccountSave(): AccountSave {
     victories: loadVictories(),
     difficulty: loadDifficulty(),
     achievements: loadAchievements(),
+    diaries: loadDiaries(),
     run: loadRunSave(),
   });
 }
@@ -181,6 +195,7 @@ export function applyAccountSave(save: AccountSave) {
     localStorage.setItem(SAVE_KEYS.victories, JSON.stringify(save.victories));
     localStorage.setItem(SAVE_KEYS.difficulty, JSON.stringify(save.difficulty));
     localStorage.setItem(SAVE_KEYS.achievements, JSON.stringify({ completed: save.achievements }));
+    localStorage.setItem(SAVE_KEYS.diaries, JSON.stringify({ completed: save.diaries }));
     if (save.run) localStorage.setItem(SAVE_KEYS.run, JSON.stringify(save.run));
     else localStorage.removeItem(SAVE_KEYS.run);
   } catch { /* quota / private mode — the reload below simply shows the old account */ }

@@ -49,6 +49,9 @@ export interface CaTask {
  */
 export interface RegionStats {
   kills: number;
+  /** Kills here, by monster. What lets a diary task name a local monster —
+   *  "40 Gargoyles in Morytania" — instead of counting anything that walked past. */
+  killsByType: Partial<Record<EnemyType, number>>;
   /** Waves finished while the run was in this region. */
   wavesCleared: number;
   /** Of those, the ones that cost no life. */
@@ -64,13 +67,24 @@ export interface RegionStats {
 }
 
 export function emptyRegionStats(): RegionStats {
-  return { kills: 0, wavesCleared: 0, cleanWaves: 0, livesLost: 0, bosses: [], fish: 0, herbs: 0, potions: 0, traps: 0 };
+  return { kills: 0, killsByType: {}, wavesCleared: 0, cleanWaves: 0, livesLost: 0, bosses: [], fish: 0, herbs: 0, potions: 0, traps: 0 };
 }
 
 /** The region's tally, created on first use. The one way to reach `s.regions`:
  *  every caller writes through it, so no site has to handle the empty case. */
 export function regionTally(s: RunStats, biome: BiomeId): RegionStats {
   return (s.regions[biome] ??= emptyRegionStats());
+}
+
+/** A shared all-zero tally, for reading a region the run never entered. Frozen
+ *  because every unvisited read hands back this same object — a caller that
+ *  wrote to it would be writing to every other region at once. */
+const NO_REGION: RegionStats = Object.freeze({ ...emptyRegionStats(), killsByType: Object.freeze({}) }) as RegionStats;
+
+/** The region's tally for **reading**, without creating one. A region the run has
+ *  never entered reads as all zeroes, so a check never has to test for absence. */
+export function readRegion(s: RunStats, biome: BiomeId): RegionStats {
+  return s.regions[biome] ?? NO_REGION;
 }
 
 /** Record that the run is now in `biome`: opens its tally and remembers the visit.

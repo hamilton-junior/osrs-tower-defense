@@ -25,6 +25,7 @@ import { changedState } from '../systems/ui-diff';
 import { mergeUnlockBatch } from '../systems/unlock-queue';
 import { emptyRunStats, evaluate as evaluateAchievements, regionTally, visitRegion, CA_TIER_ICON, type RunStats } from '../systems/combat-achievements';
 import { CA_TASKS } from '../data/combat-achievements';
+import { evaluateDiaries, diaryTaskById, DIARY_TIER_ICON, DIARY_TIER_NAMES } from '../systems/diaries';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -373,6 +374,9 @@ export class GameEngine {
   /** Completed Combat Achievements. Account-wide: seeded from the save, persisted
    *  by the UI, and NOT cleared on restart. */
   achievements = new Set<string>();
+  /** Completed Achievement Diary task ids. Account-wide, seeded and persisted
+   *  exactly like {@link achievements}. */
+  diaries = new Set<string>();
   cardCounts: Record<string, number> = {};
   /** Bosses encountered at least once (lifetime, persisted like killCounts).
    *  Gates boss modifiers — a boss is only "vanilla" on its first-ever sighting. */
@@ -400,6 +404,13 @@ export class GameEngine {
    *  store is loaded after mount. */
   seedAchievements(ids: string[]) {
     this.achievements = new Set(ids);
+    this.emit();
+  }
+
+  /** Hydrate the account's completed Achievement Diary tasks from storage. Same
+   *  contract as {@link seedAchievements}. */
+  seedDiaries(ids: string[]) {
+    this.diaries = new Set(ids);
     this.emit();
   }
 
@@ -1003,6 +1014,7 @@ export class GameEngine {
       }),
       killCounts: this.killCounts,
       achievements: [...this.achievements],
+      diaries: [...this.diaries],
       cardCounts: this.cardCounts,
       bossesSeen: this.bossesSeen,
       diversionsMet: this.diversionsMet,
@@ -1081,6 +1093,26 @@ export class GameEngine {
     this.announceUnlocks(gained.map((id) => {
       const task = CA_TASKS.find((t) => t.id === id)!;
       return { kind: 'achievement' as const, name: task.name, desc: task.desc, icon: CA_TIER_ICON[task.tier] };
+    }));
+  }
+
+  /** Achievement Diaries checkpoint — the region-flavoured twin of
+   *  {@link checkAchievements}, evaluated at the same two beats and just as
+   *  cheap. Caller is responsible for the follow-up `emit`. */
+  checkDiaries() {
+    const gained = evaluateDiaries(this.caStats, this.diaries);
+    if (gained.length === 0) return;
+    for (const id of gained) this.diaries.add(id);
+    this.announceUnlocks(gained.flatMap((id) => {
+      const found = diaryTaskById(id);
+      if (!found) return [];
+      const { diary, task } = found;
+      return [{
+        kind: 'diary' as const,
+        name: task.name,
+        desc: `${diary.name} ${DIARY_TIER_NAMES[task.tier]}: ${task.desc}`,
+        icon: DIARY_TIER_ICON[task.tier],
+      }];
     }));
   }
 
