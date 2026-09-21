@@ -25,7 +25,7 @@ import { changedState } from '../systems/ui-diff';
 import { mergeUnlockBatch } from '../systems/unlock-queue';
 import { emptyRunStats, evaluate as evaluateAchievements, regionTally, visitRegion, CA_TIER_ICON, type RunStats } from '../systems/combat-achievements';
 import { CA_TASKS } from '../data/combat-achievements';
-import { evaluateDiaries, diaryTaskById, diaryTowerMods, DIARY_TIER_ICON, DIARY_TIER_NAMES, type DiaryMods } from '../systems/diaries';
+import { evaluateDiaries, diaryTaskById, diaryTowerMods, wornDiaries, DIARY_TIER_ICON, DIARY_TIER_NAMES, type DiaryMods, type WornDiary } from '../systems/diaries';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -1041,6 +1041,7 @@ export class GameEngine {
       autoplay: this.autoplay,
       autoplaySecs: this.autoplaySecs,
       biomeName: this.biome.name,
+      diaryWorn: this.wornDiaryList(),
       pendingTravel: this.pendingTravel
         ? this.pendingTravel.map((id) => ({
             id,
@@ -1263,6 +1264,20 @@ export class GameEngine {
    *  the answer, so every move between regions bumps the combat epoch. */
   diaryTowerMods(): DiaryMods {
     return diaryTowerMods(this.diaries, this.biome.id);
+  }
+
+  /** The same rewards, itemised for the UI. Rebuilt only when the region or the
+   *  completed-task set moves, because `snapshot()` asks for it every frame and
+   *  the answer walks all 96 tasks. The set only ever grows, so its size is a
+   *  sound half of the key. */
+  private wornDiaryCache: { key: string; worn: WornDiary[] } | null = null;
+
+  private wornDiaryList(): WornDiary[] {
+    const key = `${this.biome.id}:${this.diaries.size}`;
+    if (this.wornDiaryCache?.key !== key) {
+      this.wornDiaryCache = { key, worn: wornDiaries(this.diaries, this.biome.id) };
+    }
+    return this.wornDiaryCache.worn;
   }
 
   /** A tower's effective combat stats right now (prayers + potions applied),

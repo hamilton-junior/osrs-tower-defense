@@ -191,6 +191,49 @@ export function diaryTowerMods(completed: ReadonlySet<string>, biome: BiomeId): 
 }
 
 /**
+ * The reward's stats at `tiers` tiers finished, as whole percentages in a fixed
+ * order. A diary with no tier done is worth nothing, so the list comes back
+ * empty — the same answer the item itself gives before it is handed over.
+ */
+export function diaryRewardStats(reward: DiaryReward, tiers: number): { label: string; pct: number }[] {
+  if (tiers <= 0) return [];
+  const { damage = 0, range = 0, fireRate = 0 } = reward.perTier;
+  return ([['Damage', damage], ['Range', range], ['Attack speed', fireRate]] as const)
+    .filter(([, v]) => v > 0)
+    .map(([label, v]) => ({ label, pct: Math.round(v * tiers * 100) }));
+}
+
+/** One diary reward the board is wearing right now, in the words the UI shows. */
+export interface WornDiary {
+  /** The diary's id — the React key, and what the log matches itself against. */
+  id: string;
+  /** The OSRS item being worn. */
+  item: string;
+  icon: string;
+  /** The diary it came from, for the tooltip's second line. */
+  diary: string;
+  /** Tiers finished, 1 to 4. */
+  tiers: number;
+  stats: { label: string; pct: number }[];
+}
+
+/**
+ * The rewards in force in `biome`, one per diary that pays here — what
+ * {@link diaryTowerMods} multiplies, itemised so a player can see it.
+ */
+export function wornDiaries(completed: ReadonlySet<string>, biome: BiomeId): WornDiary[] {
+  const out: WornDiary[] = [];
+  for (const diary of DIARIES) {
+    if (!diary.biomes.includes(biome)) continue;
+    const tiers = diaryTiersEarned(diary, completed);
+    if (tiers === 0) continue;
+    const { item, icon } = diary.reward;
+    out.push({ id: diary.id, item, icon, diary: diary.name, tiers, stats: diaryRewardStats(diary.reward, tiers) });
+  }
+  return out;
+}
+
+/**
  * The highest tier of `diary` completed in full, or null.
  *
  * The ladder is strict, the way OSRS reads it: Hard done with one Medium task

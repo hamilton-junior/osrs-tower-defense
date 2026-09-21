@@ -6,7 +6,7 @@ import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard } from '@/lib/game/systems/roguelite-draft';
 import { CA_TIERS, CA_TIER_NAMES, tierProgress } from '@/lib/game/systems/combat-achievements';
 import { CA_TASKS } from '@/lib/game/data/combat-achievements';
-import { DIARY_TIERS, DIARY_TIER_NAMES, DIARY_TIER_ICON, diaryProgress, diaryTierReached, diaryTiersEarned, type Diary, type DiaryTier } from '@/lib/game/systems/diaries';
+import { DIARY_TIERS, DIARY_TIER_NAMES, DIARY_TIER_ICON, diaryProgress, diaryTierReached, diaryTiersEarned, diaryRewardStats, type Diary, type DiaryTier } from '@/lib/game/systems/diaries';
 import { DIARIES } from '@/lib/game/data/diaries';
 import { BIOMES } from '@/lib/game/data/biomes';
 import { DIFFICULTY_TIERS, tierLabel } from '@/lib/game/systems/difficulty';
@@ -351,9 +351,11 @@ function CaTier({ tier, done, progress }: {
 /** One diary: its name, the tier it stands at, and its four tiers of tasks.
  *  Collapsed to a header until it is opened — six diaries of sixteen tasks do
  *  not read as a list, and a player comes here for one region at a time. */
-function DiaryEntry({ diary, done, open, onToggle }: {
+function DiaryEntry({ diary, done, active, open, onToggle }: {
   diary: Diary;
   done: Set<string>;
+  /** True while the run stands in one of this diary's regions. */
+  active: boolean;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -390,7 +392,7 @@ function DiaryEntry({ diary, done, open, onToggle }: {
         </span>
       </button>
       <div className="rs-progress mt-[0.15em]"><div className="rs-progress-fill" style={{ width: `${(got / total) * 100}%` }} /></div>
-      {open && <DiaryRewardRow diary={diary} done={done} />}
+      {open && <DiaryRewardRow diary={diary} done={done} active={active} />}
       {open && DIARY_TIERS.map((tier) => (
         <DiaryTierRows key={tier} diary={diary} tier={tier} done={done} progress={progress[tier]} />
       ))}
@@ -403,12 +405,10 @@ function DiaryEntry({ diary, done, open, onToggle }: {
  * and the stats it is worth at the tiers finished so far. Grey until the Easy
  * tier is done, because that is when the item is first handed over.
  */
-function DiaryRewardRow({ diary, done }: { diary: Diary; done: Set<string> }) {
+function DiaryRewardRow({ diary, done, active }: { diary: Diary; done: Set<string>; active: boolean }) {
   const tiers = diaryTiersEarned(diary, done);
-  const { item, icon, blurb, perTier } = diary.reward;
-  const stats = ([['Damage', perTier.damage], ['Range', perTier.range], ['Attack speed', perTier.fireRate]] as const)
-    .filter(([, v]) => v)
-    .map(([label, v]) => [label, Math.round((v as number) * tiers * 100)] as const);
+  const { item, icon, blurb } = diary.reward;
+  const stats = diaryRewardStats(diary.reward, tiers);
   return (
     <div className="mt-[0.5em] flex items-start gap-[0.5em] rounded px-[0.35em] py-[0.3em] bg-[#2f2a20]">
       <img
@@ -419,15 +419,27 @@ function DiaryRewardRow({ diary, done }: { diary: Diary; done: Set<string> }) {
         onError={hideBrokenImg}
       />
       <div className="min-w-0 flex-1">
-        <div className={`text-[0.82em] ${tiers === 0 ? 'text-[#8a7d5c]' : 'text-osrs-yellow font-bold'}`}>{item}</div>
+        <div className="flex items-center gap-[0.4em]">
+          <span className={`text-[0.82em] ${tiers === 0 ? 'text-[#8a7d5c]' : 'text-osrs-yellow font-bold'}`}>{item}</span>
+          {tiers > 0 && (
+            <span
+              className="text-[0.55em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm shrink-0"
+              style={active
+                ? { background: 'rgba(0,255,0,0.14)', color: 'var(--osrs-green)' }
+                : { background: 'rgba(0,0,0,0.25)', color: '#8a7d5c' }}
+            >
+              {active ? 'Worn here' : 'Away'}
+            </span>
+          )}
+        </div>
         <div className="text-[0.7em] text-[#b3a585] leading-snug">{blurb}</div>
         {tiers === 0 ? (
           <div className="text-[0.7em] text-[#8a7d5c] leading-snug">Finish the Easy tier to wear it.</div>
         ) : (
           <div className="mt-[0.15em] flex flex-wrap gap-x-[0.8em] text-[0.7em] tabular-nums">
-            {stats.map(([label, pct]) => (
+            {stats.map(({ label, pct }) => (
               <span key={label} className="text-[#b3a585]">
-                {label} <span className="text-osrs-green">+{pct}%</span>
+                {label} <span className={active ? 'text-osrs-green' : 'text-[#8a7d5c]'}>+{pct}%</span>
               </span>
             ))}
           </div>
@@ -474,7 +486,7 @@ function DiaryTierRows({ diary, tier, done, progress }: {
 }
 
 /** The Diaries tab: six regions, each a ladder of four tiers. */
-function DiariesBody({ done }: { done: Set<string> }) {
+function DiariesBody({ done, active }: { done: Set<string>; active: readonly string[] }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
     <LogScroll>
@@ -486,6 +498,7 @@ function DiariesBody({ done }: { done: Set<string> }) {
           key={d.id}
           diary={d}
           done={done}
+          active={active.includes(d.id)}
           open={open === d.id}
           onToggle={() => setOpen(open === d.id ? null : d.id)}
         />
@@ -830,7 +843,7 @@ function EnemiesBody({ list, entries, killCounts, selected, setSelected }: {
  *
  *  This function is the window: the tab strip, the list controls and whichever
  *  page's body is showing. Each body is its own component above. */
-export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversionGains, fusionsMade, pets, activePet, setActivePet, difficultyTier, achievements, diaries, victories, difficulty, tab, setTab, onClose, globalLock }: {
+export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversionGains, fusionsMade, pets, activePet, setActivePet, difficultyTier, achievements, diaries, diariesActive, victories, difficulty, tab, setTab, onClose, globalLock }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
   /** Lifetime forges per fusion type. */
@@ -850,6 +863,8 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
   achievements: string[];
   /** Completed Achievement Diary task ids, account-wide. */
   diaries: string[];
+  /** Ids of the diaries whose reward the run's current region is paying out. */
+  diariesActive: readonly string[];
   victories: Victories;
   difficulty: DifficultyProgress;
   tab: LogTab;
@@ -937,7 +952,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
         />
       )}
 
-      {tab === 'diaries' ? <DiariesBody done={diaryDone} />
+      {tab === 'diaries' ? <DiariesBody done={diaryDone} active={diariesActive} />
         : tab === 'achievements' ? <AchievementsBody done={caDone} progress={caProgress} />
         : tab === 'difficulty' ? <DifficultyBody difficulty={difficulty} />
         : tab === 'victories' ? <VictoriesBody victories={victories} />

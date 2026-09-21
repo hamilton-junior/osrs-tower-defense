@@ -7,6 +7,8 @@ import {
   diaryTierReached,
   diaryTiersEarned,
   diaryTowerMods,
+  diaryRewardStats,
+  wornDiaries,
   evaluateDiaries,
   mergeRegions,
   type Diary,
@@ -197,5 +199,43 @@ describe('the region rewards', () => {
     const jungle = diaryTowerMods(easy, 'karamja');
     expect(diaryTowerMods(easy, 'tzhaar')).toEqual(jungle);
     expect(jungle.damage).toBeGreaterThan(1);
+  });
+});
+
+describe('what the reward strip shows', () => {
+  const tierIds = (diary: Diary, tier: (typeof DIARY_TIERS)[number]) =>
+    diary.tasks.filter((t) => t.tier === tier).map((t) => t.id);
+
+  it('reads out nothing until a tier is finished', () => {
+    expect(diaryRewardStats(lumbridge.reward, 0)).toEqual([]);
+    expect(wornDiaries(new Set(['lumbridge-cow-herder']), 'lumbridge')).toEqual([]);
+  });
+
+  it('scales the percentages it prints with the tiers earned', () => {
+    const one = diaryRewardStats(lumbridge.reward, 1);
+    const three = diaryRewardStats(lumbridge.reward, 3);
+    expect(one).toEqual([{ label: 'Range', pct: 5 }]);
+    expect(three).toEqual([{ label: 'Range', pct: 15 }]);
+  });
+
+  it('names one entry per diary paying out here, and none of the others', () => {
+    const easy = new Set(tierIds(lumbridge, 'easy'));
+    const worn = wornDiaries(easy, 'lumbridge');
+    expect(worn).toHaveLength(1);
+    expect(worn[0]).toMatchObject({
+      id: lumbridge.id,
+      item: lumbridge.reward.item,
+      diary: lumbridge.name,
+      tiers: 1,
+      stats: [{ label: 'Range', pct: 5 }],
+    });
+    expect(wornDiaries(easy, 'morytania')).toEqual([]);
+  });
+
+  it('wears the Karamja gloves in the caverns as well as the jungle', () => {
+    const karamja = DIARIES.find((d) => d.id === 'karamja')!;
+    const easy = new Set(tierIds(karamja, 'easy'));
+    expect(wornDiaries(easy, 'karamja').map((w) => w.id)).toEqual(['karamja']);
+    expect(wornDiaries(easy, 'tzhaar').map((w) => w.id)).toEqual(['karamja']);
   });
 });

@@ -118,7 +118,7 @@ const INITIAL: UIState = {
   runCards: [],
   pendingRelics: null, ownedRelics: [], draftRerolls: 0,
   autoplay: false, autoplaySecs: 3,
-  biomeName: 'Misthalin Plains',
+  biomeName: 'Misthalin Plains', diaryWorn: [],
   daily: null, dailyResult: null,
   pendingTravel: null,
   lifeGainSeq: 0,
@@ -1603,6 +1603,8 @@ export default function GameRoot() {
   }
   // Active buffs anywhere, for the always-on infobox cluster (RuneLite-style).
   const activeInfoboxes = ui.geOffers.filter((o) => o.activeSecs > 0);
+  // Which diaries are paying out here, for the Collection Log's "Worn here" mark.
+  const diariesActive = useMemo(() => ui.diaryWorn.map((d) => d.id), [ui.diaryWorn]);
   // Ripe allotments, for that same cluster. The patch glows on the board, but a
   // player reading their build panel would never look at it — so the herb is a box
   // up top as well, and the box pulls it. Only between waves, which is the only
@@ -2636,10 +2638,37 @@ export default function GameRoot() {
             </MovablePanel>
           )}
           {/* Event chip + potion infoboxes (existing row, now BELOW the strip). */}
-          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0 || ui.diversions.length > 0 || readyPatches.length > 0 || ui.farmBuffs.length > 0 || ui.activePotions.length > 0) && (
+          {((ui.waveActive && ui.activeEvent) || activeInfoboxes.length > 0 || ui.diversions.length > 0 || readyPatches.length > 0 || ui.farmBuffs.length > 0 || ui.activePotions.length > 0 || ui.diaryWorn.length > 0) && (
             <div className="flex items-start gap-[0.4em]">
               {/* Keyed by wave so each wave's event re-announces itself on mount. */}
               {ui.waveActive && ui.activeEvent && <WaveEventChip key={ui.wave} event={ui.activeEvent} />}
+              {/* Achievement Diary rewards. The item is worn only while the run is
+                  in its own region, so the box appearing and disappearing on travel
+                  is the whole point: it is the only place the bonus is visible. */}
+              {ui.diaryWorn.map((d) => (
+                <HoverTip
+                  key={d.id}
+                  side="bottom"
+                  content={
+                    <>
+                      {tipHeader(
+                        <span className="text-[0.85em] font-bold text-osrs-yellow">{d.item}</span>,
+                        `${d.diary}, ${d.tiers === 4 ? 'all four tiers' : `${d.tiers} ${d.tiers === 1 ? 'tier' : 'tiers'}`} done.`,
+                        <span className="text-[0.58em] uppercase tracking-wide px-[0.35em] py-[0.05em] rounded-sm text-osrs-orange">Diary</span>,
+                      )}
+                      {d.stats.map((st) => (
+                        <span key={st.label} className="block text-[0.68em] text-[#cdbe91] leading-tight">
+                          {st.label} <span className="text-osrs-green">+{st.pct}%</span>
+                        </span>
+                      ))}
+                    </>
+                  }
+                >
+                  <div className="rs-infobox pointer-events-auto">
+                    <img src={d.icon} alt={d.item} onError={hideBrokenImg} />
+                  </div>
+                </HoverTip>
+              ))}
               {activeInfoboxes.map((o) => (
                 <HoverTip
                   key={o.id}
@@ -3377,6 +3406,7 @@ export default function GameRoot() {
           difficultyTier={ui.difficultyTier}
           achievements={ui.achievements}
           diaries={ui.diaries}
+          diariesActive={diariesActive}
           victories={victories}
           difficulty={difficulty}
           tab={logTab}

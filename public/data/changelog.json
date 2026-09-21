@@ -4,6 +4,13 @@
     {
       "kind": "new",
       "scope": "diaries",
+      "text": "See which diary reward your towers are wearing right now",
+      "fromFeedback": false,
+      "date": "2026-09-21"
+    },
+    {
+      "kind": "new",
+      "scope": "diaries",
       "text": "Each Achievement Diary hands its region's own reward to every tower",
       "fromFeedback": false,
       "date": "2026-09-20"
@@ -273,13 +280,6 @@
       "text": "Visitors between waves show what a click pays, float it off the board when you take it, and the Collection Log totals what each one has given you",
       "fromFeedback": false,
       "date": "2026-09-17"
-    },
-    {
-      "kind": "balanced",
-      "scope": "fishing",
-      "text": "Fish heal on an even ladder: shrimps 1 life, trout 2, lobster 3, shark 4 and manta ray 5",
-      "fromFeedback": false,
-      "date": "2026-09-16"
     }
   ]
 }

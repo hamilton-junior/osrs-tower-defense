@@ -14,6 +14,7 @@ import { type SeedId } from '../data/farming';
 import { type PotionId } from '../data/herblore';
 import { type PatchStage } from '../systems/farming';
 import { type StackKind } from '../systems/inventory';
+import { type WornDiary } from '../systems/diaries';
 
 /**
  * The engine's vocabulary: the board's fixed resolution, the shape of every
@@ -402,6 +403,10 @@ export interface UIState {
   autoplaySecs: number;
   /** Player-facing name of the run's current biome (shown in the debug map tools). */
   biomeName: string;
+  /** The Achievement Diary rewards paying out in that biome, itemised. Empty
+   *  everywhere the run has no finished diary — the chip strip shows one box
+   *  per entry, and the Collection Log marks those diaries active. */
+  diaryWorn: WornDiary[];
   /** The fork in the road: the regions offered at this leg's turn, each with the
    *  monsters native to it, or null between turns. Blocks Start Wave until answered
    *  (like {@link pendingDraft}) — the next wave's roster is the chosen region's. */
