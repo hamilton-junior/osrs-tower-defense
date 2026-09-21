@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeRunSave, isResumable, RUN_SAVE_VERSION, type RunSave } from './run-save';
+import { sanitizeRunSave, isResumable, canCheckpoint, restoreRunBuild, RUN_SAVE_VERSION, type RunSave } from './run-save';
+import { DRAFT_POOL } from './roguelite-draft';
+import { RELICS } from './relics';
+import { freshRunEffects, freshRelicEffects } from '../core/engine-state';
 import { SPOT_CASTS, SPOT_REST_WAVES } from '../data/fishing';
 import { GEAR } from '../data/gear';
 import { emptyRunStats } from './combat-achievements';
@@ -422,5 +425,89 @@ describe('traps in a run save', () => {
   it('reads a nonsense price as nothing paid', () => {
     const save = sanitizeRunSave(makeSave({ traps: [{ defId: 'box_trap', x: 0, y: 0, charges: 1, paid: -40 }] }));
     expect(save?.traps?.[0].paid).toBe(0);
+  });
+});
+
+describe('canCheckpoint', () => {
+  const idle = { dailyKey: null, gameOver: false, waveActive: false, wave: 7, towerCount: 3 };
+
+  it('checkpoints a run sitting idle between waves', () => {
+    expect(canCheckpoint(idle)).toBe(true);
+  });
+
+  it('never checkpoints a daily', () => {
+    expect(canCheckpoint({ ...idle, dailyKey: '2026-09-21' })).toBe(false);
+  });
+
+  it('refuses mid-wave and after a loss, so the previous checkpoint stands', () => {
+    expect(canCheckpoint({ ...idle, waveActive: true })).toBe(false);
+    expect(canCheckpoint({ ...idle, gameOver: true })).toBe(false);
+  });
+
+  it('treats an untouched wave-1 board as the title screen, not progress', () => {
+    expect(canCheckpoint({ ...idle, wave: 1, towerCount: 0 })).toBe(false);
+    expect(canCheckpoint({ ...idle, wave: 1, towerCount: 1 })).toBe(true);
+  });
+
+  it('never writes a save that isResumable would then refuse', () => {
+    for (const wave of [1, 2]) {
+      for (const towerCount of [0, 1]) {
+        const writable = canCheckpoint({ ...idle, wave, towerCount });
+        const offered = isResumable({ wave, towers: new Array(towerCount).fill({}) } as unknown as RunSave);
+        expect(writable).toBe(offered);
+      }
+    }
+  });
+});
+
+describe('restoreRunBuild', () => {
+  const card = DRAFT_POOL[0].id;
+  const relic = RELICS[0].id;
+
+  it('resolves cards and relics back into live objects', () => {
+    const save = sanitizeRunSave(makeSave({ pendingDraft: [card], pendingRelics: [relic], ownedRelics: [relic] }))!;
+    const build = restoreRunBuild(save);
+    expect(build.pendingDraft?.map(c => c.id)).toEqual([card]);
+    expect(build.pendingRelics?.map(r => r.id)).toEqual([relic]);
+    expect(build.ownedRelics.map(r => r.id)).toEqual([relic]);
+  });
+
+  it('drops a card a later patch retired instead of loading a hole', () => {
+    const save = sanitizeRunSave(makeSave({ pendingDraft: [card, 'card_gone_in_patch'], ownedRelics: [relic, 'relic_gone_in_patch'] }))!;
+    const build = restoreRunBuild(save);
+    expect(build.pendingDraft?.map(c => c.id)).toEqual([card]);
+    expect(build.ownedRelics.map(r => r.id)).toEqual([relic]);
+  });
+
+  it('comes back with no offer at all when every id in it is gone', () => {
+    const save = sanitizeRunSave(makeSave({ pendingDraft: ['card_gone_in_patch'], pendingRelics: ['relic_gone_in_patch'] }))!;
+    const build = restoreRunBuild(save);
+    expect(build.pendingDraft).toBeNull();
+    expect(build.pendingRelics).toBeNull();
+  });
+
+  it('merges saved effects onto fresh defaults, so a field added since gets its default', () => {
+    const save = sanitizeRunSave(makeSave())!;
+    const build = restoreRunBuild(save);
+    expect(build.runFx.goldMult).toBe(1.3);
+    expect(build.relicFx.executeFrac).toBe(0.1);
+    for (const key of Object.keys(freshRunEffects()) as (keyof ReturnType<typeof freshRunEffects>)[]) {
+      expect(build.runFx[key]).toBeDefined();
+    }
+    for (const key of Object.keys(freshRelicEffects()) as (keyof ReturnType<typeof freshRelicEffects>)[]) {
+      expect(build.relicFx[key]).toBeDefined();
+    }
+  });
+
+  it('keeps the drafted multipliers a run earned', () => {
+    const save = sanitizeRunSave(makeSave())!;
+    expect(restoreRunBuild(save).runMods.damage.melee).toBe(1.2);
+  });
+
+  it('fills in the counters a save written before them never carried', () => {
+    const save = sanitizeRunSave(makeSave({ cardRollsBought: undefined, draftBoosted: undefined }))!;
+    const build = restoreRunBuild(save);
+    expect(build.cardRollsBought).toBe(0);
+    expect(build.draftBoosted).toBe(false);
   });
 });

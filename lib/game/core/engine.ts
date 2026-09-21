@@ -34,7 +34,7 @@ import { GeSystem } from '../systems/ge-system';
 import { MetaSystem, type MetaLoad } from '../systems/meta-system';
 import { rollDraft, availableCards, cardRollCost, DRAFT_POOL, RARITY_WEIGHT, BOOSTED_RARITY_WEIGHT, type DraftCard, type DraftEffect } from '../systems/roguelite-draft';
 import { RELICS, type Relic, type RelicEffect } from '../systems/relics';
-import { RUN_SAVE_VERSION, type RunSave } from '../systems/run-save';
+import { RUN_SAVE_VERSION, canCheckpoint, restoreRunBuild, type RunSave } from '../systems/run-save';
 import { rollArmoredStyle, rollProtectedStyle, ALL_AFFIXES, type EnemyAffix, type AffixRoll } from '../systems/affixes';
 import { rollWaveEvent, resolveEventMods, type WaveEvent } from '../systems/wave-events';
 import { waveHint as buildWaveHint } from '../systems/wave-preview';
@@ -65,9 +65,9 @@ import { BALLOON_BODY_LIFT, DIVERSION_POP_MS, PARTY_BALLOON_VARIANTS, balloonCou
 import { HUNTER_TRAPS, HUNTER_TRAP_BY_ID, type HunterTrapId } from '../data/hunter-traps';
 import { SEEDS, SEED_BY_ID, type SeedId } from '../data/farming';
 import {
-  buildFarmPatches, canPlacePlot, farmGoldMult, farmTowerMods, harvestable, makePatch, parsePlotId,
-  patchAtPoint, patchStage, patchToTend, pickPlotTiles, plotCost, plotId, seedCost, tendPatch,
-  wavesLeft, type FarmPatch,
+  buildFarmPatches, canPlacePlot, farmGoldMult, farmTowerMods, harvestable, makePatch,
+  patchAtPoint, patchStage, patchToTend, pickPlotTiles, plotCost, plotId, restorePlots, seedCost,
+  tendPatch, wavesLeft, type FarmPatch,
 } from '../systems/farming';
 import { POTIONS, POTION_BY_ID, type PotionId } from '../data/herblore';
 import {
@@ -4783,12 +4783,15 @@ export class GameEngine {
    *   real save with an empty one.
    */
   snapshotRun(): RunSave | null {
-    // A daily is never checkpointed. Attempts at it are unlimited, so there is
-    // nothing to protect, and a resumed daily would have to prove on load that it
-    // still belongs to the day it was saved on.
-    if (this.dailyKey) return null;
-    if (this.gameOver || this.waveActive) return null;
-    if (this.wave <= 1 && this.towers.length === 0) return null;
+    // What bars a checkpoint, and why, lives with the save format.
+    const gate = {
+      dailyKey: this.dailyKey,
+      gameOver: this.gameOver,
+      waveActive: this.waveActive,
+      wave: this.wave,
+      towerCount: this.towers.length,
+    };
+    if (!canCheckpoint(gate)) return null;
     return {
       version: RUN_SAVE_VERSION,
       savedAt: Date.now(),
@@ -4950,36 +4953,8 @@ export class GameEngine {
     // lists its plots replaces them wholesale, terrain flags and all.
     this.plotsBought = save.plotsBought ?? 0;
     if (save.plots && save.plots.length > 0) {
-      const cols = this.terrain.cols;
-      for (const p of this.farmPatches) this.terrain.tiles[p.row * cols + p.col] = p.under ?? 'unbuildable';
-      this.farmPatches = [];
-      let restored = 0;
-      for (const id of save.plots) {
-        const at = parsePlotId(id);
-        if (!at || at.col >= cols || at.row >= this.terrain.rows) continue;
-        // The tile still has to be ground an allotment may stand on. A save written
-        // before the pools existed can name a square this map has since given to a
-        // fishing spot, and stamping it 'farming' would bury the spot under a plot.
-        if (!canPlacePlot(this.terrain, at.col, at.row)) continue;
-        // The map is dealt from the run's own seed, so the flag under a restored
-        // plot is the one it covered when the save was written — nothing to store.
-        const patch = makePatch(at.col, at.row, GRID);
-        patch.under = this.terrain.tiles[at.row * cols + at.col];
-        this.terrain.tiles[at.row * cols + at.col] = 'farming';
-        this.farmPatches.push(patch);
-        restored++;
-      }
-      // Whatever the map could not honour is dealt fresh ground instead, so a plot
-      // that was paid for is never lost to a tile that changed under it. The tiles
-      // above are already flagged, so this never picks one of them twice.
-      for (const tile of pickPlotTiles(this.terrain, save.plots.length - restored)) {
-        const patch = makePatch(tile.col, tile.row, GRID);
-        patch.under = this.terrain.tiles[tile.row * cols + tile.col];
-        this.terrain.tiles[tile.row * cols + tile.col] = 'farming';
-        this.farmPatches.push(patch);
-      }
+      this.farmPatches = restorePlots(this.terrain, save.plots, this.farmPatches, GRID);
       this.terrainEpoch++;
-      this.farmPatches.sort((a, b) => (a.row - b.row) || (a.col - b.col));
     }
     // What was growing in them. A patch the save no longer names has nothing sown.
     for (const s of save.farmPatches ?? []) {
@@ -5006,26 +4981,20 @@ export class GameEngine {
     this.gameTime = save.gameTime;
     this.realTime = save.realTime;
 
-    const mods = freshRunMods();
-    this.runMods = {
-      damage: { ...mods.damage, ...save.runMods?.damage },
-      range: { ...mods.range, ...save.runMods?.range },
-      fireRate: { ...mods.fireRate, ...save.runMods?.fireRate },
-    };
-    this.runFx = { ...freshRunEffects(), ...save.runFx };
-    this.relicFx = { ...freshRelicEffects(), ...save.relicFx };
-    this.runCards = save.runCards.map(c => ({ ...c }));
-    this.draftedUnique = new Set(save.draftedUnique);
-    this.ownedRelics = save.ownedRelics
-      .map(id => RELICS.find(r => r.id === id))
-      .filter((r): r is Relic => !!r);
-    const hand = save.pendingDraft?.map(id => DRAFT_POOL.find(c => c.id === id)).filter((c): c is DraftCard => !!c);
-    this.pendingDraft = hand?.length ? hand : null;
-    const relics = save.pendingRelics?.map(id => RELICS.find(r => r.id === id)).filter((r): r is Relic => !!r);
-    this.pendingRelics = relics?.length ? relics : null;
-    this.draftRerollsLeft = save.draftRerolls;
-    this.cardRollsBought = save.cardRollsBought ?? 0;
-    this.draftBoosted = save.draftBoosted ?? false;
+    // Cards and relics come back by id, their accrued effects merged onto fresh
+    // defaults. Both rules live with the save format.
+    const build = restoreRunBuild(save);
+    this.runMods = build.runMods;
+    this.runFx = build.runFx;
+    this.relicFx = build.relicFx;
+    this.runCards = build.runCards;
+    this.draftedUnique = build.draftedUnique;
+    this.ownedRelics = build.ownedRelics;
+    this.pendingDraft = build.pendingDraft;
+    this.pendingRelics = build.pendingRelics;
+    this.draftRerollsLeft = build.draftRerolls;
+    this.cardRollsBought = build.cardRollsBought;
+    this.draftBoosted = build.draftBoosted;
     // A save written before Combat Achievements existed simply restarts its facts, and
     // one written before a field existed is filled in from the empty stats rather than
     // resumed half-shaped.

@@ -12,6 +12,9 @@ import { HERBLORE_START_LEVEL, overhealCap } from './herblore';
 import { addItem, emptyStore, sanitizeStore, type ItemStore, type StackKind } from './inventory';
 import { GEAR } from '../data/gear';
 import type { RunStats } from './combat-achievements';
+import { freshRunMods, freshRunEffects, freshRelicEffects } from '../core/engine-state';
+import { DRAFT_POOL, type DraftCard } from './roguelite-draft';
+import { RELICS, type Relic } from './relics';
 
 /**
  * The in-progress-run save: a snapshot of everything a player would lose by
@@ -537,6 +540,85 @@ export function sanitizeRunSave(raw: unknown): RunSave | null {
  *  with nothing built on it is not progress, it is the title screen. */
 export function isResumable(save: RunSave): boolean {
   return save.wave > 1 || save.towers.length > 0;
+}
+
+/** The run state the checkpoint gate reads. Kept as a plain shape rather than the
+ *  engine so the rule can be tested without one. */
+export interface CheckpointGate {
+  /** Set while the run is a daily; a daily is never checkpointed. */
+  dailyKey: string | null;
+  gameOver: boolean;
+  waveActive: boolean;
+  wave: number;
+  towerCount: number;
+}
+
+/**
+ * Whether the run may be checkpointed right now.
+ *
+ * Three things bar it, and each for its own reason:
+ * - A **daily** has unlimited attempts, so there is nothing to protect, and a
+ *   resumed daily would have to prove on load that it still belongs to its day.
+ * - A **dead or mid-wave** run has no idle board to serialize. Quitting mid-wave
+ *   keeps the previous checkpoint, so the player resumes at that wave's start.
+ * - An **untouched wave-1 board** is the title screen, not progress — writing it
+ *   would overwrite a real save with an empty one. This is exactly the board
+ *   {@link isResumable} refuses, so the two rules can never disagree.
+ */
+export function canCheckpoint(run: CheckpointGate): boolean {
+  if (run.dailyKey) return false;
+  if (run.gameOver || run.waveActive) return false;
+  return run.wave > 1 || run.towerCount > 0;
+}
+
+/** The drafted build a save carries, resolved back into live objects. */
+export interface RestoredBuild {
+  runMods: RunModifiers;
+  runFx: RunEffects;
+  relicFx: RelicEffects;
+  runCards: { id: string; count: number }[];
+  draftedUnique: Set<string>;
+  ownedRelics: Relic[];
+  pendingDraft: DraftCard[] | null;
+  pendingRelics: Relic[] | null;
+  draftRerolls: number;
+  cardRollsBought: number;
+  draftBoosted: boolean;
+}
+
+/**
+ * Rebuild the roguelite half of a run from its save.
+ *
+ * Cards and relics travel as ids, so they are re-resolved against the live pools:
+ * one retired by a later patch drops out of the hand instead of loading as
+ * `undefined`, and a pending offer left with nothing in it comes back as `null`
+ * rather than an empty picker the player cannot dismiss.
+ *
+ * Their accrued effects travel outright (a draft applies once at pick time, and
+ * some cards roll random values), so they are merged **onto fresh defaults** — a
+ * field added since the save was written gets its default instead of `undefined`.
+ */
+export function restoreRunBuild(save: RunSave): RestoredBuild {
+  const mods = freshRunMods();
+  const hand = save.pendingDraft?.map(id => DRAFT_POOL.find(c => c.id === id)).filter((c): c is DraftCard => !!c);
+  const offered = save.pendingRelics?.map(id => RELICS.find(r => r.id === id)).filter((r): r is Relic => !!r);
+  return {
+    runMods: {
+      damage: { ...mods.damage, ...save.runMods?.damage },
+      range: { ...mods.range, ...save.runMods?.range },
+      fireRate: { ...mods.fireRate, ...save.runMods?.fireRate },
+    },
+    runFx: { ...freshRunEffects(), ...save.runFx },
+    relicFx: { ...freshRelicEffects(), ...save.relicFx },
+    runCards: save.runCards.map(c => ({ ...c })),
+    draftedUnique: new Set(save.draftedUnique),
+    ownedRelics: save.ownedRelics.map(id => RELICS.find(r => r.id === id)).filter((r): r is Relic => !!r),
+    pendingDraft: hand?.length ? hand : null,
+    pendingRelics: offered?.length ? offered : null,
+    draftRerolls: save.draftRerolls,
+    cardRollsBought: save.cardRollsBought ?? 0,
+    draftBoosted: save.draftBoosted ?? false,
+  };
 }
 
 /** A save stores gear as the item object that was written, so a piece whose stats or

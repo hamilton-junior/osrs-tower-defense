@@ -5,7 +5,7 @@ import {
   patchToTend, tendPatch,
   farmTowerMods, farmGoldMult, farmPrayerDrainMult, farmLivesOnClear,
   plotId, parsePlotId, makePatch, canPlacePlot, plotTargets, pickPlotTiles,
-  plotCost, PLOT_BASE_COST, seedCost,
+  plotCost, PLOT_BASE_COST, seedCost, restorePlots,
   type FarmPatch,
 } from './farming';
 import type { TerrainField } from './terrain-generation';
@@ -465,5 +465,78 @@ describe('what the next plot costs', () => {
 
   it('treats a nonsense count as none bought', () => {
     expect(plotCost(-3)).toBe(PLOT_BASE_COST);
+  });
+});
+
+// A plot may only stand on ground the towers cannot use — `blocked` or `unbuildable`,
+// never `open`. Every field below is drawn with that in mind.
+describe('restorePlots', () => {
+  const ids = (patches: FarmPatch[]) => patches.map(p => p.id);
+  const flag = (f: TerrainField, col: number, row: number) => f.tiles[row * f.cols + col];
+
+  it('lifts the plots the seed dealt and stamps the ones the save lists', () => {
+    const f = draw([
+      '.F#..',
+      '.....',
+      '-..F.',
+    ]);
+    const back = restorePlots(f, ['p2_0', 'p0_2'], buildFarmPatches(f, GRID), GRID);
+    expect(ids(back)).toEqual(['p2_0', 'p0_2']);
+    expect(flag(f, 2, 0)).toBe('farming');
+    expect(flag(f, 0, 2)).toBe('farming');
+    expect(flag(f, 1, 0)).not.toBe('farming');
+    expect(flag(f, 3, 2)).not.toBe('farming');
+  });
+
+  it('remembers what each restored plot covers, so lifting it again is clean', () => {
+    const f = draw(['.#-..']);
+    const back = restorePlots(f, ['p1_0', 'p2_0'], [], GRID);
+    expect(back.map(p => p.under)).toEqual(['blocked', 'unbuildable']);
+    restorePlots(f, [], back, GRID);
+    expect(flag(f, 1, 0)).toBe('blocked');
+    expect(flag(f, 2, 0)).toBe('unbuildable');
+  });
+
+  it('never buries a fishing spot a save was written before', () => {
+    const f = draw(['~#...']);
+    const back = restorePlots(f, ['p0_0'], [], GRID);
+    expect(ids(back)).not.toContain('p0_0');
+    expect(flag(f, 0, 0)).toBe('water');
+  });
+
+  it('deals fresh ground for a plot the map can no longer honour', () => {
+    const f = draw([
+      '~#...',
+      '#....',
+    ]);
+    // Two plots were paid for; the first tile is water now, so one is re-sited.
+    const back = restorePlots(f, ['p0_0', 'p1_0'], [], GRID);
+    expect(back).toHaveLength(2);
+    expect(ids(back)).toContain('p1_0');
+    expect(back.every(p => flag(f, p.col, p.row) === 'farming')).toBe(true);
+  });
+
+  it('never re-sites a plot onto one it just stamped', () => {
+    const f = draw([
+      '~~##.',
+      '#-...',
+    ]);
+    const back = restorePlots(f, ['p0_0', 'p2_0', 'p3_0'], [], GRID);
+    expect(new Set(ids(back)).size).toBe(back.length);
+  });
+
+  it('hands the plots back in board order, whatever order the save listed them', () => {
+    const f = draw([
+      '#....',
+      '..-..',
+      '....#',
+    ]);
+    const back = restorePlots(f, ['p4_2', 'p0_0', 'p2_1'], [], GRID);
+    expect(ids(back)).toEqual(['p0_0', 'p2_1', 'p4_2']);
+  });
+
+  it('ignores a plot id the board has no room for', () => {
+    const f = draw(['.....']);
+    expect(restorePlots(f, ['p99_0', 'p0_99', 'not-a-plot'], [], GRID)).toEqual([]);
   });
 });

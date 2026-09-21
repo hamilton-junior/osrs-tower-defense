@@ -303,3 +303,45 @@ function uniqueDefs(seedIds: readonly SeedId[]): SeedDef[] {
   }
   return out;
 }
+
+/**
+ * Put a saved run's allotments back on the board.
+ *
+ * The map is dealt from the run's own seed, so it already carries the plots the
+ * seed gave it — which is right for a save written before plots could be moved or
+ * bought, and wrong for every other one. A save that lists its plots therefore
+ * replaces them wholesale: the plots standing now are lifted (each tile handed
+ * back the flag it covered), then the saved tiles are stamped.
+ *
+ * A saved tile the current map can no longer honour is skipped — a square that has
+ * since become a fishing spot would otherwise get a plot stamped on top of it — and
+ * every plot lost that way is dealt fresh ground instead, so ground the player paid
+ * for is never lost to a tile that changed underneath it.
+ *
+ * `field.tiles` is rewritten in place; the sorted plot list comes back as the result.
+ */
+export function restorePlots(
+  field: TerrainField, saved: string[], standing: FarmPatch[], grid: number,
+): FarmPatch[] {
+  const { cols } = field;
+  for (const p of standing) field.tiles[p.row * cols + p.col] = p.under ?? 'unbuildable';
+
+  const restored: FarmPatch[] = [];
+  const stamp = (col: number, row: number) => {
+    const patch = makePatch(col, row, grid);
+    patch.under = field.tiles[row * cols + col];
+    field.tiles[row * cols + col] = 'farming';
+    restored.push(patch);
+  };
+
+  for (const id of saved) {
+    const at = parsePlotId(id);
+    if (!at || at.col >= cols || at.row >= field.rows) continue;
+    if (!canPlacePlot(field, at.col, at.row)) continue;
+    stamp(at.col, at.row);
+  }
+  // The tiles above are already flagged `farming`, so this never picks one twice.
+  for (const tile of pickPlotTiles(field, saved.length - restored.length)) stamp(tile.col, tile.row);
+
+  return restored.sort((a, b) => (a.row - b.row) || (a.col - b.col));
+}
