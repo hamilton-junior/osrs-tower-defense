@@ -58,6 +58,25 @@ export interface DiaryTask {
   check(s: RunStats, here: RegionStats): boolean;
 }
 
+/**
+ * What finishing a diary's tiers is worth: the region's own OSRS reward item,
+ * worn by the whole board but **only while the run is in that diary's region**.
+ *
+ * `perTier` is the fraction each completed tier adds, so the item grows the way
+ * the real one does — Explorer's ring 1 through 4, and no further. Nothing here
+ * pays gold: a diary is worth a board that fights better at home.
+ */
+export interface DiaryReward {
+  /** The OSRS item, named as the game names it. */
+  item: string;
+  /** Its baked inventory icon (`ASSETS.items.*`). */
+  icon: string;
+  /** One plain sentence for the log. Numbers stay out of it. */
+  blurb: string;
+  /** Per completed tier, as a fraction. An absent stat is untouched. */
+  perTier: { damage?: number; range?: number; fireRate?: number };
+}
+
 export interface Diary {
   /** Stable id, also the persisted task-id prefix. */
   id: string;
@@ -65,8 +84,15 @@ export interface Diary {
   name: string;
   /** The regions its tasks are set in, in the order the log lists them. */
   biomes: readonly BiomeId[];
+  /** What its tiers pay, in its own region. */
+  reward: DiaryReward;
   tasks: readonly DiaryTask[];
 }
+
+/** Board-wide multipliers, the shape `calculateTowerStats` takes. */
+export interface DiaryMods { damage: number; range: number; fireRate: number }
+
+export const NO_DIARY_MODS: DiaryMods = { damage: 1, range: 1, fireRate: 1 };
 
 /**
  * The diary's regions as one tally. Only Karamja has two (the jungle and the
@@ -130,6 +156,36 @@ export function diaryProgress(
   for (const tier of DIARY_TIERS) {
     const tasks = diary.tasks.filter((t) => t.tier === tier);
     out[tier] = { done: tasks.filter((t) => completed.has(t.id)).length, total: tasks.length };
+  }
+  return out;
+}
+
+/**
+ * How many tiers of `diary` are paid out: the strict ladder's depth, 0 to 4.
+ * Easy alone pays 1; Hard finished with a Medium task still open pays 1, not 3.
+ */
+export function diaryTiersEarned(diary: Diary, completed: ReadonlySet<string>): number {
+  const reached = diaryTierReached(diary, completed);
+  return reached === null ? 0 : DIARY_TIERS.indexOf(reached) + 1;
+}
+
+/**
+ * Every diary reward the board is wearing right now, as one set of multipliers.
+ *
+ * A reward only counts in its own region, so travelling out of Morytania puts
+ * the legs away until the run comes back. Karamja's gloves read both of its
+ * regions, the jungle and the caverns below it — one diary, one reward.
+ */
+export function diaryTowerMods(completed: ReadonlySet<string>, biome: BiomeId): DiaryMods {
+  const out: DiaryMods = { ...NO_DIARY_MODS };
+  for (const diary of DIARIES) {
+    if (!diary.biomes.includes(biome)) continue;
+    const tiers = diaryTiersEarned(diary, completed);
+    if (tiers === 0) continue;
+    const { damage = 0, range = 0, fireRate = 0 } = diary.reward.perTier;
+    out.damage *= 1 + damage * tiers;
+    out.range *= 1 + range * tiers;
+    out.fireRate *= 1 + fireRate * tiers;
   }
   return out;
 }

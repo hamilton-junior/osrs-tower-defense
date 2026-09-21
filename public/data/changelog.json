@@ -4,6 +4,13 @@
     {
       "kind": "new",
       "scope": "diaries",
+      "text": "Each Achievement Diary hands its region's own reward to every tower",
+      "fromFeedback": false,
+      "date": "2026-09-20"
+    },
+    {
+      "kind": "new",
+      "scope": "diaries",
       "text": "Read every region's Achievement Diary in the Collection Log",
       "fromFeedback": false,
       "date": "2026-09-20"
@@ -271,13 +278,6 @@
       "kind": "balanced",
       "scope": "fishing",
       "text": "Fish heal on an even ladder: shrimps 1 life, trout 2, lobster 3, shark 4 and manta ray 5",
-      "fromFeedback": false,
-      "date": "2026-09-16"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Hovering a potion sums up what it does in icons, and the Herblore bench shows the herbs and gold each brew needs",
       "fromFeedback": false,
       "date": "2026-09-16"
     }

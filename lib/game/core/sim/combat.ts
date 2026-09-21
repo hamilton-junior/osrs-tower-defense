@@ -119,6 +119,7 @@ export function towerStats(eng: GameEngine, tower: Tower): ComputedTowerStats {
         mageBuff: eng.runFx.mageBuff,
         globalMods: eng.eventTowerMods(),
         consumableMods: eng.consumableTowerMods(),
+        diaryMods: eng.diaryTowerMods(),
       }),
     };
     eng.statsCache.set(tower.id, cached);

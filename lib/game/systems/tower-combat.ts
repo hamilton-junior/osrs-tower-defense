@@ -36,6 +36,10 @@ export interface TowerStatsContext {
   /** Wave-event board-wide multipliers (all towers equally, this wave only).
    *  Omitted / all-1 when no event is active. See `systems/wave-events`. */
   globalMods?: { damage: number; range: number; fireRate: number };
+  /** Achievement Diary rewards the board is wearing in this region, board-wide
+   *  and style-neutral (1 = none). Only the diaries set here pay out; see
+   *  `systems/diaries.diaryTowerMods`. */
+  diaryMods?: { damage: number; range: number; fireRate: number };
   /** Herbs, Herblore potions and the Saradomin brew debt, per combat style. The
    *  layer sits *inside* the boostable guard, so a Ranging potion skips the
    *  wizards and nothing here ever reaches the Dwarf Cannon. See
@@ -240,6 +244,14 @@ export function calculateTowerStats(
     damageMultiplier *= ctx.globalMods.damage;
     rangeMultiplier *= ctx.globalMods.range;
     speedMultiplier *= ctx.globalMods.fireRate;
+  }
+
+  // Achievement Diary rewards: the region's own item, worn by every tower while
+  // the run is in that region. Board-wide, like a wave event, and just as blunt.
+  if (ctx.diaryMods) {
+    damageMultiplier *= ctx.diaryMods.damage;
+    rangeMultiplier *= ctx.diaryMods.range;
+    speedMultiplier *= ctx.diaryMods.fireRate;
   }
 
   // Placement-synergy cards: a final per-tower damage layer keyed off the layout.

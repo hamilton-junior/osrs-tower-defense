@@ -25,7 +25,7 @@ import { changedState } from '../systems/ui-diff';
 import { mergeUnlockBatch } from '../systems/unlock-queue';
 import { emptyRunStats, evaluate as evaluateAchievements, regionTally, visitRegion, CA_TIER_ICON, type RunStats } from '../systems/combat-achievements';
 import { CA_TASKS } from '../data/combat-achievements';
-import { evaluateDiaries, diaryTaskById, DIARY_TIER_ICON, DIARY_TIER_NAMES } from '../systems/diaries';
+import { evaluateDiaries, diaryTaskById, diaryTowerMods, DIARY_TIER_ICON, DIARY_TIER_NAMES, type DiaryMods } from '../systems/diaries';
 import { GameRenderer } from './renderer';
 import { SoundManager, GAME_SOUNDS } from './sound';
 import { SlayerSystem } from '../systems/slayer-system';
@@ -411,6 +411,7 @@ export class GameEngine {
    *  contract as {@link seedAchievements}. */
   seedDiaries(ids: string[]) {
     this.diaries = new Set(ids);
+    this.bumpCombatEpoch(); // completed tiers arrive with their region's reward
     this.emit();
   }
 
@@ -1103,6 +1104,7 @@ export class GameEngine {
     const gained = evaluateDiaries(this.caStats, this.diaries);
     if (gained.length === 0) return;
     for (const id of gained) this.diaries.add(id);
+    this.bumpCombatEpoch(); // a finished tier may put this region's reward on
     this.announceUnlocks(gained.flatMap((id) => {
       const found = diaryTaskById(id);
       if (!found) return [];
@@ -1256,6 +1258,13 @@ export class GameEngine {
     return mods;
   }
 
+  /** The Achievement Diary rewards the board is wearing right now: the items of
+   *  every diary set in the region the run is standing in. Travelling changes
+   *  the answer, so every move between regions bumps the combat epoch. */
+  diaryTowerMods(): DiaryMods {
+    return diaryTowerMods(this.diaries, this.biome.id);
+  }
+
   /** A tower's effective combat stats right now (prayers + potions applied),
    *  for the UI to show buffed values and their origin. */
   effectiveStats(towerId: string): ComputedTowerStats | null {
@@ -1271,6 +1280,7 @@ export class GameEngine {
       mageBuff: this.runFx.mageBuff,
       globalMods: this.eventTowerMods(),
       consumableMods: this.consumableTowerMods(),
+      diaryMods: this.diaryTowerMods(),
     });
   }
 
@@ -1444,6 +1454,7 @@ export class GameEngine {
       mageBuff: this.runFx.mageBuff,
       globalMods: this.eventTowerMods(),
       consumableMods: this.consumableTowerMods(),
+      diaryMods: this.diaryTowerMods(),
     });
   }
 
@@ -1631,6 +1642,7 @@ export class GameEngine {
     this.shapingGrab = null;
     this.biome = pickBiome(this.mapSeed);
     visitRegion(this.caStats, this.biome.id);
+    this.bumpCombatEpoch(); // a new region wears a different diary reward
     this.previousBiome = null; // a fresh road is a fresh journey
     this.pendingTravel = null;
     this.buildPath();
@@ -4853,6 +4865,7 @@ export class GameEngine {
     // Where the run had marched to, which the seed does not describe. A save from
     // before travelling existed has none and simply keeps the region it was rolled.
     if (save.biome) this.biome = BIOMES[save.biome];
+    this.bumpCombatEpoch(); // restored region, restored diary reward
     this.previousBiome = save.previousBiome ?? null;
     this.pendingTravel = save.pendingTravel?.length ? [...save.pendingTravel] : null;
     // Transient combat state is never saved — start the restored board clean.
@@ -5409,6 +5422,7 @@ export class GameEngine {
     this.previousBiome = this.biome.id;
     this.biome = BIOMES[id];
     visitRegion(this.caStats, this.biome.id);
+    this.bumpCombatEpoch(); // the diary reward worn here is the new region's
     this.previewCache = null; // the next wave's roster is the new region's
     this.slayer.rerollForRegion(); // a task this region cannot supply is reassigned free
     this.notify(`You travel to ${this.biome.name}`);
@@ -5424,6 +5438,7 @@ export class GameEngine {
   debugCycleBiome() {
     this.biome = nextBiome(this.biome);
     visitRegion(this.caStats, this.biome.id);
+    this.bumpCombatEpoch();
     this.previewCache = null;
     this.slayer.rerollForRegion();
     this.emit();

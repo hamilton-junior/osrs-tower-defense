@@ -5,6 +5,8 @@ import {
   diaryProgress,
   diaryTaskById,
   diaryTierReached,
+  diaryTiersEarned,
+  diaryTowerMods,
   evaluateDiaries,
   mergeRegions,
   type Diary,
@@ -147,5 +149,53 @@ describe('tier progress and the ladder', () => {
   it('reads elite once every task in the diary is done', () => {
     const all = new Set(karamja.tasks.map((t) => t.id));
     expect(diaryTierReached(karamja, all)).toBe('elite');
+  });
+});
+
+describe('the region rewards', () => {
+  const tierIds = (diary: Diary, tier: (typeof DIARY_TIERS)[number]) =>
+    diary.tasks.filter((t) => t.tier === tier).map((t) => t.id);
+
+  it('gives every diary an item, a sentence and at least one stat', () => {
+    for (const diary of DIARIES) {
+      expect(diary.reward.item.length).toBeGreaterThan(0);
+      expect(diary.reward.icon).toMatch(/\/items\/.+\.png$/);
+      expect(diary.reward.blurb.endsWith('.')).toBe(true);
+      const { damage = 0, range = 0, fireRate = 0 } = diary.reward.perTier;
+      expect(damage + range + fireRate).toBeGreaterThan(0);
+    }
+  });
+
+  it('counts the tiers earned off the strict ladder', () => {
+    expect(diaryTiersEarned(lumbridge, new Set())).toBe(0);
+    expect(diaryTiersEarned(lumbridge, new Set(tierIds(lumbridge, 'easy')))).toBe(1);
+    const easyAndHard = new Set([...tierIds(lumbridge, 'easy'), ...tierIds(lumbridge, 'hard')]);
+    expect(diaryTiersEarned(lumbridge, easyAndHard)).toBe(1);
+    expect(diaryTiersEarned(lumbridge, new Set(lumbridge.tasks.map((t) => t.id)))).toBe(4);
+  });
+
+  it('pays nothing while no tier is finished', () => {
+    const part = new Set(['lumbridge-cow-herder']);
+    expect(diaryTowerMods(part, 'lumbridge')).toEqual({ damage: 1, range: 1, fireRate: 1 });
+  });
+
+  it('pays the diary of the region the run is standing in, and no other', () => {
+    const easy = new Set(tierIds(lumbridge, 'easy'));
+    const home = diaryTowerMods(easy, 'lumbridge');
+    expect(home.range).toBeCloseTo(1 + lumbridge.reward.perTier.range!, 10);
+    expect(home.damage).toBe(1);
+    expect(diaryTowerMods(easy, 'morytania')).toEqual({ damage: 1, range: 1, fireRate: 1 });
+  });
+
+  it('scales with the tiers finished', () => {
+    const two = new Set([...tierIds(lumbridge, 'easy'), ...tierIds(lumbridge, 'medium')]);
+    expect(diaryTowerMods(two, 'lumbridge').range).toBeCloseTo(1 + lumbridge.reward.perTier.range! * 2, 10);
+  });
+
+  it("wears Karamja's gloves in the caverns as well as the jungle", () => {
+    const easy = new Set(tierIds(karamja, 'easy'));
+    const jungle = diaryTowerMods(easy, 'karamja');
+    expect(diaryTowerMods(easy, 'tzhaar')).toEqual(jungle);
+    expect(jungle.damage).toBeGreaterThan(1);
   });
 });

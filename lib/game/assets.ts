@@ -409,6 +409,17 @@ export const ASSETS = {
     master: `${LOCAL}/achievements/master.png`,
     grandmaster: `${LOCAL}/achievements/grandmaster.png`,
   },
+  // Achievement Diary rewards — each region's own OSRS reward item, baked from
+  // the cache at its tier-4 def (the grey-and-purple diary set). One per diary;
+  // the tier decides how strong it is, not which icon it uses.
+  diaryRewards: {
+    explorers_ring: itemIcon('explorers_ring'),
+    desert_amulet: itemIcon('desert_amulet'),
+    morytania_legs: itemIcon('morytania_legs'),
+    wilderness_sword: itemIcon('wilderness_sword'),
+    fremennik_sea_boots: itemIcon('fremennik_sea_boots'),
+    karamja_gloves: itemIcon('karamja_gloves'),
+  },
   // Prayer icons — cache-extracted sprites served locally (PRAYER_* sprite ids).
   prayers: {
     burst_of_strength: `${LOCAL}/prayers/burst_of_strength.png`,

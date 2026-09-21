@@ -21,6 +21,7 @@
  * impossible on a run whose board came up dry — the per-region skilling tallies
  * are recorded for later, but nothing here depends on them.
  */
+import { ASSETS } from '../assets';
 import { readRegion, type RegionStats } from '../systems/combat-achievements';
 import type { Diary } from '../systems/diaries';
 import type { EnemyType } from '../types';
@@ -34,6 +35,12 @@ export const DIARIES: readonly Diary[] = [
     id: 'lumbridge',
     name: 'Lumbridge & Draynor',
     biomes: ['lumbridge'],
+    reward: {
+      item: "Explorer's ring 4",
+      icon: ASSETS.diaryRewards.explorers_ring,
+      blurb: 'Your towers watch further over Misthalin Plains.',
+      perTier: { range: 0.05 },
+    },
     tasks: [
       // --- Easy: the first few waves of a run that started at home ---
       {
@@ -129,6 +136,12 @@ export const DIARIES: readonly Diary[] = [
     id: 'desert',
     name: 'Desert',
     biomes: ['alkharid'],
+    reward: {
+      item: 'Desert amulet 4',
+      icon: ASSETS.diaryRewards.desert_amulet,
+      blurb: 'Your towers hit harder in the Kharidian Desert.',
+      perTier: { damage: 0.05 },
+    },
     tasks: [
       // --- Easy ---
       {
@@ -224,6 +237,12 @@ export const DIARIES: readonly Diary[] = [
     id: 'morytania',
     name: 'Morytania',
     biomes: ['morytania'],
+    reward: {
+      item: 'Morytania legs 4',
+      icon: ASSETS.diaryRewards.morytania_legs,
+      blurb: 'Your towers attack faster in Morytania Swamp.',
+      perTier: { fireRate: 0.05 },
+    },
     tasks: [
       // --- Easy ---
       {
@@ -319,6 +338,12 @@ export const DIARIES: readonly Diary[] = [
     id: 'wilderness',
     name: 'Wilderness',
     biomes: ['wilderness'],
+    reward: {
+      item: 'Wilderness sword 4',
+      icon: ASSETS.diaryRewards.wilderness_sword,
+      blurb: 'Your towers hit much harder in the Wilderness.',
+      perTier: { damage: 0.07 },
+    },
     tasks: [
       // --- Easy ---
       {
@@ -414,6 +439,12 @@ export const DIARIES: readonly Diary[] = [
     id: 'fremennik',
     name: 'Fremennik',
     biomes: ['trollweiss'],
+    reward: {
+      item: 'Fremennik sea boots 4',
+      icon: ASSETS.diaryRewards.fremennik_sea_boots,
+      blurb: 'Your towers attack faster and reach further in Trollweiss Snow.',
+      perTier: { fireRate: 0.04, range: 0.04 },
+    },
     tasks: [
       // --- Easy ---
       {
@@ -511,6 +542,12 @@ export const DIARIES: readonly Diary[] = [
     // The jungle above and Mor Ul Rek below it. One diary, as OSRS has it: the
     // TzHaar tasks are Karamja's Elite tier, not a diary of their own.
     biomes: ['karamja', 'tzhaar'],
+    reward: {
+      item: 'Karamja gloves 4',
+      icon: ASSETS.diaryRewards.karamja_gloves,
+      blurb: 'Your towers hit harder and faster in Karamja Jungle and the TzHaar Caverns.',
+      perTier: { damage: 0.04, fireRate: 0.04 },
+    },
     tasks: [
       // --- Easy ---
       {

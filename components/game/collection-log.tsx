@@ -6,7 +6,7 @@ import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard } from '@/lib/game/systems/roguelite-draft';
 import { CA_TIERS, CA_TIER_NAMES, tierProgress } from '@/lib/game/systems/combat-achievements';
 import { CA_TASKS } from '@/lib/game/data/combat-achievements';
-import { DIARY_TIERS, DIARY_TIER_NAMES, DIARY_TIER_ICON, diaryProgress, diaryTierReached, type Diary, type DiaryTier } from '@/lib/game/systems/diaries';
+import { DIARY_TIERS, DIARY_TIER_NAMES, DIARY_TIER_ICON, diaryProgress, diaryTierReached, diaryTiersEarned, type Diary, type DiaryTier } from '@/lib/game/systems/diaries';
 import { DIARIES } from '@/lib/game/data/diaries';
 import { BIOMES } from '@/lib/game/data/biomes';
 import { DIFFICULTY_TIERS, tierLabel } from '@/lib/game/systems/difficulty';
@@ -390,9 +390,49 @@ function DiaryEntry({ diary, done, open, onToggle }: {
         </span>
       </button>
       <div className="rs-progress mt-[0.15em]"><div className="rs-progress-fill" style={{ width: `${(got / total) * 100}%` }} /></div>
+      {open && <DiaryRewardRow diary={diary} done={done} />}
       {open && DIARY_TIERS.map((tier) => (
         <DiaryTierRows key={tier} diary={diary} tier={tier} done={done} progress={progress[tier]} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * The reward an opened diary pays: its OSRS item, what it does in plain words,
+ * and the stats it is worth at the tiers finished so far. Grey until the Easy
+ * tier is done, because that is when the item is first handed over.
+ */
+function DiaryRewardRow({ diary, done }: { diary: Diary; done: Set<string> }) {
+  const tiers = diaryTiersEarned(diary, done);
+  const { item, icon, blurb, perTier } = diary.reward;
+  const stats = ([['Damage', perTier.damage], ['Range', perTier.range], ['Attack speed', perTier.fireRate]] as const)
+    .filter(([, v]) => v)
+    .map(([label, v]) => [label, Math.round((v as number) * tiers * 100)] as const);
+  return (
+    <div className="mt-[0.5em] flex items-start gap-[0.5em] rounded px-[0.35em] py-[0.3em] bg-[#2f2a20]">
+      <img
+        src={icon}
+        alt=""
+        title={item}
+        className={`w-[1.8em] h-[1.8em] object-contain shrink-0 ${tiers === 0 ? 'opacity-40 grayscale' : ''}`}
+        onError={hideBrokenImg}
+      />
+      <div className="min-w-0 flex-1">
+        <div className={`text-[0.82em] ${tiers === 0 ? 'text-[#8a7d5c]' : 'text-osrs-yellow font-bold'}`}>{item}</div>
+        <div className="text-[0.7em] text-[#b3a585] leading-snug">{blurb}</div>
+        {tiers === 0 ? (
+          <div className="text-[0.7em] text-[#8a7d5c] leading-snug">Finish the Easy tier to wear it.</div>
+        ) : (
+          <div className="mt-[0.15em] flex flex-wrap gap-x-[0.8em] text-[0.7em] tabular-nums">
+            {stats.map(([label, pct]) => (
+              <span key={label} className="text-[#b3a585]">
+                {label} <span className="text-osrs-green">+{pct}%</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

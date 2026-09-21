@@ -385,6 +385,16 @@ const TARGETS = {
   magic_box: { name: 'Magic box' },
   chinchompa: { name: 'Chinchompa' },
   red_chinchompa: { name: 'Red chinchompa' },
+  // ---- Achievement Diary rewards (data/diaries.ts) ----
+  // The tier-4 def of each diary's reward, one per diary. The item is worn for
+  // the whole diary; the tier decides how strong it is, not which icon it uses.
+  // Resolved by name: the tier-4 ids drift between caches, the names do not.
+  explorers_ring: { name: "Explorer's ring 4" },
+  desert_amulet: { name: 'Desert amulet 4' },
+  morytania_legs: { name: 'Morytania legs 4' },
+  wilderness_sword: { name: 'Wilderness sword 4' },
+  fremennik_sea_boots: { name: 'Fremennik sea boots 4' },
+  karamja_gloves: { name: 'Karamja gloves 4' }
 };
 
 // ------------------------------------------------------------------- helpers
