@@ -41,6 +41,7 @@ import { TOWER_ORDER, PRIORITY_ICONS, MULTI_SELL, MultiSpellRow, MultiSpellButto
 import { gearTooltip, AMMO_CLASS_LABEL } from './gear-ui';
 import { RewardChip, RewardOptions } from './diversion-reward';
 import type { DiversionReward } from '@/lib/game/systems/diversions';
+import { useMirroredStore, useAppendOnlyStore } from './use-persisted';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadDiaries, loadRunSave, clearRunSave, loadSave, loadDailyBoard, type Victories, type DifficultyProgress } from './save';
 import { dailyKey, dayLabel, shiftKey, type DayKey } from '@/lib/game/systems/daily-seed';
 import { EMPTY_BOARD, dailyStreak, recordDaily, type DailyBoard } from '@/lib/game/systems/daily-score';
@@ -752,94 +753,33 @@ export default function GameRoot() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist meta-progression (essence + bought upgrades) whenever it changes, so
-  // it carries across runs and reloads. Skips the very first emit (the values the
-  // engine just loaded) to avoid a redundant write.
-  const metaLoaded = useRef(false);
-  useEffect(() => {
-    if (!metaLoaded.current) { metaLoaded.current = true; return; }
-    try {
-      localStorage.setItem(SAVE_KEYS.essence, String(ui.essence));
-      localStorage.setItem(SAVE_KEYS.upgrades, JSON.stringify(ui.upgrades));
-    } catch { /* ignore */ }
-  }, [ui.essence, ui.upgrades]);
-
-  // Persist the Collection Log (lifetime kills per type) separately — it changes
-  // on every kill, so it gets its own effect rather than re-writing the meta save.
-  const kcLoaded = useRef(false);
-  useEffect(() => {
-    if (!kcLoaded.current) { kcLoaded.current = true; return; }
-    try { localStorage.setItem(SAVE_KEYS.killCounts, JSON.stringify(ui.killCounts)); } catch { /* ignore */ }
-  }, [ui.killCounts]);
-
-  // Persist completed Combat Achievements. Account-wide like the logs above, and
-  // append-only in practice: the engine never removes an id, so an empty list is
-  // "nothing earned yet" and must not overwrite a store that has entries.
-  useEffect(() => {
-    if (ui.achievements.length === 0) return;
-    try { localStorage.setItem(SAVE_KEYS.achievements, JSON.stringify({ completed: ui.achievements })); }
-    catch { /* ignore */ }
-  }, [ui.achievements]);
-
-  // Persist completed Achievement Diary tasks. Same append-only contract.
-  useEffect(() => {
-    if (ui.diaries.length === 0) return;
-    try { localStorage.setItem(SAVE_KEYS.diaries, JSON.stringify({ completed: ui.diaries })); }
-    catch { /* ignore */ }
-  }, [ui.diaries]);
-
-  // Persist the Cards collection log (lifetime draft-card picks) — like killCounts,
-  // it changes mid-run (on each draft pick) so it gets its own effect.
-  const ccLoaded = useRef(false);
-  useEffect(() => {
-    if (!ccLoaded.current) { ccLoaded.current = true; return; }
-    try { localStorage.setItem(SAVE_KEYS.cardCounts, JSON.stringify(ui.cardCounts)); } catch { /* ignore */ }
-  }, [ui.cardCounts]);
-
-  // Persist which bosses have been seen (gates boss modifiers). Changes the first
-  // time each boss appears, so it gets its own effect like the logs above.
-  const bsLoaded = useRef(false);
-  useEffect(() => {
-    if (!bsLoaded.current) { bsLoaded.current = true; return; }
-    try { localStorage.setItem(SAVE_KEYS.bossesSeen, JSON.stringify(ui.bossesSeen)); } catch { /* ignore */ }
-  }, [ui.bossesSeen]);
-
-  // Persist which Distractions & Diversions have turned up (the Collection Log's
-  // Diversions tab). Account-wide like the logs above, and never read back by the
-  // game itself — it is a record of who the player has met, nothing more.
-  const dvLoaded = useRef(false);
-  useEffect(() => {
-    if (!dvLoaded.current) { dvLoaded.current = true; return; }
-    try { localStorage.setItem(SAVE_KEYS.diversionsMet, JSON.stringify(ui.diversionsMet)); } catch { /* ignore */ }
-  }, [ui.diversionsMet]);
-
-  // ...and what each of them has paid out, for the totals on the same tab.
-  const dgLoaded = useRef(false);
-  useEffect(() => {
-    if (!dgLoaded.current) { dgLoaded.current = true; return; }
-    try { localStorage.setItem(SAVE_KEYS.diversionGains, JSON.stringify(ui.diversionGains)); } catch { /* ignore */ }
-  }, [ui.diversionGains]);
-
-  // Persist what the account has forged (the Collection Log's Forge tab). Same
-  // shape as the logs above, and read back only to fill in that page.
-  const fuLoaded = useRef(false);
-  useEffect(() => {
-    if (!fuLoaded.current) { fuLoaded.current = true; return; }
-    try { localStorage.setItem(SAVE_KEYS.fusionsMade, JSON.stringify(ui.fusionsMade)); } catch { /* ignore */ }
-  }, [ui.fusionsMade]);
-
-  // Persist the boss pets and which one walks the board. The active pet is a bare
-  // id rather than JSON: it is one string, and the reader in save.ts treats a name
-  // it no longer knows as "no pet".
-  const petLoaded = useRef(false);
-  useEffect(() => {
-    if (!petLoaded.current) { petLoaded.current = true; return; }
-    try {
-      localStorage.setItem(SAVE_KEYS.pets, JSON.stringify(ui.pets));
-      if (ui.activePet) localStorage.setItem(SAVE_KEYS.activePet, ui.activePet);
-      else localStorage.removeItem(SAVE_KEYS.activePet);
-    } catch { /* ignore */ }
-  }, [ui.pets, ui.activePet]);
+  // Every account-wide store the engine owns, mirrored back out as it changes. Each
+  // line is one store; the guard that keeps the write honest is in use-persisted.ts,
+  // and a new store is a new line here rather than a new effect.
+  //
+  // Meta-progression (essence + bought upgrades) carries across runs and reloads.
+  // Essence is a bare number, not JSON — the reader in save.ts parses it as one.
+  useMirroredStore(SAVE_KEYS.essence, ui.essence, String);
+  useMirroredStore(SAVE_KEYS.upgrades, ui.upgrades);
+  // The Collection Log's own pages: lifetime kills per type, lifetime draft-card
+  // picks, which bosses have been met, which Distractions & Diversions have turned
+  // up and what each has paid out, and what the account has forged. None of these
+  // is read back by the game — they fill in their tab, nothing more.
+  useMirroredStore(SAVE_KEYS.killCounts, ui.killCounts);
+  useMirroredStore(SAVE_KEYS.cardCounts, ui.cardCounts);
+  useMirroredStore(SAVE_KEYS.bossesSeen, ui.bossesSeen); // …except this one: it gates boss modifiers.
+  useMirroredStore(SAVE_KEYS.diversionsMet, ui.diversionsMet);
+  useMirroredStore(SAVE_KEYS.diversionGains, ui.diversionGains);
+  useMirroredStore(SAVE_KEYS.fusionsMade, ui.fusionsMade);
+  // The boss pets, and which one walks the board. The active pet is a bare id rather
+  // than JSON: it is one string, and the reader treats a name it no longer knows as
+  // "no pet". No pet at all removes the key instead of storing an empty one.
+  useMirroredStore(SAVE_KEYS.pets, ui.pets);
+  useMirroredStore(SAVE_KEYS.activePet, ui.activePet, (p) => p ?? null);
+  // The two logs the engine only ever adds to, so an empty one must never overwrite
+  // a store that has entries.
+  useAppendOnlyStore(SAVE_KEYS.achievements, ui.achievements);
+  useAppendOnlyStore(SAVE_KEYS.diaries, ui.diaries);
 
   // Record a victory exactly once per win. `won` latches true for the whole victory
   // screen (and stays true through Endless), so a ref guards against re-counting; it
