@@ -316,14 +316,21 @@ function stackOptions(
     const usesThis = stack.kind === 'herb' ? def.herb === stack.id : stack.kind === 'potion' && def.potionInput === stack.id;
     if (!usesThis) continue;
     const blocker = brewBlocker(def, ui.herbloreLevel, pouch, stock, ui.money);
+    // The line wears what it *spends*, not what it makes: one herb can carry two
+    // Brew lines, and the icon is what says which ingredient leaves the bag for
+    // each. The recipe leads the hover so the ingredient is named, not only drawn.
+    const herb = def.herb ? SEED_BY_ID[def.herb] : null;
+    const base = def.potionInput ? POTION_BY_ID[def.potionInput] : null;
+    const recipe = [herb?.herbName, base?.name, def.secondary?.name].filter(Boolean).join(' + ');
     out.push({
+      icon: herb?.herbIcon ?? base?.icon,
       action: 'Brew',
       target: def.name,
       disabled: disabled || blocker !== null,
       // The recipe's own wall comes first: "only between waves" is over in a
       // minute, a missing level is not.
       note: blocker ? brewWall(blocker, def) : note,
-      title: def.tip,
+      title: `${recipe}: ${def.tip}`,
       onSelect: () => onBrewPotion(def.id),
     });
   }

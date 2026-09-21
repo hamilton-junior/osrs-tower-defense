@@ -88,8 +88,10 @@ function PotionHeader({ def, wavesLeft }: { def: PotionDef; wavesLeft?: number }
   );
 }
 
-/** What the bench asks for one: every input as its own icon, then the gold, then
- *  the level while it is still out of reach. */
+/** What the bench asks for one: every input as its own icon **and name**, then the
+ *  gold, then the level while it is still out of reach. The name is spelled out
+ *  because this card is the only place the recipe is readable — the tile itself has
+ *  room for the icon and a count, and a herb sprite alone is not a word. */
 function RecipeChips({ def, herbs, bases, money, level }: { def: PotionDef } & NonNullable<PotionTipOptions['recipe']>) {
   const herb = def.herb ? SEED_BY_ID[def.herb] : null;
   const base = def.potionInput ? POTION_BY_ID[def.potionInput] : null;
@@ -105,6 +107,7 @@ function RecipeChips({ def, herbs, bases, money, level }: { def: PotionDef } & N
           {n > 0 && <span className="text-[#9d8f6a]">+</span>}
           <span className="flex items-center gap-[0.25em]" title={i.name}>
             <img src={i.icon} alt={i.name} className={ICON} onError={hideBrokenImg} />
+            <span className="text-[#cdbe91]">{i.name}</span>
             {i.held != null && (
               <span className={`tabular-nums ${i.held > 0 ? 'text-osrs-yellow' : 'text-osrs-red'}`}>{i.held}</span>
             )}

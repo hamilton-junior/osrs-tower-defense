@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-21",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "herblore",
+      "text": "Every brew names the herb it spends, and shows its icon",
+      "fromFeedback": false,
+      "date": "2026-09-21"
+    },
+    {
       "kind": "new",
       "scope": "diaries",
       "text": "See which diary reward your towers are wearing right now",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "diversions",
       "text": "Hans tells you something about your run, a Hunting expert comes to re-set your most worn trap, and Party Pete leaves balloons to pop",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "new",
-      "scope": "ui",
-      "text": "Visitors between waves show what a click pays, float it off the board when you take it, and the Collection Log totals what each one has given you",
       "fromFeedback": false,
       "date": "2026-09-17"
     }

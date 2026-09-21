@@ -551,17 +551,30 @@ function FarmingPage({ ui, onOpenPatch, onMovePlot, onBuyPlot, onUseHerb, onBrew
                     onPress={() => onUseHerb(h.seedId)}
                   />
                   {potion && (
-                    <button
-                      type="button"
-                      onClick={() => onBrewPotion(potion.id)}
-                      disabled={!canBrew}
-                      title={ui.herbloreLevel < potion.level
-                        ? `${potion.name} needs Herblore ${potion.level}`
-                        : `Brew a ${potion.name}: ${potion.secondary?.name ?? 'no second ingredient'}, ${fmt(potion.cost)} gp`}
-                      className="rs-btn absolute top-[0.15em] right-[0.15em] z-10 p-[0.1em] leading-none disabled:opacity-40"
+                    // The bench's own card, on the shortcut that skips the bench: it
+                    // names every ingredient the brew spends and prints the level wall
+                    // in red, which the old one-line title could only half say. It
+                    // hangs off a wrapper rather than the button, because a disabled
+                    // button swallows the mouse events the card opens on — and a brew
+                    // you cannot make yet is the one worth reading.
+                    <HoverTip
+                      widthEm={17}
+                      content={potionTooltip(potion, {
+                        recipe: { herbs: h.count, bases: 0, money: ui.money, level: ui.herbloreLevel },
+                        note: busy ? 'Only between waves' : undefined,
+                      })}
                     >
-                      <img src={potion.icon} alt="" className="w-[1.1em] h-[1.1em] object-contain block" onError={hideBrokenImg} />
-                    </button>
+                      <span className="absolute top-[0.15em] right-[0.15em] z-10 leading-none">
+                        <button
+                          type="button"
+                          onClick={() => onBrewPotion(potion.id)}
+                          disabled={!canBrew}
+                          className="rs-btn block p-[0.1em] leading-none disabled:opacity-40"
+                        >
+                          <img src={potion.icon} alt="" className="w-[1.1em] h-[1.1em] object-contain block" onError={hideBrokenImg} />
+                        </button>
+                      </span>
+                    </HoverTip>
                   )}
                 </div>
               );
