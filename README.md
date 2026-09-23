@@ -125,13 +125,37 @@ for verification and for commit messages.
 The scripts in [`scripts/`](scripts/) bake every sprite, model render, animation
 frame and sound effect out of a local OSRS cache. We hot-link nothing from the
 wiki or anywhere else, and a test fails the build if a data table names an icon
-with no bake behind it. The OSRS pixel fonts are RuneStar's CC0
-recreations, self-hosted in `app/fonts/`.
+with no bake behind it.
 
 Rendering an enemy takes three steps: export it as an animated glTF, bake the
 walk, hurt and death sheets with three.js, then regenerate the animation tables.
 Picking *which* cache sequence is a death animation is its own problem, and
 `npm run anims:triage <slug>` exists because guessing at it wastes hours.
+
+## Credits
+
+We read the cache with other people's tools.
+
+- **[osrscachereader](https://github.com/Dezinater/osrscachereader)** decodes the
+  local cache. Every bake in [`scripts/`](scripts/) goes through it: interface
+  sprites, NPC models, animation frames, sound.
+- **[cache2](https://github.com/abextm/cache2)** by abextm, and its
+  [online viewer](https://abextm.github.io/cache2/#/viewer), answer *which id*.
+  NPC stat blocks, animation framemaps, item icon cameras. We look an id up
+  there and bake the bytes here.
+- **[OpenOSRS](https://github.com/open-osrs/service-animations)** publishes a
+  crowdsourced record of the animations each NPC gets seen playing. It turns a
+  guess about which sequence is a death into a short candidate list.
+- The **[OSRS Wiki's List of sound IDs](https://oldschool.runescape.wiki/w/List_of_sound_IDs)**
+  names what the cache leaves unnamed: its sound index carries no name hashes at
+  all. The ids come from the wiki, the audio out of the cache.
+- **[RuneStar](https://github.com/RuneStar/fonts)** recreated the OSRS pixel
+  fonts and released them CC0. They are self-hosted in `app/fonts/`.
+- **[OpenRS2 Archive](https://archive.openrs2.org/)** hands you a cache if you
+  have no client installed.
+- **[three.js](https://threejs.org/)** bakes the enemy sprite sheets with a real
+  z-buffer, and **puppeteer-core** drives the headless browser behind the
+  screenshots and the UI probes.
 
 ## Deploy
 
