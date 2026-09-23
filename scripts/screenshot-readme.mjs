@@ -13,15 +13,37 @@
  * number, tower tiers, the biome skin, a seeded Collection Log — because a
  * screenshot of wave 1 with five level-1 archers says nothing about the game.
  */
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PNG } from 'pngjs';
+import UPNG from 'upng-js';
 import { withGame } from './dev/harness.mjs';
 
 const OUT = join(dirname(dirname(fileURLToPath(import.meta.url))), 'docs', 'screenshots');
 mkdirSync(OUT, { recursive: true });
 
 const SIZE = { width: 1600, height: 900 };
+
+/**
+ * Take the shot, then re-encode it down to a 256-colour palette.
+ *
+ * Chromium writes truecolour PNGs, and the three of them ran to 3.8 MB in a repo
+ * people have to clone. Quantising costs nothing a reader can see at README
+ * scale — the game's own art is a few dozen flat colours — and hands back two
+ * thirds of the bytes. Re-deflating alone hands back none, so the palette is
+ * the whole saving.
+ */
+async function shoot(page, name) {
+  const path = join(OUT, `${name}.png`);
+  await page.screenshot({ path });
+  const before = statSync(path).size;
+  const png = PNG.sync.read(readFileSync(path));
+  const small = Buffer.from(UPNG.encode([new Uint8Array(png.data).buffer], png.width, png.height, 256));
+  writeFileSync(path, small);
+  const kb = (n) => `${Math.round(n / 1024)} KB`;
+  console.log(`${name}.png  ${kb(before)} -> ${kb(small.length)}`);
+}
 
 /** Which shots to bake. No argument bakes all three. */
 const only = process.argv.slice(2);
@@ -105,8 +127,7 @@ const panelRects = (page) => page.evaluate(() => [...document.querySelectorAll('
 
 if (want('start')) await withGame(async ({ page, sleep }) => {
   await sleep(1800); // engine boot + first UIState emit
-  await page.screenshot({ path: join(OUT, 'start.png') });
-  console.log('start.png');
+  await shoot(page, 'start');
 }, { ...SIZE, skipRun: true });
 
 // ── 2. The hero shot: a built-up board under a late wave ─────────────────────
@@ -232,8 +253,7 @@ if (want('board')) await withGame(async ({ page, clickBoard, boardBox, toggleDeb
   await page.keyboard.press(' '); // start the wave
   await page.keyboard.press('x'); // 2x, so the roster is spread down the road
   await sleep(11000);
-  await page.screenshot({ path: join(OUT, 'board.png') });
-  console.log('board.png');
+  await shoot(page, 'board');
 }, SIZE);
 
 // ── 3. The Collection Log, seeded so its entries are real kill counts ────────
@@ -248,6 +268,6 @@ if (want('collection-log')) await withGame(async ({ page, toggleDebug, clickTitl
 
   await clickTitle('Collection Log');
   await sleep(800);
-  await page.screenshot({ path: join(OUT, 'collection-log.png') });
-  console.log('collection-log.png', seeded ? '(seeded)' : '(seed cheat not found)');
+  await shoot(page, 'collection-log');
+  if (!seeded) console.log('  seed cheat not found');
 }, SIZE);
