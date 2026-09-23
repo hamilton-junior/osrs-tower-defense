@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
+    "shots:readme": "node scripts/screenshot-readme.mjs",
     "test:watch": "vitest",
     "extract:sprites": "node scripts/extract-osrs-sprites.mjs",
     "extract:sounds": "node scripts/extract-osrs-sounds.mjs",

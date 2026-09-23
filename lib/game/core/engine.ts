@@ -5450,14 +5450,22 @@ export class GameEngine {
     this.emit();
   }
 
-  /** Seed a few Collection-Log kills so the obtained/locked states can be
-   *  eyeballed without grinding (debug panel). */
+  /** Seed the Collection Log so the obtained/locked states can be eyeballed
+   *  without grinding (debug panel). Most entries fill with a spread of counts
+   *  and a scattering stays empty, because a log of six entries shows the
+   *  logged state and nothing else — not how a page of them reads. */
   debugSeedLog() {
     const next = { ...this.killCounts };
-    Object.keys(ENEMIES).slice(0, 6).forEach((t, i) => { next[t] = (next[t] ?? 0) + (i + 1) * 3; });
+    Object.keys(ENEMIES).forEach((t, i) => {
+      if (i % 7 === 3) return; // left unlogged
+      next[t] = (next[t] ?? 0) + 3 + (i * 37) % 180;
+    });
     this.killCounts = next;
     const cards = { ...this.cardCounts };
-    DRAFT_POOL.slice(0, 8).forEach((c, i) => { cards[c.id] = (cards[c.id] ?? 0) + (i + 1); });
+    DRAFT_POOL.forEach((c, i) => {
+      if (i % 5 === 2) return;
+      cards[c.id] = (cards[c.id] ?? 0) + 1 + (i * 11) % 9;
+    });
     this.cardCounts = cards;
     this.emit();
   }
