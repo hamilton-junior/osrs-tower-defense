@@ -15,6 +15,7 @@ import { accountStats } from '@/lib/game/systems/account-stats';
 import type { LogTab } from './collection-log';
 import { DailyStrip } from './daily-ui';
 import { EssenceShop } from './essence-shop';
+import { StartLobby } from './start-lobby';
 import { fs, fmt, fmtTime, hideBrokenImg, GoStat } from './ui-kit';
 import { agoLabel, type DifficultyProgress, type Victories } from './save';
 
@@ -585,7 +586,8 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   const [shopOpen, setShopOpen] = useState(false);
   return (
     <div className="rs-start-wood absolute inset-0 flex items-center justify-center z-40 p-4">
-      <div className="rs-start-room w-[36em] max-w-[95vw] max-h-full flex flex-col gap-[0.7em]">
+      <StartLobby />
+      <div className="rs-start-room relative z-[1] w-[36em] max-w-[95vw] max-h-full flex flex-col gap-[0.7em]">
         <Wordmark champion={victories.total > 0} wins={victories.total} caTitle={caTitle} />
 
         {saved && (
@@ -667,7 +669,7 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
       {/* The essence shop, over the room: the same panel the bottom bar opens
           during a run, so the two copies can never drift apart. */}
       {shopOpen && (
-        <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4" onClick={() => setShopOpen(false)}>
+        <div className="absolute inset-0 z-[2] bg-black/70 flex items-center justify-center p-4" onClick={() => setShopOpen(false)}>
           <div className="rs-panel w-[26em] max-w-[92vw] max-h-[88vh] overflow-y-auto p-[0.8em]" onClick={(e) => e.stopPropagation()}>
             <EssenceShop essence={essence} upgrades={upgrades} onBuy={onBuyUpgrade} onRefund={onRefundEssence} />
             <button

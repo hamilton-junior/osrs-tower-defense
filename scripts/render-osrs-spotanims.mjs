@@ -57,7 +57,8 @@ const MS_PER_UNIT = 20; // OSRS frame-length unit ≈ 20ms (one client cycle)
  * Bake targets: slug → spotanim config. `id` is the SpotAnim id (ConfigType
  * SPOTANIM). Optional `yaw`/`pitch` (degrees) frame the effect; impacts read
  * best near front-on. `maxFrames` caps the sheet width for very long anims.
- * Discover ids with `--list`.
+ * Discover ids with `--list`. `{ npc }` and `{ model, seq }` targets are the
+ * other two sources; see the entries below.
  */
 const TARGETS = {
   // An NPC target (`{ npc }` instead of `{ id }`) bakes that NPC's *standing*
@@ -71,6 +72,11 @@ const TARGETS = {
   // swirling energy bulges out as the portal's "belly". Nudge yaw up (18-25)
   // for a wider belly, down toward 0 for a thinner profile.
   portal: { npc: 1739, yaw: 12, pitch: 0, maxFrames: 12 },
+  // A scenery target (`{ model, seq }`) bakes a LOC's model playing its own
+  // sequence. The start screen's lobby torch is LOC 38512 "Torch": a stone plinth
+  // whose flame runs 18 frames. The wooden torch (2288/473) flickers over two
+  // frames and the wall sconce (11821/3107) renders its flame olive.
+  lobby_torch: { model: 39794, seq: 5598, pitch: 10, size: 256, maxFrames: 18 },
 };
 
 /**
@@ -289,9 +295,15 @@ async function main() {
 
   for (const [slug, cfgIn] of entries) {
     const cfg = { yaw: 0, pitch: 0, maxFrames: 24, margin: MARGIN, ...cfgIn, ...camOverride };
-    // Two sources: a spotanim (`cfg.id`) or an NPC's standing anim (`cfg.npc`).
+    // Three sources: a spotanim (`cfg.id`), an NPC's standing anim (`cfg.npc`), or a
+    // scenery model with the animation its LOC def plays (`cfg.model` + `cfg.seq`).
+    // A torch's flame is the torch object's own sequence, not a spotanim.
     let model, animationId;
-    if (cfg.npc != null) {
+    if (cfg.model != null) {
+      model = await cache.getDef(IndexType.MODELS, cfg.model);
+      if (!model) { console.warn(`! ${slug}: model ${cfg.model} not found`); continue; }
+      animationId = cfg.seq ?? -1;
+    } else if (cfg.npc != null) {
       const built = await buildNpcModel(cache, cfg.npc);
       if (!built) { console.warn(`! ${slug}: NPC ${cfg.npc} has no model`); continue; }
       model = built.model; animationId = built.animationId;
@@ -381,7 +393,8 @@ async function main() {
       spotanim: cfg.id,
     };
     writeFileSync(join(outDir, `${slug}.json`), JSON.stringify(meta));
-    const srcLabel = cfg.npc != null ? `NPC ${cfg.npc}` : `spotanim ${cfg.id}`;
+    const srcLabel = cfg.model != null ? `model ${cfg.model} seq ${cfg.seq}`
+      : cfg.npc != null ? `NPC ${cfg.npc}` : `spotanim ${cfg.id}`;
     console.log(`✓ ${slug}: ${srcLabel} → ${frames.length} frames → public/assets/spotanims/${slug}.png`);
   }
   process.exit(0);

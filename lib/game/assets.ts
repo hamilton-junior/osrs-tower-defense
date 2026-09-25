@@ -298,6 +298,14 @@ DEATH_SOUNDS.tz_kek_half = DEATH_SOUNDS.tz_kih;
 
 export const ASSETS = {
   spells: SPELL_ICONS,
+  // The start screen's castle lobby: two raw cache textures
+  // (scripts/render-osrs-objects.mjs) and the torch LOC's flame as an 18-frame
+  // sheet (scripts/render-osrs-spotanims.mjs, `lobby_torch`).
+  lobby: {
+    wall: `${LOCAL}/lobby/lobby_wall.png`,
+    floor: `${LOCAL}/lobby/lobby_floor.png`,
+    torch: `${LOCAL}/spotanims/lobby_torch.png`,
+  },
   // Enemy & pet portraits — NPC models rendered from the game cache
   // (scripts/render-osrs-npcs.mjs, same NPC ids as the animated clips),
   // served locally from public/assets/models/.

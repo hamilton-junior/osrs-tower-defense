@@ -1492,3 +1492,94 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
   background-image: linear-gradient(180deg, rgba(56, 48, 37, 0.97), rgba(38, 32, 24, 1));
   border-top: 1px solid var(--rs-keyline);
 }
+
+/* The start screen's castle lobby (components/game/start-lobby.tsx), set into
+   the wood the way the board is: a brick wall over a flagstone floor, both
+   darkened, with two torches beside the stone panel as the only light. */
+.rs-lobby {
+  position: absolute;
+  inset: calc(12px * var(--ui-scale, 1));
+  z-index: 0;
+  overflow: hidden;
+  border: 1px solid var(--rs-keyline);
+  background: #0c0a07;
+  pointer-events: none;
+}
+.rs-lobby-wall,
+.rs-lobby-floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background-repeat: repeat;
+  background-size: calc(192px * var(--ui-scale, 1));
+}
+.rs-lobby-wall {
+  top: 0;
+  bottom: 28%;
+  background-image: var(--lobby-wall);
+  filter: brightness(0.42) sepia(0.35);
+}
+.rs-lobby-floor {
+  bottom: 0;
+  height: 28%;
+  background-image: var(--lobby-floor);
+  background-size: calc(160px * var(--ui-scale, 1));
+  filter: brightness(0.32) sepia(0.3);
+  /* The skirting line: a hard shadow where the wall meets the floor. */
+  box-shadow: inset 0 calc(10px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1)) calc(-4px * var(--ui-scale, 1)) rgba(0, 0, 0, 0.9);
+}
+/* The dark closes in from the edges, so the light reads as coming from the torches. */
+.rs-lobby::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.72) 100%);
+}
+/* One torch cell. The sheet's torch is a narrow column in the middle of a square
+   frame, so the cell is placed by its centre: 2.5em outside the 36em panel. */
+.rs-lobby-torch {
+  position: absolute;
+  z-index: 1;
+  width: 14em;
+  height: 14em;
+  bottom: calc(28% - 3em);
+}
+.rs-lobby-torch-l { left: calc(50% - 27.5em); }
+.rs-lobby-torch-r { right: calc(50% - 27.5em); }
+.rs-lobby-flame {
+  position: absolute;
+  inset: 0;
+  background-image: var(--lobby-torch);
+  background-size: 1800% 100%;
+  background-repeat: no-repeat;
+  /* 18 frames at ~100ms (lobby_torch.json); jump-none lands on the first and last. */
+  animation: rs-lobby-flicker 1.8s steps(18, jump-none) infinite;
+  /* The model is shaded flat; this keeps the plinth inside the room's dark. */
+  filter: brightness(0.78);
+}
+.rs-lobby-halo {
+  position: absolute;
+  left: 50%;
+  top: 24%;
+  width: 26em;
+  height: 26em;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 170, 70, 0.55), rgba(255, 120, 40, 0.2) 36%, transparent 68%);
+  mix-blend-mode: screen;
+  animation: rs-lobby-pulse 3.2s ease-in-out infinite alternate;
+}
+.rs-lobby-torch-r .rs-lobby-halo { animation-delay: -1.4s; }
+.rs-lobby-torch-r .rs-lobby-flame { animation-delay: -0.9s; }
+@keyframes rs-lobby-flicker {
+  from { background-position: 0% 0; }
+  to { background-position: 100% 0; }
+}
+@keyframes rs-lobby-pulse {
+  from { opacity: 0.72; transform: translate(-50%, -50%) scale(0.95); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rs-lobby-flame,
+  .rs-lobby-halo { animation: none; }
+}

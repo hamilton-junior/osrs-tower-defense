@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "start",
+      "text": "Split the start screen into Play, Daily and Account tabs",
+      "fromFeedback": false,
+      "date": "2026-09-24"
+    },
+    {
       "kind": "fixed",
       "scope": "fishing",
       "text": "A pool turns to lava when the run travels into the TzHaar city",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "diversions",
       "text": "Dr Jekyll turns up with a high-level herb for your inventory",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "balanced",
-      "scope": "diversions",
-      "text": "Random events get likelier with every wave that passes without one, and the odds reset when one turns up",
       "fromFeedback": false,
       "date": "2026-09-17"
     }

@@ -376,6 +376,12 @@ const TARGETS = {
   // the only small piece of furniture down there that is not molten, which is what
   // the floor needed between the vents and the pebbles.
   tz_crate: { obj: 11969, dir: 'scenery' },
+
+  // The start screen's castle lobby. 43 is the grey regular-course brick castles
+  // are built from; 46 is cobbled flagstone, laid in a different pattern so the
+  // floor never reads as more wall.
+  lobby_wall: { tex: 43, raw: true, dir: 'lobby' },
+  lobby_floor: { tex: 46, raw: true, dir: 'lobby' },
 };
 
 // -------------------------------------------------------- object def parsing
