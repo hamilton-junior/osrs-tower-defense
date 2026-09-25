@@ -107,6 +107,9 @@ const MISC_IDS = {
   // panel's icon block (verified by eyeballing a --dump of 890..915: 897 combat,
   // 898 stats, 899 quests, 900 inventory, 901 equipment).
   inventory_icon: 900,
+  // The Achievement Diaries side tab (SideIcons 16): the green-ringed star the
+  // client puts on the diary tab. It stands for diary tasks on the Account tab.
+  diaries_icon: 1298,
   // Spellbook selector tabs (Standard / Ancient / Arceuus).
   spellbook_standard: 780, spellbook_ancient: 1583, spellbook_arceuus: 1711,
 };
@@ -229,12 +232,25 @@ const OVERHEAD_HEADICONS = [
  * the mark on the start screen's "passion project" notice, and lands in ui/ so nobody
  * hunts for the prayer behind it.
  */
+/**
+ * The PK skull, as it floats over a skulled player's head. Both are frames of the
+ * headicons_pk archive (439): frame 0 is the plain white skull, frame 3 the light
+ * blue one a player wears while the Forinthry Surge (the revenant buff) is on.
+ * Frame 3 was matched pixel for pixel against the wiki's "Skull (Forinthry surge)"
+ * icon; its horned cyan neighbour, frame 14, is the Deadman Mode version.
+ */
+const PK_SKULLS = [
+  { slug: 'pk_skull', spriteId: 439, frame: 0 },
+  { slug: 'pk_skull_forinthry', spriteId: 439, frame: 3 },
+].map((t) => ({ ...t, out: `public/assets/ui/${t.slug}.png` }));
+
 const REDEMPTION_HEART = { slug: 'redemption_heart', spriteId: 130, frame: 0, out: 'public/assets/ui/redemption_heart.png' };
 
 /** Named sprite targets → output PNG path. */
 const TARGETS = [
   ...OVERHEAD_HEADICONS,
   REDEMPTION_HEART,
+  ...PK_SKULLS,
   ...group(DEBUFF_IDS, 'debuffs'),
   ...group(SPELL_IDS, 'spells'),
   ...group(PRAYER_IDS, 'prayers'),

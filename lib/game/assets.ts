@@ -612,6 +612,17 @@ export const ASSETS = {
     // notice, which is why it sits in ui/ and not prayers/ (a file in there is
     // expected to be a prayer the game can cast).
     redemption_heart: `${LOCAL}/ui/redemption_heart.png`,
+    // The PK skull a skulled player wears overhead (headicons_pk 439, frame 0), and
+    // the light blue one worn under the Forinthry Surge, the revenant buff (frame 3).
+    // The Account tab marks enemies killed and bosses met with them.
+    pk_skull: `${LOCAL}/ui/pk_skull.png`,
+    pk_skull_forinthry: `${LOCAL}/ui/pk_skull_forinthry.png`,
+    // The Achievement Diaries side tab (sprite 1298), for the Account tab's diary count.
+    diaries_icon: `${LOCAL}/misc/diaries_icon.png`,
+    // OSRS has no random-event sprite, so the Genie stands in: he is one of the
+    // random events this game sends onto the board. Baked apart from his diversion
+    // render, framed on the figure with his shadow cut, to read at stat-cell size.
+    random_event: npcModel('random_event'),
     hit_splat: `${LOCAL}/hitsplats/hit.png`,          // red damage (1359)
     magic_hit_splat: `${LOCAL}/hitsplats/miss.png`,   // blue zero-splat (1358)
     hp_icon: `${LOCAL}/misc/hp_icon.png`,

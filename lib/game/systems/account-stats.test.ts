@@ -6,6 +6,7 @@ const base = {
   victories: EMPTY_VICTORIES,
   killCounts: {},
   bossesSeen: {},
+  diversionsMet: {},
   achievements: [] as string[],
   diaries: [] as string[],
   difficulty: EMPTY_DIFFICULTY,
@@ -15,22 +16,34 @@ describe('accountStats', () => {
   it('reads zeroes off a fresh account', () => {
     expect(accountStats(base)).toEqual({
       wins: 0, winsClassic: 0, winsRoguelite: 0, fastestSeconds: null, bestEndlessWave: 0,
-      kills: 0, killKinds: 0, bossKinds: 0, achievements: 0, diaries: 0, bestTier: -1,
+      kills: 0, eventKinds: 0, bossKinds: 0, achievements: 0, diaries: 0, bestTier: -1,
     });
   });
 
-  it('sums kills and counts the kinds behind them', () => {
+  it('sums kills across every kind', () => {
     const s = accountStats({ ...base, killCounts: { goblin: 400, imp: 12, zulrah: 3 } });
     expect(s.kills).toBe(415);
-    expect(s.killKinds).toBe(3);
   });
 
   // A tally written by an older build can carry a zero or a corrupt entry; neither
   // is a kind the player has met.
   it('ignores an id with nothing behind it', () => {
-    const s = accountStats({ ...base, killCounts: { goblin: 5, ghost: 0, imp: Number.NaN } });
+    const s = accountStats({
+      ...base,
+      killCounts: { goblin: 5, ghost: 0, imp: Number.NaN },
+      diversionsMet: { genie: 0, drunken_dwarf: Number.NaN, strange_plant: 1 },
+    });
     expect(s.kills).toBe(5);
-    expect(s.killKinds).toBe(1);
+    expect(s.eventKinds).toBe(1);
+  });
+
+  // Walkbys and bird nests are diversions too, but no one would call them a random event.
+  it('counts only the random events among the diversions met', () => {
+    const s = accountStats({
+      ...base,
+      diversionsMet: { genie: 4, dr_jekyll: 1, hans: 9, party_pete: 2, bird_nest: 3, not_a_diversion: 5 },
+    });
+    expect(s.eventKinds).toBe(2);
   });
 
   it('carries the victory record through', () => {

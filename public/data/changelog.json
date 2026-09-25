@@ -4,6 +4,13 @@
     {
       "kind": "fixed",
       "scope": "start",
+      "text": "Show the How to Play stone on the start screen",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "fixed",
+      "scope": "start",
       "text": "Open the recent updates from the start screen",
       "fromFeedback": false,
       "date": "2026-09-25"
@@ -271,13 +278,6 @@
       "kind": "updated",
       "scope": "board",
       "text": "Every region gets a smoother, more varied ground, and rough tiles stop drawing a grid",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "fixed",
-      "scope": "farming",
-      "text": "A plot hides the tree it stands on, and the tree comes back when you move it",
       "fromFeedback": false,
       "date": "2026-09-17"
     }

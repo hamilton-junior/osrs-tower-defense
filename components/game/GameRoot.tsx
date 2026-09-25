@@ -3587,6 +3587,7 @@ export default function GameRoot() {
           upgrades={ui.upgrades}
           killCounts={ui.killCounts}
           bossesSeen={ui.bossesSeen}
+          diversionsMet={ui.diversionsMet}
           achievements={ui.achievements}
           diaries={ui.diaries}
           onBuyUpgrade={(id) => engineRef.current?.buyEssenceUpgrade(id)}

@@ -7,7 +7,7 @@ import type { RunSave } from '@/lib/game/systems/run-save';
 import { DIFFICULTY_TIERS, isTierUnlocked, tierLabel, type DifficultyTier } from '@/lib/game/systems/difficulty';
 import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { essenceRateLabel } from '@/lib/game/systems/meta-progression';
-import { CA_TIER_NAMES, type CaTier } from '@/lib/game/systems/combat-achievements';
+import { CA_TIERS, CA_TIER_NAMES, type CaTier } from '@/lib/game/systems/combat-achievements';
 import { dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
 import { dailyRules } from '@/lib/game/systems/daily-rules';
 import { dailyRecords, dailyStreak, type DailyBoard } from '@/lib/game/systems/daily-score';
@@ -447,11 +447,20 @@ function DailyTab({ today, board, onStart, onSound }: {
  * The Account tab: everything the account carries between runs — essence and what
  * it buys, the collection, and the numbers behind both.
  */
-function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, diaries, difficulty, onOpenShop, onOpenLog, onSaveCode, onSound }: {
+/**
+ * The New Game+ tiers carry the Combat Achievement tier names, so the hardest one
+ * cleared shows that tier's sword. Normal has no sword of its own and takes the first.
+ */
+function tierIcon(tier: number): string {
+  return ASSETS.achievements[CA_TIERS[Math.max(0, tier - 1)] ?? 'grandmaster'];
+}
+
+function AccountTab({ essence, victories, killCounts, bossesSeen, diversionsMet, achievements, diaries, difficulty, onOpenShop, onOpenLog, onSaveCode, onSound }: {
   essence: number;
   victories: Victories;
   killCounts: Record<string, number>;
   bossesSeen: Record<string, number>;
+  diversionsMet: Record<string, number>;
   achievements: string[];
   diaries: string[];
   difficulty: DifficultyProgress;
@@ -460,7 +469,7 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, 
   onSaveCode: () => void;
   onSound: (key: string) => void;
 }) {
-  const stats = accountStats({ victories, killCounts, bossesSeen, achievements, diaries, difficulty });
+  const stats = accountStats({ victories, killCounts, bossesSeen, diversionsMet, achievements, diaries, difficulty });
   const openLog = (tab: LogTab) => { onSound('click'); onOpenLog(tab); };
   return (
     <div className="flex flex-col gap-[0.6em]">
@@ -516,14 +525,14 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, 
             value={stats.bestEndlessWave > 0 ? `Wave ${fmt(stats.bestEndlessWave)}` : '—'}
           />
           <GoStat
-            icon={ASSETS.misc.stats_icon}
+            icon={tierIcon(stats.bestTier)}
             label="Hardest tier"
             value={stats.bestTier >= 0 ? tierLabel(stats.bestTier as DifficultyTier) : '—'}
           />
-          <GoStat icon={ASSETS.misc.attack_icon} label="Enemies killed" value={fmt(stats.kills)} />
-          <GoStat icon={ASSETS.misc.multicombat_icon} label="Monsters met" value={fmt(stats.killKinds)} />
-          <GoStat icon={ASSETS.misc.slayer_crossbow} label="Bosses met" value={fmt(stats.bossKinds)} />
-          <GoStat icon={ASSETS.misc.inventory_icon} label="Diary tasks" value={fmt(stats.diaries)} />
+          <GoStat icon={ASSETS.misc.pk_skull} label="Enemies killed" value={fmt(stats.kills)} />
+          <GoStat icon={ASSETS.misc.pk_skull_forinthry} label="Bosses met" value={fmt(stats.bossKinds)} />
+          <GoStat icon={ASSETS.misc.random_event} label="Random events met" value={fmt(stats.eventKinds)} />
+          <GoStat icon={ASSETS.misc.diaries_icon} label="Diary tasks" value={fmt(stats.diaries)} />
         </div>
         {/* The headline win figure counts both modes, so the split goes under it. */}
         <div className="text-[0.66em] text-[#a89870] mt-[0.45em]">
@@ -545,7 +554,7 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, 
 /** Title / mode-select screen shown before the first wave of a run (and again on
  *  restart). This function is the room and its running order; each block is its
  *  own component above. */
-export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, bossesSeen, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound, onAmbient }: {
+export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, bossesSeen, diversionsMet, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound, onAmbient }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back above the tabs. */
   saved: RunSave | null;
@@ -567,6 +576,7 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   /** The account's tallies, for the statistics block. */
   killCounts: Record<string, number>;
   bossesSeen: Record<string, number>;
+  diversionsMet: Record<string, number>;
   achievements: string[];
   diaries: string[];
   onSelect: (m: GameMode) => void;
@@ -643,6 +653,7 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
               victories={victories}
               killCounts={killCounts}
               bossesSeen={bossesSeen}
+              diversionsMet={diversionsMet}
               achievements={achievements}
               diaries={diaries}
               difficulty={difficulty}

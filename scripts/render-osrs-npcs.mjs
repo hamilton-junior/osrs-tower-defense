@@ -228,6 +228,11 @@ const TARGETS = {
   // --- Misc NPC-model icons ---
   giant_snail: { npc: 5628 },            // "slow" debuff icon
   kalphite_larva: { npc: 966 },          // Swarm affix / wave-event icon
+  // The Account tab's random-event icon. The Genie floats high over the shadow disc
+  // under him (figure at model-Y -200..-80, disc at 0..10), so the disc is cut at -40
+  // and the camera frames the figure alone. Left in, the gap shrinks him to a speck
+  // in a 20px stat cell.
+  random_event: { npc: 326, cullBelowGround: -40, fitVisible: true },
 };
 
 // Bestiary statics: reuse the exact NPC ids the anim baker renders clips from
@@ -266,17 +271,30 @@ async function buildNpcModel(cache, def) {
  * client backface culling, real cache textures with the face-lightness rule,
  * unsigned face alpha). Base-pose vertices, 3/4 view by default.
  */
+/** The vertices at least one drawn face uses: everything but the culled faces. */
+function visibleVerts(model, verts) {
+  const used = new Set();
+  const fa = model.faceVertexIndices1, fb = model.faceVertexIndices2, fc = model.faceVertexIndices3;
+  for (let f = 0; f < model.faceCount; f++) {
+    if (model.faceRenderTypes?.[f] === 2) continue;
+    used.add(fa[f]); used.add(fb[f]); used.add(fc[f]);
+  }
+  return [...used].map((i) => verts[i]);
+}
+
 function renderNpc(
-  model, { yaw = 30, pitch = 12, zoom = 1, alphaBoost = 1, cullBelowGround = false } = {}, textures,
+  model, { yaw = 30, pitch = 12, zoom = 1, alphaBoost = 1, cullBelowGround = false, fitVisible = false } = {}, textures,
 ) {
   // Sub-ground decoration (shadow/contact discs sit just below the feet at
-  // model-Y > 4): mark hidden so the shared renderer skips them.
-  if (cullBelowGround) {
+  // model-Y > 4): mark hidden so the shared renderer skips them. A number moves the
+  // cut, for an NPC that floats well above his own shadow.
+  if (cullBelowGround !== false) {
+    const cut = cullBelowGround === true ? 4 : cullBelowGround;
     const Y = model.vertexPositionsY;
     const fa = model.faceVertexIndices1, fb = model.faceVertexIndices2, fc = model.faceVertexIndices3;
     if (!model.faceRenderTypes) model.faceRenderTypes = new Array(model.faceCount).fill(0);
     for (let f = 0; f < model.faceCount; f++) {
-      if (Y[fa[f]] > 4 && Y[fb[f]] > 4 && Y[fc[f]] > 4) model.faceRenderTypes[f] = 2;
+      if (Y[fa[f]] > cut && Y[fb[f]] > cut && Y[fc[f]] > cut) model.faceRenderTypes[f] = 2;
     }
   }
   const n = model.vertexCount;
@@ -286,7 +304,9 @@ function renderNpc(
   }
   const yawR = (yaw * Math.PI) / 180, pitchR = (pitch * Math.PI) / 180;
   const sy = Math.sin(yawR), cy = Math.cos(yawR), sp = Math.sin(pitchR), cp = Math.cos(pitchR);
-  const fit = computeFit([verts], sy, cy, sp, cp, SIZE, MARGIN);
+  // `fitVisible` frames only the vertices a drawn face uses, so a culled disc leaves
+  // no empty band under the figure.
+  const fit = computeFit([fitVisible ? visibleVerts(model, verts) : verts], sy, cy, sp, cp, SIZE, MARGIN);
   fit.scale *= zoom;
   const img = renderModelFrame(model, verts, fit, sy, cy, sp, cp, SIZE, textures, undefined, true, SS);
   // A few models are drawn nearly transparent because the client layers them over a
