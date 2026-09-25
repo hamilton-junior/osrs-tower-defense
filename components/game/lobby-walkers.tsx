@@ -91,6 +91,8 @@ export function LobbyWalkers({ onSound, overRef }: {
 
     let stage: LobbyStage = { width: 0, floorTop: 0, floorBottom: 0, menuBottom: 0, torchFoot: 0, strips: [], em: 16, worldPx: 0 };
     let dpr = 1;
+    // Set once the draw below exists; measure() runs before it does.
+    let repaint = () => {};
     const measure = () => {
       const box = lobby.getBoundingClientRect();
       const em = parseFloat(getComputedStyle(lobby).fontSize) || 16;
@@ -112,10 +114,18 @@ export function LobbyWalkers({ onSound, overRef }: {
         worldPx: torchCell && torchW > 0 ? torchW / torchCell : 0,
       };
       dpr = Math.min(2, window.devicePixelRatio || 1);
+      // Assigning a canvas's size wipes it, even to the size it already has, and
+      // the observer fires after this frame's draw: a tab switch that only grows
+      // the menu would paint the room empty for a frame. Resize only on a real
+      // change, and repaint straight away when there is one.
+      let resized = false;
       for (const c of [back, front]) {
-        c.width = Math.round(box.width * dpr);
-        c.height = Math.round(box.height * dpr);
+        const cw = Math.round(box.width * dpr), ch = Math.round(box.height * dpr);
+        if (c.width === cw && c.height === ch) continue;
+        c.width = cw; c.height = ch;
+        resized = true;
       }
+      if (resized) repaint();
     };
     const roomEl = lobby.parentElement?.querySelector('.rs-start-room') ?? null;
     const torchEl = lobby.querySelector('.rs-lobby-torch');
@@ -242,6 +252,7 @@ export function LobbyWalkers({ onSound, overRef }: {
       }
       drawEffects(fctx);
     };
+    repaint = draw;
 
     let raf = 0;
     let last = performance.now();

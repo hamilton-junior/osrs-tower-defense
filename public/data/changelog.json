@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "start",
+      "text": "Stop the lobby's monsters blinking when you switch menu tabs",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
       "kind": "updated",
       "scope": "feedback",
       "text": "Trade the bug report's spider for a Giant Scarab, and grow both icons",
@@ -278,6 +285,13 @@
       "kind": "new",
       "scope": "pets",
       "text": "Fishing, Farming and Hunter drop their own OSRS pets",
+      "fromFeedback": false,
+      "date": "2026-09-18"
+    },
+    {
+      "kind": "updated",
+      "scope": "board",
+      "text": "The TzHaar cavern floor is bare basalt instead of a scatter of lava slabs and troughs",
       "fromFeedback": false,
       "date": "2026-09-18"
     }
