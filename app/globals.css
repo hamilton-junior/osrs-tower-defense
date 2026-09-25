@@ -1585,7 +1585,12 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
 }
 
 /* The bottom bar on the start screen: the wooden strip stays, so the board keeps
-   its height when the run starts, but the run controls in it mean nothing yet. */
+   its height when the run starts, but the run controls in it mean nothing yet.
+   The UI size control is the exception: it is the only zoom the game has, so a
+   player whose menu came out too big or too small needs it here too. */
 .rs-bar-idle > * {
   visibility: hidden;
+}
+.rs-bar-idle [data-idle-keep] {
+  visibility: visible;
 }

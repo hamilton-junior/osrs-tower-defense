@@ -3980,7 +3980,7 @@ export default function GameRoot() {
                 OUTSIDE the clipping group above and never shrinks, because it is the way
                 back from an interface scaled too large to fit: clipping the escape hatch
                 would strand the player at 160%. */}
-            <div data-tut="uiscale" className="shrink-0 flex items-center gap-[0.25em]">
+            <div data-tut="uiscale" data-idle-keep="" className="shrink-0 flex items-center gap-[0.25em]">
               <span className="text-[0.6em] text-[#d3c3a0] ml-[0.4em] mr-[0.4em] uppercase tracking-wide select-none">UI</span>
               <button
                 onClick={() => setUiScalePref(stepScale(uiScale, -1, maxUiScale))}

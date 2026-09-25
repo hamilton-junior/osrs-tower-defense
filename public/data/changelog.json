@@ -4,6 +4,13 @@
     {
       "kind": "fixed",
       "scope": "start",
+      "text": "Show the Collection Log above the start screen",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "fixed",
+      "scope": "start",
       "text": "Keep the start screen steady when you switch modes",
       "fromFeedback": false,
       "date": "2026-09-25"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "board",
       "text": "Regions get their own ground texture, flowing water and lava pools you can fish",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "new",
-      "scope": "enemies",
-      "text": "Twelve new monsters, so every region fields at least five of its own",
       "fromFeedback": false,
       "date": "2026-09-17"
     }
