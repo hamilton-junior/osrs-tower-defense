@@ -5,6 +5,7 @@ import { TOWERS } from '../data/towers';
 import { DEATH_SETTLE_S } from '../data/enemy-anims';
 import { HITSPLAT_LIFE, projectileEase } from '../core/engine-state';
 import { fusionSpellFx } from './tower-fusion';
+import { TICK_SECONDS } from './magic';
 import type { EnemyDef, TowerType } from '../types';
 
 /**
@@ -13,7 +14,7 @@ import type { EnemyDef, TowerType } from '../types';
  * side. Each one stands at its real OSRS size against the torches, and passes in
  * front of the menu only where its feet sit below the menu's bottom edge. Once
  * in a long while a shot flies in from off-screen, fells one in a single hit for
- * its full hitpoints, and the body drops where it stood.
+ * its full hitpoints, and the monster stops where it stood and drops a tick later.
  *
  * This module is the whole simulation: who spawns, where, how fast, when the shot
  * fires and lands. It holds no DOM and draws nothing; `components/game/lobby-walkers.tsx`
@@ -59,6 +60,15 @@ const SHOT_OFFSCREEN_EM = 2;
 const TRAIL_POINTS = 6;
 /** Direct-hit splats float up at this many board px per second (core/sim/waves). */
 const SPLAT_RISE = 28;
+/** A board splat's height in board px: the ~24px sprite at 1.25× (render/shot-art). */
+const SPLAT_BOARD_PX = 30;
+/** A lobby splat stands this tall against the struck body... */
+const SPLAT_BODY_FRAC = 0.3;
+/** ...and never under this many em, so its number stays readable. */
+const SPLAT_MIN_EM = 1.6;
+/** A felled walker stands this long before it drops: OSRS processes a death on
+ *  the tick after the killing hit. */
+export const LOBBY_DEATH_DELAY_S = TICK_SECONDS;
 
 /**
  * How rare each walker is: its weight is 1 / cost. The lobby is a cellar, so its
@@ -145,6 +155,8 @@ export interface LobbyStage {
 export interface WalkerSheet {
   /** Where the feet sit in the walk cell, as a fraction of its height from the top. */
   feetFrac: number;
+  /** How tall the body stands in the walk cell, as a fraction of the cell's side. */
+  bodyFrac: number;
   /** Length of the death clip in seconds; 0 when the monster has none. */
   deathS: number;
   /** The cell's side in world units, when the bake recorded it. */
@@ -181,11 +193,21 @@ export interface LobbyWalker {
   /** Seconds of walk loop played; starts at a random phase. */
   walkAge: number;
   strike: { atX: number; launchX: number; shot: LobbyShot } | null;
-  /** Seconds since the shot landed; null while it still walks. */
+  /** Seconds since the shot landed; null while it still walks. It stands still
+   *  for {@link LOBBY_DEATH_DELAY_S} before it dies. */
+  struckAge: number | null;
+  /** Seconds since it started dying; null until the tick after the hit. */
   deadAge: number | null;
 }
 
-export interface LobbySplat { x: number; y: number; value: number; life: number }
+export interface LobbySplat {
+  x: number;
+  y: number;
+  value: number;
+  life: number;
+  /** Lobby px per board px it is drawn at, fitted to the struck body. */
+  scale: number;
+}
 export interface LobbyGfx { slug: string; x: number; y: number; size: number; age: number }
 
 export interface LobbyState {
@@ -197,7 +219,7 @@ export interface LobbyState {
 }
 
 export type LobbyEvent =
-  | { kind: 'fire'; sound: string }
+  | { kind: 'fire' | 'death'; sound: string }
   | { kind: 'impact'; sounds: string[] };
 
 export interface LobbyEnv {
@@ -239,6 +261,15 @@ export function walkerSize(def: EnemyDef, sheet: WalkerSheet, stage: LobbyStage)
 /** A walker's body centre: the middle of its sprite cell. */
 export function walkerBodyY(w: LobbyWalker): number {
   return w.feetY - w.size * w.sheet.feetFrac + w.size / 2;
+}
+
+/** How big a walker's hitsplat draws, in lobby px per board px: a fixed share of
+ *  its body's height, readable on the smallest monster and never larger than the
+ *  board's own splat against the same body. */
+export function lobbySplatScale(w: LobbyWalker, stage: LobbyStage): number {
+  const fit = (w.size * w.sheet.bodyFrac * SPLAT_BODY_FRAC) / SPLAT_BOARD_PX;
+  const floor = (SPLAT_MIN_EM * stage.em) / SPLAT_BOARD_PX;
+  return Math.min(lobbyUnit(stage), Math.max(floor, fit));
 }
 
 /** Whether a walker draws over the menu: its feet sit below the panel's bottom. */
@@ -333,6 +364,7 @@ function spawn(s: LobbyState, env: LobbyEnv): void {
     sheet,
     walkAge: rand() * 10,
     strike: null,
+    struckAge: null,
     deadAge: null,
   };
   if (rand() < LOBBY_STRIKE_CHANCE) w.strike = planStrike(rand, stage, w);
@@ -342,9 +374,9 @@ function spawn(s: LobbyState, env: LobbyEnv): void {
 
 function land(s: LobbyState, w: LobbyWalker, shot: LobbyShot, stage: LobbyStage): LobbyEvent {
   const bodyY = walkerBodyY(w);
-  w.deadAge = 0;
+  w.struckAge = 0;
   w.strike = null;
-  s.splats.push({ x: w.x, y: bodyY, value: walkerHitpoints(w.def), life: HITSPLAT_LIFE });
+  s.splats.push({ x: w.x, y: bodyY, value: walkerHitpoints(w.def), life: HITSPLAT_LIFE, scale: lobbySplatScale(w, stage) });
   const sounds: string[] = [];
   if (shot.spell) {
     const slug = `hit_${shot.spell}`;
@@ -359,7 +391,6 @@ function land(s: LobbyState, w: LobbyWalker, shot: LobbyShot, stage: LobbyStage)
     // Arrows and darts land silent on the board too; everything else thuds.
     sounds.push('hit');
   }
-  sounds.push(`death_${w.def.type}`);
   return { kind: 'impact', sounds };
 }
 
@@ -379,6 +410,14 @@ export function stepLobby(s: LobbyState, dt: number, env: LobbyEnv): LobbyEvent[
     if (w.deadAge !== null) {
       w.deadAge += dt;
       if (w.deadAge >= w.sheet.deathS + DEATH_SETTLE_S) s.walkers.splice(i, 1);
+      continue;
+    }
+    if (w.struckAge !== null) {
+      w.struckAge += dt;
+      if (w.struckAge >= LOBBY_DEATH_DELAY_S) {
+        w.deadAge = w.struckAge - LOBBY_DEATH_DELAY_S;
+        events.push({ kind: 'death', sound: `death_${w.def.type}` });
+      }
       continue;
     }
     w.x += w.dir * w.speed * dt;
@@ -406,11 +445,10 @@ export function stepLobby(s: LobbyState, dt: number, env: LobbyEnv): LobbyEvent[
     if (gone) s.walkers.splice(i, 1);
   }
 
-  const rise = SPLAT_RISE * lobbyUnit(stage);
   for (let i = s.splats.length - 1; i >= 0; i--) {
     const h = s.splats[i];
     h.life -= dt;
-    h.y -= rise * dt;
+    h.y -= SPLAT_RISE * h.scale * dt;
     if (h.life <= 0) s.splats.splice(i, 1);
   }
   for (let i = s.gfx.length - 1; i >= 0; i--) {

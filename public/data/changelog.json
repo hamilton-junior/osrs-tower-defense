@@ -2,6 +2,20 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "start",
+      "text": "Size the lobby's hitsplat to the monster, and drop it a tick after the hit",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "new",
+      "scope": "start",
+      "text": "Keep the sound control on the start screen",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
       "kind": "updated",
       "scope": "start",
       "text": "Bake the big monsters sharper for the lobby",
@@ -264,20 +278,6 @@
       "kind": "updated",
       "scope": "board",
       "text": "The TzHaar cavern steams from a scatter of sulphur vents instead of one on every free tile",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "TzHaar's vents cool to black basalt and its floor pools lava instead of hairline cracks",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "The TzHaar cavern's floor bubbles through sulphur vents instead of flat lava splats",
       "fromFeedback": false,
       "date": "2026-09-18"
     }

@@ -77,10 +77,11 @@ export function LobbyWalkers({ onSound, overRef }: {
       if (!set) return null;
       const death = set.clips.death;
       if (death) image(death.url);
+      if (set.clips.hurt) image(set.clips.hurt.url);
       const walk = image(set.clips.walk.url);
       if (!walk) return null;
       const made = {
-        feetFrac: feetFraction(walk, set.frameW, set.frameH),
+        ...bodySpan(walk, set.frameW, set.frameH),
         deathS: death ? clipDurationS(death) : 0,
         worldCell: set.worldCell ?? null,
       };
@@ -133,7 +134,15 @@ export function LobbyWalkers({ onSound, overRef }: {
       let clip = set.clips.walk;
       let t = w.walkAge;
       let alpha = 1;
-      if (w.deadAge !== null) {
+      const hurt = set.clips.hurt;
+      if (w.struckAge !== null && w.deadAge === null) {
+        // The tick between the killing hit and the death: it stops and flinches,
+        // or holds its step when it has no flinch.
+        if (hurt && image(hurt.url)) {
+          clip = hurt;
+          t = w.struckAge;
+        }
+      } else if (w.deadAge !== null) {
         const death = set.clips.death;
         if (death && image(death.url)) {
           clip = death;
@@ -211,7 +220,7 @@ export function LobbyWalkers({ onSound, overRef }: {
         ctx.save();
         ctx.globalAlpha = Math.min(1, h.life / 0.3);
         ctx.translate(h.x, h.y);
-        ctx.scale(u, u);
+        ctx.scale(h.scale, h.scale);
         paintSplat(ctx, 0, 0, h.value, 'hit', splatScale(h.value), splat, splatAnchor ?? { ox: 0, oy: 0 });
         ctx.restore();
       }
@@ -244,7 +253,7 @@ export function LobbyWalkers({ onSound, overRef }: {
       last = now;
       if (document.hidden || stage.width <= 0) return;
       for (const ev of stepLobby(state, dt, env)) {
-        const keys = ev.kind === 'fire' ? [ev.sound] : ev.sounds;
+        const keys = ev.kind === 'impact' ? ev.sounds : [ev.sound];
         for (const key of keys) soundRef.current(key, LOBBY_SOUND_LEVEL);
       }
       draw();
@@ -259,19 +268,29 @@ export function LobbyWalkers({ onSound, overRef }: {
   return <canvas ref={backRef} className="rs-lobby-walkers" />;
 }
 
-/** Where the feet sit in a walk sheet's first cell: the lowest opaque row, as a
- *  fraction of the cell's height. */
-function feetFraction(img: HTMLImageElement, fw: number, fh: number): number {
+/** The body's span in a walk sheet's first cell, as fractions of the cell's
+ *  height: where the feet sit (the lowest opaque row) and how tall it stands. */
+function bodySpan(img: HTMLImageElement, fw: number, fh: number): { feetFrac: number; bodyFrac: number } {
+  // Unreadable: the bake's usual margin and a human's height.
+  const fallback = { feetFrac: 0.94, bodyFrac: 0.6 };
   try {
     const c = document.createElement('canvas');
     c.width = fw; c.height = fh;
     const g = c.getContext('2d', { willReadFrequently: true });
-    if (!g) return 0.94;
+    if (!g) return fallback;
     g.drawImage(img, 0, 0, fw, fh, 0, 0, fw, fh);
     const d = g.getImageData(0, 0, fw, fh).data;
-    for (let y = fh - 1; y >= 0; y--) {
-      for (let x = 0; x < fw; x++) if (d[(y * fw + x) * 4 + 3] > 16) return (y + 1) / fh;
-    }
-  } catch { /* unreadable: fall through to the bake's usual margin */ }
-  return 0.94;
+    const opaque = (y: number) => {
+      for (let x = 0; x < fw; x++) if (d[(y * fw + x) * 4 + 3] > 16) return true;
+      return false;
+    };
+    let bottom = fh - 1;
+    while (bottom >= 0 && !opaque(bottom)) bottom--;
+    if (bottom < 0) return fallback;
+    let top = 0;
+    while (!opaque(top)) top++;
+    return { feetFrac: (bottom + 1) / fh, bodyFrac: (bottom + 1 - top) / fh };
+  } catch {
+    return fallback;
+  }
 }

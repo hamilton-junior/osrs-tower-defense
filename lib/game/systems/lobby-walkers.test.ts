@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LOBBY_CELL_EM, LOBBY_COST, LOBBY_MAX_WALKERS, crossingSeconds, lobbyRoster, lobbySpells, newLobby,
   pickFeetY, pickWalkerDef, planStrike, stepLobby, strikeTowers, walkerHitpoints, walkerOverMenu,
-  walkerSize, walkerSlug, LOBBY_SIZE_BOOST,
+  walkerSize, walkerSlug, LOBBY_SIZE_BOOST, LOBBY_DEATH_DELAY_S, lobbySplatScale, lobbyUnit,
   type LobbyEnv, type LobbyEvent, type LobbyStage, type LobbyState, type LobbyWalker,
 } from './lobby-walkers';
 import { NPC_HITPOINTS } from '../data/npc-hitpoints.data';
@@ -26,7 +26,7 @@ const STAGE: LobbyStage = {
   width: 1566, floorTop: 496, floorBottom: 688, menuBottom: 640, torchFoot: 540, em: EM, worldPx: 0.9,
   strips: [[0, 379], [1199, 1566]],
 };
-const SHEET = { feetFrac: 0.8, deathS: 1.2, worldCell: 240 };
+const SHEET = { feetFrac: 0.8, bodyFrac: 0.6, deathS: 1.2, worldCell: 240 };
 
 function env(rand: () => number, stage: LobbyStage = STAGE): LobbyEnv {
   return { stage, rand, sheet: () => SHEET };
@@ -198,7 +198,7 @@ function walker(rand: () => number, over: Partial<LobbyWalker> = {}): LobbyWalke
   const def = ENEMIES.skeleton;
   return {
     id: 1, def, slug: walkerSlug(def), dir: 1, x: -60, feetY: 600, size: 5.5 * EM,
-    speed: (STAGE.width + 5.5 * EM) / 30, sheet: SHEET, walkAge: 0, strike: null, deadAge: null,
+    speed: (STAGE.width + 5.5 * EM) / 30, sheet: SHEET, walkAge: 0, strike: null, struckAge: null, deadAge: null,
     ...over,
   };
 }
@@ -253,8 +253,29 @@ describe('a strike', () => {
   it('fires, lands on the walker for its full hitpoints, and plays its death', () => {
     const { w, events } = struck('wizard', 'fire_5');
     expect(events[0]).toEqual({ kind: 'fire', sound: 'cast_fire_5' });
-    expect(events[1]).toEqual({ kind: 'impact', sounds: ['hit_fire_5', 'death_skeleton'] });
+    expect(events[1]).toEqual({ kind: 'impact', sounds: ['hit_fire_5'] });
+    expect(events[2]).toEqual({ kind: 'death', sound: 'death_skeleton' });
     expect(w.deadAge).not.toBeNull();
+  });
+
+  it('stops the walker on the hit and drops it one tick later', () => {
+    const rand = seeded(81);
+    const s = newLobby(rand);
+    s.nextSpawn = 1e9;
+    const w = walker(rand);
+    w.strike = planStrike(rand, STAGE, w)!;
+    s.walkers.push(w);
+    for (let i = 0; i < 3600 && w.struckAge === null; i++) stepLobby(s, 1 / 60, env(rand));
+    const hitX = w.x;
+    const walked = w.walkAge;
+    const before = stepLobby(s, LOBBY_DEATH_DELAY_S - 0.05, env(rand));
+    expect(before).toEqual([]);
+    expect(w.deadAge).toBeNull();
+    expect(w.x).toBe(hitX);
+    expect(w.walkAge).toBe(walked);
+    expect(stepLobby(s, 0.1, env(rand))).toEqual([{ kind: 'death', sound: 'death_skeleton' }]);
+    expect(w.deadAge).toBeCloseTo(0.05);
+    expect(w.x).toBe(hitX);
   });
 
   it('shows the spell\'s impact and a hitsplat for the monster\'s hitpoints', () => {
@@ -266,15 +287,16 @@ describe('a strike', () => {
     w.strike.shot.tower = 'wizard';
     w.strike.shot.spell = 'ice_4';
     s.walkers.push(w);
-    for (let i = 0; i < 3600 && w.deadAge === null; i++) stepLobby(s, 1 / 60, env(rand));
+    for (let i = 0; i < 3600 && w.struckAge === null; i++) stepLobby(s, 1 / 60, env(rand));
     expect(s.splats[0].value).toBe(NPC_HITPOINTS.skeleton);
+    expect(s.splats[0].scale).toBe(lobbySplatScale(w, STAGE));
     expect(s.gfx[0].slug).toBe('hit_ice_4');
   });
 
   it('lands arrows silent and thuds everything else', () => {
-    expect(struck('archer', null).events[1]).toEqual({ kind: 'impact', sounds: ['death_skeleton'] });
+    expect(struck('archer', null).events[1]).toEqual({ kind: 'impact', sounds: [] });
     expect(struck('cannon', null).events[0]).toEqual({ kind: 'fire', sound: 'fire_cannon' });
-    expect(struck('cannon', null).events[1]).toEqual({ kind: 'impact', sounds: ['hit', 'death_skeleton'] });
+    expect(struck('cannon', null).events[1]).toEqual({ kind: 'impact', sounds: ['hit'] });
   });
 
   it('clears the body once its death clip and settle have played', () => {
@@ -291,5 +313,26 @@ describe('a strike', () => {
     expect(w.x).toBe(deadX);
     stepLobby(s, 0.1, env(rand));
     expect(s.walkers).not.toContain(w);
+  });
+});
+
+describe('lobbySplatScale', () => {
+  const SPLAT_PX = 30;
+  const sized = (size: number, bodyFrac = 0.6) => walker(seeded(1), { size, sheet: { ...SHEET, bodyFrac } });
+
+  it('keeps a splat to under a third of the body it lands on', () => {
+    for (const size of [220, 300, 500]) {
+      const w = sized(size);
+      expect(lobbySplatScale(w, STAGE) * SPLAT_PX).toBeLessThanOrEqual(size * 0.6 * 0.3 + 1e-9);
+    }
+  });
+
+  it('grows with the body, up to the board splat against the same body', () => {
+    expect(lobbySplatScale(sized(500), STAGE)).toBeGreaterThan(lobbySplatScale(sized(300), STAGE));
+    expect(lobbySplatScale(sized(5000), STAGE)).toBe(lobbyUnit(STAGE));
+  });
+
+  it('stays readable on the smallest monster', () => {
+    expect(lobbySplatScale(sized(20), STAGE) * SPLAT_PX).toBeCloseTo(1.6 * EM);
   });
 });
