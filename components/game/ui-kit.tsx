@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { coinsIcon } from '@/lib/game/assets';
+import { ASSETS, coinsIcon } from '@/lib/game/assets';
+import { splitOn73 } from '@/lib/game/systems/stat-73';
 import { HoverTip } from './HoverTip';
 
 /**
@@ -215,13 +216,41 @@ export function GoStat({ icon, label, value }: { icon?: string; label: string; v
   return (
     <div className="rs-panel-inset flex flex-col items-center gap-1 py-2">
       <span className="flex items-center gap-[0.3em]">
-        <span className="text-osrs-yellow font-bold leading-none">{value}</span>
+        <span className="text-osrs-yellow font-bold leading-none">
+          {typeof value === 'string' || typeof value === 'number' ? <StatText text={String(value)} /> : value}
+        </span>
         {icon && (
           <img src={icon} alt="" className="w-[1.25em] h-[1.25em] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         )}
       </span>
       <span className="text-[0.72em] text-[#d3c3a0] uppercase tracking-wide">{label}</span>
     </div>
+  );
+}
+
+/** A stat's figure as text, except that a 73 standing on its own shows as a red
+ *  damage hitsplat of 73 (the easter egg in {@link splitOn73}). */
+export function StatText({ text }: { text: string }) {
+  const parts = splitOn73(text);
+  if (parts.length === 1) return <>{text}</>;
+  return <>{parts.map((p, i) => (i % 2 ? <DamageSplat key={i} value={p} /> : <React.Fragment key={i}>{p}</React.Fragment>))}</>;
+}
+
+/** The red OSRS damage hitsplat as an interface element: the cache sprite with the
+ *  figure in white on top, sized in `em` so it tracks the UI scale. The painted
+ *  splat fills the top-left 24×23 of its 25×25 sprite, so the figure centres on
+ *  that. The negative margin keeps it from growing the line it sits in. */
+export function DamageSplat({ value }: { value: string }) {
+  return (
+    <span className="relative inline-block align-middle w-[1.6em] h-[1.6em] -my-[0.2em]">
+      <img src={ASSETS.hitsplats.hit} alt="" className="block w-full h-full" onError={hideBrokenImg} />
+      <span
+        className="absolute left-0 top-0 w-[96%] h-[92%] flex items-center justify-center text-[0.72em] font-normal leading-none text-white"
+        style={{ textShadow: '0.07em 0.07em 0 rgba(0,0,0,0.9)' }}
+      >
+        {value}
+      </span>
+    </span>
   );
 }
 

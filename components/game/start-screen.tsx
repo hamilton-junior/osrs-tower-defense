@@ -16,7 +16,7 @@ import type { LogTab } from './collection-log';
 import { DailyStrip } from './daily-ui';
 import { EssenceShop } from './essence-shop';
 import { StartLobby } from './start-lobby';
-import { fs, fmt, fmtTime, hideBrokenImg, GoStat } from './ui-kit';
+import { fs, fmt, fmtTime, hideBrokenImg, GoStat, StatText } from './ui-kit';
 import { agoLabel, type DifficultyProgress, type Victories } from './save';
 
 /**
@@ -535,7 +535,8 @@ function AccountTab({ essence, victories, killCounts, diversionsMet, achievement
         </div>
         {/* The headline win figure counts both modes, so the split goes under it. */}
         <div className="text-[0.66em] text-[#a89870] mt-[0.45em]">
-          {fmt(stats.winsClassic)} Classic · {fmt(stats.winsRoguelite)} Roguelite · {fmt(stats.achievements)} Combat Achievements
+          <StatText text={fmt(stats.winsClassic)} /> Classic · <StatText text={fmt(stats.winsRoguelite)} /> Roguelite ·{' '}
+          <StatText text={fmt(stats.achievements)} /> Combat Achievements
         </div>
       </div>
 

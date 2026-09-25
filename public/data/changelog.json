@@ -3,6 +3,13 @@
   "entries": [
     {
       "kind": "updated",
+      "scope": "daily",
+      "text": "Mark days played with an hourglass and the best day with a gold star",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "updated",
       "scope": "account",
       "text": "Count bosses killed and show each stat's icon beside its number",
       "fromFeedback": false,
@@ -271,13 +278,6 @@
       "kind": "updated",
       "scope": "board",
       "text": "The tallest trees and stalagmites lose half their height, and TzHaar's fences are gone",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "Fences, graves and toadstool beds stand in groups, and TzHaar's banner is gone",
       "fromFeedback": false,
       "date": "2026-09-17"
     }
