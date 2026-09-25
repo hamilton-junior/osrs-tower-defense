@@ -1455,3 +1455,40 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
   0%, 100% { box-shadow: 0 0 8px 2px rgba(255, 200, 60, 0.45); }
   50% { box-shadow: 0 0 20px 6px rgba(255, 200, 60, 0.9); }
 }
+
+/* ── Start screen ─────────────────────────────────────────────────────────────
+   The title screen is built like the login screen: the window's own wood shows
+   at every edge, and the interface is a stone room floating in the middle of it.
+   Whatever the window's shape, the leftover space is wood — never black bars. */
+.rs-start-wood {
+  background-color: #2a241b;
+  /* The wood tiles at its native size; the radial pass darkens the corners so the
+     room reads as lit from the middle. */
+  background-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.78)), var(--rs-wood);
+  background-repeat: repeat;
+}
+
+/* The room itself: the same stone frame every panel in the game wears, around a
+   dark interior. --rs-stone-frame is injected by GameRoot at runtime, so this
+   class only works inside its tree — which the start screen is. */
+.rs-start-room {
+  border: calc(6px * var(--ui-scale, 1)) solid transparent;
+  border-image: var(--rs-stone-frame) 6 repeat;
+  padding: calc(10px * var(--ui-scale, 1));
+  background: #14110c;
+  background-clip: padding-box;
+}
+
+/* The start screen's tab body scrolls, so a tab's action sits in a foot that
+   sticks to its bottom edge. The negative offsets cancel the body's padding so
+   the strip reaches the panel's border, and the wash is opaque so the rows
+   passing underneath it stay hidden. */
+.rs-tab-foot {
+  position: sticky;
+  bottom: calc(-0.7em);
+  margin: 0 -0.7em -0.7em;
+  padding: 0.5em 0.7em 0.7em;
+  background-color: #352d22;
+  background-image: linear-gradient(180deg, rgba(56, 48, 37, 0.97), rgba(38, 32, 24, 1));
+  border-top: 1px solid var(--rs-keyline);
+}

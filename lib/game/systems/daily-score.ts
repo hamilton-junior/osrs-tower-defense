@@ -9,7 +9,7 @@
  *
  * Pure. The board is data the UI persists; this module only shapes it.
  */
-import { daysBetween, isDayKey, type DayKey } from './daily-seed';
+import { daysBetween, isDayKey, shiftKey, type DayKey } from './daily-seed';
 
 /** One finished daily run, as the board keeps it. */
 export interface DailyScore {
@@ -85,6 +85,53 @@ export function recentDays(board: DailyBoard, today: DayKey, n: number): { key: 
     rows.push({ key, score: board.days[key] });
   }
   return rows;
+}
+
+/**
+ * The last `n` days ending today, oldest first, **gaps included** — a day nobody
+ * played comes back with a null score rather than being left out, so a caller can
+ * paint a fixed row of cells straight from this. {@link recentDays} is the other
+ * half of the pair: it answers "what was played", this one answers "what did the
+ * week look like".
+ */
+export function dayStrip(board: DailyBoard, today: DayKey, n: number): { key: DayKey; score: DailyScore | null }[] {
+  const rows: { key: DayKey; score: DailyScore | null }[] = [];
+  for (let back = n - 1; back >= 0; back--) {
+    const key = shiftKey(today, back);
+    rows.push({ key, score: board.days[key] ?? null });
+  }
+  return rows;
+}
+
+/** What the whole board says about the account, rather than about one day. */
+export interface DailyRecords {
+  /** Days with a score on them. */
+  daysPlayed: number;
+  /** Furthest wave reached on any day, 0 with nothing played. */
+  bestWave: number;
+  /** The day that wave was reached on, or null. Ties go to the earlier day — the
+   *  record belongs to whoever set it first. */
+  bestDay: DayKey | null;
+  /** Longest run of consecutive days ever played, today's streak included. */
+  longestStreak: number;
+}
+
+/** Read the board's records. Pure, and cheap enough to call per render. */
+export function dailyRecords(board: DailyBoard): DailyRecords {
+  const keys = Object.keys(board.days).filter(isDayKey).sort();
+  let bestWave = 0;
+  let bestDay: DayKey | null = null;
+  let longestStreak = 0;
+  let streak = 0;
+  let prev: DayKey | null = null;
+  for (const key of keys) {
+    const score = board.days[key];
+    if (score.wave > bestWave) { bestWave = score.wave; bestDay = key; }
+    streak = prev && daysBetween(key, prev) === 1 ? streak + 1 : 1;
+    if (streak > longestStreak) longestStreak = streak;
+    prev = key;
+  }
+  return { daysPlayed: keys.length, bestWave, bestDay, longestStreak };
 }
 
 function num(v: unknown, min: number): number {

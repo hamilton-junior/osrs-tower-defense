@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import type { GameMode } from '@/lib/game/core/engine';
+import type { GlobalUpgrades } from '@/lib/game/types';
 import type { RunSave } from '@/lib/game/systems/run-save';
 import { DIFFICULTY_TIERS, isTierUnlocked, tierLabel, type DifficultyTier } from '@/lib/game/systems/difficulty';
 import { ASSETS, iconUrl } from '@/lib/game/assets';
@@ -9,19 +10,28 @@ import { FEEDBACK_ENABLED } from '@/lib/game/feedback';
 import { essenceRateLabel } from '@/lib/game/systems/meta-progression';
 import { CA_TIER_NAMES, type CaTier } from '@/lib/game/systems/combat-achievements';
 import { dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
-import { dailyStreak, type DailyBoard } from '@/lib/game/systems/daily-score';
-import { fs, fmt, hideBrokenImg } from './ui-kit';
-import { agoLabel, type DifficultyProgress } from './save';
+import { dailyRecords, dailyStreak, type DailyBoard } from '@/lib/game/systems/daily-score';
+import { accountStats } from '@/lib/game/systems/account-stats';
+import type { LogTab } from './collection-log';
+import { DailyStrip } from './daily-ui';
+import { EssenceShop } from './essence-shop';
+import { fs, fmt, fmtTime, hideBrokenImg, GoStat } from './ui-kit';
+import { agoLabel, type DifficultyProgress, type Victories } from './save';
 
 /**
- * The title screen: pick a mode, pick a New Game+ tier, and either start a fresh
- * run or resume the saved one.
+ * The title screen, built like an OSRS interface: the window's wood shows at the
+ * edges, a stone-framed room sits in the middle, and inside it one small panel
+ * carries three tabs — Play, Daily, Account.
  *
- * The mode choice lives only here because the engine freezes it once a run
- * begins. Moved out of GameRoot.tsx verbatim.
+ * Only one tab is on screen at a time, so the screen stays the size of a panel
+ * however much the account behind it grows. The one thing that never hides is the
+ * Continue band: a run left in progress is offered above the tabs, or not at all.
+ *
+ * Mode and difficulty are still chosen here and nowhere else, because the engine
+ * freezes both once a run begins.
  */
 
-/** The two modes, as the screen shows them. Static — the panels differ only in
+/** The two modes, as the screen shows them. Static — the cards differ only in
  *  what they say, so the copy lives here rather than being rebuilt per render. */
 const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string; wip?: string }[] = [
   {
@@ -40,13 +50,23 @@ const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: stri
   },
 ];
 
+/** The three tabs, in the order they sit on the strip. Icon-only, like the game's
+ *  own tab strips — the name is on the hover title. */
+const TABS = [
+  { id: 'play', name: 'Play', icon: ASSETS.misc.multicombat_icon },
+  { id: 'daily', name: 'Daily Challenge', icon: ASSETS.misc.compass },
+  { id: 'account', name: 'Account', icon: ASSETS.misc.rune_essence_icon },
+] as const;
+
+type TabId = (typeof TABS)[number]['id'];
+
 /** Both paths out of the start screen destroy the saved run — throwing it away
  *  outright, or starting a fresh one over it. Neither is undoable, so each asks
  *  once, inline (an OSRS-style "are you sure" step rather than a browser dialog). */
 type Confirming = 'discard' | 'new' | null;
 
-/** One icon + figure from the saved run's state, on the Continue card. */
-export function SaveStat({ icon, title, value }: { icon: string; title: string; value: React.ReactNode }) {
+/** One icon + figure, as the Continue band reads a saved run. */
+function SaveStat({ icon, title, value }: { icon: string; title: string; value: React.ReactNode }) {
   return (
     <span className="flex items-center gap-[0.3em]" title={title}>
       <img src={icon} alt="" className="w-[1.15em] h-[1.15em] object-contain shrink-0" onError={hideBrokenImg} />
@@ -55,72 +75,56 @@ export function SaveStat({ icon, title, value }: { icon: string; title: string; 
   );
 }
 
-/** The game's name, plus whatever the account has to show for itself. */
-function ScreenHeader({ compact, saved, champion, wins, caTitle }: {
-  compact: boolean;
-  saved: boolean;
-  champion: boolean;
-  wins: number;
-  caTitle: CaTier | null;
-}) {
+/**
+ * The game's name, flanked by the two towers the game opens with — the archer's
+ * bow and the wizard's staff, cache-rendered, standing either side of the wordmark
+ * like banners. Under it, whatever the account has earned the right to wear.
+ */
+function Wordmark({ champion, wins, caTitle }: { champion: boolean; wins: number; caTitle: CaTier | null }) {
   return (
-    <div className="text-center mb-1">
-      <div
-        className="text-osrs-orange font-bold leading-none"
-        style={{ fontSize: fs(compact ? 'clamp(17px, 1.9vw, 25px)' : 'clamp(20px, 2.4vw, 32px)') }}
-      >
-        OSRS Tower Defense
+    <div className="text-center">
+      <div className="flex items-center justify-center gap-[0.7em]">
+        <img
+          src={ASSETS.towers.archer[4]}
+          alt=""
+          className="w-[2.2em] h-[2.2em] object-contain shrink-0"
+          // Mirrored so the pair leans inward, the way a banner flanks a doorway.
+          style={{ transform: 'scaleX(-1)' }}
+          onError={hideBrokenImg}
+        />
+        <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: fs('clamp(18px, 2.1vw, 28px)') }}>
+          OSRS Tower Defense
+        </div>
+        <img src={ASSETS.towers.wizard[4]} alt="" className="w-[2.2em] h-[2.2em] object-contain shrink-0" onError={hideBrokenImg} />
       </div>
-      <div className="text-[#cdbe91] text-[0.85em] mt-[0.4em]">{saved ? 'Continue where you left off' : 'Choose your mode'}</div>
-      {champion && (
-        <div
-          className="flex items-center justify-center gap-[0.3em] text-osrs-yellow text-[0.8em] font-bold mt-[0.3em] uppercase tracking-wider"
-          title={`Champion: ${wins} run${wins === 1 ? '' : 's'} won`}
-        >
-          <img src={ASSETS.misc.trophy} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-          Champion
-        </div>
-      )}
-      {caTitle && (
-        <div
-          className="flex items-center justify-center gap-[0.3em] text-osrs-yellow text-[0.8em] font-bold mt-[0.3em] uppercase tracking-wider"
-          title={`Combat Achievements: the ${CA_TIER_NAMES[caTitle]} tier cleared in full`}
-        >
-          <img src={ASSETS.achievements[caTitle]} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-          {CA_TIER_NAMES[caTitle]}
+      {(champion || caTitle) && (
+        <div className="flex items-center justify-center gap-[0.8em] mt-[0.45em] text-[0.78em] font-bold uppercase tracking-wider text-osrs-yellow">
+          {champion && (
+            <span className="flex items-center gap-[0.3em]" title={`Champion: ${wins} run${wins === 1 ? '' : 's'} won`}>
+              <img src={ASSETS.misc.trophy} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+              Champion
+            </span>
+          )}
+          {caTitle && (
+            <span className="flex items-center gap-[0.3em]" title={`Combat Achievements: the ${CA_TIER_NAMES[caTitle]} tier cleared in full`}>
+              <img src={ASSETS.achievements[caTitle]} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+              {CA_TIER_NAMES[caTitle]}
+            </span>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-/** Says out loud what the game is: a hobby project that is still moving. It is not
- *  a first-run tip and never gets dismissed — a returning player is exactly who the
- *  "check the updates" half is for, and the disclaimer has to hold for as long as
- *  the game is unfinished. Kept to one line under `compact` for the same height
- *  reason the mode blurbs are dropped there. */
-function WipNotice({ compact }: { compact: boolean }) {
-  return (
-    <div className="rs-panel-inset p-[0.55em] mt-[0.8em] text-[0.72em] text-[#d3c3a0] leading-snug text-center">
-      <img
-        src={ASSETS.misc.redemption_heart}
-        alt=""
-        className="w-[1.8em] h-[1.8em] object-contain inline-block align-middle mr-[0.4em]"
-        onError={hideBrokenImg}
-      />
-      <span className="text-osrs-orange font-bold">Work in progress</span>: a passion project, still
-      being built. Nothing here is final.
-      {!compact && (
-        <> Towers, bosses and balance change between visits, so keep an eye on{' '}
-          {FEEDBACK_ENABLED ? <span className="text-osrs-yellow">💬 Recent updates</span> : <span className="text-osrs-yellow">the updates list</span>}.
-        </>
-      )}
-    </div>
-  );
-}
-
-/** A run left in progress: resume it at the wave it was saved on, board intact. */
-function SavedRunCard({ saved, confirm, setConfirm, onContinue, onDiscard }: {
+/**
+ * The saved run, offered back above the tabs.
+ *
+ * It sits outside the tab strip on purpose: a player who left mid-run wants one
+ * button, and hunting for it behind a tab is the one thing this screen must not
+ * make them do. With no save on disk the band is absent entirely.
+ */
+function ContinueBand({ saved, confirm, setConfirm, onContinue, onDiscard }: {
   saved: RunSave;
   confirm: Confirming;
   setConfirm: (c: Confirming) => void;
@@ -128,9 +132,9 @@ function SavedRunCard({ saved, confirm, setConfirm, onContinue, onDiscard }: {
   onDiscard: () => void;
 }) {
   return (
-    <div className="rs-panel-inset p-[0.7em] mt-[0.8em] flex flex-col gap-[0.5em]">
+    <div className="rs-panel-inset p-[0.55em] flex flex-col gap-[0.45em]">
       <div className="flex items-center gap-[0.6em]">
-        {/* The saved run's own mode icon — the same one its mode panel wears. */}
+        {/* The saved run's own mode icon — the same one its mode card wears. */}
         <img
           src={MODES.find((m) => m.id === saved.gameMode)?.icon}
           alt=""
@@ -138,66 +142,63 @@ function SavedRunCard({ saved, confirm, setConfirm, onContinue, onDiscard }: {
           onError={hideBrokenImg}
         />
         <div className="flex flex-col min-w-0">
-          <span className="text-osrs-yellow font-bold text-[1.05em]">Run in progress</span>
-          <span className="text-[0.72em] text-[#cdbe91] uppercase tracking-wide">
-            {saved.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'}
+          <span className="text-osrs-yellow font-bold text-[0.95em] leading-tight">Run in progress</span>
+          <span className="text-[0.68em] text-[#cdbe91] uppercase tracking-wide truncate">
+            {saved.gameMode === 'roguelite' ? 'Roguelite' : 'Classic'} · {agoLabel(saved.savedAt)}
           </span>
         </div>
+        <button
+          className="rs-btn rs-btn-primary ml-auto px-[1.1em] py-[0.4em] text-[1em] animate-pulse shrink-0"
+          title={`Resume the run at wave ${saved.wave}`}
+          onClick={onContinue}
+        >
+          ▶ Continue
+        </button>
       </div>
 
-      {/* The run's state, read at a glance: each figure wears the same icon it
-          wears in-game (the wave's crossed swords, the hitpoints heart, the
-          coin stack), so the card reads without a legend. */}
-      <div className="flex flex-wrap items-center gap-x-[0.9em] gap-y-[0.3em] text-[0.8em]">
+      {/* The run's state at a glance: each figure wears the icon it wears in-game
+          (the wave's crossed swords, the hitpoints heart, the coin stack), so the
+          band reads without a legend. */}
+      <div className="flex flex-wrap items-center gap-x-[0.9em] gap-y-[0.25em] text-[0.78em]">
         <SaveStat icon={ASSETS.misc.attack_icon} title="Wave reached" value={`Wave ${saved.wave}`} />
         <SaveStat icon={ASSETS.misc.multicombat_icon} title="Towers on the board" value={saved.towers.length} />
         <SaveStat icon={ASSETS.misc.orb_hitpoints} title="Lives left" value={saved.lives} />
         <SaveStat icon={ASSETS.misc.coins_icon} title="Gold" value={fmt(saved.money)} />
-        <SaveStat icon={ASSETS.misc.compass} title="When this run was saved" value={agoLabel(saved.savedAt)} />
+        {confirm !== 'discard' && (
+          <button
+            className="ml-auto text-[0.85em] text-[#a89870] hover:text-osrs-warn"
+            title="Throw the saved run away"
+            onClick={() => setConfirm('discard')}
+          >
+            Discard
+          </button>
+        )}
       </div>
-      <button className="rs-btn rs-btn-primary w-full py-[0.5em] text-[1.05em] animate-pulse" title={`Resume the run at wave ${saved.wave}`} onClick={onContinue}>
-        ▶ Continue
-      </button>
-      {confirm === 'discard' ? (
-        <div className="flex flex-col gap-[0.35em]">
-          <span className="text-[0.75em] text-osrs-warn text-center">
-            Discard the run at wave {saved.wave}? This cannot be undone.
-          </span>
-          <div className="flex gap-[0.4em]">
-            <button
-              className="rs-btn flex-1 py-[0.3em] text-[0.75em] text-osrs-warn"
-              title="Delete the saved run for good"
-              onClick={() => { setConfirm(null); onDiscard(); }}
-            >
-              Yes, discard it
-            </button>
-            <button className="rs-btn flex-1 py-[0.3em] text-[0.75em]" title="Keep the saved run" onClick={() => setConfirm(null)}>
-              Cancel
-            </button>
-          </div>
+
+      {confirm === 'discard' && (
+        <div className="flex items-center gap-[0.4em]">
+          <span className="text-[0.72em] text-osrs-warn flex-1">Discard the run at wave {saved.wave}? This cannot be undone.</span>
+          <button
+            className="rs-btn px-[0.6em] py-[0.25em] text-[0.72em] text-osrs-warn"
+            title="Delete the saved run for good"
+            onClick={() => { setConfirm(null); onDiscard(); }}
+          >
+            Discard it
+          </button>
+          <button className="rs-btn px-[0.6em] py-[0.25em] text-[0.72em]" title="Keep the saved run" onClick={() => setConfirm(null)}>
+            Cancel
+          </button>
         </div>
-      ) : (
-        <button
-          className="rs-btn w-full py-[0.3em] text-[0.75em]"
-          title="Throw the saved run away"
-          onClick={() => setConfirm('discard')}
-        >
-          Discard saved run
-        </button>
       )}
     </div>
   );
 }
 
-/** The two mode panels. Classic (pure TD) vs Roguelite (bought card rolls + boss
+/** The two mode cards. Classic (pure TD) vs Roguelite (bought card rolls + boss
  *  relics) — the choice the whole screen exists for. */
-function ModePicker({ mode, onSelect, compact }: {
-  mode: GameMode;
-  onSelect: (m: GameMode) => void;
-  compact: boolean;
-}) {
+function ModePicker({ mode, onSelect }: { mode: GameMode; onSelect: (m: GameMode) => void }) {
   return (
-    <div className={`grid grid-cols-2 gap-[0.7em] ${compact ? 'mb-[0.8em]' : 'my-4'}`}>
+    <div className="grid grid-cols-2 gap-[0.6em]">
       {MODES.map((m) => {
         const on = mode === m.id;
         return (
@@ -205,7 +206,7 @@ function ModePicker({ mode, onSelect, compact }: {
             key={m.id}
             onClick={() => onSelect(m.id)}
             title={`${m.name}: ${m.desc}`}
-            className={`rs-panel-inset text-left flex flex-col gap-[0.35em] ${compact ? 'p-[0.55em]' : 'p-[0.8em]'}`}
+            className="rs-panel-inset text-left flex flex-col gap-[0.3em] p-[0.6em]"
             style={{ outline: `2px solid ${on ? 'var(--osrs-orange)' : 'transparent'}`, opacity: on ? 1 : 0.78 }}
           >
             <div className="flex items-center gap-[0.5em]">
@@ -213,7 +214,7 @@ function ModePicker({ mode, onSelect, compact }: {
               <span className="text-osrs-yellow font-bold text-[1.05em]">{m.name}</span>
               {on && <span className="ml-auto text-osrs-orange text-[0.9em]">✓</span>}
             </div>
-            <span className="text-[0.66em] uppercase tracking-wide text-osrs-orange">{m.tag}</span>
+            <span className="text-[0.64em] uppercase tracking-wide text-osrs-orange">{m.tag}</span>
             {/* Rune Essence rate for this mode — roguelite's in-run power is paid
                 for with half the meta-currency (see essenceMultiplier). */}
             <span
@@ -223,7 +224,7 @@ function ModePicker({ mode, onSelect, compact }: {
               <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
               Essence <span className="text-osrs-yellow font-bold">{essenceRateLabel(m.id, 'normal')}</span>
             </span>
-            {!compact && <span className="text-[0.78em] text-[#d3c3a0] leading-snug">{m.desc}</span>}
+            <span className="text-[0.74em] text-[#d3c3a0] leading-snug">{m.desc}</span>
             {/* The OSRS prohibited sign, the same glyph the board puts over a
                 tower that is out of action — the game's own "careful with this"
                 mark, so the notice needs no new asset. */}
@@ -240,82 +241,45 @@ function ModePicker({ mode, onSelect, compact }: {
   );
 }
 
-/** How many days of the strip the card shows. A week is the stretch a streak is
- *  read in, and seven pills fit the panel at its narrowest. */
-
 /**
- * Today's daily challenge, as one row: the day, how far you got on it, and the
- * button. It sits above the mode picker, so it stays a row — the mode cards, the
- * difficulty ladder and Start have to keep their place on the screen.
+ * The New Game+ ladder, read as a ladder: a tier already cleared is ticked, the
+ * armed one is lit, and anything past the top of your progress wears the game's
+ * own blocked sign and cannot be pressed.
  */
-function DailyCard({ today, board, onStart }: {
-  today: DayKey;
-  board: DailyBoard;
-  onStart: () => void;
-}) {
-  const best = board.days[today] ?? null;
-  const streak = dailyStreak(board, today);
-  return (
-    <div
-      className="rs-panel-inset flex items-center gap-[0.6em] px-[0.6em] py-[0.45em] mt-[0.7em]"
-      title="Everyone gets the same map and the same waves today. Classic rules, Normal difficulty, as many tries as you like."
-    >
-      {/* The signpost: today everyone walks the same road. */}
-      <img src={ASSETS.misc.signpost} alt="" className="w-[1.6em] h-[1.6em] object-contain shrink-0" onError={hideBrokenImg} />
-      <div className="flex flex-col min-w-0">
-        <span className="text-osrs-yellow font-bold text-[0.95em] leading-tight">Daily Challenge</span>
-        <span className="text-[0.68em] text-[#cdbe91] uppercase tracking-wide truncate">
-          {dayLabel(today)} · {best ? `best wave ${best.wave}` : 'not played yet'}
-        </span>
-      </div>
-      <div className="ml-auto flex items-center gap-[0.6em] shrink-0">
-        {streak > 0 && (
-          <span className="text-[0.72em] text-osrs-orange font-bold" title={`Played ${streak} day${streak === 1 ? '' : 's'} in a row`}>
-            {streak}-day streak
-          </span>
-        )}
-        <button
-          className="rs-btn px-[0.9em] py-[0.3em] text-[0.85em]"
-          title={best ? "Play today's challenge again — only your best run counts" : "Play today's challenge"}
-          onClick={onStart}
-        >
-          ▶ {best ? 'Play again' : 'Play'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** New Game+ difficulty ladder. Unlocked tiers are selectable; locked ones show a
- *  🔒 and stay disabled. */
-function DifficultyPicker({ mode, difficulty, selectedTier, onSelectTier }: {
+function DifficultyLadder({ mode, difficulty, selectedTier, onSelectTier }: {
   mode: GameMode;
   difficulty: DifficultyProgress;
   selectedTier: DifficultyTier;
   onSelectTier: (t: DifficultyTier) => void;
 }) {
+  const cleared = difficulty.highestCleared[mode];
   return (
-    <div className="rs-panel-inset p-[0.6em] mt-[0.8em]">
-      <div className="text-[0.72em] text-[#cdbe91] uppercase tracking-wide mb-[0.5em]">Difficulty</div>
-      <div className="flex flex-wrap gap-[0.35em]">
+    <div className="rs-panel-inset p-[0.55em]">
+      <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.45em]">Difficulty</div>
+      <div className="flex flex-wrap gap-[0.3em]">
         {DIFFICULTY_TIERS.map((t) => {
-          const cleared = difficulty.highestCleared[mode];
           const unlocked = isTierUnlocked(t.id, cleared);
+          const beaten = t.id <= cleared;
           const on = t.id === selectedTier;
           return (
             <button
               key={t.id}
               disabled={!unlocked}
-              className={`rs-btn px-[0.7em] py-[0.3em] text-[0.8em] ${on ? 'rs-btn-primary' : ''}`}
-              title={unlocked ? `Play at ${tierLabel(t.id)}` : `Locked. Win the tier below to unlock ${tierLabel(t.id)}`}
+              className={`rs-btn flex items-center gap-[0.25em] px-[0.6em] py-[0.25em] text-[0.76em] ${on ? 'rs-btn-primary' : ''}`}
+              style={{ opacity: unlocked ? 1 : 0.5 }}
+              title={unlocked
+                ? beaten ? `${tierLabel(t.id)} — cleared` : `Play at ${tierLabel(t.id)}`
+                : `Locked. Win the tier below to unlock ${tierLabel(t.id)}`}
               onClick={() => unlocked && onSelectTier(t.id)}
             >
-              {!unlocked && '🔒 '}{tierLabel(t.id)}
+              {!unlocked && <img src={ASSETS.misc.blocked} alt="" className="w-[0.9em] h-[0.9em] object-contain" onError={hideBrokenImg} />}
+              {beaten && <span className="text-osrs-green">✓</span>}
+              {tierLabel(t.id)}
             </button>
           );
         })}
       </div>
-      <div className="text-[0.68em] text-[#a89870] mt-[0.5em] leading-snug">
+      <div className="text-[0.66em] text-[#a89870] mt-[0.45em] leading-snug">
         Win a tier to unlock the next. Higher tiers give tougher enemies and a
         tighter economy. You play them for the record, not for power.
       </div>
@@ -323,18 +287,33 @@ function DifficultyPicker({ mode, difficulty, selectedTier, onSelectTier }: {
   );
 }
 
-/** The way in, and the two chores under it. */
-function StartActions({ saved, confirm, setConfirm, onStart, onHelp, onSaveCode }: {
+/** The Play tab: pick a mode, pick a tier, go. */
+function PlayTab({ mode, saved, difficulty, selectedTier, confirm, setConfirm, onSelect, onSelectTier, onStart, onSound }: {
+  mode: GameMode;
   saved: RunSave | null;
+  difficulty: DifficultyProgress;
+  selectedTier: DifficultyTier;
   confirm: Confirming;
   setConfirm: (c: Confirming) => void;
+  onSelect: (m: GameMode) => void;
+  onSelectTier: (t: DifficultyTier) => void;
   onStart: () => void;
-  onHelp: () => void;
-  onSaveCode: () => void;
+  onSound: (key: string) => void;
 }) {
   return (
-    <>
-      {/* A new run overwrites the saved one, so with a save on disk it asks first. */}
+    <div className="flex flex-col gap-[0.6em]">
+      <ModePicker mode={mode} onSelect={(m) => { onSound('click'); onSelect(m); }} />
+      <DifficultyLadder
+        mode={mode}
+        difficulty={difficulty}
+        selectedTier={selectedTier}
+        onSelectTier={(t) => { onSound('click'); onSelectTier(t); }}
+      />
+
+      {/* The action stays pinned to the foot of the tab: on a short window the mode
+          cards and the ladder scroll, and the button must not scroll away with them.
+          A new run overwrites the saved one, so with a save on disk it asks first. */}
+      <div className="rs-tab-foot">
       {saved && confirm === 'new' ? (
         <div className="flex flex-col gap-[0.35em]">
           <span className="text-[0.75em] text-osrs-warn text-center">
@@ -342,65 +321,250 @@ function StartActions({ saved, confirm, setConfirm, onStart, onHelp, onSaveCode 
           </span>
           <div className="flex gap-[0.4em]">
             <button
-              className="rs-btn rs-btn-primary flex-1 py-[0.5em] text-[0.9em]"
+              className="rs-btn rs-btn-primary flex-1 py-[0.45em] text-[0.9em]"
               title="Discard the saved run and start fresh in this mode"
-              onClick={() => { setConfirm(null); onStart(); }}
+              onClick={() => { setConfirm(null); onSound('select'); onStart(); }}
             >
               ▶ Start a new run
             </button>
-            <button className="rs-btn flex-1 py-[0.5em] text-[0.9em]" title="Keep the saved run" onClick={() => setConfirm(null)}>
+            <button className="rs-btn flex-1 py-[0.45em] text-[0.9em]" title="Keep the saved run" onClick={() => setConfirm(null)}>
               Cancel
             </button>
           </div>
         </div>
       ) : (
         <button
-          className={`rs-btn rs-btn-primary w-full py-[0.55em] text-[1.1em] ${saved ? '' : 'animate-pulse'}`}
+          className={`rs-btn rs-btn-primary w-full py-[0.5em] text-[1.1em] ${saved ? '' : 'animate-pulse'}`}
           title={saved ? 'Discard the saved run and start fresh in this mode' : 'Lock in this mode and start the run'}
-          onClick={() => (saved ? setConfirm('new') : onStart())}
+          onClick={() => { if (saved) { setConfirm('new'); } else { onSound('select'); onStart(); } }}
         >
           ▶ {saved ? 'New Run' : 'Confirm'}
         </button>
       )}
-      <button className="rs-btn w-full py-[0.4em] text-[0.85em] mt-[0.5em]" title="Open the how-to-play guide" onClick={onHelp}>
-        ❓ How to Play
-      </button>
-      {/* Progress lives in this browser's localStorage and nowhere else, so the way
-          off this machine is a save code. Kept small and last: it is a chore, not a
-          step on the way into a run. */}
-      <button className="rs-btn w-full py-[0.3em] text-[0.72em] mt-[0.3em]" title="Export or import your progress as a save code" onClick={onSaveCode}>
-        💾 Save/Load Game
-      </button>
-    </>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The Daily tab: today's challenge, the week behind it, and what the account has
+ * ever managed on one.
+ */
+function DailyTab({ today, board, onStart, onSound }: {
+  today: DayKey;
+  board: DailyBoard;
+  onStart: () => void;
+  onSound: (key: string) => void;
+}) {
+  const best = board.days[today] ?? null;
+  const streak = dailyStreak(board, today);
+  const records = dailyRecords(board);
+  return (
+    <div className="flex flex-col gap-[0.6em]">
+      <div className="rs-panel-inset p-[0.6em] flex flex-col gap-[0.35em]">
+        <div className="flex items-center gap-[0.55em]">
+          {/* The signpost: today everyone walks the same road. */}
+          <img src={ASSETS.misc.signpost} alt="" className="w-[1.6em] h-[1.6em] object-contain shrink-0" onError={hideBrokenImg} />
+          <div className="flex flex-col min-w-0">
+            <span className="text-osrs-yellow font-bold text-[0.95em] leading-tight">{dayLabel(today)}</span>
+            <span className="text-[0.68em] text-[#cdbe91] uppercase tracking-wide truncate">
+              {best ? `best wave ${best.wave}` : 'not played yet'}
+            </span>
+          </div>
+          {streak > 0 && (
+            <span className="ml-auto text-[0.72em] text-osrs-orange font-bold shrink-0" title={`Played ${streak} day${streak === 1 ? '' : 's'} in a row`}>
+              {streak}-day streak
+            </span>
+          )}
+        </div>
+        <p className="text-[0.72em] text-[#d3c3a0] leading-snug">
+          Everyone gets the same map and the same waves today.
+        </p>
+        <button
+          className="rs-btn rs-btn-primary w-full py-[0.45em] text-[0.95em]"
+          title={best ? "Play today's challenge again — only your best run counts" : "Play today's challenge"}
+          onClick={() => { onSound('select'); onStart(); }}
+        >
+          ▶ {best ? 'Play again' : 'Play'}
+        </button>
+      </div>
+
+      <div className="rs-panel-inset p-[0.6em]">
+        <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide">Today&apos;s rules</div>
+        {/* Flat for now: every daily runs Classic at Normal. The line exists so the
+            day's own rules have somewhere to be said once they start to vary. */}
+        <div className="flex flex-wrap items-center gap-x-[0.8em] gap-y-[0.2em] mt-[0.35em] text-[0.76em] text-[#d3c3a0]">
+          <span className="flex items-center gap-[0.3em]">
+            <img src={ASSETS.misc.multicombat_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+            Classic
+          </span>
+          <span className="flex items-center gap-[0.3em]">
+            <img src={ASSETS.misc.stats_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+            Normal
+          </span>
+          <span className="flex items-center gap-[0.3em]">
+            <img src={ASSETS.misc.orb_run} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
+            As many tries as you like
+          </span>
+        </div>
+      </div>
+
+      <div className="rs-panel-inset p-[0.6em]">
+        <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide">This week</div>
+        <DailyStrip day={today} board={board} />
+      </div>
+
+      <div className="rs-panel-inset p-[0.6em]">
+        <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.45em]">Records</div>
+        <div className="grid grid-cols-2 gap-[0.4em]">
+          <GoStat icon={ASSETS.misc.signpost} label="Days played" value={fmt(records.daysPlayed)} />
+          <GoStat
+            icon={ASSETS.misc.arrow_up}
+            label="Best wave"
+            value={records.bestWave > 0 ? `Wave ${fmt(records.bestWave)}` : '—'}
+          />
+          <GoStat icon={ASSETS.misc.compass} label="Best day" value={records.bestDay ? dayLabel(records.bestDay) : '—'} />
+          <GoStat
+            icon={ASSETS.misc.orb_run_on}
+            label="Longest streak"
+            value={records.longestStreak > 0 ? `${records.longestStreak} days` : '—'}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The Account tab: everything the account carries between runs — essence and what
+ * it buys, the collection, and the numbers behind both.
+ */
+function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, diaries, difficulty, onOpenShop, onOpenLog, onHelp, onSaveCode, onSound }: {
+  essence: number;
+  victories: Victories;
+  killCounts: Record<string, number>;
+  bossesSeen: Record<string, number>;
+  achievements: string[];
+  diaries: string[];
+  difficulty: DifficultyProgress;
+  onOpenShop: () => void;
+  onOpenLog: (tab: LogTab) => void;
+  onHelp: () => void;
+  onSaveCode: () => void;
+  onSound: (key: string) => void;
+}) {
+  const stats = accountStats({ victories, killCounts, bossesSeen, achievements, diaries, difficulty });
+  const openLog = (tab: LogTab) => { onSound('click'); onOpenLog(tab); };
+  return (
+    <div className="flex flex-col gap-[0.6em]">
+      <div className="rs-panel-inset p-[0.6em] flex items-center gap-[0.55em]">
+        <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.6em] h-[1.6em] object-contain shrink-0" onError={hideBrokenImg} />
+        <div className="flex flex-col min-w-0">
+          <span className="text-[#7ce0ff] font-bold text-[1.05em] leading-tight tabular-nums">{fmt(essence)}</span>
+          <span className="text-[0.66em] text-[#cdbe91] uppercase tracking-wide">Rune Essence</span>
+        </div>
+        <button
+          className="rs-btn ml-auto px-[0.9em] py-[0.35em] text-[0.85em] shrink-0"
+          title="Spend essence on permanent upgrades"
+          onClick={() => { onSound('interface_open'); onOpenShop(); }}
+        >
+          Essence Shop
+        </button>
+      </div>
+
+      <div className="rs-panel-inset p-[0.6em]">
+        <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.45em]">Collection</div>
+        <div className="grid grid-cols-2 gap-[0.35em]">
+          <button className="rs-btn flex items-center gap-[0.35em] px-[0.5em] py-[0.3em] text-[0.78em]" title="Every monster you have killed" onClick={() => openLog('monsters')}>
+            <img src={ASSETS.misc.multicombat_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+            Monsters
+          </button>
+          <button className="rs-btn flex items-center gap-[0.35em] px-[0.5em] py-[0.3em] text-[0.78em]" title="Every boss you have met" onClick={() => openLog('bosses')}>
+            <img src={ASSETS.misc.slayer_crossbow} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+            Bosses
+          </button>
+          <button className="rs-btn flex items-center gap-[0.35em] px-[0.5em] py-[0.3em] text-[0.78em]" title="Combat Achievements" onClick={() => openLog('achievements')}>
+            <img src={ASSETS.misc.stats_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+            Achievements
+          </button>
+          <button className="rs-btn flex items-center gap-[0.35em] px-[0.5em] py-[0.3em] text-[0.78em]" title="Achievement Diaries" onClick={() => openLog('diaries')}>
+            <img src={ASSETS.misc.inventory_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+            Diaries
+          </button>
+        </div>
+      </div>
+
+      <div className="rs-panel-inset p-[0.6em]">
+        <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.45em]">Statistics</div>
+        <div className="grid grid-cols-2 gap-[0.4em]">
+          <GoStat icon={ASSETS.misc.trophy} label="Runs won" value={fmt(stats.wins)} />
+          <GoStat
+            icon={ASSETS.misc.orb_run}
+            label="Fastest win"
+            value={stats.fastestSeconds == null ? '—' : fmtTime(stats.fastestSeconds)}
+          />
+          <GoStat
+            icon={ASSETS.misc.arrow_up}
+            label="Highest Endless"
+            value={stats.bestEndlessWave > 0 ? `Wave ${fmt(stats.bestEndlessWave)}` : '—'}
+          />
+          <GoStat
+            icon={ASSETS.misc.stats_icon}
+            label="Hardest tier"
+            value={stats.bestTier >= 0 ? tierLabel(stats.bestTier as DifficultyTier) : '—'}
+          />
+          <GoStat icon={ASSETS.misc.attack_icon} label="Enemies killed" value={fmt(stats.kills)} />
+          <GoStat icon={ASSETS.misc.multicombat_icon} label="Monsters met" value={fmt(stats.killKinds)} />
+          <GoStat icon={ASSETS.misc.slayer_crossbow} label="Bosses met" value={fmt(stats.bossKinds)} />
+          <GoStat icon={ASSETS.misc.inventory_icon} label="Diary tasks" value={fmt(stats.diaries)} />
+        </div>
+        {/* The headline win figure counts both modes, so the split goes under it. */}
+        <div className="text-[0.66em] text-[#a89870] mt-[0.45em]">
+          {fmt(stats.winsClassic)} Classic · {fmt(stats.winsRoguelite)} Roguelite · {fmt(stats.achievements)} Combat Achievements
+        </div>
+      </div>
+
+      <div className="flex gap-[0.4em]">
+        <button className="rs-btn flex-1 py-[0.35em] text-[0.8em]" title="Open the how-to-play guide" onClick={() => { onSound('interface_open'); onHelp(); }}>
+          ❓ How to Play
+        </button>
+        {/* Progress lives in this browser's localStorage and nowhere else, so the
+            way off this machine is a save code. */}
+        <button className="rs-btn flex-1 py-[0.35em] text-[0.8em]" title="Export or import your progress as a save code" onClick={() => { onSound('interface_open'); onSaveCode(); }}>
+          💾 Save/Load
+        </button>
+      </div>
+    </div>
   );
 }
 
 /** Title / mode-select screen shown before the first wave of a run (and again on
- *  restart). Two selectable mode panels — Classic (pure TD) vs Roguelite (bought
- *  card rolls + boss relics) — plus a Start button that locks the choice and kicks
- *  off wave 1. Mode can only change here, since the engine freezes it once a run
- *  begins.
- *
- *  This function is the panel and its running order; each block is its own
- *  component above. */
-export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, selectedTier, today, dailyBoard, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onHelp, onSaveCode }: {
+ *  restart). This function is the room and its running order; each block is its
+ *  own component above. */
+export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, bossesSeen, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onHelp, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound }: {
   mode: GameMode;
-  /** A run left in progress on this browser, offered back before mode select. */
+  /** A run left in progress on this browser, offered back above the tabs. */
   saved: RunSave | null;
-  /** True once the player has won at least one run — lights the champion mark. */
-  champion: boolean;
-  /** Total victories, for the champion mark's hover title. */
-  wins: number;
+  /** The account's victory record — champion mark, wins, fastest clear. */
+  victories: Victories;
   /** Highest Combat Achievement tier cleared in full, or null. Cosmetic only. */
   caTitle: CaTier | null;
   /** New Game+ progress — which tier is unlocked per mode. */
   difficulty: DifficultyProgress;
   /** The tier currently armed for the next run. */
   selectedTier: DifficultyTier;
-  /** Today's UTC day key — the daily challenge the card offers. */
+  /** Today's UTC day key — the daily challenge the tab offers. */
   today: DayKey;
   /** This browser's daily scoreboard (best run per day). */
   dailyBoard: DailyBoard;
+  /** Rune Essence in the bank, and what it has already bought. */
+  essence: number;
+  upgrades: GlobalUpgrades;
+  /** The account's tallies, for the statistics block. */
+  killCounts: Record<string, number>;
+  bossesSeen: Record<string, number>;
+  achievements: string[];
+  diaries: string[];
   onSelect: (m: GameMode) => void;
   onSelectTier: (t: DifficultyTier) => void;
   onStart: () => void;
@@ -409,25 +573,23 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
   onDiscard: () => void;
   onHelp: () => void;
   onSaveCode: () => void;
+  onBuyUpgrade: (id: keyof GlobalUpgrades) => void;
+  onRefundEssence: () => void;
+  /** Open the Collection Log on one of its tabs. */
+  onOpenLog: (tab: LogTab) => void;
+  /** Play one of the game's own interface sounds. */
+  onSound: (key: string) => void;
 }) {
   const [confirm, setConfirm] = useState<Confirming>(null);
-  // With a saved run the screen carries a whole extra card plus its separator, and
-  // the panel grew tall enough to run off the bottom of a laptop screen. So the
-  // resume path tightens everything it can afford to: less padding, a shorter title,
-  // no mode blurbs (the tag line still says what each mode is, and the hover title
-  // keeps the full text), no difficulty ladder (a returning player picked their tier
-  // when they saved), no first-timer footnote — a returning player has read it.
-  // `max-h`/`overflow-y-auto` is the backstop for a very short viewport.
-  const compact = !!saved;
+  const [tab, setTab] = useState<TabId>('play');
+  const [shopOpen, setShopOpen] = useState(false);
   return (
-    <div className="absolute inset-0 bg-black/82 flex flex-col items-center justify-center z-40 p-4">
-      <div className={`rs-panel w-[34em] max-w-[94vw] max-h-[94vh] overflow-y-auto flex flex-col ${compact ? 'p-4' : 'p-6'}`}>
-        <ScreenHeader compact={compact} saved={!!saved} champion={champion} wins={wins} caTitle={caTitle} />
-
-        <WipNotice compact={compact} />
+    <div className="rs-start-wood absolute inset-0 flex items-center justify-center z-40 p-4">
+      <div className="rs-start-room w-[36em] max-w-[95vw] max-h-full flex flex-col gap-[0.7em]">
+        <Wordmark champion={victories.total > 0} wins={victories.total} caTitle={caTitle} />
 
         {saved && (
-          <SavedRunCard
+          <ContinueBand
             saved={saved}
             confirm={confirm}
             setConfirm={setConfirm}
@@ -436,31 +598,88 @@ export function StartScreen({ mode, saved, champion, wins, caTitle, difficulty, 
           />
         )}
 
-        {saved && <div className="text-center text-[0.75em] text-[#cdbe91] mt-[0.8em] mb-[0.3em]">· or start a new run ·</div>}
+        {/* The tab strip, icon-only like the game's own: the name is on hover. */}
+        <div className="flex items-center justify-center gap-[0.35em]">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className={`rs-tab ${tab === t.id ? 'rs-tab-on' : ''}`}
+              title={t.name}
+              aria-label={t.name}
+              onClick={() => { if (t.id !== tab) { onSound('click'); setTab(t.id); } }}
+            >
+              <img src={t.icon} alt="" onError={hideBrokenImg} />
+            </button>
+          ))}
+        </div>
 
-        <DailyCard today={today} board={dailyBoard} onStart={onStartDaily} />
+        {/* Keyed by tab so the fade replays on every switch. */}
+        <div key={tab} className="rs-tab-body rs-panel p-[0.7em] overflow-y-auto flex-1 min-h-0">
+          {tab === 'play' && (
+            <PlayTab
+              mode={mode}
+              saved={saved}
+              difficulty={difficulty}
+              selectedTier={selectedTier}
+              confirm={confirm}
+              setConfirm={setConfirm}
+              onSelect={onSelect}
+              onSelectTier={onSelectTier}
+              onStart={onStart}
+              onSound={onSound}
+            />
+          )}
+          {tab === 'daily' && <DailyTab today={today} board={dailyBoard} onStart={onStartDaily} onSound={onSound} />}
+          {tab === 'account' && (
+            <AccountTab
+              essence={essence}
+              victories={victories}
+              killCounts={killCounts}
+              bossesSeen={bossesSeen}
+              achievements={achievements}
+              diaries={diaries}
+              difficulty={difficulty}
+              onOpenShop={() => setShopOpen(true)}
+              onOpenLog={onOpenLog}
+              onHelp={onHelp}
+              onSaveCode={onSaveCode}
+              onSound={onSound}
+            />
+          )}
+        </div>
 
-        <div className="text-center text-[0.75em] text-[#cdbe91] mt-[0.8em] mb-[0.3em]">· or play a run of your own ·</div>
-
-        <ModePicker mode={mode} onSelect={onSelect} compact={compact} />
-
-        {!compact && (
-          <DifficultyPicker mode={mode} difficulty={difficulty} selectedTier={selectedTier} onSelectTier={onSelectTier} />
-        )}
-
-        <StartActions
-          saved={saved}
-          confirm={confirm}
-          setConfirm={setConfirm}
-          onStart={onStart}
-          onHelp={onHelp}
-          onSaveCode={onSaveCode}
-        />
-
-        {!compact && (
-          <div className="text-center text-[0.7em] text-[#cdbe91] mt-[0.5em]">First time? Read <span className="text-osrs-orange">How to Play</span>. Then press <span className="text-osrs-orange">Start Wave</span> when you&apos;re ready.</div>
-        )}
+        {/* Says out loud what the game is, on the wood rather than in a panel: a
+            hobby project that is still moving. It is not a first-run tip and never
+            gets dismissed — a returning player is exactly who the "check the
+            updates" half is for. */}
+        <div className="text-center text-[0.68em] text-[#b3a585]">
+          <img
+            src={ASSETS.misc.redemption_heart}
+            alt=""
+            className="w-[1.2em] h-[1.2em] object-contain inline-block align-middle mr-[0.35em]"
+            onError={hideBrokenImg}
+          />
+          <span className="text-osrs-orange font-bold">Work in progress</span> · nothing here is final
+          {FEEDBACK_ENABLED && <> · <span className="text-osrs-yellow">💬 Recent updates</span></>}
+        </div>
       </div>
+
+      {/* The essence shop, over the room: the same panel the bottom bar opens
+          during a run, so the two copies can never drift apart. */}
+      {shopOpen && (
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4" onClick={() => setShopOpen(false)}>
+          <div className="rs-panel w-[26em] max-w-[92vw] max-h-[88vh] overflow-y-auto p-[0.8em]" onClick={(e) => e.stopPropagation()}>
+            <EssenceShop essence={essence} upgrades={upgrades} onBuy={onBuyUpgrade} onRefund={onRefundEssence} />
+            <button
+              className="rs-btn w-full mt-[0.6em] py-[0.35em] text-[0.8em]"
+              title="Close the essence shop"
+              onClick={() => { onSound('interface_close'); setShopOpen(false); }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

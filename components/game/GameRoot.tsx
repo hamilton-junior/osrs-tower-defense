@@ -25,6 +25,8 @@ import { CollectionLog, type LogTab } from './collection-log';
 import { SowPanel } from './farming-ui';
 import { weaknessTag, enemySpriteStyle } from './enemy-ui';
 import { StartScreen } from './start-screen';
+import { DailyEndLine } from './daily-ui';
+import { EssenceShop } from './essence-shop';
 import { DpsView } from './dps-view';
 import { SkillsView, type SkillId } from './skills-ui';
 import { InventoryView, type InventoryPage } from './inventory-ui';
@@ -43,13 +45,13 @@ import { RewardChip, RewardOptions } from './diversion-reward';
 import type { DiversionReward } from '@/lib/game/systems/diversions';
 import { useMirroredStore, useAppendOnlyStore } from './use-persisted';
 import { SAVE_KEYS, EMPTY_VICTORIES, EMPTY_DIFFICULTY, loadVictories, loadDifficulty, loadAchievements, loadDiaries, loadRunSave, clearRunSave, loadSave, loadDailyBoard, type Victories, type DifficultyProgress } from './save';
-import { dailyKey, dayLabel, shiftKey, type DayKey } from '@/lib/game/systems/daily-seed';
-import { EMPTY_BOARD, dailyStreak, recordDaily, type DailyBoard } from '@/lib/game/systems/daily-score';
+import { dailyKey, type DayKey } from '@/lib/game/systems/daily-seed';
+import { EMPTY_BOARD, recordDaily, type DailyBoard } from '@/lib/game/systems/daily-score';
 import { hideBrokenImg, TILE_PX, pct, attackSpeed, loadBool, loadNum, fs, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_STEP, buffedDisplay, fmt, stackClass, fmtTime, LevelReq, Price, Vital, GoStat, StatLabel, Stat } from './ui-kit';
 import { PRAYERS, TOWER_PRAYERS } from '@/lib/game/data/prayers';
 import { ASSETS, iconUrl, coinsIcon, GEAR_ICONS } from '@/lib/game/assets';
 import { waveClearBonus } from '@/lib/game/systems/rewards';
-import { GLOBAL_UPGRADE_DEFS, DEFAULT_UPGRADES, nextCost, isMaxed, formatUpgradeValue, previewUpgradeValue, refundValue, essenceRateLabel } from '@/lib/game/systems/meta-progression';
+import { DEFAULT_UPGRADES, essenceRateLabel } from '@/lib/game/systems/meta-progression';
 import { SLAYER_REWARDS, SLAYER_HELMET_BONUS, SLAYER_HELMET_IMBUED_BONUS } from '@/lib/game/data/slayer';
 import { ENEMIES } from '@/lib/game/data/enemies';
 import { isPrayerUnlocked, prayerUnlockWave } from '@/lib/game/systems/prayer';
@@ -167,64 +169,6 @@ const prayerIcon = (id: PrayerType) => (ASSETS.prayers as Record<string, string>
 /** Icon for a GE offer / slayer reward / meta upgrade: resolves the data table's
  *  wiki filename to the cache-baked local asset (wiki hot-link as fallback). */
 const geIcon = (wiki: string) => iconUrl(wiki);
-
-/**
- * The daily's line on an end-of-run screen: what today's board holds now that this
- * run has been filed, and whether this run is the one holding it.
- */
-/**
- * The last week of dailies, one cell per day: the wave that day's best run
- * reached, a dash for a day nobody played. The day just finished is marked, so
- * the run reads against the week it belongs to. The start screen has no room
- * for this — its card is one row — so the week only ever shows up here.
- */
-function DailyStrip({ day, board }: { day: DayKey; board: DailyBoard }) {
-  return (
-    <div className="flex items-end justify-center gap-[0.25em] mt-[0.55em]">
-      {Array.from({ length: 7 }, (_, i) => shiftKey(day, 6 - i)).map((key) => {
-        const score = board.days[key] ?? null;
-        const isDay = key === day;
-        return (
-          <div key={key} className="flex flex-col items-center gap-[0.15em] w-[2.3em]">
-            <div
-              className={`w-full py-[0.2em] text-center text-[0.8em] font-bold bg-[#1c1812] border ${
-                isDay ? 'border-[var(--osrs-orange)] text-osrs-orange'
-                  : score ? 'border-[var(--rs-keyline)] text-osrs-yellow'
-                  : 'border-[var(--rs-keyline)] text-[#6f6656]'
-              }`}
-              title={score ? `${dayLabel(key)} — wave ${score.wave}` : `${dayLabel(key)} — not played`}
-            >
-              {score ? score.wave : '–'}
-            </div>
-            {/* The day of the month alone: the month is already in the line above. */}
-            <span className="text-[0.6em] uppercase tracking-wide text-[#8f8574]">{dayLabel(key).split(' ')[0]}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function DailyEndLine({ day, board, isBest }: { day: DayKey; board: DailyBoard; isBest: boolean }) {
-  const best = board.days[day] ?? null;
-  const streak = dailyStreak(board, day);
-  return (
-    <div className="rs-panel-inset px-[0.6em] py-[0.5em] mb-4 text-[0.95em]">
-      <div className="flex items-center justify-center gap-[0.5em]">
-        <img src={ASSETS.misc.signpost} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-        <span className="text-[0.82em] text-[#d3c3a0] uppercase tracking-wide">{dayLabel(day)} best</span>
-        <span className="text-osrs-yellow font-bold">Wave {best ? best.wave : '–'}</span>
-        {isBest && <span className="text-[0.78em] text-osrs-orange uppercase tracking-wide">new</span>}
-      </div>
-      <DailyStrip day={day} board={board} />
-      {streak > 1 && (
-        <div className="text-center text-[0.72em] text-osrs-orange font-bold mt-[0.4em]" title="Days played in a row">
-          {streak}-day streak
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function GameRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -3632,13 +3576,22 @@ export default function GameRoot() {
         <StartScreen
           mode={ui.gameMode}
           saved={savedRun}
-          champion={victories.total > 0}
-          wins={victories.total}
+          victories={victories}
           caTitle={caTitle}
           difficulty={difficulty}
           selectedTier={selectedTier}
           today={today}
           dailyBoard={dailyBoard}
+          essence={ui.essence}
+          upgrades={ui.upgrades}
+          killCounts={ui.killCounts}
+          bossesSeen={ui.bossesSeen}
+          achievements={ui.achievements}
+          diaries={ui.diaries}
+          onBuyUpgrade={(id) => engineRef.current?.buyEssenceUpgrade(id)}
+          onRefundEssence={() => engineRef.current?.refundEssence()}
+          onOpenLog={(t) => { setLogTab(t); setLogOpen(true); }}
+          onSound={(k) => engineRef.current?.sound.play(k)}
           onSelect={(m) => engineRef.current?.setMode(m)}
           onSelectTier={chooseTier}
           onStart={() => { clearRunSave(); setSavedRun(null); engineRef.current?.leaveDaily(); setRunStarted(true); }}
@@ -3758,97 +3711,12 @@ export default function GameRoot() {
 
         {/* ── ESSENCE SHOP (permanent meta-progression upgrades) ── */}
         {tab === 'essence' && (
-        <>
-          <div className="rs-panel-title flex items-center gap-2">
-            <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.3em] h-[1.3em] object-contain" onError={hideBrokenImg} />
-            Essence Shop
-          </div>
-          <div className="flex items-center justify-between mt-[0.5em] px-[0.2em] text-[0.8em]">
-            <span className="text-[#cdbe91] uppercase tracking-wide">Rune Essence</span>
-            <span className="flex items-center gap-[0.3em] text-[#7ce0ff] font-bold">
-              <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
-              {fmt(ui.essence)}
-            </span>
-          </div>
-          <div className="space-y-[0.4em] mt-[0.6em] pr-[0.2em]">
-            {GLOBAL_UPGRADE_DEFS.map((def) => {
-              const value = ui.upgrades[def.id];
-              const maxed = isMaxed(def, value);
-              const cost = nextCost(def, value);
-              const afford = ui.essence >= cost;
-              const preview = previewUpgradeValue(def, value);
-              return (
-                <HoverTip
-                  key={def.id}
-                  content={
-                    <>
-                      <span className="block">{def.desc}</span>
-                      {preview && (
-                        <span className="block text-[0.85em] text-[#7ce0ff] mt-[0.2em]">
-                          {formatUpgradeValue(def, value)} → {preview}
-                        </span>
-                      )}
-                    </>
-                  }
-                >
-                  <button
-                    onClick={() => engineRef.current?.buyEssenceUpgrade(def.id)}
-                    disabled={maxed || !afford}
-                    className={`rs-ge-row w-full flex items-center gap-[0.6em] p-[0.4em] text-left ${maxed || !afford ? 'rs-slot-unafford' : ''}`}
-                  >
-                    <img src={geIcon(def.icon)} alt="" className="w-[1.8em] h-[1.8em] object-contain shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
-                    <span className="flex-1 min-w-0">
-                      <span className="flex items-center gap-[0.4em]">
-                        <span className="text-[#e7d9b0] truncate">{def.name}</span>
-                        <span className="rs-ge-timer">{formatUpgradeValue(def, value)}</span>
-                        {/* What the essence actually buys. Without it the row states a
-                            price and a present tense, and the player only learns the
-                            offer by accepting it. */}
-                        {preview && (
-                          <span className="flex items-center gap-[0.25em] whitespace-nowrap shrink-0">
-                            <span className="text-[#9d8f70]">→</span>
-                            <span className="rs-ge-timer">{preview}</span>
-                          </span>
-                        )}
-                      </span>
-                      <span className="block text-[0.7em] text-[#d3c3a0] truncate">{def.desc}</span>
-                    </span>
-                    {maxed ? (
-                      <span className="text-osrs-green font-bold text-[0.7em] uppercase tracking-wide whitespace-nowrap">Max</span>
-                    ) : (
-                      <span className="flex items-center gap-[0.25em] font-bold whitespace-nowrap" style={{ color: afford ? '#7ce0ff' : 'var(--osrs-red)' }}>
-                        {fmt(cost)}
-                        <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                      </span>
-                    )}
-                  </button>
-                </HoverTip>
-              );
-            })}
-          </div>
-          {(() => {
-            const refund = refundValue(ui.upgrades);
-            return (
-              <button
-                onClick={() => engineRef.current?.refundEssence()}
-                disabled={refund <= 0}
-                title="Reset every upgrade and reclaim 90% of the essence you've spent"
-                className={`rs-btn w-full mt-[0.6em] py-[0.4em] text-[0.78em] flex items-center justify-center gap-[0.35em] ${refund <= 0 ? 'rs-slot-unafford' : ''}`}
-              >
-                Refund all
-                {refund > 0 && (
-                  <span className="flex items-center gap-[0.2em] text-[#7ce0ff] font-bold">
-                    +{fmt(refund)}
-                    <img src={ASSETS.misc.rune_essence_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />
-                  </span>
-                )}
-              </button>
-            );
-          })()}
-          <p className="text-center text-[0.66em] text-[#b3a585] mt-[0.6em]">
-            Permanent upgrades · earn essence by clearing waves
-          </p>
-        </>
+          <EssenceShop
+            essence={ui.essence}
+            upgrades={ui.upgrades}
+            onBuy={(id) => engineRef.current?.buyEssenceUpgrade(id)}
+            onRefund={() => engineRef.current?.refundEssence()}
+          />
         )}
 
         {/* ── SLAYER REWARDS (sink for Slayer points) ── */}

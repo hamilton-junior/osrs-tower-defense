@@ -4,6 +4,8 @@ import {
   EMPTY_BOARD,
   compareDailyScores,
   dailyStreak,
+  dailyRecords,
+  dayStrip,
   recentDays,
   recordDaily,
   sanitizeDailyBoard,
@@ -143,5 +145,60 @@ describe('sanitizeDailyBoard', () => {
     const out = sanitizeDailyBoard(raw);
     expect(Object.keys(out.days).sort()).toEqual(['2026-09-16', '2026-09-18']);
     expect(out.days['2026-09-16']).toEqual({ wave: 8, lives: 0, kills: 0, seconds: 0, at: 1 });
+  });
+});
+
+describe('dayStrip', () => {
+  it('paints a fixed row of days, oldest first, with the gaps in it', () => {
+    const board: DailyBoard = { version: DAILY_BOARD_VERSION, days: { '2026-09-18': score({ wave: 30 }), '2026-09-16': score({ wave: 12 }) } };
+    const strip = dayStrip(board, '2026-09-18', 4);
+    expect(strip.map((r) => r.key)).toEqual(['2026-09-15', '2026-09-16', '2026-09-17', '2026-09-18']);
+    expect(strip.map((r) => r.score?.wave ?? null)).toEqual([null, 12, null, 30]);
+  });
+
+  it('crosses a month boundary the same as any other day', () => {
+    expect(dayStrip(EMPTY_BOARD, '2026-10-01', 3).map((r) => r.key)).toEqual(['2026-09-29', '2026-09-30', '2026-10-01']);
+  });
+});
+
+describe('dailyRecords', () => {
+  it('reads nothing off an empty board', () => {
+    expect(dailyRecords(EMPTY_BOARD)).toEqual({ daysPlayed: 0, bestWave: 0, bestDay: null, longestStreak: 0 });
+  });
+
+  it('keeps the best wave and the day it was set on', () => {
+    const board: DailyBoard = { version: DAILY_BOARD_VERSION, days: {
+      '2026-09-16': score({ wave: 12 }),
+      '2026-09-17': score({ wave: 44 }),
+      '2026-09-18': score({ wave: 30 }),
+    } };
+    const rec = dailyRecords(board);
+    expect(rec.bestWave).toBe(44);
+    expect(rec.bestDay).toBe('2026-09-17');
+    expect(rec.daysPlayed).toBe(3);
+  });
+
+  // A record belongs to whoever set it first, so a later day that only matches it
+  // does not take it over.
+  it('gives a tied record to the earlier day', () => {
+    const board: DailyBoard = { version: DAILY_BOARD_VERSION, days: {
+      '2026-09-16': score({ wave: 20 }),
+      '2026-09-18': score({ wave: 20 }),
+    } };
+    expect(dailyRecords(board).bestDay).toBe('2026-09-16');
+  });
+
+  it('measures the longest run of days, not the current one', () => {
+    const board: DailyBoard = { version: DAILY_BOARD_VERSION, days: {
+      '2026-09-01': score(), '2026-09-02': score(), '2026-09-03': score(), '2026-09-04': score(),
+      '2026-09-10': score(),
+    } };
+    expect(dailyRecords(board).longestStreak).toBe(4);
+    expect(dailyStreak(board, '2026-09-10')).toBe(1);
+  });
+
+  it('ignores a key that is not a day', () => {
+    const board = { version: DAILY_BOARD_VERSION, days: { whenever: score({ wave: 99 }), '2026-09-18': score({ wave: 7 }) } } as unknown as DailyBoard;
+    expect(dailyRecords(board)).toEqual({ daysPlayed: 1, bestWave: 7, bestDay: '2026-09-18', longestStreak: 1 });
   });
 });
