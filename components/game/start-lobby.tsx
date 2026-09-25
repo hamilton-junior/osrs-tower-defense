@@ -22,9 +22,10 @@ const TORCH_LEVEL = 0.2;
  * the first render, so a miss is retried on the page's first click, which is
  * also when a browser starts allowing sound.
  */
-export function StartLobby({ onAmbient, onSound }: {
+export function StartLobby({ onAmbient, onSound, soundSeconds }: {
   onAmbient: (key: string, level: number) => (() => void) | undefined;
   onSound: (key: string, level: number) => void;
+  soundSeconds: (key: string) => number;
 }) {
   useEffect(() => {
     let stop = onAmbient('lobby_torch', TORCH_LEVEL);
@@ -49,7 +50,7 @@ export function StartLobby({ onAmbient, onSound }: {
     <div className="rs-lobby" style={vars} aria-hidden>
       <div className="rs-lobby-wall" />
       <div className="rs-lobby-floor" />
-      <LobbyWalkers onSound={onSound} overRef={overRef} />
+      <LobbyWalkers onSound={onSound} soundSeconds={soundSeconds} overRef={overRef} />
       <div className="rs-lobby-torch rs-lobby-torch-l">
         <div className="rs-lobby-halo" />
         <div className="rs-lobby-flame" />

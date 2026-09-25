@@ -41,13 +41,17 @@ const WALKER_FILTER = 'brightness(0.78)';
  * sheets, measures the room, draws what the simulation holds and plays the
  * sounds its events name. Nothing moves for a player who asks for reduced motion.
  */
-export function LobbyWalkers({ onSound, overRef }: {
+export function LobbyWalkers({ onSound, soundSeconds, overRef }: {
   onSound: (key: string, level: number) => void;
+  /** Length in seconds of a loaded sound, or NaN while it is unknown. */
+  soundSeconds: (key: string) => number;
   overRef: React.RefObject<HTMLCanvasElement | null>;
 }) {
   const backRef = useRef<HTMLCanvasElement>(null);
   const soundRef = useRef(onSound);
   useEffect(() => { soundRef.current = onSound; }, [onSound]);
+  const secondsRef = useRef(soundSeconds);
+  useEffect(() => { secondsRef.current = soundSeconds; }, [soundSeconds]);
 
   useEffect(() => {
     const back = backRef.current, front = overRef.current;
@@ -136,7 +140,10 @@ export function LobbyWalkers({ onSound, overRef }: {
     for (const el of [lobby, roomEl, torchEl]) if (el) ro.observe(el);
 
     const state = newLobby(Math.random);
-    const env: LobbyEnv = { get stage() { return stage; }, rand: Math.random, sheet };
+    const env: LobbyEnv = {
+      get stage() { return stage; }, rand: Math.random, sheet,
+      soundSeconds: (key) => secondsRef.current(key),
+    };
 
     const drawWalker = (ctx: CanvasRenderingContext2D, w: LobbyWalker) => {
       const set = ENEMY_ANIMS[w.slug];

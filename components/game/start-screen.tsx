@@ -566,7 +566,7 @@ function AccountTab({ essence, victories, killCounts, diversionsMet, achievement
 /** Title / mode-select screen shown before the first wave of a run (and again on
  *  restart). This function is the room and its running order; each block is its
  *  own component above. */
-export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, diversionsMet, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound, onAmbient }: {
+export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, diversionsMet, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound, onAmbient, soundSeconds }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back above the tabs. */
   saved: RunSave | null;
@@ -606,6 +606,8 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   /** Starts a looping sound and returns what stops it; undefined while the
    *  engine is not up yet. */
   onAmbient: (key: string, level: number) => (() => void) | undefined;
+  /** Length in seconds of a loaded sound, or NaN while it is unknown. */
+  soundSeconds: (key: string) => number;
 }) {
   const [confirm, setConfirm] = useState<Confirming>(null);
   const [tab, setTab] = useState<TabId>('play');
@@ -638,7 +640,7 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
       className="rs-start-wood absolute inset-0 flex items-center justify-center z-40 p-4"
       style={{ fontSize: `${fit}em` }}
     >
-      <StartLobby onAmbient={onAmbient} onSound={onSound} />
+      <StartLobby onAmbient={onAmbient} onSound={onSound} soundSeconds={soundSeconds} />
       <div className="rs-start-room relative z-[1] w-[36em] max-w-[95vw] max-h-full flex flex-col gap-[0.7em]">
         <Wordmark champion={victories.total > 0} wins={victories.total} caTitle={caTitle} />
 

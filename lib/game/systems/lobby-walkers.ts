@@ -3,7 +3,7 @@ import { NPC_HITPOINTS } from '../data/npc-hitpoints.data';
 import { SPOTANIMS, spotAnimDurationS } from '../data/spotanims';
 import { TOWERS } from '../data/towers';
 import { DEATH_SETTLE_S } from '../data/enemy-anims';
-import { HITSPLAT_LIFE, projectileEase } from '../core/engine-state';
+import { HITSPLAT_LIFE, SHORTEST_CAST_S, projectileEase } from '../core/engine-state';
 import { fusionSpellFx } from './tower-fusion';
 import { TICK_SECONDS } from './magic';
 import type { EnemyDef, TowerType } from '../types';
@@ -51,20 +51,19 @@ const FLOOR_MARGIN_EM = 0.6;
 const TORCH_CLEAR_EM = 0.4;
 /** Board projectiles fly at 600 board px per second (see core/sim/combat). */
 const SHOT_SPEED = 600;
-/** A spell's bolt stays in the air at least this long, so its cast clip finishes
- *  before the impact sound starts, as the board's spells do. */
-const SPELL_MIN_FLIGHT_S = 1.2;
 /** Arrows, bolts and thrown weapons fly slower than the board's, so the eye can
  *  follow one across the wide lobby into the monster it hits. */
 const SHOT_SLOW = 0.7;
 const SHOT_MIN_FLIGHT_S = 0.6;
 
 /** Seconds a lobby shot spends in the air over `dist` px. A spell keeps the
- *  board's speed and waits out its cast; anything else flies at SHOT_SLOW. */
-export function lobbyShotFlight(dist: number, spell: boolean, stage: LobbyStage): number {
+ *  board's speed and stays up until its cast sound (`castS` long, NaN while the
+ *  clip is not decoded) has played out, so it lands as the cast ends; anything
+ *  else flies at SHOT_SLOW. */
+export function lobbyShotFlight(dist: number, spell: boolean, stage: LobbyStage, castS = NaN): number {
   const speed = SHOT_SPEED * lobbyUnit(stage);
   return spell
-    ? Math.max(SPELL_MIN_FLIGHT_S, dist / speed)
+    ? Math.max(isFinite(castS) ? castS : SHORTEST_CAST_S, dist / speed)
     : Math.max(SHOT_MIN_FLIGHT_S, dist / (speed * SHOT_SLOW));
 }
 /** How far outside the lobby's edge a shot is launched from, in em. */
@@ -239,6 +238,8 @@ export interface LobbyEnv {
   rand: () => number;
   /** The sprite set for `slug`, or null while it is still loading (asking starts the load). */
   sheet: (slug: string) => WalkerSheet | null;
+  /** Length in seconds of a loaded sound, or NaN while it is unknown. */
+  soundSeconds?: (key: string) => number;
 }
 
 export function newLobby(rand: () => number): LobbyState {
@@ -319,6 +320,7 @@ export function lobbySpells(): string[] {
 /** Plan the shot that fells `w`, or null when no visible floor lies on its path. */
 export function planStrike(
   rand: () => number, stage: LobbyStage, w: LobbyWalker,
+  soundSeconds?: (key: string) => number,
 ): LobbyWalker['strike'] {
   const strips = stage.strips.filter(([x0, x1]) => x1 - x0 >= w.size);
   if (!strips.length) return null;
@@ -339,7 +341,8 @@ export function planStrike(
   const ox = atX < stage.width / 2 ? -off : stage.width + off;
   const oy = stage.floorTop * (0.3 + 0.5 * rand());
   const dist = Math.hypot(atX - ox, walkerBodyY(w) - oy);
-  const flight = lobbyShotFlight(dist, !!spell, stage);
+  const castS = spell && soundSeconds ? soundSeconds(`cast_${spell}`) : NaN;
+  const flight = lobbyShotFlight(dist, !!spell, stage, castS);
   // Fire early enough that the walker reaches atX as the shot lands.
   const launchX = atX - w.dir * w.speed * flight;
   return {
@@ -379,7 +382,7 @@ function spawn(s: LobbyState, env: LobbyEnv): void {
     struckAge: null,
     deadAge: null,
   };
-  if (rand() < LOBBY_STRIKE_CHANCE) w.strike = planStrike(rand, stage, w);
+  if (rand() < LOBBY_STRIKE_CHANCE) w.strike = planStrike(rand, stage, w, env.soundSeconds);
   s.walkers.push(w);
   s.nextSpawn = between(rand, LOBBY_SPAWN_GAP_S);
 }

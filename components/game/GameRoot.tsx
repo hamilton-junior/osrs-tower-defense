@@ -3594,6 +3594,7 @@ export default function GameRoot() {
           onOpenLog={(t) => { setLogTab(t); setLogOpen(true); }}
           onSound={(k, l) => engineRef.current?.sound.play(k, undefined, l)}
           onAmbient={(k, l) => engineRef.current?.sound.loop(k, l)}
+          soundSeconds={(k) => engineRef.current?.sound.duration(k) ?? NaN}
           onSelect={(m) => engineRef.current?.setMode(m)}
           onSelectTier={chooseTier}
           onStart={() => { clearRunSave(); setSavedRun(null); engineRef.current?.newRun(); setRunStarted(true); }}

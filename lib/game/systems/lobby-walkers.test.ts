@@ -8,6 +8,7 @@ import {
 import { NPC_HITPOINTS } from '../data/npc-hitpoints.data';
 import { DEATH_SETTLE_S } from '../data/enemy-anims';
 import { ENEMIES } from '../data/enemies';
+import { SHORTEST_CAST_S } from '../core/engine-state';
 
 /** Deterministic PRNG (mulberry32) so every run walks the same lobby. */
 function seeded(seed: number): () => number {
@@ -344,7 +345,24 @@ describe('lobbyShotFlight', () => {
   });
 
   it('keeps each kind above its own floor on a short hop', () => {
-    expect(lobbyShotFlight(1, true, STAGE)).toBe(1.2);
+    expect(lobbyShotFlight(1, true, STAGE)).toBe(SHORTEST_CAST_S);
     expect(lobbyShotFlight(1, false, STAGE)).toBe(0.6);
+  });
+
+  it('lands a spell as its cast sound ends', () => {
+    expect(lobbyShotFlight(1, true, STAGE, 2.1)).toBe(2.1);
+    expect(lobbyShotFlight(1, false, STAGE, 2.1)).toBe(0.6);
+  });
+
+  it('holds a wizard shot in the air for its own cast sound', () => {
+    const rand = seeded(61);
+    const asked: string[] = [];
+    const secs = (key: string) => { asked.push(key); return 3.3; };
+    for (let i = 0; i < 400; i++) {
+      const shot = planStrike(rand, STAGE, walker(rand), secs)!.shot;
+      if (shot.spell) expect(shot.flight).toBeGreaterThanOrEqual(3.3);
+    }
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.every((k) => k.startsWith('cast_'))).toBe(true);
   });
 });

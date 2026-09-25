@@ -4,7 +4,7 @@
     {
       "kind": "fixed",
       "scope": "start",
-      "text": "Stop the lobby's monsters blinking when you switch menu tabs",
+      "text": "Land the lobby's spells as their cast sound ends, not halfway through it",
       "fromFeedback": false,
       "date": "2026-09-25"
     },
@@ -278,13 +278,6 @@
       "kind": "new",
       "scope": "diaries",
       "text": "Read every region's Achievement Diary in the Collection Log",
-      "fromFeedback": false,
-      "date": "2026-09-20"
-    },
-    {
-      "kind": "new",
-      "scope": "diaries",
-      "text": "Every region keeps an Achievement Diary, and clearing a task announces itself",
       "fromFeedback": false,
       "date": "2026-09-20"
     }
