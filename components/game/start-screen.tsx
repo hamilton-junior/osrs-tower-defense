@@ -12,6 +12,7 @@ import { dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
 import { dailyRules } from '@/lib/game/systems/daily-rules';
 import { dailyRecords, dailyStreak, type DailyBoard } from '@/lib/game/systems/daily-score';
 import { accountStats } from '@/lib/game/systems/account-stats';
+import { ENEMY_ANIMS } from '@/lib/game/data/enemy-anims';
 import type { LogTab } from './collection-log';
 import { DailyStrip } from './daily-ui';
 import { EssenceShop } from './essence-shop';
@@ -77,11 +78,13 @@ function SaveStat({ icon, title, value }: { icon: string; title: string; value: 
 }
 
 /**
- * The game's name between a Dwarf multicannon and a Giant rat, both cache-rendered
- * and both facing the wordmark. The rat is the enemy's own Giant rat (NPC 2510),
- * baked in profile for the title. Under it, whatever the account has earned the right to wear.
+ * The game's name between a Dwarf multicannon and a Giant rat, both facing the
+ * wordmark. The rat is the first frame of the walk the lobby's rats play, mirrored
+ * the way a rat walking left is, so the title and the floor show one animal.
+ * Under it, whatever the account has earned the right to wear.
  */
 function Wordmark({ champion, wins, caTitle }: { champion: boolean; wins: number; caTitle: CaTier | null }) {
+  const ratWalk = ENEMY_ANIMS.rat?.clips.walk;
   return (
     <div className="text-center">
       <div className="flex items-center justify-center gap-[0.7em]">
@@ -89,14 +92,19 @@ function Wordmark({ champion, wins, caTitle }: { champion: boolean; wins: number
         <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: fs('clamp(18px, 2.1vw, 28px)') }}>
           OSRS Tower Defense
         </div>
-        <img
-          src={ASSETS.misc.title_rat}
-          alt=""
-          // The rat is long and low, so a bigger box gives it the cannon's weight; the
-          // negative margin keeps the row's height. Baked facing left, at the wordmark.
-          className="w-[3.6em] h-[3.6em] -my-[0.7em] object-contain shrink-0"
-          onError={hideBrokenImg}
-        />
+        {ratWalk && (
+          <div
+            // The rat is long and low, so a bigger box gives it the cannon's weight;
+            // the negative margin keeps the row's height.
+            className="w-[3.6em] h-[3.6em] -my-[0.7em] shrink-0 bg-no-repeat"
+            style={{
+              backgroundImage: `url(${ratWalk.url})`,
+              backgroundSize: `${ratWalk.frames * 100}% 100%`,
+              backgroundPosition: '0 0',
+              transform: 'scaleX(-1)',
+            }}
+          />
+        )}
       </div>
       {(champion || caTitle) && (
         <div className="flex items-center justify-center gap-[0.8em] mt-[0.45em] text-[0.78em] font-bold uppercase tracking-wider text-osrs-yellow">

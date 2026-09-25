@@ -628,8 +628,6 @@ export const ASSETS = {
     // random events this game sends onto the board. Baked apart from his diversion
     // render, framed on the figure with his shadow cut, to read at stat-cell size.
     random_event: npcModel('random_event'),
-    // The start screen's title rat: the Giant rat in flat profile, facing left.
-    title_rat: npcModel('title_rat'),
     hit_splat: `${LOCAL}/hitsplats/hit.png`,          // red damage (1359)
     magic_hit_splat: `${LOCAL}/hitsplats/miss.png`,   // blue zero-splat (1358)
     hp_icon: `${LOCAL}/misc/hp_icon.png`,
