@@ -843,7 +843,7 @@ function EnemiesBody({ list, entries, killCounts, selected, setSelected }: {
  *
  *  This function is the window: the tab strip, the list controls and whichever
  *  page's body is showing. Each body is its own component above. */
-export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversionGains, fusionsMade, pets, activePet, setActivePet, difficultyTier, achievements, diaries, diariesActive, victories, difficulty, tab, setTab, onClose, globalLock }: {
+export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversionGains, fusionsMade, pets, activePet, setActivePet, difficultyTier, achievements, diaries, diariesActive, victories, difficulty, tab, setTab, onClose, globalLock, overMenu = false }: {
   killCounts: Record<string, number>;
   cardCounts: Record<string, number>;
   /** Lifetime forges per fusion type. */
@@ -871,6 +871,8 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
   setTab: (t: LogTab) => void;
   onClose: () => void;
   globalLock: boolean;
+  /** Opened from the start screen, so it has to stand above that screen's z-40. */
+  overMenu?: boolean;
 }) {
   const isCards = tab === 'cards';
   const isDiversions = tab === 'diversions';
@@ -920,7 +922,7 @@ export function CollectionLog({ killCounts, cardCounts, diversionsMet, diversion
     <MovablePanel
       id="collection-log"
       globalLock={globalLock}
-      className="rs-panel absolute top-10 left-1/2 z-30 w-[30em] flex flex-col p-3"
+      className={`rs-panel absolute top-10 left-1/2 ${overMenu ? 'z-[45]' : 'z-30'} w-[30em] flex flex-col p-3`}
       style={{ marginLeft: '-15em', maxHeight: '82vh', fontSize: fs('clamp(14px, 0.9vw, 19px)') }}
     >
       <div className="rs-panel-title flex items-center justify-between">

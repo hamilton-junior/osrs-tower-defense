@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "start",
+      "text": "Keep the start screen steady when you switch modes",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
       "kind": "updated",
       "scope": "start",
       "text": "Let the lobby torches crackle",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "enemies",
       "text": "Twelve new monsters, so every region fields at least five of its own",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "new",
-      "scope": "diversions",
-      "text": "Party Pete dances by his balloons on the ground and leaves once they are all popped",
       "fromFeedback": false,
       "date": "2026-09-17"
     }

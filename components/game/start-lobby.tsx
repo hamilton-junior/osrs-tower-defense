@@ -3,6 +3,10 @@
 import React, { useEffect } from 'react';
 import { ASSETS } from '@/lib/game/assets';
 
+/** The crackle sits well under the menu's clicks: a third of an ambient loop's
+ *  default 0.6. */
+const TORCH_LEVEL = 0.2;
+
 /**
  * The castle room the start screen stands in: a brick wall over a flagstone
  * floor, lit by two torches that flank the stone panel. Pure scenery behind the
@@ -15,10 +19,10 @@ import { ASSETS } from '@/lib/game/assets';
  * the first render, so a miss is retried on the page's first click, which is
  * also when a browser starts allowing sound.
  */
-export function StartLobby({ onAmbient }: { onAmbient: (key: string) => (() => void) | undefined }) {
+export function StartLobby({ onAmbient }: { onAmbient: (key: string, level: number) => (() => void) | undefined }) {
   useEffect(() => {
-    let stop = onAmbient('lobby_torch');
-    const retry = () => { stop ??= onAmbient('lobby_torch'); };
+    let stop = onAmbient('lobby_torch', TORCH_LEVEL);
+    const retry = () => { stop ??= onAmbient('lobby_torch', TORCH_LEVEL); };
     if (!stop) window.addEventListener('pointerdown', retry, { once: true });
     return () => {
       window.removeEventListener('pointerdown', retry);

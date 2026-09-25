@@ -590,7 +590,7 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   onSound: (key: string) => void;
   /** Starts a looping sound and returns what stops it; undefined while the
    *  engine is not up yet. */
-  onAmbient: (key: string) => (() => void) | undefined;
+  onAmbient: (key: string, level: number) => (() => void) | undefined;
 }) {
   const [confirm, setConfirm] = useState<Confirming>(null);
   const [tab, setTab] = useState<TabId>('play');
