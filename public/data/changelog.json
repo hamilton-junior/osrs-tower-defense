@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "new",
+      "scope": "daily",
+      "text": "Give each daily challenge one boon and one curse",
+      "fromFeedback": false,
+      "date": "2026-09-24"
+    },
+    {
       "kind": "updated",
       "scope": "start",
       "text": "Light the start screen with a torch-lit castle lobby",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "farming",
       "text": "Plant a carried seed straight from the inventory",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "new",
-      "scope": "diversions",
-      "text": "The Tool Leprechaun tends your slowest herb so it is ready a wave sooner",
       "fromFeedback": false,
       "date": "2026-09-17"
     }

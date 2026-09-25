@@ -550,7 +550,7 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, 
 /** Title / mode-select screen shown before the first wave of a run (and again on
  *  restart). This function is the room and its running order; each block is its
  *  own component above. */
-export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, bossesSeen, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onHelp, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound }: {
+export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, bossesSeen, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onHelp, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound, onAmbient }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back above the tabs. */
   saved: RunSave | null;
@@ -588,13 +588,16 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   onOpenLog: (tab: LogTab) => void;
   /** Play one of the game's own interface sounds. */
   onSound: (key: string) => void;
+  /** Starts a looping sound and returns what stops it; undefined while the
+   *  engine is not up yet. */
+  onAmbient: (key: string) => (() => void) | undefined;
 }) {
   const [confirm, setConfirm] = useState<Confirming>(null);
   const [tab, setTab] = useState<TabId>('play');
   const [shopOpen, setShopOpen] = useState(false);
   return (
     <div className="rs-start-wood absolute inset-0 flex items-center justify-center z-40 p-4">
-      <StartLobby />
+      <StartLobby onAmbient={onAmbient} />
       <div className="rs-start-room relative z-[1] w-[36em] max-w-[95vw] max-h-full flex flex-col gap-[0.7em]">
         <Wordmark champion={victories.total > 0} wins={victories.total} caTitle={caTitle} />
 

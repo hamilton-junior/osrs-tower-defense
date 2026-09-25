@@ -3592,6 +3592,7 @@ export default function GameRoot() {
           onRefundEssence={() => engineRef.current?.refundEssence()}
           onOpenLog={(t) => { setLogTab(t); setLogOpen(true); }}
           onSound={(k) => engineRef.current?.sound.play(k)}
+          onAmbient={(k) => engineRef.current?.sound.loop(k)}
           onSelect={(m) => engineRef.current?.setMode(m)}
           onSelectTier={chooseTier}
           onStart={() => { clearRunSave(); setSavedRun(null); engineRef.current?.leaveDaily(); setRunStarted(true); }}

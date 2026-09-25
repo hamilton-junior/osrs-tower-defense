@@ -816,6 +816,7 @@ export const ASSETS = {
       potion: `${SND}/potion.wav`,                      // liquid (2401) — potion gulp
       special_attack: `${SND}/special_attack.wav`,      // puncture (2537) — the dragon dagger spec
       click: `${LOCAL}/sounds/ui_click.wav`,            // boop (2266)
+      lobby_torch: `${LOCAL}/sounds/lobby_torch.wav`,   // torch_crackling (7746), looped
       select: `${LOCAL}/sounds/ui_select.wav`,          // soft poh build-select chime (970)
       interface_open: `${LOCAL}/sounds/ge_offer.wav`,   // GE add-offer chime (3925)
       interface_close: `${LOCAL}/sounds/ge_collect.wav`,// GE collect (3928)

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ASSETS } from '@/lib/game/assets';
 
 /**
@@ -10,8 +10,24 @@ import { ASSETS } from '@/lib/game/assets';
  *
  * The torch plays its baked sheet with a CSS `steps()` animation; the sheet's
  * 18 frames run at ~100ms each (lobby_torch.json), so one loop is 1.8s.
+ *
+ * The torches crackle while the screen is up. The engine may not exist yet on
+ * the first render, so a miss is retried on the page's first click, which is
+ * also when a browser starts allowing sound.
  */
-export function StartLobby() {
+export function StartLobby({ onAmbient }: { onAmbient: (key: string) => (() => void) | undefined }) {
+  useEffect(() => {
+    let stop = onAmbient('lobby_torch');
+    const retry = () => { stop ??= onAmbient('lobby_torch'); };
+    if (!stop) window.addEventListener('pointerdown', retry, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', retry);
+      stop?.();
+    };
+    // Mount-only: the loop runs for as long as the lobby is on screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const vars = {
     '--lobby-wall': `url(${ASSETS.lobby.wall})`,
     '--lobby-floor': `url(${ASSETS.lobby.floor})`,

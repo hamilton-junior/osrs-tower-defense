@@ -14,6 +14,7 @@
  *   node scripts/extract-osrs-sounds.mjs                 # render curated TARGETS → public/
  *   node scripts/extract-osrs-sounds.mjs --dump 0 200    # dump a sound-id range → tmp/ for discovery
  *   node scripts/extract-osrs-sounds.mjs --only 1568     # render a single id → tmp/ (audition)
+ *   node scripts/extract-osrs-sounds.mjs --only 7755 --normalize 0.6   # …louder, for quiet ambient loops
  *   OSRS_CACHE_DIR="/path/to/LIVE" node scripts/extract-osrs-sounds.mjs
  *
  * Sound-effect IDs aren't in a tidy enum like sprites; use `--dump` to audition
@@ -38,9 +39,19 @@ const SAMPLE_RATE = 22050;
  * `--dump`/`--named` auditions. Each entry renders to `public/assets/sounds/<slug>.wav`
  * and can then be referenced from `lib/game/assets.ts`.
  */
+/** Targets baked louder than the cache stores them, as a peak fraction (see
+ *  `JagFX.makeSound`). Only for ambient loops, whose native level is a few 8-bit
+ *  steps; everything else keeps the client's own mix. */
+const NORMALIZE = {
+  lobby_torch: 0.6,
+};
+
 const TARGETS = {
   // --- UI / interface (verified RuneLite SoundEffectID) ---
   ui_click: 2266,              // boop — generic button / select
+  // The start screen's lobby torches: `torch_crackling`, the loop a lit wall torch
+  // plays in game. Baked normalized (see NORMALIZE) and looped by the lobby.
+  lobby_torch: 7746,
   ui_select: 970,              // poh_select — soft build-select chime (tower select)
   ui_coins: 3924,              // ge coin tinkle — selling a tower
   ui_teleport: 200,            // teleport vwoop — wave start
@@ -693,8 +704,12 @@ export class JagFX {
     this.loopEnd = dat.g2();
   }
 
-  /** Render to a Uint8Array of 8-bit unsigned PCM samples (no header). */
-  makeSound(loopCount = 1) {
+  /** Render to a Uint8Array of 8-bit unsigned PCM samples (no header).
+   *  `normalize` (0..1), when set, mixes at full resolution and scales the peak
+   *  to that fraction of full scale before quantizing: the client plays ambient
+   *  loops quietly, and at their native level they land on 2-3 steps of 8-bit
+   *  and come out as hiss. */
+  makeSound(loopCount = 1, normalize = 0) {
     let duration = 0;
     for (const tone of this.tones) {
       if (tone && tone.length + tone.start > duration) duration = tone.length + tone.start;
@@ -712,6 +727,22 @@ export class JagFX {
     const totalSampleCount = sampleCount + (loopStop - loopStart) * (loopCount - 1);
     const out = new Uint8Array(totalSampleCount);
     out.fill(128); // -128 in two's complement = unsigned-8 silence
+
+    if (normalize > 0) {
+      const mix = new Int32Array(totalSampleCount);
+      for (const tone of this.tones) {
+        if (!tone) continue;
+        const toneSampleCount = ((tone.length * SAMPLE_RATE) / 1000) | 0;
+        const start = ((tone.start * SAMPLE_RATE) / 1000) | 0;
+        const samples = tone.generate(toneSampleCount, tone.length);
+        for (let s = 0; s < toneSampleCount; s++) if (s + start < mix.length) mix[s + start] += samples[s];
+      }
+      let peak = 1;
+      for (const v of mix) peak = Math.max(peak, Math.abs(v));
+      const k = (normalize * 127) / peak;
+      for (let i = 0; i < mix.length; i++) out[i] = Math.max(0, Math.min(255, Math.round(mix[i] * k) + 128));
+      return out;
+    }
 
     for (const tone of this.tones) {
       if (!tone) continue;
@@ -753,7 +784,7 @@ function toWav(samples) {
   return Buffer.concat([header, Buffer.from(samples)]);
 }
 
-async function renderId(cache, id) {
+async function renderId(cache, id, normalize = 0) {
   const file = await cache.getFile(IndexType.SOUNDEFFECTS, id, 0).catch(() => null);
   const content = file?.content;
   if (!content || content.length < 4) return null;
@@ -761,7 +792,7 @@ async function renderId(cache, id) {
   try {
     const fx = new JagFX();
     fx.load(new Reader(bytes));
-    const samples = fx.makeSound(1);
+    const samples = fx.makeSound(1, normalize);
     if (samples.length === 0) return null;
     return { wav: toWav(samples), ms: Math.round((samples.length / SAMPLE_RATE) * 1000) };
   } catch {
@@ -837,8 +868,10 @@ async function main() {
     const bucket = (ms) => (ms < 400 ? 'short' : ms < 1500 ? 'medium' : 'long');
     for (const b of ['short', 'medium', 'long']) mkdirSync(join(base, b), { recursive: true });
     let count = 0;
+    const normIdx = process.argv.indexOf('--normalize');
+    const norm = normIdx !== -1 ? Number(process.argv[normIdx + 1]) : 0;
     for (let id = from; id <= to; id++) {
-      const r = await renderId(cache, id);
+      const r = await renderId(cache, id, norm);
       if (!r) continue;
       writeFileSync(join(base, bucket(r.ms), `${id}_${r.ms}ms.wav`), r.wav);
       count++;
@@ -850,7 +883,7 @@ async function main() {
 
   let ok = 0;
   for (const [slug, id] of Object.entries(TARGETS)) {
-    const r = await renderId(cache, id);
+    const r = await renderId(cache, id, NORMALIZE[slug] ?? 0);
     if (!r) { console.warn(`! sound ${id} (${slug}) empty/undecodable — skipped`); continue; }
     const outPath = join(REPO, 'public', 'assets', 'sounds', `${slug}.wav`);
     mkdirSync(dirname(outPath), { recursive: true });

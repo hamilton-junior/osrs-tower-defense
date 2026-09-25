@@ -27,6 +27,7 @@ export const GAME_SOUNDS: Record<string, string> = {
   fireworks: ASSETS.sounds.misc.fireworks, // relic pickup only — too festive for a routine build
   sell: ASSETS.sounds.misc.sell,
   click: ASSETS.sounds.misc.click,
+  lobby_torch: ASSETS.sounds.misc.lobby_torch, // start-screen ambience, played through `loop`
   game_over: ASSETS.sounds.misc.game_over, // the "You Are Dead!" jingle
   prayer_on: ASSETS.sounds.misc.prayer_on,
   prayer_off: ASSETS.sounds.misc.prayer_off,
@@ -154,6 +155,8 @@ export class SoundManager {
   /** While set, combat-category plays are dropped (between waves — stragglers
    *  landing after the clear stay silent). UI sounds are unaffected. */
   private combatSuppressed = false;
+  /** Ambient loops now running, each with its level relative to the effects. */
+  private readonly loops = new Map<HTMLAudioElement, number>();
 
   /** Real HTMLAudioElement gain for the current slider position. */
   private gain() {
@@ -187,10 +190,39 @@ export class SoundManager {
 
   setMuted(value: boolean) {
     this.muted = value;
+    for (const node of this.loops.keys()) {
+      if (value) node.pause();
+      else void node.play().catch(() => {});
+    }
   }
 
   setVolume(value: number) {
     this.volume = Math.max(0, Math.min(1, value));
+    for (const [node, level] of this.loops) node.volume = this.gain() * level;
+  }
+
+  /**
+   * Start an ambient clip looping under the effects, at `level` of their gain,
+   * and return what stops it. Mute and the volume slider reach it like any clip.
+   * A browser refuses sound before the page's first click; the loop then waits
+   * for that click and starts on it.
+   */
+  loop(key: string, level = 0.6): () => void {
+    const base = this.cache.get(key);
+    if (!base) return () => {};
+    const node = base.cloneNode() as HTMLAudioElement;
+    node.loop = true;
+    node.volume = this.gain() * level;
+    this.loops.set(node, level);
+    const retry = () => { if (this.loops.has(node) && !this.muted) void node.play().catch(() => {}); };
+    if (!this.muted) {
+      void node.play().catch(() => window.addEventListener('pointerdown', retry, { once: true }));
+    }
+    return () => {
+      this.loops.delete(node);
+      window.removeEventListener('pointerdown', retry);
+      node.pause();
+    };
   }
 
   setCombatSuppressed(on: boolean) {
