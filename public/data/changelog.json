@@ -3,6 +3,20 @@
   "entries": [
     {
       "kind": "fixed",
+      "scope": "log",
+      "text": "Keep the Collection Log tabs still when you switch pages",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "fixed",
+      "scope": "start",
+      "text": "Let you resize the interface from the start screen",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "fixed",
       "scope": "start",
       "text": "Show the Collection Log above the start screen",
       "fromFeedback": false,
@@ -264,20 +278,6 @@
       "kind": "updated",
       "scope": "board",
       "text": "Regions get varied ground, still water and props that stand on their shadows",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "new",
-      "scope": "board",
-      "text": "Every region stands its own trees, rocks and ruins on the board",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "new",
-      "scope": "board",
-      "text": "Regions get their own ground texture, flowing water and lava pools you can fish",
       "fromFeedback": false,
       "date": "2026-09-17"
     }

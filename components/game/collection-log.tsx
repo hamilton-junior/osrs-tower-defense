@@ -225,7 +225,7 @@ function tabHint(t: LogTab): string {
   }
 }
 
-/** The tab strip and, beside it, how much of this page is filled in. */
+/** The tab strip, ending in how much of this page is filled in. */
 function LogTabStrip({ tab, onPick, counter }: {
   tab: LogTab;
   onPick: (t: LogTab) => void;
@@ -233,10 +233,12 @@ function LogTabStrip({ tab, onPick, counter }: {
   counter: { obtained: number; total: number; complete: boolean; noun: string } | null;
 }) {
   return (
-    <div className="flex items-center justify-between gap-[0.4em] mt-[0.4em] mb-[0.5em]">
-      {/* The tabs no longer fit one row beside the counter at every UI scale, so the
-          strip wraps and the counter keeps its corner rather than spilling out. */}
-      <div className="flex flex-wrap gap-[0.3em] min-w-0">
+    <div className="mt-[0.4em] mb-[0.5em]">
+      {/* The counter is the strip's last item, pushed right, so it only ever claims
+          room after the last tab. Beside the strip as a column of its own, the
+          record pages (no counter) handed its width back and the tabs reflowed
+          under the player's cursor. */}
+      <div className="flex flex-wrap items-center gap-[0.3em] min-w-0">
         {LOG_TABS.map((t) => (
           <button
             key={t}
@@ -247,12 +249,15 @@ function LogTabStrip({ tab, onPick, counter }: {
             {t}
           </button>
         ))}
-      </div>
-      {counter && (
-        <span className="text-[0.78em] font-bold shrink-0 whitespace-nowrap self-start" style={{ color: counter.complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)' }}>
-          {counter.obtained}/{counter.total} {counter.noun}
+        {/* Held open, invisible, on a record page too: were it to wrap onto a line
+            of its own, dropping it would lift the list below. */}
+        <span
+          className="ml-auto text-[0.78em] font-bold whitespace-nowrap"
+          style={{ color: counter?.complete ? 'var(--osrs-green)' : 'var(--osrs-yellow)', visibility: counter ? undefined : 'hidden' }}
+        >
+          {counter ? `${counter.obtained}/${counter.total} ${counter.noun}` : '0/0 found'}
         </span>
-      )}
+      </div>
     </div>
   );
 }
