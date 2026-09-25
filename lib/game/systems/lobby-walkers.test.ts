@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LOBBY_CELL_EM, LOBBY_COST, LOBBY_MAX_WALKERS, crossingSeconds, lobbyRoster, lobbySpells, newLobby,
   pickFeetY, pickWalkerDef, planStrike, stepLobby, strikeTowers, walkerHitpoints, walkerOverMenu,
-  walkerSize, walkerSlug,
+  walkerSize, walkerSlug, LOBBY_SIZE_BOOST,
   type LobbyEnv, type LobbyEvent, type LobbyStage, type LobbyState, type LobbyWalker,
 } from './lobby-walkers';
 import { NPC_HITPOINTS } from '../data/npc-hitpoints.data';
@@ -113,7 +113,14 @@ describe('walkerSize', () => {
     const s = newLobby(seeded(8));
     run(s, env(seeded(9)), 20);
     expect(s.walkers.length).toBeGreaterThan(0);
-    for (const w of s.walkers) expect(w.size).toBeCloseTo(240 * 0.9);
+    for (const w of s.walkers) expect(w.size).toBeCloseTo(240 * 0.9 * (LOBBY_SIZE_BOOST[walkerSlug(w.def)] ?? 1));
+  });
+
+  it('grows the jackal in the lobby to the Giant rat length', () => {
+    const jackal = walkerSize(ENEMIES.jackal, { ...SHEET, worldCell: 119 }, STAGE);
+    expect(jackal).toBeCloseTo(119 * 0.9 * 1.7);
+    expect(walkerSize(ENEMIES.jackal, SHEET, { ...STAGE, worldPx: 0 }))
+      .toBeCloseTo(1.7 * walkerSize(ENEMIES.goblin, SHEET, { ...STAGE, worldPx: 0 }) * (ENEMIES.jackal.renderScale ?? 1) / (ENEMIES.goblin.renderScale ?? 1));
   });
 });
 

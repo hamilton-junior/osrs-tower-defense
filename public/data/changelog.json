@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "start",
+      "text": "Grow the lobby's jackal to the Giant rat's length",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
       "kind": "fixed",
       "scope": "start",
       "text": "Walk the lobby's monsters in front of the torches, never through them",
@@ -271,13 +278,6 @@
       "kind": "updated",
       "scope": "board",
       "text": "Trollweiss' bare green pines are frosted over like the rest of the snowfield",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "new",
-      "scope": "daily",
-      "text": "The daily result screen now shows the last week of dailies and your streak",
       "fromFeedback": false,
       "date": "2026-09-18"
     }

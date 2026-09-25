@@ -223,11 +223,17 @@ export function lobbyUnit(stage: LobbyStage): number {
   return humanCell(stage) / (30 * 1.32);
 }
 
+/** Lobby-only growth for monsters whose real size reads as a speck beside the
+ *  others. The jackal's own model (26260) walks 95 units long; 1.7× matches the
+ *  Giant rat's 162. The board keeps every monster at its real size. */
+export const LOBBY_SIZE_BOOST: Readonly<Record<string, number>> = { jackal: 1.7 };
+
 /** Side of a walker's sprite cell: its baked world size at the room's scale, or
  *  the board's relative size when either is unknown. */
 export function walkerSize(def: EnemyDef, sheet: WalkerSheet, stage: LobbyStage): number {
-  if (sheet.worldCell && stage.worldPx > 0) return sheet.worldCell * stage.worldPx;
-  return LOBBY_CELL_EM * stage.em * (def.renderScale ?? 1);
+  const boost = LOBBY_SIZE_BOOST[walkerSlug(def)] ?? 1;
+  if (sheet.worldCell && stage.worldPx > 0) return sheet.worldCell * stage.worldPx * boost;
+  return LOBBY_CELL_EM * stage.em * (def.renderScale ?? 1) * boost;
 }
 
 /** A walker's body centre: the middle of its sprite cell. */
