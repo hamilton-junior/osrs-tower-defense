@@ -60,5 +60,6 @@
       ],
       "loop": false
     }
-  }
+  },
+  "worldCell": 190
 }

@@ -16,6 +16,9 @@ export interface EnemyClip {
 export interface EnemyAnimSet {
   frameW: number;
   frameH: number;
+  /** The cell's side in world units (the NPC def's model resize applied), so a
+   *  scene can draw every monster at one scale and keep their real sizes. */
+  worldCell?: number;
   /**
    * `walk` is required (the default loop); the rest are optional.
    *

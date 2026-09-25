@@ -33,6 +33,9 @@ function clipLine(slug, name, c, indent, prefix = '') {
   return `${indent}${name}: { url: \`\${B}/${slug}/${prefix}${name}.png\`, frames: ${c.frames}, frameMs: [${ms.join(', ')}], loop: ${!!c.loop} },`;
 }
 
+/** The cell's side in model units, when the bake recorded it (see --measure). */
+const world = (m) => (m.worldCell ? ` worldCell: ${m.worldCell},` : '');
+
 let clipCount = 0;
 const blocks = [];
 for (const slug of Object.keys(config)) {
@@ -48,7 +51,7 @@ for (const slug of Object.keys(config)) {
       clipCount++;
       lines.push(clipLine(slug, name, c, '      '));
     }
-    blocks.push(`  ${slug}: {\n    frameW: ${m.frameW}, frameH: ${m.frameH},\n    clips: {\n${lines.join('\n')}\n    },\n  },`);
+    blocks.push(`  ${slug}: {\n    frameW: ${m.frameW}, frameH: ${m.frameH},${world(m)}\n    clips: {\n${lines.join('\n')}\n    },\n  },`);
     continue;
   }
 
@@ -65,7 +68,7 @@ for (const slug of Object.keys(config)) {
     }
     views.push(`      ${view}: {\n${lines.join('\n')}\n      },`);
   }
-  blocks.push(`  ${slug}: {\n    frameW: ${m.frameW}, frameH: ${m.frameH},\n    views: {\n${views.join('\n')}\n    },\n  },`);
+  blocks.push(`  ${slug}: {\n    frameW: ${m.frameW}, frameH: ${m.frameH},${world(m)}\n    views: {\n${views.join('\n')}\n    },\n  },`);
 }
 
 const header = GROUP.views

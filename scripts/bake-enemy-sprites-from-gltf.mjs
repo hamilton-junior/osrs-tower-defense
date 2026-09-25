@@ -8,6 +8,7 @@
  *   node scripts/bake-enemy-sprites-from-gltf.mjs                 # bake every enemy
  *   node scripts/bake-enemy-sprites-from-gltf.mjs --only hill_giant
  *   node scripts/generate-enemy-anims-data.mjs                    # regenerate the table
+ *   node scripts/bake-enemy-sprites-from-gltf.mjs --measure       # only refresh worldCell
  *
  * How it stays 1:1 with the old sheets (drop-in, same facing/framing):
  *  - The model's base+morph vertices are the cache frames in (X,-Y,-Z) space.
@@ -30,6 +31,8 @@ import { launchBrowser } from './lib/browser.mjs';
 import { trimTail } from './lib/clip-tail.mjs';
 import { clipSource, isAltModel, altGltfName } from './lib/anim-source.mjs';
 import { pickGroup } from './lib/anim-group.mjs';
+import { NPC } from '@abextm/cache2';
+import { defsCache } from './lib/npc-def.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -427,6 +430,17 @@ async function main() {
   const only = onlyIdx !== -1 ? process.argv[onlyIdx + 1].split(',').map((x) => x.trim()) : null;
   const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
   const bosses = readBossSlugs();
+  // --measure fits the camera and records the cell's world size in each existing
+  // manifest, without rendering a frame: the sheets on disk stay as they are.
+  const measure = process.argv.includes('--measure');
+  const defs = await defsCache();
+  /** A cell `span` model units wide, in world units: the NPC def resizes its model
+   *  in game (128 = as modelled), and the glTF carries the model unscaled. */
+  const worldCellOf = async (npc, span) => {
+    const def = await NPC.load(defs, npc);
+    const scale = def ? Math.max(def.widthScale, def.heightScale) / 128 : 1;
+    return Math.round(span * scale);
+  };
 
   // static server: harness + three + model assets
   const server = createServer((req, res) => {
@@ -481,15 +495,26 @@ async function main() {
     const cell = cfg.cell ?? (bosses.has(slug) ? BOSS_SIZE : SIZE);
     await page.evaluate((px) => window.setCell(px), cell);
     const manifest = { npc: cfg.npc, frameW: cell, frameH: cell };
+    const manifestPath = join(outDir, `${slug}.json`);
     const wantClips = Object.keys(cfg.anims).filter((name) => clipInfo.some((c) => c.name === name));
     const job = { slug, cfg, clipInfo, src, wantClips, outDir, cell };
     const aim = (yaw, half) =>
       page.evaluate((y, pt, fy, mi, h) => window.setupCamera(y, pt, fy, mi, h), yaw, cfg.pitch, !!cfg.flipY, !!cfg.mirror, half);
 
     if (!GROUP.views) {
-      await aim(cfg.yaw, 0);
+      // The cell's side in world units (the camera spans 2 × half), so a scene can
+      // draw every creature at one shared scale and keep their real sizes.
+      const worldCell = await worldCellOf(cfg.npc, 2 * (await aim(cfg.yaw, 0)));
+      if (measure) {
+        if (!existsSync(manifestPath)) { console.warn(`! ${slug}: no manifest to measure into`); continue; }
+        const old = JSON.parse(readFileSync(manifestPath, 'utf8'));
+        writeFileSync(manifestPath, JSON.stringify({ ...old, worldCell }, null, 2));
+        console.log(`✓ ${slug}: worldCell ${worldCell}`);
+        continue;
+      }
+      manifest.worldCell = worldCell;
       manifest.clips = await bakeClips(page, job);
-      writeFileSync(join(outDir, `${slug}.json`), JSON.stringify(manifest, null, 2));
+      writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
       console.log(`✓ ${slug}: ${Object.keys(manifest.clips).length} clips`);
       continue;
     }
@@ -498,12 +523,21 @@ async function main() {
     // turning round never changes the model's size on the board.
     let half = 0;
     for (const yaw of Object.values(GROUP.views)) half = Math.max(half, await aim(yaw, 0));
+    const worldCell = await worldCellOf(cfg.npc, 2 * half);
+    if (measure) {
+      if (!existsSync(manifestPath)) { console.warn(`! ${slug}: no manifest to measure into`); continue; }
+      const old = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      writeFileSync(manifestPath, JSON.stringify({ ...old, worldCell }, null, 2));
+      console.log(`✓ ${slug}: worldCell ${worldCell}`);
+      continue;
+    }
+    manifest.worldCell = worldCell;
     manifest.views = {};
     for (const [view, yaw] of Object.entries(GROUP.views)) {
       await aim(yaw, half);
       manifest.views[view] = await bakeClips(page, { ...job, prefix: `${view}-` });
     }
-    writeFileSync(join(outDir, `${slug}.json`), JSON.stringify(manifest, null, 2));
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
     console.log(`✓ ${slug}: ${Object.keys(manifest.views).length} views × ${wantClips.length} clips`);
   }
 

@@ -121,5 +121,6 @@
       ],
       "loop": false
     }
-  }
+  },
+  "worldCell": 608
 }

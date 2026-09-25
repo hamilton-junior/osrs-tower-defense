@@ -9,7 +9,9 @@ import type { EnemyDef, TowerType } from '../types';
 
 /**
  * The start screen's wandering monsters. Every few seconds one of the game's own
- * NPCs walks across the lobby floor, behind the menu, and off the far side. Once
+ * NPCs walks across the lobby floor, in front of the torches, and off the far
+ * side. Each one stands at its real OSRS size against the torches, and passes in
+ * front of the menu only where its feet sit below the menu's bottom edge. Once
  * in a long while a shot flies in from off-screen, fells one in a single hit for
  * its full hitpoints, and the body drops where it stood.
  *
@@ -28,13 +30,17 @@ const FIRST_SPAWN_S: readonly [number, number] = [1, 4];
 /** Each walker's odds, decided at spawn, of being shot. At ~6 spawns a minute that
  *  is about one kill every seven and a half minutes. */
 export const LOBBY_STRIKE_CHANCE = 1 / 45;
-/** Side of a walker's sprite cell at renderScale 1, in em. */
+/** Side of a walker's sprite cell at renderScale 1, in em, when the room has no
+ *  world scale to size it by. */
 export const LOBBY_CELL_EM = 5.5;
+/** A human-sized monster's sprite cell, in world units (a skeleton's is 240): the
+ *  size the board's shots, splats and GFX are drawn against. */
+export const LOBBY_HUMAN_CELL = 240;
 /** A crossing at the median enemy speed takes this long; faster monsters cross
  *  sooner, slower ones later, clamped to {@link CROSSING_S}. */
-const MEDIAN_CROSSING_S = 30;
+const MEDIAN_CROSSING_S = 22.5;
 const MEDIAN_SPEED = 50;
-const CROSSING_S: readonly [number, number] = [20, 40];
+const CROSSING_S: readonly [number, number] = [15, 30];
 /** Closest two walkers' feet may sit, in em, so nobody walks inside another. */
 const FEET_GAP_EM = 0.8;
 /** Feet stay this far (em) inside the floor's top and bottom edges. */
@@ -108,7 +114,7 @@ export function pickWalkerDef(rand: () => number, roster: EnemyDef[] = lobbyRost
 }
 
 /** Seconds a monster of this `speed` takes to cross the lobby. The square root
- *  keeps the roster's speed order while squeezing 28..135 into 20..40 s. */
+ *  keeps the roster's speed order while squeezing 28..135 into 15..30 s. */
 export function crossingSeconds(speed: number): number {
   const s = MEDIAN_CROSSING_S * Math.sqrt(MEDIAN_SPEED / Math.max(1, speed));
   return Math.min(CROSSING_S[1], Math.max(CROSSING_S[0], s));
@@ -120,12 +126,14 @@ export interface LobbyStage {
   /** Top and bottom of the floor band, where feet may stand. */
   floorTop: number;
   floorBottom: number;
-  /** Feet above this line stand behind the torches and draw on the back layer. */
-  torchBaseY: number;
+  /** The menu panel's bottom edge: feet below it walk in front of the menu. */
+  menuBottom: number;
   /** Stretches of floor the menu does not cover, as [x0, x1]: where a shot may land. */
   strips: ReadonlyArray<readonly [number, number]>;
   /** CSS pixels per em, so every size tracks --ui-scale. */
   em: number;
+  /** CSS pixels per world unit, read off the torches; 0 while unknown. */
+  worldPx: number;
 }
 
 /** What the component knows about a loaded sprite set. */
@@ -134,6 +142,8 @@ export interface WalkerSheet {
   feetFrac: number;
   /** Length of the death clip in seconds; 0 when the monster has none. */
   deathS: number;
+  /** The cell's side in world units, when the bake recorded it. */
+  worldCell: number | null;
 }
 
 export interface LobbyShot {
@@ -196,11 +206,23 @@ export function newLobby(rand: () => number): LobbyState {
   return { walkers: [], splats: [], gfx: [], nextSpawn: between(rand, FIRST_SPAWN_S), nextId: 1 };
 }
 
-/** Board pixels to lobby pixels: a walker's cell is {@link LOBBY_CELL_EM} em where
- *  the board draws the same cell 30 × 1.32 px (render/enemies), so shots, splats
- *  and GFX keep their size against the monster. */
-export function lobbyUnit(em: number): number {
-  return (LOBBY_CELL_EM * em) / (30 * 1.32);
+/** Side of a human-sized monster's cell in the lobby. */
+function humanCell(stage: LobbyStage): number {
+  return stage.worldPx > 0 ? LOBBY_HUMAN_CELL * stage.worldPx : LOBBY_CELL_EM * stage.em;
+}
+
+/** Board pixels to lobby pixels: a human-sized cell is {@link humanCell} where the
+ *  board draws the same cell 30 × 1.32 px (render/enemies), so shots, splats and
+ *  GFX keep their size against the monster. */
+export function lobbyUnit(stage: LobbyStage): number {
+  return humanCell(stage) / (30 * 1.32);
+}
+
+/** Side of a walker's sprite cell: its baked world size at the room's scale, or
+ *  the board's relative size when either is unknown. */
+export function walkerSize(def: EnemyDef, sheet: WalkerSheet, stage: LobbyStage): number {
+  if (sheet.worldCell && stage.worldPx > 0) return sheet.worldCell * stage.worldPx;
+  return LOBBY_CELL_EM * stage.em * (def.renderScale ?? 1);
 }
 
 /** A walker's body centre: the middle of its sprite cell. */
@@ -208,9 +230,9 @@ export function walkerBodyY(w: LobbyWalker): number {
   return w.feetY - w.size * w.sheet.feetFrac + w.size / 2;
 }
 
-/** Whether a walker draws behind the torches. */
-export function walkerBehindTorches(w: LobbyWalker, stage: LobbyStage): boolean {
-  return w.feetY < stage.torchBaseY;
+/** Whether a walker draws over the menu: its feet sit below the panel's bottom. */
+export function walkerOverMenu(w: LobbyWalker, stage: LobbyStage): boolean {
+  return w.feetY > stage.menuBottom;
 }
 
 /** A feet line at least {@link FEET_GAP_EM} from every walker's, or null when the
@@ -263,7 +285,7 @@ export function planStrike(
   const ox = atX < stage.width / 2 ? -off : stage.width + off;
   const oy = stage.floorTop * (0.3 + 0.5 * rand());
   const dist = Math.hypot(atX - ox, walkerBodyY(w) - oy);
-  const flight = Math.max(spell ? SPELL_MIN_FLIGHT_S : SHOT_MIN_FLIGHT_S, dist / (SHOT_SPEED * lobbyUnit(stage.em)));
+  const flight = Math.max(spell ? SPELL_MIN_FLIGHT_S : SHOT_MIN_FLIGHT_S, dist / (SHOT_SPEED * lobbyUnit(stage)));
   // Fire early enough that the walker reaches atX as the shot lands.
   const launchX = atX - w.dir * w.speed * flight;
   return {
@@ -286,7 +308,7 @@ function spawn(s: LobbyState, env: LobbyEnv): void {
   if (!sheet) { s.nextSpawn = 0.5; return; }
   const feetY = pickFeetY(rand, stage, s.walkers.map((w) => w.feetY));
   if (feetY === null) { s.nextSpawn = 1; return; }
-  const size = LOBBY_CELL_EM * stage.em * (def.renderScale ?? 1);
+  const size = walkerSize(def, sheet, stage);
   const dir: 1 | -1 = rand() < 0.5 ? 1 : -1;
   const w: LobbyWalker = {
     id: s.nextId++,
@@ -307,7 +329,7 @@ function spawn(s: LobbyState, env: LobbyEnv): void {
   s.nextSpawn = between(rand, LOBBY_SPAWN_GAP_S);
 }
 
-function land(s: LobbyState, w: LobbyWalker, shot: LobbyShot, em: number): LobbyEvent {
+function land(s: LobbyState, w: LobbyWalker, shot: LobbyShot, stage: LobbyStage): LobbyEvent {
   const bodyY = walkerBodyY(w);
   w.deadAge = 0;
   w.strike = null;
@@ -318,8 +340,8 @@ function land(s: LobbyState, w: LobbyWalker, shot: LobbyShot, em: number): Lobby
     const meta = SPOTANIMS[slug];
     if (meta) {
       // The board sizes an impact to the struck model the same way (impactScale).
-      const modelScale = Math.min(2.2, Math.max(0.7, w.def.renderScale ?? 1));
-      s.gfx.push({ slug, x: w.x, y: bodyY, size: meta.size * 0.5 * modelScale * lobbyUnit(em), age: 0 });
+      const modelScale = Math.min(2.2, Math.max(0.7, w.size / humanCell(stage)));
+      s.gfx.push({ slug, x: w.x, y: bodyY, size: meta.size * 0.5 * modelScale * lobbyUnit(stage), age: 0 });
     }
     sounds.push(slug);
   } else if (shot.tower !== 'archer' && shot.tower !== 'toxic') {
@@ -364,7 +386,7 @@ export function stepLobby(s: LobbyState, dt: number, env: LobbyEnv): LobbyEvent[
         shot.trail.push({ x: shot.x, y: shot.y });
         if (shot.trail.length > TRAIL_POINTS) shot.trail.shift();
         if (shot.age >= shot.flight) {
-          events.push(land(s, w, shot, stage.em));
+          events.push(land(s, w, shot, stage));
           continue;
         }
       }
@@ -373,7 +395,7 @@ export function stepLobby(s: LobbyState, dt: number, env: LobbyEnv): LobbyEvent[
     if (gone) s.walkers.splice(i, 1);
   }
 
-  const rise = SPLAT_RISE * lobbyUnit(stage.em);
+  const rise = SPLAT_RISE * lobbyUnit(stage);
   for (let i = s.splats.length - 1; i >= 0; i--) {
     const h = s.splats[i];
     h.life -= dt;

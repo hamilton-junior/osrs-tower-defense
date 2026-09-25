@@ -391,6 +391,8 @@ async function main() {
       frameH: px,
       frameMs: lengths.map((l) => Math.max(20, (l ?? 3) * MS_PER_UNIT)),
       spotanim: cfg.id,
+      // The cell's side in model units, so a scene can size other models against it.
+      worldCell: Math.round(px / fit.scale),
     };
     writeFileSync(join(outDir, `${slug}.json`), JSON.stringify(meta));
     const srcLabel = cfg.model != null ? `model ${cfg.model} seq ${cfg.seq}`

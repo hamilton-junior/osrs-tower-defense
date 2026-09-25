@@ -21,7 +21,7 @@ const slugs = readdirSync(DIR).filter((f) => f.endsWith('.json')).map((f) => bas
 for (const slug of slugs) {
   const m = JSON.parse(readFileSync(join(DIR, `${slug}.json`), 'utf8'));
   blocks.push(
-    `  ${slug}: { url: \`\${B}/${slug}.png\`, frames: ${m.frames}, frameW: ${m.frameW}, frameH: ${m.frameH}, frameMs: [${m.frameMs.join(', ')}] },`,
+    `  ${slug}: { url: \`\${B}/${slug}.png\`, frames: ${m.frames}, frameW: ${m.frameW}, frameH: ${m.frameH}, frameMs: [${m.frameMs.join(', ')}]${m.worldCell ? `, worldCell: ${m.worldCell}` : ''} },`,
   );
 }
 
@@ -37,6 +37,8 @@ export interface SpotAnimSheet {
   frameH: number;
   /** Authentic per-frame durations (ms) from the cache sequence. */
   frameMs: number[];
+  /** The cell's side in model units, when the bake recorded it. */
+  worldCell?: number;
 }
 
 const B = \`\${process.env.NEXT_PUBLIC_BASE_PATH || ''}/assets/spotanims\`;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ASSETS } from '@/lib/game/assets';
 import { LobbyWalkers } from './lobby-walkers';
 
@@ -11,8 +11,9 @@ const TORCH_LEVEL = 0.2;
 /**
  * The castle room the start screen stands in: a brick wall over a flagstone
  * floor, lit by two torches that flank the stone panel, with the game's monsters
- * wandering across the floor (lobby-walkers.tsx). Pure scenery behind the panel,
- * so it catches no clicks.
+ * wandering across the floor (lobby-walkers.tsx). Pure scenery, so it catches no
+ * clicks. The lobby sits behind the panel; the canvas after it sits over the
+ * panel, for the monsters that walk past in front of it.
  *
  * The torch plays its baked sheet with a CSS `steps()` animation; the sheet's
  * 18 frames run at ~100ms each (lobby_torch.json), so one loop is 1.8s.
@@ -42,11 +43,13 @@ export function StartLobby({ onAmbient, onSound }: {
     '--lobby-floor': `url(${ASSETS.lobby.floor})`,
     '--lobby-torch': `url(${ASSETS.lobby.torch})`,
   } as React.CSSProperties;
+  const overRef = useRef<HTMLCanvasElement>(null);
   return (
+    <>
     <div className="rs-lobby" style={vars} aria-hidden>
       <div className="rs-lobby-wall" />
       <div className="rs-lobby-floor" />
-      <LobbyWalkers onSound={onSound} />
+      <LobbyWalkers onSound={onSound} overRef={overRef} />
       <div className="rs-lobby-torch rs-lobby-torch-l">
         <div className="rs-lobby-halo" />
         <div className="rs-lobby-flame" />
@@ -56,5 +59,7 @@ export function StartLobby({ onAmbient, onSound }: {
         <div className="rs-lobby-flame" />
       </div>
     </div>
+    <canvas ref={overRef} className="rs-lobby-over" aria-hidden />
+    </>
   );
 }

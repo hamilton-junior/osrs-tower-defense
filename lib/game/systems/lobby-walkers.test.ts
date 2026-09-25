@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  LOBBY_COST, LOBBY_MAX_WALKERS, crossingSeconds, lobbyRoster, lobbySpells, newLobby,
-  pickFeetY, pickWalkerDef, planStrike, stepLobby, strikeTowers, walkerHitpoints, walkerSlug,
+  LOBBY_CELL_EM, LOBBY_COST, LOBBY_MAX_WALKERS, crossingSeconds, lobbyRoster, lobbySpells, newLobby,
+  pickFeetY, pickWalkerDef, planStrike, stepLobby, strikeTowers, walkerHitpoints, walkerOverMenu,
+  walkerSize, walkerSlug,
   type LobbyEnv, type LobbyEvent, type LobbyStage, type LobbyState, type LobbyWalker,
 } from './lobby-walkers';
 import { NPC_HITPOINTS } from '../data/npc-hitpoints.data';
@@ -22,10 +23,10 @@ function seeded(seed: number): () => number {
 
 const EM = 22.8;
 const STAGE: LobbyStage = {
-  width: 1566, floorTop: 496, floorBottom: 688, torchBaseY: 536, em: EM,
+  width: 1566, floorTop: 496, floorBottom: 688, menuBottom: 640, em: EM, worldPx: 0.9,
   strips: [[0, 379], [1199, 1566]],
 };
-const SHEET = { feetFrac: 0.8, deathS: 1.2 };
+const SHEET = { feetFrac: 0.8, deathS: 1.2, worldCell: 240 };
 
 function env(rand: () => number, stage: LobbyStage = STAGE): LobbyEnv {
   return { stage, rand, sheet: () => SHEET };
@@ -81,14 +82,45 @@ describe('lobby roster', () => {
 });
 
 describe('crossingSeconds', () => {
-  it('stays between 20 and 40 s, faster monsters crossing sooner', () => {
+  it('stays between 15 and 30 s, faster monsters crossing sooner', () => {
     for (const def of Object.values(ENEMIES)) {
       const s = crossingSeconds(def.speed);
-      expect(s).toBeGreaterThanOrEqual(20);
-      expect(s).toBeLessThanOrEqual(40);
+      expect(s).toBeGreaterThanOrEqual(15);
+      expect(s).toBeLessThanOrEqual(30);
     }
-    expect(crossingSeconds(50)).toBeCloseTo(30);
+    expect(crossingSeconds(50)).toBeCloseTo(22.5);
     expect(crossingSeconds(100)).toBeLessThan(crossingSeconds(40));
+  });
+});
+
+describe('walkerSize', () => {
+  it('draws every monster at its own world size, at the room scale', () => {
+    const goblin = walkerSize(ENEMIES.goblin, { ...SHEET, worldCell: 163 }, STAGE);
+    const dragon = walkerSize(ENEMIES.green_dragon, { ...SHEET, worldCell: 547 }, STAGE);
+    expect(goblin).toBeCloseTo(163 * 0.9);
+    expect(dragon / goblin).toBeCloseTo(547 / 163);
+    expect(walkerSize(ENEMIES.goblin, { ...SHEET, worldCell: 163 }, { ...STAGE, worldPx: 1.8 })).toBeCloseTo(2 * goblin);
+  });
+
+  it('falls back to the board relative size while the scale is unknown', () => {
+    const def = ENEMIES.skeleton;
+    const board = LOBBY_CELL_EM * EM * (def.renderScale ?? 1);
+    expect(walkerSize(def, { ...SHEET, worldCell: null }, STAGE)).toBeCloseTo(board);
+    expect(walkerSize(def, SHEET, { ...STAGE, worldPx: 0 })).toBeCloseTo(board);
+  });
+
+  it('spawns walkers at that size', () => {
+    const s = newLobby(seeded(8));
+    run(s, env(seeded(9)), 20);
+    expect(s.walkers.length).toBeGreaterThan(0);
+    for (const w of s.walkers) expect(w.size).toBeCloseTo(240 * 0.9);
+  });
+});
+
+describe('walkerOverMenu', () => {
+  it('puts only the walkers whose feet sit below the menu in front of it', () => {
+    expect(walkerOverMenu(walker(seeded(1), { feetY: 660 }), STAGE)).toBe(true);
+    expect(walkerOverMenu(walker(seeded(1), { feetY: 620 }), STAGE)).toBe(false);
   });
 });
 

@@ -4,12 +4,13 @@ import React, { useEffect, useRef } from 'react';
 import { ASSETS } from '@/lib/game/assets';
 import { ENEMY_ANIMS, DEATH_SETTLE_S, clipDurationS, clipFrame } from '@/lib/game/data/enemy-anims';
 import { SPOTANIMS } from '@/lib/game/data/spotanims';
+import { SPOTANIM_SHEETS } from '@/lib/game/data/spotanims.data';
 import {
   drawDragonArrow, drawPlainBolt, drawShotGlow, drawShotTrail, drawSpotAnimGfx, paintSplat,
   spotAnimFrame, splatBlobAnchor, splatScale,
 } from '@/lib/game/core/render/shot-art';
 import {
-  drawOrder, lobbyUnit, newLobby, stepLobby, walkerBehindTorches, walkerBodyY,
+  drawOrder, lobbyUnit, newLobby, stepLobby, walkerBodyY, walkerOverMenu,
   type LobbyEnv, type LobbyStage, type LobbyWalker, type WalkerSheet,
 } from '@/lib/game/systems/lobby-walkers';
 
@@ -17,31 +18,36 @@ import {
 const LOBBY_SOUND_LEVEL = 0.2;
 /** The floor band is the bottom 28% of the lobby (.rs-lobby-floor). */
 const FLOOR_FRAC = 0.72;
-/** The torch plinths stand this far below the floor's top edge, in em. */
-const TORCH_BASE_EM = 1.75;
 /** The torches' own flat-shading dim (.rs-lobby-flame), so a monster reads as in
  *  the same room. */
 const WALKER_FILTER = 'brightness(0.78)';
 
 /**
- * The monsters that wander the start screen's floor. Two canvases, both before
- * the torches: the back one shares their layer so a walker higher on the floor
- * passes behind them, the front one sits over them for the walkers nearer the
- * viewer and for every shot, impact and hitsplat. Both paint over the room's
- * vignette, so each canvas darkens its walkers again with the same gradient.
+ * The monsters that wander the start screen's floor. Two canvases, both over the
+ * torches, which hang on the wall: the back one sits in the lobby, under the
+ * menu; the over one (`overRef`, a sibling of the lobby) sits over the menu, for
+ * the walkers whose feet stand below the menu's bottom edge and for every shot,
+ * impact and hitsplat. Both paint over the room's vignette, so each canvas
+ * darkens its walkers again with the same gradient.
+ *
+ * Every walker is drawn at its real OSRS size against the torches: the torch's
+ * cell spans a known width in world units (lobby_torch.json), so its drawn width
+ * gives the room's pixels per world unit.
  *
  * The simulation lives in systems/lobby-walkers; this component loads the
  * sheets, measures the room, draws what the simulation holds and plays the
  * sounds its events name. Nothing moves for a player who asks for reduced motion.
  */
-export function LobbyWalkers({ onSound }: { onSound: (key: string, level: number) => void }) {
+export function LobbyWalkers({ onSound, overRef }: {
+  onSound: (key: string, level: number) => void;
+  overRef: React.RefObject<HTMLCanvasElement | null>;
+}) {
   const backRef = useRef<HTMLCanvasElement>(null);
-  const frontRef = useRef<HTMLCanvasElement>(null);
   const soundRef = useRef(onSound);
   useEffect(() => { soundRef.current = onSound; }, [onSound]);
 
   useEffect(() => {
-    const back = backRef.current, front = frontRef.current;
+    const back = backRef.current, front = overRef.current;
     const lobby = back?.parentElement;
     if (!back || !front || !lobby) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -70,33 +76,48 @@ export function LobbyWalkers({ onSound }: { onSound: (key: string, level: number
       if (death) image(death.url);
       const walk = image(set.clips.walk.url);
       if (!walk) return null;
-      const made = { feetFrac: feetFraction(walk, set.frameW, set.frameH), deathS: death ? clipDurationS(death) : 0 };
+      const made = {
+        feetFrac: feetFraction(walk, set.frameW, set.frameH),
+        deathS: death ? clipDurationS(death) : 0,
+        worldCell: set.worldCell ?? null,
+      };
       sheets.set(slug, made);
       return made;
     };
 
-    let stage: LobbyStage = { width: 0, floorTop: 0, floorBottom: 0, torchBaseY: 0, strips: [], em: 16 };
+    let stage: LobbyStage = { width: 0, floorTop: 0, floorBottom: 0, menuBottom: 0, strips: [], em: 16, worldPx: 0 };
     let dpr = 1;
     const measure = () => {
       const box = lobby.getBoundingClientRect();
       const em = parseFloat(getComputedStyle(lobby).fontSize) || 16;
       const floorTop = box.height * FLOOR_FRAC;
       // A shot may only land where the menu panel does not hide the floor.
-      const room = lobby.parentElement?.querySelector('.rs-start-room')?.getBoundingClientRect();
+      const room = roomEl?.getBoundingClientRect();
       let strips: Array<[number, number]> = [[0, box.width]];
       if (room && room.bottom - box.top > floorTop) {
         strips = [[0, room.left - box.left], [room.right - box.left, box.width]];
       }
-      stage = { width: box.width, floorTop, floorBottom: box.height, torchBaseY: floorTop + TORCH_BASE_EM * em, strips, em };
+      const torchCell = SPOTANIM_SHEETS.lobby_torch?.worldCell;
+      const torchW = torchEl?.getBoundingClientRect().width ?? 0;
+      stage = {
+        width: box.width, floorTop, floorBottom: box.height,
+        menuBottom: room ? room.bottom - box.top : 0,
+        strips, em,
+        worldPx: torchCell && torchW > 0 ? torchW / torchCell : 0,
+      };
       dpr = Math.min(2, window.devicePixelRatio || 1);
       for (const c of [back, front]) {
         c.width = Math.round(box.width * dpr);
         c.height = Math.round(box.height * dpr);
       }
     };
+    const roomEl = lobby.parentElement?.querySelector('.rs-start-room') ?? null;
+    const torchEl = lobby.querySelector('.rs-lobby-torch');
     measure();
+    // The torch box is 14em and the menu grows with its tab, so either one moving
+    // re-measures the room even when the lobby's own box holds still.
     const ro = new ResizeObserver(measure);
-    ro.observe(lobby);
+    for (const el of [lobby, roomEl, torchEl]) if (el) ro.observe(el);
 
     const state = newLobby(Math.random);
     const env: LobbyEnv = { get stage() { return stage; }, rand: Math.random, sheet };
@@ -148,7 +169,7 @@ export function LobbyWalkers({ onSound }: { onSound: (key: string, level: number
 
     let splatAnchor: { ox: number; oy: number } | null = null;
     const drawEffects = (ctx: CanvasRenderingContext2D) => {
-      const u = lobbyUnit(stage.em);
+      const u = lobbyUnit(stage);
       for (const w of state.walkers) {
         const shot = w.strike?.shot;
         if (!shot?.launched || w.deadAge !== null) continue;
@@ -199,7 +220,7 @@ export function LobbyWalkers({ onSound }: { onSound: (key: string, level: number
       }
       for (const ctx of [bctx, fctx]) ctx.filter = WALKER_FILTER;
       for (const walker of drawOrder(state.walkers)) {
-        drawWalker(walkerBehindTorches(walker, stage) ? bctx : fctx, walker);
+        drawWalker(walkerOverMenu(walker, stage) ? fctx : bctx, walker);
       }
       for (const ctx of [bctx, fctx]) {
         ctx.filter = 'none';
@@ -228,14 +249,9 @@ export function LobbyWalkers({ onSound }: { onSound: (key: string, level: number
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, []);
+  }, [overRef]);
 
-  return (
-    <>
-      <canvas ref={backRef} className="rs-lobby-walkers" />
-      <canvas ref={frontRef} className="rs-lobby-walkers rs-lobby-walkers-front" />
-    </>
-  );
+  return <canvas ref={backRef} className="rs-lobby-walkers" />;
 }
 
 /** Where the feet sit in a walk sheet's first cell: the lowest opaque row, as a

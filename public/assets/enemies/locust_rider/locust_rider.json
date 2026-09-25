@@ -77,5 +77,6 @@
       ],
       "loop": false
     }
-  }
+  },
+  "worldCell": 370
 }
