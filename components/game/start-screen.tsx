@@ -77,26 +77,28 @@ function SaveStat({ icon, title, value }: { icon: string; title: string; value: 
 }
 
 /**
- * The game's name, flanked by the two towers the game opens with — the archer's
- * bow and the wizard's staff, cache-rendered, standing either side of the wordmark
- * like banners. Under it, whatever the account has earned the right to wear.
+ * The game's name between a Dwarf multicannon and a Giant rat, both cache-rendered
+ * and both facing the wordmark. The rat is the enemy's own portrait (NPC 2510, a
+ * Giant rat in the cache). Under it, whatever the account has earned the right to wear.
  */
 function Wordmark({ champion, wins, caTitle }: { champion: boolean; wins: number; caTitle: CaTier | null }) {
   return (
     <div className="text-center">
       <div className="flex items-center justify-center gap-[0.7em]">
-        <img
-          src={ASSETS.towers.archer[4]}
-          alt=""
-          className="w-[2.2em] h-[2.2em] object-contain shrink-0"
-          // Mirrored so the pair leans inward, the way a banner flanks a doorway.
-          style={{ transform: 'scaleX(-1)' }}
-          onError={hideBrokenImg}
-        />
+        <img src={ASSETS.towers.cannon[3]} alt="" className="w-[2.2em] h-[2.2em] object-contain shrink-0" onError={hideBrokenImg} />
         <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: fs('clamp(18px, 2.1vw, 28px)') }}>
           OSRS Tower Defense
         </div>
-        <img src={ASSETS.towers.wizard[4]} alt="" className="w-[2.2em] h-[2.2em] object-contain shrink-0" onError={hideBrokenImg} />
+        <img
+          src={ASSETS.enemies.rat}
+          alt=""
+          // The rat is long and low (it paints 256×142 of its 256px square), so a bigger box
+          // gives it the cannon's weight; the negative margin keeps the row's height.
+          className="w-[2.9em] h-[2.9em] -my-[0.35em] object-contain shrink-0"
+          // Mirrored: the render faces right, and the rat should face the wordmark.
+          style={{ transform: 'scaleX(-1)' }}
+          onError={hideBrokenImg}
+        />
       </div>
       {(champion || caTitle) && (
         <div className="flex items-center justify-center gap-[0.8em] mt-[0.45em] text-[0.78em] font-bold uppercase tracking-wider text-osrs-yellow">

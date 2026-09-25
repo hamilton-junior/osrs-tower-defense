@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "new",
+      "scope": "stats",
+      "text": "Show a stat that reads 73 as a red 73 hitsplat",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
       "kind": "updated",
       "scope": "daily",
       "text": "Mark days played with an hourglass and the best day with a gold star",
@@ -273,13 +280,6 @@
       "text": "One chaos altar per map, fewer graves, and TzHaar trades its stalagmites for city stone",
       "fromFeedback": false,
       "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "The tallest trees and stalagmites lose half their height, and TzHaar's fences are gone",
-      "fromFeedback": false,
-      "date": "2026-09-17"
     }
   ]
 }
