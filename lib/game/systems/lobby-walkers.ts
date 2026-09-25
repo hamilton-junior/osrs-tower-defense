@@ -54,7 +54,19 @@ const SHOT_SPEED = 600;
 /** A spell's bolt stays in the air at least this long, so its cast clip finishes
  *  before the impact sound starts, as the board's spells do. */
 const SPELL_MIN_FLIGHT_S = 1.2;
-const SHOT_MIN_FLIGHT_S = 0.45;
+/** Arrows, bolts and thrown weapons fly slower than the board's, so the eye can
+ *  follow one across the wide lobby into the monster it hits. */
+const SHOT_SLOW = 0.7;
+const SHOT_MIN_FLIGHT_S = 0.6;
+
+/** Seconds a lobby shot spends in the air over `dist` px. A spell keeps the
+ *  board's speed and waits out its cast; anything else flies at SHOT_SLOW. */
+export function lobbyShotFlight(dist: number, spell: boolean, stage: LobbyStage): number {
+  const speed = SHOT_SPEED * lobbyUnit(stage);
+  return spell
+    ? Math.max(SPELL_MIN_FLIGHT_S, dist / speed)
+    : Math.max(SHOT_MIN_FLIGHT_S, dist / (speed * SHOT_SLOW));
+}
 /** How far outside the lobby's edge a shot is launched from, in em. */
 const SHOT_OFFSCREEN_EM = 2;
 const TRAIL_POINTS = 6;
@@ -327,7 +339,7 @@ export function planStrike(
   const ox = atX < stage.width / 2 ? -off : stage.width + off;
   const oy = stage.floorTop * (0.3 + 0.5 * rand());
   const dist = Math.hypot(atX - ox, walkerBodyY(w) - oy);
-  const flight = Math.max(spell ? SPELL_MIN_FLIGHT_S : SHOT_MIN_FLIGHT_S, dist / (SHOT_SPEED * lobbyUnit(stage)));
+  const flight = lobbyShotFlight(dist, !!spell, stage);
   // Fire early enough that the walker reaches atX as the shot lands.
   const launchX = atX - w.dir * w.speed * flight;
   return {

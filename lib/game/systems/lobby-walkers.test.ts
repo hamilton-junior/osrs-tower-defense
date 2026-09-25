@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LOBBY_CELL_EM, LOBBY_COST, LOBBY_MAX_WALKERS, crossingSeconds, lobbyRoster, lobbySpells, newLobby,
   pickFeetY, pickWalkerDef, planStrike, stepLobby, strikeTowers, walkerHitpoints, walkerOverMenu,
-  walkerSize, walkerSlug, LOBBY_SIZE_BOOST, LOBBY_DEATH_DELAY_S, lobbySplatScale, lobbyUnit,
+  walkerSize, walkerSlug, LOBBY_SIZE_BOOST, LOBBY_DEATH_DELAY_S, lobbySplatScale, lobbyShotFlight, lobbyUnit,
   type LobbyEnv, type LobbyEvent, type LobbyStage, type LobbyState, type LobbyWalker,
 } from './lobby-walkers';
 import { NPC_HITPOINTS } from '../data/npc-hitpoints.data';
@@ -334,5 +334,17 @@ describe('lobbySplatScale', () => {
 
   it('stays readable on the smallest monster', () => {
     expect(lobbySplatScale(sized(20), STAGE) * SPLAT_PX).toBeCloseTo(1.6 * EM);
+  });
+});
+
+describe('lobbyShotFlight', () => {
+  it('flies a thrown shot slower than a spell over the same long distance', () => {
+    const far = 4000;
+    expect(lobbyShotFlight(far, false, STAGE)).toBeGreaterThan(lobbyShotFlight(far, true, STAGE));
+  });
+
+  it('keeps each kind above its own floor on a short hop', () => {
+    expect(lobbyShotFlight(1, true, STAGE)).toBe(1.2);
+    expect(lobbyShotFlight(1, false, STAGE)).toBe(0.6);
   });
 });
