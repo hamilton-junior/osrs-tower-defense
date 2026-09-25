@@ -88,8 +88,11 @@ function Wordmark({ champion, wins, caTitle }: { champion: boolean; wins: number
   const ratWalk = ENEMY_ANIMS.rat?.clips.walk;
   return (
     <div className="text-center">
+      {/* Centring the boxes leaves the eye off-centre: the cannon's head rides above
+          its thin legs and the rat's body hangs under its raised tail. The nudges
+          put the head and the body level with the lettering. */}
       <div className="flex items-center justify-center gap-[0.7em]">
-        <img src={ASSETS.towers.cannon[3]} alt="" className="w-[2.2em] h-[2.2em] object-contain shrink-0" onError={hideBrokenImg} />
+        <img src={ASSETS.towers.cannon[3]} alt="" className="w-[2.2em] h-[2.2em] translate-y-[0.25em] object-contain shrink-0" onError={hideBrokenImg} />
         <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: fs('clamp(18px, 2.1vw, 28px)') }}>
           OSRS Tower Defense
         </div>
@@ -102,7 +105,7 @@ function Wordmark({ champion, wins, caTitle }: { champion: boolean; wins: number
               backgroundImage: `url(${ratWalk.url})`,
               backgroundSize: `${ratWalk.frames * 100}% 100%`,
               backgroundPosition: '0 0',
-              transform: 'scaleX(-1)',
+              transform: 'translateY(-0.5em) scaleX(-1)',
             }}
           />
         )}
