@@ -2,6 +2,27 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "feedback",
+      "text": "Trade the bug report's spider for a Giant Scarab, and grow both icons",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "fixed",
+      "scope": "start",
+      "text": "Stop the lobby's monsters blinking when you switch menu tabs",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "feedback",
+      "text": "Swap the bug report's icon for a Fever spider you can make out",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
       "kind": "fixed",
       "scope": "start",
       "text": "Slow the lobby's arrows and bolts so you can follow them into the monster",
@@ -257,27 +278,6 @@
       "kind": "new",
       "scope": "pets",
       "text": "Fishing, Farming and Hunter drop their own OSRS pets",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "The TzHaar cavern floor is bare basalt instead of a scatter of lava slabs and troughs",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "Mor Ul Rek trades the champion's display for the cavern's own columns and crates",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "Trees and rocks on a shoreline stand in front of the water instead of behind it",
       "fromFeedback": false,
       "date": "2026-09-18"
     }

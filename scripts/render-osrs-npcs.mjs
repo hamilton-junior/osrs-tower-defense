@@ -233,6 +233,9 @@ const TARGETS = {
   // and the camera frames the figure alone. Left in, the gap shrinks him to a speck
   // in a 20px stat cell.
   random_event: { npc: 326, cullBelowGround: -40, fitVisible: true },
+  // The feedback panel's "Report a bug": Sophanem's beetle, looked down on so its
+  // shell and splayed legs read as an insect at button size.
+  giant_scarab: { npc: 797, pitch: 60 },
 };
 
 // Bestiary statics: reuse the exact NPC ids the anim baker renders clips from

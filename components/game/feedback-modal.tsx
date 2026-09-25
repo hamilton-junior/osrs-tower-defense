@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { UIState } from '@/lib/game/core/engine';
 import { FEEDBACK, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 import { loadChangelog, CHANGELOG_KINDS, type ChangelogEntry } from '@/lib/game/changelog';
-import { itemIcon } from '@/lib/game/assets';
+import { itemIcon, npcModel } from '@/lib/game/assets';
 import { fs, hideBrokenImg } from './ui-kit';
 
 /**
@@ -90,7 +90,7 @@ export function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => voi
               title="Open the bug-report form in a new tab"
               onClick={() => open(FEEDBACK.bugFormUrl)}
             >
-              <img src={itemIcon('swamp_cave_bug')} alt="" className="w-[1.5em] h-[1.5em] object-contain shrink-0" onError={hideBrokenImg} />
+              <img src={npcModel('giant_scarab')} alt="" className="w-[2em] h-[2em] object-contain shrink-0" onError={hideBrokenImg} />
               Report a bug
             </button>
           )}
@@ -100,7 +100,7 @@ export function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => voi
               title="Open the suggestion form in a new tab"
               onClick={() => open(FEEDBACK.suggestionFormUrl)}
             >
-              <img src={itemIcon('light_orb')} alt="" className="w-[1.5em] h-[1.5em] object-contain shrink-0" onError={hideBrokenImg} />
+              <img src={itemIcon('light_orb')} alt="" className="w-[2em] h-[2em] object-contain shrink-0" onError={hideBrokenImg} />
               Suggest an idea
             </button>
           )}

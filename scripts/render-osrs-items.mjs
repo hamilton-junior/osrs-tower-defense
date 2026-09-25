@@ -398,8 +398,7 @@ const TARGETS = {
   wilderness_sword: { name: 'Wilderness sword 4' },
   fremennik_sea_boots: { name: 'Fremennik sea boots 4' },
   karamja_gloves: { name: 'Karamja gloves 4' },
-  // ---- the feedback panel's two forms: a real bug, and a light bulb ----
-  swamp_cave_bug: { name: 'Swamp cave bug' },
+  // ---- the feedback panel's idea form: a light bulb (its bug is an NPC model) ----
   light_orb: { name: 'Light orb' },
 };
 
