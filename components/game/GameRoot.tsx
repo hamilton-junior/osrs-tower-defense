@@ -3613,7 +3613,6 @@ export default function GameRoot() {
             setRunStarted(true);
           }}
           onDiscard={() => { clearRunSave(); setSavedRun(null); }}
-          onHelp={() => setHelpOpen(true)}
           onSaveCode={() => setSaveCodeOpen(true)}
         />
       )}
@@ -4467,7 +4466,7 @@ export default function GameRoot() {
                   💬
                 </button>
               )}
-              <button data-tut="help" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
+              <button data-tut="help" data-idle-keep="" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
                 ❓
               </button>
             </div>

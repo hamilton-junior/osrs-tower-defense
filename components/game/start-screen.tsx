@@ -447,7 +447,7 @@ function DailyTab({ today, board, onStart, onSound }: {
  * The Account tab: everything the account carries between runs — essence and what
  * it buys, the collection, and the numbers behind both.
  */
-function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, diaries, difficulty, onOpenShop, onOpenLog, onHelp, onSaveCode, onSound }: {
+function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, diaries, difficulty, onOpenShop, onOpenLog, onSaveCode, onSound }: {
   essence: number;
   victories: Victories;
   killCounts: Record<string, number>;
@@ -457,7 +457,6 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, 
   difficulty: DifficultyProgress;
   onOpenShop: () => void;
   onOpenLog: (tab: LogTab) => void;
-  onHelp: () => void;
   onSaveCode: () => void;
   onSound: (key: string) => void;
 }) {
@@ -538,9 +537,6 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, 
         <button className="rs-btn flex-1 py-[0.35em] text-[0.8em]" title="Export or import your progress as a save code" onClick={() => { onSound('interface_open'); onSaveCode(); }}>
           💾 Save/Load
         </button>
-        <button className="rs-btn flex-1 py-[0.35em] text-[0.8em]" title="Open the how-to-play guide" onClick={() => { onSound('interface_open'); onHelp(); }}>
-          ❓ How to Play
-        </button>
       </div>
     </div>
   );
@@ -549,7 +545,7 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, 
 /** Title / mode-select screen shown before the first wave of a run (and again on
  *  restart). This function is the room and its running order; each block is its
  *  own component above. */
-export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, bossesSeen, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onHelp, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound, onAmbient }: {
+export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, bossesSeen, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound, onAmbient }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back above the tabs. */
   saved: RunSave | null;
@@ -579,7 +575,6 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   onStartDaily: () => void;
   onContinue: () => void;
   onDiscard: () => void;
-  onHelp: () => void;
   onSaveCode: () => void;
   onBuyUpgrade: (id: keyof GlobalUpgrades) => void;
   onRefundEssence: () => void;
@@ -653,7 +648,6 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
               difficulty={difficulty}
               onOpenShop={() => setShopOpen(true)}
               onOpenLog={onOpenLog}
-              onHelp={onHelp}
               onSaveCode={onSaveCode}
               onSound={onSound}
             />
