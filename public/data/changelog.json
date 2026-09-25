@@ -4,6 +4,13 @@
     {
       "kind": "fixed",
       "scope": "start",
+      "text": "Walk the lobby's monsters in front of the torches, never through them",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "fixed",
+      "scope": "start",
       "text": "Shrink the start screen on short windows so the Play tab never scrolls",
       "fromFeedback": false,
       "date": "2026-09-25"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "daily",
       "text": "The daily result screen now shows the last week of dailies and your streak",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "new",
-      "scope": "daily",
-      "text": "A Daily Challenge gives everyone the same map and the same waves each day, and keeps your best run",
       "fromFeedback": false,
       "date": "2026-09-18"
     }

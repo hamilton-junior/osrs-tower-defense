@@ -23,7 +23,7 @@ function seeded(seed: number): () => number {
 
 const EM = 22.8;
 const STAGE: LobbyStage = {
-  width: 1566, floorTop: 496, floorBottom: 688, menuBottom: 640, em: EM, worldPx: 0.9,
+  width: 1566, floorTop: 496, floorBottom: 688, menuBottom: 640, torchFoot: 540, em: EM, worldPx: 0.9,
   strips: [[0, 379], [1199, 1566]],
 };
 const SHEET = { feetFrac: 0.8, deathS: 1.2, worldCell: 240 };
@@ -140,6 +140,15 @@ describe('pickFeetY', () => {
 
   it('gives up on a floor too thin to hold anyone', () => {
     expect(pickFeetY(seeded(1), { ...STAGE, floorBottom: STAGE.floorTop + EM }, [])).toBeNull();
+  });
+
+  it('stands every walker in front of the torches, never level with their base', () => {
+    const rand = seeded(9);
+    for (let i = 0; i < 200; i++) {
+      const y = pickFeetY(rand, STAGE, []);
+      expect(y!).toBeGreaterThan(STAGE.torchFoot);
+    }
+    expect(pickFeetY(seeded(1), { ...STAGE, torchFoot: STAGE.floorBottom }, [])).toBeNull();
   });
 });
 

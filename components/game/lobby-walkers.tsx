@@ -18,13 +18,16 @@ import {
 const LOBBY_SOUND_LEVEL = 0.2;
 /** The floor band is the bottom 28% of the lobby (.rs-lobby-floor). */
 const FLOOR_FRAC = 0.72;
+/** Transparent rows under the torch's base in its 256px cell (lobby_torch.png):
+ *  the base stands this fraction of the torch box above the box's bottom edge. */
+const TORCH_FOOT_PAD = 20 / 256;
 /** The torches' own flat-shading dim (.rs-lobby-flame), so a monster reads as in
  *  the same room. */
 const WALKER_FILTER = 'brightness(0.78)';
 
 /**
- * The monsters that wander the start screen's floor. Two canvases, both over the
- * torches, which hang on the wall: the back one sits in the lobby, under the
+ * The monsters that wander the start screen's floor, always in front of the
+ * torches. Two canvases, both over the torches: the back one sits in the lobby, under the
  * menu; the over one (`overRef`, a sibling of the lobby) sits over the menu, for
  * the walkers whose feet stand below the menu's bottom edge and for every shot,
  * impact and hitsplat. Both paint over the room's vignette, so each canvas
@@ -85,7 +88,7 @@ export function LobbyWalkers({ onSound, overRef }: {
       return made;
     };
 
-    let stage: LobbyStage = { width: 0, floorTop: 0, floorBottom: 0, menuBottom: 0, strips: [], em: 16, worldPx: 0 };
+    let stage: LobbyStage = { width: 0, floorTop: 0, floorBottom: 0, menuBottom: 0, torchFoot: 0, strips: [], em: 16, worldPx: 0 };
     let dpr = 1;
     const measure = () => {
       const box = lobby.getBoundingClientRect();
@@ -98,10 +101,12 @@ export function LobbyWalkers({ onSound, overRef }: {
         strips = [[0, room.left - box.left], [room.right - box.left, box.width]];
       }
       const torchCell = SPOTANIM_SHEETS.lobby_torch?.worldCell;
-      const torchW = torchEl?.getBoundingClientRect().width ?? 0;
+      const torch = torchEl?.getBoundingClientRect();
+      const torchW = torch?.width ?? 0;
       stage = {
         width: box.width, floorTop, floorBottom: box.height,
         menuBottom: room ? room.bottom - box.top : 0,
+        torchFoot: torch ? torch.bottom - box.top - torch.height * TORCH_FOOT_PAD : 0,
         strips, em,
         worldPx: torchCell && torchW > 0 ? torchW / torchCell : 0,
       };

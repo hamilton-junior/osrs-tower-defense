@@ -45,6 +45,9 @@ const CROSSING_S: readonly [number, number] = [15, 30];
 const FEET_GAP_EM = 0.8;
 /** Feet stay this far (em) inside the floor's top and bottom edges. */
 const FLOOR_MARGIN_EM = 0.6;
+/** Feet stand at least this far (em) in front of the torches' base, so every
+ *  monster crossing a torch passes in front of it, never through it. */
+const TORCH_CLEAR_EM = 0.4;
 /** Board projectiles fly at 600 board px per second (see core/sim/combat). */
 const SHOT_SPEED = 600;
 /** A spell's bolt stays in the air at least this long, so its cast clip finishes
@@ -128,6 +131,8 @@ export interface LobbyStage {
   floorBottom: number;
   /** The menu panel's bottom edge: feet below it walk in front of the menu. */
   menuBottom: number;
+  /** Where the standing torches meet the floor; 0 while unknown. */
+  torchFoot: number;
   /** Stretches of floor the menu does not cover, as [x0, x1]: where a shot may land. */
   strips: ReadonlyArray<readonly [number, number]>;
   /** CSS pixels per em, so every size tracks --ui-scale. */
@@ -235,10 +240,10 @@ export function walkerOverMenu(w: LobbyWalker, stage: LobbyStage): boolean {
   return w.feetY > stage.menuBottom;
 }
 
-/** A feet line at least {@link FEET_GAP_EM} from every walker's, or null when the
- *  floor has no room left after a few tries. */
+/** A feet line in front of the torches and at least {@link FEET_GAP_EM} from every
+ *  walker's, or null when the floor has no room left after a few tries. */
 export function pickFeetY(rand: () => number, stage: LobbyStage, taken: number[]): number | null {
-  const lo = stage.floorTop + FLOOR_MARGIN_EM * stage.em;
+  const lo = Math.max(stage.floorTop + FLOOR_MARGIN_EM * stage.em, stage.torchFoot + TORCH_CLEAR_EM * stage.em);
   const hi = stage.floorBottom - FLOOR_MARGIN_EM * stage.em;
   if (hi <= lo) return null;
   const gap = FEET_GAP_EM * stage.em;
