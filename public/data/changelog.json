@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "updated",
+      "scope": "account",
+      "text": "Give the Account stats their own OSRS icons",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
       "kind": "fixed",
       "scope": "start",
       "text": "Show the How to Play stone on the start screen",
@@ -271,13 +278,6 @@
       "kind": "updated",
       "scope": "board",
       "text": "Every region stands twice as many kinds of tree, rock and ruin, and Karamja's floor turns warm green",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "Every region gets a smoother, more varied ground, and rough tiles stop drawing a grid",
       "fromFeedback": false,
       "date": "2026-09-17"
     }

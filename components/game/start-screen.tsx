@@ -455,11 +455,10 @@ function tierIcon(tier: number): string {
   return ASSETS.achievements[CA_TIERS[Math.max(0, tier - 1)] ?? 'grandmaster'];
 }
 
-function AccountTab({ essence, victories, killCounts, bossesSeen, diversionsMet, achievements, diaries, difficulty, onOpenShop, onOpenLog, onSaveCode, onSound }: {
+function AccountTab({ essence, victories, killCounts, diversionsMet, achievements, diaries, difficulty, onOpenShop, onOpenLog, onSaveCode, onSound }: {
   essence: number;
   victories: Victories;
   killCounts: Record<string, number>;
-  bossesSeen: Record<string, number>;
   diversionsMet: Record<string, number>;
   achievements: string[];
   diaries: string[];
@@ -469,7 +468,7 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, diversionsMet,
   onSaveCode: () => void;
   onSound: (key: string) => void;
 }) {
-  const stats = accountStats({ victories, killCounts, bossesSeen, diversionsMet, achievements, diaries, difficulty });
+  const stats = accountStats({ victories, killCounts, diversionsMet, achievements, diaries, difficulty });
   const openLog = (tab: LogTab) => { onSound('click'); onOpenLog(tab); };
   return (
     <div className="flex flex-col gap-[0.6em]">
@@ -504,7 +503,7 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, diversionsMet,
             Achievements
           </button>
           <button className="rs-btn flex items-center gap-[0.35em] px-[0.5em] py-[0.3em] text-[0.78em]" title="Achievement Diaries" onClick={() => openLog('diaries')}>
-            <img src={ASSETS.misc.inventory_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+            <img src={ASSETS.misc.diaries_icon} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
             Diaries
           </button>
         </div>
@@ -530,7 +529,7 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, diversionsMet,
             value={stats.bestTier >= 0 ? tierLabel(stats.bestTier as DifficultyTier) : '—'}
           />
           <GoStat icon={ASSETS.misc.pk_skull} label="Enemies killed" value={fmt(stats.kills)} />
-          <GoStat icon={ASSETS.misc.pk_skull_forinthry} label="Bosses met" value={fmt(stats.bossKinds)} />
+          <GoStat icon={ASSETS.misc.pk_skull_forinthry} label="Bosses killed" value={fmt(stats.bossKills)} />
           <GoStat icon={ASSETS.misc.random_event} label="Random events met" value={fmt(stats.eventKinds)} />
           <GoStat icon={ASSETS.misc.diaries_icon} label="Diary tasks" value={fmt(stats.diaries)} />
         </div>
@@ -554,7 +553,7 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, diversionsMet,
 /** Title / mode-select screen shown before the first wave of a run (and again on
  *  restart). This function is the room and its running order; each block is its
  *  own component above. */
-export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, bossesSeen, diversionsMet, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound, onAmbient }: {
+export function StartScreen({ mode, saved, victories, caTitle, difficulty, selectedTier, today, dailyBoard, essence, upgrades, killCounts, diversionsMet, achievements, diaries, onSelect, onSelectTier, onStart, onStartDaily, onContinue, onDiscard, onSaveCode, onBuyUpgrade, onRefundEssence, onOpenLog, onSound, onAmbient }: {
   mode: GameMode;
   /** A run left in progress on this browser, offered back above the tabs. */
   saved: RunSave | null;
@@ -575,7 +574,6 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   upgrades: GlobalUpgrades;
   /** The account's tallies, for the statistics block. */
   killCounts: Record<string, number>;
-  bossesSeen: Record<string, number>;
   diversionsMet: Record<string, number>;
   achievements: string[];
   diaries: string[];
@@ -652,7 +650,6 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
               essence={essence}
               victories={victories}
               killCounts={killCounts}
-              bossesSeen={bossesSeen}
               diversionsMet={diversionsMet}
               achievements={achievements}
               diaries={diaries}

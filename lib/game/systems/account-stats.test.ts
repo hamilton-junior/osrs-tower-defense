@@ -5,7 +5,6 @@ import { accountStats } from './account-stats';
 const base = {
   victories: EMPTY_VICTORIES,
   killCounts: {},
-  bossesSeen: {},
   diversionsMet: {},
   achievements: [] as string[],
   diaries: [] as string[],
@@ -16,7 +15,7 @@ describe('accountStats', () => {
   it('reads zeroes off a fresh account', () => {
     expect(accountStats(base)).toEqual({
       wins: 0, winsClassic: 0, winsRoguelite: 0, fastestSeconds: null, bestEndlessWave: 0,
-      kills: 0, eventKinds: 0, bossKinds: 0, achievements: 0, diaries: 0, bestTier: -1,
+      kills: 0, bossKills: 0, eventKinds: 0, achievements: 0, diaries: 0, bestTier: -1,
     });
   });
 
@@ -25,15 +24,23 @@ describe('accountStats', () => {
     expect(s.kills).toBe(415);
   });
 
+  // Dusk and Dawn are two lines in the Collection Log, so they count apart. Jad's
+  // healers are his escort, not a boss.
+  it('counts the bosses among the kills', () => {
+    const s = accountStats({ ...base, killCounts: { goblin: 400, zulrah: 3, jad: 1, dusk: 2, dawn: 2, yt_hurkot: 9 } });
+    expect(s.bossKills).toBe(8);
+  });
+
   // A tally written by an older build can carry a zero or a corrupt entry; neither
   // is a kind the player has met.
   it('ignores an id with nothing behind it', () => {
     const s = accountStats({
       ...base,
-      killCounts: { goblin: 5, ghost: 0, imp: Number.NaN },
+      killCounts: { goblin: 5, ghost: 0, imp: Number.NaN, vorkath: 0, jad: Number.NaN },
       diversionsMet: { genie: 0, drunken_dwarf: Number.NaN, strange_plant: 1 },
     });
     expect(s.kills).toBe(5);
+    expect(s.bossKills).toBe(0);
     expect(s.eventKinds).toBe(1);
   });
 
@@ -64,13 +71,8 @@ describe('accountStats', () => {
     expect(s.bestTier).toBe(3);
   });
 
-  it('counts bosses met, achievements and diary tasks', () => {
-    const s = accountStats({
-      ...base,
-      bossesSeen: { zulrah: 2, jad: 1 },
-      achievements: ['a', 'b', 'c'],
-      diaries: ['d'],
-    });
-    expect([s.bossKinds, s.achievements, s.diaries]).toEqual([2, 3, 1]);
+  it('counts achievements and diary tasks', () => {
+    const s = accountStats({ ...base, achievements: ['a', 'b', 'c'], diaries: ['d'] });
+    expect([s.achievements, s.diaries]).toEqual([3, 1]);
   });
 });

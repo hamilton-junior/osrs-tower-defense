@@ -209,13 +209,17 @@ export function Vital({ icon, orb, orbColor, title, value, valueColor, fill, fil
   );
 }
 
+/** A stat card: the figure with its OSRS icon to the right, the label under both.
+ *  The icon is sized in `em` so it tracks the UI scale with the text. */
 export function GoStat({ icon, label, value }: { icon?: string; label: string; value: React.ReactNode }) {
   return (
     <div className="rs-panel-inset flex flex-col items-center gap-1 py-2">
-      {icon && (
-        <img src={icon} alt="" className="w-5 h-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-      )}
-      <span className="text-osrs-yellow font-bold leading-none">{value}</span>
+      <span className="flex items-center gap-[0.3em]">
+        <span className="text-osrs-yellow font-bold leading-none">{value}</span>
+        {icon && (
+          <img src={icon} alt="" className="w-[1.25em] h-[1.25em] object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        )}
+      </span>
       <span className="text-[0.72em] text-[#d3c3a0] uppercase tracking-wide">{label}</span>
     </div>
   );

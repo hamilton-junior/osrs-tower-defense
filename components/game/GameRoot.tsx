@@ -3586,7 +3586,6 @@ export default function GameRoot() {
           essence={ui.essence}
           upgrades={ui.upgrades}
           killCounts={ui.killCounts}
-          bossesSeen={ui.bossesSeen}
           diversionsMet={ui.diversionsMet}
           achievements={ui.achievements}
           diaries={ui.diaries}

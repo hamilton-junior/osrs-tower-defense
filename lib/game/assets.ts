@@ -614,7 +614,7 @@ export const ASSETS = {
     redemption_heart: `${LOCAL}/ui/redemption_heart.png`,
     // The PK skull a skulled player wears overhead (headicons_pk 439, frame 0), and
     // the light blue one worn under the Forinthry Surge, the revenant buff (frame 3).
-    // The Account tab marks enemies killed and bosses met with them.
+    // The Account tab marks enemies killed and bosses killed with them.
     pk_skull: `${LOCAL}/ui/pk_skull.png`,
     pk_skull_forinthry: `${LOCAL}/ui/pk_skull_forinthry.png`,
     // The Achievement Diaries side tab (sprite 1298), for the Account tab's diary count.
