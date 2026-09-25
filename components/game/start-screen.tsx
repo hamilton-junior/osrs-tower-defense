@@ -10,6 +10,7 @@ import { FEEDBACK_ENABLED } from '@/lib/game/feedback';
 import { essenceRateLabel } from '@/lib/game/systems/meta-progression';
 import { CA_TIER_NAMES, type CaTier } from '@/lib/game/systems/combat-achievements';
 import { dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
+import { dailyRules } from '@/lib/game/systems/daily-rules';
 import { dailyRecords, dailyStreak, type DailyBoard } from '@/lib/game/systems/daily-score';
 import { accountStats } from '@/lib/game/systems/account-stats';
 import type { LogTab } from './collection-log';
@@ -360,6 +361,7 @@ function DailyTab({ today, board, onStart, onSound }: {
   const best = board.days[today] ?? null;
   const streak = dailyStreak(board, today);
   const records = dailyRecords(board);
+  const rules = dailyRules(today);
   return (
     <div className="flex flex-col gap-[0.6em]">
       <div className="rs-panel-inset p-[0.6em] flex flex-col gap-[0.35em]">
@@ -392,8 +394,14 @@ function DailyTab({ today, board, onStart, onSound }: {
 
       <div className="rs-panel-inset p-[0.6em]">
         <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide">Today&apos;s rules</div>
-        {/* Flat for now: every daily runs Classic at Normal. The line exists so the
-            day's own rules have somewhere to be said once they start to vary. */}
+        <div className="flex flex-col gap-[0.2em] mt-[0.35em] text-[0.8em]">
+          {[rules.boon, rules.curse].map((r) => (
+            <span key={r.id} className={`flex items-center gap-[0.4em] ${r.kind === 'boon' ? 'text-osrs-green' : 'text-osrs-red'}`}>
+              <img src={ASSETS.misc[r.icon]} alt="" className="w-[1.1em] h-[1.1em] object-contain" onError={hideBrokenImg} />
+              {r.text}
+            </span>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-x-[0.8em] gap-y-[0.2em] mt-[0.35em] text-[0.76em] text-[#d3c3a0]">
           <span className="flex items-center gap-[0.3em]">
             <img src={ASSETS.misc.multicombat_icon} alt="" className="w-[1em] h-[1em] object-contain" onError={hideBrokenImg} />

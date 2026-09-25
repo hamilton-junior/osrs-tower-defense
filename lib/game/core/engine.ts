@@ -7,6 +7,7 @@ import { type WaveConfig } from '../data/waves';
 import { ASSETS } from '../assets';
 import { distance, distanceSq, isValidPlacement, clampCursorToBoard, snapToTileCenter } from '../systems/geometry';
 import { tierMods, clampTier, highestUnlockedTier, effectiveStartLives, type DifficultyTier } from '../systems/difficulty';
+import { dailyEffectsFor, dailyStartLives } from '../systems/daily-rules';
 import { calculateTowerStats, synergyDamageMult, type ComputedTowerStats, type TowerSynergy } from '../systems/tower-combat';
 import { CombatStatsSystem } from '../systems/combat-stats';
 import { ELEMENT_ORDER, ANCIENT_ORDER, SUPPORT_ORDER, upgradeCostFor } from '../systems/magic';
@@ -1238,7 +1239,8 @@ export class GameEngine {
    *  An event reaches the Dwarf Cannon too — it is weather, not a potion. */
   eventTowerMods() {
     const m = resolveEventMods(this.activeEvent);
-    return { damage: m.towerDamage, range: m.towerRange, fireRate: m.towerFireRate };
+    const d = dailyEffectsFor(this.dailyKey);
+    return { damage: m.towerDamage * d.towerDamage, range: m.towerRange * d.towerRange, fireRate: m.towerFireRate * d.towerFireRate };
   }
 
   /** What the player drank, per combat style: the herbs riding this wave, the
@@ -2151,7 +2153,7 @@ export class GameEngine {
 
   /** A type's base price after the meta shop's discount, before escalation. */
   private towerBasePrice(type: TowerType): number {
-    return Math.ceil((TOWERS[type]?.tiers[0].upgradeCost ?? 0) * this.meta.upgrades.towerCostReduction);
+    return Math.ceil((TOWERS[type]?.tiers[0].upgradeCost ?? 0) * this.meta.upgrades.towerCostReduction * dailyEffectsFor(this.dailyKey).towerCost);
   }
 
   /** What the NEXT tower of this type costs: the base price escalated by how many
@@ -2180,7 +2182,7 @@ export class GameEngine {
    *  permanent reward-multiplier upgrade that {@link awardGold} applies on top. The
    *  single source of truth so the drop and the hover panel never drift. */
   killGoldPreReward(type: EnemyType): number {
-    return Math.round(this.killGold(type) * this.runFx.goldMult * resolveEventMods(this.activeEvent).gold);
+    return Math.round(this.killGold(type) * this.runFx.goldMult * resolveEventMods(this.activeEvent).gold * dailyEffectsFor(this.dailyKey).killGold);
   }
 
   /** The gold the player actually receives for killing `type` right now, with every
@@ -4755,7 +4757,8 @@ export class GameEngine {
    *  scaleEnemyStats at every spawn / preview. Tier 0 returns all-ones. */
   get diffEnemyMults(): { hp: number; speed: number; reward: number } {
     const m = tierMods(this.difficultyTier);
-    return { hp: m.enemyHp, speed: m.enemySpeed, reward: m.gold };
+    const d = dailyEffectsFor(this.dailyKey);
+    return { hp: m.enemyHp * d.enemyHp, speed: m.enemySpeed * d.enemySpeed, reward: m.gold };
   }
 
   // ------------------------------------------------------------- run save/load
@@ -5099,11 +5102,11 @@ export class GameEngine {
     this.spawnQueue = [];
     // Meta-progression (essence + upgrades) persists across runs — only re-apply
     // the starting-gold bonus to the fresh balance.
-    this.money = START_MONEY + this.meta.upgrades.startingMoney;
+    this.money = START_MONEY + this.meta.upgrades.startingMoney + dailyEffectsFor(this.dailyKey).startGold;
     // The difficulty tier is a run-wide lever set before wave 1; it persists
     // across restart (like gameMode). effectiveStartLives applies its lives
     // delta and floors it, so a tier is hard, never structurally unwinnable.
-    const startLives = effectiveStartLives(START_LIVES, this.difficultyTier);
+    const startLives = dailyStartLives(effectiveStartLives(START_LIVES, this.difficultyTier), dailyEffectsFor(this.dailyKey));
     this.lives = startLives;
     this.maxLives = startLives;
     // Roguelite run-scoped state resets; the chosen game mode itself persists.

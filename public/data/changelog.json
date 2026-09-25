@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "start",
+      "text": "Light the start screen with a torch-lit castle lobby",
+      "fromFeedback": false,
+      "date": "2026-09-24"
+    },
+    {
+      "kind": "updated",
+      "scope": "start",
       "text": "Split the start screen into Play, Daily and Account tabs",
       "fromFeedback": false,
       "date": "2026-09-24"
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "diversions",
       "text": "The Tool Leprechaun tends your slowest herb so it is ready a wave sooner",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "new",
-      "scope": "diversions",
-      "text": "Dr Jekyll turns up with a high-level herb for your inventory",
       "fromFeedback": false,
       "date": "2026-09-17"
     }
