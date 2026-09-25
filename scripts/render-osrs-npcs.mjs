@@ -233,6 +233,10 @@ const TARGETS = {
   // and the camera frames the figure alone. Left in, the gap shrinks him to a speck
   // in a 20px stat cell.
   random_event: { npc: 326, cullBelowGround: -40, fitVisible: true },
+  // The start screen's title rat: the enemy's own Giant rat (NPC 2510) in flat
+  // profile facing LEFT, toward the wordmark on its left. Yaw 270 is the left-facing
+  // profile, so the page draws it as baked, unmirrored.
+  title_rat: { npc: 2510, yaw: 270 },
 };
 
 // Bestiary statics: reuse the exact NPC ids the anim baker renders clips from

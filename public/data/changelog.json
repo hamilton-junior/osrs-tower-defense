@@ -2,9 +2,16 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
-      "kind": "new",
-      "scope": "stats",
-      "text": "Show a stat that reads 73 as a red 73 hitsplat",
+      "kind": "updated",
+      "scope": "start",
+      "text": "Turn the title's Giant rat to face the wordmark in profile",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "start",
+      "text": "Flank the title with a Dwarf multicannon and a Giant rat",
       "fromFeedback": false,
       "date": "2026-09-25"
     },
@@ -271,13 +278,6 @@
       "kind": "updated",
       "scope": "board",
       "text": "TzHaar trades its sulphur for lava pools and Morytania grows a dead swamp",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "One chaos altar per map, fewer graves, and TzHaar trades its stalagmites for city stone",
       "fromFeedback": false,
       "date": "2026-09-18"
     }

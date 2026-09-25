@@ -304,8 +304,8 @@ const TARGETS = {
   volatile_orb: { name: 'Volatile nightmare staff' }, // orb itself is untradeable attachment; staff icon reads better
   wolf_mask: { name: 'Wolf mask' },
   zenyte: { name: 'Zenyte' },
-  // The clue-scroll compass — stands in for elapsed time / "survived" in the
-  // end-of-run summary (OSRS has no clock sprite in the cache).
+  // The clue-scroll compass: marks elapsed time / "survived" in the end-of-run
+  // summary. The Hourglass below marks days played.
   compass: { name: 'Compass' },
   // The Hourglass, for the Daily tab's days played. Two cache items share the
   // name, so the id pins this grey one.

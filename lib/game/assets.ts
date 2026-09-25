@@ -537,8 +537,9 @@ export const ASSETS = {
     attack_icon: `${LOCAL}/misc/attack_icon.png`,
     // The Defence shield — used for an enemy's Tenacity (its resistance stat).
     defence_icon: `${LOCAL}/misc/defence_icon.png`,
-    // The clue-scroll compass, cache-rendered: a dial with a needle. It stands in
-    // for elapsed time in the run summary — OSRS has no clock sprite.
+    // The clue-scroll compass, cache-rendered: a dial with a needle. It marks
+    // elapsed time in the run summary; the Hourglass below marks the Daily tab's
+    // days played.
     compass: itemIcon('compass'),
     // The wooden signpost from beside the Lumbridge Guide (object model 1402),
     // rendered by scripts/render-osrs-objects.mjs. It heads "The Road Forks",
@@ -584,7 +585,7 @@ export const ASSETS = {
     multicombat_icon: `${LOCAL}/ui/multicombat_icon.png`,
     // The corner brackets of OSRS's click marker (518) — a reticle framing a point,
     // for the `unmarked` targeting button. Not to be confused with `compass` above,
-    // which is the clue-scroll item standing in for a clock.
+    // the clue-scroll item that marks elapsed time.
     reticle: `${LOCAL}/ui/reticle.png`,
     // Bare arrow glyphs (1185 / 1186) — the "most / least" markers the targeting
     // priority buttons pair with a dimension icon.
@@ -627,6 +628,8 @@ export const ASSETS = {
     // random events this game sends onto the board. Baked apart from his diversion
     // render, framed on the figure with his shadow cut, to read at stat-cell size.
     random_event: npcModel('random_event'),
+    // The start screen's title rat: the Giant rat in flat profile, facing left.
+    title_rat: npcModel('title_rat'),
     hit_splat: `${LOCAL}/hitsplats/hit.png`,          // red damage (1359)
     magic_hit_splat: `${LOCAL}/hitsplats/miss.png`,   // blue zero-splat (1358)
     hp_icon: `${LOCAL}/misc/hp_icon.png`,

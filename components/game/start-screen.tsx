@@ -78,8 +78,8 @@ function SaveStat({ icon, title, value }: { icon: string; title: string; value: 
 
 /**
  * The game's name between a Dwarf multicannon and a Giant rat, both cache-rendered
- * and both facing the wordmark. The rat is the enemy's own portrait (NPC 2510, a
- * Giant rat in the cache). Under it, whatever the account has earned the right to wear.
+ * and both facing the wordmark. The rat is the enemy's own Giant rat (NPC 2510),
+ * baked in profile for the title. Under it, whatever the account has earned the right to wear.
  */
 function Wordmark({ champion, wins, caTitle }: { champion: boolean; wins: number; caTitle: CaTier | null }) {
   return (
@@ -90,13 +90,11 @@ function Wordmark({ champion, wins, caTitle }: { champion: boolean; wins: number
           OSRS Tower Defense
         </div>
         <img
-          src={ASSETS.enemies.rat}
+          src={ASSETS.misc.title_rat}
           alt=""
-          // The rat is long and low (it paints 256×142 of its 256px square), so a bigger box
-          // gives it the cannon's weight; the negative margin keeps the row's height.
-          className="w-[2.9em] h-[2.9em] -my-[0.35em] object-contain shrink-0"
-          // Mirrored: the render faces right, and the rat should face the wordmark.
-          style={{ transform: 'scaleX(-1)' }}
+          // The rat is long and low, so a bigger box gives it the cannon's weight; the
+          // negative margin keeps the row's height. Baked facing left, at the wordmark.
+          className="w-[3.6em] h-[3.6em] -my-[0.7em] object-contain shrink-0"
           onError={hideBrokenImg}
         />
       </div>
