@@ -550,6 +550,10 @@ export const ASSETS = {
     // The Gold speedrun trophy — OSRS's own two-handled gold cup. It marks a
     // player who has won a run, where a typed star used to sit.
     trophy: itemIcon('trophy'),
+    // The Hourglass, cache-rendered: the Daily tab counts days played with it.
+    hourglass: itemIcon('hourglass'),
+    // The gold title-icon star (cache sprite 7530): the Daily tab's best day.
+    gold_star: `${LOCAL}/misc/gold_star.png`,
     // The Hunter paw print (cache sprite 220) — the skill the road traps belong to.
     hunter_icon: `${LOCAL}/misc/hunter_icon.png`,
     // The Farming sapling (cache sprite 217) — heads the allotment patches.

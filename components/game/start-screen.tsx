@@ -425,13 +425,13 @@ function DailyTab({ today, board, onStart, onSound }: {
       <div className="rs-panel-inset p-[0.6em]">
         <div className="text-[0.7em] text-[#cdbe91] uppercase tracking-wide mb-[0.45em]">Records</div>
         <div className="grid grid-cols-2 gap-[0.4em]">
-          <GoStat icon={ASSETS.misc.signpost} label="Days played" value={fmt(records.daysPlayed)} />
+          <GoStat icon={ASSETS.misc.hourglass} label="Days played" value={fmt(records.daysPlayed)} />
           <GoStat
             icon={ASSETS.misc.arrow_up}
             label="Best wave"
             value={records.bestWave > 0 ? `Wave ${fmt(records.bestWave)}` : '—'}
           />
-          <GoStat icon={ASSETS.misc.compass} label="Best day" value={records.bestDay ? dayLabel(records.bestDay) : '—'} />
+          <GoStat icon={ASSETS.misc.gold_star} label="Best day" value={records.bestDay ? dayLabel(records.bestDay) : '—'} />
           <GoStat
             icon={ASSETS.misc.orb_run_on}
             label="Longest streak"

@@ -110,6 +110,9 @@ const MISC_IDS = {
   // The Achievement Diaries side tab (SideIcons 16): the green-ringed star the
   // client puts on the diary tab. It stands for diary tasks on the Account tab.
   diaries_icon: 1298,
+  // The 12×12 gold star among the client's title icons (gameval
+  // TITLE_ICON_STAR_12X12; frame 1 is the silver one). It marks the Daily tab's best day.
+  gold_star: 7530,
   // Spellbook selector tabs (Standard / Ancient / Arceuus).
   spellbook_standard: 780, spellbook_ancient: 1583, spellbook_arceuus: 1711,
 };

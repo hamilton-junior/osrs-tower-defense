@@ -307,6 +307,9 @@ const TARGETS = {
   // The clue-scroll compass — stands in for elapsed time / "survived" in the
   // end-of-run summary (OSRS has no clock sprite in the cache).
   compass: { name: 'Compass' },
+  // The Hourglass, for the Daily tab's days played. Two cache items share the
+  // name, so the id pins this grey one.
+  hourglass: { id: 5610 },
   // The roguelite's reward cards, wearing the game's own deck: Mystic cards, the
   // Guardians of the Rift reward. The only actual pack of cards in OSRS.
   mystic_cards: { name: 'Mystic cards' },

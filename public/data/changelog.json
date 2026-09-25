@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "account",
+      "text": "Count bosses killed and show each stat's icon beside its number",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "account",
       "text": "Give the Account stats their own OSRS icons",
       "fromFeedback": false,
       "date": "2026-09-25"
@@ -271,13 +278,6 @@
       "kind": "updated",
       "scope": "board",
       "text": "Fences, graves and toadstool beds stand in groups, and TzHaar's banner is gone",
-      "fromFeedback": false,
-      "date": "2026-09-17"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "Every region stands twice as many kinds of tree, rock and ruin, and Karamja's floor turns warm green",
       "fromFeedback": false,
       "date": "2026-09-17"
     }
