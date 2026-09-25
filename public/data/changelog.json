@@ -4,6 +4,13 @@
     {
       "kind": "updated",
       "scope": "start",
+      "text": "Let monsters wander across the lobby floor",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "start",
       "text": "Turn the title's Giant rat to face the wordmark in profile",
       "fromFeedback": false,
       "date": "2026-09-25"
@@ -271,13 +278,6 @@
       "kind": "updated",
       "scope": "board",
       "text": "The TzHaar throne stands as a single pair and lava fills the floor it leaves behind",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "TzHaar trades its sulphur for lava pools and Morytania grows a dead swamp",
       "fromFeedback": false,
       "date": "2026-09-18"
     }

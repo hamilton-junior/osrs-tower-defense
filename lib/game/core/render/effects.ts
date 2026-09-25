@@ -2,7 +2,11 @@ import type { HitsplatKind } from '../engine';
 import { SPOTANIMS } from '../../data/spotanims';
 import { lobArcAngle, lobArcPoint } from '../../systems/boss-mechanics';
 import type { GameRenderer } from '../renderer';
-import { HITSPLAT_COLORS, drawImageContain } from './shared';
+import { drawImageContain } from './shared';
+import {
+  drawDragonArrow, drawPlainBolt, drawShotGlow, drawShotTrail, paintSplat, spotAnimFrame,
+  splatBlobAnchor, splatScale,
+} from './shot-art';
 
 /**
  * What combat throws off: projectiles in flight, particles, the procedural
@@ -13,29 +17,7 @@ import { HITSPLAT_COLORS, drawImageContain } from './shared';
 export function splatAnchor(gr: GameRenderer, key: string, img: HTMLImageElement): { ox: number; oy: number } {
   const cached = gr.splatAnchorCache.get(key);
   if (cached) return cached;
-  const w = img.naturalWidth, h = img.naturalHeight;
-  let anchor = { ox: 0, oy: 0 };
-  try {
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const g = c.getContext('2d', { willReadFrequently: true });
-    if (g) {
-      g.drawImage(img, 0, 0);
-      const d = g.getImageData(0, 0, w, h).data;
-      let minX = w, maxX = -1, minY = h, maxY = -1;
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        if (d[(y * w + x) * 4 + 3] > 16) {
-          if (x < minX) minX = x; if (x > maxX) maxX = x;
-          if (y < minY) minY = y; if (y > maxY) maxY = y;
-        }
-      }
-      if (maxX >= 0) {
-        // Offset that, added to the -dw/2/-dh/2 corner, lands the blob's
-        // centre (not the image's) on the origin.
-        anchor = { ox: (w / 2 - (minX + maxX + 1) / 2) / w, oy: (h / 2 - (minY + maxY + 1) / 2) / h };
-      }
-    }
-  } catch { /* tainted or unreadable — leave the splat image-centred */ }
+  const anchor = splatBlobAnchor(img);
   gr.splatAnchorCache.set(key, anchor);
   return anchor;
 }
@@ -43,22 +25,8 @@ export function splatAnchor(gr: GameRenderer, key: string, img: HTMLImageElement
 export function drawProjectiles(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
   for (const p of gr.e.projectiles) {
     // Motion trail: a fading streak through the recent positions.
-    const trail = p.trail;
-    if (trail && trail.length > 1) {
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = p.color;
-      for (let i = 1; i < trail.length; i++) {
-        ctx.globalAlpha = (i / trail.length) * 0.5;
-        ctx.lineWidth = (i / trail.length) * (p.type === 'cannonball' ? 5 : 3);
-        ctx.beginPath();
-        ctx.moveTo(trail[i - 1].x, trail[i - 1].y);
-        ctx.lineTo(trail[i].x, trail[i].y);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-    }
+    if (p.trail) drawShotTrail(ctx, p.trail, p.color, p.type === 'cannonball' ? 5 : 3);
 
-    ctx.fillStyle = p.color;
     if (p.type === 'arrow') {
       const target = gr.e.enemies.find(en => en.id === p.targetId);
       const angle = target
@@ -67,29 +35,10 @@ export function drawProjectiles(gr: GameRenderer, ctx: CanvasRenderingContext2D)
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(angle);
-      if (p.arrowIcon) {
-        // Archer: a single procedural dragon arrow, drawn pointing +x — i.e.
-        // already along the travel direction (we rotated to `angle`), so no
-        // sprite/orientation guesswork. Dragon look: dark shaft, crimson
-        // dragon-metal head with a bright edge, red fletching.
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#4a3320'; // shaft (dark wood)
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-8, 0);
-        ctx.lineTo(7, 0);
-        ctx.stroke();
-        ctx.fillStyle = '#a3242a'; // fletching (crimson feathers)
-        ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(-11, -3); ctx.lineTo(-4, -1); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(-11, 3); ctx.lineTo(-4, 1); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#5e1414'; // arrowhead (dark dragon metal)
-        ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(6, -3.5); ctx.lineTo(6, 3.5); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = '#c2483c'; // bright leading edge
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(6, -3.5); ctx.moveTo(11, 0); ctx.lineTo(6, 3.5); ctx.stroke();
-      } else {
-        ctx.fillRect(-8, -1, 16, 2); // plain bolt (tzhaar / slayer / toxic)
-      }
+      // Archer: a procedural dragon arrow drawn along +x, already the travel
+      // direction once rotated, so no sprite/orientation guesswork.
+      if (p.arrowIcon) drawDragonArrow(ctx);
+      else drawPlainBolt(ctx, p.color); // tzhaar / slayer / toxic
       ctx.restore();
     } else if (p.projAnim && SPOTANIMS[p.projAnim] && gr.e.imageOk(`spotanim_${p.projAnim}`)) {
       // The spell's REAL flight GFX from the cache — a looping baked spotanim
@@ -97,12 +46,7 @@ export function drawProjectiles(gr: GameRenderer, ctx: CanvasRenderingContext2D)
       // Sheets are baked side-on with the nose pointing +x, so rotate the
       // sprite to the live flight angle — same convention as the arrows.
       const meta = SPOTANIMS[p.projAnim];
-      let rem = (gr.e.runSeconds * 1000 * meta.speed) % meta.frameMs.reduce((a, b) => a + b, 0);
-      let fi = 0;
-      for (; fi < meta.frames - 1; fi++) {
-        if (rem < meta.frameMs[fi]) break;
-        rem -= meta.frameMs[fi];
-      }
+      const fi = spotAnimFrame(meta, gr.e.runSeconds * 1000, true);
       const target = gr.e.enemies.find(en => en.id === p.targetId);
       const angle = target
         ? Math.atan2(target.y - p.y, target.x - p.x)
@@ -123,13 +67,7 @@ export function drawProjectiles(gr: GameRenderer, ctx: CanvasRenderingContext2D)
       ctx.restore();
     } else {
       // glow for magic/cannon shots
-      ctx.save();
-      ctx.shadowColor = p.color;
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.type === 'cannonball' ? 4 : 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      drawShotGlow(ctx, p.x, p.y, p.type === 'cannonball' ? 4 : 5, p.color);
     }
   }
 }
@@ -332,54 +270,7 @@ export function drawSplat(gr: GameRenderer,
   kind: HitsplatKind,
   minor = false,
 ) {
-  // Splat size tracks the number: a 1-digit poke reads smaller than a
-  // 3-digit slam, so big hits shout and chip damage whispers.
-  const digits = Math.abs(Math.trunc(value)).toString().length;
-  const s = (minor ? 0.7 : 1) * (digits <= 1 ? 0.82 : digits === 2 ? 1 : 1.18);
-  ctx.save();
-  ctx.translate(x, y);
-  if (gr.e.imageOk(`hitsplat_${kind}`)) {
-    const img = gr.e.images.get(`hitsplat_${kind}`)!;
-    // The sprites are ~24px; draw at 1.25× so values stay legible at game zoom.
-    const dw = img.naturalWidth * 1.25 * s;
-    const dh = img.naturalHeight * 1.25 * s;
-    // Centre the painted blob (not the image box) on the origin so the value,
-    // which is drawn at the origin below, sits in the middle of the splat.
-    const a = splatAnchor(gr, `hitsplat_${kind}`, img);
-    ctx.imageSmoothingEnabled = false; // keep the pixel art crisp
-    ctx.drawImage(img, -dw / 2 + a.ox * dw, -dh / 2 + a.oy * dh, dw, dh);
-    ctx.imageSmoothingEnabled = true;
-  } else {
-    const hw = 14 * s; // half width
-    const hh = 10 * s; // half height
-    const p = 5 * s; // point inset
-    ctx.beginPath();
-    ctx.moveTo(-hw, 0);
-    ctx.lineTo(-hw + p, -hh);
-    ctx.lineTo(hw - p, -hh);
-    ctx.lineTo(hw, 0);
-    ctx.lineTo(hw - p, hh);
-    ctx.lineTo(-hw + p, hh);
-    ctx.closePath();
-    ctx.fillStyle = HITSPLAT_COLORS[kind] ?? HITSPLAT_COLORS.hit;
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-    ctx.stroke();
-  }
-  // The value in the OSRS pixel font — no synthetic bold (it smears the
-  // pixels) and the client's hard 1px drop shadow instead of a blur.
-  // Centre optically from the measured glyph bounds rather than trusting
-  // baseline metrics, which sit pixel fonts visibly off-centre.
-  const text = String(value);
-  ctx.font = `${Math.round(14 * s)}px 'RuneScape', Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  const m = ctx.measureText(text);
-  const yOff = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.9)';
-  ctx.fillText(text, 1, yOff + 1);
-  ctx.fillStyle = '#fff';
-  ctx.fillText(text, 0, yOff);
-  ctx.restore();
+  const key = `hitsplat_${kind}`;
+  const img = gr.e.imageOk(key) ? gr.e.images.get(key)! : null;
+  paintSplat(ctx, x, y, value, kind, splatScale(value, minor), img, img ? splatAnchor(gr, key, img) : { ox: 0, oy: 0 });
 }

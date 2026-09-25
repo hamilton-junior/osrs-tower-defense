@@ -589,8 +589,8 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   onRefundEssence: () => void;
   /** Open the Collection Log on one of its tabs. */
   onOpenLog: (tab: LogTab) => void;
-  /** Play one of the game's own interface sounds. */
-  onSound: (key: string) => void;
+  /** Play one of the game's own sounds; a `level` plays it as ambience, under the menu. */
+  onSound: (key: string, level?: number) => void;
   /** Starts a looping sound and returns what stops it; undefined while the
    *  engine is not up yet. */
   onAmbient: (key: string, level: number) => (() => void) | undefined;
@@ -600,7 +600,7 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   const [shopOpen, setShopOpen] = useState(false);
   return (
     <div className="rs-start-wood absolute inset-0 flex items-center justify-center z-40 p-4">
-      <StartLobby onAmbient={onAmbient} />
+      <StartLobby onAmbient={onAmbient} onSound={onSound} />
       <div className="rs-start-room relative z-[1] w-[36em] max-w-[95vw] max-h-full flex flex-col gap-[0.7em]">
         <Wordmark champion={victories.total > 0} wins={victories.total} caTitle={caTitle} />
 

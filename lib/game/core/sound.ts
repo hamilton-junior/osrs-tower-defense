@@ -272,9 +272,15 @@ export class SoundManager {
     return audio && isFinite(audio.duration) ? audio.duration : NaN;
   }
 
-  play(key: string, throttleMs = 50) {
+  /**
+   * Play a clip once. A `level` marks an ambient play, heard at that fraction of
+   * the effects' gain like a {@link loop}: the start screen's wandering monsters
+   * use it, and it still sounds while combat plays are suppressed, since nothing
+   * on the board made it.
+   */
+  play(key: string, throttleMs = 50, level?: number) {
     if (this.muted) return;
-    if (this.combatSuppressed && soundCategory(key) === 'combat') return;
+    if (level === undefined && this.combatSuppressed && soundCategory(key) === 'combat') return;
     const base = this.cache.get(key);
     if (!base) return;
     const now = performance.now();
@@ -297,7 +303,7 @@ export class SoundManager {
     this.poolIdx.set(key, idx + 1);
     const node = pool[idx];
     try {
-      node.volume = this.gain();
+      node.volume = this.gain() * (level ?? 1);
       node.currentTime = 0; // restart this voice
       void node.play().catch(() => {}); // ignore autoplay rejections
     } catch {

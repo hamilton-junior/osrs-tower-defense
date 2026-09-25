@@ -1535,6 +1535,17 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
   inset: 0;
   background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.72) 100%);
 }
+/* The wandering monsters (components/game/lobby-walkers.tsx): the back canvas
+   shares the torches' layer and comes first, so they stand in front of it; the
+   front one sits over them. */
+.rs-lobby-walkers {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+.rs-lobby-walkers-front { z-index: 2; }
 /* One torch cell. The sheet's torch is a narrow column in the middle of a square
    frame, so the cell is placed by its centre: 2.5em outside the 36em panel. */
 .rs-lobby-torch {

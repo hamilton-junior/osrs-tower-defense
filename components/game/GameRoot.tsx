@@ -3592,7 +3592,7 @@ export default function GameRoot() {
           onBuyUpgrade={(id) => engineRef.current?.buyEssenceUpgrade(id)}
           onRefundEssence={() => engineRef.current?.refundEssence()}
           onOpenLog={(t) => { setLogTab(t); setLogOpen(true); }}
-          onSound={(k) => engineRef.current?.sound.play(k)}
+          onSound={(k, l) => engineRef.current?.sound.play(k, undefined, l)}
           onAmbient={(k, l) => engineRef.current?.sound.loop(k, l)}
           onSelect={(m) => engineRef.current?.setMode(m)}
           onSelectTier={chooseTier}

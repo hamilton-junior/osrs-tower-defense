@@ -5,6 +5,7 @@ import { CLUSTERED_SCENERY, LAVA_PALETTE, SCENERY_LIMIT, type SceneryId } from '
 import { buildLiquidBodies, paintLiquid } from './liquid';
 import type { LiquidKind } from '../../systems/terrain-generation';
 import { GRID, shade, hash2 } from './shared';
+import { drawSpotAnimGfx } from './shot-art';
 
 /** How much board a single ground-texture square covers, in logic px. */
 export const GROUND_TILE = 64;
@@ -944,25 +945,6 @@ export function drawEffects(gr: GameRenderer, ctx: CanvasRenderingContext2D) {
     const meta = SPOTANIMS[fx.slug];
     const key = `spotanim_${fx.slug}`;
     if (!meta || !gr.e.imageOk(key)) continue;
-    const img = gr.e.images.get(key)!;
-
-    // Current frame from accumulated per-frame timings (scaled by speed).
-    let rem = fx.age * 1000 * meta.speed;
-    let fi = 0;
-    for (; fi < meta.frames - 1; fi++) {
-      if (rem < meta.frameMs[fi]) break;
-      rem -= meta.frameMs[fi];
-    }
-    const prog = fx.age / spotAnimDurationS(meta);
-    const fade = prog > 0.7 ? Math.max(0, 1 - (prog - 0.7) / 0.3) : 1;
-
-    ctx.save();
-    // 'add' glows (energy/light GFX); 'alpha' is the client's plain
-    // translucency — dark GFX (smoke/shadow) vanish under additive.
-    ctx.globalCompositeOperation = meta.blend === 'add' ? 'lighter' : 'source-over';
-    ctx.globalAlpha = 0.92 * fade;
-    const s = meta.size * (fx.scale ?? 1);
-    ctx.drawImage(img, fi * meta.frameW, 0, meta.frameW, meta.frameH, fx.x - s / 2, fx.y - s / 2, s, s);
-    ctx.restore();
+    drawSpotAnimGfx(ctx, gr.e.images.get(key)!, meta, fx.age, fx.x, fx.y, meta.size * (fx.scale ?? 1));
   }
 }
