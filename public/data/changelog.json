@@ -11,6 +11,13 @@
     {
       "kind": "updated",
       "scope": "start",
+      "text": "Raise the title's cannon so its middle sits level with the lettering",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "start",
       "text": "Line the title's cannon and rat up with the lettering",
       "fromFeedback": false,
       "date": "2026-09-25"
@@ -280,13 +287,6 @@
       "text": "Every region keeps an Achievement Diary, and clearing a task announces itself",
       "fromFeedback": false,
       "date": "2026-09-20"
-    },
-    {
-      "kind": "new",
-      "scope": "slayer",
-      "text": "Vannaka and Konar join the masters, and Konar's tasks name a region",
-      "fromFeedback": false,
-      "date": "2026-09-18"
     }
   ]
 }

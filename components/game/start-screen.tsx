@@ -92,7 +92,7 @@ function Wordmark({ champion, wins, caTitle }: { champion: boolean; wins: number
           its thin legs and the rat's body hangs under its raised tail. The nudges
           put the head and the body level with the lettering. */}
       <div className="flex items-center justify-center gap-[0.7em]">
-        <img src={ASSETS.towers.cannon[3]} alt="" className="w-[2.2em] h-[2.2em] translate-y-[0.25em] object-contain shrink-0" onError={hideBrokenImg} />
+        <img src={ASSETS.towers.cannon[3]} alt="" className="w-[2.2em] h-[2.2em] translate-y-[0.1em] object-contain shrink-0" onError={hideBrokenImg} />
         <div className="text-osrs-orange font-bold leading-none" style={{ fontSize: fs('clamp(18px, 2.1vw, 28px)') }}>
           OSRS Tower Defense
         </div>
