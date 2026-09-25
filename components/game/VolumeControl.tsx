@@ -100,6 +100,7 @@ export function VolumeControl({ volume, muted, onVolume, onToggleMute }: VolumeC
     <>
       <button
         ref={btnRef}
+        data-idle-keep=""
         onClick={onToggleMute}
         onMouseEnter={stayOpen}
         onMouseMove={stayOpen}

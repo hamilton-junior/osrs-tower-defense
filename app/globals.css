@@ -1606,9 +1606,10 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
 
 /* The bottom bar on the start screen: the wooden strip stays, so the board keeps
    its height when the run starts, but the run controls in it mean nothing yet.
-   Three controls stay up, each in the spot it holds in game: the UI size
-   control, the only zoom the game has, the 💬 stone to the recent updates, and
-   the ❓ stone to the how-to-play guide. */
+   Four controls stay up, each in the spot it holds in game: the sound control,
+   since the lobby plays sounds too, the UI size control, the only zoom the game
+   has, the 💬 stone to the recent updates, and the ❓ stone to the how-to-play
+   guide. */
 .rs-bar-idle > * {
   visibility: hidden;
 }
