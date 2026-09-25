@@ -29,6 +29,9 @@ export interface DiversionViewClips {
 export interface DiversionAnimSet {
   frameW: number;
   frameH: number;
+  /** The cell's side in world units, as on EnemyAnimSet; the bake measures it for
+   *  every multi-view walker too. */
+  worldCell?: number;
   views: Partial<Record<DiversionView, DiversionViewClips>>;
 }
 

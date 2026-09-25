@@ -2,6 +2,13 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "faster",
+      "scope": "enemies",
+      "text": "Animate every monster at the client's 50 frames a second, like RuneLite's Animation Smoothing",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
       "kind": "fixed",
       "scope": "start",
       "text": "Land the lobby's spells as their cast sound ends, not halfway through it",
@@ -23,13 +30,6 @@
       "date": "2026-09-25"
     },
     {
-      "kind": "updated",
-      "scope": "feedback",
-      "text": "Trade the bug report's spider for a Giant Scarab, and grow both icons",
-      "fromFeedback": false,
-      "date": "2026-09-25"
-    },
-    {
       "kind": "fixed",
       "scope": "start",
       "text": "Stop the lobby's monsters blinking when you switch menu tabs",
@@ -39,7 +39,7 @@
     {
       "kind": "updated",
       "scope": "feedback",
-      "text": "Swap the bug report's icon for a Fever spider you can make out",
+      "text": "Trade the bug report's spider for a Giant Scarab, and grow both icons",
       "fromFeedback": false,
       "date": "2026-09-25"
     },

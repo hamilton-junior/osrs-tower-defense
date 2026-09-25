@@ -9,172 +9,172 @@ const B = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/assets/diversions`;
 
 export const DIVERSION_ANIMS: Record<string, DiversionAnimSet> = {
   hans: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 226,
     views: {
       front: {
         stand: { url: `${B}/hans/front-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/hans/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/hans/front-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       side: {
         stand: { url: `${B}/hans/side-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/hans/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/hans/side-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       back: {
         stand: { url: `${B}/hans/back-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/hans/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/hans/back-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
     },
   },
   hunting_expert: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 228,
     views: {
       front: {
         stand: { url: `${B}/hunting_expert/front-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/hunting_expert/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/hunting_expert/front-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       side: {
         stand: { url: `${B}/hunting_expert/side-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/hunting_expert/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/hunting_expert/side-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       back: {
         stand: { url: `${B}/hunting_expert/back-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/hunting_expert/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/hunting_expert/back-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
     },
   },
   lumbridge_guide: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 285,
     views: {
       front: {
         stand: { url: `${B}/lumbridge_guide/front-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/lumbridge_guide/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/lumbridge_guide/front-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       side: {
         stand: { url: `${B}/lumbridge_guide/side-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/lumbridge_guide/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/lumbridge_guide/side-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       back: {
         stand: { url: `${B}/lumbridge_guide/back-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/lumbridge_guide/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/lumbridge_guide/back-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
     },
   },
   party_pete: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 241,
     views: {
       front: {
         stand: { url: `${B}/party_pete/front-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/party_pete/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
-        dance: { url: `${B}/party_pete/front-dance.png`, frames: 83, frameMs: [80, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40], loop: true },
+        walk: { url: `${B}/party_pete/front-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
+        dance: { url: `${B}/party_pete/front-dance.png`, frames: 212, frameMs: [80, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 16, 16, 16, 16, 16, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20], loop: true },
       },
       side: {
         stand: { url: `${B}/party_pete/side-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/party_pete/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
-        dance: { url: `${B}/party_pete/side-dance.png`, frames: 83, frameMs: [80, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40], loop: true },
+        walk: { url: `${B}/party_pete/side-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
+        dance: { url: `${B}/party_pete/side-dance.png`, frames: 212, frameMs: [80, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 16, 16, 16, 16, 16, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20], loop: true },
       },
       back: {
         stand: { url: `${B}/party_pete/back-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/party_pete/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
-        dance: { url: `${B}/party_pete/back-dance.png`, frames: 83, frameMs: [80, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 40, 40], loop: true },
+        walk: { url: `${B}/party_pete/back-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
+        dance: { url: `${B}/party_pete/back-dance.png`, frames: 212, frameMs: [80, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 16, 16, 16, 16, 16, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 18, 18, 19, 18, 18, 18, 18, 18, 19, 18, 18, 20, 20, 20, 20], loop: true },
       },
     },
   },
   drunken_dwarf: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 175,
     views: {
       front: {
         stand: { url: `${B}/drunken_dwarf/front-stand.png`, frames: 2, frameMs: [400, 400], loop: true },
-        walk: { url: `${B}/drunken_dwarf/front-walk.png`, frames: 15, frameMs: [100, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
+        walk: { url: `${B}/drunken_dwarf/front-walk.png`, frames: 38, frameMs: [100, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17], loop: true },
       },
       side: {
         stand: { url: `${B}/drunken_dwarf/side-stand.png`, frames: 2, frameMs: [400, 400], loop: true },
-        walk: { url: `${B}/drunken_dwarf/side-walk.png`, frames: 15, frameMs: [100, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
+        walk: { url: `${B}/drunken_dwarf/side-walk.png`, frames: 38, frameMs: [100, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17], loop: true },
       },
       back: {
         stand: { url: `${B}/drunken_dwarf/back-stand.png`, frames: 2, frameMs: [400, 400], loop: true },
-        walk: { url: `${B}/drunken_dwarf/back-walk.png`, frames: 15, frameMs: [100, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
+        walk: { url: `${B}/drunken_dwarf/back-walk.png`, frames: 38, frameMs: [100, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17], loop: true },
       },
     },
   },
   genie: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 234,
     views: {
       front: {
-        stand: { url: `${B}/genie/front-stand.png`, frames: 5, frameMs: [220, 55, 55, 55, 55], loop: true },
-        walk: { url: `${B}/genie/front-walk.png`, frames: 5, frameMs: [220, 55, 55, 55, 55], loop: true },
+        stand: { url: `${B}/genie/front-stand.png`, frames: 12, frameMs: [220, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
+        walk: { url: `${B}/genie/front-walk.png`, frames: 12, frameMs: [220, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       side: {
-        stand: { url: `${B}/genie/side-stand.png`, frames: 5, frameMs: [220, 55, 55, 55, 55], loop: true },
-        walk: { url: `${B}/genie/side-walk.png`, frames: 5, frameMs: [220, 55, 55, 55, 55], loop: true },
+        stand: { url: `${B}/genie/side-stand.png`, frames: 12, frameMs: [220, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
+        walk: { url: `${B}/genie/side-walk.png`, frames: 12, frameMs: [220, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       back: {
-        stand: { url: `${B}/genie/back-stand.png`, frames: 5, frameMs: [220, 55, 55, 55, 55], loop: true },
-        walk: { url: `${B}/genie/back-walk.png`, frames: 5, frameMs: [220, 55, 55, 55, 55], loop: true },
+        stand: { url: `${B}/genie/back-stand.png`, frames: 12, frameMs: [220, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
+        walk: { url: `${B}/genie/back-walk.png`, frames: 12, frameMs: [220, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
     },
   },
   strange_plant: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 190,
     views: {
       front: {
-        stand: { url: `${B}/strange_plant/front-stand.png`, frames: 6, frameMs: [400, 55, 55, 55, 55, 400], loop: true },
+        stand: { url: `${B}/strange_plant/front-stand.png`, frames: 13, frameMs: [400, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 400], loop: true },
       },
       side: {
-        stand: { url: `${B}/strange_plant/side-stand.png`, frames: 6, frameMs: [400, 55, 55, 55, 55, 400], loop: true },
+        stand: { url: `${B}/strange_plant/side-stand.png`, frames: 13, frameMs: [400, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 400], loop: true },
       },
       back: {
-        stand: { url: `${B}/strange_plant/back-stand.png`, frames: 6, frameMs: [400, 55, 55, 55, 55, 400], loop: true },
+        stand: { url: `${B}/strange_plant/back-stand.png`, frames: 13, frameMs: [400, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 400], loop: true },
       },
     },
   },
   sergeant_damien: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 284,
     views: {
       front: {
         stand: { url: `${B}/sergeant_damien/front-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/sergeant_damien/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/sergeant_damien/front-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       side: {
         stand: { url: `${B}/sergeant_damien/side-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/sergeant_damien/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/sergeant_damien/side-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       back: {
         stand: { url: `${B}/sergeant_damien/back-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/sergeant_damien/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/sergeant_damien/back-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
     },
   },
   dr_jekyll: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 227,
     views: {
       front: {
         stand: { url: `${B}/dr_jekyll/front-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/dr_jekyll/front-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/dr_jekyll/front-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       side: {
         stand: { url: `${B}/dr_jekyll/side-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/dr_jekyll/side-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/dr_jekyll/side-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
       back: {
         stand: { url: `${B}/dr_jekyll/back-stand.png`, frames: 12, frameMs: [400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400, 400], loop: true },
-        walk: { url: `${B}/dr_jekyll/back-walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
+        walk: { url: `${B}/dr_jekyll/back-walk.png`, frames: 44, frameMs: [120, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 17, 17, 18, 17, 17, 17, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
       },
     },
   },
   tool_leprechaun: {
-    frameW: 128, frameH: 128,
+    frameW: 128, frameH: 128, worldCell: 171,
     views: {
       front: {
-        stand: { url: `${B}/tool_leprechaun/front-stand.png`, frames: 10, frameMs: [180, 50, 50, 50, 50, 320, 50, 50, 50, 50], loop: true },
-        walk: { url: `${B}/tool_leprechaun/front-walk.png`, frames: 15, frameMs: [100, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
+        stand: { url: `${B}/tool_leprechaun/front-stand.png`, frames: 22, frameMs: [180, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 320, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
+        walk: { url: `${B}/tool_leprechaun/front-walk.png`, frames: 38, frameMs: [100, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17], loop: true },
       },
       side: {
-        stand: { url: `${B}/tool_leprechaun/side-stand.png`, frames: 10, frameMs: [180, 50, 50, 50, 50, 320, 50, 50, 50, 50], loop: true },
-        walk: { url: `${B}/tool_leprechaun/side-walk.png`, frames: 15, frameMs: [100, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
+        stand: { url: `${B}/tool_leprechaun/side-stand.png`, frames: 22, frameMs: [180, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 320, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
+        walk: { url: `${B}/tool_leprechaun/side-walk.png`, frames: 38, frameMs: [100, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17], loop: true },
       },
       back: {
-        stand: { url: `${B}/tool_leprechaun/back-stand.png`, frames: 10, frameMs: [180, 50, 50, 50, 50, 320, 50, 50, 50, 50], loop: true },
-        walk: { url: `${B}/tool_leprechaun/back-walk.png`, frames: 15, frameMs: [100, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
+        stand: { url: `${B}/tool_leprechaun/back-stand.png`, frames: 22, frameMs: [180, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 320, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20], loop: true },
+        walk: { url: `${B}/tool_leprechaun/back-walk.png`, frames: 38, frameMs: [100, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17, 20, 20, 20, 20, 20, 17, 16, 17, 17, 16, 17], loop: true },
       },
     },
   },

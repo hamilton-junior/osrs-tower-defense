@@ -297,9 +297,12 @@ window.__ready = true;
 
 // ----------------------------------------------------------- frame sampling
 // The cache's frame timing is wildly uneven: a hill giant changes pose every 60ms, a
-// jogre only every 185ms. Held much past 60ms a sprite visibly snaps from pose to pose
-// instead of moving, so **every** clip is smoothed the same way — subdivide each
-// interval into steps of at most HOLD_MS and let the morph tween fill them. Same cache
+// jogre only every 185ms. Held past one client cycle a sprite visibly snaps from pose
+// to pose instead of moving, so **every** clip is smoothed the same way — subdivide
+// each interval into steps of at most HOLD_MS and let the morph tween fill them.
+// HOLD_MS is the OSRS client cycle (20ms, 50 poses a second): the client's animation
+// smoothing, RuneLite's Animation Smoothing plugin included, tweens once per cycle, so
+// the sheets move exactly as smoothly as the game does with it switched on. Same cache
 // poses, same total duration, just in-betweens between them, and every original
 // keyframe time survives in the list. A new enemy gets this for free.
 //
@@ -307,13 +310,14 @@ window.__ready = true;
 // second-to-last pose for four hundred *seconds*; nothing is moving across a gap like
 // that. So a span longer than REST_MS stays one frame — which is both correct and what
 // stops a death clip from exploding into thousands of identical frames.
-const HOLD_MS = 60;
+const HOLD_MS = 20;
 const REST_MS = 300;
 // Room for the smoothed count so sampleIndices never has to thin a clip back down:
 // evenly-spaced index sampling over unevenly-spaced times would distort the timing. The
-// longest clip in the roster is vorkath/death at 99 smoothed frames, so this is headroom,
-// not a budget — raise it rather than let a new enemy get resampled.
-const SMOOTH_MAX_FRAMES = 120;
+// longest clip in the roster is vorkath/death at ~200 smoothed frames, so this is
+// headroom, not a budget — raise it rather than let a new enemy get resampled (the bake
+// warns when it has to).
+const SMOOTH_MAX_FRAMES = 400;
 
 function tweenTimes(times, duration, capMs = HOLD_MS, restMs = REST_MS) {
   const out = [];
@@ -376,6 +380,7 @@ async function bakeClips(page, { slug, cfg, clipInfo, src, wantClips, outDir, ce
     const info = clipInfo.find((c) => c.name === name);
     const times = tweenTimes(info.times, info.duration);
     const idxs = sampleIndices(times.length, Math.max(cfg.maxFrames, SMOOTH_MAX_FRAMES));
+    if (idxs.length < times.length) console.warn(`  ! ${slug}/${name}: ${times.length} frames thinned to ${idxs.length}; raise SMOOTH_MAX_FRAMES`);
     const rendered = [];
     const rawMs = [];
     for (let fi = 0; fi < idxs.length; fi++) {
@@ -389,8 +394,10 @@ async function bakeClips(page, { slug, cfg, clipInfo, src, wantClips, outDir, ce
       // where OSRS says "now lie there" by holding the settled corpse for four
       // hundred seconds: that hold landed on the mid-fall pose before it, which froze
       // in the air while the corpse flashed past in 20ms.
+      // Rounded on the running total, not per span: a 185ms span split into ten
+      // 18.5ms steps would otherwise round every one up and stretch the clip.
       const prev = fi > 0 ? times[idxs[fi - 1]] : 0;
-      rawMs.push(Math.max(20, Math.round((t - prev) * 1000)) || 60);
+      rawMs.push(Math.max(1, Math.round(t * 1000) - Math.round(prev * 1000)));
     }
     // The cache's keyframes run on past the motion, so a one-shot ends holding a
     // pose nobody needs to watch (see scripts/lib/clip-tail.mjs).

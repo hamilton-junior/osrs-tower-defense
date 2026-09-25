@@ -9,7 +9,7 @@
  * animation being stuck, because it is.
  *
  * So a one-shot's tail is cut back to the pose it actually ends on: blank frames
- * go, a run of frames identical to the one before them collapses into that single
+ * go, a run of frames matching the one before them collapses into that single
  * frame, and it is held only long enough to register as a settle (TAIL_MS) before
  * the caller's own fade takes it away. Looping clips are left alone — their timing
  * *is* the cycle.
@@ -28,10 +28,18 @@ export function isBlank(rgba) {
   return true;
 }
 
-/** True when two frames are pixel-identical. */
+/**
+ * How far one channel may drift before two frames count as different. Baked at the
+ * client's 20ms cycle, a settled corpse still flickers by a value or two where the
+ * tween's floats round differently from frame to frame; nobody can see that, and a
+ * strict compare would keep the whole still tail on screen.
+ */
+export const SAME_TOLERANCE = 8;
+
+/** True when two frames match to within {@link SAME_TOLERANCE} on every channel. */
 export function sameFrame(a, b) {
   if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > SAME_TOLERANCE) return false;
   return true;
 }
 
@@ -47,7 +55,10 @@ export function trimTail(frames, frameMs, loop = false) {
   // A frame that renders nothing is never worth showing.
   while (n > 2 && isBlank(frames[n - 1])) n--;
   // Everything the clip repeats at the end says what the frame before it already said.
-  while (n > 2 && sameFrame(frames[n - 1], frames[n - 2])) n--;
+  // Measured against the final pose, not frame to frame: at 20ms steps a slow settle
+  // moves less per frame than the tolerance and would be cut while still moving.
+  const last = frames[n - 1];
+  while (n > 2 && sameFrame(frames[n - 2], last)) n--;
   const out = frames.slice(0, n);
   const ms = frameMs.slice(0, n);
   ms[n - 1] = Math.min(ms[n - 1], TAIL_MS);
