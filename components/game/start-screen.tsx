@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import type { GameMode } from '@/lib/game/core/engine';
 import type { GlobalUpgrades } from '@/lib/game/types';
 import type { RunSave } from '@/lib/game/systems/run-save';
@@ -12,6 +12,7 @@ import { dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
 import { dailyRules } from '@/lib/game/systems/daily-rules';
 import { dailyRecords, dailyStreak, type DailyBoard } from '@/lib/game/systems/daily-score';
 import { accountStats } from '@/lib/game/systems/account-stats';
+import { nextFit } from '@/lib/game/systems/screen-fit';
 import { ENEMY_ANIMS } from '@/lib/game/data/enemy-anims';
 import type { LogTab } from './collection-log';
 import { DailyStrip } from './daily-ui';
@@ -606,8 +607,34 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
   const [confirm, setConfirm] = useState<Confirming>(null);
   const [tab, setTab] = useState<TabId>('play');
   const [shopOpen, setShopOpen] = useState(false);
+  // The whole screen scales through this font size so the Play tab never
+  // scrolls on a short window (systems/screen-fit.ts). Other tabs keep the
+  // scale the Play tab set, and scroll when they run long.
+  const [fit, setFit] = useState(1);
+  const woodRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (tab !== 'play') return;
+    const wood = woodRef.current;
+    const room = wood?.querySelector<HTMLElement>('.rs-start-room');
+    const body = room?.querySelector<HTMLElement>('.rs-tab-body');
+    if (!wood || !room || !body) return;
+    const measure = () => {
+      const pad = getComputedStyle(wood);
+      const avail = wood.clientHeight - parseFloat(pad.paddingTop) - parseFloat(pad.paddingBottom);
+      // The room's height with the tab body grown to its whole content.
+      const needed = room.offsetHeight - body.clientHeight + body.scrollHeight;
+      setFit((prev) => nextFit(prev, avail, needed));
+    };
+    const ro = new ResizeObserver(measure);
+    for (const el of [wood, room, body, ...Array.from(body.children)]) ro.observe(el);
+    return () => ro.disconnect();
+  }, [tab]);
   return (
-    <div className="rs-start-wood absolute inset-0 flex items-center justify-center z-40 p-4">
+    <div
+      ref={woodRef}
+      className="rs-start-wood absolute inset-0 flex items-center justify-center z-40 p-4"
+      style={{ fontSize: `${fit}em` }}
+    >
       <StartLobby onAmbient={onAmbient} onSound={onSound} />
       <div className="rs-start-room relative z-[1] w-[36em] max-w-[95vw] max-h-full flex flex-col gap-[0.7em]">
         <Wordmark champion={victories.total > 0} wins={victories.total} caTitle={caTitle} />
@@ -689,7 +716,7 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
       {/* The essence shop, over the room: the same panel the bottom bar opens
           during a run, so the two copies can never drift apart. */}
       {shopOpen && (
-        <div className="absolute inset-0 z-[2] bg-black/70 flex items-center justify-center p-4" onClick={() => setShopOpen(false)}>
+        <div className="absolute inset-0 z-[3] bg-black/70 flex items-center justify-center p-4" onClick={() => setShopOpen(false)}>
           <div className="rs-panel w-[26em] max-w-[92vw] max-h-[88vh] overflow-y-auto p-[0.8em]" onClick={(e) => e.stopPropagation()}>
             <EssenceShop essence={essence} upgrades={upgrades} onBuy={onBuyUpgrade} onRefund={onRefundEssence} />
             <button

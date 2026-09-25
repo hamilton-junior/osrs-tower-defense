@@ -2,6 +2,27 @@
   "generatedAt": "2026-09-25",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "start",
+      "text": "Shrink the start screen on short windows so the Play tab never scrolls",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "start",
+      "text": "Draw the title's Giant rat with the lobby rat's own walk",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
+      "kind": "updated",
+      "scope": "start",
+      "text": "Walk the lobby's monsters at their real size, in front of the torches",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
+    {
       "kind": "updated",
       "scope": "start",
       "text": "Let monsters wander across the lobby floor",
@@ -257,27 +278,6 @@
       "kind": "new",
       "scope": "daily",
       "text": "A Daily Challenge gives everyone the same map and the same waves each day, and keeps your best run",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "new",
-      "scope": "pets",
-      "text": "Every boss now drops its own pet, and the one you pick walks beside your base",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "TzHaar's lava seams crack open over the rock and the boulders become Inferno roof pillars",
-      "fromFeedback": false,
-      "date": "2026-09-18"
-    },
-    {
-      "kind": "updated",
-      "scope": "board",
-      "text": "The TzHaar throne stands as a single pair and lava fills the floor it leaves behind",
       "fromFeedback": false,
       "date": "2026-09-18"
     }
