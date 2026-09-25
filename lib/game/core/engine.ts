@@ -4525,7 +4525,9 @@ export class GameEngine {
   }
 
   /** Choose the game mode. Only switches before the run starts (wave 1, no wave
-   *  running) and restarts to apply it cleanly; ignored mid-run. */
+   *  running) and restarts to apply it cleanly; ignored mid-run. The board stays:
+   *  flicking through modes on the start screen should not reroll the map behind
+   *  it, which is newRun's job once the player clicks Play. */
   setMode(mode: GameMode) {
     // Picking a mode leaves the daily, even when the mode itself does not change:
     // a daily *is* a Classic run, so "Classic" next to an armed daily means the
@@ -4534,7 +4536,7 @@ export class GameEngine {
     if (this.wave !== 1 || this.waveActive) { this.notify('Finish the run to switch modes'); return; }
     this.dailyKey = null;
     this.gameMode = mode;
-    this.restart();
+    this.restart(true);
   }
 
   /**
@@ -4555,12 +4557,11 @@ export class GameEngine {
   }
 
   /**
-   * Drop an armed daily without touching mode or tier — what the ordinary Start
-   * button does. The board is re-rolled: the armed one is the day's map, and a
-   * player who did not pick the daily card should not be playing it.
+   * Boot an ordinary run on a fresh board, keeping mode and tier — what the Play
+   * button does. It also drops an armed daily: the armed board is the day's map,
+   * and a player who did not pick the daily card should not be playing it.
    */
-  leaveDaily() {
-    if (!this.dailyKey) return;
+  newRun() {
     this.dailyKey = null;
     this.restart();
   }
@@ -4603,7 +4604,7 @@ export class GameEngine {
     if (this.wave !== 1 || this.waveActive) { this.notify('Finish the run to change difficulty'); return; }
     this.dailyKey = null;
     this.difficultyTier = allowed;
-    this.restart();
+    this.restart(true);
   }
 
   /** Roguelite: keep one drafted card, apply its effect, and clear the hand so the
@@ -5079,7 +5080,9 @@ export class GameEngine {
     this.emit();
   }
 
-  restart() {
+  /** `keepMap` resets the run on the board already standing — only safe before the
+   *  first wave, while nothing has touched the map. */
+  restart(keepMap = false) {
     // Plots bought last run don't come free this one — zeroed before the map, which
     // is what stands them up.
     this.plotsBought = 0;
@@ -5087,7 +5090,7 @@ export class GameEngine {
     this.placingPlot = false;
     // A daily is the same board for everyone who plays it that day; every other
     // run gets a map nobody has seen.
-    this.generateMap(this.dailyKey ? dailySeed(this.dailyKey) : undefined);
+    if (!keepMap) this.generateMap(this.dailyKey ? dailySeed(this.dailyKey) : undefined);
     this.dailyResult = null;
     this.enemies = [];
     this.towers = [];

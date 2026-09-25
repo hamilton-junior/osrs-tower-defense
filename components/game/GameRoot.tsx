@@ -3595,7 +3595,7 @@ export default function GameRoot() {
           onAmbient={(k) => engineRef.current?.sound.loop(k)}
           onSelect={(m) => engineRef.current?.setMode(m)}
           onSelectTier={chooseTier}
-          onStart={() => { clearRunSave(); setSavedRun(null); engineRef.current?.leaveDaily(); setRunStarted(true); }}
+          onStart={() => { clearRunSave(); setSavedRun(null); engineRef.current?.newRun(); setRunStarted(true); }}
           onStartDaily={() => {
             clearRunSave();
             setSavedRun(null);
@@ -3917,7 +3917,7 @@ export default function GameRoot() {
         <footer
           ref={barRef}
           data-tut="sidebar"
-          className="w-full rs-panel flex items-center gap-[0.45em] px-[0.6em]"
+          className={`w-full rs-panel flex items-center gap-[0.45em] px-[0.6em] ${runStarted ? '' : 'rs-bar-idle'}`}
           style={{ height: '4.3em' }}
         >
           {/* One row built around the tower dock, which is centred on the bar itself
@@ -4422,8 +4422,11 @@ export default function GameRoot() {
             <div data-tut="stones" className="flex items-center gap-[0.4em]">
               {/* The roguelite's loadout: relics and boons. Classic drafts nothing, so
                   it has no loadout stone at all; classic's gear lives in the looting
-                  bag, inside the Inventory. */}
-              {ui.gameMode === 'roguelite' && (
+                  bag, inside the Inventory. The start screen always stands it up:
+                  the bar is hidden there, and the stone lowers the UI-scale
+                  ceiling, so leaving it to the mode made the menu resize on every
+                  mode switch. */}
+              {(ui.gameMode === 'roguelite' || !runStarted) && (
                 <button ref={boonsTabRef} onClick={() => onSideTab('home')} title="Run loadout: relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
                   <img src={ASSETS.misc.cards_icon} alt="Run loadout" onError={hideBrokenImg} />
                 </button>

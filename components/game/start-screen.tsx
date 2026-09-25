@@ -534,13 +534,13 @@ function AccountTab({ essence, victories, killCounts, bossesSeen, achievements, 
       </div>
 
       <div className="flex gap-[0.4em]">
-        <button className="rs-btn flex-1 py-[0.35em] text-[0.8em]" title="Open the how-to-play guide" onClick={() => { onSound('interface_open'); onHelp(); }}>
-          ❓ How to Play
-        </button>
         {/* Progress lives in this browser's localStorage and nowhere else, so the
             way off this machine is a save code. */}
         <button className="rs-btn flex-1 py-[0.35em] text-[0.8em]" title="Export or import your progress as a save code" onClick={() => { onSound('interface_open'); onSaveCode(); }}>
           💾 Save/Load
+        </button>
+        <button className="rs-btn flex-1 py-[0.35em] text-[0.8em]" title="Open the how-to-play guide" onClick={() => { onSound('interface_open'); onHelp(); }}>
+          ❓ How to Play
         </button>
       </div>
     </div>
