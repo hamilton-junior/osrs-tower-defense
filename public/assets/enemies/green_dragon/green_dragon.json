@@ -1,7 +1,8 @@
 {
   "npc": 260,
-  "frameW": 128,
-  "frameH": 128,
+  "frameW": 256,
+  "frameH": 256,
+  "worldCell": 547,
   "clips": {
     "walk": {
       "anim": 79,
@@ -91,6 +92,5 @@
       ],
       "loop": false
     }
-  },
-  "worldCell": 547
+  }
 }

@@ -65,7 +65,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   ghost: {
-    frameW: 128, frameH: 128, worldCell: 359,
+    frameW: 256, frameH: 256, worldCell: 359,
     clips: {
       walk: { url: `${B}/ghost/walk.png`, frames: 31, frameMs: [80, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: true },
       hurt: { url: `${B}/ghost/hurt.png`, frames: 29, frameMs: [100, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: false },
@@ -89,7 +89,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   fire_giant: {
-    frameW: 128, frameH: 128, worldCell: 485,
+    frameW: 256, frameH: 256, worldCell: 485,
     clips: {
       walk: { url: `${B}/fire_giant/walk.png`, frames: 19, frameMs: [40, 60, 60, 60, 60, 40, 60, 60, 60, 40, 40, 60, 60, 60, 60, 60, 60, 60, 40], loop: true },
       hurt: { url: `${B}/fire_giant/hurt.png`, frames: 21, frameMs: [20, 40, 40, 60, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 40, 40, 60, 60, 60, 60, 20], loop: false },
@@ -105,7 +105,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   hill_giant: {
-    frameW: 128, frameH: 128, worldCell: 419,
+    frameW: 256, frameH: 256, worldCell: 419,
     clips: {
       walk: { url: `${B}/hill_giant/walk.png`, frames: 19, frameMs: [60, 60, 60, 60, 60, 40, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40], loop: true },
       hurt: { url: `${B}/hill_giant/hurt.png`, frames: 21, frameMs: [20, 40, 40, 60, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 40, 40, 60, 60, 60, 60, 20], loop: false },
@@ -113,7 +113,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   black_demon: {
-    frameW: 128, frameH: 128, worldCell: 542,
+    frameW: 256, frameH: 256, worldCell: 542,
     clips: {
       walk: { url: `${B}/black_demon/walk.png`, frames: 40, frameMs: [80, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 53, 53, 53, 40, 40], loop: true },
       hurt: { url: `${B}/black_demon/hurt.png`, frames: 24, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 400, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60], loop: false },
@@ -121,13 +121,13 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   gargoyle: {
-    frameW: 128, frameH: 128, worldCell: 366,
+    frameW: 256, frameH: 256, worldCell: 366,
     clips: {
       walk: { url: `${B}/gargoyle/walk.png`, frames: 17, frameMs: [60, 60, 60, 60, 47, 47, 47, 60, 40, 40, 40, 60, 40, 40, 40, 40, 60], loop: true },
     },
   },
   blue_dragon: {
-    frameW: 128, frameH: 128, worldCell: 547,
+    frameW: 256, frameH: 256, worldCell: 547,
     clips: {
       walk: { url: `${B}/blue_dragon/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       hurt: { url: `${B}/blue_dragon/hurt.png`, frames: 21, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: false },
@@ -151,7 +151,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   lesser_demon: {
-    frameW: 128, frameH: 128, worldCell: 358,
+    frameW: 256, frameH: 256, worldCell: 358,
     clips: {
       walk: { url: `${B}/lesser_demon/walk.png`, frames: 40, frameMs: [80, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 53, 53, 53, 40, 40], loop: true },
       hurt: { url: `${B}/lesser_demon/hurt.png`, frames: 24, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 400, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60], loop: false },
@@ -167,7 +167,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   green_dragon: {
-    frameW: 128, frameH: 128, worldCell: 547,
+    frameW: 256, frameH: 256, worldCell: 547,
     clips: {
       walk: { url: `${B}/green_dragon/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       hurt: { url: `${B}/green_dragon/hurt.png`, frames: 21, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: false },
@@ -253,14 +253,14 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   superior_gargoyle: {
-    frameW: 128, frameH: 128, worldCell: 411,
+    frameW: 256, frameH: 256, worldCell: 411,
     clips: {
       walk: { url: `${B}/superior_gargoyle/walk.png`, frames: 30, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: true },
       hurt: { url: `${B}/superior_gargoyle/hurt.png`, frames: 15, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: false },
     },
   },
   superior_nechryael: {
-    frameW: 128, frameH: 128, worldCell: 580,
+    frameW: 256, frameH: 256, worldCell: 580,
     clips: {
       walk: { url: `${B}/superior_nechryael/walk.png`, frames: 19, frameMs: [60, 60, 60, 60, 60, 40, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40], loop: true },
       hurt: { url: `${B}/superior_nechryael/hurt.png`, frames: 21, frameMs: [20, 40, 40, 60, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 40, 40, 60, 60, 60, 60, 20], loop: false },
@@ -394,7 +394,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   ice_troll: {
-    frameW: 128, frameH: 128, worldCell: 359,
+    frameW: 256, frameH: 256, worldCell: 359,
     clips: {
       walk: { url: `${B}/ice_troll/walk.png`, frames: 20, frameMs: [160, 47, 47, 47, 47, 47, 47, 50, 50, 53, 53, 53, 47, 47, 47, 47, 47, 47, 50, 50], loop: true },
       hurt: { url: `${B}/ice_troll/hurt.png`, frames: 6, frameMs: [100, 40, 40, 40, 40, 120], loop: false },
@@ -402,7 +402,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   jogre: {
-    frameW: 128, frameH: 128, worldCell: 382,
+    frameW: 256, frameH: 256, worldCell: 382,
     clips: {
       walk: { url: `${B}/jogre/walk.png`, frames: 25, frameMs: [180, 50, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60, 60, 50, 50, 50, 50, 60, 60, 60, 45, 45, 45, 45], loop: true },
       hurt: { url: `${B}/jogre/hurt.png`, frames: 9, frameMs: [40, 40, 40, 60, 50, 50, 60, 40, 40], loop: false },
@@ -466,7 +466,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   moss_giant: {
-    frameW: 128, frameH: 128, worldCell: 418,
+    frameW: 256, frameH: 256, worldCell: 418,
     clips: {
       walk: { url: `${B}/moss_giant/walk.png`, frames: 18, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 40, 60, 60, 60, 60, 60, 60, 60, 60, 40], loop: true },
       hurt: { url: `${B}/moss_giant/hurt.png`, frames: 20, frameMs: [20, 40, 40, 60, 40, 40, 40, 40, 60, 60, 50, 50, 50, 50, 40, 40, 60, 60, 60, 60], loop: false },
@@ -506,7 +506,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   scarab_mage: {
-    frameW: 128, frameH: 128, worldCell: 393,
+    frameW: 256, frameH: 256, worldCell: 393,
     clips: {
       walk: { url: `${B}/scarab_mage/walk.png`, frames: 15, frameMs: [120, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       hurt: { url: `${B}/scarab_mage/hurt.png`, frames: 18, frameMs: [100, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 50, 50, 50, 50], loop: false },
@@ -522,7 +522,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   locust_rider: {
-    frameW: 128, frameH: 128, worldCell: 370,
+    frameW: 256, frameH: 256, worldCell: 370,
     clips: {
       walk: { url: `${B}/locust_rider/walk.png`, frames: 16, frameMs: [80, 60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 40, 40], loop: true },
       hurt: { url: `${B}/locust_rider/hurt.png`, frames: 23, frameMs: [80, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: false },
@@ -538,7 +538,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   kalphite_guardian: {
-    frameW: 128, frameH: 128, worldCell: 536,
+    frameW: 256, frameH: 256, worldCell: 536,
     clips: {
       walk: { url: `${B}/kalphite_guardian/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       hurt: { url: `${B}/kalphite_guardian/hurt.png`, frames: 32, frameMs: [80, 60, 60, 60, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 60, 30, 30, 60, 30, 30, 60, 30, 30, 60], loop: false },
@@ -657,7 +657,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   troll_general: {
-    frameW: 128, frameH: 128, worldCell: 515,
+    frameW: 256, frameH: 256, worldCell: 515,
     clips: {
       walk: { url: `${B}/troll_general/walk.png`, frames: 20, frameMs: [160, 47, 47, 47, 47, 47, 47, 50, 50, 53, 53, 53, 47, 47, 47, 47, 47, 47, 50, 50], loop: true },
       death: { url: `${B}/troll_general/death.png`, frames: 13, frameMs: [80, 40, 40, 60, 60, 50, 50, 50, 50, 40, 40, 20, 120], loop: false },
@@ -680,7 +680,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   tok_xil: {
-    frameW: 128, frameH: 128, worldCell: 407,
+    frameW: 256, frameH: 256, worldCell: 407,
     clips: {
       walk: { url: `${B}/tok_xil/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       hurt: { url: `${B}/tok_xil/hurt.png`, frames: 24, frameMs: [60, 60, 60, 60, 400, 50, 50, 50, 50, 60, 60, 60, 60, 60, 50, 50, 50, 50, 60, 30, 30, 60, 30, 30], loop: false },
@@ -688,7 +688,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   yt_mejkot: {
-    frameW: 128, frameH: 128, worldCell: 572,
+    frameW: 256, frameH: 256, worldCell: 572,
     clips: {
       walk: { url: `${B}/yt_mejkot/walk.png`, frames: 46, frameMs: [160, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53, 53], loop: true },
       hurt: { url: `${B}/yt_mejkot/hurt.png`, frames: 18, frameMs: [60, 60, 40, 40, 40, 40, 40, 40, 400, 40, 40, 40, 40, 40, 40, 60, 30, 30], loop: false },
@@ -696,7 +696,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   ket_zek: {
-    frameW: 128, frameH: 128, worldCell: 686,
+    frameW: 256, frameH: 256, worldCell: 686,
     clips: {
       walk: { url: `${B}/ket_zek/walk.png`, frames: 51, frameMs: [100, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50], loop: true },
       hurt: { url: `${B}/ket_zek/hurt.png`, frames: 27, frameMs: [80, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 50, 50, 50, 50, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: false },
@@ -727,7 +727,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   bronze_dragon: {
-    frameW: 128, frameH: 128, worldCell: 608,
+    frameW: 256, frameH: 256, worldCell: 608,
     clips: {
       walk: { url: `${B}/bronze_dragon/walk.png`, frames: 16, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: true },
       hurt: { url: `${B}/bronze_dragon/hurt.png`, frames: 21, frameMs: [40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 400, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: false },
@@ -735,7 +735,7 @@ export const ENEMY_ANIMS: Record<string, EnemyAnimSet> = {
     },
   },
   ent: {
-    frameW: 128, frameH: 128, worldCell: 501,
+    frameW: 256, frameH: 256, worldCell: 501,
     clips: {
       walk: { url: `${B}/ent/walk.png`, frames: 31, frameMs: [80, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40], loop: true },
       hurt: { url: `${B}/ent/hurt.png`, frames: 15, frameMs: [60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60], loop: false },

@@ -57,6 +57,7 @@
   },
   "ghost": {
     "npc": 85,
+    "cell": 256,
     "anims": {
       "walk": 5539,
       "hurt": 5541,
@@ -81,6 +82,7 @@
   },
   "fire_giant": {
     "npc": 2075,
+    "cell": 256,
     "anims": {
       "walk": 4660,
       "death": 4668,
@@ -97,6 +99,7 @@
   },
   "hill_giant": {
     "npc": 2098,
+    "cell": 256,
     "anims": {
       "walk": 4649,
       "hurt": 4651,
@@ -105,6 +108,7 @@
   },
   "black_demon": {
     "npc": 240,
+    "cell": 256,
     "anims": {
       "walk": 63,
       "hurt": 65,
@@ -113,12 +117,14 @@
   },
   "gargoyle": {
     "npc": 412,
+    "cell": 256,
     "anims": {
       "walk": 1515
     }
   },
   "blue_dragon": {
     "npc": 265,
+    "cell": 256,
     "anims": {
       "walk": 79,
       "hurt": 89,
@@ -143,6 +149,7 @@
   },
   "lesser_demon": {
     "npc": 2005,
+    "cell": 256,
     "anims": {
       "walk": 63,
       "hurt": 65,
@@ -159,6 +166,7 @@
   },
   "green_dragon": {
     "npc": 260,
+    "cell": 256,
     "anims": {
       "walk": 79,
       "hurt": 89,
@@ -245,6 +253,7 @@
   },
   "superior_gargoyle": {
     "npc": 7407,
+    "cell": 256,
     "anims": {
       "walk": 7810,
       "hurt": 7814
@@ -252,6 +261,7 @@
   },
   "superior_nechryael": {
     "npc": 7411,
+    "cell": 256,
     "anims": {
       "walk": 6372,
       "death": 6369,
@@ -391,6 +401,7 @@
   },
   "ice_troll": {
     "npc": 700,
+    "cell": 256,
     "anims": {
       "walk": 283,
       "hurt": 285,
@@ -399,6 +410,7 @@
   },
   "jogre": {
     "npc": 2234,
+    "cell": 256,
     "anims": {
       "walk": 2932,
       "hurt": 2937,
@@ -463,6 +475,7 @@
   },
   "moss_giant": {
     "npc": 2090,
+    "cell": 256,
     "anims": {
       "walk": 4654,
       "hurt": 4657,
@@ -503,6 +516,7 @@
   },
   "scarab_mage": {
     "npc": 794,
+    "cell": 256,
     "anims": {
       "walk": 1205,
       "hurt": 5443,
@@ -519,6 +533,7 @@
   },
   "locust_rider": {
     "npc": 795,
+    "cell": 256,
     "anims": {
       "walk": 5446,
       "hurt": 5448,
@@ -535,6 +550,7 @@
   },
   "kalphite_guardian": {
     "npc": 959,
+    "cell": 256,
     "anims": {
       "walk": 6222,
       "hurt": 6227,
@@ -654,6 +670,7 @@
   },
   "troll_general": {
     "npc": 4120,
+    "cell": 256,
     "anims": {
       "walk": 1141,
       "death": 287
@@ -677,6 +694,7 @@
   },
   "tok_xil": {
     "npc": 2193,
+    "cell": 256,
     "anims": {
       "walk": 2632,
       "hurt": 2633,
@@ -685,6 +703,7 @@
   },
   "yt_mejkot": {
     "npc": 3123,
+    "cell": 256,
     "anims": {
       "walk": 2634,
       "hurt": 2635,
@@ -693,6 +712,7 @@
   },
   "ket_zek": {
     "npc": 3125,
+    "cell": 256,
     "anims": {
       "walk": 2643,
       "hurt": 2645,
@@ -724,6 +744,7 @@
   },
   "bronze_dragon": {
     "npc": 270,
+    "cell": 256,
     "anims": {
       "walk": 79,
       "hurt": 89,
@@ -732,6 +753,7 @@
   },
   "ent": {
     "npc": 7234,
+    "cell": 256,
     "anims": {
       "walk": 12500,
       "hurt": 12504,

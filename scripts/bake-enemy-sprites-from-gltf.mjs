@@ -53,6 +53,10 @@ const SIZE = 128;                 // per-frame cell for an ordinary mob
  * pixels while an ordinary mob stays near 100, so one shared cell is either wasteful
  * for the mob or a 2.4x upscale for the boss. The cell follows the draw instead: each
  * sheet records its own `frameW`, and nothing on screen moves or resizes.
+ *
+ * A config entry's `cell` overrides both. The start screen's lobby draws every mob
+ * at its real world size, so a big one (worldCell ≥ 358, the Lesser demon's) would
+ * stretch a 128 cell 2.6–4.9x there; those take 256.
  */
 const BOSS_SIZE = 256;
 /**
