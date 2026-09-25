@@ -6,7 +6,6 @@ import type { GlobalUpgrades } from '@/lib/game/types';
 import type { RunSave } from '@/lib/game/systems/run-save';
 import { DIFFICULTY_TIERS, isTierUnlocked, tierLabel, type DifficultyTier } from '@/lib/game/systems/difficulty';
 import { ASSETS, iconUrl } from '@/lib/game/assets';
-import { FEEDBACK_ENABLED } from '@/lib/game/feedback';
 import { essenceRateLabel } from '@/lib/game/systems/meta-progression';
 import { CA_TIER_NAMES, type CaTier } from '@/lib/game/systems/combat-achievements';
 import { dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
@@ -663,8 +662,8 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
 
         {/* Says out loud what the game is, on the wood rather than in a panel: a
             hobby project that is still moving. It is not a first-run tip and never
-            gets dismissed — a returning player is exactly who the "check the
-            updates" half is for. */}
+            gets dismissed. The updates live behind the 💬 stone, which the bottom
+            bar keeps up on this screen in the same corner it holds in game. */}
         <div className="text-center text-[0.68em] text-[#b3a585]">
           <img
             src={ASSETS.misc.redemption_heart}
@@ -673,7 +672,6 @@ export function StartScreen({ mode, saved, victories, caTitle, difficulty, selec
             onError={hideBrokenImg}
           />
           <span className="text-osrs-orange font-bold">Work in progress</span> · nothing here is final
-          {FEEDBACK_ENABLED && <> · <span className="text-osrs-yellow">💬 Recent updates</span></>}
         </div>
       </div>
 

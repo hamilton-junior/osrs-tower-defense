@@ -4463,7 +4463,7 @@ export default function GameRoot() {
                 <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
               </button>
               {FEEDBACK_ENABLED && (
-                <button onClick={() => setFeedbackOpen(true)} title="Send feedback, or join the Discord" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
+                <button data-idle-keep="" onClick={() => setFeedbackOpen(true)} title="Send feedback, or join the Discord" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
                   💬
                 </button>
               )}
