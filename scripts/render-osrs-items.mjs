@@ -397,7 +397,10 @@ const TARGETS = {
   morytania_legs: { name: 'Morytania legs 4' },
   wilderness_sword: { name: 'Wilderness sword 4' },
   fremennik_sea_boots: { name: 'Fremennik sea boots 4' },
-  karamja_gloves: { name: 'Karamja gloves 4' }
+  karamja_gloves: { name: 'Karamja gloves 4' },
+  // ---- the feedback panel's two forms: a real bug, and a light bulb ----
+  swamp_cave_bug: { name: 'Swamp cave bug' },
+  light_orb: { name: 'Light orb' },
 };
 
 // ------------------------------------------------------------------- helpers

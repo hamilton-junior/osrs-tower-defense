@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { UIState } from '@/lib/game/core/engine';
 import { FEEDBACK, feedbackUrl, type FeedbackContext } from '@/lib/game/feedback';
 import { loadChangelog, CHANGELOG_KINDS, type ChangelogEntry } from '@/lib/game/changelog';
-import { fs } from './ui-kit';
+import { itemIcon } from '@/lib/game/assets';
+import { fs, hideBrokenImg } from './ui-kit';
 
 /**
  * The 💬 panel: the recent-updates list baked from git history, and the links out
@@ -89,7 +90,8 @@ export function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => voi
               title="Open the bug-report form in a new tab"
               onClick={() => open(FEEDBACK.bugFormUrl)}
             >
-              🐛 Report a bug
+              <img src={itemIcon('swamp_cave_bug')} alt="" className="w-[1.5em] h-[1.5em] object-contain shrink-0" onError={hideBrokenImg} />
+              Report a bug
             </button>
           )}
           {FEEDBACK.suggestionFormUrl && (
@@ -98,7 +100,8 @@ export function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => voi
               title="Open the suggestion form in a new tab"
               onClick={() => open(FEEDBACK.suggestionFormUrl)}
             >
-              💡 Suggest an idea
+              <img src={itemIcon('light_orb')} alt="" className="w-[1.5em] h-[1.5em] object-contain shrink-0" onError={hideBrokenImg} />
+              Suggest an idea
             </button>
           )}
           {/* Recent updates — proof the notes above get acted on. Every line is a
