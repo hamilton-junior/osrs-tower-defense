@@ -1,6 +1,13 @@
 {
-  "generatedAt": "2026-09-25",
+  "generatedAt": "2026-09-26",
   "entries": [
+    {
+      "kind": "updated",
+      "scope": "help",
+      "text": "Trim How to Play to six short tabs, with a new Skills tab",
+      "fromFeedback": false,
+      "date": "2026-09-25"
+    },
     {
       "kind": "faster",
       "scope": "enemies",
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "diaries",
       "text": "Each Achievement Diary hands its region's own reward to every tower",
-      "fromFeedback": false,
-      "date": "2026-09-20"
-    },
-    {
-      "kind": "new",
-      "scope": "diaries",
-      "text": "Read every region's Achievement Diary in the Collection Log",
       "fromFeedback": false,
       "date": "2026-09-20"
     }

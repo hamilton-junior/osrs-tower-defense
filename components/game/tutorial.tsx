@@ -254,7 +254,7 @@ export function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll, uiScal
 }
 
 // ───────────────────────── How to Play (tutorial) ─────────────────────────
-// Five short tabs, each one screen with no scrolling: a player who opens this
+// Short tabs of at most six lines, each one screen with no scrolling: a player who opens this
 // mid-run reads four or five lines and closes it again. The learn-as-you-go
 // tips above teach the same systems in context; this is the "I forgot how X
 // works" reminder, not a manual.
@@ -263,49 +263,44 @@ export interface TldrTab { id: string; label: string; icon: string; lines: TldrL
 
 export const TLDR: TldrTab[] = [
   { id: 'basics', label: 'Basics', icon: ASSETS.misc.orb_hitpoints, lines: [
-    { keys: ['−', '+'], text: 'Resize the whole interface, this window included, with − and + on the bottom bar.' },
-    { icon: ASSETS.misc.orb_hitpoints, text: 'Enemies walk the path. Each one that reaches your base costs a life.' },
-    { icon: ASSETS.misc.coins_icon, text: 'Every kill pays gold. Gold buys and upgrades towers.' },
-    { icon: ASSETS.misc.multicombat_icon, text: 'Nothing spawns until you press Start Wave. Between waves is free build time.' },
-    { icon: itemIcon('collection_log'), text: `Beat every boss, around wave ${EARLIEST_VICTORY_WAVE}, to win the run, then carry on in Endless.` },
-    { icon: ASSETS.misc.spade, text: 'Pay to pull a square of road aside, again and again; the other arrow fills it back in.' },
-    { icon: ASSETS.misc.spade, text: 'A stretch of road slides whole by the grip near its bend, straightening the bend or growing it back.' },
-    { icon: ASSETS.misc.compass, text: 'Beat a boss and the road forks: pick a region, keep your towers, meet its locals.' },
-    { icon: ASSETS.misc.hunter_icon, text: 'The dock has a Traps tab: Hunter traps go on the road, and springing them levels Hunter.' },
-    { icon: ASSETS.misc.inventory_icon, text: 'The Inventory stone is your 27 slots. Herbs and potions live there.' },
-    { icon: ASSETS.misc.loot_bag, text: 'The last slot is the looting bag. Click it for your gear, and for whatever did not fit.' },
-    { icon: ASSETS.misc.farming_icon, text: 'Click an allotment between waves to sow a seed; the herb it grows goes into your inventory.' },
-    { icon: ASSETS.misc.farming_icon, text: 'A ripe allotment glows green. Click it any time to pull the herb.' },
-    { icon: ASSETS.misc.farming_icon, text: 'Move an allotment for free, or buy another. Each one costs double the last.' },
-    { icon: ASSETS.misc.skill_herblore, text: 'Drink a herb raw for one wave, or brew it into a potion that lasts several.' },
-    { icon: ASSETS.misc.skill_herblore, text: 'Brewing levels Herblore, and a higher level opens the stronger potions.' },
-    { icon: ASSETS.misc.skill_herblore, text: 'Most potions pick one combat style. A Ranging potion does nothing for a wizard.' },
-    { icon: ASSETS.misc.skill_fishing, text: 'Water on the map holds fish. Cast between waves, then eat what you catch for lives.' },
-    { icon: ASSETS.misc.stats_icon, text: 'The Skills stone lists every skill this run: your traps, your allotments, your bench, your pools.' },
-    { icon: ASSETS.misc.compass, text: 'Tips appear in-game the first time each new thing shows up.' },
+    { icon: ASSETS.misc.orb_hitpoints, text: 'Enemies walk the road. Each one that gets through costs a life.' },
+    { icon: ASSETS.misc.multicombat_icon, text: 'Build between waves, then press Start Wave or Space.' },
+    { icon: ASSETS.misc.coins_icon, text: 'Kills pay gold. Gold builds and upgrades towers.' },
+    { icon: itemIcon('collection_log'), text: `Beat every boss, around wave ${EARLIEST_VICTORY_WAVE}, to win. Endless follows.` },
+    { icon: ASSETS.misc.spade, text: 'Between waves, pay to bend the road or slide a stretch by its grip.' },
+    { keys: ['−', '+'], text: 'The − and + on the bottom bar resize everything.' },
   ] },
   { id: 'towers', label: 'Towers', icon: ASSETS.towers.archer[1], lines: [
-    { icon: ASSETS.towers.archer[1], text: 'Pick one from the dock, click the grass. It aims and fires on its own.' },
-    { icon: ASSETS.misc.arrow_up, text: 'Click a placed tower to upgrade, sell, or change what it shoots first.' },
-    { icon: ASSETS.misc.xp_icon, text: 'Towers level up by fighting. A tier upgrade needs that level as well as gold.' },
-    { icon: ASSETS.misc.skill_smithing, text: 'Two fully upgraded towers side by side forge into one weapon. The dock tooltip lists the pairs.' },
-    { icon: ASSETS.misc.magic_icon, text: 'Each monster is weak to one element or style, and the right tower hits +50%.' },
-    { icon: ASSETS.misc.loot_bag, text: 'Drops land in the loot bag, a tab in the Inventory. Ammo matches the style, jewellery fits any tower.' },
+    { icon: ASSETS.towers.archer[1], text: 'Pick a tower from the dock, then click the grass.' },
+    { icon: ASSETS.misc.arrow_up, text: 'Click a tower to upgrade it, sell it or pick its target.' },
+    { icon: ASSETS.misc.xp_icon, text: 'Towers level by fighting. Higher tiers need a level and gold.' },
+    { icon: ASSETS.misc.magic_icon, text: 'Each monster has a weakness. The right tower hits 50% harder.' },
+    { icon: ASSETS.misc.skill_smithing, text: 'Two maxed towers side by side forge into one weapon.' },
+    { icon: ASSETS.misc.loot_bag, text: 'Monsters drop gear into the loot bag. Equip it on your towers.' },
   ] },
   { id: 'waves', label: 'Waves', icon: ASSETS.misc.multicombat_icon, lines: [
-    { icon: ASSETS.misc.multicombat_icon, text: 'The strip at the top shows what is coming. Hover a monster to scout it.' },
-    { icon: ASSETS.misc.reticle, text: 'Select a tower and every monster it hits for +50% gets a ring.' },
-    { icon: ASSETS.spells['Curse'], text: 'A wave event changes the rules for that wave only. Hover its chip to re-read it.' },
-    { icon: ASSETS.misc.defence_icon, text: 'Glowing enemies are elite: the aura says which rule they break.' },
-    { icon: ASSETS.enemies.cerberus, text: 'Bosses get a health bar and one mechanic. The caption under it tells you.' },
+    { icon: ASSETS.misc.multicombat_icon, text: 'The strip on top shows the next wave. Hover to scout.' },
+    { icon: ASSETS.misc.reticle, text: 'Select a tower and a ring marks each monster weak to it.' },
+    { icon: ASSETS.spells['Curse'], text: 'Events and glowing elites bend one rule. Hover to read it.' },
+    { icon: ASSETS.enemies.cerberus, text: 'A boss has one mechanic. Its caption says what.' },
+    { icon: ASSETS.misc.compass, text: 'After a boss, pick the next region. Your towers come along.' },
+    { icon: ASSETS.misc.slayer_crossbow, text: 'Slayer tasks name a monster. Kill enough for Slayer shop points.' },
   ] },
-  { id: 'systems', label: 'Systems', icon: ASSETS.misc.orb_prayer, lines: [
-    { icon: ASSETS.misc.orb_prayer, text: 'Prayer buffs a combat style while it drains. The pool refills between waves.' },
-    { icon: ASSETS.misc.slayer_crossbow, text: 'Slayer tasks arrive on their own and pay points for the Slayer shop.' },
-    { icon: ASSETS.misc.rune_essence_icon, text: 'You keep essence forever. Spend it in the Essence Shop on permanent upgrades.' },
-    { icon: DIVERSION_BY_ID.hans.sprite, text: 'Between waves someone may wander in. Click them, and most hand something over.' },
-    { icon: iconUrl('Collection_log'), text: 'The Collection Log holds your kills, cards, visitors, wins and Combat Achievements.' },
-    { icon: ASSETS.misc.cards_icon, text: 'Roguelite: buy card rolls between waves and keep one. Bosses drop relics.' },
+  { id: 'skills', label: 'Skills', icon: ASSETS.misc.stats_icon, lines: [
+    { icon: ASSETS.misc.hunter_icon, text: 'Hunter: the Traps tab in the dock lays snares on the road.' },
+    { icon: ASSETS.misc.farming_icon, text: 'Farming: sow a seed in an allotment. Pick the herb when it glows.' },
+    { icon: ASSETS.misc.skill_herblore, text: 'Herblore: drink a herb for one wave, or brew a longer potion.' },
+    { icon: ASSETS.misc.skill_fishing, text: 'Fishing: cast into a pool between waves. Eat the catch for lives.' },
+    { icon: ASSETS.misc.inventory_icon, text: 'Harvests and potions fill your inventory. Extras go in the looting bag.' },
+    { icon: ASSETS.misc.stats_icon, text: 'Each skill levels as you use it. The Skills stone shows them all.' },
+  ] },
+  { id: 'more', label: 'More', icon: ASSETS.misc.orb_prayer, lines: [
+    { icon: ASSETS.misc.orb_prayer, text: 'Prayers buff your towers and drain a pool that refills between waves.' },
+    { icon: ASSETS.misc.rune_essence_icon, text: 'Essence stays between runs. Spend it in the Essence Shop.' },
+    { icon: DIVERSION_BY_ID.hans.sprite, text: 'Visitors wander in between waves. Click one, and most leave a gift.' },
+    { icon: iconUrl('Collection_log'), text: 'The Collection Log keeps your kills, cards, visitors, wins and achievements.' },
+    { icon: ASSETS.misc.cards_icon, text: 'Roguelite: buy a card roll between waves and keep one. Bosses drop relics.' },
+    { icon: ASSETS.misc.compass, text: 'A tip explains each new thing the first time it appears.' },
   ] },
   { id: 'keys', label: 'Keys', icon: ASSETS.misc.stats_icon, lines: [
     { keys: ['1', '–', '6'], text: 'pick a tower or trap from the dock' },
@@ -319,7 +314,6 @@ export const TLDR: TldrTab[] = [
     { keys: ['Z', 'X', 'C'], text: '1× / 2× / 5×' },
     { keys: ['Esc'], text: 'pause or cancel' },
     { keys: ['M'], text: 'mute' },
-    { keys: ['Ctrl', '\''], text: 'debug console' },
   ] },
 ];
 
@@ -337,7 +331,7 @@ function Keycaps({ keys }: { keys: string[] }) {
   );
 }
 
-/** "How to Play" — five short tabs, no scrolling. The learn-as-you-go tips
+/** "How to Play" — short tabs, no scrolling. The learn-as-you-go tips
  *  cover the same ground in context the first time each thing appears; this
  *  window is the terse "I forgot how X works" reminder. "Replay tips" re-arms
  *  those tips. */
@@ -348,7 +342,7 @@ export function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onRes
 
   return (
     <div className="absolute inset-0 bg-black/82 flex items-center justify-center z-50 p-4">
-      <div className="rs-panel p-4 w-[30em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: fs('clamp(14px, 0.95vw, 19px)') }}>
+      <div className="rs-panel p-[1em] w-[35em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: fs('clamp(14px, 0.95vw, 19px)') }}>
         <div className="flex items-center justify-between gap-[0.5em] mb-[0.55em]">
           <span className="text-osrs-orange font-bold text-[1.15em]">How to Play</span>
           <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
@@ -359,7 +353,7 @@ export function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onRes
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`rs-btn flex items-center gap-[0.35em] px-[0.7em] py-[0.15em] text-[0.78em] ${t.id === tab ? 'rs-btn-primary' : ''}`}
+              className={`rs-btn flex items-center gap-[0.3em] px-[0.55em] py-[0.15em] text-[0.78em] ${t.id === tab ? 'rs-btn-primary' : ''}`}
             >
               <Ico src={t.icon} size="1.1em" />
               {t.label}
