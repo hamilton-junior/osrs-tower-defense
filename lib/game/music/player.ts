@@ -17,11 +17,15 @@ import { SYNTH_RATE } from './synth.ts';
 
 /** Loudest the music gets, at slider 100% — kept under the effects, which carry the game. */
 const MAX_GAIN = 0.4;
-/** Audio kept queued ahead of the clock, and the size of each pull from the worker. */
-const AHEAD_S = 4;
+const FADE_IN_S = 3;
+const FADE_OUT_S = 4;
+/**
+ * Audio kept queued ahead of the clock, and the size of each pull from the worker.
+ * A track stops being pulled the moment it starts fading out, so the queue must
+ * always hold a whole fade-out: the refill trails by up to one chunk, hence +2.
+ */
+const AHEAD_S = FADE_OUT_S + 2;
 const CHUNK_FRAMES = SYNTH_RATE;
-const FADE_IN_S = 1.5;
-const FADE_OUT_S = 2;
 
 export interface MusicUrls {
   bank: string;
@@ -52,6 +56,7 @@ export class MusicPlayer {
   private token = 0;
   private volume = 0.5;
   private muted = false;
+  private disposed = false;
   private timer: ReturnType<typeof setInterval> | null = null;
   private readonly unlock = () => { void this.ctx?.resume().catch(() => {}); };
 
@@ -81,6 +86,7 @@ export class MusicPlayer {
   }
 
   dispose() {
+    this.disposed = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     window.removeEventListener('pointerdown', this.unlock);
@@ -101,7 +107,7 @@ export class MusicPlayer {
   /** Audio context, worker and soundbank, set up on the first track asked for. */
   private boot(): Promise<boolean> {
     this.ready ??= (async () => {
-      if (typeof window === 'undefined' || typeof AudioContext === 'undefined' || typeof Worker === 'undefined') return false;
+      if (this.disposed || typeof window === 'undefined' || typeof AudioContext === 'undefined' || typeof Worker === 'undefined') return false;
       this.ctx = new AudioContext();
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : this.volume * MAX_GAIN;
@@ -114,6 +120,9 @@ export class MusicPlayer {
         fetch(this.urls.bank).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`music bank ${r.status}`)))),
         fetch(this.urls.levels).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
       ]);
+      // Disposed while the bank was downloading: React's dev mode mounts every
+      // component twice, and the first player dies exactly here.
+      if (this.disposed) return false;
       this.levels = levels;
       this.post({ type: 'bank', bytes: bank }, [bank]);
       this.timer = setInterval(() => this.pump(), 250);
@@ -147,9 +156,10 @@ export class MusicPlayer {
         return;
       }
     }
-    // Another request may have landed while this one was fetching.
-    if (this.wanted !== id || this.current?.id === id) return;
-    const ctx = this.ctx!;
+    // Another request may have landed while this one was fetching, or the player
+    // been disposed (which drops the audio context).
+    const ctx = this.ctx;
+    if (!ctx || this.wanted !== id || this.current?.id === id) return;
     const now = ctx.currentTime;
 
     const old = this.current;
