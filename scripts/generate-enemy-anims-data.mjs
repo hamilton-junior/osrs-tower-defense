@@ -13,6 +13,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { pickGroup } from './lib/anim-group.mjs';
+import { sheetVersion } from './lib/sheet-version.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -30,7 +31,9 @@ const CAP = 400;
 /** One clip's TS literal. `prefix` names the sheet inside a multi-view group. */
 function clipLine(slug, name, c, indent, prefix = '') {
   const ms = c.frameMs.map((v) => Math.min(v, CAP));
-  return `${indent}${name}: { url: \`\${B}/${slug}/${prefix}${name}.png\`, frames: ${c.frames}, frameMs: [${ms.join(', ')}], loop: ${!!c.loop} },`;
+  const sheet = `${prefix}${name}.png`;
+  const v = sheetVersion(join(REPO, ...GROUP.spriteDir, slug, sheet));
+  return `${indent}${name}: { url: \`\${B}/${slug}/${sheet}?v=${v}\`, frames: ${c.frames}, frameMs: [${ms.join(', ')}], loop: ${!!c.loop} },`;
 }
 
 /** The cell's side in model units, when the bake recorded it (see --measure). */

@@ -6,6 +6,8 @@
  * one-shots (see GameRenderer.drawEnemies / drawDeaths).
  */
 export interface EnemyClip {
+  /** The sheet, stamped with its file's hash (`walk.png?v=…`) so a re-bake is a new
+   *  address and never meets a browser's cached copy of the old one. */
   url: string;
   frames: number;
   /** Per-frame durations (ms). */

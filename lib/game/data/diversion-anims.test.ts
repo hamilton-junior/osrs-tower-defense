@@ -52,7 +52,7 @@ describe('DIVERSION_ANIMS', () => {
       for (const [view, clips] of Object.entries(set.views)) {
         for (const [name, clip] of Object.entries(clips as unknown as Record<string, { url: string; frames: number; frameMs: number[] } | undefined>)) {
           if (!clip) continue;
-          expect(clip.url, `${id}.${view}.${name}`).toMatch(new RegExp(`/assets/diversions/${id}/${view}-${name}\.png$`));
+          expect(clip.url, `${id}.${view}.${name}`).toMatch(new RegExp(`/assets/diversions/${id}/${view}-${name}\\.png\\?v=[0-9a-f]{8}$`));
           expect(clip.url).not.toMatch(/^https?:/);
           expect(clip.frameMs.length, `${id}.${view}.${name}`).toBe(clip.frames);
         }

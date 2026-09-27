@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, basename } from 'node:path';
+import { sheetVersion } from './lib/sheet-version.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -21,7 +22,7 @@ const slugs = readdirSync(DIR).filter((f) => f.endsWith('.json')).map((f) => bas
 for (const slug of slugs) {
   const m = JSON.parse(readFileSync(join(DIR, `${slug}.json`), 'utf8'));
   blocks.push(
-    `  ${slug}: { url: \`\${B}/${slug}.png\`, frames: ${m.frames}, frameW: ${m.frameW}, frameH: ${m.frameH}, frameMs: [${m.frameMs.join(', ')}]${m.worldCell ? `, worldCell: ${m.worldCell}` : ''} },`,
+    `  ${slug}: { url: \`\${B}/${slug}.png?v=${sheetVersion(join(DIR, `${slug}.png`))}\`, frames: ${m.frames}, frameW: ${m.frameW}, frameH: ${m.frameH}, frameMs: [${m.frameMs.join(', ')}]${m.worldCell ? `, worldCell: ${m.worldCell}` : ''} },`,
   );
 }
 
