@@ -12,7 +12,7 @@
  *
  * Build-time/offline only (osrscachereader needs the local cache).
  */
-import { RSCache, IndexType, ConfigType, GLTFExporter, ModelGroup } from 'osrscachereader';
+import { RSCache, IndexType, ConfigType, GLTFExporter } from 'osrscachereader';
 import { gltfToGlb } from './lib/glb.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -39,8 +39,9 @@ async function modelFor(cache, src, ownNpc) {
   if (src.npc != null) return buildNpcModel(cache, src.npc);
   if (src.obj != null) return objectModelById(cache, src.obj);
   if (src.model != null) {
-    const m = await cache.getDef(IndexType.MODELS, src.model).catch(() => null);
-    return m ? new ModelGroup([m]).getMergedModel() : null;
+    // As it is: the client only welds when it merges several, and ModelGroup would weld
+    // this one toward the wrong vertex (lib/merge-models.mjs).
+    return cache.getDef(IndexType.MODELS, src.model).catch(() => null);
   }
   return buildNpcModel(cache, ownNpc);
 }
@@ -82,7 +83,7 @@ async function exportOne(cache, slug, cfg) {
 
   const clips = [];
   if (own.length) {
-    const model = await buildNpcModel(cache, cfg.npc);
+    const model = await buildNpcModel(cache, cfg.npc, cfg);
     if (!model) { console.warn(`! ${slug}: NPC ${cfg.npc} has no model`); return null; }
     const done = await exportGltf(cache, model, own.map(([n, s]) => [n, s]), slug, `NPC ${cfg.npc}`);
     if (!done) return null;

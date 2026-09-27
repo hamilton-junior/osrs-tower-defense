@@ -2,6 +2,27 @@
   "generatedAt": "2026-09-27",
   "entries": [
     {
+      "kind": "fixed",
+      "scope": "anims",
+      "text": "Monsters no longer blink out at the end of each loop after an update",
+      "fromFeedback": false,
+      "date": "2026-09-27"
+    },
+    {
+      "kind": "fixed",
+      "scope": "enemies",
+      "text": "Monsters no longer hitch each time a walk loops or a flinch begins",
+      "fromFeedback": false,
+      "date": "2026-09-27"
+    },
+    {
+      "kind": "balanced",
+      "scope": "music",
+      "text": "Songs crossfade over twice as long, and the music starts at 75% volume",
+      "fromFeedback": false,
+      "date": "2026-09-27"
+    },
+    {
       "kind": "new",
       "scope": "music",
       "text": "Play the OSRS soundtrack — Scape Main on the start screen, each region's own track in game",
@@ -257,27 +278,6 @@
       "kind": "updated",
       "scope": "ui",
       "text": "A level requirement shows the icon of the skill that grants it",
-      "fromFeedback": false,
-      "date": "2026-09-21"
-    },
-    {
-      "kind": "fixed",
-      "scope": "fishing",
-      "text": "A fish sells for the coins its Sell line promised",
-      "fromFeedback": false,
-      "date": "2026-09-21"
-    },
-    {
-      "kind": "updated",
-      "scope": "herblore",
-      "text": "Every brew names the herb it spends, and shows its icon",
-      "fromFeedback": false,
-      "date": "2026-09-21"
-    },
-    {
-      "kind": "new",
-      "scope": "diaries",
-      "text": "See which diary reward your towers are wearing right now",
       "fromFeedback": false,
       "date": "2026-09-21"
     }

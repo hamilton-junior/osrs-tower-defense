@@ -2,7 +2,7 @@
   "npc": 2075,
   "frameW": 256,
   "frameH": 256,
-  "worldCell": 485,
+  "worldCell": 486,
   "clips": {
     "walk": {
       "anim": 4660,

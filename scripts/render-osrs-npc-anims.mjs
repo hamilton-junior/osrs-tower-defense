@@ -19,7 +19,7 @@
  * baking a range and eyeballing (a collapse-to-ground clip is the death).
  * Build-time/offline only (osrscachereader can't run in a static export).
  */
-import { RSCache, IndexType, ModelGroup } from 'osrscachereader';
+import { RSCache, IndexType, ModelDefinition } from 'osrscachereader';
 import { createCanvas } from 'canvas';
 import { PNG } from 'pngjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -28,6 +28,7 @@ import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { readAnimConfig } from './lib/anim-source.mjs';
 import { npcDef } from './lib/npc-def.mjs';
+import { mergeParts } from './lib/merge-models.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -115,12 +116,20 @@ function isFlatPlane(m) {
   return hi - lo <= 2;
 }
 
-/** Build an NPC's merged + recoloured model. */
-export async function buildNpcModel(cache, npcId) {
+/**
+ * Build an NPC's merged + recoloured model.
+ *
+ * `dropModels` (a config entry's own key) leaves parts out by model id. It is for a
+ * part the clips leave lying on the ground, which the NPC then drags along as it walks:
+ * the Thrower troll's rock (3765) hangs on a bone no troll walk, flinch or death moves
+ * (his stand only nudges it across the floor), so on a walker it slid along at his feet.
+ */
+export async function buildNpcModel(cache, npcId, { dropModels = [] } = {}) {
   const def = await npcDef(npcId);
   if (!def) return null;
   const models = [];
   for (const mid of def.models) {
+    if (dropModels.includes(mid)) continue;
     const m = await cache.getDef(IndexType.MODELS, mid).catch(() => null);
     if (m) models.push(m);
   }
@@ -128,43 +137,9 @@ export async function buildNpcModel(cache, npcId) {
   // Drop baked ground-shadow planes (keep them only if that's all there is).
   const solid = models.filter(m => !isFlatPlane(m));
   const used = solid.length ? solid : models;
-  const model = used.length === 1 ? used[0] : new ModelGroup(used).getMergedModel();
-
-  // --- Maya-rigged NPCs (post-2023 content: Scurrius, …) -------------------
-  // Both fixes below are read ONLY inside loadAnimation's `animMayaID != -1`
-  // branch, so classic frame-animated NPCs are provably unaffected.
-  //
-  // 1) `rev229` decides whether maya keyframes are read from index 22
-  //    (KEYFRAMES) or index 0 (FRAMES). ModelLoader stamps it onto each model
-  //    it loads, but ModelGroup.getMergedModel() builds a *fresh*
-  //    ModelDefinition and never copies it — so a multi-part NPC ends up
-  //    undefined, reads index 0, and dies on "Archive N does not exist".
-  // 2) ModelDefinition.mergeWith() sizes its `animayaGroups`/`animayaScales`
-  //    fallback with the ALREADY-INCREMENTED `vertexCount`, then concatenates
-  //    the real per-vertex data on top — leaving the arrays longer than the
-  //    mesh and every vertex skinned to the wrong bone (geometry explodes).
-  //    The excess is exactly the placeholder block and it sits at the FRONT
-  //    (mergeWith concatenates `[...this, ...other]` into a blank model), so
-  //    trimming to the tail is the right end — asserted below rather than
-  //    assumed, since the dependency is a caret range and a reversed concat
-  //    order upstream would mis-skin silently instead of throwing.
-  //
-  // `rev229` is cache-global (`indexRevision >= 969` on MODELS), so propagate
-  // it off the source models rather than hard-coding `true`: forcing it would
-  // send a pre-rev-229 cache's maya keyframes to index 22 and crash a bake
-  // that should have worked.
-  model.rev229 = used.some((m) => m.rev229);
-  for (const k of ['animayaGroups', 'animayaScales']) {
-    const excess = (model[k]?.length ?? 0) - model.vertexCount;
-    if (excess <= 0) continue;
-    if (excess !== used[0].vertexCount) {
-      throw new Error(
-        `${k}: expected ${used[0].vertexCount} placeholder entries at the front, found ${excess}. ` +
-        `osrscachereader's mergeWith() has changed shape — re-check which end holds the real data.`,
-      );
-    }
-    model[k] = model[k].slice(excess);
-  }
+  // Merged the way the client merges an NPC: joined only where two corners coincide
+  // exactly, the first part keeping the vertex (see lib/merge-models.mjs).
+  const model = mergeParts(ModelDefinition, used);
 
   if (def.recolorToFind?.length) {
     const map = new Map();
@@ -302,7 +277,7 @@ async function main() {
 
   for (const [slug, cfgIn] of entries) {
     const cfg = { yaw: 40, pitch: 8, maxFrames: 24, loop: {}, ...cfgIn, ...camOverride };
-    const model = await buildNpcModel(cache, cfg.npc);
+    const model = await buildNpcModel(cache, cfg.npc, cfg);
     if (!model) { console.warn(`! ${slug}: NPC ${cfg.npc} has no model`); continue; }
 
     const yawR = (cfg.yaw * Math.PI) / 180, pitchR = (cfg.pitch * Math.PI) / 180;

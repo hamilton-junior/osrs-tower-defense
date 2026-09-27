@@ -2,7 +2,7 @@
   "npc": 306,
   "frameW": 128,
   "frameH": 128,
-  "worldCell": 285,
+  "worldCell": 284,
   "views": {
     "front": {
       "stand": {

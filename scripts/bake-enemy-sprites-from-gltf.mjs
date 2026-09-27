@@ -129,8 +129,21 @@ window.loadEnemy = async (files) => {
         // client shades per vertex, so normals are computed instead — per pose, in
         // bakePose, because the morph tracks carry no MORPH_NORMAL either.
         o.material.flatShading = false;
-        o.material.side = THREE.DoubleSide;
+        // The client culls back faces, and the exported winding is the client's, so
+        // a face seen from behind is not drawn here either. A two-sided sheet (a cape,
+        // a wing) is modelled as two layers facing apart, and only the one facing the
+        // camera shows — DoubleSide drew both, each lit with the other's normal.
+        o.material.side = THREE.FrontSide;
         o.material.needsUpdate = true;
+        // Split into one vertex per face corner so a corner can carry its own normal
+        // (see smoothNormals), keeping which shared vertex each corner came from.
+        // The indexed original stays as it is and is what the fit reads, so the
+        // camera frames exactly the vertices it always did.
+        const src = o.geometry;
+        const corners = src.index ? Array.from(src.index.array) : null;
+        o.geometry = src.index ? src.toNonIndexed() : src;
+        o.userData.fitGeometry = src;
+        linkCorners(o.geometry, corners);
         // The rest pose, kept aside: bakePose overwrites the live position attribute.
         o.geometry.userData.basePos = Float32Array.from(o.geometry.attributes.position.array);
         meshes.push(o);
@@ -177,10 +190,10 @@ function deriveBasis(yawDeg, pitchDeg, flipY, mirror) {
 function allFramePositions() {
   const out = [];
   for (const mesh of meshes) {
-    const g = mesh.geometry;
-    // basePos, not attributes.position: bakePose leaves the attribute holding the
-    // last pose it rendered, so only the copy is still the rest pose.
-    const base = g.userData.basePos;
+    // The indexed geometry as loaded, never posed: one entry per vertex, where the
+    // rendered copy repeats a vertex for every face that uses it.
+    const g = mesh.userData.fitGeometry;
+    const base = g.attributes.position.array;
     const count = base.length / 3;
     const morphs = g.morphAttributes.position || [];
     const rel = g.morphTargetsRelative !== false;
@@ -245,12 +258,81 @@ window.setupCamera = (yawDeg, pitchDeg, flipY, mirror, forceHalf) => {
   return half;
 };
 
+// For each shared vertex, the faces that use it (CSR: faces vStart[v]..vStart[v+1]
+// of vFaces). Without an index there is no sharing to know about, and every corner
+// is its own vertex — flat, which is all such a mesh could say anyway.
+function linkCorners(g, corners) {
+  const n = g.attributes.position.count;
+  if (!corners) corners = Array.from({ length: n }, (_, i) => i);
+  let nv = 0;
+  for (const v of corners) nv = Math.max(nv, v + 1);
+  const vStart = new Uint32Array(nv + 1);
+  for (const v of corners) vStart[v + 1]++;
+  for (let v = 0; v < nv; v++) vStart[v + 1] += vStart[v];
+  const vFaces = new Uint32Array(corners.length);
+  const fill = vStart.slice(0, nv);
+  corners.forEach((v, c) => { vFaces[fill[v]++] = (c / 3) | 0; });
+  g.userData.corners = corners;
+  g.userData.vStart = vStart;
+  g.userData.vFaces = vFaces;
+  g.userData.faceNormals = new Float32Array(corners.length);
+  g.userData.faceAreas = new Float32Array(corners.length / 3);
+  g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+}
+
+// Smooth vertex normals, but only across faces on the same side. The client lights a
+// vertex by the faces meeting there, and so did computeVertexNormals — until a
+// two-sided sheet: its front and back layers share every vertex, their normals cancel,
+// and the few units left over point anywhere. The client lights that leftover as
+// plain ambient; three.js renormalises it, so the cape turned light or dark with each
+// pose and read as flickering stripes.
+//
+// So a corner weighs each face at its vertex by how far that face agrees with its own:
+// fully up to 90° apart — which is every face a solid body has, so it rounds off
+// exactly as computeVertexNormals had it — fading out by 120°, and not at all beyond,
+// which is where the other layer of a sheet sits (near 180°). The fade is a ramp and
+// not a cut on purpose: low-poly models are full of faces at exactly 90°, and a hard
+// threshold there let float noise flip a face in and out, flickering a corpse that was
+// lying still. Area-weighted, as computeVertexNormals was, so a sliver face, whose
+// direction swings with that same noise, has no say.
+function smoothNormals(g) {
+  const { corners, vStart, vFaces, faceNormals: fn, faceAreas: fa } = g.userData;
+  const p = g.attributes.position.array;
+  for (let f = 0; f < corners.length / 3; f++) {
+    const i = f * 9;
+    const ax = p[i + 3] - p[i], ay = p[i + 4] - p[i + 1], az = p[i + 5] - p[i + 2];
+    const bx = p[i + 6] - p[i], by = p[i + 7] - p[i + 1], bz = p[i + 8] - p[i + 2];
+    const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+    const l = Math.hypot(nx, ny, nz);
+    fa[f] = l;
+    const k = l || 1;
+    fn[f * 3] = nx / k; fn[f * 3 + 1] = ny / k; fn[f * 3 + 2] = nz / k;
+  }
+  const out = g.attributes.normal.array;
+  for (let c = 0; c < corners.length; c++) {
+    const f = (c / 3) | 0, v = corners[c];
+    const fx = fn[f * 3], fy = fn[f * 3 + 1], fz = fn[f * 3 + 2];
+    let sx = 0, sy = 0, sz = 0;
+    for (let k = vStart[v]; k < vStart[v + 1]; k++) {
+      const h = vFaces[k];
+      const agree = fn[h * 3] * fx + fn[h * 3 + 1] * fy + fn[h * 3 + 2] * fz;
+      const w = fa[h] * Math.min(1, Math.max(0, 1 + 2 * agree));
+      sx += w * fn[h * 3]; sy += w * fn[h * 3 + 1]; sz += w * fn[h * 3 + 2];
+    }
+    const l = Math.hypot(sx, sy, sz);
+    if (l > 0) { out[c * 3] = sx / l; out[c * 3 + 1] = sy / l; out[c * 3 + 2] = sz / l; }
+    else { out[c * 3] = fx; out[c * 3 + 1] = fy; out[c * 3 + 2] = fz; }
+  }
+  g.attributes.normal.needsUpdate = true;
+}
+
 // Resolve the pose the mixer just set onto the position attribute, then derive vertex
 // normals from it. The morph blend is applied here rather than left to the shader —
 // the influences are zeroed afterwards so it is not applied twice — because normals
 // can only be computed from real positions, and a smooth normal is the whole point:
-// shared vertices average the faces meeting there, so the model rounds off wherever
-// the artist meant it to and keeps its hard edges wherever they duplicated a vertex.
+// shared vertices average the faces meeting there (see smoothNormals), so the model
+// rounds off wherever the artist meant it to and keeps its hard edges wherever they
+// duplicated a vertex.
 function bakePose(mesh) {
   const g = mesh.geometry;
   const base = g.userData.basePos;
@@ -273,7 +355,7 @@ function bakePose(mesh) {
     infl[m] = 0;
   }
   g.attributes.position.needsUpdate = true;
-  g.computeVertexNormals();
+  smoothNormals(g);
 }
 
 function poseAt(entry, t) {
@@ -301,7 +383,7 @@ window.renderAt = (clipName, t, t2 = 0, w = 0) => {
       const arr = m.geometry.attributes.position.array, a = from[k];
       for (let i = 0; i < arr.length; i++) arr[i] = a[i] + (arr[i] - a[i]) * w;
       m.geometry.attributes.position.needsUpdate = true;
-      m.geometry.computeVertexNormals();
+      smoothNormals(m.geometry);
     });
   }
   renderer.render(scene, camera);

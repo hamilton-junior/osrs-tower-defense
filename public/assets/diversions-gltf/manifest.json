@@ -24,7 +24,8 @@
     "npc": 5792,
     "clips": [
       "stand",
-      "walk"
+      "walk",
+      "dance"
     ]
   },
   "drunken_dwarf": {

@@ -663,6 +663,7 @@
   },
   "thrower_troll": {
     "npc": 931,
+    "dropModels": [3765],
     "anims": {
       "walk": 283,
       "death": 287
