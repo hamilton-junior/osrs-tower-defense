@@ -49,6 +49,7 @@ import { fileURLToPath } from 'node:url';
 import { buildNpcModel, loadClip, renderFrame, computeFit, SIZE, CACHE_DIR } from './render-osrs-npc-anims.mjs';
 import { metrics, slotScores } from './lib/anim-metrics.mjs';
 import { readAnimConfig } from './lib/anim-source.mjs';
+import { nameRole, nameClash, nameFamily, nameAffinity, inFamily } from './lib/anim-names.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const INDEX_PATH = join(__dirname, 'data', 'anim-rig-index.json');
@@ -82,6 +83,17 @@ const durOf = (id) => (lengthsOf(id) ? lengthsOf(id).split(',').reduce((a, b) =>
  *  held state like the gargoyle waiting for its rock hammer. Neither a block nor an
  *  attack ever ends that way, which is what unmasked 1518 after it scored best block. */
 const holdsOf = (id) => { const l = lengthsOf(id).split(','); return Number(l[l.length - 1]) >= 1000; };
+/** Jagex's own GameVal name for the sequence (`mole_defend`) — see lib/anim-names. */
+const nameOf = (id) => ix.seqName?.[id] ?? null;
+const article = (role) => `${/^[aeiou]/.test(role) ? 'an' : 'a'} ${role}`;
+if (!ix.seqName) console.log('(rig index has no sequence names — rebuild with `npm run anims:index` for the name checks)');
+/** The unbroken run of maya ids around `anchor` — the only scoping a maya NPC has. */
+const mayaRun = (anchor) => {
+  let lo = anchor, hi = anchor;
+  while (mayaOf(lo - 1) !== null) lo--;
+  while (mayaOf(hi + 1) !== null) hi++;
+  return [lo, hi];
+};
 
 // ----------------------------------------------------------------- audit mode
 // `--audit` needs no cache and draws nothing: it asks the index one question of every
@@ -109,17 +121,43 @@ if (flag('--audit')) {
         }
       }
     }
+    // Where a name check looks for a better-named sibling: his rig, or — with no rig —
+    // the ids of his maya run that carry his name prefix.
+    const family = isMaya ? nameFamily(nameOf(st), nameOf(wk)) : null;
+    const [mlo, mhi] = isMaya ? mayaRun(mayaOf(st) !== null ? st : wk) : [0, -1];
+    const scope = r !== null
+      ? Object.keys(ix.seq).map(Number).filter((id) => skelOf(id) === r && !claimed.has(id))
+      : Array.from({ length: mhi - mlo + 1 }, (_, i) => mlo + i).filter((id) => inFamily(nameOf(id), family));
+    const scopeLabel = r !== null ? 'rig' : family ? `\`${family}\` clips` : 'maya run';
     const notes = [];
     for (const [clipName, id] of Object.entries(e.anims ?? {})) {
       if (id == null) continue;
-      if (isMaya) { if (mayaOf(id) === null) notes.push(`${clipName} ${id}: not a maya clip`); continue; }
-      if (r === null) continue;
-      if (ix.seq[id] === undefined) notes.push(`${clipName} ${id}: no such sequence`);
+      const before = notes.length;
+      if (isMaya) { if (mayaOf(id) === null) notes.push(`${clipName} ${id}: not a maya clip`); }
+      else if (r === null) continue;
+      else if (ix.seq[id] === undefined) notes.push(`${clipName} ${id}: no such sequence`);
       else if (skelOf(id) !== r) {
         notes.push(`${clipName} ${id}: off-rig (framemap ${skelOf(id)}, his is ${r})`
           + (ownedRigs.has(skelOf(id)) ? ' — and that rig belongs to some NPC' : ' — unowned rig, so possibly a model-swap death'));
       } else if (clipName !== 'walk' && (id === st || id === wk)) notes.push(`${clipName} ${id}: is his own ${id === st ? 'stand' : 'walk'}`);
       else if (claimed.has(id)) notes.push(`${clipName} ${id}: FOREIGN — ${claimed.get(id)}`);
+      // The name only speaks when nothing structural already did, and never about the
+      // def's own stand/walk — those are his by definition, whatever they are called.
+      if (notes.length > before || id === st || id === wk) continue;
+      const clash = nameClash(clipName, nameOf(id));
+      if (!clash) continue;
+      // A shared rig holds every tenant's blocks (Brutus sits on the cow's), so his own
+      // come first: the names closest to his clip's or his stand's, then the ids
+      // nearest his stand, which is where his set was authored.
+      const home = st >= 0 ? st : wk;
+      const kin = (s) => Math.max(nameAffinity(nameOf(s), nameOf(id)), nameAffinity(nameOf(s), nameOf(home)));
+      const better = scope
+        .filter((s) => s !== id && nameRole(nameOf(s)) === clash.expected)
+        .sort((a, b) => (kin(b) - kin(a)) || (Math.abs(a - home) - Math.abs(b - home)));
+      notes.push(`${clipName} ${id}: named ${nameOf(id)}, ${article(clash.actual)} — `
+        + (better.length
+          ? `his ${scopeLabel} has ${better.slice(0, 3).map((s) => `${s} ${nameOf(s)}`).join(', ')}`
+          : `nothing in his ${scopeLabel} is named for ${article(clash.expected)}, so likely a deliberate stand-in`));
     }
     const missing = ['walk', 'hurt', 'death'].filter((c) => e.anims?.[c] == null);
     if (missing.length) notes.push(`no ${missing.join('/')} configured — most monsters do have all three`);
@@ -150,6 +188,8 @@ const [npcName, stand, walk] = me;
 
 // ------------------------------------------------------- scope the candidate set
 const rig = skelOf(stand) ?? skelOf(walk);
+/** His naming prefix (`cow_boss`) — scoping only where there is no rig to go by. */
+const family = rig === null ? nameFamily(nameOf(stand), nameOf(walk)) : null;
 let candidates = [];
 let scoping = '';
 if (rig !== null) {
@@ -159,13 +199,14 @@ if (rig !== null) {
   // No framemap to match on. Maya ids run in an unbroken block, so the nearest
   // classic id on each side of his stand/walk bounds his set — weaker than tenancy,
   // and reported as such rather than dressed up as the same answer.
-  const anchor = mayaOf(stand) !== null ? stand : walk;
-  let lo = anchor, hi = anchor;
-  while (mayaOf(lo - 1) !== null) lo--;
-  while (mayaOf(hi + 1) !== null) hi++;
+  const [lo, hi] = mayaRun(mayaOf(stand) !== null ? stand : walk);
   for (let id = lo; id <= hi; id++) if (ix.seq[id]) candidates.push(id);
   scoping = `MAYA-rigged, so there is no framemap to match on. Best scoping available is the `
     + `contiguous maya run ${lo}-${hi} (${candidates.length} ids) — it may hold more than one NPC's set.`;
+  if (family) {
+    const own = candidates.filter((id) => inFamily(nameOf(id), family)).length;
+    scoping += `\n${own} of them carry his name prefix \`${family}\` — the rest are marked "other family".`;
+  }
 } else {
   console.error(`NPC ${npcId} (${npcName}) has neither a framemap nor a maya rig on its stand/walk.`);
   process.exit(1);
@@ -291,8 +332,10 @@ for (const id of [...candidates, ...strays]) {
     id, clip, m, s,
     verdict: strays.includes(id) ? 'off-rig' : id === stand ? 'own stand' : id === walk ? 'own walk' : claimedBy.has(id) ? 'foreign' : best,
     score: s[best],
+    name: nameOf(id),
     note: [
       mine.filter(([, v]) => v === id).map(([c]) => `NOW ${c}`).join(' '),
+      family && !inFamily(nameOf(id), family) ? 'other family' : '',
       claimedBy.get(id) ? `is the ${claimedBy.get(id)}` : '',
       strays.includes(id) ? `own framemap ${skelOf(id)}, unowned — a model-swap death looks like this` : '',
       holdsOf(id) ? 'HOLDS at the end — a pose it stays in, so never a block or an attack' : '',
@@ -344,13 +387,15 @@ if (strays.length) {
   say('  cannot be baked on this mesh. Judge it on the sheet, then prefer the held clip on his own rig.');
 }
 say();
-say('  id     verdict   death block attack   coll reach settle   f    ms   notes');
+const nameW = Math.min(34, Math.max(4, ...rows.map((r) => r.name?.length ?? 0)));
+say(`  id     verdict   death block attack   coll reach settle   f    ms   ${'name'.padEnd(nameW)}  notes`);
 for (const r of rows) {
   say(
     `  ${String(r.id).padStart(6)} ${r.verdict.padEnd(9)}`
     + ` ${r.s.death.toFixed(2)}  ${r.s.block.toFixed(2)}  ${r.s.attack.toFixed(2)}`
     + `   ${r.m.collapse.toFixed(2)}  ${r.m.reach.toFixed(2)}  ${r.m.settle.toFixed(2)}`
-    + `  ${String(r.clip.frames.length).padStart(2)}  ${String(durOf(r.id)).padStart(5)}   ${r.note}`,
+    + `  ${String(r.clip.frames.length).padStart(2)}  ${String(durOf(r.id)).padStart(5)}`
+    + `   ${(r.name ?? '').padEnd(nameW)}  ${r.note}`,
   );
 }
 say();
@@ -358,9 +403,24 @@ for (const s of ['death', 'block', 'attack']) {
   const best = rows.filter(isCandidate).sort((a, b) => b.s[s] - a.s[s]).slice(0, 3);
   say(`best ${s.padEnd(6)}: ${best.map((r) => `${r.id} (${r.s[s].toFixed(2)})`).join('   ')}`);
 }
+if (ix.seqName) {
+  say();
+  // The name is Jagex's own label, and the one thing here that can tell an attack from
+  // a block. On a shared rig the tenants' unclaimed clips are candidates too (Brutus
+  // sits on the cow's), so the names closest to his stand's lead.
+  const kin = (r) => nameAffinity(r.name, nameOf(stand >= 0 ? stand : walk));
+  const his = rows
+    .filter((r) => isCandidate(r) && (!family || inFamily(r.name, family)))
+    .sort((a, b) => (kin(b) - kin(a)) || (a.id - b.id));
+  for (const s of ['death', 'block', 'attack']) {
+    const named = his.filter((r) => nameRole(r.name) === s);
+    const more = named.length > 5 ? `   … +${named.length - 5}` : '';
+    say(`named ${s.padEnd(6)}: ${named.slice(0, 5).map((r) => `${r.id} ${r.name}`).join('   ') || '(none)'}${more}`);
+  }
+}
 say();
-say('Attack and block score alike on purpose — no metric here can split them.');
-say('Use the tenants, the twin and the sheet; the in-game look is the only oracle.');
+say('Attack and block score alike on purpose — no metric here can split them; a name can.');
+say('Use the names, the tenants, the twin and the sheet; the in-game look is the only oracle.');
 
 // ---------------------------------------------------------------- contact sheet
 const shown = rows.slice(0, top);
@@ -393,8 +453,9 @@ shown.forEach((r, i) => {
   ctx.fillStyle = '#33333d'; ctx.font = '11px sans-serif';
   ctx.fillText(`${frames.length}f  d${r.s.death.toFixed(2)} b${r.s.block.toFixed(2)} a${r.s.attack.toFixed(2)}`, 8, y + 40);
   ctx.fillText(`col ${r.m.collapse.toFixed(2)}  rch ${r.m.reach.toFixed(2)}`, 8, y + 56);
-  ctx.fillText(`set ${r.m.settle.toFixed(2)}`, 8, y + 72);
-  if (r.note) ctx.fillText(r.note.slice(0, 30), 8, y + 90);
+  ctx.fillText(`set ${r.m.settle.toFixed(2)}`, 8, y + 70);
+  if (r.name) ctx.fillText(r.name.slice(0, 30), 8, y + 85);
+  if (r.note) ctx.fillText(r.note.slice(0, 30), 8, y + 100);
 });
 const outPath = join(__dirname, `tmp-triage-${label}.png`);
 writeFileSync(outPath, canvas.toBuffer('image/png'));

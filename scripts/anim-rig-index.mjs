@@ -16,15 +16,21 @@
  * all ~14 500 sequences and ~16 300 NPCs in about a minute and writes the result
  * down, so `anim-triage.mjs` can answer it instantly for any monster.
  *
+ * It also records every sequence's **GameVal name** (`mole_defend`, `cow_boss_death`),
+ * read from the same cache. The framemap says whose a clip can be; the name says what
+ * it is — see `lib/anim-names.mjs`.
+ *
  * The index is **derived from the local cache and gitignored** — it is keyed to the
  * cache revision it was built from, so it is rebuilt rather than shared. Rebuild it
  * after a game update; the triage tool says so when the revisions disagree.
  */
 import { RSCache, IndexType, ConfigType } from 'osrscachereader';
+import { Animation, GameVal } from '@abextm/cache2';
 import { existsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CACHE_DIR } from './render-osrs-npc-anims.mjs';
+import { defsCache } from './lib/npc-def.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const INDEX_PATH = join(__dirname, 'data', 'anim-rig-index.json');
@@ -92,6 +98,12 @@ async function main() {
   }
   console.log(` ${Object.keys(npc).length} animated`);
 
+  // Names come through cache2, the defs reader the bake scripts already share
+  // (lib/npc-def.mjs); it decodes GameVal index 24 off the same disk cache.
+  const seqName = {};
+  for (const [id, gv] of await GameVal.all(defsCache(), Animation.gameval)) seqName[id] = gv.name;
+  console.log(`Named ${Object.keys(seqName).length} sequences from GameVal`);
+
   const out = {
     revision: configs.revision ?? null,
     builtAt: new Date().toISOString(),
@@ -99,6 +111,8 @@ async function main() {
     seq,
     // npc: id -> [name, standingAnimation, walkingAnimation]
     npc,
+    // seqName: id -> GameVal name, e.g. "mole_defend"
+    seqName,
   };
   writeFileSync(INDEX_PATH, JSON.stringify(out));
   const rigs = new Set(Object.values(seq).map((s) => s[0]).filter((s) => s !== null));

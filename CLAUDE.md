@@ -79,7 +79,9 @@ items and animations; `NPC` carries the real stat block (`attack`, `defence`, `s
 carries the inventory-icon camera (`zoom2d`, `xan2d`, `yan2d`, `zan2d`, `offsetX2d`,
 `offsetY2d`). It answers *which id* and *what the def says* — the bytes that ship still come out
 of the local cache through `scripts/render-osrs-*.mjs`. Never download an asset from the viewer
-or the repo into `public/assets/`.
+or the repo into `public/assets/`. The anim scripts read GameVal off the local cache too:
+`npm run anims:index` stores every sequence's name, and `anims:triage` (with `--audit`) uses
+it to tell a block from an attack.
 
 ### Styling
 

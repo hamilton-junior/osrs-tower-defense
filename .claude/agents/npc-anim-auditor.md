@@ -19,8 +19,31 @@ npm run anims:triage -- --audit     # whole roster, index only: every configured
 
 **Start an "it looks wrong" report with `--audit`.** It needs no cache and draws nothing —
 it just asks the index whether each configured id *could* be that NPC's, and names the
-contradictions (off-rig, his own idle, a neighbour's idle, a missing slot). That is the
-check that would have caught the mummy's hurt 5563 without a single probe image.
+contradictions (off-rig, his own idle, a neighbour's idle, a missing slot, a clip whose
+name reads as another role). That is the check that would have caught the mummy's hurt
+5563 without a single probe image.
+
+## Names — Jagex's own label
+
+The index also stores every sequence's **GameVal name** (cache index 24): `mole_defend`,
+`cow_boss_death`, `human_unarmedblock`. The name is the one signal here that *can* tell an
+attack from a block, and it covers every NPC — including the ones past 9297 that the
+observed dump never saw, and maya rigs with no framemap. Triage prints a name column and
+`named death/block/attack` lines; `--audit` flags a clip whose name reads as another role
+(`lib/anim-names.mjs` decides the role from the name's words).
+
+- **A clash with a better-named sibling is strong evidence.** `hurt 3312: named mole_attack,
+  an attack — his rig has 3311 mole_defend`. Look at that sibling first.
+- **A clash with no sibling is usually a deliberate stand-in.** Nothing on the abyssal
+  demon's rig is named for a block, so its `abyssal_attack` hurt was a choice, not a slip.
+- **A name with no role word says nothing** (`flip`, `snakeboss_sinkfast`) and is never flagged.
+- **Rigs are shared, so the prefix proves nothing on a classic rig**: the hellhound defends
+  with `dog_update_jackal_defend`, the Barrows brothers with `human_unarmedblock`. Only on a
+  maya rig does the prefix scope (`npc_rat_boss_*` is Scurrius's set — 21 of the 23 ids in
+  his 10686-10708 run); triage marks the rest of the maya run `other family`.
+- Names are still evidence, not proof — the sheet and the in-game look close it.
+
+The index predates names if triage says so; rebuild it with `npm run anims:index`.
 
 `scripts/anim-triage.mjs` runs the whole loop in one pass and replaces steps that used
 to take a dozen probe images:
@@ -88,7 +111,7 @@ Rules that fall out of it, learned the hard way:
 ## Flow
 
 1. **Triage**: `npm run anims:triage <slug>` → the rig's real candidate set, the tenancy
-   labels, the scores, the twin's settled slots and one contact sheet. Start here always.
+   labels, the scores, the names, the twin's settled slots and one contact sheet. Start here always.
 2. **Probe wider only if the sheet leaves you unsure**:
    `node scripts/probe-anim-block.mjs --npc <id> --from <a> --to <b>` → `scripts/tmp-probe-<npc>.png`, a labelled row per id + metrics (`collapse` → 0 = death, `reach` high = attack, `settle` → 0 = returns to rest = block). Scrambled/garbage geometry in a row = that id belongs to another rig — triage's framemap scoping already excludes those, which is why it is the better first look.
    Run **one cache process at a time** — they each re-index the cache and contend on disk I/O. Batch several NPCs in a single sequential `for` loop, in the background, then read the PNGs.
