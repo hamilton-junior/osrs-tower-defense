@@ -175,13 +175,13 @@ const geIcon = (wiki: string) => iconUrl(wiki);
 export default function GameRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
-  const gameAreaRef = useRef<HTMLDivElement>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
   // The board is a fixed 1440×640 picture; the *UI* adapts to it, never the
   // reverse. This holds the board box's size in client pixels — the largest
-  // LOGIC-aspect rectangle that fits the available game area — so the picture is
-  // never distorted and the bottom bar always keeps its room. It measures the
-  // container only to lay out the UI; the game's own resolution never changes.
+  // LOGIC-aspect rectangle that fits above the bottom bar's minimum height — so the
+  // picture is never distorted and the bar always keeps its room. It measures the
+  // page only to lay out the UI; the game's own resolution never changes.
   const [boardSize, setBoardSize] = useState<{ w: number; h: number } | null>(null);
   const [ui, setUi] = useState<UIState>(INITIAL);
   const [banner, setBanner] = useState<{ text: string; tone: 'start' | 'done' | 'boss' } | null>(null);
@@ -1097,25 +1097,35 @@ export default function GameRoot() {
     setHoverTowerId(null);
     highlightTower(null);
   }, [tab, highlightTower]);
-  // Fit the board box to its container: the largest LOGIC-aspect rectangle that
-  // fits, recomputed whenever the window (and thus the game area) changes. This is
-  // the *only* place the layout reacts to size — and it sizes the presentation box,
-  // never the engine. The 1440×640 logic space and the road are untouched.
+  // Fit the board box to the page: the largest LOGIC-aspect rectangle that fits
+  // above the bar's minimum height, recomputed whenever the window or the interface
+  // size (which sets that minimum) changes. This is the *only* place the layout
+  // reacts to size — and it sizes the presentation box, never the engine. The
+  // 1440×640 logic space and the road are untouched.
+  //
+  // The board sits flush against the top. Width it cannot use is wood beside it; height
+  // it cannot use goes to the bar, which grows by exactly that much — the page used to
+  // centre the board and frame it in a band of wood above and below. The page column
+  // is measured rather than the board's own area, because that area is now sized from
+  // the result: measuring it back would feed the board its own last size.
   useLayoutEffect(() => {
-    const area = gameAreaRef.current;
-    if (!area) return;
+    const col = columnRef.current;
+    const bar = barRef.current;
+    if (!col || !bar) return;
     const fit = () => {
-      const w = area.clientWidth;
-      const h = area.clientHeight;
-      if (w === 0 || h === 0) return;
+      const w = col.clientWidth;
+      const h = col.clientHeight - (parseFloat(getComputedStyle(bar).minHeight) || 0);
+      if (w <= 0 || h <= 0) return;
       const scale = Math.min(w / LOGIC_WIDTH, h / LOGIC_HEIGHT);
-      setBoardSize({ w: Math.round(LOGIC_WIDTH * scale), h: Math.round(LOGIC_HEIGHT * scale) });
+      // Floored, so a rounding half-pixel never comes out of the bar's minimum.
+      const next = { w: Math.floor(LOGIC_WIDTH * scale), h: Math.floor(LOGIC_HEIGHT * scale) };
+      setBoardSize((prev) => (prev && prev.w === next.w && prev.h === next.h ? prev : next));
     };
     fit();
     const ro = new ResizeObserver(fit);
-    ro.observe(area);
+    ro.observe(col);
     return () => ro.disconnect();
-  }, []);
+  }, [uiScale]);
 
   // Report the board's on-screen size to the engine so it can back the canvas at
   // the display's native resolution (see engine `setDisplaySize`/`deviceScale`) —
@@ -1678,13 +1688,14 @@ export default function GameRoot() {
     .filter((p): p is (typeof TOWER_PRAYERS)[number] => p !== null);
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden bg-black select-none font-osrs">
-      {/* Whatever space the board's aspect leaves over is dressed as OSRS chrome,
-          so it reads as the client's frame rather than as a black bar. */}
+    <div ref={columnRef} className="w-full h-full flex flex-col overflow-hidden bg-black select-none font-osrs">
+      {/* Exactly as tall as the board. Whatever width its aspect leaves over is
+          dressed as OSRS chrome either side, so it reads as the client's frame
+          rather than as a black bar; leftover height is the bar's (see the fit
+          effect). */}
       <div
-        ref={gameAreaRef}
-        className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden"
-        style={{ backgroundColor: 'var(--osrs-brown-dark)', backgroundImage: 'var(--rs-wood)' }}
+        className="shrink-0 w-full flex justify-center overflow-hidden"
+        style={{ height: boardSize?.h ?? 0, backgroundColor: 'var(--osrs-brown-dark)', backgroundImage: 'var(--rs-wood)' }}
       >
       {/* Sized (in JS) to the largest LOGIC-aspect rectangle that fits the area:
           the largest the board can be drawn without distortion, and the same fixed
@@ -3642,17 +3653,19 @@ export default function GameRoot() {
         />
       )}
       </div>{/* board — floating overlays anchor to the map, never the dock bar */}
-      </div>{/* game area — the board, centred in whatever room it has */}
+      </div>{/* game area — the board, centred across whatever width it has */}
 
       {/* The docked main menu, along the very bottom of the screen. It is `relative`
           so its two pop-ups — the selected interface and the dock's hover tooltip —
           rise *out of* it and over the map, and only while they're wanted. Nothing
           but the bar itself is permanently on-screen.
 
-          The bar's own height is constant (`em`, so it tracks the UI-scale control
-          rather than its contents): a bar that grew or shrank mid-run would shrink
-          the play area and letterbox the board. */}
-      <div ref={barWrapRef} className="relative shrink-0 w-full" style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}>
+          The bar's minimum height is constant (`em`, so it tracks the UI-scale control
+          rather than its contents): a bar that grew with what it holds would shrink
+          the play area and letterbox the board. Above that minimum it takes only what
+          the board cannot use — the height left under a board that is already as
+          wide as the window. */}
+      <div ref={barWrapRef} className="relative flex-1 w-full flex flex-col" style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}>
 
         {/* The interface a stone has popped open: expands upward over the map, and
             closes when its stone is clicked again — or on a right-click anywhere on
@@ -3922,8 +3935,8 @@ export default function GameRoot() {
         <footer
           ref={barRef}
           data-tut="sidebar"
-          className={`w-full rs-panel flex items-center gap-[0.45em] px-[0.6em] ${runStarted ? '' : 'rs-bar-idle'}`}
-          style={{ height: '4.3em' }}
+          className={`w-full flex-1 rs-panel flex items-center gap-[0.45em] px-[0.6em] ${runStarted ? '' : 'rs-bar-idle'}`}
+          style={{ minHeight: '4.3em' }}
         >
           {/* One row built around the tower dock, which is centred on the bar itself
               - its middle is the bar's middle, on every screen. That is what the two
@@ -4030,13 +4043,13 @@ export default function GameRoot() {
 
             {/* Two jobs, two tabs. A tower is built *beside* the road; a trap is
                 laid *on* it. They share the dock rather than the bar, because the
-                bar's height is fixed and a seventh stone would have to come out of
-                the board. Each tab wears its skill's own OSRS icon — the
+                bar can be as short as 4.3em and a seventh stone would have to come
+                out of the board. Each tab wears its skill's own OSRS icon — the
                 Construction saw for the things you build, the Hunter paw for the
                 things you lay — so the two halves read at a glance. One switch,
                 not two stones: a pair of stacked `.rs-tab`s is 5em tall against a
-                bar whose height is a fixed 4.3em, and they spilled over both its
-                edges. The switch is shorter and carries the bigger icon.
+                bar that short, and they spilled over both its edges. The switch
+                is shorter and carries the bigger icon.
 
                 It ends the left half rather than riding inside the dock: the dock
                 is centred on the bar, and anything sharing that box would push the

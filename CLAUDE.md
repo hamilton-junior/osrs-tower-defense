@@ -49,7 +49,7 @@ When you pull logic out of the engine, prefer a pure function with a matching `*
 
 ### Coordinate system & timing
 
-- The board is a **fixed** logical space, `LOGIC_WIDTH=1440 × LOGIC_HEIGHT=640` (45×20 tiles, 2.25:1) — the same board for every player. The game never derives from screen size; only the presentation does. See the `game-ui` skill for the full rule and its three easy-to-break consequences (`paintedBox()` for every screen↔logic conversion, the fixed bottom-bar height, blocked browser zoom).
+- The board is a **fixed** logical space, `LOGIC_WIDTH=1440 × LOGIC_HEIGHT=640` (45×20 tiles, 2.25:1) — the same board for every player. The game never derives from screen size; only the presentation does. See the `game-ui` skill for the full rule and its three easy-to-break consequences (`paintedBox()` for every screen↔logic conversion, the bottom bar's fixed minimum height, blocked browser zoom).
 - Game speed and pause apply to `dt` only (`rawDt * gameSpeed`, zero when paused); real-world timers use `rawDt`. `TICK = 0.6` is the OSRS game tick and drives every cooldown.
 
 ### Data-driven content

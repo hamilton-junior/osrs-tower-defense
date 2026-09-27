@@ -3,6 +3,13 @@
   "entries": [
     {
       "kind": "fixed",
+      "scope": "enemies",
+      "text": "Ket-Zek and the ice troll are no longer see-through, capes and wings no longer flicker, and the thrower troll no longer drags a boulder",
+      "fromFeedback": false,
+      "date": "2026-09-27"
+    },
+    {
+      "kind": "fixed",
       "scope": "anims",
       "text": "Monsters no longer blink out at the end of each loop after an update",
       "fromFeedback": false,
@@ -271,13 +278,6 @@
       "kind": "new",
       "scope": "tzhaar",
       "text": "Kill a Tz-Kek and two smaller ones crawl out of it",
-      "fromFeedback": false,
-      "date": "2026-09-21"
-    },
-    {
-      "kind": "updated",
-      "scope": "ui",
-      "text": "A level requirement shows the icon of the skill that grants it",
       "fromFeedback": false,
       "date": "2026-09-21"
     }
