@@ -6,9 +6,10 @@
   "clips": {
     "walk": {
       "anim": 3108,
-      "frames": 34,
+      "frames": 35,
       "frameMs": [
-        40,
+        20,
+        20,
         20,
         20,
         20,
@@ -70,9 +71,10 @@
     },
     "death": {
       "anim": 3111,
-      "frames": 13,
+      "frames": 14,
       "frameMs": [
-        40,
+        20,
+        20,
         20,
         20,
         20,

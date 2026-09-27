@@ -28,7 +28,8 @@ import { dirname, join, extname } from 'node:path';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 import { launchBrowser } from './lib/browser.mjs';
-import { trimTail } from './lib/clip-tail.mjs';
+import { trimTail, isBlank } from './lib/clip-tail.mjs';
+import { clipSamples, frameDurations } from './lib/clip-timing.mjs';
 import { clipSource, isAltModel, altGltfName } from './lib/anim-source.mjs';
 import { pickGroup } from './lib/anim-group.mjs';
 import { NPC } from '@abextm/cache2';
@@ -141,7 +142,7 @@ window.loadEnemy = async (files) => {
     // The cache's morph tracks export as STEP: a pose is held, then snaps. Sampling
     // exactly on a keyframe gives the same vertices either way, so switching to LINEAR
     // leaves every keyframe bake byte-identical and only adds meaning to the times in
-    // between — which is what lets every sheet carry in-betweens (see tweenTimes).
+    // between — which is what lets every sheet carry in-betweens (see lib/clip-timing.mjs).
     for (const c of gltf.animations) for (const t of c.tracks) t.setInterpolation(THREE.InterpolateLinear);
 
     const mixer = new THREE.AnimationMixer(root);
@@ -275,18 +276,34 @@ function bakePose(mesh) {
   g.computeVertexNormals();
 }
 
-// Render one absolute time of a clip's action and return a PNG dataURL.
-window.renderAt = (clipName, t) => {
-  for (const e of Object.values(actions)) e.action.stop();
-  const entry = actions[clipName];
-  // Only the mesh this clip was authored on is in the shot — the others are still
-  // in the scene (they paid into the shared fit) but must not appear beside it.
-  for (const r of roots) r.visible = r === entry.root;
+function poseAt(entry, t) {
   const act = entry.action;
   act.reset(); act.play(); act.paused = true;
   act.time = Math.max(0, t);
   entry.mixer.update(0);
   for (const mesh of meshes) bakePose(mesh);
+}
+
+// Render one absolute time of a clip's action and return a PNG dataURL — or, with
+// w > 0, the pose w of the way from time t to time t2 (a loop's last frame tweening
+// back round to its first pose, which the track itself cannot interpolate).
+window.renderAt = (clipName, t, t2 = 0, w = 0) => {
+  for (const e of Object.values(actions)) e.action.stop();
+  const entry = actions[clipName];
+  // Only the mesh this clip was authored on is in the shot — the others are still
+  // in the scene (they paid into the shared fit) but must not appear beside it.
+  for (const r of roots) r.visible = r === entry.root;
+  poseAt(entry, t);
+  if (w > 0) {
+    const from = meshes.map((m) => Float32Array.from(m.geometry.attributes.position.array));
+    poseAt(entry, t2);
+    meshes.forEach((m, k) => {
+      const arr = m.geometry.attributes.position.array, a = from[k];
+      for (let i = 0; i < arr.length; i++) arr[i] = a[i] + (arr[i] - a[i]) * w;
+      m.geometry.attributes.position.needsUpdate = true;
+      m.geometry.computeVertexNormals();
+    });
+  }
   renderer.render(scene, camera);
   return renderer.domElement.toDataURL('image/png');
 };
@@ -296,40 +313,16 @@ window.__ready = true;
 }
 
 // ----------------------------------------------------------- frame sampling
-// The cache's frame timing is wildly uneven: a hill giant changes pose every 60ms, a
-// jogre only every 185ms. Held past one client cycle a sprite visibly snaps from pose
-// to pose instead of moving, so **every** clip is smoothed the same way — subdivide
-// each interval into steps of at most HOLD_MS and let the morph tween fill them.
-// HOLD_MS is the OSRS client cycle (20ms, 50 poses a second): the client's animation
-// smoothing, RuneLite's Animation Smoothing plugin included, tweens once per cycle, so
-// the sheets move exactly as smoothly as the game does with it switched on. Same cache
-// poses, same total duration, just in-betweens between them, and every original
-// keyframe time survives in the list. A new enemy gets this for free.
-//
-// The exception is a rest. OSRS says "and now lie there dead" by holding the
-// second-to-last pose for four hundred *seconds*; nothing is moving across a gap like
-// that. So a span longer than REST_MS stays one frame — which is both correct and what
-// stops a death clip from exploding into thousands of identical frames.
-const HOLD_MS = 20;
-const REST_MS = 300;
+// Which instants of a clip become frames, and for how long each shows, is
+// scripts/lib/clip-timing.mjs: every span tweened in 20ms steps (the client cycle),
+// each pose placed at the START of its frame the way the client plays it.
+
 // Room for the smoothed count so sampleIndices never has to thin a clip back down:
 // evenly-spaced index sampling over unevenly-spaced times would distort the timing. The
 // longest clip in the roster is vorkath/death at ~200 smoothed frames, so this is
 // headroom, not a budget — raise it rather than let a new enemy get resampled (the bake
 // warns when it has to).
 const SMOOTH_MAX_FRAMES = 400;
-
-function tweenTimes(times, duration, capMs = HOLD_MS, restMs = REST_MS) {
-  const out = [];
-  for (let i = 0; i < times.length; i++) {
-    const t = times[i];
-    const span = (i + 1 < times.length ? times[i + 1] : duration) - t;
-    // the 1e-6 keeps a span of exactly capMs at one step (0.06 * 1000 / 60 > 1 in floats)
-    const steps = span * 1000 > restMs ? 1 : Math.max(1, Math.ceil((span * 1000) / capMs - 1e-6));
-    for (let s = 0; s < steps; s++) out.push(t + (span * s) / steps);
-  }
-  return out;
-}
 
 function sampleIndices(len, maxFrames) {
   if (len <= maxFrames) return Array.from({ length: len }, (_, i) => i);
@@ -378,30 +371,28 @@ async function bakeClips(page, { slug, cfg, clipInfo, src, wantClips, outDir, ce
   const out = {};
   for (const name of wantClips) {
     const info = clipInfo.find((c) => c.name === name);
-    const times = tweenTimes(info.times, info.duration);
-    const idxs = sampleIndices(times.length, Math.max(cfg.maxFrames, SMOOTH_MAX_FRAMES));
-    if (idxs.length < times.length) console.warn(`  ! ${slug}/${name}: ${times.length} frames thinned to ${idxs.length}; raise SMOOTH_MAX_FRAMES`);
+    const loop = !!cfg.loop[name];
+    const render = async (t, t2 = 0, w = 0) => {
+      const dataUrl = await page.evaluate((n, a, b, k) => window.renderAt(n, a, b, k), name, t, t2, w);
+      return boxDown(Uint8Array.from(dataUrlToRgba(dataUrl).data), cell, SS);
+    };
+    // A one-shot often ends on a pose that renders nothing (the model is gone by
+    // then). The tail trim would drop that frame anyway, but the frames tweening
+    // into it would stay and show the model collapsing: end the clip before it.
+    let keys = info.times;
+    while (!loop && keys.length > 2 && isBlank(await render(keys[keys.length - 1]))) keys = keys.slice(0, -1);
+    const samples = clipSamples(keys, loop);
+    const idxs = sampleIndices(samples.length, Math.max(cfg.maxFrames, SMOOTH_MAX_FRAMES));
+    if (idxs.length < samples.length) console.warn(`  ! ${slug}/${name}: ${samples.length} frames thinned to ${idxs.length}; raise SMOOTH_MAX_FRAMES`);
     const rendered = [];
-    const rawMs = [];
-    for (let fi = 0; fi < idxs.length; fi++) {
-      const t = times[idxs[fi]];
-      const dataUrl = await page.evaluate((n, tt) => window.renderAt(n, tt), name, t);
-      rendered.push(boxDown(Uint8Array.from(dataUrlToRgba(dataUrl).data), cell, SS));
-      // A pose is *reached* at its keyframe time and belongs to the span that ENDS
-      // there: the exporter stacks the cache frame lengths, so times[i] is frame i's
-      // end, not its start. Pairing a pose with the span that follows it dates every
-      // duration one frame late — invisible at 60ms, ruinous at the end of a death,
-      // where OSRS says "now lie there" by holding the settled corpse for four
-      // hundred seconds: that hold landed on the mid-fall pose before it, which froze
-      // in the air while the corpse flashed past in 20ms.
-      // Rounded on the running total, not per span: a 185ms span split into ten
-      // 18.5ms steps would otherwise round every one up and stretch the clip.
-      const prev = fi > 0 ? times[idxs[fi - 1]] : 0;
-      rawMs.push(Math.max(1, Math.round(t * 1000) - Math.round(prev * 1000)));
+    for (const i of idxs) {
+      const { t, t2, w } = samples[i];
+      rendered.push(await render(t, t2, w));
     }
+    const rawMs = frameDurations(idxs.map((i) => samples[i].at), keys[keys.length - 1]);
     // The cache's keyframes run on past the motion, so a one-shot ends holding a
     // pose nobody needs to watch (see scripts/lib/clip-tail.mjs).
-    const cut = trimTail(rendered, rawMs, !!cfg.loop[name]);
+    const cut = trimTail(rendered, rawMs, loop);
     const frames = cut.frames.length;
     const frameMs = cut.frameMs;
     const sheet = new PNG({ width: cell * frames, height: cell });
@@ -411,7 +402,7 @@ async function bakeClips(page, { slug, cfg, clipInfo, src, wantClips, outDir, ce
       }
     });
     writeFileSync(join(outDir, `${prefix}${name}.png`), PNG.sync.write(sheet));
-    out[name] = { anim: src[name].anim, frames, frameMs, loop: !!cfg.loop[name] };
+    out[name] = { anim: src[name].anim, frames, frameMs, loop };
     console.log(`  ✓ ${slug}/${prefix}${name}.png  (${frames} frames${cut.dropped ? `, tail -${cut.dropped}` : ''})`);
   }
   return out;

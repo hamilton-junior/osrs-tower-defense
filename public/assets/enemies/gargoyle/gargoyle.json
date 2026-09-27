@@ -6,9 +6,11 @@
   "clips": {
     "walk": {
       "anim": 1515,
-      "frames": 41,
+      "frames": 43,
       "frameMs": [
-        60,
+        20,
+        20,
+        20,
         20,
         20,
         20,
