@@ -1042,6 +1042,7 @@ export class GameEngine {
       draftRerolls: this.draftRerollsLeft,
       autoplay: this.autoplay,
       autoplaySecs: this.autoplaySecs,
+      biome: this.biome.id,
       biomeName: this.biome.name,
       diaryWorn: this.wornDiaryList(),
       pendingTravel: this.pendingTravel

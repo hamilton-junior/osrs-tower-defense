@@ -17,6 +17,8 @@ import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
 import { HoverTip } from './HoverTip';
 import { VolumeControl } from './VolumeControl';
+import { useMusic } from './use-music';
+import { musicFor } from '@/lib/game/data/music';
 import { tipHeader, WavePreviewCard, DRAFT_FLY_MS, WaveEventChip } from './wave-ui';
 import type { BiomeId } from '@/lib/game/data/biomes';
 import { TravelCardView } from './travel-ui';
@@ -121,7 +123,7 @@ const INITIAL: UIState = {
   runCards: [],
   pendingRelics: null, ownedRelics: [], draftRerolls: 0,
   autoplay: false, autoplaySecs: 3,
-  biomeName: 'Misthalin Plains', diaryWorn: [],
+  biome: 'lumbridge', biomeName: 'Misthalin Plains', diaryWorn: [],
   daily: null, dailyResult: null,
   pendingTravel: null,
   lifeGainSeq: 0,
@@ -291,6 +293,8 @@ export default function GameRoot() {
   // The title / mode-select screen gates the very first wave; it returns on
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
+  // The soundtrack: Scape Main on the start screen, then the region's own track.
+  const [musicVolume, setMusicVolume] = useMusic(musicFor(runStarted, ui.biome), ui.muted);
   useEffect(() => { if (!runStarted) setToday(dailyKey()); }, [runStarted]);
   // Returning players resume at the tier they've earned (freely lowerable); a
   // fresh mode switch re-seeds to that mode's own highest unlocked tier. Only
@@ -3972,6 +3976,8 @@ export default function GameRoot() {
                 muted={ui.muted}
                 onVolume={(v) => engineRef.current?.setVolume(v)}
                 onToggleMute={() => engineRef.current?.toggleMute()}
+                musicVolume={musicVolume}
+                onMusicVolume={setMusicVolume}
               />
             </div>
 

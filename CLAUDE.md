@@ -66,6 +66,8 @@ Static content lives under [`lib/game/data/`](lib/game/data/): `enemies.ts`, `to
 
 Every sprite and sound comes from **OSRS itself**, baked out of the local game cache by the scripts in `scripts/` into `public/assets/` — never hot-linked from the wiki or any other external host. `lib/game/assets.ts` maps names to those local files; `assets.test.ts` fails the build if a data table names an icon with no bake behind it.
 
+**Music** is the one asset that is not audio on disk: each track ships as its cache MIDI plus one shared soundbank of the client's own instruments (`public/assets/music/`, written by `npm run extract:music`), and plays live through a port of the client's synth — the MIDI reader, patch and Vorbis decoders and `MidiPcmStream` in [`lib/game/music/`](lib/game/music/), tested, running in a Web Worker and streamed into Web Audio by `music/player.ts`. Which track plays where is `lib/game/data/music.ts`. Those modules import each other with explicit `.ts` extensions (`allowImportingTsExtensions`) because the bake script loads them straight into Node.
+
 **Looking an id up:** the OSRS cache is already extracted and browsable at
 **https://abextm.github.io/cache2/#/viewer** (repo: **https://github.com/abextm/cache2**, library
 `@abextm/cache2` on npm). It decodes **defs and ids, not geometry or audio** — it has no model,

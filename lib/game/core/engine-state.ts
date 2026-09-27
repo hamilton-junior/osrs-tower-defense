@@ -8,6 +8,7 @@ import { DRAFT_POOL, type DraftCard } from '../systems/roguelite-draft';
 import { type EnemyAffix } from '../systems/affixes';
 import { MECHANIC_BOSSES } from '../systems/boss-mechanics';
 import { type DiversionId, type DiversionMood } from '../data/diversions';
+import { type BiomeId } from '../data/biomes';
 import { type DiversionReward } from '../systems/diversions';
 import { type HunterTrapId } from '../data/hunter-traps';
 import { type SeedId } from '../data/farming';
@@ -406,7 +407,9 @@ export interface UIState {
   /** Debug autoplay state (toggle + delay in seconds). */
   autoplay: boolean;
   autoplaySecs: number;
-  /** Player-facing name of the run's current biome (shown in the debug map tools). */
+  /** The run's current biome (it picks the music), and its player-facing name
+   *  (shown in the debug map tools). */
+  biome: BiomeId;
   biomeName: string;
   /** The Achievement Diary rewards paying out in that biome, itemised. Empty
    *  everywhere the run has no finished diary — the chip strip shows one box

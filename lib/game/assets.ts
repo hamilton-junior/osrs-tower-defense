@@ -806,6 +806,14 @@ export const ASSETS = {
   // frame at runtime (see lib/game/data/spotanims.ts + GameRenderer.drawEffects).
   spotanims: {
   },
+  // The soundtrack: each track's MIDI plus one soundbank of the client's own
+  // instruments, all baked out of the cache by scripts/extract-osrs-music.mjs and
+  // played by the synth port in lib/game/music/ (tracks: lib/game/data/music.ts).
+  music: {
+    bank: `${LOCAL}/music/bank.bin`,
+    levels: `${LOCAL}/music/tracks.json`,
+    track: (id: string) => `${LOCAL}/music/${id}.mid`,
+  },
   sounds: {
     shoot: SHOOT_SOUNDS,
     spellHit: SPELL_HIT,

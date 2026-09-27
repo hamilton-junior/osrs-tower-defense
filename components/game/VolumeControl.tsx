@@ -13,6 +13,42 @@ export interface VolumeControlProps {
   muted: boolean;
   onVolume: (v: number) => void;
   onToggleMute: () => void;
+  /** The soundtrack's own level, set apart from the effects as OSRS does. */
+  musicVolume: number;
+  onMusicVolume: (v: number) => void;
+}
+
+/** One labelled slider row of the flyout. */
+function LevelRow({ label, value, muted, onChange, onGrab }: {
+  label: string;
+  value: number;
+  muted: boolean;
+  onChange: (v: number) => void;
+  onGrab: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-[0.5em]">
+      <span className="text-[0.7em] text-[#d3c3a0] w-[3.2em] select-none">{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={muted ? 0 : value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onPointerDown={onGrab}
+        title={`${label} ${Math.round(value * 100)}%`}
+        className="rs-volume w-[7em]"
+        aria-label={`${label} volume`}
+      />
+      <span
+        className="text-[0.7em] text-osrs-orange tabular-nums w-[2.7em] text-right select-none"
+        title={`Current ${label.toLowerCase()} volume`}
+      >
+        {muted ? 'off' : `${Math.round(value * 100)}%`}
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -34,7 +70,7 @@ export interface VolumeControlProps {
  * is worse than any space it costs. Leaving closes it after a short grace, so the
  * gap between button and panel isn't a trapdoor.
  */
-export function VolumeControl({ volume, muted, onVolume, onToggleMute }: VolumeControlProps) {
+export function VolumeControl({ volume, muted, onVolume, onToggleMute, musicVolume, onMusicVolume }: VolumeControlProps) {
   const [hover, setHover] = useState(false);
   const [drag, setDrag] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -118,7 +154,7 @@ export function VolumeControl({ volume, muted, onVolume, onToggleMute }: VolumeC
           ref={popRef}
           onMouseEnter={stayOpen}
           onMouseLeave={leave}
-          className="rs-panel flex items-center gap-[0.5em]"
+          className="rs-panel flex flex-col gap-[0.35em]"
           style={{
             ...style,
             zIndex: 2000,
@@ -127,24 +163,8 @@ export function VolumeControl({ volume, muted, onVolume, onToggleMute }: VolumeC
             fontSize: fs('clamp(13px, 0.85vw, 18px)'),
           }}
         >
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={muted ? 0 : volume}
-            onChange={(e) => onVolume(Number(e.target.value))}
-            onPointerDown={() => setDrag(true)}
-            title={`Volume ${Math.round(volume * 100)}%`}
-            className="rs-volume w-[7em]"
-            aria-label="Volume"
-          />
-          <span
-            className="text-[0.7em] text-osrs-orange tabular-nums w-[2.7em] text-right select-none"
-            title="Current volume"
-          >
-            {muted ? 'off' : `${Math.round(volume * 100)}%`}
-          </span>
+          <LevelRow label="Sound" value={volume} muted={muted} onChange={onVolume} onGrab={() => setDrag(true)} />
+          <LevelRow label="Music" value={musicVolume} muted={muted} onChange={onMusicVolume} onGrab={() => setDrag(true)} />
         </div>,
         document.body,
       )}

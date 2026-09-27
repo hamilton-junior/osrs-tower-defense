@@ -149,6 +149,11 @@ We read the cache with other people's tools.
 - The **[OSRS Wiki's List of sound IDs](https://oldschool.runescape.wiki/w/List_of_sound_IDs)**
   names what the cache leaves unnamed: its sound index carries no name hashes at
   all. The ids come from the wiki, the audio out of the cache.
+- The music synth in [`lib/game/music/`](lib/game/music/) is a port of the
+  client's own MIDI player, patch loader and Vorbis decoder, read from the
+  deobfuscated clients in **[RT4-Client](https://github.com/Pazaz/RT4-Client)**
+  (OpenRS2's deob of the 2009 client, where the same classes carry readable names)
+  and **[OpenOSRS](https://github.com/open-osrs/runelite)**.
 - **[RuneStar](https://github.com/RuneStar/fonts)** recreated the OSRS pixel
   fonts and released them CC0. They are self-hosted in `app/fonts/`.
 - **[OpenRS2 Archive](https://archive.openrs2.org/)** hands you a cache if you
