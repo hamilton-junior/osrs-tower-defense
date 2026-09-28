@@ -2,6 +2,41 @@
   "generatedAt": "2026-09-28",
   "entries": [
     {
+      "kind": "new",
+      "scope": "start",
+      "text": "Type 73 on the title screen and a passing monster takes a 73",
+      "fromFeedback": false,
+      "date": "2026-09-28"
+    },
+    {
+      "kind": "fixed",
+      "scope": "ui",
+      "text": "A moved panel stays inside the board's area, so the prayer bar can no longer get lost under its edge",
+      "fromFeedback": false,
+      "date": "2026-09-28"
+    },
+    {
+      "kind": "updated",
+      "scope": "diaries",
+      "text": "Each diary's reward climbs from its 1 on Easy to its 4 on Elite, as in OSRS",
+      "fromFeedback": false,
+      "date": "2026-09-28"
+    },
+    {
+      "kind": "fixed",
+      "scope": "enemies",
+      "text": "The Tz-Kek wears the Fight Caves' dark colours, and the two it splits into keep the plain orange",
+      "fromFeedback": false,
+      "date": "2026-09-28"
+    },
+    {
+      "kind": "updated",
+      "scope": "start",
+      "text": "Clearer mode and difficulty descriptions, including the better pet odds on harder tiers",
+      "fromFeedback": false,
+      "date": "2026-09-28"
+    },
+    {
       "kind": "updated",
       "scope": "ui",
       "text": "The Save/Load panel labels each figure with its OSRS icon instead of an emoji",
@@ -245,41 +280,6 @@
       "text": "Show the Collection Log above the start screen",
       "fromFeedback": false,
       "date": "2026-09-25"
-    },
-    {
-      "kind": "fixed",
-      "scope": "start",
-      "text": "Keep the start screen steady when you switch modes",
-      "fromFeedback": false,
-      "date": "2026-09-25"
-    },
-    {
-      "kind": "updated",
-      "scope": "start",
-      "text": "Let the lobby torches crackle",
-      "fromFeedback": false,
-      "date": "2026-09-24"
-    },
-    {
-      "kind": "new",
-      "scope": "daily",
-      "text": "Give each daily challenge one boon and one curse",
-      "fromFeedback": false,
-      "date": "2026-09-24"
-    },
-    {
-      "kind": "updated",
-      "scope": "start",
-      "text": "Light the start screen with a torch-lit castle lobby",
-      "fromFeedback": false,
-      "date": "2026-09-24"
-    },
-    {
-      "kind": "updated",
-      "scope": "start",
-      "text": "Split the start screen into Play, Daily and Account tabs",
-      "fromFeedback": false,
-      "date": "2026-09-24"
     }
   ]
 }

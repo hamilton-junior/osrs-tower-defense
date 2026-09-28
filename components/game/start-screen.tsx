@@ -49,7 +49,7 @@ const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: stri
     // Said before the run rather than discovered during it: the cards and their
     // numbers are still moving, and a player who knows that reads a swingy run
     // as the mode being unfinished instead of the game being broken.
-    wip: 'Work in progress. Cards and their numbers still change.',
+    wip: 'Mode and Balance still WIP',
   },
 ];
 
