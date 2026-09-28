@@ -1,6 +1,20 @@
 {
-  "generatedAt": "2026-09-27",
+  "generatedAt": "2026-09-28",
   "entries": [
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The Save/Load panel labels each figure with its OSRS icon instead of an emoji",
+      "fromFeedback": false,
+      "date": "2026-09-28"
+    },
+    {
+      "kind": "updated",
+      "scope": "ui",
+      "text": "The board sits flush against the top and the bottom bar takes the spare height",
+      "fromFeedback": false,
+      "date": "2026-09-27"
+    },
     {
       "kind": "fixed",
       "scope": "enemies",
@@ -266,20 +280,6 @@
       "text": "Split the start screen into Play, Daily and Account tabs",
       "fromFeedback": false,
       "date": "2026-09-24"
-    },
-    {
-      "kind": "fixed",
-      "scope": "fishing",
-      "text": "A pool turns to lava when the run travels into the TzHaar city",
-      "fromFeedback": false,
-      "date": "2026-09-21"
-    },
-    {
-      "kind": "new",
-      "scope": "tzhaar",
-      "text": "Kill a Tz-Kek and two smaller ones crawl out of it",
-      "fromFeedback": false,
-      "date": "2026-09-21"
     }
   ]
 }

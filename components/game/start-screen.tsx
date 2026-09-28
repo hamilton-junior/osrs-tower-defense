@@ -39,17 +39,17 @@ import { agoLabel, type DifficultyProgress, type Victories } from './save';
 const MODES: { id: GameMode; name: string; tag: string; desc: string; icon: string; wip?: string }[] = [
   {
     id: 'classic', name: 'Classic', tag: 'Pure Tower Defense',
-    desc: 'Build towers and survive the waves. No cards, no relics.',
+    desc: 'Build towers and survive the waves, without the Roguelite\'s cards and relics.',
     icon: iconUrl('Dwarf_multicannon'),
   },
   {
-    id: 'roguelite', name: 'Roguelite', tag: 'Buy reward cards with gold',
-    desc: 'Classic, plus reward cards you buy with gold between waves. Bosses pay relics.',
+    id: 'roguelite', name: 'Roguelite', tag: 'Tower Defense with cards',
+    desc: 'Between waves, buy a card roll with gold and keep one card. Bosses drop relics.',
     icon: ASSETS.misc.cards_icon,
     // Said before the run rather than discovered during it: the cards and their
     // numbers are still moving, and a player who knows that reads a swingy run
     // as the mode being unfinished instead of the game being broken.
-    wip: 'Mode and Balance still WIP',
+    wip: 'Work in progress. Cards and their numbers still change.',
   },
 ];
 
@@ -293,8 +293,9 @@ function DifficultyLadder({ mode, difficulty, selectedTier, onSelectTier }: {
         })}
       </div>
       <div className="text-[0.66em] text-[#a89870] mt-[0.45em] leading-snug">
-        Win a tier to unlock the next. Higher tiers give tougher enemies and a
-        tighter economy. You play them for the record, not for power.
+        Win a tier to unlock the next. Higher tiers bring tougher, faster enemies
+        and less gold, and from Hard up you start with fewer lives. Pets drop more
+        often there; essence stays the same.
       </div>
     </div>
   );
