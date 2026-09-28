@@ -10,9 +10,10 @@ import {
   spotAnimFrame, splatBlobAnchor, splatScale,
 } from '@/lib/game/core/render/shot-art';
 import {
-  drawOrder, lobbyUnit, newLobby, stepLobby, walkerBodyY, walkerOverMenu,
+  LOBBY_TYPED_HIT, drawOrder, lobbyUnit, newLobby, queueTypedHit, stepLobby, walkerBodyY, walkerOverMenu,
   type LobbyEnv, type LobbyStage, type LobbyWalker, type WalkerSheet,
 } from '@/lib/game/systems/lobby-walkers';
+import { NOTHING_TYPED, typeKey } from '@/lib/game/systems/typed-code';
 
 /** The walkers' shots and deaths sit as far under the menu as the torches do. */
 const LOBBY_SOUND_LEVEL = 0.2;
@@ -40,6 +41,9 @@ const WALKER_FILTER = 'brightness(0.78)';
  * The simulation lives in systems/lobby-walkers; this component loads the
  * sheets, measures the room, draws what the simulation holds and plays the
  * sounds its events name. Nothing moves for a player who asks for reduced motion.
+ *
+ * Typing "73" anywhere on the title screen shoots a walker for 73
+ * (LOBBY_TYPED_HIT): the strike on demand, for debugging it, and a meme.
  */
 export function LobbyWalkers({ onSound, soundSeconds, overRef }: {
   onSound: (key: string, level: number) => void;
@@ -277,9 +281,24 @@ export function LobbyWalkers({ onSound, soundSeconds, overRef }: {
       draw();
     };
     raf = requestAnimationFrame(frame);
+
+    let typed = NOTHING_TYPED;
+    const code = String(LOBBY_TYPED_HIT);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      // A number typed into a field (the save code) is not the code.
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      // `key`, not `code`: the digit typed, from the number row or the numpad alike.
+      const r = typeKey(typed, e.key, performance.now(), code);
+      typed = r.next;
+      if (r.done) queueTypedHit(state, env, LOBBY_TYPED_HIT);
+    };
+    window.addEventListener('keydown', onKey);
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      window.removeEventListener('keydown', onKey);
     };
   }, [overRef]);
 

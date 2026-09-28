@@ -293,6 +293,8 @@ export default function GameRoot() {
   // The title / mode-select screen gates the very first wave; it returns on
   // restart so each run picks its mode afresh.
   const [runStarted, setRunStarted] = useState(false);
+  const runStartedRef = useRef(runStarted);
+  runStartedRef.current = runStarted;
   // The soundtrack: Scape Main on the start screen, then the region's own track.
   const [musicVolume, setMusicVolume] = useMusic(musicFor(runStarted, ui.biome), ui.muted);
   useEffect(() => { if (!runStarted) setToday(dailyKey()); }, [runStarted]);
@@ -929,6 +931,8 @@ export default function GameRoot() {
    *   Ctrl+C copy selection · Ctrl+V paste it
    *   Q/W/E/R wizard spell · M mute · Ctrl+' debug console
    *
+   * The title screen covers the board, so only M and the console work there.
+   *
    * The selection is read off the engine (not React state) so this effect can stay
    * mounted once, with no deps.
    */
@@ -947,6 +951,9 @@ export default function GameRoot() {
         setDebugOpen((o) => !o);
         return;
       }
+      // The board's keys wait for the run: typing the title screen's "73" must not
+      // put tower 3 in hand, nor Space send a wave behind the menu.
+      if (!runStartedRef.current && e.key.toLowerCase() !== 'm') return;
       // Copy/paste a tower layout on the keys every player already knows. Safe to
       // claim: the board has no text to copy, and the guard above has already let
       // anything typed into a field through untouched.

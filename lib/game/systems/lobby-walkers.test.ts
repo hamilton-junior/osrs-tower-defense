@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  LOBBY_CELL_EM, LOBBY_COST, LOBBY_MAX_WALKERS, crossingSeconds, lobbyRoster, lobbySpells, newLobby,
+  LOBBY_CELL_EM, LOBBY_COST, LOBBY_MAX_WALKERS, crossingSeconds, lobbyProjectiles, lobbyRoster, lobbySpells, newLobby,
   pickFeetY, pickWalkerDef, planStrike, stepLobby, strikeTowers, walkerHitpoints, walkerOverMenu,
   walkerSize, walkerSlug, LOBBY_SIZE_BOOST, LOBBY_DEATH_DELAY_S, lobbySplatScale, lobbyShotFlight, lobbyUnit,
+  LOBBY_TYPED_HIT, planStrikeNow, queueTypedHit,
   type LobbyEnv, type LobbyEvent, type LobbyStage, type LobbyState, type LobbyWalker,
 } from './lobby-walkers';
 import { NPC_HITPOINTS } from '../data/npc-hitpoints.data';
 import { DEATH_SETTLE_S } from '../data/enemy-anims';
 import { ENEMIES } from '../data/enemies';
 import { SHORTEST_CAST_S } from '../core/engine-state';
+import { fusionSpellFx } from './tower-fusion';
 
 /** Deterministic PRNG (mulberry32) so every run walks the same lobby. */
 function seeded(seed: number): () => number {
@@ -225,6 +227,32 @@ describe('planStrike', () => {
     for (let i = 0; i < 500; i++) expect(planStrike(rand, STAGE, walker(rand))!.shot.tower).not.toBe('noxious_halberd');
   });
 
+  it('lists every projectile once, each spell as its own', () => {
+    const pool = lobbyProjectiles();
+    const keys = pool.map((p) => p.spell ?? p.tower);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const spell of lobbySpells()) expect(keys).toContain(spell);
+    // A fused staff casting a wizard spell's clip counts as that spell.
+    for (const tower of strikeTowers()) if (tower !== 'wizard') expect(keys).toContain(fusionSpellFx(tower) ?? tower);
+  });
+
+  it('picks every projectile as often as any other', () => {
+    const pool = lobbyProjectiles();
+    const keys = pool.map((p) => p.spell ?? p.tower);
+    const counts = new Map<string, number>(keys.map((k) => [k, 0]));
+    const rand = seeded(61);
+    const draws = 400 * pool.length;
+    for (let i = 0; i < draws; i++) {
+      const { shot } = planStrike(rand, STAGE, walker(rand))!;
+      const k = shot.spell ?? shot.tower;
+      counts.set(k, counts.get(k)! + 1);
+    }
+    // 400 expected each; a tower weighted against a single spell (the old
+    // tower-then-spell pick) would be ~40x off, far outside this band.
+    for (const n of counts.values()) expect(n).toBeGreaterThan(300);
+    for (const n of counts.values()) expect(n).toBeLessThan(500);
+  });
+
   it('casts a real spell for the wizard and none for a plain tower', () => {
     expect(lobbySpells().length).toBeGreaterThanOrEqual(36);
     const rand = seeded(41);
@@ -314,6 +342,92 @@ describe('a strike', () => {
     expect(w.x).toBe(deadX);
     stepLobby(s, 0.1, env(rand));
     expect(s.walkers).not.toContain(w);
+  });
+});
+
+describe('a typed hit', () => {
+  /** A lobby with no spawns of its own, holding `walkers`. */
+  function lobby(rand: () => number, walkers: LobbyWalker[]): LobbyState {
+    const s = newLobby(rand);
+    s.nextSpawn = 1e9;
+    s.walkers.push(...walkers);
+    return s;
+  }
+  /** A skeleton walking right, feet in front of the menu, in the middle of the floor. */
+  const inFront = (rand: () => number, over: Partial<LobbyWalker> = {}) =>
+    walker(rand, { x: STAGE.width / 2, feetY: STAGE.menuBottom + 20, ...over });
+
+  it('lands for the typed number, not the monster\'s hitpoints, and still fells it', () => {
+    expect(NPC_HITPOINTS.skeleton).not.toBe(LOBBY_TYPED_HIT);
+    const rand = seeded(91);
+    const w = inFront(rand);
+    const s = lobby(rand, [w]);
+    queueTypedHit(s, env(rand), LOBBY_TYPED_HIT);
+    const events = run(s, env(rand), 10);
+    expect(events.map((e) => e.kind)).toEqual(['fire', 'impact', 'death']);
+    expect(w.deadAge).not.toBeNull();
+  });
+
+  it('shows the typed number on the hitsplat', () => {
+    const rand = seeded(92);
+    const w = inFront(rand);
+    const s = lobby(rand, [w]);
+    queueTypedHit(s, env(rand), LOBBY_TYPED_HIT);
+    for (let i = 0; i < 600 && w.struckAge === null; i++) stepLobby(s, 1 / 60, env(rand));
+    expect(s.splats.map((h) => h.value)).toEqual([LOBBY_TYPED_HIT]);
+  });
+
+  it('fires at once when a walker stands in view', () => {
+    const rand = seeded(93);
+    const w = inFront(rand);
+    const s = lobby(rand, [w]);
+    queueTypedHit(s, env(rand), LOBBY_TYPED_HIT);
+    expect(s.typedHit).toBeNull();
+    expect(stepLobby(s, 1 / 60, env(rand))[0]).toMatchObject({ kind: 'fire' });
+  });
+
+  it('takes the place of a chance strike still waiting to fire', () => {
+    const rand = seeded(94);
+    const w = inFront(rand);
+    w.strike = planStrike(rand, STAGE, w);
+    w.strike!.launchX = STAGE.width * 10;
+    const s = lobby(rand, [w]);
+    queueTypedHit(s, env(rand), LOBBY_TYPED_HIT);
+    expect(w.strike!.shot.value).toBe(LOBBY_TYPED_HIT);
+  });
+
+  it('passes over walkers already hit, dying, or with a shot in the air', () => {
+    const rand = seeded(95);
+    const hit = inFront(rand, { id: 1, struckAge: 0.1 });
+    const dying = inFront(rand, { id: 2, deadAge: 0.1 });
+    const shot = inFront(rand, { id: 3 });
+    shot.strike = planStrikeNow(rand, STAGE, shot);
+    shot.strike!.shot.launched = true;
+    const s = lobby(rand, [hit, dying, shot]);
+    queueTypedHit(s, env(rand), LOBBY_TYPED_HIT);
+    expect(s.typedHit).toBe(LOBBY_TYPED_HIT);
+    expect(shot.strike!.shot.value).toBeUndefined();
+  });
+
+  it('never lands on a walker hidden behind the menu', () => {
+    const rand = seeded(96);
+    // Feet above the menu's bottom, halfway across: behind the panel for the whole flight.
+    const hidden = walker(rand, { x: STAGE.width / 2, feetY: STAGE.menuBottom - 20 });
+    const s = lobby(rand, [hidden]);
+    queueTypedHit(s, env(rand), LOBBY_TYPED_HIT);
+    expect(hidden.strike).toBeNull();
+    expect(s.typedHit).toBe(LOBBY_TYPED_HIT);
+  });
+
+  it('calls the next walker in on an empty floor and shoots it once it walks into view', () => {
+    const rand = seeded(97);
+    const s = newLobby(rand);
+    s.nextSpawn = 1e9;
+    queueTypedHit(s, env(rand), LOBBY_TYPED_HIT);
+    expect(s.nextSpawn).toBeLessThanOrEqual(0);
+    const events = run(s, env(rand), 20);
+    expect(events.filter((e) => e.kind === 'death')).toHaveLength(1);
+    expect(s.typedHit).toBeNull();
   });
 });
 

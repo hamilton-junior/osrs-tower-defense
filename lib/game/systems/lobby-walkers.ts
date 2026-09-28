@@ -15,6 +15,7 @@ import type { EnemyDef, TowerType } from '../types';
  * front of the menu only where its feet sit below the menu's bottom edge. Once
  * in a long while a shot flies in from off-screen, fells one in a single hit for
  * its full hitpoints, and the monster stops where it stood and drops a tick later.
+ * Typing {@link LOBBY_TYPED_HIT} calls a shot in on demand, for that number instead.
  *
  * This module is the whole simulation: who spawns, where, how fast, when the shot
  * fires and lands. It holds no DOM and draws nothing; `components/game/lobby-walkers.tsx`
@@ -31,6 +32,9 @@ const FIRST_SPAWN_S: readonly [number, number] = [1, 4];
 /** Each walker's odds, decided at spawn, of being shot. At ~6 spawns a minute that
  *  is about one kill every seven and a half minutes. */
 export const LOBBY_STRIKE_CHANCE = 1 / 45;
+/** Typed on the title screen, this number shoots a walker for exactly that much,
+ *  whatever its hitpoints: the strike on demand, for debugging it, and a meme. */
+export const LOBBY_TYPED_HIT = 73;
 /** Side of a walker's sprite cell at renderScale 1, in em, when the room has no
  *  world scale to size it by. */
 export const LOBBY_CELL_EM = 5.5;
@@ -188,6 +192,8 @@ export interface LobbyShot {
   flight: number;
   launched: boolean;
   trail: Array<{ x: number; y: number }>;
+  /** The hitsplat it lands for; the monster's hitpoints when absent. */
+  value?: number;
 }
 
 export interface LobbyWalker {
@@ -227,6 +233,8 @@ export interface LobbyState {
   gfx: LobbyGfx[];
   nextSpawn: number;
   nextId: number;
+  /** A typed hit waiting for a walker it would land on in view; null when none is. */
+  typedHit: number | null;
 }
 
 export type LobbyEvent =
@@ -243,7 +251,7 @@ export interface LobbyEnv {
 }
 
 export function newLobby(rand: () => number): LobbyState {
-  return { walkers: [], splats: [], gfx: [], nextSpawn: between(rand, FIRST_SPAWN_S), nextId: 1 };
+  return { walkers: [], splats: [], gfx: [], nextSpawn: between(rand, FIRST_SPAWN_S), nextId: 1, typedHit: null };
 }
 
 /** Side of a human-sized monster's cell in the lobby. */
@@ -317,6 +325,54 @@ export function lobbySpells(): string[] {
     .filter((spell) => !!SPOTANIMS[`hit_${spell}`]);
 }
 
+/** One thing a lobby shot can be: a tower's own shot, or a spell. */
+export interface LobbyProjectile {
+  tower: TowerType;
+  spell: string | null;
+}
+
+/**
+ * Every projectile a lobby shot can be, each listed once: every throwing tower's
+ * own shot, and every spell as an entry of its own rather than a share of the
+ * wizard's. A fused staff that casts a wizard spell's clip is that spell, not a
+ * second copy of it.
+ */
+export function lobbyProjectiles(): LobbyProjectile[] {
+  const out: LobbyProjectile[] = [];
+  const seen = new Set<string>();
+  for (const tower of strikeTowers()) {
+    const spells = tower === 'wizard' ? lobbySpells() : [fusionSpellFx(tower)];
+    for (const spell of spells) {
+      const key = spell ?? tower;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ tower, spell });
+    }
+  }
+  return out;
+}
+
+/** A shot at `w`, aimed as though it stood at `atX`: launched from just past the
+ *  nearer side of the lobby, somewhere up the wall. Every projectile in
+ *  {@link lobbyProjectiles} is as likely as any other. */
+function aimShot(
+  rand: () => number, stage: LobbyStage, w: LobbyWalker, atX: number,
+  soundSeconds?: (key: string) => number,
+): LobbyShot {
+  const pool = lobbyProjectiles();
+  const { tower, spell } = pool[Math.floor(rand() * pool.length)];
+  const tiers = TOWERS[tower]?.tiers ?? [];
+  const color = tiers[Math.floor(rand() * tiers.length)]?.color ?? '#ffffff';
+
+  const off = SHOT_OFFSCREEN_EM * stage.em;
+  const ox = atX < stage.width / 2 ? -off : stage.width + off;
+  const oy = stage.floorTop * (0.3 + 0.5 * rand());
+  const dist = Math.hypot(atX - ox, walkerBodyY(w) - oy);
+  const castS = spell && soundSeconds ? soundSeconds(`cast_${spell}`) : NaN;
+  const flight = lobbyShotFlight(dist, !!spell, stage, castS);
+  return { tower, spell, color, ox, oy, x: ox, y: oy, age: 0, flight, launched: false, trail: [] };
+}
+
 /** Plan the shot that fells `w`, or null when no visible floor lies on its path. */
 export function planStrike(
   rand: () => number, stage: LobbyStage, w: LobbyWalker,
@@ -326,30 +382,58 @@ export function planStrike(
   if (!strips.length) return null;
   const [x0, x1] = strips[Math.floor(rand() * strips.length)];
   const atX = x0 + w.size / 2 + rand() * (x1 - x0 - w.size);
-
-  const towers = strikeTowers();
-  const tower = towers[Math.floor(rand() * towers.length)];
-  const spells = lobbySpells();
-  const spell = tower === 'wizard'
-    ? spells[Math.floor(rand() * spells.length)] ?? null
-    : fusionSpellFx(tower);
-  const tiers = TOWERS[tower]?.tiers ?? [];
-  const color = tiers[Math.floor(rand() * tiers.length)]?.color ?? '#ffffff';
-
-  // Launched from just past the nearer side of the lobby, somewhere up the wall.
-  const off = SHOT_OFFSCREEN_EM * stage.em;
-  const ox = atX < stage.width / 2 ? -off : stage.width + off;
-  const oy = stage.floorTop * (0.3 + 0.5 * rand());
-  const dist = Math.hypot(atX - ox, walkerBodyY(w) - oy);
-  const castS = spell && soundSeconds ? soundSeconds(`cast_${spell}`) : NaN;
-  const flight = lobbyShotFlight(dist, !!spell, stage, castS);
+  const shot = aimShot(rand, stage, w, atX, soundSeconds);
   // Fire early enough that the walker reaches atX as the shot lands.
-  const launchX = atX - w.dir * w.speed * flight;
-  return {
-    atX,
-    launchX,
-    shot: { tower, spell, color, ox, oy, x: ox, y: oy, age: 0, flight, launched: false, trail: [] },
-  };
+  return { atX, launchX: atX - w.dir * w.speed * shot.flight, shot };
+}
+
+/** Whether `w`, standing at `x`, is in full view: in front of the menu anywhere
+ *  on the floor, else inside a strip the menu does not cover. */
+function inView(stage: LobbyStage, w: LobbyWalker, x: number): boolean {
+  const half = w.size / 2;
+  if (walkerOverMenu(w, stage)) return x - half >= 0 && x + half <= stage.width;
+  return stage.strips.some(([x0, x1]) => x - half >= x0 && x + half <= x1);
+}
+
+/** Plan a shot that leaves now and lands on `w` wherever its walk has taken it
+ *  by then, or null when that spot is out of view. */
+export function planStrikeNow(
+  rand: () => number, stage: LobbyStage, w: LobbyWalker,
+  soundSeconds?: (key: string) => number,
+): LobbyWalker['strike'] {
+  const shot = aimShot(rand, stage, w, w.x, soundSeconds);
+  const atX = w.x + w.dir * w.speed * shot.flight;
+  return inView(stage, w, atX) ? { atX, launchX: w.x, shot } : null;
+}
+
+/**
+ * Shoot a walker for `value`, whatever its hitpoints: the lobby's typed hit. The
+ * shot leaves on the first step that finds a walker it would land on in view,
+ * which is this one when the floor has one; otherwise the next walker is called
+ * in early, and the shot waits for it to walk into view.
+ */
+export function queueTypedHit(s: LobbyState, env: LobbyEnv, value: number): void {
+  s.typedHit = value;
+  if (!fireTypedHit(s, env) && s.walkers.length < LOBBY_MAX_WALKERS) s.nextSpawn = Math.min(s.nextSpawn, 0);
+}
+
+/** Give the waiting typed hit to a random walker it would land on in view. */
+function fireTypedHit(s: LobbyState, env: LobbyEnv): boolean {
+  if (s.typedHit === null) return false;
+  const ready: Array<{ w: LobbyWalker; plan: NonNullable<LobbyWalker['strike']> }> = [];
+  for (const w of s.walkers) {
+    // One shot per walker: one already hit, or with a shot in the air, is spoken for.
+    if (w.struckAge !== null || w.deadAge !== null || w.strike?.shot.launched) continue;
+    const plan = planStrikeNow(env.rand, env.stage, w, env.soundSeconds);
+    if (plan) ready.push({ w, plan });
+  }
+  if (!ready.length) return false;
+  const { w, plan } = ready[Math.floor(env.rand() * ready.length)];
+  plan.shot.value = s.typedHit;
+  // Takes the place of the walker's own chance strike, if one was waiting.
+  w.strike = plan;
+  s.typedHit = null;
+  return true;
 }
 
 function between(rand: () => number, [lo, hi]: readonly [number, number]): number {
@@ -391,7 +475,8 @@ function land(s: LobbyState, w: LobbyWalker, shot: LobbyShot, stage: LobbyStage)
   const bodyY = walkerBodyY(w);
   w.struckAge = 0;
   w.strike = null;
-  s.splats.push({ x: w.x, y: bodyY, value: walkerHitpoints(w.def), life: HITSPLAT_LIFE, scale: lobbySplatScale(w, stage) });
+  const value = shot.value ?? walkerHitpoints(w.def);
+  s.splats.push({ x: w.x, y: bodyY, value, life: HITSPLAT_LIFE, scale: lobbySplatScale(w, stage) });
   const sounds: string[] = [];
   if (shot.spell) {
     const slug = `hit_${shot.spell}`;
@@ -419,6 +504,7 @@ export function stepLobby(s: LobbyState, dt: number, env: LobbyEnv): LobbyEvent[
     if (s.walkers.length < LOBBY_MAX_WALKERS) spawn(s, env);
     else s.nextSpawn = between(env.rand, LOBBY_SPAWN_GAP_S);
   }
+  fireTypedHit(s, env);
 
   for (let i = s.walkers.length - 1; i >= 0; i--) {
     const w = s.walkers[i];
