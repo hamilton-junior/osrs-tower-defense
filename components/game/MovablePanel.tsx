@@ -1,6 +1,7 @@
 'use client';
 
-import React, { CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import React, { CSSProperties, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { boundsReady, fitPanelOffset, type PanelBox } from '@/lib/game/systems/panel-fit';
 
 function load<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -39,24 +40,26 @@ interface Props {
  * this panel. A global lock (passed in) disables dragging for everything. The
  * per-panel offset and lock persist in localStorage.
  */
-/** Keep a panel's drag offset within the viewport: given the panel's untransformed
- *  top-left (`base*`) and size, clamp `(nx, ny)` so the panel stays on screen (with
- *  an 8px margin). Falls back gracefully when the panel is larger than the viewport. */
-function clampOffset(
-  nx: number, ny: number,
-  baseLeft: number, baseTop: number, w: number, h: number,
-): { x: number; y: number } {
-  const m = 8;
+/** The nearest ancestor that clips what overflows it, or null when only the window does. */
+function clipOf(node: HTMLElement): HTMLElement | null {
+  for (let n = node.parentElement; n && n !== document.body; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') return n;
+  }
+  return null;
+}
+
+/** What can show a panel: its clipping ancestor's box, cut to the window. A board
+ *  panel is clipped by the board's area, so the window alone is not enough — a
+ *  panel below the board's bottom edge is still on screen, and invisible. */
+function boundsOf(clip: HTMLElement | null): PanelBox {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const minX = m - baseLeft;
-  const maxX = vw - m - w - baseLeft;
-  const minY = m - baseTop;
-  const maxY = vh - m - h - baseTop;
-  return {
-    x: Math.min(Math.max(nx, minX), Math.max(minX, maxX)),
-    y: Math.min(Math.max(ny, minY), Math.max(minY, maxY)),
-  };
+  if (!clip) return { left: 0, top: 0, width: vw, height: vh };
+  const r = clip.getBoundingClientRect();
+  const left = Math.max(0, r.left);
+  const top = Math.max(0, r.top);
+  return { left, top, width: Math.min(vw, r.right) - left, height: Math.min(vh, r.bottom) - top };
 }
 
 /**
@@ -76,27 +79,48 @@ function onScrollbar(target: HTMLElement, clientX: number, clientY: number): boo
 }
 
 export function MovablePanel({ id, className, style, globalLock = false, tut, children }: Props) {
+  // Where the player put the panel — the only offset saved.
   const [offset, setOffset] = useState(() => load(`ui_pos_${id}`, { x: 0, y: 0 }));
+  // Where it is drawn: that offset, pulled back inside what can show it.
+  const [shown, setShown] = useState(offset);
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
   const [locked, setLocked] = useState(() => load(`ui_lock_${id}`, false));
   const el = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number; baseLeft: number; baseTop: number; w: number; h: number } | null>(null);
+  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number; base: PanelBox; bounds: PanelBox } | null>(null);
 
   useEffect(() => save(`ui_pos_${id}`, offset), [id, offset]);
   useEffect(() => save(`ui_lock_${id}`, locked), [id, locked]);
 
-  // A persisted offset (saved on a larger window, or before a zoom change) can
-  // leave a panel partly off-screen on load — pull it back into view once mounted.
-  useEffect(() => {
+  // Fit the saved offset to the room the panel has now, and again whenever that
+  // room changes: a window resize, a zoom, or the board being sized at all. The
+  // board has no height on the first render, so a fit made then would push every
+  // bottom-anchored panel down by the board's height — and it once did, and saved
+  // it, which hid the prayer bar under the board's edge for good. Only the drawn
+  // offset is fitted; the saved one changes only when the player drags.
+  useLayoutEffect(() => {
     const node = el.current;
     if (!node) return;
-    const rect = node.getBoundingClientRect();
-    const baseLeft = rect.left - offset.x;
-    const baseTop = rect.top - offset.y;
-    const c = clampOffset(offset.x, offset.y, baseLeft, baseTop, rect.width, rect.height);
-    if (c.x !== offset.x || c.y !== offset.y) setOffset(c);
-    // Run once on mount; drag handlers keep it in bounds thereafter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const clip = clipOf(node);
+    const refit = () => {
+      const bounds = boundsOf(clip);
+      if (!boundsReady(bounds)) return;
+      const r = node.getBoundingClientRect();
+      const cur = shownRef.current;
+      const base = { left: r.left - cur.x, top: r.top - cur.y, width: r.width, height: r.height };
+      const next = fitPanelOffset(offset, base, bounds);
+      setShown((prev) => (prev.x === next.x && prev.y === next.y ? prev : next));
+    };
+    refit();
+    const ro = new ResizeObserver(refit);
+    ro.observe(node);
+    if (clip) ro.observe(clip);
+    window.addEventListener('resize', refit);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', refit);
+    };
+  }, [offset]);
 
   const canDrag = !globalLock && !locked;
 
@@ -106,13 +130,16 @@ export function MovablePanel({ id, className, style, globalLock = false, tut, ch
     if ((e.target as HTMLElement).closest('button, input, select, a, [data-no-drag]')) return;
     // …nor from a scrollbar: that press belongs to the scroll area, not the panel.
     if (onScrollbar(e.target as HTMLElement, e.clientX, e.clientY)) return;
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const node = e.currentTarget as HTMLElement;
+    const rect = node.getBoundingClientRect();
+    const cur = shownRef.current;
     drag.current = {
-      sx: e.clientX, sy: e.clientY, ox: offset.x, oy: offset.y,
-      baseLeft: rect.left - offset.x, baseTop: rect.top - offset.y, w: rect.width, h: rect.height,
+      sx: e.clientX, sy: e.clientY, ox: cur.x, oy: cur.y,
+      base: { left: rect.left - cur.x, top: rect.top - cur.y, width: rect.width, height: rect.height },
+      bounds: boundsOf(clipOf(node)),
     };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }, [canDrag, offset]);
+    node.setPointerCapture(e.pointerId);
+  }, [canDrag]);
 
   // Chrome hands the page one pointermove per hardware sample, so a 1000 Hz mouse
   // re-rendered this panel a thousand times a second while it was being dragged;
@@ -128,8 +155,10 @@ export function MovablePanel({ id, className, style, globalLock = false, tut, ch
     const s = sample.current;
     sample.current = null;
     if (!d || !s) return;
-    // Constrain to the viewport so a panel can never be dragged off the playable area.
-    setOffset(clampOffset(d.ox + (s.cx - d.sx), d.oy + (s.cy - d.sy), d.baseLeft, d.baseTop, d.w, d.h));
+    // Constrain to what can show it, so a panel can never be dragged out of sight.
+    const next = fitPanelOffset({ x: d.ox + (s.cx - d.sx), y: d.oy + (s.cy - d.sy) }, d.base, d.bounds);
+    setOffset(next);
+    setShown(next);
   }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -165,7 +194,7 @@ export function MovablePanel({ id, className, style, globalLock = false, tut, ch
       // the anchor (couldn't place towers under a moved-away panel; worst at the top).
       className={className ? `${className} pointer-events-auto` : 'pointer-events-auto'}
       data-tut={tut}
-      style={{ ...style, transform: `translate(${offset.x}px, ${offset.y}px)`, cursor: canDrag ? 'move' : undefined }}
+      style={{ ...style, transform: `translate(${shown.x}px, ${shown.y}px)`, cursor: canDrag ? 'move' : undefined }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
