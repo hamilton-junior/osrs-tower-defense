@@ -67,10 +67,10 @@ export interface DiaryTask {
  * pays gold: a diary is worth a board that fights better at home.
  */
 export interface DiaryReward {
-  /** The OSRS item, named as the game names it. */
+  /** The OSRS item without its tier number ("Explorer's ring"); {@link diaryRewardItem} adds it. */
   item: string;
-  /** Its baked inventory icon (`ASSETS.items.*`). */
-  icon: string;
+  /** Its baked inventory icon at each tier, Easy (the 1) first (`ASSETS.diaryRewards.*`). */
+  icons: readonly [string, string, string, string];
   /** One plain sentence for the log. Numbers stay out of it. */
   blurb: string;
   /** Per completed tier, as a fraction. An absent stat is untouched. */
@@ -191,6 +191,17 @@ export function diaryTowerMods(completed: ReadonlySet<string>, biome: BiomeId): 
 }
 
 /**
+ * The reward item as OSRS names and draws it at `tiers` tiers finished: the Easy
+ * tier hands over the 1 ("Explorer's ring 1") and each tier after swaps it up, to
+ * the 4 at Elite. With no tier done it is the 1, the item the diary is working
+ * towards.
+ */
+export function diaryRewardItem(reward: DiaryReward, tiers: number): { name: string; icon: string } {
+  const n = Math.min(Math.max(Math.floor(tiers), 1), DIARY_TIERS.length);
+  return { name: `${reward.item} ${n}`, icon: reward.icons[n - 1] };
+}
+
+/**
  * The reward's stats at `tiers` tiers finished, as whole percentages in a fixed
  * order. A diary with no tier done is worth nothing, so the list comes back
  * empty — the same answer the item itself gives before it is handed over.
@@ -227,7 +238,7 @@ export function wornDiaries(completed: ReadonlySet<string>, biome: BiomeId): Wor
     if (!diary.biomes.includes(biome)) continue;
     const tiers = diaryTiersEarned(diary, completed);
     if (tiers === 0) continue;
-    const { item, icon } = diary.reward;
+    const { name: item, icon } = diaryRewardItem(diary.reward, tiers);
     out.push({ id: diary.id, item, icon, diary: diary.name, tiers, stats: diaryRewardStats(diary.reward, tiers) });
   }
   return out;

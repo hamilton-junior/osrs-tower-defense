@@ -36,8 +36,8 @@ export const DIARIES: readonly Diary[] = [
     name: 'Lumbridge & Draynor',
     biomes: ['lumbridge'],
     reward: {
-      item: "Explorer's ring 4",
-      icon: ASSETS.diaryRewards.explorers_ring,
+      item: "Explorer's ring",
+      icons: ASSETS.diaryRewards.explorers_ring,
       blurb: 'Your towers watch further over Misthalin Plains.',
       perTier: { range: 0.05 },
     },
@@ -137,8 +137,8 @@ export const DIARIES: readonly Diary[] = [
     name: 'Desert',
     biomes: ['alkharid'],
     reward: {
-      item: 'Desert amulet 4',
-      icon: ASSETS.diaryRewards.desert_amulet,
+      item: 'Desert amulet',
+      icons: ASSETS.diaryRewards.desert_amulet,
       blurb: 'Your towers hit harder in the Kharidian Desert.',
       perTier: { damage: 0.05 },
     },
@@ -238,8 +238,8 @@ export const DIARIES: readonly Diary[] = [
     name: 'Morytania',
     biomes: ['morytania'],
     reward: {
-      item: 'Morytania legs 4',
-      icon: ASSETS.diaryRewards.morytania_legs,
+      item: 'Morytania legs',
+      icons: ASSETS.diaryRewards.morytania_legs,
       blurb: 'Your towers attack faster in Morytania Swamp.',
       perTier: { fireRate: 0.05 },
     },
@@ -339,8 +339,8 @@ export const DIARIES: readonly Diary[] = [
     name: 'Wilderness',
     biomes: ['wilderness'],
     reward: {
-      item: 'Wilderness sword 4',
-      icon: ASSETS.diaryRewards.wilderness_sword,
+      item: 'Wilderness sword',
+      icons: ASSETS.diaryRewards.wilderness_sword,
       blurb: 'Your towers hit much harder in the Wilderness.',
       perTier: { damage: 0.07 },
     },
@@ -440,8 +440,8 @@ export const DIARIES: readonly Diary[] = [
     name: 'Fremennik',
     biomes: ['trollweiss'],
     reward: {
-      item: 'Fremennik sea boots 4',
-      icon: ASSETS.diaryRewards.fremennik_sea_boots,
+      item: 'Fremennik sea boots',
+      icons: ASSETS.diaryRewards.fremennik_sea_boots,
       blurb: 'Your towers attack faster and reach further in Trollweiss Snow.',
       perTier: { fireRate: 0.04, range: 0.04 },
     },
@@ -543,8 +543,8 @@ export const DIARIES: readonly Diary[] = [
     // TzHaar tasks are Karamja's Elite tier, not a diary of their own.
     biomes: ['karamja', 'tzhaar'],
     reward: {
-      item: 'Karamja gloves 4',
-      icon: ASSETS.diaryRewards.karamja_gloves,
+      item: 'Karamja gloves',
+      icons: ASSETS.diaryRewards.karamja_gloves,
       blurb: 'Your towers hit harder and faster in Karamja Jungle and the TzHaar Caverns.',
       perTier: { damage: 0.04, fireRate: 0.04 },
     },

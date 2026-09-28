@@ -6,7 +6,7 @@ import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { DRAFT_POOL, RARITY_WEIGHT, type DraftCard } from '@/lib/game/systems/roguelite-draft';
 import { CA_TIERS, CA_TIER_NAMES, tierProgress } from '@/lib/game/systems/combat-achievements';
 import { CA_TASKS } from '@/lib/game/data/combat-achievements';
-import { DIARY_TIERS, DIARY_TIER_NAMES, DIARY_TIER_ICON, diaryProgress, diaryTierReached, diaryTiersEarned, diaryRewardStats, type Diary, type DiaryTier } from '@/lib/game/systems/diaries';
+import { DIARY_TIERS, DIARY_TIER_NAMES, DIARY_TIER_ICON, diaryProgress, diaryTierReached, diaryTiersEarned, diaryRewardItem, diaryRewardStats, type Diary, type DiaryTier } from '@/lib/game/systems/diaries';
 import { DIARIES } from '@/lib/game/data/diaries';
 import { BIOMES } from '@/lib/game/data/biomes';
 import { DIFFICULTY_TIERS, tierLabel } from '@/lib/game/systems/difficulty';
@@ -412,7 +412,8 @@ function DiaryEntry({ diary, done, active, open, onToggle }: {
  */
 function DiaryRewardRow({ diary, done, active }: { diary: Diary; done: Set<string>; active: boolean }) {
   const tiers = diaryTiersEarned(diary, done);
-  const { item, icon, blurb } = diary.reward;
+  const { blurb } = diary.reward;
+  const { name: item, icon } = diaryRewardItem(diary.reward, tiers);
   const stats = diaryRewardStats(diary.reward, tiers);
   return (
     <div className="mt-[0.5em] flex items-start gap-[0.5em] rounded px-[0.35em] py-[0.3em] bg-[#2f2a20]">

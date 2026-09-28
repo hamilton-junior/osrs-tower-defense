@@ -9,6 +9,10 @@ const LOCAL = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/assets`;
  *  (scripts/render-osrs-items.mjs → public/assets/items/<slug>.png). */
 export const itemIcon = (slug: string) => `${LOCAL}/items/${slug}.png`;
 
+/** An Achievement Diary reward's icon at each tier, Easy first: `<slug>_1` to `<slug>_4`. */
+const diaryTierIcons = (slug: string) =>
+  [itemIcon(`${slug}_1`), itemIcon(`${slug}_2`), itemIcon(`${slug}_3`), itemIcon(`${slug}_4`)] as const;
+
 /** Cache-rendered NPC model portrait
  *  (scripts/render-osrs-npcs.mjs → public/assets/models/<slug>.png). */
 export const npcModel = (slug: string) => `${LOCAL}/models/${slug}.png`;
@@ -429,16 +433,16 @@ export const ASSETS = {
     master: `${LOCAL}/achievements/master.png`,
     grandmaster: `${LOCAL}/achievements/grandmaster.png`,
   },
-  // Achievement Diary rewards — each region's own OSRS reward item, baked from
-  // the cache at its tier-4 def (the grey-and-purple diary set). One per diary;
-  // the tier decides how strong it is, not which icon it uses.
+  // Achievement Diary rewards — each region's own OSRS reward item at every
+  // tier, 1 (Easy) to 4 (Elite), baked from the cache. The icon follows the
+  // tier the way the item does: the Easy tier hands over the 1.
   diaryRewards: {
-    explorers_ring: itemIcon('explorers_ring'),
-    desert_amulet: itemIcon('desert_amulet'),
-    morytania_legs: itemIcon('morytania_legs'),
-    wilderness_sword: itemIcon('wilderness_sword'),
-    fremennik_sea_boots: itemIcon('fremennik_sea_boots'),
-    karamja_gloves: itemIcon('karamja_gloves'),
+    explorers_ring: diaryTierIcons('explorers_ring'),
+    desert_amulet: diaryTierIcons('desert_amulet'),
+    morytania_legs: diaryTierIcons('morytania_legs'),
+    wilderness_sword: diaryTierIcons('wilderness_sword'),
+    fremennik_sea_boots: diaryTierIcons('fremennik_sea_boots'),
+    karamja_gloves: diaryTierIcons('karamja_gloves'),
   },
   // Prayer icons — cache-extracted sprites served locally (PRAYER_* sprite ids).
   prayers: {

@@ -389,15 +389,17 @@ const TARGETS = {
   chinchompa: { name: 'Chinchompa' },
   red_chinchompa: { name: 'Red chinchompa' },
   // ---- Achievement Diary rewards (data/diaries.ts) ----
-  // The tier-4 def of each diary's reward, one per diary. The item is worn for
-  // the whole diary; the tier decides how strong it is, not which icon it uses.
-  // Resolved by name: the tier-4 ids drift between caches, the names do not.
-  explorers_ring: { name: "Explorer's ring 4" },
-  desert_amulet: { name: 'Desert amulet 4' },
-  morytania_legs: { name: 'Morytania legs 4' },
-  wilderness_sword: { name: 'Wilderness sword 4' },
-  fremennik_sea_boots: { name: 'Fremennik sea boots 4' },
-  karamja_gloves: { name: 'Karamja gloves 4' },
+  // Every tier of each diary's reward, `<slug>_1` (Easy) to `<slug>_4` (Elite):
+  // the Easy tier hands over the 1 and each tier after swaps it up, as in OSRS.
+  // Resolved by name: the ids drift between caches, the names do not.
+  ...Object.fromEntries([
+    ['explorers_ring', "Explorer's ring"],
+    ['desert_amulet', 'Desert amulet'],
+    ['morytania_legs', 'Morytania legs'],
+    ['wilderness_sword', 'Wilderness sword'],
+    ['fremennik_sea_boots', 'Fremennik sea boots'],
+    ['karamja_gloves', 'Karamja gloves'],
+  ].flatMap(([slug, name]) => [1, 2, 3, 4].map((n) => [`${slug}_${n}`, { name: `${name} ${n}` }]))),
   // ---- the feedback panel's idea form: a light bulb (its bug is an NPC model) ----
   light_orb: { name: 'Light orb' },
 };

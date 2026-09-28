@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { DIARIES } from '../data/diaries';
 import {
   DIARY_TIERS,
@@ -7,6 +9,7 @@ import {
   diaryTierReached,
   diaryTiersEarned,
   diaryTowerMods,
+  diaryRewardItem,
   diaryRewardStats,
   wornDiaries,
   evaluateDiaries,
@@ -161,7 +164,9 @@ describe('the region rewards', () => {
   it('gives every diary an item, a sentence and at least one stat', () => {
     for (const diary of DIARIES) {
       expect(diary.reward.item.length).toBeGreaterThan(0);
-      expect(diary.reward.icon).toMatch(/\/items\/.+\.png$/);
+      // The tier number is added per tier, never baked into the name.
+      expect(diary.reward.item).not.toMatch(/\d$/);
+      diary.reward.icons.forEach((icon, i) => expect(icon).toMatch(new RegExp(`/items/.+_${i + 1}\\.png$`)));
       expect(diary.reward.blurb.endsWith('.')).toBe(true);
       const { damage = 0, range = 0, fireRate = 0 } = diary.reward.perTier;
       expect(damage + range + fireRate).toBeGreaterThan(0);
@@ -202,6 +207,27 @@ describe('the region rewards', () => {
   });
 });
 
+describe('which tier of the item is handed over', () => {
+  it('starts at the 1 on Easy and climbs to the 4 on Elite', () => {
+    expect([1, 2, 3, 4].map((n) => diaryRewardItem(lumbridge.reward, n).name)).toEqual([
+      "Explorer's ring 1", "Explorer's ring 2", "Explorer's ring 3", "Explorer's ring 4",
+    ]);
+    expect(diaryRewardItem(lumbridge.reward, 1).icon).toMatch(/explorers_ring_1\.png$/);
+    expect(diaryRewardItem(lumbridge.reward, 4).icon).toMatch(/explorers_ring_4\.png$/);
+  });
+
+  it('shows the 1 it is working towards before any tier is done', () => {
+    expect(diaryRewardItem(lumbridge.reward, 0)).toEqual(diaryRewardItem(lumbridge.reward, 1));
+  });
+
+  it('has a baked icon for every tier of every diary', () => {
+    const missing = DIARIES.flatMap((d) => d.reward.icons)
+      .map((url) => url.split('/assets/')[1])
+      .filter((file) => !existsSync(join(__dirname, '../../../public/assets', file)));
+    expect(missing).toEqual([]);
+  });
+});
+
 describe('what the reward strip shows', () => {
   const tierIds = (diary: Diary, tier: (typeof DIARY_TIERS)[number]) =>
     diary.tasks.filter((t) => t.tier === tier).map((t) => t.id);
@@ -224,7 +250,8 @@ describe('what the reward strip shows', () => {
     expect(worn).toHaveLength(1);
     expect(worn[0]).toMatchObject({
       id: lumbridge.id,
-      item: lumbridge.reward.item,
+      item: "Explorer's ring 1",
+      icon: lumbridge.reward.icons[0],
       diary: lumbridge.name,
       tiers: 1,
       stats: [{ label: 'Range', pct: 5 }],
