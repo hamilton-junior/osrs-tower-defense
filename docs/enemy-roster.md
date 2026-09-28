@@ -211,7 +211,7 @@ so the city races stay on the tower side and the cavern sends what Jad brings wi
 the Fight Caves ladder, which the player fights rather than hires. The other two ladders
 stay researched here and unbuilt:
 
-- **Fight Caves — built.** Tz-Kih `2189` (hp 10) · Tz-Kek `2191` (hp 20) · Tok-Xil `2193`
+- **Fight Caves — built.** Tz-Kih `2189` (hp 10) · Tz-Kek `3118` (hp 20) · Tok-Xil `2193`
   (hp 40, rng 120) · Yt-MejKot `3123` (hp 80, the pair of the Yt-HurKot `3128` already
   baked) · Ket-Zek `3125` (hp 160).
 
@@ -219,9 +219,12 @@ stay researched here and unbuilt:
   mechanic rather than a stat block. It was built anyway, because that mechanic is the
   only thing in the region that changes how a wave is fought rather than how hard it
   hits: the blob dies into two level-22 Tz-Keks (`3120`, hp 10) that keep walking from
-  where it fell, so a lane cleared on the last tick is not cleared. Both are NPC 2191's
-  model — OSRS draws the level 22 as the level 45 at size 1 — so they share one bake and
-  one portrait, and the log nests the small one under the big one.
+  where it fell, so a lane cleared on the last tick is not cleared. They share model
+  `9325` and its animations but not a look: the blob is the Fight Caves' level 45 (`3118`,
+  recoloured dark, scale 160) and each half the plain orange level 22 (`3120`, scale 80), so
+  each has its own bake and portrait, and the log nests the small one under the big one.
+  (`2191`, baked first, is a level 45 with no recolour — the half's look, which is why the
+  blob read as a big half and was swapped out.)
 
   They are two `EnemyType`s and not one because gold, threat weight and the Collection
   Log are all keyed by type. The encounter is priced once and split three ways: 8 for the
@@ -333,7 +336,7 @@ Per monster, mirroring the boss checklist:
 
    **The Tz-Kek borrows the Tz-Kih's**, settled with the user (2026-09-21) the same way
    the Tz-Kih itself was. OSRS ships four TzHaar death cries — hur `252`, ket `256`, mej
-   `263`, xil `270` — and no kek at any spelling; every one of NPC 2191's own animations
+   `263`, xil `270` — and no kek at any spelling; every one of the Tz-Kek's own animations
    carries an empty sound map, and the four cries are already spoken for by the four
    Fight Caves monsters that shipped before it. So the blob dies to the Hur cry, which is
    the lightest of the four and the file the Tz-Kih already bakes, and both Tz-Keks point

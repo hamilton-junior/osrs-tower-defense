@@ -1692,10 +1692,6 @@ function splitTzKek(eng: GameEngine, fallen: Enemy) {
     half.y = fallen.y;
     half.pathIndex = fallen.pathIndex;
     half.debug = fallen.debug;
-    // The field renderer resolves clips off `animType`, never the table's
-    // `animSlug` — carry the slug across or the half falls back to a static
-    // sprite and the bake it points at goes unused (same move as a sheared rat).
-    half.animType = ENEMIES.tz_kek_half.animSlug;
     eng.enemies.push(half);
   }
   // One ring out of the corpse, in the blob's own colour: the split has to be

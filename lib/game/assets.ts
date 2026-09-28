@@ -393,10 +393,10 @@ export const ASSETS = {
     tok_xil: `${LOCAL}/models/tok_xil.png`,
     yt_mejkot: `${LOCAL}/models/yt_mejkot.png`,
     ket_zek: `${LOCAL}/models/ket_zek.png`,
-    // Both Tz-Keks are NPC 2191's model at two sizes, so the log's small one shows
-    // the big one's face — it is the same creature.
+    // The Fight Caves' level-45 Tz-Kek (NPC 3118, recoloured dark) and the
+    // level-22 one it splits into (NPC 3120, the plain model).
     tz_kek: `${LOCAL}/models/tz_kek.png`,
-    tz_kek_half: `${LOCAL}/models/tz_kek.png`,
+    tz_kek_half: `${LOCAL}/models/tz_kek_half.png`,
   },
   // Boss pets — one portrait per PetId in lib/game/data/pets.ts, rendered from the
   // pet's own NPC id by scripts/render-osrs-npcs.mjs (slug `pet_<id>`).

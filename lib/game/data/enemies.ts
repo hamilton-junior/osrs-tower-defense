@@ -394,9 +394,9 @@ export const ENEMIES: Record<string, EnemyDef> = {
     // `summonedBy` is what keeps the allocator and the Slayer pools off it, and
     // what nests it under the Tz-Kek in the Collection Log.
     summonedBy: 'tz_kek',
-    // Same NPC model as the big one in the cache (9325), same walk — the level-22
-    // Tz-Kek is the level-45 one drawn smaller, so it points at that bake.
-    animSlug: 'tz_kek',
+    // Its own NPC (3120): the same model and walk as the blob, but in the plain
+    // orange the cache gives the level-22 one — the blob wears the Fight Caves'
+    // dark recolour.
     renderScale: 0.8,
     name: 'Tz-Kek (level 22)',
     hp: 9,

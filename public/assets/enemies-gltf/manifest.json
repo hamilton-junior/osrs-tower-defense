@@ -695,7 +695,15 @@
     ]
   },
   "tz_kek": {
-    "npc": 2191,
+    "npc": 3118,
+    "clips": [
+      "walk",
+      "hurt",
+      "death"
+    ]
+  },
+  "tz_kek_half": {
+    "npc": 3120,
     "clips": [
       "walk",
       "hurt",

@@ -721,7 +721,15 @@
     }
   },
   "tz_kek": {
-    "npc": 2191,
+    "npc": 3118,
+    "anims": {
+      "walk": 2623,
+      "hurt": 2626,
+      "death": 2627
+    }
+  },
+  "tz_kek_half": {
+    "npc": 3120,
     "anims": {
       "walk": 2623,
       "hurt": 2626,
