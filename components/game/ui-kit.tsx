@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { ASSETS, coinsIcon } from '@/lib/game/assets';
+import { CA_TIERS } from '@/lib/game/systems/combat-achievements';
 import { splitOn73 } from '@/lib/game/systems/stat-73';
 import { HoverTip } from './HoverTip';
 
@@ -14,6 +15,15 @@ import { HoverTip } from './HoverTip';
  */
 
 export const hideBrokenImg = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.target as HTMLImageElement).style.display = 'none'; };
+
+/**
+ * The New Game+ tiers carry the Combat Achievement tier names, so the hardest one
+ * cleared shows that tier's sword. Normal has no sword of its own and takes the first.
+ */
+export function tierIcon(tier: number): string {
+  return ASSETS.achievements[CA_TIERS[Math.max(0, tier - 1)] ?? 'grandmaster'];
+}
+
 export const TICK_MS = 600; // OSRS game tick = 0.6s
 export const TILE_PX = 32; // grid tile size in logic px (mirrors engine GRID)
 export const pct = (frac: number) => `+${Math.round(frac * 100)}%`;

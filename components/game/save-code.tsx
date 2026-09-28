@@ -3,8 +3,9 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { decodeSaveCode, encodeSaveCode, summarizeAccount, type AccountSave, type AccountSummary } from '@/lib/game/systems/account-save';
 import { clampTier, tierLabel } from '@/lib/game/systems/difficulty';
+import { ASSETS } from '@/lib/game/assets';
 import { applyAccountSave, readAccountSave } from './save';
-import { fs, fmt } from './ui-kit';
+import { fs, fmt, hideBrokenImg, tierIcon } from './ui-kit';
 
 /**
  * The 💾 Save/Load Game panel: the whole account as one line of text.
@@ -22,25 +23,30 @@ import { fs, fmt } from './ui-kit';
 type Tab = 'export' | 'import';
 
 /** One row of the side-by-side an import shows before it overwrites anything. */
-function CompareRow({ label, mine, theirs }: { label: string; mine: React.ReactNode; theirs: React.ReactNode }) {
+function CompareRow({ icon, label, mine, theirs }: { icon: string; label: string; mine: React.ReactNode; theirs: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_auto] gap-[0.5em] items-baseline text-[0.75em] py-[0.12em]">
-      <span className="text-[#a89870]">{label}</span>
+    <div className="grid grid-cols-[1fr_auto_auto] gap-[0.5em] items-center text-[0.75em] py-[0.12em]">
+      <span className="flex items-center gap-[0.35em] text-[#a89870]">
+        <img src={icon} alt="" className="w-[1.2em] h-[1.2em] object-contain shrink-0" onError={hideBrokenImg} />
+        {label}
+      </span>
       <span className="text-[#cdbe91] tabular-nums text-right w-[5em]">{mine}</span>
       <span className="text-osrs-orange font-bold tabular-nums text-right w-[5em]">{theirs}</span>
     </div>
   );
 }
 
+/** The figures an account is summed up by, each wearing the OSRS icon the Account
+ *  tab gives the same figure. */
 function summaryRows(s: AccountSummary) {
-  return {
-    essence: fmt(s.essence),
-    kills: fmt(s.kills),
-    victories: fmt(s.victories),
-    achievements: fmt(s.achievements),
-    tier: s.bestTier < 0 ? '—' : tierLabel(clampTier(s.bestTier)),
-    run: s.runWave === null ? '—' : `Wave ${s.runWave}`,
-  };
+  return [
+    { icon: ASSETS.misc.rune_essence_icon, label: 'Rune essence', value: fmt(s.essence) },
+    { icon: ASSETS.misc.pk_skull, label: 'Kills logged', value: fmt(s.kills) },
+    { icon: ASSETS.misc.trophy, label: 'Victories', value: fmt(s.victories) },
+    { icon: ASSETS.misc.stats_icon, label: 'Achievements', value: fmt(s.achievements) },
+    { icon: tierIcon(s.bestTier), label: 'Highest tier', value: s.bestTier < 0 ? '—' : tierLabel(clampTier(s.bestTier)) },
+    { icon: ASSETS.misc.orb_run, label: 'Run in progress', value: s.runWave === null ? '—' : `Wave ${s.runWave}` },
+  ];
 }
 
 export function SaveCodeModal({ onClose }: { onClose: () => void }) {
@@ -156,12 +162,7 @@ export function SaveCodeModal({ onClose }: { onClose: () => void }) {
             </div>
             <div className="border-t border-[var(--rs-keyline)] mt-[0.2em] pt-[0.4em]">
               <div className="text-[0.7em] text-[#a89870] mb-[0.2em]">This code carries:</div>
-              <CompareRow label="⚡ Rune essence" mine="" theirs={a.essence} />
-              <CompareRow label="💀 Kills logged" mine="" theirs={a.kills} />
-              <CompareRow label="🏆 Victories" mine="" theirs={a.victories} />
-              <CompareRow label="📜 Achievements" mine="" theirs={a.achievements} />
-              <CompareRow label="⚔ Highest tier" mine="" theirs={a.tier} />
-              <CompareRow label="▶ Run in progress" mine="" theirs={a.run} />
+              {a.map((r) => <CompareRow key={r.label} icon={r.icon} label={r.label} mine="" theirs={r.value} />)}
             </div>
           </div>
         ) : (
@@ -203,12 +204,7 @@ export function SaveCodeModal({ onClose }: { onClose: () => void }) {
                   <span className="text-right w-[5em]">This browser</span>
                   <span className="text-right w-[5em] text-osrs-orange">The code</span>
                 </div>
-                <CompareRow label="⚡ Rune essence" mine={a.essence} theirs={b.essence} />
-                <CompareRow label="💀 Kills logged" mine={a.kills} theirs={b.kills} />
-                <CompareRow label="🏆 Victories" mine={a.victories} theirs={b.victories} />
-                <CompareRow label="📜 Achievements" mine={a.achievements} theirs={b.achievements} />
-                <CompareRow label="⚔ Highest tier" mine={a.tier} theirs={b.tier} />
-                <CompareRow label="▶ Run in progress" mine={a.run} theirs={b.run} />
+                {a.map((r, i) => <CompareRow key={r.label} icon={r.icon} label={r.label} mine={r.value} theirs={b[i].value} />)}
                 <div className="text-[0.72em] text-osrs-warn text-center mt-[0.5em] leading-snug">
                   Importing replaces everything in this browser. It cannot be undone.
                 </div>

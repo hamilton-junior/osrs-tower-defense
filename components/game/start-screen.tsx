@@ -7,7 +7,7 @@ import type { RunSave } from '@/lib/game/systems/run-save';
 import { DIFFICULTY_TIERS, isTierUnlocked, tierLabel, type DifficultyTier } from '@/lib/game/systems/difficulty';
 import { ASSETS, iconUrl } from '@/lib/game/assets';
 import { essenceRateLabel } from '@/lib/game/systems/meta-progression';
-import { CA_TIERS, CA_TIER_NAMES, type CaTier } from '@/lib/game/systems/combat-achievements';
+import { CA_TIER_NAMES, type CaTier } from '@/lib/game/systems/combat-achievements';
 import { dayLabel, type DayKey } from '@/lib/game/systems/daily-seed';
 import { dailyRules } from '@/lib/game/systems/daily-rules';
 import { dailyRecords, dailyStreak, type DailyBoard } from '@/lib/game/systems/daily-score';
@@ -18,7 +18,7 @@ import type { LogTab } from './collection-log';
 import { DailyStrip } from './daily-ui';
 import { EssenceShop } from './essence-shop';
 import { StartLobby } from './start-lobby';
-import { fs, fmt, fmtTime, hideBrokenImg, GoStat, StatText } from './ui-kit';
+import { fs, fmt, fmtTime, hideBrokenImg, tierIcon, GoStat, StatText } from './ui-kit';
 import { agoLabel, type DifficultyProgress, type Victories } from './save';
 
 /**
@@ -459,14 +459,6 @@ function DailyTab({ today, board, onStart, onSound }: {
  * The Account tab: everything the account carries between runs — essence and what
  * it buys, the collection, and the numbers behind both.
  */
-/**
- * The New Game+ tiers carry the Combat Achievement tier names, so the hardest one
- * cleared shows that tier's sword. Normal has no sword of its own and takes the first.
- */
-function tierIcon(tier: number): string {
-  return ASSETS.achievements[CA_TIERS[Math.max(0, tier - 1)] ?? 'grandmaster'];
-}
-
 function AccountTab({ essence, victories, killCounts, diversionsMet, achievements, diaries, difficulty, onOpenShop, onOpenLog, onSaveCode, onSound }: {
   essence: number;
   victories: Victories;
