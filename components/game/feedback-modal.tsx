@@ -72,7 +72,7 @@ export function FeedbackModal({ ui, onClose }: { ui: UIState; onClose: () => voi
   return (
     <div className="absolute inset-0 bg-black/82 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="rs-panel p-5 w-[24em] max-w-[94vw] flex flex-col"
+        className="rs-panel p-5 w-[24em] max-w-[94vw] max-h-full overflow-y-auto flex flex-col"
         style={{ fontSize: fs('clamp(14px, 0.95vw, 19px)') }}
         onClick={(e) => e.stopPropagation()}
       >

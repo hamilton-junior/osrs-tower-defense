@@ -16,7 +16,11 @@ import { towerXpForLevel } from '@/lib/game/systems/leveling';
 import { MovablePanel } from './MovablePanel';
 import { DebugPanel } from './DebugPanel';
 import { HoverTip } from './HoverTip';
-import { VolumeControl } from './VolumeControl';
+import { RunControls, UiSizeControl, InterfaceStones, BarRail, type SideTab } from './bar-groups';
+import { ArmedHint, TouchTitleTip, RotateHint, FullscreenButton } from './touch-ui';
+import { useBarLayout, useCoarsePointer } from './use-touch';
+import { handInUse, tapInHand, tileAt, type TapAim } from '@/lib/game/systems/touch-input';
+import { boardHeight, uiScaleCeiling, type FitConstraint } from '@/lib/game/systems/ui-fit';
 import { useMusic } from './use-music';
 import { musicFor } from '@/lib/game/data/music';
 import { tipHeader, WavePreviewCard, DRAFT_FLY_MS, WaveEventChip } from './wave-ui';
@@ -69,7 +73,6 @@ import { highestUnlockedTier, type DifficultyTier } from '@/lib/game/systems/dif
 /** Which interface a bottom-bar stone pops open above the bar (OSRS tabbed-panel
  *  model — one stone per interface), or `null` for none. 'home' = the run's mode
  *  + roguelite loadout. */
-type SideTab = 'home' | 'essence' | 'slayer' | 'dps' | 'skills' | 'inventory';
 /** Label, OSRS icon, theme color and a one-line description for each enemy
  *  debuff. The color frames the icon (a RuneLite-style badge) so the five read
  *  apart at a glance; the description shows on hover in the info panel. */
@@ -177,6 +180,12 @@ export default function GameRoot() {
   const boardRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
+  // A finger, and the compact layout it gets: the run controls and the interface
+  // stones move out of the bar into a rail either side of the board.
+  const coarse = useCoarsePointer();
+  const compact = useBarLayout(coarse) === 'compact';
+  const leftRailRef = useRef<HTMLElement | null>(null);
+  const rightRailRef = useRef<HTMLElement | null>(null);
   // The board is a fixed 1440×640 picture; the *UI* adapts to it, never the
   // reverse. This holds the board box's size in client pixels — the largest
   // LOGIC-aspect rectangle that fits above the bottom bar's minimum height — so the
@@ -361,7 +370,8 @@ export default function GameRoot() {
   const skipAllTips = useCallback(() => setLearnSeen(LEARN_STEPS.map((s) => s.id)), []);
   const resetTips = useCallback(() => { setHelpOpen(false); setLearnSeen([]); }, []);
   // Minimize state for the prayer bar (collapses to the best prayer per style).
-  const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', false));
+  // A phone starts it minimized: open, it is a good part of a landscape phone's board.
+  const [prayersMin, setPrayersMin] = useState(() => loadBool('ui_min_prayers', compact));
   useEffect(() => { try { localStorage.setItem('ui_min_prayers', JSON.stringify(prayersMin)); } catch { /* ignore */ } }, [prayersMin]);
   // Start/stop the engine's per-run damage-stats streaming — only while the DPS
   // tab is the visible interface (the engine snapshots its stats just then).
@@ -475,16 +485,23 @@ export default function GameRoot() {
       // and dropping it is what would let the dock drift off centre at the ceiling.
       const halves = ([...bar.children] as HTMLElement[]).filter((el) => el.dataset.half !== undefined);
       const skew = halves.length === 2 ? Math.abs(natural(halves[0]) - natural(halves[1])) : 0;
-      const perUnit = (natural(bar, true) + skew) / Math.max(0.01, s);
-      const fits = perUnit > 0 ? bar.offsetWidth / perUnit : UI_SCALE_MAX;
-      // Keep the ceiling at its measured value instead of rounding it down onto the
-      // step grid. A 1920-wide row holds 107%, and flooring that to the nearest step
-      // handed the player 100% with the "+" greyed out — indistinguishable from a
-      // hard 100% cap, and reported as one. The last press is allowed to be a short
-      // step so the leftover room is actually reachable; 1e-3 off keeps a rounding
-      // sliver between the ceiling and the width it was solved from.
-      const room = Math.floor((fits - 1e-3) * 100) / 100;
-      const next = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, room));
+      // The compact layout's rails take their width out of the row's: they grow
+      // with the scale too, so the row and both rails share the screen's width
+      // between them. Each rail's column also has to fit the screen's height.
+      const rails = [leftRailRef.current, rightRailRef.current].filter((r): r is HTMLElement => !!r);
+      const railsW = rails.reduce((a, r) => a + r.getBoundingClientRect().width, 0);
+      const constraints: FitConstraint[] = [
+        { need: natural(bar, true) + skew + railsW, have: bar.offsetWidth + railsW },
+        ...rails.map((r) => {
+          const rs = getComputedStyle(r);
+          const col = r.firstElementChild as HTMLElement | null;
+          return {
+            need: col?.getBoundingClientRect().height ?? 0,
+            have: r.clientHeight - (parseFloat(rs.paddingTop) || 0) - (parseFloat(rs.paddingBottom) || 0),
+          };
+        }),
+      ];
+      const next = uiScaleCeiling(s, constraints, UI_SCALE_MIN, UI_SCALE_MAX);
       // A lower ceiling always lands. A higher one needs two whole percent: the drawn
       // scale follows the ceiling, and a reading a hair off at one size could otherwise
       // flip the next reading back, stepping the bar between two sizes forever.
@@ -496,15 +513,18 @@ export default function GameRoot() {
       if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure(); });
     };
     const ro = new ResizeObserver(schedule);
+    const parts = [bar, leftRailRef.current, rightRailRef.current].filter((el): el is HTMLElement => !!el);
     const watch = () => {
       ro.disconnect();
-      ro.observe(bar);
-      bar.querySelectorAll('*').forEach((el) => ro.observe(el));
+      for (const part of parts) {
+        ro.observe(part);
+        part.querySelectorAll('*').forEach((el) => ro.observe(el));
+      }
     };
     watch();
     // A stone or a tower joining the bar is a new element to watch as well.
     const mo = new MutationObserver(() => { watch(); schedule(); });
-    mo.observe(bar, { childList: true, subtree: true });
+    for (const part of parts) mo.observe(part, { childList: true, subtree: true });
     const fonts = document.fonts;
     fonts?.ready.then(schedule);
     fonts?.addEventListener('loadingdone', schedule);
@@ -514,7 +534,7 @@ export default function GameRoot() {
       mo.disconnect();
       fonts?.removeEventListener('loadingdone', schedule);
     };
-  }, []);
+  }, [compact]);
   // A stone toggles its interface: clicking the lit one closes it, so no panel is
   // ever stuck on-screen. The popup floats above the bar (absolutely positioned),
   // so opening it never resizes the canvas — which would rebuild the path and
@@ -1132,7 +1152,7 @@ export default function GameRoot() {
     const ro = new ResizeObserver(fit);
     ro.observe(col);
     return () => ro.disconnect();
-  }, [uiScale]);
+  }, [uiScale, compact]);
 
   // Report the board's on-screen size to the engine so it can back the canvas at
   // the display's native resolution (see engine `setDisplaySize`/`deviceScale`) —
@@ -1286,10 +1306,28 @@ export default function GameRoot() {
     if (moveRaf.current) cancelAnimationFrame(moveRaf.current);
   }, []);
 
+  // How the last press on the board was made: a tap reaches the board as the same
+  // click a mouse makes, and only a tap aims before it acts.
+  const pointerKind = useRef('mouse');
+  const onPointerDown = useCallback((e: React.PointerEvent) => { pointerKind.current = e.pointerType; }, []);
+  // Where a finger last aimed what it holds. Anything new in hand starts over.
+  const tapAim = useRef<TapAim | null>(null);
+  const handNow = handInUse(ui);
+  useEffect(() => { tapAim.current = null; }, [handNow]);
+
   const onClick = useCallback((e: React.MouseEvent) => {
     // A real marquee drag already handled selection on mouse-up; swallow the click.
     if (marqueeDragged.current) { marqueeDragged.current = false; return; }
     const { x, y } = toLogic(e.clientX, e.clientY);
+    // A fingertip is wider than a tile, so a tap with something in hand only aims:
+    // the ghost goes where it landed, and a second tap on that tile puts it down.
+    const eng = engineRef.current;
+    const hand = eng && pointerKind.current === 'touch' ? handInUse(eng) : null;
+    if (eng && hand) {
+      const tap = tapInHand(tapAim.current, hand, tileAt(x, y, TILE_PX));
+      tapAim.current = tap.aim;
+      if (!tap.act) { eng.setPointer(x, y); return; }
+    }
     // With a tower armed, Shift means "queue, don't build" — a plain Shift-click
     // paints one tile, the same as the shortest possible drag. Releasing Shift
     // builds the line.
@@ -1302,6 +1340,10 @@ export default function GameRoot() {
 
   const onContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
+    // A finger held a moment too long on the board opens the context menu on
+    // Android. That is a slow tap, not a cancel: a touch screen cancels from the
+    // hint over the bar.
+    if (pointerKind.current === 'touch') return;
     engineRef.current?.cancelAction();
   }, []);
 
@@ -1694,8 +1736,82 @@ export default function GameRoot() {
     })
     .filter((p): p is (typeof TOWER_PRAYERS)[number] => p !== null);
 
+  const barFont = fs('clamp(14px, 0.9vw, 19px)');
+  const stepUiScale = (d: 1 | -1) => setUiScalePref(stepScale(uiScale, d, maxUiScale));
+  const stones = (rail: boolean) => (
+    <InterfaceStones
+      ui={ui} runStarted={runStarted} tab={tab} onSideTab={onSideTab}
+      logOpen={logOpen} onToggleLog={() => setLogOpen((o) => !o)}
+      feedbackOpen={feedbackOpen} onFeedback={() => setFeedbackOpen(true)}
+      helpOpen={helpOpen} onHelp={() => setHelpOpen(true)}
+      boonsTabRef={boonsTabRef} invTabRef={invTabRef} rail={rail}
+    />
+  );
+
+  // The title / mode-select screen, which gates the first wave of each run. It
+  // covers the board; in the compact layout it takes the bar's height as well,
+  // because there the bar is empty until the run starts (its controls stand in
+  // the rails), and a phone's board alone is too short to hold the menu.
+  const startScreen = !runStarted && !ui.gameOver && (
+    <StartScreen
+      mode={ui.gameMode}
+      saved={savedRun}
+      victories={victories}
+      caTitle={caTitle}
+      difficulty={difficulty}
+      selectedTier={selectedTier}
+      today={today}
+      dailyBoard={dailyBoard}
+      essence={ui.essence}
+      upgrades={ui.upgrades}
+      killCounts={ui.killCounts}
+      diversionsMet={ui.diversionsMet}
+      achievements={ui.achievements}
+      diaries={ui.diaries}
+      onBuyUpgrade={(id) => engineRef.current?.buyEssenceUpgrade(id)}
+      onRefundEssence={() => engineRef.current?.refundEssence()}
+      onOpenLog={(t) => { setLogTab(t); setLogOpen(true); }}
+      onSound={(k, l) => engineRef.current?.sound.play(k, undefined, l)}
+      onAmbient={(k, l) => engineRef.current?.sound.loop(k, l)}
+      soundSeconds={(k) => engineRef.current?.sound.duration(k) ?? NaN}
+      onSelect={(m) => engineRef.current?.setMode(m)}
+      onSelectTier={chooseTier}
+      onStart={() => { clearRunSave(); setSavedRun(null); engineRef.current?.newRun(); setRunStarted(true); }}
+      onStartDaily={() => {
+        clearRunSave();
+        setSavedRun(null);
+        engineRef.current?.startDaily(today);
+        setRunStarted(true);
+      }}
+      onContinue={() => {
+        if (!savedRun) return;
+        // A run that was already won banked its win when it was won. The guard
+        // ref is per-page-load, so seed it from the save — otherwise resuming an
+        // Endless run would count the same victory again on every refresh.
+        recordedWin.current = savedRun.won === true;
+        engineRef.current?.loadRun(savedRun);
+        setRunStarted(true);
+      }}
+      onDiscard={() => { clearRunSave(); setSavedRun(null); }}
+      onSaveCode={() => setSaveCodeOpen(true)}
+    />
+  );
+
   return (
-    <div ref={columnRef} className="w-full h-full flex flex-col overflow-hidden bg-black select-none font-osrs">
+    <div className="w-full h-full flex overflow-hidden bg-black select-none font-osrs">
+    {/* The compact layout's left rail: the run controls and the interface size.
+        The rails are the column's siblings, so the board is fitted to what they
+        leave over. */}
+    {compact && (
+      <BarRail railRef={leftRailRef} fontSize={barFont} idle={!runStarted}>
+        <RunControls rail engineRef={engineRef} ui={ui} musicVolume={musicVolume} onMusicVolume={setMusicVolume}>
+          <FullscreenButton className="rs-btn rs-rail-btn" />
+        </RunControls>
+        <div className="rs-rail-sep" />
+        <UiSizeControl rail uiScale={uiScale} maxUiScale={maxUiScale} onStep={stepUiScale} />
+      </BarRail>
+    )}
+    <div ref={columnRef} className="relative flex-1 min-w-0 h-full flex flex-col overflow-hidden">
       {/* Exactly as tall as the board. Whatever width its aspect leaves over is
           dressed as OSRS chrome either side, so it reads as the client's frame
           rather than as a black bar; leftover height is the bar's (see the fit
@@ -1711,6 +1827,7 @@ export default function GameRoot() {
       <div
         ref={boardRef}
         data-tut="map"
+        data-board={boardSize ? boardHeight(boardSize.h) ?? undefined : undefined}
         className="relative bg-black shrink-0"
         style={boardSize ? { width: boardSize.w, height: boardSize.h } : { visibility: 'hidden' }}
       >
@@ -1722,6 +1839,7 @@ export default function GameRoot() {
         // identical shape on every screen, never stretched. `contain` guards the
         // rounding sliver.
         style={{ objectFit: 'contain' }}
+        onPointerDown={onPointerDown}
         onMouseMove={onMove}
         onMouseDown={onMouseDown}
         onClick={onClick}
@@ -2124,7 +2242,7 @@ export default function GameRoot() {
                       <span className="text-[0.5em] text-[#cdbb91] mt-[0.15em] leading-none text-center">{it.tier}</span>
                     </div>
                   ))
-                : <span className="text-[0.62em] text-[#b3a585] self-center">Hover a spellbook to preview its spells</span>}
+                : <span className="text-[0.62em] text-[#b3a585] self-center">{coarse ? 'Tap a spellbook to place the wizard' : 'Hover a spellbook to preview its spells'}</span>}
             </div>
 
             <div className="flex gap-[0.4em] justify-center">
@@ -2149,7 +2267,7 @@ export default function GameRoot() {
               ))}
             </div>
 
-            <div className="text-center text-[0.62em] text-[#b3a585] mt-[0.3em]">right‑click to cancel</div>
+            {!coarse && <div className="text-center text-[0.62em] text-[#b3a585] mt-[0.3em]">right‑click to cancel</div>}
           </div>
         </div>
         );
@@ -2708,7 +2826,7 @@ export default function GameRoot() {
         <MovablePanel
           id="tower"
           globalLock={uiLocked}
-          className="rs-panel absolute top-4 left-4 p-2 z-10 w-[17em]"
+          className={`rs-panel absolute top-4 left-4 p-2 z-10 w-[17em]${compact ? ' rs-panel-fit' : ''}`}
           style={{ fontSize: fs('clamp(14px, 0.92vw, 20px)') }}
         >
           <div className="rs-panel-title flex items-center gap-2" style={{ fontSize: '1em' }}>
@@ -2723,6 +2841,9 @@ export default function GameRoot() {
             )}
             <span className="truncate">{wizSpellLabel ?? selectedTower.name}</span>
           </div>
+          {/* On a short screen the panel is taller than the board, and the body
+              scrolls under the title instead (`.rs-panel-fit`). */}
+          <div className={compact ? 'rs-panel-fit-body' : undefined}>
 
           <div className="space-y-[0.2em] px-[0.2em] mt-[0.3em]">
             {/* The Utility wizard is a pure support aura — it never attacks, so it
@@ -3290,6 +3411,7 @@ export default function GameRoot() {
               )}
             </div>
           )}
+          </div>
         </MovablePanel>
       )}
 
@@ -3384,7 +3506,7 @@ export default function GameRoot() {
       {/* The road forks — pick the region the run marches into next. Waits behind a
           relic or draft choice so two modals never stack; all three block Start Wave. */}
       {ui.pendingTravel && !ui.gameOver && !ui.pendingRelics && !ui.pendingDraft && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4">
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4 rs-pick">
           <div className="flex items-center gap-[0.4em] mb-1">
             <img src={ASSETS.misc.signpost} alt="" className="w-[1.4em] h-[1.4em] object-contain" />
             <div className="text-osrs-orange font-bold text-[1.4em] text-center">The Road Forks</div>
@@ -3406,7 +3528,7 @@ export default function GameRoot() {
 
       {/* Roguelite relic choice — a defeated boss's run-defining pick */}
       {ui.pendingRelics && !ui.gameOver && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4">
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4 rs-pick">
           <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Choose a Relic</div>
           <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">The boss falls. Claim one run-long power</div>
           <div className="flex gap-6 flex-wrap justify-center">
@@ -3423,7 +3545,7 @@ export default function GameRoot() {
 
       {/* Roguelite draft — pick one card to keep before the next wave */}
       {ui.pendingDraft && !ui.gameOver && (
-        <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30 p-4">
+        <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30 p-4 rs-pick">
           <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">
             {ui.draftBoosted ? 'Boss Spoils' : 'Draft a Reward'}
           </div>
@@ -3442,8 +3564,8 @@ export default function GameRoot() {
                 How reward cards work
               </div>
               <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.55em]">
-                Keep <b>one</b> card to snowball your build: potions, weapons and rule-changing boons.
-                Hover a card to preview exactly what it does; duplicates stack. A card badged <b>NEW</b> is one
+                Keep <b>one</b> card to snowball your build: potions, weapons and rule-changing boons.{' '}
+                {!coarse && 'Hover a card to preview exactly what it does. '}Duplicates stack. A card badged <b>NEW</b> is one
                 you have never kept, so it is missing from your Collection Log. You buy rolls with gold
                 and each one costs more, so spend against your towers. Beating a <b>boss</b> pays a <b>Relic</b>.
               </p>
@@ -3594,54 +3716,11 @@ export default function GameRoot() {
         </div>
       )}
 
-      {/* Title / mode-select screen — gates the first wave of each run */}
-      {!runStarted && !ui.gameOver && (
-        <StartScreen
-          mode={ui.gameMode}
-          saved={savedRun}
-          victories={victories}
-          caTitle={caTitle}
-          difficulty={difficulty}
-          selectedTier={selectedTier}
-          today={today}
-          dailyBoard={dailyBoard}
-          essence={ui.essence}
-          upgrades={ui.upgrades}
-          killCounts={ui.killCounts}
-          diversionsMet={ui.diversionsMet}
-          achievements={ui.achievements}
-          diaries={ui.diaries}
-          onBuyUpgrade={(id) => engineRef.current?.buyEssenceUpgrade(id)}
-          onRefundEssence={() => engineRef.current?.refundEssence()}
-          onOpenLog={(t) => { setLogTab(t); setLogOpen(true); }}
-          onSound={(k, l) => engineRef.current?.sound.play(k, undefined, l)}
-          onAmbient={(k, l) => engineRef.current?.sound.loop(k, l)}
-          soundSeconds={(k) => engineRef.current?.sound.duration(k) ?? NaN}
-          onSelect={(m) => engineRef.current?.setMode(m)}
-          onSelectTier={chooseTier}
-          onStart={() => { clearRunSave(); setSavedRun(null); engineRef.current?.newRun(); setRunStarted(true); }}
-          onStartDaily={() => {
-            clearRunSave();
-            setSavedRun(null);
-            engineRef.current?.startDaily(today);
-            setRunStarted(true);
-          }}
-          onContinue={() => {
-            if (!savedRun) return;
-            // A run that was already won banked its win when it was won. The guard
-            // ref is per-page-load, so seed it from the save — otherwise resuming an
-            // Endless run would count the same victory again on every refresh.
-            recordedWin.current = savedRun.won === true;
-            engineRef.current?.loadRun(savedRun);
-            setRunStarted(true);
-          }}
-          onDiscard={() => { clearRunSave(); setSavedRun(null); }}
-          onSaveCode={() => setSaveCodeOpen(true)}
-        />
-      )}
+      {/* Title / mode-select screen (`startScreen`), over the board alone */}
+      {!compact && startScreen}
 
       {/* How-to-play reference guide — top layer so it reads over the start screen too */}
-      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} onResetTips={resetTips} />}
+      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} onResetTips={resetTips} touch={coarse} />}
       {feedbackOpen && <FeedbackModal ui={ui} onClose={() => setFeedbackOpen(false)} />}
       {saveCodeOpen && <SaveCodeModal onClose={() => setSaveCodeOpen(false)} />}
 
@@ -3656,7 +3735,8 @@ export default function GameRoot() {
           onSeen={markTipSeen}
           onSkipAll={skipAllTips}
           uiScale={uiScale}
-          onNudgeUiScale={(d) => setUiScalePref(stepScale(uiScale, d, maxUiScale))}
+          onNudgeUiScale={stepUiScale}
+          touch={coarse}
         />
       )}
       </div>{/* board — floating overlays anchor to the map, never the dock bar */}
@@ -3672,7 +3752,7 @@ export default function GameRoot() {
           the play area and letterbox the board. Above that minimum it takes only what
           the board cannot use — the height left under a board that is already as
           wide as the window. */}
-      <div ref={barWrapRef} className="relative flex-1 w-full flex flex-col" style={{ fontSize: fs('clamp(14px, 0.9vw, 19px)') }}>
+      <div ref={barWrapRef} className="relative flex-1 w-full flex flex-col" style={{ fontSize: barFont }}>
 
         {/* The interface a stone has popped open: expands upward over the map, and
             closes when its stone is clicked again — or on a right-click anywhere on
@@ -3926,24 +4006,16 @@ export default function GameRoot() {
         </div>
         )}
 
-        {/* Placement hint, only while a tower is picked: it answers a question you
-            just asked, then leaves. Suppressed while the dock tooltip is up —
-            they'd stack in the same spot. */}
-        {ui.selectedTowerType && !hoverShop && (
-          <div className="rs-panel absolute bottom-full left-1/2 -translate-x-1/2 mb-[0.4em] px-[0.8em] py-[0.25em] z-10 pointer-events-none">
-            <p className="text-[0.72em] text-[#d3c3a0] whitespace-nowrap">
-              {ui.selectedTowerType === 'wizard'
-                ? 'Click a tile to choose its spellbook there · right‑click to cancel'
-                : 'Click the map to place · right‑click to cancel'}
-            </p>
-          </div>
-        )}
+        {/* Placement hint, only while something is in hand: it answers a question
+            you just asked, then leaves. With a mouse it gives way to the dock tooltip,
+            which rises into the same spot; a finger keeps it, off to the right. */}
+        {(coarse || !hoverShop) && <ArmedHint ui={ui} touch={coarse} onCancel={() => engineRef.current?.cancelAction()} />}
 
         <footer
           ref={barRef}
           data-tut="sidebar"
           className={`w-full flex-1 rs-panel flex items-center gap-[0.45em] px-[0.6em] ${runStarted ? '' : 'rs-bar-idle'}`}
-          style={{ minHeight: '4.3em' }}
+          style={{ minHeight: compact ? '4em' : '4.3em' }}
         >
           {/* One row built around the tower dock, which is centred on the bar itself
               - its middle is the bar's middle, on every screen. That is what the two
@@ -3953,85 +4025,20 @@ export default function GameRoot() {
               hold the far left, the gold pile ends the left half against the dock's
               prices, and the right half runs Start Wave -> vitals -> interface
               stones. */}
-          <div data-half="" className="flex flex-1 min-w-0 items-center gap-[0.6em]">
+          {/* In the compact layout the run controls, the interface size and the
+              stones stand in the rails instead, and the dock is not centred: the
+              row gives its slack to the vitals. */}
+          <div data-half={compact ? undefined : ''} className={compact ? 'shrink-0 flex items-center gap-[0.6em]' : 'flex flex-1 min-w-0 items-center gap-[0.6em]'}>
             {/* Everything here is sized in `em` (no text-xs / px-2 rem classes) so
                 the whole cluster tracks the bar's fs() font — i.e. the UI − / +
                 control below actually resizes these buttons too. */}
-            {/* `overflow-hidden` is load-bearing, not tidiness. This group is the only
-                one in the bar that may shrink (`min-w-0`), and its children are all
-                fixed-em: past ~120% interface size they used to spill out of it and
-                paint straight over the gold pile. Clipping keeps the bar legible, and
-                the one control you need to undo an over-large interface — the UI − / +
-                below — is deliberately a sibling of this group rather than a child, so
-                it is never the thing that gets cut off.
-
-                It takes the left half's slack (`flex-1`) so its contents stay pinned to
-                the bar's left edge and the gold pile ends up against the dock. */}
-            <div data-tut="controls" className="flex flex-1 min-w-0 items-center gap-[0.25em] overflow-hidden">
-              <button
-                onClick={() => engineRef.current?.togglePause()}
-                title={ui.paused ? 'Resume' : 'Pause'}
-                disabled={ui.gameOver}
-                className={`rs-btn px-[0.66em] py-[0.33em] text-[0.7em] mr-[0.33em] ${ui.paused ? 'rs-btn-primary' : ''}`}
-              >
-                {ui.paused ? '▶' : '⏸'}
-              </button>
-              <span className="text-[0.6em] text-[#d3c3a0] mr-[0.4em] uppercase tracking-wide">Speed</span>
-              {([[1, 'Z'], [2, 'X'], [5, 'C']] as const).map(([s, key]) => (
-                <button
-                  key={s}
-                  onClick={() => engineRef.current?.setGameSpeed(s)}
-                  title={`Run the game at ${s}× speed (${key}, or step with < / >)`}
-                  className={`rs-btn relative px-[0.66em] py-[0.33em] text-[0.7em] ${ui.gameSpeed === s ? 'rs-btn-primary' : ''}`}
-                >
-                  {s}×
-                  <span className="rs-key">{key}</span>
-                </button>
-              ))}
-              {/* Mute, with the volume slider parked above it until you reach for it —
-                  the slider is portalled onto the body, because this control group
-                  clips itself and would otherwise cut the whole flyout away. */}
-              <VolumeControl
-                volume={ui.volume}
-                muted={ui.muted}
-                onVolume={(v) => engineRef.current?.setVolume(v)}
-                onToggleMute={() => engineRef.current?.toggleMute()}
-                musicVolume={musicVolume}
-                onMusicVolume={setMusicVolume}
-              />
-            </div>
-
-            {/* Global UI text-size nudge, on top of the viewport-adaptive base size.
-                This is the only zoom the game offers — browser zoom is blocked. It sits
-                OUTSIDE the clipping group above and never shrinks, because it is the way
-                back from an interface scaled too large to fit: clipping the escape hatch
-                would strand the player at 160%. */}
-            <div data-tut="uiscale" data-idle-keep="" className="shrink-0 flex items-center gap-[0.25em]">
-              <span className="text-[0.6em] text-[#d3c3a0] ml-[0.4em] mr-[0.4em] uppercase tracking-wide select-none">UI</span>
-              <button
-                onClick={() => setUiScalePref(stepScale(uiScale, -1, maxUiScale))}
-                disabled={uiScale <= UI_SCALE_MIN}
-                title="Smaller interface"
-                className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
-              >
-                −
-              </button>
-              <span className="text-[0.7em] text-osrs-orange tabular-nums w-[3em] text-center select-none" title="Interface size">
-                {Math.round(uiScale * 100)}%
-              </span>
-              <button
-                onClick={() => setUiScalePref(stepScale(uiScale, 1, maxUiScale))}
-                disabled={uiScale >= maxUiScale}
-                title={uiScale >= maxUiScale && maxUiScale < UI_SCALE_MAX
-                  ? 'This screen has no room for a larger interface. Widen the window for more'
-                  : 'Larger interface'}
-                className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] disabled:opacity-40"
-              >
-                +
-              </button>
-            </div>
-
-            <div className="rs-bar-sep" />
+            {!compact && (
+              <>
+                <RunControls engineRef={engineRef} ui={ui} musicVolume={musicVolume} onMusicVolume={setMusicVolume} />
+                <UiSizeControl uiScale={uiScale} maxUiScale={maxUiScale} onStep={stepUiScale} />
+                <div className="rs-bar-sep" />
+              </>
+            )}
 
             {/* Tower shop — the one interface that is never a pop-up: it is wanted
                 on nearly every click, so it lives in the bar itself. `relative`
@@ -4314,7 +4321,7 @@ export default function GameRoot() {
                 </div>{/* build dock */}
           </div>
 
-          <div data-half="" className="flex flex-1 min-w-0 items-center gap-[0.6em]">
+          <div data-half={compact ? undefined : ''} className="flex flex-1 min-w-0 items-center gap-[0.6em]">
             <div className="rs-bar-sep" />
 
             {/* Sending the wave sits next to the towers you spend the gap building.
@@ -4328,12 +4335,12 @@ export default function GameRoot() {
                 onClick={() => engineRef.current?.startWave()}
                 disabled={ui.waveActive || ui.gameOver}
                 title={ui.waveActive ? 'A wave is already on the field' : 'Send the next wave (Space)'}
-                className={`rs-btn relative px-[0.66em] pr-[2.4em] py-[0.33em] text-[0.7em] whitespace-nowrap disabled:opacity-40 ${ui.waveActive || ui.gameOver ? '' : 'rs-btn-primary animate-pulse'}`}
+                className={`rs-btn relative px-[0.66em] ${compact ? '' : 'pr-[2.4em]'} py-[0.33em] text-[0.7em] whitespace-nowrap disabled:opacity-40 ${ui.waveActive || ui.gameOver ? '' : 'rs-btn-primary animate-pulse'}`}
               >
                 ▶ Start Wave <span className="tabular-nums">{ui.wave}</span>
                 {/* The only multi-character key, so it needs the reserved right
                     padding above — everything else fits in the default padding. */}
-                <span className="rs-key">SPACE</span>
+                {!compact && <span className="rs-key">SPACE</span>}
               </button>
               <label
                 className="flex items-center gap-[0.3em] text-[0.6em] text-[#d3c3a0] uppercase tracking-wide cursor-pointer select-none"
@@ -4349,35 +4356,36 @@ export default function GameRoot() {
                 />
                 Auto
               </label>
-              <span
-                className={`flex items-center gap-[0.25em] text-[0.6em] ${ui.autoplay ? 'text-[#d3c3a0]' : 'text-[#8b8069]'}`}
-                title="Seconds to wait, once the field is clear, before the next wave starts"
-              >
-                <input
-                  type="number"
-                  min={1}
-                  max={60}
-                  step={1}
-                  value={ui.autoplaySecs}
-                  disabled={!ui.autoplay}
-                  onChange={(e) => {
-                    const v = Math.min(60, Math.max(1, Math.floor(Number(e.target.value))));
-                    if (!Number.isFinite(v)) return; // mid-edit empty field
-                    engineRef.current?.setAutoplaySecs(v);
-                    try { localStorage.setItem('ui_autostart_secs', String(v)); } catch { /* ignore */ }
-                  }}
-                  className="rs-num w-[2.6em] text-[1.15em]"
-                  aria-label="Auto-start delay in seconds"
-                />
-                s
-              </span>
+              {/* The delay is a typed number, and a phone's keyboard would cover half
+                  the board to change it, so the compact row keeps the last one set. */}
+              {!compact && (
+                <span
+                  className={`flex items-center gap-[0.25em] text-[0.6em] ${ui.autoplay ? 'text-[#d3c3a0]' : 'text-[#8b8069]'}`}
+                  title="Seconds to wait, once the field is clear, before the next wave starts"
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    step={1}
+                    value={ui.autoplaySecs}
+                    disabled={!ui.autoplay}
+                    onChange={(e) => {
+                      const v = Math.min(60, Math.max(1, Math.floor(Number(e.target.value))));
+                      if (!Number.isFinite(v)) return; // mid-edit empty field
+                      engineRef.current?.setAutoplaySecs(v);
+                      try { localStorage.setItem('ui_autostart_secs', String(v)); } catch { /* ignore */ }
+                    }}
+                    className="rs-num w-[2.6em] text-[1.15em]"
+                    aria-label="Auto-start delay in seconds"
+                  />
+                  s
+                </span>
+              )}
             </div>
 
             <div className="rs-bar-sep" />
 
-            {/* Interface stones, ordered by how often a run reaches for them:
-                loadout and DPS (read mid-run), then the two shops, then the log
-                and the two links out. Debug has no stone — it is Ctrl+' only. */}
             {/* The outer group takes what the right half has left over; the inner one
                 hugs the stones themselves, so the tutorial's ring lands on the buttons
                 instead of on the empty stretch beside them. */}
@@ -4444,63 +4452,26 @@ export default function GameRoot() {
               </div>
             </div>
 
-            <div className="rs-bar-sep" />
-
-            <div data-tut="stones" className="flex items-center gap-[0.4em]">
-              {/* The roguelite's loadout: relics and boons. Classic drafts nothing, so
-                  it has no loadout stone at all; classic's gear lives in the looting
-                  bag, inside the Inventory. The start screen always stands it up:
-                  the bar is hidden there, and the stone lowers the UI-scale
-                  ceiling, so leaving it to the mode made the menu resize on every
-                  mode switch. */}
-              {(ui.gameMode === 'roguelite' || !runStarted) && (
-                <button ref={boonsTabRef} onClick={() => onSideTab('home')} title="Run loadout: relics and boons" className={`rs-tab ${tab === 'home' ? 'rs-tab-on' : ''}`}>
-                  <img src={ASSETS.misc.cards_icon} alt="Run loadout" onError={hideBrokenImg} />
-                </button>
-              )}
-              {/* One stone for everything the run carries: the backpack, and the
-                  looting bag riding in its last square. The badge counts the bag,
-                  since the slots themselves are on the panel. Clicking it while the
-                  bag is open walks back to the backpack instead of closing. */}
-              <button ref={invTabRef} onClick={() => onSideTab('inventory')} title="Inventory: what this run carries, and the looting bag in its last slot" className={`rs-tab ${tab === 'inventory' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.inventory_icon} alt="Inventory" onError={hideBrokenImg} />
-                {ui.lootBag.length + ui.bagStacks.length > 0 && (
-                  <span className="rs-tab-badge">{ui.lootBag.length + ui.bagStacks.length}</span>
-                )}
-              </button>
-              {/* The Stats tab icon is OSRS's own symbol for "your skills", so it
-                  heads the Skills interface, and the DPS meter — which is damage,
-                  not progression — takes the red hitsplat instead. */}
-              <button onClick={() => onSideTab('dps')} title="DPS meter: damage dealt per tower, by wave" className={`rs-tab ${tab === 'dps' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.hit_splat} alt="DPS meter" onError={hideBrokenImg} />
-              </button>
-              <button onClick={() => onSideTab('skills')} title="Skills: Hunter, Farming, Herblore, Fishing" className={`rs-tab ${tab === 'skills' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.stats_icon} alt="Skills" onError={hideBrokenImg} />
-              </button>
-              <button data-tut="slayer" onClick={() => onSideTab('slayer')} title="Slayer Rewards" className={`rs-tab ${tab === 'slayer' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.slayer_crossbow} alt="Slayer Rewards" onError={hideBrokenImg} />
-                <span className="rs-tab-badge">{ui.slayerPoints}</span>
-              </button>
-              <button data-tut="essence" onClick={() => onSideTab('essence')} title="Essence Shop: permanent upgrades" className={`rs-tab ${tab === 'essence' ? 'rs-tab-on' : ''}`}>
-                <img src={ASSETS.misc.rune_essence_icon} alt="Essence Shop" onError={hideBrokenImg} />
-                <span className="rs-tab-badge">{fmt(ui.essence)}</span>
-              </button>
-              <button onClick={() => setLogOpen((o) => !o)} title="Collection Log" className={`rs-tab ${logOpen ? 'rs-tab-on' : ''}`}>
-                <img src={iconUrl('Collection_log')} alt="Collection Log" onError={hideBrokenImg} />
-              </button>
-              {FEEDBACK_ENABLED && (
-                <button data-idle-keep="" onClick={() => setFeedbackOpen(true)} title="Send feedback, or join the Discord" className={`rs-tab text-[1.15em] ${feedbackOpen ? 'rs-tab-on' : ''}`}>
-                  💬
-                </button>
-              )}
-              <button data-tut="help" data-idle-keep="" onClick={() => setHelpOpen(true)} title="How to Play" className={`rs-tab text-[1.15em] ${helpOpen ? 'rs-tab-on' : ''}`}>
-                ❓
-              </button>
-            </div>
+            {!compact && (
+              <>
+                <div className="rs-bar-sep" />
+                {stones(false)}
+              </>
+            )}
             </div>
           </div>
         </footer>
       </div>{/* bottom bar */}
+      {compact && startScreen}
+    </div>
+    {/* The compact layout's right rail: the interface stones. */}
+    {compact && (
+      <BarRail railRef={rightRailRef} fontSize={barFont} idle={!runStarted}>
+        {stones(true)}
+      </BarRail>
+    )}
+    {coarse && <TouchTitleTip />}
+    <RotateHint />
     </div>
   );
 }

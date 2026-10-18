@@ -7,6 +7,7 @@ import { fs, hideBrokenImg } from './ui-kit';
 import { DIVERSION_BY_ID } from '@/lib/game/data/diversions';
 import { FUSION_UNLOCK_CA } from '@/lib/game/systems/tower-fusion';
 import { EARLIEST_VICTORY_WAVE } from '@/lib/game/systems/wave-generation';
+import { touchWords } from '@/lib/game/systems/touch-input';
 
 /**
  * Everything that teaches the game: the contextual tips (`LEARN_STEPS` +
@@ -76,7 +77,7 @@ export const LEARN_STEPS: LearnStep[] = [
     body: 'Pick one below, then click the grass. It aims and fires on its own.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && !c.towersPlaced },
   { id: 'start', target: 'startwave', icon: ASSETS.misc.multicombat_icon, title: 'Send the wave',
-    body: 'Nothing spawns until you press Start Wave, or Space. Build first, the game waits.',
+    body: 'Nothing spawns until you press Start Wave. Build first, the game waits.',
     when: (ui, c) => !ui.waveActive && ui.wave === 1 && c.towersPlaced },
   { id: 'hud', target: 'hud', icon: ASSETS.misc.orb_hitpoints, title: 'Lives & gold',
     body: 'Lives and prayer sit in the bar. Every enemy that reaches your base costs a life; every kill pays gold.',
@@ -159,7 +160,7 @@ export const LEARN_STEPS: LearnStep[] = [
  *  the current game state, anchored beside its `data-tut` target (or floating
  *  top-centre when it has none) with a highlight ring. Non-blocking — the game
  *  plays on underneath. "Got it" retires the tip; "Skip tips" retires them all. */
-export function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll, uiScale = 1, onNudgeUiScale }: {
+export function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll, uiScale = 1, onNudgeUiScale, touch = false }: {
   ui: UIState;
   towersPlaced: boolean;
   seen: string[];
@@ -169,6 +170,8 @@ export function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll, uiScal
   uiScale?: number;
   /** Step the interface size by ±1 notch (clamped by the caller). */
   onNudgeUiScale?: (direction: 1 | -1) => void;
+  /** Played with a finger: the tips say tap where they say click. */
+  touch?: boolean;
 }) {
   const step = LEARN_STEPS.find((s) => !seen.includes(s.id) && s.when(ui, { towersPlaced })) ?? null;
   const [box, setBox] = useState<{ rect: DOMRect | null; vw: number; vh: number; scale: number }>(
@@ -199,8 +202,16 @@ export function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll, uiScal
   // the top-centre carries the wave strip and boss bar, the bottom the vitals,
   // prayers and controls, and the right edge the docked menu — so a targetless
   // tip never sits over what's happening on the board.
+  //
+  // A tall, thin target is one of the compact layout's rails, as tall as the screen:
+  // there is no room above or below it, so the balloon goes beside it, on the board.
   let bStyle: React.CSSProperties;
-  if (rect) {
+  if (rect && rect.height > rect.width * 2) {
+    const top = Math.min(Math.max(12, rect.top + rect.height / 2 - 90), vh - 200);
+    bStyle = rect.left + rect.width / 2 < vw / 2
+      ? { left: rect.right + 14, top }
+      : { left: rect.left - 14 - balloonW, top };
+  } else if (rect) {
     const placeBelow = vh - rect.bottom > 200 || vh - rect.bottom >= rect.top;
     const cx = rect.left + rect.width / 2;
     const left = Math.min(Math.max(12, cx - balloonW / 2), vw - balloonW - 12);
@@ -234,7 +245,7 @@ export function LearnAsYouGo({ ui, towersPlaced, seen, onSeen, onSkipAll, uiScal
           </span>
           <span className="text-[0.55em] uppercase tracking-wide text-[#cdbe91] border border-[#6f6250] rounded-sm px-[0.45em] py-[0.05em] shrink-0">Tip</span>
         </div>
-        <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.7em]">{step.body}</p>
+        <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.7em]">{touch ? touchWords(step.body) : step.body}</p>
         {step.uiSizeControl && onNudgeUiScale && (
           // The control itself, repeated inside the tip: reading about a button is
           // what players skip — pressing one is not.
@@ -264,11 +275,11 @@ export interface TldrTab { id: string; label: string; icon: string; lines: TldrL
 export const TLDR: TldrTab[] = [
   { id: 'basics', label: 'Basics', icon: ASSETS.misc.orb_hitpoints, lines: [
     { icon: ASSETS.misc.orb_hitpoints, text: 'Enemies walk the road. Each one that gets through costs a life.' },
-    { icon: ASSETS.misc.multicombat_icon, text: 'Build between waves, then press Start Wave or Space.' },
+    { icon: ASSETS.misc.multicombat_icon, text: 'Build between waves, then press Start Wave.' },
     { icon: ASSETS.misc.coins_icon, text: 'Kills pay gold. Gold builds and upgrades towers.' },
     { icon: itemIcon('collection_log'), text: `Beat every boss, around wave ${EARLIEST_VICTORY_WAVE}, to win. Endless follows.` },
     { icon: ASSETS.misc.spade, text: 'Between waves, pay to bend the road or slide a stretch by its grip.' },
-    { keys: ['−', '+'], text: 'The − and + on the bottom bar resize everything.' },
+    { keys: ['−', '+'], text: 'The − and + beside UI resize everything.' },
   ] },
   { id: 'towers', label: 'Towers', icon: ASSETS.towers.archer[1], lines: [
     { icon: ASSETS.towers.archer[1], text: 'Pick a tower from the dock, then click the grass.' },
@@ -335,21 +346,27 @@ function Keycaps({ keys }: { keys: string[] }) {
  *  cover the same ground in context the first time each thing appears; this
  *  window is the terse "I forgot how X works" reminder. "Replay tips" re-arms
  *  those tips. */
-export function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onResetTips: () => void }) {
+export function HowToPlay({ onClose, onResetTips, touch = false }: {
+  onClose: () => void;
+  onResetTips: () => void;
+  /** Played with a finger: no Keys tab, and tap where the lines say click. */
+  touch?: boolean;
+}) {
   const [tab, setTab] = useState(TLDR[0].id);
-  const active = TLDR.find((t) => t.id === tab) ?? TLDR[0];
+  const tabs = touch ? TLDR.filter((t) => t.id !== 'keys') : TLDR;
+  const active = tabs.find((t) => t.id === tab) ?? tabs[0];
   const isKeys = active.id === 'keys';
 
   return (
     <div className="absolute inset-0 bg-black/82 flex items-center justify-center z-50 p-4">
-      <div className="rs-panel p-[1em] w-[35em] max-w-[96vw] flex flex-col" style={{ maxHeight: '92vh', fontSize: fs('clamp(14px, 0.95vw, 19px)') }}>
+      <div className="rs-panel p-[1em] w-[35em] max-w-[96vw] flex flex-col" style={{ maxHeight: 'min(92vh, 100%)', fontSize: fs('clamp(14px, 0.95vw, 19px)') }}>
         <div className="flex items-center justify-between gap-[0.5em] mb-[0.55em]">
           <span className="text-osrs-orange font-bold text-[1.15em]">How to Play</span>
           <button className="rs-btn px-[0.7em] py-[0.15em] text-[0.85em]" onClick={onClose} title="Close">✕</button>
         </div>
 
         <div className="flex flex-wrap gap-[0.3em] mb-[0.55em] shrink-0">
-          {TLDR.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
@@ -362,9 +379,10 @@ export function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onRes
         </div>
 
         {/* Sized to the tallest tab so switching tabs doesn't resize the window
-            under the pointer; overflow is a safety net (a very small UI scale),
-            not the intended reading mode — every tab fits without scrolling. */}
-        <div className="rs-panel-inset p-[0.9em] min-h-[15.3em] max-h-[26em] overflow-y-auto">
+            under the pointer; overflow is a safety net (a very small UI scale, or
+            a phone on its side, where the floor is let go so the window fits the
+            board), not the intended reading mode. */}
+        <div className="rs-panel-inset p-[0.9em] min-h-[15.3em] [@media(max-height:520px)]:min-h-0 max-h-[26em] overflow-y-auto">
           {isKeys ? (
             <>
               <div className="grid grid-cols-2 gap-x-[0.9em] gap-y-[0.5em]">
@@ -388,7 +406,7 @@ export function HowToPlay({ onClose, onResetTips }: { onClose: () => void; onRes
                     // No OSRS sprite means "interface size" — the control's own
                     // − / + caps say it better than a borrowed icon would.
                     : l.keys && <span className="w-[1.6em] flex justify-center shrink-0"><Keycaps keys={l.keys} /></span>}
-                  <span className="text-[0.85em] text-[#d3c3a0] leading-snug">{l.text}</span>
+                  <span className="text-[0.85em] text-[#d3c3a0] leading-snug">{touch ? touchWords(l.text) : l.text}</span>
                 </li>
               ))}
             </ul>

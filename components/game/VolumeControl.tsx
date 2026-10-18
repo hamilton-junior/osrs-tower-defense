@@ -2,6 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useCoarsePointer } from './use-touch';
 
 /** `calc(base * var(--ui-scale, 1))` — the UI-scale hookup every panel uses
  *  (`fs()` in GameRoot), duplicated here so this file has no import cycle back
@@ -16,6 +17,8 @@ export interface VolumeControlProps {
   /** The soundtrack's own level, set apart from the effects as OSRS does. */
   musicVolume: number;
   onMusicVolume: (v: number) => void;
+  /** The button's classes, in place of the bar's (the compact layout's rail sizes its own). */
+  className?: string;
 }
 
 /** One labelled slider row of the flyout. */
@@ -70,8 +73,13 @@ function LevelRow({ label, value, muted, onChange, onGrab }: {
  * is worse than any space it costs. Leaving closes it after a short grace, so the
  * gap between button and panel isn't a trapdoor.
  */
-export function VolumeControl({ volume, muted, onVolume, onToggleMute, musicVolume, onMusicVolume }: VolumeControlProps) {
+export function VolumeControl({ volume, muted, onVolume, onToggleMute, musicVolume, onMusicVolume, className }: VolumeControlProps) {
   const [hover, setHover] = useState(false);
+  // A finger has no hover, and the browser opens the flyout on the tap itself, so
+  // on a touch screen a tap on the button opens and closes the flyout instead of
+  // muting, and the flyout carries the mute.
+  const touch = useCoarsePointer();
+  const wasOpen = useRef(false);
   const [drag, setDrag] = useState(false);
   const [mounted, setMounted] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
@@ -137,14 +145,19 @@ export function VolumeControl({ volume, muted, onVolume, onToggleMute, musicVolu
       <button
         ref={btnRef}
         data-idle-keep=""
-        onClick={onToggleMute}
+        onPointerDown={() => { wasOpen.current = open; }}
+        onClick={() => {
+          if (!touch) onToggleMute();
+          else if (wasOpen.current) setHover(false);
+          else stayOpen();
+        }}
         onMouseEnter={stayOpen}
         onMouseMove={stayOpen}
         onMouseLeave={leave}
         onFocus={stayOpen}
         onBlur={leave}
-        title={muted ? 'Unmute (M)' : 'Mute (M)'}
-        className="rs-btn relative px-[0.66em] py-[0.33em] text-[0.7em] ml-[0.33em]"
+        title={touch ? 'Sound' : muted ? 'Unmute (M)' : 'Mute (M)'}
+        className={className ?? 'rs-btn relative px-[0.66em] py-[0.33em] text-[0.7em] ml-[0.33em]'}
       >
         {muted ? '🔇' : '🔊'}
         <span className="rs-key">M</span>
@@ -165,6 +178,11 @@ export function VolumeControl({ volume, muted, onVolume, onToggleMute, musicVolu
         >
           <LevelRow label="Sound" value={volume} muted={muted} onChange={onVolume} onGrab={() => setDrag(true)} />
           <LevelRow label="Music" value={musicVolume} muted={muted} onChange={onMusicVolume} onGrab={() => setDrag(true)} />
+          {touch && (
+            <button className="rs-btn self-center px-[0.8em] py-[0.25em] text-[0.7em]" onClick={onToggleMute}>
+              {muted ? '🔊 Unmute' : '🔇 Mute'}
+            </button>
+          )}
         </div>,
         document.body,
       )}

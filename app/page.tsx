@@ -11,13 +11,13 @@ const GAME_URL_LABEL = 'hamilton-junior.github.io/osrs-tower-defense';
 
 export default function Page() {
   return (
-    <div className="h-screen w-screen bg-black text-osrs-yellow font-osrs flex flex-col overflow-hidden relative">
+    <div className="h-dvh w-screen bg-black text-osrs-yellow font-osrs flex flex-col overflow-hidden relative">
       {/* The header floats as a top-left overlay instead of taking a row of its
           own — the board is height-bound, so every reclaimed pixel of height makes
           it wider. It sits over the empty top-left grass corner (the HUD lives
           top-right), and `pointer-events-none` lets clicks fall through to the
-          board except on the link itself. */}
-      <header className="absolute top-0 left-0 z-20 px-3 py-2 flex items-center gap-3 pointer-events-none">
+          board except on the link itself. A phone does without it (globals.css). */}
+      <header className="rs-page-header absolute top-0 left-0 z-20 px-3 py-2 flex items-center gap-3 pointer-events-none">
         <h1 className="text-2xl text-osrs-orange drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">OSRS Tower Defense</h1>
         <a
           href={GAME_URL}

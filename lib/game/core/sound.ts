@@ -129,6 +129,9 @@ export function isDeathSound(key: string): boolean {
   return key === 'death' || key.startsWith('death_');
 }
 
+/** The events a browser lets start sound from: a mouse press, or a finger lifting. */
+const UNLOCK_EVENTS = ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const;
+
 /**
  * Lightweight SFX player over HTMLAudioElement. Preloads each source once and
  * plays a clone per trigger so overlapping shots don't cut each other off.
@@ -205,7 +208,8 @@ export class SoundManager {
    * Start an ambient clip looping under the effects, at `level` of their gain,
    * and return what stops it. Mute and the volume slider reach it like any clip.
    * A browser refuses sound before the page's first click; the loop then waits
-   * for that click and starts on it.
+   * for that click and starts on it. A finger's tap only counts on the way up, so
+   * the release is watched as well as the press.
    */
   loop(key: string, level = 0.6): () => void {
     const base = this.cache.get(key);
@@ -214,13 +218,14 @@ export class SoundManager {
     node.loop = true;
     node.volume = this.gain() * level;
     this.loops.set(node, level);
-    const retry = () => { if (this.loops.has(node) && !this.muted) void node.play().catch(() => {}); };
+    const unwatch = () => { for (const ev of UNLOCK_EVENTS) window.removeEventListener(ev, retry); };
+    const retry = () => { if (this.loops.has(node) && !this.muted) void node.play().then(unwatch, () => {}); };
     if (!this.muted) {
-      void node.play().catch(() => window.addEventListener('pointerdown', retry, { once: true }));
+      void node.play().catch(() => { for (const ev of UNLOCK_EVENTS) window.addEventListener(ev, retry); });
     }
     return () => {
       this.loops.delete(node);
-      window.removeEventListener('pointerdown', retry);
+      unwatch();
       node.pause();
     };
   }

@@ -26,6 +26,12 @@ const FADE_OUT_S = 4;
  */
 const AHEAD_S = FADE_OUT_S + 2;
 const CHUNK_FRAMES = SYNTH_RATE;
+/**
+ * The events a browser lets start sound from. A mouse press counts on the way
+ * down, but a finger only on the way up (`pointerup`, and `touchend` on older
+ * Safari), so listening for `pointerdown` alone left a phone silent.
+ */
+const UNLOCK_EVENTS = ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const;
 
 export interface MusicUrls {
   bank: string;
@@ -89,8 +95,7 @@ export class MusicPlayer {
     this.disposed = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
-    window.removeEventListener('pointerdown', this.unlock);
-    window.removeEventListener('keydown', this.unlock);
+    for (const ev of UNLOCK_EVENTS) window.removeEventListener(ev, this.unlock);
     this.worker?.terminate();
     this.worker = null;
     void this.ctx?.close().catch(() => {});
@@ -112,8 +117,7 @@ export class MusicPlayer {
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : this.volume * MAX_GAIN;
       this.master.connect(this.ctx.destination);
-      window.addEventListener('pointerdown', this.unlock);
-      window.addEventListener('keydown', this.unlock);
+      for (const ev of UNLOCK_EVENTS) window.addEventListener(ev, this.unlock);
       this.worker = new Worker(new URL('./music.worker.ts', import.meta.url));
       this.worker.onmessage = (e: MessageEvent<MusicWorkerOut>) => this.onChunk(e.data);
       const [bank, levels] = await Promise.all([

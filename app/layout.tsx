@@ -4,6 +4,9 @@ import './globals.css'; // Global styles
 export const metadata: Metadata = {
   title: 'OSRS Tower Defense',
   description: 'An Old School RuneScape themed tower defense game.',
+  // Added to an iPhone's home screen, the game opens without Safari's bars, which
+  // is the only fullscreen an iPhone gives a page.
+  appleWebApp: { capable: true, title: 'OSRS TD', statusBarStyle: 'black' },
 };
 
 // The board is sized to the viewport, so any zoom re-fits the canvas and

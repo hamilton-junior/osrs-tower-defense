@@ -2,6 +2,7 @@
 
 import React, { CSSProperties, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { boundsReady, fitPanelOffset, type PanelBox } from '@/lib/game/systems/panel-fit';
+import { useCoarsePointer } from './use-touch';
 
 function load<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -123,6 +124,8 @@ export function MovablePanel({ id, className, style, globalLock = false, tut, ch
   }, [offset]);
 
   const canDrag = !globalLock && !locked;
+  // A finger has no right-click, so the hint below would name a gesture it lacks.
+  const coarse = useCoarsePointer();
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (!canDrag || e.button !== 0) return;
@@ -194,7 +197,10 @@ export function MovablePanel({ id, className, style, globalLock = false, tut, ch
       // the anchor (couldn't place towers under a moved-away panel; worst at the top).
       className={className ? `${className} pointer-events-auto` : 'pointer-events-auto'}
       data-tut={tut}
-      style={{ ...style, transform: `translate(${shown.x}px, ${shown.y}px)`, cursor: canDrag ? 'move' : undefined }}
+      // `touchAction` hands a finger's drag to the panel instead of to the browser,
+      // which would claim it as a pan and cancel the drag. A list scrolling inside
+      // the panel keeps its own: touch-action stops at the nearest scroll box.
+      style={{ ...style, transform: `translate(${shown.x}px, ${shown.y}px)`, cursor: canDrag ? 'move' : undefined, touchAction: canDrag ? 'none' : undefined }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
@@ -211,7 +217,7 @@ export function MovablePanel({ id, className, style, globalLock = false, tut, ch
           {locked ? '🔒' : '📌'}
         </button>
       )}
-      {moved && !globalLock && !locked && (
+      {moved && !globalLock && !locked && !coarse && (
         <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[9px] text-[#b3a585] whitespace-nowrap pointer-events-none">
           right-click to reset
         </span>

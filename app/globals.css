@@ -70,6 +70,12 @@ body {
      the same 4K ceiling so large text isn't blown up disproportionally. */
   font-size: calc(clamp(24px, 2.5vmin, 42px) * var(--ui-scale, 1));
 }
+/* A short screen, a phone on its side, gets a lower floor: 24px is a desktop's
+   reading size, and on a screen 390px tall it drew every panel that sizes off this
+   one twice the height the board leaves it. */
+@media (max-height: 520px) {
+  body { font-size: calc(clamp(18px, 2.5vmin, 42px) * var(--ui-scale, 1)); }
+}
 
 .font-osrs {
   font-family: var(--font-osrs);
@@ -1615,4 +1621,98 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
 }
 .rs-bar-idle [data-idle-keep] {
   visibility: visible;
+}
+
+/* The compact layout's rails, for a touch screen or a window too narrow for the
+   bar's one row (`barLayoutFor`): the run controls stand left of the board and the
+   interface stones right of it. Each is as tall as the screen, with its column
+   centred in it; `maxUiScale` measures that column against the rail. */
+.rs-rail {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.4em 0.3em;
+}
+.rs-rail-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+}
+.rs-rail-btn {
+  width: 2.3em;
+  height: 2.1em;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rs-rail .rs-tab { width: 2.3em; height: 2.3em; }
+.rs-rail-sep {
+  flex: none;
+  align-self: stretch;
+  height: 0;
+  margin: 0.1em 0.2em;
+  border-top: 1px solid rgba(0, 0, 0, 0.32);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+/* A board-anchored panel kept inside the board on a short screen: the body
+   scrolls under the title. The scrolling is the body's, not the panel's, so a
+   MovablePanel keeps `touch-action: none` for its drag while the body pans. */
+.rs-panel-fit {
+  max-height: calc(100% - 2rem);
+  display: flex;
+  flex-direction: column;
+}
+.rs-panel-fit-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* The pick overlays over the board: draft, relic and road fork. A board shorter
+   than a full-size card under its heading carries `data-board` (`boardHeight` in
+   systems/ui-fit.ts): the cards shrink a step or two, and the overlay scrolls if
+   they still run over. `safe` keeps a centred hand from overflowing above the top,
+   out of reach of the scroll; a browser without it reads the plain
+   `justify-center`. A scroll box clips, so it lets go while a kept card flies out
+   of it to its stone. */
+[data-board] .rs-pick {
+  padding: 0.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  justify-content: safe center;
+}
+[data-board] .rs-pick:has(.draft-card-fly) { overflow: visible; }
+[data-board="short"] .rs-pick .draft-card { zoom: 0.8; }
+[data-board="shorter"] .rs-pick .draft-card { zoom: 0.72; }
+
+/* Touch screens. A tap never flashes the browser's highlight or opens the
+   long-press callout, a double tap never zooms (iOS ignores the viewport's
+   `user-scalable`), and iOS keeps the type at its set size when the phone turns
+   sideways instead of inflating it. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+}
+/* A finger has no keyboard, so the key caps engraved on the controls say nothing to it. */
+@media (pointer: coarse) {
+  .rs-key,
+  .rs-slot-key { display: none; }
+}
+/* The page header floats over the board's corner, and the compact layout's board
+   needs that corner. 999px is one under FULL_BAR_MIN_WIDTH. */
+@media (pointer: coarse), (max-width: 999px) {
+  .rs-page-header { display: none; }
+}
+/* Turn-it-sideways screen (`RotateHint`): a touch screen held upright only. */
+.rs-rotate-hint { display: none; }
+@media (orientation: portrait) and (pointer: coarse) {
+  .rs-rotate-hint { display: flex; }
 }
