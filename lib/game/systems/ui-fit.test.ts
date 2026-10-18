@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardHeight, uiScaleCeiling } from './ui-fit';
+import { uiScaleCeiling } from './ui-fit';
 
 describe('uiScaleCeiling', () => {
   it('solves the scale at which a row exactly fills its width', () => {
@@ -26,22 +26,5 @@ describe('uiScaleCeiling', () => {
   it('ignores a part that needs nothing', () => {
     expect(uiScaleCeiling(1, [{ need: 0, have: 10 }], 0.7, 1.6)).toBe(1.6);
     expect(uiScaleCeiling(1, [], 0.7, 1.6)).toBe(1.6);
-  });
-});
-
-describe('boardHeight', () => {
-  it('leaves a desktop board alone', () => {
-    expect(boardHeight(711)).toBeNull();
-    expect(boardHeight(420)).toBeNull();
-  });
-
-  it('takes one step for a landscape phone or a narrow window', () => {
-    expect(boardHeight(358)).toBe('short'); // 900×600 window
-    expect(boardHeight(333)).toBe('short'); // 844×390 phone
-  });
-
-  it('takes two for a shorter one', () => {
-    expect(boardHeight(304)).toBe('shorter'); // 800×360 phone
-    expect(boardHeight(256)).toBe('shorter'); // 667×375 phone
   });
 });

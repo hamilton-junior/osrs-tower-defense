@@ -11,9 +11,9 @@ import { fmt, hideBrokenImg, UI_SCALE_MAX, UI_SCALE_MIN } from './ui-kit';
  * The groups of the bottom bar that move when the layout does. On a wide screen
  * with a mouse they sit in the bar's one row; in the compact layout (a touch screen,
  * or a window too narrow for the row) they stand in a rail on either side of the
- * board instead, which is what leaves the row short enough for buttons a finger can
- * hit. Each group renders either way from the same props, so the two layouts never
- * drift apart.
+ * board, or in a second row of the bar on a squarer screen, which is what leaves the
+ * first row short enough for buttons a finger can hit. Each group renders every way
+ * from the same props, so the layouts never drift apart.
  */
 
 /** The interface stones' panels. */
@@ -30,7 +30,7 @@ export function RunControls({ engineRef, ui, musicVolume, onMusicVolume, rail = 
   onMusicVolume: (v: number) => void;
   /** Stand in a rail: one column, and one speed button that steps 1× → 2× → 5×. */
   rail?: boolean;
-  /** More rail buttons, under the sound control. */
+  /** More buttons, after the sound control. */
   children?: React.ReactNode;
 }) {
   const pause = (
@@ -103,6 +103,7 @@ export function RunControls({ engineRef, ui, musicVolume, onMusicVolume, rail = 
         </button>
       ))}
       {sound}
+      {children}
     </div>
   );
 }

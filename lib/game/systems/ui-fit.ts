@@ -31,26 +31,3 @@ export function uiScaleCeiling(scale: number, constraints: readonly FitConstrain
   const room = Math.floor((fits - 1e-3) * 100) / 100;
   return Math.min(max, Math.max(min, room));
 }
-
-/** How short the board is drawn, for what has to fit over it; null when nothing needs to give. */
-export type BoardHeight = 'short' | 'shorter' | null;
-
-/** Below this the pick overlays' cards no longer fit under their heading at full size. */
-export const SHORT_BOARD_PX = 420;
-/** Below this they no longer fit at the first step down either. */
-export const SHORTER_BOARD_PX = 320;
-
-/**
- * The step a board of `height` CSS px falls on. A pick overlay (draft, relic, road
- * fork) holds a row of full-size cards under its heading, about 400 px, and covers
- * the board alone: on a phone held sideways, or in a window narrow enough that the
- * compact bar's rails take its width, the board is shorter than that, so the cards
- * shrink a step or two there and the overlay scrolls. It is read off the board, not
- * the window, because the window's height does not tell: a 900×600 window draws a
- * board 358 px tall.
- */
-export function boardHeight(height: number): BoardHeight {
-  if (height < SHORTER_BOARD_PX) return 'shorter';
-  if (height < SHORT_BOARD_PX) return 'short';
-  return null;
-}

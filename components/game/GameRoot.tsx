@@ -20,7 +20,7 @@ import { RunControls, UiSizeControl, InterfaceStones, BarRail, type SideTab } fr
 import { ArmedHint, TouchTitleTip, RotateHint, FullscreenButton } from './touch-ui';
 import { useBarLayout, useCoarsePointer } from './use-touch';
 import { handInUse, tapInHand, tileAt, type TapAim } from '@/lib/game/systems/touch-input';
-import { boardHeight, uiScaleCeiling, type FitConstraint } from '@/lib/game/systems/ui-fit';
+import { uiScaleCeiling, type FitConstraint } from '@/lib/game/systems/ui-fit';
 import { useMusic } from './use-music';
 import { musicFor } from '@/lib/game/data/music';
 import { tipHeader, WavePreviewCard, DRAFT_FLY_MS, WaveEventChip } from './wave-ui';
@@ -148,6 +148,9 @@ const INITIAL: UIState = {
  *  `.rs-loot-toast` — change both together or a toast pops out mid-fade. */
 const LOOT_TOAST_MS = 2600;
 
+/** The stacked layout's second row at its shortest, in the bar's `em`: a stone and its frame. */
+const STACK_ROW_EM = 3.4;
+
 /** Title shown above an unlock's name in the collection-log popup, per kind. */
 const UNLOCK_LABEL: Record<UnlockItem['kind'], string> = {
   prayer: 'Prayer Unlocked',
@@ -181,9 +184,14 @@ export default function GameRoot() {
   const columnRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
   // A finger, and the compact layout it gets: the run controls and the interface
-  // stones move out of the bar into a rail either side of the board.
+  // stones move out of the bar's row, into a rail either side of the board
+  // (`railed`) or a second row under it (`stacked`).
   const coarse = useCoarsePointer();
-  const compact = useBarLayout(coarse) === 'compact';
+  const barLayout = useBarLayout(coarse);
+  const compact = barLayout !== 'full';
+  const railed = barLayout === 'compact';
+  const stacked = barLayout === 'stacked';
+  const stackRowRef = useRef<HTMLDivElement>(null);
   const leftRailRef = useRef<HTMLElement | null>(null);
   const rightRailRef = useRef<HTMLElement | null>(null);
   // The board is a fixed 1440×640 picture; the *UI* adapts to it, never the
@@ -488,10 +496,14 @@ export default function GameRoot() {
       // The compact layout's rails take their width out of the row's: they grow
       // with the scale too, so the row and both rails share the screen's width
       // between them. Each rail's column also has to fit the screen's height.
+      // The stacked layout's second row holds them instead, and has to fit the
+      // screen's width the way the first one does.
       const rails = [leftRailRef.current, rightRailRef.current].filter((r): r is HTMLElement => !!r);
       const railsW = rails.reduce((a, r) => a + r.getBoundingClientRect().width, 0);
+      const stackRow = stackRowRef.current;
       const constraints: FitConstraint[] = [
         { need: natural(bar, true) + skew + railsW, have: bar.offsetWidth + railsW },
+        ...(stackRow ? [{ need: natural(stackRow, true), have: stackRow.offsetWidth }] : []),
         ...rails.map((r) => {
           const rs = getComputedStyle(r);
           const col = r.firstElementChild as HTMLElement | null;
@@ -513,7 +525,7 @@ export default function GameRoot() {
       if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure(); });
     };
     const ro = new ResizeObserver(schedule);
-    const parts = [bar, leftRailRef.current, rightRailRef.current].filter((el): el is HTMLElement => !!el);
+    const parts = [bar, leftRailRef.current, rightRailRef.current, stackRowRef.current].filter((el): el is HTMLElement => !!el);
     const watch = () => {
       ro.disconnect();
       for (const part of parts) {
@@ -534,7 +546,7 @@ export default function GameRoot() {
       mo.disconnect();
       fonts?.removeEventListener('loadingdone', schedule);
     };
-  }, [compact]);
+  }, [barLayout]);
   // A stone toggles its interface: clicking the lit one closes it, so no panel is
   // ever stuck on-screen. The popup floats above the bar (absolutely positioned),
   // so opening it never resizes the canvas — which would rebuild the path and
@@ -1139,9 +1151,11 @@ export default function GameRoot() {
     const col = columnRef.current;
     const bar = barRef.current;
     if (!col || !bar) return;
+    // The stacked layout's second row has a minimum of its own to keep free.
+    const minH = (el: HTMLElement | null) => (el ? parseFloat(getComputedStyle(el).minHeight) || 0 : 0);
     const fit = () => {
       const w = col.clientWidth;
-      const h = col.clientHeight - (parseFloat(getComputedStyle(bar).minHeight) || 0);
+      const h = col.clientHeight - minH(bar) - minH(stackRowRef.current);
       if (w <= 0 || h <= 0) return;
       const scale = Math.min(w / LOGIC_WIDTH, h / LOGIC_HEIGHT);
       // Floored, so a rounding half-pixel never comes out of the bar's minimum.
@@ -1152,7 +1166,7 @@ export default function GameRoot() {
     const ro = new ResizeObserver(fit);
     ro.observe(col);
     return () => ro.disconnect();
-  }, [uiScale, compact]);
+  }, [uiScale, barLayout]);
 
   // Report the board's on-screen size to the engine so it can back the canvas at
   // the display's native resolution (see engine `setDisplaySize`/`deviceScale`) —
@@ -1750,8 +1764,9 @@ export default function GameRoot() {
 
   // The title / mode-select screen, which gates the first wave of each run. It
   // covers the board; in the compact layout it takes the bar's height as well,
-  // because there the bar is empty until the run starts (its controls stand in
-  // the rails), and a phone's board alone is too short to hold the menu.
+  // because there the bar's first row is empty until the run starts and the board
+  // alone is too short to hold the menu. It stops above a stacked second row,
+  // which holds the controls the idle bar keeps up (sound, size, help).
   const startScreen = !runStarted && !ui.gameOver && (
     <StartScreen
       mode={ui.gameMode}
@@ -1797,12 +1812,138 @@ export default function GameRoot() {
     />
   );
 
+  // The how-to-play guide, the feedback form and the save code: the top layer, so
+  // they read over the start screen too. In the compact layout, where the start
+  // screen takes the bar's height as well, they cover the whole column, or their
+  // dimming would stop at the board's edge with the menu bright under it.
+  const modals = (
+    <>
+      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} onResetTips={resetTips} touch={coarse} />}
+      {feedbackOpen && <FeedbackModal ui={ui} onClose={() => setFeedbackOpen(false)} />}
+      {saveCodeOpen && <SaveCodeModal onClose={() => setSaveCodeOpen(false)} />}
+    </>
+  );
+
+  // The pick overlays: the road fork, a relic and a draft. They cover the board;
+  // when the rails stand beside it they take the bar's height as well, since a
+  // phone's board is too short for a row of cards under a heading, and the bar
+  // has nothing to offer while a pick holds the next wave back.
+  const pickOverlays = (
+    <>
+      {/* The road forks — pick the region the run marches into next. Waits behind a
+          relic or draft choice so two modals never stack; all three block Start Wave. */}
+      {ui.pendingTravel && !ui.gameOver && !ui.pendingRelics && !ui.pendingDraft && (
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4 rs-pick">
+          <div className="flex items-center gap-[0.4em] mb-1">
+            <img src={ASSETS.misc.signpost} alt="" className="w-[1.4em] h-[1.4em] object-contain" />
+            <div className="text-osrs-orange font-bold text-[1.4em] text-center">The Road Forks</div>
+          </div>
+          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center max-w-[34em]">
+            The boss is down. Pick where to travel. Your road and towers stay; the land and its monsters change.
+          </div>
+          <div className="flex gap-6 flex-wrap justify-center">
+            {ui.pendingTravel.map((option) => (
+              <TravelCardView
+                key={option.id}
+                option={option}
+                onPick={() => engineRef.current?.travelTo(option.id as BiomeId)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Roguelite relic choice — a defeated boss's run-defining pick */}
+      {ui.pendingRelics && !ui.gameOver && (
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4 rs-pick">
+          <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Choose a Relic</div>
+          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">The boss falls. Claim one run-long power</div>
+          <div className="flex gap-6 flex-wrap justify-center">
+            {ui.pendingRelics.map((relic) => (
+              <RelicCardView
+                key={relic.id}
+                relic={relic}
+                onPick={() => engineRef.current?.pickRelic(relic.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Roguelite draft — pick one card to keep before the next wave */}
+      {ui.pendingDraft && !ui.gameOver && (
+        <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30 p-4 rs-pick">
+          <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">
+            {ui.draftBoosted ? 'Boss Spoils' : 'Draft a Reward'}
+          </div>
+          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">
+            {ui.draftBoosted
+              ? 'Every relic is yours, so the boss pays in rare cards instead. Keep one.'
+              : 'Keep one card'}
+          </div>
+          {/* First-time coaching, shown right here while the cards are on the table
+              (never after the fact). The overlay is modal, so this can't overlap
+              anything happening on the board. Dismiss it or just pick a card. */}
+          {!learnSeen.includes('draft') && (
+            <div className="rs-panel-inset max-w-[36em] mb-4 px-[1.1em] py-[0.7em] text-center" style={{ fontSize: fs('clamp(12px, 0.8vw, 16px)') }}>
+              <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.3em] flex items-center justify-center gap-[0.35em]">
+                <img src={ASSETS.misc.cards_icon} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
+                How reward cards work
+              </div>
+              <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.55em]">
+                Keep <b>one</b> card to snowball your build: potions, weapons and rule-changing boons.{' '}
+                {!coarse && 'Hover a card to preview exactly what it does. '}Duplicates stack. A card badged <b>NEW</b> is one
+                you have never kept, so it is missing from your Collection Log. You buy rolls with gold
+                and each one costs more, so spend against your towers. Beating a <b>boss</b> pays a <b>Relic</b>.
+              </p>
+              <button className="rs-btn px-[0.9em] py-[0.2em] text-[0.8em]" onClick={() => markTipSeen('draft')}>Got it ✓</button>
+            </div>
+          )}
+          <div className="flex gap-6 flex-wrap justify-center">
+            {ui.pendingDraft.map((card) => {
+              const chosen = picking?.id === card.id;
+              return (
+                <div
+                  key={card.id}
+                  ref={(el) => { if (el) cardRefs.current.set(card.id, el); else cardRefs.current.delete(card.id); }}
+                  className={picking ? (chosen ? 'draft-card-fly' : 'draft-card-vanish') : undefined}
+                  style={chosen && picking
+                    ? ({ '--fly-x': `${picking.dx}px`, '--fly-y': `${picking.dy}px`, '--fly-s': picking.scale } as React.CSSProperties)
+                    : undefined}
+                >
+                  <DraftCardView
+                    card={card}
+                    large
+                    unseen={!(ui.cardCounts[card.id] > 0)}
+                    onPick={() => pickCard(card.id)}
+                    ctx={{ runMods: ui.runMods, slayerPoints: ui.slayerPoints, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          {/* Trickster relic: re-roll the hand while charges remain. Hidden once a
+              pick is in flight — the hand is already on its way out. */}
+          {ui.draftRerolls > 0 && !picking && (
+            <button
+              className="rs-btn rs-btn-primary mt-4 px-[1.2em] py-[0.4em] text-[0.9em]"
+              title="Discard this hand and draw a fresh set of cards"
+              onClick={() => engineRef.current?.rerollDraft()}
+            >
+              ⟳ Re-roll ({ui.draftRerolls} left)
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="w-full h-full flex overflow-hidden bg-black select-none font-osrs">
     {/* The compact layout's left rail: the run controls and the interface size.
         The rails are the column's siblings, so the board is fitted to what they
         leave over. */}
-    {compact && (
+    {railed && (
       <BarRail railRef={leftRailRef} fontSize={barFont} idle={!runStarted}>
         <RunControls rail engineRef={engineRef} ui={ui} musicVolume={musicVolume} onMusicVolume={setMusicVolume}>
           <FullscreenButton className="rs-btn rs-rail-btn" />
@@ -1827,7 +1968,6 @@ export default function GameRoot() {
       <div
         ref={boardRef}
         data-tut="map"
-        data-board={boardSize ? boardHeight(boardSize.h) ?? undefined : undefined}
         className="relative bg-black shrink-0"
         style={boardSize ? { width: boardSize.w, height: boardSize.h } : { visibility: 'hidden' }}
       >
@@ -3503,111 +3643,9 @@ export default function GameRoot() {
         </div>
       )}
 
-      {/* The road forks — pick the region the run marches into next. Waits behind a
-          relic or draft choice so two modals never stack; all three block Start Wave. */}
-      {ui.pendingTravel && !ui.gameOver && !ui.pendingRelics && !ui.pendingDraft && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4 rs-pick">
-          <div className="flex items-center gap-[0.4em] mb-1">
-            <img src={ASSETS.misc.signpost} alt="" className="w-[1.4em] h-[1.4em] object-contain" />
-            <div className="text-osrs-orange font-bold text-[1.4em] text-center">The Road Forks</div>
-          </div>
-          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center max-w-[34em]">
-            The boss is down. Pick where to travel. Your road and towers stay; the land and its monsters change.
-          </div>
-          <div className="flex gap-6 flex-wrap justify-center">
-            {ui.pendingTravel.map((option) => (
-              <TravelCardView
-                key={option.id}
-                option={option}
-                onPick={() => engineRef.current?.travelTo(option.id as BiomeId)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Roguelite relic choice — a defeated boss's run-defining pick */}
-      {ui.pendingRelics && !ui.gameOver && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-30 p-4 rs-pick">
-          <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">Choose a Relic</div>
-          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">The boss falls. Claim one run-long power</div>
-          <div className="flex gap-6 flex-wrap justify-center">
-            {ui.pendingRelics.map((relic) => (
-              <RelicCardView
-                key={relic.id}
-                relic={relic}
-                onPick={() => engineRef.current?.pickRelic(relic.id)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Roguelite draft — pick one card to keep before the next wave */}
-      {ui.pendingDraft && !ui.gameOver && (
-        <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center z-30 p-4 rs-pick">
-          <div className="text-osrs-orange font-bold text-[1.4em] mb-1 text-center">
-            {ui.draftBoosted ? 'Boss Spoils' : 'Draft a Reward'}
-          </div>
-          <div className="text-[#cdbe91] text-[0.85em] mb-4 text-center">
-            {ui.draftBoosted
-              ? 'Every relic is yours, so the boss pays in rare cards instead. Keep one.'
-              : 'Keep one card'}
-          </div>
-          {/* First-time coaching, shown right here while the cards are on the table
-              (never after the fact). The overlay is modal, so this can't overlap
-              anything happening on the board. Dismiss it or just pick a card. */}
-          {!learnSeen.includes('draft') && (
-            <div className="rs-panel-inset max-w-[36em] mb-4 px-[1.1em] py-[0.7em] text-center" style={{ fontSize: fs('clamp(12px, 0.8vw, 16px)') }}>
-              <div className="text-osrs-orange font-bold text-[0.95em] mb-[0.3em] flex items-center justify-center gap-[0.35em]">
-                <img src={ASSETS.misc.cards_icon} alt="" className="w-[1.2em] h-[1.2em] object-contain" onError={hideBrokenImg} />
-                How reward cards work
-              </div>
-              <p className="text-[0.85em] text-[#d3c3a0] leading-snug mb-[0.55em]">
-                Keep <b>one</b> card to snowball your build: potions, weapons and rule-changing boons.{' '}
-                {!coarse && 'Hover a card to preview exactly what it does. '}Duplicates stack. A card badged <b>NEW</b> is one
-                you have never kept, so it is missing from your Collection Log. You buy rolls with gold
-                and each one costs more, so spend against your towers. Beating a <b>boss</b> pays a <b>Relic</b>.
-              </p>
-              <button className="rs-btn px-[0.9em] py-[0.2em] text-[0.8em]" onClick={() => markTipSeen('draft')}>Got it ✓</button>
-            </div>
-          )}
-          <div className="flex gap-6 flex-wrap justify-center">
-            {ui.pendingDraft.map((card) => {
-              const chosen = picking?.id === card.id;
-              return (
-                <div
-                  key={card.id}
-                  ref={(el) => { if (el) cardRefs.current.set(card.id, el); else cardRefs.current.delete(card.id); }}
-                  className={picking ? (chosen ? 'draft-card-fly' : 'draft-card-vanish') : undefined}
-                  style={chosen && picking
-                    ? ({ '--fly-x': `${picking.dx}px`, '--fly-y': `${picking.dy}px`, '--fly-s': picking.scale } as React.CSSProperties)
-                    : undefined}
-                >
-                  <DraftCardView
-                    card={card}
-                    large
-                    unseen={!(ui.cardCounts[card.id] > 0)}
-                    onPick={() => pickCard(card.id)}
-                    ctx={{ runMods: ui.runMods, slayerPoints: ui.slayerPoints, essence: ui.essence, lives: ui.lives, maxLives: ui.maxLives }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-          {/* Trickster relic: re-roll the hand while charges remain. Hidden once a
-              pick is in flight — the hand is already on its way out. */}
-          {ui.draftRerolls > 0 && !picking && (
-            <button
-              className="rs-btn rs-btn-primary mt-4 px-[1.2em] py-[0.4em] text-[0.9em]"
-              title="Discard this hand and draw a fresh set of cards"
-              onClick={() => engineRef.current?.rerollDraft()}
-            >
-              ⟳ Re-roll ({ui.draftRerolls} left)
-            </button>
-          )}
-        </div>
-      )}
+      {/* The pick overlays (`pickOverlays`): over the board alone, unless the rails
+          stand beside it. */}
+      {!railed && pickOverlays}
 
       {/* Game over — end-of-run summary */}
       {ui.gameOver && (
@@ -3719,10 +3757,8 @@ export default function GameRoot() {
       {/* Title / mode-select screen (`startScreen`), over the board alone */}
       {!compact && startScreen}
 
-      {/* How-to-play reference guide — top layer so it reads over the start screen too */}
-      {helpOpen && <HowToPlay onClose={() => setHelpOpen(false)} onResetTips={resetTips} touch={coarse} />}
-      {feedbackOpen && <FeedbackModal ui={ui} onClose={() => setFeedbackOpen(false)} />}
-      {saveCodeOpen && <SaveCodeModal onClose={() => setSaveCodeOpen(false)} />}
+      {/* The guide, feedback and save code (`modals`), over the board alone */}
+      {!compact && modals}
 
       {/* Learn-as-you-go: one contextual tip at a time, keyed to what's happening
           on-screen. Suppressed over the start screen, game-over, the guide and the
@@ -4461,11 +4497,36 @@ export default function GameRoot() {
             </div>
           </div>
         </footer>
+        {/* The stacked layout's second row: the run controls, the interface size and
+            the stones. It shares the bar's spare height with the first row, and the
+            fit effect keeps its minimum free under the board as well. Under the start
+            screen it keeps only that minimum, which the screen stops above. */}
+        {stacked && (
+          <div
+            ref={stackRowRef}
+            className={`w-full rs-panel flex items-center gap-[0.6em] px-[0.6em] ${startScreen ? 'shrink-0' : 'flex-1'} ${runStarted ? '' : 'rs-bar-idle'}`}
+            style={{ minHeight: `${STACK_ROW_EM}em`, height: startScreen ? `${STACK_ROW_EM}em` : undefined }}
+          >
+            <RunControls engineRef={engineRef} ui={ui} musicVolume={musicVolume} onMusicVolume={setMusicVolume}>
+              <FullscreenButton className="rs-btn px-[0.66em] py-[0.33em] text-[0.7em] ml-[0.33em]" />
+            </RunControls>
+            <UiSizeControl uiScale={uiScale} maxUiScale={maxUiScale} onStep={stepUiScale} />
+            <div className="rs-bar-sep" />
+            {stones(false)}
+          </div>
+        )}
       </div>{/* bottom bar */}
-      {compact && startScreen}
+      {railed && pickOverlays}
+      {railed && startScreen}
+      {stacked && startScreen && (
+        <div className="absolute inset-x-0 top-0 z-40" style={{ bottom: `calc(${STACK_ROW_EM} * ${barFont})` }}>
+          {startScreen}
+        </div>
+      )}
+      {compact && modals}
     </div>
     {/* The compact layout's right rail: the interface stones. */}
-    {compact && (
+    {railed && (
       <BarRail railRef={rightRailRef} fontSize={barFont} idle={!runStarted}>
         {stones(true)}
       </BarRail>

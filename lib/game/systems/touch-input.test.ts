@@ -1,22 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import {
-  FULL_BAR_MIN_WIDTH, LONG_PRESS_SLOP_PX, barLayoutFor, handInUse, pressDrifted, tapInHand, tileAt, touchHint, touchWords,
+  FULL_BAR_MIN_WIDTH, LONG_PRESS_SLOP_PX, STACK_MIN_SPARE_PX, barLayoutFor, handInUse, pressDrifted, tapInHand, tileAt, touchHint, touchWords,
   type HandState,
 } from './touch-input';
 
 describe('barLayoutFor', () => {
   it('gives a desktop window wide enough for the row the full bar', () => {
-    expect(barLayoutFor({ width: 1600, coarse: false })).toBe('full');
-    expect(barLayoutFor({ width: FULL_BAR_MIN_WIDTH, coarse: false })).toBe('full');
+    expect(barLayoutFor({ width: 1600, height: 900, coarse: false })).toBe('full');
+    expect(barLayoutFor({ width: FULL_BAR_MIN_WIDTH, height: 1200, coarse: false })).toBe('full');
   });
 
-  it('gives every touch screen the compact bar, however wide', () => {
-    expect(barLayoutFor({ width: 844, coarse: true })).toBe('compact');
-    expect(barLayoutFor({ width: 1366, coarse: true })).toBe('compact');
+  it('stands the controls in rails on a phone held sideways', () => {
+    expect(barLayoutFor({ width: 844, height: 390, coarse: true })).toBe('compact');
+    expect(barLayoutFor({ width: 667, height: 375, coarse: true })).toBe('compact');
+    expect(barLayoutFor({ width: 1280, height: 600, coarse: true })).toBe('compact');
   });
 
-  it('gives a window too narrow for the row the compact bar, mouse or not', () => {
-    expect(barLayoutFor({ width: FULL_BAR_MIN_WIDTH - 1, coarse: false })).toBe('compact');
+  it('stacks them in the bar on a tablet, whose board is held by its width', () => {
+    expect(barLayoutFor({ width: 1024, height: 768, coarse: true })).toBe('stacked');
+    expect(barLayoutFor({ width: 1366, height: 1024, coarse: true })).toBe('stacked');
+    // 16:10, in fullscreen and under the browser's toolbar.
+    expect(barLayoutFor({ width: 1280, height: 800, coarse: true })).toBe('stacked');
+    expect(barLayoutFor({ width: 1280, height: 720, coarse: true })).toBe('stacked');
+  });
+
+  it('gives a window too narrow for the row a compact bar, mouse or not', () => {
+    expect(barLayoutFor({ width: FULL_BAR_MIN_WIDTH - 1, height: 500, coarse: false })).toBe('compact');
+    expect(barLayoutFor({ width: 900, height: 600, coarse: false })).toBe('stacked');
+  });
+
+  it('stacks once the bar has the spare height for a second row', () => {
+    // A 900-wide board is 400 tall.
+    expect(barLayoutFor({ width: 900, height: 400 + STACK_MIN_SPARE_PX, coarse: true })).toBe('stacked');
+    expect(barLayoutFor({ width: 900, height: 400 + STACK_MIN_SPARE_PX - 1, coarse: true })).toBe('compact');
   });
 });
 

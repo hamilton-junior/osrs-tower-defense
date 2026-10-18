@@ -5,8 +5,14 @@
  * so it is tested.
  */
 
-/** Which bottom bar the screen gets. */
-export type BarLayout = 'full' | 'compact';
+import { LOGIC_HEIGHT, LOGIC_WIDTH } from '../core/engine-state';
+
+/**
+ * Which bottom bar the screen gets. `compact` stands the run controls and the
+ * interface stones in rails beside the board; `stacked` puts them in a second row
+ * of the bar instead.
+ */
+export type BarLayout = 'full' | 'compact' | 'stacked';
 
 /**
  * Narrowest window the full bar fits at its smallest interface size. Measured: the
@@ -16,13 +22,28 @@ export type BarLayout = 'full' | 'compact';
 export const FULL_BAR_MIN_WIDTH = 1000;
 
 /**
- * The full bar is one long row built for a mouse. A touch screen gets the compact
- * one whatever its size: its run controls and interface stones stand in a rail on
- * either side of the board, which leaves the row short enough to hold buttons a
- * finger can hit. A window too narrow for the full row gets it as well, mouse or not.
+ * Height left under a board drawn the screen's full width, from which the compact
+ * bar stacks into two rows rather than taking rails. Two rows need about 104 px at
+ * 100%, so from here the board keeps the screen's full width, which beats the
+ * rails. A 16:10 tablet with the browser's toolbar showing (1280×720) leaves 151,
+ * and it gets two rows too: in rails, its one row was 190 px tall and mostly empty.
  */
-export function barLayoutFor(screen: { width: number; coarse: boolean }): BarLayout {
-  return screen.coarse || screen.width < FULL_BAR_MIN_WIDTH ? 'compact' : 'full';
+export const STACK_MIN_SPARE_PX = 120;
+
+/**
+ * The full bar is one long row built for a mouse. A touch screen gets a compact
+ * one whatever its size, and so does a window too narrow for the full row, mouse
+ * or not: the run controls and interface stones leave the row, which is then short
+ * enough to hold buttons a finger can hit. On a wide screen such as a phone held
+ * sideways they stand in a rail either side of the board, which takes width the
+ * board does not need. On a squarer one such as a tablet the board is held by the
+ * width instead and the bar has height to spare, so they take a second row of the
+ * bar and the board gets the rails' width.
+ */
+export function barLayoutFor(screen: { width: number; height: number; coarse: boolean }): BarLayout {
+  if (!screen.coarse && screen.width >= FULL_BAR_MIN_WIDTH) return 'full';
+  const spare = screen.height - (screen.width * LOGIC_HEIGHT) / LOGIC_WIDTH;
+  return spare >= STACK_MIN_SPARE_PX ? 'stacked' : 'compact';
 }
 
 /** One board tile, by column and row. */

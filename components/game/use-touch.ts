@@ -23,16 +23,19 @@ export function useCoarsePointer(): boolean {
   return coarse;
 }
 
+const screenNow = (coarse: boolean) => typeof window === 'undefined'
+  ? { width: Infinity, height: Infinity, coarse }
+  : { width: window.innerWidth, height: window.innerHeight, coarse };
+
 /**
  * Which bottom bar this screen gets (`barLayoutFor`). Held as the layout rather
- * than the window width, so dragging a desktop window wider re-renders the game
- * only when it crosses the line, not on every pixel.
+ * than the window size, so dragging a desktop window re-renders the game only when
+ * it crosses a line, not on every pixel.
  */
 export function useBarLayout(coarse: boolean): BarLayout {
-  const [layout, setLayout] = useState<BarLayout>(() =>
-    barLayoutFor({ width: typeof window === 'undefined' ? Infinity : window.innerWidth, coarse }));
+  const [layout, setLayout] = useState<BarLayout>(() => barLayoutFor(screenNow(coarse)));
   useEffect(() => {
-    const sync = () => setLayout(barLayoutFor({ width: window.innerWidth, coarse }));
+    const sync = () => setLayout(barLayoutFor(screenNow(coarse)));
     sync();
     window.addEventListener('resize', sync);
     return () => window.removeEventListener('resize', sync);

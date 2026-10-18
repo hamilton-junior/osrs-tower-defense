@@ -1671,22 +1671,22 @@ button.rs-log-entry:hover { border-color: var(--osrs-orange); }
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-/* The pick overlays over the board: draft, relic and road fork. A board shorter
-   than a full-size card under its heading carries `data-board` (`boardHeight` in
-   systems/ui-fit.ts): the cards shrink a step or two, and the overlay scrolls if
-   they still run over. `safe` keeps a centred hand from overflowing above the top,
-   out of reach of the scroll; a browser without it reads the plain
-   `justify-center`. A scroll box clips, so it lets go while a kept card flies out
-   of it to its stone. */
-[data-board] .rs-pick {
-  padding: 0.5rem;
+/* The pick overlays: draft, relic and road fork. They cover the board, or the
+   board and the bar beside the rails, so each one is measured as a container of
+   its own: one shorter than a full-size card under its heading shrinks the cards a
+   step or two, and scrolls if they still run over. `safe` keeps a centred hand from
+   overflowing above the top, out of reach of the scroll; a browser without it
+   reads the plain `justify-center`. A scroll box clips, so it lets go while a kept
+   card flies out of it to its stone. */
+.rs-pick {
+  container: pick / size;
   overflow-y: auto;
   overscroll-behavior: contain;
   justify-content: safe center;
 }
-[data-board] .rs-pick:has(.draft-card-fly) { overflow: visible; }
-[data-board="short"] .rs-pick .draft-card { zoom: 0.8; }
-[data-board="shorter"] .rs-pick .draft-card { zoom: 0.72; }
+.rs-pick:has(.draft-card-fly) { overflow: visible; }
+@container pick (max-height: 420px) { .draft-card { zoom: 0.8; } }
+@container pick (max-height: 320px) { .draft-card { zoom: 0.72; } }
 
 /* Touch screens. A tap never flashes the browser's highlight or opens the
    long-press callout, a double tap never zooms (iOS ignores the viewport's
