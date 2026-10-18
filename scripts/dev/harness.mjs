@@ -118,23 +118,29 @@ async function toggleDebug(page) {
  *   page: import('puppeteer-core').Page,
  *   browser: import('puppeteer-core').Browser,
  *   clickBoard: (logicX: number, logicY: number) => Promise<void>,
+ *   tapBoard: (logicX: number, logicY: number) => Promise<void>,
  *   boardBox: () => Promise<object>,
  *   toggleDebug: () => Promise<void>,
  *   clickTitle: (prefix: string) => Promise<boolean>,
  *   clickText: (text: string) => Promise<boolean>,
  *   sleep: (ms: number) => Promise<void>,
  * }) => Promise<void>} fn
- * @param {{ width?: number, height?: number, dpr?: number, skipRun?: boolean }} [opts]
+ * @param {{ width?: number, height?: number, dpr?: number, skipRun?: boolean, mobile?: boolean }} [opts]
  *   `skipRun` leaves the mode-select start screen up (for probing it).
+ *   `mobile` emulates a touch phone (`isMobile`, `hasTouch`, a phone user agent);
+ *   drive the board with `tapBoard` rather than `clickBoard`.
  */
 export async function withGame(fn, opts = {}) {
-  const { width = 1600, height = 900, dpr = 1, skipRun = false } = opts;
+  const { width = 1600, height = 900, dpr = 1, skipRun = false, mobile = false } = opts;
   const { server, port } = await serveOut();
   const browser = await launchBrowser({ args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader'] });
   try {
     const page = await browser.newPage();
     page.on('pageerror', (e) => console.error('PAGEERROR', e.message));
-    await page.setViewport({ width, height, deviceScaleFactor: dpr });
+    if (mobile) {
+      await page.setUserAgent('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36');
+    }
+    await page.setViewport({ width, height, deviceScaleFactor: dpr, isMobile: mobile, hasTouch: mobile, isLandscape: width > height });
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'networkidle2', timeout: 30000 });
     if (!skipRun) await enterRun(page);
 
@@ -145,8 +151,17 @@ export async function withGame(fn, opts = {}) {
         b.top + (logicY / b.logicHeight) * b.height,
       );
     };
+    // A finger's tap, for a `mobile` page: the browser makes the click out of it,
+    // the way a phone does, instead of being handed a mouse click.
+    const tapBoard = async (logicX, logicY) => {
+      const b = await boardBox(page);
+      await page.touchscreen.tap(
+        b.left + (logicX / b.logicWidth) * b.width,
+        b.top + (logicY / b.logicHeight) * b.height,
+      );
+    };
     await fn({
-      page, browser, clickBoard, sleep,
+      page, browser, clickBoard, tapBoard, sleep,
       boardBox: () => boardBox(page),
       toggleDebug: () => toggleDebug(page),
       clickTitle: (p) => clickTitle(page, p),

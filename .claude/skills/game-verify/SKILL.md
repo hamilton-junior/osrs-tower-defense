@@ -39,7 +39,7 @@ await withGame(async ({ page, clickBoard, boardBox, toggleDebug, clickTitle, cli
 });
 ```
 
-`withGame(fn, { width, height, dpr, skipRun })`. Pass `skipRun: true` to probe the mode-select start screen itself.
+`withGame(fn, { width, height, dpr, skipRun, mobile })`. Pass `skipRun: true` to probe the mode-select start screen itself, and `mobile: true` to emulate a touch phone (drive the board with `tapBoard`, not `clickBoard`).
 
 Write probes to `scripts/dev/tmp-*.mjs`, print terse facts (numbers, booleans, geometry), and **delete them before committing**. `scripts/tmp-*.png` is gitignored; `scripts/dev/tmp-*.mjs` is not — remove it.
 
